@@ -14,12 +14,16 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.block.Block;
+import org.bukkit.block.Jukebox;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
@@ -174,6 +178,19 @@ public class MusicDiscModule implements Listener {
                                 Entity executor = ctx.getSource().getExecutor();
                                 if (executor instanceof Player player) {
                                     giveRandomDisc(player);
+                                    return Command.SINGLE_SUCCESS;
+                                } else {
+                                    sender.sendMessage("你不是玩家");
+                                }
+                                return Command.SINGLE_SUCCESS;
+                            })
+                    )
+                    .then(Commands.literal("randomplay")
+                            .executes(ctx -> {
+                                CommandSender sender = ctx.getSource().getSender();
+                                Entity executor = ctx.getSource().getExecutor();
+                                if (executor instanceof Player player) {
+                                    playRandomDisc(player);
                                     return Command.SINGLE_SUCCESS;
                                 } else {
                                     sender.sendMessage("你不是玩家");
@@ -370,8 +387,8 @@ public class MusicDiscModule implements Listener {
         // Select random music file
         MusicFile randomMusic = musicFiles.get(RANDOM.nextInt(musicFiles.size()));
 
-        // Create disc and add to inventory
-        ItemStack disc = createMusicDisc(randomMusic);
+        // Create clean disc and add to inventory
+        ItemStack disc = createMusicDisc(randomMusic, false);
         HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(disc);
 
         // Check if item was added successfully
@@ -388,6 +405,107 @@ public class MusicDiscModule implements Listener {
             player.sendMessage(Component.text("背包已满，无法获得音乐唱片")
                     .color(NamedTextColor.RED));
         }
+    }
+
+    /**
+     * Play a random music disc
+     */
+    public void playRandomDisc(Player player) {
+        if (musicFiles.isEmpty()) {
+            player.sendMessage(Component.text("没有可用的音乐文件")
+                    .color(NamedTextColor.RED));
+            return;
+        }
+
+        // Select random music file
+        MusicFile randomMusic = musicFiles.get(RANDOM.nextInt(musicFiles.size()));
+
+        // Create disc
+        ItemStack disc = createMusicDisc(randomMusic);
+
+        // Play the disc
+        playDisc(player, disc, randomMusic.displayName());
+    }
+
+    /**
+     * Play a music disc on the nearest jukebox
+     */
+    private void playDisc(Player player, ItemStack disc, String musicName) {
+        // Find nearest jukebox within 50 blocks
+        Block nearestJukebox = findNearestJukebox(player, 50);
+
+        if (nearestJukebox == null) {
+            player.sendMessage(Component.text("附近50格内没有找到唱片机")
+                    .color(NamedTextColor.RED));
+            return;
+        }
+
+        // Clear existing record first
+        if (nearestJukebox.getState() instanceof Jukebox jukebox) {
+            jukebox.setRecord(null);
+            jukebox.update();
+        }
+
+        // Simulate player interaction with jukebox
+        PlayerInteractEvent interactEvent = new PlayerInteractEvent(
+                player,
+                Action.RIGHT_CLICK_BLOCK,
+                disc,
+                nearestJukebox,
+                org.bukkit.block.BlockFace.UP
+        );
+
+        // Call the event
+        Bukkit.getPluginManager().callEvent(interactEvent);
+
+        // Ensure the disc is in the jukebox
+        if (nearestJukebox.getState() instanceof Jukebox jukebox) {
+            if (jukebox.getRecord().getType() == Material.AIR) {
+                // If event didn't place the disc, do it manually
+                jukebox.setRecord(disc);
+                jukebox.update();
+            }
+        }
+
+        // Send success message
+        player.sendMessage(Component.text()
+                .append(Component.text("正在播放: ")
+                        .color(NamedTextColor.GREEN))
+                .append(Component.text(musicName)
+                        .color(NamedTextColor.YELLOW))
+                .build());
+    }
+
+    /**
+     * Find the nearest jukebox within specified radius
+     */
+    private Block findNearestJukebox(Player player, int radius) {
+        org.bukkit.Location playerLoc = player.getLocation();
+        Block nearestJukebox = null;
+        double nearestDistance = Double.MAX_VALUE;
+
+        // Search in a cube around the player
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    Block block = playerLoc.getWorld().getBlockAt(
+                            playerLoc.getBlockX() + x,
+                            playerLoc.getBlockY() + y,
+                            playerLoc.getBlockZ() + z
+                    );
+
+                    if (block.getType() == Material.JUKEBOX) {
+                        double distance = block.getLocation().distance(playerLoc);
+                        if (distance < nearestDistance) {
+                            nearestDistance = distance;
+                            nearestJukebox = block;
+                        }
+                    }
+                }
+            }
+        }
+
+        return nearestJukebox;
     }
 
     /**
@@ -577,20 +695,43 @@ public class MusicDiscModule implements Listener {
                     .decoration(TextDecoration.BOLD, true));
 
             meta.lore(List.of(
-                    Component.text("点击获得一张随机音乐唱片")
+                    Component.text("左键: 获得一张随机音乐唱片")
+                            .color(NamedTextColor.GRAY)
+                            .decoration(TextDecoration.ITALIC, false),
+                    Component.text("右键: 在最近的唱片机播放")
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false),
                     Component.text("")
                             .decoration(TextDecoration.ITALIC, false),
-                    Component.text("或使用命令:")
+                    Component.text("命令:")
                             .color(NamedTextColor.DARK_GRAY)
                             .decoration(TextDecoration.ITALIC, false),
                     Component.text("/music random")
+                            .color(NamedTextColor.YELLOW)
+                            .decoration(TextDecoration.ITALIC, false),
+                    Component.text("/music randomplay")
                             .color(NamedTextColor.YELLOW)
                             .decoration(TextDecoration.ITALIC, false)
             ));
 
             button.setItemMeta(meta);
+
+            // Use TooltipDisplay to hide additional components
+            TooltipDisplay tooltipDisplay = TooltipDisplay.tooltipDisplay()
+                    .addHiddenComponents(
+                            DataComponentTypes.JUKEBOX_PLAYABLE,
+                            DataComponentTypes.ENCHANTMENTS,
+                            DataComponentTypes.ATTRIBUTE_MODIFIERS,
+                            DataComponentTypes.UNBREAKABLE,
+                            DataComponentTypes.CAN_BREAK,
+                            DataComponentTypes.CAN_PLACE_ON,
+                            DataComponentTypes.STORED_ENCHANTMENTS,
+                            DataComponentTypes.DYED_COLOR,
+                            DataComponentTypes.TRIM
+                    )
+                    .build();
+
+            button.setData(DataComponentTypes.TOOLTIP_DISPLAY, tooltipDisplay);
         }
 
         return button;
@@ -645,6 +786,14 @@ public class MusicDiscModule implements Listener {
             lore.add(Component.text("  获得随机音乐唱片")
                     .color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("")
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("/music randomplay")
+                    .color(NamedTextColor.AQUA)
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("  在最近的唱片机播放随机音乐")
+                    .color(NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
 
             // Only show reload command if player has permission
             if (player.hasPermission("group.manager")) {
@@ -666,9 +815,18 @@ public class MusicDiscModule implements Listener {
     }
 
     /**
-     * Create a music disc item
+     * Create a music disc item for GUI display (with detailed info)
      */
     private ItemStack createMusicDisc(MusicFile music) {
+        return createMusicDisc(music, true);
+    }
+
+    /**
+     * Create a music disc item
+     * @param music The music file
+     * @param detailed Whether to include detailed information in lore
+     */
+    private ItemStack createMusicDisc(MusicFile music, boolean detailed) {
         // Use hash to determine disc type
         int hash = music.fileName().hashCode();
         Material discType = DISC_TYPES[Math.abs(hash) % DISC_TYPES.length];
@@ -680,7 +838,6 @@ public class MusicDiscModule implements Listener {
             // Get file extension
             String extension = music.fileName().substring(music.fileName().lastIndexOf('.') + 1).toUpperCase();
 
-            // Set lore with detailed information (using cached data)
             List<Component> lore = new ArrayList<>();
             lore.add(Component.text(music.displayName())
                     .color(NamedTextColor.GRAY)
@@ -699,6 +856,18 @@ public class MusicDiscModule implements Listener {
                         .color(NamedTextColor.DARK_GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
+
+            if (detailed) {
+                // Add operation hints for GUI display
+                lore.add(Component.text(""));
+                lore.add(Component.text("左键: 拿取唱片")
+                        .color(NamedTextColor.YELLOW)
+                        .decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("右键: 在最近的唱片机播放")
+                        .color(NamedTextColor.AQUA)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
+
             lore.add(Component.text(""));
             lore.add(Component.text("♪ Plasmo Voice 音乐唱片 ♪")
                     .color(NamedTextColor.DARK_PURPLE)
@@ -766,6 +935,44 @@ public class MusicDiscModule implements Listener {
         if (!title.contains("Music Discs") && !title.contains("搜索:")) return;
 
         int slot = event.getRawSlot();
+        boolean isRightClick = event.isRightClick();
+
+        // Handle music disc clicks (slots 0-44)
+        if (slot >= 0 && slot < 45) {
+            ItemStack clickedItem = event.getCurrentItem();
+            if (clickedItem != null && clickedItem.getType().toString().startsWith("MUSIC_DISC_")) {
+                // Get the music file from the clicked item
+                ItemMeta meta = clickedItem.getItemMeta();
+                if (meta == null) return;
+
+                PersistentDataContainer pdc = meta.getPersistentDataContainer();
+                NamespacedKey identifierKey = new NamespacedKey("pv-addon-discs", "identifier");
+                String identifier = pdc.get(identifierKey, PersistentDataType.STRING);
+
+                if (identifier == null || !identifier.startsWith("local://")) return;
+
+                String fileName = identifier.substring(8); // Remove "local://"
+                MusicFile musicFile = musicFiles.stream()
+                        .filter(m -> m.fileName().equals(fileName))
+                        .findFirst()
+                        .orElse(null);
+
+                if (musicFile == null) return;
+
+                if (isRightClick) {
+                    // Right click: play the disc
+                    event.setCancelled(true);
+                    player.closeInventory();
+                    playDisc(player, clickedItem, musicFile.displayName());
+                } else {
+                    // Left click: replace with clean version for pickup
+                    ItemStack cleanDisc = createMusicDisc(musicFile, false);
+                    event.setCurrentItem(cleanDisc);
+                    // Don't cancel - allow normal pickup behavior
+                }
+            }
+            return;
+        }
 
         // Navigation buttons
         if (slot == 45) { // Previous page
@@ -798,8 +1005,15 @@ public class MusicDiscModule implements Listener {
                     .build());
         } else if (slot == 46) { // Random disc button
             event.setCancelled(true);
-            player.closeInventory();
-            giveRandomDisc(player);
+            if (isRightClick) {
+                // Right click: play random disc
+                player.closeInventory();
+                playRandomDisc(player);
+            } else {
+                // Left click: give random disc
+                player.closeInventory();
+                giveRandomDisc(player);
+            }
         } else if (slot == 51) { // Help button
             event.setCancelled(true);
         } else if (slot == 48) { // Clear search button
