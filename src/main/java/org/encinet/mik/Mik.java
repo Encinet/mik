@@ -8,6 +8,9 @@ import org.encinet.mik.module.*;
  */
 public final class Mik extends JavaPlugin {
 
+    public static final String GROUP_MEMBER = "member";
+    public static final String GROUP_HELPER = "helper";
+
     private BrandingModule brandingModule;
     private ServerLinksModule serverLinksModule;
     private MusicChestModule musicChestModule;
@@ -15,6 +18,9 @@ public final class Mik extends JavaPlugin {
     private MusicDiscModule musicDiscModule;
     private StaffChatModule staffChatModule;
     private CommandsModule commandsModule;
+    private AutoPromoteModule autoPromoteModule;
+    private CommandRestrictionModule commandRestrictionModule;
+    private GameModeSwitchModule gameModeSwitchModule;
 
     @Override
     public void onLoad() {
@@ -52,6 +58,18 @@ public final class Mik extends JavaPlugin {
         // Initialize and register commands module
         commandsModule = new CommandsModule(this);
         commandsModule.registerCommands(this.getLifecycleManager());
+
+        // Initialize and enable auto-promote module
+        autoPromoteModule = new AutoPromoteModule(this);
+        autoPromoteModule.enable();
+
+        // Initialize and enable command restriction module
+        commandRestrictionModule = new CommandRestrictionModule(this);
+        commandRestrictionModule.enable();
+
+        // Initialize and enable game mode switch module
+        gameModeSwitchModule = new GameModeSwitchModule(this);
+        gameModeSwitchModule.enable();
     }
 
     @Override

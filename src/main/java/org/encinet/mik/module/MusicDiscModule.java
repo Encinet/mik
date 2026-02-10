@@ -440,6 +440,27 @@ public class MusicDiscModule implements Listener {
             return;
         }
 
+        // Get the music file from the disc to create a clean version
+        ItemMeta meta = disc.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            NamespacedKey identifierKey = new NamespacedKey("pv-addon-discs", "identifier");
+            String identifier = pdc.get(identifierKey, PersistentDataType.STRING);
+
+            if (identifier != null && identifier.startsWith("local://")) {
+                String fileName = identifier.substring(8); // Remove "local://"
+                MusicFile musicFile = musicFiles.stream()
+                        .filter(m -> m.fileName().equals(fileName))
+                        .findFirst()
+                        .orElse(null);
+
+                if (musicFile != null) {
+                    // Create clean disc without operation hints
+                    disc = createMusicDisc(musicFile, false);
+                }
+            }
+        }
+
         // Clear existing record first
         if (nearestJukebox.getState() instanceof Jukebox jukebox) {
             jukebox.setRecord(null);

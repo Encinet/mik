@@ -19,6 +19,7 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("com.github.retrooper:packetevents-spigot:2.11.2")
+    compileOnly('net.luckperms:api:5.4')
 }
 
 tasks {

@@ -28,7 +28,7 @@ public class ServerLinksModule {
         serverLinks.addLink(Component.text("赞助列表 | Sponsor List"), URI.create("https://docs.qq.com/sheet/DRUV3c2Z6a21MYnZ6?tab=BB08J2"));
         serverLinks.addLink(Component.text("装饰头颅在线浏览 | Minecraft Heads"), URI.create("https://minecraft-heads.com/"));
         serverLinks.addLink(Component.text("Minecraft Wiki中文版"), URI.create("https://zh.minecraft.wiki/"));
-        serverLinks.addLink(Component.text("Minecraft Wiki English version"), URI.create("https://www.minecraft.wiki/"));
+        serverLinks.addLink(Component.text("Minecraft Wiki English Version"), URI.create("https://www.minecraft.wiki/"));
         serverLinks.addLink(Component.text("MiniMessage格式 | MiniMessage Format"), URI.create("https://docs.papermc.io/adventure/minimessage/format/"));
         serverLinks.addLink(Component.text("MiniMessage在线预览 | MiniMessage Preview"), URI.create("https://webui.advntr.dev/"));
         serverLinks.addLink(Component.text("CC BY-NC-SA 4.0"), URI.create("https://creativecommons.org/licenses/by-nc-sa/4.0/"));

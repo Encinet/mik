@@ -9,8 +9,16 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    LuckPerms:
+      load: BEFORE
+      required: true
+      join-classpath: true
   server:
     packetevents:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    LuckPerms:
       load: BEFORE
       required: true
       join-classpath: true
