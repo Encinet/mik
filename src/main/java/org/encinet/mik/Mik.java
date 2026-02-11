@@ -21,6 +21,7 @@ public final class Mik extends JavaPlugin {
     private AutoPromoteModule autoPromoteModule;
     private CommandRestrictionModule commandRestrictionModule;
     private GameModeSwitchModule gameModeSwitchModule;
+    private PlayerBoundaryModule playerBoundaryModule;
 
     @Override
     public void onLoad() {
@@ -70,6 +71,10 @@ public final class Mik extends JavaPlugin {
         // Initialize and enable game mode switch module
         gameModeSwitchModule = new GameModeSwitchModule(this);
         gameModeSwitchModule.enable();
+
+        // Initialize and enable player boundary module
+        playerBoundaryModule = new PlayerBoundaryModule(this);
+        playerBoundaryModule.enable();
     }
 
     @Override

@@ -26,6 +26,7 @@ public class AutoPromoteModule implements Listener {
     private static final long JOIN_DAYS_MILLIS = TimeUnit.DAYS.toMillis(2);
     private static final int PLAYED_HOURS_TICKS = 20 * 60 * 60 * 8; // 8 hours in ticks
     private static final int FLAY_ON_CN = 1200000;
+    private static final String TAINT_PERMISSION = "mik.autopromote.taint";
 
     private final JavaPlugin plugin;
     private LuckPerms luckPerms;
@@ -67,6 +68,11 @@ public class AutoPromoteModule implements Listener {
      * Check if player meets promotion criteria
      */
     private boolean shouldPromotePlayer(Player player) {
+        // Check if player has taint permission (blocked from auto-promotion)
+        if (player.hasPermission(TAINT_PERMISSION)) {
+            return false;
+        }
+
         if (player.hasPermission("group." + Mik.GROUP_MEMBER)) {
             return false;
         }
