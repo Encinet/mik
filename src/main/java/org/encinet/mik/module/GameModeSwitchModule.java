@@ -9,15 +9,12 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.GameMode;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientChangeGameMode;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityStatus;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 
 /**
  * Module for F3+F4 game mode switching with permission control
@@ -50,19 +47,12 @@ public class GameModeSwitchModule implements Listener {
         // Update player's F3+F4 permission status on join
         Player player =  event.getPlayer();
 
-        // Status 28 = allow F3+F4, Status 24 = disallow F3+F4
-        int status = 28;
+        // Status 24 = allow F3+F4, Status 28 = disallow F3+F4
+        int status = 24;
         PacketEvents.getAPI().getPlayerManager().sendPacket(
                 player,
                 new WrapperPlayServerEntityStatus(player.getEntityId(), status)
         );
-    }
-
-    /**
-     * Check if player can switch to spectator mode
-     */
-    private boolean canSwitchToSpectator(Player player) {
-        return player.hasPermission("group." + Mik.GROUP_MEMBER);
     }
 
     /**
@@ -85,18 +75,6 @@ public class GameModeSwitchModule implements Listener {
 
             WrapperPlayClientChangeGameMode gameModePacket = new WrapperPlayClientChangeGameMode(event);
             GameMode targetMode = gameModePacket.getGameMode();
-
-            // Block spectator mode for players without member permission
-            if (targetMode == GameMode.SPECTATOR && !canSwitchToSpectator(player)) {
-                event.setCancelled(true);
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    Component message = Component.text("你没有权限切换到旁观模式！需要 ", NamedTextColor.RED)
-                            .append(Component.text("Member", NamedTextColor.GOLD))
-                            .append(Component.text(" 权限组", NamedTextColor.RED));
-                    player.sendMessage(message);
-                });
-                return;
-            }
 
             // Cancel packet and execute command on main thread
             event.setCancelled(true);

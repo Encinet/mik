@@ -23,8 +23,9 @@ import java.util.concurrent.TimeUnit;
  */
 public class AutoPromoteModule implements Listener {
 
-    private static final long TWO_DAYS_MILLIS = TimeUnit.DAYS.toMillis(2);
-    private static final int EIGHT_HOURS_TICKS = 20 * 60 * 60 * 8; // 8 hours in ticks
+    private static final long JOIN_DAYS_MILLIS = TimeUnit.DAYS.toMillis(2);
+    private static final int PLAYED_HOURS_TICKS = 20 * 60 * 60 * 8; // 8 hours in ticks
+    private static final int FLAY_ON_CN = 1200000;
 
     private final JavaPlugin plugin;
     private LuckPerms luckPerms;
@@ -75,13 +76,19 @@ public class AutoPromoteModule implements Listener {
         long currentTime = System.currentTimeMillis();
         long timeSinceFirstJoin = currentTime - firstPlayed;
 
-        if (timeSinceFirstJoin < TWO_DAYS_MILLIS) {
+        if (timeSinceFirstJoin < JOIN_DAYS_MILLIS) {
             return false;
         }
 
         // Check if playtime is more than 8 hours
         int playTimeTicks = player.getStatistic(Statistic.PLAY_ONE_MINUTE);
-        return playTimeTicks >= EIGHT_HOURS_TICKS;
+        if (playTimeTicks < PLAYED_HOURS_TICKS) {
+            return false;
+        }
+
+        // Check if playtime is more than 8 hours
+        int playerFly = player.getStatistic(Statistic.FLY_ONE_CM);
+        return playerFly < FLAY_ON_CN;
     }
 
     /**
