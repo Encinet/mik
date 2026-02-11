@@ -6,6 +6,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameRules;
 import org.bukkit.ServerTickManager;
 import org.bukkit.World;
+import org.bukkit.block.Hopper;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -13,6 +14,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockRedstoneEvent;
+import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.util.SchedulerUtil;
@@ -34,12 +36,15 @@ public class PerformanceModule implements Listener {
     private static final double KICK_THRESHOLD = 150.0;
     private static final double FREEZE_SERVER_THRESHOLD = 50.0;
     private static final double FREEZE_REDSTONE_THRESHOLD = 45.0;
-    private static final double UNFREEZE_THRESHOLD = 40.0;
+    private static final double UNFREEZE_THRESHOLD = 32.0;  // Increased gap (13ms) to prevent oscillation
+
+    // EMA (Exponential Moving Average) smoothing
+    private static final double EMA_ALPHA = 0.3;  // Weight for new values (0.3 = smooth but responsive)
 
     // RandomTickSpeed adjustment thresholds
     private static final double RANDOM_TICK_START_REDUCE = 40.0;  // Start reducing at this MSPT
     private static final double RANDOM_TICK_MIN_MSPT = 20.0;      // Optimal MSPT for full speed
-    private static final int RANDOM_TICK_MAX_SPEED = 4;           // Maximum allowed randomTickSpeed
+    private static final int RANDOM_TICK_MAX_SPEED = 3;           // Maximum allowed randomTickSpeed
 
     // Whitelist of mob types to remove during cleanup
     private static final Set<Class<? extends Entity>> REMOVABLE_MOB_TYPES = Set.of(
@@ -85,6 +90,9 @@ public class PerformanceModule implements Listener {
     private volatile boolean isRedstoneFrozen = false;
     private final Map<World, Integer> originalRandomTickSpeed = new HashMap<>();
 
+    // EMA smoothing for stable MSPT measurement
+    private double smoothedMspt = 0.0;
+
     // Trend prediction
     private final Queue<Double> msptHistory = new LinkedList<>();
     private static final int HISTORY_SIZE = 10;  // Track last 10 measurements
@@ -120,9 +128,19 @@ public class PerformanceModule implements Listener {
      */
     public void start() {
         this.guardTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            double mspt = Bukkit.getAverageTickTime();
+            double rawMspt = Bukkit.getAverageTickTime();
 
-            // Update history for trend prediction
+            // Apply EMA smoothing to reduce noise and prevent oscillation
+            if (smoothedMspt == 0.0) {
+                smoothedMspt = rawMspt;  // Initialize with first value
+            } else {
+                smoothedMspt = EMA_ALPHA * rawMspt + (1 - EMA_ALPHA) * smoothedMspt;
+            }
+
+            // Use smoothed MSPT for all decisions
+            double mspt = smoothedMspt;
+
+            // Update history for trend prediction (use smoothed values)
             updateMsptHistory(mspt);
 
             // Calculate trend
@@ -328,6 +346,13 @@ public class PerformanceModule implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
         if (isRedstoneFrozen) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onInventoryMoveItem(InventoryMoveItemEvent event) {
+        if (isRedstoneFrozen && event.getSource().getHolder() instanceof Hopper) {
             event.setCancelled(true);
         }
     }

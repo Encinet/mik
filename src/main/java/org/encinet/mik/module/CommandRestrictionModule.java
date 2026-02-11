@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 public class CommandRestrictionModule implements Listener {
 
     private static final Pattern SELECTOR_PATTERN = Pattern.compile("@[ear](?:\\[|\\s|$)");
-    private static final Set<String> ALLOWED_COMMANDS = new HashSet<>(Arrays.asList("w", "tell", "msg"));
+    private static final Set<String> ALLOWED_COMMANDS = new HashSet<>(Arrays.asList("w", "tell", "msg", "tp", "teleport"));
 
     private final JavaPlugin plugin;
 

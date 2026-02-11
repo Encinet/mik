@@ -47,8 +47,8 @@ public class GameModeSwitchModule implements Listener {
         // Update player's F3+F4 permission status on join
         Player player =  event.getPlayer();
 
-        // Status 24 = allow F3+F4, Status 28 = disallow F3+F4
-        int status = 24;
+        // Status 28 = allow F3+F4, Status 24 = disallow F3+F4
+        int status = 28;
         PacketEvents.getAPI().getPlayerManager().sendPacket(
                 player,
                 new WrapperPlayServerEntityStatus(player.getEntityId(), status)
