@@ -489,11 +489,19 @@ public class MusicDiscModule implements Listener {
         }
 
         // Send success message
+        org.bukkit.Location jukeboxLoc = nearestJukebox.getLocation();
         player.sendMessage(Component.text()
                 .append(Component.text("正在播放: ")
                         .color(NamedTextColor.GREEN))
                 .append(Component.text(musicName)
                         .color(NamedTextColor.YELLOW))
+                .append(Component.text(" 于唱片机 ")
+                        .color(NamedTextColor.GREEN))
+                .append(Component.text(String.format("(%d, %d, %d)",
+                        jukeboxLoc.getBlockX(),
+                        jukeboxLoc.getBlockY(),
+                        jukeboxLoc.getBlockZ()))
+                        .color(NamedTextColor.AQUA))
                 .build());
     }
 
