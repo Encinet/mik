@@ -13,7 +13,6 @@ public final class Mik extends JavaPlugin {
 
     private BrandingModule brandingModule;
     private ServerLinksModule serverLinksModule;
-    private MusicChestModule musicChestModule;
     private PerformanceModule performanceModule;
     private MusicDiscModule musicDiscModule;
     private StaffChatModule staffChatModule;
@@ -22,6 +21,7 @@ public final class Mik extends JavaPlugin {
     private CommandRestrictionModule commandRestrictionModule;
     private GameModeSwitchModule gameModeSwitchModule;
     private PlayerBoundaryModule playerBoundaryModule;
+    private TPSBarModule tpsBarModule;
 
     @Override
     public void onLoad() {
@@ -47,10 +47,7 @@ public final class Mik extends JavaPlugin {
         musicDiscModule = new MusicDiscModule(this);
         musicDiscModule.loadMusicFiles();
         musicDiscModule.registerCommands(this.getLifecycleManager());
-
-        // Initialize music chest module
-        musicChestModule = new MusicChestModule(this, musicDiscModule);
-        musicChestModule.enable();
+        musicDiscModule.enableMusicChests();
 
         // Initialize staff chat module
         staffChatModule = new StaffChatModule(this);
@@ -75,6 +72,11 @@ public final class Mik extends JavaPlugin {
         // Initialize and enable player boundary module
         playerBoundaryModule = new PlayerBoundaryModule(this);
         playerBoundaryModule.enable();
+
+        // Initialize and start TPS bar module
+        tpsBarModule = new TPSBarModule(this);
+        tpsBarModule.start();
+        tpsBarModule.registerCommands(this.getLifecycleManager());
     }
 
     @Override
@@ -82,6 +84,11 @@ public final class Mik extends JavaPlugin {
         // Stop performance monitoring
         if (performanceModule != null) {
             performanceModule.stop();
+        }
+
+        // Stop TPS bar module
+        if (tpsBarModule != null) {
+            tpsBarModule.stop();
         }
 
         // Disable branding module
