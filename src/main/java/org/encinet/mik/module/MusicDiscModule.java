@@ -11,9 +11,7 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
 import org.bukkit.command.CommandSender;
@@ -509,25 +507,42 @@ public class MusicDiscModule implements Listener {
      * Find the nearest jukebox within specified radius
      */
     private Block findNearestJukebox(Player player, int radius) {
-        org.bukkit.Location playerLoc = player.getLocation();
+        Location playerLoc = player.getLocation();
+        World world = playerLoc.getWorld();
+
+        int radiusSquared = radius * radius;
         Block nearestJukebox = null;
         double nearestDistance = Double.MAX_VALUE;
 
-        // Search in a cube around the player
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
-                    Block block = playerLoc.getWorld().getBlockAt(
-                            playerLoc.getBlockX() + x,
-                            playerLoc.getBlockY() + y,
-                            playerLoc.getBlockZ() + z
-                    );
+        for (int distance = 0; distance <= radius; distance++) {
+            if (nearestJukebox != null && distance > nearestDistance) {
+                break;
+            }
 
-                    if (block.getType() == Material.JUKEBOX) {
-                        double distance = block.getLocation().distance(playerLoc);
-                        if (distance < nearestDistance) {
-                            nearestDistance = distance;
-                            nearestJukebox = block;
+            for (int x = -distance; x <= distance; x++) {
+                for (int y = -distance; y <= distance; y++) {
+                    for (int z = -distance; z <= distance; z++) {
+                        if (Math.abs(x) < distance && Math.abs(y) < distance && Math.abs(z) < distance) {
+                            continue;
+                        }
+
+                        int distSquared = x * x + y * y + z * z;
+                        if (distSquared > radiusSquared) {
+                            continue;
+                        }
+
+                        Block block = world.getBlockAt(
+                                playerLoc.getBlockX() + x,
+                                playerLoc.getBlockY() + y,
+                                playerLoc.getBlockZ() + z
+                        );
+
+                        if (block.getType() == Material.JUKEBOX) {
+                            double actualDistance = Math.sqrt(distSquared);
+                            if (actualDistance < nearestDistance) {
+                                nearestDistance = actualDistance;
+                                nearestJukebox = block;
+                            }
                         }
                     }
                 }
