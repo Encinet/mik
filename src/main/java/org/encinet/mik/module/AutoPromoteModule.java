@@ -100,7 +100,7 @@ public class AutoPromoteModule implements Listener {
         }
 
         int playerItemUsed = player.getStatistic(Statistic.USE_ITEM);
-        return playerItemUsed < USE_ITEM_MIN;
+        return playerItemUsed >= USE_ITEM_MIN;
     }
 
     /**
