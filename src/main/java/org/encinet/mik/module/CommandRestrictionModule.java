@@ -21,7 +21,7 @@ import java.util.regex.Pattern;
  */
 public class CommandRestrictionModule implements Listener {
 
-    private static final Pattern SELECTOR_PATTERN = Pattern.compile("@[ear](?:\\[|\\s|$)");
+    private static final Pattern SELECTOR_PATTERN = Pattern.compile("@[earp](?:\\[|\\s|$)");
     private static final Set<String> ALLOWED_COMMANDS = new HashSet<>(Arrays.asList("w", "tell", "msg", "tp", "teleport"));
 
     private final JavaPlugin plugin;
@@ -66,7 +66,7 @@ public class CommandRestrictionModule implements Listener {
         // Check if command contains entity selectors
         if (SELECTOR_PATTERN.matcher(commandLower).find()) {
             event.setCancelled(true);
-            Component errorMessage = Component.text("你没有权限使用目标选择器 (@e, @a, @r)！", NamedTextColor.RED);
+            Component errorMessage = Component.text("你没有权限使用目标选择器 (@e, @a, @r, @p)！", NamedTextColor.RED);
             player.sendMessage(errorMessage);
             plugin.getLogger().info("Blocked selector command from " + player.getName() + ": " + message);
             return;

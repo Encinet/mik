@@ -26,6 +26,7 @@ public class AutoPromoteModule implements Listener {
     private static final long JOIN_DAYS_MILLIS = TimeUnit.DAYS.toMillis(2);
     private static final int PLAYED_HOURS_TICKS = 20 * 60 * 60 * 8; // 8 hours in ticks
     private static final int FLAY_ON_CN = 2000000;
+    private static final int SNEAK_TIME = 14000;
     private static final int LEAVE_GAME_MIN = 5;
     private static final String TAINT_PERMISSION = "mik.autopromote.taint";
 
@@ -96,6 +97,11 @@ public class AutoPromoteModule implements Listener {
         // Check if playtime is more than 8 hours
         int playerFly = player.getStatistic(Statistic.FLY_ONE_CM);
         if (playerFly < FLAY_ON_CN) {
+            return false;
+        }
+
+        int playerSneakTime = player.getStatistic(Statistic.SNEAK_TIME);
+        if (playerSneakTime < SNEAK_TIME) {
             return false;
         }
 
