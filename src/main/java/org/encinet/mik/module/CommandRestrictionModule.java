@@ -3,7 +3,10 @@ package org.encinet.mik.module;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -14,6 +17,8 @@ import org.encinet.mik.Mik;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -22,6 +27,10 @@ import java.util.regex.Pattern;
 public class CommandRestrictionModule implements Listener {
 
     private static final Pattern SELECTOR_PATTERN = Pattern.compile("@[earp](?:\\[|\\s|$)");
+    // 匹配命令中的 UUID 格式字符串
+    private static final Pattern UUID_PATTERN = Pattern.compile(
+            "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+    );
     private static final Set<String> ALLOWED_COMMANDS = new HashSet<>(Arrays.asList("w", "tell", "msg", "tp", "teleport"));
 
     private final JavaPlugin plugin;
@@ -30,85 +39,110 @@ public class CommandRestrictionModule implements Listener {
         this.plugin = plugin;
     }
 
-    /**
-     * Enable command restriction module (called in onEnable)
-     */
     public void enable() {
-        // Register event listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
         plugin.getLogger().info("CommandRestrictionModule enabled");
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
-        if (event.isCancelled()) {
-            return;
-        }
-
         Player player = event.getPlayer();
         String message = event.getMessage().trim();
         String commandLower = message.toLowerCase();
 
-        // Block /kill @e for everyone (security measure)
+        // 全员禁止 /kill @e
         if (message.equals("/kill @e")) {
             event.setCancelled(true);
-            Component errorMessage = Component.text("禁止使用 /kill @e 命令！", NamedTextColor.RED);
-            player.sendMessage(errorMessage);
-            plugin.getLogger().warning("Blocked /kill @e command from " + player.getName() + ": " + message);
+            player.sendMessage(Component.text("禁止使用 /kill @e 命令！", NamedTextColor.RED));
+            plugin.getLogger().warning("Blocked /kill @e from " + player.getName());
             return;
         }
 
-        // Check if player has helper permission - allow everything else if they do
+        // Helper 权限放行
         if (player.hasPermission("group." + Mik.GROUP_HELPER)) {
             return;
         }
 
-        // Check if command contains entity selectors
+        // 阻止目标选择器
         if (SELECTOR_PATTERN.matcher(commandLower).find()) {
             event.setCancelled(true);
-            Component errorMessage = Component.text("你没有权限使用目标选择器 (@e, @a, @r, @p)！", NamedTextColor.RED);
-            player.sendMessage(errorMessage);
+            player.sendMessage(Component.text("你没有权限使用目标选择器 (@e, @a, @r, @p)！", NamedTextColor.RED));
             plugin.getLogger().info("Blocked selector command from " + player.getName() + ": " + message);
             return;
         }
 
-        // Extract command name (without the leading /)
         String[] parts = message.substring(1).split("\\s+", 2);
         String commandName = parts[0].toLowerCase();
 
-        // Allow /w, /tell, /msg commands
         if (ALLOWED_COMMANDS.contains(commandName)) {
             return;
         }
 
-        // Check if command contains other player names
-        if (containsPlayerName(message, player)) {
+        // 检查命令中出现的所有 UUID
+        Matcher uuidMatcher = UUID_PATTERN.matcher(message);
+        while (uuidMatcher.find()) {
+            String uuidStr = uuidMatcher.group();
+            UUID uuid;
+            try {
+                uuid = UUID.fromString(uuidStr);
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+
+            // 是否是玩家自己
+            if (uuid.equals(player.getUniqueId())) {
+                continue;
+            }
+
+            // 是否是该玩家驯服的生物
+            if (isOwnedTamedMob(uuid, player)) {
+                continue;
+            }
+
+            // 其他 UUID 一律拒绝
             event.setCancelled(true);
-            Component errorMessage = Component.text("你没有权限在命令中提及其他玩家的名字！", NamedTextColor.RED);
-            player.sendMessage(errorMessage);
+            player.sendMessage(Component.text("你只能在命令中使用自己驯服的生物的 UUID！", NamedTextColor.RED));
+            plugin.getLogger().info("Blocked foreign UUID command from " + player.getName() + ": " + message);
+            return;
+        }
+
+        // 检查是否包含其他在线玩家的名字
+        if (containsOtherPlayerName(message, player)) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("你没有权限在命令中提及其他玩家的名字！", NamedTextColor.RED));
             plugin.getLogger().info("Blocked player name command from " + player.getName() + ": " + message);
         }
     }
 
     /**
-     * Check if command contains any online player's name (excluding the sender)
+     * 判断某个 UUID 对应的实体是否是 player 驯服的生物
      */
-    private boolean containsPlayerName(String command, Player sender) {
-        String commandLower = command.toLowerCase();
-
-        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-            // Skip the command sender
-            if (onlinePlayer.getUniqueId().equals(sender.getUniqueId())) {
-                continue;
+    private boolean isOwnedTamedMob(UUID uuid, Player player) {
+        for (World world : Bukkit.getWorlds()) {
+            Entity entity = world.getEntity(uuid);
+            if (entity instanceof Tameable tameable) {
+                return tameable.isTamed()
+                        && tameable.getOwner() != null
+                        && tameable.getOwner().getUniqueId().equals(player.getUniqueId());
             }
+        }
+        return false;
+    }
+
+    /**
+     * 检查命令中是否含有其他在线玩家的名字
+     */
+    private boolean containsOtherPlayerName(String command, Player sender) {
+        String commandLower = command.toLowerCase();
+        for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
+            if (onlinePlayer.getUniqueId().equals(sender.getUniqueId())) continue;
 
             String playerName = onlinePlayer.getName().toLowerCase();
-            // Check if player name appears as a separate word in the command
-            if (commandLower.matches(".*\\b" + Pattern.quote(playerName) + "\\b.*")) {
+            String namePattern = "\\b" + Pattern.quote(playerName) + "\\b";
+            if (commandLower.matches(".*(" + namePattern + ").*")) {
                 return true;
             }
         }
-
         return false;
     }
 }
