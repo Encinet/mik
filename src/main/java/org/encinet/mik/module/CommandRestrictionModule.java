@@ -26,7 +26,7 @@ import java.util.regex.Pattern;
  */
 public class CommandRestrictionModule implements Listener {
 
-    private static final Pattern SELECTOR_PATTERN = Pattern.compile("@[earp](?:\\[|\\s|$)");
+    private static final Pattern SELECTOR_PATTERN = Pattern.compile("@[earpn](?:\\[|\\s|$)");
     // 匹配命令中的 UUID 格式字符串
     private static final Pattern UUID_PATTERN = Pattern.compile(
             "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
@@ -66,7 +66,7 @@ public class CommandRestrictionModule implements Listener {
         // 阻止目标选择器
         if (SELECTOR_PATTERN.matcher(commandLower).find()) {
             event.setCancelled(true);
-            player.sendMessage(Component.text("你没有权限使用目标选择器 (@e, @a, @r, @p)！", NamedTextColor.RED));
+            player.sendMessage(Component.text("你没有权限使用目标选择器 (@e, @a, @r, @p, @n)！", NamedTextColor.RED));
             plugin.getLogger().info("Blocked selector command from " + player.getName() + ": " + message);
             return;
         }

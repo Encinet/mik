@@ -22,6 +22,7 @@ public final class Mik extends JavaPlugin {
     private GameModeSwitchModule gameModeSwitchModule;
     private PlayerBoundaryModule playerBoundaryModule;
     private TPSBarModule tpsBarModule;
+    private TabListModule tabListModule;
 
     @Override
     public void onLoad() {
@@ -77,6 +78,10 @@ public final class Mik extends JavaPlugin {
         tpsBarModule = new TPSBarModule(this);
         tpsBarModule.start();
         tpsBarModule.registerCommands(this.getLifecycleManager());
+
+        // Initialize and enable tab list module
+        tabListModule = new TabListModule(this);
+        tabListModule.enable();
     }
 
     @Override
@@ -89,6 +94,11 @@ public final class Mik extends JavaPlugin {
         // Stop TPS bar module
         if (tpsBarModule != null) {
             tpsBarModule.stop();
+        }
+
+        // Disable tab list module
+        if (tabListModule != null) {
+            tabListModule.disable();
         }
 
         // Disable branding module
