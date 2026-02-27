@@ -16,13 +16,14 @@ public final class Mik extends JavaPlugin {
     private PerformanceModule performanceModule;
     private MusicDiscModule musicDiscModule;
     private StaffChatModule staffChatModule;
-    private CommandsModule commandsModule;
+    private SimpleFeaturesModule commandsModule;
     private AutoPromoteModule autoPromoteModule;
     private CommandRestrictionModule commandRestrictionModule;
     private GameModeSwitchModule gameModeSwitchModule;
     private PlayerBoundaryModule playerBoundaryModule;
     private TPSBarModule tpsBarModule;
     private TabListModule tabListModule;
+    private ApiModule apiModule;
 
     @Override
     public void onLoad() {
@@ -55,12 +56,13 @@ public final class Mik extends JavaPlugin {
         staffChatModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and register commands module
-        commandsModule = new CommandsModule(this);
+        commandsModule = new SimpleFeaturesModule();
         commandsModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and enable auto-promote module
         autoPromoteModule = new AutoPromoteModule(this);
         autoPromoteModule.enable();
+        autoPromoteModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and enable command restriction module
         commandRestrictionModule = new CommandRestrictionModule(this);
@@ -82,6 +84,11 @@ public final class Mik extends JavaPlugin {
         // Initialize and enable tab list module
         tabListModule = new TabListModule(this);
         tabListModule.enable();
+
+        // Initialize and start API module
+        apiModule = new ApiModule(this);
+        apiModule.start(8080);
+        apiModule.registerCommands(this.getLifecycleManager());
     }
 
     @Override
@@ -104,6 +111,11 @@ public final class Mik extends JavaPlugin {
         // Disable branding module
         if (brandingModule != null) {
             brandingModule.disable();
+        }
+
+        // Stop API server
+        if (apiModule != null) {
+            apiModule.stop();
         }
     }
 }

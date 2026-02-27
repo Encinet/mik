@@ -68,7 +68,7 @@ public class JukeboxPlaylistManager {
             if (data.playlist.isEmpty()) {
                 return null;
             }
-            return data.playlist.get(0);
+            return data.playlist.getFirst();
         }
     }
 

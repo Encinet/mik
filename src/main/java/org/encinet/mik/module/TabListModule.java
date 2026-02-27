@@ -1,9 +1,7 @@
 package org.encinet.mik.module;
 
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.cacheddata.CachedMetaData;
@@ -24,6 +22,10 @@ public class TabListModule implements Listener {
     private final JavaPlugin plugin;
     private LuckPerms luckPerms;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
+
+    private static final Component TABLIST_HEADER = MiniMessage.miniMessage().deserialize(
+            "<gold><bold>Mi</bold><white><bold>k</bold> <green><bold>Casual</bold></green></white></gold>"
+    );
 
     public TabListModule(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -53,9 +55,7 @@ public class TabListModule implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        final Component header = Component.text("My Cool Server", NamedTextColor.BLUE);
-        final Component footer = Component.text("It is: today!");
-        player.sendPlayerListHeaderAndFooter(header, footer);
+        player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, Component.empty());
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> updatePlayerTabList(player), 200L, 2L);
     }
 
@@ -100,5 +100,10 @@ public class TabListModule implements Listener {
         }
 
         player.playerListName(builder.build());
+
+        Component footer = miniMessage.deserialize(
+                "<gray>在线玩家: <green>" + Bukkit.getOnlinePlayers().size() + "</green> <dark_gray>/ <gray>" + Bukkit.getMaxPlayers() + "</gray>"
+        );
+        player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, footer);
     }
 }

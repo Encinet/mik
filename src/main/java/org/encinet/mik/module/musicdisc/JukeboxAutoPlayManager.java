@@ -2,7 +2,6 @@ package org.encinet.mik.module.musicdisc;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
@@ -56,9 +55,7 @@ public class JukeboxAutoPlayManager {
 
         // Schedule task for duration + delay
         long delayTicks = (durationSeconds + DELAY_AFTER_TRACK_SECONDS) * 20L;
-        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            playNextTrack(location);
-        }, delayTicks);
+        BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> playNextTrack(location), delayTicks);
 
         autoPlayTasks.put(location, task);
     }
