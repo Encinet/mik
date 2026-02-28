@@ -87,7 +87,7 @@ public final class Mik extends JavaPlugin {
 
         // Initialize and start API module
         apiModule = new ApiModule(this);
-        apiModule.start(8080);
+        apiModule.start(35353);
         apiModule.registerCommands(this.getLifecycleManager());
     }
 
