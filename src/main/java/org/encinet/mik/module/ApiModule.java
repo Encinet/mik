@@ -22,10 +22,10 @@ import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -153,27 +153,26 @@ public class ApiModule {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int RATE_LIMIT_REQUESTS = 30;
     private static final int RATE_LIMIT_WINDOW_SECONDS = 60;
-    private static final int MAX_AUTH_FAILURES = 5;
+    private static final int MAX_AUTH_FAILURES = 3;
     private static final int AUTH_FAILURE_BLOCK_MINUTES = 10;
+    private static final int AUTH_BAN_MAX_SHIFTS = 6;       // max block = 10 * 2^6 = 640 min ≈ 10.7 h
+    private static final long BAN_HISTORY_RETENTION_MS = 24 * 60 * 60 * 1000L; // 24 h
 
     private final JavaPlugin plugin;
     private HttpServer server;
+    private ExecutorService httpExecutor;
     private String apiKey;
-
-    private record Announcement(long timestamp, String content) {
-    }
-
-    private final List<Announcement> announcements = new ArrayList<>();
-
-    private final Map<String, RateLimitInfo> rateLimitMap = new ConcurrentHashMap<>();
-    private final Map<String, AuthFailureInfo> authFailureMap = new ConcurrentHashMap<>();
-    private ScheduledExecutorService cleanupExecutor;
 
     private record RateLimitInfo(long windowStart, int requestCount) {
     }
 
-    private record AuthFailureInfo(int failureCount, long blockUntil) {
+    private record AuthFailureInfo(int failureCount, int banCount, long blockUntil) {
     }
+
+    private volatile String announcementsJson = "[]";
+    private final Map<String, RateLimitInfo> rateLimitMap = new ConcurrentHashMap<>();
+    private final Map<String, AuthFailureInfo> authFailureMap = new ConcurrentHashMap<>();
+    private ScheduledExecutorService cleanupExecutor;
 
     public ApiModule(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -190,13 +189,20 @@ public class ApiModule {
         saveDefaultAnnouncements();
         reloadAnnouncements();
 
-        cleanupExecutor = Executors.newSingleThreadScheduledExecutor();
+        cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "mik-api-cleanup");
+            t.setDaemon(true);
+            return t;
+        });
         cleanupExecutor.scheduleAtFixedRate(() -> {
             long now = System.currentTimeMillis();
             rateLimitMap.entrySet().removeIf(entry ->
                     now - entry.getValue().windowStart() > RATE_LIMIT_WINDOW_SECONDS * 1000L);
-            authFailureMap.entrySet().removeIf(entry ->
-                    now > entry.getValue().blockUntil());
+            authFailureMap.entrySet().removeIf(entry -> {
+                AuthFailureInfo info = entry.getValue();
+                if (info.banCount() == 0) return now > info.blockUntil();
+                return now > info.blockUntil() + BAN_HISTORY_RETENTION_MS;
+            });
         }, 1, 1, TimeUnit.MINUTES);
 
         try {
@@ -230,15 +236,7 @@ public class ApiModule {
                 if (!checkMethod(exchange, "GET")) return;
                 if (!checkAuth(exchange, clientIp)) return;
 
-                StringBuilder sb = new StringBuilder("[");
-                for (int i = 0; i < announcements.size(); i++) {
-                    Announcement a = announcements.get(i);
-                    if (i > 0) sb.append(",");
-                    sb.append("{\"timestamp\":").append(a.timestamp())
-                            .append(",\"content\":\"").append(escapeJson(a.content())).append("\"}");
-                }
-                sb.append("]");
-                sendJson(exchange, 200, sb.toString());
+                sendJson(exchange, 200, announcementsJson);
             });
 
             server.createContext("/api/bans", exchange -> {
@@ -251,9 +249,10 @@ public class ApiModule {
                 var banEntries = banList.getEntries();
 
                 StringBuilder sb = new StringBuilder("[");
-                int index = 0;
+                boolean first = true;
                 for (var entry : banEntries) {
-                    if (index > 0) sb.append(",");
+                    if (!first) sb.append(",");
+                    first = false;
 
                     PlayerProfile profile = (PlayerProfile) entry.getBanTarget();
                     String playerName = profile.getName() != null ? profile.getName() : "";
@@ -272,14 +271,13 @@ public class ApiModule {
                             .append(",\"expiresAt\":").append(expiresAt == null ? "null" : "\"" + escapeJson(expiresAt) + "\"")
                             .append(",\"isPermanent\":").append(isPermanent)
                             .append("}");
-
-                    index++;
                 }
                 sb.append("]");
                 sendJson(exchange, 200, sb.toString());
             });
 
-            server.setExecutor(null);
+            httpExecutor = Executors.newFixedThreadPool(4);
+            server.setExecutor(httpExecutor);
             server.start();
             plugin.getLogger().info("API server started on port " + port);
         } catch (IOException e) {
@@ -288,7 +286,6 @@ public class ApiModule {
     }
 
     public void reloadAnnouncements() {
-        announcements.clear();
         File file = new File(plugin.getDataFolder(), "announcements.txt");
         if (!file.exists()) {
             plugin.getLogger().warning("announcements.txt not found.");
@@ -297,6 +294,8 @@ public class ApiModule {
         try {
             String raw = Files.readString(file.toPath(), StandardCharsets.UTF_8);
             String[] blocks = raw.split("---");
+            StringBuilder sb = new StringBuilder("[");
+            int count = 0;
             for (String block : blocks) {
                 String trimmed = block.strip();
                 if (trimmed.isEmpty()) continue;
@@ -307,12 +306,17 @@ public class ApiModule {
                 try {
                     LocalDateTime ldt = LocalDateTime.parse(dateLine, DATE_FMT);
                     long ts = ldt.atZone(ZoneId.systemDefault()).toEpochSecond();
-                    announcements.add(new Announcement(ts, content));
+                    if (count > 0) sb.append(",");
+                    sb.append("{\"timestamp\":").append(ts)
+                            .append(",\"content\":\"").append(escapeJson(content)).append("\"}");
+                    count++;
                 } catch (Exception e) {
                     plugin.getLogger().warning("Invalid date in announcements.txt: " + dateLine);
                 }
             }
-            plugin.getLogger().info("Loaded " + announcements.size() + " announcement(s).");
+            sb.append("]");
+            announcementsJson = sb.toString();
+            plugin.getLogger().info("Loaded " + count + " announcement(s).");
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to read announcements.txt: " + e.getMessage());
         }
@@ -354,7 +358,9 @@ public class ApiModule {
 
     private boolean checkAuth(com.sun.net.httpserver.HttpExchange exchange, String clientIp) throws IOException {
         AuthFailureInfo failureInfo = authFailureMap.get(clientIp);
-        if (failureInfo != null && System.currentTimeMillis() < failureInfo.blockUntil()) {
+        long now = System.currentTimeMillis();
+
+        if (failureInfo != null && now < failureInfo.blockUntil()) {
             sendJson(exchange, 403, "{\"error\":\"temporarily_blocked\"}");
             plugin.getLogger().warning("Blocked authentication attempt from IP: " + clientIp);
             return false;
@@ -362,19 +368,30 @@ public class ApiModule {
 
         String key = exchange.getRequestHeaders().getFirst("X-API-Key");
         if (!apiKey.equals(key)) {
-            int failureCount = failureInfo != null ? failureInfo.failureCount() + 1 : 1;
+            // If a previous ban has expired, reset failure count but preserve banCount
+            int prevFailures = (failureInfo != null && failureInfo.blockUntil() <= now && failureInfo.banCount() > 0)
+                    ? 0 : (failureInfo != null ? failureInfo.failureCount() : 0);
+            int banCount = failureInfo != null ? failureInfo.banCount() : 0;
+            int failureCount = prevFailures + 1;
+
             if (failureCount >= MAX_AUTH_FAILURES) {
-                long blockUntil = System.currentTimeMillis() + AUTH_FAILURE_BLOCK_MINUTES * 60 * 1000L;
-                authFailureMap.put(clientIp, new AuthFailureInfo(failureCount, blockUntil));
-                plugin.getLogger().warning("IP blocked due to repeated auth failures: " + clientIp);
+                banCount++;
+                long blockMs = AUTH_FAILURE_BLOCK_MINUTES * 60 * 1000L * (1L << Math.min(banCount - 1, AUTH_BAN_MAX_SHIFTS));
+                authFailureMap.put(clientIp, new AuthFailureInfo(0, banCount, now + blockMs));
+                plugin.getLogger().warning("IP blocked (ban #" + banCount + ", " + (blockMs / 60000) + " min): " + clientIp);
             } else {
-                authFailureMap.put(clientIp, new AuthFailureInfo(failureCount, 0));
+                authFailureMap.put(clientIp, new AuthFailureInfo(failureCount, banCount, failureInfo != null ? failureInfo.blockUntil() : 0));
             }
             sendJson(exchange, 401, "{\"error\":\"unauthorized\"}");
             return false;
         }
 
-        authFailureMap.remove(clientIp);
+        // Auth success: clear failure count but keep ban history so repeat offenders keep escalating
+        if (failureInfo != null && failureInfo.banCount() > 0) {
+            authFailureMap.put(clientIp, new AuthFailureInfo(0, failureInfo.banCount(), 0));
+        } else {
+            authFailureMap.remove(clientIp);
+        }
         return true;
     }
 
@@ -389,7 +406,7 @@ public class ApiModule {
 
     private String escapeJson(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\n", "\\n").replace("\r", "\\r");
+                .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
@@ -407,6 +424,9 @@ public class ApiModule {
     public void stop() {
         if (server != null) {
             server.stop(0);
+        }
+        if (httpExecutor != null) {
+            httpExecutor.shutdown();
         }
         if (cleanupExecutor != null) {
             cleanupExecutor.shutdown();
