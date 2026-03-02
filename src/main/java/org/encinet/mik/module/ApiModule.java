@@ -13,10 +13,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.util.zip.GZIPOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
@@ -397,6 +399,18 @@ public class ApiModule {
 
     private void sendJson(com.sun.net.httpserver.HttpExchange exchange, int code, String body) throws IOException {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+        String acceptEncoding = exchange.getRequestHeaders().getFirst("Accept-Encoding");
+        boolean useGzip = acceptEncoding != null && acceptEncoding.contains("gzip");
+
+        if (useGzip) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
+                gzip.write(bytes);
+            }
+            bytes = baos.toByteArray();
+            exchange.getResponseHeaders().set("Content-Encoding", "gzip");
+        }
+
         exchange.getResponseHeaders().set("Content-Type", "application/json");
         exchange.sendResponseHeaders(code, bytes.length);
         try (OutputStream os = exchange.getResponseBody()) {
