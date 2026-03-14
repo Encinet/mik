@@ -24,6 +24,8 @@ public final class Mik extends JavaPlugin {
     private TPSBarModule tpsBarModule;
     private TabListModule tabListModule;
     private ApiModule apiModule;
+    private WhitelistModule whitelistModule;
+    private MotdModule motdModule;
 
     @Override
     public void onLoad() {
@@ -89,6 +91,14 @@ public final class Mik extends JavaPlugin {
         apiModule = new ApiModule(this);
         apiModule.start(35353);
         apiModule.registerCommands(this.getLifecycleManager());
+
+        // Initialize and enable whitelist chat module
+        whitelistModule = new WhitelistModule(this);
+        whitelistModule.enable();
+
+        // Initialize and enable MOTD module
+        motdModule = new MotdModule(this);
+        motdModule.enable();
     }
 
     @Override
