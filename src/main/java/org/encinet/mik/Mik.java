@@ -23,6 +23,7 @@ public final class Mik extends JavaPlugin {
     private PlayerBoundaryModule playerBoundaryModule;
     private TPSBarModule tpsBarModule;
     private TabListModule tabListModule;
+    private GrieferModule grieferModule;
     private ApiModule apiModule;
     private WhitelistModule whitelistModule;
     private MotdModule motdModule;
@@ -86,6 +87,10 @@ public final class Mik extends JavaPlugin {
         // Initialize and enable tab list module
         tabListModule = new TabListModule(this);
         tabListModule.enable();
+
+        // Initialize and enable tab list module
+        grieferModule = new GrieferModule(this);
+        grieferModule.enable();
 
         // Initialize and start API module
         apiModule = new ApiModule(this);
