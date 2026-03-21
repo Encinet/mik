@@ -82,7 +82,7 @@ public class SimpleFeaturesModule {
             commands.register(Commands.literal("removeitems")
                     .requires(source -> source.getSender().hasPermission("mik.command.removeitems"))
                     // 带半径参数的分支
-                    .then(Commands.argument("radius", IntegerArgumentType.integer(1))
+                    .then(Commands.argument("radius", IntegerArgumentType.integer(1, 300))
                             .executes(ctx -> {
                                 int radius = IntegerArgumentType.getInteger(ctx, "radius");
                                 return removeItems(ctx.getSource(), radius);
