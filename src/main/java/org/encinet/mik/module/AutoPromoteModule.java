@@ -12,6 +12,7 @@ import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.Node;
 import org.bukkit.*;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -123,11 +124,15 @@ public class AutoPromoteModule implements Listener {
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(Commands.literal("promotecheck")
                 .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_HELPER))
                 .then(Commands.argument("player", StringArgumentType.word())
+                        .suggests((ctx, builder) -> {
+                            Bukkit.getOnlinePlayers().stream()
+                                    .map(Player::getName)
+                                    .filter(n -> n.toLowerCase().startsWith(builder.getRemaining().toLowerCase()))
+                                    .forEach(builder::suggest);
+                            return builder.buildFuture();
+                        })
                         .executes(ctx -> {
-                            if (!(ctx.getSource().getExecutor() instanceof Player sender)) {
-                                ctx.getSource().getSender().sendMessage("Only players can use this command.");
-                                return Command.SINGLE_SUCCESS;
-                            }
+                            CommandSender sender = ctx.getSource().getSender();
                             String name = StringArgumentType.getString(ctx, "player");
                             Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
                                 OfflinePlayer target = Bukkit.getOfflinePlayer(name);
