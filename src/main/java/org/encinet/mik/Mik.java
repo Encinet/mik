@@ -27,6 +27,7 @@ public final class Mik extends JavaPlugin {
     private ApiModule apiModule;
     private WhitelistModule whitelistModule;
     private MotdModule motdModule;
+    private HomeModule homeModule;
 
     @Override
     public void onLoad() {
@@ -104,6 +105,11 @@ public final class Mik extends JavaPlugin {
         // Initialize and enable MOTD module
         motdModule = new MotdModule(this);
         motdModule.enable();
+
+        // home
+        homeModule = new HomeModule(this);
+        homeModule.enable();
+        homeModule.registerCommands(this.getLifecycleManager());
     }
 
     @Override

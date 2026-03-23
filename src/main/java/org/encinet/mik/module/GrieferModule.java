@@ -27,7 +27,7 @@ public class GrieferModule implements Listener {
 
     // fix: generic.kill effect on creative/spectator player
     @EventHandler
-    public void onPlayerJoin(EntityDamageByEntityEvent event) {
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         // 攻击者是玩家
         if (!(event.getDamager() instanceof Player)) return;
         // 被攻击者是玩家
