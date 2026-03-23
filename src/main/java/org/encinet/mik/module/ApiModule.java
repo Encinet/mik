@@ -1,30 +1,17 @@
 package org.encinet.mik.module;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
-import com.mojang.brigadier.Command;
 import com.sun.net.httpserver.HttpServer;
 import io.papermc.paper.ban.BanListType;
-import io.papermc.paper.command.brigadier.Commands;
-import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.zip.GZIPOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -32,127 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-/**
- * ApiModule — Lightweight HTTP API server for external integrations.
- *
- * <p>Built on the JDK built-in {@link com.sun.net.httpserver.HttpServer}.
- * Intended for use by websites, bots, or dashboards that need to query
- * server state without direct Minecraft protocol access.
- *
- * <hr>
- * <h2>Authentication</h2>
- * Every request must include the following header:
- * <pre>
- *   X-API-Key: &lt;value of api.key in config.yml&gt;
- * </pre>
- * If {@code api.key} is empty the server will not start.
- * An incorrect or missing key returns {@code 401 Unauthorized}.
- *
- * <hr>
- * <h2>Endpoints</h2>
- *
- * <h3>GET /api/players</h3>
- * Returns the current number of online players and player list.
- * <pre>
- * Response 200 OK
- * Content-Type: application/json
- *
- * {
- *   "count": 3,
- *   "players": [
- *     {"name": "Steve", "uuid": "069a79f4-44e9-4726-a5be-fca90e38aaf5"},
- *     {"name": "Alex", "uuid": "8667ba71-b85a-4004-af54-457a9734eed7"}
- *   ]
- * }
- * </pre>
- * Fields:
- * <ul>
- *   <li>{@code count} (integer) — number of players currently online</li>
- *   <li>{@code players} (array) — list of online players, each with name and uuid</li>
- * </ul>
- *
- * <h3>GET /api/announcements</h3>
- * Returns all announcements loaded from {@code announcements.txt}.
- * <pre>
- * Response 200 OK
- * Content-Type: application/json
- *
- * [
- *   {"timestamp": 1704067200, "content": "Server is now open!"},
- *   {"timestamp": 1707868800, "content": "Valentine event started!"}
- * ]
- * </pre>
- * Fields per object:
- * <ul>
- *   <li>{@code timestamp} (integer) — Unix epoch seconds (server local timezone)</li>
- *   <li>{@code content}   (string)  — announcement body, may contain newlines</li>
- * </ul>
- *
- * <h3>GET /api/bans</h3>
- * Returns all active ban records from the server's ban list in real-time.
- * <pre>
- * Response 200 OK
- * Content-Type: application/json
- *
- * [
- *   {
- *     "id": 1,
- *     "playerName": "Griefer123",
- *     "playerUuid": "",
- *     "reason": "恶意破坏他人建筑",
- *     "bannedBy": "Admin",
- *     "bannedAt": "2024-01-15T10:30:00Z",
- *     "expiresAt": null,
- *     "isPermanent": true
- *   }
- * ]
- * </pre>
- * Fields per object:
- * <ul>
- *   <li>{@code id} (integer) — sequential index starting from 1</li>
- *   <li>{@code playerName} (string) — banned player name</li>
- *   <li>{@code playerUuid} (string) — currently empty, reserved for future use</li>
- *   <li>{@code reason} (string) — ban reason</li>
- *   <li>{@code bannedBy} (string) — administrator who issued the ban</li>
- *   <li>{@code bannedAt} (string) — ban timestamp in ISO 8601 format</li>
- *   <li>{@code expiresAt} (string|null) — unban timestamp, null for permanent bans</li>
- *   <li>{@code isPermanent} (boolean) — whether this is a permanent ban</li>
- * </ul>
- * <p>Note: This endpoint retrieves data in real-time from Bukkit's ban system.
- *
- * <hr>
- * <h2>Error Responses</h2>
- * <pre>
- * 401 Unauthorized  {"error": "unauthorized"}  — missing or invalid X-API-Key
- * </pre>
- *
- * <hr>
- * <h2>Announcement File Format (announcements.txt)</h2>
- * Located in the plugin data folder. Entries are separated by {@code ---}.
- * The first line of each entry is the timestamp ({@code yyyy-MM-dd HH:mm:ss});
- * the remaining lines are the announcement body.
- * <pre>
- *   2024-01-01 12:00:00
- *   Server is now open. Welcome!
- *   ---
- *   2024-02-14 08:00:00
- *   Valentine's Day event has started!
- * </pre>
- * Use {@code /reloadannouncements} (alias: {@code /reloadannounce}) to hot-reload
- * the file without restarting the server.
- * Required permission: {@code mik.command.reloadannouncements}
- *
- * <hr>
- * <h2>Configuration (config.yml)</h2>
- * <pre>
- *   api:
- *     key: "your-secret-key"   # leave empty to disable the API server
- *     port: 8080               # passed to start(port) by the plugin main class
- * </pre>
- */
 public class ApiModule {
-
-    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int RATE_LIMIT_REQUESTS = 30;
     private static final int RATE_LIMIT_WINDOW_SECONDS = 60;
     private static final int MAX_AUTH_FAILURES = 3;
@@ -164,6 +31,7 @@ public class ApiModule {
     private HttpServer server;
     private ExecutorService httpExecutor;
     private String apiKey;
+    private AnnouncementModule announcementModule;
 
     private record RateLimitInfo(long windowStart, int requestCount) {
     }
@@ -171,13 +39,16 @@ public class ApiModule {
     private record AuthFailureInfo(int failureCount, int banCount, long blockUntil) {
     }
 
-    private volatile String announcementsJson = "[]";
     private final Map<String, RateLimitInfo> rateLimitMap = new ConcurrentHashMap<>();
     private final Map<String, AuthFailureInfo> authFailureMap = new ConcurrentHashMap<>();
     private ScheduledExecutorService cleanupExecutor;
 
     public ApiModule(JavaPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    public void setAnnouncementModule(AnnouncementModule module) {
+        this.announcementModule = module;
     }
 
     public void start(int port) {
@@ -187,9 +58,6 @@ public class ApiModule {
             plugin.getLogger().warning("api.key is not set in config.yml, API server will not start.");
             return;
         }
-
-        saveDefaultAnnouncements();
-        reloadAnnouncements();
 
         cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "mik-api-cleanup");
@@ -238,7 +106,7 @@ public class ApiModule {
                 if (!checkMethod(exchange, "GET")) return;
                 if (!checkAuth(exchange, clientIp)) return;
 
-                sendJson(exchange, 200, announcementsJson);
+                sendJson(exchange, 200, announcementModule.getAnnouncementsJson());
             });
 
             server.createContext("/api/bans", exchange -> {
@@ -278,6 +146,14 @@ public class ApiModule {
                 sendJson(exchange, 200, sb.toString());
             });
 
+            server.createContext("/", exchange -> {
+                try {
+                    silentDrop(exchange);
+                } catch (IOException e) {
+                    plugin.getLogger().warning("Failed to drop connection: " + e.getMessage());
+                }
+            });
+
             httpExecutor = Executors.newFixedThreadPool(4);
             server.setExecutor(httpExecutor);
             server.start();
@@ -287,48 +163,10 @@ public class ApiModule {
         }
     }
 
-    public void reloadAnnouncements() {
-        File file = new File(plugin.getDataFolder(), "announcements.txt");
-        if (!file.exists()) {
-            plugin.getLogger().warning("announcements.txt not found.");
-            return;
-        }
-        try {
-            String raw = Files.readString(file.toPath(), StandardCharsets.UTF_8);
-            String[] blocks = raw.split("---");
-            StringBuilder sb = new StringBuilder("[");
-            int count = 0;
-            for (String block : blocks) {
-                String trimmed = block.strip();
-                if (trimmed.isEmpty()) continue;
-                int newline = trimmed.indexOf('\n');
-                if (newline == -1) continue;
-                String dateLine = trimmed.substring(0, newline).strip();
-                String content = trimmed.substring(newline + 1).strip();
-                try {
-                    LocalDateTime ldt = LocalDateTime.parse(dateLine, DATE_FMT);
-                    long ts = ldt.atZone(ZoneId.systemDefault()).toEpochSecond();
-                    if (count > 0) sb.append(",");
-                    sb.append("{\"timestamp\":").append(ts)
-                            .append(",\"content\":\"").append(escapeJson(content)).append("\"}");
-                    count++;
-                } catch (Exception e) {
-                    plugin.getLogger().warning("Invalid date in announcements.txt: " + dateLine);
-                }
-            }
-            sb.append("]");
-            announcementsJson = sb.toString();
-            plugin.getLogger().info("Loaded " + count + " announcement(s).");
-        } catch (IOException e) {
-            plugin.getLogger().severe("Failed to read announcements.txt: " + e.getMessage());
-        }
-    }
-
-    private void saveDefaultAnnouncements() {
-        File file = new File(plugin.getDataFolder(), "announcements.txt");
-        if (!file.exists()) {
-            plugin.saveResource("announcements.txt", false);
-        }
+    private void silentDrop(com.sun.net.httpserver.HttpExchange exchange) throws IOException {
+        exchange.getResponseHeaders().set("Connection", "close");
+        exchange.sendResponseHeaders(444, -1);
+        exchange.close();
     }
 
     private boolean checkRateLimit(com.sun.net.httpserver.HttpExchange exchange, String clientIp) throws IOException {
@@ -371,8 +209,8 @@ public class ApiModule {
         String key = exchange.getRequestHeaders().getFirst("X-API-Key");
         if (!apiKey.equals(key)) {
             // If a previous ban has expired, reset failure count but preserve banCount
-            int prevFailures = (failureInfo != null && failureInfo.blockUntil() <= now && failureInfo.banCount() > 0)
-                    ? 0 : (failureInfo != null ? failureInfo.failureCount() : 0);
+            int prevFailures = failureInfo != null && failureInfo.banCount() > 0
+                    ? 0 : failureInfo != null ? failureInfo.failureCount() : 0;
             int banCount = failureInfo != null ? failureInfo.banCount() : 0;
             int failureCount = prevFailures + 1;
 
@@ -421,18 +259,6 @@ public class ApiModule {
     private String escapeJson(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"")
                 .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
-    }
-
-    public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
-        lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(Commands.literal("reloadannouncements")
-                .requires(source -> source.getSender().hasPermission("mik.command.reloadannouncements"))
-                .executes(ctx -> {
-                    reloadAnnouncements();
-                    ctx.getSource().getSender().sendMessage(
-                            Component.text("公告已重新加载。", NamedTextColor.GREEN)
-                    );
-                    return Command.SINGLE_SUCCESS;
-                }).build(), "重新加载公告文件", List.of("reloadannounce")));
     }
 
     public void stop() {

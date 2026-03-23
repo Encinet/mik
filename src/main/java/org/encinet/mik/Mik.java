@@ -28,6 +28,7 @@ public final class Mik extends JavaPlugin {
     private WhitelistModule whitelistModule;
     private MotdModule motdModule;
     private HomeModule homeModule;
+    private AnnouncementModule announcementModule;
 
     @Override
     public void onLoad() {
@@ -93,10 +94,15 @@ public final class Mik extends JavaPlugin {
         grieferModule = new GrieferModule(this);
         grieferModule.enable();
 
+        // announcements (must be before API module)
+        announcementModule = new AnnouncementModule(this);
+        announcementModule.enable();
+        announcementModule.registerCommands(this.getLifecycleManager());
+
         // Initialize and start API module
         apiModule = new ApiModule(this);
+        apiModule.setAnnouncementModule(announcementModule);
         apiModule.start(35353);
-        apiModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and enable whitelist chat module
         whitelistModule = new WhitelistModule(this);
