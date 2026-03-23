@@ -1,10 +1,12 @@
 package org.encinet.mik.module;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.papermc.paper.ban.BanListType;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.util.CloudflareSpoof;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -148,7 +150,7 @@ public class ApiModule {
 
             server.createContext("/", exchange -> {
                 try {
-                    silentDrop(exchange);
+                    CloudflareSpoof.drop(exchange);
                 } catch (IOException e) {
                     plugin.getLogger().warning("Failed to drop connection: " + e.getMessage());
                 }
@@ -163,12 +165,6 @@ public class ApiModule {
         }
     }
 
-    private void silentDrop(com.sun.net.httpserver.HttpExchange exchange) throws IOException {
-        exchange.getResponseHeaders().set("Connection", "close");
-        exchange.sendResponseHeaders(444, -1);
-        exchange.close();
-    }
-
     private boolean checkRateLimit(com.sun.net.httpserver.HttpExchange exchange, String clientIp) throws IOException {
         long now = System.currentTimeMillis();
         RateLimitInfo info = rateLimitMap.get(clientIp);
@@ -179,7 +175,8 @@ public class ApiModule {
         }
 
         if (info.requestCount() >= RATE_LIMIT_REQUESTS) {
-            sendJson(exchange, 429, "{\"error\":\"rate_limit_exceeded\"}");
+//            sendJson(exchange, 429, "{\"error\":\"rate_limit_exceeded\"}");
+            CloudflareSpoof.drop(exchange);
             plugin.getLogger().warning("Rate limit exceeded for IP: " + clientIp);
             return false;
         }
@@ -190,7 +187,8 @@ public class ApiModule {
 
     private boolean checkMethod(com.sun.net.httpserver.HttpExchange exchange, String expectedMethod) throws IOException {
         if (!exchange.getRequestMethod().equalsIgnoreCase(expectedMethod)) {
-            sendJson(exchange, 405, "{\"error\":\"method_not_allowed\"}");
+//            sendJson(exchange, 405, "{\"error\":\"method_not_allowed\"}");
+            CloudflareSpoof.drop(exchange);
             return false;
         }
         return true;
@@ -201,7 +199,8 @@ public class ApiModule {
         long now = System.currentTimeMillis();
 
         if (failureInfo != null && now < failureInfo.blockUntil()) {
-            sendJson(exchange, 403, "{\"error\":\"temporarily_blocked\"}");
+//            sendJson(exchange, 403, "{\"error\":\"temporarily_blocked\"}");
+            CloudflareSpoof.drop(exchange);
             plugin.getLogger().warning("Blocked authentication attempt from IP: " + clientIp);
             return false;
         }
@@ -222,7 +221,8 @@ public class ApiModule {
             } else {
                 authFailureMap.put(clientIp, new AuthFailureInfo(failureCount, banCount, failureInfo != null ? failureInfo.blockUntil() : 0));
             }
-            sendJson(exchange, 401, "{\"error\":\"unauthorized\"}");
+//            sendJson(exchange, 401, "{\"error\":\"unauthorized\"}");
+            CloudflareSpoof.drop(exchange);
             return false;
         }
 
