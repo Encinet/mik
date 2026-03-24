@@ -6,7 +6,6 @@ import com.sun.net.httpserver.HttpServer;
 import io.papermc.paper.ban.BanListType;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.util.CloudflareSpoof;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -148,13 +147,7 @@ public class ApiModule {
                 sendJson(exchange, 200, sb.toString());
             });
 
-            server.createContext("/", exchange -> {
-                try {
-                    CloudflareSpoof.drop(exchange);
-                } catch (IOException e) {
-                    plugin.getLogger().warning("Failed to drop connection: " + e.getMessage());
-                }
-            });
+            server.createContext("/", ApiModule::drop);
 
             httpExecutor = Executors.newFixedThreadPool(4);
             server.setExecutor(httpExecutor);
@@ -176,7 +169,7 @@ public class ApiModule {
 
         if (info.requestCount() >= RATE_LIMIT_REQUESTS) {
 //            sendJson(exchange, 429, "{\"error\":\"rate_limit_exceeded\"}");
-            CloudflareSpoof.drop(exchange);
+            drop(exchange);
             plugin.getLogger().warning("Rate limit exceeded for IP: " + clientIp);
             return false;
         }
@@ -188,7 +181,7 @@ public class ApiModule {
     private boolean checkMethod(com.sun.net.httpserver.HttpExchange exchange, String expectedMethod) throws IOException {
         if (!exchange.getRequestMethod().equalsIgnoreCase(expectedMethod)) {
 //            sendJson(exchange, 405, "{\"error\":\"method_not_allowed\"}");
-            CloudflareSpoof.drop(exchange);
+            drop(exchange);
             return false;
         }
         return true;
@@ -200,7 +193,7 @@ public class ApiModule {
 
         if (failureInfo != null && now < failureInfo.blockUntil()) {
 //            sendJson(exchange, 403, "{\"error\":\"temporarily_blocked\"}");
-            CloudflareSpoof.drop(exchange);
+            drop(exchange);
             plugin.getLogger().warning("Blocked authentication attempt from IP: " + clientIp);
             return false;
         }
@@ -222,7 +215,7 @@ public class ApiModule {
                 authFailureMap.put(clientIp, new AuthFailureInfo(failureCount, banCount, failureInfo != null ? failureInfo.blockUntil() : 0));
             }
 //            sendJson(exchange, 401, "{\"error\":\"unauthorized\"}");
-            CloudflareSpoof.drop(exchange);
+            drop(exchange);
             return false;
         }
 
@@ -259,6 +252,18 @@ public class ApiModule {
     private String escapeJson(String s) {
         return s.replace("\\", "\\\\").replace("\"", "\\\"")
                 .replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+    }
+
+    /**
+     * Immediately closes the exchange without writing a single byte.
+     * The OS sends a TCP FIN/RST; the client receives an empty response error.
+     */
+    public static void drop(HttpExchange exchange) {
+        try {
+            exchange.close();
+        } catch (Exception ignored) {
+            // Already closed or reset — desired outcome either way
+        }
     }
 
     public void stop() {
