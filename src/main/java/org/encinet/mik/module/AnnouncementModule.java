@@ -393,8 +393,10 @@ public class AnnouncementModule implements Listener {
         int count = 0;
         for (Announcement a : announcements) {
             if (count > 0) sb.append(",");
-            sb.append("{\"timestamp\":").append(a.timestamp())
-                    .append(",\"content\":\"").append(escapeJson(a.content())).append("\"}");
+            String iso8601 = java.time.Instant.ofEpochSecond(a.timestamp())
+                    .toString();
+            sb.append("{\"timestamp\":\"").append(iso8601)
+                    .append("\",\"content\":\"").append(escapeJson(a.content())).append("\"}");
             count++;
         }
         sb.append("]");
