@@ -20,6 +20,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.encinet.mik.util.HmacTimestamp;
+
 public class ApiModule {
     private static final int RATE_LIMIT_REQUESTS = 30;
     private static final int RATE_LIMIT_WINDOW_SECONDS = 60;
@@ -31,7 +33,7 @@ public class ApiModule {
     private final JavaPlugin plugin;
     private HttpServer server;
     private ExecutorService httpExecutor;
-    private String apiKey;
+    private String totpSecret;
     private AnnouncementModule announcementModule;
 
     private record RateLimitInfo(long windowStart, int requestCount) {
@@ -54,8 +56,8 @@ public class ApiModule {
 
     public void start(int port) {
         plugin.saveDefaultConfig();
-        apiKey = plugin.getConfig().getString("api.key", "");
-        if (apiKey.isEmpty()) {
+        totpSecret = plugin.getConfig().getString("api.totp-secret", "");
+        if (totpSecret.isEmpty()) {
             plugin.getLogger().warning("api.key is not set in config.yml, API server will not start.");
             return;
         }
@@ -192,15 +194,13 @@ public class ApiModule {
         long now = System.currentTimeMillis();
 
         if (failureInfo != null && now < failureInfo.blockUntil()) {
-//            sendJson(exchange, 403, "{\"error\":\"temporarily_blocked\"}");
             drop(exchange);
             plugin.getLogger().warning("Blocked authentication attempt from IP: " + clientIp);
             return false;
         }
 
-        String key = exchange.getRequestHeaders().getFirst("X-API-Key");
-        if (!apiKey.equals(key)) {
-            // If a previous ban has expired, reset failure count but preserve banCount
+        String token = exchange.getRequestHeaders().getFirst("X-TOTP-Token");
+        if (!HmacTimestamp.verify(totpSecret, token)) {
             int prevFailures = failureInfo != null && failureInfo.banCount() > 0
                     ? 0 : failureInfo != null ? failureInfo.failureCount() : 0;
             int banCount = failureInfo != null ? failureInfo.banCount() : 0;
@@ -214,12 +214,10 @@ public class ApiModule {
             } else {
                 authFailureMap.put(clientIp, new AuthFailureInfo(failureCount, banCount, failureInfo != null ? failureInfo.blockUntil() : 0));
             }
-//            sendJson(exchange, 401, "{\"error\":\"unauthorized\"}");
             drop(exchange);
             return false;
         }
 
-        // Auth success: clear failure count but keep ban history so repeat offenders keep escalating
         if (failureInfo != null && failureInfo.banCount() > 0) {
             authFailureMap.put(clientIp, new AuthFailureInfo(0, failureInfo.banCount(), 0));
         } else {

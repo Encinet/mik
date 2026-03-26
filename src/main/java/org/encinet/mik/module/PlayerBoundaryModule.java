@@ -19,8 +19,6 @@ import org.bukkit.util.Vector;
  * Module for enforcing world boundaries on player movement and teleportation
  */
 public class PlayerBoundaryModule implements Listener {
-
-    private static final double SOFT_BOUNDARY_DISTANCE = 50.0; // Distance from boundary for knockback
     private static final double KNOCKBACK_STRENGTH = 1.5; // Velocity multiplier for knockback
 
     private final JavaPlugin plugin;
@@ -37,35 +35,81 @@ public class PlayerBoundaryModule implements Listener {
         plugin.getLogger().info("PlayerBoundaryModule enabled (using world border settings)");
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
+        Location from = event.getFrom();
         Location to = event.getTo();
-
         Player player = event.getPlayer();
+        if (from.getBlockX() == to.getBlockX() && from.getBlockZ() == to.getBlockZ()) return;
         World world = to.getWorld();
         if (world == null) return;
 
         WorldBorder border = world.getWorldBorder();
+        if (!isOutsideBoundary(to, border)) return;
 
-        // Check if player is outside boundary
-        if (isOutsideBoundary(to, border)) {
-            handleBoundaryViolation(player, event.getFrom(), to, border, event);
-        }
+        // 将位置夹到边界内（留 0.5 块缓冲），不重置到 from
+        Location clamped = clampToBoundary(to, border, 0.5);
+        event.setTo(clamped);
+
+        applyReflectKnockback(player, to, border);
+        player.sendActionBar(Component.text("警告：你正在接近世界边界！", NamedTextColor.YELLOW));
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    /**
+     * 将位置夹到边界内 margin 块处
+     */
+    private Location clampToBoundary(Location loc, WorldBorder border, double margin) {
+        Location center = border.getCenter();
+        double half = border.getSize() / 2.0 - margin;
+
+        double x = Math.max(center.getX() - half, Math.min(center.getX() + half, loc.getX()));
+        double z = Math.max(center.getZ() - half, Math.min(center.getZ() + half, loc.getZ()));
+
+        return new Location(loc.getWorld(), x, loc.getY(), z, loc.getYaw(), loc.getPitch());
+    }
+
+    /**
+     * 反射速度 + 朝内推力，产生自然弹开感
+     */
+    private void applyReflectKnockback(Player player, Location to, WorldBorder border) {
+        Location center = border.getCenter();
+        double half = border.getSize() / 2.0;
+
+        double dx = to.getX() - center.getX();
+        double dz = to.getZ() - center.getZ();
+
+        Vector current = player.getVelocity();
+        double velX = current.getX();
+        double velZ = current.getZ();
+
+        if (Math.abs(dx) >= half) {
+            // 朝内：速度分量取反（吸收）再加朝内推力，符号与 dx 相反
+            velX = -Math.abs(current.getX()) * 0.8 - KNOCKBACK_STRENGTH * Math.signum(dx);
+        }
+        if (Math.abs(dz) >= half) {
+            velZ = -Math.abs(current.getZ()) * 0.8 - KNOCKBACK_STRENGTH * Math.signum(dz);
+        }
+
+        velX = Math.max(-3.0, Math.min(3.0, velX));
+        velZ = Math.max(-3.0, Math.min(3.0, velZ));
+
+        player.setVelocity(new Vector(velX, Math.max(current.getY(), 0.15), velZ));
+    }
+
+    @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Location to = event.getTo();
-
         Player player = event.getPlayer();
         World world = to.getWorld();
         if (world == null) return;
 
         WorldBorder border = world.getWorldBorder();
 
-        // Check if teleport destination is outside boundary
         if (isOutsideBoundary(to, border)) {
-            handleBoundaryViolation(player, event.getFrom(), to, border, event);
+            // For teleports: always redirect to safe location, never apply knockback
+            Location safe = getNearestSafeLocation(to, border);
+            event.setTo(safe);
+            player.sendActionBar(Component.text("你已到达世界边界！", NamedTextColor.RED));
         }
     }
 
@@ -85,65 +129,6 @@ public class PlayerBoundaryModule implements Listener {
         double maxZ = center.getZ() + size;
 
         return x < minX || x > maxX || z < minZ || z > maxZ;
-    }
-
-    /**
-     * Calculate how far the player is outside the boundary
-     * Returns 0 if inside boundary, positive value if outside
-     */
-    private double getDistanceOutsideBoundary(Location location, WorldBorder border) {
-        double x = location.getX();
-        double z = location.getZ();
-
-        Location center = border.getCenter();
-        double size = border.getSize() / 2.0;
-
-        double minX = center.getX() - size;
-        double maxX = center.getX() + size;
-        double minZ = center.getZ() - size;
-        double maxZ = center.getZ() + size;
-
-        double distX = 0;
-        double distZ = 0;
-
-        // Calculate how far outside the boundary in X direction
-        if (x < minX) {
-            distX = minX - x;
-        } else if (x > maxX) {
-            distX = x - maxX;
-        }
-
-        // Calculate how far outside the boundary in Z direction
-        if (z < minZ) {
-            distZ = minZ - z;
-        } else if (z > maxZ) {
-            distZ = z - maxZ;
-        }
-
-        // Return the maximum distance outside (since we care about the furthest violation)
-        return Math.max(distX, distZ);
-    }
-
-    /**
-     * Handle player attempting to cross boundary
-     */
-    private void handleBoundaryViolation(Player player, Location from, Location to, WorldBorder border, PlayerMoveEvent event) {
-        double distanceOutside = getDistanceOutsideBoundary(to, border);
-
-        // If player is far outside boundary, teleport them back
-        if (distanceOutside > SOFT_BOUNDARY_DISTANCE) {
-            Location safeLocation = getNearestSafeLocation(to, border);
-            event.setTo(safeLocation);
-
-            player.sendMessage(Component.text("你已到达世界边界！", NamedTextColor.RED));
-            plugin.getLogger().info("Teleported " + player.getName() + " back from boundary (distance outside: " + distanceOutside + ")");
-        } else {
-            // Apply knockback for soft boundary
-            event.setTo(from);
-            applyKnockback(player, from, to);
-
-            player.sendMessage(Component.text("警告：你正在接近世界边界！", NamedTextColor.YELLOW));
-        }
     }
 
     /**
@@ -172,17 +157,4 @@ public class PlayerBoundaryModule implements Listener {
         return new Location(world, x, location.getY(), z, location.getYaw(), location.getPitch());
     }
 
-    /**
-     * Apply knockback velocity to push player away from boundary
-     */
-    private void applyKnockback(Player player, Location from, Location to) {
-        // Calculate direction from boundary violation point back to safe location
-        Vector direction = from.toVector().subtract(to.toVector()).normalize();
-
-        // Apply horizontal knockback only (preserve Y velocity)
-        Vector knockback = direction.multiply(KNOCKBACK_STRENGTH);
-        knockback.setY(0.2); // Small upward boost
-
-        player.setVelocity(knockback);
-    }
 }
