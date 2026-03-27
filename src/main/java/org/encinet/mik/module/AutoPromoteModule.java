@@ -78,7 +78,7 @@ public class AutoPromoteModule implements Listener {
     private static final Criterion SNEAK = new Criterion(Statistic.SNEAK_TIME, 6_000, 20_000, 25);
     private static final Criterion LEAVE = new Criterion(Statistic.LEAVE_GAME, 3, 15, 25);
     // Total items used across all materials
-    private static final BlockCriterion USE_ITEMS = new BlockCriterion(5_000, 10_000, 25);
+    private static final BlockCriterion USE_ITEMS = new BlockCriterion(5_00, 10_000, 25);
 
     private static final int SCORE_THRESHOLD = 100;
 
