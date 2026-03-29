@@ -16,12 +16,12 @@ public class MotdModule implements Listener {
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
     private static final Component MOTD_CN = MM.deserialize(
-            "<gold>             米<white>客 <gray>| <green>1.21.11 <gray>| <gold>创造<white>休闲服\n" +
+            "<gold>               米<white>客 <gray>| <green>26.1<gray> | <gold>创造<white>休闲服\n" +
             "<white>               <gradient:#5e4fa2:#f79459:red>创造 休闲 音乐 蹦跶 挂机"
     );
 
     private static final Component MOTD_EN = MM.deserialize(
-            "<gold>           Mi<white>k  <gray>| <green>1.21.11 <gray>| <gold>Creative<white> Casual\n" +
+            "<gold>             Mi<white>k  <gray>| <green>26.1<gray> | <gold>Creative<white> Casual\n" +
             "<white>           <gradient:#5e4fa2:#f79459:red>Build • Chill • Music • Fun • AFK"
     );
 

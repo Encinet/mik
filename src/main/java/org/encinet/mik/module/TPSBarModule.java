@@ -66,7 +66,7 @@ public class TPSBarModule {
             }
             tick = 0;
 
-            this.tps = Math.max(Math.min(Bukkit.getTPS()[0], 20.0), 0.0);
+            this.tps = Math.clamp(Bukkit.getTPS()[0], 0.0, 20.0);
             this.mspt = Bukkit.getAverageTickTime();
 
             updateAllBossBars();
@@ -169,11 +169,11 @@ public class TPSBarModule {
      */
     private float getBossBarProgress(int ping) {
         if (commandTPSBarProgressFillMode == FillMode.MSPT) {
-            return Math.max(Math.min((float) mspt / 50.0f, 1.0f), 0.0f);
+            return Math.clamp((float) mspt / 50.0f, 0.0f, 1.0f);
         } else if (commandTPSBarProgressFillMode == FillMode.TPS) {
-            return Math.max(Math.min((float) tps / 20.0f, 1.0f), 0.0f);
+            return Math.clamp((float) tps / 20.0f, 0.0f, 1.0f);
         } else if (commandTPSBarProgressFillMode == FillMode.PING) {
-            return Math.max(Math.min((float) ping / 300.0f, 1.0f), 0.0f);
+            return Math.clamp((float) ping / 300.0f, 0.0f, 1.0f);
         }
         return 0.0f;
     }

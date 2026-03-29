@@ -90,8 +90,8 @@ public class PlayerBoundaryModule implements Listener {
             velZ = -Math.abs(current.getZ()) * 0.8 - KNOCKBACK_STRENGTH * Math.signum(dz);
         }
 
-        velX = Math.max(-3.0, Math.min(3.0, velX));
-        velZ = Math.max(-3.0, Math.min(3.0, velZ));
+        velX = Math.clamp(velX, -3.0, 3.0);
+        velZ = Math.clamp(velZ, -3.0, 3.0);
 
         player.setVelocity(new Vector(velX, Math.max(current.getY(), 0.15), velZ));
     }
