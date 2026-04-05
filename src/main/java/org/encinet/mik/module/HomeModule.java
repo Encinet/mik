@@ -20,12 +20,12 @@ import java.util.*;
 
 /**
  * Manages player homes: /sethome, /home, /delhome
- *
+ * <p>
  * Storage format  →  homes.yml
  *   <uuid>:
  *     <homeName>: "world:x,y,z,yaw,pitch"
  *     我的家:     "world:128.5,64.0,-200.3,90.0,0.0"
- *
+ * <p>
  * Runtime reads   →  100% in-memory HashMap, 零 YAML 查询
  */
 public class HomeModule {

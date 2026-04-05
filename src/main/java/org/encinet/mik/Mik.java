@@ -29,6 +29,7 @@ public final class Mik extends JavaPlugin {
     private MotdModule motdModule;
     private HomeModule homeModule;
     private AnnouncementModule announcementModule;
+    private NameTagModule prefixSuffixModule;
 
     @Override
     public void onLoad() {
@@ -116,6 +117,11 @@ public final class Mik extends JavaPlugin {
         homeModule = new HomeModule(this);
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
+
+        // player prefix/suffix
+        prefixSuffixModule = new NameTagModule(this);
+        prefixSuffixModule.enable();
+        prefixSuffixModule.registerCommands(this.getLifecycleManager());
     }
 
     @Override

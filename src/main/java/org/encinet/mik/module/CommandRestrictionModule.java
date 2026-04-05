@@ -63,18 +63,18 @@ public class CommandRestrictionModule implements Listener {
             return;
         }
 
+        String[] parts = message.substring(1).split("\\s+", 2);
+        String commandName = parts[0].toLowerCase();
+
+        if (ALLOWED_COMMANDS.contains(commandName)) {
+            return;
+        }
+
         // 阻止目标选择器
         if (SELECTOR_PATTERN.matcher(commandLower).find()) {
             event.setCancelled(true);
             player.sendMessage(Component.text("你没有权限使用目标选择器 (@e, @a, @r, @p, @n)！", NamedTextColor.RED));
             plugin.getLogger().info("Blocked selector command from " + player.getName() + ": " + message);
-            return;
-        }
-
-        String[] parts = message.substring(1).split("\\s+", 2);
-        String commandName = parts[0].toLowerCase();
-
-        if (ALLOWED_COMMANDS.contains(commandName)) {
             return;
         }
 

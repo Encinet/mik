@@ -1,6 +1,7 @@
 name: mik
 version: '1.0'
 main: org.encinet.mik.Mik
+loader: org.encinet.mik.MikLoader
 api-version: '1.21'
 authors: [ Noctiro ]
 dependencies:

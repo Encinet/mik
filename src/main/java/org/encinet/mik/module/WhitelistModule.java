@@ -19,11 +19,17 @@ public class WhitelistModule implements Listener {
             .append(Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA))
             .append(Component.text(" 申请白名单", NamedTextColor.GRAY))
             .appendNewline()
+            .append(Component.text("官网 ", NamedTextColor.GRAY))
+            .append(Component.text("mik.noctiro.moe", NamedTextColor.AQUA))
+            .appendNewline()
             .appendNewline()
             .append(Component.text("You are not whitelisted", NamedTextColor.WHITE))
             .appendNewline()
             .append(Component.text("Apply at ", NamedTextColor.GRAY))
             .append(Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA))
+            .appendNewline()
+            .append(Component.text("Website: ", NamedTextColor.GRAY))
+            .append(Component.text("mik.noctiro.moe", NamedTextColor.AQUA))
             .build();
 
     private final JavaPlugin plugin;

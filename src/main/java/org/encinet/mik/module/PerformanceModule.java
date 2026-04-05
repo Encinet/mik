@@ -20,87 +20,31 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.util.SchedulerUtil;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Module for performance monitoring and protection
- */
 public class PerformanceModule implements Listener {
 
     private static final String MANAGER_PERMISSION = "group.manager";
     private static final long CHECK_INTERVAL_TICKS = 40L;
     private static final long INITIAL_DELAY_TICKS = 1200L;
-    private static final int ITEM_MAX_TICKS = 3000;
 
-    // MSPT thresholds
-    private static final double SHUTDOWN_THRESHOLD = 1000.0;
-    private static final double KICK_THRESHOLD = 150.0;
-    private static final double FREEZE_SERVER_THRESHOLD = 50.0;
-    private static final double FREEZE_REDSTONE_THRESHOLD = 45.0;
-    private static final double UNFREEZE_THRESHOLD = 32.0;  // Increased gap (13ms) to prevent oscillation
-
-    // EMA (Exponential Moving Average) smoothing
-    private static final double EMA_ALPHA = 0.3;  // Weight for new values (0.3 = smooth but responsive)
-
-    // RandomTickSpeed adjustment thresholds
-    private static final double RANDOM_TICK_START_REDUCE = 40.0;  // Start reducing at this MSPT
-    private static final double RANDOM_TICK_MIN_MSPT = 20.0;      // Optimal MSPT for full speed
-    private static final int RANDOM_TICK_MAX_SPEED = 3;           // Maximum allowed randomTickSpeed
-
-    // Whitelist of mob types to remove during cleanup
-    private static final Set<Class<? extends Entity>> REMOVABLE_MOB_TYPES = Set.of(
-            // Monster
-            Zombie.class,
-            Skeleton.class,
-            Creeper.class,
-            Spider.class,
-            CaveSpider.class,
-            Enderman.class,
-            Witch.class,
-            Slime.class,
-            Phantom.class,
-            Drowned.class,
-            Husk.class,
-            Stray.class,
-            Silverfish.class,
-            Endermite.class,
-            Blaze.class,
-            Ghast.class,
-            MagmaCube.class,
-            PigZombie.class,
-            Vindicator.class,
-            Evoker.class,
-            Vex.class,
-            Pillager.class,
-            Ravager.class,
-            // Normal
-            Pig.class,
-            Cow.class,
-            Sheep.class,
-            Chicken.class,
-            Horse.class,
-            Wolf.class,
-            Cat.class
-    );
+    private static final double THRESHOLD_SHUTDOWN = 1000.0;
+    private static final double THRESHOLD_KICK = 150.0;
 
     private final JavaPlugin plugin;
+    private final ServerTickManager tickManager;
     private final Component kickMessage;
-    private final ServerTickManager serverTickManager;
+
+    private final MsptSampler sampler;
+    private final FreezeController freezeController;
+    private final RandomTickAdjuster tickAdjuster;
 
     private BukkitTask guardTask;
-    private volatile boolean isRedstoneFrozen = false;
-    private final Map<World, Integer> originalRandomTickSpeed = new HashMap<>();
-
-    // EMA smoothing for stable MSPT measurement
-    private double smoothedMspt = 0.0;
-
-    // Trend prediction
-    private final Queue<Double> msptHistory = new LinkedList<>();
-    private static final int HISTORY_SIZE = 10;  // Track last 10 measurements
 
     public PerformanceModule(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.tickManager = plugin.getServer().getServerTickManager();
 
-        // Prepare kick message
         this.kickMessage = Component.text("═══════════════════════════════")
                 .append(Component.newline())
                 .append(Component.text("服务器出现异常卡顿").color(NamedTextColor.RED))
@@ -109,251 +53,265 @@ public class PerformanceModule implements Listener {
                 .append(Component.newline())
                 .append(Component.text("═══════════════════════════════"));
 
-        this.serverTickManager = plugin.getServer().getServerTickManager();
+        this.sampler = new MsptSampler();
+        this.freezeController = new FreezeController();
+        this.tickAdjuster = new RandomTickAdjuster(Bukkit.getWorlds());
 
-        // Store original randomTickSpeed for all worlds
-        for (World world : Bukkit.getWorlds()) {
-            Integer tickSpeed = world.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
-            if (tickSpeed != null) {
-                originalRandomTickSpeed.put(world, tickSpeed);
-            }
-        }
-
-        // Register events
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Start performance monitoring
-     */
     public void start() {
-        this.guardTask = Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> {
-            double rawMspt = Bukkit.getAverageTickTime();
-
-            // Apply EMA smoothing to reduce noise and prevent oscillation
-            if (smoothedMspt == 0.0) {
-                smoothedMspt = rawMspt;  // Initialize with first value
-            } else {
-                smoothedMspt = EMA_ALPHA * rawMspt + (1 - EMA_ALPHA) * smoothedMspt;
-            }
-
-            // Use smoothed MSPT for all decisions
-            double mspt = smoothedMspt;
-
-            // Update history for trend prediction (use smoothed values)
-            updateMsptHistory(mspt);
-
-            // Calculate trend
-            double trend = calculateTrend();
-            double predictedMspt = mspt + trend;
-
-            if (mspt > SHUTDOWN_THRESHOLD) {
-                SchedulerUtil.runSync(plugin, () -> {
-                    plugin.getLogger().severe("MSPT critically high (>1000ms), shutting down server!");
-                    Bukkit.getServer().shutdown();
-                });
-                return;
-            }
-
-            if (mspt > KICK_THRESHOLD) {
-                SchedulerUtil.runSync(plugin, () -> {
-                    for (Player player : Bukkit.getOnlinePlayers()) {
-                        if (!player.hasPermission(MANAGER_PERMISSION)) {
-                            player.kick(kickMessage);
-                        }
-                    }
-                });
-            }
-
-            // Use predicted MSPT for proactive measures
-            if (mspt > FREEZE_REDSTONE_THRESHOLD || (trend > 2.0 && predictedMspt > FREEZE_REDSTONE_THRESHOLD)) {
-                handleHighLoad(mspt);
-            } else if (mspt < UNFREEZE_THRESHOLD && trend <= 0) {
-                handleNormalLoad();
-            }
-
-            // Always adjust randomTickSpeed dynamically (use predicted value for smoother adjustment)
-            SchedulerUtil.runSync(plugin, () -> adjustRandomTickSpeed(Math.max(mspt, predictedMspt)));
-        }, INITIAL_DELAY_TICKS, CHECK_INTERVAL_TICKS);
+        guardTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
+                plugin, this::tick, INITIAL_DELAY_TICKS, CHECK_INTERVAL_TICKS);
     }
 
-    /**
-     * Stop performance monitoring
-     */
     public void stop() {
-        if (guardTask != null) {
-            guardTask.cancel();
-        }
+        if (guardTask != null) guardTask.cancel();
     }
 
-    /**
-     * Update MSPT history for trend analysis
-     */
-    private void updateMsptHistory(double mspt) {
-        msptHistory.offer(mspt);
-        if (msptHistory.size() > HISTORY_SIZE) {
-            msptHistory.poll();
-        }
-    }
+    private void tick() {
+        double mspt = sampler.update(Bukkit.getAverageTickTime());
+        double trend = sampler.trend();
 
-    /**
-     * Calculate MSPT trend using simple linear regression
-     * Returns the slope (change per measurement)
-     * Positive = increasing (worsening), Negative = decreasing (improving)
-     */
-    private double calculateTrend() {
-        if (msptHistory.size() < 3) {
-            return 0.0;  // Not enough data
-        }
-
-        java.util.List<Double> history = new java.util.ArrayList<>(msptHistory);
-        int n = history.size();
-
-        // Calculate simple linear regression slope
-        double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-        for (int i = 0; i < n; i++) {
-            double x = i;
-            double y = history.get(i);
-            sumX += x;
-            sumY += y;
-            sumXY += x * y;
-            sumX2 += x * x;
-        }
-
-        // Slope formula: (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
-        return (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-    }
-
-    /**
-     * Handle high server load
-     */
-    private void handleHighLoad(double mspt) {
-        if (mspt >= FREEZE_SERVER_THRESHOLD && !serverTickManager.isFrozen()) {
+        if (mspt > THRESHOLD_SHUTDOWN) {
             SchedulerUtil.runSync(plugin, () -> {
-                if (!serverTickManager.isFrozen()) {
-                    serverTickManager.setFrozen(true);
-                }
+                plugin.getLogger().severe(String.format("MSPT critically high (%.0f ms), shutting down!", mspt));
+                Bukkit.getServer().shutdown();
             });
+            return;
         }
-        isRedstoneFrozen = true;
-        SchedulerUtil.runSync(plugin, this::performEmergencyCleanup);
-    }
 
-    /**
-     * Handle normal server load
-     */
-    private void handleNormalLoad() {
-        if (serverTickManager.isFrozen()) {
-            SchedulerUtil.runSync(plugin, () -> {
-                if (serverTickManager.isFrozen()) {
-                    serverTickManager.setFrozen(false);
-                }
+        if (mspt > THRESHOLD_KICK) {
+            SchedulerUtil.runSync(plugin, () ->
+                    Bukkit.getOnlinePlayers().stream()
+                            .filter(p -> !p.hasPermission(MANAGER_PERMISSION))
+                            .forEach(p -> p.kick(kickMessage))
+            );
+        }
+
+        FreezeController.Decision decision = freezeController.evaluate(mspt, trend);
+        switch (decision) {
+            case FREEZE -> SchedulerUtil.runSync(plugin, () -> {
+                if (!tickManager.isFrozen()) tickManager.setFrozen(true);
+                EntityCleaner.run(Bukkit.getWorlds());
+                plugin.getLogger().warning(String.format("Server frozen (MSPT=%.1f)", mspt));
             });
-        }
-        if (isRedstoneFrozen) {
-            isRedstoneFrozen = false;
-            plugin.getLogger().info("Redstone unfrozen");
-        }
-    }
-
-    /**
-     * Dynamically adjust randomTickSpeed based on current MSPT
-     * Formula: speed = min(maxSpeed, originalSpeed * max(0, (threshold - mspt) / (threshold - minMspt)))
-     *
-     * @param mspt current milliseconds per tick
-     */
-    private void adjustRandomTickSpeed(double mspt) {
-        Bukkit.getWorlds().forEach(world -> {
-            Integer originalSpeed = originalRandomTickSpeed.get(world);
-            if (originalSpeed == null || originalSpeed == 0) return;
-
-            int cappedSpeed = Math.min(originalSpeed, RANDOM_TICK_MAX_SPEED);
-            int newSpeed = calculateAdjustedSpeed(mspt, cappedSpeed);
-
-            Integer currentSpeed = world.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
-            if (currentSpeed == null || currentSpeed != newSpeed) {
-                world.setGameRule(GameRules.RANDOM_TICK_SPEED, newSpeed);
+            case UNFREEZE -> SchedulerUtil.runSync(plugin, () -> {
+                if (tickManager.isFrozen()) tickManager.setFrozen(false);
+                plugin.getLogger().info("Server recovered, unfreezing.");
+            });
+            case HOLD -> {
             }
-        });
-    }
-
-    /**
-     * Calculate adjusted speed based on MSPT
-     */
-    private int calculateAdjustedSpeed(double mspt, int maxSpeed) {
-        if (mspt < RANDOM_TICK_START_REDUCE) {
-            return maxSpeed;
         }
-        double ratio = Math.max(0.0, (RANDOM_TICK_START_REDUCE - mspt) /
-                                     (RANDOM_TICK_START_REDUCE - RANDOM_TICK_MIN_MSPT));
-        return (int) Math.round(maxSpeed * ratio);
+
+        double effectiveMspt = Math.max(mspt, mspt + trend);
+        SchedulerUtil.runSync(plugin, () -> tickAdjuster.adjust(effectiveMspt));
     }
 
-    /**
-     * Perform emergency entity cleanup
-     */
-    private void performEmergencyCleanup() {
-        Bukkit.getWorlds().forEach(world -> {
-            // Remove old items
-            world.getEntitiesByClass(Item.class).stream()
-                    .filter(item -> item.getTicksLived() > ITEM_MAX_TICKS)
-                    .forEach(Entity::remove);
-
-            // Remove projectiles
-            world.getEntitiesByClass(Projectile.class).forEach(Entity::remove);
-
-            // Remove experience orbs
-            world.getEntitiesByClass(ExperienceOrb.class).forEach(Entity::remove);
-
-            // Remove specific mobs from whitelist
-            world.getEntitiesByClass(LivingEntity.class).stream()
-                    .filter(this::shouldRemoveEntity)
-                    .forEach(Entity::remove);
-        });
-    }
-
-    /**
-     * Check if entity should be removed during cleanup
-     */
-    private boolean shouldRemoveEntity(LivingEntity entity) {
-        // Check if entity type is in removable whitelist
-        boolean isRemovable = REMOVABLE_MOB_TYPES.stream()
-                .anyMatch(type -> type.isInstance(entity));
-
-        if (!isRemovable) return false;
-
-        // Skip entities with custom names
-        if (entity.customName() != null) return false;
-
-        // Skip tameable entities with owners
-        return !(entity instanceof Tameable tameable) || tameable.getOwner() == null;
-    }
+    // ── Event handlers ──────────────────────────────────────────────────────
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onRedstoneChange(BlockRedstoneEvent event) {
-        if (isRedstoneFrozen) {
-            event.setNewCurrent(0);
-        }
+        if (freezeController.isFrozen()) event.setNewCurrent(0);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
-        if (isRedstoneFrozen) {
-            event.setCancelled(true);
-        }
+        if (freezeController.isFrozen()) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
-        if (isRedstoneFrozen) {
-            event.setCancelled(true);
-        }
+        if (freezeController.isFrozen()) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
-        if (isRedstoneFrozen && event.getSource().getHolder() instanceof Hopper) {
+        if (freezeController.isFrozen() && event.getSource().getHolder() instanceof Hopper)
             event.setCancelled(true);
+    }
+
+    // ── Inner classes ───────────────────────────────────────────────────────
+
+    /**
+     * EMA smoothing + linear-regression trend over a sliding window.
+     * Only accessed from the single async guardian task.
+     */
+    private static class MsptSampler {
+        private static final double EMA_ALPHA = 0.25;
+        private static final int WINDOW_SIZE = 10;
+
+        private double smoothed = 0.0;
+        private boolean initialized = false;
+        private final Deque<Double> history = new ArrayDeque<>(WINDOW_SIZE + 1);
+
+        /**
+         * Feed a raw MSPT reading; returns the smoothed value.
+         */
+        double update(double raw) {
+            smoothed = initialized ? EMA_ALPHA * raw + (1 - EMA_ALPHA) * smoothed : raw;
+            initialized = true;
+
+            history.addLast(smoothed);
+            if (history.size() > WINDOW_SIZE) history.removeFirst();
+
+            return smoothed;
+        }
+
+        /**
+         * Linear regression slope over the window (ms/reading). Positive = worsening.
+         */
+        double trend() {
+            if (history.size() < 3) return 0.0;
+
+            List<Double> h = new ArrayList<>(history);
+            int n = h.size();
+            double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            for (int i = 0; i < n; i++) {
+                sumX += i;
+                sumY += h.get(i);
+                sumXY += (double) i * h.get(i);
+                sumX2 += (double) i * i;
+            }
+            double denom = n * sumX2 - sumX * sumX;
+            return denom == 0.0 ? 0.0 : (n * sumXY - sumX * sumY) / denom;
+        }
+    }
+
+    /**
+     * Debounced freeze state machine.
+     * <p>
+     * Requires FREEZE_CONFIRM consecutive high readings to freeze,
+     * and UNFREEZE_CONFIRM consecutive recovery readings to unfreeze.
+     * A rising trend accelerates the freeze counter but cannot skip debounce.
+     */
+    private static class FreezeController {
+
+        enum Decision {FREEZE, UNFREEZE, HOLD}
+
+        // Thresholds
+        private static final double MSPT_FREEZE_REDSTONE = 48.0;
+        private static final double MSPT_FREEZE_SERVER = 50.0;
+        private static final double MSPT_UNFREEZE = 38.0;  // hysteresis gap = 10 ms
+
+        // Debounce
+        private static final int FREEZE_CONFIRM = 3;  // ~6 s
+        private static final int UNFREEZE_CONFIRM = 5;  // ~10 s
+
+        // Trend boost: each SLOPE ms/reading of rise = +1 extra high count, capped at MAX
+        private static final double TREND_BOOST_SLOPE = 3.0;
+        private static final int TREND_BOOST_MAX = 1;
+
+        private final AtomicBoolean frozen = new AtomicBoolean(false);
+        private int highCount = 0;
+        private int normalCount = 0;
+
+        Decision evaluate(double mspt, double trend) {
+            if (mspt >= MSPT_FREEZE_REDSTONE) {
+                int boost = trend > TREND_BOOST_SLOPE
+                        ? Math.min(TREND_BOOST_MAX, (int) (trend / TREND_BOOST_SLOPE)) : 0;
+                highCount = Math.min(highCount + 1 + boost, FREEZE_CONFIRM);
+                normalCount = 0;
+            } else if (mspt < MSPT_UNFREEZE) {
+                normalCount = Math.min(normalCount + 1, UNFREEZE_CONFIRM);
+                highCount = Math.max(highCount - 1, 0);
+            }
+            // mspt in hysteresis band → no counter change
+
+            if (!frozen.get() && highCount >= FREEZE_CONFIRM) {
+                frozen.set(true);
+                normalCount = 0;
+                return Decision.FREEZE;
+            }
+            if (frozen.get() && normalCount >= UNFREEZE_CONFIRM) {
+                frozen.set(false);
+                highCount = 0;
+                normalCount = 0;
+                return Decision.UNFREEZE;
+            }
+            return Decision.HOLD;
+        }
+
+        boolean isFrozen() {
+            return frozen.get();
+        }
+    }
+
+    /**
+     * Manages per-world randomTickSpeed.
+     * Speed interpolates linearly from maxSpeed at MSPT_FULL down to 0 at MSPT_ZERO.
+     */
+    private static class RandomTickAdjuster {
+
+        private static final double MSPT_FULL = 20.0;  // full speed below this
+        private static final double MSPT_ZERO = 40.0;  // disabled at or above this
+        private static final int MAX_SPEED = 3;
+
+        private final Map<World, Integer> originals = new HashMap<>();
+
+        RandomTickAdjuster(List<World> worlds) {
+            for (World w : worlds) {
+                Integer v = w.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
+                if (v != null) originals.put(w, v);
+            }
+        }
+
+        void adjust(double mspt) {
+            originals.forEach((world, original) -> {
+                if (original == 0) return;
+                int target = interpolate(mspt, Math.min(original, MAX_SPEED));
+                Integer current = world.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
+                if (current == null || current != target)
+                    world.setGameRule(GameRules.RANDOM_TICK_SPEED, target);
+            });
+        }
+
+        private int interpolate(double mspt, int max) {
+            if (mspt <= MSPT_FULL) return max;
+            if (mspt >= MSPT_ZERO) return 0;
+            double ratio = (MSPT_ZERO - mspt) / (MSPT_ZERO - MSPT_FULL);
+            return (int) Math.round(max * ratio);
+        }
+    }
+
+    /**
+     * Stateless emergency entity cleanup.
+     */
+    private static class EntityCleaner {
+
+        private static final int ITEM_MAX_TICKS = 3000;
+
+        private static final Set<Class<? extends Entity>> REMOVABLE = Set.of(
+                Zombie.class, Skeleton.class, Creeper.class, Spider.class,
+                CaveSpider.class, Enderman.class, Witch.class, Slime.class,
+                Phantom.class, Drowned.class, Husk.class, Stray.class,
+                Silverfish.class, Endermite.class, Blaze.class, Ghast.class,
+                MagmaCube.class, PigZombie.class, Vindicator.class, Evoker.class,
+                Vex.class, Pillager.class, Ravager.class,
+                Pig.class, Cow.class, Sheep.class, Chicken.class,
+                Horse.class, Wolf.class, Cat.class
+        );
+
+        static void run(List<World> worlds) {
+            worlds.forEach(world -> {
+                world.getEntitiesByClass(Item.class).stream()
+                        .filter(i -> i.getTicksLived() > ITEM_MAX_TICKS)
+                        .forEach(Entity::remove);
+
+                world.getEntitiesByClass(Projectile.class).forEach(Entity::remove);
+                world.getEntitiesByClass(ExperienceOrb.class).forEach(Entity::remove);
+
+                world.getEntitiesByClass(LivingEntity.class).stream()
+                        .filter(EntityCleaner::isRemovable)
+                        .forEach(Entity::remove);
+            });
+        }
+
+        private static boolean isRemovable(LivingEntity e) {
+            if (REMOVABLE.stream().noneMatch(t -> t.isInstance(e))) return false;
+            if (e.customName() != null) return false;
+            if (e instanceof Tameable t && t.getOwner() != null) return false;
+            return true;
         }
     }
 }
