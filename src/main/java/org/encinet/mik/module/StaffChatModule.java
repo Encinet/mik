@@ -88,7 +88,7 @@ public class StaffChatModule implements Listener {
     /**
      * Handle chat events
      */
-    @EventHandler(priority = EventPriority.HIGHEST)
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
 
