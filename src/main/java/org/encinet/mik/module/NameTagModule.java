@@ -208,7 +208,7 @@ public class NameTagModule {
                 .append(Component.text(name))
                 .append(suf)
                 .append(Component.text(" » ", NamedTextColor.GOLD))
-                .append(Component.text("示例消息", C_MUTED))
+                .append(Component.text("示例消息", NamedTextColor.WHITE))
                 .build();
     }
 

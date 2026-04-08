@@ -150,5 +150,9 @@ public final class Mik extends JavaPlugin {
         if (apiModule != null) {
             apiModule.stop();
         }
+
+        if (motdModule != null) {
+            motdModule.disable();
+        }
     }
 }
