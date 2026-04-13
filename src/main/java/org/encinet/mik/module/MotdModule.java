@@ -32,7 +32,7 @@ public class MotdModule implements Listener {
             "<gradient:#5e4fa2:#f79459>建造 · 摸鱼 · 音乐 · 快乐 · AFK",
             "<white><bold>推荐安装</bold> <green><bold>Plasmo Voice</bold> <white><bold>语音模组",
             "<gradient:#89f7fe:#66a6ff>✦</gradient> <white>身临其境 <gradient:#ee9ca7:#ffdde1><bold>ViveCraft</bold></gradient> <white>模组已支持 <gradient:#66a6ff:#89f7fe>✦</gradient>",
-            "<gradient:#ee9ca7:#ffdde1>需要帮助？</gradient> <white>点击进入官网 <gradient:#89f7fe:#66a6ff><underlined>mik.noctiro.moe</underlined></gradient>"
+            "<gradient:#ee9ca7:#ffdde1>需要帮助？</gradient> <white>访问官网 <gradient:#89f7fe:#66a6ff><underlined>mik.noctiro.moe</underlined></gradient>"
     };
 
     private static final String[] NORMAL_LINE2_EN = {

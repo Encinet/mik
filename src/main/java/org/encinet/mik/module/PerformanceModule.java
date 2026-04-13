@@ -1,9 +1,11 @@
 package org.encinet.mik.module;
 
+import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameRules;
+import org.bukkit.Location;
 import org.bukkit.ServerTickManager;
 import org.bukkit.World;
 import org.bukkit.block.Hopper;
@@ -11,16 +13,26 @@ import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockRedstoneEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.util.SchedulerUtil;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PerformanceModule implements Listener {
 
@@ -38,8 +50,10 @@ public class PerformanceModule implements Listener {
     private final MsptSampler sampler;
     private final FreezeController freezeController;
     private final RandomTickAdjuster tickAdjuster;
+    private final PlayerDistanceController distanceController;
 
     private BukkitTask guardTask;
+    private volatile double lastEffectiveMspt = 20.0;
 
     public PerformanceModule(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -56,17 +70,22 @@ public class PerformanceModule implements Listener {
         this.sampler = new MsptSampler();
         this.freezeController = new FreezeController();
         this.tickAdjuster = new RandomTickAdjuster(Bukkit.getWorlds());
+        this.distanceController = new PlayerDistanceController(
+                plugin.getServer().getViewDistance(),
+                plugin.getServer().getSimulationDistance());
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public void start() {
+        distanceController.primeOnlinePlayers();
         guardTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
                 plugin, this::tick, INITIAL_DELAY_TICKS, CHECK_INTERVAL_TICKS);
     }
 
     public void stop() {
         if (guardTask != null) guardTask.cancel();
+        distanceController.resetAll();
     }
 
     private void tick() {
@@ -105,10 +124,78 @@ public class PerformanceModule implements Listener {
         }
 
         double effectiveMspt = Math.max(mspt, mspt + trend);
-        SchedulerUtil.runSync(plugin, () -> tickAdjuster.adjust(effectiveMspt));
+        lastEffectiveMspt = effectiveMspt;
+        SchedulerUtil.runSync(plugin, () -> {
+            tickAdjuster.adjust(effectiveMspt);
+            distanceController.adjust(effectiveMspt);
+        });
     }
 
     // ── Event handlers ──────────────────────────────────────────────────────
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        distanceController.track(event.getPlayer(), lastEffectiveMspt);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        distanceController.untrack(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerMove(PlayerMoveEvent event) {
+        if (isMeaningfulActivity(event.getFrom(), event.getTo())) {
+            recordActivity(event.getPlayer());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerInteract(PlayerInteractEvent event) {
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerChat(AsyncChatEvent event) {
+        SchedulerUtil.runSync(plugin, () -> recordActivity(event.getPlayer()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockBreak(BlockBreakEvent event) {
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerSneak(PlayerToggleSneakEvent event) {
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerSprint(PlayerToggleSprintEvent event) {
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player player) {
+            recordActivity(player);
+        }
+    }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onRedstoneChange(BlockRedstoneEvent event) {
@@ -129,6 +216,23 @@ public class PerformanceModule implements Listener {
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
         if (freezeController.isFrozen() && event.getSource().getHolder() instanceof Hopper)
             event.setCancelled(true);
+    }
+
+    private boolean isMeaningfulActivity(Location from, Location to) {
+        if (to == null) return false;
+        if (!Objects.equals(from.getWorld(), to.getWorld())) return true;
+        if (from.distanceSquared(to) > 0.01D) return true;
+        return angularDelta(from.getYaw(), to.getYaw()) >= 8.0F
+                || Math.abs(from.getPitch() - to.getPitch()) >= 8.0F;
+    }
+
+    private float angularDelta(float a, float b) {
+        float delta = Math.abs(a - b) % 360.0F;
+        return delta > 180.0F ? 360.0F - delta : delta;
+    }
+
+    private void recordActivity(Player player) {
+        distanceController.markActive(player, lastEffectiveMspt);
     }
 
     // ── Inner classes ───────────────────────────────────────────────────────
@@ -191,7 +295,6 @@ public class PerformanceModule implements Listener {
 
         // Thresholds
         private static final double MSPT_FREEZE_REDSTONE = 48.0;
-        private static final double MSPT_FREEZE_SERVER = 50.0;
         private static final double MSPT_UNFREEZE = 38.0;  // hysteresis gap = 10 ms
 
         // Debounce
@@ -202,7 +305,7 @@ public class PerformanceModule implements Listener {
         private static final double TREND_BOOST_SLOPE = 3.0;
         private static final int TREND_BOOST_MAX = 1;
 
-        private final AtomicBoolean frozen = new AtomicBoolean(false);
+        private volatile boolean frozen;
         private int highCount = 0;
         private int normalCount = 0;
 
@@ -218,13 +321,13 @@ public class PerformanceModule implements Listener {
             }
             // mspt in hysteresis band → no counter change
 
-            if (!frozen.get() && highCount >= FREEZE_CONFIRM) {
-                frozen.set(true);
+            if (!frozen && highCount >= FREEZE_CONFIRM) {
+                frozen = true;
                 normalCount = 0;
                 return Decision.FREEZE;
             }
-            if (frozen.get() && normalCount >= UNFREEZE_CONFIRM) {
-                frozen.set(false);
+            if (frozen && normalCount >= UNFREEZE_CONFIRM) {
+                frozen = false;
                 highCount = 0;
                 normalCount = 0;
                 return Decision.UNFREEZE;
@@ -233,7 +336,7 @@ public class PerformanceModule implements Listener {
         }
 
         boolean isFrozen() {
-            return frozen.get();
+            return frozen;
         }
     }
 
@@ -275,6 +378,122 @@ public class PerformanceModule implements Listener {
     }
 
     /**
+     * Dynamically limits per-player render/simulation distance from current MSPT.
+     * Players that stay AFK long enough are clamped to fixed distances until they become active again.
+     */
+    private static class PlayerDistanceController {
+
+        private static final double MSPT_FULL_DISTANCE = 20.0;
+        private static final double MSPT_MIN_DISTANCE = 50.0;
+
+        private static final long AFK_TIMEOUT_MILLIS = 3L * 60L * 1000L;
+
+        private static final int PERFORMANCE_RENDER_MIN = 5;
+        private static final int PERFORMANCE_SIMULATION_MIN = 4;
+        private static final int AFK_RENDER_DISTANCE = 2;
+        private static final int AFK_SIMULATION_DISTANCE = 2;
+
+        private final int baseRenderDistance;
+        private final int baseSimulationDistance;
+        private final int afkRenderDistance;
+        private final int afkSimulationDistance;
+        private final Map<UUID, AppliedDistances> appliedDistances = new HashMap<>();
+        private final Map<UUID, Long> lastActiveAt = new HashMap<>();
+
+        PlayerDistanceController(int baseRenderDistance, int baseSimulationDistance) {
+            this.baseRenderDistance = Math.max(2, baseRenderDistance);
+            this.baseSimulationDistance = Math.max(2, baseSimulationDistance);
+            this.afkRenderDistance = Math.clamp(AFK_RENDER_DISTANCE, 2, this.baseRenderDistance);
+            this.afkSimulationDistance = Math.clamp(AFK_SIMULATION_DISTANCE, 2, this.baseSimulationDistance);
+        }
+
+        void primeOnlinePlayers() {
+            long now = System.currentTimeMillis();
+            Bukkit.getOnlinePlayers().forEach(player -> lastActiveAt.putIfAbsent(player.getUniqueId(), now));
+        }
+
+        void track(Player player, double effectiveMspt) {
+            lastActiveAt.put(player.getUniqueId(), System.currentTimeMillis());
+            apply(player, effectiveMspt);
+        }
+
+        void untrack(Player player) {
+            UUID playerId = player.getUniqueId();
+            lastActiveAt.remove(playerId);
+            appliedDistances.remove(playerId);
+        }
+
+        void markActive(Player player, double effectiveMspt) {
+            long now = System.currentTimeMillis();
+            UUID playerId = player.getUniqueId();
+            long previousActiveAt = lastActiveAt.getOrDefault(playerId, 0L);
+            boolean restoreImmediately = previousActiveAt == 0L || now - previousActiveAt >= AFK_TIMEOUT_MILLIS;
+
+            lastActiveAt.put(playerId, now);
+            if (restoreImmediately) {
+                apply(player, effectiveMspt);
+            }
+        }
+
+        void adjust(double effectiveMspt) {
+            long now = System.currentTimeMillis();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                lastActiveAt.putIfAbsent(player.getUniqueId(), now);
+                apply(player, effectiveMspt);
+            }
+        }
+
+        void resetAll() {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                applyIfChanged(player, baseRenderDistance, baseSimulationDistance);
+            }
+            appliedDistances.clear();
+            lastActiveAt.clear();
+        }
+
+        private void apply(Player player, double effectiveMspt) {
+            long idleMillis = Math.max(0L,
+                    System.currentTimeMillis() - lastActiveAt.getOrDefault(player.getUniqueId(), System.currentTimeMillis()));
+
+            if (idleMillis >= AFK_TIMEOUT_MILLIS) {
+                applyIfChanged(player, afkRenderDistance, afkSimulationDistance);
+                return;
+            }
+
+            int performanceRender = interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN);
+            int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
+            applyIfChanged(player, performanceRender, performanceSimulation);
+        }
+
+        private void applyIfChanged(Player player, int renderDistance, int simulationDistance) {
+            UUID playerId = player.getUniqueId();
+            AppliedDistances current = appliedDistances.get(playerId);
+            if (current != null
+                    && current.renderDistance == renderDistance
+                    && current.simulationDistance == simulationDistance) {
+                return;
+            }
+
+            player.setViewDistance(renderDistance);
+            player.setSimulationDistance(simulationDistance);
+            appliedDistances.put(playerId, new AppliedDistances(renderDistance, simulationDistance));
+        }
+
+        private int interpolateMspt(double mspt, int baseDistance, int minDistance) {
+            int floor = Math.clamp(minDistance, 2, baseDistance);
+            if (baseDistance <= floor) return baseDistance;
+            if (mspt <= MSPT_FULL_DISTANCE) return baseDistance;
+            if (mspt >= MSPT_MIN_DISTANCE) return floor;
+
+            double ratio = (MSPT_MIN_DISTANCE - mspt) / (MSPT_MIN_DISTANCE - MSPT_FULL_DISTANCE);
+            return floor + (int) Math.round((baseDistance - floor) * ratio);
+        }
+
+        private record AppliedDistances(int renderDistance, int simulationDistance) {
+        }
+    }
+
+    /**
      * Stateless emergency entity cleanup.
      */
     private static class EntityCleaner {
@@ -310,8 +529,7 @@ public class PerformanceModule implements Listener {
         private static boolean isRemovable(LivingEntity e) {
             if (REMOVABLE.stream().noneMatch(t -> t.isInstance(e))) return false;
             if (e.customName() != null) return false;
-            if (e instanceof Tameable t && t.getOwner() != null) return false;
-            return true;
+            return !(e instanceof Tameable t) || t.getOwner() == null;
         }
     }
 }
