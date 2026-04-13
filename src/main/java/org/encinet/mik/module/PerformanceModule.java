@@ -85,6 +85,10 @@ public class PerformanceModule implements Listener {
 
     public void stop() {
         if (guardTask != null) guardTask.cancel();
+        guardTask = null;
+        if (tickManager.isFrozen()) tickManager.setFrozen(false);
+        freezeController.reset();
+        tickAdjuster.reset();
         distanceController.resetAll();
     }
 
@@ -101,11 +105,12 @@ public class PerformanceModule implements Listener {
         }
 
         if (mspt > THRESHOLD_KICK) {
-            SchedulerUtil.runSync(plugin, () ->
-                    Bukkit.getOnlinePlayers().stream()
-                            .filter(p -> !p.hasPermission(MANAGER_PERMISSION))
-                            .forEach(p -> p.kick(kickMessage))
-            );
+            SchedulerUtil.runSync(plugin, () -> {
+                List<Player> playersToKick = new ArrayList<>(Bukkit.getOnlinePlayers());
+                playersToKick.stream()
+                        .filter(player -> !player.hasPermission(MANAGER_PERMISSION))
+                        .forEach(player -> player.kick(kickMessage));
+            });
         }
 
         FreezeController.Decision decision = freezeController.evaluate(mspt, trend);
@@ -338,6 +343,12 @@ public class PerformanceModule implements Listener {
         boolean isFrozen() {
             return frozen;
         }
+
+        void reset() {
+            frozen = false;
+            highCount = 0;
+            normalCount = 0;
+        }
     }
 
     /**
@@ -366,6 +377,15 @@ public class PerformanceModule implements Listener {
                 Integer current = world.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
                 if (current == null || current != target)
                     world.setGameRule(GameRules.RANDOM_TICK_SPEED, target);
+            });
+        }
+
+        void reset() {
+            originals.forEach((world, original) -> {
+                Integer current = world.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
+                if (current == null || !current.equals(original)) {
+                    world.setGameRule(GameRules.RANDOM_TICK_SPEED, original);
+                }
             });
         }
 

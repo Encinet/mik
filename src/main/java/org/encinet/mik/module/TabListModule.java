@@ -13,6 +13,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 /**
  * Module for customizing player tab list with LuckPerms prefix and suffix
@@ -22,6 +23,7 @@ public class TabListModule implements Listener {
     private final JavaPlugin plugin;
     private LuckPerms luckPerms;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private BukkitTask updateTask;
 
     private static final Component TABLIST_HEADER = MiniMessage.miniMessage().deserialize(
             "<gold><bold>Mi</bold><white><bold>k</bold> <green><bold>Casual</bold></green></white></gold>"
@@ -49,6 +51,8 @@ public class TabListModule implements Listener {
             updatePlayerTabList(player);
         }
 
+        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPlayerTabLists, 200L, 20L);
+
         plugin.getLogger().info("TabListModule enabled");
     }
 
@@ -56,15 +60,29 @@ public class TabListModule implements Listener {
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, Component.empty());
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, () -> updatePlayerTabList(player), 200L, 2L);
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (player.isOnline()) {
+                updatePlayerTabList(player);
+            }
+        }, 1L);
     }
 
     /**
      * Disable tab list module and reset all players' tab list names
      */
     public void disable() {
+        if (updateTask != null) {
+            updateTask.cancel();
+            updateTask = null;
+        }
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playerListName(null);
+        }
+    }
+
+    private void updateAllPlayerTabLists() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            updatePlayerTabList(player);
         }
     }
 

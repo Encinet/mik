@@ -24,6 +24,7 @@ import org.encinet.mik.Mik;
 
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 
 /**
  * Module for automatic player promotion based on activity stats.
@@ -111,13 +112,13 @@ public class AutoPromoteModule implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        if (!shouldPromotePlayer(player)) {
+            return;
+        }
 
-        // Check conditions asynchronously to avoid blocking main thread
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            if (shouldPromotePlayer(player)) {
-                promotePlayer(player);
-            }
-        });
+        UUID playerId = player.getUniqueId();
+        String playerName = player.getName();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> promotePlayer(playerId, playerName));
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
@@ -134,16 +135,12 @@ public class AutoPromoteModule implements Listener {
                         .executes(ctx -> {
                             CommandSender sender = ctx.getSource().getSender();
                             String name = StringArgumentType.getString(ctx, "player");
-                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                                OfflinePlayer target = Bukkit.getOfflinePlayer(name);
-                                if (!target.hasPlayedBefore()) {
-                                    Bukkit.getScheduler().runTask(plugin, () ->
-                                            sender.sendMessage(Component.text("Player '" + name + "' has never played on this server.", NamedTextColor.RED)));
-                                    return;
-                                }
-                                Component report = buildScoreReport(target);
-                                Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(report));
-                            });
+                            OfflinePlayer target = Bukkit.getOfflinePlayer(name);
+                            if (!target.hasPlayedBefore()) {
+                                sender.sendMessage(Component.text("Player '" + name + "' has never played on this server.", NamedTextColor.RED));
+                                return Command.SINGLE_SUCCESS;
+                            }
+                            sender.sendMessage(buildScoreReport(target));
                             return Command.SINGLE_SUCCESS;
                         })).build(), "View promotion score"));
     }
@@ -228,8 +225,8 @@ public class AutoPromoteModule implements Listener {
     /**
      * Promote player to member group
      */
-    private void promotePlayer(Player player) {
-        User user = luckPerms.getUserManager().getUser(player.getUniqueId());
+    private void promotePlayer(UUID playerId, String playerName) {
+        User user = luckPerms.getUserManager().getUser(playerId);
         if (user == null) {
             return;
         }
@@ -246,6 +243,10 @@ public class AutoPromoteModule implements Listener {
 
         // Notify player on main thread
         Bukkit.getScheduler().runTask(plugin, () -> {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null || !player.isOnline()) {
+                return;
+            }
             Component message = Component.text("恭喜！", NamedTextColor.GREEN, TextDecoration.BOLD)
                     .append(Component.text(" 你已成为 ", NamedTextColor.GREEN))
                     .append(Component.text("正式成员", NamedTextColor.GOLD))
@@ -254,6 +255,6 @@ public class AutoPromoteModule implements Listener {
             player.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1, 1);
         });
 
-        plugin.getLogger().info("Promoted player " + player.getName() + " to member group");
+        plugin.getLogger().info("Promoted player " + playerName + " to member group");
     }
 }
