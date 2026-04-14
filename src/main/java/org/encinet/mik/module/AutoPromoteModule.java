@@ -3,6 +3,7 @@ package org.encinet.mik.module;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.event.player.AsyncChatEvent;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
@@ -22,7 +23,8 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
 
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
@@ -56,18 +58,7 @@ public class AutoPromoteModule implements Listener {
         }
     }
 
-    /**
-     * Criterion for USE_ITEM — sums across all materials. Works for both online and offline.
-     */
-    private record BlockCriterion(int min, int full, int max) {
-        int score(OfflinePlayer op) {
-            int total = Arrays.stream(Material.values())
-                    .filter(Material::isItem)
-                    .mapToInt(m -> op.getStatistic(Statistic.USE_ITEM, m))
-                    .sum();
-            if (total < min) return -1;
-            return (int) ((long) (total - min) * max / (full - min));
-        }
+    private record ScoreBreakdown(int flyRaw, int sneakRaw, int leaveRaw, int jumpRaw, int total, boolean qualified) {
     }
 
     // Hard minimums (not stat-based)
@@ -78,14 +69,15 @@ public class AutoPromoteModule implements Listener {
     private static final Criterion FLY = new Criterion(Statistic.FLY_ONE_CM, 2_000_000, 6_000_000, 25);
     private static final Criterion SNEAK = new Criterion(Statistic.SNEAK_TIME, 6_000, 20_000, 25);
     private static final Criterion LEAVE = new Criterion(Statistic.LEAVE_GAME, 3, 15, 25);
-    // Total items used across all materials
-    private static final BlockCriterion USE_ITEMS = new BlockCriterion(5_00, 10_000, 25);
+    private static final Criterion JUMP = new Criterion(Statistic.JUMP, 500, 1_000, 25);
 
     private static final int SCORE_THRESHOLD = 100;
+    private static final long CHECK_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
     private static final String TAINT_PERMISSION = "mik.autopromote.taint";
 
     private final JavaPlugin plugin;
+    private final Map<UUID, Long> lastCheckAt = new HashMap<>();
     private LuckPerms luckPerms;
 
     public AutoPromoteModule(JavaPlugin plugin) {
@@ -111,14 +103,13 @@ public class AutoPromoteModule implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        if (!shouldPromotePlayer(player)) {
-            return;
-        }
+        schedulePromotionCheck(event.getPlayer());
+    }
 
-        UUID playerId = player.getUniqueId();
-        String playerName = player.getName();
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> promotePlayer(playerId, playerName));
+    @EventHandler
+    public void onPlayerChat(AsyncChatEvent event) {
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(plugin, () -> schedulePromotionCheck(player));
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
@@ -135,30 +126,23 @@ public class AutoPromoteModule implements Listener {
                         .executes(ctx -> {
                             CommandSender sender = ctx.getSource().getSender();
                             String name = StringArgumentType.getString(ctx, "player");
-                            OfflinePlayer target = Bukkit.getOfflinePlayer(name);
-                            if (!target.hasPlayedBefore()) {
-                                sender.sendMessage(Component.text("Player '" + name + "' has never played on this server.", NamedTextColor.RED));
-                                return Command.SINGLE_SUCCESS;
-                            }
-                            sender.sendMessage(buildScoreReport(target));
+                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> sendScoreReport(sender, name));
                             return Command.SINGLE_SUCCESS;
                         })).build(), "View promotion score"));
+    }
+
+    private void sendScoreReport(CommandSender sender, String name) {
+        OfflinePlayer target = Bukkit.getOfflinePlayer(name);
+        Component report = !target.hasPlayedBefore()
+                ? Component.text("Player '" + name + "' has never played on this server.", NamedTextColor.RED)
+                : buildScoreReport(target);
+        Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(report));
     }
 
     private Component buildScoreReport(OfflinePlayer op) {
         boolean ageOk = System.currentTimeMillis() - op.getFirstPlayed() >= JOIN_DAYS_MILLIS;
         boolean playtimeOk = op.getStatistic(Statistic.PLAY_ONE_MINUTE) >= PLAYED_HOURS_TICKS;
-
-        int flyRaw = FLY.score(op);
-        int sneakRaw = SNEAK.score(op);
-        int leaveRaw = LEAVE.score(op);
-        int mineRaw = USE_ITEMS.score(op);
-        int flyPts = Math.max(0, flyRaw);
-        int sneakPts = Math.max(0, sneakRaw);
-        int leavePts = Math.max(0, leaveRaw);
-        int minePts = Math.max(0, mineRaw);
-        boolean anyFailed = flyRaw < 0 || sneakRaw < 0 || leaveRaw < 0 || mineRaw < 0;
-        int total = anyFailed ? 0 : flyPts + sneakPts + leavePts + minePts;
+        ScoreBreakdown scores = calculateScores(op);
 
         String displayName = op.getName() != null ? op.getName() : op.getUniqueId().toString();
         Component header = Component.text("─── " + displayName + "'s Promotion Score ───", NamedTextColor.GOLD);
@@ -173,20 +157,20 @@ public class AutoPromoteModule implements Listener {
                 .append(status(playtimeOk)).append(Component.text(" Playtime >= 8 hours", NamedTextColor.WHITE))
                 .append(Component.newline())
                 .append(Component.text("Fly distance : ", NamedTextColor.GRAY))
-                .append(pts(flyPts, FLY.max(), flyRaw >= 0))
+                .append(pts(scores.flyRaw(), FLY.max(), scores.flyRaw() >= 0))
                 .append(Component.newline())
                 .append(Component.text("Sneak time   : ", NamedTextColor.GRAY))
-                .append(pts(sneakPts, SNEAK.max(), sneakRaw >= 0))
+                .append(pts(scores.sneakRaw(), SNEAK.max(), scores.sneakRaw() >= 0))
                 .append(Component.newline())
                 .append(Component.text("Leave count  : ", NamedTextColor.GRAY))
-                .append(pts(leavePts, LEAVE.max(), leaveRaw >= 0))
+                .append(pts(scores.leaveRaw(), LEAVE.max(), scores.leaveRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text("Items used   : ", NamedTextColor.GRAY))
-                .append(pts(minePts, USE_ITEMS.max(), mineRaw >= 0))
+                .append(Component.text("Jump count   : ", NamedTextColor.GRAY))
+                .append(pts(scores.jumpRaw(), JUMP.max(), scores.jumpRaw() >= 0))
                 .append(Component.newline())
                 .append(Component.text("Total: ", NamedTextColor.GOLD))
-                .append(Component.text(total + " / " + SCORE_THRESHOLD,
-                        total >= SCORE_THRESHOLD ? NamedTextColor.GREEN : NamedTextColor.RED));
+                .append(Component.text(scores.total() + " / " + SCORE_THRESHOLD,
+                        scores.qualified() ? NamedTextColor.GREEN : NamedTextColor.RED));
     }
 
     private Component status(boolean ok) {
@@ -199,27 +183,37 @@ public class AutoPromoteModule implements Listener {
         return Component.text(pts + " / " + max + suffix, color);
     }
 
-
-    private boolean shouldPromotePlayer(Player player) {
-        if (player.hasPermission(TAINT_PERMISSION)) return false;
-        if (player.hasPermission("group." + Mik.GROUP_MEMBER)) return false;
-
+    private boolean shouldPromotePlayer(OfflinePlayer player) {
         // Hard requirement: account age
         if (System.currentTimeMillis() - player.getFirstPlayed() < JOIN_DAYS_MILLIS) return false;
 
         // Hard requirement: playtime
         if (player.getStatistic(Statistic.PLAY_ONE_MINUTE) < PLAYED_HOURS_TICKS) return false;
 
-        // Score-based: each criterion must meet its minimum, then scores are summed
-        int flyPts = FLY.score(player);
-        if (flyPts < 0) return false;
-        int sneakPts = SNEAK.score(player);
-        if (sneakPts < 0) return false;
-        int leavePts = LEAVE.score(player);
-        if (leavePts < 0) return false;
-        int minePts = USE_ITEMS.score(player);
-        if (minePts < 0) return false;
-        return flyPts + sneakPts + leavePts + minePts >= SCORE_THRESHOLD;
+        return calculateScores(player).qualified();
+    }
+
+    private void schedulePromotionCheck(Player player) {
+        if (player.hasPermission(TAINT_PERMISSION) || player.hasPermission("group." + Mik.GROUP_MEMBER)) {
+            lastCheckAt.remove(player.getUniqueId());
+            return;
+        }
+
+        UUID playerId = player.getUniqueId();
+        long now = System.currentTimeMillis();
+        long lastChecked = lastCheckAt.getOrDefault(playerId, 0L);
+        if (now - lastChecked < CHECK_INTERVAL_MILLIS) {
+            return;
+        }
+
+        lastCheckAt.put(playerId, now);
+        String playerName = player.getName();
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerId);
+            if (shouldPromotePlayer(offlinePlayer)) {
+                promotePlayer(playerId, playerName);
+            }
+        });
     }
 
     /**
@@ -247,6 +241,7 @@ public class AutoPromoteModule implements Listener {
             if (player == null || !player.isOnline()) {
                 return;
             }
+            lastCheckAt.remove(playerId);
             Component message = Component.text("恭喜！", NamedTextColor.GREEN, TextDecoration.BOLD)
                     .append(Component.text(" 你已成为 ", NamedTextColor.GREEN))
                     .append(Component.text("正式成员", NamedTextColor.GOLD))
@@ -256,5 +251,23 @@ public class AutoPromoteModule implements Listener {
         });
 
         plugin.getLogger().info("Promoted player " + playerName + " to member group");
+    }
+
+    private ScoreBreakdown calculateScores(OfflinePlayer player) {
+        int flyRaw = FLY.score(player);
+        int sneakRaw = SNEAK.score(player);
+        int leaveRaw = LEAVE.score(player);
+        int jumpRaw = JUMP.score(player);
+
+        boolean qualified = flyRaw >= 0
+                && sneakRaw >= 0
+                && leaveRaw >= 0
+                && jumpRaw >= 0;
+
+        int total = qualified
+                ? flyRaw + sneakRaw + leaveRaw + jumpRaw
+                : 0;
+
+        return new ScoreBreakdown(flyRaw, sneakRaw, leaveRaw, jumpRaw, total, qualified);
     }
 }
