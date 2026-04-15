@@ -69,7 +69,7 @@ public class AutoPromoteModule implements Listener {
     private static final Criterion FLY = new Criterion(Statistic.FLY_ONE_CM, 2_000_000, 6_000_000, 25);
     private static final Criterion SNEAK = new Criterion(Statistic.SNEAK_TIME, 6_000, 20_000, 25);
     private static final Criterion LEAVE = new Criterion(Statistic.LEAVE_GAME, 3, 15, 25);
-    private static final Criterion JUMP = new Criterion(Statistic.JUMP, 500, 1_000, 25);
+    private static final Criterion JUMP = new Criterion(Statistic.JUMP, 600, 1_200, 25);
 
     private static final int SCORE_THRESHOLD = 100;
     private static final long CHECK_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5);

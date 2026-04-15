@@ -8,17 +8,21 @@ import org.bukkit.GameRules;
 import org.bukkit.Location;
 import org.bukkit.ServerTickManager;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.block.Hopper;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockRedstoneEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -42,6 +46,7 @@ public class PerformanceModule implements Listener {
 
     private static final double THRESHOLD_SHUTDOWN = 1000.0;
     private static final double THRESHOLD_KICK = 150.0;
+    private static final double THRESHOLD_CHUNK_GUARD = 32.0;
 
     private final JavaPlugin plugin;
     private final ServerTickManager tickManager;
@@ -51,6 +56,7 @@ public class PerformanceModule implements Listener {
     private final FreezeController freezeController;
     private final RandomTickAdjuster tickAdjuster;
     private final PlayerDistanceController distanceController;
+    private final ChunkPressureController pressureController;
 
     private BukkitTask guardTask;
     private volatile double lastEffectiveMspt = 20.0;
@@ -73,6 +79,7 @@ public class PerformanceModule implements Listener {
         this.distanceController = new PlayerDistanceController(
                 plugin.getServer().getViewDistance(),
                 plugin.getServer().getSimulationDistance());
+        this.pressureController = new ChunkPressureController();
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
@@ -90,6 +97,7 @@ public class PerformanceModule implements Listener {
         freezeController.reset();
         tickAdjuster.reset();
         distanceController.resetAll();
+        pressureController.reset();
     }
 
     private void tick() {
@@ -131,6 +139,7 @@ public class PerformanceModule implements Listener {
         double effectiveMspt = Math.max(mspt, mspt + trend);
         lastEffectiveMspt = effectiveMspt;
         SchedulerUtil.runSync(plugin, () -> {
+            pressureController.rollWindow();
             tickAdjuster.adjust(effectiveMspt);
             distanceController.adjust(effectiveMspt);
         });
@@ -204,23 +213,64 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onRedstoneChange(BlockRedstoneEvent event) {
-        if (freezeController.isFrozen()) event.setNewCurrent(0);
+        if (freezeController.isFrozen()
+                || pressureController.onRedstone(event.getBlock(), shouldApplyChunkGuard())) {
+            event.setNewCurrent(0);
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
-        if (freezeController.isFrozen()) event.setCancelled(true);
+        if (freezeController.isFrozen()
+                || pressureController.onPiston(event.getBlock(), shouldApplyChunkGuard())) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
-        if (freezeController.isFrozen()) event.setCancelled(true);
+        if (freezeController.isFrozen()
+                || pressureController.onPiston(event.getBlock(), shouldApplyChunkGuard())) {
+            event.setCancelled(true);
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
-        if (freezeController.isFrozen() && event.getSource().getHolder() instanceof Hopper)
+        if (!(event.getInitiator().getHolder() instanceof Hopper hopper)) {
+            return;
+        }
+        if (freezeController.isFrozen()
+                || pressureController.onHopperMove(hopper.getBlock(), shouldApplyChunkGuard())) {
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onBlockPhysics(BlockPhysicsEvent event) {
+        if (freezeController.isFrozen()
+                || pressureController.onPhysics(event.getBlock(), shouldApplyChunkGuard())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onFallingBlockChange(EntityChangeBlockEvent event) {
+        if (event.getEntityType() != EntityType.FALLING_BLOCK) {
+            return;
+        }
+        if (freezeController.isFrozen()
+                || pressureController.onFallingBlock(event.getBlock(), shouldApplyChunkGuard())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onItemSpawn(ItemSpawnEvent event) {
+        if (freezeController.isFrozen()
+                || pressureController.onItemSpawn(event.getLocation().getBlock(), shouldApplyChunkGuard())) {
+            event.setCancelled(true);
+        }
     }
 
     private boolean isMeaningfulActivity(Location from, Location to) {
@@ -238,6 +288,10 @@ public class PerformanceModule implements Listener {
 
     private void recordActivity(Player player) {
         distanceController.markActive(player, lastEffectiveMspt);
+    }
+
+    private boolean shouldApplyChunkGuard() {
+        return freezeController.isFrozen() || lastEffectiveMspt >= THRESHOLD_CHUNK_GUARD;
     }
 
     // ── Inner classes ───────────────────────────────────────────────────────
@@ -514,21 +568,148 @@ public class PerformanceModule implements Listener {
     }
 
     /**
+     * Chunk-local throttling inspired by FAWE's old tick limiter, but without
+     * stack-trace probing or global side effects. The goal is to locally melt
+     * down abusive chunks before the whole server needs freezing.
+     */
+    private final class ChunkPressureController {
+
+        private static final int THROTTLE_DURATION_WINDOWS = 2;
+        private static final long LOG_COOLDOWN_MILLIS = 10_000L;
+
+        private static final int COUNTER_COUNT = 6;
+        private static final PressureRule PHYSICS = new PressureRule(0, 384, 1024, "physics");
+        private static final PressureRule REDSTONE = new PressureRule(1, 256, 768, "redstone");
+        private static final PressureRule HOPPER = new PressureRule(2, 192, 512, "hopper");
+        private static final PressureRule PISTON = new PressureRule(3, 96, 256, "piston");
+        private static final PressureRule ITEM_SPAWN = new PressureRule(4, 48, 128, "item-spawn");
+        private static final PressureRule FALLING_BLOCK = new PressureRule(5, 48, 128, "falling-block");
+
+        private final Map<Long, int[]> counters = new HashMap<>();
+        private final Map<Long, Integer> throttledChunks = new HashMap<>();
+        private long lastLogAtMillis;
+
+        boolean onPhysics(Block block, boolean underPressure) {
+            return shouldThrottle(block, PHYSICS, underPressure);
+        }
+
+        boolean onRedstone(Block block, boolean underPressure) {
+            return shouldThrottle(block, REDSTONE, underPressure);
+        }
+
+        boolean onHopperMove(Block block, boolean underPressure) {
+            return shouldThrottle(block, HOPPER, underPressure);
+        }
+
+        boolean onPiston(Block block, boolean underPressure) {
+            return shouldThrottle(block, PISTON, underPressure);
+        }
+
+        boolean onItemSpawn(Block block, boolean underPressure) {
+            return shouldThrottle(block, ITEM_SPAWN, underPressure);
+        }
+
+        boolean onFallingBlock(Block block, boolean underPressure) {
+            return shouldThrottle(block, FALLING_BLOCK, underPressure);
+        }
+
+        void rollWindow() {
+            counters.clear();
+            if (throttledChunks.isEmpty()) {
+                return;
+            }
+            Iterator<Map.Entry<Long, Integer>> iterator = throttledChunks.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<Long, Integer> entry = iterator.next();
+                int next = entry.getValue() - 1;
+                if (next <= 0) {
+                    iterator.remove();
+                } else {
+                    entry.setValue(next);
+                }
+            }
+        }
+
+        void reset() {
+            counters.clear();
+            throttledChunks.clear();
+            lastLogAtMillis = 0L;
+        }
+
+        private boolean shouldThrottle(Block block, PressureRule rule, boolean underPressure) {
+            long key = chunkKey(block);
+            if (throttledChunks.containsKey(key)) {
+                return true;
+            }
+
+            int[] counts = counters.computeIfAbsent(key, ignored -> new int[COUNTER_COUNT]);
+            int current = ++counts[rule.index()];
+            if (current >= rule.hardLimit() || (underPressure && current >= rule.softLimit())) {
+                throttleNeighborhood(block, rule.category(), current);
+                return true;
+            }
+            return false;
+        }
+
+        private void throttleNeighborhood(Block source, String category, int count) {
+            int chunkX = source.getX() >> 4;
+            int chunkZ = source.getZ() >> 4;
+            for (int dx = -1; dx <= 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    throttledChunks.put(chunkKey(source.getWorld(), chunkX + dx, chunkZ + dz), THROTTLE_DURATION_WINDOWS);
+                }
+            }
+            maybeLog(source, category, count);
+        }
+
+        private void maybeLog(Block source, String category, int count) {
+            long now = System.currentTimeMillis();
+            if (now - lastLogAtMillis < LOG_COOLDOWN_MILLIS) {
+                return;
+            }
+            lastLogAtMillis = now;
+            plugin.getLogger().warning(String.format(
+                    Locale.ROOT,
+                    "Chunk guard throttled %s near %s,%s,%s in %s (count=%d, mspt=%.1f)",
+                    category,
+                    source.getX(),
+                    source.getY(),
+                    source.getZ(),
+                    source.getWorld().getName(),
+                    count,
+                    lastEffectiveMspt
+            ));
+        }
+
+        private long chunkKey(Block block) {
+            return chunkKey(block.getWorld(), block.getX() >> 4, block.getZ() >> 4);
+        }
+
+        private long chunkKey(World world, int chunkX, int chunkZ) {
+            long worldBits = world.getUID().getMostSignificantBits() ^ world.getUID().getLeastSignificantBits();
+            return Long.rotateLeft(worldBits, 21) ^ ((long) chunkX << 32) ^ (chunkZ & 0xffffffffL);
+        }
+
+        private record PressureRule(int index, int softLimit, int hardLimit, String category) {
+        }
+    }
+
+    /**
      * Stateless emergency entity cleanup.
      */
     private static class EntityCleaner {
 
         private static final int ITEM_MAX_TICKS = 3000;
 
-        private static final Set<Class<? extends Entity>> REMOVABLE = Set.of(
-                Zombie.class, Skeleton.class, Creeper.class, Spider.class,
-                CaveSpider.class, Enderman.class, Witch.class, Slime.class,
-                Phantom.class, Drowned.class, Husk.class, Stray.class,
-                Silverfish.class, Endermite.class, Blaze.class, Ghast.class,
-                MagmaCube.class, PigZombie.class, Vindicator.class, Evoker.class,
-                Vex.class, Pillager.class, Ravager.class,
-                Pig.class, Cow.class, Sheep.class, Chicken.class,
-                Horse.class, Wolf.class, Cat.class
+        private static final Set<EntityType> REMOVABLE = EnumSet.of(
+                EntityType.ZOMBIE, EntityType.SKELETON, EntityType.CREEPER, EntityType.SPIDER,
+                EntityType.CAVE_SPIDER, EntityType.ENDERMAN, EntityType.WITCH, EntityType.SLIME,
+                EntityType.PHANTOM, EntityType.DROWNED, EntityType.HUSK, EntityType.STRAY,
+                EntityType.SILVERFISH, EntityType.ENDERMITE, EntityType.BLAZE, EntityType.GHAST,
+                EntityType.MAGMA_CUBE, EntityType.ZOMBIFIED_PIGLIN, EntityType.VINDICATOR, EntityType.EVOKER,
+                EntityType.VEX, EntityType.PILLAGER, EntityType.RAVAGER,
+                EntityType.PIG, EntityType.COW, EntityType.SHEEP, EntityType.CHICKEN,
+                EntityType.HORSE, EntityType.WOLF, EntityType.CAT
         );
 
         static void run(List<World> worlds) {
@@ -547,7 +728,7 @@ public class PerformanceModule implements Listener {
         }
 
         private static boolean isRemovable(LivingEntity e) {
-            if (REMOVABLE.stream().noneMatch(t -> t.isInstance(e))) return false;
+            if (!REMOVABLE.contains(e.getType())) return false;
             if (e.customName() != null) return false;
             return !(e instanceof Tameable t) || t.getOwner() == null;
         }
