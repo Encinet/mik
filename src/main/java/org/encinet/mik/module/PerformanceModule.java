@@ -37,6 +37,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.util.SchedulerUtil;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PerformanceModule implements Listener {
 
@@ -46,7 +47,7 @@ public class PerformanceModule implements Listener {
 
     private static final double THRESHOLD_SHUTDOWN = 1000.0;
     private static final double THRESHOLD_KICK = 150.0;
-    private static final double THRESHOLD_CHUNK_GUARD = 32.0;
+    private static final double THRESHOLD_CHUNK_GUARD = 40.0;
 
     private final JavaPlugin plugin;
     private final ServerTickManager tickManager;
@@ -54,6 +55,7 @@ public class PerformanceModule implements Listener {
 
     private final MsptSampler sampler;
     private final FreezeController freezeController;
+    private final EmergencyController emergencyController;
     private final RandomTickAdjuster tickAdjuster;
     private final PlayerDistanceController distanceController;
     private final ChunkPressureController pressureController;
@@ -75,6 +77,7 @@ public class PerformanceModule implements Listener {
 
         this.sampler = new MsptSampler();
         this.freezeController = new FreezeController();
+        this.emergencyController = new EmergencyController();
         this.tickAdjuster = new RandomTickAdjuster(Bukkit.getWorlds());
         this.distanceController = new PlayerDistanceController(
                 plugin.getServer().getViewDistance(),
@@ -95,6 +98,7 @@ public class PerformanceModule implements Listener {
         guardTask = null;
         if (tickManager.isFrozen()) tickManager.setFrozen(false);
         freezeController.reset();
+        emergencyController.reset();
         tickAdjuster.reset();
         distanceController.resetAll();
         pressureController.reset();
@@ -104,41 +108,65 @@ public class PerformanceModule implements Listener {
         double mspt = sampler.update(Bukkit.getAverageTickTime());
         double trend = sampler.trend();
 
-        if (mspt > THRESHOLD_SHUTDOWN) {
-            SchedulerUtil.runSync(plugin, () -> {
-                plugin.getLogger().severe(String.format("MSPT critically high (%.0f ms), shutting down!", mspt));
-                Bukkit.getServer().shutdown();
-            });
-            return;
-        }
-
-        if (mspt > THRESHOLD_KICK) {
-            SchedulerUtil.runSync(plugin, () -> {
-                List<Player> playersToKick = new ArrayList<>(Bukkit.getOnlinePlayers());
-                playersToKick.stream()
-                        .filter(player -> !player.hasPermission(MANAGER_PERMISSION))
-                        .forEach(player -> player.kick(kickMessage));
-            });
-        }
-
         FreezeController.Decision decision = freezeController.evaluate(mspt, trend);
-        switch (decision) {
-            case FREEZE -> SchedulerUtil.runSync(plugin, () -> {
-                if (!tickManager.isFrozen()) tickManager.setFrozen(true);
-                EntityCleaner.run(Bukkit.getWorlds());
-                plugin.getLogger().warning(String.format("Server frozen (MSPT=%.1f)", mspt));
-            });
-            case UNFREEZE -> SchedulerUtil.runSync(plugin, () -> {
-                if (tickManager.isFrozen()) tickManager.setFrozen(false);
-                plugin.getLogger().info("Server recovered, unfreezing.");
-            });
-            case HOLD -> {
-            }
-        }
+
+        EmergencyController.Decision emergencyDecision =
+                emergencyController.evaluate(mspt, freezeController.isFrozen());
 
         double effectiveMspt = Math.max(mspt, mspt + trend);
         lastEffectiveMspt = effectiveMspt;
         SchedulerUtil.runSync(plugin, () -> {
+            distanceController.flushPendingActivity(effectiveMspt);
+
+            switch (decision) {
+                case FREEZE -> {
+                    if (!tickManager.isFrozen()) tickManager.setFrozen(true);
+                    EntityCleaner.run(Bukkit.getWorlds());
+                    plugin.getLogger().warning(String.format(Locale.ROOT, "Server frozen (MSPT=%.1f)", mspt));
+                }
+                case UNFREEZE -> {
+                    if (tickManager.isFrozen()) tickManager.setFrozen(false);
+                    plugin.getLogger().info("Server recovered, unfreezing.");
+                }
+                case HOLD -> {
+                }
+            }
+
+            switch (emergencyDecision) {
+                case KICK -> {
+                    List<Player> playersToKick = new ArrayList<>();
+                    for (Player player : Bukkit.getOnlinePlayers()) {
+                        if (!player.hasPermission(MANAGER_PERMISSION)) {
+                            playersToKick.add(player);
+                        }
+                    }
+                    if (!playersToKick.isEmpty()) {
+                        plugin.getLogger().warning(String.format(
+                                Locale.ROOT,
+                                "MSPT stayed above %.0f ms while frozen (current=%.1f), kicking %d players.",
+                                THRESHOLD_KICK,
+                                mspt,
+                                playersToKick.size()
+                        ));
+                        for (Player player : playersToKick) {
+                            player.kick(kickMessage);
+                        }
+                    }
+                }
+                case SHUTDOWN -> {
+                    plugin.getLogger().severe(String.format(
+                            Locale.ROOT,
+                            "MSPT stayed above %.0f ms while frozen (current=%.1f), shutting down!",
+                            THRESHOLD_SHUTDOWN,
+                            mspt
+                    ));
+                    Bukkit.getServer().shutdown();
+                    return;
+                }
+                case HOLD -> {
+                }
+            }
+
             pressureController.rollWindow();
             tickAdjuster.adjust(effectiveMspt);
             distanceController.adjust(effectiveMspt);
@@ -181,7 +209,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerChat(AsyncChatEvent event) {
-        SchedulerUtil.runSync(plugin, () -> recordActivity(event.getPlayer()));
+        distanceController.queueAsyncActivity(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -276,7 +304,10 @@ public class PerformanceModule implements Listener {
     private boolean isMeaningfulActivity(Location from, Location to) {
         if (to == null) return false;
         if (!Objects.equals(from.getWorld(), to.getWorld())) return true;
-        if (from.distanceSquared(to) > 0.01D) return true;
+        double dx = from.getX() - to.getX();
+        double dy = from.getY() - to.getY();
+        double dz = from.getZ() - to.getZ();
+        if (dx * dx + dy * dy + dz * dz > 0.01D) return true;
         return angularDelta(from.getYaw(), to.getYaw()) >= 8.0F
                 || Math.abs(from.getPitch() - to.getPitch()) >= 8.0F;
     }
@@ -306,7 +337,9 @@ public class PerformanceModule implements Listener {
 
         private double smoothed = 0.0;
         private boolean initialized = false;
-        private final Deque<Double> history = new ArrayDeque<>(WINDOW_SIZE + 1);
+        private final double[] history = new double[WINDOW_SIZE];
+        private int size = 0;
+        private int start = 0;
 
         /**
          * Feed a raw MSPT reading; returns the smoothed value.
@@ -315,8 +348,13 @@ public class PerformanceModule implements Listener {
             smoothed = initialized ? EMA_ALPHA * raw + (1 - EMA_ALPHA) * smoothed : raw;
             initialized = true;
 
-            history.addLast(smoothed);
-            if (history.size() > WINDOW_SIZE) history.removeFirst();
+            if (size < WINDOW_SIZE) {
+                history[(start + size) % WINDOW_SIZE] = smoothed;
+                size++;
+            } else {
+                history[start] = smoothed;
+                start = (start + 1) % WINDOW_SIZE;
+            }
 
             return smoothed;
         }
@@ -325,15 +363,15 @@ public class PerformanceModule implements Listener {
          * Linear regression slope over the window (ms/reading). Positive = worsening.
          */
         double trend() {
-            if (history.size() < 3) return 0.0;
+            if (size < 3) return 0.0;
 
-            List<Double> h = new ArrayList<>(history);
-            int n = h.size();
+            int n = size;
             double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
             for (int i = 0; i < n; i++) {
+                double value = history[(start + i) % WINDOW_SIZE];
                 sumX += i;
-                sumY += h.get(i);
-                sumXY += (double) i * h.get(i);
+                sumY += value;
+                sumXY += (double) i * value;
                 sumX2 += (double) i * i;
             }
             double denom = n * sumX2 - sumX * sumX;
@@ -406,6 +444,68 @@ public class PerformanceModule implements Listener {
     }
 
     /**
+     * Requires sustained severe lag before escalating to player kicks or shutdown.
+     * Short chunk-generation spikes should be handled by the softer protections first.
+     */
+    private static class EmergencyController {
+
+        enum Decision {KICK, SHUTDOWN, HOLD}
+
+        private static final int KICK_CONFIRM = 4;  // ~8 s while frozen
+        private static final int SHUTDOWN_CONFIRM = 8;  // ~16 s while frozen
+        private static final int KICK_COOLDOWN_WINDOWS = 6;  // ~12 s
+
+        private int severeCount = 0;
+        private int criticalCount = 0;
+        private int kickCooldown = 0;
+
+        Decision evaluate(double mspt, boolean frozen) {
+            if (kickCooldown > 0) {
+                kickCooldown--;
+            }
+
+            if (!frozen) {
+                severeCount = Math.max(severeCount - 1, 0);
+                criticalCount = Math.max(criticalCount - 1, 0);
+                return Decision.HOLD;
+            }
+
+            if (mspt >= THRESHOLD_KICK) {
+                severeCount = Math.min(severeCount + 1, KICK_CONFIRM);
+            } else {
+                severeCount = Math.max(severeCount - 1, 0);
+            }
+
+            if (mspt >= THRESHOLD_SHUTDOWN) {
+                criticalCount = Math.min(criticalCount + 1, SHUTDOWN_CONFIRM);
+            } else {
+                criticalCount = Math.max(criticalCount - 1, 0);
+            }
+
+            if (criticalCount >= SHUTDOWN_CONFIRM) {
+                severeCount = 0;
+                criticalCount = 0;
+                kickCooldown = 0;
+                return Decision.SHUTDOWN;
+            }
+
+            if (severeCount >= KICK_CONFIRM && kickCooldown == 0) {
+                severeCount = 0;
+                kickCooldown = KICK_COOLDOWN_WINDOWS;
+                return Decision.KICK;
+            }
+
+            return Decision.HOLD;
+        }
+
+        void reset() {
+            severeCount = 0;
+            criticalCount = 0;
+            kickCooldown = 0;
+        }
+    }
+
+    /**
      * Manages per-world randomTickSpeed.
      * Speed interpolates linearly from maxSpeed at MSPT_FULL down to 0 at MSPT_ZERO.
      */
@@ -416,11 +516,15 @@ public class PerformanceModule implements Listener {
         private static final int MAX_SPEED = 3;
 
         private final Map<World, Integer> originals = new HashMap<>();
+        private final Map<World, Integer> applied = new HashMap<>();
 
         RandomTickAdjuster(List<World> worlds) {
             for (World w : worlds) {
                 Integer v = w.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
-                if (v != null) originals.put(w, v);
+                if (v != null) {
+                    originals.put(w, v);
+                    applied.put(w, v);
+                }
             }
         }
 
@@ -428,17 +532,20 @@ public class PerformanceModule implements Listener {
             originals.forEach((world, original) -> {
                 if (original == 0) return;
                 int target = interpolate(mspt, Math.min(original, MAX_SPEED));
-                Integer current = world.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
-                if (current == null || current != target)
+                Integer current = applied.get(world);
+                if (current == null || current != target) {
                     world.setGameRule(GameRules.RANDOM_TICK_SPEED, target);
+                    applied.put(world, target);
+                }
             });
         }
 
         void reset() {
             originals.forEach((world, original) -> {
-                Integer current = world.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
-                if (current == null || !current.equals(original)) {
+                Integer current = applied.get(world);
+                if (!Objects.equals(current, original)) {
                     world.setGameRule(GameRules.RANDOM_TICK_SPEED, original);
+                    applied.put(world, original);
                 }
             });
         }
@@ -473,6 +580,7 @@ public class PerformanceModule implements Listener {
         private final int afkSimulationDistance;
         private final Map<UUID, AppliedDistances> appliedDistances = new HashMap<>();
         private final Map<UUID, Long> lastActiveAt = new HashMap<>();
+        private final Set<UUID> pendingAsyncActivity = ConcurrentHashMap.newKeySet();
 
         PlayerDistanceController(int baseRenderDistance, int baseSimulationDistance) {
             this.baseRenderDistance = Math.max(2, baseRenderDistance);
@@ -487,8 +595,11 @@ public class PerformanceModule implements Listener {
         }
 
         void track(Player player, double effectiveMspt) {
-            lastActiveAt.put(player.getUniqueId(), System.currentTimeMillis());
-            apply(player, effectiveMspt);
+            long now = System.currentTimeMillis();
+            lastActiveAt.put(player.getUniqueId(), now);
+            apply(player, now,
+                    interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN),
+                    interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN));
         }
 
         void untrack(Player player) {
@@ -505,15 +616,47 @@ public class PerformanceModule implements Listener {
 
             lastActiveAt.put(playerId, now);
             if (restoreImmediately) {
-                apply(player, effectiveMspt);
+                apply(player, now,
+                        interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN),
+                        interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN));
+            }
+        }
+
+        void queueAsyncActivity(UUID playerId) {
+            pendingAsyncActivity.add(playerId);
+        }
+
+        void flushPendingActivity(double effectiveMspt) {
+            if (pendingAsyncActivity.isEmpty()) {
+                return;
+            }
+            long now = System.currentTimeMillis();
+            int performanceRender = interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN);
+            int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
+            Iterator<UUID> iterator = pendingAsyncActivity.iterator();
+            while (iterator.hasNext()) {
+                UUID playerId = iterator.next();
+                iterator.remove();
+                Player player = Bukkit.getPlayer(playerId);
+                if (player == null) {
+                    continue;
+                }
+                long previousActiveAt = lastActiveAt.getOrDefault(playerId, 0L);
+                boolean restoreImmediately = previousActiveAt == 0L || now - previousActiveAt >= AFK_TIMEOUT_MILLIS;
+                lastActiveAt.put(playerId, now);
+                if (restoreImmediately) {
+                    apply(player, now, performanceRender, performanceSimulation);
+                }
             }
         }
 
         void adjust(double effectiveMspt) {
             long now = System.currentTimeMillis();
+            int performanceRender = interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN);
+            int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
             for (Player player : Bukkit.getOnlinePlayers()) {
                 lastActiveAt.putIfAbsent(player.getUniqueId(), now);
-                apply(player, effectiveMspt);
+                apply(player, now, performanceRender, performanceSimulation);
             }
         }
 
@@ -523,19 +666,17 @@ public class PerformanceModule implements Listener {
             }
             appliedDistances.clear();
             lastActiveAt.clear();
+            pendingAsyncActivity.clear();
         }
 
-        private void apply(Player player, double effectiveMspt) {
-            long idleMillis = Math.max(0L,
-                    System.currentTimeMillis() - lastActiveAt.getOrDefault(player.getUniqueId(), System.currentTimeMillis()));
+        private void apply(Player player, long now, int performanceRender, int performanceSimulation) {
+            long idleMillis = Math.max(0L, now - lastActiveAt.getOrDefault(player.getUniqueId(), now));
 
             if (idleMillis >= AFK_TIMEOUT_MILLIS) {
                 applyIfChanged(player, afkRenderDistance, afkSimulationDistance);
                 return;
             }
 
-            int performanceRender = interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN);
-            int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
             applyIfChanged(player, performanceRender, performanceSimulation);
         }
 
@@ -574,18 +715,20 @@ public class PerformanceModule implements Listener {
      */
     private final class ChunkPressureController {
 
-        private static final int THROTTLE_DURATION_WINDOWS = 2;
+        private static final int THROTTLE_DURATION_WINDOWS = 1;
+        private static final int SOFT_BREACH_MEMORY_WINDOWS = 2;
         private static final long LOG_COOLDOWN_MILLIS = 10_000L;
 
         private static final int COUNTER_COUNT = 6;
-        private static final PressureRule PHYSICS = new PressureRule(0, 384, 1024, "physics");
-        private static final PressureRule REDSTONE = new PressureRule(1, 256, 768, "redstone");
-        private static final PressureRule HOPPER = new PressureRule(2, 192, 512, "hopper");
-        private static final PressureRule PISTON = new PressureRule(3, 96, 256, "piston");
-        private static final PressureRule ITEM_SPAWN = new PressureRule(4, 48, 128, "item-spawn");
-        private static final PressureRule FALLING_BLOCK = new PressureRule(5, 48, 128, "falling-block");
+        private static final PressureRule PHYSICS = new PressureRule(0, 768, 2048, "physics");
+        private static final PressureRule REDSTONE = new PressureRule(1, 640, 2048, "redstone");
+        private static final PressureRule HOPPER = new PressureRule(2, 384, 1024, "hopper");
+        private static final PressureRule PISTON = new PressureRule(3, 192, 512, "piston");
+        private static final PressureRule ITEM_SPAWN = new PressureRule(4, 96, 256, "item-spawn");
+        private static final PressureRule FALLING_BLOCK = new PressureRule(5, 96, 256, "falling-block");
 
         private final Map<Long, int[]> counters = new HashMap<>();
+        private final Map<Long, int[]> softBreaches = new HashMap<>();
         private final Map<Long, Integer> throttledChunks = new HashMap<>();
         private long lastLogAtMillis;
 
@@ -615,6 +758,7 @@ public class PerformanceModule implements Listener {
 
         void rollWindow() {
             counters.clear();
+            decaySoftBreaches();
             if (throttledChunks.isEmpty()) {
                 return;
             }
@@ -632,6 +776,7 @@ public class PerformanceModule implements Listener {
 
         void reset() {
             counters.clear();
+            softBreaches.clear();
             throttledChunks.clear();
             lastLogAtMillis = 0L;
         }
@@ -644,25 +789,62 @@ public class PerformanceModule implements Listener {
 
             int[] counts = counters.computeIfAbsent(key, ignored -> new int[COUNTER_COUNT]);
             int current = ++counts[rule.index()];
-            if (current >= rule.hardLimit() || (underPressure && current >= rule.softLimit())) {
-                throttleNeighborhood(block, rule.category(), current);
+            if (current >= rule.hardLimit()) {
+                throttleChunk(block, rule.category(), current, true);
                 return true;
             }
+
+            if (!underPressure || current < rule.softLimit()) {
+                return false;
+            }
+
+            int[] breaches = softBreaches.computeIfAbsent(key, ignored -> new int[COUNTER_COUNT]);
+            if (breaches[rule.index()] > 0) {
+                breaches[rule.index()] = 0;
+                throttleChunk(block, rule.category(), current, false);
+                if (isAllZero(breaches)) {
+                    softBreaches.remove(key);
+                }
+                return true;
+            }
+
+            breaches[rule.index()] = SOFT_BREACH_MEMORY_WINDOWS;
             return false;
         }
 
-        private void throttleNeighborhood(Block source, String category, int count) {
-            int chunkX = source.getX() >> 4;
-            int chunkZ = source.getZ() >> 4;
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    throttledChunks.put(chunkKey(source.getWorld(), chunkX + dx, chunkZ + dz), THROTTLE_DURATION_WINDOWS);
-                }
-            }
-            maybeLog(source, category, count);
+        private void throttleChunk(Block source, String category, int count, boolean hardLimit) {
+            throttledChunks.put(chunkKey(source), THROTTLE_DURATION_WINDOWS);
+            maybeLog(source, category, count, hardLimit);
         }
 
-        private void maybeLog(Block source, String category, int count) {
+        private void decaySoftBreaches() {
+            if (softBreaches.isEmpty()) {
+                return;
+            }
+            Iterator<Map.Entry<Long, int[]>> iterator = softBreaches.entrySet().iterator();
+            while (iterator.hasNext()) {
+                int[] breaches = iterator.next().getValue();
+                for (int i = 0; i < breaches.length; i++) {
+                    if (breaches[i] > 0) {
+                        breaches[i]--;
+                    }
+                }
+                if (isAllZero(breaches)) {
+                    iterator.remove();
+                }
+            }
+        }
+
+        private boolean isAllZero(int[] values) {
+            for (int value : values) {
+                if (value != 0) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private void maybeLog(Block source, String category, int count, boolean hardLimit) {
             long now = System.currentTimeMillis();
             if (now - lastLogAtMillis < LOG_COOLDOWN_MILLIS) {
                 return;
@@ -670,14 +852,15 @@ public class PerformanceModule implements Listener {
             lastLogAtMillis = now;
             plugin.getLogger().warning(String.format(
                     Locale.ROOT,
-                    "Chunk guard throttled %s near %s,%s,%s in %s (count=%d, mspt=%.1f)",
+                    "Chunk guard throttled %s near %s,%s,%s in %s (count=%d, mspt=%.1f, mode=%s)",
                     category,
                     source.getX(),
                     source.getY(),
                     source.getZ(),
                     source.getWorld().getName(),
                     count,
-                    lastEffectiveMspt
+                    lastEffectiveMspt,
+                    hardLimit ? "hard" : "soft-confirmed"
             ));
         }
 
@@ -713,18 +896,23 @@ public class PerformanceModule implements Listener {
         );
 
         static void run(List<World> worlds) {
-            worlds.forEach(world -> {
-                world.getEntitiesByClass(Item.class).stream()
-                        .filter(i -> i.getTicksLived() > ITEM_MAX_TICKS)
-                        .forEach(Entity::remove);
-
-                world.getEntitiesByClass(Projectile.class).forEach(Entity::remove);
-                world.getEntitiesByClass(ExperienceOrb.class).forEach(Entity::remove);
-
-                world.getEntitiesByClass(LivingEntity.class).stream()
-                        .filter(EntityCleaner::isRemovable)
-                        .forEach(Entity::remove);
-            });
+            for (World world : worlds) {
+                for (Entity entity : world.getEntities()) {
+                    if (entity instanceof Item item) {
+                        if (item.getTicksLived() > ITEM_MAX_TICKS) {
+                            item.remove();
+                        }
+                        continue;
+                    }
+                    if (entity instanceof Projectile || entity instanceof ExperienceOrb) {
+                        entity.remove();
+                        continue;
+                    }
+                    if (entity instanceof LivingEntity livingEntity && isRemovable(livingEntity)) {
+                        entity.remove();
+                    }
+                }
+            }
         }
 
         private static boolean isRemovable(LivingEntity e) {
