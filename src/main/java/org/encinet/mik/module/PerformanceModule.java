@@ -62,6 +62,7 @@ public class PerformanceModule implements Listener {
 
     private BukkitTask guardTask;
     private volatile double lastEffectiveMspt = 20.0;
+    private volatile boolean liveFrozen = false;
 
     public PerformanceModule(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -97,6 +98,7 @@ public class PerformanceModule implements Listener {
         if (guardTask != null) guardTask.cancel();
         guardTask = null;
         if (tickManager.isFrozen()) tickManager.setFrozen(false);
+        liveFrozen = false;
         freezeController.reset();
         emergencyController.reset();
         tickAdjuster.reset();
@@ -108,12 +110,14 @@ public class PerformanceModule implements Listener {
         double mspt = sampler.update(Bukkit.getAverageTickTime());
         double trend = sampler.trend();
 
-        FreezeController.Decision decision = freezeController.evaluate(mspt, trend);
+        FreezeController.Decision decision = freezeController.evaluate(mspt, trend, liveFrozen);
+        boolean freezeArmed = liveFrozen || decision == FreezeController.Decision.FREEZE;
 
         EmergencyController.Decision emergencyDecision =
-                emergencyController.evaluate(mspt, freezeController.isFrozen());
+                emergencyController.evaluate(mspt, freezeArmed);
 
         double effectiveMspt = Math.max(mspt, mspt + trend);
+        boolean chunkGuardArmed = freezeArmed || effectiveMspt >= THRESHOLD_CHUNK_GUARD;
         lastEffectiveMspt = effectiveMspt;
         SchedulerUtil.runSync(plugin, () -> {
             distanceController.flushPendingActivity(effectiveMspt);
@@ -121,11 +125,13 @@ public class PerformanceModule implements Listener {
             switch (decision) {
                 case FREEZE -> {
                     if (!tickManager.isFrozen()) tickManager.setFrozen(true);
+                    liveFrozen = true;
                     EntityCleaner.run(Bukkit.getWorlds());
                     plugin.getLogger().warning(String.format(Locale.ROOT, "Server frozen (MSPT=%.1f)", mspt));
                 }
                 case UNFREEZE -> {
                     if (tickManager.isFrozen()) tickManager.setFrozen(false);
+                    liveFrozen = false;
                     plugin.getLogger().info("Server recovered, unfreezing.");
                 }
                 case HOLD -> {
@@ -167,7 +173,11 @@ public class PerformanceModule implements Listener {
                 }
             }
 
-            pressureController.rollWindow();
+            if (chunkGuardArmed) {
+                pressureController.rollWindow();
+            } else {
+                pressureController.disarm();
+            }
             tickAdjuster.adjust(effectiveMspt);
             distanceController.adjust(effectiveMspt);
         });
@@ -241,7 +251,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onRedstoneChange(BlockRedstoneEvent event) {
-        if (freezeController.isFrozen()
+        if (isServerFrozen()
                 || pressureController.onRedstone(event.getBlock(), shouldApplyChunkGuard())) {
             event.setNewCurrent(0);
         }
@@ -249,7 +259,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
-        if (freezeController.isFrozen()
+        if (isServerFrozen()
                 || pressureController.onPiston(event.getBlock(), shouldApplyChunkGuard())) {
             event.setCancelled(true);
         }
@@ -257,7 +267,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
-        if (freezeController.isFrozen()
+        if (isServerFrozen()
                 || pressureController.onPiston(event.getBlock(), shouldApplyChunkGuard())) {
             event.setCancelled(true);
         }
@@ -268,7 +278,7 @@ public class PerformanceModule implements Listener {
         if (!(event.getInitiator().getHolder() instanceof Hopper hopper)) {
             return;
         }
-        if (freezeController.isFrozen()
+        if (isServerFrozen()
                 || pressureController.onHopperMove(hopper.getBlock(), shouldApplyChunkGuard())) {
             event.setCancelled(true);
         }
@@ -276,7 +286,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onBlockPhysics(BlockPhysicsEvent event) {
-        if (freezeController.isFrozen()
+        if (isServerFrozen()
                 || pressureController.onPhysics(event.getBlock(), shouldApplyChunkGuard())) {
             event.setCancelled(true);
         }
@@ -287,7 +297,7 @@ public class PerformanceModule implements Listener {
         if (event.getEntityType() != EntityType.FALLING_BLOCK) {
             return;
         }
-        if (freezeController.isFrozen()
+        if (isServerFrozen()
                 || pressureController.onFallingBlock(event.getBlock(), shouldApplyChunkGuard())) {
             event.setCancelled(true);
         }
@@ -295,7 +305,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onItemSpawn(ItemSpawnEvent event) {
-        if (freezeController.isFrozen()
+        if (isServerFrozen()
                 || pressureController.onItemSpawn(event.getLocation().getBlock(), shouldApplyChunkGuard())) {
             event.setCancelled(true);
         }
@@ -321,8 +331,12 @@ public class PerformanceModule implements Listener {
         distanceController.markActive(player, lastEffectiveMspt);
     }
 
+    private boolean isServerFrozen() {
+        return liveFrozen;
+    }
+
     private boolean shouldApplyChunkGuard() {
-        return freezeController.isFrozen() || lastEffectiveMspt >= THRESHOLD_CHUNK_GUARD;
+        return liveFrozen || lastEffectiveMspt >= THRESHOLD_CHUNK_GUARD;
     }
 
     // ── Inner classes ───────────────────────────────────────────────────────
@@ -402,11 +416,10 @@ public class PerformanceModule implements Listener {
         private static final double TREND_BOOST_SLOPE = 3.0;
         private static final int TREND_BOOST_MAX = 1;
 
-        private volatile boolean frozen;
         private int highCount = 0;
         private int normalCount = 0;
 
-        Decision evaluate(double mspt, double trend) {
+        Decision evaluate(double mspt, double trend, boolean currentlyFrozen) {
             if (mspt >= MSPT_FREEZE_REDSTONE) {
                 int boost = trend > TREND_BOOST_SLOPE
                         ? Math.min(TREND_BOOST_MAX, (int) (trend / TREND_BOOST_SLOPE)) : 0;
@@ -418,13 +431,11 @@ public class PerformanceModule implements Listener {
             }
             // mspt in hysteresis band → no counter change
 
-            if (!frozen && highCount >= FREEZE_CONFIRM) {
-                frozen = true;
+            if (!currentlyFrozen && highCount >= FREEZE_CONFIRM) {
                 normalCount = 0;
                 return Decision.FREEZE;
             }
-            if (frozen && normalCount >= UNFREEZE_CONFIRM) {
-                frozen = false;
+            if (currentlyFrozen && normalCount >= UNFREEZE_CONFIRM) {
                 highCount = 0;
                 normalCount = 0;
                 return Decision.UNFREEZE;
@@ -432,12 +443,7 @@ public class PerformanceModule implements Listener {
             return Decision.HOLD;
         }
 
-        boolean isFrozen() {
-            return frozen;
-        }
-
         void reset() {
-            frozen = false;
             highCount = 0;
             normalCount = 0;
         }
@@ -513,8 +519,6 @@ public class PerformanceModule implements Listener {
 
         private static final double MSPT_FULL = 20.0;  // full speed below this
         private static final double MSPT_ZERO = 40.0;  // disabled at or above this
-        private static final int MAX_SPEED = 3;
-
         private final Map<World, Integer> originals = new HashMap<>();
         private final Map<World, Integer> applied = new HashMap<>();
 
@@ -531,7 +535,7 @@ public class PerformanceModule implements Listener {
         void adjust(double mspt) {
             originals.forEach((world, original) -> {
                 if (original == 0) return;
-                int target = interpolate(mspt, Math.min(original, MAX_SPEED));
+                int target = interpolate(mspt, original);
                 Integer current = applied.get(world);
                 if (current == null || current != target) {
                     world.setGameRule(GameRules.RANDOM_TICK_SPEED, target);
@@ -781,7 +785,17 @@ public class PerformanceModule implements Listener {
             lastLogAtMillis = 0L;
         }
 
+        void disarm() {
+            counters.clear();
+            softBreaches.clear();
+            throttledChunks.clear();
+        }
+
         private boolean shouldThrottle(Block block, PressureRule rule, boolean underPressure) {
+            if (!underPressure) {
+                return false;
+            }
+
             long key = chunkKey(block);
             if (throttledChunks.containsKey(key)) {
                 return true;
@@ -794,7 +808,7 @@ public class PerformanceModule implements Listener {
                 return true;
             }
 
-            if (!underPressure || current < rule.softLimit()) {
+            if (current < rule.softLimit()) {
                 return false;
             }
 
