@@ -1,6 +1,8 @@
 package org.encinet.mik.module;
 
+import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.flattener.ComponentFlattener;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
@@ -24,7 +26,7 @@ import java.util.regex.Pattern;
 /**
  * Module for restricting commands with entity selectors and player names
  */
-public class CommandRestrictionModule implements Listener {
+public class RestrictionModule implements Listener {
 
     private static final Pattern SELECTOR_PATTERN = Pattern.compile("@[earpn](?:\\[|\\s|$)");
     // 匹配命令中的 UUID 格式字符串
@@ -35,13 +37,32 @@ public class CommandRestrictionModule implements Listener {
 
     private final JavaPlugin plugin;
 
-    public CommandRestrictionModule(JavaPlugin plugin) {
+    public RestrictionModule(JavaPlugin plugin) {
         this.plugin = plugin;
     }
 
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        plugin.getLogger().info("CommandRestrictionModule enabled");
+        plugin.getLogger().info("RestrictionModule enabled");
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onChat(AsyncChatEvent event) {
+        Player player = event.getPlayer();
+        if (player.hasPermission("group." + Mik.GROUP_HELPER)) {
+            return;
+        }
+        Component message = event.message();
+        if (containsNewline(message)) {
+            event.setCancelled(true);
+            player.sendMessage(Component.text("禁止在消息中换行！", NamedTextColor.RED));
+        }
+    }
+
+    public static boolean containsNewline(Component component) {
+        StringBuilder sb = new StringBuilder();
+        ComponentFlattener.basic().flatten(component, sb::append);
+        return sb.indexOf("\n") >= 0;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

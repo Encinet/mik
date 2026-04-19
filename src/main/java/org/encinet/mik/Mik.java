@@ -18,11 +18,12 @@ public final class Mik extends JavaPlugin {
     private StaffChatModule staffChatModule;
     private SimpleFeaturesModule commandsModule;
     private AutoPromoteModule autoPromoteModule;
-    private CommandRestrictionModule commandRestrictionModule;
+    private RestrictionModule restrictionModule;
     private GameModeSwitchModule gameModeSwitchModule;
     private PlayerBoundaryModule playerBoundaryModule;
     private TPSBarModule tpsBarModule;
     private TabListModule tabListModule;
+    private FixBugModule fixBugModule;
     private GrieferModule grieferModule;
     private ApiModule apiModule;
     private WhitelistModule whitelistModule;
@@ -71,8 +72,8 @@ public final class Mik extends JavaPlugin {
         autoPromoteModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and enable command restriction module
-        commandRestrictionModule = new CommandRestrictionModule(this);
-        commandRestrictionModule.enable();
+        restrictionModule = new RestrictionModule(this);
+        restrictionModule.enable();
 
         // Initialize and enable game mode switch module
         gameModeSwitchModule = new GameModeSwitchModule(this);
@@ -92,6 +93,10 @@ public final class Mik extends JavaPlugin {
         tabListModule.enable();
 
         // Initialize and enable tab list module
+        fixBugModule = new FixBugModule(this);
+        fixBugModule.enable();
+
+        // Initialize and enable griefer module
         grieferModule = new GrieferModule(this);
         grieferModule.enable();
 

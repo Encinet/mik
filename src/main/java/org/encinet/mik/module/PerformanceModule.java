@@ -904,7 +904,7 @@ public class PerformanceModule implements Listener {
                 EntityType.PHANTOM, EntityType.DROWNED, EntityType.HUSK, EntityType.STRAY,
                 EntityType.SILVERFISH, EntityType.ENDERMITE, EntityType.BLAZE, EntityType.GHAST,
                 EntityType.MAGMA_CUBE, EntityType.ZOMBIFIED_PIGLIN, EntityType.VINDICATOR, EntityType.EVOKER,
-                EntityType.VEX, EntityType.PILLAGER, EntityType.RAVAGER,
+                EntityType.VEX, EntityType.PILLAGER, EntityType.RAVAGER, EntityType.WITHER_SKELETON,
                 EntityType.PIG, EntityType.COW, EntityType.SHEEP, EntityType.CHICKEN,
                 EntityType.HORSE, EntityType.WOLF, EntityType.CAT
         );
