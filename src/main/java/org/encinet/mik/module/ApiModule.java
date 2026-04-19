@@ -212,10 +212,55 @@ public class ApiModule implements Listener {
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_time ON sessions(joined_at, left_at)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_uuid ON sessions(uuid)");
+            repairOrphanedSessions();
             return true;
         } catch (SQLException e) {
             plugin.getLogger().severe("Failed to initialize player history store: " + e.getMessage());
             return false;
+        }
+    }
+
+    private void repairOrphanedSessions() throws SQLException {
+        long now = Instant.now().getEpochSecond();
+        Set<UUID> onlineUuids = new HashSet<>();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            onlineUuids.add(player.getUniqueId());
+        }
+
+        String findOrphans = "SELECT id, uuid, joined_at FROM sessions WHERE left_at IS NULL";
+        List<long[]> orphanIds = new ArrayList<>();
+        try (Connection connection = openConnection();
+             Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(findOrphans)) {
+            while (rs.next()) {
+                String uuid = rs.getString("uuid");
+                long id = rs.getLong("id");
+                long joinedAt = rs.getLong("joined_at");
+                try {
+                    UUID playerUuid = UUID.fromString(uuid);
+                    if (!onlineUuids.contains(playerUuid)) {
+                        long estimatedLeft = Math.max(joinedAt + 60, now - 300);
+                        orphanIds.add(new long[]{id, estimatedLeft});
+                    }
+                } catch (IllegalArgumentException ignored) {
+                    long estimatedLeft = Math.max(joinedAt + 60, now - 300);
+                    orphanIds.add(new long[]{id, estimatedLeft});
+                }
+            }
+        }
+
+        if (!orphanIds.isEmpty()) {
+            plugin.getLogger().warning("Found " + orphanIds.size() + " orphaned sessions from previous server run. Repairing...");
+            try (Connection connection = openConnection();
+                 PreparedStatement ps = connection.prepareStatement("UPDATE sessions SET left_at = ? WHERE id = ?")) {
+                for (long[] pair : orphanIds) {
+                    ps.setLong(1, pair[1]);
+                    ps.setLong(2, pair[0]);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+            plugin.getLogger().info("Repaired " + orphanIds.size() + " orphaned sessions.");
         }
     }
 
