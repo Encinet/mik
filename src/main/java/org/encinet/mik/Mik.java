@@ -31,6 +31,7 @@ public final class Mik extends JavaPlugin {
     private HomeModule homeModule;
     private AnnouncementModule announcementModule;
     private NameTagModule prefixSuffixModule;
+    private TeleportNotifyModule teleportNotifyModule;
 
     @Override
     public void onLoad() {
@@ -127,6 +128,10 @@ public final class Mik extends JavaPlugin {
         prefixSuffixModule = new NameTagModule(this);
         prefixSuffixModule.enable();
         prefixSuffixModule.registerCommands(this.getLifecycleManager());
+
+        // Initialize and enable teleport notify module
+        teleportNotifyModule = new TeleportNotifyModule(this);
+        teleportNotifyModule.enable();
     }
 
     @Override

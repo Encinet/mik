@@ -10,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -135,9 +136,6 @@ public class GrieferModule implements Listener {
 
     // ── Event handlers ─────────────────────────────────────────────────────────
 
-    /**
-     * Lava-bucket placement detection.
-     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
         if (event.getBucket() != Material.LAVA_BUCKET) return;
@@ -146,20 +144,24 @@ public class GrieferModule implements Listener {
 
         PlayerData data = getData(player);
         long now = System.currentTimeMillis();
-        data.lavaTimestamps.addLast(now);
-        pruneTimestamps(data.lavaTimestamps, LAVA_WINDOW_MS);
+        data.addLava(now);
 
-        if (data.lavaTimestamps.size() >= LAVA_COUNT && !data.onCooldown(CooldownKey.LAVA)) {
+        if (data.lavaRateTriggered(now) && !data.onCooldown(CooldownKey.LAVA)) {
             data.setCooldown(CooldownKey.LAVA, 15_000L);
             flag(player, data, PTS_LAVA,
-                    "岩浆桶放置过频繁 | Lava spam: "
-                            + data.lavaTimestamps.size() + " 次 / " + LAVA_WINDOW_MS / 1000 + "s");
+                    "岩浆桶放置过频繁 | Lava spam: " + LAVA_COUNT + " 次 / " + LAVA_WINDOW_MS / 1000 + "s");
         }
     }
 
-    /**
-     * Block-breaking detection: WorldEdit air, mass break, scatter grief, structure grief.
-     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBlockPlace(BlockPlaceEvent event) {
+        Player player = event.getPlayer();
+        if (!shouldMonitor(player)) return;
+        Block b = event.getBlockPlaced();
+        long now = System.currentTimeMillis();
+        getData(player).addPlace(now, packXYZ(b.getX(), b.getY(), b.getZ()));
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
         Player player = event.getPlayer();
@@ -168,52 +170,40 @@ public class GrieferModule implements Listener {
         Block block = event.getBlock();
         long now = System.currentTimeMillis();
         PlayerData data = getData(player);
+        data.addBreak(now, block.getX(), block.getZ());
 
-        // Maintain break record deque, pruned to the longest window we care about
-        data.breakRecords.addLast(new BreakRecord(now, block.getX(), block.getZ()));
-        pruneRecords(data.breakRecords, SCATTER_WIND_MS); // longest = 30 s
-
-        // (1) WorldEdit //set air: ultra-rapid break rate in a 1 s window
-        long weCount = countInWindow(data.breakRecords, WE_WINDOW_MS);
-        if (weCount >= WE_COUNT && !data.onCooldown(CooldownKey.WE)) {
+        if (data.breakRateTriggered(WE_COUNT, WE_WINDOW_MS, now)
+                && !data.onCooldown(CooldownKey.WE)) {
             data.setCooldown(CooldownKey.WE, 8_000L);
-            flag(player, data, PTS_WE,
-                    "疑似 //set air | Possible WorldEdit mass-air: "
-                            + weCount + " 块/s");
-            return; // WE suspicion is the strongest; skip lower-tier checks this tick
+            flag(player, data, PTS_WE, "疑似 //set air | Possible WorldEdit mass-air: " + WE_COUNT + "+ 块/s");
+            return;
         }
 
-        // (2) Mass break: sustained high rate over 8 s
-        long massCount = countInWindow(data.breakRecords, MASS_WINDOW_MS);
-        if (massCount >= MASS_COUNT && !data.onCooldown(CooldownKey.MASS)) {
+        if (data.breakRateTriggered(MASS_COUNT, MASS_WINDOW_MS, now)
+                && !data.onCooldown(CooldownKey.MASS)
+                && !data.isLikelyBuilding(now)) {
             data.setCooldown(CooldownKey.MASS, 12_000L);
             flag(player, data, PTS_MASS,
-                    "大规模连续破坏 | Mass break: "
-                            + massCount + " 块 / " + MASS_WINDOW_MS / 1000 + "s");
+                    "大规模连续破坏 | Mass break: " + MASS_COUNT + " 块 / " + MASS_WINDOW_MS / 1000 + "s");
         }
 
-        // (3) Scatter grief: moderate count but very large geographic spread
-        if (data.breakRecords.size() >= SCATTER_COUNT && !data.onCooldown(CooldownKey.SCATTER)) {
-            double spread = boundingDiagonal(data.breakRecords);
+        if (!data.onCooldown(CooldownKey.SCATTER) && !data.isLikelyBuilding(now)) {
+            double spread = data.recentScatterDiagonal(now);
             if (spread >= SCATTER_SPREAD) {
                 data.setCooldown(CooldownKey.SCATTER, 20_000L);
                 flag(player, data, PTS_SCATTER,
-                        "大范围分散破坏 | Scatter grief: "
-                                + data.breakRecords.size() + " 块, 扩散="
-                                + String.format("%.0f", spread) + " 格");
+                        "大范围分散破坏 | Scatter grief: " + SCATTER_COUNT
+                                + " 块, 扩散=" + String.format("%.0f", spread) + " 格");
             }
         }
 
-        // (4) Structure grief: breaking player-placed blocks
-        if (isLikelyPlayerPlaced(block.getType())) {
-            data.structureBreakTimestamps.addLast(now);
-            pruneTimestamps(data.structureBreakTimestamps, STRUCTURE_WINDOW_MS);
-            if (data.structureBreakTimestamps.size() >= STRUCTURE_COUNT
-                    && !data.onCooldown(CooldownKey.STRUCTURE)) {
+        if (isLikelyPlayerPlaced(block.getType())
+                && !data.wasOwnBlock(packXYZ(block.getX(), block.getY(), block.getZ()), now)) {
+            data.addStructBreak(now);
+            if (data.structRateTriggered(now) && !data.onCooldown(CooldownKey.STRUCTURE)) {
                 data.setCooldown(CooldownKey.STRUCTURE, 30_000L);
                 flag(player, data, PTS_STRUCTURE,
-                        "破坏玩家建筑 | Structure grief: "
-                                + data.structureBreakTimestamps.size() + " 个建筑方块 / 60s");
+                        "破坏玩家建筑 | Structure grief: " + STRUCTURE_COUNT + " 个建筑方块 / 60s");
             }
         }
     }
@@ -338,41 +328,8 @@ public class GrieferModule implements Listener {
         return players.computeIfAbsent(player.getUniqueId(), k -> new PlayerData());
     }
 
-    /** Remove entries older than {@code windowMs} from the front of the deque. */
-    private void pruneTimestamps(Deque<Long> deque, long windowMs) {
-        long cutoff = System.currentTimeMillis() - windowMs;
-        while (!deque.isEmpty() && deque.peekFirst() < cutoff) deque.pollFirst();
-    }
-
-    /** Remove break records older than {@code windowMs} from the front of the deque. */
-    private void pruneRecords(Deque<BreakRecord> deque, long windowMs) {
-        long cutoff = System.currentTimeMillis() - windowMs;
-        while (!deque.isEmpty() && deque.peekFirst().time < cutoff) deque.pollFirst();
-    }
-
-    /** Count break records within the last {@code windowMs} milliseconds. */
-    private long countInWindow(Deque<BreakRecord> records, long windowMs) {
-        long cutoff = System.currentTimeMillis() - windowMs;
-        return records.stream().filter(r -> r.time >= cutoff).count();
-    }
-
-    /**
-     * Compute the bounding-box diagonal (XZ plane) of all records in the deque.
-     * Large values indicate geographically spread-out activity.
-     */
-    private double boundingDiagonal(Deque<BreakRecord> records) {
-        if (records.size() < 2) return 0.0;
-        int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
-        int minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
-        for (BreakRecord r : records) {
-            if (r.x < minX) minX = r.x;
-            if (r.x > maxX) maxX = r.x;
-            if (r.z < minZ) minZ = r.z;
-            if (r.z > maxZ) maxZ = r.z;
-        }
-        long dx = maxX - minX;
-        long dz = maxZ - minZ;
-        return Math.sqrt(dx * dx + dz * dz);
+    private static long packXYZ(int x, int y, int z) {
+        return ((long)(x & 0x3FFFFFF) << 38) | ((long)(y & 0xFFF) << 26) | (z & 0x3FFFFFF);
     }
 
     /**
@@ -430,36 +387,119 @@ public class GrieferModule implements Listener {
         LAVA, WE, MASS, SCATTER, STRUCTURE
     }
 
-    /** Immutable XZ snapshot of a single block-break event with its timestamp. */
-    private record BreakRecord(long time, int x, int z) {}
-
-    /**
-     * Per-player mutable state. All access happens on the main server thread
-     * (event handlers + BukkitRunnable main-thread tasks), so no extra
-     * synchronisation is needed beyond the ConcurrentHashMap used for the
-     * outer {@link GrieferModule#players} map.
-     */
     private static final class PlayerData {
 
-        // Sliding-window event logs
-        final Deque<Long>        lavaTimestamps          = new ArrayDeque<>();
-        final Deque<BreakRecord> breakRecords            = new ArrayDeque<>();
-        final Deque<Long>        structureBreakTimestamps = new ArrayDeque<>();
+        private final long[] lavaTimes = new long[LAVA_COUNT];
+        private int lavaHead = 0, lavaFill = 0;
 
-        // Cooldowns prevent the same detection from spamming score in a burst
+        private final long[] brkTime = new long[MASS_COUNT];
+        private final int[]  brkX    = new int[MASS_COUNT];
+        private final int[]  brkZ    = new int[MASS_COUNT];
+        private int brkHead = 0, brkFill = 0;
+
+        private final long[] strucTimes = new long[STRUCTURE_COUNT];
+        private int strucHead = 0, strucFill = 0;
+
+        private static final int PLACE_BUF = 32;
+        private final long[] placeTimes = new long[PLACE_BUF];
+        private int placeHead = 0, placeFill = 0;
+
+        private static final int OWN_BLOCK_CAP = 512;
+        private final Map<Long, Long> ownBlocks = new HashMap<>();
+
         final Map<CooldownKey, Long> cooldowns = new EnumMap<>(CooldownKey.class);
-
-        // Scoring state
         int     score    = 0;
         boolean warnSent = false;
         boolean banned   = false;
+        long    lastSeen = System.currentTimeMillis();
 
-        // Used for cleanup
-        long lastSeen = System.currentTimeMillis();
+        void addLava(long t) {
+            lavaTimes[lavaHead] = t;
+            lavaHead = (lavaHead + 1) % LAVA_COUNT;
+            if (lavaFill < LAVA_COUNT) lavaFill++;
+        }
 
-        int addScore(int points) {
+        boolean lavaRateTriggered(long now) {
+            if (lavaFill < LAVA_COUNT) return false;
+            return (now - lavaTimes[lavaHead]) <= LAVA_WINDOW_MS;
+        }
+
+        void addBreak(long t, int x, int z) {
+            brkTime[brkHead] = t;
+            brkX[brkHead]    = x;
+            brkZ[brkHead]    = z;
+            brkHead = (brkHead + 1) % MASS_COUNT;
+            if (brkFill < MASS_COUNT) brkFill++;
+        }
+
+        boolean breakRateTriggered(int count, long windowMs, long now) {
+            if (brkFill < count) return false;
+            int idx = Math.floorMod(brkHead - count, MASS_COUNT);
+            return (now - brkTime[idx]) <= windowMs;
+        }
+
+        double recentScatterDiagonal(long now) {
+            if (brkFill < SCATTER_COUNT) return 0.0;
+            int oldestIdx = Math.floorMod(brkHead - SCATTER_COUNT, MASS_COUNT);
+            if ((now - brkTime[oldestIdx]) > SCATTER_WIND_MS) return 0.0;
+
+            int minX = Integer.MAX_VALUE, maxX = Integer.MIN_VALUE;
+            int minZ = Integer.MAX_VALUE, maxZ = Integer.MIN_VALUE;
+            for (int i = 0; i < SCATTER_COUNT; i++) {
+                int idx = Math.floorMod(brkHead - 1 - i, MASS_COUNT);
+                int x = brkX[idx], z = brkZ[idx];
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+            }
+            long dx = maxX - minX, dz = maxZ - minZ;
+            return Math.sqrt(dx * dx + dz * dz);
+        }
+
+        void addStructBreak(long t) {
+            strucTimes[strucHead] = t;
+            strucHead = (strucHead + 1) % STRUCTURE_COUNT;
+            if (strucFill < STRUCTURE_COUNT) strucFill++;
+        }
+
+        boolean structRateTriggered(long now) {
+            if (strucFill < STRUCTURE_COUNT) return false;
+            return (now - strucTimes[strucHead]) <= STRUCTURE_WINDOW_MS;
+        }
+
+        void addPlace(long t, long packed) {
+            placeTimes[placeHead] = t;
+            placeHead = (placeHead + 1) % PLACE_BUF;
+            if (placeFill < PLACE_BUF) placeFill++;
+            if (ownBlocks.size() < OWN_BLOCK_CAP) ownBlocks.put(packed, t);
+        }
+
+        boolean wasOwnBlock(long packed, long now) {
+            Long t = ownBlocks.get(packed);
+            if (t == null) return false;
+            if ((now - t) > STRUCTURE_WINDOW_MS) { ownBlocks.remove(packed); return false; }
+            return true;
+        }
+
+        boolean isLikelyBuilding(long now) {
+            long cutoff = now - MASS_WINDOW_MS;
+            int breaks = 0;
+            for (int i = 0; i < brkFill; i++) {
+                if (brkTime[Math.floorMod(brkHead - 1 - i, MASS_COUNT)] < cutoff) break;
+                breaks++;
+            }
+            if (breaks == 0) return false;
+
+            int places = 0;
+            for (int i = 0; i < placeFill; i++) {
+                if (placeTimes[Math.floorMod(placeHead - 1 - i, PLACE_BUF)] < cutoff) break;
+                places++;
+            }
+            return places * 10 >= breaks * 3;
+        }
+
+        int addScore(int pts) {
             lastSeen = System.currentTimeMillis();
-            score = Math.min(score + points, SCORE_CAP);
+            score = Math.min(score + pts, SCORE_CAP);
             return score;
         }
 
@@ -471,8 +511,5 @@ public class GrieferModule implements Listener {
         void setCooldown(CooldownKey key, long durationMs) {
             cooldowns.put(key, System.currentTimeMillis() + durationMs);
         }
-
-        // SCORE_CAP is referenced from outer static context — accessible because
-        // PlayerData is a static nested class of GrieferModule.
     }
 }
