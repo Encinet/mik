@@ -33,21 +33,18 @@ public class TeleportNotifyModule implements Listener {
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         String[] args = event.getMessage().substring(1).split("\\s+");
-        if (args.length < 2) return;
+        if (args.length < 3) return;
 
         String cmd = args[0].toLowerCase();
         if (!TP_COMMANDS.contains(cmd)) return;
 
-        int offset = cmd.contains(":") ? 2 : 1;
-        if (args.length <= offset) return;
+        String victimArg = args[1];
+        if (victimArg.startsWith("@")) return;
 
         Player sender = event.getPlayer();
-        String targetArg = args[offset];
-        if (targetArg.startsWith("@")) return;
-
-        Player target = Bukkit.getPlayerExact(targetArg);
-        if (target != null && !target.equals(sender)) {
-            pendingTeleports.put(target, sender.getName());
+        Player victim = Bukkit.getPlayerExact(victimArg);
+        if (victim != null && !victim.equals(sender)) {
+            pendingTeleports.put(victim, sender.getName());
         }
     }
 
