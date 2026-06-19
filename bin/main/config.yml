@@ -1,0 +1,8 @@
+api:
+  totp-secret: ""
+
+ndp-federated-ban:
+  enabled: true
+  api-base-url: "https://api.ndpreforged.com"
+  v1-compatible-base-url: "https://apiv1.ndpreforged.com"
+  server-uuid: ""

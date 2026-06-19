@@ -1,7 +1,31 @@
 package org.encinet.mik;
 
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.module.*;
+import org.encinet.mik.module.access.AutoPromoteModule;
+import org.encinet.mik.module.access.RestrictionModule;
+import org.encinet.mik.module.access.WhitelistModule;
+import org.encinet.mik.module.afk.AfkModule;
+import org.encinet.mik.module.api.ApiModule;
+import org.encinet.mik.module.commands.SimpleFeaturesModule;
+import org.encinet.mik.module.communication.AnnouncementModule;
+import org.encinet.mik.module.communication.StaffChatModule;
+import org.encinet.mik.module.communication.TipModule;
+import org.encinet.mik.module.musicdisc.MusicDiscModule;
+import org.encinet.mik.module.performance.PerformanceModule;
+import org.encinet.mik.module.performance.TPSBarModule;
+import org.encinet.mik.module.player.BackModule;
+import org.encinet.mik.module.player.GameModeSwitchModule;
+import org.encinet.mik.module.player.HomeModule;
+import org.encinet.mik.module.player.InvisibilityNotifyModule;
+import org.encinet.mik.module.player.NameTagModule;
+import org.encinet.mik.module.player.PlayerBoundaryModule;
+import org.encinet.mik.module.player.TabListModule;
+import org.encinet.mik.module.player.TeleportNotifyModule;
+import org.encinet.mik.module.presentation.BrandingModule;
+import org.encinet.mik.module.presentation.MotdModule;
+import org.encinet.mik.module.presentation.ServerLinksModule;
+import org.encinet.mik.module.safety.FixBugModule;
+import org.encinet.mik.module.safety.GrieferModule;
 
 /**
  * Main plugin class - orchestrates all modules
@@ -13,6 +37,7 @@ public final class Mik extends JavaPlugin {
 
     private BrandingModule brandingModule;
     private ServerLinksModule serverLinksModule;
+    private AfkModule afkModule;
     private PerformanceModule performanceModule;
     private MusicDiscModule musicDiscModule;
     private StaffChatModule staffChatModule;
@@ -29,8 +54,11 @@ public final class Mik extends JavaPlugin {
     private WhitelistModule whitelistModule;
     private MotdModule motdModule;
     private HomeModule homeModule;
+    private BackModule backModule;
     private AnnouncementModule announcementModule;
+    private TipModule tipModule;
     private NameTagModule prefixSuffixModule;
+    private InvisibilityNotifyModule invisibilityNotifyModule;
     private TeleportNotifyModule teleportNotifyModule;
 
     @Override
@@ -49,8 +77,13 @@ public final class Mik extends JavaPlugin {
         serverLinksModule = new ServerLinksModule(this);
         serverLinksModule.register();
 
+        // Initialize and enable idle module
+        afkModule = new AfkModule(this);
+        afkModule.enable();
+        afkModule.registerCommands(this.getLifecycleManager());
+
         // Initialize and start performance module
-        performanceModule = new PerformanceModule(this);
+        performanceModule = new PerformanceModule(this, afkModule);
         performanceModule.start();
 
         // Initialize music disc module and load music files
@@ -106,6 +139,11 @@ public final class Mik extends JavaPlugin {
         announcementModule.enable();
         announcementModule.registerCommands(this.getLifecycleManager());
 
+        // tips
+        tipModule = new TipModule(this);
+        tipModule.enable();
+        tipModule.registerCommands(this.getLifecycleManager());
+
         // Initialize and start API module
         apiModule = new ApiModule(this);
         apiModule.setAnnouncementModule(announcementModule);
@@ -114,6 +152,7 @@ public final class Mik extends JavaPlugin {
         // Initialize and enable whitelist chat module
         whitelistModule = new WhitelistModule(this);
         whitelistModule.enable();
+        whitelistModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and enable MOTD module
         motdModule = new MotdModule(this);
@@ -124,10 +163,19 @@ public final class Mik extends JavaPlugin {
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
 
+        // back history
+        backModule = new BackModule(this);
+        backModule.enable();
+        backModule.registerCommands(this.getLifecycleManager());
+
         // player prefix/suffix
         prefixSuffixModule = new NameTagModule(this);
         prefixSuffixModule.enable();
         prefixSuffixModule.registerCommands(this.getLifecycleManager());
+
+        // invisibility actionbar notice
+        invisibilityNotifyModule = new InvisibilityNotifyModule(this);
+        invisibilityNotifyModule.enable();
 
         // Initialize and enable teleport notify module
         teleportNotifyModule = new TeleportNotifyModule(this);
@@ -139,6 +187,10 @@ public final class Mik extends JavaPlugin {
         // Stop performance monitoring
         if (performanceModule != null) {
             performanceModule.stop();
+        }
+
+        if (afkModule != null) {
+            afkModule.disable();
         }
 
         // Stop TPS bar module
@@ -163,6 +215,14 @@ public final class Mik extends JavaPlugin {
 
         if (motdModule != null) {
             motdModule.disable();
+        }
+
+        if (tipModule != null) {
+            tipModule.disable();
+        }
+
+        if (invisibilityNotifyModule != null) {
+            invisibilityNotifyModule.disable();
         }
     }
 }
