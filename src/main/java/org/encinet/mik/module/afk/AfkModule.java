@@ -50,7 +50,7 @@ public class AfkModule implements Listener, AfkService {
     private static final long AFK_TIMEOUT_MILLIS = 3L * 60L * 1000L;
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
-    private static final int MAX_MESSAGE_LENGTH = 48;
+    private static final int MAX_STATUS_LENGTH = 12;
     private static final String[] DEFAULT_MESSAGES = {
             "双手离开了键盘",
             "进入省电模式",
@@ -240,12 +240,19 @@ public class AfkModule implements Listener, AfkService {
             return 0;
         }
 
-        String message = sanitizeMessage(rawMessage);
+        String message = normalizeMessage(rawMessage);
         if (isClearKeyword(message)) {
             clearAfk(player, true);
-        } else {
-            setAfk(player, message.isEmpty() ? null : message, false);
+            return Command.SINGLE_SUCCESS;
         }
+
+        if (message.codePointCount(0, message.length()) > MAX_STATUS_LENGTH) {
+            player.sendMessage(MINI_MESSAGE.deserialize(
+                    "<red>挂机状态最多 <white><max></white> 个字</red>",
+                    Placeholder.unparsed("max", Integer.toString(MAX_STATUS_LENGTH))));
+            return Command.SINGLE_SUCCESS;
+        }
+        setAfk(player, message.isEmpty() ? null : message, false);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -362,12 +369,8 @@ public class AfkModule implements Listener, AfkService {
         return firstToken.equals("afk") || firstToken.equals("away");
     }
 
-    private String sanitizeMessage(String rawMessage) {
-        String compact = rawMessage == null ? "" : rawMessage.replaceAll("\\s+", " ").trim();
-        if (compact.length() <= MAX_MESSAGE_LENGTH) {
-            return compact;
-        }
-        return compact.substring(0, MAX_MESSAGE_LENGTH);
+    private String normalizeMessage(String rawMessage) {
+        return rawMessage == null ? "" : rawMessage.replaceAll("\\s+", " ").trim();
     }
 
     private boolean isClearKeyword(String message) {

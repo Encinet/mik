@@ -529,7 +529,7 @@ public class AnnouncementModule implements Listener {
      */
     private List<Component> wrapToLore(String text) {
         List<Component> lines = new ArrayList<>();
-        for (String paragraph : text.split("\n")) {
+        for (String paragraph : normalizeAnnouncementText(text).split("\n", -1)) {
             String remaining = paragraph;
             if (remaining.isEmpty()) {
                 lines.add(Component.empty());
@@ -605,14 +605,14 @@ public class AnnouncementModule implements Listener {
 
         List<Announcement> list = new ArrayList<>();
         try {
-            String raw = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+            String raw = normalizeAnnouncementText(Files.readString(file.toPath(), StandardCharsets.UTF_8));
             for (String block : raw.split("---")) {
                 String trimmed = block.strip();
                 if (trimmed.isEmpty()) continue;
                 int newline = trimmed.indexOf('\n');
                 if (newline == -1) continue;
                 String dateLine = trimmed.substring(0, newline).strip();
-                String content = trimmed.substring(newline + 1).strip();
+                String content = normalizeAnnouncementText(trimmed.substring(newline + 1)).strip();
                 try {
                     LocalDateTime ldt = LocalDateTime.parse(dateLine, DATE_FMT);
                     long ts = ldt.atZone(ZoneId.systemDefault()).toEpochSecond();
@@ -625,6 +625,15 @@ public class AnnouncementModule implements Listener {
             plugin.getLogger().severe("Failed to read announcements.txt: " + e.getMessage());
         }
         return list;
+    }
+
+    private String normalizeAnnouncementText(String text) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        return text.replace("\uFEFF", "")
+                .replace("\r\n", "\n")
+                .replace('\r', '\n');
     }
 
     public record Announcement(long timestamp, String content) {
