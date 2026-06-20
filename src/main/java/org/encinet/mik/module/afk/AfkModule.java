@@ -14,6 +14,7 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,7 +22,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -83,6 +86,7 @@ public class AfkModule implements Listener, AfkService {
     private final JavaPlugin plugin;
     private final Map<UUID, Long> lastActiveAt = new HashMap<>();
     private final Map<UUID, AfkState> states = new HashMap<>();
+    private final Map<UUID, Boolean> previousCollidableStates = new HashMap<>();
     private final Set<UUID> pendingAsyncActivity = ConcurrentHashMap.newKeySet();
     private final List<AfkStateListener> listeners = new CopyOnWriteArrayList<>();
     private final AfkDisplayController displayController = new AfkDisplayController();
@@ -108,6 +112,7 @@ public class AfkModule implements Listener, AfkService {
             updateTask.cancel();
         }
         updateTask = null;
+        restoreAllAfkProtection();
         states.clear();
         lastActiveAt.clear();
         pendingAsyncActivity.clear();
@@ -163,6 +168,7 @@ public class AfkModule implements Listener, AfkService {
         states.remove(playerId);
         lastActiveAt.remove(playerId);
         pendingAsyncActivity.remove(playerId);
+        restoreAfkProtection(player);
         displayController.remove(playerId);
         notifyListeners(player, null);
     }
@@ -216,10 +222,35 @@ public class AfkModule implements Listener, AfkService {
         recordActivity(event.getPlayer());
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (event.getEntity() instanceof Player target && isAfk(target.getUniqueId())) {
+            event.setCancelled(true);
+            if (event.getDamager() instanceof Player damager && !damager.getUniqueId().equals(target.getUniqueId())) {
+                recordActivity(damager);
+            }
+            return;
+        }
         if (event.getDamager() instanceof Player player) {
             recordActivity(player);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onEntityTargetAfkPlayer(EntityTargetLivingEntityEvent event) {
+        if (event.getTarget() instanceof Player player && isAfk(player.getUniqueId())) {
+            event.setCancelled(true);
+            if (event.getEntity() instanceof Mob mob) {
+                mob.setTarget(null);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerFishAfkPlayer(PlayerFishEvent event) {
+        if (event.getCaught() instanceof Player target && isAfk(target.getUniqueId())) {
+            event.setCancelled(true);
+            recordActivity(event.getPlayer());
         }
     }
 
@@ -314,6 +345,7 @@ public class AfkModule implements Listener, AfkService {
         String broadcastMessage = hasCustomMessage ? customMessage : randomDefaultMessage();
         AfkState state = new AfkState(playerId, hasCustomMessage ? customMessage : null, automatic, System.currentTimeMillis());
         states.put(playerId, state);
+        applyAfkProtection(player);
         displayController.update(player, state);
         notifyListeners(player, state);
         Bukkit.broadcast(enterMessage(player, broadcastMessage, hasCustomMessage));
@@ -329,6 +361,7 @@ public class AfkModule implements Listener, AfkService {
         }
 
         lastActiveAt.put(playerId, System.currentTimeMillis());
+        restoreAfkProtection(player);
         displayController.remove(playerId);
         notifyListeners(player, null);
         Bukkit.broadcast(exitMessage(player));
@@ -371,6 +404,38 @@ public class AfkModule implements Listener, AfkService {
 
     private String normalizeMessage(String rawMessage) {
         return rawMessage == null ? "" : rawMessage.replaceAll("\\s+", " ").trim();
+    }
+
+    private void applyAfkProtection(Player player) {
+        previousCollidableStates.putIfAbsent(player.getUniqueId(), player.isCollidable());
+        player.setCollidable(false);
+        clearNearbyMobTargets(player);
+    }
+
+    private void restoreAfkProtection(Player player) {
+        Boolean previousCollidable = previousCollidableStates.remove(player.getUniqueId());
+        if (previousCollidable != null) {
+            player.setCollidable(previousCollidable);
+        }
+    }
+
+    private void restoreAllAfkProtection() {
+        for (UUID playerId : List.copyOf(previousCollidableStates.keySet())) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                restoreAfkProtection(player);
+            } else {
+                previousCollidableStates.remove(playerId);
+            }
+        }
+    }
+
+    private void clearNearbyMobTargets(Player player) {
+        for (var entity : player.getNearbyEntities(48.0D, 32.0D, 48.0D)) {
+            if (entity instanceof Mob mob && player.equals(mob.getTarget())) {
+                mob.setTarget(null);
+            }
+        }
     }
 
     private boolean isClearKeyword(String message) {
