@@ -201,7 +201,7 @@ public class JukeboxControlGUI {
                     .decoration(TextDecoration.ITALIC, false));
             meta.lore(List.of(
                     Component.text("播放列表在随机模式下不可用")
-                            .color(NamedTextColor.DARK_GRAY)
+                            .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)
             ));
             item.setItemMeta(meta);

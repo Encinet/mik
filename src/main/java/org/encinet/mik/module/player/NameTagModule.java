@@ -27,8 +27,14 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.lang.reflect.Method;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * NameTagModule — 处理 /nametag 命令，允许玩家自定义前缀和后缀。
@@ -44,6 +50,8 @@ public class NameTagModule {
     private static final int CUSTOM_PRIORITY = 10_000;
     private static final int MAX_LENGTH = 200;
     private static final String PERM_USE = "group.member";
+    private static final String SUPPORTED_PAPI_PREFIX = "player_";
+    private static final Pattern PAPI_PLACEHOLDER_PATTERN = Pattern.compile("%([^%]+)%");
 
     private static final String URL_EDITOR = "https://webui.advntr.dev/";
     private static final String URL_DOCS = "https://docs.papermc.io/adventure/minimessage/format/";
@@ -53,7 +61,7 @@ public class NameTagModule {
     private static final TextColor C_ACCENT = TextColor.color(0xFFAA00);
     private static final TextColor C_LINK = TextColor.color(0x55AAFF);
     private static final TextColor C_RAW = TextColor.color(0xFFFF55);
-    private static final TextColor C_DIM = NamedTextColor.DARK_GRAY;
+    private static final TextColor C_DIM = NamedTextColor.GRAY;
     private static final TextColor C_MUTED = NamedTextColor.GRAY;
 
     // ── 安全 MiniMessage（禁用 click / selector）──────────────────────────────
@@ -165,10 +173,10 @@ public class NameTagModule {
     /**
      * 将 MiniMessage 原文渲染为 Component，空值显示灰色斜体占位符。
      */
-    private Component render(String raw) {
+    private Component render(Player player, String raw) {
         if (raw == null || raw.isEmpty())
             return Component.text("(未设置)", C_DIM, TextDecoration.ITALIC);
-        return SAFE_MM.deserialize(raw);
+        return SAFE_MM.deserialize(applyPlaceholders(player, raw));
     }
 
     /**
@@ -197,19 +205,60 @@ public class NameTagModule {
     /**
      * 聊天预览行。
      */
-    private Component chatPreview(String name, String prefixRaw, String suffixRaw) {
+    private Component chatPreview(Player player, String prefixRaw, String suffixRaw) {
         Component pre = (prefixRaw != null && !prefixRaw.isEmpty())
-                ? SAFE_MM.deserialize(prefixRaw) : Component.empty();
+                ? SAFE_MM.deserialize(applyPlaceholders(player, prefixRaw)) : Component.empty();
         Component suf = (suffixRaw != null && !suffixRaw.isEmpty())
-                ? SAFE_MM.deserialize(suffixRaw) : Component.empty();
+                ? SAFE_MM.deserialize(applyPlaceholders(player, suffixRaw)) : Component.empty();
 
         return Component.text()
                 .append(pre)
-                .append(Component.text(name))
+                .append(Component.text(player.getName()))
                 .append(suf)
                 .append(Component.text(" » ", NamedTextColor.GOLD))
                 .append(Component.text("示例消息", NamedTextColor.WHITE))
                 .build();
+    }
+
+    private String applyPlaceholders(Player player, String raw) {
+        Plugin placeholderApi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");
+        if (placeholderApi == null || !placeholderApi.isEnabled()) {
+            return raw;
+        }
+        try {
+            MaskedPlaceholders masked = maskUnsupportedPlaceholders(raw);
+            Class<?> placeholderApiClass = placeholderApi.getClass().getClassLoader()
+                    .loadClass("me.clip.placeholderapi.PlaceholderAPI");
+            Method setPlaceholders = placeholderApiClass.getMethod("setPlaceholders", Player.class, String.class);
+            Object parsed = setPlaceholders.invoke(null, player, masked.text());
+            return parsed instanceof String value ? masked.restore(value) : raw;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            plugin.getLogger().warning("PlaceholderAPI 解析名称标签预览失败（" + player.getName() + "）: " + e.getMessage());
+            return raw;
+        }
+    }
+
+    private MaskedPlaceholders maskUnsupportedPlaceholders(String raw) {
+        Matcher matcher = PAPI_PLACEHOLDER_PATTERN.matcher(raw);
+        StringBuilder masked = new StringBuilder();
+        Map<String, String> replacements = new LinkedHashMap<>();
+        int index = 0;
+        while (matcher.find()) {
+            String placeholder = matcher.group(1);
+            if (isSupportedPlaceholder(placeholder)) {
+                matcher.appendReplacement(masked, Matcher.quoteReplacement(matcher.group()));
+            } else {
+                String token = "\uE000mik_papi_" + index++ + "\uE000";
+                replacements.put(token, matcher.group());
+                matcher.appendReplacement(masked, Matcher.quoteReplacement(token));
+            }
+        }
+        matcher.appendTail(masked);
+        return new MaskedPlaceholders(masked.toString(), replacements);
+    }
+
+    private boolean isSupportedPlaceholder(String placeholder) {
+        return placeholder.toLowerCase(Locale.ROOT).startsWith(SUPPORTED_PAPI_PREFIX);
     }
 
     /**
@@ -220,10 +269,10 @@ public class NameTagModule {
      *   &lt;raw&gt; [复制]
      * </pre>
      */
-    private Component tagEntry(String label, String raw) {
+    private Component tagEntry(Player player, String label, String raw) {
         var builder = Component.text()
                 .append(Component.text(label + "  ", C_MUTED))
-                .append(render(raw));
+                .append(render(player, raw));
         if (raw != null && !raw.isEmpty()) {
             builder.append(NL)
                     .append(Component.text("      ", C_DIM))   // indent
@@ -253,9 +302,9 @@ public class NameTagModule {
 
         player.sendMessage(Component.text()
                 .append(Component.text("🏷 名称标签", C_ACCENT, TextDecoration.BOLD)).append(NL)
-                .append(tagEntry("前缀", pre)).append(NL)
-                .append(tagEntry("后缀", suf)).append(NL)
-                .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player.getName(), pre, suf)).append(NL)
+                .append(tagEntry(player, "前缀", pre)).append(NL)
+                .append(tagEntry(player, "后缀", suf)).append(NL)
+                .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
                 .append(linkButton("在线编辑器", URL_EDITOR))
                 .append(Component.text("  ·  ", C_DIM))
                 .append(linkButton("格式文档", URL_DOCS))
@@ -285,8 +334,8 @@ public class NameTagModule {
 
         player.sendMessage(Component.text()
                 .append(Component.text("🏷 " + target.label, C_ACCENT, TextDecoration.BOLD)).append(NL)
-                .append(tagEntry(target.label, targetRaw)).append(NL)
-                .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player.getName(), pre, suf)).append(NL)
+                .append(tagEntry(player, target.label, targetRaw)).append(NL)
+                .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
                 .append(linkButton("在线编辑器", URL_EDITOR))
                 .append(Component.text("  ·  ", C_DIM))
                 .append(linkButton("格式文档", URL_DOCS))
@@ -316,6 +365,16 @@ public class NameTagModule {
                     target.label + "过长，最多 " + MAX_LENGTH + " 个字符", NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
         }
+        String unsupportedPlaceholder = findUnsupportedPlaceholder(normalized);
+        if (unsupportedPlaceholder != null) {
+            player.sendMessage(Component.text()
+                    .append(Component.text("只支持 ", NamedTextColor.RED))
+                    .append(Component.text("%player_...%", C_LINK))
+                    .append(Component.text(" 这类 PlaceholderAPI 变量，不支持 ", NamedTextColor.RED))
+                    .append(Component.text("%" + unsupportedPlaceholder + "%", C_RAW))
+                    .build());
+            return Command.SINGLE_SUCCESS;
+        }
 
         User cached = luckPerms.getUserManager().getUser(player.getUniqueId());
         String otherRaw = cached != null ? target.other().get(cached.getCachedData().getMetaData()) : null;
@@ -335,13 +394,34 @@ public class NameTagModule {
 
             player.sendMessage(Component.text()
                     .append(Component.text("✔ " + target.label + "已设置", NamedTextColor.GREEN, TextDecoration.BOLD)).append(NL)
-                    .append(Component.text("效果  ", C_MUTED)).append(render(normalized)).append(NL)
+                    .append(Component.text("效果  ", C_MUTED)).append(render(player, normalized)).append(NL)
                     .append(Component.text("      ", C_DIM)).append(rawWithCopy(normalized)).append(NL)
-                    .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player.getName(), pre, suf))
+                    .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player, pre, suf))
                     .build());
         }));
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    private String findUnsupportedPlaceholder(String raw) {
+        Matcher matcher = PAPI_PLACEHOLDER_PATTERN.matcher(raw);
+        while (matcher.find()) {
+            String placeholder = matcher.group(1);
+            if (!isSupportedPlaceholder(placeholder)) {
+                return placeholder;
+            }
+        }
+        return null;
+    }
+
+    private record MaskedPlaceholders(String text, Map<String, String> replacements) {
+        String restore(String parsedText) {
+            String restored = parsedText;
+            for (Map.Entry<String, String> entry : replacements.entrySet()) {
+                restored = restored.replace(entry.getKey(), entry.getValue());
+            }
+            return restored;
+        }
     }
 
     /**

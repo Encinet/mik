@@ -155,7 +155,7 @@ public class TipModule {
         return Component.text()
                 .append(Component.text("TIP", NamedTextColor.AQUA, TextDecoration.BOLD)
                         .hoverEvent(HoverEvent.showText(Component.text("服务器小提示", NamedTextColor.GRAY))))
-                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(" | ", NamedTextColor.GRAY))
                 .append(MINI_MESSAGE.deserialize(tip.content()))
                 .build();
     }

@@ -8,9 +8,12 @@ import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -19,7 +22,6 @@ import java.util.UUID;
 
 final class AfkDisplayController {
 
-    private static final String SCOREBOARD_TAG = "mik_afk_display";
     private static final double DISPLAY_Y_OFFSET = 0.55D;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final MiniMessage SAFE_MESSAGE = MiniMessage.builder()
@@ -32,12 +34,16 @@ final class AfkDisplayController {
             ))
             .build();
 
+    private final NamespacedKey ownerKey;
     private final Map<UUID, TextDisplay> displays = new HashMap<>();
 
+    AfkDisplayController(JavaPlugin plugin) {
+        this.ownerKey = new NamespacedKey(plugin, "afk_display_owner");
+    }
+
     void update(Player player, AfkState state) {
-        TextDisplay display = displays.get(player.getUniqueId());
-        if (display == null || !display.isValid() || !display.getWorld().equals(player.getWorld())) {
-            remove(player.getUniqueId());
+        TextDisplay display = currentDisplay(player);
+        if (display == null) {
             display = spawnDisplay(player);
             displays.put(player.getUniqueId(), display);
         }
@@ -76,7 +82,7 @@ final class AfkDisplayController {
     void removeOrphans() {
         for (org.bukkit.World world : Bukkit.getWorlds()) {
             for (TextDisplay display : world.getEntitiesByClass(TextDisplay.class)) {
-                if (display.getScoreboardTags().contains(SCOREBOARD_TAG)) {
+                if (ownerId(display) != null) {
                     display.remove();
                 }
             }
@@ -85,7 +91,7 @@ final class AfkDisplayController {
 
     private TextDisplay spawnDisplay(Player player) {
         return player.getWorld().spawn(displayLocation(player), TextDisplay.class, display -> {
-            display.addScoreboardTag(SCOREBOARD_TAG);
+            display.getPersistentDataContainer().set(ownerKey, PersistentDataType.STRING, player.getUniqueId().toString());
             display.setPersistent(false);
             display.setGravity(false);
             display.setInvulnerable(true);
@@ -100,6 +106,37 @@ final class AfkDisplayController {
             display.setAlignment(TextDisplay.TextAlignment.CENTER);
             display.setTeleportDuration(4);
         });
+    }
+
+    private TextDisplay currentDisplay(Player player) {
+        UUID playerId = player.getUniqueId();
+        TextDisplay display = displays.get(playerId);
+        if (display != null && display.isValid() && display.getWorld().equals(player.getWorld())) {
+            return display;
+        }
+        remove(playerId);
+        return findExistingDisplay(player);
+    }
+
+    private TextDisplay findExistingDisplay(Player player) {
+        TextDisplay found = null;
+        String expectedOwner = player.getUniqueId().toString();
+        for (TextDisplay display : player.getWorld().getEntitiesByClass(TextDisplay.class)) {
+            if (!expectedOwner.equals(ownerId(display))) {
+                continue;
+            }
+            if (found == null && display.isValid()) {
+                found = display;
+                displays.put(player.getUniqueId(), display);
+            } else if (display.isValid()) {
+                display.remove();
+            }
+        }
+        return found;
+    }
+
+    private String ownerId(TextDisplay display) {
+        return display.getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
     }
 
     private Location displayLocation(Player player) {

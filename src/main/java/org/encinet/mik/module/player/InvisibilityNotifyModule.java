@@ -70,8 +70,8 @@ public class InvisibilityNotifyModule {
 
     private Component actionBarMessage(Detection detection) {
         String template = detection.count() == 1
-                ? "<yellow>附近有玩家处于 <gold>隐身</gold> 状态</yellow> <dark_gray>·</dark_gray> <gray>约 <distance> 格内</gray>"
-                : "<yellow>附近有 <gold><count></gold> 名玩家处于 <gold>隐身</gold> 状态</yellow> <dark_gray>·</dark_gray> <gray>最近约 <distance> 格</gray>";
+                ? "<yellow>附近有玩家处于 <gold>隐身</gold> 状态</yellow> <gray>·</gray> <gray>约 <distance> 格内</gray>"
+                : "<yellow>附近有 <gold><count></gold> 名玩家处于 <gold>隐身</gold> 状态</yellow> <gray>·</gray> <gray>最近约 <distance> 格</gray>";
         return MINI_MESSAGE.deserialize(template,
                 Placeholder.unparsed("count", Integer.toString(detection.count())),
                 Placeholder.unparsed("distance", Integer.toString(detection.nearestDistance())));

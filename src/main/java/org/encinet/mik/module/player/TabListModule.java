@@ -11,26 +11,34 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.module.afk.AfkService;
+import org.encinet.mik.module.afk.AfkState;
+import org.encinet.mik.module.afk.AfkStateListener;
 
 /**
  * Module for customizing player tab list with LuckPerms prefix and suffix
  */
-public class TabListModule implements Listener {
+public class TabListModule implements Listener, AfkStateListener {
 
-    private final JavaPlugin plugin;
-    private LuckPerms luckPerms;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
-    private BukkitTask updateTask;
+    private static final long REFRESH_INTERVAL_TICKS = 5L * 20L;
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-    private static final Component TABLIST_HEADER = MiniMessage.miniMessage().deserialize(
+    private static final Component TABLIST_HEADER = MINI_MESSAGE.deserialize(
             "<gold><bold>Mi</bold><white><bold>k</bold> <green><bold>Casual</bold></green></white></gold>"
     );
 
-    public TabListModule(JavaPlugin plugin) {
+    private final JavaPlugin plugin;
+    private final AfkService afkService;
+    private LuckPerms luckPerms;
+    private BukkitTask refreshTask;
+
+    public TabListModule(JavaPlugin plugin, AfkService afkService) {
         this.plugin = plugin;
+        this.afkService = afkService;
     }
 
     /**
@@ -45,13 +53,10 @@ public class TabListModule implements Listener {
         luckPerms = provider.getProvider();
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        afkService.addListener(this);
 
-        // Update tab list for all online players
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            updatePlayerTabList(player);
-        }
-
-        updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAllPlayerTabLists, 200L, 20L);
+        refreshAll();
+        refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAll, REFRESH_INTERVAL_TICKS, REFRESH_INTERVAL_TICKS);
 
         plugin.getLogger().info("TabListModule enabled");
     }
@@ -62,34 +67,54 @@ public class TabListModule implements Listener {
         player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, Component.empty());
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
-                updatePlayerTabList(player);
+                updatePlayerListName(player);
+                updateAllHeadersAndFooters();
             }
         }, 1L);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Bukkit.getScheduler().runTask(plugin, this::updateAllHeadersAndFooters);
+    }
+
+    @Override
+    public void onAfkStateChanged(Player player, AfkState state) {
+        if (player.isOnline()) {
+            updatePlayerListName(player);
+        }
     }
 
     /**
      * Disable tab list module and reset all players' tab list names
      */
     public void disable() {
-        if (updateTask != null) {
-            updateTask.cancel();
-            updateTask = null;
+        afkService.removeListener(this);
+        if (refreshTask != null) {
+            refreshTask.cancel();
+            refreshTask = null;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playerListName(null);
+            player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
         }
     }
 
-    private void updateAllPlayerTabLists() {
+    private void refreshAll() {
+        updateAllPlayerListNames();
+        updateAllHeadersAndFooters();
+    }
+
+    private void updateAllPlayerListNames() {
         for (Player player : Bukkit.getOnlinePlayers()) {
-            updatePlayerTabList(player);
+            updatePlayerListName(player);
         }
     }
 
     /**
      * Update player's tab list display name with LuckPerms prefix and suffix
      */
-    private void updatePlayerTabList(Player player) {
+    private void updatePlayerListName(Player player) {
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) {
             return;
@@ -103,25 +128,49 @@ public class TabListModule implements Listener {
         TextComponent.Builder builder = Component.text();
 
         if (prefix != null && !prefix.isEmpty()) {
-            builder.append(miniMessage.deserialize(prefix));
+            builder.append(renderMiniMessage(prefix));
         }
 
-        // escapeTags 会将玩家名中的 < > 等字符转义，防止被 MiniMessage 解析
-        String escapedName = miniMessage.escapeTags(player.getName());
-        String colorTag = (usernameColor != null && !usernameColor.isEmpty())
-                ? usernameColor
-                : "<white>";
-        builder.append(miniMessage.deserialize(colorTag + escapedName));
+        builder.append(renderPlayerName(player, usernameColor));
 
         if (suffix != null && !suffix.isEmpty()) {
-            builder.append(miniMessage.deserialize(suffix));
+            builder.append(renderMiniMessage(suffix));
         }
 
+        if (afkService.isAfk(player.getUniqueId())) {
+            builder.append(renderAfkBadge());
+        }
         player.playerListName(builder.build());
+    }
 
-        Component footer = miniMessage.deserialize(
-                "<gray>在线玩家: <green>" + Bukkit.getOnlinePlayers().size() + "</green> <dark_gray>/ <gray>" + Bukkit.getMaxPlayers() + "</gray>"
+    private void updateAllHeadersAndFooters() {
+        Component footer = MINI_MESSAGE.deserialize(
+                "<gray>在线玩家: <green>" + Bukkit.getOnlinePlayers().size() + "</green> <gray>/ <gray>" + Bukkit.getMaxPlayers() + "</gray>"
         );
-        player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, footer);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, footer);
+        }
+    }
+
+    private Component renderPlayerName(Player player, String usernameColor) {
+        String escapedName = MINI_MESSAGE.escapeTags(player.getName());
+        String colorTag = (usernameColor != null && !usernameColor.isEmpty()) ? usernameColor : "<white>";
+        try {
+            return MINI_MESSAGE.deserialize(colorTag + escapedName);
+        } catch (RuntimeException e) {
+            return MINI_MESSAGE.deserialize("<white>" + escapedName);
+        }
+    }
+
+    private Component renderMiniMessage(String raw) {
+        try {
+            return MINI_MESSAGE.deserialize(raw);
+        } catch (RuntimeException e) {
+            return Component.text(raw);
+        }
+    }
+
+    private Component renderAfkBadge() {
+        return MINI_MESSAGE.deserialize(" <gray>[</gray><gold>AFK</gold><gray>]</gray>");
     }
 }

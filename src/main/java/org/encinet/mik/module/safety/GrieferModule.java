@@ -260,7 +260,7 @@ public class GrieferModule implements Listener {
                     .append(Component.newline())
                     .append(Component.text("检测到破坏服务器行为，如有异议请联系管理员申诉", NamedTextColor.GRAY))
                     .append(Component.newline())
-                    .append(Component.text("原因: " + triggerReason, NamedTextColor.DARK_GRAY))
+                    .append(Component.text("原因: " + triggerReason, NamedTextColor.GRAY))
                     .build());
         });
 

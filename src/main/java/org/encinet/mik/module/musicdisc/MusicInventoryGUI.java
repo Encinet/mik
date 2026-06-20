@@ -340,7 +340,7 @@ public class MusicInventoryGUI {
                                 .decoration(TextDecoration.ITALIC, false),
                         Component.text("").decoration(TextDecoration.ITALIC, false),
                         Component.text("命令:")
-                                .color(NamedTextColor.DARK_GRAY)
+                                .color(NamedTextColor.GRAY)
                                 .decoration(TextDecoration.ITALIC, false),
                         Component.text("/music random")
                                 .color(NamedTextColor.YELLOW)

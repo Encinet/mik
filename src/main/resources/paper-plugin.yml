@@ -14,6 +14,10 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: false
   server:
     packetevents:
       load: BEFORE
@@ -23,3 +27,7 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    PlaceholderAPI:
+      load: BEFORE
+      required: false
+      join-classpath: false

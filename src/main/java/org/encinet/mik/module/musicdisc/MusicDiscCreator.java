@@ -62,22 +62,22 @@ public class MusicDiscCreator {
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text(""));
             lore.add(Component.text("格式: " + extension)
-                    .color(NamedTextColor.DARK_GRAY)
+                    .color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
 
             if (music.fileSize() != null) {
                 lore.add(Component.text("大小: " + music.fileSize())
-                        .color(NamedTextColor.DARK_GRAY)
+                        .color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
             if (music.sampleRate() != null) {
                 lore.add(Component.text("采样率: " + music.sampleRate())
-                        .color(NamedTextColor.DARK_GRAY)
+                        .color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
             if (music.duration() != null) {
                 lore.add(Component.text("时长: " + music.duration())
-                        .color(NamedTextColor.DARK_GRAY)
+                        .color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
 

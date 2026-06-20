@@ -174,8 +174,8 @@ public class BackModule implements Listener {
         }
 
         String template = steps == 1
-                ? "<green>已返回到上一个位置</green> <dark_gray>·</dark_gray> <gray><count>/<max></gray>"
-                : "<green>已连续返回 <steps> 次</green> <dark_gray>·</dark_gray> <gray><count>/<max></gray>";
+                ? "<green>已返回到上一个位置</green> <gray>·</gray> <gray><count>/<max></gray>"
+                : "<green>已连续返回 <steps> 次</green> <gray>·</gray> <gray><count>/<max></gray>";
         teleportBack(player, target, MINI_MESSAGE.deserialize(template,
                 Placeholder.unparsed("steps", Integer.toString(steps)),
                 Placeholder.unparsed("count", Integer.toString(history.size())),

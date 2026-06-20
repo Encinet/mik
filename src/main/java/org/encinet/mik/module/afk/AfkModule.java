@@ -13,6 +13,7 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.bukkit.Bukkit;
+import org.bukkit.Input;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Mob;
@@ -26,6 +27,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerFishEvent;
+import org.bukkit.event.player.PlayerInputEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -88,16 +90,17 @@ public class AfkModule implements Listener, AfkService {
     private final JavaPlugin plugin;
     private final Map<UUID, Long> lastActiveAt = new HashMap<>();
     private final Map<UUID, AfkState> states = new HashMap<>();
-    private final Map<UUID, Boolean> previousCollidableStates = new HashMap<>();
     private final Set<UUID> pendingAsyncActivity = ConcurrentHashMap.newKeySet();
     private final List<AfkStateListener> listeners = new CopyOnWriteArrayList<>();
-    private final AfkDisplayController displayController = new AfkDisplayController();
+    private final AfkDisplayController displayController;
+    private final AfkCollisionController collisionController = new AfkCollisionController();
 
     private BukkitTask updateTask;
     private int tickCounter;
 
     public AfkModule(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.displayController = new AfkDisplayController(plugin);
     }
 
     public void enable() {
@@ -114,7 +117,7 @@ public class AfkModule implements Listener, AfkService {
             updateTask.cancel();
         }
         updateTask = null;
-        restoreAllAfkProtection();
+        collisionController.clear();
         states.clear();
         lastActiveAt.clear();
         pendingAsyncActivity.clear();
@@ -161,6 +164,7 @@ public class AfkModule implements Listener, AfkService {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         lastActiveAt.put(event.getPlayer().getUniqueId(), System.currentTimeMillis());
+        Bukkit.getScheduler().runTask(plugin, () -> collisionController.syncViewer(event.getPlayer()));
     }
 
     @EventHandler
@@ -175,9 +179,27 @@ public class AfkModule implements Listener, AfkService {
         notifyListeners(player, null);
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
-        if (isMeaningfulActivity(event.getFrom(), event.getTo())) {
+        if (!isMeaningfulActivity(event.getFrom(), event.getTo())) {
+            return;
+        }
+
+        if (isAfk(event.getPlayer().getUniqueId())) {
+            if (isPositionChange(event.getFrom(), event.getTo())) {
+                event.setCancelled(true);
+            } else {
+                recordActivity(event.getPlayer());
+            }
+            return;
+        }
+
+        recordActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerInput(PlayerInputEvent event) {
+        if (hasMovementInput(event.getInput())) {
             recordActivity(event.getPlayer());
         }
     }
@@ -400,6 +422,25 @@ public class AfkModule implements Listener, AfkService {
                 || Math.abs(from.getPitch() - to.getPitch()) >= 8.0F;
     }
 
+    private boolean isPositionChange(Location from, Location to) {
+        if (to == null) return false;
+        if (!Objects.equals(from.getWorld(), to.getWorld())) return true;
+        double dx = from.getX() - to.getX();
+        double dy = from.getY() - to.getY();
+        double dz = from.getZ() - to.getZ();
+        return dx * dx + dy * dy + dz * dz > 0.01D;
+    }
+
+    private boolean hasMovementInput(Input input) {
+        return input.isForward()
+                || input.isBackward()
+                || input.isLeft()
+                || input.isRight()
+                || input.isJump()
+                || input.isSneak()
+                || input.isSprint();
+    }
+
     private float angularDelta(float a, float b) {
         float delta = Math.abs(a - b) % 360.0F;
         return delta > 180.0F ? 360.0F - delta : delta;
@@ -423,27 +464,12 @@ public class AfkModule implements Listener, AfkService {
     }
 
     private void applyAfkProtection(Player player) {
-        previousCollidableStates.putIfAbsent(player.getUniqueId(), player.isCollidable());
-        player.setCollidable(false);
+        collisionController.add(player);
         clearNearbyMobTargets(player);
     }
 
     private void restoreAfkProtection(Player player) {
-        Boolean previousCollidable = previousCollidableStates.remove(player.getUniqueId());
-        if (previousCollidable != null) {
-            player.setCollidable(previousCollidable);
-        }
-    }
-
-    private void restoreAllAfkProtection() {
-        for (UUID playerId : List.copyOf(previousCollidableStates.keySet())) {
-            Player player = Bukkit.getPlayer(playerId);
-            if (player != null) {
-                restoreAfkProtection(player);
-            } else {
-                previousCollidableStates.remove(playerId);
-            }
-        }
+        collisionController.remove(player);
     }
 
     private void clearNearbyMobTargets(Player player) {

@@ -9,7 +9,9 @@ import org.encinet.mik.module.api.ApiModule;
 import org.encinet.mik.module.commands.SimpleFeaturesModule;
 import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.communication.StaffChatModule;
+import org.encinet.mik.module.communication.MentionModule;
 import org.encinet.mik.module.communication.TipModule;
+import org.encinet.mik.module.menu.MenuNavigation;
 import org.encinet.mik.module.musicdisc.MusicDiscModule;
 import org.encinet.mik.module.performance.PerformanceModule;
 import org.encinet.mik.module.performance.TPSBarModule;
@@ -19,8 +21,9 @@ import org.encinet.mik.module.player.HomeModule;
 import org.encinet.mik.module.player.InvisibilityNotifyModule;
 import org.encinet.mik.module.player.NameTagModule;
 import org.encinet.mik.module.player.PlayerBoundaryModule;
+import org.encinet.mik.module.player.MainMenuModule;
 import org.encinet.mik.module.player.TabListModule;
-import org.encinet.mik.module.player.TeleportNotifyModule;
+import org.encinet.mik.module.player.TeleportPreferenceModule;
 import org.encinet.mik.module.presentation.BrandingModule;
 import org.encinet.mik.module.presentation.MotdModule;
 import org.encinet.mik.module.presentation.ServerLinksModule;
@@ -56,10 +59,13 @@ public final class Mik extends JavaPlugin {
     private HomeModule homeModule;
     private BackModule backModule;
     private AnnouncementModule announcementModule;
+    private MentionModule mentionModule;
     private TipModule tipModule;
     private NameTagModule prefixSuffixModule;
+    private MainMenuModule mainMenuModule;
     private InvisibilityNotifyModule invisibilityNotifyModule;
-    private TeleportNotifyModule teleportNotifyModule;
+    private TeleportPreferenceModule teleportPreferenceModule;
+    private MenuNavigation menuNavigation;
 
     @Override
     public void onLoad() {
@@ -85,6 +91,22 @@ public final class Mik extends JavaPlugin {
         // Initialize and start performance module
         performanceModule = new PerformanceModule(this, afkModule);
         performanceModule.start();
+
+        // main menu navigation
+        menuNavigation = new MenuNavigation();
+
+        // mention notifications
+        mentionModule = new MentionModule(this, afkModule, menuNavigation);
+        mentionModule.enable();
+
+        // teleport preferences
+        teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation);
+        teleportPreferenceModule.enable();
+
+        // player main menu
+        mainMenuModule = new MainMenuModule(this, afkModule, mentionModule, teleportPreferenceModule, menuNavigation);
+        mainMenuModule.enable();
+        mainMenuModule.registerCommands(this.getLifecycleManager());
 
         // Initialize music disc module and load music files
         musicDiscModule = new MusicDiscModule(this);
@@ -123,7 +145,7 @@ public final class Mik extends JavaPlugin {
         tpsBarModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and enable tab list module
-        tabListModule = new TabListModule(this);
+        tabListModule = new TabListModule(this, afkModule);
         tabListModule.enable();
 
         // Initialize and enable tab list module
@@ -135,7 +157,7 @@ public final class Mik extends JavaPlugin {
         grieferModule.enable();
 
         // announcements (must be before API module)
-        announcementModule = new AnnouncementModule(this);
+        announcementModule = new AnnouncementModule(this, menuNavigation);
         announcementModule.enable();
         announcementModule.registerCommands(this.getLifecycleManager());
 
@@ -159,7 +181,7 @@ public final class Mik extends JavaPlugin {
         motdModule.enable();
 
         // home
-        homeModule = new HomeModule(this);
+        homeModule = new HomeModule(this, menuNavigation);
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
 
@@ -177,9 +199,6 @@ public final class Mik extends JavaPlugin {
         invisibilityNotifyModule = new InvisibilityNotifyModule(this);
         invisibilityNotifyModule.enable();
 
-        // Initialize and enable teleport notify module
-        teleportNotifyModule = new TeleportNotifyModule(this);
-        teleportNotifyModule.enable();
     }
 
     @Override
