@@ -1,5 +1,6 @@
 package org.encinet.mik.module.afk;
 
+import com.destroystokyo.paper.event.entity.EntityKnockbackByEntityEvent;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -32,6 +33,7 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
+import org.bukkit.event.player.PlayerVelocityEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -251,6 +253,20 @@ public class AfkModule implements Listener, AfkService {
         if (event.getCaught() instanceof Player target && isAfk(target.getUniqueId())) {
             event.setCancelled(true);
             recordActivity(event.getPlayer());
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onAfkPlayerVelocity(PlayerVelocityEvent event) {
+        if (isAfk(event.getPlayer().getUniqueId())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onAfkPlayerKnockback(EntityKnockbackByEntityEvent event) {
+        if (event.getEntity() instanceof Player player && isAfk(player.getUniqueId())) {
+            event.setCancelled(true);
         }
     }
 
