@@ -17,6 +17,7 @@ public class MikLoader implements PluginLoader {
                 "default",
                 MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR
         ).build());
+        resolver.addDependency(new Dependency(new DefaultArtifact("com.google.code.gson:gson:2.11.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("com.h2database:h2:2.2.224"), null));
         builder.addLibrary(resolver);
     }

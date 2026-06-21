@@ -30,6 +30,10 @@ public class TabListModule implements Listener, AfkStateListener {
     private static final Component TABLIST_HEADER = MINI_MESSAGE.deserialize(
             "<gold><bold>Mi</bold><white><bold>k</bold> <green><bold>Casual</bold></green></white></gold>"
     );
+    private static final Component AFK_TABLIST_HEADER = MINI_MESSAGE.deserialize(
+            "<gold><bold>AF</bold><white><bold>K</bold> <green><bold>Casual</bold></green></white></gold>"
+    );
+    private static final int AFK_EASTER_EGG_MIN_PLAYERS = 3;
 
     private final JavaPlugin plugin;
     private final AfkService afkService;
@@ -64,7 +68,7 @@ public class TabListModule implements Listener, AfkStateListener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, Component.empty());
+        player.sendPlayerListHeaderAndFooter(resolveTabListHeader(), Component.empty());
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
                 updatePlayerListName(player);
@@ -82,6 +86,7 @@ public class TabListModule implements Listener, AfkStateListener {
     public void onAfkStateChanged(Player player, AfkState state) {
         if (player.isOnline()) {
             updatePlayerListName(player);
+            updateAllHeadersAndFooters();
         }
     }
 
@@ -144,12 +149,34 @@ public class TabListModule implements Listener, AfkStateListener {
     }
 
     private void updateAllHeadersAndFooters() {
+        Component header = resolveTabListHeader();
         Component footer = MINI_MESSAGE.deserialize(
                 "<gray>在线玩家: <green>" + Bukkit.getOnlinePlayers().size() + "</green> <gray>/ <gray>" + Bukkit.getMaxPlayers() + "</gray>"
         );
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendPlayerListHeaderAndFooter(TABLIST_HEADER, footer);
+            player.sendPlayerListHeaderAndFooter(header, footer);
         }
+    }
+
+    private Component resolveTabListHeader() {
+        return shouldShowAfkEasterEgg() ? AFK_TABLIST_HEADER : TABLIST_HEADER;
+    }
+
+    private boolean shouldShowAfkEasterEgg() {
+        int onlinePlayers = Bukkit.getOnlinePlayers().size();
+        if (onlinePlayers < AFK_EASTER_EGG_MIN_PLAYERS) {
+            return false;
+        }
+
+        int nonAfkPlayers = 0;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (!afkService.isAfk(player.getUniqueId())) {
+                nonAfkPlayers++;
+            }
+        }
+
+        int nonAfkThreshold = Math.max(1, (int) Math.floor(onlinePlayers * 0.1));
+        return nonAfkPlayers <= nonAfkThreshold;
     }
 
     private Component renderPlayerName(Player player, String usernameColor) {

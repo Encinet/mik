@@ -16,6 +16,7 @@ import org.encinet.mik.module.musicdisc.MusicDiscModule;
 import org.encinet.mik.module.performance.PerformanceModule;
 import org.encinet.mik.module.performance.TPSBarModule;
 import org.encinet.mik.module.player.BackModule;
+import org.encinet.mik.module.player.ClientVersionReminderModule;
 import org.encinet.mik.module.player.GameModeSwitchModule;
 import org.encinet.mik.module.player.HomeModule;
 import org.encinet.mik.module.player.InvisibilityNotifyModule;
@@ -65,6 +66,7 @@ public final class Mik extends JavaPlugin {
     private MainMenuModule mainMenuModule;
     private InvisibilityNotifyModule invisibilityNotifyModule;
     private TeleportPreferenceModule teleportPreferenceModule;
+    private ClientVersionReminderModule clientVersionReminderModule;
     private MenuNavigation menuNavigation;
 
     @Override
@@ -177,7 +179,7 @@ public final class Mik extends JavaPlugin {
         whitelistModule.registerCommands(this.getLifecycleManager());
 
         // Initialize and enable MOTD module
-        motdModule = new MotdModule(this);
+        motdModule = new MotdModule(this, afkModule);
         motdModule.enable();
 
         // home
@@ -198,6 +200,14 @@ public final class Mik extends JavaPlugin {
         // invisibility actionbar notice
         invisibilityNotifyModule = new InvisibilityNotifyModule(this);
         invisibilityNotifyModule.enable();
+
+        // client version reminder via ViaVersion
+        if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
+            clientVersionReminderModule = new ClientVersionReminderModule(this);
+            clientVersionReminderModule.enable();
+        } else {
+            getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
+        }
 
     }
 

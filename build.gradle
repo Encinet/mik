@@ -12,6 +12,10 @@ repositories {
         name = "papermc-repo"
         url = "https://repo.papermc.io/repository/maven-public/"
     }
+    maven {
+        name = "viaversion-repo"
+        url = "https://repo.viaversion.com/"
+    }
     maven { url = uri("https://repo.codemc.io/repository/maven-releases/") }
     maven { url = uri("https://repo.codemc.io/repository/maven-snapshots/") }
 }
@@ -19,6 +23,8 @@ repositories {
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.52-beta")
     compileOnly("com.github.retrooper:packetevents-spigot:2.11.2")
+    compileOnly("com.viaversion:viaversion-api:5.10.0")
+    compileOnly("com.google.code.gson:gson:2.11.0")
     compileOnly('net.luckperms:api:5.4')
     compileOnly("com.h2database:h2:2.2.224")
 }

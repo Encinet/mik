@@ -18,6 +18,10 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: false
+    ViaVersion:
+      load: BEFORE
+      required: false
+      join-classpath: true
   server:
     packetevents:
       load: BEFORE
@@ -31,3 +35,7 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: false
+    ViaVersion:
+      load: BEFORE
+      required: false
+      join-classpath: true
