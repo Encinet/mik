@@ -17,8 +17,14 @@ public class MikLoader implements PluginLoader {
                 "default",
                 MavenLibraryResolver.MAVEN_CENTRAL_DEFAULT_MIRROR
         ).build());
+        resolver.addRepository(new RemoteRepository.Builder(
+                "quickwrite-net-fluent4j",
+                "default",
+                "https://dl.cloudsmith.io/public/quickwrite-net/fluent4j/maven/"
+        ).build());
         resolver.addDependency(new Dependency(new DefaultArtifact("com.google.code.gson:gson:2.11.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("com.h2database:h2:2.2.224"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("net.quickwrite:fluent-builder:1.0.0"), null));
         builder.addLibrary(resolver);
     }
 }

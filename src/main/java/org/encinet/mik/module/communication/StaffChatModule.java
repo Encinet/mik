@@ -18,6 +18,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.HashSet;
 import java.util.List;
@@ -31,10 +35,12 @@ public class StaffChatModule implements Listener {
 
     private static final String STAFF_PERMISSION = "mik.staff";
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final Set<UUID> staffChatPlayers = new HashSet<>();
 
-    public StaffChatModule(JavaPlugin plugin) {
+    public StaffChatModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -55,7 +61,7 @@ public class StaffChatModule implements Listener {
                             toggleStaffChat(player);
                             return Command.SINGLE_SUCCESS;
                         } else {
-                            sender.sendMessage(Component.text("该命令只能由玩家执行", NamedTextColor.RED));
+                            sender.sendMessage(Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED));
                         }
                         return Command.SINGLE_SUCCESS;
                     }).build(), "切换员工聊天频道", List.of("staff"));
@@ -69,11 +75,11 @@ public class StaffChatModule implements Listener {
         UUID uuid = player.getUniqueId();
         if (staffChatPlayers.contains(uuid)) {
             staffChatPlayers.remove(uuid);
-            player.sendMessage(Component.text("已退出员工聊天频道")
+            player.sendMessage(Component.text(languageService.t(player, Message.STAFFCHAT_EXIT))
                     .color(NamedTextColor.YELLOW));
         } else {
             staffChatPlayers.add(uuid);
-            player.sendMessage(Component.text("已进入员工聊天频道")
+            player.sendMessage(Component.text(languageService.t(player, Message.STAFFCHAT_ENTER))
                     .color(NamedTextColor.GREEN));
         }
     }
@@ -108,8 +114,7 @@ public class StaffChatModule implements Listener {
                 .append(Component.text("[STAFF] ")
                         .color(NamedTextColor.GOLD)
                         .decoration(TextDecoration.BOLD, true))
-                .append(Component.text(player.getName())
-                        .color(NamedTextColor.YELLOW))
+                .append(PlayerDisplay.name(player, NamedTextColor.YELLOW))
                 .append(Component.text(": ")
                         .color(NamedTextColor.WHITE))
                 .append(message.color(NamedTextColor.WHITE))

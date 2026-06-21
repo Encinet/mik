@@ -11,6 +11,7 @@ import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.communication.StaffChatModule;
 import org.encinet.mik.module.communication.MentionModule;
 import org.encinet.mik.module.communication.TipModule;
+import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.menu.MenuNavigation;
 import org.encinet.mik.module.musicdisc.MusicDiscModule;
 import org.encinet.mik.module.performance.PerformanceModule;
@@ -35,6 +36,7 @@ public final class Mik extends JavaPlugin {
 
     public static final String GROUP_MEMBER = "member";
     public static final String GROUP_HELPER = "helper";
+    public static final String GROUP_MANAGER = "manager";
 
     private BrandingModule brandingModule;
     private ServerLinksModule serverLinksModule;
@@ -65,6 +67,7 @@ public final class Mik extends JavaPlugin {
     private TeleportPreferenceModule teleportPreferenceModule;
     private ClientVersionReminderModule clientVersionReminderModule;
     private MenuNavigation menuNavigation;
+    private LanguageService languageService;
 
     @Override
     public void onLoad() {
@@ -89,13 +92,24 @@ public final class Mik extends JavaPlugin {
 
         menuNavigation = new MenuNavigation();
 
-        mentionModule = new MentionModule(this, afkModule, menuNavigation);
+        languageService = new LanguageService(this, menuNavigation);
+        languageService.enable();
+
+        mentionModule = new MentionModule(this, afkModule, menuNavigation, languageService);
         mentionModule.enable();
 
-        teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation);
+        teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation, languageService);
         teleportPreferenceModule.enable();
 
-        mainMenuModule = new MainMenuModule(this, afkModule, mentionModule, teleportPreferenceModule, menuNavigation);
+        if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
+            clientVersionReminderModule = new ClientVersionReminderModule(this);
+            clientVersionReminderModule.enable();
+        } else {
+            getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
+        }
+
+        mainMenuModule = new MainMenuModule(this, afkModule, mentionModule, teleportPreferenceModule,
+                menuNavigation, languageService, clientVersionReminderModule);
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
 
@@ -104,11 +118,11 @@ public final class Mik extends JavaPlugin {
         musicDiscModule.registerCommands(this.getLifecycleManager());
         musicDiscModule.enableMusicChests();
 
-        staffChatModule = new StaffChatModule(this);
+        staffChatModule = new StaffChatModule(this, languageService);
         staffChatModule.enable();
         staffChatModule.registerCommands(this.getLifecycleManager());
 
-        commandsModule = new SimpleFeaturesModule();
+        commandsModule = new SimpleFeaturesModule(languageService);
         commandsModule.registerCommands(this.getLifecycleManager());
 
         autoPromoteModule = new AutoPromoteModule(this);
@@ -171,13 +185,6 @@ public final class Mik extends JavaPlugin {
 
         invisibilityNotifyModule = new InvisibilityNotifyModule(this);
         invisibilityNotifyModule.enable();
-
-        if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
-            clientVersionReminderModule = new ClientVersionReminderModule(this);
-            clientVersionReminderModule.enable();
-        } else {
-            getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
-        }
 
     }
 

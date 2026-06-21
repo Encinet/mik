@@ -15,6 +15,7 @@ import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.encinet.mik.util.PlayerDisplay;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -246,7 +247,7 @@ public class GrieferModule implements Listener {
                 Component.text()
                         .append(Component.text("[GrieferModule] ", NamedTextColor.RED))
                         .append(Component.text("⛔ 已自动封禁 ", NamedTextColor.RED))
-                        .append(Component.text(player.getName(), NamedTextColor.YELLOW))
+                        .append(PlayerDisplay.name(player, NamedTextColor.YELLOW))
                         .append(Component.text(" | " + triggerReason, NamedTextColor.GRAY))
                         .build(),
                 STAFF_PERMISSION);
@@ -260,7 +261,7 @@ public class GrieferModule implements Listener {
                 Component.text()
                         .append(Component.text("[GrieferModule] ", NamedTextColor.GOLD))
                         .append(Component.text("⚠ 可疑玩家: ", NamedTextColor.YELLOW))
-                        .append(Component.text(player.getName(), NamedTextColor.WHITE))
+                        .append(PlayerDisplay.name(player, NamedTextColor.WHITE))
                         .append(Component.text(" 分数=" + score + "/" + SCORE_BAN, NamedTextColor.YELLOW))
                         .append(Component.text(" | " + reason, NamedTextColor.GRAY))
                         .build(),

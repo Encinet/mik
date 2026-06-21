@@ -1,0 +1,323 @@
+package org.encinet.mik.module.i18n;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.quickwrite.fluent4j.ast.pattern.ArgumentList;
+import net.quickwrite.fluent4j.container.ArgumentListBuilder;
+import net.quickwrite.fluent4j.container.FluentBundle;
+import net.quickwrite.fluent4j.container.FluentBundleBuilder;
+import net.quickwrite.fluent4j.container.FluentResource;
+import net.quickwrite.fluent4j.iterator.FluentIteratorFactory;
+import net.quickwrite.fluent4j.parser.ResourceParser;
+import net.quickwrite.fluent4j.parser.ResourceParserBuilder;
+import net.quickwrite.fluent4j.result.StringResultFactory;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.menu.MenuBuilder;
+import org.encinet.mik.module.menu.MenuItems;
+import org.encinet.mik.module.menu.MenuNavigation;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class LanguageService implements Listener {
+
+    public static final String AUTO = "auto";
+
+    private static final int MENU_SIZE = 9;
+    private static final String ACTION_BACK_MAIN = "back:main";
+    private static final String ACTION_LANGUAGE_PREFIX = "language:";
+
+    private final JavaPlugin plugin;
+    private final MenuNavigation menuNavigation;
+    private final NamespacedKey actionKey;
+    private final Map<UUID, String> preferences = new ConcurrentHashMap<>();
+    private final Map<Language, FluentBundle> bundles = new EnumMap<>(Language.class);
+
+    private File languageFile;
+    private YamlConfiguration languageData;
+
+    public LanguageService(JavaPlugin plugin, MenuNavigation menuNavigation) {
+        this.plugin = plugin;
+        this.menuNavigation = menuNavigation;
+        this.actionKey = new NamespacedKey(plugin, "language_action");
+    }
+
+    public void enable() {
+        loadBundles();
+        languageFile = new File(plugin.getDataFolder(), "languages.yml");
+        if (!languageFile.exists()) {
+            try {
+                if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+                    plugin.getLogger().severe("Failed to create plugin data folder.");
+                }
+                if (!languageFile.createNewFile()) {
+                    plugin.getLogger().warning("languages.yml already exists but was not visible during setup.");
+                }
+            } catch (IOException e) {
+                plugin.getLogger().severe("Failed to create languages.yml: " + e.getMessage());
+            }
+        }
+        languageData = YamlConfiguration.loadConfiguration(languageFile);
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+        plugin.getLogger().info("Language service enabled");
+    }
+
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+
+        String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
+        if (!isLanguageMenuTitle(title)) return;
+
+        event.setCancelled(true);
+        ItemStack item = event.getCurrentItem();
+        if (item == null || !item.hasItemMeta()) return;
+
+        String action = MenuItems.readAction(item, actionKey);
+        if (action == null) return;
+
+        if (ACTION_BACK_MAIN.equals(action)) {
+            menuNavigation.openMainMenu(player);
+            return;
+        }
+
+        if (!action.startsWith(ACTION_LANGUAGE_PREFIX)) return;
+        String value = action.substring(ACTION_LANGUAGE_PREFIX.length()).toLowerCase(Locale.ROOT);
+        if (!AUTO.equals(value) && Language.fromId(value).isEmpty()) return;
+
+        setPreference(player.getUniqueId(), value);
+        player.sendMessage(Component.text(t(player, Message.LANGUAGE_SET, languageLabel(player, value)), NamedTextColor.GREEN));
+        openMenu(player);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        preferences.remove(event.getPlayer().getUniqueId());
+    }
+
+    public void openMenu(Player player) {
+        Language language = language(player);
+        MenuBuilder.create(MENU_SIZE, Component.text(t(language, Message.LANGUAGE_MENU_TITLE), MenuItems.TITLE_COLOR))
+                .item(2, preferenceItem(player, AUTO, Material.COMPASS))
+                .item(3, preferenceItem(player, Language.ZH_CN.id(), Material.RED_BANNER))
+                .item(4, preferenceItem(player, Language.EN_US.id(), Material.BLUE_BANNER))
+                .item(8, MenuItems.action(Material.ARROW,
+                        Component.text(t(language, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
+                        List.of(Component.text(t(language, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)),
+                        actionKey, ACTION_BACK_MAIN))
+                .open(player);
+    }
+
+    public Language language(Player player) {
+        String preference = preference(player.getUniqueId());
+        Language manual = Language.fromId(preference).orElse(null);
+        if (manual != null) {
+            return manual;
+        }
+        try {
+            return Language.fromLocale(player.locale()).orElse(Language.DEFAULT);
+        } catch (RuntimeException e) {
+            return Language.DEFAULT;
+        }
+    }
+
+    public String preference(UUID playerId) {
+        return preferences.computeIfAbsent(playerId, this::loadPreference);
+    }
+
+    public String languageLabel(Player player) {
+        return languageLabel(player, preference(player.getUniqueId()));
+    }
+
+    public String t(Player player, Message message, Object... args) {
+        return t(language(player), message, args);
+    }
+
+    public String t(Language language, Message message, Object... args) {
+        FluentBundle bundle = bundles.getOrDefault(language, bundles.get(Language.DEFAULT));
+        ArgumentList arguments = arguments(args);
+        return bundle.resolveMessage(message.key(), arguments, StringResultFactory.construct())
+                .map(Object::toString)
+                .orElseGet(() -> fallbackText(message, args));
+    }
+
+    public Component text(Player player, Message message, NamedTextColor color, Object... args) {
+        return Component.text(t(player, message, args), color);
+    }
+
+    public Component rich(Player player, Message message, NamedTextColor baseColor, RichArg... richArgs) {
+        Language language = language(player);
+        ArgumentList.Builder arguments = ArgumentListBuilder.builder();
+        Map<String, RichArg> tokens = new ConcurrentHashMap<>();
+        for (int i = 0; i < richArgs.length; i++) {
+            RichArg arg = richArgs[i];
+            String token = "[[MIK_RICH_" + i + "]]";
+            arguments.add(arg.name(), token);
+            tokens.put(token, arg);
+        }
+        String rendered = resolve(language, message, arguments.build());
+        return replaceRichTokens(rendered, baseColor, tokens);
+    }
+
+    private ItemStack preferenceItem(Player player, String value, Material material) {
+        Language language = language(player);
+        boolean selected = preference(player.getUniqueId()).equals(value);
+        List<Component> lore = new ArrayList<>();
+        if (AUTO.equals(value)) {
+            lore.add(Component.text(t(language, Message.LANGUAGE_AUTO_LORE), NamedTextColor.GRAY));
+        } else {
+            lore.add(Component.text(t(language, Message.LANGUAGE_USE, languageLabel(player, value)), NamedTextColor.GRAY));
+        }
+        lore.add(Component.empty());
+        lore.add(Component.text(selected
+                ? t(language, Message.LANGUAGE_SELECTED)
+                : t(language, Message.CLICK_SET), selected ? NamedTextColor.GREEN : NamedTextColor.YELLOW));
+
+        return MenuItems.action(material,
+                Component.text(languageLabel(player, value), selected ? NamedTextColor.GREEN : NamedTextColor.AQUA),
+                lore, actionKey, ACTION_LANGUAGE_PREFIX + value);
+    }
+
+    private String languageLabel(Player player, String preference) {
+        Language language = language(player);
+        if (AUTO.equals(preference)) {
+            return t(language, Message.MAIN_LANGUAGE_AUTO);
+        }
+        return Language.fromId(preference)
+                .map(Language::displayName)
+                .orElseGet(() -> t(language, Message.MAIN_LANGUAGE_AUTO));
+    }
+
+    public void setPreference(UUID playerId, String value) {
+        preferences.put(playerId, value);
+        languageData.set(playerId.toString() + ".language", value);
+        try {
+            languageData.save(languageFile);
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to save language preference for " + playerId + ": " + e.getMessage());
+        }
+    }
+
+    private String loadPreference(UUID playerId) {
+        String value = languageData.getString(playerId.toString() + ".language", AUTO);
+        if (AUTO.equalsIgnoreCase(value) || Language.fromId(value).isPresent()) {
+            return value.toLowerCase(Locale.ROOT);
+        }
+        return AUTO;
+    }
+
+    private void loadBundles() {
+        ResourceParser parser = ResourceParserBuilder.defaultParser();
+        for (Language language : Language.values()) {
+            String resourcePath = "lang/" + language.id() + ".ftl";
+            try (InputStream input = plugin.getResource(resourcePath)) {
+                if (input == null) {
+                    plugin.getLogger().warning("Missing language resource: " + resourcePath);
+                    continue;
+                }
+                String source = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                FluentResource resource = parser.parse(FluentIteratorFactory.fromString(source));
+                FluentBundle bundle = FluentBundleBuilder.builder(language.locale())
+                        .addResource(resource)
+                        .addDefaultFunctions()
+                        .build();
+                bundles.put(language, bundle);
+            } catch (IOException | RuntimeException e) {
+                plugin.getLogger().severe("Failed to load language resource " + resourcePath + ": " + e.getMessage());
+            }
+        }
+        if (!bundles.containsKey(Language.DEFAULT)) {
+            throw new IllegalStateException("Default language bundle is not available: " + Language.DEFAULT.id());
+        }
+    }
+
+    private ArgumentList arguments(Object... args) {
+        ArgumentList.Builder builder = ArgumentListBuilder.builder();
+        for (int i = 0; i < args.length; i++) {
+            Object value = args[i];
+            String name = "arg" + i;
+            if (value instanceof Integer integer) {
+                builder.add(name, integer.longValue());
+            } else if (value instanceof Long longValue) {
+                builder.add(name, longValue);
+            } else if (value instanceof Float floatValue) {
+                builder.add(name, floatValue.doubleValue());
+            } else if (value instanceof Double doubleValue) {
+                builder.add(name, doubleValue);
+            } else {
+                builder.add(name, String.valueOf(value));
+            }
+        }
+        return builder.build();
+    }
+
+    private String resolve(Language language, Message message, ArgumentList arguments) {
+        FluentBundle bundle = bundles.getOrDefault(language, bundles.get(Language.DEFAULT));
+        return bundle.resolveMessage(message.key(), arguments, StringResultFactory.construct())
+                .map(Object::toString)
+                .orElseGet(() -> fallbackText(message));
+    }
+
+    private Component replaceRichTokens(String rendered, NamedTextColor baseColor, Map<String, RichArg> tokens) {
+        Component text = Component.empty();
+        int index = 0;
+        while (index < rendered.length()) {
+            String nextToken = null;
+            int nextIndex = -1;
+            for (String token : tokens.keySet()) {
+                int found = rendered.indexOf(token, index);
+                if (found >= 0 && (nextIndex < 0 || found < nextIndex)) {
+                    nextIndex = found;
+                    nextToken = token;
+                }
+            }
+            if (nextToken == null) {
+                text = text.append(Component.text(rendered.substring(index), baseColor));
+                break;
+            }
+            if (nextIndex > index) {
+                text = text.append(Component.text(rendered.substring(index, nextIndex), baseColor));
+            }
+            text = text.append(tokens.get(nextToken).component());
+            index = nextIndex + nextToken.length();
+        }
+        return text;
+    }
+
+    private String fallbackText(Message message, Object... args) {
+        StringBuilder builder = new StringBuilder(message.key());
+        for (Object arg : args) {
+            builder.append(' ').append(arg);
+        }
+        return builder.toString();
+    }
+
+    private boolean isLanguageMenuTitle(String title) {
+        for (Language language : Language.values()) {
+            if (t(language, Message.LANGUAGE_MENU_TITLE).equals(title)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

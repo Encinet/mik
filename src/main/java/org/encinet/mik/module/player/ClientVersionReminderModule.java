@@ -57,6 +57,20 @@ public class ClientVersionReminderModule implements Listener {
         );
     }
 
+    public String clientVersionName(Player player) {
+        ProtocolVersion clientVersion = clientVersion(player);
+        return clientVersion.isKnown() ? clientVersion.getName() : "Unknown";
+    }
+
+    public String minimumVersionName() {
+        return minimumVersion.isKnown() ? minimumVersion.getName() : "Unknown";
+    }
+
+    public boolean isOutdated(Player player) {
+        ProtocolVersion clientVersion = clientVersion(player);
+        return clientVersion.isKnown() && minimumVersion.isKnown() && clientVersion.olderThan(minimumVersion);
+    }
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
@@ -90,6 +104,13 @@ public class ClientVersionReminderModule implements Listener {
         }
         player.sendMessage(MINI_MESSAGE.deserialize(formatLine(FOOTER_BORDER, clientName, minimumName,
                 severityTitle, severityMessage)));
+    }
+
+    private ProtocolVersion clientVersion(Player player) {
+        if (!Via.isLoaded()) {
+            return ProtocolVersion.unknown;
+        }
+        return Via.getAPI().getPlayerProtocolVersion(player.getUniqueId());
     }
 
     private String formatLine(String line, String clientName, String minimumName,

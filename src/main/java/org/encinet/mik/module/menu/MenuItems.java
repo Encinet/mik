@@ -1,5 +1,7 @@
 package org.encinet.mik.module.menu;
 
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -37,6 +39,15 @@ public final class MenuItems {
         ItemMeta meta = item.getItemMeta();
         meta.getPersistentDataContainer().set(actionKey, PersistentDataType.STRING, action);
         item.setItemMeta(meta);
+        return item;
+    }
+
+    public static ItemStack actionWithoutDiscTrack(Material material, Component name, List<Component> lore,
+                                                   NamespacedKey actionKey, String action) {
+        ItemStack item = action(material, name, lore, actionKey, action);
+        item.setData(DataComponentTypes.TOOLTIP_DISPLAY, TooltipDisplay.tooltipDisplay()
+                .addHiddenComponents(DataComponentTypes.JUKEBOX_PLAYABLE)
+                .build());
         return item;
     }
 

@@ -26,6 +26,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.util.PlayerDisplay;
 
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
@@ -201,7 +202,7 @@ public class NameTagModule {
 
         return Component.text()
                 .append(pre)
-                .append(Component.text(player.getName()))
+                .append(PlayerDisplay.name(player, NamedTextColor.WHITE))
                 .append(suf)
                 .append(Component.text(" » ", NamedTextColor.GOLD))
                 .append(Component.text("示例消息", NamedTextColor.WHITE))

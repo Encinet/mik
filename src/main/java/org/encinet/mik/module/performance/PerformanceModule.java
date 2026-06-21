@@ -23,6 +23,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.util.SchedulerUtil;
 
@@ -30,7 +31,7 @@ import java.util.*;
 
 public class PerformanceModule implements Listener {
 
-    private static final String MANAGER_PERMISSION = "group.manager";
+    private static final String MANAGER_PERMISSION = "group." + Mik.GROUP_MANAGER;
     private static final long CHECK_INTERVAL_TICKS = 40L;
     private static final long INITIAL_DELAY_TICKS = 1200L;
 

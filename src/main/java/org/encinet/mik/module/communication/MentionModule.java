@@ -18,9 +18,13 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.afk.AfkService;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.menu.MenuBuilder;
 import org.encinet.mik.module.menu.MenuItems;
 import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.util.PlayerDisplay;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,7 +37,6 @@ import java.util.regex.Pattern;
 
 public class MentionModule implements Listener {
 
-    private static final String MENU_TITLE = "提及提醒";
     private static final int MENU_SIZE = 9;
     private static final String ACTION_BACK_MAIN = "back:main";
     private static final boolean DEFAULT_ALERTS = true;
@@ -44,16 +47,18 @@ public class MentionModule implements Listener {
     private final JavaPlugin plugin;
     private final AfkService afkService;
     private final MenuNavigation menuNavigation;
+    private final LanguageService languageService;
     private final NamespacedKey actionKey;
     private final Map<UUID, MentionSettings> settingsCache = new HashMap<>();
 
     private File settingsFile;
     private YamlConfiguration settingsData;
 
-    public MentionModule(JavaPlugin plugin, AfkService afkService, MenuNavigation menuNavigation) {
+    public MentionModule(JavaPlugin plugin, AfkService afkService, MenuNavigation menuNavigation, LanguageService languageService) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.menuNavigation = menuNavigation;
+        this.languageService = languageService;
         this.actionKey = new NamespacedKey(plugin, "mention_action");
     }
 
@@ -81,7 +86,7 @@ public class MentionModule implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!MENU_TITLE.equals(title)) return;
+        if (!isMenuTitle(title)) return;
 
         event.setCancelled(true);
         ItemStack item = event.getCurrentItem();
@@ -112,6 +117,10 @@ public class MentionModule implements Listener {
         UUID senderId = event.getPlayer().getUniqueId();
         String senderName = event.getPlayer().getName();
         Bukkit.getScheduler().runTask(plugin, () -> {
+            Player sender = Bukkit.getPlayer(senderId);
+            Component senderDisplay = sender != null
+                    ? PlayerDisplay.name(sender, NamedTextColor.YELLOW)
+                    : Component.text(senderName, NamedTextColor.YELLOW);
             for (Player player : Bukkit.getOnlinePlayers()) {
                 if (player.getUniqueId().equals(senderId) || !shouldNotifyMention(player, message)) {
                     continue;
@@ -122,8 +131,8 @@ public class MentionModule implements Listener {
                 }
                 if (settings.actionBar()) {
                     player.sendActionBar(Component.text()
-                            .append(Component.text(senderName, NamedTextColor.YELLOW))
-                            .append(Component.text(" 提及了你", NamedTextColor.AQUA))
+                            .append(senderDisplay)
+                            .append(Component.text(languageService.t(player, Message.MENTION_ACTION_BAR_TEXT), NamedTextColor.AQUA))
                             .build());
                 }
             }
@@ -137,46 +146,48 @@ public class MentionModule implements Listener {
 
     public void openMenu(Player player) {
         MentionSettings settings = getSettings(player.getUniqueId());
-        MenuBuilder.create(MENU_SIZE, Component.text(MENU_TITLE, MenuItems.TITLE_COLOR))
-                .item(0, sectionItem())
-                .item(2, toggleItem(SettingKey.ALERTS, settings.alerts()))
-                .item(3, toggleItem(SettingKey.SOUND, settings.sound()))
-                .item(4, toggleItem(SettingKey.ACTION_BAR, settings.actionBar()))
-                .item(5, toggleItem(SettingKey.MUTE_WHILE_AFK, settings.muteWhileAfk()))
-                .item(8, backToMainItem())
+        MenuBuilder.create(MENU_SIZE, Component.text(languageService.t(player, Message.MENTION_MENU_TITLE), MenuItems.TITLE_COLOR))
+                .item(0, sectionItem(player))
+                .item(2, toggleItem(player, SettingKey.ALERTS, settings.alerts()))
+                .item(3, toggleItem(player, SettingKey.SOUND, settings.sound()))
+                .item(4, toggleItem(player, SettingKey.ACTION_BAR, settings.actionBar()))
+                .item(5, toggleItem(player, SettingKey.MUTE_WHILE_AFK, settings.muteWhileAfk()))
+                .item(8, backToMainItem(player))
                 .open(player);
     }
 
-    public String summary(UUID playerId) {
-        MentionSettings settings = getSettings(playerId);
+    public String summary(Player player) {
+        MentionSettings settings = getSettings(player.getUniqueId());
         if (!settings.alerts()) {
-            return "已关闭提醒";
+            return languageService.t(player, Message.MENTION_SUMMARY_DISABLED);
         }
         List<String> enabled = new ArrayList<>();
-        if (settings.sound()) enabled.add("声音");
-        if (settings.actionBar()) enabled.add("屏幕提示");
-        String suffix = settings.muteWhileAfk() ? "，挂机时静音" : "";
-        return enabled.isEmpty() ? "提醒开启" + suffix : String.join(" + ", enabled) + suffix;
+        if (settings.sound()) enabled.add(languageService.t(player, Message.MENTION_SUMMARY_SOUND));
+        if (settings.actionBar()) enabled.add(languageService.t(player, Message.MENTION_SUMMARY_ACTION_BAR));
+        String suffix = settings.muteWhileAfk() ? languageService.t(player, Message.MENTION_SUMMARY_AFK_SUFFIX) : "";
+        return enabled.isEmpty()
+                ? languageService.t(player, Message.MENTION_SUMMARY_ENABLED) + suffix
+                : String.join(" + ", enabled) + suffix;
     }
 
-    private ItemStack sectionItem() {
-        return MenuItems.item(Material.BELL, Component.text("提及提醒", NamedTextColor.GOLD),
-                List.of(Component.text("别人提及你时的反馈", NamedTextColor.GRAY)));
+    private ItemStack sectionItem(Player player) {
+        return MenuItems.item(Material.BELL, Component.text(languageService.t(player, Message.MENTION_MENU_TITLE), NamedTextColor.GOLD),
+                List.of(Component.text(languageService.t(player, Message.MENTION_SECTION_LORE), NamedTextColor.GRAY)));
     }
 
-    private ItemStack toggleItem(SettingKey settingKey, boolean enabled) {
+    private ItemStack toggleItem(Player player, SettingKey settingKey, boolean enabled) {
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text(enabled ? "当前: 开启" : "当前: 关闭", enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY));
-        lore.add(Component.text(settingKey.description(), NamedTextColor.GRAY));
+        lore.add(Component.text(languageService.t(player, enabled ? Message.CURRENT_ON : Message.CURRENT_OFF), enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY));
+        lore.add(Component.text(languageService.t(player, settingKey.description()), NamedTextColor.GRAY));
         lore.add(Component.empty());
-        lore.add(Component.text("点击切换", NamedTextColor.YELLOW));
+        lore.add(Component.text(languageService.t(player, Message.CLICK_SWITCH), NamedTextColor.YELLOW));
         return MenuItems.action(enabled ? settingKey.enabledMaterial() : settingKey.disabledMaterial(),
-                Component.text(settingKey.label(), enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY), lore, actionKey, settingKey.id());
+                Component.text(languageService.t(player, settingKey.label()), enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY), lore, actionKey, settingKey.id());
     }
 
-    private ItemStack backToMainItem() {
-        return MenuItems.action(Material.ARROW, Component.text("返回主菜单", NamedTextColor.GREEN),
-                List.of(Component.text("回到主菜单", NamedTextColor.GRAY)), actionKey, ACTION_BACK_MAIN);
+    private ItemStack backToMainItem(Player player) {
+        return MenuItems.action(Material.ARROW, Component.text(languageService.t(player, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
+                List.of(Component.text(languageService.t(player, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)), actionKey, ACTION_BACK_MAIN);
     }
 
     private boolean shouldNotifyMention(Player target, String message) {
@@ -185,6 +196,15 @@ public class MentionModule implements Listener {
         if (settings.muteWhileAfk() && afkService.isAfk(target.getUniqueId())) return false;
         Pattern mentionPattern = Pattern.compile("(?iu)(?<![\\p{Alnum}_])" + Pattern.quote(target.getName()) + "(?![\\p{Alnum}_])");
         return mentionPattern.matcher(message).find();
+    }
+
+    private boolean isMenuTitle(String title) {
+        for (Language language : Language.values()) {
+            if (languageService.t(language, Message.MENTION_MENU_TITLE).equals(title)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private MentionSettings getSettings(UUID playerId) {
@@ -239,18 +259,18 @@ public class MentionModule implements Listener {
     }
 
     private enum SettingKey {
-        ALERTS("mention-alerts", "提及提醒总开关", "关闭后不再接收提及提醒", Material.LIME_DYE, Material.GRAY_DYE),
-        SOUND("mention-sound", "提醒声音", "被提及时播放一声提示音", Material.NOTE_BLOCK, Material.GRAY_DYE),
-        ACTION_BAR("mention-actionbar", "屏幕提示", "被提及时在屏幕下方显示提示", Material.PAPER, Material.GRAY_DYE),
-        MUTE_WHILE_AFK("mute-mentions-while-afk", "挂机静音", "挂机时自动屏蔽提及提醒", Material.CLOCK, Material.GRAY_DYE);
+        ALERTS("mention-alerts", Message.MENTION_ALERTS, Message.MENTION_ALERTS_DESC, Material.LIME_DYE, Material.GRAY_DYE),
+        SOUND("mention-sound", Message.MENTION_SOUND, Message.MENTION_SOUND_DESC, Material.NOTE_BLOCK, Material.GRAY_DYE),
+        ACTION_BAR("mention-actionbar", Message.MENTION_ACTION_BAR, Message.MENTION_ACTION_BAR_DESC, Material.PAPER, Material.GRAY_DYE),
+        MUTE_WHILE_AFK("mute-mentions-while-afk", Message.MENTION_MUTE_AFK, Message.MENTION_MUTE_AFK_DESC, Material.CLOCK, Material.GRAY_DYE);
 
         private final String id;
-        private final String label;
-        private final String description;
+        private final Message label;
+        private final Message description;
         private final Material enabledMaterial;
         private final Material disabledMaterial;
 
-        SettingKey(String id, String label, String description, Material enabledMaterial, Material disabledMaterial) {
+        SettingKey(String id, Message label, Message description, Material enabledMaterial, Material disabledMaterial) {
             this.id = id;
             this.label = label;
             this.description = description;
@@ -262,11 +282,11 @@ public class MentionModule implements Listener {
             return id;
         }
 
-        String label() {
+        Message label() {
             return label;
         }
 
-        String description() {
+        Message description() {
             return description;
         }
 

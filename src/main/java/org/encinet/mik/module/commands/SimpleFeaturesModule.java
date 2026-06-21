@@ -20,6 +20,11 @@ import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.Plugin;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
+import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.List;
 
@@ -32,7 +37,10 @@ public class SimpleFeaturesModule {
     private static final float SPAWN_YAW = 90.0f;
     private static final float SPAWN_PITCH = 0.0f;
 
-    public SimpleFeaturesModule() {
+    private final LanguageService languageService;
+
+    public SimpleFeaturesModule(LanguageService languageService) {
+        this.languageService = languageService;
     }
 
     /**
@@ -50,8 +58,13 @@ public class SimpleFeaturesModule {
                         CommandSender sender = ctx.getSource().getSender();
                         Entity executor = ctx.getSource().getExecutor();
                         if (executor instanceof Player player) {
+                            World spawnWorld = Bukkit.getWorld(SPAWN_WORLD);
+                            if (spawnWorld == null) {
+                                player.sendMessage(languageService.text(player, Message.SPAWN_WORLD_MISSING, NamedTextColor.RED));
+                                return 0;
+                            }
                             player.teleport(new Location(
-                                    Bukkit.getWorld(SPAWN_WORLD),
+                                    spawnWorld,
                                     SPAWN_X, SPAWN_Y, SPAWN_Z,
                                     SPAWN_YAW, SPAWN_PITCH
                             ));
@@ -82,34 +95,25 @@ public class SimpleFeaturesModule {
                                                 Player online = Bukkit.getPlayerExact(targetName);
                                                 if (online != null) {
                                                     self.teleportAsync(online.getLocation());
-                                                    self.sendMessage(Component.text()
-                                                            .append(Component.text("已传送到 ", NamedTextColor.GREEN))
-                                                            .append(Component.text(targetName, NamedTextColor.YELLOW))
-                                                            .append(Component.text(" 当前位置", NamedTextColor.GREEN))
-                                                            .build());
+                                                    self.sendMessage(languageService.rich(self, Message.TPANY_DONE_ONLINE_RICH, NamedTextColor.GREEN,
+                                                            RichArg.component("player", PlayerDisplay.name(online, NamedTextColor.YELLOW), online.getName())));
                                                     return 1;
                                                 }
 
                                                 OfflinePlayer target = Bukkit.getOfflinePlayerIfCached(targetName);
                                                 Location loc = target != null ? target.getLocation() : null;
                                                 if (loc == null) {
-                                                    self.sendMessage(Component.text()
-                                                            .append(Component.text("找不到 ", NamedTextColor.RED))
-                                                            .append(Component.text(targetName, NamedTextColor.YELLOW))
-                                                            .append(Component.text(" 的位置", NamedTextColor.RED))
-                                                            .build());
+                                                    self.sendMessage(languageService.rich(self, Message.TPANY_NOT_FOUND_RICH, NamedTextColor.RED,
+                                                            RichArg.component("player", Component.text(targetName, NamedTextColor.YELLOW), targetName)));
                                                     return 0;
                                                 }
 
                                                 self.teleportAsync(loc);
-                                                self.sendMessage(Component.text()
-                                                        .append(Component.text("已传送到 ", NamedTextColor.GREEN))
-                                                        .append(Component.text(targetName, NamedTextColor.YELLOW))
-                                                        .append(Component.text(" 的下线位置 ", NamedTextColor.GREEN))
-                                                        .append(Component.text(loc.getWorld().getName() + " ", NamedTextColor.GRAY))
-                                                        .append(Component.text(String.format("(%.1f, %.1f, %.1f)",
-                                                                loc.getX(), loc.getY(), loc.getZ()), NamedTextColor.GRAY))
-                                                        .build());
+                                                self.sendMessage(languageService.rich(self, Message.TPANY_DONE_OFFLINE_RICH, NamedTextColor.GREEN,
+                                                        RichArg.component("player", Component.text(targetName, NamedTextColor.YELLOW), targetName),
+                                                        RichArg.component("world", Component.text(loc.getWorld().getName(), NamedTextColor.GRAY), loc.getWorld().getName()),
+                                                        RichArg.component("location", Component.text(String.format("(%.1f, %.1f, %.1f)",
+                                                                loc.getX(), loc.getY(), loc.getZ()), NamedTextColor.GRAY), "")));
                                                 return 1;
                                             })
                             )
@@ -123,8 +127,8 @@ public class SimpleFeaturesModule {
                         Entity executor = ctx.getSource().getExecutor();
                         if (executor instanceof Player player) {
                             // 创建一个临时的 27 格箱子界面
-                            Component title = Component.text("垃圾桶 ", NamedTextColor.RED, TextDecoration.BOLD)
-                                    .append(Component.text("(关闭后物品将被清空)", NamedTextColor.GRAY));
+                            Component title = Component.text(languageService.t(player, Message.TRASH_TITLE), NamedTextColor.RED, TextDecoration.BOLD)
+                                    .append(Component.text(languageService.t(player, Message.TRASH_TITLE_HINT), NamedTextColor.GRAY));
                             Inventory trash = Bukkit.createInventory(null, 27, title);
                             player.openInventory(trash);
                             return Command.SINGLE_SUCCESS;
@@ -166,7 +170,7 @@ public class SimpleFeaturesModule {
         world = location.getWorld();
 
         if (world == null) {
-            sender.sendMessage(Component.text("无法确定世界", NamedTextColor.RED));
+            sender.sendMessage(Component.text(t(sender, Message.REMOVEITEMS_NO_WORLD), NamedTextColor.RED));
             return 0;
         }
 
@@ -183,30 +187,54 @@ public class SimpleFeaturesModule {
         String posInfo = String.format("%.1f, %.1f, %.1f",
                 location.getX(), location.getY(), location.getZ());
 
-        sender.sendMessage(Component.text()
-                .append(Component.text("已在 ", NamedTextColor.GREEN))
-                .append(Component.text(world.getName(), NamedTextColor.YELLOW))
-                .append(Component.text(" 世界 ", NamedTextColor.GREEN))
-                .append(Component.text("[" + posInfo + "]", NamedTextColor.YELLOW))
-                .append(Component.text(" 清除 ", NamedTextColor.GREEN))
-                .append(Component.text(Integer.toString(count), NamedTextColor.YELLOW))
-                .append(Component.text(" 个掉落物品 ", NamedTextColor.GREEN))
-                .append(Component.text("半径 " + radius + " 格", NamedTextColor.GRAY))
-                .build());
+        sender.sendMessage(removeItemsMessage(sender, world.getName(), posInfo, count, radius));
 
         return Command.SINGLE_SUCCESS;
     }
 
     private void sendTpanyUsage(CommandSender sender) {
         sender.sendMessage(Component.text()
-                .append(Component.text("用法 ", NamedTextColor.YELLOW))
+                .append(Component.text(t(sender, Message.TPANY_USAGE), NamedTextColor.YELLOW))
                 .append(Component.text("/tpany <玩家名>", NamedTextColor.AQUA))
-                .append(Component.text("  传送到玩家位置，支持离线缓存", NamedTextColor.GRAY))
+                .append(Component.text(t(sender, Message.TPANY_USAGE_DESC), NamedTextColor.GRAY))
                 .build());
     }
 
+    private Component removeItemsMessage(CommandSender sender, String worldName, String posInfo, int count, int radius) {
+        Language language = sender instanceof Player player ? languageService.language(player) : Language.DEFAULT;
+        if (language == Language.EN_US) {
+            return Component.text()
+                    .append(Component.text(t(sender, Message.REMOVEITEMS_DONE), NamedTextColor.GREEN))
+                    .append(Component.text(Integer.toString(count), NamedTextColor.YELLOW))
+                    .append(Component.text(t(sender, Message.REMOVEITEMS_WORLD_SUFFIX), NamedTextColor.GREEN))
+                    .append(Component.text(worldName, NamedTextColor.YELLOW))
+                    .append(Component.text(" ", NamedTextColor.GREEN))
+                    .append(Component.text("[" + posInfo + "]", NamedTextColor.YELLOW))
+                    .append(Component.text(" ", NamedTextColor.GREEN))
+                    .append(Component.text(t(sender, Message.REMOVEITEMS_RADIUS, radius), NamedTextColor.GRAY))
+                    .build();
+        }
+        return Component.text()
+                .append(Component.text(t(sender, Message.REMOVEITEMS_DONE), NamedTextColor.GREEN))
+                .append(Component.text(worldName, NamedTextColor.YELLOW))
+                .append(Component.text(t(sender, Message.REMOVEITEMS_WORLD_SUFFIX), NamedTextColor.GREEN))
+                .append(Component.text("[" + posInfo + "]", NamedTextColor.YELLOW))
+                .append(Component.text(t(sender, Message.REMOVEITEMS_CLEAR), NamedTextColor.GREEN))
+                .append(Component.text(Integer.toString(count), NamedTextColor.YELLOW))
+                .append(Component.text(t(sender, Message.REMOVEITEMS_COUNT_SUFFIX), NamedTextColor.GREEN))
+                .append(Component.text(t(sender, Message.REMOVEITEMS_RADIUS, radius), NamedTextColor.GRAY))
+                .build();
+    }
+
     private Component playerOnlyMessage() {
-        return Component.text("该命令只能由玩家执行", NamedTextColor.RED);
+        return Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED);
+    }
+
+    private String t(CommandSender sender, Message message, Object... args) {
+        if (sender instanceof Player player) {
+            return languageService.t(player, message, args);
+        }
+        return languageService.t(Language.DEFAULT, message, args);
     }
 
 }

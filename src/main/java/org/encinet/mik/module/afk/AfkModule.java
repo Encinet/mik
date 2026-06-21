@@ -39,6 +39,7 @@ import org.bukkit.event.player.PlayerVelocityEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.HashMap;
 import java.util.List;
@@ -496,13 +497,13 @@ public class AfkModule implements Listener, AfkService {
     private Component enterMessage(Player player, String message, boolean customMessage) {
         String template = customMessage ? randomFrom(CUSTOM_ENTER_TEMPLATES) : randomFrom(DEFAULT_ENTER_TEMPLATES);
         return MINI_MESSAGE.deserialize(template,
-                Placeholder.component("player", player.displayName()),
+                Placeholder.component("player", PlayerDisplay.name(player)),
                 Placeholder.component("status", renderStatusMessage(message)));
     }
 
     private Component exitMessage(Player player) {
         return MINI_MESSAGE.deserialize(randomFrom(EXIT_TEMPLATES),
-                Placeholder.component("player", player.displayName()));
+                Placeholder.component("player", PlayerDisplay.name(player)));
     }
 
     private Component renderStatusMessage(String message) {

@@ -18,9 +18,14 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.afk.AfkService;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.menu.MenuBuilder;
 import org.encinet.mik.module.menu.MenuItems;
 import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.util.PlayerDisplay;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,7 +39,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TeleportPreferenceModule implements Listener {
 
-    private static final String MENU_TITLE = "被传送设置";
     private static final int MENU_SIZE = 9;
     private static final String ACTION_BACK_MAIN = "back:main";
     private static final String STAFF_TELEPORT_BYPASS_PERMISSION = "group.helper";
@@ -45,6 +49,7 @@ public class TeleportPreferenceModule implements Listener {
     private final JavaPlugin plugin;
     private final AfkService afkService;
     private final MenuNavigation menuNavigation;
+    private final LanguageService languageService;
     private final NamespacedKey actionKey;
     private final Map<UUID, TeleportSettings> settingsCache = new ConcurrentHashMap<>();
     private final Map<UUID, String> pendingTeleports = new ConcurrentHashMap<>();
@@ -52,10 +57,11 @@ public class TeleportPreferenceModule implements Listener {
     private File settingsFile;
     private YamlConfiguration settingsData;
 
-    public TeleportPreferenceModule(JavaPlugin plugin, AfkService afkService, MenuNavigation menuNavigation) {
+    public TeleportPreferenceModule(JavaPlugin plugin, AfkService afkService, MenuNavigation menuNavigation, LanguageService languageService) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.menuNavigation = menuNavigation;
+        this.languageService = languageService;
         this.actionKey = new NamespacedKey(plugin, "teleport_preference_action");
     }
 
@@ -83,7 +89,7 @@ public class TeleportPreferenceModule implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!MENU_TITLE.equals(title)) return;
+        if (!isMenuTitle(title)) return;
 
         event.setCancelled(true);
         ItemStack item = event.getCurrentItem();
@@ -123,10 +129,8 @@ public class TeleportPreferenceModule implements Listener {
         if (victim != null && !victim.equals(sender)) {
             if (shouldDenyTeleport(sender, victim)) {
                 event.setCancelled(true);
-                sender.sendMessage(Component.text()
-                        .append(Component.text(victim.getName(), NamedTextColor.YELLOW))
-                        .append(Component.text(" 当前拒绝被普通玩家传送", NamedTextColor.RED))
-                        .build());
+                sender.sendMessage(languageService.rich(sender, Message.TELEPORT_DENIED, NamedTextColor.RED,
+                        RichArg.component("player", PlayerDisplay.name(victim, NamedTextColor.YELLOW), victim.getName())));
                 return;
             }
             pendingTeleports.put(victim.getUniqueId(), sender.getName());
@@ -141,7 +145,7 @@ public class TeleportPreferenceModule implements Listener {
         String senderName = pendingTeleports.remove(targetPlayer.getUniqueId());
 
         if (senderName != null) {
-            targetPlayer.sendActionBar(Component.text("你被 " + senderName + " 传送到了这里", NamedTextColor.AQUA));
+            targetPlayer.sendActionBar(Component.text(languageService.t(targetPlayer, Message.TELEPORT_MOVED_HERE, senderName), NamedTextColor.AQUA));
         }
     }
 
@@ -154,23 +158,23 @@ public class TeleportPreferenceModule implements Listener {
 
     public void openMenu(Player player) {
         TeleportSettings settings = getSettings(player.getUniqueId());
-        MenuBuilder.create(MENU_SIZE, Component.text(MENU_TITLE, MenuItems.TITLE_COLOR))
-                .item(0, sectionItem())
-                .item(3, toggleItem(SettingKey.ALLOW_BEING_TELEPORTED, settings.allowBeingTeleported()))
-                .item(4, toggleItem(SettingKey.BLOCK_TELEPORTS_WHILE_AFK, settings.blockTeleportsWhileAfk()))
-                .item(8, backToMainItem())
+        MenuBuilder.create(MENU_SIZE, Component.text(languageService.t(player, Message.TELEPORT_MENU_TITLE), MenuItems.TITLE_COLOR))
+                .item(0, sectionItem(player))
+                .item(3, toggleItem(player, SettingKey.ALLOW_BEING_TELEPORTED, settings.allowBeingTeleported()))
+                .item(4, toggleItem(player, SettingKey.BLOCK_TELEPORTS_WHILE_AFK, settings.blockTeleportsWhileAfk()))
+                .item(8, backToMainItem(player))
                 .open(player);
     }
 
-    public String summary(UUID playerId) {
-        TeleportSettings settings = getSettings(playerId);
+    public String summary(Player player) {
+        TeleportSettings settings = getSettings(player.getUniqueId());
         if (!settings.allowBeingTeleported()) {
-            return "拒绝普通玩家传送";
+            return languageService.t(player, Message.TELEPORT_SUMMARY_DENY);
         }
         if (settings.blockTeleportsWhileAfk()) {
-            return "允许传送，挂机时拒绝";
+            return languageService.t(player, Message.TELEPORT_SUMMARY_AFK);
         }
-        return "允许普通玩家传送";
+        return languageService.t(player, Message.TELEPORT_SUMMARY_ALLOW);
     }
 
     private boolean shouldDenyTeleport(Player sender, Player victim) {
@@ -182,24 +186,33 @@ public class TeleportPreferenceModule implements Listener {
                 || settings.blockTeleportsWhileAfk() && afkService.isAfk(victim.getUniqueId());
     }
 
-    private ItemStack sectionItem() {
-        return MenuItems.item(Material.SHIELD, Component.text("被传送设置", NamedTextColor.GOLD),
-                List.of(Component.text("需要隐私保护时再开启限制", NamedTextColor.GRAY)));
+    private boolean isMenuTitle(String title) {
+        for (Language language : Language.values()) {
+            if (languageService.t(language, Message.TELEPORT_MENU_TITLE).equals(title)) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    private ItemStack toggleItem(SettingKey settingKey, boolean enabled) {
+    private ItemStack sectionItem(Player player) {
+        return MenuItems.item(Material.SHIELD, Component.text(languageService.t(player, Message.TELEPORT_MENU_TITLE), NamedTextColor.GOLD),
+                List.of(Component.text(languageService.t(player, Message.TELEPORT_SECTION_LORE), NamedTextColor.GRAY)));
+    }
+
+    private ItemStack toggleItem(Player player, SettingKey settingKey, boolean enabled) {
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text(enabled ? "当前: 开启" : "当前: 关闭", enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY));
-        lore.add(Component.text(settingKey.description(), NamedTextColor.GRAY));
+        lore.add(Component.text(languageService.t(player, enabled ? Message.CURRENT_ON : Message.CURRENT_OFF), enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY));
+        lore.add(Component.text(languageService.t(player, settingKey.description()), NamedTextColor.GRAY));
         lore.add(Component.empty());
-        lore.add(Component.text("点击切换", NamedTextColor.YELLOW));
+        lore.add(Component.text(languageService.t(player, Message.CLICK_SWITCH), NamedTextColor.YELLOW));
         return MenuItems.action(enabled ? settingKey.enabledMaterial() : settingKey.disabledMaterial(),
-                Component.text(settingKey.label(), enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY), lore, actionKey, settingKey.id());
+                Component.text(languageService.t(player, settingKey.label()), enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY), lore, actionKey, settingKey.id());
     }
 
-    private ItemStack backToMainItem() {
-        return MenuItems.action(Material.ARROW, Component.text("返回主菜单", NamedTextColor.GREEN),
-                List.of(Component.text("回到主菜单", NamedTextColor.GRAY)), actionKey, ACTION_BACK_MAIN);
+    private ItemStack backToMainItem(Player player) {
+        return MenuItems.action(Material.ARROW, Component.text(languageService.t(player, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
+                List.of(Component.text(languageService.t(player, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)), actionKey, ACTION_BACK_MAIN);
     }
 
     private TeleportSettings getSettings(UUID playerId) {
@@ -246,16 +259,16 @@ public class TeleportPreferenceModule implements Listener {
     }
 
     private enum SettingKey {
-        ALLOW_BEING_TELEPORTED("allow-being-teleported", "接受普通传送", "关闭后普通玩家不能用 /tp 把你传送走", Material.ENDER_PEARL, Material.GRAY_DYE),
-        BLOCK_TELEPORTS_WHILE_AFK("block-teleports-while-afk", "挂机时拒绝传送", "挂机时普通玩家不能用 /tp 把你传送走", Material.SHIELD, Material.GRAY_DYE);
+        ALLOW_BEING_TELEPORTED("allow-being-teleported", Message.TELEPORT_ALLOW, Message.TELEPORT_ALLOW_DESC, Material.ENDER_PEARL, Material.GRAY_DYE),
+        BLOCK_TELEPORTS_WHILE_AFK("block-teleports-while-afk", Message.TELEPORT_BLOCK_AFK, Message.TELEPORT_BLOCK_AFK_DESC, Material.SHIELD, Material.GRAY_DYE);
 
         private final String id;
-        private final String label;
-        private final String description;
+        private final Message label;
+        private final Message description;
         private final Material enabledMaterial;
         private final Material disabledMaterial;
 
-        SettingKey(String id, String label, String description, Material enabledMaterial, Material disabledMaterial) {
+        SettingKey(String id, Message label, Message description, Material enabledMaterial, Material disabledMaterial) {
             this.id = id;
             this.label = label;
             this.description = description;
@@ -267,11 +280,11 @@ public class TeleportPreferenceModule implements Listener {
             return id;
         }
 
-        String label() {
+        Message label() {
             return label;
         }
 
-        String description() {
+        Message description() {
             return description;
         }
 

@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.encinet.mik.Mik;
 
 import java.util.*;
 
@@ -409,7 +410,7 @@ public class MusicInventoryGUI {
             lore.add(Component.text("  在最近的唱片机播放随机音乐").color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
 
-            if (player.hasPermission("group.manager")) {
+            if (player.hasPermission("group." + Mik.GROUP_MANAGER)) {
                 lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("/music reload").color(NamedTextColor.AQUA)
                         .decoration(TextDecoration.ITALIC, false));

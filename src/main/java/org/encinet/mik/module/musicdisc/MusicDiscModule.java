@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.Mik;
 
 import java.util.List;
 import java.util.Set;
@@ -90,7 +91,7 @@ public class MusicDiscModule implements Listener {
                         return Command.SINGLE_SUCCESS;
                     })
                     .then(Commands.literal("reload")
-                            .requires(source -> source.getSender().hasPermission("group.manager"))
+                            .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_MANAGER))
                             .executes(ctx -> {
                                 CommandSender sender = ctx.getSource().getSender();
                                 musicFileLoader.loadMusicFiles();
