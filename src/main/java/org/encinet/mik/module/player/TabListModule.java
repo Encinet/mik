@@ -18,6 +18,9 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 
 public class TabListModule implements Listener, AfkStateListener {
 
@@ -34,12 +37,14 @@ public class TabListModule implements Listener, AfkStateListener {
 
     private final JavaPlugin plugin;
     private final AfkService afkService;
+    private final LanguageService languageService;
     private LuckPerms luckPerms;
     private BukkitTask refreshTask;
 
-    public TabListModule(JavaPlugin plugin, AfkService afkService) {
+    public TabListModule(JavaPlugin plugin, AfkService afkService, LanguageService languageService) {
         this.plugin = plugin;
         this.afkService = afkService;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -62,7 +67,7 @@ public class TabListModule implements Listener, AfkStateListener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        player.sendPlayerListHeaderAndFooter(resolveTabListHeader(), Component.empty());
+        player.sendPlayerListHeaderAndFooter(resolveTabListHeader(), tabListFooter(player));
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
                 updatePlayerListName(player);
@@ -138,12 +143,22 @@ public class TabListModule implements Listener, AfkStateListener {
 
     private void updateAllHeadersAndFooters() {
         Component header = resolveTabListHeader();
-        Component footer = MINI_MESSAGE.deserialize(
-                "<gray>在线玩家: <green>" + Bukkit.getOnlinePlayers().size() + "</green> <gray>/ <gray>" + Bukkit.getMaxPlayers() + "</gray>"
-        );
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendPlayerListHeaderAndFooter(header, footer);
+            player.sendPlayerListHeaderAndFooter(header, tabListFooter(player));
         }
+    }
+
+    private Component tabListFooter(Player viewer) {
+        int onlinePlayers = Bukkit.getOnlinePlayers().size();
+        int maxPlayers = Bukkit.getMaxPlayers();
+        return languageService.rich(viewer, Message.TABLIST_FOOTER_ONLINE_RICH,
+                net.kyori.adventure.text.format.NamedTextColor.GRAY,
+                RichArg.component("online",
+                        Component.text(onlinePlayers, net.kyori.adventure.text.format.NamedTextColor.GREEN),
+                        Integer.toString(onlinePlayers)),
+                RichArg.component("max",
+                        Component.text(maxPlayers, net.kyori.adventure.text.format.NamedTextColor.GRAY),
+                        Integer.toString(maxPlayers)));
     }
 
     private Component resolveTabListHeader() {

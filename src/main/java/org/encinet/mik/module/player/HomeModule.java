@@ -25,6 +25,10 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.menu.MenuItems;
 import org.encinet.mik.module.menu.MenuNavigation;
 
@@ -46,8 +50,6 @@ import java.util.*;
  */
 public class HomeModule implements Listener {
 
-    private static final String MENU_TITLE = "我的家";
-    private static final String DELETE_MENU_TITLE = "删除家";
     private static final int MENU_SIZE = 54;
     private static final String ACTION_CLOSE = "close";
     private static final String ACTION_BACK = "back";
@@ -83,6 +85,7 @@ public class HomeModule implements Listener {
 
     private final JavaPlugin plugin;
     private final MenuNavigation menuNavigation;
+    private final LanguageService languageService;
     private final NamespacedKey menuActionKey;
     private File dataFile;
     private YamlConfiguration data;
@@ -90,9 +93,10 @@ public class HomeModule implements Listener {
     /** uuid → (homeName → HomeEntry) */
     private final Map<UUID, Map<String, HomeEntry>> cache = new HashMap<>();
 
-    public HomeModule(JavaPlugin plugin, MenuNavigation menuNavigation) {
+    public HomeModule(JavaPlugin plugin, MenuNavigation menuNavigation, LanguageService languageService) {
         this.plugin = plugin;
         this.menuNavigation = menuNavigation;
+        this.languageService = languageService;
         this.menuActionKey = new NamespacedKey(plugin, "home_menu_action");
     }
 
@@ -153,7 +157,7 @@ public class HomeModule implements Listener {
                             .executes(ctx -> {
                                 Player player = requirePlayer(ctx.getSource().getSender());
                                 if (player != null) {
-                                    sendUsage(player, "/sethome <名字>", "在当前位置设置一个家");
+                                    sendUsage(player, "/sethome <name>", Message.HOME_SET_USAGE_DESC);
                                 }
                                 return Command.SINGLE_SUCCESS;
                             })
@@ -171,15 +175,17 @@ public class HomeModule implements Listener {
                                         List<String> existing = getHomeNames(player);
                                         int max = getMaxHomes(player);
                                         if (!existing.contains(name) && existing.size() >= max) {
-                                            player.sendMessage(Component.text("你最多只能设置 " + max + " 个家", NamedTextColor.RED));
+                                            player.sendMessage(languageService.text(player,
+                                                    Message.HOME_MAX_REACHED, NamedTextColor.RED, max));
                                             return Command.SINGLE_SUCCESS;
                                         }
                                         setHome(player, name);
-                                        player.sendMessage(homeMessage("家 ", name, " 已设置", NamedTextColor.GREEN));
+                                        player.sendMessage(homeMessage(player, Message.HOME_SET_RICH,
+                                                name, NamedTextColor.GREEN));
                                         return Command.SINGLE_SUCCESS;
                                     }))
                             .build(),
-                    "在当前位置设置一个家"
+                    languageService.t(Language.DEFAULT, Message.HOME_SET_COMMAND_DESCRIPTION)
             );
 
             // /home <name>
@@ -224,7 +230,8 @@ public class HomeModule implements Listener {
                                                         String name = StringArgumentType.getString(ctx, "name");
                                                         Material material = parseIconMaterial(StringArgumentType.getString(ctx, "material"));
                                                         if (material == null) {
-                                                            player.sendMessage(Component.text("这个材质不能作为家的图标", NamedTextColor.RED));
+                                                            player.sendMessage(languageService.text(player,
+                                                                    Message.HOME_INVALID_ICON, NamedTextColor.RED));
                                                             return Command.SINGLE_SUCCESS;
                                                         }
                                                         setHomeIcon(player, name, material);
@@ -247,7 +254,7 @@ public class HomeModule implements Listener {
                                         return Command.SINGLE_SUCCESS;
                                     }))
                             .build(),
-                    "传送到一个家"
+                    languageService.t(Language.DEFAULT, Message.HOME_TELEPORT_COMMAND_DESCRIPTION)
             );
 
             // /delhome <name>
@@ -256,7 +263,7 @@ public class HomeModule implements Listener {
                             .executes(ctx -> {
                                 Player player = requirePlayer(ctx.getSource().getSender());
                                 if (player != null) {
-                                    sendUsage(player, "/delhome <名字>", "删除一个家");
+                                    sendUsage(player, "/delhome <name>", Message.HOME_DELETE_USAGE_DESC);
                                     sendHomeList(player);
                                 }
                                 return Command.SINGLE_SUCCESS;
@@ -279,14 +286,16 @@ public class HomeModule implements Listener {
                                             return Command.SINGLE_SUCCESS;
                                         }
                                         if (!deleteHome(player, name)) {
-                                            player.sendMessage(homeMessage("家 ", name, " 不存在", NamedTextColor.RED));
+                                            player.sendMessage(homeMessage(player, Message.HOME_NOT_FOUND_RICH,
+                                                    name, NamedTextColor.RED));
                                             return Command.SINGLE_SUCCESS;
                                         }
-                                        player.sendMessage(homeMessage("家 ", name, " 已删除", NamedTextColor.GREEN));
+                                        player.sendMessage(homeMessage(player, Message.HOME_DELETED_RICH,
+                                                name, NamedTextColor.GREEN));
                                         return Command.SINGLE_SUCCESS;
                                     }))
                             .build(),
-                    "删除一个家"
+                    languageService.t(Language.DEFAULT, Message.HOME_DELETE_COMMAND_DESCRIPTION)
             );
 
         });
@@ -297,7 +306,7 @@ public class HomeModule implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!MENU_TITLE.equals(title) && !DELETE_MENU_TITLE.equals(title)) return;
+        if (!isHomeMenuTitle(title)) return;
 
         event.setCancelled(true);
         ItemStack item = event.getCurrentItem();
@@ -320,9 +329,9 @@ public class HomeModule implements Listener {
         if (action.startsWith(ACTION_DELETE_PREFIX)) {
             String homeName = action.substring(ACTION_DELETE_PREFIX.length());
             if (deleteHome(player, homeName)) {
-                player.sendMessage(homeMessage("家 ", homeName, " 已删除", NamedTextColor.GREEN));
+                player.sendMessage(homeMessage(player, Message.HOME_DELETED_RICH, homeName, NamedTextColor.GREEN));
             } else {
-                player.sendMessage(homeMessage("家 ", homeName, " 不存在", NamedTextColor.RED));
+                player.sendMessage(homeMessage(player, Message.HOME_NOT_FOUND_RICH, homeName, NamedTextColor.RED));
             }
             openHomeMenu(player);
             return;
@@ -343,7 +352,7 @@ public class HomeModule implements Listener {
         }
         if (event.getClick() == ClickType.SHIFT_LEFT) {
             setHome(player, homeName);
-            player.sendMessage(homeMessage("家 ", homeName, " 已更新到当前位置", NamedTextColor.GREEN));
+            player.sendMessage(homeMessage(player, Message.HOME_UPDATED_RICH, homeName, NamedTextColor.GREEN));
             openHomeMenu(player);
             return;
         }
@@ -356,11 +365,11 @@ public class HomeModule implements Listener {
         if (!(event.getPlayer() instanceof Player player)) return;
 
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!MENU_TITLE.equals(title) && !DELETE_MENU_TITLE.equals(title)) return;
+        if (!isHomeMenuTitle(title)) return;
 
         Bukkit.getScheduler().runTask(plugin, () -> {
             String currentTitle = PlainTextComponentSerializer.plainText().serialize(player.getOpenInventory().title());
-            if (!MENU_TITLE.equals(currentTitle) && !DELETE_MENU_TITLE.equals(currentTitle)) {
+            if (!isHomeMenuTitle(currentTitle)) {
                 menuNavigation.clearMainMenuReturn(player, MenuNavigation.ChildMenu.HOME);
             }
         });
@@ -370,32 +379,37 @@ public class HomeModule implements Listener {
         if (sender instanceof Player player) {
             return player;
         }
-        sender.sendMessage(Component.text("该命令只能由玩家执行", NamedTextColor.RED));
+        sender.sendMessage(Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED));
         return null;
     }
 
-    private void sendUsage(Player player, String command, String description) {
+    private void sendUsage(Player player, String command, Message description) {
         player.sendMessage(Component.text()
-                .append(Component.text("用法 ", NamedTextColor.YELLOW))
+                .append(Component.text(languageService.t(player, Message.USAGE), NamedTextColor.YELLOW))
                 .append(Component.text(command, NamedTextColor.AQUA))
-                .append(Component.text("  " + description, NamedTextColor.GRAY))
+                .append(Component.text("  " + languageService.t(player, description), NamedTextColor.GRAY))
                 .build());
+    }
+
+    private boolean isHomeMenuTitle(String title) {
+        return languageService.titleMatches(Message.HOME_MENU_TITLE, title)
+                || languageService.titleMatches(Message.HOME_DELETE_MENU_TITLE, title);
     }
 
     private void sendHomeList(Player player) {
         List<String> homes = getHomeNames(player);
         if (homes.isEmpty()) {
-            player.sendMessage(Component.text("你还没有设置家", NamedTextColor.GRAY));
+            player.sendMessage(languageService.text(player, Message.HOME_NO_HOMES, NamedTextColor.GRAY));
             return;
         }
-        player.sendMessage(Component.text()
-                .append(Component.text("已有家 ", NamedTextColor.GRAY))
-                .append(Component.text(String.join(", ", homes), NamedTextColor.YELLOW))
-                .build());
+        String joinedHomes = String.join(", ", homes);
+        player.sendMessage(languageService.rich(player, Message.HOME_LIST_RICH, NamedTextColor.GRAY,
+                RichArg.component("homes", Component.text(joinedHomes, NamedTextColor.YELLOW), joinedHomes)));
     }
 
     private void openHomeMenu(Player player) {
-        Inventory inventory = Bukkit.createInventory(null, MENU_SIZE, Component.text(MENU_TITLE, MenuItems.TITLE_COLOR));
+        Inventory inventory = Bukkit.createInventory(null, MENU_SIZE,
+                Component.text(languageService.t(player, Message.HOME_MENU_TITLE), MenuItems.TITLE_COLOR));
         decorateMenu(inventory);
 
         List<String> homes = getHomeNames(player);
@@ -403,7 +417,7 @@ public class HomeModule implements Listener {
         inventory.setItem(4, summaryItem(player, homes.size()));
 
         if (homes.isEmpty()) {
-            inventory.setItem(22, emptyHomesItem());
+            inventory.setItem(22, emptyHomesItem(player));
         } else {
             for (int i = 0; i < homes.size() && i < HOME_SLOTS.length; i++) {
                 String homeName = homes.get(i);
@@ -411,17 +425,18 @@ public class HomeModule implements Listener {
             }
         }
 
-        inventory.setItem(45, usageBookItem());
+        inventory.setItem(45, usageBookItem(player));
         inventory.setItem(49, closeItem(player));
         player.openInventory(inventory);
     }
 
     private void openDeleteConfirmMenu(Player player, String homeName) {
-        Inventory inventory = Bukkit.createInventory(null, 27, Component.text(DELETE_MENU_TITLE, NamedTextColor.RED));
+        Inventory inventory = Bukkit.createInventory(null, 27,
+                Component.text(languageService.t(player, Message.HOME_DELETE_MENU_TITLE), NamedTextColor.RED));
         decorateMenu(inventory);
-        inventory.setItem(11, confirmDeleteItem(homeName));
+        inventory.setItem(11, confirmDeleteItem(player, homeName));
         inventory.setItem(13, homePreviewItem(player, homeName));
-        inventory.setItem(15, backItem());
+        inventory.setItem(15, backItem(player));
         player.openInventory(inventory);
     }
 
@@ -431,10 +446,11 @@ public class HomeModule implements Listener {
 
     private ItemStack summaryItem(Player player, int homeCount) {
         int max = getMaxHomes(player);
-        return MenuItems.item(Material.COMPASS, Component.text("家的位置", NamedTextColor.AQUA), List.of(
-                Component.text("已设置: " + homeCount + " / " + max, NamedTextColor.GRAY),
-                Component.text("左键传送，右键删除", NamedTextColor.GRAY),
-                Component.text("Shift 左键更新位置，Shift 右键设置图标", NamedTextColor.GRAY)
+        return MenuItems.item(Material.COMPASS,
+                Component.text(languageService.t(player, Message.HOME_SUMMARY_TITLE), NamedTextColor.AQUA), List.of(
+                Component.text(languageService.t(player, Message.HOME_SUMMARY_COUNT, homeCount, max), NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_SUMMARY_ACTIONS), NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_SUMMARY_SHIFT_ACTIONS), NamedTextColor.GRAY)
         ));
     }
 
@@ -444,18 +460,24 @@ public class HomeModule implements Listener {
         Material displayMaterial = homeMaterial(homeName, entry, location);
         List<Component> lore = new ArrayList<>();
         if (location != null) {
-            lore.add(Component.text("世界: " + readableWorldName(location.getWorld()), NamedTextColor.GRAY));
-            lore.add(Component.text("坐标: " + location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ(), NamedTextColor.GRAY));
-            lore.add(Component.text("距离: " + distanceText(player, location), NamedTextColor.GRAY));
-            lore.add(Component.text("图标: " + displayMaterial.name().toLowerCase(Locale.ROOT) + (entry != null && entry.icon() != null ? "" : " · 默认"), NamedTextColor.GRAY));
+            lore.add(Component.text(languageService.t(player, Message.HOME_WORLD,
+                    readableWorldName(player, location.getWorld())), NamedTextColor.GRAY));
+            lore.add(Component.text(languageService.t(player, Message.HOME_LOCATION,
+                    location.getBlockX(), location.getBlockY(), location.getBlockZ()), NamedTextColor.GRAY));
+            lore.add(Component.text(languageService.t(player, Message.HOME_DISTANCE,
+                    distanceText(player, location)), NamedTextColor.GRAY));
+            lore.add(Component.text(languageService.t(player, Message.HOME_ICON,
+                    displayMaterial.name().toLowerCase(Locale.ROOT),
+                    entry != null && entry.icon() != null ? "" : languageService.t(player, Message.HOME_ICON_DEFAULT_SUFFIX)),
+                    NamedTextColor.GRAY));
         } else {
-            lore.add(Component.text("这个家的位置数据有误", NamedTextColor.RED));
+            lore.add(Component.text(languageService.t(player, Message.HOME_LOCATION_INVALID), NamedTextColor.RED));
         }
         lore.add(Component.empty());
-        lore.add(Component.text("左键传送", NamedTextColor.GREEN));
-        lore.add(Component.text("右键删除", NamedTextColor.RED));
-        lore.add(Component.text("Shift 左键更新位置", NamedTextColor.YELLOW));
-        lore.add(Component.text("Shift 右键设置图标", NamedTextColor.YELLOW));
+        lore.add(Component.text(languageService.t(player, Message.HOME_ACTION_TELEPORT), NamedTextColor.GREEN));
+        lore.add(Component.text(languageService.t(player, Message.HOME_ACTION_DELETE), NamedTextColor.RED));
+        lore.add(Component.text(languageService.t(player, Message.HOME_ACTION_UPDATE), NamedTextColor.YELLOW));
+        lore.add(Component.text(languageService.t(player, Message.HOME_ACTION_ICON), NamedTextColor.YELLOW));
         return MenuItems.action(displayMaterial, Component.text(homeName, NamedTextColor.YELLOW), lore, menuActionKey, ACTION_HOME_PREFIX + homeName);
     }
 
@@ -464,59 +486,68 @@ public class HomeModule implements Listener {
         Location location = getHome(player, homeName);
         List<Component> lore = new ArrayList<>();
         if (location != null) {
-            lore.add(Component.text("世界: " + readableWorldName(location.getWorld()), NamedTextColor.GRAY));
-            lore.add(Component.text("坐标: " + location.getBlockX() + ", " + location.getBlockY() + ", " + location.getBlockZ(), NamedTextColor.GRAY));
-            lore.add(Component.text("距离: " + distanceText(player, location), NamedTextColor.GRAY));
+            lore.add(Component.text(languageService.t(player, Message.HOME_WORLD,
+                    readableWorldName(player, location.getWorld())), NamedTextColor.GRAY));
+            lore.add(Component.text(languageService.t(player, Message.HOME_LOCATION,
+                    location.getBlockX(), location.getBlockY(), location.getBlockZ()), NamedTextColor.GRAY));
+            lore.add(Component.text(languageService.t(player, Message.HOME_DISTANCE,
+                    distanceText(player, location)), NamedTextColor.GRAY));
         } else {
-            lore.add(Component.text("这个家的位置数据有误", NamedTextColor.RED));
+            lore.add(Component.text(languageService.t(player, Message.HOME_LOCATION_INVALID), NamedTextColor.RED));
         }
         return MenuItems.item(homeMaterial(homeName, entry, location), Component.text(homeName, NamedTextColor.YELLOW), lore);
     }
 
-    private ItemStack emptyHomesItem() {
-        return MenuItems.item(Material.LIGHT_GRAY_BED, Component.text("还没有家", NamedTextColor.GRAY), List.of(
-                Component.text("站在想保存的位置", NamedTextColor.GRAY),
-                Component.text("输入 /sethome <名字>", NamedTextColor.YELLOW)
+    private ItemStack emptyHomesItem(Player player) {
+        return MenuItems.item(Material.LIGHT_GRAY_BED,
+                Component.text(languageService.t(player, Message.HOME_EMPTY_TITLE), NamedTextColor.GRAY), List.of(
+                Component.text(languageService.t(player, Message.HOME_EMPTY_LORE_LOCATION), NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_EMPTY_LORE_COMMAND), NamedTextColor.YELLOW)
         ));
     }
 
-    private ItemStack usageBookItem() {
-        return MenuItems.item(Material.BOOK, Component.text("使用说明", NamedTextColor.GOLD), List.of(
-                Component.text("/sethome <名字>  保存当前位置", NamedTextColor.GRAY),
-                Component.text("/home <名字>  直接传送", NamedTextColor.GRAY),
-                Component.text("/home icon <材质> <名字>  设置图标", NamedTextColor.GRAY),
-                Component.text("/delhome <名字>  删除家", NamedTextColor.GRAY),
-                Component.text("家名不能包含 < > :", NamedTextColor.GRAY)
+    private ItemStack usageBookItem(Player player) {
+        return MenuItems.item(Material.BOOK,
+                Component.text(languageService.t(player, Message.HOME_USAGE_BOOK), NamedTextColor.GOLD), List.of(
+                Component.text(languageService.t(player, Message.HOME_USAGE_SETHOME), NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_USAGE_HOME), NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_USAGE_ICON), NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_USAGE_DELHOME), NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_USAGE_NAME_RULE), NamedTextColor.GRAY)
         ));
     }
 
-    private ItemStack confirmDeleteItem(String homeName) {
-        return MenuItems.action(Material.RED_CONCRETE, Component.text("确认删除", NamedTextColor.RED), List.of(
-                Component.text("将删除家 " + homeName, NamedTextColor.GRAY),
-                Component.text("这个操作不能撤销", NamedTextColor.GRAY)
+    private ItemStack confirmDeleteItem(Player player, String homeName) {
+        return MenuItems.action(Material.RED_CONCRETE,
+                Component.text(languageService.t(player, Message.HOME_CONFIRM_DELETE), NamedTextColor.RED), List.of(
+                homeMessage(player, Message.HOME_CONFIRM_DELETE_LORE_RICH, homeName, NamedTextColor.GRAY),
+                Component.text(languageService.t(player, Message.HOME_CONFIRM_DELETE_WARNING), NamedTextColor.GRAY)
         ), menuActionKey, ACTION_DELETE_PREFIX + homeName);
     }
 
-    private ItemStack backItem() {
-        return MenuItems.action(Material.LIME_CONCRETE, Component.text("返回", NamedTextColor.GREEN),
-                List.of(Component.text("不删除这个家", NamedTextColor.GRAY)), menuActionKey, ACTION_BACK);
+    private ItemStack backItem(Player player) {
+        return MenuItems.action(Material.LIME_CONCRETE,
+                Component.text(languageService.t(player, Message.HOME_BACK), NamedTextColor.GREEN),
+                List.of(Component.text(languageService.t(player, Message.HOME_BACK_LORE), NamedTextColor.GRAY)),
+                menuActionKey, ACTION_BACK);
     }
 
     private ItemStack closeItem(Player player) {
         if (menuNavigation.shouldReturnToMainMenu(player, MenuNavigation.ChildMenu.HOME)) {
-            return MenuItems.action(Material.ARROW, Component.text("返回主菜单", NamedTextColor.GREEN),
-                    List.of(Component.text("回到主菜单", NamedTextColor.GRAY)), menuActionKey, ACTION_CLOSE);
+            return MenuItems.action(Material.ARROW,
+                    Component.text(languageService.t(player, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
+                    List.of(Component.text(languageService.t(player, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)),
+                    menuActionKey, ACTION_CLOSE);
         }
-        return MenuItems.action(Material.BARRIER, Component.text("关闭", NamedTextColor.RED),
-                List.of(Component.text("返回游戏", NamedTextColor.GRAY)), menuActionKey, ACTION_CLOSE);
+        return MenuItems.action(Material.BARRIER,
+                Component.text(languageService.t(player, Message.CLOSE), NamedTextColor.RED),
+                List.of(Component.text(languageService.t(player, Message.RETURN_TO_GAME), NamedTextColor.GRAY)),
+                menuActionKey, ACTION_CLOSE);
     }
 
-    private Component homeMessage(String before, String homeName, String after, NamedTextColor baseColor) {
-        return Component.text()
-                .append(Component.text(before, baseColor))
-                .append(Component.text(homeName, NamedTextColor.YELLOW))
-                .append(Component.text(after, baseColor))
-                .build();
+    private Component homeMessage(Player player, Message message, String homeName, NamedTextColor baseColor) {
+        return languageService.rich(player, message, baseColor,
+                RichArg.component("home", Component.text(homeName, NamedTextColor.YELLOW), homeName));
     }
 
     private void setHome(Player player, String name) {
@@ -559,18 +590,18 @@ public class HomeModule implements Listener {
     private void setHomeIcon(Player player, String name, Material icon) {
         HomeEntry entry = getHomeEntry(player, name);
         if (entry == null) {
-            player.sendMessage(homeMessage("家 ", name, " 不存在", NamedTextColor.RED));
+            player.sendMessage(homeMessage(player, Message.HOME_NOT_FOUND_RICH, name, NamedTextColor.RED));
             return;
         }
         cache.get(player.getUniqueId()).put(name, new HomeEntry(entry.locationRaw(), icon));
         save();
-        player.sendMessage(homeMessage("家 ", name, " 的图标已更新", NamedTextColor.GREEN));
+        player.sendMessage(homeMessage(player, Message.HOME_ICON_UPDATED_RICH, name, NamedTextColor.GREEN));
     }
 
     private void setHomeIconFromHand(Player player, String name) {
         Material material = parseIconMaterial(player.getInventory().getItemInMainHand().getType().name());
         if (material == null) {
-            player.sendMessage(Component.text("主手物品不能作为家的图标", NamedTextColor.RED));
+            player.sendMessage(languageService.text(player, Message.HOME_ICON_HAND_INVALID, NamedTextColor.RED));
             return;
         }
         setHomeIcon(player, name, material);
@@ -579,16 +610,16 @@ public class HomeModule implements Listener {
     private void teleportHome(Player player, String name) {
         Location loc = getHome(player, name);
         if (loc == null) {
-            player.sendMessage(homeMessage("家 ", name, " 不存在", NamedTextColor.RED));
+            player.sendMessage(homeMessage(player, Message.HOME_NOT_FOUND_RICH, name, NamedTextColor.RED));
             return;
         }
         player.closeInventory();
         player.teleportAsync(loc).thenAccept(success -> {
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (success) {
-                    player.sendMessage(homeMessage("已传送到家 ", name, "", NamedTextColor.GREEN));
+                    player.sendMessage(homeMessage(player, Message.HOME_TELEPORTED_RICH, name, NamedTextColor.GREEN));
                 } else {
-                    player.sendMessage(Component.text("传送失败，请重试", NamedTextColor.RED));
+                    player.sendMessage(languageService.text(player, Message.HOME_TELEPORT_FAILED, NamedTextColor.RED));
                 }
             });
         });
@@ -649,7 +680,7 @@ public class HomeModule implements Listener {
     }
 
     private void sendInvalidHomeName(Player player) {
-        player.sendMessage(Component.text("家名不能包含 < > : 这些符号", NamedTextColor.RED));
+        player.sendMessage(languageService.text(player, Message.HOME_INVALID_NAME, NamedTextColor.RED));
     }
 
     private ParsedHomeKey parseHomeKey(String storedName) {
@@ -690,20 +721,21 @@ public class HomeModule implements Listener {
         return DEFAULT_HOME_ICONS[Math.floorMod(homeName.hashCode(), DEFAULT_HOME_ICONS.length)];
     }
 
-    private String readableWorldName(World world) {
+    private String readableWorldName(Player player, World world) {
         return switch (world.getEnvironment()) {
             case NORMAL -> world.getName();
-            case NETHER -> world.getName() + " · 下界";
-            case THE_END -> world.getName() + " · 末地";
+            case NETHER -> world.getName() + languageService.t(player, Message.HOME_WORLD_NETHER_SUFFIX);
+            case THE_END -> world.getName() + languageService.t(player, Message.HOME_WORLD_END_SUFFIX);
             case CUSTOM -> world.getName();
         };
     }
 
     private String distanceText(Player player, Location location) {
         if (!player.getWorld().equals(location.getWorld())) {
-            return "不同世界";
+            return languageService.t(player, Message.HOME_DISTANCE_OTHER_WORLD);
         }
-        return Math.round(player.getLocation().distance(location)) + " 格";
+        return languageService.t(player, Message.HOME_DISTANCE_BLOCKS,
+                Math.round(player.getLocation().distance(location)));
     }
 
     private record HomeEntry(String locationRaw, Material icon) {

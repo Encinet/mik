@@ -1,5 +1,13 @@
 package org.encinet.mik.module.afk;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListenerAbstract;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
+import com.github.retrooper.packetevents.event.PacketSendEvent;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
+import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -14,9 +22,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -35,10 +46,15 @@ final class AfkDisplayController {
             .build();
 
     private final NamespacedKey ownerKey;
+    private final LanguageService languageService;
     private final Map<UUID, TextDisplay> displays = new HashMap<>();
+    private final Map<Integer, AfkState> statesByDisplayEntityId = new HashMap<>();
+    private int textMetadataIndex = -1;
 
-    AfkDisplayController(JavaPlugin plugin) {
+    AfkDisplayController(JavaPlugin plugin, LanguageService languageService) {
         this.ownerKey = new NamespacedKey(plugin, "afk_display_owner");
+        this.languageService = languageService;
+        PacketEvents.getAPI().getEventManager().registerListener(new DisplayMetadataListener());
     }
 
     void update(Player player, AfkState state) {
@@ -48,7 +64,9 @@ final class AfkDisplayController {
             displays.put(player.getUniqueId(), display);
         }
 
-        display.text(displayText(state));
+        display.text(displayText(player, state));
+        statesByDisplayEntityId.put(display.getEntityId(), state);
+        sendLocalizedText(display, state);
         display.teleport(displayLocation(player));
     }
 
@@ -66,12 +84,14 @@ final class AfkDisplayController {
     void remove(UUID playerId) {
         TextDisplay display = displays.remove(playerId);
         if (display != null && display.isValid()) {
+            statesByDisplayEntityId.remove(display.getEntityId());
             display.remove();
         }
     }
 
     void removeAll() {
         displays.values().forEach(display -> {
+            statesByDisplayEntityId.remove(display.getEntityId());
             if (display.isValid()) {
                 display.remove();
             }
@@ -128,6 +148,7 @@ final class AfkDisplayController {
             if (found == null && display.isValid()) {
                 found = display;
                 displays.put(player.getUniqueId(), display);
+                statesByDisplayEntityId.put(display.getEntityId(), statePlaceholder(player));
             } else if (display.isValid()) {
                 display.remove();
             }
@@ -145,12 +166,72 @@ final class AfkDisplayController {
         return location;
     }
 
-    private Component displayText(AfkState state) {
+    private Component displayText(Player player, AfkState state) {
         if (!state.hasCustomMessage()) {
-            return MINI_MESSAGE.deserialize("<gold><bold>挂机中</bold></gold>");
+            return MINI_MESSAGE.deserialize(languageService.t(player, Message.AFK_DISPLAY_TITLE_MM));
         }
         return MINI_MESSAGE.deserialize(
-                "<gold><bold>挂机中</bold></gold> <gray>·</gray> <white><message></white>",
+                languageService.t(player, Message.AFK_DISPLAY_WITH_MESSAGE_MM),
                 Placeholder.component("message", SAFE_MESSAGE.deserialize(state.message())));
+    }
+
+    private void sendLocalizedText(TextDisplay display, AfkState state) {
+        if (textMetadataIndex < 0) {
+            return;
+        }
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            if (!viewer.getWorld().equals(display.getWorld())) {
+                continue;
+            }
+            PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
+                    new WrapperPlayServerEntityMetadata(display.getEntityId(), List.of(
+                            new EntityData<>(textMetadataIndex, EntityDataTypes.ADV_COMPONENT,
+                                    displayText(viewer, state))
+                    )));
+        }
+    }
+
+    private AfkState statePlaceholder(Player player) {
+        return new AfkState(player.getUniqueId(), null, false, System.currentTimeMillis());
+    }
+
+    private class DisplayMetadataListener extends PacketListenerAbstract {
+
+        private DisplayMetadataListener() {
+            super(PacketListenerPriority.NORMAL);
+        }
+
+        @Override
+        public void onPacketSend(PacketSendEvent event) {
+            if (event.getPacketType() != PacketType.Play.Server.ENTITY_METADATA) {
+                return;
+            }
+            Player viewer = event.getPlayer();
+            if (viewer == null) {
+                return;
+            }
+
+            WrapperPlayServerEntityMetadata packet = new WrapperPlayServerEntityMetadata(event);
+            AfkState state = statesByDisplayEntityId.get(packet.getEntityId());
+            if (state == null) {
+                return;
+            }
+
+            boolean changed = false;
+            List<EntityData<?>> metadata = packet.getEntityMetadata();
+            for (int i = 0; i < metadata.size(); i++) {
+                EntityData<?> data = metadata.get(i);
+                if (data.getType() == EntityDataTypes.ADV_COMPONENT) {
+                    textMetadataIndex = data.getIndex();
+                    metadata.set(i, new EntityData<>(data.getIndex(), EntityDataTypes.ADV_COMPONENT,
+                            displayText(viewer, state)));
+                    changed = true;
+                }
+            }
+            if (changed) {
+                packet.setEntityMetadata(metadata);
+                event.markForReEncode(true);
+            }
+        }
     }
 }

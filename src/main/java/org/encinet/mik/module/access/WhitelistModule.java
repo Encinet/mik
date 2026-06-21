@@ -16,6 +16,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,31 +38,12 @@ public class WhitelistModule implements Listener {
     private final List<UUID> unwhitelistedPlayerUUIDs = new ArrayList<>();
     private final Map<String, Long> temporaryWhitelistExpiresAt = new ConcurrentHashMap<>();
 
-    // Bilingual since IP is not available at this stage
-    private static final Component KICK_MSG = Component.text()
-            .append(Component.text("你不在白名单中", NamedTextColor.WHITE))
-            .appendNewline()
-            .append(Component.text("前往 ", NamedTextColor.GRAY))
-            .append(Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA))
-            .append(Component.text(" 申请白名单", NamedTextColor.GRAY))
-            .appendNewline()
-            .append(Component.text("官网 ", NamedTextColor.GRAY))
-            .append(Component.text("mik.noctiro.moe", NamedTextColor.AQUA))
-            .appendNewline()
-            .appendNewline()
-            .append(Component.text("You are not whitelisted", NamedTextColor.WHITE))
-            .appendNewline()
-            .append(Component.text("Apply at ", NamedTextColor.GRAY))
-            .append(Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA))
-            .appendNewline()
-            .append(Component.text("Website: ", NamedTextColor.GRAY))
-            .append(Component.text("mik.noctiro.moe", NamedTextColor.AQUA))
-            .build();
-
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
 
-    public WhitelistModule(JavaPlugin plugin) {
+    public WhitelistModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -84,7 +69,7 @@ public class WhitelistModule implements Listener {
         if (playerUUID != null) {
             unwhitelistedPlayerUUIDs.add(playerUUID);
         }
-        event.kickMessage(KICK_MSG);
+        event.kickMessage(kickMessage());
     }
 
     /**
@@ -106,41 +91,59 @@ public class WhitelistModule implements Listener {
                                 String playerName = StringArgumentType.getString(ctx, "player");
                                 return addTemporaryWhitelist(sender, playerName);
                             }))
-                    .build(), "添加 1 小时临时白名单", List.of("twl", "tempwl"));
+                    .build(), languageService.t(Language.DEFAULT, Message.WHITELIST_TEMP_COMMAND_DESCRIPTION),
+                    List.of("twl", "tempwl"));
         });
     }
 
     private void sendTemporaryWhitelistUsage(CommandSender sender) {
         sender.sendMessage(Component.text()
-                .append(Component.text("用法 ", NamedTextColor.YELLOW))
-                .append(Component.text("/tempwhitelist <玩家名>", NamedTextColor.AQUA))
-                .append(Component.text("  添加 1 小时临时白名单", NamedTextColor.GRAY))
+                .append(Component.text(t(sender, Message.USAGE), NamedTextColor.YELLOW))
+                .append(Component.text("/tempwhitelist <player>", NamedTextColor.AQUA))
+                .append(Component.text("  " + t(sender, Message.WHITELIST_TEMP_USAGE_DESC), NamedTextColor.GRAY))
                 .build());
     }
 
     private int addTemporaryWhitelist(CommandSender sender, String playerName) {
         if (!PLAYER_NAME_PATTERN.matcher(playerName).matches()) {
-            sender.sendMessage(Component.text("玩家名格式不正确", NamedTextColor.RED));
+            sender.sendMessage(Component.text(t(sender, Message.WHITELIST_INVALID_NAME), NamedTextColor.RED));
             sendTemporaryWhitelistUsage(sender);
             return 0;
         }
 
         OfflinePlayer knownPlayer = Bukkit.getOfflinePlayerIfCached(playerName);
         if (knownPlayer != null && knownPlayer.isWhitelisted()) {
-            sender.sendMessage(Component.text(playerName + " 已经在白名单中", NamedTextColor.YELLOW));
+            sender.sendMessage(Component.text(t(sender, Message.WHITELIST_ALREADY_WHITELISTED, playerName),
+                    NamedTextColor.YELLOW));
             return Command.SINGLE_SUCCESS;
         }
 
         long expiresAt = System.currentTimeMillis() + TEMP_WHITELIST_MILLIS;
         temporaryWhitelistExpiresAt.put(normalizeName(playerName), expiresAt);
 
-        sender.sendMessage(Component.text()
-                .append(Component.text("已添加 ", NamedTextColor.GREEN))
-                .append(Component.text(playerName, NamedTextColor.AQUA))
-                .append(Component.text(" 的临时白名单 ", NamedTextColor.GREEN))
-                .append(Component.text("1 小时", NamedTextColor.GRAY))
-                .build());
+        Component playerComponent = Component.text(playerName, NamedTextColor.AQUA);
+        Component durationComponent = Component.text(t(sender, Message.WHITELIST_TEMP_DURATION), NamedTextColor.GRAY);
+        if (sender instanceof org.bukkit.entity.Player player) {
+            sender.sendMessage(languageService.rich(player, Message.WHITELIST_TEMP_ADDED_RICH,
+                    NamedTextColor.GREEN,
+                    RichArg.component("player", playerComponent, playerName),
+                    RichArg.component("duration", durationComponent, t(sender, Message.WHITELIST_TEMP_DURATION))));
+        } else {
+            sender.sendMessage(Component.text(t(Language.DEFAULT, Message.WHITELIST_TEMP_ADDED_PLAIN,
+                    playerName, t(Language.DEFAULT, Message.WHITELIST_TEMP_DURATION)), NamedTextColor.GREEN));
+        }
         return Command.SINGLE_SUCCESS;
+    }
+
+    private String t(CommandSender sender, Message message, Object... args) {
+        if (sender instanceof org.bukkit.entity.Player player) {
+            return languageService.t(player, message, args);
+        }
+        return languageService.t(Language.DEFAULT, message, args);
+    }
+
+    private String t(Language language, Message message, Object... args) {
+        return languageService.t(language, message, args);
     }
 
     private boolean consumeTemporaryWhitelist(String playerName) {
@@ -167,5 +170,27 @@ public class WhitelistModule implements Listener {
 
     private String normalizeName(String playerName) {
         return playerName.toLowerCase(Locale.ROOT);
+    }
+
+    private Component kickMessage() {
+        return Component.text()
+                .append(kickMessage(Language.ZH_CN))
+                .appendNewline()
+                .appendNewline()
+                .append(kickMessage(Language.EN_US))
+                .build();
+    }
+
+    private Component kickMessage(Language language) {
+        return Component.text()
+                .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_TITLE), NamedTextColor.WHITE))
+                .appendNewline()
+                .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_APPLY_PREFIX), NamedTextColor.GRAY))
+                .append(Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA))
+                .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_APPLY_SUFFIX), NamedTextColor.GRAY))
+                .appendNewline()
+                .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_WEBSITE_PREFIX), NamedTextColor.GRAY))
+                .append(Component.text("mik.noctiro.moe", NamedTextColor.AQUA))
+                .build();
     }
 }

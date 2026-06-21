@@ -10,6 +10,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.List;
 import java.util.Locale;
@@ -19,20 +21,16 @@ public class ClientVersionReminderModule implements Listener {
     private static final String LATEST = "latest";
     private static final int LATEST_KNOWN_PROTOCOL = 776;
     private static final long REMINDER_DELAY_TICKS = 40L;
-    private static final String BORDER = "<dark_gray>-----</dark_gray> <severity_title> <dark_gray>-----</dark_gray>";
-    private static final String FOOTER_BORDER = "<dark_gray>------------------------------</dark_gray>";
-    private static final List<String> MESSAGE_LINES = List.of(
-            "<gray>当前 <white><client_version></white>，推荐 <white><min_version></white>。</gray>",
-            "<severity_message>"
-    );
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private ProtocolVersion minimumVersion = ProtocolVersion.unknown;
     private List<SeverityWarning> severityWarnings = List.of();
 
-    public ClientVersionReminderModule(JavaPlugin plugin) {
+    public ClientVersionReminderModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -50,10 +48,10 @@ public class ClientVersionReminderModule implements Listener {
     public void reload() {
         minimumVersion = latestReleaseVersion();
         severityWarnings = List.of(
-                warning("1.18", "<red><bold>严重缺失功能警报</bold></red>", "<red>跨度过大，大量新内容可能无法显示。</red>"),
-                warning("1.21", "<gold><bold>大量缺失功能警报</bold></gold>", "<gold>缺少较多新内容，部分区域可能异常。</gold>"),
-                warning("1.21.5", "<yellow><bold>明显缺失功能警报</bold></yellow>", "<yellow>可能缺少一部分新内容，建议更新。</yellow>"),
-                warning(LATEST, "<green><bold>更新提醒</bold></green>", "<green>可能会有少数内容显示异常。</green>")
+                warning("1.18", Message.CLIENT_REMINDER_SEVERE_TITLE_MM, Message.CLIENT_REMINDER_SEVERE_MESSAGE_MM),
+                warning("1.21", Message.CLIENT_REMINDER_MANY_TITLE_MM, Message.CLIENT_REMINDER_MANY_MESSAGE_MM),
+                warning("1.21.5", Message.CLIENT_REMINDER_OBVIOUS_TITLE_MM, Message.CLIENT_REMINDER_OBVIOUS_MESSAGE_MM),
+                warning(LATEST, Message.CLIENT_REMINDER_UPDATE_TITLE_MM, Message.CLIENT_REMINDER_UPDATE_MESSAGE_MM)
         );
     }
 
@@ -93,17 +91,13 @@ public class ClientVersionReminderModule implements Listener {
         String clientName = clientVersion.getName();
         String minimumName = minimumVersion.getName();
         SeverityWarning severityWarning = resolveSeverityWarning(clientVersion);
-        String severityTitle = severityWarning.title();
-        String severityMessage = severityWarning.message();
+        String severityTitle = languageService.t(player, severityWarning.title());
+        String severityMessage = languageService.t(player, severityWarning.message());
 
-        player.sendMessage(MINI_MESSAGE.deserialize(formatLine(BORDER, clientName, minimumName,
-                severityTitle, severityMessage)));
-        for (String line : MESSAGE_LINES) {
-            player.sendMessage(MINI_MESSAGE.deserialize(formatLine(line, clientName, minimumName,
-                    severityTitle, severityMessage)));
-        }
-        player.sendMessage(MINI_MESSAGE.deserialize(formatLine(FOOTER_BORDER, clientName, minimumName,
-                severityTitle, severityMessage)));
+        player.sendMessage(message(player, Message.CLIENT_REMINDER_BORDER_MM, severityTitle));
+        player.sendMessage(message(player, Message.CLIENT_REMINDER_VERSION_LINE_MM, clientName, minimumName));
+        player.sendMessage(MINI_MESSAGE.deserialize(severityMessage));
+        player.sendMessage(message(player, Message.CLIENT_REMINDER_FOOTER_MM));
     }
 
     private ProtocolVersion clientVersion(Player player) {
@@ -113,27 +107,18 @@ public class ClientVersionReminderModule implements Listener {
         return Via.getAPI().getPlayerProtocolVersion(player.getUniqueId());
     }
 
-    private String formatLine(String line, String clientName, String minimumName,
-                              String severityTitle, String severityMessage) {
-        return line
-                .replace("<client_version>", clientName)
-                .replace("<min_version>", minimumName)
-                .replace("<severity_title>", severityTitle)
-                .replace("<severity_message>", severityMessage);
-    }
-
     private SeverityWarning resolveSeverityWarning(ProtocolVersion clientVersion) {
         return severityWarnings.stream()
                 .filter(warning -> clientVersion.olderThan(warning.olderThan()))
                 .findFirst()
                 .orElse(new SeverityWarning(
                         minimumVersion,
-                        "<gray><bold>版本功能警报</bold></gray>",
-                        "<gray>当前客户端版本较旧，可能有少量内容无法完整显示。</gray>"
+                        Message.CLIENT_REMINDER_DEFAULT_TITLE_MM,
+                        Message.CLIENT_REMINDER_DEFAULT_MESSAGE_MM
                 ));
     }
 
-    private SeverityWarning warning(String olderThanName, String title, String message) {
+    private SeverityWarning warning(String olderThanName, Message title, Message message) {
         ProtocolVersion olderThan = resolveThresholdVersion(olderThanName);
         if (olderThan == null) {
             throw new IllegalStateException("Unknown bundled client version severity: " + olderThanName);
@@ -167,6 +152,10 @@ public class ClientVersionReminderModule implements Listener {
         return findProtocolVersion(trimmedVersion);
     }
 
-    private record SeverityWarning(ProtocolVersion olderThan, String title, String message) {
+    private net.kyori.adventure.text.Component message(Player player, Message message, Object... args) {
+        return MINI_MESSAGE.deserialize(languageService.t(player, message, args));
+    }
+
+    private record SeverityWarning(ProtocolVersion olderThan, Message title, Message message) {
     }
 }

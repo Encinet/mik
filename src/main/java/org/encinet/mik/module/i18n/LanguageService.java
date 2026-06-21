@@ -26,10 +26,13 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.menu.MenuBuilder;
 import org.encinet.mik.module.menu.MenuItems;
 import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.util.GeoUtil;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -134,11 +137,35 @@ public class LanguageService implements Listener {
         if (manual != null) {
             return manual;
         }
-        try {
-            return Language.fromLocale(player.locale()).orElse(Language.DEFAULT);
-        } catch (RuntimeException e) {
-            return Language.DEFAULT;
+        Language clientLanguage = clientLanguage(player);
+        if (clientLanguage != null) {
+            return clientLanguage;
         }
+        Language geoLanguage = geoLanguage(player);
+        if (geoLanguage != null) {
+            return geoLanguage;
+        }
+        return Language.DEFAULT;
+    }
+
+    private Language clientLanguage(Player player) {
+        try {
+            return Language.fromLocale(player.locale()).orElse(null);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private Language geoLanguage(Player player) {
+        InetSocketAddress address = player.getAddress();
+        if (address == null) {
+            return null;
+        }
+        InetAddress inetAddress = address.getAddress();
+        if (inetAddress == null) {
+            return null;
+        }
+        return GeoUtil.isChinaIp(inetAddress) ? Language.ZH_CN : Language.EN_US;
     }
 
     public String preference(UUID playerId) {
@@ -163,6 +190,24 @@ public class LanguageService implements Listener {
 
     public Component text(Player player, Message message, NamedTextColor color, Object... args) {
         return Component.text(t(player, message, args), color);
+    }
+
+    public boolean titleMatches(Message message, String title) {
+        for (Language language : Language.values()) {
+            if (t(language, message).equals(title)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean titleStartsWith(Message message, String title) {
+        for (Language language : Language.values()) {
+            if (title.startsWith(t(language, message))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Component rich(Player player, Message message, NamedTextColor baseColor, RichArg... richArgs) {
@@ -313,11 +358,6 @@ public class LanguageService implements Listener {
     }
 
     private boolean isLanguageMenuTitle(String title) {
-        for (Language language : Language.values()) {
-            if (t(language, Message.LANGUAGE_MENU_TITLE).equals(title)) {
-                return true;
-            }
-        }
-        return false;
+        return titleMatches(Message.LANGUAGE_MENU_TITLE, title);
     }
 }

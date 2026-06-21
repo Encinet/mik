@@ -8,6 +8,8 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 public class InvisibilityNotifyModule {
 
@@ -17,10 +19,12 @@ public class InvisibilityNotifyModule {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private BukkitTask notifyTask;
 
-    public InvisibilityNotifyModule(JavaPlugin plugin) {
+    public InvisibilityNotifyModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -40,7 +44,7 @@ public class InvisibilityNotifyModule {
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             Detection detection = detectNearbyInvisiblePlayers(viewer);
             if (detection.count() > 0) {
-                viewer.sendActionBar(actionBarMessage(detection));
+                viewer.sendActionBar(actionBarMessage(viewer, detection));
             }
         }
     }
@@ -68,10 +72,10 @@ public class InvisibilityNotifyModule {
         return new Detection(count, nearestDistance);
     }
 
-    private Component actionBarMessage(Detection detection) {
-        String template = detection.count() == 1
-                ? "<yellow>附近有玩家处于 <gold>隐身</gold> 状态</yellow> <gray>·</gray> <gray>约 <distance> 格内</gray>"
-                : "<yellow>附近有 <gold><count></gold> 名玩家处于 <gold>隐身</gold> 状态</yellow> <gray>·</gray> <gray>最近约 <distance> 格</gray>";
+    private Component actionBarMessage(Player viewer, Detection detection) {
+        String template = languageService.t(viewer, detection.count() == 1
+                ? Message.INVISIBILITY_SINGLE_MM
+                : Message.INVISIBILITY_MULTI_MM);
         return MINI_MESSAGE.deserialize(template,
                 Placeholder.unparsed("count", Integer.toString(detection.count())),
                 Placeholder.unparsed("distance", Integer.toString(detection.nearestDistance())));

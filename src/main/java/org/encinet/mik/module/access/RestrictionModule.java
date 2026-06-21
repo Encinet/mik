@@ -17,6 +17,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -39,9 +41,11 @@ public class RestrictionModule implements Listener {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
 
-    public RestrictionModule(JavaPlugin plugin) {
+    public RestrictionModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -58,11 +62,11 @@ public class RestrictionModule implements Listener {
         Component message = event.message();
         if (containsNewline(message)) {
             event.setCancelled(true);
-            player.sendMessage(MINI_MESSAGE.deserialize("<red>禁止在消息中换行</red>"));
+            player.sendMessage(mm(player, Message.RESTRICTION_NO_NEWLINE_MM));
         }
         if (containsIllegalRunCommand(message)) {
             event.setCancelled(true);
-            player.sendMessage(MINI_MESSAGE.deserialize("<red>禁止诱导执行命令</red>"));
+            player.sendMessage(mm(player, Message.RESTRICTION_NO_RUN_COMMAND_MM));
         }
     }
 
@@ -110,7 +114,7 @@ public class RestrictionModule implements Listener {
         // 全员禁止 /kill @e
         if (message.equals("/kill @e")) {
             event.setCancelled(true);
-            player.sendMessage(MINI_MESSAGE.deserialize("<red>禁止使用 <white>/kill @e</white> 命令</red>"));
+            player.sendMessage(mm(player, Message.RESTRICTION_NO_KILL_E_MM));
             plugin.getLogger().warning("Blocked /kill @e from " + player.getName());
             return;
         }
@@ -126,7 +130,7 @@ public class RestrictionModule implements Listener {
         // 阻止目标选择器
         if (SELECTOR_PATTERN.matcher(commandLower).find()) {
             event.setCancelled(true);
-            player.sendMessage(MINI_MESSAGE.deserialize("<red>你没有权限使用目标选择器 <white>@e @a @r @p @n</white></red>"));
+            player.sendMessage(mm(player, Message.RESTRICTION_NO_SELECTOR_MM));
             plugin.getLogger().info("Blocked selector command from " + player.getName() + ": " + message);
             return;
         }
@@ -158,7 +162,7 @@ public class RestrictionModule implements Listener {
 
             // 其他 UUID 一律拒绝
             event.setCancelled(true);
-            player.sendMessage(MINI_MESSAGE.deserialize("<red>你只能在命令中使用自己驯服生物的 UUID</red>"));
+            player.sendMessage(mm(player, Message.RESTRICTION_FOREIGN_UUID_MM));
             plugin.getLogger().info("Blocked foreign UUID command from " + player.getName() + ": " + message);
             return;
         }
@@ -166,9 +170,13 @@ public class RestrictionModule implements Listener {
         // 检查是否包含其他在线玩家的名字
         if (containsOtherPlayerName(message, player)) {
             event.setCancelled(true);
-            player.sendMessage(MINI_MESSAGE.deserialize("<red>你没有权限在命令中提及其他玩家的名字</red>"));
+            player.sendMessage(mm(player, Message.RESTRICTION_OTHER_PLAYER_NAME_MM));
             plugin.getLogger().info("Blocked player name command from " + player.getName() + ": " + message);
         }
+    }
+
+    private Component mm(Player player, Message message) {
+        return MINI_MESSAGE.deserialize(languageService.t(player, message));
     }
 
     /**

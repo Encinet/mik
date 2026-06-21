@@ -13,15 +13,19 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 public class PlayerBoundaryModule implements Listener {
     private static final double KNOCKBACK_STRENGTH = 1.5; // Velocity multiplier for knockback
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
 
-    public PlayerBoundaryModule(JavaPlugin plugin) {
+    public PlayerBoundaryModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -46,7 +50,7 @@ public class PlayerBoundaryModule implements Listener {
         event.setTo(clamped);
 
         applyReflectKnockback(player, to, border);
-        player.sendActionBar(MINI_MESSAGE.deserialize("<yellow>你正在接近世界边界</yellow>"));
+        player.sendActionBar(message(player, Message.BOUNDARY_NEAR_MM));
     }
 
     /**
@@ -103,8 +107,12 @@ public class PlayerBoundaryModule implements Listener {
             // For teleports: always redirect to safe location, never apply knockback
             Location safe = getNearestSafeLocation(to, border);
             event.setTo(safe);
-            player.sendActionBar(MINI_MESSAGE.deserialize("<red>你已到达世界边界</red>"));
+            player.sendActionBar(message(player, Message.BOUNDARY_REACHED_MM));
         }
+    }
+
+    private net.kyori.adventure.text.Component message(Player player, Message message) {
+        return MINI_MESSAGE.deserialize(languageService.t(player, message));
     }
 
     /**

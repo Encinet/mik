@@ -18,6 +18,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.List;
 import java.util.Set;
@@ -28,6 +31,7 @@ import java.util.Set;
 public class MusicDiscModule implements Listener {
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final MusicFileLoader musicFileLoader;
     private final MusicDiscCreator discCreator;
     private final MusicDiscPlayer discPlayer;
@@ -37,17 +41,18 @@ public class MusicDiscModule implements Listener {
     private final JukeboxAutoPlayManager autoPlayManager;
     private final MusicDiscEventHandler eventHandler;
 
-    public MusicDiscModule(JavaPlugin plugin) {
+    public MusicDiscModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
         this.musicFileLoader = new MusicFileLoader(plugin);
-        this.discCreator = new MusicDiscCreator();
-        this.discPlayer = new MusicDiscPlayer(musicFileLoader, discCreator);
-        this.inventoryGUI = new MusicInventoryGUI(musicFileLoader, discCreator);
+        this.discCreator = new MusicDiscCreator(languageService);
+        this.discPlayer = new MusicDiscPlayer(musicFileLoader, discCreator, languageService);
+        this.inventoryGUI = new MusicInventoryGUI(musicFileLoader, discCreator, languageService);
         this.playlistManager = new JukeboxPlaylistManager(musicFileLoader);
-        this.jukeboxControlGUI = new JukeboxControlGUI(playlistManager, discCreator);
+        this.jukeboxControlGUI = new JukeboxControlGUI(playlistManager, discCreator, languageService);
         this.autoPlayManager = new JukeboxAutoPlayManager(plugin, playlistManager, discCreator, discPlayer);
         this.eventHandler = new MusicDiscEventHandler(musicFileLoader, discCreator, discPlayer,
-                inventoryGUI, playlistManager, jukeboxControlGUI, autoPlayManager);
+                inventoryGUI, playlistManager, jukeboxControlGUI, autoPlayManager, languageService);
 
         Bukkit.getPluginManager().registerEvents(eventHandler, plugin);
     }
@@ -96,13 +101,13 @@ public class MusicDiscModule implements Listener {
                                 CommandSender sender = ctx.getSource().getSender();
                                 musicFileLoader.loadMusicFiles();
                                 discPlayer.clearCache();
-                                sender.sendMessage(Component.text("已重新加载歌曲列表"));
+                                sender.sendMessage(Component.text(t(sender, Message.MUSIC_RELOAD_DONE), NamedTextColor.GREEN));
                                 return Command.SINGLE_SUCCESS;
                             })
                     )
                     .then(Commands.literal("search")
                             .executes(ctx -> {
-                                sendUsage(ctx.getSource().getSender(), "/music search <关键词>", "搜索歌曲");
+                                sendUsage(ctx.getSource().getSender(), "/music search <keyword>", Message.MUSIC_SEARCH_USAGE_DESC);
                                 return Command.SINGLE_SUCCESS;
                             })
                             .then(Commands.argument("keyword", StringArgumentType.greedyString())
@@ -122,7 +127,7 @@ public class MusicDiscModule implements Listener {
                     )
                     .then(Commands.literal("page")
                             .executes(ctx -> {
-                                sendUsage(ctx.getSource().getSender(), "/music page <页码>", "跳转到指定页面");
+                                sendUsage(ctx.getSource().getSender(), "/music page <page>", Message.MUSIC_PAGE_USAGE_DESC);
                                 return Command.SINGLE_SUCCESS;
                             })
                             .then(Commands.argument("number", IntegerArgumentType.integer(1))
@@ -140,8 +145,8 @@ public class MusicDiscModule implements Listener {
                                             if (totalPages == 0) totalPages = 1;
 
                                             if (pageNumber > totalPages) {
-                                                sender.sendMessage(Component.text("页码超出范围，最大页码为 " + totalPages)
-                                                        .color(NamedTextColor.RED));
+                                                player.sendMessage(languageService.text(player,
+                                                        Message.MUSIC_PAGE_OUT_OF_RANGE, NamedTextColor.RED, totalPages));
                                                 return Command.SINGLE_SUCCESS;
                                             }
 
@@ -180,20 +185,27 @@ public class MusicDiscModule implements Listener {
                                 return Command.SINGLE_SUCCESS;
                             })
                     )
-                    .build(), "Plasmo Voice唱片");
+                    .build(), languageService.t(Language.DEFAULT, Message.MUSIC_COMMAND_DESCRIPTION));
         });
     }
 
     private Component playerOnlyMessage() {
-        return Component.text("该命令只能由玩家执行", NamedTextColor.RED);
+        return Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED);
     }
 
-    private void sendUsage(CommandSender sender, String command, String description) {
+    private void sendUsage(CommandSender sender, String command, Message description) {
         sender.sendMessage(Component.text()
-                .append(Component.text("用法 ", NamedTextColor.YELLOW))
+                .append(Component.text(t(sender, Message.USAGE), NamedTextColor.YELLOW))
                 .append(Component.text(command, NamedTextColor.AQUA))
-                .append(Component.text("  " + description, NamedTextColor.GRAY))
+                .append(Component.text("  " + t(sender, description), NamedTextColor.GRAY))
                 .build());
+    }
+
+    private String t(CommandSender sender, Message message, Object... args) {
+        if (sender instanceof Player player) {
+            return languageService.t(player, message, args);
+        }
+        return languageService.t(Language.DEFAULT, message, args);
     }
 
     /**

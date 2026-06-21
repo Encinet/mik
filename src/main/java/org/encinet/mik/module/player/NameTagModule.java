@@ -26,6 +26,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.util.PlayerDisplay;
 
 import java.lang.reflect.Method;
@@ -83,10 +86,12 @@ public class NameTagModule {
     private static final Component NL = Component.newline();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private LuckPerms luckPerms;
 
-    public NameTagModule(JavaPlugin plugin) {
+    public NameTagModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -133,7 +138,7 @@ public class NameTagModule {
                                             .executes(ctx -> cmdClear(
                                                     requirePlayer(ctx.getSource().getSender()), NameTag.SUFFIX))))
                             .build(),
-                    "自定义名称标签",
+                    languageService.t(Language.DEFAULT, Message.NAMETAG_COMMAND_DESCRIPTION),
                     List.of("nametag")
             );
         });
@@ -144,7 +149,7 @@ public class NameTagModule {
      */
     private Player requirePlayer(CommandSender sender) {
         if (sender instanceof Player p) return p;
-        sender.sendMessage(SAFE_MM.deserialize("<red>该命令只能由玩家执行</red>"));
+        sender.sendMessage(Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED));
         return null;
     }
 
@@ -155,7 +160,7 @@ public class NameTagModule {
     private boolean checkPerm(Player player) {
         if (player == null) return false;
         if (player.hasPermission(PERM_USE)) return true;
-        player.sendMessage(SAFE_MM.deserialize("<red>你没有使用该命令的权限</red>"));
+        player.sendMessage(languageService.text(player, Message.NAMETAG_NO_PERMISSION, NamedTextColor.RED));
         return false;
     }
 
@@ -164,21 +169,21 @@ public class NameTagModule {
      */
     private Component render(Player player, String raw) {
         if (raw == null || raw.isEmpty())
-            return Component.text("(未设置)", C_DIM, TextDecoration.ITALIC);
+            return Component.text(languageService.t(player, Message.NAMETAG_UNSET), C_DIM, TextDecoration.ITALIC);
         return SAFE_MM.deserialize(applyPlaceholders(player, raw));
     }
 
     /**
      * 渲染原始字符串，后附可点击的 [复制] 按钮。
      */
-    private Component rawWithCopy(String raw) {
+    private Component rawWithCopy(Player player, String raw) {
         if (raw == null || raw.isEmpty()) return Component.empty();
         return Component.text()
                 .append(Component.text(raw, C_RAW))
-                .append(Component.text(" [复制]", C_DIM)
+                .append(Component.text(languageService.t(player, Message.NAMETAG_COPY_LABEL), C_DIM)
                         .clickEvent(ClickEvent.copyToClipboard(raw))
                         .hoverEvent(HoverEvent.showText(
-                                Component.text("复制 MiniMessage 原文到剪贴板", C_MUTED))))
+                                Component.text(languageService.t(player, Message.NAMETAG_COPY_HOVER), C_MUTED))))
                 .build();
     }
 
@@ -205,7 +210,7 @@ public class NameTagModule {
                 .append(PlayerDisplay.name(player, NamedTextColor.WHITE))
                 .append(suf)
                 .append(Component.text(" » ", NamedTextColor.GOLD))
-                .append(Component.text("示例消息", NamedTextColor.WHITE))
+                .append(Component.text(languageService.t(player, Message.NAMETAG_SAMPLE_MESSAGE), NamedTextColor.WHITE))
                 .build();
     }
 
@@ -258,14 +263,15 @@ public class NameTagModule {
      *   &lt;raw&gt; [复制]
      * </pre>
      */
-    private Component tagEntry(Player player, String label, String raw) {
+    private Component tagEntry(Player player, Message labelMessage, String raw) {
+        String label = languageService.t(player, labelMessage);
         var builder = Component.text()
                 .append(Component.text(label + "  ", C_MUTED))
                 .append(render(player, raw));
         if (raw != null && !raw.isEmpty()) {
             builder.append(NL)
                     .append(Component.text("      ", C_DIM))   // indent
-                    .append(rawWithCopy(raw));
+                    .append(rawWithCopy(player, raw));
         }
         return builder.build();
     }
@@ -279,7 +285,7 @@ public class NameTagModule {
 
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) {
-            player.sendMessage(SAFE_MM.deserialize("<red>无法加载用户数据，请稍后重试</red>"));
+            player.sendMessage(languageService.text(player, Message.NAMETAG_USER_DATA_LOAD_FAILED, NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
         }
 
@@ -288,13 +294,13 @@ public class NameTagModule {
         String suf = NameTag.SUFFIX.get(meta);
 
         player.sendMessage(Component.text()
-                .append(Component.text("🏷 名称标签", C_ACCENT, TextDecoration.BOLD)).append(NL)
-                .append(tagEntry(player, "前缀", pre)).append(NL)
-                .append(tagEntry(player, "后缀", suf)).append(NL)
-                .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
-                .append(linkButton("在线编辑器", URL_EDITOR))
+                .append(Component.text("🏷 " + languageService.t(player, Message.NAMETAG_TITLE), C_ACCENT, TextDecoration.BOLD)).append(NL)
+                .append(tagEntry(player, NameTag.PREFIX.label(), pre)).append(NL)
+                .append(tagEntry(player, NameTag.SUFFIX.label(), suf)).append(NL)
+                .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
+                .append(linkButton(languageService.t(player, Message.NAMETAG_ONLINE_EDITOR), URL_EDITOR))
                 .append(Component.text("  ·  ", C_DIM))
-                .append(linkButton("格式文档", URL_DOCS))
+                .append(linkButton(languageService.t(player, Message.NAMETAG_FORMAT_DOCS), URL_DOCS))
                 .build());
 
         return Command.SINGLE_SUCCESS;
@@ -309,7 +315,7 @@ public class NameTagModule {
 
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) {
-            player.sendMessage(SAFE_MM.deserialize("<red>无法加载用户数据，请稍后重试</red>"));
+            player.sendMessage(languageService.text(player, Message.NAMETAG_USER_DATA_LOAD_FAILED, NamedTextColor.RED));
             return Command.SINGLE_SUCCESS;
         }
 
@@ -319,13 +325,14 @@ public class NameTagModule {
         String pre = target == NameTag.PREFIX ? targetRaw : otherRaw;
         String suf = target == NameTag.SUFFIX ? targetRaw : otherRaw;
 
+        String targetLabel = targetLabel(player, target);
         player.sendMessage(Component.text()
-                .append(Component.text("🏷 " + target.label, C_ACCENT, TextDecoration.BOLD)).append(NL)
-                .append(tagEntry(player, target.label, targetRaw)).append(NL)
-                .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
-                .append(linkButton("在线编辑器", URL_EDITOR))
+                .append(Component.text("🏷 " + targetLabel, C_ACCENT, TextDecoration.BOLD)).append(NL)
+                .append(tagEntry(player, target.label(), targetRaw)).append(NL)
+                .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
+                .append(linkButton(languageService.t(player, Message.NAMETAG_ONLINE_EDITOR), URL_EDITOR))
                 .append(Component.text("  ·  ", C_DIM))
-                .append(linkButton("格式文档", URL_DOCS))
+                .append(linkButton(languageService.t(player, Message.NAMETAG_FORMAT_DOCS), URL_DOCS))
                 .build());
 
         return Command.SINGLE_SUCCESS;
@@ -340,24 +347,25 @@ public class NameTagModule {
         String normalized = content.trim();
         if (normalized.isEmpty()) {
             player.sendMessage(Component.text()
-                    .append(Component.text("内容不能为空，如需清除请使用 ", NamedTextColor.RED))
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_EMPTY_CONTENT), NamedTextColor.RED))
                     .append(Component.text("/nametag " + target.id + " clear", C_LINK)
                             .clickEvent(ClickEvent.suggestCommand("/nametag " + target.id + " clear"))
-                            .hoverEvent(HoverEvent.showText(Component.text("点击填入命令", C_MUTED))))
+                            .hoverEvent(HoverEvent.showText(Component.text(
+                                    languageService.t(player, Message.NAMETAG_CLICK_FILL_COMMAND), C_MUTED))))
                     .build());
             return Command.SINGLE_SUCCESS;
         }
         if (normalized.length() > MAX_LENGTH) {
-            player.sendMessage(Component.text(
-                    target.label + "过长，最多 " + MAX_LENGTH + " 个字符", NamedTextColor.RED));
+            player.sendMessage(languageService.text(player, Message.NAMETAG_TOO_LONG,
+                    NamedTextColor.RED, targetLabel(player, target), MAX_LENGTH));
             return Command.SINGLE_SUCCESS;
         }
         String unsupportedPlaceholder = findUnsupportedPlaceholder(normalized);
         if (unsupportedPlaceholder != null) {
             player.sendMessage(Component.text()
-                    .append(Component.text("只支持 ", NamedTextColor.RED))
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_UNSUPPORTED_PLACEHOLDER_BEFORE), NamedTextColor.RED))
                     .append(Component.text("%player_...%", C_LINK))
-                    .append(Component.text(" 这类 PlaceholderAPI 变量，不支持 ", NamedTextColor.RED))
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_UNSUPPORTED_PLACEHOLDER_AFTER), NamedTextColor.RED))
                     .append(Component.text("%" + unsupportedPlaceholder + "%", C_RAW))
                     .build());
             return Command.SINGLE_SUCCESS;
@@ -372,7 +380,8 @@ public class NameTagModule {
         }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null) {
                 plugin.getLogger().warning("设置 " + target.id + " 失败（" + player.getName() + "）: " + err.getMessage());
-                player.sendMessage(Component.text("设置" + target.label + "时发生错误，请稍后重试", NamedTextColor.RED));
+                player.sendMessage(languageService.text(player, Message.NAMETAG_SET_ERROR,
+                        NamedTextColor.RED, targetLabel(player, target)));
                 return;
             }
 
@@ -380,10 +389,11 @@ public class NameTagModule {
             String suf = target == NameTag.SUFFIX ? normalized : otherRaw;
 
             player.sendMessage(Component.text()
-                    .append(Component.text("✔ " + target.label + "已设置", NamedTextColor.GREEN, TextDecoration.BOLD)).append(NL)
-                    .append(Component.text("效果  ", C_MUTED)).append(render(player, normalized)).append(NL)
-                    .append(Component.text("      ", C_DIM)).append(rawWithCopy(normalized)).append(NL)
-                    .append(Component.text("预览  ", C_MUTED)).append(chatPreview(player, pre, suf))
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_SET_SUCCESS,
+                            targetLabel(player, target)), NamedTextColor.GREEN, TextDecoration.BOLD)).append(NL)
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_EFFECT_LABEL), C_MUTED)).append(render(player, normalized)).append(NL)
+                    .append(Component.text("      ", C_DIM)).append(rawWithCopy(player, normalized)).append(NL)
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(chatPreview(player, pre, suf))
                     .build());
         }));
 
@@ -399,6 +409,10 @@ public class NameTagModule {
             }
         }
         return null;
+    }
+
+    private String targetLabel(Player player, NameTag target) {
+        return languageService.t(player, target.label());
     }
 
     private record MaskedPlaceholders(String text, Map<String, String> replacements) {
@@ -421,11 +435,12 @@ public class NameTagModule {
                 .whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
                     if (err != null) {
                         plugin.getLogger().warning("清除 " + target.id + " 失败（" + player.getName() + "）");
-                        player.sendMessage(Component.text("清除" + target.label + "时发生错误", NamedTextColor.RED));
+                        player.sendMessage(languageService.text(player, Message.NAMETAG_CLEAR_ERROR,
+                                NamedTextColor.RED, targetLabel(player, target)));
                         return;
                     }
-                    player.sendMessage(Component.text(
-                            "✔ 已清除你的" + target.label, NamedTextColor.GREEN));
+                    player.sendMessage(languageService.text(player, Message.NAMETAG_CLEAR_SUCCESS,
+                            NamedTextColor.GREEN, targetLabel(player, target)));
                 }));
 
         return Command.SINGLE_SUCCESS;
@@ -443,17 +458,17 @@ public class NameTagModule {
         }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null) {
                 plugin.getLogger().warning("清除所有标签失败（" + player.getName() + "）");
-                player.sendMessage(Component.text("清除时发生错误，请稍后重试", NamedTextColor.RED));
+                player.sendMessage(languageService.text(player, Message.NAMETAG_CLEAR_ALL_ERROR, NamedTextColor.RED));
                 return;
             }
-            player.sendMessage(Component.text("✔ 已清除所有名称标签", NamedTextColor.GREEN));
+            player.sendMessage(languageService.text(player, Message.NAMETAG_CLEAR_ALL_SUCCESS, NamedTextColor.GREEN));
         }));
 
         return Command.SINGLE_SUCCESS;
     }
 
     private enum NameTag {
-        PREFIX("prefix", "前缀") {
+        PREFIX("prefix", Message.NAMETAG_PREFIX_LABEL) {
             @Override
             public String get(CachedMetaData m) {
                 return m.getPrefix();
@@ -474,7 +489,7 @@ public class NameTagModule {
                 return SUFFIX;
             }
         },
-        SUFFIX("suffix", "后缀") {
+        SUFFIX("suffix", Message.NAMETAG_SUFFIX_LABEL) {
             @Override
             public String get(CachedMetaData m) {
                 return m.getSuffix();
@@ -497,11 +512,15 @@ public class NameTagModule {
         };
 
         final String id;
-        final String label;
+        final Message label;
 
-        NameTag(String id, String label) {
+        NameTag(String id, Message label) {
             this.id = id;
             this.label = label;
+        }
+
+        Message label() {
+            return label;
         }
 
         public abstract String get(CachedMetaData meta);

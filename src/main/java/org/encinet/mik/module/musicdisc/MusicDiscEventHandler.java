@@ -2,6 +2,7 @@ package org.encinet.mik.module.musicdisc;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -17,6 +18,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.Random;
 import java.util.Set;
@@ -35,12 +39,13 @@ public class MusicDiscEventHandler implements Listener {
     private final JukeboxPlaylistManager playlistManager;
     private final JukeboxControlGUI jukeboxControlGUI;
     private final JukeboxAutoPlayManager autoPlayManager;
+    private final LanguageService languageService;
     private Set<Location> musicChestLocations;
 
     public MusicDiscEventHandler(MusicFileLoader musicFileLoader, MusicDiscCreator discCreator,
                                  MusicDiscPlayer discPlayer, MusicInventoryGUI inventoryGUI,
                                  JukeboxPlaylistManager playlistManager, JukeboxControlGUI jukeboxControlGUI,
-                                 JukeboxAutoPlayManager autoPlayManager) {
+                                 JukeboxAutoPlayManager autoPlayManager, LanguageService languageService) {
         this.musicFileLoader = musicFileLoader;
         this.discCreator = discCreator;
         this.discPlayer = discPlayer;
@@ -48,6 +53,7 @@ public class MusicDiscEventHandler implements Listener {
         this.playlistManager = playlistManager;
         this.jukeboxControlGUI = jukeboxControlGUI;
         this.autoPlayManager = autoPlayManager;
+        this.languageService = languageService;
     }
 
     /**
@@ -95,16 +101,17 @@ public class MusicDiscEventHandler implements Listener {
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
 
-        String title = event.getView().title().toString();
+        String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
         // Handle music disc GUI
-        if (title.contains("Music Discs") || title.contains("搜索:")) {
+        if (languageService.titleStartsWith(Message.MUSIC_MENU_TITLE_PREFIX, title)
+                || languageService.titleStartsWith(Message.MUSIC_MENU_SEARCH_PREFIX, title)) {
             handleMusicDiscGUI(event, player, title);
             return;
         }
 
         // Handle jukebox control GUI
-        if (title.contains("唱片机")) {
+        if (languageService.titleStartsWith(Message.MUSIC_JUKEBOX_TITLE_PREFIX, title)) {
             handleJukeboxControlGUI(event, player);
         }
     }
@@ -209,13 +216,12 @@ public class MusicDiscEventHandler implements Listener {
             JukeboxPlaylistManager.JukeboxData data = playlistManager.getJukeboxData(jukeboxLoc);
 
             if (data.playlist.contains(musicFile)) {
-                player.sendMessage(Component.text("该歌曲已在播放列表中")
-                        .color(NamedTextColor.YELLOW));
+                player.sendMessage(languageService.text(player, Message.MUSIC_DUPLICATE_IN_PLAYLIST,
+                        NamedTextColor.YELLOW));
             } else {
                 data.addToPlaylist(musicFile);
-                player.sendMessage(Component.text("已添加到播放列表: ")
-                        .color(NamedTextColor.GREEN)
-                        .append(Component.text(musicFile.displayName()).color(NamedTextColor.AQUA)));
+                player.sendMessage(musicMessage(player, Message.MUSIC_ADDED_TO_PLAYLIST_RICH,
+                        NamedTextColor.GREEN, musicFile, NamedTextColor.AQUA));
             }
             return;
         }
@@ -226,7 +232,7 @@ public class MusicDiscEventHandler implements Listener {
             player.closeInventory();
             discPlayer.playDisc(player, clickedItem, musicFile.displayName());
         } else {
-            ItemStack cleanDisc = discCreator.createMusicDisc(musicFile, false);
+            ItemStack cleanDisc = discCreator.createMusicDisc(musicFile, false, player);
             event.setCurrentItem(cleanDisc);
         }
     }
@@ -262,22 +268,20 @@ public class MusicDiscEventHandler implements Listener {
             // Shift + Left click: Increase rank (move up in list)
             if (currentIndex > 0) {
                 data.moveInPlaylist(currentIndex, currentIndex - 1);
-                player.sendMessage(Component.text("已提升排名")
-                        .color(NamedTextColor.GREEN));
+                player.sendMessage(languageService.text(player, Message.MUSIC_RANK_UP, NamedTextColor.GREEN));
                 jukeboxControlGUI.openJukeboxControl(player, jukebox);
             }
         } else if (event.isShiftClick() && event.isRightClick()) {
             // Shift + Right click: Decrease rank (move down in list)
             if (currentIndex < data.playlist.size() - 1) {
                 data.moveInPlaylist(currentIndex, currentIndex + 1);
-                player.sendMessage(Component.text("已降低排名")
-                        .color(NamedTextColor.YELLOW));
+                player.sendMessage(languageService.text(player, Message.MUSIC_RANK_DOWN, NamedTextColor.YELLOW));
                 jukeboxControlGUI.openJukeboxControl(player, jukebox);
             }
         } else if (event.isLeftClick()) {
             // Left click: Play and remove from playlist
             player.closeInventory();
-            ItemStack disc = discCreator.createMusicDisc(musicFile, false);
+            ItemStack disc = discCreator.createMusicDisc(musicFile, false, player);
             data.removeFromPlaylist(musicFile);
             discPlayer.playDiscOnJukebox(player, jukebox, disc, musicFile.displayName());
 
@@ -286,15 +290,13 @@ public class MusicDiscEventHandler implements Listener {
                 autoPlayManager.scheduleNextTrack(jukebox.getLocation(), musicFile);
             }
 
-            player.sendMessage(Component.text("正在播放并已从列表移除: ")
-                    .color(NamedTextColor.GREEN)
-                    .append(Component.text(musicFile.displayName()).color(NamedTextColor.AQUA)));
+            player.sendMessage(musicMessage(player, Message.MUSIC_PLAYING_REMOVED_RICH,
+                    NamedTextColor.GREEN, musicFile, NamedTextColor.AQUA));
         } else if (event.isRightClick()) {
             // Right click: Remove from playlist without playing
             data.removeFromPlaylist(musicFile);
-            player.sendMessage(Component.text("已从播放列表移除: ")
-                    .color(NamedTextColor.YELLOW)
-                    .append(Component.text(musicFile.displayName()).color(NamedTextColor.AQUA)));
+            player.sendMessage(musicMessage(player, Message.MUSIC_REMOVED_FROM_PLAYLIST_RICH,
+                    NamedTextColor.YELLOW, musicFile, NamedTextColor.AQUA));
             jukeboxControlGUI.openJukeboxControl(player, jukebox);
         }
     }
@@ -321,12 +323,13 @@ public class MusicDiscEventHandler implements Listener {
         event.setCancelled(true);
         player.closeInventory();
         player.sendMessage(Component.text()
-                .append(Component.text("点击这里搜索: ").color(NamedTextColor.YELLOW))
-                .append(Component.text("[/music search]")
+                .append(Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT), NamedTextColor.YELLOW))
+                .append(Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT_COMMAND))
                         .color(NamedTextColor.GREEN)
                         .clickEvent(net.kyori.adventure.text.event.ClickEvent.suggestCommand("/music search "))
                         .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
-                                Component.text("点击填充命令").color(NamedTextColor.GRAY)
+                                Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT_HOVER),
+                                        NamedTextColor.GRAY)
                         )))
                 .build());
     }
@@ -339,8 +342,7 @@ public class MusicDiscEventHandler implements Listener {
         if (jukeboxLoc != null) {
             // Add random song to playlist
             if (musicFileLoader.getMusicFiles().isEmpty()) {
-                player.sendMessage(Component.text("没有可用的音乐文件")
-                        .color(NamedTextColor.RED));
+                player.sendMessage(languageService.text(player, Message.MUSIC_NO_FILES, NamedTextColor.RED));
                 return;
             }
 
@@ -350,8 +352,8 @@ public class MusicDiscEventHandler implements Listener {
             JukeboxPlaylistManager.JukeboxData data = playlistManager.getJukeboxData(jukeboxLoc);
 
             if (data.playlist.contains(randomMusic)) {
-                player.sendMessage(Component.text("该歌曲已在播放列表中，重新随机...")
-                        .color(NamedTextColor.YELLOW));
+                player.sendMessage(languageService.text(player, Message.MUSIC_DUPLICATE_REROLL,
+                        NamedTextColor.YELLOW));
                 // Try again with a different random song
                 int attempts = 0;
                 while (data.playlist.contains(randomMusic) && attempts < 10) {
@@ -361,16 +363,15 @@ public class MusicDiscEventHandler implements Listener {
                 }
 
                 if (data.playlist.contains(randomMusic)) {
-                    player.sendMessage(Component.text("所有歌曲都已在播放列表中")
-                            .color(NamedTextColor.RED));
+                    player.sendMessage(languageService.text(player, Message.MUSIC_ALL_IN_PLAYLIST,
+                            NamedTextColor.RED));
                     return;
                 }
             }
 
             data.addToPlaylist(randomMusic);
-            player.sendMessage(Component.text("已随机添加到播放列表: ")
-                    .color(NamedTextColor.GREEN)
-                    .append(Component.text(randomMusic.displayName()).color(NamedTextColor.AQUA)));
+            player.sendMessage(musicMessage(player, Message.MUSIC_RANDOM_ADDED_TO_PLAYLIST_RICH,
+                    NamedTextColor.GREEN, randomMusic, NamedTextColor.AQUA));
             return;
         }
 
@@ -387,7 +388,7 @@ public class MusicDiscEventHandler implements Listener {
         event.setCancelled(true);
         inventoryGUI.removePlayerData(player.getUniqueId());
         inventoryGUI.openMusicInventory(player, null, 0);
-        player.sendMessage(Component.text("已清除搜索").color(NamedTextColor.GREEN));
+        player.sendMessage(languageService.text(player, Message.MUSIC_SEARCH_CLEARED, NamedTextColor.GREEN));
     }
 
     private void handleBackButton(InventoryClickEvent event, Player player) {
@@ -406,11 +407,15 @@ public class MusicDiscEventHandler implements Listener {
         JukeboxPlaylistManager.JukeboxData data = playlistManager.getJukeboxData(location);
         data.toggleRandomMode();
 
-        String modeName = data.isRandomMode ? "随机模式" : "列表模式";
-        String description = data.isRandomMode ? "从所有歌曲中随机播放" : "按顺序播放列表";
+        String modeName = languageService.t(player, data.isRandomMode
+                ? Message.MUSIC_RANDOM_MODE
+                : Message.MUSIC_SEQUENTIAL_MODE);
+        String description = languageService.t(player, data.isRandomMode
+                ? Message.MUSIC_RANDOM_MODE_DESC
+                : Message.MUSIC_SEQUENTIAL_MODE_DESC);
 
-        player.sendMessage(Component.text("已切换到" + modeName + " - " + description)
-                .color(NamedTextColor.GREEN));
+        player.sendMessage(languageService.text(player, Message.MUSIC_MODE_SWITCHED,
+                NamedTextColor.GREEN, modeName, description));
 
         jukeboxControlGUI.openJukeboxControl(player, jukebox);
     }
@@ -420,14 +425,13 @@ public class MusicDiscEventHandler implements Listener {
         data.toggleAutoPlay();
 
         if (data.autoPlay) {
-            player.sendMessage(Component.text("自动播放: 开启")
-                    .color(NamedTextColor.GREEN));
+            player.sendMessage(languageService.text(player, Message.MUSIC_AUTOPLAY_ON, NamedTextColor.GREEN));
 
             // If jukebox is empty, play first track immediately
             if (jukebox.getRecord().getType() == Material.AIR) {
                 MusicFileLoader.MusicFile nextTrack = playlistManager.getNextTrack(location);
                 if (nextTrack != null) {
-                    ItemStack disc = discCreator.createMusicDisc(nextTrack, false);
+                    ItemStack disc = discCreator.createMusicDisc(nextTrack, false, player);
 
                     // Remove from playlist if in sequential mode
                     if (!data.isRandomMode) {
@@ -442,8 +446,7 @@ public class MusicDiscEventHandler implements Listener {
             }
         } else {
             autoPlayManager.cancelScheduledTask(location);
-            player.sendMessage(Component.text("自动播放: 关闭")
-                    .color(NamedTextColor.GRAY));
+            player.sendMessage(languageService.text(player, Message.MUSIC_AUTOPLAY_OFF, NamedTextColor.GRAY));
         }
 
         jukeboxControlGUI.openJukeboxControl(player, jukebox);
@@ -454,13 +457,12 @@ public class MusicDiscEventHandler implements Listener {
         MusicFileLoader.MusicFile nextTrack = playlistManager.getNextTrack(jukebox.getLocation());
 
         if (nextTrack == null) {
-            player.sendMessage(Component.text("播放列表为空")
-                    .color(NamedTextColor.RED));
+            player.sendMessage(languageService.text(player, Message.MUSIC_PLAYLIST_EMPTY, NamedTextColor.RED));
             return;
         }
 
         player.closeInventory();
-        ItemStack disc = discCreator.createMusicDisc(nextTrack, false);
+        ItemStack disc = discCreator.createMusicDisc(nextTrack, false, player);
 
         // Remove from playlist if in sequential mode
         if (!data.isRandomMode) {
@@ -486,8 +488,8 @@ public class MusicDiscEventHandler implements Listener {
             }
         }
 
-        player.sendMessage(Component.text("已添加 " + addedCount + " 首歌曲到播放列表")
-                .color(NamedTextColor.GREEN));
+        player.sendMessage(languageService.text(player, Message.MUSIC_ADD_ALL_DONE,
+                NamedTextColor.GREEN, addedCount));
         jukeboxControlGUI.openJukeboxControl(player, jukebox);
     }
 
@@ -496,8 +498,8 @@ public class MusicDiscEventHandler implements Listener {
         int count = data.playlist.size();
         data.clearPlaylist();
 
-        player.sendMessage(Component.text("已清空播放列表 (" + count + " 首歌曲)")
-                .color(NamedTextColor.YELLOW));
+        player.sendMessage(languageService.text(player, Message.MUSIC_CLEAR_PLAYLIST_DONE,
+                NamedTextColor.YELLOW, count));
         jukeboxControlGUI.openJukeboxControl(player, jukebox);
     }
 
@@ -509,39 +511,40 @@ public class MusicDiscEventHandler implements Listener {
 
     public void giveRandomDisc(Player player) {
         if (musicFileLoader.getMusicFiles().isEmpty()) {
-            player.sendMessage(Component.text("没有可用的音乐文件")
-                    .color(NamedTextColor.RED));
+            player.sendMessage(languageService.text(player, Message.MUSIC_NO_FILES, NamedTextColor.RED));
             return;
         }
 
         MusicFileLoader.MusicFile randomMusic = musicFileLoader.getMusicFiles()
                 .get(RANDOM.nextInt(musicFileLoader.getMusicFiles().size()));
 
-        ItemStack disc = discCreator.createMusicDisc(randomMusic, false);
+        ItemStack disc = discCreator.createMusicDisc(randomMusic, false, player);
         var leftover = player.getInventory().addItem(disc);
 
         if (leftover.isEmpty()) {
-            player.sendMessage(Component.text()
-                    .append(Component.text("获得随机音乐唱片: ").color(NamedTextColor.GREEN))
-                    .append(Component.text(randomMusic.displayName()).color(NamedTextColor.YELLOW))
-                    .build());
+            player.sendMessage(musicMessage(player, Message.MUSIC_RANDOM_DISC_GOT_RICH,
+                    NamedTextColor.GREEN, randomMusic, NamedTextColor.YELLOW));
         } else {
-            player.sendMessage(Component.text("背包已满，无法获得音乐唱片")
-                    .color(NamedTextColor.RED));
+            player.sendMessage(languageService.text(player, Message.MUSIC_INVENTORY_FULL, NamedTextColor.RED));
         }
     }
 
     public void playRandomDisc(Player player) {
         if (musicFileLoader.getMusicFiles().isEmpty()) {
-            player.sendMessage(Component.text("没有可用的音乐文件")
-                    .color(NamedTextColor.RED));
+            player.sendMessage(languageService.text(player, Message.MUSIC_NO_FILES, NamedTextColor.RED));
             return;
         }
 
         MusicFileLoader.MusicFile randomMusic = musicFileLoader.getMusicFiles()
                 .get(RANDOM.nextInt(musicFileLoader.getMusicFiles().size()));
 
-        ItemStack disc = discCreator.createMusicDisc(randomMusic);
+        ItemStack disc = discCreator.createMusicDisc(randomMusic, player);
         discPlayer.playDisc(player, disc, randomMusic.displayName());
+    }
+
+    private Component musicMessage(Player player, Message message, NamedTextColor baseColor,
+                                   MusicFileLoader.MusicFile music, NamedTextColor musicColor) {
+        return languageService.rich(player, message, baseColor,
+                RichArg.component("music", Component.text(music.displayName(), musicColor), music.displayName()));
     }
 }

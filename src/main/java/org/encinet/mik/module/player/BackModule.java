@@ -6,6 +6,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
@@ -20,6 +21,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -36,12 +40,14 @@ public class BackModule implements Listener {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final Map<UUID, Deque<Location>> backHistory = new HashMap<>();
     private final Map<UUID, Deque<BackMove>> undoHistory = new HashMap<>();
     private final Map<UUID, PendingBackTeleport> pendingBackTeleports = new HashMap<>();
 
-    public BackModule(JavaPlugin plugin) {
+    public BackModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -82,7 +88,7 @@ public class BackModule implements Listener {
                                         return Command.SINGLE_SUCCESS;
                                     }))
                             .build(),
-                    "回到上一次传送/死亡前的位置"
+                    languageService.t(Language.DEFAULT, Message.BACK_COMMAND_DESCRIPTION)
             );
 
             commands.register(
@@ -96,7 +102,7 @@ public class BackModule implements Listener {
                                 return Command.SINGLE_SUCCESS;
                             })
                             .build(),
-                    "撤销上一次 /back"
+                    languageService.t(Language.DEFAULT, Message.REBACK_COMMAND_DESCRIPTION)
             );
         });
     }
@@ -105,7 +111,7 @@ public class BackModule implements Listener {
         if (sender instanceof Player player) {
             return player;
         }
-        sender.sendMessage(message("<red>该命令只能由玩家执行</red>"));
+        sender.sendMessage(Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED));
         return null;
     }
 
@@ -144,13 +150,13 @@ public class BackModule implements Listener {
     private void runBack(Player player, int times) {
         UUID playerId = player.getUniqueId();
         if (pendingBackTeleports.containsKey(playerId)) {
-            player.sendMessage(message("<gray>正在传送，请稍等</gray>"));
+            player.sendMessage(message(player, Message.BACK_PENDING));
             return;
         }
 
         Deque<Location> history = backHistory.get(playerId);
         if (history == null || history.isEmpty()) {
-            player.sendMessage(message("<gray>没有可返回的位置</gray>"));
+            player.sendMessage(message(player, Message.BACK_EMPTY));
             return;
         }
 
@@ -162,20 +168,20 @@ public class BackModule implements Listener {
         Location target = consumedHistory.getLast();
         if (target.getWorld() == null) {
             restoreConsumedBackHistory(playerId, consumedHistory);
-            player.sendMessage(message("<red>目标世界不可用，无法返回</red>"));
+            player.sendMessage(message(player, Message.BACK_WORLD_MISSING));
             return;
         }
 
         BackMove backMove = new BackMove(player.getLocation().clone(), cloneLocations(consumedHistory));
         if (!startPendingBackTeleport(playerId, target)) {
             restoreConsumedBackHistory(playerId, consumedHistory);
-            player.sendMessage(message("<gray>正在传送，请稍等</gray>"));
+            player.sendMessage(message(player, Message.BACK_PENDING));
             return;
         }
 
-        String template = steps == 1
-                ? "<green>已返回到上一个位置</green> <gray>·</gray> <gray><count>/<max></gray>"
-                : "<green>已连续返回 <steps> 次</green> <gray>·</gray> <gray><count>/<max></gray>";
+        String template = languageService.t(player, steps == 1
+                ? Message.BACK_SUCCESS_ONE_MM
+                : Message.BACK_SUCCESS_MULTI_MM);
         teleportBack(player, target, MINI_MESSAGE.deserialize(template,
                 Placeholder.unparsed("steps", Integer.toString(steps)),
                 Placeholder.unparsed("count", Integer.toString(history.size())),
@@ -187,13 +193,13 @@ public class BackModule implements Listener {
     private void undoBack(Player player) {
         UUID playerId = player.getUniqueId();
         if (pendingBackTeleports.containsKey(playerId)) {
-            player.sendMessage(message("<gray>正在传送，请稍等</gray>"));
+            player.sendMessage(message(player, Message.BACK_PENDING));
             return;
         }
 
         Deque<BackMove> history = undoHistory.get(playerId);
         if (history == null || history.isEmpty()) {
-            player.sendMessage(message("<gray>没有可撤销的 <white>/back</white></gray>"));
+            player.sendMessage(message(player, Message.BACK_UNDO_EMPTY_MM));
             return;
         }
 
@@ -201,17 +207,17 @@ public class BackModule implements Listener {
         Location target = backMove.origin();
         if (target.getWorld() == null) {
             history.addFirst(backMove);
-            player.sendMessage(message("<red>目标世界不可用，无法撤销</red>"));
+            player.sendMessage(message(player, Message.BACK_UNDO_WORLD_MISSING));
             return;
         }
 
         if (!startPendingBackTeleport(playerId, target)) {
             history.addFirst(backMove);
-            player.sendMessage(message("<gray>正在传送，请稍等</gray>"));
+            player.sendMessage(message(player, Message.BACK_PENDING));
             return;
         }
 
-        teleportBack(player, target, message("<green>已撤销上一次 <white>/back</white></green>"),
+        teleportBack(player, target, message(player, Message.BACK_UNDO_SUCCESS_MM),
                 () -> restoreConsumedBackHistory(playerId, backMove.consumedHistory()),
                 () -> history.addFirst(backMove));
     }
@@ -230,13 +236,13 @@ public class BackModule implements Listener {
                     return;
                 }
                 onFailure.run();
-                player.sendMessage(message("<red>传送失败，请重试</red>"));
+                player.sendMessage(message(player, Message.BACK_TELEPORT_FAILED));
             });
         });
     }
 
-    private Component message(String template) {
-        return MINI_MESSAGE.deserialize(template);
+    private Component message(Player player, Message message) {
+        return MINI_MESSAGE.deserialize(languageService.t(player, message));
     }
 
     private void pushBackLocation(UUID playerId, Location location) {

@@ -7,12 +7,16 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,11 +37,21 @@ public class MusicDiscCreator {
             Material.MUSIC_DISC_WARD
     };
 
+    private final LanguageService languageService;
+
+    public MusicDiscCreator(LanguageService languageService) {
+        this.languageService = languageService;
+    }
+
     /**
      * Create a music disc item for GUI display (with detailed info)
      */
     public ItemStack createMusicDisc(MusicFileLoader.MusicFile music) {
-        return createMusicDisc(music, true);
+        return createMusicDisc(music, true, Language.DEFAULT);
+    }
+
+    public ItemStack createMusicDisc(MusicFileLoader.MusicFile music, Player player) {
+        return createMusicDisc(music, true, languageService.language(player));
     }
 
     /**
@@ -46,6 +60,14 @@ public class MusicDiscCreator {
      * @param detailed Whether to include detailed information in lore
      */
     public ItemStack createMusicDisc(MusicFileLoader.MusicFile music, boolean detailed) {
+        return createMusicDisc(music, detailed, Language.DEFAULT);
+    }
+
+    public ItemStack createMusicDisc(MusicFileLoader.MusicFile music, boolean detailed, Player player) {
+        return createMusicDisc(music, detailed, languageService.language(player));
+    }
+
+    private ItemStack createMusicDisc(MusicFileLoader.MusicFile music, boolean detailed, Language language) {
         int hash = music.fileName().hashCode();
         Material discType = DISC_TYPES[Math.abs(hash) % DISC_TYPES.length];
 
@@ -61,38 +83,38 @@ public class MusicDiscCreator {
                     .color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text(""));
-            lore.add(Component.text("格式: " + extension)
+            lore.add(Component.text(languageService.t(language, Message.MUSIC_FORMAT, extension))
                     .color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
 
             if (music.fileSize() != null) {
-                lore.add(Component.text("大小: " + music.fileSize())
+                lore.add(Component.text(languageService.t(language, Message.MUSIC_SIZE, music.fileSize()))
                         .color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
             if (music.sampleRate() != null) {
-                lore.add(Component.text("采样率: " + music.sampleRate())
+                lore.add(Component.text(languageService.t(language, Message.MUSIC_SAMPLE_RATE, music.sampleRate()))
                         .color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
             if (music.duration() != null) {
-                lore.add(Component.text("时长: " + music.duration())
+                lore.add(Component.text(languageService.t(language, Message.MUSIC_DURATION, music.duration()))
                         .color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
 
             if (detailed) {
                 lore.add(Component.text(""));
-                lore.add(Component.text("左键: 拿取唱片")
+                lore.add(Component.text(languageService.t(language, Message.MUSIC_DISC_LEFT))
                         .color(NamedTextColor.YELLOW)
                         .decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("右键: 在最近的唱片机播放")
+                lore.add(Component.text(languageService.t(language, Message.MUSIC_DISC_RIGHT))
                         .color(NamedTextColor.AQUA)
                         .decoration(TextDecoration.ITALIC, false));
             }
 
             lore.add(Component.text(""));
-            lore.add(Component.text("♪ Plasmo Voice 音乐唱片 ♪")
+            lore.add(Component.text(languageService.t(language, Message.MUSIC_DISC_FOOTER))
                     .color(NamedTextColor.DARK_PURPLE)
                     .decoration(TextDecoration.ITALIC, true));
 

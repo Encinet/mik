@@ -8,7 +8,7 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.Node;
@@ -22,6 +22,9 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -75,13 +78,16 @@ public class AutoPromoteModule implements Listener {
     private static final long CHECK_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
     private static final String TAINT_PERMISSION = "mik.autopromote.taint";
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final Map<UUID, Long> lastCheckAt = new HashMap<>();
     private LuckPerms luckPerms;
 
-    public AutoPromoteModule(JavaPlugin plugin) {
+    public AutoPromoteModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
     }
 
     public void enable() {
@@ -121,49 +127,50 @@ public class AutoPromoteModule implements Listener {
                         .executes(ctx -> {
                             CommandSender sender = ctx.getSource().getSender();
                             String name = StringArgumentType.getString(ctx, "player");
-                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> sendScoreReport(sender, name));
+                            Language language = senderLanguage(sender);
+                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> sendScoreReport(sender, name, language));
                             return Command.SINGLE_SUCCESS;
-                        })).build(), "View promotion score"));
+                        })).build(), languageService.t(Language.DEFAULT, Message.PROMOTECHECK_COMMAND_DESCRIPTION)));
     }
 
-    private void sendScoreReport(CommandSender sender, String name) {
+    private void sendScoreReport(CommandSender sender, String name, Language language) {
         OfflinePlayer target = Bukkit.getOfflinePlayer(name);
         Component report = !target.hasPlayedBefore()
-                ? Component.text("Player '" + name + "' has never played on this server.", NamedTextColor.RED)
-                : buildScoreReport(target);
+                ? Component.text(languageService.t(language, Message.PROMOTECHECK_NEVER_PLAYED, name), NamedTextColor.RED)
+                : buildScoreReport(target, language);
         Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(report));
     }
 
-    private Component buildScoreReport(OfflinePlayer op) {
+    private Component buildScoreReport(OfflinePlayer op, Language language) {
         boolean ageOk = System.currentTimeMillis() - op.getFirstPlayed() >= JOIN_DAYS_MILLIS;
         boolean playtimeOk = op.getStatistic(Statistic.PLAY_ONE_MINUTE) >= PLAYED_HOURS_TICKS;
         ScoreBreakdown scores = calculateScores(op);
 
         String displayName = op.getName() != null ? op.getName() : op.getUniqueId().toString();
-        Component header = Component.text("─── " + displayName + "'s Promotion Score ───", NamedTextColor.GOLD);
+        Component header = Component.text(languageService.t(language, Message.PROMOTECHECK_HEADER, displayName), NamedTextColor.GOLD);
         if (op.getPlayer() == null) {
-            header = header.append(Component.text(" [offline]", NamedTextColor.GRAY));
+            header = header.append(Component.text(languageService.t(language, Message.PROMOTECHECK_OFFLINE), NamedTextColor.GRAY));
         }
 
         return header
                 .append(Component.newline())
-                .append(status(ageOk)).append(Component.text(" Account age >= 2 days", NamedTextColor.WHITE))
+                .append(status(ageOk)).append(Component.text(languageService.t(language, Message.PROMOTECHECK_ACCOUNT_AGE), NamedTextColor.WHITE))
                 .append(Component.newline())
-                .append(status(playtimeOk)).append(Component.text(" Playtime >= 8 hours", NamedTextColor.WHITE))
+                .append(status(playtimeOk)).append(Component.text(languageService.t(language, Message.PROMOTECHECK_PLAYTIME), NamedTextColor.WHITE))
                 .append(Component.newline())
-                .append(Component.text("Fly distance : ", NamedTextColor.GRAY))
-                .append(pts(scores.flyRaw(), FLY.max(), scores.flyRaw() >= 0))
+                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_FLY_DISTANCE), NamedTextColor.GRAY))
+                .append(pts(language, scores.flyRaw(), FLY.max(), scores.flyRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text("Sneak time   : ", NamedTextColor.GRAY))
-                .append(pts(scores.sneakRaw(), SNEAK.max(), scores.sneakRaw() >= 0))
+                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_SNEAK_TIME), NamedTextColor.GRAY))
+                .append(pts(language, scores.sneakRaw(), SNEAK.max(), scores.sneakRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text("Leave count  : ", NamedTextColor.GRAY))
-                .append(pts(scores.leaveRaw(), LEAVE.max(), scores.leaveRaw() >= 0))
+                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_LEAVE_COUNT), NamedTextColor.GRAY))
+                .append(pts(language, scores.leaveRaw(), LEAVE.max(), scores.leaveRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text("Jump count   : ", NamedTextColor.GRAY))
-                .append(pts(scores.jumpRaw(), JUMP.max(), scores.jumpRaw() >= 0))
+                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_JUMP_COUNT), NamedTextColor.GRAY))
+                .append(pts(language, scores.jumpRaw(), JUMP.max(), scores.jumpRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text("Total: ", NamedTextColor.GOLD))
+                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_TOTAL), NamedTextColor.GOLD))
                 .append(Component.text(scores.total() + " / " + SCORE_THRESHOLD,
                         scores.qualified() ? NamedTextColor.GREEN : NamedTextColor.RED));
     }
@@ -172,9 +179,9 @@ public class AutoPromoteModule implements Listener {
         return ok ? Component.text("✔", NamedTextColor.GREEN) : Component.text("✘", NamedTextColor.RED);
     }
 
-    private Component pts(int pts, int max, boolean minMet) {
+    private Component pts(Language language, int pts, int max, boolean minMet) {
         NamedTextColor color = !minMet ? NamedTextColor.RED : pts >= max ? NamedTextColor.GREEN : NamedTextColor.YELLOW;
-        String suffix = !minMet ? " (below minimum)" : "";
+        String suffix = !minMet ? languageService.t(language, Message.PROMOTECHECK_BELOW_MINIMUM) : "";
         return Component.text(pts + " / " + max + suffix, color);
     }
 
@@ -237,11 +244,7 @@ public class AutoPromoteModule implements Listener {
                 return;
             }
             lastCheckAt.remove(playerId);
-            Component message = Component.text("恭喜！", NamedTextColor.GREEN, TextDecoration.BOLD)
-                    .append(Component.text(" 你已成为 ", NamedTextColor.GREEN))
-                    .append(Component.text("正式成员", NamedTextColor.GOLD))
-                    .append(Component.text(" , 现在你拥有更多的命令和功能访问权限，比如可以进行投影一键打印！", NamedTextColor.GREEN));
-            player.sendMessage(message);
+            player.sendMessage(MINI_MESSAGE.deserialize(languageService.t(player, Message.AUTOPROMOTE_SUCCESS_MM)));
             player.playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1, 1);
         });
 
@@ -264,5 +267,12 @@ public class AutoPromoteModule implements Listener {
                 : 0;
 
         return new ScoreBreakdown(flyRaw, sneakRaw, leaveRaw, jumpRaw, total, qualified);
+    }
+
+    private Language senderLanguage(CommandSender sender) {
+        if (sender instanceof Player player) {
+            return languageService.language(player);
+        }
+        return Language.DEFAULT;
     }
 }

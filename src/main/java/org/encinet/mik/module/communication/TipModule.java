@@ -10,12 +10,16 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.io.File;
 import java.io.IOException;
@@ -42,6 +46,7 @@ public class TipModule {
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final File tipsFile;
     private final File stateFile;
     private final Map<UUID, PlayerTipState> playerStates = new HashMap<>();
@@ -49,8 +54,9 @@ public class TipModule {
     private List<Tip> tips = List.of();
     private BukkitTask broadcastTask;
 
-    public TipModule(JavaPlugin plugin) {
+    public TipModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
         this.tipsFile = new File(plugin.getDataFolder(), "tips.txt");
         this.stateFile = new File(plugin.getDataFolder(), "tips-state.yml");
     }
@@ -77,13 +83,16 @@ public class TipModule {
                     .requires(source -> source.getSender().hasPermission("mik.command.reloadtips"))
                     .executes(ctx -> {
                         reload();
-                        ctx.getSource().getSender().sendMessage(
+                        CommandSender sender = ctx.getSource().getSender();
+                        sender.sendMessage(
                                 Component.text()
-                                        .append(Component.text("Tips 已重新加载 ", NamedTextColor.GREEN))
-                                        .append(Component.text(tips.size() + " 条", NamedTextColor.GRAY))
+                                        .append(Component.text(t(sender, Message.TIP_RELOAD_DONE),
+                                                NamedTextColor.GREEN))
+                                        .append(Component.text(t(sender, Message.TIP_RELOAD_COUNT, tips.size()),
+                                                NamedTextColor.GRAY))
                                         .build());
                         return Command.SINGLE_SUCCESS;
-                    }).build(), "重新加载 tips.txt");
+                    }).build(), languageService.t(Language.DEFAULT, Message.TIP_RELOAD_COMMAND_DESCRIPTION));
 
             event.registrar().register(Commands.literal("tip")
                     .executes(ctx -> {
@@ -91,7 +100,7 @@ public class TipModule {
                             sendTip(player, true);
                         }
                         return Command.SINGLE_SUCCESS;
-                    }).build(), "查看一条服务器 Tip");
+                    }).build(), languageService.t(Language.DEFAULT, Message.TIP_COMMAND_DESCRIPTION));
         });
     }
 
@@ -116,7 +125,7 @@ public class TipModule {
 
     private boolean sendTip(Player player, boolean force) {
         if (tips.isEmpty()) {
-            player.sendMessage(Component.text("暂无 Tip", NamedTextColor.GRAY));
+            player.sendMessage(languageService.text(player, Message.TIP_EMPTY, NamedTextColor.GRAY));
             return false;
         }
 
@@ -133,7 +142,7 @@ public class TipModule {
 
         state.lastSentAt = now;
         state.seenAt.put(tip.id(), now);
-        player.sendMessage(formatTip(tip));
+        player.sendMessage(formatTip(player, tip));
         return true;
     }
 
@@ -151,13 +160,22 @@ public class TipModule {
                 .orElse(null);
     }
 
-    private Component formatTip(Tip tip) {
+    private Component formatTip(Player player, Tip tip) {
         return Component.text()
-                .append(Component.text("TIP", NamedTextColor.AQUA, TextDecoration.BOLD)
-                        .hoverEvent(HoverEvent.showText(Component.text("服务器小提示", NamedTextColor.GRAY))))
+                .append(Component.text(languageService.t(player, Message.TIP_LABEL), NamedTextColor.AQUA,
+                                TextDecoration.BOLD)
+                        .hoverEvent(HoverEvent.showText(Component.text(languageService.t(player, Message.TIP_HOVER),
+                                NamedTextColor.GRAY))))
                 .append(Component.text(" | ", NamedTextColor.GRAY))
                 .append(MINI_MESSAGE.deserialize(tip.content()))
                 .build();
+    }
+
+    private String t(CommandSender sender, Message message, Object... args) {
+        if (sender instanceof Player player) {
+            return languageService.t(player, message, args);
+        }
+        return languageService.t(Language.DEFAULT, message, args);
     }
 
     private void ensureTipsFile() {

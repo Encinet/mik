@@ -39,6 +39,9 @@ import org.bukkit.event.player.PlayerVelocityEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.HashMap;
@@ -59,23 +62,23 @@ public class AfkModule implements Listener, AfkService {
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
     private static final int MAX_STATUS_LENGTH = 12;
-    private static final String[] DEFAULT_MESSAGES = {
-            "双手离开了键盘",
-            "进入省电模式",
-            "暂时切到后台",
-            "正在原地发呆"
+    private static final Message[] DEFAULT_MESSAGES = {
+            Message.AFK_DEFAULT_STATUS_1,
+            Message.AFK_DEFAULT_STATUS_2,
+            Message.AFK_DEFAULT_STATUS_3,
+            Message.AFK_DEFAULT_STATUS_4
     };
-    private static final String[] DEFAULT_ENTER_TEMPLATES = {
-            "<gray>*</gray> <player> <yellow><status></yellow>"
+    private static final Message[] DEFAULT_ENTER_TEMPLATES = {
+            Message.AFK_ENTER_DEFAULT_MM
     };
-    private static final String[] CUSTOM_ENTER_TEMPLATES = {
-            "<gray>*</gray> <player> <gray>开始挂机：</gray><status>",
-            "<gray>*</gray> <player> <gray>留下了一张纸条：</gray><status>",
-            "<gray>*</gray> <player> <gray>把状态改成了：</gray><status>"
+    private static final Message[] CUSTOM_ENTER_TEMPLATES = {
+            Message.AFK_ENTER_CUSTOM_1_MM,
+            Message.AFK_ENTER_CUSTOM_2_MM,
+            Message.AFK_ENTER_CUSTOM_3_MM
     };
-    private static final String[] EXIT_TEMPLATES = {
-            "<gray>*</gray> <player> <green>回到了键盘前</green>",
-            "<gray>*</gray> <player> <green>回来了</green>"
+    private static final Message[] EXIT_TEMPLATES = {
+            Message.AFK_EXIT_1_MM,
+            Message.AFK_EXIT_2_MM
     };
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final MiniMessage SAFE_MESSAGE = MiniMessage.builder()
@@ -89,6 +92,7 @@ public class AfkModule implements Listener, AfkService {
             .build();
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final Map<UUID, Long> lastActiveAt = new HashMap<>();
     private final Map<UUID, AfkState> states = new HashMap<>();
     private final Set<UUID> pendingAsyncActivity = ConcurrentHashMap.newKeySet();
@@ -99,9 +103,10 @@ public class AfkModule implements Listener, AfkService {
     private BukkitTask updateTask;
     private int tickCounter;
 
-    public AfkModule(JavaPlugin plugin) {
+    public AfkModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
-        this.displayController = new AfkDisplayController(plugin);
+        this.languageService = languageService;
+        this.displayController = new AfkDisplayController(plugin, languageService);
     }
 
     public void enable() {
@@ -136,7 +141,7 @@ public class AfkModule implements Listener, AfkService {
                                             requirePlayer(ctx.getSource().getSender()),
                                             StringArgumentType.getString(ctx, "message"))))
                             .build(),
-                    "切换挂机状态",
+                    languageService.t(Language.DEFAULT, Message.AFK_COMMAND_DESCRIPTION),
                     List.of("away")
             );
         });
@@ -318,8 +323,7 @@ public class AfkModule implements Listener, AfkService {
 
         if (message.codePointCount(0, message.length()) > MAX_STATUS_LENGTH) {
             player.sendMessage(MINI_MESSAGE.deserialize(
-                    "<red>挂机状态最多 <white><max></white> 个字</red>",
-                    Placeholder.unparsed("max", Integer.toString(MAX_STATUS_LENGTH))));
+                    languageService.t(player, Message.AFK_STATUS_TOO_LONG_MM, MAX_STATUS_LENGTH)));
             return Command.SINGLE_SUCCESS;
         }
         setAfk(player, message.isEmpty() ? null : message, false);
@@ -330,7 +334,8 @@ public class AfkModule implements Listener, AfkService {
         if (sender instanceof Player player) {
             return player;
         }
-        sender.sendMessage(MINI_MESSAGE.deserialize("<red>该命令只能由玩家执行</red>"));
+        sender.sendMessage(Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY),
+                net.kyori.adventure.text.format.NamedTextColor.RED));
         return null;
     }
 
@@ -381,20 +386,21 @@ public class AfkModule implements Listener, AfkService {
     private void setAfk(Player player, String customMessage, boolean automatic) {
         UUID playerId = player.getUniqueId();
         boolean hasCustomMessage = customMessage != null && !customMessage.isBlank();
-        String broadcastMessage = hasCustomMessage ? customMessage : randomDefaultMessage();
+        Message defaultMessage = hasCustomMessage ? null : randomDefaultMessage();
+        Message enterTemplate = hasCustomMessage ? randomFrom(CUSTOM_ENTER_TEMPLATES) : randomFrom(DEFAULT_ENTER_TEMPLATES);
         AfkState state = new AfkState(playerId, hasCustomMessage ? customMessage : null, automatic, System.currentTimeMillis());
         states.put(playerId, state);
         applyAfkProtection(player);
         displayController.update(player, state);
         notifyListeners(player, state);
-        Bukkit.broadcast(enterMessage(player, broadcastMessage, hasCustomMessage));
+        broadcastEnterMessage(player, enterTemplate, defaultMessage, customMessage, hasCustomMessage);
     }
 
     private void clearAfk(Player player, boolean notifyPlayer) {
         UUID playerId = player.getUniqueId();
         if (states.remove(playerId) == null) {
             if (notifyPlayer) {
-                player.sendMessage(MINI_MESSAGE.deserialize("<gray>你当前没有处于 <gold>挂机</gold> 状态</gray>"));
+                player.sendMessage(MINI_MESSAGE.deserialize(languageService.t(player, Message.AFK_NOT_AFK_MM)));
             }
             return;
         }
@@ -403,7 +409,7 @@ public class AfkModule implements Listener, AfkService {
         restoreAfkProtection(player);
         displayController.remove(playerId);
         notifyListeners(player, null);
-        Bukkit.broadcast(exitMessage(player));
+        broadcastExitMessage(player, randomFrom(EXIT_TEMPLATES));
     }
 
     private void notifyListeners(Player player, AfkState state) {
@@ -490,19 +496,32 @@ public class AfkModule implements Listener, AfkService {
                 || lower.equals("取消");
     }
 
-    private String randomDefaultMessage() {
+    private Message randomDefaultMessage() {
         return randomFrom(DEFAULT_MESSAGES);
     }
 
-    private Component enterMessage(Player player, String message, boolean customMessage) {
-        String template = customMessage ? randomFrom(CUSTOM_ENTER_TEMPLATES) : randomFrom(DEFAULT_ENTER_TEMPLATES);
-        return MINI_MESSAGE.deserialize(template,
+    private void broadcastEnterMessage(Player player, Message template, Message defaultMessage,
+                                       String customMessage, boolean customMessagePresent) {
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            String status = customMessagePresent ? customMessage : languageService.t(viewer, defaultMessage);
+            viewer.sendMessage(enterMessage(viewer, player, template, status));
+        }
+    }
+
+    private Component enterMessage(Player viewer, Player player, Message template, String message) {
+        return MINI_MESSAGE.deserialize(languageService.t(viewer, template),
                 Placeholder.component("player", PlayerDisplay.name(player)),
                 Placeholder.component("status", renderStatusMessage(message)));
     }
 
-    private Component exitMessage(Player player) {
-        return MINI_MESSAGE.deserialize(randomFrom(EXIT_TEMPLATES),
+    private void broadcastExitMessage(Player player, Message template) {
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            viewer.sendMessage(exitMessage(viewer, player, template));
+        }
+    }
+
+    private Component exitMessage(Player viewer, Player player, Message template) {
+        return MINI_MESSAGE.deserialize(languageService.t(viewer, template),
                 Placeholder.component("player", PlayerDisplay.name(player)));
     }
 
@@ -512,7 +531,7 @@ public class AfkModule implements Listener, AfkService {
                 Placeholder.component("message", SAFE_MESSAGE.deserialize(message)));
     }
 
-    private String randomFrom(String[] values) {
+    private Message randomFrom(Message[] values) {
         return values[ThreadLocalRandom.current().nextInt(values.length)];
     }
 }

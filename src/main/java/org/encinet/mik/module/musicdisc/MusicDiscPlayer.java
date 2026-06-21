@@ -13,6 +13,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,11 +33,14 @@ public class MusicDiscPlayer {
 
     private final MusicFileLoader musicFileLoader;
     private final MusicDiscCreator discCreator;
+    private final LanguageService languageService;
     private final Map<String, MusicFileLoader.MusicFile> musicFileCache = new ConcurrentHashMap<>();
 
-    public MusicDiscPlayer(MusicFileLoader musicFileLoader, MusicDiscCreator discCreator) {
+    public MusicDiscPlayer(MusicFileLoader musicFileLoader, MusicDiscCreator discCreator,
+                           LanguageService languageService) {
         this.musicFileLoader = musicFileLoader;
         this.discCreator = discCreator;
+        this.languageService = languageService;
     }
 
     /**
@@ -51,8 +57,8 @@ public class MusicDiscPlayer {
         Block nearestJukebox = findNearestJukebox(player, JUKEBOX_SEARCH_RADIUS);
 
         if (nearestJukebox == null) {
-            player.sendMessage(Component.text("附近50格内没有找到唱片机")
-                    .color(NamedTextColor.RED));
+            player.sendMessage(languageService.text(player, Message.MUSIC_NEAREST_JUKEBOX_MISSING,
+                    NamedTextColor.RED, JUKEBOX_SEARCH_RADIUS));
             return;
         }
 
@@ -62,7 +68,7 @@ public class MusicDiscPlayer {
 
         MusicFileLoader.MusicFile currentMusicFile = getMusicFileFromDisc(disc);
         if (currentMusicFile != null) {
-            disc = discCreator.createMusicDisc(currentMusicFile, false);
+            disc = discCreator.createMusicDisc(currentMusicFile, false, player);
         }
 
         playDiscOnJukebox(player, jukebox, disc, musicName);
@@ -176,33 +182,31 @@ public class MusicDiscPlayer {
         String tpCommand = String.format("/tp @s %d %d %d",
                 jukeboxLoc.getBlockX(), jukeboxLoc.getBlockY(), jukeboxLoc.getBlockZ());
 
-        Component musicNameComponent = Component.text(musicName).color(NamedTextColor.YELLOW);
-        if (musicFile != null) {
-            musicNameComponent = musicNameComponent.hoverEvent(
-                    net.kyori.adventure.text.event.HoverEvent.showText(
-                            buildMusicInfoHover(musicFile)
-                    )
-            );
-        }
-
-        Component message = Component.text()
-                .append(Component.text("正在播放: ").color(NamedTextColor.GREEN))
-                .append(musicNameComponent)
-                .append(Component.text(" 于唱片机 ").color(NamedTextColor.GREEN))
-                .append(Component.text(String.format("(%d, %d, %d)",
-                        jukeboxLoc.getBlockX(), jukeboxLoc.getBlockY(), jukeboxLoc.getBlockZ()))
-                        .color(NamedTextColor.AQUA)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(tpCommand))
-                        .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
-                                Component.text("点击传送到唱片机").color(NamedTextColor.GRAY)
-                        )))
-                .build();
-
         World world = jukeboxLoc.getWorld();
         if (world != null) {
             double radiusSquared = BROADCAST_RADIUS * BROADCAST_RADIUS;
             for (Player nearbyPlayer : world.getPlayers()) {
                 if (nearbyPlayer.getLocation().distanceSquared(jukeboxLoc) <= radiusSquared) {
+                    Component musicNameComponent = Component.text(musicName).color(NamedTextColor.YELLOW);
+                    if (musicFile != null) {
+                        musicNameComponent = musicNameComponent.hoverEvent(
+                                net.kyori.adventure.text.event.HoverEvent.showText(
+                                        buildMusicInfoHover(nearbyPlayer, musicFile)
+                                )
+                        );
+                    }
+                    Component locationComponent = Component.text(String.format("(%d, %d, %d)",
+                                    jukeboxLoc.getBlockX(), jukeboxLoc.getBlockY(), jukeboxLoc.getBlockZ()))
+                            .color(NamedTextColor.AQUA)
+                            .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(tpCommand))
+                            .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                                    Component.text(languageService.t(nearbyPlayer, Message.MUSIC_JUKEBOX_TP_HOVER),
+                                            NamedTextColor.GRAY)
+                            ));
+                    Component message = languageService.rich(nearbyPlayer, Message.MUSIC_NOW_PLAYING_RICH,
+                            NamedTextColor.GREEN,
+                            RichArg.component("music", musicNameComponent, musicName),
+                            RichArg.component("location", locationComponent, plainTextLocation(jukeboxLoc)));
                     nearbyPlayer.sendMessage(message);
                 }
             }
@@ -212,7 +216,7 @@ public class MusicDiscPlayer {
     /**
      * Build hover text for music info
      */
-    private Component buildMusicInfoHover(MusicFileLoader.MusicFile musicFile) {
+    private Component buildMusicInfoHover(Player player, MusicFileLoader.MusicFile musicFile) {
         List<Component> hoverLines = new ArrayList<>();
         hoverLines.add(Component.text(musicFile.displayName())
                 .color(NamedTextColor.YELLOW)
@@ -221,18 +225,18 @@ public class MusicDiscPlayer {
 
         String extension = musicFile.fileName().substring(
                 musicFile.fileName().lastIndexOf('.') + 1).toUpperCase();
-        hoverLines.add(Component.text("格式: " + extension).color(NamedTextColor.GRAY));
+        hoverLines.add(Component.text(languageService.t(player, Message.MUSIC_FORMAT, extension)).color(NamedTextColor.GRAY));
 
         if (musicFile.fileSize() != null) {
-            hoverLines.add(Component.text("大小: " + musicFile.fileSize())
+            hoverLines.add(Component.text(languageService.t(player, Message.MUSIC_SIZE, musicFile.fileSize()))
                     .color(NamedTextColor.GRAY));
         }
         if (musicFile.sampleRate() != null) {
-            hoverLines.add(Component.text("采样率: " + musicFile.sampleRate())
+            hoverLines.add(Component.text(languageService.t(player, Message.MUSIC_SAMPLE_RATE, musicFile.sampleRate()))
                     .color(NamedTextColor.GRAY));
         }
         if (musicFile.duration() != null) {
-            hoverLines.add(Component.text("时长: " + musicFile.duration())
+            hoverLines.add(Component.text(languageService.t(player, Message.MUSIC_DURATION, musicFile.duration()))
                     .color(NamedTextColor.GRAY));
         }
 
@@ -243,5 +247,10 @@ public class MusicDiscPlayer {
         }
 
         return hoverText;
+    }
+
+    private String plainTextLocation(Location location) {
+        return String.format("(%d, %d, %d)",
+                location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 }

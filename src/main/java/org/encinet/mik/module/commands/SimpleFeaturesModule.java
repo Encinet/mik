@@ -73,7 +73,7 @@ public class SimpleFeaturesModule {
                             sender.sendMessage(playerOnlyMessage());
                         }
                         return Command.SINGLE_SUCCESS;
-                    }).build(), "返回主城", List.of("lobby"));
+                    }).build(), languageService.t(Language.DEFAULT, Message.SPAWN_COMMAND_DESCRIPTION), List.of("lobby"));
 
             // Register /tpany command
             commands.register(
@@ -118,7 +118,7 @@ public class SimpleFeaturesModule {
                                             })
                             )
                             .build(),
-                    "传送到玩家位置（在线/离线均可）"
+                    languageService.t(Language.DEFAULT, Message.TPANY_COMMAND_DESCRIPTION)
             );
 
             // Register /trash command
@@ -137,7 +137,7 @@ public class SimpleFeaturesModule {
                                 playerOnlyMessage()
                         );
                         return 0;
-                    }).build(), "打开垃圾桶", List.of("trashcan", "garbage"));
+                    }).build(), languageService.t(Language.DEFAULT, Message.TRASH_COMMAND_DESCRIPTION), List.of("trashcan", "garbage"));
 
             // Register /removeitems command
             commands.register(Commands.literal("removeitems")
@@ -149,7 +149,8 @@ public class SimpleFeaturesModule {
                                 return removeItems(ctx.getSource(), radius);
                             }))
                     // 无参数分支，使用默认半径50
-                    .executes(ctx -> removeItems(ctx.getSource(), 50)).build(), "清除掉落物", List.of("rmitems"));
+                    .executes(ctx -> removeItems(ctx.getSource(), 50)).build(),
+                    languageService.t(Language.DEFAULT, Message.REMOVEITEMS_COMMAND_DESCRIPTION), List.of("rmitems"));
         });
     }
 
@@ -195,7 +196,7 @@ public class SimpleFeaturesModule {
     private void sendTpanyUsage(CommandSender sender) {
         sender.sendMessage(Component.text()
                 .append(Component.text(t(sender, Message.TPANY_USAGE), NamedTextColor.YELLOW))
-                .append(Component.text("/tpany <玩家名>", NamedTextColor.AQUA))
+                .append(Component.text(t(sender, Message.TPANY_USAGE_COMMAND), NamedTextColor.AQUA))
                 .append(Component.text(t(sender, Message.TPANY_USAGE_DESC), NamedTextColor.GRAY))
                 .build());
     }

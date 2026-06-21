@@ -83,17 +83,17 @@ public final class Mik extends JavaPlugin {
         serverLinksModule = new ServerLinksModule(this);
         serverLinksModule.register();
 
-        afkModule = new AfkModule(this);
+        menuNavigation = new MenuNavigation();
+
+        languageService = new LanguageService(this, menuNavigation);
+        languageService.enable();
+
+        afkModule = new AfkModule(this, languageService);
         afkModule.enable();
         afkModule.registerCommands(this.getLifecycleManager());
 
         performanceModule = new PerformanceModule(this, afkModule);
         performanceModule.start();
-
-        menuNavigation = new MenuNavigation();
-
-        languageService = new LanguageService(this, menuNavigation);
-        languageService.enable();
 
         mentionModule = new MentionModule(this, afkModule, menuNavigation, languageService);
         mentionModule.enable();
@@ -102,7 +102,7 @@ public final class Mik extends JavaPlugin {
         teleportPreferenceModule.enable();
 
         if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
-            clientVersionReminderModule = new ClientVersionReminderModule(this);
+            clientVersionReminderModule = new ClientVersionReminderModule(this, languageService);
             clientVersionReminderModule.enable();
         } else {
             getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
@@ -113,7 +113,7 @@ public final class Mik extends JavaPlugin {
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
 
-        musicDiscModule = new MusicDiscModule(this);
+        musicDiscModule = new MusicDiscModule(this, languageService);
         musicDiscModule.loadMusicFiles();
         musicDiscModule.registerCommands(this.getLifecycleManager());
         musicDiscModule.enableMusicChests();
@@ -125,24 +125,24 @@ public final class Mik extends JavaPlugin {
         commandsModule = new SimpleFeaturesModule(languageService);
         commandsModule.registerCommands(this.getLifecycleManager());
 
-        autoPromoteModule = new AutoPromoteModule(this);
+        autoPromoteModule = new AutoPromoteModule(this, languageService);
         autoPromoteModule.enable();
         autoPromoteModule.registerCommands(this.getLifecycleManager());
 
-        restrictionModule = new RestrictionModule(this);
+        restrictionModule = new RestrictionModule(this, languageService);
         restrictionModule.enable();
 
         gameModeSwitchModule = new GameModeSwitchModule(this);
         gameModeSwitchModule.enable();
 
-        playerBoundaryModule = new PlayerBoundaryModule(this);
+        playerBoundaryModule = new PlayerBoundaryModule(this, languageService);
         playerBoundaryModule.enable();
 
-        tpsBarModule = new TPSBarModule(this);
+        tpsBarModule = new TPSBarModule(this, languageService);
         tpsBarModule.start();
         tpsBarModule.registerCommands(this.getLifecycleManager());
 
-        tabListModule = new TabListModule(this, afkModule);
+        tabListModule = new TabListModule(this, afkModule, languageService);
         tabListModule.enable();
 
         fixBugModule = new FixBugModule(this);
@@ -155,7 +155,7 @@ public final class Mik extends JavaPlugin {
         announcementModule.enable();
         announcementModule.registerCommands(this.getLifecycleManager());
 
-        tipModule = new TipModule(this);
+        tipModule = new TipModule(this, languageService);
         tipModule.enable();
         tipModule.registerCommands(this.getLifecycleManager());
 
@@ -164,26 +164,26 @@ public final class Mik extends JavaPlugin {
         apiModule.setAnnouncementModule(announcementModule);
         apiModule.start(35353);
 
-        whitelistModule = new WhitelistModule(this);
+        whitelistModule = new WhitelistModule(this, languageService);
         whitelistModule.enable();
         whitelistModule.registerCommands(this.getLifecycleManager());
 
         motdModule = new MotdModule(this, afkModule);
         motdModule.enable();
 
-        homeModule = new HomeModule(this, menuNavigation);
+        homeModule = new HomeModule(this, menuNavigation, languageService);
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
 
-        backModule = new BackModule(this);
+        backModule = new BackModule(this, languageService);
         backModule.enable();
         backModule.registerCommands(this.getLifecycleManager());
 
-        prefixSuffixModule = new NameTagModule(this);
+        prefixSuffixModule = new NameTagModule(this, languageService);
         prefixSuffixModule.enable();
         prefixSuffixModule.registerCommands(this.getLifecycleManager());
 
-        invisibilityNotifyModule = new InvisibilityNotifyModule(this);
+        invisibilityNotifyModule = new InvisibilityNotifyModule(this, languageService);
         invisibilityNotifyModule.enable();
 
     }

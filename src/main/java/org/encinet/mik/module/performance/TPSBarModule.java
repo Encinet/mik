@@ -15,6 +15,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.util.Map;
 import java.util.UUID;
@@ -41,6 +44,7 @@ public class TPSBarModule {
     private static final int PING_MEDIUM = 200;
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final Map<UUID, BossBar> playerBossBars;
     private BukkitTask updateTask;
 
@@ -48,8 +52,9 @@ public class TPSBarModule {
     private double mspt = 0.0;
     private int tick = 0;
 
-    public TPSBarModule(JavaPlugin plugin) {
+    public TPSBarModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
         this.playerBossBars = new ConcurrentHashMap<>();
     }
 
@@ -87,10 +92,11 @@ public class TPSBarModule {
                             toggleTPSBar(player);
                             return Command.SINGLE_SUCCESS;
                         } else {
-                            ctx.getSource().getSender().sendMessage(Component.text("该命令只能由玩家执行", NamedTextColor.RED));
+                            ctx.getSource().getSender().sendMessage(Component.text(
+                                    languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED));
                         }
                         return Command.SINGLE_SUCCESS;
-                    }).build(), "显示/隐藏TPS信息栏");
+                    }).build(), languageService.t(Language.DEFAULT, Message.TPSBAR_COMMAND_DESCRIPTION));
         });
     }
 
@@ -103,13 +109,13 @@ public class TPSBarModule {
         if (playerBossBars.containsKey(playerId)) {
             BossBar bossBar = playerBossBars.remove(playerId);
             player.hideBossBar(bossBar);
-            player.sendMessage(Component.text("已隐藏 TPS 信息栏", NamedTextColor.GRAY));
+            player.sendMessage(languageService.text(player, Message.TPSBAR_HIDDEN, NamedTextColor.GRAY));
         } else {
             BossBar bossBar = createBossBar();
             playerBossBars.put(playerId, bossBar);
             player.showBossBar(bossBar);
             updateBossBar(bossBar, player);
-            player.sendMessage(Component.text("已显示 TPS 信息栏", NamedTextColor.GREEN));
+            player.sendMessage(languageService.text(player, Message.TPSBAR_SHOWN, NamedTextColor.GREEN));
         }
     }
 

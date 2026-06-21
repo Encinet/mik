@@ -13,6 +13,9 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.encinet.mik.Mik;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.*;
 
@@ -26,13 +29,16 @@ public class MusicInventoryGUI {
 
     private final MusicFileLoader musicFileLoader;
     private final MusicDiscCreator discCreator;
+    private final LanguageService languageService;
     private final Map<UUID, Integer> playerPages = new HashMap<>();
     private final Map<UUID, String> playerSearchKeywords = new HashMap<>();
     private final Map<UUID, Location> playerJukeboxContext = new HashMap<>();
 
-    public MusicInventoryGUI(MusicFileLoader musicFileLoader, MusicDiscCreator discCreator) {
+    public MusicInventoryGUI(MusicFileLoader musicFileLoader, MusicDiscCreator discCreator,
+                             LanguageService languageService) {
         this.musicFileLoader = musicFileLoader;
         this.discCreator = discCreator;
+        this.languageService = languageService;
     }
 
     /**
@@ -54,11 +60,9 @@ public class MusicInventoryGUI {
                     .count();
 
             if (matchCount == 0) {
-                player.sendMessage(Component.text()
-                        .append(Component.text("未找到包含 \"").color(NamedTextColor.RED))
-                        .append(Component.text(keyword).color(NamedTextColor.YELLOW))
-                        .append(Component.text("\" 的歌曲").color(NamedTextColor.RED))
-                        .build());
+                player.sendMessage(languageService.rich(player, Message.MUSIC_NO_SEARCH_RESULTS_RICH,
+                        NamedTextColor.RED,
+                        RichArg.component("keyword", Component.text(keyword, NamedTextColor.YELLOW), keyword)));
                 return;
             }
         }
@@ -156,9 +160,9 @@ public class MusicInventoryGUI {
         if (totalPages == 0) totalPages = 1;
         page = Math.max(0, Math.min(page, totalPages - 1));
 
-        String title = "Music Discs - Page " + (page + 1) + "/" + totalPages;
+        String title = languageService.t(player, Message.MUSIC_MENU_TITLE, page + 1, totalPages);
         if (keyword != null && !keyword.isEmpty()) {
-            title = "搜索: " + keyword + " - " + (page + 1) + "/" + totalPages;
+            title = languageService.t(player, Message.MUSIC_MENU_SEARCH_TITLE, keyword, page + 1, totalPages);
         }
 
         Inventory inv = Bukkit.createInventory(null, GUI_SIZE,
@@ -173,7 +177,7 @@ public class MusicInventoryGUI {
 
             if (jukeboxContext != null) {
                 // In jukebox context, show different lore
-                disc = discCreator.createMusicDisc(music, false);
+                disc = discCreator.createMusicDisc(music, false, player);
                 ItemMeta meta = disc.getItemMeta();
                 if (meta != null) {
                     List<Component> lore = meta.lore();
@@ -181,7 +185,7 @@ public class MusicInventoryGUI {
                         lore = new ArrayList<>();
                     }
                     lore.add(Component.text(""));
-                    lore.add(Component.text("点击添加到播放列表")
+                    lore.add(Component.text(languageService.t(player, Message.MUSIC_DISC_ADD_TO_PLAYLIST_LORE))
                             .color(NamedTextColor.GREEN)
                             .decoration(TextDecoration.ITALIC, false));
                     meta.lore(lore);
@@ -189,48 +193,50 @@ public class MusicInventoryGUI {
                 }
             } else {
                 // Normal mode
-                disc = discCreator.createMusicDisc(music);
+                disc = discCreator.createMusicDisc(music, player);
             }
 
             inv.setItem(i - startIndex, disc);
         }
 
         if (page > 0) {
-            inv.setItem(45, createNavigationButton(Material.ARROW, "上一页", "Previous Page"));
+            inv.setItem(45, createNavigationButton(player, Material.ARROW,
+                    Message.MUSIC_PREV_PAGE, Message.MUSIC_PREV_PAGE_LORE));
         }
 
         if (page < totalPages - 1) {
-            inv.setItem(53, createNavigationButton(Material.ARROW, "下一页", "Next Page"));
+            inv.setItem(53, createNavigationButton(player, Material.ARROW,
+                    Message.MUSIC_NEXT_PAGE, Message.MUSIC_NEXT_PAGE_LORE));
         }
 
-        inv.setItem(47, createSearchButton());
-        inv.setItem(46, createRandomDiscButton(jukeboxContext != null));
+        inv.setItem(47, createSearchButton(player));
+        inv.setItem(46, createRandomDiscButton(player, jukeboxContext != null));
         inv.setItem(51, createHelpButton(player));
 
         if (keyword != null && !keyword.isEmpty()) {
-            inv.setItem(48, createClearSearchButton());
+            inv.setItem(48, createClearSearchButton(player));
         }
 
         // Add back button if in jukebox context
         if (jukeboxContext != null) {
-            inv.setItem(52, createBackButton());
+            inv.setItem(52, createBackButton(player));
         }
 
-        inv.setItem(49, createPageInfo(page + 1, totalPages, filteredFiles.size()));
+        inv.setItem(49, createPageInfo(player, page + 1, totalPages, filteredFiles.size()));
 
         return inv;
     }
 
-    private ItemStack createNavigationButton(Material material, String name, String lore) {
+    private ItemStack createNavigationButton(Player player, Material material, Message name, Message lore) {
         ItemStack button = new ItemStack(material);
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text(name)
+            meta.displayName(Component.text(languageService.t(player, name))
                     .color(NamedTextColor.YELLOW)
                     .decoration(TextDecoration.ITALIC, false));
 
-            meta.lore(List.of(Component.text(lore)
+            meta.lore(List.of(Component.text(languageService.t(player, lore))
                     .color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false)));
 
@@ -240,20 +246,17 @@ public class MusicInventoryGUI {
         return button;
     }
 
-    private ItemStack createPageInfo(int currentPage, int totalPages, int totalResults) {
+    private ItemStack createPageInfo(Player player, int currentPage, int totalPages, int totalResults) {
         ItemStack info = new ItemStack(Material.PAPER);
         ItemMeta meta = info.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text("第 " + currentPage + " 页 / 共 " + totalPages + " 页")
+            meta.displayName(Component.text(languageService.t(player, Message.MUSIC_PAGE_INFO, currentPage, totalPages))
                     .color(NamedTextColor.GOLD)
                     .decoration(TextDecoration.ITALIC, false));
 
             meta.lore(List.of(
-                    Component.text("Page " + currentPage + " of " + totalPages)
-                            .color(NamedTextColor.GRAY)
-                            .decoration(TextDecoration.ITALIC, false),
-                    Component.text("共 " + totalResults + " 首歌曲")
+                    Component.text(languageService.t(player, Message.MUSIC_PAGE_TOTAL, totalResults))
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)
             ));
@@ -264,23 +267,23 @@ public class MusicInventoryGUI {
         return info;
     }
 
-    private ItemStack createSearchButton() {
+    private ItemStack createSearchButton(Player player) {
         ItemStack button = new ItemStack(Material.COMPASS);
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text("搜索歌曲")
+            meta.displayName(Component.text(languageService.t(player, Message.MUSIC_SEARCH_BUTTON))
                     .color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
 
             meta.lore(List.of(
-                    Component.text("点击后输入")
+                    Component.text(languageService.t(player, Message.MUSIC_SEARCH_LORE_BEFORE))
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false),
-                    Component.text("/music search <关键词>")
+                    Component.text("/music search <keyword>")
                             .color(NamedTextColor.YELLOW)
                             .decoration(TextDecoration.ITALIC, false),
-                    Component.text("来搜索歌曲")
+                    Component.text(languageService.t(player, Message.MUSIC_SEARCH_LORE_AFTER))
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)
             ));
@@ -291,16 +294,16 @@ public class MusicInventoryGUI {
         return button;
     }
 
-    private ItemStack createClearSearchButton() {
+    private ItemStack createClearSearchButton(Player player) {
         ItemStack button = new ItemStack(Material.BARRIER);
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text("清除搜索")
+            meta.displayName(Component.text(languageService.t(player, Message.MUSIC_CLEAR_SEARCH))
                     .color(NamedTextColor.RED)
                     .decoration(TextDecoration.ITALIC, false));
 
-            meta.lore(List.of(Component.text("点击返回完整列表")
+            meta.lore(List.of(Component.text(languageService.t(player, Message.MUSIC_CLEAR_SEARCH_LORE))
                     .color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false)));
 
@@ -310,37 +313,37 @@ public class MusicInventoryGUI {
         return button;
     }
 
-    private ItemStack createRandomDiscButton(boolean isJukeboxContext) {
+    private ItemStack createRandomDiscButton(Player player, boolean isJukeboxContext) {
         ItemStack button = new ItemStack(Material.MUSIC_DISC_13);
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
             if (isJukeboxContext) {
-                meta.displayName(Component.text("随机添加歌曲")
+                meta.displayName(Component.text(languageService.t(player, Message.MUSIC_RANDOM_ADD))
                         .color(NamedTextColor.LIGHT_PURPLE)
                         .decoration(TextDecoration.ITALIC, false)
                         .decoration(TextDecoration.BOLD, true));
 
                 meta.lore(List.of(
-                        Component.text("点击随机添加一首歌曲到播放列表")
+                        Component.text(languageService.t(player, Message.MUSIC_RANDOM_ADD_LORE))
                                 .color(NamedTextColor.GRAY)
                                 .decoration(TextDecoration.ITALIC, false)
                 ));
             } else {
-                meta.displayName(Component.text("随机唱片")
+                meta.displayName(Component.text(languageService.t(player, Message.MUSIC_RANDOM_DISC))
                         .color(NamedTextColor.LIGHT_PURPLE)
                         .decoration(TextDecoration.ITALIC, false)
                         .decoration(TextDecoration.BOLD, true));
 
                 meta.lore(List.of(
-                        Component.text("左键: 获得一张随机音乐唱片")
+                        Component.text(languageService.t(player, Message.MUSIC_RANDOM_DISC_LEFT))
                                 .color(NamedTextColor.GRAY)
                                 .decoration(TextDecoration.ITALIC, false),
-                        Component.text("右键: 在最近的唱片机播放")
+                        Component.text(languageService.t(player, Message.MUSIC_RANDOM_DISC_RIGHT))
                                 .color(NamedTextColor.GRAY)
                                 .decoration(TextDecoration.ITALIC, false),
                         Component.text("").decoration(TextDecoration.ITALIC, false),
-                        Component.text("命令:")
+                        Component.text(languageService.t(player, Message.MUSIC_COMMANDS_LABEL))
                                 .color(NamedTextColor.GRAY)
                                 .decoration(TextDecoration.ITALIC, false),
                         Component.text("/music random")
@@ -375,46 +378,46 @@ public class MusicInventoryGUI {
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text("命令帮助")
+            meta.displayName(Component.text(languageService.t(player, Message.MUSIC_HELP_TITLE))
                     .color(NamedTextColor.GOLD)
                     .decoration(TextDecoration.ITALIC, false)
                     .decoration(TextDecoration.BOLD, true));
 
             List<Component> lore = new ArrayList<>();
-            lore.add(Component.text("可用命令:")
+            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_AVAILABLE_COMMANDS))
                     .color(NamedTextColor.YELLOW)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("  打开音乐界面").color(NamedTextColor.GRAY)
+            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_OPEN_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("/music search <关键词>").color(NamedTextColor.AQUA)
+            lore.add(Component.text("/music search <keyword>").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("  搜索歌曲").color(NamedTextColor.GRAY)
+            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_SEARCH_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("/music page <页码>").color(NamedTextColor.AQUA)
+            lore.add(Component.text("/music page <page>").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("  跳转到指定页面").color(NamedTextColor.GRAY)
+            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_PAGE_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music random").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("  获得随机音乐唱片").color(NamedTextColor.GRAY)
+            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_RANDOM_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music randomplay").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text("  在最近的唱片机播放随机音乐").color(NamedTextColor.GRAY)
+            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_RANDOMPLAY_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
 
             if (player.hasPermission("group." + Mik.GROUP_MANAGER)) {
                 lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("/music reload").color(NamedTextColor.AQUA)
                         .decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("  重新加载歌曲列表 (管理员)").color(NamedTextColor.GRAY)
+                lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_RELOAD_DESC)).color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
 
@@ -425,18 +428,18 @@ public class MusicInventoryGUI {
         return button;
     }
 
-    private ItemStack createBackButton() {
+    private ItemStack createBackButton(Player player) {
         ItemStack button = new ItemStack(Material.RED_STAINED_GLASS_PANE);
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text("返回唱片机控制")
+            meta.displayName(Component.text(languageService.t(player, Message.MUSIC_BACK_JUKEBOX))
                     .color(NamedTextColor.RED)
                     .decoration(TextDecoration.ITALIC, false)
                     .decoration(TextDecoration.BOLD, true));
 
             meta.lore(List.of(
-                    Component.text("点击返回唱片机控制界面")
+                    Component.text(languageService.t(player, Message.MUSIC_BACK_JUKEBOX_LORE))
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)
             ));
