@@ -214,11 +214,6 @@ public class AnnouncementModule implements Listener {
         menuStates.remove(event.getPlayer().getUniqueId());
     }
 
-    // 聊天消息构造辅助
-
-    /**
-     * 标题行：  ━━  {title}  {badge}  ━━
-     */
     private Component chatHeader(String title, Component badge) {
         return Component.text()
                 .append(Component.text("━━ ", NamedTextColor.GOLD))

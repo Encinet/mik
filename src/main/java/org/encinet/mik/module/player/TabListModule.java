@@ -19,9 +19,6 @@ import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
 
-/**
- * Module for customizing player tab list with LuckPerms prefix and suffix
- */
 public class TabListModule implements Listener, AfkStateListener {
 
     private static final long REFRESH_INTERVAL_TICKS = 5L * 20L;
@@ -45,9 +42,6 @@ public class TabListModule implements Listener, AfkStateListener {
         this.afkService = afkService;
     }
 
-    /**
-     * Enable tab list module
-     */
     public void enable() {
         RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
         if (provider == null) {
@@ -90,9 +84,6 @@ public class TabListModule implements Listener, AfkStateListener {
         }
     }
 
-    /**
-     * Disable tab list module and reset all players' tab list names
-     */
     public void disable() {
         afkService.removeListener(this);
         if (refreshTask != null) {
@@ -116,9 +107,6 @@ public class TabListModule implements Listener, AfkStateListener {
         }
     }
 
-    /**
-     * Update player's tab list display name with LuckPerms prefix and suffix
-     */
     private void updatePlayerListName(Player player) {
         User user = luckPerms.getUserManager().getUser(player.getUniqueId());
         if (user == null) {

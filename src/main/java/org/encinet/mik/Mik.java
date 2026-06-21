@@ -31,9 +31,6 @@ import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
 
-/**
- * Main plugin class - orchestrates all modules
- */
 public final class Mik extends JavaPlugin {
 
     public static final String GROUP_MEMBER = "member";
@@ -71,137 +68,110 @@ public final class Mik extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        // Initialize and load branding module (PacketEvents must be loaded here)
+        // PacketEvents requires BrandingModule to load before onEnable.
         brandingModule = new BrandingModule(this);
         brandingModule.load();
     }
 
     @Override
     public void onEnable() {
-        // Enable branding module
         brandingModule.enable();
 
-        // Initialize and register server links
         serverLinksModule = new ServerLinksModule(this);
         serverLinksModule.register();
 
-        // Initialize and enable idle module
         afkModule = new AfkModule(this);
         afkModule.enable();
         afkModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize and start performance module
         performanceModule = new PerformanceModule(this, afkModule);
         performanceModule.start();
 
-        // main menu navigation
         menuNavigation = new MenuNavigation();
 
-        // mention notifications
         mentionModule = new MentionModule(this, afkModule, menuNavigation);
         mentionModule.enable();
 
-        // teleport preferences
         teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation);
         teleportPreferenceModule.enable();
 
-        // player main menu
         mainMenuModule = new MainMenuModule(this, afkModule, mentionModule, teleportPreferenceModule, menuNavigation);
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize music disc module and load music files
         musicDiscModule = new MusicDiscModule(this);
         musicDiscModule.loadMusicFiles();
         musicDiscModule.registerCommands(this.getLifecycleManager());
         musicDiscModule.enableMusicChests();
 
-        // Initialize staff chat module
         staffChatModule = new StaffChatModule(this);
+        staffChatModule.enable();
         staffChatModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize and register commands module
         commandsModule = new SimpleFeaturesModule();
         commandsModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize and enable auto-promote module
         autoPromoteModule = new AutoPromoteModule(this);
         autoPromoteModule.enable();
         autoPromoteModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize and enable command restriction module
         restrictionModule = new RestrictionModule(this);
         restrictionModule.enable();
 
-        // Initialize and enable game mode switch module
         gameModeSwitchModule = new GameModeSwitchModule(this);
         gameModeSwitchModule.enable();
 
-        // Initialize and enable player boundary module
         playerBoundaryModule = new PlayerBoundaryModule(this);
         playerBoundaryModule.enable();
 
-        // Initialize and start TPS bar module
         tpsBarModule = new TPSBarModule(this);
         tpsBarModule.start();
         tpsBarModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize and enable tab list module
         tabListModule = new TabListModule(this, afkModule);
         tabListModule.enable();
 
-        // Initialize and enable tab list module
         fixBugModule = new FixBugModule(this);
         fixBugModule.enable();
 
-        // Initialize and enable griefer module
         grieferModule = new GrieferModule(this);
         grieferModule.enable();
 
-        // announcements (must be before API module)
         announcementModule = new AnnouncementModule(this, menuNavigation);
         announcementModule.enable();
         announcementModule.registerCommands(this.getLifecycleManager());
 
-        // tips
         tipModule = new TipModule(this);
         tipModule.enable();
         tipModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize and start API module
+        // Announcement data is exposed by the API module.
         apiModule = new ApiModule(this);
         apiModule.setAnnouncementModule(announcementModule);
         apiModule.start(35353);
 
-        // Initialize and enable whitelist chat module
         whitelistModule = new WhitelistModule(this);
         whitelistModule.enable();
         whitelistModule.registerCommands(this.getLifecycleManager());
 
-        // Initialize and enable MOTD module
         motdModule = new MotdModule(this, afkModule);
         motdModule.enable();
 
-        // home
         homeModule = new HomeModule(this, menuNavigation);
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
 
-        // back history
         backModule = new BackModule(this);
         backModule.enable();
         backModule.registerCommands(this.getLifecycleManager());
 
-        // player prefix/suffix
         prefixSuffixModule = new NameTagModule(this);
         prefixSuffixModule.enable();
         prefixSuffixModule.registerCommands(this.getLifecycleManager());
 
-        // invisibility actionbar notice
         invisibilityNotifyModule = new InvisibilityNotifyModule(this);
         invisibilityNotifyModule.enable();
 
-        // client version reminder via ViaVersion
         if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
             clientVersionReminderModule = new ClientVersionReminderModule(this);
             clientVersionReminderModule.enable();
@@ -213,7 +183,6 @@ public final class Mik extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // Stop performance monitoring
         if (performanceModule != null) {
             performanceModule.stop();
         }
@@ -222,22 +191,18 @@ public final class Mik extends JavaPlugin {
             afkModule.disable();
         }
 
-        // Stop TPS bar module
         if (tpsBarModule != null) {
             tpsBarModule.stop();
         }
 
-        // Disable tab list module
         if (tabListModule != null) {
             tabListModule.disable();
         }
 
-        // Disable branding module
         if (brandingModule != null) {
             brandingModule.disable();
         }
 
-        // Stop API server
         if (apiModule != null) {
             apiModule.stop();
         }

@@ -65,10 +65,10 @@ public class MainMenuModule implements Listener {
         this.teleportPreferenceModule = teleportPreferenceModule;
         this.menuNavigation = menuNavigation;
         this.actionKey = new NamespacedKey(plugin, "main_menu_action");
-        this.menuNavigation.setMainMenuOpener(this::openMenu);
     }
 
     public void enable() {
+        menuNavigation.setMainMenuOpener(this::openMenu);
         Bukkit.getPluginManager().registerEvents(this, plugin);
         Bukkit.getScheduler().runTaskTimer(plugin, this::refreshOpenMainMenus, 100L, 100L);
         plugin.getLogger().info("Main menu module enabled");

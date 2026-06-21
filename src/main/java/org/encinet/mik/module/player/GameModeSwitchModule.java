@@ -16,9 +16,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-/**
- * Module for F3+F4 game mode switching with permission control
- */
 public class GameModeSwitchModule implements Listener {
 
     private final JavaPlugin plugin;
@@ -27,14 +24,9 @@ public class GameModeSwitchModule implements Listener {
         this.plugin = plugin;
     }
 
-    /**
-     * Enable game mode switch module (called in onEnable)
-     */
     public void enable() {
-        // Register event listener for player join
         Bukkit.getPluginManager().registerEvents(this, plugin);
 
-        // Register packet listener
         PacketEvents.getAPI().getEventManager().registerListener(
                 new GameModeSwitchPacketListener()
         );
@@ -44,7 +36,6 @@ public class GameModeSwitchModule implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        // Update player's F3+F4 permission status on join
         Player player =  event.getPlayer();
 
         // Status 28 = allow F3+F4, Status 24 = disallow F3+F4
@@ -55,9 +46,6 @@ public class GameModeSwitchModule implements Listener {
         );
     }
 
-    /**
-     * Packet listener for game mode switching
-     */
     private class GameModeSwitchPacketListener extends PacketListenerAbstract {
 
         public GameModeSwitchPacketListener() {
@@ -66,7 +54,6 @@ public class GameModeSwitchModule implements Listener {
 
         @Override
         public void onPacketReceive(PacketReceiveEvent event) {
-            // Only handle game mode change packets
             if (event.getPacketType() != PacketType.Play.Client.CHANGE_GAME_MODE) {
                 return;
             }
@@ -86,7 +73,6 @@ public class GameModeSwitchModule implements Listener {
 
         @Override
         public void onPacketSend(PacketSendEvent event) {
-            // Only handle entity status packets
             if (event.getPacketType() != PacketType.Play.Server.ENTITY_STATUS) {
                 return;
             }
@@ -98,7 +84,6 @@ public class GameModeSwitchModule implements Listener {
 
             WrapperPlayServerEntityStatus entityStatusPacket = new WrapperPlayServerEntityStatus(event);
 
-            // Only modify packets for the player themselves
             if (entityStatusPacket.getEntityId() != player.getEntityId()) {
                 return;
             }

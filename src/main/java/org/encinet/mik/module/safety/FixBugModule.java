@@ -16,21 +16,15 @@ public class FixBugModule implements Listener {
         this.plugin = plugin;
     }
 
-    /**
-     * Enable auto-promote module (called in onEnable)
-     */
     public void enable() {
-        // Register event listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        plugin.getLogger().info("GrieferModule enabled");
+        plugin.getLogger().info("FixBugModule enabled");
     }
 
-    // fix: generic.kill effect on creative/spectator player
+    // Blocks generic.kill style damage against creative/spectator players.
     @EventHandler
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        // 攻击者是玩家
         if (!(event.getDamager() instanceof Player)) return;
-        // 被攻击者是玩家
         if (!(event.getEntity() instanceof Player victim)) return;
 
         if (victim.getGameMode() == GameMode.CREATIVE || victim.getGameMode() == GameMode.SPECTATOR) {
@@ -38,7 +32,7 @@ public class FixBugModule implements Listener {
         }
     }
 
-    // fix: /give @s splash_potion[minecraft:potion_contents={potion: "minecraft:water", custom_effects: [{show_icon: 1b, amplifier: 125b, id: "minecraft:instant_health"}]}]
+    // Cancels negative heal values used by malformed potion effects.
     @EventHandler
     public void onEntityRegainHealth(EntityRegainHealthEvent e) {
         if (e.getAmount() < 0) {

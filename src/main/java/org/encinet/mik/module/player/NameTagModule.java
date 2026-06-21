@@ -56,15 +56,11 @@ public class NameTagModule {
     private static final String URL_EDITOR = "https://webui.advntr.dev/";
     private static final String URL_DOCS = "https://docs.papermc.io/adventure/minimessage/format/";
 
-    // ── 颜色常量 ──────────────────────────────────────────────────────────────
-
     private static final TextColor C_ACCENT = TextColor.color(0xFFAA00);
     private static final TextColor C_LINK = TextColor.color(0x55AAFF);
     private static final TextColor C_RAW = TextColor.color(0xFFFF55);
     private static final TextColor C_DIM = NamedTextColor.GRAY;
     private static final TextColor C_MUTED = NamedTextColor.GRAY;
-
-    // ── 安全 MiniMessage（禁用 click / selector）──────────────────────────────
 
     private static final MiniMessage SAFE_MM = MiniMessage.builder()
             .tags(TagResolver.resolver(
@@ -85,16 +81,12 @@ public class NameTagModule {
 
     private static final Component NL = Component.newline();
 
-    // ── 状态 ─────────────────────────────────────────────────────────────────
-
     private final JavaPlugin plugin;
     private LuckPerms luckPerms;
 
     public NameTagModule(JavaPlugin plugin) {
         this.plugin = plugin;
     }
-
-    // ── 生命周期 ──────────────────────────────────────────────────────────────
 
     public void enable() {
         RegisteredServiceProvider<LuckPerms> provider =
@@ -146,8 +138,6 @@ public class NameTagModule {
         });
     }
 
-    // ── 权限 & 校验工具 ───────────────────────────────────────────────────────
-
     /**
      * 确保发送者是玩家；不是则发送提示并返回 null。
      */
@@ -167,8 +157,6 @@ public class NameTagModule {
         player.sendMessage(SAFE_MM.deserialize("<red>你没有使用该命令的权限</red>"));
         return false;
     }
-
-    // ── 渲染工具 ──────────────────────────────────────────────────────────────
 
     /**
      * 将 MiniMessage 原文渲染为 Component，空值显示灰色斜体占位符。
@@ -280,8 +268,6 @@ public class NameTagModule {
         }
         return builder.build();
     }
-
-    // ── 命令处理器 ────────────────────────────────────────────────────────────
 
     /**
      * /nametag  /nametag view
@@ -464,8 +450,6 @@ public class NameTagModule {
 
         return Command.SINGLE_SUCCESS;
     }
-
-    // ── NameTag 枚举 ──────────────────────────────────────────────────────────
 
     private enum NameTag {
         PREFIX("prefix", "前缀") {

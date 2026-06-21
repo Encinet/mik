@@ -1,25 +1,2 @@
 api:
   totp-secret: ""
-
-client-version-reminder:
-  enabled: true
-  min-version: latest
-  delay-ticks: 40
-  border: "<dark_gray>-----</dark_gray> <severity_title> <dark_gray>-----</dark_gray>"
-  footer-border: "<dark_gray>------------------------------</dark_gray>"
-  message:
-    - "<gray>当前 <white><client_version></white>，推荐 <white><min_version></white>。</gray>"
-    - "<severity_message>"
-  severity-warnings:
-    - older-than: "1.18"
-      title: "<red><bold>严重缺失功能警报</bold></red>"
-      message: "<red>跨度过大，大量新内容可能无法显示。</red>"
-    - older-than: "1.21"
-      title: "<gold><bold>大量缺失功能警报</bold></gold>"
-      message: "<gold>缺少较多新内容，部分区域可能异常。</gold>"
-    - older-than: "1.21.5"
-      title: "<yellow><bold>明显缺失功能警报</bold></yellow>"
-      message: "<yellow>可能缺少一部分新内容，建议更新。</yellow>"
-    - older-than: latest
-      title: "<green><bold>更新提醒</bold></green>"
-      message: "<green>只落后少量版本，少数内容可能不完整。</green>"

@@ -14,9 +14,6 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
 
-/**
- * Module for enforcing world boundaries on player movement and teleportation
- */
 public class PlayerBoundaryModule implements Listener {
     private static final double KNOCKBACK_STRENGTH = 1.5; // Velocity multiplier for knockback
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
@@ -27,9 +24,6 @@ public class PlayerBoundaryModule implements Listener {
         this.plugin = plugin;
     }
 
-    /**
-     * Enable boundary module
-     */
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
         plugin.getLogger().info("PlayerBoundaryModule enabled (using world border settings)");

@@ -35,12 +35,12 @@ public class StaffChatModule implements Listener {
 
     public StaffChatModule(JavaPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Register commands
-     */
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final Commands commands = event.registrar();

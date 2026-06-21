@@ -253,7 +253,7 @@ public class MotdModule implements Listener, AfkStateListener {
             if (prev == null || now - prev.lastPingAt() > EASTER_EGG_WINDOW_MS) {
                 return new PingRecord(1, now, rng.nextInt(eggs.length));
             }
-            // 极短时间内的 Ping 视为同一次，不增加计数
+            // Browser refreshes often emit duplicate pings within a few ticks.
             if (now - prev.lastPingAt() < DEBOUNCE_MS) {
                 return new PingRecord(prev.count(), now, prev.eggBranch());
             }
@@ -263,9 +263,10 @@ public class MotdModule implements Listener, AfkStateListener {
         int eggIndex = record.count() - EASTER_EGG_THRESHOLD - 1;
         Component[] branch = eggs[record.eggBranch()];
 
-        // 未达阈值或彩蛋序列已结束 显示普通 MOTD 并重置
         if (record.count() <= EASTER_EGG_THRESHOLD || eggIndex >= branch.length) {
-            if (eggIndex >= branch.length) pingTracker.remove(ip); // 序列结束，清除记录
+            if (eggIndex >= branch.length) {
+                pingTracker.remove(ip);
+            }
             return normals[rng.nextInt(normals.length)];
         }
 

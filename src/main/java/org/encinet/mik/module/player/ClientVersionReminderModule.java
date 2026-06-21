@@ -13,26 +13,23 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
 
 public class ClientVersionReminderModule implements Listener {
 
-    private static final String CONFIG_PATH = "client-version-reminder";
     private static final String LATEST = "latest";
     private static final int LATEST_KNOWN_PROTOCOL = 776;
-    private static final long DEFAULT_DELAY_TICKS = 40L;
+    private static final long REMINDER_DELAY_TICKS = 40L;
+    private static final String BORDER = "<dark_gray>-----</dark_gray> <severity_title> <dark_gray>-----</dark_gray>";
+    private static final String FOOTER_BORDER = "<dark_gray>------------------------------</dark_gray>";
+    private static final List<String> MESSAGE_LINES = List.of(
+            "<gray>当前 <white><client_version></white>，推荐 <white><min_version></white>。</gray>",
+            "<severity_message>"
+    );
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
-
-    private boolean enabled;
-    private ProtocolVersion minimumVersion;
-    private long delayTicks;
-    private String border;
-    private String footerBorder;
-    private List<String> messageLines;
-    private List<SeverityWarning> severityWarnings;
+    private ProtocolVersion minimumVersion = ProtocolVersion.unknown;
+    private List<SeverityWarning> severityWarnings = List.of();
 
     public ClientVersionReminderModule(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -45,37 +42,19 @@ public class ClientVersionReminderModule implements Listener {
         }
 
         reload();
-        if (!enabled) {
-            return;
-        }
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
         plugin.getLogger().info("ClientVersionReminderModule enabled, minimum client version: " + minimumVersion.getName());
     }
 
     public void reload() {
-        enabled = plugin.getConfig().getBoolean(CONFIG_PATH + ".enabled", true);
-        minimumVersion = resolveMinimumVersion(plugin.getConfig().getString(CONFIG_PATH + ".min-version", LATEST));
-        delayTicks = Math.max(0L, plugin.getConfig().getLong(CONFIG_PATH + ".delay-ticks", DEFAULT_DELAY_TICKS));
-        border = plugin.getConfig().getString(CONFIG_PATH + ".border",
-                "<dark_gray>--------------------------------</dark_gray>");
-        footerBorder = plugin.getConfig().getString(CONFIG_PATH + ".footer-border",
-                "<dark_gray>------------------------------</dark_gray>");
-        messageLines = plugin.getConfig().getStringList(CONFIG_PATH + ".message");
-        severityWarnings = loadSeverityWarnings();
-
-        if (messageLines.isEmpty()) {
-            messageLines = List.of(
-                    "<gold><bold>客户端版本提醒</bold></gold>",
-                    "<gray>当前客户端：</gray><white><client_version></white> <dark_gray>|</dark_gray> <gray>推荐版本：</gray><white><min_version></white>",
-                    "<severity_message>",
-                    "<gray>建议更新游戏客户端，避免功能异常或显示问题。</gray>"
-            );
-        }
-
-        if (severityWarnings.isEmpty()) {
-            severityWarnings = defaultSeverityWarnings();
-        }
+        minimumVersion = latestReleaseVersion();
+        severityWarnings = List.of(
+                warning("1.18", "<red><bold>严重缺失功能警报</bold></red>", "<red>跨度过大，大量新内容可能无法显示。</red>"),
+                warning("1.21", "<gold><bold>大量缺失功能警报</bold></gold>", "<gold>缺少较多新内容，部分区域可能异常。</gold>"),
+                warning("1.21.5", "<yellow><bold>明显缺失功能警报</bold></yellow>", "<yellow>可能缺少一部分新内容，建议更新。</yellow>"),
+                warning(LATEST, "<green><bold>更新提醒</bold></green>", "<green>可能会有少数内容显示异常。</green>")
+        );
     }
 
     @EventHandler
@@ -93,7 +72,7 @@ public class ClientVersionReminderModule implements Listener {
             }
 
             sendReminder(player, clientVersion);
-        }, delayTicks);
+        }, REMINDER_DELAY_TICKS);
     }
 
     private void sendReminder(Player player, ProtocolVersion clientVersion) {
@@ -103,13 +82,13 @@ public class ClientVersionReminderModule implements Listener {
         String severityTitle = severityWarning.title();
         String severityMessage = severityWarning.message();
 
-        player.sendMessage(MINI_MESSAGE.deserialize(formatLine(border, clientName, minimumName,
+        player.sendMessage(MINI_MESSAGE.deserialize(formatLine(BORDER, clientName, minimumName,
                 severityTitle, severityMessage)));
-        for (String line : messageLines) {
+        for (String line : MESSAGE_LINES) {
             player.sendMessage(MINI_MESSAGE.deserialize(formatLine(line, clientName, minimumName,
                     severityTitle, severityMessage)));
         }
-        player.sendMessage(MINI_MESSAGE.deserialize(formatLine(footerBorder, clientName, minimumName,
+        player.sendMessage(MINI_MESSAGE.deserialize(formatLine(FOOTER_BORDER, clientName, minimumName,
                 severityTitle, severityMessage)));
     }
 
@@ -133,53 +112,6 @@ public class ClientVersionReminderModule implements Listener {
                 ));
     }
 
-    private List<SeverityWarning> loadSeverityWarnings() {
-        List<Map<?, ?>> warningMaps = plugin.getConfig().getMapList(CONFIG_PATH + ".severity-warnings");
-        if (warningMaps.isEmpty()) {
-            return List.of();
-        }
-
-        return warningMaps.stream()
-                .map(this::loadSeverityWarning)
-                .filter(Objects::nonNull)
-                .toList();
-    }
-
-    private SeverityWarning loadSeverityWarning(Map<?, ?> warningMap) {
-        Object olderThanValue = warningMap.get("older-than");
-        if (olderThanValue == null) {
-            return null;
-        }
-
-        ProtocolVersion olderThan = resolveThresholdVersion(String.valueOf(olderThanValue));
-        if (olderThan == null) {
-            plugin.getLogger().warning("Unknown client-version-reminder severity older-than '"
-                    + olderThanValue + "', skipping.");
-            return null;
-        }
-
-        Object messageValue = warningMap.get("message");
-        if (messageValue == null || String.valueOf(messageValue).isBlank()) {
-            return null;
-        }
-
-        Object titleValue = warningMap.get("title");
-        String title = titleValue == null || String.valueOf(titleValue).isBlank()
-                ? "<yellow><bold>缺失功能警报</bold></yellow>"
-                : String.valueOf(titleValue);
-
-        return new SeverityWarning(olderThan, title, String.valueOf(messageValue));
-    }
-
-    private List<SeverityWarning> defaultSeverityWarnings() {
-        return List.of(
-                warning("1.18", "<red><bold>严重缺失功能警报</bold></red>", "<red>跨度过大，大量新内容可能无法显示。</red>"),
-                warning("1.21", "<gold><bold>大量缺失功能警报</bold></gold>", "<gold>缺少较多新内容，部分区域可能异常。</gold>"),
-                warning("1.21.5", "<yellow><bold>明显缺失功能警报</bold></yellow>", "<yellow>可能缺少一部分新内容，建议更新。</yellow>"),
-                warning(LATEST, "<green><bold>更新提醒</bold></green>", "<green>可能会有少数内容显示异常。</green>")
-        );
-    }
-
     private SeverityWarning warning(String olderThanName, String title, String message) {
         ProtocolVersion olderThan = resolveThresholdVersion(olderThanName);
         if (olderThan == null) {
@@ -187,22 +119,6 @@ public class ClientVersionReminderModule implements Listener {
         }
 
         return new SeverityWarning(olderThan, title, message);
-    }
-
-    private ProtocolVersion resolveMinimumVersion(String configuredVersion) {
-        String version = configuredVersion == null ? LATEST : configuredVersion.trim();
-        if (version.isEmpty() || version.toLowerCase(Locale.ROOT).equals(LATEST)) {
-            return latestReleaseVersion();
-        }
-
-        ProtocolVersion protocolVersion = findProtocolVersion(version);
-        if (protocolVersion != null) {
-            return protocolVersion;
-        }
-
-        plugin.getLogger().warning("Unknown client-version-reminder.min-version '" + configuredVersion
-                + "', falling back to latest.");
-        return latestReleaseVersion();
     }
 
     private ProtocolVersion latestReleaseVersion() {

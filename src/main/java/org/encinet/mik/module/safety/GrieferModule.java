@@ -42,21 +42,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class GrieferModule implements Listener {
 
-    // ── Permissions ────────────────────────────────────────────────────────────
-
     /** Players with this permission are never monitored. */
     private static final String EXEMPT_PERMISSION = "group.member";
 
     /** Permission node for staff broadcast messages. */
     private static final String STAFF_PERMISSION = "mik.staff";
 
-    // ── Detection: Lava ────────────────────────────────────────────────────────
-
     /** How many lava-bucket placements in {@link #LAVA_WINDOW_MS} triggers suspicion. */
     private static final int  LAVA_COUNT     = 3;
     private static final long LAVA_WINDOW_MS = 20_000L; // 20 s
-
-    // ── Detection: WorldEdit //set air ─────────────────────────────────────────
 
     /**
      * Block breaks per {@link #WE_WINDOW_MS} that indicate WorldEdit mass-air.
@@ -65,13 +59,9 @@ public class GrieferModule implements Listener {
     private static final int  WE_COUNT     = 35;
     private static final long WE_WINDOW_MS = 1_000L; // 1 s
 
-    // ── Detection: Mass break ──────────────────────────────────────────────────
-
     /** Sustained high-rate breaking (includes aggressive hand-griefing). */
     private static final int  MASS_COUNT     = 60;
     private static final long MASS_WINDOW_MS = 8_000L; // 8 s
-
-    // ── Detection: Scatter grief ───────────────────────────────────────────────
 
     /**
      * Breaking {@link #SCATTER_COUNT} blocks across a radius larger than
@@ -82,13 +72,9 @@ public class GrieferModule implements Listener {
     private static final double SCATTER_SPREAD  = 50.0; // blocks (diagonal)
     private static final long   SCATTER_WIND_MS = 30_000L; // 30 s
 
-    // ── Detection: Structure grief ─────────────────────────────────────────────
-
     /** Breaking many non-natural (player-placed) blocks in a window. */
     private static final int  STRUCTURE_COUNT     = 20;
     private static final long STRUCTURE_WINDOW_MS = 60_000L; // 60 s
-
-    // ── Scoring ────────────────────────────────────────────────────────────────
 
     private static final int SCORE_WARN = 60;
     private static final int SCORE_BAN  = 110;
@@ -105,13 +91,9 @@ public class GrieferModule implements Listener {
     private static final long DECAY_INTERVAL_TICKS = 600L; // 30 s
     private static final int  DECAY_AMOUNT         = 8;
 
-    // ── Data lifecycle ─────────────────────────────────────────────────────────
-
     /** Offline player data older than this is removed by the cleanup task. */
     private static final long DATA_MAX_AGE_MS = 120_000L; // 2 min
     private static final long CLEANUP_INTERVAL_TICKS = 12_000L; // 10 min
-
-    // ── State ──────────────────────────────────────────────────────────────────
 
     private static final DateTimeFormatter TIME_FMT =
             DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.of("Asia/Shanghai"));
@@ -133,8 +115,6 @@ public class GrieferModule implements Listener {
         startCleanupTask();
         plugin.getLogger().info("[GrieferModule] 已启动反破坏检测 | Anti-grief detection active.");
     }
-
-    // ── Event handlers ─────────────────────────────────────────────────────────
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
@@ -218,8 +198,6 @@ public class GrieferModule implements Listener {
         if (data != null) data.lastSeen = System.currentTimeMillis();
     }
 
-    // ── Scoring and enforcement ────────────────────────────────────────────────
-
     /**
      * Add suspicion points to a player and enforce bans/warnings as needed.
      *
@@ -289,8 +267,6 @@ public class GrieferModule implements Listener {
                 STAFF_PERMISSION);
     }
 
-    // ── Background tasks ───────────────────────────────────────────────────────
-
     private void startDecayTask() {
         new BukkitRunnable() {
             @Override
@@ -319,8 +295,6 @@ public class GrieferModule implements Listener {
             }
         }.runTaskTimer(plugin, CLEANUP_INTERVAL_TICKS, CLEANUP_INTERVAL_TICKS);
     }
-
-    // ── Utility ────────────────────────────────────────────────────────────────
 
     private boolean shouldMonitor(Player player) {
         return !player.hasPermission(EXEMPT_PERMISSION);
@@ -357,7 +331,6 @@ public class GrieferModule implements Listener {
         if (name.endsWith("_WOOD") && !name.contains("STRIPPED")) return false;
 
         return switch (mat) {
-            // ── Definitely natural terrain ──
             case STONE, GRANITE, DIORITE, ANDESITE,
                  DEEPSLATE, TUFF, CALCITE,
                  DIRT, GRASS_BLOCK, PODZOL, MYCELIUM,
@@ -378,12 +351,9 @@ public class GrieferModule implements Listener {
                  CRIMSON_HYPHAE, WARPED_HYPHAE,
                  CRIMSON_STEM, WARPED_STEM -> false;
 
-            // ── Everything else is considered player-placed ──
             default -> true;
         };
     }
-
-    // ── Inner types ────────────────────────────────────────────────────────────
 
     private enum CooldownKey {
         LAVA, WE, MASS, SCATTER, STRUCTURE

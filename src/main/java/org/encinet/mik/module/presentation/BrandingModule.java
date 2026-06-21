@@ -17,9 +17,6 @@ import org.jspecify.annotations.NonNull;
 
 import java.nio.charset.StandardCharsets;
 
-/**
- * Module for server branding modification via PacketEvents
- */
 public class BrandingModule {
 
     private static final String BRAND_CHANNEL = "minecraft:brand";
@@ -32,43 +29,29 @@ public class BrandingModule {
         this.plugin = plugin;
     }
 
-    /**
-     * Load PacketEvents (called in onLoad)
-     */
     public void load() {
         PacketEvents.setAPI(SpigotPacketEventsBuilder.build(plugin));
         PacketEvents.getAPI().load();
     }
 
-    /**
-     * Enable branding module (called in onEnable)
-     */
     public void enable() {
         PacketEvents.getAPI().init();
 
-        // Prepare custom brand bytes
         byte[] brandBytes = CUSTOM_BRAND.getBytes(StandardCharsets.UTF_8);
         byte[] varIntLength = ProtocolUtil.encodeVarInt(brandBytes.length);
         customBrandBytes = new byte[varIntLength.length + brandBytes.length];
         System.arraycopy(varIntLength, 0, customBrandBytes, 0, varIntLength.length);
         System.arraycopy(brandBytes, 0, customBrandBytes, varIntLength.length, brandBytes.length);
 
-        // Register packet listener
         PacketEvents.getAPI().getEventManager().registerListener(
                 new BrandPacketListener()
         );
     }
 
-    /**
-     * Disable branding module (called in onDisable)
-     */
     public void disable() {
         PacketEvents.getAPI().terminate();
     }
 
-    /**
-     * Packet listener for brand modification
-     */
     private class BrandPacketListener extends PacketListenerAbstract {
 
         public BrandPacketListener() {

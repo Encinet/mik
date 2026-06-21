@@ -84,11 +84,7 @@ public class AutoPromoteModule implements Listener {
         this.plugin = plugin;
     }
 
-    /**
-     * Enable auto-promote module (called in onEnable)
-     */
     public void enable() {
-        // Get LuckPerms API
         RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
         if (provider == null) {
             plugin.getLogger().warning("LuckPerms not found! AutoPromoteModule disabled.");
@@ -96,7 +92,6 @@ public class AutoPromoteModule implements Listener {
         }
         luckPerms = provider.getProvider();
 
-        // Register event listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
         plugin.getLogger().info("AutoPromoteModule enabled");
     }

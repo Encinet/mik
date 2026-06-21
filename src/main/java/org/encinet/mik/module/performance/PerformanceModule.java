@@ -74,11 +74,10 @@ public class PerformanceModule implements Listener {
                 plugin.getServer().getViewDistance(),
                 plugin.getServer().getSimulationDistance());
         this.pressureController = new ChunkPressureController();
-
-        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public void start() {
+        Bukkit.getPluginManager().registerEvents(this, plugin);
         distanceController.primeOnlinePlayers();
         guardTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
                 plugin, this::tick, INITIAL_DELAY_TICKS, CHECK_INTERVAL_TICKS);
@@ -171,8 +170,6 @@ public class PerformanceModule implements Listener {
         });
     }
 
-    // ── Event handlers ──────────────────────────────────────────────────────
-
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         distanceController.track(event.getPlayer(), lastEffectiveMspt);
@@ -253,8 +250,6 @@ public class PerformanceModule implements Listener {
         return liveFrozen || lastEffectiveMspt >= THRESHOLD_CHUNK_GUARD;
     }
 
-    // ── Inner classes ───────────────────────────────────────────────────────
-
     /**
      * EMA smoothing + linear-regression trend over a sliding window.
      * Only accessed from the single async guardian task.
@@ -318,11 +313,9 @@ public class PerformanceModule implements Listener {
 
         enum Decision {FREEZE, UNFREEZE, HOLD}
 
-        // Thresholds
         private static final double MSPT_FREEZE_REDSTONE = 48.0;
         private static final double MSPT_UNFREEZE = 38.0;  // hysteresis gap = 10 ms
 
-        // Debounce
         private static final int FREEZE_CONFIRM = 3;  // ~6 s
         private static final int UNFREEZE_CONFIRM = 5;  // ~10 s
 
@@ -439,10 +432,8 @@ public class PerformanceModule implements Listener {
         RandomTickAdjuster(List<World> worlds) {
             for (World w : worlds) {
                 Integer v = w.getGameRuleValue(GameRules.RANDOM_TICK_SPEED);
-                if (v != null) {
-                    originals.put(w, v);
-                    applied.put(w, v);
-                }
+                originals.put(w, v);
+                applied.put(w, v);
             }
         }
 

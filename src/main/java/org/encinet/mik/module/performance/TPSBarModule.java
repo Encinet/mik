@@ -20,12 +20,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Module for TPS bar display
- */
 public class TPSBarModule {
 
-    // Configuration
     public static String commandTPSBarTitle = "<gray>TPS<yellow>:</yellow> <tps> MSPT<yellow>:</yellow> <mspt> Ping<yellow>:</yellow> <ping>ms";
     public static BossBar.Overlay commandTPSBarProgressOverlay = BossBar.Overlay.NOTCHED_20;
     public static FillMode commandTPSBarProgressFillMode = FillMode.MSPT;
@@ -57,9 +53,6 @@ public class TPSBarModule {
         this.playerBossBars = new ConcurrentHashMap<>();
     }
 
-    /**
-     * Start the TPS bar update task
-     */
     public void start() {
         this.updateTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (++tick < commandTPSBarTickInterval) {
@@ -74,9 +67,6 @@ public class TPSBarModule {
         }, 0L, 1L);
     }
 
-    /**
-     * Stop the TPS bar update task
-     */
     public void stop() {
         if (updateTask != null) {
             updateTask.cancel();
@@ -85,9 +75,6 @@ public class TPSBarModule {
         playerBossBars.clear();
     }
 
-    /**
-     * Register commands
-     */
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final Commands commands = event.registrar();
