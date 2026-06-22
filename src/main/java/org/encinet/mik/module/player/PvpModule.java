@@ -15,6 +15,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.AreaEffectCloud;
+import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -23,7 +24,9 @@ import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityCombustByEntityEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -315,7 +318,7 @@ public class PvpModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        Player attacker = attackingPlayer(event.getDamager());
+        AttackSource attacker = attackingPlayer(event);
         if (attacker == null) return;
 
         Entity target = event.getEntity();
@@ -326,7 +329,7 @@ public class PvpModule implements Listener {
 
         if (isProtectedMob(attacker, target)) {
             event.setCancelled(true);
-            attacker.sendActionBar(mm(attacker, Message.PVP_MOB_PROTECTED_ACTIONBAR_MM));
+            sendActionBar(attacker, Message.PVP_MOB_PROTECTED_ACTIONBAR_MM);
         }
     }
 
@@ -335,16 +338,38 @@ public class PvpModule implements Listener {
         if (!(event.getEntity() instanceof Player victim)) return;
         if (event.getFinalDamage() <= 0) return;
 
-        Player attacker = attackingPlayer(event.getDamager());
-        if (attacker == null || attacker.getUniqueId().equals(victim.getUniqueId())) {
+        AttackSource attacker = attackingPlayer(event);
+        if (attacker == null || attacker.playerId().equals(victim.getUniqueId())) {
             return;
         }
-        if (!settings(attacker.getUniqueId()).enabled() || !settings(victim.getUniqueId()).enabled()) {
+        if (!settings(attacker.playerId()).enabled() || !settings(victim.getUniqueId()).enabled()) {
             return;
         }
 
-        markCombat(attacker);
-        markCombat(victim);
+        markCombat(attacker.playerId());
+        markCombat(victim.getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onEntityCombustByEntity(EntityCombustByEntityEvent event) {
+        AttackSource attacker = attackingPlayer(event.getCombuster());
+        if (attacker == null) return;
+
+        if (isProtectedMob(attacker, event.getEntity())) {
+            event.setCancelled(true);
+            sendActionBar(attacker, Message.PVP_MOB_PROTECTED_ACTIONBAR_MM);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onEntityTargetLivingEntity(EntityTargetLivingEntityEvent event) {
+        AttackSource attacker = attackingPlayer(event.getEntity());
+        if (attacker == null || event.getTarget() == null) return;
+
+        if (isProtectedMob(attacker, event.getTarget())) {
+            event.setCancelled(true);
+            event.setTarget(null);
+        }
     }
 
     @EventHandler
@@ -458,16 +483,16 @@ public class PvpModule implements Listener {
                 .build();
     }
 
-    private void handlePlayerDamage(EntityDamageByEntityEvent event, Player attacker, Player victim) {
-        if (attacker.getUniqueId().equals(victim.getUniqueId())) {
+    private void handlePlayerDamage(EntityDamageByEntityEvent event, AttackSource attacker, Player victim) {
+        if (attacker.playerId().equals(victim.getUniqueId())) {
             return;
         }
 
-        PvpSettings attackerSettings = settings(attacker.getUniqueId());
+        PvpSettings attackerSettings = settings(attacker.playerId());
         PvpSettings victimSettings = settings(victim.getUniqueId());
         if (!victimSettings.enabled()) {
             event.setCancelled(true);
-            attacker.sendActionBar(mm(attacker, Message.PVP_TARGET_DISABLED_ACTIONBAR_MM));
+            sendActionBar(attacker, Message.PVP_TARGET_DISABLED_ACTIONBAR_MM);
             return;
         }
 
@@ -475,26 +500,31 @@ public class PvpModule implements Listener {
             return;
         }
 
-        PendingAttack pending = pendingAutoEnable.get(attacker.getUniqueId());
-        long now = System.currentTimeMillis();
-        if (pending != null && pending.targetId().equals(victim.getUniqueId()) && pending.expiresAt() >= now) {
-            saveSettings(attacker.getUniqueId(), attackerSettings.withEnabled(true));
-            pendingAutoEnable.remove(attacker.getUniqueId());
-            attacker.sendActionBar(mm(attacker, Message.PVP_AUTO_ENABLED_ACTIONBAR_MM));
+        if (attacker.player() == null) {
+            event.setCancelled(true);
             return;
         }
 
-        pendingAutoEnable.put(attacker.getUniqueId(), new PendingAttack(victim.getUniqueId(), now + AUTO_ENABLE_WINDOW_MILLIS));
+        PendingAttack pending = pendingAutoEnable.get(attacker.playerId());
+        long now = System.currentTimeMillis();
+        if (pending != null && pending.targetId().equals(victim.getUniqueId()) && pending.expiresAt() >= now) {
+            saveSettings(attacker.playerId(), attackerSettings.withEnabled(true));
+            pendingAutoEnable.remove(attacker.playerId());
+            sendActionBar(attacker, Message.PVP_AUTO_ENABLED_ACTIONBAR_MM);
+            return;
+        }
+
+        pendingAutoEnable.put(attacker.playerId(), new PendingAttack(victim.getUniqueId(), now + AUTO_ENABLE_WINDOW_MILLIS));
         event.setCancelled(true);
-        attacker.sendActionBar(mm(attacker, Message.PVP_AUTO_ENABLE_WARNING_ACTIONBAR_MM));
+        sendActionBar(attacker, Message.PVP_AUTO_ENABLE_WARNING_ACTIONBAR_MM);
     }
 
-    private boolean isProtectedMob(Player attacker, Entity target) {
-        if (target instanceof Tameable tameable && tameable.isTamed() && tameable.getOwner() != null) {
-            UUID ownerId = tameable.getOwner().getUniqueId();
-            if (!ownerId.equals(attacker.getUniqueId())) {
+    private boolean isProtectedMob(AttackSource attacker, Entity target) {
+        if (target instanceof Tameable tameable && tameable.isTamed() && tameable.getOwnerUniqueId() != null) {
+            UUID ownerId = tameable.getOwnerUniqueId();
+            if (!ownerId.equals(attacker.playerId())) {
                 PvpSettings ownerSettings = settings(ownerId);
-                if (ownerSettings.enabled() && ownerSettings.protectMobs()) {
+                if (ownerSettings.protectMobs()) {
                     return true;
                 }
             }
@@ -504,11 +534,11 @@ public class PvpModule implements Listener {
             if (!(passenger instanceof Player rider)) {
                 continue;
             }
-            if (rider.getUniqueId().equals(attacker.getUniqueId())) {
+            if (rider.getUniqueId().equals(attacker.playerId())) {
                 continue;
             }
             PvpSettings riderSettings = settings(rider.getUniqueId());
-            PvpSettings attackerSettings = settings(attacker.getUniqueId());
+            PvpSettings attackerSettings = settings(attacker.playerId());
             boolean mountedDamageAllowed = riderSettings.enabled()
                     && attackerSettings.enabled()
                     && riderSettings.allowMountedMobDamage();
@@ -519,26 +549,47 @@ public class PvpModule implements Listener {
         return false;
     }
 
-    private Player attackingPlayer(Entity damager) {
+    private AttackSource attackingPlayer(EntityDamageByEntityEvent event) {
+        AttackSource source = attackingPlayer(event.getDamageSource().getCausingEntity());
+        if (source != null) {
+            return source;
+        }
+        source = attackingPlayer(event.getDamageSource().getDirectEntity());
+        if (source != null) {
+            return source;
+        }
+        return attackingPlayer(event.getDamager());
+    }
+
+    private AttackSource attackingPlayer(Entity damager) {
         if (damager instanceof Player player) {
-            return player;
+            return new AttackSource(player.getUniqueId(), player);
         }
         if (damager instanceof Projectile projectile) {
-            ProjectileSource shooter = projectile.getShooter();
-            if (shooter instanceof Player player) {
-                return player;
-            }
+            return attackingPlayer(projectile.getShooter());
         }
         if (damager instanceof AreaEffectCloud cloud) {
-            ProjectileSource source = cloud.getSource();
-            if (source instanceof Player player) {
-                return player;
-            }
+            return attackingPlayer(cloud.getSource());
         }
-        if (damager instanceof TNTPrimed tnt && tnt.getSource() instanceof Player player) {
-            return player;
+        if (damager instanceof TNTPrimed tnt) {
+            return attackingPlayer(tnt.getSource());
+        }
+        if (damager instanceof Tameable tameable && tameable.isTamed() && tameable.getOwnerUniqueId() != null) {
+            AnimalTamer owner = tameable.getOwner();
+            Player onlineOwner = owner instanceof Player player ? player : Bukkit.getPlayer(tameable.getOwnerUniqueId());
+            return new AttackSource(tameable.getOwnerUniqueId(), onlineOwner);
         }
         return null;
+    }
+
+    private AttackSource attackingPlayer(ProjectileSource source) {
+        return source instanceof Entity entity ? attackingPlayer(entity) : null;
+    }
+
+    private void sendActionBar(AttackSource source, Message message) {
+        if (source.player() != null) {
+            source.player().sendActionBar(mm(source.player(), message));
+        }
     }
 
     private Player requirePlayer(CommandSender sender) {
@@ -796,8 +847,8 @@ public class PvpModule implements Listener {
         }
     }
 
-    private void markCombat(Player player) {
-        combatTaggedUntil.put(player.getUniqueId(), System.currentTimeMillis() + COMBAT_TAG_DURATION_MILLIS);
+    private void markCombat(UUID playerId) {
+        combatTaggedUntil.put(playerId, System.currentTimeMillis() + COMBAT_TAG_DURATION_MILLIS);
     }
 
     private boolean isCombatTagged(UUID playerId) {
@@ -898,6 +949,9 @@ public class PvpModule implements Listener {
     }
 
     private record PendingAttack(UUID targetId, long expiresAt) {
+    }
+
+    private record AttackSource(UUID playerId, Player player) {
     }
 
     private enum SettingKey {
