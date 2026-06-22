@@ -322,35 +322,23 @@ public class AnnouncementModule implements Listener {
         inv.setItem(0, canMoveMonthBack
                 ? actionItem(Material.ARROW,
                 Component.text("上个月", NamedTextColor.AQUA).decorate(TextDecoration.BOLD),
-                List.of(
-                        Component.text("切换到更早的月份", NamedTextColor.GRAY),
-                        Component.text("仍在同一个菜单内查看", NamedTextColor.GRAY)
-                ),
+                List.of(),
                 "month_prev")
                 : disabledItem(Component.text("上个月", NamedTextColor.GRAY),
                 List.of(Component.text("没有更早的月份", NamedTextColor.GRAY))));
         inv.setItem(2, actionItem(Material.COMPASS,
                 Component.text("全部公告", NamedTextColor.GOLD).decorate(TextDecoration.BOLD),
-                List.of(
-                        Component.text("查看所有公告，按时间倒序排列", NamedTextColor.GRAY),
-                        Component.text("当前范围：" + rangeLabel(state.monthFilter()), NamedTextColor.GRAY)
-                ),
+                List.of(Component.text("当前范围：" + rangeLabel(state.monthFilter()), NamedTextColor.GRAY)),
                 "all"));
         inv.setItem(4, buildSummaryItem(state, visibleCount, totalPages));
         inv.setItem(6, actionItem(Material.CLOCK,
                 Component.text("最新月份", NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
-                List.of(
-                        Component.text("快速切换到最近有公告的月份", NamedTextColor.GRAY),
-                        Component.text("适合只看近期更新", NamedTextColor.GRAY)
-                ),
+                List.of(),
                 "latest_month"));
         inv.setItem(8, canMoveMonthForward
                 ? actionItem(Material.ARROW,
                 Component.text("下个月", NamedTextColor.AQUA).decorate(TextDecoration.BOLD),
-                List.of(
-                        Component.text("切换到更晚的月份", NamedTextColor.GRAY),
-                        Component.text("仍在同一个菜单内查看", NamedTextColor.GRAY)
-                ),
+                List.of(),
                 "month_next")
                 : disabledItem(Component.text("下个月", NamedTextColor.GRAY),
                 List.of(Component.text("没有更晚的月份", NamedTextColor.GRAY))));
@@ -377,13 +365,6 @@ public class AnnouncementModule implements Listener {
                 List.of(Component.text("第 " + (page + 1) + " / " + totalPages + " 页", NamedTextColor.GRAY)),
                 "page_prev") : disabledItem(Component.text("上一页", NamedTextColor.GRAY),
                 List.of(Component.text("已经是第一页", NamedTextColor.GRAY))));
-        inv.setItem(49, simpleItem(Material.BOOK,
-                Component.text("操作说明", NamedTextColor.GOLD).decorate(TextDecoration.BOLD),
-                List.of(
-                        Component.text("公告内容直接显示在中间区域", NamedTextColor.GRAY),
-                        Component.text("顶部切换范围，底部切换页码", NamedTextColor.GRAY),
-                        Component.text("不会再打开第二层菜单", NamedTextColor.GRAY)
-                )));
         if (canReload) {
             inv.setItem(51, actionItem(Material.LIME_DYE,
                     Component.text("重新加载公告", NamedTextColor.GREEN).decorate(TextDecoration.BOLD),
@@ -406,9 +387,6 @@ public class AnnouncementModule implements Listener {
                 .decoration(TextDecoration.ITALIC, false));
         lore.add(Component.text("页数：" + Math.max(1, state.page() + 1) + " / " + totalPages, NamedTextColor.GRAY)
                 .decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.empty());
-        lore.add(Component.text("所有操作都在这个菜单内完成", NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false));
 
         return simpleItem(Material.WRITABLE_BOOK,
                 Component.text("服务器公告", NamedTextColor.GOLD).decorate(TextDecoration.BOLD),
@@ -426,9 +404,6 @@ public class AnnouncementModule implements Listener {
                 .decoration(TextDecoration.ITALIC, false));
         lore.add(Component.empty());
         lore.addAll(wrapToLore(a.content()));
-        lore.add(Component.empty());
-        lore.add(Component.text("完整公告已在此显示", NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false));
 
         return MenuItems.item(Material.PAPER, Component.text(dateStr, NamedTextColor.GOLD).decorate(TextDecoration.BOLD), lore);
     }

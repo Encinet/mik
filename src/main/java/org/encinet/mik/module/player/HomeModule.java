@@ -448,9 +448,7 @@ public class HomeModule implements Listener {
         int max = getMaxHomes(player);
         return MenuItems.item(Material.COMPASS,
                 Component.text(languageService.t(player, Message.HOME_SUMMARY_TITLE), NamedTextColor.AQUA), List.of(
-                Component.text(languageService.t(player, Message.HOME_SUMMARY_COUNT, homeCount, max), NamedTextColor.GRAY),
-                Component.text(languageService.t(player, Message.HOME_SUMMARY_ACTIONS), NamedTextColor.GRAY),
-                Component.text(languageService.t(player, Message.HOME_SUMMARY_SHIFT_ACTIONS), NamedTextColor.GRAY)
+                Component.text(languageService.t(player, Message.HOME_SUMMARY_COUNT, homeCount, max), NamedTextColor.GRAY)
         ));
     }
 

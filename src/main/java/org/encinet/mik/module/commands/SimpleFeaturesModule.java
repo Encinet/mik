@@ -10,8 +10,10 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
@@ -19,6 +21,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
@@ -30,6 +33,7 @@ import java.util.List;
 
 public class SimpleFeaturesModule {
 
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final String SPAWN_WORLD = "world";
     private static final double SPAWN_X = 33.5;
     private static final double SPAWN_Y = 63.5;
@@ -74,6 +78,18 @@ public class SimpleFeaturesModule {
                         }
                         return Command.SINGLE_SUCCESS;
                     }).build(), languageService.t(Language.DEFAULT, Message.SPAWN_COMMAND_DESCRIPTION), List.of("lobby"));
+
+            // Register /hat command
+            commands.register(Commands.literal("hat")
+                    .executes(ctx -> {
+                        CommandSender sender = ctx.getSource().getSender();
+                        Entity executor = ctx.getSource().getExecutor();
+                        if (executor instanceof Player player) {
+                            return wearHat(player);
+                        }
+                        sender.sendMessage(playerOnlyMessage());
+                        return 0;
+                    }).build(), languageService.t(Language.DEFAULT, Message.HAT_COMMAND_DESCRIPTION), List.of("head"));
 
             // Register /tpany command
             commands.register(
@@ -191,6 +207,28 @@ public class SimpleFeaturesModule {
         sender.sendMessage(removeItemsMessage(sender, world.getName(), posInfo, count, radius));
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    private int wearHat(Player player) {
+        ItemStack hand = player.getInventory().getItemInMainHand();
+        if (isEmpty(hand)) {
+            player.sendMessage(mm(player, Message.HAT_EMPTY_HAND_MM));
+            return 0;
+        }
+
+        ItemStack helmet = player.getInventory().getHelmet();
+        player.getInventory().setHelmet(hand.clone());
+        player.getInventory().setItemInMainHand(isEmpty(helmet) ? new ItemStack(Material.AIR) : helmet.clone());
+        player.sendMessage(mm(player, Message.HAT_SUCCESS_MM));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private boolean isEmpty(ItemStack item) {
+        return item == null || item.getType().isAir();
+    }
+
+    private Component mm(Player player, Message message, Object... args) {
+        return MINI_MESSAGE.deserialize(languageService.t(player, message, args));
     }
 
     private void sendTpanyUsage(CommandSender sender) {

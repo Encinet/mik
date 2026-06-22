@@ -24,6 +24,7 @@ import org.encinet.mik.module.player.InvisibilityNotifyModule;
 import org.encinet.mik.module.player.NameTagModule;
 import org.encinet.mik.module.player.PlayerBoundaryModule;
 import org.encinet.mik.module.player.MainMenuModule;
+import org.encinet.mik.module.player.PvpModule;
 import org.encinet.mik.module.player.TabListModule;
 import org.encinet.mik.module.player.TeleportPreferenceModule;
 import org.encinet.mik.module.presentation.BrandingModule;
@@ -65,6 +66,7 @@ public final class Mik extends JavaPlugin {
     private MainMenuModule mainMenuModule;
     private InvisibilityNotifyModule invisibilityNotifyModule;
     private TeleportPreferenceModule teleportPreferenceModule;
+    private PvpModule pvpModule;
     private ClientVersionReminderModule clientVersionReminderModule;
     private MenuNavigation menuNavigation;
     private LanguageService languageService;
@@ -87,6 +89,7 @@ public final class Mik extends JavaPlugin {
 
         languageService = new LanguageService(this, menuNavigation);
         languageService.enable();
+        languageService.registerCommands(this.getLifecycleManager());
 
         afkModule = new AfkModule(this, languageService);
         afkModule.enable();
@@ -101,6 +104,10 @@ public final class Mik extends JavaPlugin {
         teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation, languageService);
         teleportPreferenceModule.enable();
 
+        pvpModule = new PvpModule(this, menuNavigation, languageService);
+        pvpModule.enable();
+        pvpModule.registerCommands(this.getLifecycleManager());
+
         if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
             clientVersionReminderModule = new ClientVersionReminderModule(this, languageService);
             clientVersionReminderModule.enable();
@@ -109,7 +116,7 @@ public final class Mik extends JavaPlugin {
         }
 
         mainMenuModule = new MainMenuModule(this, afkModule, mentionModule, teleportPreferenceModule,
-                menuNavigation, languageService, clientVersionReminderModule);
+                pvpModule, menuNavigation, languageService, clientVersionReminderModule);
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
 

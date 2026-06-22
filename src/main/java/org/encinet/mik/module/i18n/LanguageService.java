@@ -1,5 +1,9 @@
 package org.encinet.mik.module.i18n;
 
+import com.mojang.brigadier.Command;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
@@ -22,6 +26,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.menu.MenuBuilder;
 import org.encinet.mik.module.menu.MenuItems;
@@ -83,6 +88,19 @@ public class LanguageService implements Listener {
         languageData = YamlConfiguration.loadConfiguration(languageFile);
         Bukkit.getPluginManager().registerEvents(this, plugin);
         plugin.getLogger().info("Language service enabled");
+    }
+
+    public void registerCommands(LifecycleEventManager<Plugin> manager) {
+        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(Commands.literal("lang")
+                .executes(ctx -> {
+                    if (ctx.getSource().getSender() instanceof Player player) {
+                        openMenu(player);
+                    } else {
+                        ctx.getSource().getSender().sendMessage(Component.text(t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED));
+                    }
+                    return Command.SINGLE_SUCCESS;
+                })
+                .build(), t(Language.DEFAULT, Message.LANGUAGE_COMMAND_DESCRIPTION)));
     }
 
     @EventHandler

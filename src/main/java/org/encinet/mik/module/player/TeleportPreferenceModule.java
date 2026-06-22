@@ -196,8 +196,9 @@ public class TeleportPreferenceModule implements Listener {
     }
 
     private ItemStack sectionItem(Player player) {
-        return MenuItems.item(Material.SHIELD, Component.text(languageService.t(player, Message.TELEPORT_MENU_TITLE), NamedTextColor.GOLD),
-                List.of(Component.text(languageService.t(player, Message.TELEPORT_SECTION_LORE), NamedTextColor.GRAY)));
+        return MenuItems.item(Material.SHIELD,
+                Component.text(languageService.t(player, Message.TELEPORT_MENU_TITLE), NamedTextColor.GOLD),
+                List.of());
     }
 
     private ItemStack toggleItem(Player player, SettingKey settingKey, boolean enabled) {

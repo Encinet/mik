@@ -50,6 +50,7 @@ public class MainMenuModule implements Listener {
     private static final String ACTION_CLOSE = "close";
     private static final String ACTION_OPEN_MENTION = "open:mention";
     private static final String ACTION_OPEN_TELEPORT = "open:teleport";
+    private static final String ACTION_OPEN_PVP = "open:pvp";
     private static final String ACTION_OPEN_LANGUAGE = "open:language";
     private static final String ACTION_OPEN_WEBSITE = "open:url:website";
     private static final String ACTION_OPEN_MAP = "open:url:map";
@@ -63,18 +64,20 @@ public class MainMenuModule implements Listener {
     private final AfkService afkService;
     private final MentionModule mentionModule;
     private final TeleportPreferenceModule teleportPreferenceModule;
+    private final PvpModule pvpModule;
     private final MenuNavigation menuNavigation;
     private final LanguageService languageService;
     private final ClientVersionReminderModule clientVersionReminderModule;
     private final NamespacedKey actionKey;
 
     public MainMenuModule(JavaPlugin plugin, AfkService afkService, MentionModule mentionModule,
-                          TeleportPreferenceModule teleportPreferenceModule, MenuNavigation menuNavigation,
+                          TeleportPreferenceModule teleportPreferenceModule, PvpModule pvpModule, MenuNavigation menuNavigation,
                           LanguageService languageService, ClientVersionReminderModule clientVersionReminderModule) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.mentionModule = mentionModule;
         this.teleportPreferenceModule = teleportPreferenceModule;
+        this.pvpModule = pvpModule;
         this.menuNavigation = menuNavigation;
         this.languageService = languageService;
         this.clientVersionReminderModule = clientVersionReminderModule;
@@ -133,6 +136,15 @@ public class MainMenuModule implements Listener {
                 teleportPreferenceModule.openMenu(player);
                 return;
             }
+            case ACTION_OPEN_PVP -> {
+                if (event.isRightClick()) {
+                    pvpModule.openMenu(player);
+                } else {
+                    pvpModule.togglePvp(player);
+                    openMenu(player);
+                }
+                return;
+            }
             case ACTION_OPEN_LANGUAGE -> {
                 languageService.openMenu(player);
                 return;
@@ -187,6 +199,7 @@ public class MainMenuModule implements Listener {
                 .item(47, commandItem(player, Material.RED_BED, Message.MAIN_HOME, "/home", List.of(Message.MAIN_HOME_LORE)))
                 .item(48, commandItem(player, Material.PAPER, Message.MAIN_ANNOUNCEMENTS, "/announcements", List.of(Message.MAIN_ANNOUNCEMENTS_LORE)))
                 .item(49, musicMenuItem(player))
+                .item(50, pvpMenuItem(player))
                 .item(53, closeItem(player))
                 .open(player);
     }
@@ -210,6 +223,7 @@ public class MainMenuModule implements Listener {
             Inventory inventory = player.getOpenInventory().getTopInventory();
             inventory.setItem(22, playerSummaryItem(player));
             inventory.setItem(45, afkStatusItem(player));
+            inventory.setItem(50, pvpMenuItem(player));
         }
     }
 
@@ -268,6 +282,18 @@ public class MainMenuModule implements Listener {
                 Component.empty(),
                 Component.text(languageService.t(player, Message.CLICK_SET), NamedTextColor.YELLOW)
         ), actionKey, ACTION_OPEN_TELEPORT);
+    }
+
+    private ItemStack pvpMenuItem(Player player) {
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(languageService.t(player, Message.MAIN_PVP_LORE), NamedTextColor.GRAY));
+        lore.add(pvpModule.stateLine(player, Message.PVP_STATE_LABEL, pvpModule.isEnabled(player)));
+        lore.add(Component.empty());
+        lore.add(Component.text(languageService.t(player, Message.MAIN_PVP_LEFT_CLICK), NamedTextColor.YELLOW));
+        lore.add(Component.text(languageService.t(player, Message.MAIN_PVP_RIGHT_CLICK), NamedTextColor.YELLOW));
+        return MenuItems.action(Material.IRON_SWORD,
+                Component.text(languageService.t(player, Message.MAIN_PVP), pvpModule.isEnabled(player) ? NamedTextColor.GREEN : NamedTextColor.AQUA),
+                lore, actionKey, ACTION_OPEN_PVP);
     }
 
     private ItemStack languageMenuItem(Player player) {

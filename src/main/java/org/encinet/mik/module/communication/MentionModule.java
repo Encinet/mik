@@ -171,8 +171,9 @@ public class MentionModule implements Listener {
     }
 
     private ItemStack sectionItem(Player player) {
-        return MenuItems.item(Material.BELL, Component.text(languageService.t(player, Message.MENTION_MENU_TITLE), NamedTextColor.GOLD),
-                List.of(Component.text(languageService.t(player, Message.MENTION_SECTION_LORE), NamedTextColor.GRAY)));
+        return MenuItems.item(Material.BELL,
+                Component.text(languageService.t(player, Message.MENTION_MENU_TITLE), NamedTextColor.GOLD),
+                List.of());
     }
 
     private ItemStack toggleItem(Player player, SettingKey settingKey, boolean enabled) {
