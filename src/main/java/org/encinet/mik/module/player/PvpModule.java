@@ -70,7 +70,7 @@ public class PvpModule implements Listener {
 
     private static final boolean DEFAULT_PVP_ENABLED = false;
     private static final boolean DEFAULT_PROTECT_MOBS = true;
-    private static final boolean DEFAULT_ALLOW_MOUNTED_DAMAGE = false;
+    private static final boolean DEFAULT_ALLOW_MOUNTED_DAMAGE = true;
     private static final boolean DEFAULT_ENABLE_ON_DEATH = true;
 
     private final JavaPlugin plugin;
@@ -508,7 +508,11 @@ public class PvpModule implements Listener {
                 continue;
             }
             PvpSettings riderSettings = settings(rider.getUniqueId());
-            if (riderSettings.enabled() && riderSettings.protectMobs() && !riderSettings.allowMountedMobDamage()) {
+            PvpSettings attackerSettings = settings(attacker.getUniqueId());
+            boolean mountedDamageAllowed = riderSettings.enabled()
+                    && attackerSettings.enabled()
+                    && riderSettings.allowMountedMobDamage();
+            if (riderSettings.protectMobs() && !mountedDamageAllowed) {
                 return true;
             }
         }
