@@ -36,6 +36,8 @@ public class MotdModule implements Listener, AfkStateListener {
     private static final int MAX_TRACKED_PING_IPS = 2048;
     private static final ZoneId SHANGHAI_ZONE = ZoneId.of("Asia/Shanghai");
     private static final int AFK_EASTER_EGG_MIN_PLAYERS = 3;
+    private static final int NIGHT_EASTER_EGG_ONE_IN = 2;
+    private static final long AMBIENT_MOTD_ROTATION_MS = 10_000L;
 
     private static final Component LINE1_CN = MM.deserialize(
             MotdCenterUtil.center("<gold>米<white>客 <gray>| <green>26.1<gray> | <gold>创意<white>休闲服")
@@ -181,6 +183,9 @@ public class MotdModule implements Listener, AfkStateListener {
     private final HolidayMotdCategory holidayCategory;
     private volatile Component cachedStateMotdCn;
     private volatile Component cachedStateMotdEn;
+    private volatile boolean cachedLateNight;
+    private volatile long nightEasterEggSalt;
+    private volatile long ambientMotdIndexSalt;
     private BukkitTask stateRefreshTask;
 
     public MotdModule(JavaPlugin plugin, AfkService afkService) {
@@ -191,6 +196,9 @@ public class MotdModule implements Listener, AfkStateListener {
     }
 
     public void enable() {
+        ThreadLocalRandom rng = ThreadLocalRandom.current();
+        nightEasterEggSalt = rng.nextLong();
+        ambientMotdIndexSalt = rng.nextLong();
         Bukkit.getPluginManager().registerEvents(this, plugin);
         afkService.addListener(this);
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::cleanup, 1200L, 1200L);
@@ -237,21 +245,51 @@ public class MotdModule implements Listener, AfkStateListener {
         refreshStateMotds();
     }
 
-    private Component resolveMotd(String ip, boolean isCN, Component[] normals, Component[][] eggs, Component stateEgg) {
+    private Component resolveMotd(String ip, boolean isCN, Component[] normals, Component[][] eggs, Component stateMotd) {
         long now = System.currentTimeMillis();
+
+        if (stateMotd != null) {
+            return stateMotd;
+        }
+
+        Component repeatPingMotd = resolveRepeatPingMotd(ip, eggs, now);
+        if (repeatPingMotd != null) {
+            return repeatPingMotd;
+        }
+
+        return resolveAmbientMotd(ip, isCN, normals, now);
+    }
+
+    private Component resolveRepeatPingMotd(String ip, Component[][] eggs, long now) {
+        if (!canTrackPing(ip)) {
+            return null;
+        }
+
+        PingRecord record = updatePingRecord(ip, eggs.length, now);
+        int eggIndex = record.count() - EASTER_EGG_THRESHOLD - 1;
+        Component[] branch = eggs[record.eggBranch()];
+
+        if (record.count() <= EASTER_EGG_THRESHOLD) {
+            return null;
+        }
+
+        if (eggIndex >= branch.length) {
+            pingTracker.remove(ip);
+            return null;
+        }
+
+        return branch[eggIndex];
+    }
+
+    private boolean canTrackPing(String ip) {
+        return pingTracker.containsKey(ip) || pingTracker.mappingCount() < MAX_TRACKED_PING_IPS;
+    }
+
+    private PingRecord updatePingRecord(String ip, int branchCount, long now) {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
-
-        if (stateEgg != null) {
-            return stateEgg;
-        }
-
-        if (pingTracker.size() > MAX_TRACKED_PING_IPS && !pingTracker.containsKey(ip)) {
-            return normals[rng.nextInt(normals.length)];
-        }
-
-        PingRecord record = pingTracker.compute(ip, (k, prev) -> {
+        return pingTracker.compute(ip, (_, prev) -> {
             if (prev == null || now - prev.lastPingAt() > EASTER_EGG_WINDOW_MS) {
-                return new PingRecord(1, now, rng.nextInt(eggs.length));
+                return new PingRecord(1, now, rng.nextInt(branchCount));
             }
             // Browser refreshes often emit duplicate pings within a few ticks.
             if (now - prev.lastPingAt() < DEBOUNCE_MS) {
@@ -259,23 +297,12 @@ public class MotdModule implements Listener, AfkStateListener {
             }
             return new PingRecord(prev.count() + 1, now, prev.eggBranch());
         });
-
-        int eggIndex = record.count() - EASTER_EGG_THRESHOLD - 1;
-        Component[] branch = eggs[record.eggBranch()];
-
-        if (record.count() <= EASTER_EGG_THRESHOLD || eggIndex >= branch.length) {
-            if (eggIndex >= branch.length) {
-                pingTracker.remove(ip);
-            }
-            return normals[rng.nextInt(normals.length)];
-        }
-
-        return branch[eggIndex];
     }
 
     private void refreshStateMotds() {
-        cachedStateMotdCn = resolveStateEgg(true, ThreadLocalRandom.current());
-        cachedStateMotdEn = resolveStateEgg(false, ThreadLocalRandom.current());
+        cachedLateNight = isLateNight(LocalTime.now(SHANGHAI_ZONE));
+        cachedStateMotdCn = resolveStateMotd(true, ThreadLocalRandom.current());
+        cachedStateMotdEn = resolveStateMotd(false, ThreadLocalRandom.current());
         scheduleNextStateRefresh();
     }
 
@@ -306,17 +333,12 @@ public class MotdModule implements Listener, AfkStateListener {
         return nextMidnight;
     }
 
-    private Component resolveStateEgg(boolean isCN, ThreadLocalRandom rng) {
+    private Component resolveStateMotd(boolean isCN, ThreadLocalRandom rng) {
         LocalDate today = LocalDate.now(SHANGHAI_ZONE);
-        LocalTime now = LocalTime.now(SHANGHAI_ZONE);
 
         var holidayMotd = holidayCategory.resolveLine(today, isCN, rng);
         if (holidayMotd.isPresent()) {
             return buildMotd(isCN ? LINE1_CN : LINE1_EN, holidayMotd.get());
-        }
-
-        if (isLateNight(now)) {
-            return randomMotd(isCN ? NIGHT_EGG_MOTDS_CN : NIGHT_EGG_MOTDS_EN, rng);
         }
 
         if (isMostlyAfk()) {
@@ -328,6 +350,34 @@ public class MotdModule implements Listener, AfkStateListener {
 
     private Component randomMotd(Component[] motds, ThreadLocalRandom rng) {
         return motds[rng.nextInt(motds.length)];
+    }
+
+    private Component resolveAmbientMotd(String ip, boolean isCN, Component[] normals, long now) {
+        Component[] motds = normals;
+        if (shouldShowNightEgg(ip, now)) {
+            motds = isCN ? NIGHT_EGG_MOTDS_CN : NIGHT_EGG_MOTDS_EN;
+        }
+        return motds[stableMotdIndex(ip, now, motds.length)];
+    }
+
+    private boolean shouldShowNightEgg(String ip, long now) {
+        return cachedLateNight && stableMotdIndex(ip, now, NIGHT_EASTER_EGG_ONE_IN, nightEasterEggSalt) == 0;
+    }
+
+    private int stableMotdIndex(String ip, long now, int length) {
+        return stableMotdIndex(ip, now, length, ambientMotdIndexSalt);
+    }
+
+    private int stableMotdIndex(String ip, long now, int length, long salt) {
+        long bucket = now / AMBIENT_MOTD_ROTATION_MS;
+        long hash = mix64(salt ^ ip.hashCode() ^ bucket);
+        return (int) Long.remainderUnsigned(hash, length);
+    }
+
+    private long mix64(long value) {
+        value = (value ^ (value >>> 30)) * 0xbf58476d1ce4e5b9L;
+        value = (value ^ (value >>> 27)) * 0x94d049bb133111ebL;
+        return value ^ (value >>> 31);
     }
 
     private boolean isLateNight(LocalTime now) {
