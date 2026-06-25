@@ -4,4 +4,4 @@
 ===
 <green>成员可以使用 /sethome 设置家，之后用 /home 回去</green>
 ===
-<gold>遇到问题时，先查看官网 mik.noctiro.moe，那里通常有最新说明</gold>
+<gold>遇到问题时，先查看官网 mcmik.top，那里通常有最新说明</gold>

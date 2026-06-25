@@ -56,9 +56,9 @@ public class MainMenuModule implements Listener {
     private static final String ACTION_OPEN_MAP = "open:url:map";
     private static final String ACTION_OPEN_WIKI = "open:url:wiki";
     private static final String ACTION_COMMAND_PREFIX = "command:";
-    private static final String URL_WEBSITE = "https://mik.noctiro.moe";
+    private static final String URL_WEBSITE = "https://mcmik.top";
     private static final String URL_MAP = "http://203.135.99.76:34567";
-    private static final String URL_WIKI = "https://mik.noctiro.moe/wiki";
+    private static final String URL_WIKI = "https://mcmik.top/wiki";
 
     private final JavaPlugin plugin;
     private final AfkService afkService;

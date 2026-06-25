@@ -190,7 +190,7 @@ public class WhitelistModule implements Listener {
                 .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_APPLY_SUFFIX), NamedTextColor.GRAY))
                 .appendNewline()
                 .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_WEBSITE_PREFIX), NamedTextColor.GRAY))
-                .append(Component.text("mik.noctiro.moe", NamedTextColor.AQUA))
+                .append(Component.text("mcmik.top", NamedTextColor.AQUA))
                 .build();
     }
 }

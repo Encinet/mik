@@ -173,7 +173,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        distanceController.track(event.getPlayer(), lastEffectiveMspt);
+        distanceController.track(event.getPlayer());
     }
 
     @EventHandler
@@ -481,6 +481,8 @@ public class PerformanceModule implements Listener {
         private static final int PERFORMANCE_SIMULATION_MIN = 4;
         private static final int AFK_RENDER_DISTANCE = 2;
         private static final int AFK_SIMULATION_DISTANCE = 2;
+        private static final int DISTANCE_ADJUST_COOLDOWN_WINDOWS = 15;  // ~30 s
+        private static final int DISTANCE_RECOVERY_CONFIRM_WINDOWS = 5;  // ~10 s
 
         private final AfkService afkService;
         private final int baseRenderDistance;
@@ -488,6 +490,10 @@ public class PerformanceModule implements Listener {
         private final int afkRenderDistance;
         private final int afkSimulationDistance;
         private final Map<UUID, AppliedDistances> appliedDistances = new HashMap<>();
+        private int currentPerformanceRenderDistance;
+        private int currentPerformanceSimulationDistance;
+        private int distanceAdjustCooldown = 0;
+        private int recoveryConfirmCount = 0;
 
         PlayerDistanceController(AfkService afkService, int baseRenderDistance, int baseSimulationDistance) {
             this.afkService = afkService;
@@ -495,6 +501,8 @@ public class PerformanceModule implements Listener {
             this.baseSimulationDistance = Math.max(2, baseSimulationDistance);
             this.afkRenderDistance = Math.clamp(AFK_RENDER_DISTANCE, 2, this.baseRenderDistance);
             this.afkSimulationDistance = Math.clamp(AFK_SIMULATION_DISTANCE, 2, this.baseSimulationDistance);
+            this.currentPerformanceRenderDistance = this.baseRenderDistance;
+            this.currentPerformanceSimulationDistance = this.baseSimulationDistance;
         }
 
         void primeOnlinePlayers() {
@@ -503,10 +511,10 @@ public class PerformanceModule implements Listener {
                     baseSimulationDistance));
         }
 
-        void track(Player player, double effectiveMspt) {
+        void track(Player player) {
             apply(player,
-                    interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN),
-                    interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN));
+                    currentPerformanceRenderDistance,
+                    currentPerformanceSimulationDistance);
         }
 
         void untrack(Player player) {
@@ -516,12 +524,17 @@ public class PerformanceModule implements Listener {
         void adjust(double effectiveMspt) {
             int performanceRender = interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN);
             int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
+            updatePerformanceDistances(performanceRender, performanceSimulation);
             for (Player player : Bukkit.getOnlinePlayers()) {
-                apply(player, performanceRender, performanceSimulation);
+                apply(player, currentPerformanceRenderDistance, currentPerformanceSimulationDistance);
             }
         }
 
         void resetAll() {
+            currentPerformanceRenderDistance = baseRenderDistance;
+            currentPerformanceSimulationDistance = baseSimulationDistance;
+            distanceAdjustCooldown = 0;
+            recoveryConfirmCount = 0;
             for (Player player : Bukkit.getOnlinePlayers()) {
                 applyIfChanged(player, baseRenderDistance, baseSimulationDistance);
             }
@@ -535,6 +548,46 @@ public class PerformanceModule implements Listener {
             }
 
             applyIfChanged(player, performanceRender, performanceSimulation);
+        }
+
+        private void updatePerformanceDistances(int targetRender, int targetSimulation) {
+            if (distanceAdjustCooldown > 0) {
+                distanceAdjustCooldown--;
+            }
+
+            boolean lowering = targetRender < currentPerformanceRenderDistance
+                    || targetSimulation < currentPerformanceSimulationDistance;
+            boolean raising = targetRender > currentPerformanceRenderDistance
+                    || targetSimulation > currentPerformanceSimulationDistance;
+            if (!lowering && !raising) {
+                recoveryConfirmCount = 0;
+                return;
+            }
+
+            if (lowering) {
+                recoveryConfirmCount = 0;
+                if (distanceAdjustCooldown == 0 || isMinimumPerformanceDistance(targetRender, targetSimulation)) {
+                    applyPerformanceDistances(targetRender, targetSimulation);
+                }
+                return;
+            }
+
+            recoveryConfirmCount = Math.min(recoveryConfirmCount + 1, DISTANCE_RECOVERY_CONFIRM_WINDOWS);
+            if (distanceAdjustCooldown == 0 && recoveryConfirmCount >= DISTANCE_RECOVERY_CONFIRM_WINDOWS) {
+                applyPerformanceDistances(targetRender, targetSimulation);
+                recoveryConfirmCount = 0;
+            }
+        }
+
+        private void applyPerformanceDistances(int renderDistance, int simulationDistance) {
+            currentPerformanceRenderDistance = renderDistance;
+            currentPerformanceSimulationDistance = simulationDistance;
+            distanceAdjustCooldown = DISTANCE_ADJUST_COOLDOWN_WINDOWS;
+        }
+
+        private boolean isMinimumPerformanceDistance(int renderDistance, int simulationDistance) {
+            return renderDistance <= Math.clamp(PERFORMANCE_RENDER_MIN, 2, baseRenderDistance)
+                    && simulationDistance <= Math.clamp(PERFORMANCE_SIMULATION_MIN, 2, baseSimulationDistance);
         }
 
         private void applyIfChanged(Player player, int renderDistance, int simulationDistance) {
