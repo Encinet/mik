@@ -170,6 +170,7 @@ public final class Mik extends JavaPlugin {
         apiModule = new ApiModule(this);
         apiModule.setAnnouncementModule(announcementModule);
         apiModule.start(35353);
+        apiModule.registerCommands(this.getLifecycleManager());
 
         whitelistModule = new WhitelistModule(this, languageService);
         whitelistModule.enable();

@@ -1,15 +1,23 @@
 package org.encinet.mik.module.api;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
+import com.mojang.brigadier.Command;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.papermc.paper.ban.BanListType;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.util.HmacTimestamp;
@@ -28,29 +36,22 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 
 public class ApiModule implements Listener {
-    private static final int RATE_LIMIT_REQUESTS = 600;
-    private static final int RATE_LIMIT_WINDOW_SECONDS = 60;
-    private static final int MAX_AUTH_FAILURES = 3;
-    private static final int AUTH_FAILURE_BLOCK_MINUTES = 10;
-    private static final int AUTH_BAN_MAX_SHIFTS = 6;
-    private static final long BAN_HISTORY_RETENTION_MS = 24 * 60 * 60 * 1000L;
+    private static final String AUTH_HEADER = "X-HMAC-Token";
+    private static final String COMMAND_PERMISSION = "mik.command.api";
+    private static final String ROUTES = "/api/players, /api/announcements, /api/bans";
 
     private final JavaPlugin plugin;
+    private final Map<UUID, OnlinePlayerInfo> onlineCache = new ConcurrentHashMap<>();
+
     private HttpServer server;
     private ExecutorService httpExecutor;
-    private String totpSecret;
+    private String hmacSecret;
     private AnnouncementModule announcementModule;
-
-    private record RateLimitInfo(long windowStart, int requestCount) {
-    }
-
-    private record AuthFailureInfo(int failureCount, int banCount, long blockUntil) {
-    }
+    private volatile boolean debugMode;
+    private int listenPort;
 
     private record OnlinePlayerInfo(String name, long joinedAt) {
     }
@@ -59,11 +60,6 @@ public class ApiModule implements Listener {
     private interface ExchangeHandler {
         void handle(HttpExchange exchange) throws IOException;
     }
-
-    private final Map<String, RateLimitInfo> rateLimitMap = new ConcurrentHashMap<>();
-    private final Map<String, AuthFailureInfo> authFailureMap = new ConcurrentHashMap<>();
-    private final Map<UUID, OnlinePlayerInfo> onlineCache = new ConcurrentHashMap<>();
-    private ScheduledExecutorService cleanupExecutor;
 
     public ApiModule(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -75,33 +71,16 @@ public class ApiModule implements Listener {
 
     public void start(int port) {
         plugin.saveDefaultConfig();
+        listenPort = port;
 
-        totpSecret = plugin.getConfig().getString("api.totp-secret", "");
-        if (totpSecret.isEmpty()) {
+        hmacSecret = plugin.getConfig().getString("api.totp-secret", "");
+        if (hmacSecret.isEmpty()) {
             plugin.getLogger().warning("api.totp-secret is not set in config.yml, API server will not start.");
             return;
         }
 
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         bootstrapOnlinePlayers();
-
-        cleanupExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "mik-api-cleanup");
-            t.setDaemon(true);
-            return t;
-        });
-        cleanupExecutor.scheduleAtFixedRate(() -> {
-            long now = System.currentTimeMillis();
-            rateLimitMap.entrySet().removeIf(entry ->
-                    now - entry.getValue().windowStart() > RATE_LIMIT_WINDOW_SECONDS * 1000L);
-            authFailureMap.entrySet().removeIf(entry -> {
-                AuthFailureInfo info = entry.getValue();
-                if (info.banCount() == 0) {
-                    return now > info.blockUntil();
-                }
-                return now > info.blockUntil() + BAN_HISTORY_RETENTION_MS;
-            });
-        }, 1, 1, TimeUnit.MINUTES);
 
         try {
             server = HttpServer.create(new InetSocketAddress(port), 0);
@@ -111,7 +90,8 @@ public class ApiModule implements Listener {
                     exchange -> sendJson(exchange, 200, announcementModule.getAnnouncementsJson(), null));
             createAuthorizedContext("/api/bans", "GET", this::handleBans);
 
-            server.createContext("/", ApiModule::drop);
+            server.createContext("/", exchange -> fail(exchange, 404, "unknown_path",
+                    "Unknown API path: " + exchange.getRequestURI().getPath(), null));
 
             httpExecutor = Executors.newFixedThreadPool(4);
             server.setExecutor(httpExecutor);
@@ -120,6 +100,90 @@ public class ApiModule implements Listener {
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to start API server: " + e.getMessage());
         }
+    }
+
+    public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
+        lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
+                Commands.literal("mikapi")
+                        .requires(source -> source.getSender().hasPermission(COMMAND_PERMISSION))
+                        .executes(ctx -> {
+                            sendStatus(ctx.getSource().getSender());
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.literal("status")
+                                .executes(ctx -> {
+                                    sendStatus(ctx.getSource().getSender());
+                                    return Command.SINGLE_SUCCESS;
+                                }))
+                        .then(Commands.literal("on")
+                                .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), true)))
+                        .then(Commands.literal("off")
+                                .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), false)))
+                        .then(Commands.literal("debug")
+                                .executes(ctx -> {
+                                    sendStatus(ctx.getSource().getSender());
+                                    return Command.SINGLE_SUCCESS;
+                                })
+                                .then(Commands.literal("on")
+                                        .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), true)))
+                                .then(Commands.literal("off")
+                                        .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), false))))
+                        .then(Commands.literal("clear")
+                                .executes(ctx -> {
+                                    clearRuntimeState();
+                                    ctx.getSource().getSender().sendMessage(Component.text(
+                                            "Mik API runtime state cleared.", NamedTextColor.GREEN));
+                                    return Command.SINGLE_SUCCESS;
+                                }))
+                        .build(), "Manage Mik API debug mode"));
+    }
+
+    private int setDebugModeCommand(CommandSender sender, boolean enabled) {
+        setDebugMode(enabled);
+        sender.sendMessage(Component.text("Mik API debug mode "
+                        + (enabled ? "enabled." : "disabled."), enabled ? NamedTextColor.GREEN : NamedTextColor.YELLOW)
+                .append(Component.newline())
+                .append(statusComponent()));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void sendStatus(CommandSender sender) {
+        sender.sendMessage(statusComponent());
+    }
+
+    private Component statusComponent() {
+        boolean running = server != null && httpExecutor != null && !httpExecutor.isShutdown();
+        boolean secretConfigured = hmacSecret != null && !hmacSecret.isBlank();
+
+        return Component.text("Mik API status", NamedTextColor.AQUA)
+                .append(Component.newline())
+                .append(Component.text("Server: " + (running ? "running" : "stopped")
+                        + " port=" + listenPort, running ? NamedTextColor.GREEN : NamedTextColor.RED))
+                .append(Component.newline())
+                .append(Component.text("Debug mode: " + (debugMode ? "enabled" : "disabled"),
+                        debugMode ? NamedTextColor.GREEN : NamedTextColor.YELLOW))
+                .append(Component.newline())
+                .append(Component.text("External errors: "
+                        + (debugMode ? "JSON details" : "silent drop"), NamedTextColor.GRAY))
+                .append(Component.newline())
+                .append(Component.text("Auth header: " + AUTH_HEADER, NamedTextColor.GRAY))
+                .append(Component.newline())
+                .append(Component.text("Secret configured: " + (secretConfigured ? "yes" : "no"),
+                        secretConfigured ? NamedTextColor.GREEN : NamedTextColor.RED))
+                .append(Component.newline())
+                .append(Component.text("Online cache: " + onlineCache.size() + " player(s)", NamedTextColor.GRAY))
+                .append(Component.newline())
+                .append(Component.text("Routes: " + ROUTES, NamedTextColor.GRAY));
+    }
+
+    private void setDebugMode(boolean enabled) {
+        debugMode = enabled;
+        clearRuntimeState();
+        plugin.getLogger().info("API debug mode " + (enabled ? "enabled" : "disabled") + "; runtime state cleared.");
+    }
+
+    private void clearRuntimeState() {
+        bootstrapOnlinePlayers();
     }
 
     @EventHandler
@@ -134,6 +198,7 @@ public class ApiModule implements Listener {
     }
 
     private void bootstrapOnlinePlayers() {
+        onlineCache.clear();
         long now = Instant.now().getEpochSecond();
         for (Player player : Bukkit.getOnlinePlayers()) {
             onlineCache.put(player.getUniqueId(), new OnlinePlayerInfo(player.getName(), now));
@@ -203,86 +268,90 @@ public class ApiModule implements Listener {
 
     private void createAuthorizedContext(String path, String method, ExchangeHandler handler) {
         server.createContext(path, exchange -> {
-            if (!authorize(exchange, method)) {
-                return;
+            try {
+                if (!exchange.getRequestURI().getPath().equals(path)) {
+                    fail(exchange, 404, "invalid_path",
+                            "Expected path " + path + " but got " + exchange.getRequestURI().getPath(), null);
+                    return;
+                }
+
+                if (!exchange.getRequestMethod().equalsIgnoreCase(method)) {
+                    fail(exchange, 405, "invalid_method",
+                            "Expected method " + method + " but got " + exchange.getRequestMethod(), null);
+                    return;
+                }
+
+                String token = exchange.getRequestHeaders().getFirst(AUTH_HEADER);
+                if (!HmacTimestamp.verify(hmacSecret, token)) {
+                    fail(exchange, 403, authFailureReason(token), authFailureMessage(token), null);
+                    return;
+                }
+
+                handler.handle(exchange);
+            } catch (Exception error) {
+                fail(exchange, 500, "internal_error", error.getMessage(), error);
             }
-            handler.handle(exchange);
         });
     }
 
-    private boolean authorize(HttpExchange exchange, String expectedMethod) throws IOException {
+    private String authFailureReason(String token) {
+        if (token == null || token.isBlank()) {
+            return "missing_auth_token";
+        }
+        if (token.length() != 64) {
+            return "invalid_auth_token_length";
+        }
+        if (!token.matches("[a-f0-9]{64}")) {
+            return "invalid_auth_token_format";
+        }
+        return "invalid_auth_token";
+    }
+
+    private String authFailureMessage(String token) {
+        return switch (authFailureReason(token)) {
+            case "missing_auth_token" -> "Missing " + AUTH_HEADER + " header.";
+            case "invalid_auth_token_length" -> AUTH_HEADER + " must be a 64-character HMAC-SHA256 hex digest.";
+            case "invalid_auth_token_format" -> AUTH_HEADER + " must contain lowercase hex characters only.";
+            default -> "Invalid HMAC timestamp token.";
+        };
+    }
+
+    private void fail(HttpExchange exchange, int status, String code, String message, Exception error) throws IOException {
+        logFailure(exchange, status, code, message, error);
+
+        if (!debugMode) {
+            drop(exchange);
+            return;
+        }
+
+        sendJson(exchange, status, debugErrorJson(status, code, message, error), "no-store");
+    }
+
+    private void logFailure(HttpExchange exchange, int status, String code, String message, Exception error) {
         String clientIp = exchange.getRemoteAddress().getAddress().getHostAddress();
-        return checkRateLimit(exchange, clientIp)
-                && checkMethod(exchange, expectedMethod)
-                && checkAuth(exchange, clientIp);
+        String errorDetails = error == null ? "" : " error=" + error.getClass().getSimpleName();
+        plugin.getLogger().warning("API request failed: status=" + status
+                + " code=" + code
+                + " debug=" + debugMode
+                + " ip=" + clientIp
+                + " method=" + exchange.getRequestMethod()
+                + " path=" + exchange.getRequestURI().getPath()
+                + " message=" + message
+                + errorDetails);
     }
 
-    private boolean checkRateLimit(HttpExchange exchange, String clientIp) throws IOException {
-        long now = System.currentTimeMillis();
-        RateLimitInfo info = rateLimitMap.get(clientIp);
+    private String debugErrorJson(int status, String code, String message, Exception error) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"error\":\"").append(escapeJson(code)).append("\"")
+                .append(",\"status\":").append(status)
+                .append(",\"message\":\"").append(escapeJson(message == null ? "" : message)).append("\"");
 
-        if (info == null || now - info.windowStart() > RATE_LIMIT_WINDOW_SECONDS * 1000L) {
-            rateLimitMap.put(clientIp, new RateLimitInfo(now, 1));
-            return true;
+        if (error != null) {
+            sb.append(",\"exception\":\"").append(escapeJson(error.getClass().getName())).append("\"");
         }
 
-        if (info.requestCount() >= RATE_LIMIT_REQUESTS) {
-            drop(exchange);
-            plugin.getLogger().warning("Rate limit exceeded for IP: " + clientIp);
-            return false;
-        }
-
-        rateLimitMap.put(clientIp, new RateLimitInfo(info.windowStart(), info.requestCount() + 1));
-        return true;
-    }
-
-    private boolean checkMethod(HttpExchange exchange, String expectedMethod) throws IOException {
-        if (!exchange.getRequestMethod().equalsIgnoreCase(expectedMethod)) {
-            drop(exchange);
-            return false;
-        }
-        return true;
-    }
-
-    private boolean checkAuth(HttpExchange exchange, String clientIp) throws IOException {
-        AuthFailureInfo failureInfo = authFailureMap.get(clientIp);
-        long now = System.currentTimeMillis();
-
-        if (failureInfo != null && now < failureInfo.blockUntil()) {
-            drop(exchange);
-            plugin.getLogger().warning("Blocked authentication attempt from IP: " + clientIp);
-            return false;
-        }
-
-        String token = exchange.getRequestHeaders().getFirst("X-TOTP-Token");
-        if (!HmacTimestamp.verify(totpSecret, token)) {
-            int prevFailures = failureInfo != null && failureInfo.banCount() > 0
-                    ? 0 : failureInfo != null ? failureInfo.failureCount() : 0;
-            int banCount = failureInfo != null ? failureInfo.banCount() : 0;
-            int failureCount = prevFailures + 1;
-
-            if (failureCount >= MAX_AUTH_FAILURES) {
-                banCount++;
-                long blockMs = AUTH_FAILURE_BLOCK_MINUTES * 60 * 1000L * (1L << Math.min(banCount - 1, AUTH_BAN_MAX_SHIFTS));
-                authFailureMap.put(clientIp, new AuthFailureInfo(0, banCount, now + blockMs));
-                plugin.getLogger().warning("IP blocked (ban #" + banCount + ", " + (blockMs / 60000) + " min): " + clientIp);
-            } else {
-                authFailureMap.put(clientIp, new AuthFailureInfo(
-                        failureCount,
-                        banCount,
-                        failureInfo != null ? failureInfo.blockUntil() : 0
-                ));
-            }
-            drop(exchange);
-            return false;
-        }
-
-        if (failureInfo != null && failureInfo.banCount() > 0) {
-            authFailureMap.put(clientIp, new AuthFailureInfo(0, failureInfo.banCount(), 0));
-        } else {
-            authFailureMap.remove(clientIp);
-        }
-        return true;
+        sb.append("}");
+        return sb.toString();
     }
 
     private void sendJson(HttpExchange exchange, int code, String body, String cacheControl) throws IOException {
@@ -300,12 +369,14 @@ public class ApiModule implements Listener {
         }
 
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        exchange.getResponseHeaders().set("Connection", "close");
         if (cacheControl != null) {
             exchange.getResponseHeaders().set("Cache-Control", cacheControl);
         }
         exchange.sendResponseHeaders(code, bytes.length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(bytes);
+            os.flush();
         }
     }
 
@@ -323,7 +394,6 @@ public class ApiModule implements Listener {
 
     /**
      * Immediately closes the exchange without writing a single byte.
-     * The OS sends a TCP FIN/RST; the client receives an empty response error.
      */
     public static void drop(HttpExchange exchange) {
         try {
@@ -341,9 +411,5 @@ public class ApiModule implements Listener {
             httpExecutor.shutdown();
         }
         onlineCache.clear();
-
-        if (cleanupExecutor != null) {
-            cleanupExecutor.shutdown();
-        }
     }
 }
