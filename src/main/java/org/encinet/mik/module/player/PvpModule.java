@@ -645,35 +645,49 @@ public class PvpModule implements Listener {
 
     private void sendStatus(CommandSender sender, Player target) {
         PvpSettings settings = settings(target.getUniqueId());
-        sender.sendMessage(mm(sender, Message.PVP_STATUS_TITLE_MM));
+        Component message = mm(sender, Message.PVP_STATUS_TITLE_MM);
         if (sender instanceof Player viewer) {
-            viewer.sendMessage(languageService.rich(viewer, Message.PVP_STATUS_PLAYER_RICH, NamedTextColor.GRAY,
-                    RichArg.component("player", PlayerDisplay.name(target, NamedTextColor.YELLOW), target.getName())));
+            message = message.append(Component.newline())
+                    .append(languageService.rich(viewer, Message.PVP_STATUS_PLAYER_RICH, NamedTextColor.GRAY,
+                            RichArg.component("player", PlayerDisplay.name(target, NamedTextColor.YELLOW), target.getName())));
         } else {
-            sender.sendMessage(Component.text(languageService.t(Language.DEFAULT, Message.PVP_STATUS_PLAYER, target.getName()), NamedTextColor.GRAY));
+            message = message.append(Component.newline())
+                    .append(Component.text(languageService.t(Language.DEFAULT, Message.PVP_STATUS_PLAYER, target.getName()), NamedTextColor.GRAY));
         }
-        sender.sendMessage(statusLine(sender, Message.PVP_STATE_LABEL, settings.enabled()));
-        sender.sendMessage(statusLine(sender, Message.PVP_MOB_PROTECTION_LABEL, settings.protectMobs()));
-        sender.sendMessage(statusLine(sender, Message.PVP_MOUNTED_DAMAGE_LABEL, settings.allowMountedMobDamage()));
-        sender.sendMessage(statusLine(sender, Message.PVP_ENABLE_ON_DEATH_LABEL, settings.enableOnDeath()));
+        message = message.append(Component.newline())
+                .append(statusLine(sender, Message.PVP_STATE_LABEL, settings.enabled()))
+                .append(Component.newline())
+                .append(statusLine(sender, Message.PVP_MOB_PROTECTION_LABEL, settings.protectMobs()))
+                .append(Component.newline())
+                .append(statusLine(sender, Message.PVP_MOUNTED_DAMAGE_LABEL, settings.allowMountedMobDamage()))
+                .append(Component.newline())
+                .append(statusLine(sender, Message.PVP_ENABLE_ON_DEATH_LABEL, settings.enableOnDeath()));
         if (isCombatTagged(target.getUniqueId())) {
-            sender.sendMessage(combatLine(sender, target.getUniqueId()));
+            message = message.append(Component.newline())
+                    .append(combatLine(sender, target.getUniqueId()));
         }
-        sender.sendMessage(Component.text()
-                .append(Component.text(t(sender, Message.PVP_AUTO_ENABLE_LABEL) + ": ", NamedTextColor.GRAY))
-                .append(Component.text(t(sender, Message.PVP_AUTO_ENABLE_DESC), NamedTextColor.AQUA))
-                .build());
+        sender.sendMessage(message.append(Component.newline())
+                .append(Component.text()
+                        .append(Component.text(t(sender, Message.PVP_AUTO_ENABLE_LABEL) + ": ", NamedTextColor.GRAY))
+                        .append(Component.text(t(sender, Message.PVP_AUTO_ENABLE_DESC), NamedTextColor.AQUA))
+                        .build()));
     }
 
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage(mm(sender, Message.PVP_HELP_TITLE_MM));
-        sender.sendMessage(mm(sender, Message.PVP_HELP_TOGGLE_MM));
-        sender.sendMessage(mm(sender, Message.PVP_HELP_GUI_MM));
-        sender.sendMessage(mm(sender, Message.PVP_HELP_STATUS_MM));
+        Component message = mm(sender, Message.PVP_HELP_TITLE_MM)
+                .append(Component.newline())
+                .append(mm(sender, Message.PVP_HELP_TOGGLE_MM))
+                .append(Component.newline())
+                .append(mm(sender, Message.PVP_HELP_GUI_MM))
+                .append(Component.newline())
+                .append(mm(sender, Message.PVP_HELP_STATUS_MM));
         if (sender.hasPermission("group." + Mik.GROUP_HELPER)) {
-            sender.sendMessage(mm(sender, Message.PVP_HELP_ADMIN_MM));
-            sender.sendMessage(mm(sender, Message.PVP_HELP_STAFF_CONTROL_MM));
+            message = message.append(Component.newline())
+                    .append(mm(sender, Message.PVP_HELP_ADMIN_MM))
+                    .append(Component.newline())
+                    .append(mm(sender, Message.PVP_HELP_STAFF_CONTROL_MM));
         }
+        sender.sendMessage(message);
     }
 
     private Component statusLine(CommandSender sender, Message label, boolean enabled) {
@@ -851,7 +865,7 @@ public class PvpModule implements Listener {
         combatTaggedUntil.put(playerId, System.currentTimeMillis() + COMBAT_TAG_DURATION_MILLIS);
     }
 
-    private boolean isCombatTagged(UUID playerId) {
+    public boolean isCombatTagged(UUID playerId) {
         Long expiresAt = combatTaggedUntil.get(playerId);
         if (expiresAt == null) {
             return false;

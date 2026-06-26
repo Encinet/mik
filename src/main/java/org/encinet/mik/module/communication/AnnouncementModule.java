@@ -22,7 +22,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
@@ -150,11 +149,7 @@ public class AnnouncementModule implements Listener {
                 Component.text("新增 " + added.size() + " 条", NamedTextColor.YELLOW));
 
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendMessage(header);
-            for (Announcement a : added) {
-                player.sendMessage(chatAnnouncementLine(a));
-            }
-            player.sendMessage(chatFooterClickable());
+            player.sendMessage(chatAnnouncementBlock(header, added, chatFooterClickable()));
         }
     }
 
@@ -190,22 +185,17 @@ public class AnnouncementModule implements Listener {
 
         int total = (int) announcements.stream().filter(a -> a.timestamp() > seenUntil).count();
 
-        player.sendMessage(chatHeader("服务器公告",
-                Component.text(total + " 条未读公告", NamedTextColor.YELLOW)));
-
-        for (Announcement a : unseenAnnouncements) {
-            player.sendMessage(chatAnnouncementLine(a));
-        }
-
+        Component header = chatHeader("服务器公告",
+                Component.text(total + " 条未读公告", NamedTextColor.YELLOW));
+        Component footer;
         if (total > JOIN_PUSH_LIMIT) {
-            player.sendMessage(
-                    Component.text("  ", NamedTextColor.GRAY)
-                            .append(Component.text("还有 " + (total - JOIN_PUSH_LIMIT) + " 条未显示  ", NamedTextColor.GRAY))
-                            .append(chatFooterClickable())
-            );
+            footer = Component.text("  ", NamedTextColor.GRAY)
+                    .append(Component.text("还有 " + (total - JOIN_PUSH_LIMIT) + " 条未显示  ", NamedTextColor.GRAY))
+                    .append(chatFooterClickable());
         } else {
-            player.sendMessage(chatFooterClickable());
+            footer = chatFooterClickable();
         }
+        player.sendMessage(chatAnnouncementBlock(header, unseenAnnouncements, footer));
     }
 
     @EventHandler
@@ -223,6 +213,16 @@ public class AnnouncementModule implements Listener {
                 .append(badge)
                 .append(Component.text("  ━━", NamedTextColor.GOLD))
                 .build();
+    }
+
+    private Component chatAnnouncementBlock(Component header, List<Announcement> entries, Component footer) {
+        Component block = header;
+        for (Announcement announcement : entries) {
+            block = block.append(Component.newline())
+                    .append(chatAnnouncementLine(announcement));
+        }
+        return block.append(Component.newline())
+                .append(footer);
     }
 
     /**

@@ -14,6 +14,7 @@ import org.encinet.mik.module.communication.TipModule;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.menu.MenuNavigation;
 import org.encinet.mik.module.musicdisc.MusicDiscModule;
+import org.encinet.mik.module.performance.NetworkThrottleModule;
 import org.encinet.mik.module.performance.PerformanceModule;
 import org.encinet.mik.module.performance.TPSBarModule;
 import org.encinet.mik.module.player.BackModule;
@@ -43,6 +44,7 @@ public final class Mik extends JavaPlugin {
     private ServerLinksModule serverLinksModule;
     private AfkModule afkModule;
     private PerformanceModule performanceModule;
+    private NetworkThrottleModule networkThrottleModule;
     private MusicDiscModule musicDiscModule;
     private StaffChatModule staffChatModule;
     private SimpleFeaturesModule commandsModule;
@@ -98,15 +100,19 @@ public final class Mik extends JavaPlugin {
         performanceModule = new PerformanceModule(this, afkModule);
         performanceModule.start();
 
+        pvpModule = new PvpModule(this, menuNavigation, languageService);
+        pvpModule.enable();
+        pvpModule.registerCommands(this.getLifecycleManager());
+
+        networkThrottleModule = new NetworkThrottleModule(this, pvpModule, performanceModule, afkModule);
+        networkThrottleModule.enable();
+        networkThrottleModule.registerCommands(this.getLifecycleManager());
+
         mentionModule = new MentionModule(this, afkModule, menuNavigation, languageService);
         mentionModule.enable();
 
         teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation, languageService);
         teleportPreferenceModule.enable();
-
-        pvpModule = new PvpModule(this, menuNavigation, languageService);
-        pvpModule.enable();
-        pvpModule.registerCommands(this.getLifecycleManager());
 
         if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
             clientVersionReminderModule = new ClientVersionReminderModule(this, languageService);
@@ -179,11 +185,11 @@ public final class Mik extends JavaPlugin {
         motdModule = new MotdModule(this, afkModule);
         motdModule.enable();
 
-        homeModule = new HomeModule(this, menuNavigation, languageService);
+        homeModule = new HomeModule(this, menuNavigation, languageService, networkThrottleModule);
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
 
-        backModule = new BackModule(this, languageService);
+        backModule = new BackModule(this, languageService, networkThrottleModule);
         backModule.enable();
         backModule.registerCommands(this.getLifecycleManager());
 
@@ -200,6 +206,10 @@ public final class Mik extends JavaPlugin {
     public void onDisable() {
         if (performanceModule != null) {
             performanceModule.stop();
+        }
+
+        if (networkThrottleModule != null) {
+            networkThrottleModule.disable();
         }
 
         if (afkModule != null) {

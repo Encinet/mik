@@ -3,6 +3,7 @@ package org.encinet.mik.module.player;
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
 import com.viaversion.viaversion.api.protocol.version.VersionType;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -94,10 +95,13 @@ public class ClientVersionReminderModule implements Listener {
         String severityTitle = languageService.t(player, severityWarning.title());
         String severityMessage = languageService.t(player, severityWarning.message());
 
-        player.sendMessage(message(player, Message.CLIENT_REMINDER_BORDER_MM, severityTitle));
-        player.sendMessage(message(player, Message.CLIENT_REMINDER_VERSION_LINE_MM, clientName, minimumName));
-        player.sendMessage(MINI_MESSAGE.deserialize(severityMessage));
-        player.sendMessage(message(player, Message.CLIENT_REMINDER_FOOTER_MM));
+        player.sendMessage(message(player, Message.CLIENT_REMINDER_BORDER_MM, severityTitle)
+                .append(Component.newline())
+                .append(message(player, Message.CLIENT_REMINDER_VERSION_LINE_MM, clientName, minimumName))
+                .append(Component.newline())
+                .append(MINI_MESSAGE.deserialize(severityMessage))
+                .append(Component.newline())
+                .append(message(player, Message.CLIENT_REMINDER_FOOTER_MM)));
     }
 
     private ProtocolVersion clientVersion(Player player) {

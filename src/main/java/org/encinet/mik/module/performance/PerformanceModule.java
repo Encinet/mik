@@ -251,6 +251,10 @@ public class PerformanceModule implements Listener {
         return liveFrozen || lastEffectiveMspt >= THRESHOLD_CHUNK_GUARD;
     }
 
+    public double effectiveMspt() {
+        return lastEffectiveMspt;
+    }
+
     /**
      * EMA smoothing + linear-regression trend over a sliding window.
      * Only accessed from the single async guardian task.
