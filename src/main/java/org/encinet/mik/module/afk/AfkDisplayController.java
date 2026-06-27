@@ -1,39 +1,52 @@
 package org.encinet.mik.module.afk;
 
 import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.event.PacketListenerAbstract;
-import com.github.retrooper.packetevents.event.PacketListenerPriority;
-import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityData;
 import com.github.retrooper.packetevents.protocol.entity.data.EntityDataTypes;
-import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.entity.type.EntityTypes;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDestroyEntities;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.bukkit.Bukkit;
-import org.bukkit.Color;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
-import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
-import org.bukkit.entity.TextDisplay;
-import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 final class AfkDisplayController {
 
     private static final double DISPLAY_Y_OFFSET = 0.55D;
+    private static final double DISPLAY_SYNC_RANGE = 64.0D;
+    private static final double DISPLAY_SYNC_RANGE_SQUARED = DISPLAY_SYNC_RANGE * DISPLAY_SYNC_RANGE;
+    private static final int BACKGROUND_COLOR_ARGB = 0x60000000;
+    private static final int LINE_WIDTH = 180;
+    private static final int TEXT_METADATA_INDEX = 23;
+    private static final int LINE_WIDTH_METADATA_INDEX = 24;
+    private static final int BACKGROUND_METADATA_INDEX = 25;
+    private static final int TEXT_OPACITY_METADATA_INDEX = 26;
+    private static final int TEXT_STYLE_FLAGS_METADATA_INDEX = 27;
+    private static final int BILLBOARD_METADATA_INDEX = 15;
+    private static final int VIEW_RANGE_METADATA_INDEX = 17;
+    private static final byte BILLBOARD_CENTER = 3;
+    private static final byte TEXT_SHADOW_FLAG = 0x01;
+    private static final AtomicInteger NEXT_ENTITY_ID = new AtomicInteger(1_000_000_000);
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final MiniMessage SAFE_MESSAGE = MiniMessage.builder()
             .tags(TagResolver.resolver(
@@ -45,29 +58,18 @@ final class AfkDisplayController {
             ))
             .build();
 
-    private final NamespacedKey ownerKey;
     private final LanguageService languageService;
-    private final Map<UUID, TextDisplay> displays = new HashMap<>();
-    private final Map<Integer, AfkState> statesByDisplayEntityId = new HashMap<>();
-    private int textMetadataIndex = -1;
+    private final Map<UUID, VirtualDisplay> displays = new HashMap<>();
 
-    AfkDisplayController(JavaPlugin plugin, LanguageService languageService) {
-        this.ownerKey = new NamespacedKey(plugin, "afk_display_owner");
+    AfkDisplayController(LanguageService languageService) {
         this.languageService = languageService;
-        PacketEvents.getAPI().getEventManager().registerListener(new DisplayMetadataListener());
     }
 
     void update(Player player, AfkState state) {
-        TextDisplay display = currentDisplay(player);
-        if (display == null) {
-            display = spawnDisplay(player);
-            displays.put(player.getUniqueId(), display);
-        }
-
-        display.text(displayText(player, state));
-        statesByDisplayEntityId.put(display.getEntityId(), state);
-        sendLocalizedText(display, state);
-        display.teleport(displayLocation(player));
+        VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(), VirtualDisplay::new);
+        boolean metadataChanged = display.state != state;
+        display.state = state;
+        syncDisplay(player, display, metadataChanged);
     }
 
     void updateTrackedDisplays(Collection<AfkState> states) {
@@ -82,82 +84,21 @@ final class AfkDisplayController {
     }
 
     void remove(UUID playerId) {
-        TextDisplay display = displays.remove(playerId);
-        if (display != null && display.isValid()) {
-            statesByDisplayEntityId.remove(display.getEntityId());
-            display.remove();
+        VirtualDisplay display = displays.remove(playerId);
+        if (display != null) {
+            destroyDisplay(display);
         }
     }
 
     void removeAll() {
-        displays.values().forEach(display -> {
-            statesByDisplayEntityId.remove(display.getEntityId());
-            if (display.isValid()) {
-                display.remove();
-            }
-        });
+        displays.values().forEach(this::destroyDisplay);
         displays.clear();
     }
 
-    void removeOrphans() {
-        for (org.bukkit.World world : Bukkit.getWorlds()) {
-            for (TextDisplay display : world.getEntitiesByClass(TextDisplay.class)) {
-                if (ownerId(display) != null) {
-                    display.remove();
-                }
-            }
+    void forgetViewer(UUID viewerId) {
+        for (VirtualDisplay display : displays.values()) {
+            display.viewers.remove(viewerId);
         }
-    }
-
-    private TextDisplay spawnDisplay(Player player) {
-        return player.getWorld().spawn(displayLocation(player), TextDisplay.class, display -> {
-            display.getPersistentDataContainer().set(ownerKey, PersistentDataType.STRING, player.getUniqueId().toString());
-            display.setPersistent(false);
-            display.setGravity(false);
-            display.setInvulnerable(true);
-            display.setSilent(true);
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setViewRange(32.0F);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(96, 0, 0, 0));
-            display.setLineWidth(180);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setTeleportDuration(4);
-        });
-    }
-
-    private TextDisplay currentDisplay(Player player) {
-        UUID playerId = player.getUniqueId();
-        TextDisplay display = displays.get(playerId);
-        if (display != null && display.isValid() && display.getWorld().equals(player.getWorld())) {
-            return display;
-        }
-        remove(playerId);
-        return findExistingDisplay(player);
-    }
-
-    private TextDisplay findExistingDisplay(Player player) {
-        TextDisplay found = null;
-        String expectedOwner = player.getUniqueId().toString();
-        for (TextDisplay display : player.getWorld().getEntitiesByClass(TextDisplay.class)) {
-            if (!expectedOwner.equals(ownerId(display))) {
-                continue;
-            }
-            if (found == null && display.isValid()) {
-                found = display;
-                displays.put(player.getUniqueId(), display);
-                statesByDisplayEntityId.put(display.getEntityId(), statePlaceholder(player));
-            } else if (display.isValid()) {
-                display.remove();
-            }
-        }
-        return found;
-    }
-
-    private String ownerId(TextDisplay display) {
-        return display.getPersistentDataContainer().get(ownerKey, PersistentDataType.STRING);
     }
 
     private Location displayLocation(Player player) {
@@ -175,63 +116,141 @@ final class AfkDisplayController {
                 Placeholder.component("message", SAFE_MESSAGE.deserialize(state.message())));
     }
 
-    private void sendLocalizedText(TextDisplay display, AfkState state) {
-        if (textMetadataIndex < 0) {
-            return;
+    private void syncDisplay(Player subject, VirtualDisplay display, boolean metadataChanged) {
+        Location location = displayLocation(subject);
+        boolean worldChanged = display.world != null && !display.world.equals(subject.getWorld());
+        if (worldChanged) {
+            destroyDisplay(display);
         }
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            if (!viewer.getWorld().equals(display.getWorld())) {
+        boolean moved = display.updateLocation(location);
+
+        Iterator<UUID> tracked = display.viewers.iterator();
+        while (tracked.hasNext()) {
+            UUID viewerId = tracked.next();
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (!canSeeDisplay(viewer, subject, location)) {
+                if (viewer != null && viewer.isOnline()) {
+                    destroy(viewer, display);
+                }
+                tracked.remove();
                 continue;
             }
-            PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
-                    new WrapperPlayServerEntityMetadata(display.getEntityId(), List.of(
-                            new EntityData<>(textMetadataIndex, EntityDataTypes.ADV_COMPONENT,
-                                    displayText(viewer, state))
-                    )));
+            if (metadataChanged) {
+                sendMetadata(viewer, display);
+            }
+            if (moved) {
+                teleport(viewer, display);
+            }
+        }
+
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            UUID viewerId = viewer.getUniqueId();
+            if (display.viewers.contains(viewerId) || !canSeeDisplay(viewer, subject, location)) {
+                continue;
+            }
+            spawn(viewer, display);
+            sendMetadata(viewer, display);
+            display.viewers.add(viewerId);
         }
     }
 
-    private AfkState statePlaceholder(Player player) {
-        return new AfkState(player.getUniqueId(), null, false, System.currentTimeMillis());
+    private boolean canSeeDisplay(Player viewer, Player subject, Location location) {
+        if (viewer == null || !viewer.isOnline()) {
+            return false;
+        }
+        if (!viewer.getWorld().equals(subject.getWorld())) {
+            return false;
+        }
+        if (!viewer.getUniqueId().equals(subject.getUniqueId()) && !viewer.canSee(subject)) {
+            return false;
+        }
+        return viewer.getLocation().distanceSquared(location) <= DISPLAY_SYNC_RANGE_SQUARED;
     }
 
-    private class DisplayMetadataListener extends PacketListenerAbstract {
+    private void destroyDisplay(VirtualDisplay display) {
+        for (UUID viewerId : display.viewers) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer != null && viewer.isOnline()) {
+                destroy(viewer, display);
+            }
+        }
+        display.viewers.clear();
+    }
 
-        private DisplayMetadataListener() {
-            super(PacketListenerPriority.NORMAL);
+    private void spawn(Player viewer, VirtualDisplay display) {
+        PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
+                new WrapperPlayServerSpawnEntity(
+                        display.entityId,
+                        display.entityUuid,
+                        EntityTypes.TEXT_DISPLAY,
+                        packetLocation(display.x, display.y, display.z),
+                        0.0F,
+                        0,
+                        Vector3d.zero()
+                ));
+    }
+
+    private void sendMetadata(Player viewer, VirtualDisplay display) {
+        PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
+                new WrapperPlayServerEntityMetadata(display.entityId, metadata(viewer, display.state)));
+    }
+
+    private void teleport(Player viewer, VirtualDisplay display) {
+        PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
+                new WrapperPlayServerEntityTeleport(
+                        display.entityId,
+                        new Vector3d(display.x, display.y, display.z),
+                        0.0F,
+                        0.0F,
+                        false
+                ));
+    }
+
+    private void destroy(Player viewer, VirtualDisplay display) {
+        PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
+                new WrapperPlayServerDestroyEntities(display.entityId));
+    }
+
+    private List<EntityData<?>> metadata(Player viewer, AfkState state) {
+        return List.of(
+                new EntityData<>(BILLBOARD_METADATA_INDEX, EntityDataTypes.BYTE, BILLBOARD_CENTER),
+                new EntityData<>(VIEW_RANGE_METADATA_INDEX, EntityDataTypes.FLOAT, 32.0F),
+                new EntityData<>(TEXT_METADATA_INDEX, EntityDataTypes.ADV_COMPONENT, displayText(viewer, state)),
+                new EntityData<>(LINE_WIDTH_METADATA_INDEX, EntityDataTypes.INT, LINE_WIDTH),
+                new EntityData<>(BACKGROUND_METADATA_INDEX, EntityDataTypes.INT, BACKGROUND_COLOR_ARGB),
+                new EntityData<>(TEXT_OPACITY_METADATA_INDEX, EntityDataTypes.BYTE, (byte) -1),
+                new EntityData<>(TEXT_STYLE_FLAGS_METADATA_INDEX, EntityDataTypes.BYTE, TEXT_SHADOW_FLAG)
+        );
+    }
+
+    private com.github.retrooper.packetevents.protocol.world.Location packetLocation(double x, double y, double z) {
+        return new com.github.retrooper.packetevents.protocol.world.Location(x, y, z, 0.0F, 0.0F);
+    }
+
+    private static final class VirtualDisplay {
+        private final int entityId = NEXT_ENTITY_ID.getAndDecrement();
+        private final UUID entityUuid = UUID.randomUUID();
+        private final Set<UUID> viewers = new HashSet<>();
+        private org.bukkit.World world;
+        private AfkState state;
+        private double x;
+        private double y;
+        private double z;
+
+        private VirtualDisplay(UUID playerId) {
         }
 
-        @Override
-        public void onPacketSend(PacketSendEvent event) {
-            if (event.getPacketType() != PacketType.Play.Server.ENTITY_METADATA) {
-                return;
-            }
-            Player viewer = event.getPlayer();
-            if (viewer == null) {
-                return;
-            }
-
-            WrapperPlayServerEntityMetadata packet = new WrapperPlayServerEntityMetadata(event);
-            AfkState state = statesByDisplayEntityId.get(packet.getEntityId());
-            if (state == null) {
-                return;
-            }
-
-            boolean changed = false;
-            List<EntityData<?>> metadata = packet.getEntityMetadata();
-            for (int i = 0; i < metadata.size(); i++) {
-                EntityData<?> data = metadata.get(i);
-                if (data.getType() == EntityDataTypes.ADV_COMPONENT) {
-                    textMetadataIndex = data.getIndex();
-                    metadata.set(i, new EntityData<>(data.getIndex(), EntityDataTypes.ADV_COMPONENT,
-                            displayText(viewer, state)));
-                    changed = true;
-                }
-            }
-            if (changed) {
-                packet.setEntityMetadata(metadata);
-                event.markForReEncode(true);
-            }
+        private boolean updateLocation(Location location) {
+            boolean changed = world == null
+                    || !world.equals(location.getWorld())
+                    || x != location.getX()
+                    || y != location.getY()
+                    || z != location.getZ();
+            world = location.getWorld();
+            x = location.getX();
+            y = location.getY();
+            z = location.getZ();
+            return changed;
         }
     }
 }

@@ -119,6 +119,16 @@ public class NetworkThrottleModule implements Listener {
     private static final long MID_DISTANCE_SQUARED = 96L * 96L;
     private static final long FAR_DISTANCE_SQUARED = 160L * 160L;
     private static final long CLOSE_PVP_DISTANCE_SQUARED = 96L * 96L;
+    private static final long FOCUSED_SUBJECT_DISTANCE_SQUARED = 256L * 256L;
+    private static final double FOCUSED_SUBJECT_DOT = 0.72D;
+    private static final double FOCUSED_SUBJECT_DOT_SQUARED = FOCUSED_SUBJECT_DOT * FOCUSED_SUBJECT_DOT;
+    private static final double VIEWER_EYE_HEIGHT = 1.62D;
+    private static final double SUBJECT_FOCUS_HEIGHT = 1.00D;
+    private static final double FAST_MOVEMENT_DELTA_SQUARED = 1.0D;
+    private static final double FAST_VERTICAL_MOVEMENT_DELTA = 0.70D;
+    private static final int FAST_MOVEMENT_HOLD_SNAPSHOTS = 4;
+    private static final float FAST_LOOK_DELTA_DEGREES = 35.0F;
+    private static final int FAST_LOOK_HOLD_SNAPSHOTS = 3;
 
     private static final long SOFT_MID_INTERVAL_NANOS = 100_000_000L;
     private static final long SOFT_FAR_INTERVAL_NANOS = 200_000_000L;
@@ -129,6 +139,9 @@ public class NetworkThrottleModule implements Listener {
     private static final long CRITICAL_MID_INTERVAL_NANOS = 500_000_000L;
     private static final long CRITICAL_FAR_INTERVAL_NANOS = 1_000_000_000L;
     private static final long CRITICAL_EXTREME_INTERVAL_NANOS = 2_000_000_000L;
+    private static final long MID_MOVEMENT_INTERVAL_CAP_NANOS = 250_000_000L;
+    private static final long FAR_MOVEMENT_INTERVAL_CAP_NANOS = 1_000_000_000L;
+    private static final long FAR_LIMITED_PACKET_INTERVAL_CAP_NANOS = 500_000_000L;
     private static final long LOOK_PACKET_INTERVAL_NANOS = 100_000_000L;
     private static final long VELOCITY_PACKET_INTERVAL_NANOS = 200_000_000L;
     private static final long ANIMATION_PACKET_INTERVAL_NANOS = 250_000_000L;
@@ -371,7 +384,7 @@ public class NetworkThrottleModule implements Listener {
         }
         playerEntityIds.put(entityId, playerId);
         playerOutboundBytes.putIfAbsent(playerId, new AtomicLong());
-        playerSnapshots.put(playerId, PlayerSnapshot.from(player, afkService, adaptiveLimits));
+        playerSnapshots.compute(playerId, (_, previousSnapshot) -> PlayerSnapshot.from(player, afkService, adaptiveLimits, previousSnapshot));
         playerNames.put(playerId, player.getName());
     }
 
@@ -955,7 +968,7 @@ public class NetworkThrottleModule implements Listener {
                 continue;
             }
             if (now < state.nextSendNanos()) {
-                enqueueCorrection(key);
+                enqueueCorrection(key, state);
                 continue;
             }
             if (!state.consumeDirty()) {
@@ -981,16 +994,22 @@ public class NetworkThrottleModule implements Listener {
             }
 
             ThrottleMode currentMode = effectiveMode(key.viewerId(), viewerSnapshot, subjectSnapshot);
+            DistanceBand distanceBand = DistanceBand.from(viewerSnapshot.distanceSquared(subjectSnapshot));
+            currentMode = perceptualAdjustedMode(currentMode, distanceBand, viewerSnapshot, subjectSnapshot);
             if (currentMode == ThrottleMode.OFF) {
+                sendAbsoluteEntityPosition(viewer, subjectSnapshot);
+                sent++;
                 pendingCorrections.remove(key);
                 continue;
             }
 
             long interval = correctionInterval(
                     currentMode,
-                    DistanceBand.from(viewerSnapshot.distanceSquared(subjectSnapshot)),
+                    distanceBand,
                     intervalMultiplier(viewerSnapshot, subjectSnapshot));
             if (interval <= 0L) {
+                sendAbsoluteEntityPosition(viewer, subjectSnapshot);
+                sent++;
                 pendingCorrections.remove(key);
                 continue;
             }
@@ -999,7 +1018,7 @@ public class NetworkThrottleModule implements Listener {
             sent++;
             state.setNextSendNanos(now + interval);
             if (state.isDirty()) {
-                enqueueCorrection(key);
+                enqueueCorrection(key, state);
             }
         }
     }
@@ -1023,19 +1042,23 @@ public class NetworkThrottleModule implements Listener {
         }
 
         ThrottleKey key = new ThrottleKey(viewerId, context.subjectId());
-        pendingCorrections.compute(key, (ignored, state) -> {
+        CorrectionState state = pendingCorrections.get(key);
+        if (state == null) {
+            CorrectionState created = new CorrectionState();
+            state = pendingCorrections.putIfAbsent(key, created);
             if (state == null) {
-                return new CorrectionState();
+                state = created;
+            } else {
+                state.markDirty();
             }
+        } else {
             state.markDirty();
-            return state;
-        });
-        enqueueCorrection(key);
+        }
+        enqueueCorrection(key, state);
         return true;
     }
 
-    private void enqueueCorrection(ThrottleKey key) {
-        CorrectionState state = pendingCorrections.get(key);
+    private void enqueueCorrection(ThrottleKey key, CorrectionState state) {
         if (state != null && queuedCorrectionKeys.add(key)) {
             long dueNanos = Math.max(System.nanoTime(), state.nextSendNanos());
             correctionQueue.offer(new DelayedCorrection(key, dueNanos));
@@ -1052,13 +1075,21 @@ public class NetworkThrottleModule implements Listener {
                 packetGroup,
                 context.mode(),
                 context.distanceBand(),
-                context.viewerPingIntervalMultiplier());
+                context.viewerPingIntervalMultiplier(),
+                context.focusedSubject());
         if (interval <= 0L) {
             return false;
         }
 
         PacketLimitKey key = new PacketLimitKey(viewerId, context.subjectId(), packetType);
-        RateState state = packetRateLimits.computeIfAbsent(key, ignored -> new RateState());
+        RateState state = packetRateLimits.get(key);
+        if (state == null) {
+            RateState created = new RateState();
+            state = packetRateLimits.putIfAbsent(key, created);
+            if (state == null) {
+                state = created;
+            }
+        }
         return !state.tryAcquire(System.nanoTime(), interval);
     }
 
@@ -1100,8 +1131,29 @@ public class NetworkThrottleModule implements Listener {
         if (isClosePvpPair(viewerId, subjectId, distanceSquared)) {
             return null;
         }
-        return new ThrottleContext(subjectId, DistanceBand.from(distanceSquared),
-                intervalMultiplier(viewerSnapshot, subjectSnapshot), currentMode);
+        DistanceBand distanceBand = DistanceBand.from(distanceSquared);
+        currentMode = distanceAdjustedMode(currentMode, distanceBand);
+        if (currentMode == ThrottleMode.OFF) {
+            return null;
+        }
+        boolean focusedSubject = false;
+        if (!viewerSnapshot.afk()) {
+            if (shouldRelaxFarSubject(currentMode, viewerSnapshot, subjectSnapshot, distanceBand)) {
+                currentMode = previousMode(currentMode);
+                if (currentMode == ThrottleMode.OFF) {
+                    return null;
+                }
+            }
+            focusedSubject = isFocusedSubject(viewerSnapshot, subjectSnapshot);
+            if (focusedSubject) {
+                currentMode = focusAdjustedMode(currentMode, distanceBand);
+                if (currentMode == ThrottleMode.OFF) {
+                    return null;
+                }
+            }
+        }
+        return new ThrottleContext(subjectId, distanceBand, intervalMultiplier(viewerSnapshot, subjectSnapshot),
+                currentMode, focusedSubject);
     }
 
     private ThrottleMode effectiveMode(UUID viewerId, PlayerSnapshot viewerSnapshot) {
@@ -1168,6 +1220,80 @@ public class NetworkThrottleModule implements Listener {
         };
     }
 
+    private ThrottleMode distanceAdjustedMode(ThrottleMode currentMode, DistanceBand distanceBand) {
+        return switch (distanceBand) {
+            case NEAR -> ThrottleMode.OFF;
+            case MID -> currentMode == ThrottleMode.CRITICAL ? ThrottleMode.SOFT : previousMode(currentMode);
+            case FAR, EXTREME -> currentMode;
+        };
+    }
+
+    private ThrottleMode perceptualAdjustedMode(
+            ThrottleMode currentMode,
+            DistanceBand distanceBand,
+            PlayerSnapshot viewerSnapshot,
+            PlayerSnapshot subjectSnapshot
+    ) {
+        ThrottleMode adjustedMode = distanceAdjustedMode(currentMode, distanceBand);
+        if (adjustedMode == ThrottleMode.OFF) {
+            return ThrottleMode.OFF;
+        }
+        if (viewerSnapshot.afk()) {
+            return adjustedMode;
+        }
+        if (shouldRelaxFarSubject(adjustedMode, viewerSnapshot, subjectSnapshot, distanceBand)) {
+            adjustedMode = previousMode(adjustedMode);
+            if (adjustedMode == ThrottleMode.OFF) {
+                return ThrottleMode.OFF;
+            }
+        }
+        if (!isFocusedSubject(viewerSnapshot, subjectSnapshot)) {
+            return adjustedMode;
+        }
+        return focusAdjustedMode(adjustedMode, distanceBand);
+    }
+
+    private ThrottleMode focusAdjustedMode(ThrottleMode currentMode, DistanceBand distanceBand) {
+        return switch (distanceBand) {
+            case NEAR, MID -> ThrottleMode.OFF;
+            case FAR -> currentMode.ordinal() > ThrottleMode.SOFT.ordinal()
+                    ? ThrottleMode.SOFT
+                    : previousMode(currentMode);
+            case EXTREME -> previousMode(currentMode);
+        };
+    }
+
+    private boolean shouldRelaxFarSubject(
+            ThrottleMode currentMode,
+            PlayerSnapshot viewerSnapshot,
+            PlayerSnapshot subjectSnapshot,
+            DistanceBand distanceBand
+    ) {
+        return distanceBand == DistanceBand.FAR
+                && (subjectSnapshot.fastMoving()
+                || (currentMode != ThrottleMode.CRITICAL && viewerSnapshot.fastLooking()));
+    }
+
+    private boolean isFocusedSubject(PlayerSnapshot viewerSnapshot, PlayerSnapshot subjectSnapshot) {
+        double dx = subjectSnapshot.x() - viewerSnapshot.x();
+        double dz = subjectSnapshot.z() - viewerSnapshot.z();
+        double horizontalDistanceSquared = dx * dx + dz * dz;
+        if (horizontalDistanceSquared > FOCUSED_SUBJECT_DISTANCE_SQUARED) {
+            return false;
+        }
+
+        double dy = subjectSnapshot.y() + SUBJECT_FOCUS_HEIGHT - viewerSnapshot.y() - VIEWER_EYE_HEIGHT;
+        double distanceSquared = horizontalDistanceSquared + dy * dy;
+        if (distanceSquared <= 0.0001D || distanceSquared > FOCUSED_SUBJECT_DISTANCE_SQUARED) {
+            return false;
+        }
+
+        double projected = dx * viewerSnapshot.lookX()
+                + dy * viewerSnapshot.lookY()
+                + dz * viewerSnapshot.lookZ();
+        return projected > 0.0D && projected * projected >= FOCUSED_SUBJECT_DOT_SQUARED * distanceSquared;
+    }
+
     private boolean sharesVehicleOrRiding(PlayerSnapshot viewerSnapshot, PlayerSnapshot subjectSnapshot) {
         if (viewerSnapshot.rootVehicleEntityId() > 0
                 && viewerSnapshot.rootVehicleEntityId() == subjectSnapshot.rootVehicleEntityId()) {
@@ -1217,16 +1343,24 @@ public class NetworkThrottleModule implements Listener {
                 case EXTREME -> CRITICAL_EXTREME_INTERVAL_NANOS;
             };
         };
-        return pingAdjustedInterval(scaledInterval(baseInterval, limits.intervalScale()), pingIntervalMultiplier);
+        return distanceCappedMovementInterval(
+                pingAdjustedInterval(scaledInterval(baseInterval, limits.intervalScale()), pingIntervalMultiplier),
+                distanceBand);
     }
 
     private long limitedPacketInterval(
             PacketGroup packetGroup,
             ThrottleMode currentMode,
             DistanceBand distanceBand,
-            double pingIntervalMultiplier
+            double pingIntervalMultiplier,
+            boolean focusedSubject
     ) {
         if (distanceBand == DistanceBand.NEAR || distanceBand == DistanceBand.MID) {
+            return 0L;
+        }
+        if (focusedSubject
+                && distanceBand == DistanceBand.FAR
+                && (packetGroup == PacketGroup.LOOK || packetGroup == PacketGroup.ANIMATION)) {
             return 0L;
         }
 
@@ -1255,7 +1389,32 @@ public class NetworkThrottleModule implements Listener {
                     ? STATE_PACKET_INTERVAL_NANOS
                     : 0L;
         };
-        return pingAdjustedInterval(scaledInterval(baseInterval, limits.intervalScale()), pingIntervalMultiplier);
+        return distanceCappedLimitedPacketInterval(
+                pingAdjustedInterval(scaledInterval(baseInterval, limits.intervalScale()), pingIntervalMultiplier),
+                distanceBand);
+    }
+
+    private long distanceCappedMovementInterval(long interval, DistanceBand distanceBand) {
+        if (interval <= 0L) {
+            return 0L;
+        }
+        return switch (distanceBand) {
+            case NEAR -> 0L;
+            case MID -> Math.min(interval, MID_MOVEMENT_INTERVAL_CAP_NANOS);
+            case FAR -> Math.min(interval, FAR_MOVEMENT_INTERVAL_CAP_NANOS);
+            case EXTREME -> interval;
+        };
+    }
+
+    private long distanceCappedLimitedPacketInterval(long interval, DistanceBand distanceBand) {
+        if (interval <= 0L) {
+            return 0L;
+        }
+        return switch (distanceBand) {
+            case NEAR, MID -> 0L;
+            case FAR -> Math.min(interval, FAR_LIMITED_PACKET_INTERVAL_CAP_NANOS);
+            case EXTREME -> interval;
+        };
     }
 
     private long scaledInterval(long interval, double multiplier) {
@@ -1536,7 +1695,19 @@ public class NetworkThrottleModule implements Listener {
                                 NamedTextColor.GRAY),
                         "Viewer or subject teleports suppress throttling briefly to avoid bad visual state."))
                 .append(metricLine("distance bands", Component.text("48 / 96 / 160 blocks", NamedTextColor.GRAY),
-                        "Near, mid, far, and extreme distance boundaries for movement throttling."))
+                        "Near, mid, far, and extreme distance boundaries. Closer or focused subjects automatically reduce or skip throttling."))
+                .append(metricLine("movement caps",
+                        Component.text(MID_MOVEMENT_INTERVAL_CAP_NANOS / 1_000_000L + " / "
+                                + FAR_MOVEMENT_INTERVAL_CAP_NANOS / 1_000_000L + " ms", NamedTextColor.GRAY),
+                        "Maximum movement correction spacing for mid and far subjects after adaptive and ping scaling. Extreme subjects are uncapped."))
+                .append(metricLine("packet cap",
+                        Component.text(FAR_LIMITED_PACKET_INTERVAL_CAP_NANOS / 1_000_000L + " ms far",
+                                NamedTextColor.GRAY),
+                        "Maximum low-priority packet limiter spacing for far subjects after adaptive and ping scaling. Extreme subjects are uncapped."))
+                .append(metricLine("perception hold",
+                        Component.text(FAST_MOVEMENT_HOLD_SNAPSHOTS + " movement, "
+                                + FAST_LOOK_HOLD_SNAPSHOTS + " look snapshots", NamedTextColor.GRAY),
+                        "Fast movement and fast camera-turn protection stay active for this many snapshot refreshes before decaying."))
                 .append(metricLine("correction budget", Component.text(limits.maxCorrectionsPerTick() + "/tick",
                                 NamedTextColor.GRAY),
                         "Adaptive maximum absolute movement corrections flushed back to viewers per tick."))
@@ -1557,10 +1728,16 @@ public class NetworkThrottleModule implements Listener {
                         "Bandwidth, player, ping, interval, and correction budgets are recalculated by the sampler; packet send handling only reads the current snapshot."))
                 .append(metricLine("movement", Component.text(throttleArmed ? "armed" : "standby",
                                 throttleArmed ? NamedTextColor.YELLOW : NamedTextColor.GRAY),
-                        "Far relative movement can be cancelled, then repaired with bounded absolute position corrections."))
+                        "Relative movement is distance-aware: close subjects are protected, far subjects can be cancelled, then repaired with bounded absolute position corrections when throttled or released."))
                 .append(metricLine("packet groups",
                         Component.text("6 controlled", NamedTextColor.GRAY),
-                        "Low-priority packet groups receive longer per-packet intervals as pressure rises."))
+                        "Low-priority packet groups receive longer per-packet intervals as pressure rises, but near and mid subjects are not rate-limited."))
+                .append(metricLine("focus guard", Component.text("256 blocks / 44 deg", NamedTextColor.GREEN),
+                        "Active viewer yaw and pitch from cached snapshots reduce throttling for subjects currently in the viewer's focus cone, including far look and animation packets."))
+                .append(metricLine("motion guard", Component.text("fast subjects <160 blocks", NamedTextColor.GREEN),
+                        "Snapshot-to-snapshot movement reduces throttling for fast-moving subjects in the far distance band for active viewers."))
+                .append(metricLine("look guard", Component.text("fast camera turns <160 blocks", NamedTextColor.GREEN),
+                        "Fast viewer yaw or pitch changes briefly reduce non-critical far-distance throttling so focus snapshots do not feel stale while scanning."))
                 .append(metricLine("ping scaling", Component.text("x" + formatMultiplier(PING_SOFT_INTERVAL_MULTIPLIER)
                                 + " / x" + formatMultiplier(PING_HARD_INTERVAL_MULTIPLIER)
                                 + " / x" + formatMultiplier(PING_CRITICAL_INTERVAL_MULTIPLIER), NamedTextColor.GRAY),
@@ -1848,7 +2025,7 @@ public class NetworkThrottleModule implements Listener {
     }
 
     private record ThrottleContext(UUID subjectId, DistanceBand distanceBand, double viewerPingIntervalMultiplier,
-                                   ThrottleMode mode) {
+                                   ThrottleMode mode, boolean focusedSubject) {
     }
 
     private record PacketVolume(PacketTypeCommon type, long bytes) {
@@ -1888,14 +2065,27 @@ public class NetworkThrottleModule implements Listener {
                                   int rootVehicleEntityId,
                                   boolean afk,
                                   int pingMillis, ThrottleMode pingMode, double pingIntervalMultiplier,
-                                  double x, double y, double z, float yaw, float pitch) {
-        static PlayerSnapshot from(Player player, AfkService afkService, AdaptiveLimits limits) {
+                                  double x, double y, double z, float yaw, float pitch,
+                                  double lookX, double lookY, double lookZ,
+                                  int fastMovementHoldSnapshots,
+                                  int fastLookHoldSnapshots) {
+        static PlayerSnapshot from(
+                Player player,
+                AfkService afkService,
+                AdaptiveLimits limits,
+                PlayerSnapshot previousSnapshot
+        ) {
             Location location = player.getLocation();
             World world = location.getWorld();
             Entity vehicle = player.getVehicle();
             int vehicleEntityId = vehicle == null ? -1 : vehicle.getEntityId();
             int rootVehicleEntityId = rootVehicleEntityId(player);
             int pingMillis = Math.max(0, player.getPing());
+            float yaw = location.getYaw();
+            float pitch = location.getPitch();
+            double yawRadians = Math.toRadians(yaw);
+            double pitchRadians = Math.toRadians(pitch);
+            double pitchCos = Math.cos(pitchRadians);
             return new PlayerSnapshot(
                     world.getUID(),
                     world.getName(),
@@ -1909,8 +2099,13 @@ public class NetworkThrottleModule implements Listener {
                     location.x(),
                     location.y(),
                     location.z(),
-                    location.getYaw(),
-                    location.getPitch());
+                    yaw,
+                    pitch,
+                    -pitchCos * Math.sin(yawRadians),
+                    -Math.sin(pitchRadians),
+                    pitchCos * Math.cos(yawRadians),
+                    fastMovementHoldSnapshots(location, world, player.getEntityId(), previousSnapshot),
+                    fastLookHoldSnapshots(yaw, pitch, world, player.getEntityId(), previousSnapshot));
         }
 
         static int rootVehicleEntityId(Player player) {
@@ -1924,6 +2119,68 @@ public class NetworkThrottleModule implements Listener {
                 next = current.getVehicle();
             }
             return current.getEntityId();
+        }
+
+        static int fastMovementHoldSnapshots(
+                Location location,
+                World world,
+                int entityId,
+                PlayerSnapshot previousSnapshot
+        ) {
+            if (previousSnapshot == null
+                    || previousSnapshot.entityId() != entityId
+                    || !previousSnapshot.worldId().equals(world.getUID())) {
+                return 0;
+            }
+
+            double dx = location.x() - previousSnapshot.x();
+            double dy = location.y() - previousSnapshot.y();
+            double dz = location.z() - previousSnapshot.z();
+            if (dx * dx + dy * dy + dz * dz >= FAST_MOVEMENT_DELTA_SQUARED
+                    || Math.abs(dy) >= FAST_VERTICAL_MOVEMENT_DELTA) {
+                return FAST_MOVEMENT_HOLD_SNAPSHOTS;
+            }
+            return Math.max(0, previousSnapshot.fastMovementHoldSnapshots() - 1);
+        }
+
+        boolean fastMoving() {
+            return fastMovementHoldSnapshots > 0;
+        }
+
+        static int fastLookHoldSnapshots(
+                float yaw,
+                float pitch,
+                World world,
+                int entityId,
+                PlayerSnapshot previousSnapshot
+        ) {
+            if (previousSnapshot == null
+                    || previousSnapshot.entityId() != entityId
+                    || !previousSnapshot.worldId().equals(world.getUID())) {
+                return 0;
+            }
+
+            float yawDelta = Math.abs(wrapDegrees(yaw - previousSnapshot.yaw()));
+            float pitchDelta = Math.abs(pitch - previousSnapshot.pitch());
+            if (yawDelta >= FAST_LOOK_DELTA_DEGREES || pitchDelta >= FAST_LOOK_DELTA_DEGREES) {
+                return FAST_LOOK_HOLD_SNAPSHOTS;
+            }
+            return Math.max(0, previousSnapshot.fastLookHoldSnapshots() - 1);
+        }
+
+        static float wrapDegrees(float value) {
+            float wrapped = value % 360.0F;
+            if (wrapped >= 180.0F) {
+                wrapped -= 360.0F;
+            }
+            if (wrapped < -180.0F) {
+                wrapped += 360.0F;
+            }
+            return wrapped;
+        }
+
+        boolean fastLooking() {
+            return fastLookHoldSnapshots > 0;
         }
 
         double distanceSquared(PlayerSnapshot other) {

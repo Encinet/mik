@@ -106,12 +106,11 @@ public class AfkModule implements Listener, AfkService {
     public AfkModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
         this.languageService = languageService;
-        this.displayController = new AfkDisplayController(plugin, languageService);
+        this.displayController = new AfkDisplayController(languageService);
     }
 
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        displayController.removeOrphans();
         long now = System.currentTimeMillis();
         Bukkit.getOnlinePlayers().forEach(player -> lastActiveAt.put(player.getUniqueId(), now));
         updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, UPDATE_INTERVAL_TICKS, UPDATE_INTERVAL_TICKS);
@@ -182,6 +181,7 @@ public class AfkModule implements Listener, AfkService {
         pendingAsyncActivity.remove(playerId);
         restoreAfkProtection(player);
         displayController.remove(playerId);
+        displayController.forgetViewer(playerId);
         notifyListeners(player, null);
     }
 
