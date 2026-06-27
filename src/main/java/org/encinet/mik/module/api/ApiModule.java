@@ -12,6 +12,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -20,49 +21,54 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.communication.AnnouncementModule;
-import org.encinet.mik.util.HmacTimestamp;
 
-import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.zip.GZIPOutputStream;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class ApiModule implements Listener {
-    private static final String AUTH_HEADER = "X-HMAC-Token";
     private static final String COMMAND_PERMISSION = "mik.command.api";
-    private static final String ROUTES = "/api/players, /api/announcements, /api/bans";
+    private static final String LOCAL_BIND_ADDRESS = "127.0.0.1";
+    private static final String STATE_FILE_NAME = "api-state.yml";
+    private static final String PEAK_ONLINE_PATH = "peak-online";
+    private static final byte[] NOT_FOUND_BODY = bytes("{\"error\":\"not_found\"}");
+    private static final byte[] METHOD_NOT_ALLOWED_BODY = bytes("{\"error\":\"method_not_allowed\"}");
+    private static final byte[] INTERNAL_ERROR_BODY = bytes("{\"error\":\"internal_error\"}");
 
     private final JavaPlugin plugin;
-    private final Map<UUID, OnlinePlayerInfo> onlineCache = new ConcurrentHashMap<>();
+    private final File stateFile;
+    private final Map<UUID, OnlinePlayerInfo> onlinePlayers = new HashMap<>();
 
     private HttpServer server;
     private ExecutorService httpExecutor;
-    private String hmacSecret;
     private AnnouncementModule announcementModule;
-    private volatile boolean debugMode;
+    private volatile byte[] playersJsonBytes = bytes("{\"online\":0,\"peak_online\":0,\"players\":[]}");
+    private int peakOnline;
     private int listenPort;
 
-    private record OnlinePlayerInfo(String name, long joinedAt) {
+    private record OnlinePlayerInfo(UUID uuid, String name, String joinedAt) {
     }
 
     @FunctionalInterface
     private interface ExchangeHandler {
-        void handle(HttpExchange exchange) throws IOException;
+        void handle(HttpExchange exchange) throws Exception;
     }
 
     public ApiModule(JavaPlugin plugin) {
         this.plugin = plugin;
+        this.stateFile = new File(plugin.getDataFolder(), STATE_FILE_NAME);
     }
 
     public void setAnnouncementModule(AnnouncementModule module) {
@@ -70,33 +76,32 @@ public class ApiModule implements Listener {
     }
 
     public void start(int port) {
-        plugin.saveDefaultConfig();
         listenPort = port;
 
-        hmacSecret = plugin.getConfig().getString("api.totp-secret", "");
-        if (hmacSecret.isEmpty()) {
-            plugin.getLogger().warning("api.totp-secret is not set in config.yml, API server will not start.");
-            return;
-        }
-
+        loadState();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         bootstrapOnlinePlayers();
 
         try {
-            server = HttpServer.create(new InetSocketAddress(port), 0);
+            InetSocketAddress address = new InetSocketAddress(InetAddress.getByName(LOCAL_BIND_ADDRESS), port);
+            server = HttpServer.create(address, 0);
 
-            createAuthorizedContext("/api/players", "GET", this::handlePlayersOnline);
-            createAuthorizedContext("/api/announcements", "GET",
-                    exchange -> sendJson(exchange, 200, announcementModule.getAnnouncementsJson(), null));
-            createAuthorizedContext("/api/bans", "GET", this::handleBans);
+            createLocalContext("/api/players", "GET", this::handlePlayersOnline);
+            createLocalContext("/api/announcements", "GET", this::handleAnnouncements);
+            createLocalContext("/api/bans", "GET", this::handleBans);
 
-            server.createContext("/", exchange -> fail(exchange, 404, "unknown_path",
-                    "Unknown API path: " + exchange.getRequestURI().getPath(), null));
+            server.createContext("/", exchange -> {
+                if (!isLocalRequest(exchange)) {
+                    drop(exchange);
+                    return;
+                }
+                sendJson(exchange, 404, NOT_FOUND_BODY, "no-store");
+            });
 
-            httpExecutor = Executors.newFixedThreadPool(4);
+            httpExecutor = Executors.newVirtualThreadPerTaskExecutor();
             server.setExecutor(httpExecutor);
             server.start();
-            plugin.getLogger().info("API server started on port " + port);
+            plugin.getLogger().info("API server started on " + LOCAL_BIND_ADDRESS + ":" + port + " (local only)");
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to start API server: " + e.getMessage());
         }
@@ -115,36 +120,7 @@ public class ApiModule implements Listener {
                                     sendStatus(ctx.getSource().getSender());
                                     return Command.SINGLE_SUCCESS;
                                 }))
-                        .then(Commands.literal("on")
-                                .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), true)))
-                        .then(Commands.literal("off")
-                                .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), false)))
-                        .then(Commands.literal("debug")
-                                .executes(ctx -> {
-                                    sendStatus(ctx.getSource().getSender());
-                                    return Command.SINGLE_SUCCESS;
-                                })
-                                .then(Commands.literal("on")
-                                        .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), true)))
-                                .then(Commands.literal("off")
-                                        .executes(ctx -> setDebugModeCommand(ctx.getSource().getSender(), false))))
-                        .then(Commands.literal("clear")
-                                .executes(ctx -> {
-                                    clearRuntimeState();
-                                    ctx.getSource().getSender().sendMessage(Component.text(
-                                            "Mik API runtime state cleared.", NamedTextColor.GREEN));
-                                    return Command.SINGLE_SUCCESS;
-                                }))
-                        .build(), "Manage Mik API debug mode"));
-    }
-
-    private int setDebugModeCommand(CommandSender sender, boolean enabled) {
-        setDebugMode(enabled);
-        sender.sendMessage(Component.text("Mik API debug mode "
-                        + (enabled ? "enabled." : "disabled."), enabled ? NamedTextColor.GREEN : NamedTextColor.YELLOW)
-                .append(Component.newline())
-                .append(statusComponent()));
-        return Command.SINGLE_SUCCESS;
+                        .build(), "Show Mik API status"));
     }
 
     private void sendStatus(CommandSender sender) {
@@ -153,80 +129,133 @@ public class ApiModule implements Listener {
 
     private Component statusComponent() {
         boolean running = server != null && httpExecutor != null && !httpExecutor.isShutdown();
-        boolean secretConfigured = hmacSecret != null && !hmacSecret.isBlank();
 
         return Component.text("Mik API status", NamedTextColor.AQUA)
                 .append(Component.newline())
                 .append(Component.text("Server: " + (running ? "running" : "stopped")
-                        + " port=" + listenPort, running ? NamedTextColor.GREEN : NamedTextColor.RED))
+                        + " bind=" + LOCAL_BIND_ADDRESS + " port=" + listenPort,
+                        running ? NamedTextColor.GREEN : NamedTextColor.RED))
                 .append(Component.newline())
-                .append(Component.text("Debug mode: " + (debugMode ? "enabled" : "disabled"),
-                        debugMode ? NamedTextColor.GREEN : NamedTextColor.YELLOW))
-                .append(Component.newline())
-                .append(Component.text("External errors: "
-                        + (debugMode ? "JSON details" : "silent drop"), NamedTextColor.GRAY))
-                .append(Component.newline())
-                .append(Component.text("Auth header: " + AUTH_HEADER, NamedTextColor.GRAY))
-                .append(Component.newline())
-                .append(Component.text("Secret configured: " + (secretConfigured ? "yes" : "no"),
-                        secretConfigured ? NamedTextColor.GREEN : NamedTextColor.RED))
-                .append(Component.newline())
-                .append(Component.text("Online cache: " + onlineCache.size() + " player(s)", NamedTextColor.GRAY))
-                .append(Component.newline())
-                .append(Component.text("Routes: " + ROUTES, NamedTextColor.GRAY));
-    }
-
-    private void setDebugMode(boolean enabled) {
-        debugMode = enabled;
-        clearRuntimeState();
-        plugin.getLogger().info("API debug mode " + (enabled ? "enabled" : "disabled") + "; runtime state cleared.");
-    }
-
-    private void clearRuntimeState() {
-        bootstrapOnlinePlayers();
+                .append(Component.text("Online players: " + onlinePlayers.size()
+                        + " peak=" + peakOnline, NamedTextColor.GRAY));
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        onlineCache.put(player.getUniqueId(), new OnlinePlayerInfo(player.getName(), Instant.now().getEpochSecond()));
+        onlinePlayers.put(player.getUniqueId(), new OnlinePlayerInfo(
+                player.getUniqueId(), player.getName(), formatIso(Instant.now())));
+        boolean peakChanged = updatePeakOnline();
+        rebuildPlayersJson();
+        if (peakChanged) {
+            saveState();
+        }
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        onlineCache.remove(event.getPlayer().getUniqueId());
+        onlinePlayers.remove(event.getPlayer().getUniqueId());
+        rebuildPlayersJson();
     }
 
     private void bootstrapOnlinePlayers() {
-        onlineCache.clear();
-        long now = Instant.now().getEpochSecond();
+        onlinePlayers.clear();
+        String now = formatIso(Instant.now());
         for (Player player : Bukkit.getOnlinePlayers()) {
-            onlineCache.put(player.getUniqueId(), new OnlinePlayerInfo(player.getName(), now));
+            onlinePlayers.put(player.getUniqueId(), new OnlinePlayerInfo(player.getUniqueId(), player.getName(), now));
+        }
+        boolean peakChanged = updatePeakOnline();
+        rebuildPlayersJson();
+        if (peakChanged) {
+            saveState();
         }
     }
 
     private void handlePlayersOnline(HttpExchange exchange) throws IOException {
+        sendJson(exchange, 200, playersJsonBytes, "no-store");
+    }
+
+    private void handleAnnouncements(HttpExchange exchange) throws IOException {
+        sendJson(exchange, 200, announcementModule.getAnnouncementsJsonBytes(), null);
+    }
+
+    private void rebuildPlayersJson() {
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"online\":").append(onlineCache.size()).append(",\"players\":[");
+        sb.append("{\"online\":").append(onlinePlayers.size())
+                .append(",\"peak_online\":").append(peakOnline)
+                .append(",\"players\":[");
 
-        List<Map.Entry<UUID, OnlinePlayerInfo>> entries = sortedOnlineEntries();
-
-        for (int i = 0; i < entries.size(); i++) {
-            Map.Entry<UUID, OnlinePlayerInfo> entry = entries.get(i);
-            OnlinePlayerInfo info = entry.getValue();
-            if (i > 0) {
+        boolean first = true;
+        for (OnlinePlayerInfo player : onlinePlayers.values()) {
+            if (first) {
+                first = false;
+            } else {
                 sb.append(",");
             }
-            sb.append("{\"uuid\":\"").append(entry.getKey()).append("\"")
-                    .append(",\"name\":\"").append(escapeJson(info.name())).append("\"")
-                    .append(",\"joined_at\":\"").append(formatIso(info.joinedAt())).append("\"}");
+            sb.append("{\"uuid\":\"").append(player.uuid()).append("\"")
+                    .append(",\"name\":\"").append(escapeJson(player.name())).append("\"")
+                    .append(",\"joined_at\":\"").append(player.joinedAt()).append("\"}");
         }
         sb.append("]}");
 
-        sendJson(exchange, 200, sb.toString(), "no-store");
+        playersJsonBytes = bytes(sb.toString());
+    }
+
+    private boolean updatePeakOnline() {
+        int online = onlinePlayers.size();
+        if (online <= peakOnline) {
+            return false;
+        }
+        peakOnline = online;
+        return true;
+    }
+
+    private void loadState() {
+        if (!stateFile.exists()) {
+            return;
+        }
+
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(stateFile);
+        peakOnline = Math.max(0, config.getInt(PEAK_ONLINE_PATH, 0));
+    }
+
+    private void saveState() {
+        if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+            plugin.getLogger().warning("Failed to create plugin data folder for " + STATE_FILE_NAME);
+            return;
+        }
+
+        YamlConfiguration config = new YamlConfiguration();
+        config.set(PEAK_ONLINE_PATH, peakOnline);
+        try {
+            config.save(stateFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save " + STATE_FILE_NAME + ": " + e.getMessage());
+        }
     }
 
     private void handleBans(HttpExchange exchange) throws IOException {
+        sendJson(exchange, 200, bansJson(), null);
+    }
+
+    private byte[] bansJson() throws IOException {
+        if (Bukkit.isPrimaryThread()) {
+            return buildBansJson();
+        }
+
+        try {
+            return Bukkit.getScheduler()
+                    .callSyncMethod(plugin, this::buildBansJson)
+                    .get(2, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while reading bans", e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new IOException("Failed to read bans", e);
+        }
+    }
+
+    private byte[] buildBansJson() {
         var banList = Bukkit.getBanList(BanListType.PROFILE);
         var banEntries = banList.getEntries();
 
@@ -257,131 +286,57 @@ public class ApiModule implements Listener {
                     .append("}");
         }
         sb.append("]");
-        sendJson(exchange, 200, sb.toString(), null);
+        return bytes(sb.toString());
     }
 
-    private List<Map.Entry<UUID, OnlinePlayerInfo>> sortedOnlineEntries() {
-        List<Map.Entry<UUID, OnlinePlayerInfo>> entries = new ArrayList<>(onlineCache.entrySet());
-        entries.sort(Comparator.comparing(entry -> entry.getValue().name(), String.CASE_INSENSITIVE_ORDER));
-        return entries;
-    }
-
-    private void createAuthorizedContext(String path, String method, ExchangeHandler handler) {
+    private void createLocalContext(String path, String method, ExchangeHandler handler) {
         server.createContext(path, exchange -> {
             try {
+                if (!isLocalRequest(exchange)) {
+                    drop(exchange);
+                    return;
+                }
+
                 if (!exchange.getRequestURI().getPath().equals(path)) {
-                    fail(exchange, 404, "invalid_path",
-                            "Expected path " + path + " but got " + exchange.getRequestURI().getPath(), null);
+                    sendJson(exchange, 404, NOT_FOUND_BODY, "no-store");
                     return;
                 }
 
                 if (!exchange.getRequestMethod().equalsIgnoreCase(method)) {
-                    fail(exchange, 405, "invalid_method",
-                            "Expected method " + method + " but got " + exchange.getRequestMethod(), null);
-                    return;
-                }
-
-                String token = exchange.getRequestHeaders().getFirst(AUTH_HEADER);
-                if (!HmacTimestamp.verify(hmacSecret, token)) {
-                    fail(exchange, 403, authFailureReason(token), authFailureMessage(token), null);
+                    sendJson(exchange, 405, METHOD_NOT_ALLOWED_BODY, "no-store");
                     return;
                 }
 
                 handler.handle(exchange);
-            } catch (Exception error) {
-                fail(exchange, 500, "internal_error", error.getMessage(), error);
+            } catch (Exception ignored) {
+                sendJson(exchange, 500, INTERNAL_ERROR_BODY, "no-store");
             }
         });
     }
 
-    private String authFailureReason(String token) {
-        if (token == null || token.isBlank()) {
-            return "missing_auth_token";
-        }
-        if (token.length() != 64) {
-            return "invalid_auth_token_length";
-        }
-        if (!token.matches("[a-f0-9]{64}")) {
-            return "invalid_auth_token_format";
-        }
-        return "invalid_auth_token";
+    private boolean isLocalRequest(HttpExchange exchange) {
+        var address = exchange.getRemoteAddress().getAddress();
+        return address != null && (address.isLoopbackAddress() || address.isAnyLocalAddress());
     }
 
-    private String authFailureMessage(String token) {
-        return switch (authFailureReason(token)) {
-            case "missing_auth_token" -> "Missing " + AUTH_HEADER + " header.";
-            case "invalid_auth_token_length" -> AUTH_HEADER + " must be a 64-character HMAC-SHA256 hex digest.";
-            case "invalid_auth_token_format" -> AUTH_HEADER + " must contain lowercase hex characters only.";
-            default -> "Invalid HMAC timestamp token.";
-        };
-    }
-
-    private void fail(HttpExchange exchange, int status, String code, String message, Exception error) throws IOException {
-        logFailure(exchange, status, code, message, error);
-
-        if (!debugMode) {
-            drop(exchange);
-            return;
-        }
-
-        sendJson(exchange, status, debugErrorJson(status, code, message, error), "no-store");
-    }
-
-    private void logFailure(HttpExchange exchange, int status, String code, String message, Exception error) {
-        String clientIp = exchange.getRemoteAddress().getAddress().getHostAddress();
-        String errorDetails = error == null ? "" : " error=" + error.getClass().getSimpleName();
-        plugin.getLogger().warning("API request failed: status=" + status
-                + " code=" + code
-                + " debug=" + debugMode
-                + " ip=" + clientIp
-                + " method=" + exchange.getRequestMethod()
-                + " path=" + exchange.getRequestURI().getPath()
-                + " message=" + message
-                + errorDetails);
-    }
-
-    private String debugErrorJson(int status, String code, String message, Exception error) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"error\":\"").append(escapeJson(code)).append("\"")
-                .append(",\"status\":").append(status)
-                .append(",\"message\":\"").append(escapeJson(message == null ? "" : message)).append("\"");
-
-        if (error != null) {
-            sb.append(",\"exception\":\"").append(escapeJson(error.getClass().getName())).append("\"");
-        }
-
-        sb.append("}");
-        return sb.toString();
-    }
-
-    private void sendJson(HttpExchange exchange, int code, String body, String cacheControl) throws IOException {
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        String acceptEncoding = exchange.getRequestHeaders().getFirst("Accept-Encoding");
-        boolean useGzip = acceptEncoding != null && acceptEncoding.contains("gzip");
-
-        if (useGzip) {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            try (GZIPOutputStream gzip = new GZIPOutputStream(baos)) {
-                gzip.write(bytes);
-            }
-            bytes = baos.toByteArray();
-            exchange.getResponseHeaders().set("Content-Encoding", "gzip");
-        }
-
+    private void sendJson(HttpExchange exchange, int code, byte[] body, String cacheControl) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-        exchange.getResponseHeaders().set("Connection", "close");
         if (cacheControl != null) {
             exchange.getResponseHeaders().set("Cache-Control", cacheControl);
         }
-        exchange.sendResponseHeaders(code, bytes.length);
+        exchange.sendResponseHeaders(code, body.length);
         try (OutputStream os = exchange.getResponseBody()) {
-            os.write(bytes);
+            os.write(body);
             os.flush();
         }
     }
 
-    private String formatIso(long epochSecond) {
-        return Instant.ofEpochSecond(epochSecond).toString();
+    private static byte[] bytes(String body) {
+        return body.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private String formatIso(Instant instant) {
+        return instant.toString();
     }
 
     private String escapeJson(String s) {
@@ -410,6 +365,6 @@ public class ApiModule implements Listener {
         if (httpExecutor != null) {
             httpExecutor.shutdown();
         }
-        onlineCache.clear();
+        onlinePlayers.clear();
     }
 }

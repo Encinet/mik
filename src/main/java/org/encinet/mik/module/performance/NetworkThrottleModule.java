@@ -53,6 +53,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.player.PvpModule;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -75,11 +76,16 @@ import java.util.concurrent.atomic.LongAdder;
 
 public class NetworkThrottleModule implements Listener {
 
-    private static final long SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND = 12L * 1024L * 1024L;
-    private static final long PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND = 400L * 1024L;
-    private static final long PLAYER_OUTBOUND_HARD_BYTES_PER_SECOND = 800L * 1024L;
-    private static final long PLAYER_OUTBOUND_CRITICAL_BYTES_PER_SECOND = 1_200L * 1024L;
+    private static final long DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND = 12L * 1024L * 1024L;
+    private static final long DEFAULT_PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND = 400L * 1024L;
+    private static final long DEFAULT_PLAYER_OUTBOUND_HARD_BYTES_PER_SECOND = 800L * 1024L;
+    private static final long DEFAULT_PLAYER_OUTBOUND_CRITICAL_BYTES_PER_SECOND = 1_200L * 1024L;
+    private static final long MIN_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND = 4L * 1024L * 1024L;
+    private static final long MAX_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND = 24L * 1024L * 1024L;
+    private static final long MIN_PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND = 160L * 1024L;
+    private static final long MAX_PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND = 1_024L * 1024L;
     private static final int MAX_CORRECTIONS_PER_TICK = 96;
+    private static final int MIN_CORRECTIONS_PER_TICK = 24;
     private static final int MAX_CORRECTION_INSPECTIONS_PER_TICK = MAX_CORRECTIONS_PER_TICK * 4;
     private static final long RATE_LIMIT_EXPIRY_NANOS = 60_000_000_000L;
     private static final double MSPT_SOFT_PRESSURE = 45.0D;
@@ -89,6 +95,14 @@ public class NetworkThrottleModule implements Listener {
     private static final double HARD_PRESSURE_RATIO = 0.85D;
     private static final double CRITICAL_PRESSURE_RATIO = 0.95D;
     private static final double EWMA_WEIGHT = 0.35D;
+    private static final double ADAPTIVE_INCREASE_FACTOR = 1.10D;
+    private static final double ADAPTIVE_DECREASE_FACTOR = 0.86D;
+    private static final double ADAPTIVE_IDLE_DECAY_FACTOR = 0.995D;
+    private static final double ADAPTIVE_PRESSURE_TRIGGER = 0.78D;
+    private static final double ADAPTIVE_CRITICAL_TRIGGER = 0.92D;
+    private static final int ADAPTIVE_RECOVERY_SAMPLES = 3;
+    private static final int MODE_UP_SAMPLES = 2;
+    private static final int MODE_DOWN_SAMPLES = 8;
     private static final int PING_SOFT_MILLIS = 180;
     private static final int PING_HARD_MILLIS = 300;
     private static final int PING_CRITICAL_MILLIS = 500;
@@ -125,6 +139,8 @@ public class NetworkThrottleModule implements Listener {
     private static final long SNAPSHOT_PERIOD_TICKS = 2L;
     private static final long LOG_PERIOD_NANOS = 30_000_000_000L;
     private static final long RECENT_TELEPORT_SUPPRESS_MILLIS = 5_000L;
+    private static final long RECENT_TELEPORT_SUPPRESS_NANOS =
+            TimeUnit.MILLISECONDS.toNanos(RECENT_TELEPORT_SUPPRESS_MILLIS);
     private static final Path LINUX_PROC_NET_DEV = Path.of("/proc/net/dev");
     private static final Set<String> CONSERVATIVE_WORLD_NAMES = Set.of("spawn", "lobby", "hub");
     private static final Set<String> AGGRESSIVE_WORLD_NAMES = Set.of("resource", "resources", "world_nether", "world_the_end");
@@ -167,9 +183,14 @@ public class NetworkThrottleModule implements Listener {
     private volatile double smoothedDeliveredBytesPerSecond = 0.0D;
     private volatile double smoothedInboundBytesPerSecond = 0.0D;
     private volatile double smoothedSystemTransmitBytesPerSecond = -1.0D;
+    private volatile AdaptiveLimits adaptiveLimits = AdaptiveLimits.defaults();
     private long lastSystemTransmitBytes = -1L;
     private long lastBandwidthSampleNanos = 0L;
     private long lastLogNanos = 0L;
+    private double adaptiveServerLimitBytesPerSecond = DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND;
+    private int adaptiveRecoverySamples = 0;
+    private ThrottleMode pendingMode = ThrottleMode.OFF;
+    private int pendingModeSamples = 0;
     private volatile String lastTopPacketSummary = "none";
     private volatile String lastTopPlayerSummary = "none";
     private volatile String lastHighPingSummary = "none";
@@ -226,6 +247,23 @@ public class NetworkThrottleModule implements Listener {
         }
         HandlerList.unregisterAll(this);
 
+        resetRuntimeState();
+    }
+
+    private void resetRuntimeState() {
+        outboundBytes.set(0L);
+        controlledOutboundBytes.set(0L);
+        inboundBytes.set(0L);
+        throttledPackets.set(0L);
+        throttledBytes.set(0L);
+        throttledPacketsTotal.reset();
+        throttledBytesTotal.reset();
+        for (LongAdder counter : throttledByGroup.values()) {
+            counter.reset();
+        }
+        for (LongAdder counter : throttledByDistance.values()) {
+            counter.reset();
+        }
         playerEntityIds.clear();
         playerCurrentEntityIds.clear();
         playerSnapshots.clear();
@@ -242,6 +280,22 @@ public class NetworkThrottleModule implements Listener {
         mode = ThrottleMode.OFF;
         throttleArmed = false;
         afkThrottleArmed = false;
+        smoothedBytesPerSecond = 0.0D;
+        smoothedDeliveredBytesPerSecond = 0.0D;
+        smoothedInboundBytesPerSecond = 0.0D;
+        smoothedSystemTransmitBytesPerSecond = -1.0D;
+        adaptiveLimits = AdaptiveLimits.defaults();
+        lastSystemTransmitBytes = -1L;
+        lastBandwidthSampleNanos = 0L;
+        lastLogNanos = 0L;
+        adaptiveServerLimitBytesPerSecond = DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND;
+        adaptiveRecoverySamples = 0;
+        pendingMode = ThrottleMode.OFF;
+        pendingModeSamples = 0;
+        lastTopPacketSummary = "none";
+        lastTopPlayerSummary = "none";
+        lastHighPingSummary = "none";
+        lastAfkSummary = "none";
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -288,9 +342,6 @@ public class NetworkThrottleModule implements Listener {
                 key.viewerId().equals(player.getUniqueId()) || key.subjectId().equals(player.getUniqueId()));
         queuedCorrectionKeys.removeIf(key ->
                 key.viewerId().equals(player.getUniqueId()) || key.subjectId().equals(player.getUniqueId()));
-        correctionQueue.removeIf(correction ->
-                correction.key().viewerId().equals(player.getUniqueId())
-                        || correction.key().subjectId().equals(player.getUniqueId()));
         packetRateLimits.keySet().removeIf(key ->
                 key.viewerId().equals(player.getUniqueId()) || key.subjectId().equals(player.getUniqueId()));
     }
@@ -301,7 +352,7 @@ public class NetworkThrottleModule implements Listener {
     }
 
     public void markRecentTeleport(UUID playerId) {
-        recentTeleportsUntil.put(playerId, System.currentTimeMillis() + RECENT_TELEPORT_SUPPRESS_MILLIS);
+        recentTeleportsUntil.put(playerId, System.nanoTime() + RECENT_TELEPORT_SUPPRESS_NANOS);
     }
 
     private void primeOnlinePlayers() {
@@ -320,7 +371,7 @@ public class NetworkThrottleModule implements Listener {
         }
         playerEntityIds.put(entityId, playerId);
         playerOutboundBytes.putIfAbsent(playerId, new AtomicLong());
-        playerSnapshots.put(playerId, PlayerSnapshot.from(player, afkService));
+        playerSnapshots.put(playerId, PlayerSnapshot.from(player, afkService, adaptiveLimits));
         playerNames.put(playerId, player.getName());
     }
 
@@ -351,13 +402,15 @@ public class NetworkThrottleModule implements Listener {
         samplePlayerBandwidth(elapsedSeconds);
         cleanupRateLimits(now);
         cleanupCorrections(now);
+        updateAdaptiveLimits(controlledSentBytes, cancelledBytes);
+        refreshPlayerPressureModes();
 
         ThrottleMode previous = mode;
         boolean playerPressure = hasPlayerPressure();
         SnapshotPressure snapshotPressure = snapshotPressure();
         boolean pingPressure = snapshotPressure.pingPressure();
         boolean afkPressure = snapshotPressure.afkPressure();
-        mode = maxMode(modeFor(smoothedBytesPerSecond), msptMode());
+        mode = hysteresisMode(modeForPressure(adaptiveLimits.pressureScore()));
         afkThrottleArmed = afkPressure;
         throttleArmed = mode != ThrottleMode.OFF || playerPressure || pingPressure || afkPressure;
         if (!throttleArmed) {
@@ -415,10 +468,140 @@ public class NetworkThrottleModule implements Listener {
         for (Map.Entry<UUID, AtomicLong> entry : playerOutboundBytes.entrySet()) {
             long bytes = entry.getValue().getAndSet(0L);
             UUID playerId = entry.getKey();
-            double smoothedBytes = playerSmoothedOutboundBytes.compute(playerId, (ignored, previous) ->
-                    smooth(previous == null ? 0.0D : previous, bytesPerSecond(bytes, elapsedSeconds)));
-            playerPressureModes.put(playerId, playerModeFor(smoothedBytes));
+            playerSmoothedOutboundBytes.compute(playerId, (ignored, previous) ->
+                    playerSnapshots.containsKey(playerId)
+                            ? smooth(previous == null ? 0.0D : previous, bytesPerSecond(bytes, elapsedSeconds))
+                            : null);
         }
+    }
+
+    private void refreshPlayerPressureModes() {
+        for (Map.Entry<UUID, Double> entry : playerSmoothedOutboundBytes.entrySet()) {
+            if (!playerSnapshots.containsKey(entry.getKey())) {
+                playerPressureModes.remove(entry.getKey());
+                playerSmoothedOutboundBytes.remove(entry.getKey(), entry.getValue());
+                continue;
+            }
+            playerPressureModes.put(entry.getKey(), playerModeFor(entry.getValue()));
+        }
+    }
+
+    private void updateAdaptiveLimits(long controlledSentBytes, long cancelledBytes) {
+        double demand = smoothedBytesPerSecond;
+        double delivered = smoothedDeliveredBytesPerSecond;
+        double mspt = performanceModule.effectiveMspt();
+        int onlinePlayers = Math.max(1, playerSnapshots.size());
+        double cancelRatio = cancelledRatio(controlledSentBytes, cancelledBytes);
+        PlayerDemandStats playerDemand = playerDemandStats();
+        PingStats pingStats = pingStats();
+
+        double currentServerLimit = Math.max(1.0D, adaptiveServerLimitBytesPerSecond);
+        double bandwidthPressure = demand / currentServerLimit;
+        double deliveredPressure = delivered / currentServerLimit;
+        double systemPressure = smoothedSystemTransmitBytesPerSecond > 0.0D
+                ? smoothedSystemTransmitBytesPerSecond
+                / Math.max(1.0D, DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND * 1.25D)
+                : 0.0D;
+        double msptPressure = msptPressureRatio(mspt);
+        double queuePressure = Math.min(1.0D, pendingCorrections.size() / Math.max(16.0D, onlinePlayers * 12.0D));
+        double cancelSampleConfidence = Math.clamp(
+                (controlledSentBytes + cancelledBytes) / Math.max(64.0D * 1024.0D, onlinePlayers * 24.0D * 1024.0D),
+                0.0D,
+                1.0D);
+        double cancelPressure = Math.clamp(cancelRatio * 2.5D * cancelSampleConfidence, 0.0D, 1.0D);
+        double pressureScore = Math.clamp(
+                Math.max(Math.max(bandwidthPressure, deliveredPressure), Math.max(systemPressure, msptPressure)),
+                0.0D,
+                1.0D);
+        double intervalPressureScore = Math.clamp(
+                Math.max(pressureScore, Math.max(queuePressure * 0.85D, cancelPressure * 0.70D)),
+                0.0D,
+                1.0D);
+        double capacityPressure = Math.max(systemPressure, msptPressure);
+        boolean capacityHealthy = capacityPressure < SOFT_PRESSURE_RATIO;
+        double desiredHealthyLimit = clamp(
+                Math.max(DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND,
+                        Math.max(demand, delivered) / SOFT_PRESSURE_RATIO),
+                MIN_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND,
+                MAX_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND);
+
+        if (capacityPressure >= ADAPTIVE_CRITICAL_TRIGGER) {
+            adaptiveServerLimitBytesPerSecond *= ADAPTIVE_DECREASE_FACTOR * ADAPTIVE_DECREASE_FACTOR;
+            adaptiveRecoverySamples = 0;
+        } else if (capacityPressure >= ADAPTIVE_PRESSURE_TRIGGER) {
+            adaptiveServerLimitBytesPerSecond *= ADAPTIVE_DECREASE_FACTOR;
+            adaptiveRecoverySamples = 0;
+        } else if (capacityHealthy) {
+            adaptiveRecoverySamples++;
+            if (adaptiveRecoverySamples >= ADAPTIVE_RECOVERY_SAMPLES) {
+                if (adaptiveServerLimitBytesPerSecond < desiredHealthyLimit) {
+                    adaptiveServerLimitBytesPerSecond = Math.min(
+                            desiredHealthyLimit,
+                            adaptiveServerLimitBytesPerSecond * ADAPTIVE_INCREASE_FACTOR);
+                } else if (adaptiveServerLimitBytesPerSecond > DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND
+                        && Math.max(demand, delivered) < DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND * 0.40D) {
+                    adaptiveServerLimitBytesPerSecond = Math.max(
+                            DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND,
+                            adaptiveServerLimitBytesPerSecond * ADAPTIVE_IDLE_DECAY_FACTOR);
+                }
+                adaptiveRecoverySamples = 0;
+            }
+        } else {
+            adaptiveRecoverySamples = 0;
+        }
+
+        adaptiveServerLimitBytesPerSecond = clamp(
+                adaptiveServerLimitBytesPerSecond,
+                MIN_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND,
+                MAX_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND);
+
+        double fairShare = adaptiveServerLimitBytesPerSecond / Math.max(onlinePlayers, 4);
+        long playerSoft = Math.round(clamp(
+                Math.max(Math.max(playerDemand.p75BytesPerSecond() * 1.25D, fairShare * 0.60D),
+                        MIN_PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND),
+                MIN_PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND,
+                MAX_PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND));
+        long playerHard = Math.round(clamp(playerSoft * 1.80D, playerSoft + 64.0D * 1024.0D,
+                DEFAULT_PLAYER_OUTBOUND_CRITICAL_BYTES_PER_SECOND * 2.0D));
+        long playerCritical = Math.round(clamp(playerSoft * 2.80D, playerHard + 64.0D * 1024.0D,
+                DEFAULT_PLAYER_OUTBOUND_CRITICAL_BYTES_PER_SECOND * 3.0D));
+
+        int pingSoft = PING_SOFT_MILLIS;
+        int pingHard = PING_HARD_MILLIS;
+        int pingCritical = PING_CRITICAL_MILLIS;
+        if (onlinePlayers >= 4) {
+            pingSoft = (int) Math.round(clamp(Math.max(PING_SOFT_MILLIS, pingStats.p75Millis() * 1.20D),
+                    PING_SOFT_MILLIS, PING_HARD_MILLIS));
+            pingHard = (int) Math.round(clamp(Math.max(PING_HARD_MILLIS, pingStats.p90Millis() * 1.20D),
+                    pingSoft + 40.0D, PING_CRITICAL_MILLIS));
+            pingCritical = (int) Math.round(clamp(Math.max(PING_CRITICAL_MILLIS, pingStats.p95Millis() * 1.20D),
+                    pingHard + 80.0D, 900.0D));
+        }
+
+        double intervalScale = clamp(1.0D + intervalPressureScore * 1.25D,
+                1.0D, 2.75D);
+        int correctionBudget = (int) Math.round(clamp(
+                MAX_CORRECTIONS_PER_TICK * (1.05D - Math.min(0.55D, msptPressure * 0.45D))
+                        + MAX_CORRECTIONS_PER_TICK * Math.min(0.25D, queuePressure * 0.25D),
+                MIN_CORRECTIONS_PER_TICK,
+                MAX_CORRECTIONS_PER_TICK));
+
+        adaptiveLimits = new AdaptiveLimits(
+                Math.round(adaptiveServerLimitBytesPerSecond),
+                playerSoft,
+                playerHard,
+                playerCritical,
+                pingSoft,
+                pingHard,
+                pingCritical,
+                correctionBudget,
+                intervalScale,
+                pressureScore,
+                intervalPressureScore,
+                cancelRatio,
+                playerDemand.p75BytesPerSecond(),
+                playerDemand.p95BytesPerSecond(),
+                pingStats.p90Millis());
     }
 
     private void sampleSystemNetwork(double elapsedSeconds) {
@@ -434,19 +617,78 @@ public class NetworkThrottleModule implements Listener {
         lastSystemTransmitBytes = transmitBytes;
     }
 
-    private ThrottleMode modeFor(double bytesPerSecond) {
-        double ratio = bytesPerSecond / SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND;
-        return modeForRatio(ratio);
+    private double cancelledRatio(long controlledSentBytes, long cancelledBytes) {
+        long demandBytes = controlledSentBytes + cancelledBytes;
+        if (demandBytes <= 0L) {
+            return 0.0D;
+        }
+        return cancelledBytes / (double) demandBytes;
+    }
+
+    private PlayerDemandStats playerDemandStats() {
+        ArrayList<Double> values = new ArrayList<>();
+        for (double bytesPerSecond : playerSmoothedOutboundBytes.values()) {
+            if (bytesPerSecond > 0.0D) {
+                values.add(bytesPerSecond);
+            }
+        }
+        if (values.isEmpty()) {
+            return new PlayerDemandStats(0.0D, 0.0D);
+        }
+        values.sort(Comparator.naturalOrder());
+        return new PlayerDemandStats(percentile(values, 0.75D), percentile(values, 0.95D));
+    }
+
+    private PingStats pingStats() {
+        ArrayList<Double> values = new ArrayList<>();
+        for (PlayerSnapshot snapshot : playerSnapshots.values()) {
+            values.add((double) snapshot.pingMillis());
+        }
+        if (values.isEmpty()) {
+            return new PingStats(0.0D, 0.0D, 0.0D);
+        }
+        values.sort(Comparator.naturalOrder());
+        return new PingStats(percentile(values, 0.75D), percentile(values, 0.90D), percentile(values, 0.95D));
+    }
+
+    private double percentile(ArrayList<Double> sortedValues, double percentile) {
+        if (sortedValues.isEmpty()) {
+            return 0.0D;
+        }
+        int index = (int) Math.ceil(percentile * sortedValues.size()) - 1;
+        return sortedValues.get(Math.clamp(index, 0, sortedValues.size() - 1));
+    }
+
+    private double msptPressureRatio(double value) {
+        if (value <= MSPT_SOFT_PRESSURE) {
+            return value / MSPT_SOFT_PRESSURE * SOFT_PRESSURE_RATIO;
+        }
+        if (value <= MSPT_HARD_PRESSURE) {
+            return SOFT_PRESSURE_RATIO
+                    + (value - MSPT_SOFT_PRESSURE) / (MSPT_HARD_PRESSURE - MSPT_SOFT_PRESSURE)
+                    * (HARD_PRESSURE_RATIO - SOFT_PRESSURE_RATIO);
+        }
+        if (value <= MSPT_CRITICAL_PRESSURE) {
+            return HARD_PRESSURE_RATIO
+                    + (value - MSPT_HARD_PRESSURE) / (MSPT_CRITICAL_PRESSURE - MSPT_HARD_PRESSURE)
+                    * (CRITICAL_PRESSURE_RATIO - HARD_PRESSURE_RATIO);
+        }
+        return 1.0D;
+    }
+
+    private double clamp(double value, double minimum, double maximum) {
+        return Math.clamp(value, minimum, maximum);
     }
 
     private ThrottleMode playerModeFor(double bytesPerSecond) {
-        if (bytesPerSecond >= PLAYER_OUTBOUND_CRITICAL_BYTES_PER_SECOND) {
+        AdaptiveLimits limits = adaptiveLimits;
+        if (bytesPerSecond >= limits.playerCriticalBytesPerSecond()) {
             return ThrottleMode.CRITICAL;
         }
-        if (bytesPerSecond >= PLAYER_OUTBOUND_HARD_BYTES_PER_SECOND) {
+        if (bytesPerSecond >= limits.playerHardBytesPerSecond()) {
             return ThrottleMode.HARD;
         }
-        if (bytesPerSecond >= PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND) {
+        if (bytesPerSecond >= limits.playerSoftBytesPerSecond()) {
             return ThrottleMode.SOFT;
         }
         return ThrottleMode.OFF;
@@ -456,28 +698,57 @@ public class NetworkThrottleModule implements Listener {
         return playerPressureModes.getOrDefault(playerId, ThrottleMode.OFF);
     }
 
-    private ThrottleMode msptMode() {
-        double mspt = performanceModule.effectiveMspt();
-        if (mspt >= MSPT_CRITICAL_PRESSURE) {
+    private ThrottleMode modeForPressure(double pressureScore) {
+        if (pressureScore >= CRITICAL_PRESSURE_RATIO) {
             return ThrottleMode.CRITICAL;
         }
-        if (mspt >= MSPT_HARD_PRESSURE) {
+        if (pressureScore >= HARD_PRESSURE_RATIO) {
             return ThrottleMode.HARD;
         }
-        if (mspt >= MSPT_SOFT_PRESSURE) {
+        if (pressureScore >= SOFT_PRESSURE_RATIO) {
             return ThrottleMode.SOFT;
         }
         return ThrottleMode.OFF;
     }
 
-    private static ThrottleMode pingMode(int pingMillis) {
-        if (pingMillis >= PING_CRITICAL_MILLIS) {
+    private ThrottleMode hysteresisMode(ThrottleMode desiredMode) {
+        if (desiredMode == mode) {
+            pendingMode = desiredMode;
+            pendingModeSamples = 0;
+            return mode;
+        }
+
+        if (desiredMode != pendingMode) {
+            pendingMode = desiredMode;
+            pendingModeSamples = 1;
+        } else {
+            pendingModeSamples++;
+        }
+
+        if (desiredMode.ordinal() > mode.ordinal()) {
+            int requiredSamples = desiredMode == ThrottleMode.CRITICAL ? 1 : MODE_UP_SAMPLES;
+            if (pendingModeSamples >= requiredSamples) {
+                pendingModeSamples = 0;
+                return desiredMode;
+            }
+            return mode;
+        }
+
+        if (pendingModeSamples >= MODE_DOWN_SAMPLES) {
+            pendingModeSamples = 0;
+            return desiredMode;
+        }
+        return mode;
+    }
+
+    private static ThrottleMode pingMode(int pingMillis, AdaptiveLimits limits) {
+        if (pingMillis >= limits.pingCriticalMillis()) {
             return ThrottleMode.CRITICAL;
         }
-        if (pingMillis >= PING_HARD_MILLIS) {
+        if (pingMillis >= limits.pingHardMillis()) {
             return ThrottleMode.HARD;
         }
-        if (pingMillis >= PING_SOFT_MILLIS) {
+        if (pingMillis >= limits.pingSoftMillis()) {
             return ThrottleMode.SOFT;
         }
         return ThrottleMode.OFF;
@@ -485,19 +756,6 @@ public class NetworkThrottleModule implements Listener {
 
     private ThrottleMode maxMode(ThrottleMode first, ThrottleMode second) {
         return first.ordinal() >= second.ordinal() ? first : second;
-    }
-
-    private ThrottleMode modeForRatio(double ratio) {
-        if (ratio >= CRITICAL_PRESSURE_RATIO) {
-            return ThrottleMode.CRITICAL;
-        }
-        if (ratio >= HARD_PRESSURE_RATIO) {
-            return ThrottleMode.HARD;
-        }
-        if (ratio >= SOFT_PRESSURE_RATIO) {
-            return ThrottleMode.SOFT;
-        }
-        return ThrottleMode.OFF;
     }
 
     private boolean hasPlayerPressure() {
@@ -536,7 +794,6 @@ public class NetworkThrottleModule implements Listener {
                 return false;
             }
             queuedCorrectionKeys.remove(entry.getKey());
-            correctionQueue.removeIf(correction -> correction.key().equals(entry.getKey()));
             return true;
         });
     }
@@ -626,10 +883,11 @@ public class NetworkThrottleModule implements Listener {
     }
 
     private String highPingPlayers() {
+        AdaptiveLimits limits = adaptiveLimits;
         ArrayList<PlayerPing> entries = new ArrayList<>();
         for (Map.Entry<UUID, PlayerSnapshot> entry : playerSnapshots.entrySet()) {
             int ping = entry.getValue().pingMillis();
-            if (ping >= PING_SOFT_MILLIS) {
+            if (ping >= limits.pingSoftMillis()) {
                 entries.add(new PlayerPing(entry.getKey(), ping));
             }
         }
@@ -681,7 +939,9 @@ public class NetworkThrottleModule implements Listener {
         long now = System.nanoTime();
         int sent = 0;
         int inspected = 0;
-        while (sent < MAX_CORRECTIONS_PER_TICK && inspected < MAX_CORRECTION_INSPECTIONS_PER_TICK) {
+        int maxCorrections = adaptiveLimits.maxCorrectionsPerTick();
+        int maxInspections = Math.min(MAX_CORRECTION_INSPECTIONS_PER_TICK, maxCorrections * 4);
+        while (sent < maxCorrections && inspected < maxInspections) {
             DelayedCorrection correction = correctionQueue.poll();
             if (correction == null) {
                 break;
@@ -726,8 +986,9 @@ public class NetworkThrottleModule implements Listener {
                 continue;
             }
 
-            double distanceSquared = viewerSnapshot.distanceSquared(subjectSnapshot);
-            long interval = correctionInterval(currentMode, distanceSquared,
+            long interval = correctionInterval(
+                    currentMode,
+                    DistanceBand.from(viewerSnapshot.distanceSquared(subjectSnapshot)),
                     intervalMultiplier(viewerSnapshot, subjectSnapshot));
             if (interval <= 0L) {
                 pendingCorrections.remove(key);
@@ -756,7 +1017,7 @@ public class NetworkThrottleModule implements Listener {
     }
 
     private boolean shouldThrottleMovement(UUID viewerId, ThrottleContext context) {
-        long interval = correctionInterval(context.mode(), context.distanceSquared(), context.viewerPingIntervalMultiplier());
+        long interval = correctionInterval(context.mode(), context.distanceBand(), context.viewerPingIntervalMultiplier());
         if (interval <= 0L) {
             return false;
         }
@@ -790,7 +1051,7 @@ public class NetworkThrottleModule implements Listener {
         long interval = limitedPacketInterval(
                 packetGroup,
                 context.mode(),
-                context.distanceSquared(),
+                context.distanceBand(),
                 context.viewerPingIntervalMultiplier());
         if (interval <= 0L) {
             return false;
@@ -839,7 +1100,7 @@ public class NetworkThrottleModule implements Listener {
         if (isClosePvpPair(viewerId, subjectId, distanceSquared)) {
             return null;
         }
-        return new ThrottleContext(subjectId, distanceSquared,
+        return new ThrottleContext(subjectId, DistanceBand.from(distanceSquared),
                 intervalMultiplier(viewerSnapshot, subjectSnapshot), currentMode);
     }
 
@@ -921,7 +1182,7 @@ public class NetworkThrottleModule implements Listener {
         if (expiresAt == null) {
             return false;
         }
-        if (expiresAt <= System.currentTimeMillis()) {
+        if (expiresAt <= System.nanoTime()) {
             recentTeleportsUntil.remove(playerId, expiresAt);
             return false;
         }
@@ -933,71 +1194,75 @@ public class NetworkThrottleModule implements Listener {
                 && (pvpModule.isCombatTagged(viewerId) || pvpModule.isCombatTagged(subjectId));
     }
 
-    private long correctionInterval(ThrottleMode currentMode, double distanceSquared, double pingIntervalMultiplier) {
-        if (distanceSquared < NEAR_DISTANCE_SQUARED) {
-            return 0L;
-        }
-
+    private long correctionInterval(ThrottleMode currentMode, DistanceBand distanceBand, double pingIntervalMultiplier) {
+        AdaptiveLimits limits = adaptiveLimits;
         long baseInterval = switch (currentMode) {
             case OFF -> 0L;
-            case SOFT -> {
-                if (distanceSquared < MID_DISTANCE_SQUARED) yield SOFT_MID_INTERVAL_NANOS;
-                if (distanceSquared < FAR_DISTANCE_SQUARED) yield SOFT_FAR_INTERVAL_NANOS;
-                yield SOFT_EXTREME_INTERVAL_NANOS;
-            }
-            case HARD -> {
-                if (distanceSquared < MID_DISTANCE_SQUARED) yield HARD_MID_INTERVAL_NANOS;
-                if (distanceSquared < FAR_DISTANCE_SQUARED) yield HARD_FAR_INTERVAL_NANOS;
-                yield HARD_EXTREME_INTERVAL_NANOS;
-            }
-            case CRITICAL -> {
-                if (distanceSquared < MID_DISTANCE_SQUARED) yield CRITICAL_MID_INTERVAL_NANOS;
-                if (distanceSquared < FAR_DISTANCE_SQUARED) yield CRITICAL_FAR_INTERVAL_NANOS;
-                yield CRITICAL_EXTREME_INTERVAL_NANOS;
-            }
+            case SOFT -> switch (distanceBand) {
+                case NEAR -> 0L;
+                case MID -> SOFT_MID_INTERVAL_NANOS;
+                case FAR -> SOFT_FAR_INTERVAL_NANOS;
+                case EXTREME -> SOFT_EXTREME_INTERVAL_NANOS;
+            };
+            case HARD -> switch (distanceBand) {
+                case NEAR -> 0L;
+                case MID -> HARD_MID_INTERVAL_NANOS;
+                case FAR -> HARD_FAR_INTERVAL_NANOS;
+                case EXTREME -> HARD_EXTREME_INTERVAL_NANOS;
+            };
+            case CRITICAL -> switch (distanceBand) {
+                case NEAR -> 0L;
+                case MID -> CRITICAL_MID_INTERVAL_NANOS;
+                case FAR -> CRITICAL_FAR_INTERVAL_NANOS;
+                case EXTREME -> CRITICAL_EXTREME_INTERVAL_NANOS;
+            };
         };
-        return pingAdjustedInterval(baseInterval, pingIntervalMultiplier);
+        return pingAdjustedInterval(scaledInterval(baseInterval, limits.intervalScale()), pingIntervalMultiplier);
     }
 
     private long limitedPacketInterval(
             PacketGroup packetGroup,
             ThrottleMode currentMode,
-            double distanceSquared,
+            DistanceBand distanceBand,
             double pingIntervalMultiplier
     ) {
-        if (distanceSquared < MID_DISTANCE_SQUARED) {
+        if (distanceBand == DistanceBand.NEAR || distanceBand == DistanceBand.MID) {
             return 0L;
         }
 
+        AdaptiveLimits limits = adaptiveLimits;
         long baseInterval = switch (packetGroup) {
             case NONE, MOVE -> 0L;
             case LOOK -> switch (currentMode) {
                 case OFF -> 0L;
-                case SOFT -> distanceSquared >= FAR_DISTANCE_SQUARED ? LOOK_PACKET_INTERVAL_NANOS : 0L;
-                case HARD -> LOOK_PACKET_INTERVAL_NANOS;
+                case SOFT, HARD -> LOOK_PACKET_INTERVAL_NANOS;
                 case CRITICAL -> LOOK_PACKET_INTERVAL_NANOS * 2L;
             };
             case VELOCITY -> switch (currentMode) {
                 case OFF, SOFT -> 0L;
-                case HARD -> distanceSquared >= FAR_DISTANCE_SQUARED ? VELOCITY_PACKET_INTERVAL_NANOS : 0L;
-                case CRITICAL -> VELOCITY_PACKET_INTERVAL_NANOS;
+                case HARD, CRITICAL -> VELOCITY_PACKET_INTERVAL_NANOS;
             };
             case ANIMATION -> switch (currentMode) {
                 case OFF -> 0L;
-                case SOFT -> distanceSquared >= FAR_DISTANCE_SQUARED ? ANIMATION_PACKET_INTERVAL_NANOS : 0L;
-                case HARD -> ANIMATION_PACKET_INTERVAL_NANOS;
+                case SOFT, HARD -> ANIMATION_PACKET_INTERVAL_NANOS;
                 case CRITICAL -> ANIMATION_PACKET_INTERVAL_NANOS * 2L;
             };
             case STATUS -> switch (currentMode) {
                 case OFF, SOFT -> 0L;
-                case HARD -> distanceSquared >= FAR_DISTANCE_SQUARED ? STATUS_PACKET_INTERVAL_NANOS : 0L;
-                case CRITICAL -> STATUS_PACKET_INTERVAL_NANOS;
+                case HARD, CRITICAL -> STATUS_PACKET_INTERVAL_NANOS;
             };
-            case STATE -> currentMode == ThrottleMode.CRITICAL && distanceSquared >= FAR_DISTANCE_SQUARED
+            case STATE -> currentMode == ThrottleMode.CRITICAL
                     ? STATE_PACKET_INTERVAL_NANOS
                     : 0L;
         };
-        return pingAdjustedInterval(baseInterval, pingIntervalMultiplier);
+        return pingAdjustedInterval(scaledInterval(baseInterval, limits.intervalScale()), pingIntervalMultiplier);
+    }
+
+    private long scaledInterval(long interval, double multiplier) {
+        if (interval <= 0L) {
+            return 0L;
+        }
+        return Math.max(interval, Math.round(interval * multiplier));
     }
 
     private long pingAdjustedInterval(long interval, double multiplier) {
@@ -1007,14 +1272,14 @@ public class NetworkThrottleModule implements Listener {
         return Math.max(interval, Math.round(interval * multiplier));
     }
 
-    private static double pingIntervalMultiplier(int pingMillis) {
-        if (pingMillis >= PING_CRITICAL_MILLIS) {
+    private static double pingIntervalMultiplier(int pingMillis, AdaptiveLimits limits) {
+        if (pingMillis >= limits.pingCriticalMillis()) {
             return PING_CRITICAL_INTERVAL_MULTIPLIER;
         }
-        if (pingMillis >= PING_HARD_MILLIS) {
+        if (pingMillis >= limits.pingHardMillis()) {
             return PING_HARD_INTERVAL_MULTIPLIER;
         }
-        if (pingMillis >= PING_SOFT_MILLIS) {
+        if (pingMillis >= limits.pingSoftMillis()) {
             return PING_SOFT_INTERVAL_MULTIPLIER;
         }
         return 1.0D;
@@ -1092,7 +1357,7 @@ public class NetworkThrottleModule implements Listener {
     }
 
     private void recordPacketDemand(PacketTypeCommon packetType, int bytes) {
-        if (throttleArmed && bytes > 0) {
+        if (bytes > 0) {
             packetBytes.computeIfAbsent(packetType, ignored -> new LongAdder()).add(bytes);
         }
     }
@@ -1141,7 +1406,7 @@ public class NetworkThrottleModule implements Listener {
                         "Packet cancellation counters and hot packet types."))
                 .append(Component.text("  ", NamedTextColor.DARK_GRAY))
                 .append(commandButton("limits", "/network limits", activeView == NetworkView.LIMITS,
-                        "Bandwidth, ping, MSPT, and player thresholds."))
+                        "Adaptive bandwidth, ping, and player thresholds."))
                 .append(Component.text("  ", NamedTextColor.DARK_GRAY))
                 .append(commandButton("rules", "/network rules", activeView == NetworkView.RULES,
                         "Which packets and scenes are throttled."))
@@ -1154,22 +1419,35 @@ public class NetworkThrottleModule implements Listener {
     }
 
     private Component statusSection() {
-        double outboundRatio = smoothedBytesPerSecond / SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND;
+        AdaptiveLimits limits = adaptiveLimits;
+        double mspt = performanceModule.effectiveMspt();
+        double outboundRatio = smoothedBytesPerSecond / limits.serverLimitBytesPerSecond();
         return sectionTitle("Status", "Current global network throttle state.")
                 .append(metricLine("mode", modeComponent(mode),
-                        "Global mode from server outbound demand and MSPT pressure."))
+                        "Global mode from server outbound demand, system transmit, and MSPT pressure."))
+                .append(metricLine("pressure",
+                        Component.text(String.format(Locale.ROOT, "%.0f%%", limits.pressureScore() * 100.0D),
+                                pressureColor(modeForPressure(limits.pressureScore()))),
+                        "Adaptive pressure score from bandwidth demand, delivered traffic, system transmit, and MSPT. Queue backlog and cancellation ratio are handled separately."))
+                .append(metricLine("interval pressure",
+                        Component.text(String.format(Locale.ROOT, "%.0f%%", limits.intervalPressureScore() * 100.0D),
+                                pressureColor(modeForPressure(limits.intervalPressureScore()))),
+                        "Pressure used for packet spacing. It also reacts to correction backlog and cancellation ratio, but does not lower the capacity estimate."))
                 .append(metricLine("armed", booleanComponent(throttleArmed),
                         "Armed means packet inspection is active because global, player, ping, or AFK pressure exists."))
-                .append(metricLine("mspt", Component.text(String.format(Locale.ROOT, "%.1f", performanceModule.effectiveMspt()),
-                                msptColor(performanceModule.effectiveMspt())),
+                .append(metricLine("mspt", Component.text(String.format(Locale.ROOT, "%.1f", mspt),
+                                msptColor(mspt)),
                         "Effective MSPT from PerformanceModule. Network throttling also reacts to server tick pressure."))
                 .append(metricLine("plugin sent",
                         Component.text(formatThroughput(smoothedDeliveredBytesPerSecond), NamedTextColor.AQUA),
                         "Smoothed PacketEvents outbound bytes that were actually allowed through by this module. This is still logical packet-buffer size, not Linux eth0 bytes."))
                 .append(metricLine("plugin demand",
                         Component.text(formatThroughput(smoothedBytesPerSecond) + "  "
-                                + formatPercent(outboundRatio), pressureColor(modeFor(smoothedBytesPerSecond))),
+                                + formatPercent(outboundRatio), pressureColor(modeForPressure(outboundRatio))),
                         "Smoothed demand for packets this module can throttle: allowed controlled packets plus packets cancelled by this module. This is the value used for global pressure."))
+                .append(metricLine("cancel ratio",
+                        Component.text(formatPercent(limits.cancelRatio()), cancelRatioColor(limits.cancelRatio())),
+                        "Share of controlled packet demand cancelled in the last adaptive sample."))
                 .append(metricLine("server inbound", Component.text(formatThroughput(smoothedInboundBytesPerSecond),
                                 NamedTextColor.GRAY),
                         "Smoothed inbound bytes observed by PacketEvents."))
@@ -1210,7 +1488,7 @@ public class NetworkThrottleModule implements Listener {
                                 packetRateLimits.isEmpty() ? NamedTextColor.GRAY : NamedTextColor.AQUA),
                         "Per viewer-subject-packet limiter state entries. They expire after inactivity."))
                 .append(metricLine("top packets", Component.text(lastTopPacketSummary, NamedTextColor.GRAY),
-                        "Largest outbound packet types per second in the last sample while the throttle was armed."))
+                        "Largest controlled outbound packet types per second in the last adaptive sample."))
                 .append(metricLine("groups", Component.text(throttledGroupSummary(), NamedTextColor.GRAY),
                         "Cancellation totals grouped by movement, look, velocity, animation, status, and state packets."))
                 .append(metricLine("distance", Component.text(throttledDistanceSummary(), NamedTextColor.GRAY),
@@ -1218,39 +1496,50 @@ public class NetworkThrottleModule implements Listener {
     }
 
     private Component limitsSection() {
-        return sectionTitle("Limits", "Hard-coded thresholds used by this module.")
-                .append(metricLine("server demand limit", Component.text(formatThroughput(SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND),
+        AdaptiveLimits limits = adaptiveLimits;
+        return sectionTitle("Limits", "Adaptive thresholds currently used by this module.")
+                .append(metricLine("server demand limit", Component.text(formatThroughput(limits.serverLimitBytesPerSecond()),
                                 NamedTextColor.AQUA),
-                        "Global PacketEvents demand target. Modes begin at 70%, 85%, and 95% of this value."))
-                .append(metricLine("server soft", Component.text(formatThroughput(SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND
+                        "Adaptive global PacketEvents demand target. It grows with healthy observed demand and shrinks only on external capacity pressure."))
+                .append(metricLine("server soft", Component.text(formatThroughput(limits.serverLimitBytesPerSecond()
                                 * SOFT_PRESSURE_RATIO), NamedTextColor.YELLOW),
                         "Global SOFT threshold."))
-                .append(metricLine("server hard", Component.text(formatThroughput(SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND
+                .append(metricLine("server hard", Component.text(formatThroughput(limits.serverLimitBytesPerSecond()
                                 * HARD_PRESSURE_RATIO), NamedTextColor.GOLD),
                         "Global HARD threshold."))
-                .append(metricLine("server critical", Component.text(formatThroughput(SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND
+                .append(metricLine("server critical", Component.text(formatThroughput(limits.serverLimitBytesPerSecond()
                                 * CRITICAL_PRESSURE_RATIO), NamedTextColor.RED),
                         "Global CRITICAL threshold."))
-                .append(metricLine("player soft", Component.text(formatThroughput(PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND),
+                .append(metricLine("player soft", Component.text(formatThroughput(limits.playerSoftBytesPerSecond()),
                                 NamedTextColor.YELLOW),
-                        "Per-viewer receive-side SOFT threshold, roughly 400 KiB/s."))
-                .append(metricLine("player hard", Component.text(formatThroughput(PLAYER_OUTBOUND_HARD_BYTES_PER_SECOND),
+                        "Adaptive per-viewer receive-side SOFT threshold from fair share and player demand percentiles."))
+                .append(metricLine("player hard", Component.text(formatThroughput(limits.playerHardBytesPerSecond()),
                                 NamedTextColor.GOLD),
-                        "Per-viewer receive-side HARD threshold, roughly 800 KiB/s."))
-                .append(metricLine("player critical", Component.text(formatThroughput(PLAYER_OUTBOUND_CRITICAL_BYTES_PER_SECOND),
+                        "Adaptive per-viewer receive-side HARD threshold."))
+                .append(metricLine("player critical", Component.text(formatThroughput(limits.playerCriticalBytesPerSecond()),
                                 NamedTextColor.RED),
-                        "Per-viewer receive-side CRITICAL threshold, roughly 1.2 MiB/s."))
-                .append(metricLine("ping", Component.text(PING_SOFT_MILLIS + "/" + PING_HARD_MILLIS + "/"
-                                + PING_CRITICAL_MILLIS + " ms", NamedTextColor.GRAY),
-                        "Ping thresholds for SOFT, HARD, and CRITICAL per-viewer throttling."))
+                        "Adaptive per-viewer receive-side CRITICAL threshold."))
+                .append(metricLine("player demand p75/p95",
+                        Component.text(formatThroughput(limits.playerP75BytesPerSecond()) + " / "
+                                + formatThroughput(limits.playerP95BytesPerSecond()), NamedTextColor.GRAY),
+                        "Smoothed controlled packet demand percentiles used by the adaptive controller."))
+                .append(metricLine("ping", Component.text(limits.pingSoftMillis() + "/" + limits.pingHardMillis() + "/"
+                                + limits.pingCriticalMillis() + " ms", NamedTextColor.GRAY),
+                        "Adaptive ping thresholds for SOFT, HARD, and CRITICAL per-viewer throttling."))
+                .append(metricLine("ping p90", Component.text(String.format(Locale.ROOT, "%.0f ms", limits.pingP90Millis()),
+                                NamedTextColor.GRAY),
+                        "Current p90 ping in the snapshot cache."))
+                .append(metricLine("interval scale", Component.text("x" + formatMultiplier(limits.intervalScale()),
+                                NamedTextColor.GRAY),
+                        "Adaptive multiplier applied to movement and low-priority packet intervals from interval pressure."))
                 .append(metricLine("recent teleport", Component.text(RECENT_TELEPORT_SUPPRESS_MILLIS + " ms",
                                 NamedTextColor.GRAY),
                         "Viewer or subject teleports suppress throttling briefly to avoid bad visual state."))
                 .append(metricLine("distance bands", Component.text("48 / 96 / 160 blocks", NamedTextColor.GRAY),
                         "Near, mid, far, and extreme distance boundaries for movement throttling."))
-                .append(metricLine("correction budget", Component.text(MAX_CORRECTIONS_PER_TICK + "/tick",
+                .append(metricLine("correction budget", Component.text(limits.maxCorrectionsPerTick() + "/tick",
                                 NamedTextColor.GRAY),
-                        "Maximum absolute movement corrections flushed back to viewers per tick."))
+                        "Adaptive maximum absolute movement corrections flushed back to viewers per tick."))
                 .append(metricLine("rate expiry", Component.text(RATE_LIMIT_EXPIRY_NANOS / 1_000_000_000L + " s",
                                 NamedTextColor.GRAY),
                         "Inactive per-packet limiter state is removed after this many seconds."));
@@ -1258,15 +1547,19 @@ public class NetworkThrottleModule implements Listener {
 
     private Component rulesSection() {
         return sectionTitle("Rules", "Runtime behavior used when throttling is armed.")
-                .append(metricLine("no bypass", Component.text("roles and spectators are included", NamedTextColor.YELLOW),
+                .append(metricLine("bypass", Component.text("disabled", NamedTextColor.YELLOW),
                         "Helper, admin, and spectator viewers are still subject to network throttling."))
-                .append(metricLine("accounting", Component.text("viewer receive-side, logical packet bytes",
+                .append(metricLine("accounting", Component.text("viewer / logical bytes",
                                 NamedTextColor.GRAY),
                         "Per-player numbers are attributed to the receiving viewer and only count packets this module can throttle. Global sent still uses PacketEvents logical buffer bytes, not eth0 bytes."))
-                .append(metricLine("movement", Component.text("distance based + correction queue", NamedTextColor.GRAY),
+                .append(metricLine("sample", Component.text(BANDWIDTH_SAMPLE_PERIOD_TICKS + " ticks",
+                                NamedTextColor.GRAY),
+                        "Bandwidth, player, ping, interval, and correction budgets are recalculated by the sampler; packet send handling only reads the current snapshot."))
+                .append(metricLine("movement", Component.text(throttleArmed ? "armed" : "standby",
+                                throttleArmed ? NamedTextColor.YELLOW : NamedTextColor.GRAY),
                         "Far relative movement can be cancelled, then repaired with bounded absolute position corrections."))
                 .append(metricLine("packet groups",
-                        Component.text("move, look, velocity, animation, status, state", NamedTextColor.GRAY),
+                        Component.text("6 controlled", NamedTextColor.GRAY),
                         "Low-priority packet groups receive longer per-packet intervals as pressure rises."))
                 .append(metricLine("ping scaling", Component.text("x" + formatMultiplier(PING_SOFT_INTERVAL_MULTIPLIER)
                                 + " / x" + formatMultiplier(PING_HARD_INTERVAL_MULTIPLIER)
@@ -1276,22 +1569,22 @@ public class NetworkThrottleModule implements Listener {
                                         + ", subject x" + formatMultiplier(AFK_SUBJECT_INTERVAL_MULTIPLIER),
                                 NamedTextColor.GRAY),
                         "AFK viewers and AFK subjects receive wider intervals at distance."))
-                .append(metricLine("interaction guard", Component.text("close PvP, vehicle, teleport guarded",
+                .append(metricLine("guards", Component.text("PvP / vehicle / teleport",
                                 NamedTextColor.GREEN),
                         "Critical interaction scenes avoid the most disruptive distance throttling."))
-                .append(metricLine("world pressure", Component.text("lobby conservative, resource worlds aggressive",
+                .append(metricLine("world bias", Component.text("lobby -1, resource +1",
                                 NamedTextColor.GRAY),
                         "World names adjust throttle mode up or down for known scene types."));
     }
 
     private Component helpSection() {
         return sectionTitle("Commands", "Click a command to run it.")
-                .append(commandLine("/network", "current status overview"))
-                .append(commandLine("/network players", "per-player bandwidth, ping, and AFK pressure"))
-                .append(commandLine("/network packets", "packet throttle counters and hot packet types"))
-                .append(commandLine("/network limits", "hard-coded bandwidth and pressure thresholds"))
-                .append(commandLine("/network rules", "scene, distance, ping, and AFK throttle rules"))
-                .append(commandLine("/network all", "full diagnostic report"));
+                .append(commandLine("/network", "status"))
+                .append(commandLine("/network players", "players"))
+                .append(commandLine("/network packets", "packets"))
+                .append(commandLine("/network limits", "limits"))
+                .append(commandLine("/network rules", "rules"))
+                .append(commandLine("/network all", "all"));
     }
 
     private Component sectionTitle(String title, String hover) {
@@ -1398,6 +1691,19 @@ public class NetworkThrottleModule implements Listener {
         return modeColor(throttleMode);
     }
 
+    private NamedTextColor cancelRatioColor(double ratio) {
+        if (ratio >= 0.25D) {
+            return NamedTextColor.RED;
+        }
+        if (ratio >= 0.10D) {
+            return NamedTextColor.GOLD;
+        }
+        if (ratio >= 0.03D) {
+            return NamedTextColor.YELLOW;
+        }
+        return NamedTextColor.GRAY;
+    }
+
     private NamedTextColor msptColor(double mspt) {
         if (mspt >= MSPT_CRITICAL_PRESSURE) {
             return NamedTextColor.RED;
@@ -1500,17 +1806,49 @@ public class NetworkThrottleModule implements Listener {
         }
     }
 
+    private record AdaptiveLimits(long serverLimitBytesPerSecond,
+                                  long playerSoftBytesPerSecond,
+                                  long playerHardBytesPerSecond,
+                                  long playerCriticalBytesPerSecond,
+                                  int pingSoftMillis,
+                                  int pingHardMillis,
+                                  int pingCriticalMillis,
+                                  int maxCorrectionsPerTick,
+                                  double intervalScale,
+                                  double pressureScore,
+                                  double intervalPressureScore,
+                                  double cancelRatio,
+                                  double playerP75BytesPerSecond,
+                                  double playerP95BytesPerSecond,
+                                  double pingP90Millis) {
+        static AdaptiveLimits defaults() {
+            return new AdaptiveLimits(
+                    DEFAULT_SERVER_OUTBOUND_LIMIT_BYTES_PER_SECOND,
+                    DEFAULT_PLAYER_OUTBOUND_SOFT_BYTES_PER_SECOND,
+                    DEFAULT_PLAYER_OUTBOUND_HARD_BYTES_PER_SECOND,
+                    DEFAULT_PLAYER_OUTBOUND_CRITICAL_BYTES_PER_SECOND,
+                    PING_SOFT_MILLIS,
+                    PING_HARD_MILLIS,
+                    PING_CRITICAL_MILLIS,
+                    MAX_CORRECTIONS_PER_TICK,
+                    1.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D,
+                    0.0D);
+        }
+    }
+
     private record ThrottleKey(UUID viewerId, UUID subjectId) {
     }
 
     private record PacketLimitKey(UUID viewerId, UUID subjectId, PacketTypeCommon packetType) {
     }
 
-    private record ThrottleContext(UUID subjectId, double distanceSquared, double viewerPingIntervalMultiplier,
+    private record ThrottleContext(UUID subjectId, DistanceBand distanceBand, double viewerPingIntervalMultiplier,
                                    ThrottleMode mode) {
-        DistanceBand distanceBand() {
-            return DistanceBand.from(distanceSquared);
-        }
     }
 
     private record PacketVolume(PacketTypeCommon type, long bytes) {
@@ -1520,6 +1858,12 @@ public class NetworkThrottleModule implements Listener {
     }
 
     private record PlayerPing(UUID playerId, int pingMillis) {
+    }
+
+    private record PlayerDemandStats(double p75BytesPerSecond, double p95BytesPerSecond) {
+    }
+
+    private record PingStats(double p75Millis, double p90Millis, double p95Millis) {
     }
 
     private record SnapshotPressure(boolean pingPressure, boolean afkPressure) {
@@ -1532,7 +1876,7 @@ public class NetworkThrottleModule implements Listener {
         }
 
         @Override
-        public int compareTo(Delayed other) {
+        public int compareTo(@NotNull Delayed other) {
             if (other instanceof DelayedCorrection correction) {
                 return Long.compare(dueNanos, correction.dueNanos);
             }
@@ -1545,7 +1889,7 @@ public class NetworkThrottleModule implements Listener {
                                   boolean afk,
                                   int pingMillis, ThrottleMode pingMode, double pingIntervalMultiplier,
                                   double x, double y, double z, float yaw, float pitch) {
-        static PlayerSnapshot from(Player player, AfkService afkService) {
+        static PlayerSnapshot from(Player player, AfkService afkService, AdaptiveLimits limits) {
             Location location = player.getLocation();
             World world = location.getWorld();
             Entity vehicle = player.getVehicle();
@@ -1560,8 +1904,8 @@ public class NetworkThrottleModule implements Listener {
                     rootVehicleEntityId,
                     afkService.isAfk(player.getUniqueId()),
                     pingMillis,
-                    NetworkThrottleModule.pingMode(pingMillis),
-                    NetworkThrottleModule.pingIntervalMultiplier(pingMillis),
+                    NetworkThrottleModule.pingMode(pingMillis, limits),
+                    NetworkThrottleModule.pingIntervalMultiplier(pingMillis, limits),
                     location.x(),
                     location.y(),
                     location.z(),

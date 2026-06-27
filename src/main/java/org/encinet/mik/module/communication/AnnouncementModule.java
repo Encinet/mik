@@ -67,7 +67,8 @@ public class AnnouncementModule implements Listener {
     private final Map<UUID, Long> previousSeenAt = new ConcurrentHashMap<>();
     private final Map<UUID, MenuState> menuStates = new ConcurrentHashMap<>();
     private List<Announcement> announcements = List.of();
-    private String announcementsJson = "[]";
+    private volatile String announcementsJson = "[]";
+    private volatile byte[] announcementsJsonBytes = "[]".getBytes(StandardCharsets.UTF_8);
 
     public AnnouncementModule(JavaPlugin plugin, MenuNavigation menuNavigation) {
         this.plugin = plugin;
@@ -553,6 +554,10 @@ public class AnnouncementModule implements Listener {
         return announcementsJson;
     }
 
+    public byte[] getAnnouncementsJsonBytes() {
+        return announcementsJsonBytes;
+    }
+
     private void buildJsonCache() {
         StringBuilder sb = new StringBuilder("[");
         int count = 0;
@@ -565,7 +570,9 @@ public class AnnouncementModule implements Listener {
             count++;
         }
         sb.append("]");
-        announcementsJson = sb.toString();
+        String json = sb.toString();
+        announcementsJsonBytes = json.getBytes(StandardCharsets.UTF_8);
+        announcementsJson = json;
     }
 
     private String escapeJson(String s) {
