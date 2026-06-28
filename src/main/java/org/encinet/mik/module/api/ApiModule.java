@@ -9,8 +9,6 @@ import io.papermc.paper.ban.BanListType;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.model.user.User;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -23,7 +21,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
 import org.encinet.mik.module.communication.AnnouncementModule;
@@ -71,7 +68,6 @@ public class ApiModule implements Listener {
     private HttpServer server;
     private ExecutorService httpExecutor;
     private AnnouncementModule announcementModule;
-    private LuckPerms luckPerms;
     private volatile byte[] playersJsonBytes = bytes("{\"online\":0,\"peak_online\":0,\"players\":[]}");
     private int peakOnline;
     private int listenPort;
@@ -109,12 +105,6 @@ public class ApiModule implements Listener {
 
         loadState();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        RegisteredServiceProvider<LuckPerms> luckPermsProvider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-        if (luckPermsProvider != null) {
-            luckPerms = luckPermsProvider.getProvider();
-        } else {
-            plugin.getLogger().warning("LuckPerms not found; web login membership checks will be unavailable.");
-        }
         bootstrapOnlinePlayers();
 
         try {
@@ -367,36 +357,6 @@ public class ApiModule implements Listener {
 
         String resolvedName = offline.getName() != null ? offline.getName() : name;
         return playerJson(offline.getUniqueId(), resolvedName);
-    }
-
-    private String luckPermsRole(UUID uuid) {
-        if (luckPerms == null) {
-            return "";
-        }
-
-        User user = luckPerms.getUserManager().getUser(uuid);
-        if (user == null) {
-            try {
-                user = luckPerms.getUserManager().loadUser(uuid).get(2, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return "";
-            } catch (ExecutionException | TimeoutException e) {
-                return "";
-            }
-        }
-
-        var permissions = user.getCachedData().getPermissionData();
-        if (permissions.checkPermission("group." + Mik.GROUP_MANAGER).asBoolean()) {
-            return Mik.GROUP_MANAGER;
-        }
-        if (permissions.checkPermission("group." + Mik.GROUP_HELPER).asBoolean()) {
-            return Mik.GROUP_HELPER;
-        }
-        if (permissions.checkPermission("group." + Mik.GROUP_MEMBER).asBoolean()) {
-            return Mik.GROUP_MEMBER;
-        }
-        return "";
     }
 
     private byte[] playerJson(UUID uuid, String name) {
