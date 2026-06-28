@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.chat.modifier.AllMentionModifier;
 import org.encinet.mik.module.chat.modifier.BilibiliModifier;
@@ -16,6 +15,7 @@ import org.encinet.mik.module.chat.modifier.PlayerMentionModifier;
 import org.encinet.mik.module.chat.modifier.UrlModifier;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 
@@ -29,17 +29,19 @@ final class ChatMessageParser {
             new PlayerMentionModifier()
     );
 
-    Component parse(Player sender, Component originalMessage, String itemEmptyHover, String allHover, String bilibiliHover) {
+    Component parse(Player sender, Component originalMessage, Collection<Player> mentionablePlayers,
+                    String itemEmptyHover, String allHover, String bilibiliHover) {
         return parse(sender, PlainTextComponentSerializer.plainText().serialize(originalMessage),
-                itemEmptyHover, allHover, bilibiliHover);
+                mentionablePlayers, itemEmptyHover, allHover, bilibiliHover);
     }
 
-    Component parse(Player sender, String plainMessage, String itemEmptyHover, String allHover, String bilibiliHover) {
+    Component parse(Player sender, String plainMessage, Collection<Player> mentionablePlayers,
+                    String itemEmptyHover, String allHover, String bilibiliHover) {
         if (plainMessage == null || plainMessage.isEmpty()) {
             return Component.empty();
         }
 
-        List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
+        List<Player> players = new ArrayList<>(mentionablePlayers);
         players.sort(Comparator.comparingInt((Player p) -> p.getName().length()).reversed());
         ChatModifierContext context = new ChatModifierContext(sender, players, itemEmptyHover, allHover, bilibiliHover);
         TextComponent.Builder builder = Component.text();

@@ -12,12 +12,12 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.OfflinePlayer;
+import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
@@ -64,7 +64,8 @@ public class AnnouncementModule implements Listener {
     private final JavaPlugin plugin;
     private final MenuNavigation menuNavigation;
     private final NamespacedKey menuActionKey;
-    private final Map<UUID, Long> previousSeenAt = new ConcurrentHashMap<>();
+    private final File stateFile;
+    private final Map<UUID, Long> playerSeenUntil = new ConcurrentHashMap<>();
     private final Map<UUID, MenuState> menuStates = new ConcurrentHashMap<>();
     private List<Announcement> announcements = List.of();
     private volatile String announcementsJson = "[]";
@@ -74,11 +75,17 @@ public class AnnouncementModule implements Listener {
         this.plugin = plugin;
         this.menuNavigation = menuNavigation;
         this.menuActionKey = new NamespacedKey(plugin, "announcement_action");
+        this.stateFile = new File(plugin.getDataFolder(), "announcements-state.yml");
     }
 
     public void enable() {
         reload(false);
+        loadState();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
+
+    public void disable() {
+        saveState();
     }
 
     //  Inventory 事件
@@ -151,17 +158,9 @@ public class AnnouncementModule implements Listener {
 
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendMessage(chatAnnouncementBlock(header, added, chatFooterClickable()));
+            markSeenThroughLatest(player.getUniqueId());
         }
-    }
-
-    @EventHandler
-    public void onPlayerPreLogin(AsyncPlayerPreLoginEvent event) {
-        if (event.getLoginResult() != AsyncPlayerPreLoginEvent.Result.ALLOWED) {
-            return;
-        }
-
-        OfflinePlayer player = Bukkit.getOfflinePlayer(event.getUniqueId());
-        previousSeenAt.put(event.getUniqueId(), player.getLastSeen() / 1000);
+        saveState();
     }
 
     /**
@@ -170,11 +169,12 @@ public class AnnouncementModule implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        long seenUntilCandidate = previousSeenAt.remove(player.getUniqueId());
-        if (seenUntilCandidate <= 0) {
-            seenUntilCandidate = player.getFirstPlayed() / 1000;
-        }
-        long seenUntil = seenUntilCandidate;
+        long latestTimestamp = latestAnnouncementTimestamp();
+        if (latestTimestamp <= 0) return;
+
+        UUID playerId = player.getUniqueId();
+        long seenUntil = playerSeenUntil.getOrDefault(playerId, latestTimestamp);
+        playerSeenUntil.putIfAbsent(playerId, seenUntil);
 
         List<Announcement> unseenAnnouncements = announcements.stream()
                 .filter(a -> a.timestamp() > seenUntil)
@@ -182,7 +182,10 @@ public class AnnouncementModule implements Listener {
                 .limit(JOIN_PUSH_LIMIT)
                 .toList();
 
-        if (unseenAnnouncements.isEmpty()) return;
+        if (unseenAnnouncements.isEmpty()) {
+            saveState();
+            return;
+        }
 
         int total = (int) announcements.stream().filter(a -> a.timestamp() > seenUntil).count();
 
@@ -197,11 +200,12 @@ public class AnnouncementModule implements Listener {
             footer = chatFooterClickable();
         }
         player.sendMessage(chatAnnouncementBlock(header, unseenAnnouncements, footer));
+        playerSeenUntil.put(playerId, latestTimestamp);
+        saveState();
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        previousSeenAt.remove(event.getPlayer().getUniqueId());
         menuStates.remove(event.getPlayer().getUniqueId());
     }
 
@@ -259,6 +263,8 @@ public class AnnouncementModule implements Listener {
     //  GUI 菜单
 
     public void openAnnouncementsMenu(Player player) {
+        markSeenThroughLatest(player.getUniqueId());
+        saveState();
         MenuState state = menuStates.computeIfAbsent(player.getUniqueId(), _ -> new MenuState(null, 0));
         openAnnouncementsMenu(player, state);
     }
@@ -525,6 +531,63 @@ public class AnnouncementModule implements Listener {
                     .decoration(TextDecoration.ITALIC, false));
         }
         return lines;
+    }
+
+    private long latestAnnouncementTimestamp() {
+        return announcements.stream()
+                .mapToLong(Announcement::timestamp)
+                .max()
+                .orElse(0L);
+    }
+
+    private void markSeenThroughLatest(UUID playerId) {
+        long latestTimestamp = latestAnnouncementTimestamp();
+        if (latestTimestamp <= 0) return;
+
+        playerSeenUntil.merge(playerId, latestTimestamp, Math::max);
+    }
+
+    private void loadState() {
+        playerSeenUntil.clear();
+        if (!stateFile.exists()) {
+            return;
+        }
+
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(stateFile);
+        ConfigurationSection playersSection = config.getConfigurationSection("players");
+        if (playersSection == null) {
+            return;
+        }
+
+        for (String uuidString : playersSection.getKeys(false)) {
+            try {
+                UUID uuid = UUID.fromString(uuidString);
+                long seenUntil = config.getLong("players." + uuidString + ".seen-until", 0L);
+                if (seenUntil > 0) {
+                    playerSeenUntil.put(uuid, seenUntil);
+                }
+            } catch (IllegalArgumentException ignored) {
+                plugin.getLogger().warning("Invalid UUID in announcements-state.yml: " + uuidString);
+            }
+        }
+    }
+
+    private void saveState() {
+        if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+            plugin.getLogger().warning("Failed to create plugin data folder for announcements-state.yml");
+            return;
+        }
+
+        YamlConfiguration config = new YamlConfiguration();
+        for (Map.Entry<UUID, Long> entry : playerSeenUntil.entrySet()) {
+            config.set("players." + entry.getKey() + ".seen-until", entry.getValue());
+        }
+
+        try {
+            config.save(stateFile);
+        } catch (IOException e) {
+            plugin.getLogger().severe("Failed to save announcements-state.yml: " + e.getMessage());
+        }
     }
 
     //  命令注册、JSON 缓存、文件读取（无改动）

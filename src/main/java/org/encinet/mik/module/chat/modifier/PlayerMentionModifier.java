@@ -16,9 +16,11 @@ public final class PlayerMentionModifier implements ChatModifier {
             if (index < 0) {
                 continue;
             }
-            if (best == null || index < best.start()
-                    || (index == best.start() && player.getName().length() > best.end() - best.start())) {
-                best = new ChatReplacement(index, index + player.getName().length(), ChatRenderUtil.mention(player));
+            int start = index > 0 && text.charAt(index - 1) == '@' ? index - 1 : index;
+            int end = index + player.getName().length();
+            if (best == null || start < best.start()
+                    || (start == best.start() && end - start > best.end() - best.start())) {
+                best = new ChatReplacement(start, end, ChatRenderUtil.mention(player));
             }
         }
         return best;

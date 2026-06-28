@@ -347,6 +347,7 @@ chat-private-target-not-found = 找不到在线玩家 { $arg0 }
 chat-private-self = 不能和自己开始私聊
 chat-private-no-reply-target = 没有可回复的在线私聊对象
 chat-private-target-offline = 私聊对象已离线，已回到公共聊天频道
+chat-private-label = [私信]
 chat-staff-permission-missing = 你已失去员工聊天权限，已回到公共聊天频道
 chat-staff-command-description = 切换员工聊天频道
 chat-public-command-description = 切换公共聊天频道

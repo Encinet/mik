@@ -61,7 +61,7 @@ public class AfkModule implements Listener, AfkService {
     private static final long AFK_TIMEOUT_MILLIS = 3L * 60L * 1000L;
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
-    private static final int MAX_STATUS_LENGTH = 12;
+    private static final int MAX_STATUS_LENGTH = 20;
     private static final Message[] DEFAULT_MESSAGES = {
             Message.AFK_DEFAULT_STATUS_1,
             Message.AFK_DEFAULT_STATUS_2,
