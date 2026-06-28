@@ -25,7 +25,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
-import org.encinet.mik.module.chat.mention.MentionService;
+import org.encinet.mik.module.chat.ChatModule;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -49,7 +49,7 @@ public class MainMenuModule implements Listener {
             DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.of("Asia/Shanghai"));
     private static final int MENU_SIZE = 54;
     private static final String ACTION_CLOSE = "close";
-    private static final String ACTION_OPEN_MENTION = "open:mention";
+    private static final String ACTION_OPEN_CHAT_SETTINGS = "open:chat-settings";
     private static final String ACTION_OPEN_TELEPORT = "open:teleport";
     private static final String ACTION_OPEN_PVP = "open:pvp";
     private static final String ACTION_OPEN_LANGUAGE = "open:language";
@@ -63,7 +63,7 @@ public class MainMenuModule implements Listener {
 
     private final JavaPlugin plugin;
     private final AfkService afkService;
-    private final MentionService mentionService;
+    private final ChatModule chatModule;
     private final TeleportPreferenceModule teleportPreferenceModule;
     private final PvpModule pvpModule;
     private final MenuNavigation menuNavigation;
@@ -71,12 +71,12 @@ public class MainMenuModule implements Listener {
     private final ClientVersionReminderModule clientVersionReminderModule;
     private final NamespacedKey actionKey;
 
-    public MainMenuModule(JavaPlugin plugin, AfkService afkService, MentionService mentionService,
+    public MainMenuModule(JavaPlugin plugin, AfkService afkService, ChatModule chatModule,
                           TeleportPreferenceModule teleportPreferenceModule, PvpModule pvpModule, MenuNavigation menuNavigation,
                           LanguageService languageService, ClientVersionReminderModule clientVersionReminderModule) {
         this.plugin = plugin;
         this.afkService = afkService;
-        this.mentionService = mentionService;
+        this.chatModule = chatModule;
         this.teleportPreferenceModule = teleportPreferenceModule;
         this.pvpModule = pvpModule;
         this.menuNavigation = menuNavigation;
@@ -129,8 +129,8 @@ public class MainMenuModule implements Listener {
                 player.closeInventory();
                 return;
             }
-            case ACTION_OPEN_MENTION -> {
-                mentionService.openMenu(player);
+            case ACTION_OPEN_CHAT_SETTINGS -> {
+                chatModule.openSettingsMenu(player);
                 return;
             }
             case ACTION_OPEN_TELEPORT -> {
@@ -193,7 +193,7 @@ public class MainMenuModule implements Listener {
                 .item(1, urlItem(player, Material.FILLED_MAP, Message.MAIN_MAP, URL_MAP, ACTION_OPEN_MAP))
                 .item(2, urlItem(player, Material.BOOK, Message.MAIN_WIKI, URL_WIKI, ACTION_OPEN_WIKI))
                 .item(6, languageMenuItem(player))
-                .item(7, mentionMenuItem(player))
+                .item(7, chatSettingsMenuItem(player))
                 .item(8, teleportMenuItem(player))
                 .item(45, afkStatusItem(player))
                 .item(46, commandItem(player, Material.NAME_TAG, Message.MAIN_NAME_TAG, "/nametag", List.of(Message.MAIN_NAME_TAG_LORE)))
@@ -269,12 +269,13 @@ public class MainMenuModule implements Listener {
         return new RoleDisplay(Message.ROLE_NEW_PLAYER, NamedTextColor.GRAY);
     }
 
-    private ItemStack mentionMenuItem(Player player) {
-        return MenuItems.action(Material.BELL, Component.text(languageService.t(player, Message.MENTION_MENU_TITLE), NamedTextColor.AQUA), List.of(
-                Component.text(mentionService.summary(player), NamedTextColor.GRAY),
-                Component.empty(),
-                Component.text(languageService.t(player, Message.CLICK_SET), NamedTextColor.YELLOW)
-        ), actionKey, ACTION_OPEN_MENTION);
+    private ItemStack chatSettingsMenuItem(Player player) {
+        List<Component> lore = new ArrayList<>(chatModule.settingsSummary(player));
+        lore.add(Component.empty());
+        lore.add(Component.text(languageService.t(player, Message.CLICK_SET), NamedTextColor.YELLOW));
+        return MenuItems.action(Material.BELL,
+                Component.text(languageService.t(player, Message.CHAT_SETTINGS_MENU_TITLE), NamedTextColor.AQUA),
+                lore, actionKey, ACTION_OPEN_CHAT_SETTINGS);
     }
 
     private ItemStack teleportMenuItem(Player player) {

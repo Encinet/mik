@@ -3,8 +3,12 @@ package org.encinet.mik.module.chat;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
+import org.encinet.mik.Mik;
 import org.encinet.mik.module.chat.modifier.AllMentionModifier;
 import org.encinet.mik.module.chat.modifier.BilibiliModifier;
 import org.encinet.mik.module.chat.modifier.ChatModifier;
@@ -20,6 +24,17 @@ import java.util.Comparator;
 import java.util.List;
 
 final class ChatMessageParser {
+
+    private static final String MEMBER_PERMISSION = "group." + Mik.GROUP_MEMBER;
+    private static final MiniMessage MEMBER_MINI_MESSAGE = MiniMessage.builder()
+            .tags(TagResolver.resolver(
+                    StandardTags.color(),
+                    StandardTags.decorations(),
+                    StandardTags.gradient(),
+                    StandardTags.rainbow(),
+                    StandardTags.reset()
+            ))
+            .build();
 
     private final List<ChatModifier> modifiers = List.of(
             new BilibiliModifier(),
@@ -45,22 +60,34 @@ final class ChatMessageParser {
         players.sort(Comparator.comparingInt((Player p) -> p.getName().length()).reversed());
         ChatModifierContext context = new ChatModifierContext(sender, players, itemEmptyHover, allHover, bilibiliHover);
         TextComponent.Builder builder = Component.text();
+        boolean allowMiniMessage = sender.hasPermission(MEMBER_PERMISSION);
 
         int cursor = 0;
         while (cursor < plainMessage.length()) {
             ChatReplacement replacement = nextReplacement(plainMessage, cursor, context);
             if (replacement == null) {
-                builder.append(Component.text(plainMessage.substring(cursor)));
+                builder.append(renderTextSegment(plainMessage.substring(cursor), allowMiniMessage));
                 break;
             }
             if (replacement.start() > cursor) {
-                builder.append(Component.text(plainMessage.substring(cursor, replacement.start())));
+                builder.append(renderTextSegment(plainMessage.substring(cursor, replacement.start()), allowMiniMessage));
             }
             builder.append(replacement.component());
             cursor = replacement.end();
         }
 
         return builder.build().colorIfAbsent(NamedTextColor.WHITE);
+    }
+
+    private Component renderTextSegment(String text, boolean allowMiniMessage) {
+        if (!allowMiniMessage || text.isEmpty()) {
+            return Component.text(text);
+        }
+        try {
+            return MEMBER_MINI_MESSAGE.deserialize(text);
+        } catch (RuntimeException ignored) {
+            return Component.text(text);
+        }
     }
 
     private ChatReplacement nextReplacement(String text, int fromIndex, ChatModifierContext context) {

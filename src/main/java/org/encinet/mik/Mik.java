@@ -8,6 +8,7 @@ import org.encinet.mik.module.afk.AfkModule;
 import org.encinet.mik.module.api.ApiModule;
 import org.encinet.mik.module.chat.ChatDisplayRenderer;
 import org.encinet.mik.module.chat.ChatModule;
+import org.encinet.mik.module.chat.ChatSettingsStore;
 import org.encinet.mik.module.chat.mention.MentionService;
 import org.encinet.mik.module.commands.SimpleFeaturesModule;
 import org.encinet.mik.module.communication.AnnouncementModule;
@@ -26,6 +27,7 @@ import org.encinet.mik.module.player.InvisibilityNotifyModule;
 import org.encinet.mik.module.player.NameTagModule;
 import org.encinet.mik.module.player.PlayerBoundaryModule;
 import org.encinet.mik.module.player.MainMenuModule;
+import org.encinet.mik.module.player.WelcomeModule;
 import org.encinet.mik.module.pvp.PvpModule;
 import org.encinet.mik.module.player.TabListModule;
 import org.encinet.mik.module.player.TeleportPreferenceModule;
@@ -48,6 +50,7 @@ public final class Mik extends JavaPlugin {
     private NetworkThrottleModule networkThrottleModule;
     private MusicDiscModule musicDiscModule;
     private MentionService mentionService;
+    private ChatSettingsStore chatSettingsStore;
     private ChatModule chatModule;
     private SimpleFeaturesModule commandsModule;
     private AutoPromoteModule autoPromoteModule;
@@ -71,6 +74,7 @@ public final class Mik extends JavaPlugin {
     private TeleportPreferenceModule teleportPreferenceModule;
     private PvpModule pvpModule;
     private ClientVersionReminderModule clientVersionReminderModule;
+    private WelcomeModule welcomeModule;
     private MenuNavigation menuNavigation;
     private LanguageService languageService;
 
@@ -109,16 +113,22 @@ public final class Mik extends JavaPlugin {
         networkThrottleModule.enable();
         networkThrottleModule.registerCommands(this.getLifecycleManager());
 
-        mentionService = new MentionService(this, afkModule, menuNavigation, languageService,
+        chatSettingsStore = new ChatSettingsStore(this);
+        chatSettingsStore.enable();
+
+        mentionService = new MentionService(this, afkModule, languageService, chatSettingsStore,
                 ChatDisplayRenderer::playerName);
         mentionService.enable();
 
-        chatModule = new ChatModule(this, mentionService, languageService);
+        chatModule = new ChatModule(this, mentionService, languageService, chatSettingsStore, menuNavigation);
         chatModule.enable();
         chatModule.registerCommands(this.getLifecycleManager());
 
         teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation, languageService);
         teleportPreferenceModule.enable();
+
+        welcomeModule = new WelcomeModule(this, languageService);
+        welcomeModule.enable();
 
         if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
             clientVersionReminderModule = new ClientVersionReminderModule(this, languageService);
@@ -127,7 +137,7 @@ public final class Mik extends JavaPlugin {
             getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
         }
 
-        mainMenuModule = new MainMenuModule(this, afkModule, mentionService, teleportPreferenceModule,
+        mainMenuModule = new MainMenuModule(this, afkModule, chatModule, teleportPreferenceModule,
                 pvpModule, menuNavigation, languageService, clientVersionReminderModule);
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());

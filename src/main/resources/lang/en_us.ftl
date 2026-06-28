@@ -44,6 +44,8 @@ role-helper = Helper
 role-manager = Manager
 time-hours-minutes = { $arg0 }h { $arg1 }m
 time-minutes = { $arg0 }m
+welcome-first-join-mm = <gold><bold>Welcome to MIK!</bold></gold><newline><gray>Start with the <click:open_url:'https://mcmik.top'><yellow>website</yellow></click> and <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>; you can also use <yellow>/menu</yellow> to open the main menu.</gray>
+welcome-return-mm = <gold><bold>Welcome back!</bold></gold><newline><gray>Your last visit was <yellow>{ $arg0 } days ago</yellow>. Use <yellow>/menu</yellow> to quickly find common features.</gray>
 
 language-menu-title = Language Settings
 language-command-description = Open language settings
@@ -356,6 +358,18 @@ chat-reply-command-description = Reply to your latest private chat target
 chat-item-empty-hover = No item in main hand
 chat-mention-all-hover = Notify every visible player in this channel
 chat-bilibili-hover = Detected Bilibili video link
+chat-settings-menu-title = Chat Settings
+chat-delay-cancel-command-description = Cancel pending delayed messages
+chat-delay-section = Delayed Sending
+chat-delay-off = Off
+chat-delay-3s = 3 seconds
+chat-delay-5s = 5 seconds
+chat-delay-7s = 7 seconds
+chat-delay-option-desc = Choose how long messages wait before they are sent
+chat-delay-current = Current chat delay: { $arg0 }
+chat-delay-queued = Message will be sent in { $arg0 }; use /cancel or /c to cancel
+chat-delay-cancelled = Cancelled pending message
+chat-delay-nothing-to-cancel = No pending message to cancel
 
 teleport-menu-title = Teleport Privacy
 teleport-allow = Allow player teleport

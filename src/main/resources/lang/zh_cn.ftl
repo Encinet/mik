@@ -44,6 +44,8 @@ role-helper = 协管
 role-manager = 管理员
 time-hours-minutes = { $arg0 } 小时 { $arg1 } 分钟
 time-minutes = { $arg0 } 分钟
+welcome-first-join-mm = <gold><bold>欢迎来到 MIK！</bold></gold><newline><gray>推荐先看看 <click:open_url:'https://mcmik.top'><yellow>官网</yellow></click> 和 <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>；输入 <yellow>/menu</yellow> 也可以打开主菜单。</gray>
+welcome-return-mm = <gold><bold>欢迎回来！</bold></gold><newline><gray>你上次进服是 <yellow>{ $arg0 } 天前</yellow>。输入 <yellow>/menu</yellow> 可以快速查看常用功能。</gray>
 
 language-menu-title = 语言设置
 language-command-description = 打开语言设置
@@ -356,6 +358,18 @@ chat-reply-command-description = 回复最近的私聊对象
 chat-item-empty-hover = 主手没有物品
 chat-mention-all-hover = 提醒当前频道内所有可见玩家
 chat-bilibili-hover = 识别到 B 站视频链接
+chat-settings-menu-title = 聊天设置
+chat-delay-cancel-command-description = 取消待发送的延迟消息
+chat-delay-section = 延迟发送
+chat-delay-off = 关闭
+chat-delay-3s = 3 秒
+chat-delay-5s = 5 秒
+chat-delay-7s = 7 秒
+chat-delay-option-desc = 选择消息真正发送前的等待时间
+chat-delay-current = 当前聊天延迟：{ $arg0 }
+chat-delay-queued = 消息将在 { $arg0 } 后发送，输入 /cancel 或 /c 可取消
+chat-delay-cancelled = 已取消待发送的消息
+chat-delay-nothing-to-cancel = 没有待取消的消息
 
 teleport-menu-title = 被传送设置
 teleport-allow = 接受普通传送
