@@ -113,7 +113,7 @@ public class ApiModule implements Listener {
         if (luckPermsProvider != null) {
             luckPerms = luckPermsProvider.getProvider();
         } else {
-            plugin.getLogger().warning("LuckPerms not found; member resolver will only resolve online players.");
+            plugin.getLogger().warning("LuckPerms not found; web login membership checks will be unavailable.");
         }
         bootstrapOnlinePlayers();
 
@@ -124,7 +124,7 @@ public class ApiModule implements Listener {
             createLocalContext("/api/players", "GET", this::handlePlayersOnline);
             createLocalContext("/api/announcements", "GET", this::handleAnnouncements);
             createLocalContext("/api/bans", "GET", this::handleBans);
-            createLocalContext("/api/members/resolve", "GET", this::handleMemberResolve);
+            createLocalContext("/api/players/resolve", "GET", this::handlePlayerResolve);
             createAuthChallengeContext();
 
             server.createContext("/", exchange -> {
@@ -286,7 +286,7 @@ public class ApiModule implements Listener {
         sendJson(exchange, 200, bansJson(), null);
     }
 
-    private void handleMemberResolve(HttpExchange exchange) throws IOException {
+    private void handlePlayerResolve(HttpExchange exchange) throws IOException {
         String name = normalizePlayerName(queryParam(exchange, "name"));
 
         if (name.isEmpty()) {
@@ -294,7 +294,7 @@ public class ApiModule implements Listener {
             return;
         }
 
-        byte[] body = memberResolveJson(name);
+        byte[] body = playerResolveJson(name);
         sendJson(exchange, body == NOT_FOUND_BODY ? 404 : 200, body, "no-store");
     }
 
@@ -354,11 +354,10 @@ public class ApiModule implements Listener {
         return "";
     }
 
-    private byte[] memberResolveJson(String name) {
+    private byte[] playerResolveJson(String name) {
         Player online = Bukkit.getPlayerExact(name);
         if (online != null) {
-            String role = playerRole(online);
-            return role.isEmpty() ? NOT_FOUND_BODY : memberJson(online.getUniqueId(), online.getName(), role);
+            return playerJson(online.getUniqueId(), online.getName());
         }
 
         OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
@@ -366,13 +365,8 @@ public class ApiModule implements Listener {
             return NOT_FOUND_BODY;
         }
 
-        String role = luckPermsRole(offline.getUniqueId());
-        if (role.isEmpty()) {
-            return NOT_FOUND_BODY;
-        }
-
         String resolvedName = offline.getName() != null ? offline.getName() : name;
-        return memberJson(offline.getUniqueId(), resolvedName, role);
+        return playerJson(offline.getUniqueId(), resolvedName);
     }
 
     private String luckPermsRole(UUID uuid) {
@@ -405,11 +399,10 @@ public class ApiModule implements Listener {
         return "";
     }
 
-    private byte[] memberJson(UUID uuid, String name, String role) {
-        return bytes("{\"member\":{"
+    private byte[] playerJson(UUID uuid, String name) {
+        return bytes("{\"player\":{"
                 + "\"uuid\":\"" + uuid + "\","
-                + "\"name\":\"" + escapeJson(name) + "\","
-                + "\"role\":\"" + escapeJson(role) + "\""
+                + "\"name\":\"" + escapeJson(name) + "\""
                 + "}}");
     }
 
