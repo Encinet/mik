@@ -2,6 +2,7 @@ package org.encinet.mik.module.player;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.cacheddata.CachedMetaData;
@@ -15,12 +16,14 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
+import org.encinet.mik.util.NameMetaRenderer;
 
 public class TabListModule implements Listener, AfkStateListener {
 
@@ -121,18 +124,17 @@ public class TabListModule implements Listener, AfkStateListener {
         CachedMetaData metaData = user.getCachedData().getMetaData();
         String prefix = metaData.getPrefix();
         String suffix = metaData.getSuffix();
-        String usernameColor = metaData.getMetaValue("username-color");
 
         TextComponent.Builder builder = Component.text();
 
         if (prefix != null && !prefix.isEmpty()) {
-            builder.append(renderMiniMessage(prefix));
+            builder.append(renderMiniMessage(player, prefix));
         }
 
-        builder.append(renderPlayerName(player, usernameColor));
+        builder.append(renderPlayerName(player));
 
         if (suffix != null && !suffix.isEmpty()) {
-            builder.append(renderMiniMessage(suffix));
+            builder.append(renderMiniMessage(player, suffix));
         }
 
         if (afkService.isAfk(player.getUniqueId())) {
@@ -152,12 +154,12 @@ public class TabListModule implements Listener, AfkStateListener {
         int onlinePlayers = Bukkit.getOnlinePlayers().size();
         int maxPlayers = Bukkit.getMaxPlayers();
         return languageService.rich(viewer, Message.TABLIST_FOOTER_ONLINE_RICH,
-                net.kyori.adventure.text.format.NamedTextColor.GRAY,
+                NamedTextColor.GRAY,
                 RichArg.component("online",
-                        Component.text(onlinePlayers, net.kyori.adventure.text.format.NamedTextColor.GREEN),
+                        Component.text(onlinePlayers, NamedTextColor.GREEN),
                         Integer.toString(onlinePlayers)),
                 RichArg.component("max",
-                        Component.text(maxPlayers, net.kyori.adventure.text.format.NamedTextColor.GRAY),
+                        Component.text(maxPlayers, NamedTextColor.GRAY),
                         Integer.toString(maxPlayers)));
     }
 
@@ -182,21 +184,18 @@ public class TabListModule implements Listener, AfkStateListener {
         return nonAfkPlayers <= nonAfkThreshold;
     }
 
-    private Component renderPlayerName(Player player, String usernameColor) {
-        String escapedName = MINI_MESSAGE.escapeTags(player.getName());
-        String colorTag = (usernameColor != null && !usernameColor.isEmpty()) ? usernameColor : "<white>";
-        try {
-            return MINI_MESSAGE.deserialize(colorTag + escapedName);
-        } catch (RuntimeException e) {
-            return MINI_MESSAGE.deserialize("<white>" + escapedName);
-        }
+    private Component renderPlayerName(Player player) {
+        NamedTextColor color = player.hasPermission("group." + Mik.GROUP_MEMBER)
+                ? NamedTextColor.WHITE
+                : NamedTextColor.YELLOW;
+        return Component.text(player.getName(), color);
     }
 
-    private Component renderMiniMessage(String raw) {
+    private Component renderMiniMessage(Player player, String raw) {
         try {
-            return MINI_MESSAGE.deserialize(raw);
+            return NameMetaRenderer.deserialize(player, raw);
         } catch (RuntimeException e) {
-            return Component.text(raw);
+            return NameMetaRenderer.fallback(player, raw);
         }
     }
 

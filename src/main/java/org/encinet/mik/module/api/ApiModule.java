@@ -2,15 +2,19 @@ package org.encinet.mik.module.api;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import io.papermc.paper.ban.BanListType;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.model.user.User;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -19,41 +23,55 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.Mik;
 import org.encinet.mik.module.communication.AnnouncementModule;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.i18n.Message;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 public class ApiModule implements Listener {
     private static final String COMMAND_PERMISSION = "mik.command.api";
     private static final String LOCAL_BIND_ADDRESS = "127.0.0.1";
     private static final String STATE_FILE_NAME = "api-state.yml";
     private static final String PEAK_ONLINE_PATH = "peak-online";
+    private static final long WEB_LOGIN_CONFIRMATION_MILLIS = TimeUnit.MINUTES.toMillis(5);
+    private static final Pattern WEB_LOGIN_CODE_PATTERN = Pattern.compile("^[0-9]{6,10}$");
     private static final byte[] NOT_FOUND_BODY = bytes("{\"error\":\"not_found\"}");
     private static final byte[] METHOD_NOT_ALLOWED_BODY = bytes("{\"error\":\"method_not_allowed\"}");
     private static final byte[] INTERNAL_ERROR_BODY = bytes("{\"error\":\"internal_error\"}");
 
     private final JavaPlugin plugin;
+    private final LanguageService languageService;
     private final File stateFile;
     private final Map<UUID, OnlinePlayerInfo> onlinePlayers = new HashMap<>();
+    private final Map<String, WebLoginConfirmation> webLoginConfirmations = new ConcurrentHashMap<>();
 
     private HttpServer server;
     private ExecutorService httpExecutor;
     private AnnouncementModule announcementModule;
+    private LuckPerms luckPerms;
     private volatile byte[] playersJsonBytes = bytes("{\"online\":0,\"peak_online\":0,\"players\":[]}");
     private int peakOnline;
     private int listenPort;
@@ -61,13 +79,24 @@ public class ApiModule implements Listener {
     private record OnlinePlayerInfo(UUID uuid, String name, String joinedAt) {
     }
 
+    private record WebLoginConfirmation(
+            UUID playerUuid,
+            String playerName,
+            String role,
+            String confirmedAt,
+            long expiresAtMillis,
+            AtomicBoolean consumed
+    ) {
+    }
+
     @FunctionalInterface
     private interface ExchangeHandler {
         void handle(HttpExchange exchange) throws Exception;
     }
 
-    public ApiModule(JavaPlugin plugin) {
+    public ApiModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
         this.stateFile = new File(plugin.getDataFolder(), STATE_FILE_NAME);
     }
 
@@ -80,6 +109,12 @@ public class ApiModule implements Listener {
 
         loadState();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
+        RegisteredServiceProvider<LuckPerms> luckPermsProvider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
+        if (luckPermsProvider != null) {
+            luckPerms = luckPermsProvider.getProvider();
+        } else {
+            plugin.getLogger().warning("LuckPerms not found; member resolver will only resolve online players.");
+        }
         bootstrapOnlinePlayers();
 
         try {
@@ -89,6 +124,8 @@ public class ApiModule implements Listener {
             createLocalContext("/api/players", "GET", this::handlePlayersOnline);
             createLocalContext("/api/announcements", "GET", this::handleAnnouncements);
             createLocalContext("/api/bans", "GET", this::handleBans);
+            createLocalContext("/api/members/resolve", "GET", this::handleMemberResolve);
+            createAuthChallengeContext();
 
             server.createContext("/", exchange -> {
                 if (!isLocalRequest(exchange)) {
@@ -108,8 +145,8 @@ public class ApiModule implements Listener {
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
-        lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
-                Commands.literal("mikapi")
+        lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            event.registrar().register(Commands.literal("mikapi")
                         .requires(source -> source.getSender().hasPermission(COMMAND_PERMISSION))
                         .executes(ctx -> {
                             sendStatus(ctx.getSource().getSender());
@@ -120,7 +157,18 @@ public class ApiModule implements Listener {
                                     sendStatus(ctx.getSource().getSender());
                                     return Command.SINGLE_SUCCESS;
                                 }))
-                        .build(), "Show Mik API status"));
+                        .build(), "Show Mik API status");
+
+            event.registrar().register(Commands.literal("weblogin")
+                    .then(Commands.argument("code", StringArgumentType.word())
+                            .executes(ctx -> {
+                                CommandSender sender = ctx.getSource().getSender();
+                                String code = StringArgumentType.getString(ctx, "code");
+                                confirmWebLogin(sender, code);
+                                return Command.SINGLE_SUCCESS;
+                            }))
+                    .build(), languageService.t(Language.DEFAULT, Message.WEBLOGIN_COMMAND_DESCRIPTION));
+        });
     }
 
     private void sendStatus(CommandSender sender) {
@@ -238,6 +286,241 @@ public class ApiModule implements Listener {
         sendJson(exchange, 200, bansJson(), null);
     }
 
+    private void handleMemberResolve(HttpExchange exchange) throws IOException {
+        String name = normalizePlayerName(queryParam(exchange, "name"));
+
+        if (name.isEmpty()) {
+            sendJson(exchange, 400, bytes("{\"error\":\"invalid_name\"}"), "no-store");
+            return;
+        }
+
+        byte[] body = memberResolveJson(name);
+        sendJson(exchange, body == NOT_FOUND_BODY ? 404 : 200, body, "no-store");
+    }
+
+    private void confirmWebLogin(CommandSender sender, String rawCode) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(Component.text(languageService.t(Language.DEFAULT, Message.PLAYER_ONLY), NamedTextColor.RED));
+            return;
+        }
+
+        String code = normalizeWebLoginCode(rawCode);
+
+        if (!WEB_LOGIN_CODE_PATTERN.matcher(code).matches()) {
+            player.sendMessage(Component.text(languageService.t(player, Message.WEBLOGIN_INVALID_CODE), NamedTextColor.RED));
+            return;
+        }
+
+        if (!canUseWebLogin(player)) {
+            player.sendMessage(Component.text(languageService.t(player, Message.WEBLOGIN_MEMBER_REQUIRED), NamedTextColor.RED));
+            return;
+        }
+
+        cleanupExpiredWebLoginConfirmations();
+
+        WebLoginConfirmation confirmation = new WebLoginConfirmation(
+                player.getUniqueId(),
+                player.getName(),
+                playerRole(player),
+                formatIso(Instant.now()),
+                System.currentTimeMillis() + WEB_LOGIN_CONFIRMATION_MILLIS,
+                new AtomicBoolean(false));
+
+        webLoginConfirmations.put(code, confirmation);
+        player.sendMessage(Component.text(languageService.t(player, Message.WEBLOGIN_CONFIRMED), NamedTextColor.GREEN));
+    }
+
+    private boolean canUseWebLogin(Player player) {
+        return player.hasPermission("group.member")
+                || player.hasPermission("group.helper")
+                || player.hasPermission("group.manager");
+    }
+
+    private String normalizeWebLoginCode(String code) {
+        return code == null ? "" : code.trim();
+    }
+
+    private String playerRole(Player player) {
+        if (player.hasPermission("group." + Mik.GROUP_MANAGER)) {
+            return Mik.GROUP_MANAGER;
+        }
+        if (player.hasPermission("group." + Mik.GROUP_HELPER)) {
+            return Mik.GROUP_HELPER;
+        }
+        if (player.hasPermission("group." + Mik.GROUP_MEMBER)) {
+            return Mik.GROUP_MEMBER;
+        }
+
+        return "";
+    }
+
+    private byte[] memberResolveJson(String name) {
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) {
+            String role = playerRole(online);
+            return role.isEmpty() ? NOT_FOUND_BODY : memberJson(online.getUniqueId(), online.getName(), role);
+        }
+
+        OfflinePlayer offline = Bukkit.getOfflinePlayer(name);
+        if (!offline.hasPlayedBefore()) {
+            return NOT_FOUND_BODY;
+        }
+
+        String role = luckPermsRole(offline.getUniqueId());
+        if (role.isEmpty()) {
+            return NOT_FOUND_BODY;
+        }
+
+        String resolvedName = offline.getName() != null ? offline.getName() : name;
+        return memberJson(offline.getUniqueId(), resolvedName, role);
+    }
+
+    private String luckPermsRole(UUID uuid) {
+        if (luckPerms == null) {
+            return "";
+        }
+
+        User user = luckPerms.getUserManager().getUser(uuid);
+        if (user == null) {
+            try {
+                user = luckPerms.getUserManager().loadUser(uuid).get(2, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return "";
+            } catch (ExecutionException | TimeoutException e) {
+                return "";
+            }
+        }
+
+        var permissions = user.getCachedData().getPermissionData();
+        if (permissions.checkPermission("group." + Mik.GROUP_MANAGER).asBoolean()) {
+            return Mik.GROUP_MANAGER;
+        }
+        if (permissions.checkPermission("group." + Mik.GROUP_HELPER).asBoolean()) {
+            return Mik.GROUP_HELPER;
+        }
+        if (permissions.checkPermission("group." + Mik.GROUP_MEMBER).asBoolean()) {
+            return Mik.GROUP_MEMBER;
+        }
+        return "";
+    }
+
+    private byte[] memberJson(UUID uuid, String name, String role) {
+        return bytes("{\"member\":{"
+                + "\"uuid\":\"" + uuid + "\","
+                + "\"name\":\"" + escapeJson(name) + "\","
+                + "\"role\":\"" + escapeJson(role) + "\""
+                + "}}");
+    }
+
+    private void createAuthChallengeContext() {
+        server.createContext("/api/auth/challenges", exchange -> {
+            try {
+                if (!isLocalRequest(exchange)) {
+                    drop(exchange);
+                    return;
+                }
+
+                handleAuthChallenge(exchange);
+            } catch (Exception ignored) {
+                sendJson(exchange, 500, INTERNAL_ERROR_BODY, "no-store");
+            }
+        });
+    }
+
+    private void handleAuthChallenge(HttpExchange exchange) throws IOException {
+        String prefix = "/api/auth/challenges/";
+        String path = exchange.getRequestURI().getPath();
+
+        if (!path.startsWith(prefix)) {
+            sendJson(exchange, 404, NOT_FOUND_BODY, "no-store");
+            return;
+        }
+
+        String suffix = path.substring(prefix.length());
+        boolean consume = suffix.endsWith("/consume");
+        String code = consume ? suffix.substring(0, suffix.length() - "/consume".length()) : suffix;
+
+        if (code.contains("/") || !WEB_LOGIN_CODE_PATTERN.matcher(code).matches()) {
+            sendJson(exchange, 404, NOT_FOUND_BODY, "no-store");
+            return;
+        }
+
+        if (consume) {
+            if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+                sendJson(exchange, 405, METHOD_NOT_ALLOWED_BODY, "no-store");
+                return;
+            }
+
+            sendJson(exchange, 200, webLoginConsumeJson(code), "no-store");
+            return;
+        }
+
+        if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            sendJson(exchange, 405, METHOD_NOT_ALLOWED_BODY, "no-store");
+            return;
+        }
+
+        sendJson(exchange, 200, webLoginStatusJson(code), "no-store");
+    }
+
+    private byte[] webLoginStatusJson(String code) {
+        WebLoginConfirmation confirmation = readWebLoginConfirmation(code);
+
+        if (confirmation == null) {
+            return bytes("{\"status\":\"not_found\"}");
+        }
+
+        if (confirmation.consumed().get()) {
+            return bytes("{\"status\":\"consumed\"}");
+        }
+
+        return bytes(confirmedWebLoginJson(confirmation));
+    }
+
+    private byte[] webLoginConsumeJson(String code) {
+        WebLoginConfirmation confirmation = readWebLoginConfirmation(code);
+
+        if (confirmation == null) {
+            return bytes("{\"status\":\"not_found\"}");
+        }
+
+        if (!confirmation.consumed().compareAndSet(false, true)) {
+            return bytes("{\"status\":\"consumed\"}");
+        }
+
+        webLoginConfirmations.remove(code);
+        return bytes(confirmedWebLoginJson(confirmation));
+    }
+
+    private WebLoginConfirmation readWebLoginConfirmation(String code) {
+        WebLoginConfirmation confirmation = webLoginConfirmations.get(code);
+
+        if (confirmation == null) {
+            return null;
+        }
+
+        if (confirmation.expiresAtMillis() <= System.currentTimeMillis()) {
+            webLoginConfirmations.remove(code);
+            return null;
+        }
+
+        return confirmation;
+    }
+
+    private String confirmedWebLoginJson(WebLoginConfirmation confirmation) {
+        return "{\"status\":\"confirmed\",\"player\":{"
+                + "\"uuid\":\"" + confirmation.playerUuid() + "\","
+                + "\"name\":\"" + escapeJson(confirmation.playerName()) + "\","
+                + "\"role\":\"" + escapeJson(confirmation.role()) + "\""
+                + "},\"confirmedAt\":\"" + confirmation.confirmedAt() + "\"}";
+    }
+
+    private void cleanupExpiredWebLoginConfirmations() {
+        long now = System.currentTimeMillis();
+        webLoginConfirmations.entrySet().removeIf(entry -> entry.getValue().expiresAtMillis() <= now);
+    }
+
     private byte[] bansJson() throws IOException {
         if (Bukkit.isPrimaryThread()) {
             return buildBansJson();
@@ -319,6 +602,21 @@ public class ApiModule implements Listener {
         return address != null && (address.isLoopbackAddress() || address.isAnyLocalAddress());
     }
 
+    private String queryParam(HttpExchange exchange, String key) {
+        String query = exchange.getRequestURI().getRawQuery();
+        if (query == null || query.isBlank()) {
+            return "";
+        }
+
+        String prefix = key + "=";
+        for (String part : query.split("&")) {
+            if (part.startsWith(prefix)) {
+                return URLDecoder.decode(part.substring(prefix.length()), StandardCharsets.UTF_8);
+            }
+        }
+        return "";
+    }
+
     private void sendJson(HttpExchange exchange, int code, byte[] body, String cacheControl) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         if (cacheControl != null) {
@@ -337,6 +635,11 @@ public class ApiModule implements Listener {
 
     private String formatIso(Instant instant) {
         return instant.toString();
+    }
+
+    private String normalizePlayerName(String name) {
+        String normalized = name == null ? "" : name.trim();
+        return normalized.matches("^[a-zA-Z0-9_]{3,16}$") ? normalized : "";
     }
 
     private String escapeJson(String s) {
@@ -366,5 +669,6 @@ public class ApiModule implements Listener {
             httpExecutor.shutdown();
         }
         onlinePlayers.clear();
+        webLoginConfirmations.clear();
     }
 }

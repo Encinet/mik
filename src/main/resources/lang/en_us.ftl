@@ -341,6 +341,20 @@ mention-summary-sound = sound
 mention-summary-action-bar = action bar
 mention-summary-afk-suffix = , muted while AFK
 mention-action-bar-text =  mentioned you
+chat-public-enter = Switched to public chat
+chat-private-enter = Switched to private chat with { $arg0 }
+chat-private-target-not-found = Online player not found: { $arg0 }
+chat-private-self = You cannot start a private chat with yourself
+chat-private-no-reply-target = No recent private chat target is online
+chat-private-target-offline = Private chat target is offline; returned to public chat
+chat-staff-permission-missing = Staff chat permission missing; returned to public chat
+chat-staff-command-description = Switch staff chat channel
+chat-public-command-description = Switch public chat channel
+chat-msg-command-description = Send a private message and switch to private chat
+chat-reply-command-description = Reply to your latest private chat target
+chat-item-empty-hover = No item in main hand
+chat-mention-all-hover = Notify every visible player in this channel
+chat-bilibili-hover = Detected Bilibili video link
 
 teleport-menu-title = Teleport Privacy
 teleport-allow = Allow player teleport
@@ -419,6 +433,10 @@ url-dialog-confirm = Open
 
 staffchat-exit = Left staff chat
 staffchat-enter = Joined staff chat
+weblogin-command-description = Confirm a Mik Web login code
+weblogin-invalid-code = Invalid web login code
+weblogin-member-required = Mik Web login is only available to members.
+weblogin-confirmed = Mik Web login confirmed. Return to your browser to continue.
 
 spawn-command-description = Return to spawn
 spawn-world-missing = Spawn world is unavailable

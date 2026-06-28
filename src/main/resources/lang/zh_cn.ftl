@@ -341,6 +341,20 @@ mention-summary-sound = 声音
 mention-summary-action-bar = 屏幕提示
 mention-summary-afk-suffix = ，挂机时静音
 mention-action-bar-text =  提及了你
+chat-public-enter = 已切换到公共聊天频道
+chat-private-enter = 已切换到与 { $arg0 } 的私聊频道
+chat-private-target-not-found = 找不到在线玩家 { $arg0 }
+chat-private-self = 不能和自己开始私聊
+chat-private-no-reply-target = 没有可回复的在线私聊对象
+chat-private-target-offline = 私聊对象已离线，已回到公共聊天频道
+chat-staff-permission-missing = 你已失去员工聊天权限，已回到公共聊天频道
+chat-staff-command-description = 切换员工聊天频道
+chat-public-command-description = 切换公共聊天频道
+chat-msg-command-description = 发送私聊并切换到私聊频道
+chat-reply-command-description = 回复最近的私聊对象
+chat-item-empty-hover = 主手没有物品
+chat-mention-all-hover = 提醒当前频道内所有可见玩家
+chat-bilibili-hover = 识别到 B 站视频链接
 
 teleport-menu-title = 被传送设置
 teleport-allow = 接受普通传送
@@ -419,6 +433,10 @@ url-dialog-confirm = 确认打开
 
 staffchat-exit = 已退出员工聊天频道
 staffchat-enter = 已进入员工聊天频道
+weblogin-command-description = 确认 Mik 网页登录验证码
+weblogin-invalid-code = 无效的网页登录验证码
+weblogin-member-required = Mik 网页登录仅向正式成员开放
+weblogin-confirmed = 已确认 Mik 网页登录，请回到浏览器继续
 
 spawn-command-description = 返回主城
 spawn-world-missing = 主城世界不可用

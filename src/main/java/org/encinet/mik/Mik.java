@@ -6,10 +6,9 @@ import org.encinet.mik.module.access.RestrictionModule;
 import org.encinet.mik.module.access.WhitelistModule;
 import org.encinet.mik.module.afk.AfkModule;
 import org.encinet.mik.module.api.ApiModule;
+import org.encinet.mik.module.chat.ChatModule;
 import org.encinet.mik.module.commands.SimpleFeaturesModule;
 import org.encinet.mik.module.communication.AnnouncementModule;
-import org.encinet.mik.module.communication.StaffChatModule;
-import org.encinet.mik.module.communication.MentionModule;
 import org.encinet.mik.module.communication.TipModule;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.menu.MenuNavigation;
@@ -46,7 +45,7 @@ public final class Mik extends JavaPlugin {
     private PerformanceModule performanceModule;
     private NetworkThrottleModule networkThrottleModule;
     private MusicDiscModule musicDiscModule;
-    private StaffChatModule staffChatModule;
+    private ChatModule chatModule;
     private SimpleFeaturesModule commandsModule;
     private AutoPromoteModule autoPromoteModule;
     private RestrictionModule restrictionModule;
@@ -62,7 +61,6 @@ public final class Mik extends JavaPlugin {
     private HomeModule homeModule;
     private BackModule backModule;
     private AnnouncementModule announcementModule;
-    private MentionModule mentionModule;
     private TipModule tipModule;
     private NameTagModule prefixSuffixModule;
     private MainMenuModule mainMenuModule;
@@ -108,8 +106,9 @@ public final class Mik extends JavaPlugin {
         networkThrottleModule.enable();
         networkThrottleModule.registerCommands(this.getLifecycleManager());
 
-        mentionModule = new MentionModule(this, afkModule, menuNavigation, languageService);
-        mentionModule.enable();
+        chatModule = new ChatModule(this, afkModule, menuNavigation, languageService);
+        chatModule.enable();
+        chatModule.registerCommands(this.getLifecycleManager());
 
         teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation, languageService);
         teleportPreferenceModule.enable();
@@ -121,7 +120,7 @@ public final class Mik extends JavaPlugin {
             getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
         }
 
-        mainMenuModule = new MainMenuModule(this, afkModule, mentionModule, teleportPreferenceModule,
+        mainMenuModule = new MainMenuModule(this, afkModule, chatModule, teleportPreferenceModule,
                 pvpModule, menuNavigation, languageService, clientVersionReminderModule);
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
@@ -130,10 +129,6 @@ public final class Mik extends JavaPlugin {
         musicDiscModule.loadMusicFiles();
         musicDiscModule.registerCommands(this.getLifecycleManager());
         musicDiscModule.enableMusicChests();
-
-        staffChatModule = new StaffChatModule(this, languageService);
-        staffChatModule.enable();
-        staffChatModule.registerCommands(this.getLifecycleManager());
 
         commandsModule = new SimpleFeaturesModule(languageService);
         commandsModule.registerCommands(this.getLifecycleManager());
@@ -173,7 +168,7 @@ public final class Mik extends JavaPlugin {
         tipModule.registerCommands(this.getLifecycleManager());
 
         // Announcement data is exposed by the API module.
-        apiModule = new ApiModule(this);
+        apiModule = new ApiModule(this, languageService);
         apiModule.setAnnouncementModule(announcementModule);
         apiModule.start(35353);
         apiModule.registerCommands(this.getLifecycleManager());

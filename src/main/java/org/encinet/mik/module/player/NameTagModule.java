@@ -11,9 +11,6 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.cacheddata.CachedMetaData;
 import net.luckperms.api.model.user.User;
@@ -29,16 +26,11 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.util.NameMetaRenderer;
 import org.encinet.mik.util.PlayerDisplay;
 
-import java.lang.reflect.Method;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import java.util.function.Predicate;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * NameTagModule — 处理 /nametag 命令，允许玩家自定义前缀和后缀。
@@ -46,7 +38,7 @@ import java.util.regex.Pattern;
  * <p>需要权限：{@code group.member}
  *
  * <p>允许的 MiniMessage 标签：color, decoration, gradient, rainbow, reset,
- * hover, insertion, font, keybind, translatable, newline, score；
+ * hover, insertion, font, keybind, translatable, score；newline 仅在 hover 文本中生效。
  * 禁用：click, selector。
  */
 public class NameTagModule {
@@ -54,8 +46,6 @@ public class NameTagModule {
     private static final int CUSTOM_PRIORITY = 10_000;
     private static final int MAX_LENGTH = 200;
     private static final String PERM_USE = "group.member";
-    private static final String SUPPORTED_PAPI_PREFIX = "player_";
-    private static final Pattern PAPI_PLACEHOLDER_PATTERN = Pattern.compile("%([^%]+)%");
 
     private static final String URL_EDITOR = "https://webui.advntr.dev/";
     private static final String URL_DOCS = "https://docs.papermc.io/adventure/minimessage/format/";
@@ -65,23 +55,6 @@ public class NameTagModule {
     private static final TextColor C_RAW = TextColor.color(0xFFFF55);
     private static final TextColor C_DIM = NamedTextColor.GRAY;
     private static final TextColor C_MUTED = NamedTextColor.GRAY;
-
-    private static final MiniMessage SAFE_MM = MiniMessage.builder()
-            .tags(TagResolver.resolver(
-                    StandardTags.color(),
-                    StandardTags.decorations(),
-                    StandardTags.gradient(),
-                    StandardTags.rainbow(),
-                    StandardTags.reset(),
-                    StandardTags.hoverEvent(),
-                    StandardTags.insertion(),
-                    StandardTags.font(),
-                    StandardTags.keybind(),
-                    StandardTags.translatable(),
-                    StandardTags.newline(),
-                    StandardTags.score()
-            ))
-            .build();
 
     private static final Component NL = Component.newline();
 
@@ -170,7 +143,7 @@ public class NameTagModule {
     private Component render(Player player, String raw) {
         if (raw == null || raw.isEmpty())
             return Component.text(languageService.t(player, Message.NAMETAG_UNSET), C_DIM, TextDecoration.ITALIC);
-        return SAFE_MM.deserialize(applyPlaceholders(player, raw));
+        return NameMetaRenderer.deserialize(player, raw);
     }
 
     /**
@@ -201,9 +174,9 @@ public class NameTagModule {
      */
     private Component chatPreview(Player player, String prefixRaw, String suffixRaw) {
         Component pre = (prefixRaw != null && !prefixRaw.isEmpty())
-                ? SAFE_MM.deserialize(applyPlaceholders(player, prefixRaw)) : Component.empty();
+                ? NameMetaRenderer.deserialize(player, prefixRaw) : Component.empty();
         Component suf = (suffixRaw != null && !suffixRaw.isEmpty())
-                ? SAFE_MM.deserialize(applyPlaceholders(player, suffixRaw)) : Component.empty();
+                ? NameMetaRenderer.deserialize(player, suffixRaw) : Component.empty();
 
         return Component.text()
                 .append(pre)
@@ -212,47 +185,6 @@ public class NameTagModule {
                 .append(Component.text(" » ", NamedTextColor.GOLD))
                 .append(Component.text(languageService.t(player, Message.NAMETAG_SAMPLE_MESSAGE), NamedTextColor.WHITE))
                 .build();
-    }
-
-    private String applyPlaceholders(Player player, String raw) {
-        Plugin placeholderApi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");
-        if (placeholderApi == null || !placeholderApi.isEnabled()) {
-            return raw;
-        }
-        try {
-            MaskedPlaceholders masked = maskUnsupportedPlaceholders(raw);
-            Class<?> placeholderApiClass = placeholderApi.getClass().getClassLoader()
-                    .loadClass("me.clip.placeholderapi.PlaceholderAPI");
-            Method setPlaceholders = placeholderApiClass.getMethod("setPlaceholders", Player.class, String.class);
-            Object parsed = setPlaceholders.invoke(null, player, masked.text());
-            return parsed instanceof String value ? masked.restore(value) : raw;
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            plugin.getLogger().warning("PlaceholderAPI 解析名称标签预览失败（" + player.getName() + "）: " + e.getMessage());
-            return raw;
-        }
-    }
-
-    private MaskedPlaceholders maskUnsupportedPlaceholders(String raw) {
-        Matcher matcher = PAPI_PLACEHOLDER_PATTERN.matcher(raw);
-        StringBuilder masked = new StringBuilder();
-        Map<String, String> replacements = new LinkedHashMap<>();
-        int index = 0;
-        while (matcher.find()) {
-            String placeholder = matcher.group(1);
-            if (isSupportedPlaceholder(placeholder)) {
-                matcher.appendReplacement(masked, Matcher.quoteReplacement(matcher.group()));
-            } else {
-                String token = "\uE000mik_papi_" + index++ + "\uE000";
-                replacements.put(token, matcher.group());
-                matcher.appendReplacement(masked, Matcher.quoteReplacement(token));
-            }
-        }
-        matcher.appendTail(masked);
-        return new MaskedPlaceholders(masked.toString(), replacements);
-    }
-
-    private boolean isSupportedPlaceholder(String placeholder) {
-        return placeholder.toLowerCase(Locale.ROOT).startsWith(SUPPORTED_PAPI_PREFIX);
     }
 
     /**
@@ -360,7 +292,7 @@ public class NameTagModule {
                     NamedTextColor.RED, targetLabel(player, target), MAX_LENGTH));
             return Command.SINGLE_SUCCESS;
         }
-        String unsupportedPlaceholder = findUnsupportedPlaceholder(normalized);
+        String unsupportedPlaceholder = NameMetaRenderer.findUnsupportedPlaceholder(normalized);
         if (unsupportedPlaceholder != null) {
             player.sendMessage(Component.text()
                     .append(Component.text(languageService.t(player, Message.NAMETAG_UNSUPPORTED_PLACEHOLDER_BEFORE), NamedTextColor.RED))
@@ -400,29 +332,8 @@ public class NameTagModule {
         return Command.SINGLE_SUCCESS;
     }
 
-    private String findUnsupportedPlaceholder(String raw) {
-        Matcher matcher = PAPI_PLACEHOLDER_PATTERN.matcher(raw);
-        while (matcher.find()) {
-            String placeholder = matcher.group(1);
-            if (!isSupportedPlaceholder(placeholder)) {
-                return placeholder;
-            }
-        }
-        return null;
-    }
-
     private String targetLabel(Player player, NameTag target) {
         return languageService.t(player, target.label());
-    }
-
-    private record MaskedPlaceholders(String text, Map<String, String> replacements) {
-        String restore(String parsedText) {
-            String restored = parsedText;
-            for (Map.Entry<String, String> entry : replacements.entrySet()) {
-                restored = restored.replace(entry.getKey(), entry.getValue());
-            }
-            return restored;
-        }
     }
 
     /**

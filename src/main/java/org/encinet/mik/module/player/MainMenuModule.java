@@ -25,7 +25,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
-import org.encinet.mik.module.communication.MentionModule;
+import org.encinet.mik.module.chat.ChatModule;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -62,7 +62,7 @@ public class MainMenuModule implements Listener {
 
     private final JavaPlugin plugin;
     private final AfkService afkService;
-    private final MentionModule mentionModule;
+    private final ChatModule chatModule;
     private final TeleportPreferenceModule teleportPreferenceModule;
     private final PvpModule pvpModule;
     private final MenuNavigation menuNavigation;
@@ -70,12 +70,12 @@ public class MainMenuModule implements Listener {
     private final ClientVersionReminderModule clientVersionReminderModule;
     private final NamespacedKey actionKey;
 
-    public MainMenuModule(JavaPlugin plugin, AfkService afkService, MentionModule mentionModule,
+    public MainMenuModule(JavaPlugin plugin, AfkService afkService, ChatModule chatModule,
                           TeleportPreferenceModule teleportPreferenceModule, PvpModule pvpModule, MenuNavigation menuNavigation,
                           LanguageService languageService, ClientVersionReminderModule clientVersionReminderModule) {
         this.plugin = plugin;
         this.afkService = afkService;
-        this.mentionModule = mentionModule;
+        this.chatModule = chatModule;
         this.teleportPreferenceModule = teleportPreferenceModule;
         this.pvpModule = pvpModule;
         this.menuNavigation = menuNavigation;
@@ -129,7 +129,7 @@ public class MainMenuModule implements Listener {
                 return;
             }
             case ACTION_OPEN_MENTION -> {
-                mentionModule.openMenu(player);
+                chatModule.openMenu(player);
                 return;
             }
             case ACTION_OPEN_TELEPORT -> {
@@ -270,7 +270,7 @@ public class MainMenuModule implements Listener {
 
     private ItemStack mentionMenuItem(Player player) {
         return MenuItems.action(Material.BELL, Component.text(languageService.t(player, Message.MENTION_MENU_TITLE), NamedTextColor.AQUA), List.of(
-                Component.text(mentionModule.summary(player), NamedTextColor.GRAY),
+                Component.text(chatModule.summary(player), NamedTextColor.GRAY),
                 Component.empty(),
                 Component.text(languageService.t(player, Message.CLICK_SET), NamedTextColor.YELLOW)
         ), actionKey, ACTION_OPEN_MENTION);
