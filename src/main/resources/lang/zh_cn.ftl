@@ -368,6 +368,7 @@ chat-delay-7s = 7 秒
 chat-delay-option-desc = 选择消息真正发送前的等待时间
 chat-delay-current = 当前聊天延迟：{ $arg0 }
 chat-delay-queued = 消息将在 { $arg0 } 后发送，输入 /cancel 或 /c 可取消
+chat-delay-preview-marker = [待发送]
 chat-delay-cancelled = 已取消待发送的消息
 chat-delay-nothing-to-cancel = 没有待取消的消息
 

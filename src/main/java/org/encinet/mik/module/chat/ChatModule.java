@@ -646,8 +646,58 @@ public class ChatModule implements Listener {
         pendingDelayedMessages
                 .computeIfAbsent(playerId, ignored -> Collections.synchronizedList(new ArrayList<>()))
                 .add(taskHolder[0]);
-        sendSystemMessage(sender, Component.text(languageService.t(sender, Message.CHAT_DELAY_QUEUED, option.id()), NamedTextColor.GRAY));
+        sendActionBarMessage(sender, Component.text(languageService.t(sender, Message.CHAT_DELAY_QUEUED, option.id()), NamedTextColor.YELLOW));
+        sendDelayedPreview(sender, plainMessage, state);
         return true;
+    }
+
+    private void sendDelayedPreview(Player sender, String plainMessage, ChatChannelState state) {
+        if (Bukkit.isPrimaryThread()) {
+            if (sender.isOnline()) {
+                sender.sendMessage(delayedPreviewLine(sender, plainMessage, state));
+            }
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (sender.isOnline()) {
+                sender.sendMessage(delayedPreviewLine(sender, plainMessage, state));
+            }
+        });
+    }
+
+    private Component delayedPreviewLine(Player sender, String plainMessage, ChatChannelState state) {
+        return Component.text(languageService.t(sender, Message.CHAT_DELAY_PREVIEW_MARKER) + " ", NamedTextColor.YELLOW)
+                .append(delayedPreviewMessage(sender, plainMessage, state));
+    }
+
+    private Component delayedPreviewMessage(Player sender, String plainMessage, ChatChannelState state) {
+        return switch (state.channel()) {
+            case PUBLIC -> {
+                Set<Player> channelPlayers = new HashSet<>(Bukkit.getOnlinePlayers());
+                yield formatPublicMessage(sender, parseMessage(sender, plainMessage, channelPlayers));
+            }
+            case STAFF -> {
+                Set<Player> channelPlayers = staffChannelPlayers();
+                yield formatStaffMessage(sender, parseMessage(sender, plainMessage, channelPlayers));
+            }
+            case PRIVATE -> {
+                Player target = Bukkit.getPlayer(state.targetId());
+                Set<Player> channelPlayers = target == null ? Set.of(sender) : Set.of(sender, target);
+                Component message = parseMessage(sender, plainMessage, channelPlayers);
+                yield target == null
+                        ? formatPrivatePreviewWithOfflineTarget(sender, state.targetName(), message)
+                        : formatPrivateMessage(sender, target, sender, message);
+            }
+        };
+    }
+
+    private Component formatPrivatePreviewWithOfflineTarget(Player sender, String targetName, Component message) {
+        return Component.text(privateLabel(sender) + " ", NamedTextColor.LIGHT_PURPLE)
+                .append(ChatDisplayRenderer.playerName(sender))
+                .append(Component.text(" -> ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(targetName == null ? "?" : targetName, NamedTextColor.WHITE))
+                .append(Component.text(" » ", NamedTextColor.GOLD))
+                .append(timeHoveredMessage(message));
     }
 
     private void sendDelayedMessage(Player sender, String plainMessage, ChatChannelState state) {
@@ -719,6 +769,18 @@ public class ChatModule implements Listener {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (player.isOnline()) {
                 player.sendMessage(message);
+            }
+        });
+    }
+
+    private void sendActionBarMessage(Player player, Component message) {
+        if (Bukkit.isPrimaryThread()) {
+            player.sendActionBar(message);
+            return;
+        }
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (player.isOnline()) {
+                player.sendActionBar(message);
             }
         });
     }

@@ -368,6 +368,7 @@ chat-delay-7s = 7 seconds
 chat-delay-option-desc = Choose how long messages wait before they are sent
 chat-delay-current = Current chat delay: { $arg0 }
 chat-delay-queued = Message will be sent in { $arg0 }; use /cancel or /c to cancel
+chat-delay-preview-marker = [Pending]
 chat-delay-cancelled = Cancelled pending message
 chat-delay-nothing-to-cancel = No pending message to cancel
 
