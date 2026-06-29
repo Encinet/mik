@@ -150,9 +150,9 @@ public class MotdModule implements Listener, AfkStateListener {
     };
 
     private static final String[] KNOWN_PLAYER_LINE2_CN = {
-            "<gradient:#89f7fe:#66a6ff>\u6b22\u8fce\u56de\u6765\uff0c<bold>{player}</bold></gradient><white>\uff0c\u4eca\u5929\u4e5f\u6765\u6478\u9c7c\u5417\uff1f</white>",
-            "<white>\u68c0\u6d4b\u5230\u719f\u6089\u7684\u8fde\u63a5\uff1a</white><gradient:#f6d365:#fda085>{player}</gradient><gray> \u5df2\u88ab\u670d\u52a1\u5668\u8bb0\u4f4f</gray>",
-            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>\uff0c\u95e8\u5df2\u7ecf\u5f00\u597d\u4e86</white>"
+            "<gradient:#89f7fe:#66a6ff>欢迎回来，<bold>{player}</bold></gradient><white>，今天也来摸鱼吗？</white>",
+            "<white>检测到熟悉的连接：</white><gradient:#f6d365:#fda085>{player}</gradient><gray> 已被服务器记住</gray>",
+            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>，门已经开好了</white>"
     };
 
     private static final String[] KNOWN_PLAYER_LINE2_EN = {
