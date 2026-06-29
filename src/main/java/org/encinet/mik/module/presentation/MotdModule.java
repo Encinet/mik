@@ -150,15 +150,25 @@ public class MotdModule implements Listener, AfkStateListener {
     };
 
     private static final String[] KNOWN_PLAYER_LINE2_CN = {
-            "<gradient:#89f7fe:#66a6ff>欢迎回来，<bold>{player}</bold></gradient><white>，今天也来摸鱼吗？</white>",
-            "<white>检测到熟悉的连接：</white><gradient:#f6d365:#fda085>{player}</gradient><gray> 已被服务器记住</gray>",
-            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>，门已经开好了</white>"
+            "<gradient:#89f7fe:#66a6ff>欢迎回来，<bold>{player}</bold></gradient><white>，今天也来坐坐吧</white>",
+            "<white>好久不见，</white><gradient:#f6d365:#fda085>{player}</gradient><white>，服务器还在这里</white>",
+            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>，熟悉的连接，熟悉的地方</white>",
+            "<white>欢迎回来，</white><gradient:#ee9ca7:#ffdde1>{player}</gradient><white>，慢慢玩就好</white>",
+            "<gradient:#84fab0:#8fd3f4>{player}</gradient><white>，今天想从哪里开始？</white>",
+            "<white>看到你回来啦，</white><gradient:#89f7fe:#66a6ff>{player}</gradient><white>，祝你玩得开心</white>",
+            "<gradient:#f6d365:#fda085>{player}</gradient><white>，这里给你留了个位置</white>",
+            "<white>又见面了，</white><gradient:#a18cd1:#fbc2eb>{player}</gradient><white>，进来放松一下吧</white>"
     };
 
     private static final String[] KNOWN_PLAYER_LINE2_EN = {
-            "<gradient:#89f7fe:#66a6ff>Welcome back, <bold>{player}</bold></gradient><white>. Ready to chill?</white>",
-            "<white>Familiar connection detected:</white> <gradient:#f6d365:#fda085>{player}</gradient>",
-            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>, the door is already open</white>"
+            "<gradient:#89f7fe:#66a6ff>Welcome back, <bold>{player}</bold></gradient><white>. Good to see you again.</white>",
+            "<white>Hey </white><gradient:#f6d365:#fda085>{player}</gradient><white>, the server is still here.</white>",
+            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>, familiar connection, familiar place.</white>",
+            "<white>Welcome back, </white><gradient:#ee9ca7:#ffdde1>{player}</gradient><white>. Take your time.</white>",
+            "<gradient:#84fab0:#8fd3f4>{player}</gradient><white>, where do you want to start today?</white>",
+            "<white>Good to have you back, </white><gradient:#89f7fe:#66a6ff>{player}</gradient><white>. Have fun in there.</white>",
+            "<gradient:#f6d365:#fda085>{player}</gradient><white>, we saved you a spot.</white>",
+            "<white>There you are, </white><gradient:#a18cd1:#fbc2eb>{player}</gradient><white>. Come relax for a bit.</white>"
     };
 
     private static final Component[] NORMAL_MOTDS_CN = buildMotds(LINE1_CN, NORMAL_LINE2_CN);
