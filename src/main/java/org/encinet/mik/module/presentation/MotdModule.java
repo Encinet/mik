@@ -14,6 +14,8 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
+import org.encinet.mik.module.player.PlayerAddressModule;
+import org.encinet.mik.module.player.PlayerAddressModule.PlayerAddressRecord;
 import org.encinet.mik.module.presentation.motd.HolidayMotdCategory;
 import org.encinet.mik.util.GeoUtil;
 import org.encinet.mik.util.MotdCenterUtil;
@@ -24,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -37,6 +40,7 @@ public class MotdModule implements Listener, AfkStateListener {
     private static final ZoneId SHANGHAI_ZONE = ZoneId.of("Asia/Shanghai");
     private static final int AFK_EASTER_EGG_MIN_PLAYERS = 3;
     private static final int NIGHT_EASTER_EGG_ONE_IN = 2;
+    private static final int KNOWN_PLAYER_EASTER_EGG_ONE_IN = 3;
     private static final long AMBIENT_MOTD_ROTATION_MS = 10_000L;
 
     private static final Component LINE1_CN = MM.deserialize(
@@ -145,6 +149,18 @@ public class MotdModule implements Listener, AfkStateListener {
             "<gradient:#f6d365:#fda085>Still awake?</gradient><white> Remember to </white><gradient:#84fab0:#8fd3f4>take a rest</gradient>"
     };
 
+    private static final String[] KNOWN_PLAYER_LINE2_CN = {
+            "<gradient:#89f7fe:#66a6ff>\u6b22\u8fce\u56de\u6765\uff0c<bold>{player}</bold></gradient><white>\uff0c\u4eca\u5929\u4e5f\u6765\u6478\u9c7c\u5417\uff1f</white>",
+            "<white>\u68c0\u6d4b\u5230\u719f\u6089\u7684\u8fde\u63a5\uff1a</white><gradient:#f6d365:#fda085>{player}</gradient><gray> \u5df2\u88ab\u670d\u52a1\u5668\u8bb0\u4f4f</gray>",
+            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>\uff0c\u95e8\u5df2\u7ecf\u5f00\u597d\u4e86</white>"
+    };
+
+    private static final String[] KNOWN_PLAYER_LINE2_EN = {
+            "<gradient:#89f7fe:#66a6ff>Welcome back, <bold>{player}</bold></gradient><white>. Ready to chill?</white>",
+            "<white>Familiar connection detected:</white> <gradient:#f6d365:#fda085>{player}</gradient>",
+            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>, the door is already open</white>"
+    };
+
     private static final Component[] NORMAL_MOTDS_CN = buildMotds(LINE1_CN, NORMAL_LINE2_CN);
     private static final Component[] NORMAL_MOTDS_EN = buildMotds(LINE1_EN, NORMAL_LINE2_EN);
     private static final Component[][] EGG_MOTDS_CN = buildEggMotds(LINE1_CN, EGG_BRANCHES_CN);
@@ -180,17 +196,20 @@ public class MotdModule implements Listener, AfkStateListener {
     private final ConcurrentHashMap<String, PingRecord> pingTracker = new ConcurrentHashMap<>();
     private final JavaPlugin plugin;
     private final AfkService afkService;
+    private final PlayerAddressModule playerAddressModule;
     private final HolidayMotdCategory holidayCategory;
     private volatile Component cachedStateMotdCn;
     private volatile Component cachedStateMotdEn;
     private volatile boolean cachedLateNight;
     private volatile long nightEasterEggSalt;
     private volatile long ambientMotdIndexSalt;
+    private volatile long knownPlayerMotdSalt;
     private BukkitTask stateRefreshTask;
 
-    public MotdModule(JavaPlugin plugin, AfkService afkService) {
+    public MotdModule(JavaPlugin plugin, AfkService afkService, PlayerAddressModule playerAddressModule) {
         this.plugin = plugin;
         this.afkService = afkService;
+        this.playerAddressModule = playerAddressModule;
         this.holidayCategory = new HolidayMotdCategory(plugin);
         this.holidayCategory.setRefreshListener(this::refreshStateMotds);
     }
@@ -199,6 +218,7 @@ public class MotdModule implements Listener, AfkStateListener {
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         nightEasterEggSalt = rng.nextLong();
         ambientMotdIndexSalt = rng.nextLong();
+        knownPlayerMotdSalt = rng.nextLong();
         Bukkit.getPluginManager().registerEvents(this, plugin);
         afkService.addListener(this);
         Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::cleanup, 1200L, 1200L);
@@ -219,15 +239,21 @@ public class MotdModule implements Listener, AfkStateListener {
     @EventHandler
     public void onPing(PaperServerListPingEvent event) {
         event.setMaxPlayers(2026);
-        event.getListedPlayers().clear();
 
         InetAddress address = event.getAddress();
+        Optional<PlayerAddressRecord> knownPlayer = playerAddressModule.resolveLatestByAddress(address);
+        if (knownPlayer.isPresent()) {
+            event.setHidePlayers(false);
+        } else {
+            event.getListedPlayers().clear();
+        }
 
-        boolean isCN = GeoUtil.isChinaIp(address);
+        boolean isCN = address != null && GeoUtil.isChinaIp(address);
         Component[] normals = isCN ? NORMAL_MOTDS_CN : NORMAL_MOTDS_EN;
         Component[][] eggs = isCN ? EGG_MOTDS_CN : EGG_MOTDS_EN;
 
-        event.motd(resolveMotd(address.getHostAddress(), isCN, normals, eggs, getCachedStateMotd(isCN)));
+        String ip = address == null ? "unknown" : address.getHostAddress();
+        event.motd(resolveMotd(ip, isCN, normals, eggs, getCachedStateMotd(isCN), knownPlayer));
     }
 
     @EventHandler
@@ -245,7 +271,8 @@ public class MotdModule implements Listener, AfkStateListener {
         refreshStateMotds();
     }
 
-    private Component resolveMotd(String ip, boolean isCN, Component[] normals, Component[][] eggs, Component stateMotd) {
+    private Component resolveMotd(String ip, boolean isCN, Component[] normals, Component[][] eggs,
+                                  Component stateMotd, Optional<PlayerAddressRecord> knownPlayer) {
         long now = System.currentTimeMillis();
 
         if (stateMotd != null) {
@@ -257,7 +284,41 @@ public class MotdModule implements Listener, AfkStateListener {
             return repeatPingMotd;
         }
 
+        Component knownPlayerMotd = resolveKnownPlayerMotd(ip, isCN, knownPlayer, now);
+        if (knownPlayerMotd != null) {
+            return knownPlayerMotd;
+        }
+
         return resolveAmbientMotd(ip, isCN, normals, now);
+    }
+
+    private Component resolveKnownPlayerMotd(String ip, boolean isCN, Optional<PlayerAddressRecord> knownPlayer, long now) {
+        if (knownPlayer.isEmpty() || stableMotdIndex(ip, now, KNOWN_PLAYER_EASTER_EGG_ONE_IN, knownPlayerMotdSalt) != 0) {
+            return null;
+        }
+
+        String[] templates = isCN ? KNOWN_PLAYER_LINE2_CN : KNOWN_PLAYER_LINE2_EN;
+        String template = templates[stableMotdIndex(ip, now, templates.length, knownPlayerMotdSalt ^ 0x5f3759dfL)];
+        String line = template.replace("{player}", safePlayerName(knownPlayer.get().playerName()));
+        return buildMotd(isCN ? LINE1_CN : LINE1_EN, line);
+    }
+
+    private String safePlayerName(String name) {
+        if (name == null || name.isEmpty() || name.length() > 16) {
+            return "player";
+        }
+
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            boolean valid = (c >= 'A' && c <= 'Z')
+                    || (c >= 'a' && c <= 'z')
+                    || (c >= '0' && c <= '9')
+                    || c == '_';
+            if (!valid) {
+                return "player";
+            }
+        }
+        return name;
     }
 
     private Component resolveRepeatPingMotd(String ip, Component[][] eggs, long now) {

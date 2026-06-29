@@ -26,6 +26,7 @@ import org.encinet.mik.module.player.HomeModule;
 import org.encinet.mik.module.player.InvisibilityNotifyModule;
 import org.encinet.mik.module.player.NameTagModule;
 import org.encinet.mik.module.player.PlayerBoundaryModule;
+import org.encinet.mik.module.player.PlayerAddressModule;
 import org.encinet.mik.module.player.MainMenuModule;
 import org.encinet.mik.module.player.WelcomeModule;
 import org.encinet.mik.module.pvp.PvpModule;
@@ -77,6 +78,7 @@ public final class Mik extends JavaPlugin {
     private WelcomeModule welcomeModule;
     private MenuNavigation menuNavigation;
     private LanguageService languageService;
+    private PlayerAddressModule playerAddressModule;
 
     @Override
     public void onLoad() {
@@ -89,14 +91,17 @@ public final class Mik extends JavaPlugin {
     public void onEnable() {
         brandingModule.enable();
 
-        serverLinksModule = new ServerLinksModule(this);
-        serverLinksModule.register();
-
         menuNavigation = new MenuNavigation();
 
         languageService = new LanguageService(this, menuNavigation);
         languageService.enable();
         languageService.registerCommands(this.getLifecycleManager());
+
+        playerAddressModule = new PlayerAddressModule(this);
+        playerAddressModule.enable();
+
+        serverLinksModule = new ServerLinksModule(this, playerAddressModule, languageService);
+        serverLinksModule.register();
 
         afkModule = new AfkModule(this, languageService);
         afkModule.enable();
@@ -194,7 +199,7 @@ public final class Mik extends JavaPlugin {
         whitelistModule.enable();
         whitelistModule.registerCommands(this.getLifecycleManager());
 
-        motdModule = new MotdModule(this, afkModule);
+        motdModule = new MotdModule(this, afkModule, playerAddressModule);
         motdModule.enable();
 
         homeModule = new HomeModule(this, menuNavigation, languageService, networkThrottleModule);
@@ -258,6 +263,10 @@ public final class Mik extends JavaPlugin {
 
         if (invisibilityNotifyModule != null) {
             invisibilityNotifyModule.disable();
+        }
+
+        if (playerAddressModule != null) {
+            playerAddressModule.disable();
         }
     }
 }
