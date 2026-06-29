@@ -358,6 +358,7 @@ chat-reply-command-description = 回复最近的私聊对象
 chat-item-empty-hover = 主手没有物品
 chat-mention-all-hover = 提醒当前频道内所有可见玩家
 chat-bilibili-hover = 识别到 B 站视频链接
+chat-copy-hover = 左键点击复制消息
 chat-settings-menu-title = 聊天设置
 chat-delay-cancel-command-description = 取消待发送的延迟消息
 chat-delay-section = 延迟发送

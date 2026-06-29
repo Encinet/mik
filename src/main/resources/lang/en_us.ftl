@@ -358,6 +358,7 @@ chat-reply-command-description = Reply to your latest private chat target
 chat-item-empty-hover = No item in main hand
 chat-mention-all-hover = Notify every visible player in this channel
 chat-bilibili-hover = Detected Bilibili video link
+chat-copy-hover = Left-click to copy message
 chat-settings-menu-title = Chat Settings
 chat-delay-cancel-command-description = Cancel pending delayed messages
 chat-delay-section = Delayed Sending
