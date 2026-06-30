@@ -90,7 +90,7 @@ public class LanguageService implements Listener {
         }
         languageData = YamlConfiguration.loadConfiguration(languageFile);
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        plugin.getLogger().info("Language service enabled");
+        plugin.getLogger().info("LanguageService enabled");
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {

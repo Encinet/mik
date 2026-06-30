@@ -114,7 +114,7 @@ public class GrieferModule implements Listener {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         startDecayTask();
         startCleanupTask();
-        plugin.getLogger().info("[GrieferModule] 已启动反破坏检测 | Anti-grief detection active.");
+        plugin.getLogger().info("GrieferModule enabled (anti-grief detection active)");
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -130,7 +130,7 @@ public class GrieferModule implements Listener {
         if (data.lavaRateTriggered(now) && !data.onCooldown(CooldownKey.LAVA)) {
             data.setCooldown(CooldownKey.LAVA, 15_000L);
             flag(player, data, PTS_LAVA,
-                    "岩浆桶放置过频繁 | Lava spam: " + LAVA_COUNT + " 次 / " + LAVA_WINDOW_MS / 1000 + "s");
+                    "Lava bucket spam: " + LAVA_COUNT + " placements / " + LAVA_WINDOW_MS / 1000 + "s");
         }
     }
 
@@ -156,7 +156,7 @@ public class GrieferModule implements Listener {
         if (data.breakRateTriggered(WE_COUNT, WE_WINDOW_MS, now)
                 && !data.onCooldown(CooldownKey.WE)) {
             data.setCooldown(CooldownKey.WE, 8_000L);
-            flag(player, data, PTS_WE, "疑似 //set air | Possible WorldEdit mass-air: " + WE_COUNT + "+ 块/s");
+            flag(player, data, PTS_WE, "Possible WorldEdit mass-air action: " + WE_COUNT + "+ blocks/s");
             return;
         }
 
@@ -165,7 +165,7 @@ public class GrieferModule implements Listener {
                 && !data.isLikelyBuilding(now)) {
             data.setCooldown(CooldownKey.MASS, 12_000L);
             flag(player, data, PTS_MASS,
-                    "大规模连续破坏 | Mass break: " + MASS_COUNT + " 块 / " + MASS_WINDOW_MS / 1000 + "s");
+                    "Mass block breaking: " + MASS_COUNT + " blocks / " + MASS_WINDOW_MS / 1000 + "s");
         }
 
         if (!data.onCooldown(CooldownKey.SCATTER) && !data.isLikelyBuilding(now)) {
@@ -173,8 +173,8 @@ public class GrieferModule implements Listener {
             if (spread >= SCATTER_SPREAD) {
                 data.setCooldown(CooldownKey.SCATTER, 20_000L);
                 flag(player, data, PTS_SCATTER,
-                        "大范围分散破坏 | Scatter grief: " + SCATTER_COUNT
-                                + " 块, 扩散=" + String.format("%.0f", spread) + " 格");
+                        "Scattered block breaking: " + SCATTER_COUNT
+                                + " blocks, spread=" + String.format("%.0f", spread) + " blocks");
             }
         }
 
@@ -184,7 +184,7 @@ public class GrieferModule implements Listener {
             if (data.structRateTriggered(now) && !data.onCooldown(CooldownKey.STRUCTURE)) {
                 data.setCooldown(CooldownKey.STRUCTURE, 30_000L);
                 flag(player, data, PTS_STRUCTURE,
-                        "破坏玩家建筑 | Structure grief: " + STRUCTURE_COUNT + " 个建筑方块 / 60s");
+                        "Player structure griefing: " + STRUCTURE_COUNT + " structure blocks / 60s");
             }
         }
     }
@@ -208,7 +208,7 @@ public class GrieferModule implements Listener {
      * @param reason human-readable reason (logged and broadcast)
      */
     private void flag(Player player, PlayerData data, int points, String reason) {
-        if (data.banned) return;  // 提前退出
+        if (data.banned) return;
         int score = data.addScore(points);
         String timestamp = TIME_FMT.format(Instant.now());
 
@@ -228,25 +228,25 @@ public class GrieferModule implements Listener {
     }
 
     private void executeBan(Player player, String triggerReason) {
-        String banReason = "[Mik GrieferModule] 检测到破坏行为 | Griefing detected: " + triggerReason;
+        String banReason = "[Mik GrieferModule] Griefing detected: " + triggerReason;
 
         // Must run on main thread; flag() is called from event handler (already main),
         // but guard anyway in case future refactors call it async.
         Bukkit.getScheduler().runTask(plugin, () -> {
             player.ban(banReason, Duration.ofDays(30), "Mik GrieferModule");
             player.kick(Component.text()
-                    .append(Component.text("[Mik] 您已被自动封禁", NamedTextColor.RED))
+                    .append(Component.text("[Mik] You have been automatically banned", NamedTextColor.RED))
                     .append(Component.newline())
-                    .append(Component.text("检测到破坏服务器行为，如有异议请联系管理员申诉", NamedTextColor.GRAY))
+                    .append(Component.text("Griefing behavior was detected. Contact staff if you believe this is a mistake.", NamedTextColor.GRAY))
                     .append(Component.newline())
-                    .append(Component.text("原因: " + triggerReason, NamedTextColor.GRAY))
+                    .append(Component.text("Reason: " + triggerReason, NamedTextColor.GRAY))
                     .build());
         });
 
         Bukkit.broadcast(
                 Component.text()
                         .append(Component.text("[GrieferModule] ", NamedTextColor.RED))
-                        .append(Component.text("⛔ 已自动封禁 ", NamedTextColor.RED))
+                        .append(Component.text("AUTO-BANNED ", NamedTextColor.RED))
                         .append(PlayerDisplay.name(player, NamedTextColor.YELLOW))
                         .append(Component.text(" | " + triggerReason, NamedTextColor.GRAY))
                         .build(),
@@ -260,9 +260,9 @@ public class GrieferModule implements Listener {
         Bukkit.broadcast(
                 Component.text()
                         .append(Component.text("[GrieferModule] ", NamedTextColor.GOLD))
-                        .append(Component.text("⚠ 可疑玩家: ", NamedTextColor.YELLOW))
+                        .append(Component.text("Suspicious player: ", NamedTextColor.YELLOW))
                         .append(PlayerDisplay.name(player, NamedTextColor.WHITE))
-                        .append(Component.text(" 分数=" + score + "/" + SCORE_BAN, NamedTextColor.YELLOW))
+                        .append(Component.text(" score=" + score + "/" + SCORE_BAN, NamedTextColor.YELLOW))
                         .append(Component.text(" | " + reason, NamedTextColor.GRAY))
                         .build(),
                 STAFF_PERMISSION);

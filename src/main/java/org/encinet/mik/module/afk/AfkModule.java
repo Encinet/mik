@@ -114,7 +114,7 @@ public class AfkModule implements Listener, AfkService {
         long now = System.currentTimeMillis();
         Bukkit.getOnlinePlayers().forEach(player -> lastActiveAt.put(player.getUniqueId(), now));
         updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, UPDATE_INTERVAL_TICKS, UPDATE_INTERVAL_TICKS);
-        plugin.getLogger().info("AfkModule 已启动。");
+        plugin.getLogger().info("AfkModule enabled");
     }
 
     public void disable() {

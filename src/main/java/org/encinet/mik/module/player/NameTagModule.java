@@ -72,11 +72,11 @@ public class NameTagModule {
         RegisteredServiceProvider<LuckPerms> provider =
                 Bukkit.getServicesManager().getRegistration(LuckPerms.class);
         if (provider == null) {
-            plugin.getLogger().warning("LuckPerms 未找到，NameTagModule 已禁用。");
+            plugin.getLogger().warning("LuckPerms not found. NameTagModule disabled.");
             return;
         }
         luckPerms = provider.getProvider();
-        plugin.getLogger().info("NameTagModule 已启动。");
+        plugin.getLogger().info("NameTagModule enabled");
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -311,7 +311,7 @@ public class NameTagModule {
             target.addNode(user, normalized);
         }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null) {
-                plugin.getLogger().warning("设置 " + target.id + " 失败（" + player.getName() + "）: " + err.getMessage());
+                plugin.getLogger().warning("Failed to set name tag " + target.id + " for " + player.getName() + ": " + err.getMessage());
                 player.sendMessage(languageService.text(player, Message.NAMETAG_SET_ERROR,
                         NamedTextColor.RED, targetLabel(player, target)));
                 return;
@@ -345,7 +345,7 @@ public class NameTagModule {
         luckPerms.getUserManager().modifyUser(player.getUniqueId(), target::clearOwned)
                 .whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
                     if (err != null) {
-                        plugin.getLogger().warning("清除 " + target.id + " 失败（" + player.getName() + "）");
+                        plugin.getLogger().warning("Failed to clear name tag " + target.id + " for " + player.getName());
                         player.sendMessage(languageService.text(player, Message.NAMETAG_CLEAR_ERROR,
                                 NamedTextColor.RED, targetLabel(player, target)));
                         return;
@@ -368,7 +368,7 @@ public class NameTagModule {
             NameTag.SUFFIX.clearOwned(user);
         }).whenComplete((v, err) -> Bukkit.getScheduler().runTask(plugin, () -> {
             if (err != null) {
-                plugin.getLogger().warning("清除所有标签失败（" + player.getName() + "）");
+                plugin.getLogger().warning("Failed to clear all name tags for " + player.getName());
                 player.sendMessage(languageService.text(player, Message.NAMETAG_CLEAR_ALL_ERROR, NamedTextColor.RED));
                 return;
             }

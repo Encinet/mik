@@ -89,7 +89,7 @@ public class MainMenuModule implements Listener {
         menuNavigation.setMainMenuOpener(this::openMenu);
         Bukkit.getPluginManager().registerEvents(this, plugin);
         Bukkit.getScheduler().runTaskTimer(plugin, this::refreshOpenMainMenus, 100L, 100L);
-        plugin.getLogger().info("Main menu module enabled");
+        plugin.getLogger().info("MainMenuModule enabled");
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
