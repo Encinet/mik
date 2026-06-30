@@ -12,7 +12,6 @@ import org.encinet.mik.module.i18n.LanguageService;
 
 import java.net.URI;
 import java.util.List;
-import java.util.UUID;
 
 public final class ServerLinksModule implements Listener {
 
@@ -69,13 +68,9 @@ public final class ServerLinksModule implements Listener {
     private Language resolveLanguage(PlayerLinksSendEvent event) {
         if (event.getConnection() instanceof io.papermc.paper.connection.PlayerConfigurationConnection connection
                 && connection.getProfile().getId() != null) {
-            return languagePreference(connection.getProfile().getId());
+            return languageService.language(connection.getProfile().getId(), null);
         }
         return Language.DEFAULT;
-    }
-
-    private Language languagePreference(UUID playerId) {
-        return Language.fromId(languageService.preference(playerId)).orElse(Language.DEFAULT);
     }
 
     private void fillLinks(ServerLinks links, Language language) {

@@ -14,6 +14,8 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.player.PlayerAddressModule;
 import org.encinet.mik.module.player.PlayerAddressModule.PlayerAddressDisplayRecord;
 import org.encinet.mik.module.player.PlayerAddressModule.PlayerAddressRecord;
@@ -201,6 +203,7 @@ public class MotdModule implements Listener, AfkStateListener {
     private final ConcurrentHashMap<String, PingRecord> pingTracker = new ConcurrentHashMap<>();
     private final JavaPlugin plugin;
     private final AfkService afkService;
+    private final LanguageService languageService;
     private final PlayerAddressModule playerAddressModule;
     private final HolidayMotdCategory holidayCategory;
     private volatile Component cachedStateMotdCn;
@@ -211,9 +214,11 @@ public class MotdModule implements Listener, AfkStateListener {
     private volatile long knownPlayerMotdSalt;
     private BukkitTask stateRefreshTask;
 
-    public MotdModule(JavaPlugin plugin, AfkService afkService, PlayerAddressModule playerAddressModule) {
+    public MotdModule(JavaPlugin plugin, AfkService afkService, LanguageService languageService,
+                      PlayerAddressModule playerAddressModule) {
         this.plugin = plugin;
         this.afkService = afkService;
+        this.languageService = languageService;
         this.playerAddressModule = playerAddressModule;
         this.holidayCategory = new HolidayMotdCategory(plugin);
         this.holidayCategory.setRefreshListener(this::refreshStateMotds);
@@ -254,12 +259,16 @@ public class MotdModule implements Listener, AfkStateListener {
             event.getListedPlayers().clear();
         }
 
-        boolean isCN = GeoUtil.isChinaIp(address);
+        boolean isCN = resolveMotdLanguage(address, recentAddressRecord.orElse(null)) == Language.ZH_CN;
         Component[] normals = isCN ? NORMAL_MOTDS_CN : NORMAL_MOTDS_EN;
         Component[][] eggs = isCN ? EGG_MOTDS_CN : EGG_MOTDS_EN;
 
-        String ip = address.getHostAddress();
+        String ip = address == null ? "unknown" : address.getHostAddress();
         event.motd(resolveMotd(ip, isCN, normals, eggs, getCachedStateMotd(isCN), displayPlayer.orElse(null)));
+    }
+
+    private Language resolveMotdLanguage(InetAddress address, PlayerAddressRecord recentAddressRecord) {
+        return languageService.language(recentAddressRecord == null ? null : recentAddressRecord.playerId(), address);
     }
 
     @EventHandler

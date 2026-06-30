@@ -199,7 +199,7 @@ public final class Mik extends JavaPlugin {
         whitelistModule.enable();
         whitelistModule.registerCommands(this.getLifecycleManager());
 
-        motdModule = new MotdModule(this, afkModule, playerAddressModule);
+        motdModule = new MotdModule(this, afkModule, languageService, playerAddressModule);
         motdModule.enable();
 
         homeModule = new HomeModule(this, menuNavigation, languageService, networkThrottleModule);

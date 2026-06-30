@@ -24,6 +24,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerLocaleChangeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -59,6 +61,7 @@ public class LanguageService implements Listener {
     private final MenuNavigation menuNavigation;
     private final NamespacedKey actionKey;
     private final Map<UUID, String> preferences = new ConcurrentHashMap<>();
+    private final Map<UUID, Language> clientLanguages = new ConcurrentHashMap<>();
     private final Map<Language, FluentBundle> bundles = new EnumMap<>(Language.class);
 
     private File languageFile;
@@ -136,6 +139,16 @@ public class LanguageService implements Listener {
         preferences.remove(event.getPlayer().getUniqueId());
     }
 
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        rememberClientLanguage(event.getPlayer().getUniqueId(), event.getPlayer().locale());
+    }
+
+    @EventHandler
+    public void onPlayerLocaleChange(PlayerLocaleChangeEvent event) {
+        rememberClientLanguage(event.getPlayer().getUniqueId(), event.locale());
+    }
+
     public void openMenu(Player player) {
         Language language = language(player);
         MenuBuilder.create(MENU_SIZE, Component.text(t(language, Message.LANGUAGE_MENU_TITLE), MenuItems.TITLE_COLOR))
@@ -166,12 +179,57 @@ public class LanguageService implements Listener {
         return Language.DEFAULT;
     }
 
+    public Language language(UUID playerId, InetAddress fallbackAddress) {
+        if (playerId != null) {
+            Language manual = Language.fromId(preference(playerId)).orElse(null);
+            if (manual != null) {
+                return manual;
+            }
+            Language recordedClientLanguage = recordedClientLanguage(playerId);
+            if (recordedClientLanguage != null) {
+                return recordedClientLanguage;
+            }
+        }
+        return fallbackAddress != null && GeoUtil.isChinaIp(fallbackAddress) ? Language.ZH_CN : Language.EN_US;
+    }
+
     private Language clientLanguage(Player player) {
         try {
-            return Language.fromLocale(player.locale()).orElse(null);
+            Language language = Language.fromLocale(player.locale()).orElse(null);
+            if (language != null) {
+                rememberClientLanguage(player.getUniqueId(), player.locale());
+            }
+            return language;
         } catch (RuntimeException e) {
             return null;
         }
+    }
+
+    private void rememberClientLanguage(UUID playerId, Locale locale) {
+        Language.fromLocale(locale).ifPresent(language -> {
+            Language previous = clientLanguages.put(playerId, language);
+            if (previous == language && language.id().equals(languageData.getString(playerId + ".client-language"))) {
+                return;
+            }
+            languageData.set(playerId + ".client-language", language.id());
+            try {
+                languageData.save(languageFile);
+            } catch (IOException e) {
+                plugin.getLogger().warning("Failed to save client language for " + playerId + ": " + e.getMessage());
+            }
+        });
+    }
+
+    private Language recordedClientLanguage(UUID playerId) {
+        Language cached = clientLanguages.get(playerId);
+        if (cached != null) {
+            return cached;
+        }
+        Language loaded = Language.fromId(languageData.getString(playerId + ".client-language")).orElse(null);
+        if (loaded != null) {
+            clientLanguages.put(playerId, loaded);
+        }
+        return loaded;
     }
 
     private Language geoLanguage(Player player) {
