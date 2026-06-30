@@ -9,7 +9,6 @@ import org.bukkit.event.player.PlayerLinksSendEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
-import org.encinet.mik.module.player.PlayerAddressModule;
 
 import java.net.URI;
 import java.util.List;
@@ -40,17 +39,15 @@ public final class ServerLinksModule implements Listener {
                     "https://webui.advntr.dev/"),
             LinkDefinition.named("CC BY-NC-SA 4.0", "CC BY-NC-SA 4.0",
                     "https://creativecommons.org/licenses/by-nc-sa/4.0/"),
-            LinkDefinition.named("绻空工作室", "Encinet Studio",
+            LinkDefinition.named("繁空工作室", "Encinet Studio",
                     "https://encinet.netlify.app")
     );
 
     private final JavaPlugin plugin;
-    private final PlayerAddressModule playerAddressModule;
     private final LanguageService languageService;
 
-    public ServerLinksModule(JavaPlugin plugin, PlayerAddressModule playerAddressModule, LanguageService languageService) {
+    public ServerLinksModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
-        this.playerAddressModule = playerAddressModule;
         this.languageService = languageService;
     }
 
@@ -72,9 +69,7 @@ public final class ServerLinksModule implements Listener {
     private Language resolveLanguage(PlayerLinksSendEvent event) {
         if (event.getConnection() instanceof io.papermc.paper.connection.PlayerConfigurationConnection connection
                 && connection.getProfile().getId() != null) {
-            return playerAddressModule.resolveLatestByPlayer(connection.getProfile().getId())
-                    .map(record -> languagePreference(record.playerId()))
-                    .orElse(Language.DEFAULT);
+            return languagePreference(connection.getProfile().getId());
         }
         return Language.DEFAULT;
     }

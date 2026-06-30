@@ -36,7 +36,8 @@ public class WhitelistModule implements Listener {
     private static final Pattern PLAYER_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_]{3,16}$");
 
     private final List<UUID> unwhitelistedPlayerUUIDs = new ArrayList<>();
-    private final Map<String, Long> temporaryWhitelistExpiresAt = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> temporaryWhitelistByUuidExpiresAt = new ConcurrentHashMap<>();
+    private final Map<String, Long> temporaryWhitelistByNameExpiresAt = new ConcurrentHashMap<>();
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -54,18 +55,19 @@ public class WhitelistModule implements Listener {
     public void onWhitelistVerify(ProfileWhitelistVerifyEvent event) {
         if (event.isWhitelisted()) return;
 
+        UUID playerUUID = event.getPlayerProfile().getId();
         String playerName = event.getPlayerProfile().getName();
-        if (playerName != null && consumeTemporaryWhitelist(playerName)) {
-            UUID playerUUID = event.getPlayerProfile().getId();
+        if (consumeTemporaryWhitelist(playerUUID, playerName)) {
             event.setWhitelisted(true);
             if (playerUUID != null) {
-                Bukkit.getScheduler().runTask(plugin, () -> addWhitelistEntry(playerUUID, playerName));
+                String displayName = playerName != null ? playerName : playerUUID.toString();
+                Bukkit.getScheduler().runTask(plugin, () -> addWhitelistEntry(playerUUID, displayName));
             }
-            plugin.getLogger().info("Accepted temporary whitelist entry for " + playerName);
+            plugin.getLogger().info("Accepted temporary whitelist entry for "
+                    + (playerName != null ? playerName : playerUUID));
             return;
         }
 
-        UUID playerUUID = event.getPlayerProfile().getId();
         if (playerUUID != null) {
             unwhitelistedPlayerUUIDs.add(playerUUID);
         }
@@ -118,8 +120,7 @@ public class WhitelistModule implements Listener {
             return Command.SINGLE_SUCCESS;
         }
 
-        long expiresAt = System.currentTimeMillis() + TEMP_WHITELIST_MILLIS;
-        temporaryWhitelistExpiresAt.put(normalizeName(playerName), expiresAt);
+        rememberTemporaryWhitelist(playerName, System.currentTimeMillis() + TEMP_WHITELIST_MILLIS);
 
         Component playerComponent = Component.text(playerName, NamedTextColor.AQUA);
         Component durationComponent = Component.text(t(sender, Message.WHITELIST_TEMP_DURATION), NamedTextColor.GRAY);
@@ -146,19 +147,50 @@ public class WhitelistModule implements Listener {
         return languageService.t(language, message, args);
     }
 
-    private boolean consumeTemporaryWhitelist(String playerName) {
-        String normalizedName = normalizeName(playerName);
-        Long expiresAt = temporaryWhitelistExpiresAt.get(normalizedName);
+    private void rememberTemporaryWhitelist(String playerName, long expiresAt) {
+        OfflinePlayer knownPlayer = Bukkit.getOfflinePlayerIfCached(playerName);
+        if (knownPlayer != null) {
+            temporaryWhitelistByUuidExpiresAt.put(knownPlayer.getUniqueId(), expiresAt);
+            return;
+        }
+        temporaryWhitelistByNameExpiresAt.put(normalizeName(playerName), expiresAt);
+    }
+
+    private boolean consumeTemporaryWhitelist(UUID playerUUID, String playerName) {
+        if (playerUUID != null && consumeTemporaryWhitelistByUuid(playerUUID)) {
+            return true;
+        }
+        return playerName != null && consumeTemporaryWhitelistByName(playerName);
+    }
+
+    private boolean consumeTemporaryWhitelistByUuid(UUID playerUUID) {
+        Long expiresAt = temporaryWhitelistByUuidExpiresAt.get(playerUUID);
         if (expiresAt == null) {
             return false;
         }
 
         if (System.currentTimeMillis() > expiresAt) {
-            temporaryWhitelistExpiresAt.remove(normalizedName);
+            temporaryWhitelistByUuidExpiresAt.remove(playerUUID);
             return false;
         }
 
-        temporaryWhitelistExpiresAt.remove(normalizedName);
+        temporaryWhitelistByUuidExpiresAt.remove(playerUUID);
+        return true;
+    }
+
+    private boolean consumeTemporaryWhitelistByName(String playerName) {
+        String normalizedName = normalizeName(playerName);
+        Long expiresAt = temporaryWhitelistByNameExpiresAt.get(normalizedName);
+        if (expiresAt == null) {
+            return false;
+        }
+
+        if (System.currentTimeMillis() > expiresAt) {
+            temporaryWhitelistByNameExpiresAt.remove(normalizedName);
+            return false;
+        }
+
+        temporaryWhitelistByNameExpiresAt.remove(normalizedName);
         return true;
     }
 

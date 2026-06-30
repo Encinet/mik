@@ -354,7 +354,7 @@ public class ChatModule implements Listener {
     private void routePublic(AsyncChatEvent event, Player sender) {
         String copyText = PlainTextComponentSerializer.plainText().serialize(event.message());
         event.message(parseMessage(sender, event.message(), playersIn(event.viewers())));
-        event.renderer((source, sourceDisplayName, message, viewer) -> formatPublicMessage(source, message, copyText));
+        event.renderer((source, sourceDisplayName, message, viewer) -> formatPublicMessage(source, viewer, message, copyText));
     }
 
     private void routeStaff(AsyncChatEvent event, Player sender) {
@@ -376,7 +376,7 @@ public class ChatModule implements Listener {
         }
         String copyText = PlainTextComponentSerializer.plainText().serialize(event.message());
         event.message(parseMessage(sender, event.message(), channelPlayers));
-        event.renderer((source, sourceDisplayName, message, viewer) -> formatStaffMessage(source, message, copyText));
+        event.renderer((source, sourceDisplayName, message, viewer) -> formatStaffMessage(source, viewer, message, copyText));
     }
 
     private void routePrivate(AsyncChatEvent event, Player sender, ChatChannelState state) {
@@ -492,10 +492,10 @@ public class ChatModule implements Listener {
 
         Set<Player> channelPlayers = staffChannelPlayers();
         Component message = parseMessage(sender, plainMessage, channelPlayers);
-        Component rendered = formatStaffMessage(sender, message, plainMessage);
-        plugin.getServer().getConsoleSender().sendMessage(rendered);
+        plugin.getServer().getConsoleSender().sendMessage(formatStaffMessage(sender,
+                plugin.getServer().getConsoleSender(), message, plainMessage));
         for (Player player : channelPlayers) {
-            player.sendMessage(rendered);
+            player.sendMessage(formatStaffMessage(sender, player, message, plainMessage));
         }
         mentionService.notifyMessage(sender, plainMessage, channelPlayers);
     }
@@ -523,13 +523,13 @@ public class ChatModule implements Listener {
         sendPrivateMessage(sender, target, plainMessage);
     }
 
-    private Component formatPublicMessage(Player sender, Component message, String copyText) {
-        return basePlayerLine(sender, message, copyText);
+    private Component formatPublicMessage(Player sender, Audience viewer, Component message, String copyText) {
+        return basePlayerLine(sender, viewer, message, copyText);
     }
 
-    private Component formatStaffMessage(Player sender, Component message, String copyText) {
+    private Component formatStaffMessage(Player sender, Audience viewer, Component message, String copyText) {
         return Component.text("[STAFF] ", NamedTextColor.GOLD)
-                .append(basePlayerLine(sender, message, copyText));
+                .append(basePlayerLine(sender, viewer, message, copyText));
     }
 
     private Component formatPrivateMessage(Player sender, Player target, Audience viewer, Component message, String copyText) {
@@ -562,13 +562,13 @@ public class ChatModule implements Listener {
                 languageService.t(sender, Message.CHAT_BILIBILI_HOVER));
     }
 
-    private Component basePlayerLine(Player sender, Component message, String copyText) {
+    private Component basePlayerLine(Player sender, Audience viewer, Component message, String copyText) {
         return Component.text()
                 .append(metaComponent(sender, true))
                 .append(ChatDisplayRenderer.playerName(sender))
                 .append(metaComponent(sender, false))
                 .append(Component.text(" »", NamedTextColor.GOLD))
-                .append(timeHoveredMessage(message, copyText, languageService.t(sender, Message.CHAT_COPY_HOVER)))
+                .append(timeHoveredMessage(message, copyText, copyHint(viewer)))
                 .build();
     }
 
@@ -688,11 +688,11 @@ public class ChatModule implements Listener {
         return switch (state.channel()) {
             case PUBLIC -> {
                 Set<Player> channelPlayers = new HashSet<>(Bukkit.getOnlinePlayers());
-                yield formatPublicMessage(sender, parseMessage(sender, plainMessage, channelPlayers), plainMessage);
+                yield formatPublicMessage(sender, sender, parseMessage(sender, plainMessage, channelPlayers), plainMessage);
             }
             case STAFF -> {
                 Set<Player> channelPlayers = staffChannelPlayers();
-                yield formatStaffMessage(sender, parseMessage(sender, plainMessage, channelPlayers), plainMessage);
+                yield formatStaffMessage(sender, sender, parseMessage(sender, plainMessage, channelPlayers), plainMessage);
             }
             case PRIVATE -> {
                 Player target = Bukkit.getPlayer(state.targetId());
@@ -732,10 +732,10 @@ public class ChatModule implements Listener {
     private void sendPublicMessage(Player sender, String plainMessage) {
         Set<Player> channelPlayers = new HashSet<>(Bukkit.getOnlinePlayers());
         Component message = parseMessage(sender, plainMessage, channelPlayers);
-        Component rendered = formatPublicMessage(sender, message, plainMessage);
-        plugin.getServer().getConsoleSender().sendMessage(rendered);
+        plugin.getServer().getConsoleSender().sendMessage(formatPublicMessage(sender,
+                plugin.getServer().getConsoleSender(), message, plainMessage));
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendMessage(rendered);
+            player.sendMessage(formatPublicMessage(sender, player, message, plainMessage));
         }
         mentionService.notifyMessage(sender, plainMessage, channelPlayers);
     }

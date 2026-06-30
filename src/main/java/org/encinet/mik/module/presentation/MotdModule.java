@@ -15,6 +15,7 @@ import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
 import org.encinet.mik.module.player.PlayerAddressModule;
+import org.encinet.mik.module.player.PlayerAddressModule.PlayerAddressDisplayRecord;
 import org.encinet.mik.module.player.PlayerAddressModule.PlayerAddressRecord;
 import org.encinet.mik.module.presentation.motd.HolidayMotdCategory;
 import org.encinet.mik.util.GeoUtil;
@@ -131,7 +132,7 @@ public class MotdModule implements Listener, AfkStateListener {
 
     private static final String[] AFK_EGG_LINE2_CN = {
             "<gradient:#ffd89b:#19547b>大家都在认真挂机中...</gradient>",
-            "<gray>服务器正在进行集体静默测试</gray>"
+            "<gray>服务器正在进行集体静默测试(AFK)</gray>"
     };
 
     private static final String[] AFK_EGG_LINE2_EN = {
@@ -150,25 +151,19 @@ public class MotdModule implements Listener, AfkStateListener {
     };
 
     private static final String[] KNOWN_PLAYER_LINE2_CN = {
-            "<gradient:#89f7fe:#66a6ff>欢迎回来，<bold>{player}</bold></gradient><white>，今天也来坐坐吧</white>",
-            "<white>好久不见，</white><gradient:#f6d365:#fda085>{player}</gradient><white>，服务器还在这里</white>",
-            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>，熟悉的连接，熟悉的地方</white>",
-            "<white>欢迎回来，</white><gradient:#ee9ca7:#ffdde1>{player}</gradient><white>，慢慢玩就好</white>",
-            "<gradient:#84fab0:#8fd3f4>{player}</gradient><white>，今天想从哪里开始？</white>",
-            "<white>看到你回来啦，</white><gradient:#89f7fe:#66a6ff>{player}</gradient><white>，祝你玩得开心</white>",
-            "<gradient:#f6d365:#fda085>{player}</gradient><white>，这里给你留了个位置</white>",
-            "<white>又见面了，</white><gradient:#a18cd1:#fbc2eb>{player}</gradient><white>，进来放松一下吧</white>"
+            "<white>欢迎回来，</white><gradient:#9bd8d0:#b9d7f0>{player}</gradient>",
+            "<white>又见面了，</white><gradient:#d6c6f2:#b7d9ea>{player}</gradient><white>，今天也轻松一点</white>",
+            "<gradient:#b8dfd8:#d7e8c8>{player}</gradient><white>，欢迎回到这片小世界</white>",
+            "<white>看到你回来啦，</white><gradient:#f0c9c2:#d6d4f0>{player}</gradient><white>，祝你玩得开心</white>",
+            "<gradient:#d7e7c6:#b8d8e8>{player}</gradient><white>，今天想从哪里开始？</white>",
     };
 
     private static final String[] KNOWN_PLAYER_LINE2_EN = {
-            "<gradient:#89f7fe:#66a6ff>Welcome back, <bold>{player}</bold></gradient><white>. Good to see you again.</white>",
-            "<white>Hey </white><gradient:#f6d365:#fda085>{player}</gradient><white>, the server is still here.</white>",
-            "<gradient:#a1ffce:#faffd1>{player}</gradient><white>, familiar connection, familiar place.</white>",
-            "<white>Welcome back, </white><gradient:#ee9ca7:#ffdde1>{player}</gradient><white>. Take your time.</white>",
-            "<gradient:#84fab0:#8fd3f4>{player}</gradient><white>, where do you want to start today?</white>",
-            "<white>Good to have you back, </white><gradient:#89f7fe:#66a6ff>{player}</gradient><white>. Have fun in there.</white>",
-            "<gradient:#f6d365:#fda085>{player}</gradient><white>, we saved you a spot.</white>",
-            "<white>There you are, </white><gradient:#a18cd1:#fbc2eb>{player}</gradient><white>. Come relax for a bit.</white>"
+            "<white>Welcome back, </white><gradient:#9bd8d0:#b9d7f0>{player}</gradient>",
+            "<white>Good to see you again, </white><gradient:#d6c6f2:#b7d9ea>{player}</gradient><white>. Settle in.</white>",
+            "<gradient:#b8dfd8:#d7e8c8>{player}</gradient><white>, welcome back to this little world.</white>",
+            "<white>Nice to have you back, </white><gradient:#f0c9c2:#d6d4f0>{player}</gradient><white>. Have a good time.</white>",
+            "<gradient:#d7e7c6:#b8d8e8>{player}</gradient><white>, where would you like to start?</white>",
     };
 
     private static final Component[] NORMAL_MOTDS_CN = buildMotds(LINE1_CN, NORMAL_LINE2_CN);
@@ -251,19 +246,20 @@ public class MotdModule implements Listener, AfkStateListener {
         event.setMaxPlayers(2026);
 
         InetAddress address = event.getAddress();
-        Optional<PlayerAddressRecord> knownPlayer = playerAddressModule.resolveLatestByAddress(address);
-        if (knownPlayer.isPresent()) {
+        Optional<PlayerAddressRecord> recentAddressRecord = playerAddressModule.resolveRecentByAddress(address);
+        Optional<PlayerAddressDisplayRecord> displayPlayer = playerAddressModule.resolveRecentDisplayByAddress(address);
+        if (recentAddressRecord.isPresent()) {
             event.setHidePlayers(false);
         } else {
             event.getListedPlayers().clear();
         }
 
-        boolean isCN = address != null && GeoUtil.isChinaIp(address);
+        boolean isCN = GeoUtil.isChinaIp(address);
         Component[] normals = isCN ? NORMAL_MOTDS_CN : NORMAL_MOTDS_EN;
         Component[][] eggs = isCN ? EGG_MOTDS_CN : EGG_MOTDS_EN;
 
-        String ip = address == null ? "unknown" : address.getHostAddress();
-        event.motd(resolveMotd(ip, isCN, normals, eggs, getCachedStateMotd(isCN), knownPlayer));
+        String ip = address.getHostAddress();
+        event.motd(resolveMotd(ip, isCN, normals, eggs, getCachedStateMotd(isCN), displayPlayer.orElse(null)));
     }
 
     @EventHandler
@@ -282,7 +278,7 @@ public class MotdModule implements Listener, AfkStateListener {
     }
 
     private Component resolveMotd(String ip, boolean isCN, Component[] normals, Component[][] eggs,
-                                  Component stateMotd, Optional<PlayerAddressRecord> knownPlayer) {
+                                  Component stateMotd, PlayerAddressDisplayRecord knownPlayer) {
         long now = System.currentTimeMillis();
 
         if (stateMotd != null) {
@@ -302,33 +298,15 @@ public class MotdModule implements Listener, AfkStateListener {
         return resolveAmbientMotd(ip, isCN, normals, now);
     }
 
-    private Component resolveKnownPlayerMotd(String ip, boolean isCN, Optional<PlayerAddressRecord> knownPlayer, long now) {
-        if (knownPlayer.isEmpty() || stableMotdIndex(ip, now, KNOWN_PLAYER_EASTER_EGG_ONE_IN, knownPlayerMotdSalt) != 0) {
+    private Component resolveKnownPlayerMotd(String ip, boolean isCN, PlayerAddressDisplayRecord knownPlayer, long now) {
+        if (knownPlayer == null || stableMotdIndex(ip, now, KNOWN_PLAYER_EASTER_EGG_ONE_IN, knownPlayerMotdSalt) != 0) {
             return null;
         }
 
         String[] templates = isCN ? KNOWN_PLAYER_LINE2_CN : KNOWN_PLAYER_LINE2_EN;
         String template = templates[stableMotdIndex(ip, now, templates.length, knownPlayerMotdSalt ^ 0x5f3759dfL)];
-        String line = template.replace("{player}", safePlayerName(knownPlayer.get().playerName()));
+        String line = template.replace("{player}", knownPlayer.playerName());
         return buildMotd(isCN ? LINE1_CN : LINE1_EN, line);
-    }
-
-    private String safePlayerName(String name) {
-        if (name == null || name.isEmpty() || name.length() > 16) {
-            return "player";
-        }
-
-        for (int i = 0; i < name.length(); i++) {
-            char c = name.charAt(i);
-            boolean valid = (c >= 'A' && c <= 'Z')
-                    || (c >= 'a' && c <= 'z')
-                    || (c >= '0' && c <= '9')
-                    || c == '_';
-            if (!valid) {
-                return "player";
-            }
-        }
-        return name;
     }
 
     private Component resolveRepeatPingMotd(String ip, Component[][] eggs, long now) {
