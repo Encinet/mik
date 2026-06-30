@@ -390,6 +390,7 @@ public class HomeModule implements Listener {
     private void sendUsage(Player player, String command, Message description) {
         player.sendMessage(Component.text()
                 .append(Component.text(languageService.t(player, Message.USAGE), NamedTextColor.YELLOW))
+                .append(Component.space())
                 .append(Component.text(command, NamedTextColor.AQUA))
                 .append(Component.text("  " + languageService.t(player, description), NamedTextColor.GRAY))
                 .build());
@@ -470,7 +471,7 @@ public class HomeModule implements Listener {
                     distanceText(player, location)), NamedTextColor.GRAY));
             lore.add(Component.text(languageService.t(player, Message.HOME_ICON,
                     displayMaterial.name().toLowerCase(Locale.ROOT),
-                    entry != null && entry.icon() != null ? "" : languageService.t(player, Message.HOME_ICON_DEFAULT_SUFFIX)),
+                    entry != null && entry.icon() != null ? "" : "  " + languageService.t(player, Message.HOME_ICON_DEFAULT_NOTE)),
                     NamedTextColor.GRAY));
         } else {
             lore.add(Component.text(languageService.t(player, Message.HOME_LOCATION_INVALID), NamedTextColor.RED));
@@ -727,8 +728,8 @@ public class HomeModule implements Listener {
     private String readableWorldName(Player player, World world) {
         return switch (world.getEnvironment()) {
             case NORMAL -> world.getName();
-            case NETHER -> world.getName() + languageService.t(player, Message.HOME_WORLD_NETHER_SUFFIX);
-            case THE_END -> world.getName() + languageService.t(player, Message.HOME_WORLD_END_SUFFIX);
+            case NETHER -> world.getName() + "  " + languageService.t(player, Message.HOME_WORLD_NETHER);
+            case THE_END -> world.getName() + "  " + languageService.t(player, Message.HOME_WORLD_END);
             case CUSTOM -> world.getName();
         };
     }

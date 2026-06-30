@@ -27,6 +27,7 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
+import org.encinet.mik.module.i18n.TextArg;
 import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.List;
@@ -144,6 +145,7 @@ public class SimpleFeaturesModule {
                         if (executor instanceof Player player) {
                             // 创建一个临时的 27 格箱子界面
                             Component title = Component.text(languageService.t(player, Message.TRASH_TITLE), NamedTextColor.RED, TextDecoration.BOLD)
+                                    .append(Component.space())
                                     .append(Component.text(languageService.t(player, Message.TRASH_TITLE_HINT), NamedTextColor.GRAY));
                             Inventory trash = Bukkit.createInventory(null, 27, title);
                             player.openInventory(trash);
@@ -234,35 +236,30 @@ public class SimpleFeaturesModule {
     private void sendTpanyUsage(CommandSender sender) {
         sender.sendMessage(Component.text()
                 .append(Component.text(t(sender, Message.TPANY_USAGE), NamedTextColor.YELLOW))
+                .append(Component.space())
                 .append(Component.text(t(sender, Message.TPANY_USAGE_COMMAND), NamedTextColor.AQUA))
+                .append(Component.text("  ", NamedTextColor.GRAY))
                 .append(Component.text(t(sender, Message.TPANY_USAGE_DESC), NamedTextColor.GRAY))
                 .build());
     }
 
     private Component removeItemsMessage(CommandSender sender, String worldName, String posInfo, int count, int radius) {
-        Language language = sender instanceof Player player ? languageService.language(player) : Language.DEFAULT;
-        if (language == Language.EN_US) {
-            return Component.text()
-                    .append(Component.text(t(sender, Message.REMOVEITEMS_DONE), NamedTextColor.GREEN))
-                    .append(Component.text(Integer.toString(count), NamedTextColor.YELLOW))
-                    .append(Component.text(t(sender, Message.REMOVEITEMS_WORLD_SUFFIX), NamedTextColor.GREEN))
-                    .append(Component.text(worldName, NamedTextColor.YELLOW))
-                    .append(Component.text(" ", NamedTextColor.GREEN))
-                    .append(Component.text("[" + posInfo + "]", NamedTextColor.YELLOW))
-                    .append(Component.text(" ", NamedTextColor.GREEN))
-                    .append(Component.text(t(sender, Message.REMOVEITEMS_RADIUS, radius), NamedTextColor.GRAY))
-                    .build();
+        Component world = Component.text(worldName, NamedTextColor.YELLOW);
+        Component location = Component.text("[" + posInfo + "]", NamedTextColor.YELLOW);
+        Component removed = Component.text(Integer.toString(count), NamedTextColor.YELLOW);
+        Component radiusText = Component.text(t(sender, Message.REMOVEITEMS_RADIUS, radius), NamedTextColor.GRAY);
+        if (sender instanceof Player player) {
+            return languageService.rich(player, Message.REMOVEITEMS_DONE_RICH, NamedTextColor.GREEN,
+                    RichArg.component("count", removed, Integer.toString(count)),
+                    RichArg.component("world", world, worldName),
+                    RichArg.component("location", location, "[" + posInfo + "]"),
+                    RichArg.component("radius", radiusText, t(sender, Message.REMOVEITEMS_RADIUS, radius)));
         }
-        return Component.text()
-                .append(Component.text(t(sender, Message.REMOVEITEMS_DONE), NamedTextColor.GREEN))
-                .append(Component.text(worldName, NamedTextColor.YELLOW))
-                .append(Component.text(t(sender, Message.REMOVEITEMS_WORLD_SUFFIX), NamedTextColor.GREEN))
-                .append(Component.text("[" + posInfo + "]", NamedTextColor.YELLOW))
-                .append(Component.text(t(sender, Message.REMOVEITEMS_CLEAR), NamedTextColor.GREEN))
-                .append(Component.text(Integer.toString(count), NamedTextColor.YELLOW))
-                .append(Component.text(t(sender, Message.REMOVEITEMS_COUNT_SUFFIX), NamedTextColor.GREEN))
-                .append(Component.text(t(sender, Message.REMOVEITEMS_RADIUS, radius), NamedTextColor.GRAY))
-                .build();
+        return Component.text(languageService.format(Language.DEFAULT, Message.REMOVEITEMS_DONE_RICH,
+                TextArg.of("count", count),
+                TextArg.of("world", worldName),
+                TextArg.of("location", "[" + posInfo + "]"),
+                TextArg.of("radius", t(sender, Message.REMOVEITEMS_RADIUS, radius))), NamedTextColor.GREEN);
     }
 
     private Component playerOnlyMessage() {

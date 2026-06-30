@@ -104,16 +104,39 @@ public class MusicDiscEventHandler implements Listener {
         String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
 
         // Handle music disc GUI
-        if (languageService.titleStartsWith(Message.MUSIC_MENU_TITLE_PREFIX, title)
-                || languageService.titleStartsWith(Message.MUSIC_MENU_SEARCH_PREFIX, title)) {
+        if (isMusicMenuTitle(title)) {
             handleMusicDiscGUI(event, player, title);
             return;
         }
 
         // Handle jukebox control GUI
-        if (languageService.titleStartsWith(Message.MUSIC_JUKEBOX_TITLE_PREFIX, title)) {
+        if (isJukeboxTitle(title)) {
             handleJukeboxControlGUI(event, player);
         }
+    }
+
+    private boolean isMusicMenuTitle(String title) {
+        for (org.encinet.mik.module.i18n.Language language : org.encinet.mik.module.i18n.Language.values()) {
+            if (title.startsWith(staticTitlePrefix(languageService.t(language, Message.MUSIC_MENU_TITLE, 1, 1), "1"))
+                    || title.startsWith(staticTitlePrefix(languageService.t(language, Message.MUSIC_MENU_SEARCH_TITLE, "MIK_SEARCH", 1, 1), "MIK_SEARCH"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isJukeboxTitle(String title) {
+        for (org.encinet.mik.module.i18n.Language language : org.encinet.mik.module.i18n.Language.values()) {
+            if (title.startsWith(staticTitlePrefix(languageService.t(language, Message.MUSIC_JUKEBOX_TITLE, 0, 0, 0), "0"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String staticTitlePrefix(String sample, String marker) {
+        int index = sample.indexOf(marker);
+        return index < 0 ? sample : sample.substring(0, index);
     }
 
     private void handleMusicDiscGUI(InventoryClickEvent event, Player player, String title) {
@@ -324,6 +347,7 @@ public class MusicDiscEventHandler implements Listener {
         player.closeInventory();
         player.sendMessage(Component.text()
                 .append(Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT), NamedTextColor.YELLOW))
+                .append(Component.space())
                 .append(Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT_COMMAND))
                         .color(NamedTextColor.GREEN)
                         .clickEvent(net.kyori.adventure.text.event.ClickEvent.suggestCommand("/music search "))

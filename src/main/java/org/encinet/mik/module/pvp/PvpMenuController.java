@@ -29,8 +29,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 final class PvpMenuController implements Listener {
+
+    private static final Pattern FIRST_NUMBER = Pattern.compile("\\d+");
 
     private static final int SETTINGS_MENU_SIZE = 9;
     private static final int ADMIN_MENU_SIZE = 54;
@@ -151,7 +155,7 @@ final class PvpMenuController implements Listener {
         PvpSettings settings = settingsStore.get(target.getUniqueId());
         Component title = Component.text(self
                 ? languageService.t(viewer, Message.PVP_MENU_TITLE)
-                : languageService.t(viewer, Message.PVP_TARGET_MENU_TITLE_PREFIX) + " " + target.getName(), MenuItems.TITLE_COLOR);
+                : languageService.t(viewer, Message.PVP_TARGET_MENU_TITLE, target.getName()), MenuItems.TITLE_COLOR);
 
         MenuBuilder.create(SETTINGS_MENU_SIZE, title)
                 .item(0, sectionItem(viewer, target, self))
@@ -313,24 +317,42 @@ final class PvpMenuController implements Listener {
 
     private boolean isPvpMenuTitle(String title) {
         return languageService.titleMatches(Message.PVP_MENU_TITLE, title)
-                || languageService.titleStartsWith(Message.PVP_TARGET_MENU_TITLE_PREFIX, title)
-                || languageService.titleStartsWith(Message.PVP_ADMIN_MENU_TITLE_PREFIX, title);
+                || titleMatchesTargetMenu(title)
+                || titleMatchesAdminMenu(title);
     }
 
     private int currentAdminPage(String title) {
         for (Language language : Language.values()) {
-            String prefix = languageService.t(language, Message.PVP_ADMIN_MENU_TITLE_PREFIX);
-            if (!title.startsWith(prefix)) {
+            if (!title.startsWith(staticTitlePrefix(languageService.t(language, Message.PVP_ADMIN_MENU_TITLE, 1, 1), "1"))) {
                 continue;
             }
-            String suffix = title.substring(prefix.length()).trim();
-            int slash = suffix.indexOf('/');
-            if (slash <= 0) {
-                return 0;
-            }
-            return Math.max(0, parseInt(suffix.substring(0, slash).trim(), 1) - 1);
+            Matcher matcher = FIRST_NUMBER.matcher(title);
+            return matcher.find() ? Math.max(0, parseInt(matcher.group(), 1) - 1) : 0;
         }
         return 0;
+    }
+
+    private boolean titleMatchesTargetMenu(String title) {
+        for (Language language : Language.values()) {
+            if (title.startsWith(staticTitlePrefix(languageService.t(language, Message.PVP_TARGET_MENU_TITLE, ""), ""))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean titleMatchesAdminMenu(String title) {
+        for (Language language : Language.values()) {
+            if (title.startsWith(staticTitlePrefix(languageService.t(language, Message.PVP_ADMIN_MENU_TITLE, 1, 1), "1"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String staticTitlePrefix(String sample, String marker) {
+        int index = marker.isEmpty() ? sample.length() : sample.indexOf(marker);
+        return index < 0 ? sample : sample.substring(0, index);
     }
 
     private Component stateLine(CommandSender sender, Message label, boolean enabled) {

@@ -12,6 +12,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.List;
 
@@ -30,9 +31,8 @@ public final class MenuDialogs {
                                 Component.text()
                                         .append(Component.text(languageService.t(player, Message.URL_DIALOG_HINT), NamedTextColor.GRAY))
                                         .append(Component.newline())
-                                        .append(Component.text(languageService.t(player, Message.URL_DIALOG_QUESTION), NamedTextColor.GRAY))
-                                        .append(Component.text(label, NamedTextColor.YELLOW))
-                                        .append(Component.text(languageService.t(player, Message.URL_DIALOG_QUESTION_SUFFIX), NamedTextColor.GRAY))
+                                        .append(languageService.rich(player, Message.URL_DIALOG_QUESTION_RICH, NamedTextColor.GRAY,
+                                                RichArg.component("label", Component.text(label, NamedTextColor.YELLOW), label)))
                                         .append(Component.newline())
                                         .append(Component.text(url, NamedTextColor.AQUA))
                                         .build(), 280)))

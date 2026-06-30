@@ -17,6 +17,7 @@ import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.chat.ChatSettingsStore;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -58,10 +59,15 @@ public final class MentionService implements Listener {
         List<String> enabled = new ArrayList<>();
         if (settings.mentionSound()) enabled.add(languageService.t(player, Message.MENTION_SUMMARY_SOUND));
         if (settings.mentionActionBar()) enabled.add(languageService.t(player, Message.MENTION_SUMMARY_ACTION_BAR));
-        String suffix = settings.mentionMuteWhileAfk() ? languageService.t(player, Message.MENTION_SUMMARY_AFK_SUFFIX) : "";
-        return enabled.isEmpty()
-                ? languageService.t(player, Message.MENTION_SUMMARY_ENABLED) + suffix
-                : String.join(" + ", enabled) + suffix;
+        if (enabled.isEmpty()) {
+            return languageService.t(player, settings.mentionMuteWhileAfk()
+                    ? Message.MENTION_SUMMARY_ENABLED_AFK
+                    : Message.MENTION_SUMMARY_ENABLED);
+        }
+        String modes = String.join(" + ", enabled);
+        return settings.mentionMuteWhileAfk()
+                ? languageService.t(player, Message.MENTION_SUMMARY_MODES_AFK, modes)
+                : modes;
     }
 
     public void notifyPrivateMessage(Player sender, String message, Player target) {
@@ -110,10 +116,8 @@ public final class MentionService implements Listener {
                     player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8F, 1.35F);
                 }
                 if (settings.mentionActionBar()) {
-                    player.sendActionBar(Component.text()
-                            .append(senderDisplay)
-                            .append(Component.text(languageService.t(player, Message.MENTION_ACTION_BAR_TEXT), NamedTextColor.AQUA))
-                            .build());
+                    player.sendActionBar(languageService.rich(player, Message.MENTION_ACTION_BAR_TEXT, NamedTextColor.AQUA,
+                            RichArg.component("sender", senderDisplay, sender.getName())));
                 }
             }
         });

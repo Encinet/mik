@@ -277,13 +277,7 @@ public class MusicInventoryGUI {
                     .decoration(TextDecoration.ITALIC, false));
 
             meta.lore(List.of(
-                    Component.text(languageService.t(player, Message.MUSIC_SEARCH_LORE_BEFORE))
-                            .color(NamedTextColor.GRAY)
-                            .decoration(TextDecoration.ITALIC, false),
-                    Component.text("/music search <keyword>")
-                            .color(NamedTextColor.YELLOW)
-                            .decoration(TextDecoration.ITALIC, false),
-                    Component.text(languageService.t(player, Message.MUSIC_SEARCH_LORE_AFTER))
+                    Component.text(languageService.t(player, Message.MUSIC_SEARCH_LORE_COMMAND, "/music search <keyword>"))
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)
             ));
@@ -390,34 +384,34 @@ public class MusicInventoryGUI {
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_OPEN_DESC)).color(NamedTextColor.GRAY)
+            lore.add(Component.text("   " + languageService.t(player, Message.MUSIC_HELP_OPEN_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music search <keyword>").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_SEARCH_DESC)).color(NamedTextColor.GRAY)
+            lore.add(Component.text("   " + languageService.t(player, Message.MUSIC_HELP_SEARCH_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music page <page>").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_PAGE_DESC)).color(NamedTextColor.GRAY)
+            lore.add(Component.text("   " + languageService.t(player, Message.MUSIC_HELP_PAGE_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music random").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_RANDOM_DESC)).color(NamedTextColor.GRAY)
+            lore.add(Component.text("   " + languageService.t(player, Message.MUSIC_HELP_RANDOM_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text("/music randomplay").color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_RANDOMPLAY_DESC)).color(NamedTextColor.GRAY)
+            lore.add(Component.text("   " + languageService.t(player, Message.MUSIC_HELP_RANDOMPLAY_DESC)).color(NamedTextColor.GRAY)
                     .decoration(TextDecoration.ITALIC, false));
 
             if (player.hasPermission("group." + Mik.GROUP_MANAGER)) {
                 lore.add(Component.text("").decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("/music reload").color(NamedTextColor.AQUA)
                         .decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text(languageService.t(player, Message.MUSIC_HELP_RELOAD_DESC)).color(NamedTextColor.GRAY)
+                lore.add(Component.text("   " + languageService.t(player, Message.MUSIC_HELP_RELOAD_DESC)).color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
 

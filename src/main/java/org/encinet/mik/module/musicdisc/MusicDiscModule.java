@@ -196,6 +196,7 @@ public class MusicDiscModule implements Listener {
     private void sendUsage(CommandSender sender, String command, Message description) {
         sender.sendMessage(Component.text()
                 .append(Component.text(t(sender, Message.USAGE), NamedTextColor.YELLOW))
+                .append(Component.space())
                 .append(Component.text(command, NamedTextColor.AQUA))
                 .append(Component.text("  " + t(sender, description), NamedTextColor.GRAY))
                 .build());

@@ -153,13 +153,13 @@ public class BackModule implements Listener {
     private void runBack(Player player, int times) {
         UUID playerId = player.getUniqueId();
         if (pendingBackTeleports.containsKey(playerId)) {
-            player.sendMessage(message(player, Message.BACK_PENDING));
+            player.sendMessage(message(player, Message.BACK_PENDING_MM));
             return;
         }
 
         Deque<Location> history = backHistory.get(playerId);
         if (history == null || history.isEmpty()) {
-            player.sendMessage(message(player, Message.BACK_EMPTY));
+            player.sendMessage(message(player, Message.BACK_EMPTY_MM));
             return;
         }
 
@@ -171,14 +171,14 @@ public class BackModule implements Listener {
         Location target = consumedHistory.getLast();
         if (target.getWorld() == null) {
             restoreConsumedBackHistory(playerId, consumedHistory);
-            player.sendMessage(message(player, Message.BACK_WORLD_MISSING));
+            player.sendMessage(message(player, Message.BACK_WORLD_MISSING_MM));
             return;
         }
 
         BackMove backMove = new BackMove(player.getLocation().clone(), cloneLocations(consumedHistory));
         if (!startPendingBackTeleport(playerId, target)) {
             restoreConsumedBackHistory(playerId, consumedHistory);
-            player.sendMessage(message(player, Message.BACK_PENDING));
+            player.sendMessage(message(player, Message.BACK_PENDING_MM));
             return;
         }
 
@@ -196,7 +196,7 @@ public class BackModule implements Listener {
     private void undoBack(Player player) {
         UUID playerId = player.getUniqueId();
         if (pendingBackTeleports.containsKey(playerId)) {
-            player.sendMessage(message(player, Message.BACK_PENDING));
+            player.sendMessage(message(player, Message.BACK_PENDING_MM));
             return;
         }
 
@@ -210,13 +210,13 @@ public class BackModule implements Listener {
         Location target = backMove.origin();
         if (target.getWorld() == null) {
             history.addFirst(backMove);
-            player.sendMessage(message(player, Message.BACK_UNDO_WORLD_MISSING));
+            player.sendMessage(message(player, Message.BACK_UNDO_WORLD_MISSING_MM));
             return;
         }
 
         if (!startPendingBackTeleport(playerId, target)) {
             history.addFirst(backMove);
-            player.sendMessage(message(player, Message.BACK_PENDING));
+            player.sendMessage(message(player, Message.BACK_PENDING_MM));
             return;
         }
 
@@ -240,7 +240,7 @@ public class BackModule implements Listener {
                     return;
                 }
                 onFailure.run();
-                player.sendMessage(message(player, Message.BACK_TELEPORT_FAILED));
+                player.sendMessage(message(player, Message.BACK_TELEPORT_FAILED_MM));
             });
         });
     }

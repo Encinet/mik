@@ -88,6 +88,7 @@ public class TipModule {
                                 Component.text()
                                         .append(Component.text(t(sender, Message.TIP_RELOAD_DONE),
                                                 NamedTextColor.GREEN))
+                                        .append(Component.space())
                                         .append(Component.text(t(sender, Message.TIP_RELOAD_COUNT, tips.size()),
                                                 NamedTextColor.GRAY))
                                         .build());

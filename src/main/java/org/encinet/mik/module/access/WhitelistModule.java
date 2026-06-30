@@ -20,6 +20,7 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
+import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -101,6 +102,7 @@ public class WhitelistModule implements Listener {
     private void sendTemporaryWhitelistUsage(CommandSender sender) {
         sender.sendMessage(Component.text()
                 .append(Component.text(t(sender, Message.USAGE), NamedTextColor.YELLOW))
+                .append(Component.space())
                 .append(Component.text("/tempwhitelist <player>", NamedTextColor.AQUA))
                 .append(Component.text("  " + t(sender, Message.WHITELIST_TEMP_USAGE_DESC), NamedTextColor.GRAY))
                 .build());
@@ -217,12 +219,11 @@ public class WhitelistModule implements Listener {
         return Component.text()
                 .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_TITLE), NamedTextColor.WHITE))
                 .appendNewline()
-                .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_APPLY_PREFIX), NamedTextColor.GRAY))
-                .append(Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA))
-                .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_APPLY_SUFFIX), NamedTextColor.GRAY))
+                .append(languageService.rich(language, Message.WHITELIST_KICK_APPLY_RICH, NamedTextColor.GRAY,
+                        RichArg.component("site", Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA), "mikapply.noctiro.moe")))
                 .appendNewline()
-                .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_WEBSITE_PREFIX), NamedTextColor.GRAY))
-                .append(Component.text("mcmik.top", NamedTextColor.AQUA))
+                .append(languageService.rich(language, Message.WHITELIST_KICK_WEBSITE_RICH, NamedTextColor.GRAY,
+                        RichArg.component("site", Component.text("mcmik.top", NamedTextColor.AQUA), "mcmik.top")))
                 .build();
     }
 }

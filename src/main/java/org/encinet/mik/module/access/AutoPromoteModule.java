@@ -149,30 +149,34 @@ public class AutoPromoteModule implements Listener {
         String displayName = op.getName() != null ? op.getName() : op.getUniqueId().toString();
         Component header = Component.text(languageService.t(language, Message.PROMOTECHECK_HEADER, displayName), NamedTextColor.GOLD);
         if (op.getPlayer() == null) {
-            header = header.append(Component.text(languageService.t(language, Message.PROMOTECHECK_OFFLINE), NamedTextColor.GRAY));
+            header = header.append(Component.text("  " + languageService.t(language, Message.PROMOTECHECK_OFFLINE), NamedTextColor.GRAY));
         }
 
         return header
                 .append(Component.newline())
-                .append(status(ageOk)).append(Component.text(languageService.t(language, Message.PROMOTECHECK_ACCOUNT_AGE), NamedTextColor.WHITE))
+                .append(status(ageOk)).append(Component.text("  " + languageService.t(language, Message.PROMOTECHECK_ACCOUNT_AGE), NamedTextColor.WHITE))
                 .append(Component.newline())
-                .append(status(playtimeOk)).append(Component.text(languageService.t(language, Message.PROMOTECHECK_PLAYTIME), NamedTextColor.WHITE))
+                .append(status(playtimeOk)).append(Component.text("  " + languageService.t(language, Message.PROMOTECHECK_PLAYTIME), NamedTextColor.WHITE))
                 .append(Component.newline())
-                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_FLY_DISTANCE), NamedTextColor.GRAY))
+                .append(scoreLabel(language, Message.PROMOTECHECK_FLY_DISTANCE))
                 .append(pts(language, scores.flyRaw(), FLY.max(), scores.flyRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_SNEAK_TIME), NamedTextColor.GRAY))
+                .append(scoreLabel(language, Message.PROMOTECHECK_SNEAK_TIME))
                 .append(pts(language, scores.sneakRaw(), SNEAK.max(), scores.sneakRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_LEAVE_COUNT), NamedTextColor.GRAY))
+                .append(scoreLabel(language, Message.PROMOTECHECK_LEAVE_COUNT))
                 .append(pts(language, scores.leaveRaw(), LEAVE.max(), scores.leaveRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_JUMP_COUNT), NamedTextColor.GRAY))
+                .append(scoreLabel(language, Message.PROMOTECHECK_JUMP_COUNT))
                 .append(pts(language, scores.jumpRaw(), JUMP.max(), scores.jumpRaw() >= 0))
                 .append(Component.newline())
-                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_TOTAL), NamedTextColor.GOLD))
+                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_TOTAL) + " ", NamedTextColor.GOLD))
                 .append(Component.text(scores.total() + " / " + SCORE_THRESHOLD,
                         scores.qualified() ? NamedTextColor.GREEN : NamedTextColor.RED));
+    }
+
+    private Component scoreLabel(Language language, Message message) {
+        return Component.text(languageService.t(language, message) + " : ", NamedTextColor.GRAY);
     }
 
     private Component status(boolean ok) {
@@ -181,7 +185,7 @@ public class AutoPromoteModule implements Listener {
 
     private Component pts(Language language, int pts, int max, boolean minMet) {
         NamedTextColor color = !minMet ? NamedTextColor.RED : pts >= max ? NamedTextColor.GREEN : NamedTextColor.YELLOW;
-        String suffix = !minMet ? languageService.t(language, Message.PROMOTECHECK_BELOW_MINIMUM) : "";
+        String suffix = !minMet ? "  " + languageService.t(language, Message.PROMOTECHECK_BELOW_MINIMUM) : "";
         return Component.text(pts + " / " + max + suffix, color);
     }
 

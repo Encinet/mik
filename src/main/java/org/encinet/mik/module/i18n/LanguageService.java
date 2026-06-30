@@ -53,7 +53,7 @@ public class LanguageService implements Listener {
 
     public static final String AUTO = "auto";
 
-    private static final int MENU_SIZE = 9;
+    private static final int MENU_SIZE = 18;
     private static final String ACTION_BACK_MAIN = "back:main";
     private static final String ACTION_LANGUAGE_PREFIX = "language:";
 
@@ -151,15 +151,16 @@ public class LanguageService implements Listener {
 
     public void openMenu(Player player) {
         Language language = language(player);
-        MenuBuilder.create(MENU_SIZE, Component.text(t(language, Message.LANGUAGE_MENU_TITLE), MenuItems.TITLE_COLOR))
-                .item(2, preferenceItem(player, AUTO, Material.COMPASS))
-                .item(3, preferenceItem(player, Language.ZH_CN.id(), Material.RED_BANNER))
-                .item(4, preferenceItem(player, Language.EN_US.id(), Material.BLUE_BANNER))
-                .item(8, MenuItems.action(Material.ARROW,
-                        Component.text(t(language, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
-                        List.of(Component.text(t(language, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)),
-                        actionKey, ACTION_BACK_MAIN))
-                .open(player);
+        MenuBuilder builder = MenuBuilder.create(MENU_SIZE, Component.text(t(language, Message.LANGUAGE_MENU_TITLE), MenuItems.TITLE_COLOR))
+                .item(0, preferenceItem(player, AUTO, Material.COMPASS));
+        int slot = 2;
+        for (Language option : Language.values()) {
+            builder.item(slot++, preferenceItem(player, option.id(), languageMaterial(option)));
+        }
+        builder.item(17, MenuItems.action(Material.ARROW,
+                Component.text(t(language, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
+                List.of(Component.text(t(language, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)),
+                actionKey, ACTION_BACK_MAIN)).open(player);
     }
 
     public Language language(Player player) {
@@ -264,6 +265,14 @@ public class LanguageService implements Listener {
                 .orElseGet(() -> fallbackText(message, args));
     }
 
+    public String format(Player player, Message message, TextArg... args) {
+        return format(language(player), message, args);
+    }
+
+    public String format(Language language, Message message, TextArg... args) {
+        return resolve(language, message, namedArguments(args));
+    }
+
     public Component text(Player player, Message message, NamedTextColor color, Object... args) {
         return Component.text(t(player, message, args), color);
     }
@@ -287,7 +296,10 @@ public class LanguageService implements Listener {
     }
 
     public Component rich(Player player, Message message, NamedTextColor baseColor, RichArg... richArgs) {
-        Language language = language(player);
+        return rich(language(player), message, baseColor, richArgs);
+    }
+
+    public Component rich(Language language, Message message, NamedTextColor baseColor, RichArg... richArgs) {
         ArgumentList.Builder arguments = ArgumentListBuilder.builder();
         Map<String, RichArg> tokens = new ConcurrentHashMap<>();
         for (int i = 0; i < richArgs.length; i++) {
@@ -296,7 +308,7 @@ public class LanguageService implements Listener {
             arguments.add(arg.name(), token);
             tokens.put(token, arg);
         }
-        String rendered = resolve(language, message, arguments.build());
+        String rendered = resolve(language, message, arguments.build(), richArgs);
         return replaceRichTokens(rendered, baseColor, tokens);
     }
 
@@ -317,6 +329,13 @@ public class LanguageService implements Listener {
         return MenuItems.action(material,
                 Component.text(languageLabel(player, value), selected ? NamedTextColor.GREEN : NamedTextColor.AQUA),
                 lore, actionKey, ACTION_LANGUAGE_PREFIX + value);
+    }
+
+    private Material languageMaterial(Language language) {
+        return switch (language) {
+            case ZH_CN -> Material.RED_BANNER;
+            case EN_US -> Material.BLUE_BANNER;
+        };
     }
 
     private String languageLabel(Player player, String preference) {
@@ -375,21 +394,32 @@ public class LanguageService implements Listener {
     private ArgumentList arguments(Object... args) {
         ArgumentList.Builder builder = ArgumentListBuilder.builder();
         for (int i = 0; i < args.length; i++) {
-            Object value = args[i];
             String name = "arg" + i;
-            if (value instanceof Integer integer) {
-                builder.add(name, integer.longValue());
-            } else if (value instanceof Long longValue) {
-                builder.add(name, longValue);
-            } else if (value instanceof Float floatValue) {
-                builder.add(name, floatValue.doubleValue());
-            } else if (value instanceof Double doubleValue) {
-                builder.add(name, doubleValue);
-            } else {
-                builder.add(name, String.valueOf(value));
-            }
+            addArgument(builder, name, args[i]);
         }
         return builder.build();
+    }
+
+    private ArgumentList namedArguments(TextArg... args) {
+        ArgumentList.Builder builder = ArgumentListBuilder.builder();
+        for (TextArg arg : args) {
+            addArgument(builder, arg.name(), arg.value());
+        }
+        return builder.build();
+    }
+
+    private void addArgument(ArgumentList.Builder builder, String name, Object value) {
+        if (value instanceof Integer integer) {
+            builder.add(name, integer.longValue());
+        } else if (value instanceof Long longValue) {
+            builder.add(name, longValue);
+        } else if (value instanceof Float floatValue) {
+            builder.add(name, floatValue.doubleValue());
+        } else if (value instanceof Double doubleValue) {
+            builder.add(name, doubleValue);
+        } else {
+            builder.add(name, String.valueOf(value));
+        }
     }
 
     private String resolve(Language language, Message message, ArgumentList arguments) {
@@ -397,6 +427,13 @@ public class LanguageService implements Listener {
         return bundle.resolveMessage(message.key(), arguments, StringResultFactory.construct())
                 .map(Object::toString)
                 .orElseGet(() -> fallbackText(message));
+    }
+
+    private String resolve(Language language, Message message, ArgumentList arguments, RichArg... args) {
+        FluentBundle bundle = bundles.getOrDefault(language, bundles.get(Language.DEFAULT));
+        return bundle.resolveMessage(message.key(), arguments, StringResultFactory.construct())
+                .map(Object::toString)
+                .orElseGet(() -> fallbackText(message, (Object[]) args));
     }
 
     private Component replaceRichTokens(String rendered, NamedTextColor baseColor, Map<String, RichArg> tokens) {

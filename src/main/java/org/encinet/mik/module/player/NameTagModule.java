@@ -26,6 +26,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.util.NameMetaRenderer;
 import org.encinet.mik.util.PlayerDisplay;
 
@@ -153,6 +154,7 @@ public class NameTagModule {
         if (raw == null || raw.isEmpty()) return Component.empty();
         return Component.text()
                 .append(Component.text(raw, C_RAW))
+                .append(Component.space())
                 .append(Component.text(languageService.t(player, Message.NAMETAG_COPY_LABEL), C_DIM)
                         .clickEvent(ClickEvent.copyToClipboard(raw))
                         .hoverEvent(HoverEvent.showText(
@@ -229,7 +231,7 @@ public class NameTagModule {
                 .append(Component.text("🏷 " + languageService.t(player, Message.NAMETAG_TITLE), C_ACCENT, TextDecoration.BOLD)).append(NL)
                 .append(tagEntry(player, NameTag.PREFIX.label(), pre)).append(NL)
                 .append(tagEntry(player, NameTag.SUFFIX.label(), suf)).append(NL)
-                .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
+                .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(Component.text("  ", C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
                 .append(linkButton(languageService.t(player, Message.NAMETAG_ONLINE_EDITOR), URL_EDITOR))
                 .append(Component.text("  ·  ", C_DIM))
                 .append(linkButton(languageService.t(player, Message.NAMETAG_FORMAT_DOCS), URL_DOCS))
@@ -261,7 +263,7 @@ public class NameTagModule {
         player.sendMessage(Component.text()
                 .append(Component.text("🏷 " + targetLabel, C_ACCENT, TextDecoration.BOLD)).append(NL)
                 .append(tagEntry(player, target.label(), targetRaw)).append(NL)
-                .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
+                .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(Component.text("  ", C_MUTED)).append(chatPreview(player, pre, suf)).append(NL)
                 .append(linkButton(languageService.t(player, Message.NAMETAG_ONLINE_EDITOR), URL_EDITOR))
                 .append(Component.text("  ·  ", C_DIM))
                 .append(linkButton(languageService.t(player, Message.NAMETAG_FORMAT_DOCS), URL_DOCS))
@@ -278,13 +280,12 @@ public class NameTagModule {
 
         String normalized = content.trim();
         if (normalized.isEmpty()) {
-            player.sendMessage(Component.text()
-                    .append(Component.text(languageService.t(player, Message.NAMETAG_EMPTY_CONTENT), NamedTextColor.RED))
-                    .append(Component.text("/nametag " + target.id + " clear", C_LINK)
-                            .clickEvent(ClickEvent.suggestCommand("/nametag " + target.id + " clear"))
+            String command = "/nametag " + target.id + " clear";
+            player.sendMessage(languageService.rich(player, Message.NAMETAG_EMPTY_CONTENT_RICH, NamedTextColor.RED,
+                    RichArg.component("command", Component.text(command, C_LINK)
+                            .clickEvent(ClickEvent.suggestCommand(command))
                             .hoverEvent(HoverEvent.showText(Component.text(
-                                    languageService.t(player, Message.NAMETAG_CLICK_FILL_COMMAND), C_MUTED))))
-                    .build());
+                                    languageService.t(player, Message.NAMETAG_CLICK_FILL_COMMAND), C_MUTED))), command)));
             return Command.SINGLE_SUCCESS;
         }
         if (normalized.length() > MAX_LENGTH) {
@@ -294,12 +295,11 @@ public class NameTagModule {
         }
         String unsupportedPlaceholder = NameMetaRenderer.findUnsupportedPlaceholder(normalized);
         if (unsupportedPlaceholder != null) {
-            player.sendMessage(Component.text()
-                    .append(Component.text(languageService.t(player, Message.NAMETAG_UNSUPPORTED_PLACEHOLDER_BEFORE), NamedTextColor.RED))
-                    .append(Component.text("%player_...%", C_LINK))
-                    .append(Component.text(languageService.t(player, Message.NAMETAG_UNSUPPORTED_PLACEHOLDER_AFTER), NamedTextColor.RED))
-                    .append(Component.text("%" + unsupportedPlaceholder + "%", C_RAW))
-                    .build());
+            String supported = "%player_...%";
+            String unsupported = "%" + unsupportedPlaceholder + "%";
+            player.sendMessage(languageService.rich(player, Message.NAMETAG_UNSUPPORTED_PLACEHOLDER_RICH, NamedTextColor.RED,
+                    RichArg.component("supported", Component.text(supported, C_LINK), supported),
+                    RichArg.component("unsupported", Component.text(unsupported, C_RAW), unsupported)));
             return Command.SINGLE_SUCCESS;
         }
 
@@ -323,9 +323,9 @@ public class NameTagModule {
             player.sendMessage(Component.text()
                     .append(Component.text(languageService.t(player, Message.NAMETAG_SET_SUCCESS,
                             targetLabel(player, target)), NamedTextColor.GREEN, TextDecoration.BOLD)).append(NL)
-                    .append(Component.text(languageService.t(player, Message.NAMETAG_EFFECT_LABEL), C_MUTED)).append(render(player, normalized)).append(NL)
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_EFFECT_LABEL), C_MUTED)).append(Component.text("  ", C_MUTED)).append(render(player, normalized)).append(NL)
                     .append(Component.text("      ", C_DIM)).append(rawWithCopy(player, normalized)).append(NL)
-                    .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(chatPreview(player, pre, suf))
+                    .append(Component.text(languageService.t(player, Message.NAMETAG_PREVIEW_LABEL), C_MUTED)).append(Component.text("  ", C_MUTED)).append(chatPreview(player, pre, suf))
                     .build());
         }));
 
@@ -379,7 +379,7 @@ public class NameTagModule {
     }
 
     private enum NameTag {
-        PREFIX("prefix", Message.NAMETAG_PREFIX_LABEL) {
+        PREFIX("prefix", Message.NAMETAG_LEADING_LABEL) {
             @Override
             public String get(CachedMetaData m) {
                 return m.getPrefix();
@@ -400,7 +400,7 @@ public class NameTagModule {
                 return SUFFIX;
             }
         },
-        SUFFIX("suffix", Message.NAMETAG_SUFFIX_LABEL) {
+        SUFFIX("suffix", Message.NAMETAG_TRAILING_LABEL) {
             @Override
             public String get(CachedMetaData m) {
                 return m.getSuffix();
