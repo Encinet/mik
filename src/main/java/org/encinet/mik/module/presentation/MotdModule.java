@@ -119,7 +119,7 @@ public class MotdModule implements Listener, AfkStateListener {
             {
                     "<white>Ping!</white>",
                     "<yellow>Ping again!</yellow>",
-                    "<orange>Another ping!</orange>",
+                    "<gold>Another ping!</gold>",
                     "<gradient:#ff0080:#ff8c00>...are you testing me? owo</gradient>",
                     "<bold><gradient:#42e695:#3bb2b8>Fine, just come play XD</gradient></bold>",
             },
