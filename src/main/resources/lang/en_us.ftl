@@ -450,6 +450,9 @@ weblogin-confirmed = Mik Web login confirmed. Return to your browser to continue
 
 spawn-command-description = Return to spawn
 spawn-world-missing = Spawn world is unavailable
+spawn-beacon-color-command-description = Toggle spawn beacon color cycling
+spawn-beacon-color-enabled = Spawn beacon color cycling enabled
+spawn-beacon-color-disabled = Spawn beacon color cycling disabled
 hat-command-description = Wear the item in your main hand
 hat-empty-hand-mm = <red>No item in your main hand</red> <gray>Hold a block or item, then use /hat</gray>
 hat-success-mm = <green>Wearing the item from your main hand</green> <dark_gray>|</dark_gray> <gray>Your hand and helmet slot were swapped</gray>

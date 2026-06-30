@@ -35,6 +35,7 @@ import org.encinet.mik.module.player.TeleportPreferenceModule;
 import org.encinet.mik.module.presentation.BrandingModule;
 import org.encinet.mik.module.presentation.MotdModule;
 import org.encinet.mik.module.presentation.ServerLinksModule;
+import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
 
@@ -79,6 +80,7 @@ public final class Mik extends JavaPlugin {
     private MenuNavigation menuNavigation;
     private LanguageService languageService;
     private PlayerAddressModule playerAddressModule;
+    private SpawnBeaconColorModule spawnBeaconColorModule;
 
     @Override
     public void onLoad() {
@@ -217,6 +219,10 @@ public final class Mik extends JavaPlugin {
         invisibilityNotifyModule = new InvisibilityNotifyModule(this, languageService);
         invisibilityNotifyModule.enable();
 
+        spawnBeaconColorModule = new SpawnBeaconColorModule(this, languageService);
+        spawnBeaconColorModule.enable();
+        spawnBeaconColorModule.registerCommands(this.getLifecycleManager());
+
     }
 
     @Override
@@ -267,6 +273,10 @@ public final class Mik extends JavaPlugin {
 
         if (playerAddressModule != null) {
             playerAddressModule.disable();
+        }
+
+        if (spawnBeaconColorModule != null) {
+            spawnBeaconColorModule.disable();
         }
     }
 }

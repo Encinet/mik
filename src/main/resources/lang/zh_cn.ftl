@@ -450,6 +450,9 @@ weblogin-confirmed = 已确认 Mik 网页登录，请回到浏览器继续
 
 spawn-command-description = 返回主城
 spawn-world-missing = 主城世界不可用
+spawn-beacon-color-command-description = 开关主城信标颜色切换
+spawn-beacon-color-enabled = 已启用主城信标颜色切换
+spawn-beacon-color-disabled = 已禁用主城信标颜色切换
 hat-command-description = 把主手物品戴到头上
 hat-empty-hand-mm = <red>主手没有物品</red> <gray>先拿起一个方块或物品再使用 /hat</gray>
 hat-success-mm = <green>已把主手物品戴到头上</green> <dark_gray>|</dark_gray> <gray>主手与头盔栏已交换</gray>

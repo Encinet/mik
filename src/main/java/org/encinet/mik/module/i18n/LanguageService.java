@@ -277,6 +277,10 @@ public class LanguageService implements Listener {
         return Component.text(t(player, message, args), color);
     }
 
+    public Component text(Language language, Message message, NamedTextColor color, Object... args) {
+        return Component.text(t(language, message, args), color);
+    }
+
     public boolean titleMatches(Message message, String title) {
         for (Language language : Language.values()) {
             if (t(language, message).equals(title)) {
