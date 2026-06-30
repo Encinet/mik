@@ -259,7 +259,7 @@ public class MotdModule implements Listener, AfkStateListener {
             event.getListedPlayers().clear();
         }
 
-        boolean isCN = resolveMotdLanguage(address, recentAddressRecord.orElse(null)) == Language.ZH_CN;
+        boolean isCN = resolveMotdLanguage(address, recentAddressRecord.orElse(null)).isChinese();
         Component[] normals = isCN ? NORMAL_MOTDS_CN : NORMAL_MOTDS_EN;
         Component[][] eggs = isCN ? EGG_MOTDS_CN : EGG_MOTDS_EN;
 

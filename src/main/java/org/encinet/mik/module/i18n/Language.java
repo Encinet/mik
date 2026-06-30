@@ -32,6 +32,13 @@ public enum Language {
         return displayName;
     }
 
+    public boolean isChinese() {
+        return switch (this) {
+            case ZH_CN -> true;
+            case EN_US -> false;
+        };
+    }
+
     public static Optional<Language> fromId(String id) {
         if (id == null) {
             return Optional.empty();

@@ -93,7 +93,7 @@ public final class ServerLinksModule implements Listener {
         }
 
         String label(Language language) {
-            return language == Language.EN_US ? enName : zhName;
+            return language.isChinese() ? zhName : enName;
         }
     }
 }
