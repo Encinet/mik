@@ -1,5 +1,6 @@
 package org.encinet.mik.module.player;
 
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -9,16 +10,20 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.util.Vector;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 
+import java.util.function.Consumer;
+
 public class PlayerBoundaryModule implements Listener {
-    private static final double KNOCKBACK_STRENGTH = 1.5; // Velocity multiplier for knockback
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+    private static final double EPSILON = 0.01;               // 防边界线抖动
+    private static final double BOUNDARY_MARGIN = 0.5 + EPSILON; // 统一内部缓冲
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -30,133 +35,83 @@ public class PlayerBoundaryModule implements Listener {
 
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        plugin.getLogger().info("PlayerBoundaryModule enabled (using world border settings)");
+        plugin.getLogger().info("PlayerBoundaryModule enabled");
+    }
+
+    /** 若坐标越界则修正到边界内，并通过 setter 设置新坐标，发送提示 */
+    private void correctIfOutside(Location loc, Player player,
+                                  Consumer<Location> setter) {
+        World world = loc.getWorld();
+        if (world == null) return;
+
+        WorldBorder border = world.getWorldBorder();
+        if (!border.isInside(loc)) {
+            setter.accept(clampInside(loc, border));
+            player.sendActionBar(buildMessage(player, Message.BOUNDARY_REACHED_MM));
+        }
+    }
+
+    /** 将坐标夹至边界内 BOUNDARY_MARGIN 处 */
+    private Location clampInside(Location loc, WorldBorder border) {
+        Location center = border.getCenter();
+        double half = Math.max(0, border.getSize() / 2.0 - BOUNDARY_MARGIN);
+
+        double x = Math.clamp(loc.getX(), center.getX() - half, center.getX() + half);
+        double z = Math.clamp(loc.getZ(), center.getZ() - half, center.getZ() + half);
+
+        return new Location(loc.getWorld(), x, loc.getY(), z, loc.getYaw(), loc.getPitch());
+    }
+
+    private Component buildMessage(Player player, Message msg) {
+        return MINI_MESSAGE.deserialize(languageService.t(player, msg));
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
         Location from = event.getFrom();
         Location to = event.getTo();
+
         Player player = event.getPlayer();
-        if (from.getBlockX() == to.getBlockX() && from.getBlockZ() == to.getBlockZ()) return;
         World world = to.getWorld();
         if (world == null) return;
 
         WorldBorder border = world.getWorldBorder();
-        if (!isOutsideBoundary(to, border)) return;
+        boolean fromOutside = !border.isInside(from);
+        boolean toOutside = !border.isInside(to);
 
-        // 将位置夹到边界内（留 0.5 块缓冲），不重置到 from
-        Location clamped = clampToBoundary(to, border, 0.5);
-        event.setTo(clamped);
+        if (!fromOutside && !toOutside) return;
 
-        applyReflectKnockback(player, to, border);
-        player.sendActionBar(message(player, Message.BOUNDARY_NEAR_MM));
-    }
-
-    /**
-     * 将位置夹到边界内 margin 块处
-     */
-    private Location clampToBoundary(Location loc, WorldBorder border, double margin) {
-        Location center = border.getCenter();
-        double half = border.getSize() / 2.0 - margin;
-
-        double x = Math.max(center.getX() - half, Math.min(center.getX() + half, loc.getX()));
-        double z = Math.max(center.getZ() - half, Math.min(center.getZ() + half, loc.getZ()));
-
-        return new Location(loc.getWorld(), x, loc.getY(), z, loc.getYaw(), loc.getPitch());
-    }
-
-    /**
-     * 反射速度 + 朝内推力，产生自然弹开感
-     */
-    private void applyReflectKnockback(Player player, Location to, WorldBorder border) {
-        Location center = border.getCenter();
-        double half = border.getSize() / 2.0;
-
-        double dx = to.getX() - center.getX();
-        double dz = to.getZ() - center.getZ();
-
-        Vector current = player.getVelocity();
-        double velX = current.getX();
-        double velZ = current.getZ();
-
-        if (Math.abs(dx) >= half) {
-            // 朝内：速度分量取反（吸收）再加朝内推力，符号与 dx 相反
-            velX = -Math.abs(current.getX()) * 0.8 - KNOCKBACK_STRENGTH * Math.signum(dx);
+        if (fromOutside) {
+            // 已在外面 直接拉回
+            event.setTo(clampInside(to, border));
+        } else {
+            // 试图出去 取消移动
+            event.setCancelled(true);
         }
-        if (Math.abs(dz) >= half) {
-            velZ = -Math.abs(current.getZ()) * 0.8 - KNOCKBACK_STRENGTH * Math.signum(dz);
-        }
-
-        velX = Math.clamp(velX, -3.0, 3.0);
-        velZ = Math.clamp(velZ, -3.0, 3.0);
-
-        player.setVelocity(new Vector(velX, Math.max(current.getY(), 0.15), velZ));
+        player.sendActionBar(buildMessage(player, Message.BOUNDARY_NEAR_MM));
     }
 
     @EventHandler(priority = EventPriority.LOW, ignoreCancelled = true)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
         Location to = event.getTo();
+
+        correctIfOutside(to, event.getPlayer(), event::setTo);
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onPlayerRespawn(PlayerRespawnEvent event) {
+        Location respawn = event.getRespawnLocation();
+
+        correctIfOutside(respawn, event.getPlayer(),
+                event::setRespawnLocation);
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        World world = to.getWorld();
-        if (world == null) return;
+        Location loc = player.getLocation();
 
-        WorldBorder border = world.getWorldBorder();
-
-        if (isOutsideBoundary(to, border)) {
-            // For teleports: always redirect to safe location, never apply knockback
-            Location safe = getNearestSafeLocation(to, border);
-            event.setTo(safe);
-            player.sendActionBar(message(player, Message.BOUNDARY_REACHED_MM));
-        }
+        correctIfOutside(loc, player,
+                player::teleport);
     }
-
-    private net.kyori.adventure.text.Component message(Player player, Message message) {
-        return MINI_MESSAGE.deserialize(languageService.t(player, message));
-    }
-
-    /**
-     * Check if location is outside the world border
-     */
-    private boolean isOutsideBoundary(Location location, WorldBorder border) {
-        double x = location.getX();
-        double z = location.getZ();
-
-        Location center = border.getCenter();
-        double size = border.getSize() / 2.0;
-
-        double minX = center.getX() - size;
-        double maxX = center.getX() + size;
-        double minZ = center.getZ() - size;
-        double maxZ = center.getZ() + size;
-
-        return x < minX || x > maxX || z < minZ || z > maxZ;
-    }
-
-    /**
-     * Get nearest safe location within boundary
-     */
-    private Location getNearestSafeLocation(Location location, WorldBorder border) {
-        World world = location.getWorld();
-
-        Location center = border.getCenter();
-        double size = border.getSize() / 2.0;
-
-        double minX = center.getX() - size;
-        double maxX = center.getX() + size;
-        double minZ = center.getZ() - size;
-        double maxZ = center.getZ() + size;
-
-        double x = Math.max(minX, Math.min(maxX, location.getX()));
-        double z = Math.max(minZ, Math.min(maxZ, location.getZ()));
-
-        // Add small buffer to ensure player is inside boundary
-        if (x == minX) x += 5;
-        if (x == maxX) x -= 5;
-        if (z == minZ) z += 5;
-        if (z == maxZ) z -= 5;
-
-        return new Location(world, x, location.getY(), z, location.getYaw(), location.getPitch());
-    }
-
 }
