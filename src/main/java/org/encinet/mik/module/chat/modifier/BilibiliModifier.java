@@ -66,11 +66,15 @@ public final class BilibiliModifier implements ChatModifier {
     }
 
     private String normalizedUrl(String token) {
-        if (token.regionMatches(true, 0, "http://", 0, "http://".length())
-                || token.regionMatches(true, 0, "https://", 0, "https://".length())) {
-            return token;
+        if (!(token.regionMatches(true, 0, "http://", 0, 7) ||
+                token.regionMatches(true, 0, "https://", 0, 8))) {
+            token = "https://" + token;
         }
-        return "https://" + token;
+        int queryIndex = token.indexOf('?');
+        if (queryIndex >= 0) {
+            token = token.substring(0, queryIndex);
+        }
+        return token;
     }
 
     private int urlEnd(String token) {
