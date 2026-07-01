@@ -20,7 +20,6 @@ import org.encinet.mik.module.player.PlayerAddressModule;
 import org.encinet.mik.module.player.PlayerAddressModule.PlayerAddressDisplayRecord;
 import org.encinet.mik.module.player.PlayerAddressModule.PlayerAddressRecord;
 import org.encinet.mik.module.presentation.motd.HolidayMotdCategory;
-import org.encinet.mik.util.GeoUtil;
 import org.encinet.mik.util.MotdCenterUtil;
 
 import java.net.InetAddress;
@@ -46,12 +45,8 @@ public class MotdModule implements Listener, AfkStateListener {
     private static final int KNOWN_PLAYER_EASTER_EGG_ONE_IN = 3;
     private static final long AMBIENT_MOTD_ROTATION_MS = 10_000L;
 
-    private static final Component LINE1_CN = MM.deserialize(
-            MotdCenterUtil.center("<gold>米<white>客 <gray>| <green>26.1<gray> | <gold>创意<white>休闲服")
-    );
-    private static final Component LINE1_EN = MM.deserialize(
-            MotdCenterUtil.center("<gold>Mi<white>k  <gray>| <green>26.1<gray> | <gold>Creative<white> Casual")
-    );
+    private static Component LINE1_CN;
+    private static Component LINE1_EN;
 
     private static final String[] NORMAL_LINE2_CN = {
             "<gradient:#5e4fa2:#f79459>建造 · 摸鱼 · 音乐 · 快乐 · AFK",
@@ -168,14 +163,14 @@ public class MotdModule implements Listener, AfkStateListener {
             "<gradient:#d7e7c6:#b8d8e8>{player}</gradient><white>, where would you like to start?</white>",
     };
 
-    private static final Component[] NORMAL_MOTDS_CN = buildMotds(LINE1_CN, NORMAL_LINE2_CN);
-    private static final Component[] NORMAL_MOTDS_EN = buildMotds(LINE1_EN, NORMAL_LINE2_EN);
-    private static final Component[][] EGG_MOTDS_CN = buildEggMotds(LINE1_CN, EGG_BRANCHES_CN);
-    private static final Component[][] EGG_MOTDS_EN = buildEggMotds(LINE1_EN, EGG_BRANCHES_EN);
-    private static final Component[] AFK_EGG_MOTDS_CN = buildMotds(LINE1_CN, AFK_EGG_LINE2_CN);
-    private static final Component[] AFK_EGG_MOTDS_EN = buildMotds(LINE1_EN, AFK_EGG_LINE2_EN);
-    private static final Component[] NIGHT_EGG_MOTDS_CN = buildMotds(LINE1_CN, NIGHT_EGG_LINE2_CN);
-    private static final Component[] NIGHT_EGG_MOTDS_EN = buildMotds(LINE1_EN, NIGHT_EGG_LINE2_EN);
+    private static Component[] NORMAL_MOTDS_CN;     // 原为 final，带初始化
+    private static Component[] NORMAL_MOTDS_EN;
+    private static Component[][] EGG_MOTDS_CN;
+    private static Component[][] EGG_MOTDS_EN;
+    private static Component[] AFK_EGG_MOTDS_CN;
+    private static Component[] AFK_EGG_MOTDS_EN;
+    private static Component[] NIGHT_EGG_MOTDS_CN;
+    private static Component[] NIGHT_EGG_MOTDS_EN;
 
     private static Component buildMotd(Component line1, String line2) {
         String centeredLine2 = MotdCenterUtil.center(line2);
@@ -224,7 +219,27 @@ public class MotdModule implements Listener, AfkStateListener {
         this.holidayCategory.setRefreshListener(this::refreshStateMotds);
     }
 
+    private static void buildAllMotds() {
+        NORMAL_MOTDS_CN = buildMotds(LINE1_CN, NORMAL_LINE2_CN);
+        NORMAL_MOTDS_EN = buildMotds(LINE1_EN, NORMAL_LINE2_EN);
+        EGG_MOTDS_CN = buildEggMotds(LINE1_CN, EGG_BRANCHES_CN);
+        EGG_MOTDS_EN = buildEggMotds(LINE1_EN, EGG_BRANCHES_EN);
+        AFK_EGG_MOTDS_CN = buildMotds(LINE1_CN, AFK_EGG_LINE2_CN);
+        AFK_EGG_MOTDS_EN = buildMotds(LINE1_EN, AFK_EGG_LINE2_EN);
+        NIGHT_EGG_MOTDS_CN = buildMotds(LINE1_CN, NIGHT_EGG_LINE2_CN);
+        NIGHT_EGG_MOTDS_EN = buildMotds(LINE1_EN, NIGHT_EGG_LINE2_EN);
+    }
+
     public void enable() {
+        String version = Bukkit.getMinecraftVersion();
+        LINE1_CN = MM.deserialize(
+                MotdCenterUtil.center("<gold>米<white>客 <gray>| <green>" + version + "<gray> | <gold>创意<white>休闲服")
+        );
+        LINE1_EN = MM.deserialize(
+                MotdCenterUtil.center("<gold>Mi<white>k  <gray>| <green>" + version + "<gray> | <gold>Creative<white> Casual")
+        );
+        buildAllMotds();
+
         ThreadLocalRandom rng = ThreadLocalRandom.current();
         nightEasterEggSalt = rng.nextLong();
         ambientMotdIndexSalt = rng.nextLong();
@@ -263,7 +278,7 @@ public class MotdModule implements Listener, AfkStateListener {
         Component[] normals = isCN ? NORMAL_MOTDS_CN : NORMAL_MOTDS_EN;
         Component[][] eggs = isCN ? EGG_MOTDS_CN : EGG_MOTDS_EN;
 
-        String ip = address == null ? "unknown" : address.getHostAddress();
+        String ip = address.getHostAddress();
         event.motd(resolveMotd(ip, isCN, normals, eggs, getCachedStateMotd(isCN), displayPlayer.orElse(null)));
     }
 
