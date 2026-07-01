@@ -39,7 +39,7 @@ public class SimpleFeaturesModule {
     private static final double SPAWN_X = 33.5;
     private static final double SPAWN_Y = 65.5;
     private static final double SPAWN_Z = 82.5;
-    private static final float SPAWN_YAW = 90.0f;
+    private static final float SPAWN_YAW = -90.0f;
     private static final float SPAWN_PITCH = 0.0f;
 
     private final LanguageService languageService;
