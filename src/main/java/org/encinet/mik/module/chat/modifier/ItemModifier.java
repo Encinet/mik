@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 
 public final class ItemModifier implements ChatModifier {
 
-    private static final Pattern ITEM_PATTERN = Pattern.compile("(?i)\\[(?:item|i)]");
+    private static final Pattern ITEM_PATTERN = Pattern.compile("(?i)(?:\\[(?:item|i)]|%i)");
 
     @Override
     public ChatReplacement find(String text, int fromIndex, ChatModifierContext context) {
