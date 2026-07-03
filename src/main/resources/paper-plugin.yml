@@ -3,7 +3,7 @@ version: '1.0'
 main: org.encinet.mik.Mik
 loader: org.encinet.mik.MikLoader
 api-version: '26.1'
-authors: [ Noctiro ]
+authors: [ Noctiro, Aeolic ]
 dependencies:
   bootstrap:
     packetevents:

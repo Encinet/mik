@@ -102,8 +102,8 @@ public final class Mik extends JavaPlugin {
         playerAddressModule = new PlayerAddressModule(this);
         playerAddressModule.enable();
 
-        serverLinksModule = new ServerLinksModule(this, languageService);
-        serverLinksModule.register();
+        serverLinksModule = new ServerLinksModule(languageService);
+        serverLinksModule.register(this);
 
         afkModule = new AfkModule(this, languageService);
         afkModule.enable();

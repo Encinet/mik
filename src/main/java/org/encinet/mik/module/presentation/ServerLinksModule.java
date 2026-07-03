@@ -1,5 +1,6 @@
 package org.encinet.mik.module.presentation;
 
+import io.papermc.paper.connection.PlayerConfigurationConnection;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.ServerLinks;
@@ -12,45 +13,64 @@ import org.encinet.mik.module.i18n.LanguageService;
 
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class ServerLinksModule implements Listener {
 
-    private static final List<LinkDefinition> LINKS = List.of(
-            LinkDefinition.typed(ServerLinks.Type.WEBSITE,
+    private static final List<Consumer<ServerLinks>> ZH_LINKS = List.of(
+            typed(ServerLinks.Type.WEBSITE,
                     "https://mcmik.top"),
-            LinkDefinition.typed(ServerLinks.Type.COMMUNITY_GUIDELINES,
+            typed(ServerLinks.Type.COMMUNITY_GUIDELINES,
                     "https://mcmik.top/wiki"),
-            LinkDefinition.named("QQ群 1", "QQ Group 1",
-                    "https://jq.qq.com/?_wv=1027&k=HSSe2Rxe"),
-            LinkDefinition.named("QQ群 2", "QQ Group 2",
-                    "https://qun.qq.com/universal-share/share?ac=1&authKey=LF4qpagS25O%2FV1h5TD6LHusLzRsgMBsJSG433rhR8pW0HW6PSFHGntMAm4DfGKCP&busi_data=eyJncm91cENvZGUiOiI0NzcyNDYxNzQiLCJ0b2tlbiI6IkRRN3g0bk42dklJK3lmcEZrZ09sQ1hXeExxRHNoUXVhblIwMk8zOGpPYXJORC9zdlJzYzBRSFluaW1nWnh4aWciLCJ1aW4iOiIxNjY1ODA3MTA5In0%3D&data=EgH9s3aPcNE53_fgxWrVUEslrO9hAPVjsuFMuiaJE6XNzAIA2f6L1-LcnovG41WpP8PZD27ejZdYsgklvF2B_A&svctype=4&tempid=h5_group_info"),
-            LinkDefinition.named("赞助列表", "Sponsor List",
+            named("QQ群 1",
+                    "https://qm.qq.com/q/3Eg9D7EBJ6"),
+            named("QQ群 2",
+                    "https://qm.qq.com/q/hfZYEqarPa"),
+            named("赞助列表",
                     "https://docs.qq.com/sheet/DRUV3c2Z6a21MYnZ6?tab=BB08J2"),
-            LinkDefinition.named("装饰头颅浏览", "Minecraft Heads",
+            named("装饰头颅浏览",
                     "https://minecraft-heads.com/"),
-            LinkDefinition.named("Minecraft Wiki 中文版", "Minecraft Wiki Chinese",
+            named("Minecraft Wiki 中文版",
                     "https://zh.minecraft.wiki/"),
-            LinkDefinition.named("Minecraft Wiki 英文版", "Minecraft Wiki English",
-                    "https://www.minecraft.wiki/"),
-            LinkDefinition.named("MiniMessage 格式文档", "MiniMessage Format",
+            named("MiniMessage 格式文档",
                     "https://docs.papermc.io/adventure/minimessage/format/"),
-            LinkDefinition.named("MiniMessage 在线预览", "MiniMessage Preview",
+            named("MiniMessage 在线预览",
                     "https://webui.advntr.dev/"),
-            LinkDefinition.named("CC BY-NC-SA 4.0", "CC BY-NC-SA 4.0",
+            named("CC BY-NC-SA 4.0",
                     "https://creativecommons.org/licenses/by-nc-sa/4.0/"),
-            LinkDefinition.named("繁空工作室", "Encinet Studio",
+            named("繁空工作室",
                     "https://encinet.netlify.app")
     );
 
-    private final JavaPlugin plugin;
+    private static final List<Consumer<ServerLinks>> EN_LINKS = List.of(
+            typed(ServerLinks.Type.WEBSITE,
+                    "https://mcmik.top"),
+            typed(ServerLinks.Type.COMMUNITY_GUIDELINES,
+                    "https://mcmik.top/wiki"),
+            named("Sponsor List",
+                    "https://docs.qq.com/sheet/DRUV3c2Z6a21MYnZ6?tab=BB08J2"),
+            named("Minecraft Heads",
+                    "https://minecraft-heads.com/"),
+            named("Minecraft Wiki",
+                    "https://www.minecraft.wiki/"),
+            named("MiniMessage Format",
+                    "https://docs.papermc.io/adventure/minimessage/format/"),
+            named("MiniMessage Preview",
+                    "https://webui.advntr.dev/"),
+            named("CC BY-NC-SA 4.0",
+                    "https://creativecommons.org/licenses/by-nc-sa/4.0/"),
+            named("Encinet Studio",
+                    "https://encinet.netlify.app")
+    );
+
     private final LanguageService languageService;
 
-    public ServerLinksModule(JavaPlugin plugin, LanguageService languageService) {
-        this.plugin = plugin;
+    public ServerLinksModule(LanguageService languageService) {
         this.languageService = languageService;
     }
 
-    public void register() {
+    public void register(JavaPlugin plugin) {
         fillLinks(plugin.getServer().getServerLinks(), Language.DEFAULT);
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
@@ -66,34 +86,23 @@ public final class ServerLinksModule implements Listener {
     }
 
     private Language resolveLanguage(PlayerLinksSendEvent event) {
-        if (event.getConnection() instanceof io.papermc.paper.connection.PlayerConfigurationConnection connection
-                && connection.getProfile().getId() != null) {
-            return languageService.language(connection.getProfile().getId(), null);
-        }
-        return Language.DEFAULT;
+        PlayerConfigurationConnection connection = (PlayerConfigurationConnection) event.getConnection();
+        UUID id = connection.getProfile().getId();
+        return id != null ? languageService.language(id, null) : Language.DEFAULT;
     }
 
-    private void fillLinks(ServerLinks links, Language language) {
-        for (LinkDefinition link : LINKS) {
-            if (link.type() != null) {
-                links.addLink(link.type(), link.uri());
-            } else {
-                links.addLink(Component.text(link.label(language)), link.uri());
-            }
-        }
+    private static void fillLinks(ServerLinks links, Language language) {
+        (language.isChinese() ? ZH_LINKS : EN_LINKS).forEach(fill -> fill.accept(links));
     }
 
-    private record LinkDefinition(ServerLinks.Type type, String zhName, String enName, URI uri) {
-        static LinkDefinition typed(ServerLinks.Type type, String url) {
-            return new LinkDefinition(type, null, null, URI.create(url));
-        }
+    private static Consumer<ServerLinks> typed(ServerLinks.Type type, String url) {
+        URI uri = URI.create(url);
+        return links -> links.addLink(type, uri);
+    }
 
-        static LinkDefinition named(String zhName, String enName, String url) {
-            return new LinkDefinition(null, zhName, enName, URI.create(url));
-        }
-
-        String label(Language language) {
-            return language.isChinese() ? zhName : enName;
-        }
+    private static Consumer<ServerLinks> named(String label, String url) {
+        Component component = Component.text(label);
+        URI uri = URI.create(url);
+        return links -> links.addLink(component, uri);
     }
 }
