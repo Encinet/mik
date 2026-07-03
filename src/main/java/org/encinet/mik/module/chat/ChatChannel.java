@@ -1,6 +1,6 @@
 package org.encinet.mik.module.chat;
 
-enum ChatChannel {
+public enum ChatChannel {
     PUBLIC,
     STAFF,
     PRIVATE

@@ -16,15 +16,15 @@ public enum ChatDelayOption {
         this.delaySeconds = delaySeconds;
     }
 
-    String id() {
+    public String id() {
         return id;
     }
 
-    int delaySeconds() {
+    public int delaySeconds() {
         return delaySeconds;
     }
 
-    static ChatDelayOption fromInput(String input) {
+    public static ChatDelayOption fromInput(String input) {
         if (input == null) {
             return null;
         }

@@ -18,7 +18,7 @@ public final class AllMentionModifier implements ChatModifier {
         if (!matcher.find(fromIndex)) {
             return null;
         }
-        return new ChatReplacement(matcher.start(), matcher.end(),
+        return ChatReplacement.padded(matcher.start(), matcher.end(),
                 ChatRenderUtil.allMention(context.allHover()));
     }
 }

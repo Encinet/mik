@@ -14,6 +14,7 @@ import org.encinet.mik.module.chat.modifier.BilibiliModifier;
 import org.encinet.mik.module.chat.modifier.ChatModifier;
 import org.encinet.mik.module.chat.modifier.ChatModifierContext;
 import org.encinet.mik.module.chat.modifier.ChatReplacement;
+import org.encinet.mik.module.chat.modifier.ChatReplacementSpacing;
 import org.encinet.mik.module.chat.modifier.ItemModifier;
 import org.encinet.mik.module.chat.modifier.PlayerMentionModifier;
 import org.encinet.mik.module.chat.modifier.UrlModifier;
@@ -63,6 +64,7 @@ final class ChatMessageParser {
         boolean allowMiniMessage = sender.hasPermission(MEMBER_PERMISSION);
 
         int cursor = 0;
+        boolean previousReplacementPaddedAfter = false;
         while (cursor < plainMessage.length()) {
             ChatReplacement replacement = nextReplacement(plainMessage, cursor, context);
             if (replacement == null) {
@@ -71,8 +73,16 @@ final class ChatMessageParser {
             }
             if (replacement.start() > cursor) {
                 builder.append(renderTextSegment(plainMessage.substring(cursor, replacement.start()), allowMiniMessage));
+                previousReplacementPaddedAfter = false;
+            }
+            if (!previousReplacementPaddedAfter && needsPaddingBefore(plainMessage, replacement)) {
+                builder.append(Component.space());
             }
             builder.append(replacement.component());
+            previousReplacementPaddedAfter = needsPaddingAfter(plainMessage, replacement);
+            if (previousReplacementPaddedAfter) {
+                builder.append(Component.space());
+            }
             cursor = replacement.end();
         }
 
@@ -88,6 +98,18 @@ final class ChatMessageParser {
         } catch (RuntimeException ignored) {
             return Component.text(text);
         }
+    }
+
+    private boolean needsPaddingBefore(String text, ChatReplacement replacement) {
+        return replacement.spacing() == ChatReplacementSpacing.PAD_WHEN_JOINED
+                && replacement.start() > 0
+                && !Character.isWhitespace(text.charAt(replacement.start() - 1));
+    }
+
+    private boolean needsPaddingAfter(String text, ChatReplacement replacement) {
+        return replacement.spacing() == ChatReplacementSpacing.PAD_WHEN_JOINED
+                && replacement.end() < text.length()
+                && !Character.isWhitespace(text.charAt(replacement.end()));
     }
 
     private ChatReplacement nextReplacement(String text, int fromIndex, ChatModifierContext context) {

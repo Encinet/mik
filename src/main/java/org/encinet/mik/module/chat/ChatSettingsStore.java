@@ -52,13 +52,13 @@ public final class ChatSettingsStore {
         cache.remove(playerId);
     }
 
-    ChatSettings toggleMention(UUID playerId, ChatMentionSetting setting) {
+    public ChatSettings toggleMention(UUID playerId, ChatMentionSetting setting) {
         ChatSettings next = get(playerId).toggle(setting);
         save(playerId, next);
         return next;
     }
 
-    ChatSettings setDelay(UUID playerId, ChatDelayOption delay) {
+    public ChatSettings setDelay(UUID playerId, ChatDelayOption delay) {
         ChatSettings next = get(playerId).withDelay(delay);
         save(playerId, next);
         return next;

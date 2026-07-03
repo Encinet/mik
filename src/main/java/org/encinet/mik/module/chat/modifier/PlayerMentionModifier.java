@@ -20,7 +20,7 @@ public final class PlayerMentionModifier implements ChatModifier {
             int end = index + player.getName().length();
             if (best == null || start < best.start()
                     || (start == best.start() && end - start > best.end() - best.start())) {
-                best = new ChatReplacement(start, end, ChatRenderUtil.mention(player));
+                best = ChatReplacement.padded(start, end, ChatRenderUtil.mention(player));
             }
         }
         return best;

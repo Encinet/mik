@@ -87,17 +87,15 @@ public final class PlayerAddressModule implements Listener {
         recordLogin(player.getUniqueId(), joinedAddress(player), Instant.now());
     }
 
-    public Optional<PlayerAddressRecord> resolveRecentByAddress(InetAddress address) {
+    public Optional<AddressPlayer> inferPlayerByAddress(InetAddress address) {
         if (address == null) {
             return Optional.empty();
         }
-        return resolveRecentByAddress(addressKey(address), Instant.now());
-    }
 
-    public Optional<PlayerAddressDisplayRecord> resolveRecentDisplayByAddress(InetAddress address) {
-        return resolveRecentByAddress(address)
-                .flatMap(record -> displayName(record.playerId())
-                        .map(name -> new PlayerAddressDisplayRecord(record.playerId(), name, record.count(), record.lastSeenAt())));
+        String addressText = addressKey(address);
+        Optional<PlayerAddressRecord> record = inferPlayerRecordByAddress(addressText, Instant.now());
+        return record
+                .map(value -> new AddressPlayer(value.playerId(), displayName(value.playerId()).orElse(null)));
     }
 
     private void recordLogin(UUID playerId, InetAddress address, Instant now) {
@@ -117,7 +115,7 @@ public final class PlayerAddressModule implements Listener {
         plugin.getLogger().fine("Recorded login address " + addressText + " for " + updated.playerId());
     }
 
-    private Optional<PlayerAddressRecord> resolveRecentByAddress(String address, Instant now) {
+    private Optional<PlayerAddressRecord> inferPlayerRecordByAddress(String address, Instant now) {
         AddressHistory history = historiesByAddress.get(address);
         if (history == null) {
             return Optional.empty();
@@ -296,10 +294,13 @@ public final class PlayerAddressModule implements Listener {
         }
     }
 
-    public record PlayerAddressRecord(String address, UUID playerId, int count, Instant lastSeenAt) {
+    private record PlayerAddressRecord(String address, UUID playerId, int count, Instant lastSeenAt) {
     }
 
-    public record PlayerAddressDisplayRecord(UUID playerId, String playerName, int count, Instant lastSeenAt) {
+    public record AddressPlayer(UUID playerId, String playerName) {
+        public Optional<String> playerNameOptional() {
+            return Optional.ofNullable(playerName);
+        }
     }
 
     private static final class AddressHistory {
