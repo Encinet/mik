@@ -232,7 +232,6 @@ tablist-footer-tps-rich = TPS: { $tps }
 tablist-footer-mspt-rich = MSPT: { $mspt } ms
 tablist-footer-ping-rich = Ping: { $ping } ms
 tablist-footer-world-days-rich = { $world } 第 { $days } 天
-tablist-footer-players-rich = 在线: { $players }
 
 boundary-near-mm = <yellow>你正在接近世界边界</yellow>
 boundary-reached-mm = <red>你已到达世界边界</red>

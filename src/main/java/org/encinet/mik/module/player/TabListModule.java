@@ -26,7 +26,6 @@ import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.util.NameMetaRenderer;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
@@ -37,14 +36,7 @@ public class TabListModule implements Listener, AfkStateListener {
     private static final long DAY_TICKS = 24_000L;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
-    public static boolean showFooterOnlinePlayers = true;
-    public static boolean showFooterTps = true;
-    public static boolean showFooterMspt = true;
-    public static boolean showFooterPing = true;
-    public static boolean showFooterWorldDays = true;
-    public static boolean showFooterPlayerList = true;
-    public static int footerPlayerListMinOnline = 5;
-    public static int footerPlayerListMaxNames = 5;
+    public static int footerOnlinePlayersMinOnline = 5;
 
     private static final Component TABLIST_HEADER = MINI_MESSAGE.deserialize(
             "<gold><bold>Mi</bold><white><bold>k</bold> <green><bold>Casual</bold></green></white></gold>"
@@ -59,7 +51,6 @@ public class TabListModule implements Listener, AfkStateListener {
     private final LanguageService languageService;
     private LuckPerms luckPerms;
     private BukkitTask refreshTask;
-    private int playerListOffset = 0;
 
     public TabListModule(JavaPlugin plugin, AfkService afkService, LanguageService languageService) {
         this.plugin = plugin;
@@ -177,24 +168,13 @@ public class TabListModule implements Listener, AfkStateListener {
 
     private List<Component> footerCandidates(Player viewer) {
         List<Component> footers = new ArrayList<>();
-        if (showFooterOnlinePlayers) {
+        if (Bukkit.getOnlinePlayers().size() >= footerOnlinePlayersMinOnline) {
             footers.add(onlineFooter(viewer));
         }
-        if (showFooterTps) {
-            footers.add(tpsFooter(viewer));
-        }
-        if (showFooterMspt) {
-            footers.add(msptFooter(viewer));
-        }
-        if (showFooterPing) {
-            footers.add(pingFooter(viewer));
-        }
-        if (showFooterWorldDays) {
-            footers.add(worldDaysFooter(viewer));
-        }
-        if (showFooterPlayerList && Bukkit.getOnlinePlayers().size() >= footerPlayerListMinOnline) {
-            footers.add(playersFooter(viewer));
-        }
+        footers.add(tpsFooter(viewer));
+        footers.add(msptFooter(viewer));
+        footers.add(pingFooter(viewer));
+        footers.add(worldDaysFooter(viewer));
         return footers;
     }
 
@@ -231,28 +211,6 @@ public class TabListModule implements Listener, AfkStateListener {
         return languageService.rich(viewer, Message.TABLIST_FOOTER_WORLD_DAYS_RICH, NamedTextColor.GRAY,
                 RichArg.component("world", Component.text(viewer.getWorld().getName(), NamedTextColor.AQUA), viewer.getWorld().getName()),
                 RichArg.component("days", Component.text(days, NamedTextColor.GREEN), Long.toString(days)));
-    }
-
-    private Component playersFooter(Player viewer) {
-        Collection<? extends Player> onlinePlayers = Bukkit.getOnlinePlayers();
-        List<String> names = onlinePlayers.stream()
-                .map(Player::getName)
-                .sorted(String.CASE_INSENSITIVE_ORDER)
-                .toList();
-        if (names.isEmpty()) {
-            return onlineFooter(viewer);
-        }
-
-        int maxNames = Math.max(1, footerPlayerListMaxNames);
-        int count = Math.min(maxNames, names.size());
-        int start = Math.floorMod(playerListOffset++, names.size());
-        List<String> visibleNames = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            visibleNames.add(names.get((start + i) % names.size()));
-        }
-        String visible = String.join(", ", visibleNames);
-        return languageService.rich(viewer, Message.TABLIST_FOOTER_PLAYERS_RICH, NamedTextColor.GRAY,
-                RichArg.component("players", Component.text(visible, NamedTextColor.YELLOW), visible));
     }
 
     private RichArg richNumber(String name, int value, NamedTextColor color) {
