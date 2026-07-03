@@ -228,6 +228,11 @@ back-undo-success-mm = <green>Undid the last <white>/back</white></green>
 back-teleport-failed-mm = <red>Teleport failed. Please try again</red>
 
 tablist-footer-online-rich = Online players: { $online } / { $max }
+tablist-footer-tps-rich = TPS: { $tps }
+tablist-footer-mspt-rich = MSPT: { $mspt } ms
+tablist-footer-ping-rich = Ping: { $ping } ms
+tablist-footer-world-days-rich = { $world } day { $days }
+tablist-footer-players-rich = Online: { $players }
 
 boundary-near-mm = <yellow>You are approaching the world border</yellow>
 boundary-reached-mm = <red>You have reached the world border</red>

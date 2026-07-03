@@ -228,6 +228,11 @@ back-undo-success-mm = <green>已撤销上一次 <white>/back</white></green>
 back-teleport-failed-mm = <red>传送失败，请重试</red>
 
 tablist-footer-online-rich = 在线玩家: { $online } / { $max }
+tablist-footer-tps-rich = TPS: { $tps }
+tablist-footer-mspt-rich = MSPT: { $mspt } ms
+tablist-footer-ping-rich = Ping: { $ping } ms
+tablist-footer-world-days-rich = { $world } 第 { $days } 天
+tablist-footer-players-rich = 在线: { $players }
 
 boundary-near-mm = <yellow>你正在接近世界边界</yellow>
 boundary-reached-mm = <red>你已到达世界边界</red>
