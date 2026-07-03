@@ -41,6 +41,21 @@ final class ChatRenderUtil {
                 .hoverEvent(displayItem.asHoverEvent());
     }
 
+    static Component inventorySlot(Player sender, int slotIndex, String itemEmptyHover) {
+        ItemStack item = sender.getInventory().getItem(slotIndex);
+        if (item == null || item.getType() == Material.AIR || item.isEmpty()) {
+            return Component.text("[empty]", NamedTextColor.GRAY, TextDecoration.ITALIC)
+                    .hoverEvent(HoverEvent.showText(Component.text(itemEmptyHover, NamedTextColor.GRAY)));
+        }
+        ItemStack displayItem = item.clone();
+        return Component.text("[", ITEM_BRACKET)
+                .append(displayItem.effectiveName().colorIfAbsent(ITEM_NAME))
+                .append(Component.text(" x" + displayItem.getAmount(), ITEM_COUNT))
+                .append(Component.text("]", ITEM_BRACKET))
+                .decoration(TextDecoration.UNDERLINED, false)
+                .hoverEvent(displayItem.asHoverEvent());
+    }
+
     static Component link(String label, String url) {
         return Component.text(label, LINK, TextDecoration.UNDERLINED)
                 .clickEvent(ClickEvent.openUrl(url))

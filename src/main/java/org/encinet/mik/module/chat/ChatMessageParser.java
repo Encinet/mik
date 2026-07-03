@@ -16,6 +16,7 @@ import org.encinet.mik.module.chat.modifier.ChatModifierContext;
 import org.encinet.mik.module.chat.modifier.ChatReplacement;
 import org.encinet.mik.module.chat.modifier.ChatReplacementSpacing;
 import org.encinet.mik.module.chat.modifier.ItemModifier;
+import org.encinet.mik.module.chat.modifier.InventorySlotModifier;
 import org.encinet.mik.module.chat.modifier.PlayerMentionModifier;
 import org.encinet.mik.module.chat.modifier.UrlModifier;
 
@@ -41,6 +42,7 @@ final class ChatMessageParser {
             new BilibiliModifier(),
             new UrlModifier(),
             new ItemModifier(),
+            new InventorySlotModifier(),
             new AllMentionModifier(),
             new PlayerMentionModifier()
     );
