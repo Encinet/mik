@@ -220,7 +220,7 @@ public class WhitelistModule implements Listener {
                 .append(Component.text(languageService.t(language, Message.WHITELIST_KICK_TITLE), NamedTextColor.WHITE))
                 .appendNewline()
                 .append(languageService.rich(language, Message.WHITELIST_KICK_APPLY_RICH, NamedTextColor.GRAY,
-                        RichArg.component("site", Component.text("mikapply.noctiro.moe", NamedTextColor.AQUA), "mikapply.noctiro.moe")))
+                        RichArg.component("site", Component.text("apply.mcmik.top", NamedTextColor.AQUA), "apply.mcmik.top")))
                 .appendNewline()
                 .append(languageService.rich(language, Message.WHITELIST_KICK_WEBSITE_RICH, NamedTextColor.GRAY,
                         RichArg.component("site", Component.text("mcmik.top", NamedTextColor.AQUA), "mcmik.top")))
