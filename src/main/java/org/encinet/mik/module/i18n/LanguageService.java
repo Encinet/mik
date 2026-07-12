@@ -191,7 +191,7 @@ public class LanguageService implements Listener {
                 return recordedClientLanguage;
             }
         }
-        return fallbackAddress != null && GeoUtil.isChinaIp(fallbackAddress) ? Language.ZH_CN : Language.EN_US;
+        return geoLanguage(fallbackAddress);
     }
 
     private Language clientLanguage(Player player) {
@@ -242,7 +242,14 @@ public class LanguageService implements Listener {
         if (inetAddress == null) {
             return null;
         }
-        return GeoUtil.isChinaIp(inetAddress) ? Language.ZH_CN : Language.EN_US;
+        return geoLanguage(inetAddress);
+    }
+
+    private static Language geoLanguage(InetAddress address) {
+        if (address == null) {
+            return Language.EN_US;
+        }
+        return Language.fromId(GeoUtil.languageCode(address)).orElse(Language.EN_US);
     }
 
     public String preference(UUID playerId) {
@@ -338,6 +345,9 @@ public class LanguageService implements Listener {
     private Material languageMaterial(Language language) {
         return switch (language) {
             case ZH_CN -> Material.RED_BANNER;
+            case ZH_HK -> Material.MAGENTA_BANNER;
+            case ZH_TW -> Material.PINK_BANNER;
+            case LZH -> Material.BLACK_BANNER;
             case EN_US -> Material.BLUE_BANNER;
         };
     }
@@ -353,8 +363,9 @@ public class LanguageService implements Listener {
     }
 
     public void setPreference(UUID playerId, String value) {
-        preferences.put(playerId, value);
-        languageData.set(playerId.toString() + ".language", value);
+        String normalized = normalizePreference(value);
+        preferences.put(playerId, normalized);
+        languageData.set(playerId.toString() + ".language", normalized);
         try {
             languageData.save(languageFile);
         } catch (IOException e) {
@@ -363,11 +374,14 @@ public class LanguageService implements Listener {
     }
 
     private String loadPreference(UUID playerId) {
-        String value = languageData.getString(playerId.toString() + ".language", AUTO);
-        if (AUTO.equalsIgnoreCase(value) || Language.fromId(value).isPresent()) {
-            return value.toLowerCase(Locale.ROOT);
+        return normalizePreference(languageData.getString(playerId.toString() + ".language", AUTO));
+    }
+
+    private String normalizePreference(String value) {
+        if (value == null || AUTO.equalsIgnoreCase(value)) {
+            return AUTO;
         }
-        return AUTO;
+        return Language.fromId(value).map(Language::id).orElse(AUTO);
     }
 
     private void loadBundles() {

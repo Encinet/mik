@@ -1,203 +1,457 @@
 package org.encinet.mik.util;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
-import java.util.Arrays;
+import java.util.zip.GZIPInputStream;
 
 /**
- * IP geolocation utility using hardcoded Chinese IP CIDR ranges.
- * Supports IPv4 (binary search on long[]) and IPv6 (binary search on long[2][] hi/lo pairs).
- * No heap allocation on the hot path.
+ * Allocation-light, offline IP country lookup for IPv4 and IPv6.
+ *
+ * <p>The bundled database is compiled from the PDDL-licensed user-country dataset from
+ * sapics/ip-location-db. IPv4 uses a direct /16 prefix table. IPv6 uses a /16 prefix table and
+ * adds sparse /24 pages for dense prefixes. Both paths finish with a binary search over sorted,
+ * non-overlapping ranges and do not require locks, network access, or per-result objects.
  */
 public final class GeoUtil {
 
+    public static final String UNKNOWN_COUNTRY = "ZZ";
+    public static final String DEFAULT_LANGUAGE = "en_us";
+
+    private static final int MAGIC = 0x4D494B47; // MIKG
+    private static final int FORMAT_VERSION = 1;
+    private static final int PREFIX_COUNT = 1 << 16;
+    private static final int IPV6_PAGE_WIDTH = 257;
+    private static final int MAX_RANGE_COUNT = 2_000_000;
+    private static final String DATABASE_RESOURCE = "/geo/user-country-v1.dat.gz";
+    private static final String[] COUNTRY_CODES = buildCountryCodes();
+    private static final String[] LANGUAGE_CODES = buildLanguageCodes();
+
     private GeoUtil() {}
 
-    // IPv4: sorted array of [start, end] as unsigned longs
-    private static final long[][] IPV4_RANGES;
-
-    // IPv6: sorted array of [startHi, startLo, endHi, endLo]
-    private static final long[][] IPV6_RANGES;
-
-    static {
-        IPV4_RANGES = buildIpv4(new String[]{
-            "1.0.1.0/24", "1.0.2.0/23", "1.0.8.0/21", "1.0.32.0/19",
-            "1.1.0.0/24", "1.2.0.0/23", "1.4.1.0/24", "1.8.0.0/13",
-            "1.24.0.0/13", "1.48.0.0/12", "1.56.0.0/13", "1.68.0.0/14",
-            "1.80.0.0/12", "1.116.0.0/14", "1.176.0.0/12", "1.192.0.0/11",
-            "14.0.0.0/10", "14.96.0.0/11", "14.128.0.0/10", "14.192.0.0/11",
-            "27.0.0.0/10", "27.96.0.0/11", "27.128.0.0/10", "27.192.0.0/11",
-            "36.0.0.0/10", "36.96.0.0/11", "36.128.0.0/10", "36.192.0.0/11",
-            "39.64.0.0/10", "39.128.0.0/10",
-            "42.0.0.0/8",
-            "43.224.0.0/11", "43.240.0.0/12", "43.248.0.0/13",
-            "45.112.0.0/14", "45.116.0.0/14",
-            "47.52.0.0/14", "47.88.0.0/14", "47.92.0.0/14", "47.96.0.0/11",
-            "49.0.0.0/10", "49.64.0.0/10", "49.128.0.0/10", "49.192.0.0/10",
-            "52.80.0.0/14", "54.222.0.0/15",
-            "58.0.0.0/8",
-            "59.32.0.0/11", "59.64.0.0/10", "59.128.0.0/10", "59.192.0.0/10",
-            "60.0.0.0/10", "60.64.0.0/10", "60.128.0.0/10", "60.192.0.0/10",
-            "61.0.0.0/10", "61.64.0.0/10", "61.128.0.0/10", "61.192.0.0/10",
-            "101.0.0.0/10", "101.64.0.0/10", "101.128.0.0/10", "101.192.0.0/10",
-            "103.0.0.0/10", "103.64.0.0/10",
-            "106.0.0.0/8",
-            "110.0.0.0/8", "111.0.0.0/8", "112.0.0.0/8", "113.0.0.0/8",
-            "114.0.0.0/8", "115.0.0.0/8", "116.0.0.0/8", "117.0.0.0/8",
-            "118.0.0.0/8", "119.0.0.0/8", "120.0.0.0/8", "121.0.0.0/8",
-            "122.0.0.0/8", "123.0.0.0/8", "124.0.0.0/8", "125.0.0.0/8",
-            "163.177.0.0/16", "163.179.0.0/16",
-            "171.0.0.0/8", "175.0.0.0/8",
-            "180.0.0.0/8", "182.0.0.0/8", "183.0.0.0/8",
-            "202.96.0.0/11", "202.102.0.0/15", "202.112.0.0/12",
-            "202.128.0.0/11", "202.192.0.0/11",
-            "203.0.0.0/11", "203.64.0.0/10",
-            "210.0.0.0/10", "210.64.0.0/10", "210.128.0.0/10", "210.192.0.0/10",
-            "211.0.0.0/10", "211.64.0.0/10", "211.128.0.0/10", "211.192.0.0/10",
-            "218.0.0.0/8", "219.0.0.0/8", "220.0.0.0/8",
-            "221.0.0.0/8", "222.0.0.0/8", "223.0.0.0/8"
-        });
-
-        IPV6_RANGES = buildIpv6(new String[]{
-            "2001:da8::/32",              // CERNET2
-            "2001:250::/32", "2001:251::/32", // CSTNET
-            "2001:cc0::/32",              // CERNET
-            "240e::/20",                  // China Telecom
-            "2408::/12",                  // China Unicom
-            "2409::/12",                  // China Mobile
-            "240c::/12",                  // CERNET/misc
-            "2400:3200::/32", "2400:3a00::/32",
-            "2402:4e00::/32",
-            "2404:6800::/32",
-            "2407:c080::/32"
-        });
+    /** Returns the ISO 3166-1 alpha-2 country/region code, or {@value #UNKNOWN_COUNTRY}. */
+    public static String countryCode(InetAddress address) {
+        short encoded = lookupCountry(address);
+        return encoded < 0 ? UNKNOWN_COUNTRY : COUNTRY_CODES[encoded];
     }
 
-    // Build helpers
+    /**
+     * Returns a Minecraft locale code explicitly associated with the resolved country/region.
+     * Countries without a corresponding Minecraft locale fall back to {@value #DEFAULT_LANGUAGE}.
+     */
+    public static String languageCode(InetAddress address) {
+        short encoded = lookupCountry(address);
+        return encoded < 0 ? DEFAULT_LANGUAGE : LANGUAGE_CODES[encoded];
+    }
 
-    private static long[][] buildIpv4(String[] cidrs) {
-        long[][] r = new long[cidrs.length][2];
-        for (int i = 0; i < cidrs.length; i++) {
-            int slash = cidrs[i].indexOf('/');
-            long ip = ipv4ToLong(cidrs[i], slash);
-            int prefix = Integer.parseInt(cidrs[i].substring(slash + 1));
-            long mask = prefix == 0 ? 0L : (0xFFFFFFFFL << (32 - prefix)) & 0xFFFFFFFFL;
-            r[i][0] = ip & mask;
-            r[i][1] = r[i][0] + (~mask & 0xFFFFFFFFL);
+    /** Maps an ISO country/region code to a Minecraft locale without heuristic locale inference. */
+    public static String languageCodeForCountry(String countryCode) {
+        if (countryCode == null || countryCode.length() != 2
+                || countryCode.charAt(0) < 'A' || countryCode.charAt(0) > 'Z'
+                || countryCode.charAt(1) < 'A' || countryCode.charAt(1) > 'Z') {
+            return DEFAULT_LANGUAGE;
         }
-        Arrays.sort(r, (a, b) -> Long.compareUnsigned(a[0], b[0]));
-        return r;
+        int encoded = (countryCode.charAt(0) - 'A') * 26 + countryCode.charAt(1) - 'A';
+        return LANGUAGE_CODES[encoded];
     }
 
-    private static long[][] buildIpv6(String[] cidrs) {
-        long[][] r = new long[cidrs.length][4]; // [startHi, startLo, endHi, endLo]
-        for (int i = 0; i < cidrs.length; i++) {
-            int slash = cidrs[i].indexOf('/');
-            byte[] bytes = parseIpv6Bytes(cidrs[i].substring(0, slash));
-            int prefix = Integer.parseInt(cidrs[i].substring(slash + 1));
-            long hi = toLong(bytes, 0);
-            long lo = toLong(bytes, 8);
-            // apply mask
-            if (prefix <= 64) {
-                long maskHi = prefix == 0 ? 0L : (0xFFFFFFFFFFFFFFFFL << (64 - prefix));
-                hi = hi & maskHi;
-                lo = 0L;
-                r[i][0] = hi; r[i][1] = lo;
-                r[i][2] = hi | ~maskHi; r[i][3] = 0xFFFFFFFFFFFFFFFFL;
-            } else {
-                long maskLo = 0xFFFFFFFFFFFFFFFFL << (128 - prefix);
-                lo = lo & maskLo;
-                r[i][0] = hi; r[i][1] = lo;
-                r[i][2] = hi; r[i][3] = lo | ~maskLo;
-            }
+    private static String explicitLanguageCode(String countryCode) {
+        return switch (countryCode.charAt(0)) {
+            case 'A' -> switch (countryCode) {
+                case "AL" -> "sq_al";
+                case "AM" -> "hy_am";
+                case "AR" -> "es_ar";
+                case "AT" -> "de_at";
+                case "AU" -> "en_au";
+                case "AZ" -> "az_az";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'B' -> switch (countryCode) {
+                case "BA" -> "bs_ba";
+                case "BE" -> "nl_be";
+                case "BG" -> "bg_bg";
+                case "BR" -> "pt_br";
+                case "BY" -> "be_by";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'C' -> switch (countryCode) {
+                case "CA" -> "en_ca";
+                case "CH" -> "de_ch";
+                case "CL" -> "es_cl";
+                case "CN" -> "zh_cn";
+                case "CZ" -> "cs_cz";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'D' -> switch (countryCode) {
+                case "DE" -> "de_de";
+                case "DK" -> "da_dk";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'E' -> switch (countryCode) {
+                case "EC" -> "es_ec";
+                case "EE" -> "et_ee";
+                case "ES" -> "es_es";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'F' -> switch (countryCode) {
+                case "FI" -> "fi_fi";
+                case "FO" -> "fo_fo";
+                case "FR" -> "fr_fr";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'G' -> switch (countryCode) {
+                case "GB" -> "en_gb";
+                case "GE" -> "ka_ge";
+                case "GR" -> "el_gr";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'H' -> switch (countryCode) {
+                case "HK" -> "zh_hk";
+                case "HR" -> "hr_hr";
+                case "HU" -> "hu_hu";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'I' -> switch (countryCode) {
+                case "ID" -> "id_id";
+                case "IE" -> "ga_ie";
+                case "IL" -> "he_il";
+                case "IN" -> "hi_in";
+                case "IR" -> "fa_ir";
+                case "IS" -> "is_is";
+                case "IT" -> "it_it";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'J' -> "JP".equals(countryCode) ? "ja_jp" : DEFAULT_LANGUAGE;
+            case 'K' -> switch (countryCode) {
+                case "KG" -> "ky_kg";
+                case "KR" -> "ko_kr";
+                case "KZ" -> "kk_kz";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'L' -> switch (countryCode) {
+                case "LA" -> "lo_la";
+                case "LI" -> "li_li";
+                case "LT" -> "lt_lt";
+                case "LU" -> "lb_lu";
+                case "LV" -> "lv_lv";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'M' -> switch (countryCode) {
+                case "MK" -> "mk_mk";
+                case "MN" -> "mn_mn";
+                case "MO" -> "zh_hk";
+                case "MT" -> "mt_mt";
+                case "MX" -> "es_mx";
+                case "MY" -> "ms_my";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'N' -> switch (countryCode) {
+                case "NG" -> "ig_ng";
+                case "NL" -> "nl_nl";
+                case "NO" -> "no_no";
+                case "NZ" -> "en_nz";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'P' -> switch (countryCode) {
+                case "PH" -> "fil_ph";
+                case "PL" -> "pl_pl";
+                case "PT" -> "pt_pt";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'R' -> switch (countryCode) {
+                case "RO" -> "ro_ro";
+                case "RS" -> "sr_sp";
+                case "RU" -> "ru_ru";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'S' -> switch (countryCode) {
+                case "SA" -> "ar_sa";
+                case "SE" -> "sv_se";
+                case "SI" -> "sl_si";
+                case "SK" -> "sk_sk";
+                case "SO" -> "so_so";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'T' -> switch (countryCode) {
+                case "TH" -> "th_th";
+                case "TR" -> "tr_tr";
+                case "TW" -> "zh_tw";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'U' -> switch (countryCode) {
+                case "UA" -> "uk_ua";
+                case "US" -> "en_us";
+                case "UY" -> "es_uy";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'V' -> switch (countryCode) {
+                case "VE" -> "es_ve";
+                case "VN" -> "vi_vn";
+                default -> DEFAULT_LANGUAGE;
+            };
+            case 'Z' -> "ZA".equals(countryCode) ? "af_za" : DEFAULT_LANGUAGE;
+            default -> DEFAULT_LANGUAGE;
+        };
+    }
+
+    private static short lookupCountry(InetAddress address) {
+        if (address == null) {
+            return -1;
         }
-        Arrays.sort(r, (a, b) -> {
-            int c = Long.compareUnsigned(a[0], b[0]);
-            return c != 0 ? c : Long.compareUnsigned(a[1], b[1]);
-        });
-        return r;
-    }
 
-    // Parse helpers (no allocation on hot path)
-
-    private static long ipv4ToLong(String cidr, int slash) {
-        long result = 0;
-        int shift = 24;
-        int num = 0;
-        for (int i = 0; i < slash; i++) {
-            char c = cidr.charAt(i);
-            if (c == '.') {
-                result |= ((long) num) << shift;
-                shift -= 8;
-                num = 0;
-            } else {
-                num = num * 10 + (c - '0');
-            }
-        }
-        result |= ((long) num) << shift;
-        return result;
-    }
-
-    private static byte[] parseIpv6Bytes(String ip) {
-        try {
-            return InetAddress.getByName(ip).getAddress();
-        } catch (Exception e) {
-            return new byte[16];
-        }
-    }
-
-    private static long toLong(byte[] b, int offset) {
-        long v = 0;
-        for (int i = 0; i < 8; i++) v = (v << 8) | (b[offset + i] & 0xFFL);
-        return v;
-    }
-
-    // Public API
-
-    public static boolean isChinaIp(InetAddress address) {
+        byte[] bytes = address.getAddress();
         if (address instanceof Inet4Address) {
-            byte[] b = address.getAddress();
-            long ip = ((b[0] & 0xFFL) << 24) | ((b[1] & 0xFFL) << 16)
-                    | ((b[2] & 0xFFL) << 8) | (b[3] & 0xFFL);
-            return searchIpv4(ip);
-        } else if (address instanceof Inet6Address) {
-            byte[] b = address.getAddress();
-            return searchIpv6(toLong(b, 0), toLong(b, 8));
+            return DatabaseHolder.DATABASE.lookupIpv4(ipv4ToInt(bytes, 0));
         }
-        return false;
+        if (address instanceof Inet6Address) {
+            if (isIpv4Mapped(bytes)) {
+                return DatabaseHolder.DATABASE.lookupIpv4(ipv4ToInt(bytes, 12));
+            }
+            return DatabaseHolder.DATABASE.lookupIpv6(toLong(bytes, 0), toLong(bytes, 8));
+        }
+        return -1;
     }
 
-    // Binary search
-
-    private static boolean searchIpv4(long ip) {
-        int lo = 0, hi = IPV4_RANGES.length - 1;
-        while (lo <= hi) {
-            int mid = (lo + hi) >>> 1;
-            if (Long.compareUnsigned(ip, IPV4_RANGES[mid][0]) < 0) hi = mid - 1;
-            else if (Long.compareUnsigned(ip, IPV4_RANGES[mid][1]) > 0) lo = mid + 1;
-            else return true;
+    private static boolean isIpv4Mapped(byte[] bytes) {
+        if (bytes.length != 16 || bytes[10] != (byte) 0xFF || bytes[11] != (byte) 0xFF) {
+            return false;
         }
-        return false;
+        for (int i = 0; i < 10; i++) {
+            if (bytes[i] != 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    private static boolean searchIpv6(long ipHi, long ipLo) {
-        int lo = 0, hi = IPV6_RANGES.length - 1;
-        while (lo <= hi) {
-            int mid = (lo + hi) >>> 1;
-            long[] r = IPV6_RANGES[mid];
-            int cmpLo = Long.compareUnsigned(ipHi, r[0]);
-            if (cmpLo < 0 || (cmpLo == 0 && Long.compareUnsigned(ipLo, r[1]) < 0)) {
-                hi = mid - 1;
-            } else {
-                int cmpHi = Long.compareUnsigned(ipHi, r[2]);
-                if (cmpHi > 0 || (cmpHi == 0 && Long.compareUnsigned(ipLo, r[3]) > 0)) {
-                    lo = mid + 1;
+    private static int ipv4ToInt(byte[] bytes, int offset) {
+        return ((bytes[offset] & 0xFF) << 24)
+                | ((bytes[offset + 1] & 0xFF) << 16)
+                | ((bytes[offset + 2] & 0xFF) << 8)
+                | (bytes[offset + 3] & 0xFF);
+    }
+
+    private static long toLong(byte[] bytes, int offset) {
+        long value = 0;
+        for (int i = 0; i < Long.BYTES; i++) {
+            value = (value << 8) | (bytes[offset + i] & 0xFFL);
+        }
+        return value;
+    }
+
+    private static String[] buildCountryCodes() {
+        String[] codes = new String[26 * 26];
+        for (int first = 0; first < 26; first++) {
+            for (int second = 0; second < 26; second++) {
+                codes[first * 26 + second] = new String(new char[]{
+                        (char) ('A' + first), (char) ('A' + second)
+                });
+            }
+        }
+        return codes;
+    }
+
+    private static String[] buildLanguageCodes() {
+        String[] codes = new String[COUNTRY_CODES.length];
+        for (int i = 0; i < codes.length; i++) {
+            codes[i] = explicitLanguageCode(COUNTRY_CODES[i]);
+        }
+        return codes;
+    }
+
+    private static final class DatabaseHolder {
+        private static final CountryDatabase DATABASE = loadDatabase();
+    }
+
+    private static CountryDatabase loadDatabase() {
+        InputStream resource = GeoUtil.class.getResourceAsStream(DATABASE_RESOURCE);
+        if (resource == null) {
+            throw new ExceptionInInitializerError("Missing GeoUtil database " + DATABASE_RESOURCE);
+        }
+
+        try (DataInputStream input = new DataInputStream(new BufferedInputStream(
+                new GZIPInputStream(resource, 1 << 20), 1 << 20))) {
+            if (input.readInt() != MAGIC) {
+                throw new IOException("Invalid GeoUtil database magic");
+            }
+            int version = input.readInt();
+            if (version != FORMAT_VERSION) {
+                throw new IOException("Unsupported GeoUtil database version " + version);
+            }
+            int ipv4Count = checkedCount(input.readInt(), "IPv4");
+            int ipv6Count = checkedCount(input.readInt(), "IPv6");
+            int[] ipv4Prefixes = readInts(input, PREFIX_COUNT + 1);
+            int[] ipv6Prefixes = readInts(input, PREFIX_COUNT + 1);
+            int ipv6PageCount = checkedCount(input.readInt(), "IPv6 page");
+            if (ipv6PageCount > 0xFFFF) {
+                throw new IOException("Too many IPv6 pages: " + ipv6PageCount);
+            }
+            short[] ipv6PageByPrefix = readShorts(input, PREFIX_COUNT);
+            int[] ipv6PageOffsets = readInts(input, Math.multiplyExact(ipv6PageCount, IPV6_PAGE_WIDTH));
+
+            int[] ipv4Starts = new int[ipv4Count];
+            int[] ipv4Ends = new int[ipv4Count];
+            short[] ipv4Countries = new short[ipv4Count];
+            for (int i = 0; i < ipv4Count; i++) {
+                ipv4Starts[i] = input.readInt();
+                ipv4Ends[i] = input.readInt();
+                ipv4Countries[i] = checkedCountry(input.readShort());
+            }
+
+            long[] ipv6StartHi = new long[ipv6Count];
+            long[] ipv6StartLo = new long[ipv6Count];
+            long[] ipv6EndHi = new long[ipv6Count];
+            long[] ipv6EndLo = new long[ipv6Count];
+            short[] ipv6Countries = new short[ipv6Count];
+            for (int i = 0; i < ipv6Count; i++) {
+                ipv6StartHi[i] = input.readLong();
+                ipv6StartLo[i] = input.readLong();
+                ipv6EndHi[i] = input.readLong();
+                ipv6EndLo[i] = input.readLong();
+                ipv6Countries[i] = checkedCountry(input.readShort());
+            }
+            if (input.read() != -1) {
+                throw new IOException("Trailing data in GeoUtil database");
+            }
+
+            validateOffsets(ipv4Prefixes, ipv4Count, "IPv4 prefix");
+            validateOffsets(ipv6Prefixes, ipv6Count, "IPv6 prefix");
+            validateOffsets(ipv6PageOffsets, ipv6Count, "IPv6 page");
+            return new CountryDatabase(
+                    ipv4Prefixes, ipv4Starts, ipv4Ends, ipv4Countries,
+                    ipv6Prefixes, ipv6PageByPrefix, ipv6PageOffsets,
+                    ipv6StartHi, ipv6StartLo, ipv6EndHi, ipv6EndLo, ipv6Countries);
+        } catch (EOFException e) {
+            throw new ExceptionInInitializerError("Truncated GeoUtil database");
+        } catch (IOException | ArithmeticException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private static int checkedCount(int count, String name) throws IOException {
+        if (count < 0 || count > MAX_RANGE_COUNT) {
+            throw new IOException("Invalid " + name + " count: " + count);
+        }
+        return count;
+    }
+
+    private static short checkedCountry(short country) throws IOException {
+        if (country < 0 || country >= COUNTRY_CODES.length) {
+            throw new IOException("Invalid encoded country: " + country);
+        }
+        return country;
+    }
+
+    private static int[] readInts(DataInputStream input, int count) throws IOException {
+        int[] values = new int[count];
+        for (int i = 0; i < count; i++) {
+            values[i] = input.readInt();
+        }
+        return values;
+    }
+
+    private static short[] readShorts(DataInputStream input, int count) throws IOException {
+        short[] values = new short[count];
+        for (int i = 0; i < count; i++) {
+            values[i] = input.readShort();
+        }
+        return values;
+    }
+
+    private static void validateOffsets(int[] offsets, int rangeCount, String name) throws IOException {
+        int previous = 0;
+        for (int offset : offsets) {
+            if (offset < previous || offset > rangeCount) {
+                throw new IOException("Invalid " + name + " offset: " + offset);
+            }
+            previous = offset;
+        }
+    }
+
+    private record CountryDatabase(
+            int[] ipv4Prefixes,
+            int[] ipv4Starts,
+            int[] ipv4Ends,
+            short[] ipv4Countries,
+            int[] ipv6Prefixes,
+            short[] ipv6PageByPrefix,
+            int[] ipv6PageOffsets,
+            long[] ipv6StartHi,
+            long[] ipv6StartLo,
+            long[] ipv6EndHi,
+            long[] ipv6EndLo,
+            short[] ipv6Countries
+    ) {
+        private short lookupIpv4(int ip) {
+            int prefix = ip >>> 16;
+            int low = Math.max(0, ipv4Prefixes[prefix] - 1);
+            int high = ipv4Prefixes[prefix + 1];
+            int candidate = floorIpv4(ip, low, high);
+            return candidate >= 0 && Integer.compareUnsigned(ip, ipv4Ends[candidate]) <= 0
+                    ? ipv4Countries[candidate]
+                    : -1;
+        }
+
+        private int floorIpv4(int ip, int low, int highExclusive) {
+            int high = highExclusive - 1;
+            int result = -1;
+            while (low <= high) {
+                int middle = (low + high) >>> 1;
+                if (Integer.compareUnsigned(ipv4Starts[middle], ip) <= 0) {
+                    result = middle;
+                    low = middle + 1;
                 } else {
-                    return true;
+                    high = middle - 1;
                 }
             }
+            return result;
         }
-        return false;
+
+        private short lookupIpv6(long ipHi, long ipLo) {
+            int prefix16 = (int) (ipHi >>> 48);
+            int low;
+            int high;
+            int page = Short.toUnsignedInt(ipv6PageByPrefix[prefix16]);
+            if (page == 0) {
+                low = Math.max(0, ipv6Prefixes[prefix16] - 1);
+                high = ipv6Prefixes[prefix16 + 1];
+            } else {
+                int prefix8 = (int) ((ipHi >>> 40) & 0xFF);
+                int base = (page - 1) * IPV6_PAGE_WIDTH;
+                low = Math.max(0, ipv6PageOffsets[base + prefix8] - 1);
+                high = ipv6PageOffsets[base + prefix8 + 1];
+            }
+
+            int candidate = floorIpv6(ipHi, ipLo, low, high);
+            return candidate >= 0
+                            && compare128(ipHi, ipLo, ipv6EndHi[candidate], ipv6EndLo[candidate]) <= 0
+                    ? ipv6Countries[candidate]
+                    : -1;
+        }
+
+        private int floorIpv6(long ipHi, long ipLo, int low, int highExclusive) {
+            int high = highExclusive - 1;
+            int result = -1;
+            while (low <= high) {
+                int middle = (low + high) >>> 1;
+                if (compare128(ipv6StartHi[middle], ipv6StartLo[middle], ipHi, ipLo) <= 0) {
+                    result = middle;
+                    low = middle + 1;
+                } else {
+                    high = middle - 1;
+                }
+            }
+            return result;
+        }
+
+        private static int compare128(long leftHi, long leftLo, long rightHi, long rightLo) {
+            int high = Long.compareUnsigned(leftHi, rightHi);
+            return high != 0 ? high : Long.compareUnsigned(leftLo, rightLo);
+        }
     }
 }

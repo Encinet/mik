@@ -7,6 +7,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.module.i18n.Language;
 
 import java.io.File;
 import java.io.IOException;
@@ -18,7 +19,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,23 +38,10 @@ public class HolidayMotdCategory {
             "<gradient:#84fab0:#8fd3f4>又可以放假了~</gradient><white> {holiday}快乐！</white>"
     };
 
-    private static final String[] GENERIC_TEMPLATES_EN = {
-            "<gradient:#f7971e:#ffd200>Happy {holiday}! Hope today feels lighter</gradient>",
-            "<gold><bold>Happy {holiday}!</bold></gold><white> Wishing you a relaxed day</white>",
-            "<gradient:#ff9a9e:#fad0c4>It's {holiday}, have a good one</gradient>",
-            "<gradient:#84fab0:#8fd3f4>Another day off~</gradient><white> Happy {holiday}!</white>"
-    };
-
     private static final String[] NATIONAL_MID_AUTUMN_TEMPLATES_CN = {
             "<gradient:#de6262:#ffb88c>国庆中秋双节快乐！愿假期慢一点、月色亮一点</gradient>",
             "<red><bold>国庆快乐！</bold></red><gold> 中秋快乐！祝你假期愉快</gold>",
             "<gradient:#f7971e:#ffd200>双节快乐，愿今天团圆、放松、开心摸鱼</gradient>"
-    };
-
-    private static final String[] NATIONAL_MID_AUTUMN_TEMPLATES_EN = {
-            "<gradient:#de6262:#ffb88c>Happy National Day and Mid-Autumn Festival!</gradient>",
-            "<gold><bold>Double holiday!</bold></gold><white> Wishing you rest, reunion, and a bright moon</white>",
-            "<gradient:#f7971e:#ffd200>Happy holidays, hope today feels warm and slow</gradient>"
     };
 
     private static final Map<String, String[]> TEMPLATES_CN = Map.ofEntries(
@@ -108,50 +95,10 @@ public class HolidayMotdCategory {
             })
     );
 
-    private static final Map<String, String[]> TEMPLATES_EN = Map.ofEntries(
-            Map.entry("元旦", new String[]{
-                    "<gradient:#00c6ff:#0072ff>Happy New Year! Wishing you a bright start</gradient>",
-                    "<aqua><bold>Happy New Year!</bold></aqua><white> New year, easy days</white>"
-            }),
-            Map.entry("春节", new String[]{
-                    "<gradient:#ff512f:#f09819><bold>Happy Spring Festival!</bold></gradient><white> Wishing you luck and ease</white>",
-                    "<red><bold>Happy Lunar New Year!</bold></red><gold> May the year treat you kindly</gold>"
-            }),
-            Map.entry("除夕", new String[]{
-                    "<gradient:#ff512f:#dd2476>Happy Lunar New Year's Eve! Wishing you warmth and reunion</gradient>"
-            }),
-            Map.entry("清明", new String[]{
-                    "<gradient:#bdc3c7:#2c3e50>Qingming, wishing you peace and care</gradient>"
-            }),
-            Map.entry("劳动", new String[]{
-                    "<gradient:#56ab2f:#a8e063>Happy Labor Day! Take a break and chill</gradient>"
-            }),
-            Map.entry("端午", new String[]{
-                    "<gradient:#11998e:#38ef7d>Happy Dragon Boat Festival! Remember the zongzi</gradient>"
-            }),
-            Map.entry("中秋", new String[]{
-                    "<gradient:#f7971e:#ffd200>Happy Mid-Autumn Festival! Wishing you a gentle moonlit day</gradient>",
-                    "<gold><bold>Happy Mid-Autumn!</bold></gold><white> May today feel warm and slow</white>"
-            }),
-            Map.entry("国庆", new String[]{
-                    "<gradient:#de6262:#ffb88c>Happy National Day! Wishing you a bright holiday</gradient>"
-            }),
-            Map.entry("圣诞", new String[]{
-                    "<gradient:#00b09b:#96c93d>Merry Christmas! Hope today brings a small surprise</gradient>",
-                    "<red><bold>Merry Christmas!</bold></red><white> Good day for snow and rest</white>"
-            }),
-            Map.entry("情人", new String[]{
-                    "<gradient:#ff758c:#ff7eb3>Happy Valentine's Day! Hope you feel loved and free</gradient>"
-            }),
-            Map.entry("元宵", new String[]{
-                    "<gradient:#f7971e:#ffd200>Happy Lantern Festival! Wishing you gentle lights tonight</gradient>"
-            })
-    );
-
     private final JavaPlugin plugin;
     private final File cacheFile;
     private final HttpClient httpClient;
-    private volatile Map<CalendarLocale, List<HolidayEvent>> holidayEvents = emptyHolidayMap();
+    private volatile List<HolidayEvent> holidayEvents = List.of();
     private volatile Instant lastFetchedAt = Instant.EPOCH;
     private volatile int cachedYear = -1;
     private BukkitTask refreshTask;
@@ -183,50 +130,35 @@ public class HolidayMotdCategory {
         this.refreshListener = refreshListener != null ? refreshListener : () -> {};
     }
 
-    public Optional<String> resolveLine(LocalDate today, boolean chinese, ThreadLocalRandom rng) {
-        return holidayEvents.getOrDefault(CalendarLocale.CN, List.of()).stream()
+    public Optional<String> resolveLine(LocalDate today, Language language, ThreadLocalRandom rng) {
+        if (language != Language.ZH_CN) {
+            return Optional.empty();
+        }
+        return holidayEvents.stream()
                 .filter(event -> event.includes(today))
                 .findFirst()
-                .map(event -> renderHolidayLine(event.summary(), chinese, rng));
+                .map(event -> renderHolidayLine(event.summary(), rng));
     }
 
-    private String renderHolidayLine(String holiday, boolean chinese, ThreadLocalRandom rng) {
+    private String renderHolidayLine(String holiday, ThreadLocalRandom rng) {
         if (holiday.contains("国庆") && holiday.contains("中秋")) {
-            String[] templates = chinese ? NATIONAL_MID_AUTUMN_TEMPLATES_CN : NATIONAL_MID_AUTUMN_TEMPLATES_EN;
-            return fillHoliday(randomTemplate(templates, rng), holiday, chinese);
+            return fillHoliday(randomTemplate(NATIONAL_MID_AUTUMN_TEMPLATES_CN, rng), holiday);
         }
 
-        Map<String, String[]> templatesByKeyword = chinese ? TEMPLATES_CN : TEMPLATES_EN;
-        for (Map.Entry<String, String[]> entry : templatesByKeyword.entrySet()) {
+        for (Map.Entry<String, String[]> entry : TEMPLATES_CN.entrySet()) {
             if (holiday.contains(entry.getKey())) {
-                return fillHoliday(randomTemplate(entry.getValue(), rng), holiday, chinese);
+                return fillHoliday(randomTemplate(entry.getValue(), rng), holiday);
             }
         }
-
-        String[] genericTemplates = chinese ? GENERIC_TEMPLATES_CN : GENERIC_TEMPLATES_EN;
-        return fillHoliday(randomTemplate(genericTemplates, rng), holiday, chinese);
+        return fillHoliday(randomTemplate(GENERIC_TEMPLATES_CN, rng), holiday);
     }
 
     private String randomTemplate(String[] templates, ThreadLocalRandom rng) {
         return templates[rng.nextInt(templates.length)];
     }
 
-    private String fillHoliday(String template, String holiday, boolean chinese) {
-        return template.replace("{holiday}", chinese ? holiday : translateHolidayName(holiday));
-    }
-
-    private String translateHolidayName(String holiday) {
-        if (holiday.contains("元旦")) return "New Year's Day";
-        if (holiday.contains("春节") || holiday.contains("初") || holiday.contains("除夕")) return "Spring Festival";
-        if (holiday.contains("清明")) return "Qingming Festival";
-        if (holiday.contains("劳动")) return "Labor Day";
-        if (holiday.contains("端午")) return "Dragon Boat Festival";
-        if (holiday.contains("中秋")) return "Mid-Autumn Festival";
-        if (holiday.contains("国庆")) return "National Day";
-        if (holiday.contains("圣诞")) return "Christmas";
-        if (holiday.contains("情人")) return "Valentine's Day";
-        if (holiday.contains("元宵")) return "Lantern Festival";
-        return holiday;
+    private String fillHoliday(String template, String holiday) {
+        return template.replace("{holiday}", holiday);
     }
 
     private void refreshAsync() {
@@ -241,16 +173,13 @@ public class HolidayMotdCategory {
     }
 
     private boolean hasNoCachedHolidays() {
-        return holidayEvents.getOrDefault(CalendarLocale.CN, List.of()).isEmpty();
+        return holidayEvents.isEmpty();
     }
 
     private void refresh() {
         try {
             int currentYear = LocalDate.now().getYear();
-            Map<CalendarLocale, List<HolidayEvent>> fetched = new HashMap<>();
-            fetched.put(CalendarLocale.CN, fetchYear(currentYear));
-            fetched.put(CalendarLocale.EN, List.of());
-            holidayEvents = Map.copyOf(fetched);
+            holidayEvents = List.copyOf(fetchYear(currentYear));
             cachedYear = currentYear;
             lastFetchedAt = Instant.now();
             saveCache();
@@ -334,10 +263,7 @@ public class HolidayMotdCategory {
             }
         }
 
-        Map<CalendarLocale, List<HolidayEvent>> loaded = new HashMap<>();
-        loaded.put(CalendarLocale.CN, loadEvents(config, "events.cn"));
-        loaded.put(CalendarLocale.EN, loadEvents(config, "events.en"));
-        holidayEvents = Map.copyOf(loaded);
+        holidayEvents = List.copyOf(loadEvents(config, "events.cn"));
     }
 
     private List<HolidayEvent> loadEvents(YamlConfiguration config, String path) {
@@ -370,8 +296,7 @@ public class HolidayMotdCategory {
         YamlConfiguration config = new YamlConfiguration();
         config.set("fetched-at", lastFetchedAt.toString());
         config.set("year", cachedYear);
-        config.set("events.cn", dumpEvents(holidayEvents.getOrDefault(CalendarLocale.CN, List.of())));
-        config.set("events.en", dumpEvents(holidayEvents.getOrDefault(CalendarLocale.EN, List.of())));
+        config.set("events.cn", dumpEvents(holidayEvents));
         config.save(cacheFile);
     }
 
@@ -385,18 +310,6 @@ public class HolidayMotdCategory {
             dumped.add(map);
         }
         return dumped;
-    }
-
-    private static Map<CalendarLocale, List<HolidayEvent>> emptyHolidayMap() {
-        Map<CalendarLocale, List<HolidayEvent>> map = new HashMap<>();
-        map.put(CalendarLocale.CN, List.of());
-        map.put(CalendarLocale.EN, List.of());
-        return Map.copyOf(map);
-    }
-
-    private enum CalendarLocale {
-        CN,
-        EN
     }
 
     private record HolidayEvent(LocalDate start, LocalDate endExclusive, String summary) {

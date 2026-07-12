@@ -28,6 +28,14 @@ dependencies {
     compileOnly("com.google.code.gson:gson:2.11.0")
     compileOnly('net.luckperms:api:5.4')
     compileOnly("net.quickwrite:fluent-builder:1.0.0")
+    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("net.quickwrite:fluent-builder:1.0.0")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+test {
+    useJUnitPlatform()
 }
 
 tasks {
