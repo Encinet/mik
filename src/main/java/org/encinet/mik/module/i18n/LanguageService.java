@@ -53,7 +53,7 @@ public class LanguageService implements Listener {
 
     public static final String AUTO = "auto";
 
-    private static final int MENU_SIZE = 18;
+    private static final int MENU_SIZE = 27;
     private static final String ACTION_BACK_MAIN = "back:main";
     private static final String ACTION_LANGUAGE_PREFIX = "language:";
 
@@ -157,7 +157,7 @@ public class LanguageService implements Listener {
         for (Language option : Language.values()) {
             builder.item(slot++, preferenceItem(player, option.id(), languageMaterial(option)));
         }
-        builder.item(17, MenuItems.action(Material.ARROW,
+        builder.item(MENU_SIZE - 1, MenuItems.action(Material.ARROW,
                 Component.text(t(language, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
                 List.of(Component.text(t(language, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)),
                 actionKey, ACTION_BACK_MAIN)).open(player);
@@ -349,6 +349,17 @@ public class LanguageService implements Listener {
             case ZH_TW -> Material.PINK_BANNER;
             case LZH -> Material.BLACK_BANNER;
             case EN_US -> Material.BLUE_BANNER;
+            case DE_DE -> Material.YELLOW_BANNER;
+            case ES_ES -> Material.ORANGE_BANNER;
+            case FR_FR -> Material.WHITE_BANNER;
+            case IT_IT -> Material.LIME_BANNER;
+            case JA_JP -> Material.RED_BANNER;
+            case KO_KR -> Material.LIGHT_BLUE_BANNER;
+            case NL_NL -> Material.ORANGE_BANNER;
+            case PT_BR -> Material.GREEN_BANNER;
+            case RU_RU -> Material.CYAN_BANNER;
+            case TH_TH -> Material.PURPLE_BANNER;
+            case UK_UA -> Material.YELLOW_BANNER;
         };
     }
 

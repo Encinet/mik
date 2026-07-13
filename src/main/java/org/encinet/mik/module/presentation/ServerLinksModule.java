@@ -119,7 +119,7 @@ public final class ServerLinksModule implements Listener {
             case ZH_HK -> ZH_HK_LINKS;
             case ZH_TW -> ZH_TW_LINKS;
             case LZH -> LZH_LINKS;
-            case EN_US -> EN_LINKS;
+            case EN_US, DE_DE, ES_ES, FR_FR, IT_IT, JA_JP, KO_KR, NL_NL, PT_BR, RU_RU, TH_TH, UK_UA -> EN_LINKS;
         };
         localized.forEach(fill -> fill.accept(links));
     }
