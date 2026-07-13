@@ -31,7 +31,6 @@ import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.menu.MenuItems;
 import org.encinet.mik.module.menu.MenuNavigation;
-import org.encinet.mik.module.performance.NetworkThrottleModule;
 
 import java.io.File;
 import java.io.IOException;
@@ -87,7 +86,6 @@ public class HomeModule implements Listener {
     private final JavaPlugin plugin;
     private final MenuNavigation menuNavigation;
     private final LanguageService languageService;
-    private final NetworkThrottleModule networkThrottleModule;
     private final NamespacedKey menuActionKey;
     private File dataFile;
     private YamlConfiguration data;
@@ -95,12 +93,10 @@ public class HomeModule implements Listener {
     /** uuid → (homeName → HomeEntry) */
     private final Map<UUID, Map<String, HomeEntry>> cache = new HashMap<>();
 
-    public HomeModule(JavaPlugin plugin, MenuNavigation menuNavigation, LanguageService languageService,
-                      NetworkThrottleModule networkThrottleModule) {
+    public HomeModule(JavaPlugin plugin, MenuNavigation menuNavigation, LanguageService languageService) {
         this.plugin = plugin;
         this.menuNavigation = menuNavigation;
         this.languageService = languageService;
-        this.networkThrottleModule = networkThrottleModule;
         this.menuActionKey = new NamespacedKey(plugin, "home_menu_action");
     }
 
@@ -620,7 +616,6 @@ public class HomeModule implements Listener {
         player.teleportAsync(loc).thenAccept(success -> {
             plugin.getServer().getScheduler().runTask(plugin, () -> {
                 if (success) {
-                    networkThrottleModule.markRecentTeleport(player.getUniqueId());
                     player.sendMessage(homeMessage(player, Message.HOME_TELEPORTED_RICH, name, NamedTextColor.GREEN));
                 } else {
                     player.sendMessage(languageService.text(player, Message.HOME_TELEPORT_FAILED, NamedTextColor.RED));

@@ -24,7 +24,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
-import org.encinet.mik.module.performance.NetworkThrottleModule;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -42,15 +41,13 @@ public class BackModule implements Listener {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
-    private final NetworkThrottleModule networkThrottleModule;
     private final Map<UUID, Deque<Location>> backHistory = new HashMap<>();
     private final Map<UUID, Deque<BackMove>> undoHistory = new HashMap<>();
     private final Map<UUID, PendingBackTeleport> pendingBackTeleports = new HashMap<>();
 
-    public BackModule(JavaPlugin plugin, LanguageService languageService, NetworkThrottleModule networkThrottleModule) {
+    public BackModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
         this.languageService = languageService;
-        this.networkThrottleModule = networkThrottleModule;
     }
 
     public void enable() {
@@ -234,7 +231,6 @@ public class BackModule implements Listener {
                     return;
                 }
                 if (error == null && Boolean.TRUE.equals(success)) {
-                    networkThrottleModule.markRecentTeleport(playerId);
                     onSuccess.run();
                     player.sendMessage(successMessage);
                     return;

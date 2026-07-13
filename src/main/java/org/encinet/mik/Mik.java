@@ -16,7 +16,7 @@ import org.encinet.mik.module.communication.TipModule;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.menu.MenuNavigation;
 import org.encinet.mik.module.musicdisc.MusicDiscModule;
-import org.encinet.mik.module.performance.NetworkThrottleModule;
+import org.encinet.mik.module.performance.NetworkEgressModule;
 import org.encinet.mik.module.performance.PerformanceModule;
 import org.encinet.mik.module.performance.TPSBarModule;
 import org.encinet.mik.module.player.BackModule;
@@ -49,7 +49,7 @@ public final class Mik extends JavaPlugin {
     private ServerLinksModule serverLinksModule;
     private AfkModule afkModule;
     private PerformanceModule performanceModule;
-    private NetworkThrottleModule networkThrottleModule;
+    private NetworkEgressModule networkEgressModule;
     private MusicDiscModule musicDiscModule;
     private MentionService mentionService;
     private ChatSettingsStore chatSettingsStore;
@@ -116,9 +116,9 @@ public final class Mik extends JavaPlugin {
         pvpModule.enable();
         pvpModule.registerCommands(this.getLifecycleManager());
 
-        networkThrottleModule = new NetworkThrottleModule(this, pvpModule, performanceModule, afkModule);
-        networkThrottleModule.enable();
-        networkThrottleModule.registerCommands(this.getLifecycleManager());
+        networkEgressModule = new NetworkEgressModule(this);
+        networkEgressModule.enable();
+        networkEgressModule.registerCommands(this.getLifecycleManager());
 
         chatSettingsStore = new ChatSettingsStore(this);
         chatSettingsStore.enable();
@@ -204,11 +204,11 @@ public final class Mik extends JavaPlugin {
         motdModule = new MotdModule(this, afkModule, languageService, playerAddressModule);
         motdModule.enable();
 
-        homeModule = new HomeModule(this, menuNavigation, languageService, networkThrottleModule);
+        homeModule = new HomeModule(this, menuNavigation, languageService);
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
 
-        backModule = new BackModule(this, languageService, networkThrottleModule);
+        backModule = new BackModule(this, languageService);
         backModule.enable();
         backModule.registerCommands(this.getLifecycleManager());
 
@@ -231,8 +231,8 @@ public final class Mik extends JavaPlugin {
             performanceModule.stop();
         }
 
-        if (networkThrottleModule != null) {
-            networkThrottleModule.disable();
+        if (networkEgressModule != null) {
+            networkEgressModule.disable();
         }
 
         if (afkModule != null) {
