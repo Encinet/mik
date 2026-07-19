@@ -2,7 +2,6 @@ package org.encinet.mik.module.player;
 
 import com.viaversion.viaversion.api.Via;
 import com.viaversion.viaversion.api.protocol.version.ProtocolVersion;
-import com.viaversion.viaversion.api.protocol.version.VersionType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
@@ -20,13 +19,13 @@ import java.util.Locale;
 public class ClientVersionReminderModule implements Listener {
 
     private static final String LATEST = "latest";
-    private static final int LATEST_KNOWN_PROTOCOL = 776;
     private static final long REMINDER_DELAY_TICKS = 40L;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private ProtocolVersion minimumVersion = ProtocolVersion.unknown;
+    private String minimumVersionName = "Unknown";
     private List<SeverityWarning> severityWarnings = List.of();
 
     public ClientVersionReminderModule(JavaPlugin plugin, LanguageService languageService) {
@@ -43,11 +42,12 @@ public class ClientVersionReminderModule implements Listener {
         reload();
 
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        plugin.getLogger().info("ClientVersionReminderModule enabled, minimum client version: " + minimumVersion.getName());
+        plugin.getLogger().info("ClientVersionReminderModule enabled, minimum client version: " + minimumVersionName);
     }
 
     public void reload() {
-        minimumVersion = latestReleaseVersion();
+        minimumVersionName = Bukkit.getMinecraftVersion();
+        minimumVersion = serverProtocolVersion();
         severityWarnings = List.of(
                 warning("1.18", Message.CLIENT_REMINDER_SEVERE_TITLE_MM, Message.CLIENT_REMINDER_SEVERE_MESSAGE_MM),
                 warning("1.21", Message.CLIENT_REMINDER_MANY_TITLE_MM, Message.CLIENT_REMINDER_MANY_MESSAGE_MM),
@@ -62,7 +62,7 @@ public class ClientVersionReminderModule implements Listener {
     }
 
     public String minimumVersionName() {
-        return minimumVersion.isKnown() ? minimumVersion.getName() : "Unknown";
+        return minimumVersionName;
     }
 
     public boolean isOutdated(Player player) {
@@ -90,14 +90,13 @@ public class ClientVersionReminderModule implements Listener {
 
     private void sendReminder(Player player, ProtocolVersion clientVersion) {
         String clientName = clientVersion.getName();
-        String minimumName = minimumVersion.getName();
         SeverityWarning severityWarning = resolveSeverityWarning(clientVersion);
         String severityTitle = languageService.t(player, severityWarning.title());
         String severityMessage = languageService.t(player, severityWarning.message());
 
         player.sendMessage(message(player, Message.CLIENT_REMINDER_BORDER_MM, severityTitle)
                 .append(Component.newline())
-                .append(message(player, Message.CLIENT_REMINDER_VERSION_LINE_MM, clientName, minimumName))
+                .append(message(player, Message.CLIENT_REMINDER_VERSION_LINE_MM, clientName, minimumVersionName))
                 .append(Component.newline())
                 .append(MINI_MESSAGE.deserialize(severityMessage))
                 .append(Component.newline())
@@ -131,11 +130,14 @@ public class ClientVersionReminderModule implements Listener {
         return new SeverityWarning(olderThan, title, message);
     }
 
-    private ProtocolVersion latestReleaseVersion() {
-        return ProtocolVersion.getReversedProtocols().stream()
-                .filter(version -> version.getVersionType() == VersionType.RELEASE)
-                .findFirst()
-                .orElseGet(() -> ProtocolVersion.getProtocol(LATEST_KNOWN_PROTOCOL));
+    private ProtocolVersion serverProtocolVersion() {
+        var serverVersion = Via.getAPI().getServerVersion();
+        if (serverVersion.isKnown()) {
+            return serverVersion.highestSupportedProtocolVersion();
+        }
+
+        ProtocolVersion closestVersion = findProtocolVersion(minimumVersionName);
+        return closestVersion != null ? closestVersion : ProtocolVersion.unknown;
     }
 
     private ProtocolVersion findProtocolVersion(String version) {
@@ -150,7 +152,7 @@ public class ClientVersionReminderModule implements Listener {
     private ProtocolVersion resolveThresholdVersion(String version) {
         String trimmedVersion = version == null ? "" : version.trim();
         if (trimmedVersion.toLowerCase(Locale.ROOT).equals(LATEST)) {
-            return latestReleaseVersion();
+            return minimumVersion;
         }
 
         return findProtocolVersion(trimmedVersion);

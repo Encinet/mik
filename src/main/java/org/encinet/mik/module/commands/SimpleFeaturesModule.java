@@ -20,9 +20,14 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -30,9 +35,12 @@ import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.i18n.TextArg;
 import org.encinet.mik.util.PlayerDisplay;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-public class SimpleFeaturesModule {
+public class SimpleFeaturesModule implements Listener {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final String SPAWN_WORLD = "world";
@@ -41,11 +49,19 @@ public class SimpleFeaturesModule {
     private static final double SPAWN_Z = 82.5;
     private static final float SPAWN_YAW = -90.0f;
     private static final float SPAWN_PITCH = 0.0f;
+    private static final int MAX_SELF_KICK_REASON_LENGTH = 200;
 
+    private final JavaPlugin plugin;
     private final LanguageService languageService;
+    private final Map<UUID, String> pendingSelfKicks = new HashMap<>();
 
-    public SimpleFeaturesModule(LanguageService languageService) {
+    public SimpleFeaturesModule(JavaPlugin plugin, LanguageService languageService) {
+        this.plugin = plugin;
         this.languageService = languageService;
+    }
+
+    public void enable() {
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     /**
@@ -56,6 +72,15 @@ public class SimpleFeaturesModule {
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             final Commands commands = event.registrar();
+
+            commands.register(Commands.literal("kick")
+                            .executes(ctx -> selfKick(ctx.getSource().getSender(), null))
+                            .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                    .executes(ctx -> selfKick(
+                                            ctx.getSource().getSender(),
+                                            StringArgumentType.getString(ctx, "reason"))))
+                            .build(),
+                    languageService.t(Language.DEFAULT, Message.SELF_KICK_COMMAND_DESCRIPTION));
 
             // Register /spawn command
             commands.register(Commands.literal("spawn")
@@ -170,6 +195,66 @@ public class SimpleFeaturesModule {
                     .executes(ctx -> removeItems(ctx.getSource(), 50)).build(),
                     languageService.t(Language.DEFAULT, Message.REMOVEITEMS_COMMAND_DESCRIPTION), List.of("rmitems"));
         });
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSelfKick(PlayerKickEvent event) {
+        String reason = pendingSelfKicks.remove(event.getPlayer().getUniqueId());
+        if (reason == null || event.getCause() != PlayerKickEvent.Cause.SELF_INTERACTION) {
+            return;
+        }
+
+        event.leaveMessage(null);
+        broadcastSelfKick(event.getPlayer().getName(), reason);
+    }
+
+    private int selfKick(CommandSender sender, String rawReason) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(playerOnlyMessage());
+            return 0;
+        }
+
+        String reason = normalizeSelfKickReason(rawReason);
+        if (reason != null && reason.codePointCount(0, reason.length()) > MAX_SELF_KICK_REASON_LENGTH) {
+            player.sendMessage(languageService.text(player, Message.SELF_KICK_REASON_TOO_LONG,
+                    NamedTextColor.RED, MAX_SELF_KICK_REASON_LENGTH));
+            return 0;
+        }
+
+        String storedReason = reason == null ? "" : reason;
+        UUID playerId = player.getUniqueId();
+        pendingSelfKicks.put(playerId, storedReason);
+        String displayedReason = reason == null
+                ? languageService.t(player, Message.SELF_KICK_DEFAULT_REASON)
+                : reason;
+        player.kick(languageService.text(player, Message.SELF_KICK_SCREEN, NamedTextColor.YELLOW,
+                displayedReason), PlayerKickEvent.Cause.SELF_INTERACTION);
+        Bukkit.getScheduler().runTask(plugin, () -> pendingSelfKicks.remove(playerId));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private String normalizeSelfKickReason(String rawReason) {
+        if (rawReason == null) {
+            return null;
+        }
+        String reason = rawReason.replaceAll("\\s+", " ").trim();
+        return reason.isEmpty() ? null : reason;
+    }
+
+    private void broadcastSelfKick(String playerName, String reason) {
+        for (Player recipient : Bukkit.getOnlinePlayers()) {
+            String displayedReason = reason.isEmpty()
+                    ? languageService.t(recipient, Message.SELF_KICK_DEFAULT_REASON)
+                    : reason;
+            recipient.sendMessage(languageService.text(recipient, Message.SELF_KICK_BROADCAST,
+                    NamedTextColor.YELLOW, playerName, displayedReason));
+        }
+
+        String consoleReason = reason.isEmpty()
+                ? languageService.t(Language.DEFAULT, Message.SELF_KICK_DEFAULT_REASON)
+                : reason;
+        Bukkit.getConsoleSender().sendMessage(languageService.text(Language.DEFAULT, Message.SELF_KICK_BROADCAST,
+                NamedTextColor.YELLOW, playerName, consoleReason));
     }
 
     private int removeItems(CommandSourceStack source, int radius) {

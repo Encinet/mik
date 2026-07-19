@@ -61,7 +61,9 @@ public final class ChatMessageFormatter {
     }
 
     public Component privatePreview(Player sender, String targetName, Component message, String copyText) {
-        Component target = Component.text(targetName == null ? "?" : targetName, NamedTextColor.WHITE);
+        String username = targetName == null ? "?" : targetName;
+        Component target = ChatDisplayRenderer.clickablePlayerName(
+                Component.text(username, NamedTextColor.WHITE), username);
         return channelMessage(ChannelMarker.text(privateLabel(sender), NamedTextColor.LIGHT_PURPLE), sender, sender,
                 privateBody(sender, target), message, copyText);
     }

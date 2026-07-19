@@ -582,7 +582,7 @@ public class HomeModule implements Listener {
 
     private List<String> getHomeNames(Player player) {
         Map<String, HomeEntry> homes = cache.get(player.getUniqueId());
-        if (homes == null) return List.of();
+        if (homes == null) return new ArrayList<>();
         return new ArrayList<>(homes.keySet());
     }
 

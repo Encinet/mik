@@ -13,9 +13,13 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.encinet.mik.util.PlayerDisplay;
+import org.encinet.mik.module.ban.BanRecord;
+import org.encinet.mik.module.ban.BanManager;
+import org.encinet.mik.module.ban.BanServiceException;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -100,10 +104,12 @@ public class GrieferModule implements Listener {
             DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.of("Asia/Shanghai"));
 
     private final JavaPlugin plugin;
+    private final BanManager banManager;
     private final Map<UUID, PlayerData> players = new ConcurrentHashMap<>();
 
-    public GrieferModule(JavaPlugin plugin) {
+    public GrieferModule(JavaPlugin plugin, BanManager banManager) {
         this.plugin = plugin;
+        this.banManager = banManager;
     }
 
     /**
@@ -233,14 +239,14 @@ public class GrieferModule implements Listener {
         // Must run on main thread; flag() is called from event handler (already main),
         // but guard anyway in case future refactors call it async.
         Bukkit.getScheduler().runTask(plugin, () -> {
-            player.ban(banReason, Duration.ofDays(30), "Mik GrieferModule");
-            player.kick(Component.text()
-                    .append(Component.text("[Mik] You have been automatically banned", NamedTextColor.RED))
-                    .append(Component.newline())
-                    .append(Component.text("Griefing behavior was detected. Contact staff if you believe this is a mistake.", NamedTextColor.GRAY))
-                    .append(Component.newline())
-                    .append(Component.text("Reason: " + triggerReason, NamedTextColor.GRAY))
-                    .build());
+            try {
+                banManager.ban(player.getUniqueId(), player.getName(), banReason, "Mik GrieferModule",
+                        Instant.now().plus(Duration.ofDays(30)), BanRecord.Origin.GRIEFER);
+                player.kick(Component.text(banReason, NamedTextColor.RED), PlayerKickEvent.Cause.BANNED);
+            } catch (BanServiceException e) {
+                plugin.getLogger().severe("[GrieferModule] Failed to persist auto-ban for "
+                        + player.getName() + ": " + e.getMessage());
+            }
         });
 
         Bukkit.broadcast(

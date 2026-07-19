@@ -22,6 +22,8 @@ import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
-public final class PlayerAddressModule implements Listener {
+public final class PlayerAddressModule implements Listener, PlayerAddressLookup {
 
     private static final String DATA_FILE_NAME = "player-addresses.tsv";
     private static final String HEADER = "# address\tplayer-id\tcount\tlast-seen-at";
@@ -96,6 +98,22 @@ public final class PlayerAddressModule implements Listener {
         Optional<PlayerAddressRecord> record = inferPlayerRecordByAddress(addressText, Instant.now());
         return record
                 .map(value -> new AddressPlayer(value.playerId(), displayName(value.playerId()).orElse(null)));
+    }
+
+    @Override
+    public List<AddressUse> recentPlayersByAddress(InetAddress address, Instant notBefore) {
+        if (address == null || notBefore == null) {
+            return List.of();
+        }
+        AddressHistory history = historiesByAddress.get(addressKey(address));
+        if (history == null) {
+            return List.of();
+        }
+        return history.records().values().stream()
+                .filter(record -> !record.lastSeenAt().isBefore(notBefore))
+                .sorted(Comparator.comparing(PlayerAddressRecord::lastSeenAt).reversed())
+                .map(record -> new AddressUse(record.playerId(), record.lastSeenAt()))
+                .toList();
     }
 
     private void recordLogin(UUID playerId, InetAddress address, Instant now) {

@@ -19,6 +19,7 @@ final class ChatRenderUtil {
     private static final TextColor ITEM_COUNT = TextColor.color(0x6EE7B7);
     private static final TextColor LINK = TextColor.color(0x4EA5FF);
     private static final TextColor BILIBILI = TextColor.color(0xFF6FAE);
+    private static final TextColor GITHUB = TextColor.color(0xC9D1D9);
     private static final TextColor MENTION_AT = TextColor.color(0xF59E0B);
     private static final TextColor MENTION_NAME = TextColor.color(0xFFD166);
     private static final TextColor ALL_MENTION = TextColor.color(0xFFAA00);
@@ -67,6 +68,16 @@ final class ChatRenderUtil {
                 .clickEvent(ClickEvent.openUrl(url))
                 .hoverEvent(HoverEvent.showText(Component.text()
                         .append(Component.text(hoverPrefix, BILIBILI))
+                        .append(Component.newline())
+                        .append(Component.text(url, LINK))
+                        .build()));
+    }
+
+    static Component github(String label, String url) {
+        return Component.text(label, GITHUB, TextDecoration.UNDERLINED)
+                .clickEvent(ClickEvent.openUrl(url))
+                .hoverEvent(HoverEvent.showText(Component.text()
+                        .append(Component.text("GitHub", GITHUB))
                         .append(Component.newline())
                         .append(Component.text(url, LINK))
                         .build()));

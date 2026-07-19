@@ -76,8 +76,7 @@ public final class NetworkEgressModule implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
         SamplingState state = new SamplingState(NETWORK_INTERFACE, OUTBOUND_BUDGET_BYTES_PER_SECOND);
         samplingState = state;
-        sampleTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
-                plugin, () -> sampleNetwork(state), 1L, SAMPLE_PERIOD_TICKS);
+        scheduleNextSample(state, 1L);
         plugin.getLogger().info("NetworkEgressModule enabled (interface=" + NETWORK_INTERFACE
                 + ", protection=enabled, budget=" + OUTBOUND_BUDGET_MEGABITS + " Mbps)");
     }
@@ -127,66 +126,81 @@ public final class NetworkEgressModule implements Listener {
         }
     }
 
+    private synchronized void scheduleNextSample(SamplingState state, long delayTicks) {
+        if (!isActive(state) || !plugin.isEnabled()) {
+            return;
+        }
+        sampleTask = Bukkit.getScheduler().runTaskLaterAsynchronously(
+                plugin, () -> runSample(state), delayTicks);
+    }
+
+    private void runSample(SamplingState state) {
+        try {
+            sampleNetwork(state);
+        } finally {
+            scheduleNextSample(state, SAMPLE_PERIOD_TICKS);
+        }
+    }
+
     private void sampleNetwork(SamplingState state) {
-        synchronized (state) {
-            if (!isActive(state)) {
-                return;
-            }
-            if (state.probe == null || --state.samplesUntilProbeRefresh <= 0) {
-                refreshProbe(state);
-            }
-            if (!isActive(state)) {
-                return;
-            }
-            if (state.probe == null) {
-                markUnavailable(state);
-                return;
-            }
+        if (!isActive(state)) {
+            return;
+        }
+        if (state.probe == null || --state.samplesUntilProbeRefresh <= 0) {
+            refreshProbe(state);
+        }
+        if (!isActive(state)) {
+            return;
+        }
+        if (state.probe == null) {
+            markUnavailable(state);
+            return;
+        }
 
-            long now = System.nanoTime();
-            long transmitBytes = state.probe.readTransmitBytes();
-            if (!isActive(state)) {
-                return;
-            }
-            if (transmitBytes < 0L) {
-                refreshProbe(state);
-                markUnavailable(state);
-                return;
-            }
-            if (state.lastTransmitBytes < 0L || state.lastSampleNanos == 0L) {
-                state.lastTransmitBytes = transmitBytes;
-                state.lastSampleNanos = now;
-                return;
-            }
-            if (transmitBytes < state.lastTransmitBytes) {
-                ThrottleMode resetMode = state.policy.reset();
-                state.desiredMode = resetMode;
-                requestTransition(resetMode, state);
-                state.resetSample();
-                state.lastTransmitBytes = transmitBytes;
-                state.lastSampleNanos = now;
-                return;
-            }
-
-            double elapsedSeconds = Math.max(1L, now - state.lastSampleNanos) / 1_000_000_000.0D;
-            double transmitBytesPerSecond = (transmitBytes - state.lastTransmitBytes) / elapsedSeconds;
-            state.unavailableSamples = 0;
-            state.smoothedTransmitBytesPerSecond = smooth(
-                    state.smoothedTransmitBytesPerSecond, transmitBytesPerSecond);
+        long now = System.nanoTime();
+        long transmitBytes = state.probe.readTransmitBytes();
+        if (!isActive(state)) {
+            return;
+        }
+        if (transmitBytes < 0L) {
+            refreshProbe(state);
+            markUnavailable(state);
+            return;
+        }
+        if (state.lastTransmitBytes < 0L || state.lastSampleNanos == 0L) {
             state.lastTransmitBytes = transmitBytes;
             state.lastSampleNanos = now;
+            return;
+        }
+        if (transmitBytes < state.lastTransmitBytes) {
+            ThrottleMode resetMode = state.policy.reset();
+            state.desiredMode = resetMode;
+            requestTransition(resetMode, state);
+            state.resetSample();
+            state.lastTransmitBytes = transmitBytes;
+            state.lastSampleNanos = now;
+            return;
+        }
 
-            ThrottleMode nextMode = state.policy.update(
-                    state.smoothedTransmitBytesPerSecond / state.budgetBytesPerSecond);
-            state.desiredMode = nextMode;
-            if (nextMode != mode) {
-                state.sendDistanceReconcileSamples = 0;
-                requestTransition(nextMode, state);
-            } else if (nextMode != ThrottleMode.OFF
-                    && ++state.sendDistanceReconcileSamples >= SEND_DISTANCE_RECONCILE_SAMPLES) {
-                state.sendDistanceReconcileSamples = 0;
-                requestReconcile(nextMode, state);
-            }
+        double elapsedSeconds = Math.max(1L, now - state.lastSampleNanos) / 1_000_000_000.0D;
+        double transmitBytesPerSecond = (transmitBytes - state.lastTransmitBytes) / elapsedSeconds;
+        state.unavailableSamples = 0;
+        double smoothedTransmitBytesPerSecond = smooth(
+                state.smoothedTransmitBytesPerSecond, transmitBytesPerSecond);
+        state.smoothedTransmitBytesPerSecond = smoothedTransmitBytesPerSecond;
+        state.lastTransmitBytes = transmitBytes;
+        state.lastSampleNanos = now;
+
+        ThrottleMode nextMode = state.policy.update(
+                smoothedTransmitBytesPerSecond / state.budgetBytesPerSecond);
+        state.desiredMode = nextMode;
+        if (nextMode != mode) {
+            state.sendDistanceReconcileSamples = 0;
+            requestTransition(nextMode, state);
+        } else if (nextMode != ThrottleMode.OFF
+                && ++state.sendDistanceReconcileSamples >= SEND_DISTANCE_RECONCILE_SAMPLES) {
+            state.sendDistanceReconcileSamples = 0;
+            requestReconcile(nextMode, state);
         }
     }
 
@@ -378,8 +392,6 @@ public final class NetworkEgressModule implements Listener {
                 ? -1.0D
                 : transmitBytesPerSecond / OUTBOUND_BUDGET_BYTES_PER_SECOND;
         return Component.text("Network egress", NamedTextColor.AQUA)
-                .append(metricLine("protection", Component.text("enabled", NamedTextColor.GREEN),
-                        "Protection uses the outbound budget compiled into the plugin."))
                 .append(metricLine("mode", Component.text(mode.name(), modeColor(mode)),
                         "Chunk send distance is reduced only while host egress stays under pressure."))
                 .append(metricLine("interface", Component.text(interfaceName(), NamedTextColor.GRAY),
@@ -393,9 +405,7 @@ public final class NetworkEgressModule implements Listener {
                 .append(metricLine("pressure", Component.text(formatPressure(pressureRatio), pressureColor(pressureRatio)),
                         "Outbound throughput divided by the configured budget."))
                 .append(metricLine("send distance", Component.text(sendDistanceSummary(), NamedTextColor.GRAY),
-                        "Paper chunk send distance. View and simulation distance remain owned by PerformanceModule."))
-                .append(metricLine("packet drops", Component.text("disabled", NamedTextColor.GREEN),
-                        "Entity movement, velocity, metadata, equipment, effects, and attributes are never cancelled."));
+                        "Paper chunk send distance. View and simulation distance remain owned by PerformanceModule."));
     }
 
     private Component metricLine(String label, Component value, String hover) {
@@ -490,7 +500,6 @@ public final class NetworkEgressModule implements Listener {
                 int requiredSamples = desired == ThrottleMode.CRITICAL ? 1 : ESCALATION_CONFIRM_SAMPLES;
                 if (escalationSamples >= requiredSamples) {
                     mode = desired;
-                    pendingEscalation = desired;
                     escalationSamples = 0;
                 }
                 recoverySamples = 0;

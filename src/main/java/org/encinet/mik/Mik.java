@@ -2,6 +2,7 @@ package org.encinet.mik;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.access.AutoPromoteModule;
+import org.encinet.mik.module.ban.BanModule;
 import org.encinet.mik.module.access.RestrictionModule;
 import org.encinet.mik.module.access.WhitelistModule;
 import org.encinet.mik.module.afk.AfkModule;
@@ -13,6 +14,7 @@ import org.encinet.mik.module.chat.mention.MentionService;
 import org.encinet.mik.module.commands.SimpleFeaturesModule;
 import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.communication.TipModule;
+import org.encinet.mik.module.event.FifthAnniversaryEventModule;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.menu.MenuNavigation;
 import org.encinet.mik.module.musicdisc.MusicDiscModule;
@@ -21,12 +23,14 @@ import org.encinet.mik.module.performance.PerformanceModule;
 import org.encinet.mik.module.performance.TPSBarModule;
 import org.encinet.mik.module.player.BackModule;
 import org.encinet.mik.module.player.ClientVersionReminderModule;
+import org.encinet.mik.module.player.FlightModule;
 import org.encinet.mik.module.player.GameModeSwitchModule;
 import org.encinet.mik.module.player.HomeModule;
 import org.encinet.mik.module.player.InvisibilityNotifyModule;
 import org.encinet.mik.module.player.NameTagModule;
 import org.encinet.mik.module.player.PlayerBoundaryModule;
 import org.encinet.mik.module.player.PlayerAddressModule;
+import org.encinet.mik.module.player.PlayerPresenceModule;
 import org.encinet.mik.module.player.MainMenuModule;
 import org.encinet.mik.module.player.WelcomeModule;
 import org.encinet.mik.module.pvp.PvpModule;
@@ -56,7 +60,9 @@ public final class Mik extends JavaPlugin {
     private ChatModule chatModule;
     private SimpleFeaturesModule commandsModule;
     private AutoPromoteModule autoPromoteModule;
+    private BanModule banModule;
     private RestrictionModule restrictionModule;
+    private FlightModule flightModule;
     private GameModeSwitchModule gameModeSwitchModule;
     private PlayerBoundaryModule playerBoundaryModule;
     private TPSBarModule tpsBarModule;
@@ -77,10 +83,12 @@ public final class Mik extends JavaPlugin {
     private PvpModule pvpModule;
     private ClientVersionReminderModule clientVersionReminderModule;
     private WelcomeModule welcomeModule;
+    private PlayerPresenceModule playerPresenceModule;
     private MenuNavigation menuNavigation;
     private LanguageService languageService;
     private PlayerAddressModule playerAddressModule;
     private SpawnBeaconColorModule spawnBeaconColorModule;
+    private FifthAnniversaryEventModule fifthAnniversaryEventModule;
 
     @Override
     public void onLoad() {
@@ -102,12 +110,20 @@ public final class Mik extends JavaPlugin {
         playerAddressModule = new PlayerAddressModule(this);
         playerAddressModule.enable();
 
+        banModule = new BanModule(this, languageService, playerAddressModule);
+        banModule.enable();
+        banModule.registerCommands(this.getLifecycleManager());
+
         serverLinksModule = new ServerLinksModule(languageService);
         serverLinksModule.register(this);
 
         afkModule = new AfkModule(this, languageService);
         afkModule.enable();
         afkModule.registerCommands(this.getLifecycleManager());
+
+        fifthAnniversaryEventModule = new FifthAnniversaryEventModule(this, afkModule, languageService);
+        fifthAnniversaryEventModule.enable();
+        fifthAnniversaryEventModule.registerCommands(this.getLifecycleManager());
 
         performanceModule = new PerformanceModule(this, afkModule);
         performanceModule.start();
@@ -137,6 +153,9 @@ public final class Mik extends JavaPlugin {
         welcomeModule = new WelcomeModule(this, languageService);
         welcomeModule.enable();
 
+        playerPresenceModule = new PlayerPresenceModule(this, languageService);
+        playerPresenceModule.enable();
+
         if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
             clientVersionReminderModule = new ClientVersionReminderModule(this, languageService);
             clientVersionReminderModule.enable();
@@ -154,7 +173,8 @@ public final class Mik extends JavaPlugin {
         musicDiscModule.registerCommands(this.getLifecycleManager());
         musicDiscModule.enableMusicChests();
 
-        commandsModule = new SimpleFeaturesModule(languageService);
+        commandsModule = new SimpleFeaturesModule(this, languageService);
+        commandsModule.enable();
         commandsModule.registerCommands(this.getLifecycleManager());
 
         autoPromoteModule = new AutoPromoteModule(this, languageService);
@@ -166,6 +186,10 @@ public final class Mik extends JavaPlugin {
 
         gameModeSwitchModule = new GameModeSwitchModule(this);
         gameModeSwitchModule.enable();
+
+        flightModule = new FlightModule(this, languageService);
+        flightModule.enable();
+        flightModule.registerCommands(this.getLifecycleManager());
 
         playerBoundaryModule = new PlayerBoundaryModule(this, languageService);
         playerBoundaryModule.enable();
@@ -180,7 +204,7 @@ public final class Mik extends JavaPlugin {
         fixBugModule = new FixBugModule(this);
         fixBugModule.enable();
 
-        grieferModule = new GrieferModule(this);
+        grieferModule = new GrieferModule(this, banModule.manager());
         grieferModule.enable();
 
         announcementModule = new AnnouncementModule(this, menuNavigation);
@@ -192,7 +216,7 @@ public final class Mik extends JavaPlugin {
         tipModule.registerCommands(this.getLifecycleManager());
 
         // Announcement data is exposed by the API module.
-        apiModule = new ApiModule(this, languageService);
+        apiModule = new ApiModule(this, languageService, banModule.manager());
         apiModule.setAnnouncementModule(announcementModule);
         apiModule.start(35353);
         apiModule.registerCommands(this.getLifecycleManager());
@@ -227,6 +251,10 @@ public final class Mik extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (fifthAnniversaryEventModule != null) {
+            fifthAnniversaryEventModule.disable();
+        }
+
         if (performanceModule != null) {
             performanceModule.stop();
         }
@@ -277,6 +305,14 @@ public final class Mik extends JavaPlugin {
 
         if (spawnBeaconColorModule != null) {
             spawnBeaconColorModule.disable();
+        }
+
+        if (flightModule != null) {
+            flightModule.disable();
+        }
+
+        if (banModule != null) {
+            banModule.disable();
         }
     }
 }

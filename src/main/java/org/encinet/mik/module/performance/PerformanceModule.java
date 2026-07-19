@@ -822,6 +822,9 @@ public class PerformanceModule implements Listener {
         static void run(List<World> worlds) {
             for (World world : worlds) {
                 for (Entity entity : world.getEntities()) {
+                    if (entity instanceof Vehicle vehicle && !vehicle.getPassengers().isEmpty()) {
+                        continue;
+                    }
                     if (entity instanceof Item item) {
                         if (item.getTicksLived() > ITEM_MAX_TICKS) {
                             item.remove();

@@ -1,11 +1,9 @@
 package org.encinet.mik.module.api;
 
-import com.destroystokyo.paper.profile.PlayerProfile;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import io.papermc.paper.ban.BanListType;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -23,6 +21,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
+import org.encinet.mik.module.ban.BanRecord;
+import org.encinet.mik.module.ban.BanManager;
 import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
@@ -40,11 +40,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
@@ -61,6 +59,7 @@ public class ApiModule implements Listener {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
+    private final BanManager banManager;
     private final File stateFile;
     private final Map<UUID, OnlinePlayerInfo> onlinePlayers = new HashMap<>();
     private final Map<String, WebLoginConfirmation> webLoginConfirmations = new ConcurrentHashMap<>();
@@ -90,9 +89,10 @@ public class ApiModule implements Listener {
         void handle(HttpExchange exchange) throws Exception;
     }
 
-    public ApiModule(JavaPlugin plugin, LanguageService languageService) {
+    public ApiModule(JavaPlugin plugin, LanguageService languageService, BanManager banManager) {
         this.plugin = plugin;
         this.languageService = languageService;
+        this.banManager = banManager;
         this.stateFile = new File(plugin.getDataFolder(), STATE_FILE_NAME);
     }
 
@@ -475,48 +475,27 @@ public class ApiModule implements Listener {
     }
 
     private byte[] bansJson() throws IOException {
-        if (Bukkit.isPrimaryThread()) {
-            return buildBansJson();
-        }
-
-        try {
-            return Bukkit.getScheduler()
-                    .callSyncMethod(plugin, this::buildBansJson)
-                    .get(2, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new IOException("Interrupted while reading bans", e);
-        } catch (ExecutionException | TimeoutException e) {
-            throw new IOException("Failed to read bans", e);
-        }
+        return buildBansJson();
     }
 
     private byte[] buildBansJson() {
-        var banList = Bukkit.getBanList(BanListType.PROFILE);
-        var banEntries = banList.getEntries();
-
         StringBuilder sb = new StringBuilder("[");
         boolean first = true;
-        for (var entry : banEntries) {
+        for (BanRecord record : banManager.activeRecords()) {
             if (!first) {
                 sb.append(",");
             }
             first = false;
 
-            PlayerProfile profile = (PlayerProfile) entry.getBanTarget();
-            String playerName = profile.getName() != null ? profile.getName() : "";
-            String playerUuid = profile.getId() != null ? profile.getId().toString() : "";
-            String reason = entry.getReason() != null ? entry.getReason() : "";
-            String bannedBy = entry.getSource();
-            String bannedAt = entry.getCreated().toInstant().toString();
-            String expiresAt = entry.getExpiration() != null ? entry.getExpiration().toInstant().toString() : null;
+            String playerUuid = record.playerUuid() == null ? "" : record.playerUuid().toString();
+            String expiresAt = record.expiresAt() == null ? null : record.expiresAt().toString();
             boolean isPermanent = expiresAt == null;
 
-            sb.append("{\"playerName\":\"").append(escapeJson(playerName)).append("\"")
+            sb.append("{\"playerName\":\"").append(escapeJson(record.playerName())).append("\"")
                     .append(",\"playerUuid\":\"").append(escapeJson(playerUuid)).append("\"")
-                    .append(",\"reason\":\"").append(escapeJson(reason)).append("\"")
-                    .append(",\"bannedBy\":\"").append(escapeJson(bannedBy)).append("\"")
-                    .append(",\"bannedAt\":\"").append(escapeJson(bannedAt)).append("\"")
+                    .append(",\"reason\":\"").append(escapeJson(record.reason())).append("\"")
+                    .append(",\"bannedBy\":\"").append(escapeJson(record.source())).append("\"")
+                    .append(",\"bannedAt\":\"").append(record.createdAt()).append("\"")
                     .append(",\"expiresAt\":").append(expiresAt == null ? "null" : "\"" + escapeJson(expiresAt) + "\"")
                     .append(",\"isPermanent\":").append(isPermanent)
                     .append("}");

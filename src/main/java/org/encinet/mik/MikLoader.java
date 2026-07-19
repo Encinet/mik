@@ -24,6 +24,7 @@ public class MikLoader implements PluginLoader {
         ).build());
         resolver.addDependency(new Dependency(new DefaultArtifact("com.google.code.gson:gson:2.11.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.quickwrite:fluent-builder:1.0.0"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.49.1.0"), null));
         builder.addLibrary(resolver);
     }
 }

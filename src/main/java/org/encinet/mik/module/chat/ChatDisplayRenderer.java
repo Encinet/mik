@@ -1,6 +1,7 @@
 package org.encinet.mik.module.chat;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.entity.Player;
@@ -13,7 +14,11 @@ public final class ChatDisplayRenderer {
     }
 
     public static Component playerName(Player player) {
-        return PlayerDisplay.name(player, usernameColor(player));
+        return clickablePlayerName(PlayerDisplay.name(player, usernameColor(player)), player.getName());
+    }
+
+    public static Component clickablePlayerName(Component name, String username) {
+        return name.clickEvent(ClickEvent.suggestCommand("/tell " + username + " "));
     }
 
     public static TextColor usernameColor(Player player) {

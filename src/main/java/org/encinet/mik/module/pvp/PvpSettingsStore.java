@@ -14,7 +14,7 @@ final class PvpSettingsStore {
     private static final boolean DEFAULT_PVP_ENABLED = false;
     private static final boolean DEFAULT_PROTECT_MOBS = true;
     private static final boolean DEFAULT_ALLOW_MOUNTED_DAMAGE = true;
-    private static final boolean DEFAULT_ENABLE_ON_DEATH = true;
+    private static final boolean DEFAULT_ENABLE_ON_DEATH = false;
 
     private final JavaPlugin plugin;
     private final Map<UUID, PvpSettings> cache = new ConcurrentHashMap<>();

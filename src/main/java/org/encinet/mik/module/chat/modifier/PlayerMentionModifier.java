@@ -11,6 +11,9 @@ public final class PlayerMentionModifier implements ChatModifier {
         String lowerText = text.toLowerCase(Locale.ROOT);
         ChatReplacement best = null;
         for (Player player : context.players()) {
+            if (player.getUniqueId().equals(context.sender().getUniqueId())) {
+                continue;
+            }
             String lowerName = player.getName().toLowerCase(Locale.ROOT);
             int index = lowerText.indexOf(lowerName, fromIndex);
             if (index < 0) {

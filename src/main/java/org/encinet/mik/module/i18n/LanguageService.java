@@ -7,15 +7,19 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import net.quickwrite.fluent4j.ast.entry.FluentAttributeEntry;
+import net.quickwrite.fluent4j.ast.entry.FluentMessage;
 import net.quickwrite.fluent4j.ast.pattern.ArgumentList;
 import net.quickwrite.fluent4j.container.ArgumentListBuilder;
 import net.quickwrite.fluent4j.container.FluentBundle;
 import net.quickwrite.fluent4j.container.FluentBundleBuilder;
 import net.quickwrite.fluent4j.container.FluentResource;
 import net.quickwrite.fluent4j.iterator.FluentIteratorFactory;
+import net.quickwrite.fluent4j.impl.container.FluentResolverScope;
 import net.quickwrite.fluent4j.parser.ResourceParser;
 import net.quickwrite.fluent4j.parser.ResourceParserBuilder;
 import net.quickwrite.fluent4j.result.StringResultFactory;
+import net.quickwrite.fluent4j.result.ResultBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -47,6 +51,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Optional;
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class LanguageService implements Listener {
@@ -194,6 +200,10 @@ public class LanguageService implements Listener {
         return geoLanguage(fallbackAddress);
     }
 
+    public Language languageForAddress(InetAddress address) {
+        return geoLanguage(address);
+    }
+
     private Language clientLanguage(Player player) {
         try {
             Language language = Language.fromLocale(player.locale()).orElse(null);
@@ -270,6 +280,63 @@ public class LanguageService implements Listener {
         return bundle.resolveMessage(message.key(), arguments, StringResultFactory.construct())
                 .map(Object::toString)
                 .orElseGet(() -> fallbackText(message, args));
+    }
+
+    public List<String> attributeNames(Language language, String messageId) {
+        FluentBundle bundle = bundles.get(language);
+        if (bundle == null) {
+            return List.of();
+        }
+        return bundle.getMessage(messageId)
+                .map(FluentMessage::getAttributes)
+                .stream()
+                .flatMap(Arrays::stream)
+                .map(attribute -> attribute.getIdentifier().getSimpleIdentifier())
+                .toList();
+    }
+
+    public Optional<String> attribute(Language language, String messageId, String attributeName) {
+        FluentBundle bundle = bundles.get(language);
+        if (bundle == null) {
+            return Optional.empty();
+        }
+
+        Optional<FluentAttributeEntry.Attribute> attribute = bundle.getMessage(messageId)
+                .flatMap(message -> message.getAttribute(attributeName));
+        if (attribute.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ResultBuilder result = StringResultFactory.construct();
+        attribute.get().resolve(new FluentResolverScope(bundle, ArgumentListBuilder.builder().build(), result), result);
+        return Optional.of(result.toString());
+    }
+
+    public Optional<Component> richAttribute(Language language, String messageId, String attributeName,
+                                             NamedTextColor baseColor, RichArg... richArgs) {
+        FluentBundle bundle = bundles.get(language);
+        if (bundle == null) {
+            return Optional.empty();
+        }
+
+        Optional<FluentAttributeEntry.Attribute> attribute = bundle.getMessage(messageId)
+                .flatMap(message -> message.getAttribute(attributeName));
+        if (attribute.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ArgumentList.Builder arguments = ArgumentListBuilder.builder();
+        Map<String, RichArg> tokens = new ConcurrentHashMap<>();
+        for (int i = 0; i < richArgs.length; i++) {
+            RichArg arg = richArgs[i];
+            String token = "[[MIK_RICH_" + i + "]]";
+            arguments.add(arg.name(), token);
+            tokens.put(token, arg);
+        }
+
+        ResultBuilder result = StringResultFactory.construct();
+        attribute.get().resolve(new FluentResolverScope(bundle, arguments.build(), result), result);
+        return Optional.of(replaceRichTokens(result.toString(), baseColor, tokens));
     }
 
     public String format(Player player, Message message, TextArg... args) {

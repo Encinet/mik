@@ -44,6 +44,7 @@ import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.util.PlayerDisplay;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -62,24 +63,10 @@ public class AfkModule implements Listener, AfkService {
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
     private static final int MAX_STATUS_LENGTH = 20;
-    private static final Message[] DEFAULT_MESSAGES = {
-            Message.AFK_DEFAULT_STATUS_1,
-            Message.AFK_DEFAULT_STATUS_2,
-            Message.AFK_DEFAULT_STATUS_3,
-            Message.AFK_DEFAULT_STATUS_4
-    };
-    private static final Message[] DEFAULT_ENTER_TEMPLATES = {
-            Message.AFK_ENTER_DEFAULT_MM
-    };
-    private static final Message[] CUSTOM_ENTER_TEMPLATES = {
-            Message.AFK_ENTER_CUSTOM_1_MM,
-            Message.AFK_ENTER_CUSTOM_2_MM,
-            Message.AFK_ENTER_CUSTOM_3_MM
-    };
-    private static final Message[] EXIT_TEMPLATES = {
-            Message.AFK_EXIT_1_MM,
-            Message.AFK_EXIT_2_MM
-    };
+    private static final String DEFAULT_STATUSES = "afk-default-statuses";
+    private static final String DEFAULT_ENTER_TEMPLATES = "afk-enter-default-templates";
+    private static final String CUSTOM_ENTER_TEMPLATES = "afk-enter-custom-templates";
+    private static final String EXIT_TEMPLATES = "afk-exit-templates";
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final MiniMessage SAFE_MESSAGE = MiniMessage.builder()
             .tags(TagResolver.resolver(
@@ -386,14 +373,12 @@ public class AfkModule implements Listener, AfkService {
     private void setAfk(Player player, String customMessage, boolean automatic) {
         UUID playerId = player.getUniqueId();
         boolean hasCustomMessage = customMessage != null && !customMessage.isBlank();
-        Message defaultMessage = hasCustomMessage ? null : randomDefaultMessage();
-        Message enterTemplate = hasCustomMessage ? randomFrom(CUSTOM_ENTER_TEMPLATES) : randomFrom(DEFAULT_ENTER_TEMPLATES);
         AfkState state = new AfkState(playerId, hasCustomMessage ? customMessage : null, automatic, System.currentTimeMillis());
         states.put(playerId, state);
         applyAfkProtection(player);
         displayController.update(player, state);
         notifyListeners(player, state);
-        broadcastEnterMessage(player, enterTemplate, defaultMessage, customMessage, hasCustomMessage);
+        broadcastEnterMessage(player, customMessage, hasCustomMessage);
     }
 
     private void clearAfk(Player player, boolean notifyPlayer) {
@@ -409,7 +394,7 @@ public class AfkModule implements Listener, AfkService {
         restoreAfkProtection(player);
         displayController.remove(playerId);
         notifyListeners(player, null);
-        broadcastExitMessage(player, randomFrom(EXIT_TEMPLATES));
+        broadcastExitMessage(player);
     }
 
     private void notifyListeners(Player player, AfkState state) {
@@ -425,8 +410,18 @@ public class AfkModule implements Listener, AfkService {
         double dy = from.getY() - to.getY();
         double dz = from.getZ() - to.getZ();
         if (dx * dx + dy * dy + dz * dz > 0.01D) return true;
-        return angularDelta(from.getYaw(), to.getYaw()) >= 8.0F
-                || Math.abs(from.getPitch() - to.getPitch()) >= 8.0F;
+        return isMeaningfulRotation(
+                from.getYaw(), from.getPitch(), to.getYaw(), to.getPitch());
+    }
+
+    static boolean isMeaningfulRotation(
+            float fromYaw,
+            float fromPitch,
+            float toYaw,
+            float toPitch
+    ) {
+        return angularDelta(fromYaw, toYaw) >= 8.0F
+                && Math.abs(fromPitch - toPitch) >= 8.0F;
     }
 
     private boolean isPositionChange(Location from, Location to) {
@@ -448,7 +443,7 @@ public class AfkModule implements Listener, AfkService {
                 || input.isSprint();
     }
 
-    private float angularDelta(float a, float b) {
+    private static float angularDelta(float a, float b) {
         float delta = Math.abs(a - b) % 360.0F;
         return delta > 180.0F ? 360.0F - delta : delta;
     }
@@ -496,33 +491,45 @@ public class AfkModule implements Listener, AfkService {
                 || lower.equals("取消");
     }
 
-    private Message randomDefaultMessage() {
-        return randomFrom(DEFAULT_MESSAGES);
-    }
-
-    private void broadcastEnterMessage(Player player, Message template, Message defaultMessage,
-                                       String customMessage, boolean customMessagePresent) {
+    private void broadcastEnterMessage(Player player, String customMessage, boolean customMessagePresent) {
+        Map<Language, Optional<Component>> localizedMessages = new EnumMap<>(Language.class);
         for (Player viewer : Bukkit.getOnlinePlayers()) {
-            String status = customMessagePresent ? customMessage : languageService.t(viewer, defaultMessage);
-            viewer.sendMessage(enterMessage(viewer, player, template, status));
+            Language language = languageService.language(viewer);
+            localizedMessages.computeIfAbsent(language,
+                            ignored -> enterMessage(language, player, customMessage, customMessagePresent))
+                    .ifPresent(viewer::sendMessage);
         }
     }
 
-    private Component enterMessage(Player viewer, Player player, Message template, String message) {
-        return MINI_MESSAGE.deserialize(languageService.t(viewer, template),
+    private Optional<Component> enterMessage(Language language, Player player, String customMessage,
+                                             boolean customMessagePresent) {
+        String templateList = customMessagePresent ? CUSTOM_ENTER_TEMPLATES : DEFAULT_ENTER_TEMPLATES;
+        Optional<String> template = randomAttribute(language, templateList);
+        Optional<String> status = customMessagePresent
+                ? Optional.of(customMessage)
+                : randomAttribute(language, DEFAULT_STATUSES);
+        if (template.isEmpty() || status.isEmpty()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(MINI_MESSAGE.deserialize(template.get(),
                 Placeholder.component("player", PlayerDisplay.name(player)),
-                Placeholder.component("status", renderStatusMessage(message)));
+                Placeholder.component("status", renderStatusMessage(status.get()))));
     }
 
-    private void broadcastExitMessage(Player player, Message template) {
+    private void broadcastExitMessage(Player player) {
+        Map<Language, Optional<Component>> localizedMessages = new EnumMap<>(Language.class);
         for (Player viewer : Bukkit.getOnlinePlayers()) {
-            viewer.sendMessage(exitMessage(viewer, player, template));
+            Language language = languageService.language(viewer);
+            localizedMessages.computeIfAbsent(language, ignored -> exitMessage(language, player))
+                    .ifPresent(viewer::sendMessage);
         }
     }
 
-    private Component exitMessage(Player viewer, Player player, Message template) {
-        return MINI_MESSAGE.deserialize(languageService.t(viewer, template),
-                Placeholder.component("player", PlayerDisplay.name(player)));
+    private Optional<Component> exitMessage(Language language, Player player) {
+        return randomAttribute(language, EXIT_TEMPLATES)
+                .map(template -> MINI_MESSAGE.deserialize(template,
+                        Placeholder.component("player", PlayerDisplay.name(player))));
     }
 
     private Component renderStatusMessage(String message) {
@@ -531,7 +538,20 @@ public class AfkModule implements Listener, AfkService {
                 Placeholder.component("message", SAFE_MESSAGE.deserialize(message)));
     }
 
-    private Message randomFrom(Message[] values) {
-        return values[ThreadLocalRandom.current().nextInt(values.length)];
+    private Optional<String> randomAttribute(Language language, String messageId) {
+        Optional<String> localized = randomAttributeWithoutFallback(language, messageId);
+        if (localized.isPresent() || language == Language.DEFAULT) {
+            return localized;
+        }
+        return randomAttributeWithoutFallback(Language.DEFAULT, messageId);
+    }
+
+    private Optional<String> randomAttributeWithoutFallback(Language language, String messageId) {
+        List<String> attributes = languageService.attributeNames(language, messageId);
+        if (attributes.isEmpty()) {
+            return Optional.empty();
+        }
+        String attribute = attributes.get(ThreadLocalRandom.current().nextInt(attributes.size()));
+        return languageService.attribute(language, messageId, attribute);
     }
 }
