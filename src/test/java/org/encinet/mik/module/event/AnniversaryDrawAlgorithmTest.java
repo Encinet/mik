@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,6 +29,12 @@ class AnniversaryDrawAlgorithmTest {
                 FOUR_HOURS_MILLIS * 2L, 1));
         assertEquals(0, FifthAnniversaryEventModule.readyRegularDrawCount(
                 FOUR_HOURS_MILLIS * 2L, 2));
+        assertEquals(0, FifthAnniversaryEventModule.readyRegularDrawCount(
+                FOUR_HOURS_MILLIS * 2L, 0, true));
+        assertTrue(FifthAnniversaryEventModule.bonusDrawReady(false, true, false));
+        assertFalse(FifthAnniversaryEventModule.bonusDrawReady(true, true, false));
+        assertFalse(FifthAnniversaryEventModule.bonusDrawReady(false, false, false));
+        assertFalse(FifthAnniversaryEventModule.bonusDrawReady(false, true, true));
     }
 
     @Test
@@ -170,6 +177,76 @@ class AnniversaryDrawAlgorithmTest {
         assertThrows(IllegalArgumentException.class,
                 () -> FifthAnniversaryEventModule.takeAvailablePrize(
                         remaining, new int[]{0, 1, 0, 0}, 0));
+    }
+
+    @Test
+    void eachPlayerCanWinEachPrizeTypeOnlyOnce() {
+        assertFalse(FifthAnniversaryEventModule.isPrizeTypeEligible(
+                Set.of("logo-mug"), "logo-mug"));
+        assertTrue(FifthAnniversaryEventModule.isPrizeTypeEligible(
+                Set.of("logo-mug"), "logo-keychain"));
+        assertTrue(FifthAnniversaryEventModule.isPrizeTypeEligible(
+                Set.of("logo-mug"), "anniversary-gift-pack"));
+        assertFalse(FifthAnniversaryEventModule.isPrizeTypeEligible(
+                Set.of("anniversary-gift-pack"), "logo-keychain"));
+    }
+
+    @Test
+    void giftPackReplacesVirtualBagAndRestoresSupersededStock() {
+        List<String> virtualBag = new java.util.ArrayList<>(List.of(
+                "logo-keychain", "logo-mug", "group-photo-badge"));
+        int[] stocks = {19, 9, 19, 4};
+
+        int restored = FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
+                virtualBag, "anniversary-gift-pack", stocks);
+
+        assertEquals(3, restored);
+        assertEquals(List.of("anniversary-gift-pack"), virtualBag);
+        assertTrue(Arrays.equals(new int[]{20, 10, 20, 4}, stocks));
+    }
+
+    @Test
+    void virtualBagIgnoresDuplicateAndNonWinningResults() {
+        List<String> virtualBag = new java.util.ArrayList<>();
+        int[] stocks = {19, 10, 20, 5};
+
+        assertEquals(0, FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
+                virtualBag, "logo-keychain", stocks));
+        assertEquals(0, FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
+                virtualBag, "logo-keychain", stocks));
+        assertEquals(0, FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
+                virtualBag, "not-won", stocks));
+
+        assertEquals(List.of("logo-keychain"), virtualBag);
+        assertTrue(Arrays.equals(new int[]{19, 10, 20, 5}, stocks));
+    }
+
+    @Test
+    void persistedGiftPackAlwaysNormalizesToTheOnlyFinalPrize() {
+        assertEquals(List.of("anniversary-gift-pack"),
+                FifthAnniversaryEventModule.normalizeVirtualBag(List.of(
+                        "logo-keychain",
+                        "anniversary-gift-pack",
+                        "logo-mug",
+                        "anniversary-gift-pack",
+                        "not-won")));
+        assertEquals(List.of("logo-keychain", "logo-mug"),
+                FifthAnniversaryEventModule.normalizeVirtualBag(List.of(
+                        "logo-keychain", "logo-keychain", "not-won", "logo-mug")));
+    }
+
+    @Test
+    void virtualBagItemsUseStableCenteredSlots() {
+        assertTrue(Arrays.equals(new int[0],
+                FifthAnniversaryEventModule.virtualBagPrizeSlots(0)));
+        assertTrue(Arrays.equals(new int[]{13},
+                FifthAnniversaryEventModule.virtualBagPrizeSlots(1)));
+        assertTrue(Arrays.equals(new int[]{12, 14},
+                FifthAnniversaryEventModule.virtualBagPrizeSlots(2)));
+        assertTrue(Arrays.equals(new int[]{11, 13, 15},
+                FifthAnniversaryEventModule.virtualBagPrizeSlots(3)));
+        assertThrows(IllegalArgumentException.class,
+                () -> FifthAnniversaryEventModule.virtualBagPrizeSlots(4));
     }
 
     @Test

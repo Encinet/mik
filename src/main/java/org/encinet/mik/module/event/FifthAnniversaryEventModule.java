@@ -18,6 +18,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -25,8 +26,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -36,6 +43,7 @@ import org.encinet.mik.module.afk.AfkStateListener;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.menu.MenuItems;
 
 import java.io.File;
 import java.io.IOException;
@@ -78,7 +86,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private static final int SAVE_INTERVAL_TICKS = 60;
     private static final String NO_PRIZE_ID = "not-won";
     private static final String SOLD_OUT_ID = "sold-out";
-    private static final int ALGORITHM_VERSION = 1;
+    private static final int ALGORITHM_VERSION = 2;
     private static final long CONTROL_BUCKET_MILLIS = Duration.ofMinutes(10).toMillis();
     private static final long RELEASE_SLOT_MILLIS = Duration.ofHours(2).toMillis();
     private static final double RELEASE_CURVE_EXPONENT = 0.72D;
@@ -93,6 +101,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private static final double PRIOR_OPPORTUNITIES_PER_HOUR = 1.5D;
     private static final int ADMIN_AUDIT_LIMIT = 10;
     private static final int WINNER_LIST_PAGE_SIZE = 10;
+    private static final int VIRTUAL_BAG_SIZE = 27;
+    private static final int VIRTUAL_BAG_CLOSE_SLOT = 22;
+    private static final String GIFT_PACK_ID = "anniversary-gift-pack";
     private static final DateTimeFormatter ADMIN_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(EVENT_ZONE);
     private static final ClickCallback.Options CALLBACK_OPTIONS = ClickCallback.Options.builder()
@@ -100,7 +111,10 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             .lifetime(Duration.ofMinutes(5))
             .build();
     private static final String[] PRIZE_IDS = {
-            "logo-keychain", "logo-mug", "group-photo-badge", "anniversary-gift-pack"
+            "logo-keychain", "logo-mug", "group-photo-badge", GIFT_PACK_ID
+    };
+    private static final Material[] PRIZE_MATERIALS = {
+            Material.TRIPWIRE_HOOK, Material.FLOWER_POT, Material.PAPER, Material.CHEST
     };
     private static final Message[] PRIZE_MESSAGES = {
             Message.ANNIVERSARY_PRIZE_KEYCHAIN,
@@ -121,6 +135,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
 
     static {
         if (PRIZE_IDS.length != PRIZE_MESSAGES.length
+                || PRIZE_IDS.length != PRIZE_MATERIALS.length
                 || PRIZE_IDS.length != INITIAL_STOCKS.length
                 || Set.of(PRIZE_IDS).size() != PRIZE_IDS.length
                 || Arrays.stream(INITIAL_STOCKS).anyMatch(stock -> stock <= 0)) {
@@ -188,6 +203,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         long now = System.currentTimeMillis();
         for (Player player : Bukkit.getOnlinePlayers()) {
             accountTime(player, now, !afkService.isAfk(player.getUniqueId()));
+            if (player.getOpenInventory().getTopInventory().getHolder() instanceof VirtualBagHolder) {
+                player.closeInventory();
+            }
             hideBossBar(player);
         }
         afkService.removeListener(this);
@@ -200,6 +218,12 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
                 Commands.literal(COMMAND_NAME)
                         .executes(context -> execute(context.getSource().getSender()))
+                        .then(Commands.literal("rule")
+                                .executes(context -> showRules(
+                                        context.getSource().getSender())))
+                        .then(Commands.literal("bag")
+                                .executes(context -> openVirtualBag(
+                                        context.getSource().getSender())))
                         .then(Commands.literal("admin")
                                 .requires(source -> isEventAdministrator(source.getSender()))
                                 .executes(context -> sendAdminDashboard(
@@ -258,6 +282,24 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         saveData();
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onVirtualBagClick(InventoryClickEvent event) {
+        if (event.getView().getTopInventory().getHolder() instanceof VirtualBagHolder) {
+            event.setCancelled(true);
+            if (event.getRawSlot() == VIRTUAL_BAG_CLOSE_SLOT
+                    && event.getWhoClicked() instanceof Player player) {
+                player.closeInventory();
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onVirtualBagDrag(InventoryDragEvent event) {
+        if (event.getView().getTopInventory().getHolder() instanceof VirtualBagHolder) {
+            event.setCancelled(true);
+        }
+    }
+
     @Override
     public void onAfkStateChanged(Player player, AfkState state) {
         long now = System.currentTimeMillis();
@@ -309,6 +351,66 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         }
         sendParticipantStatus(player, participant);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private int openVirtualBag(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(languageService.text(Language.DEFAULT, Message.PLAYER_ONLY,
+                    NamedTextColor.RED));
+            return 0;
+        }
+        if (isEventAdministrator(player.getUniqueId())) {
+            return sendAdminDashboard(player);
+        }
+        Participant participant = participants.get(player.getUniqueId());
+        if (participant == null) {
+            player.sendMessage(text(player, Message.ANNIVERSARY_BAG_NOT_PARTICIPATING,
+                    NamedTextColor.YELLOW, "/" + COMMAND_NAME));
+            return 0;
+        }
+
+        VirtualBagHolder holder = new VirtualBagHolder(player.getUniqueId());
+        Inventory inventory = Bukkit.createInventory(holder, VIRTUAL_BAG_SIZE,
+                text(player, Message.ANNIVERSARY_BAG_TITLE, NamedTextColor.GOLD));
+        holder.attach(inventory);
+        int[] prizeSlots = virtualBagPrizeSlots(participant.virtualBag.size());
+        for (int index = 0; index < participant.virtualBag.size(); index++) {
+            inventory.setItem(prizeSlots[index],
+                    virtualPrizeItem(player, participant.virtualBag.get(index)));
+        }
+        if (participant.virtualBag.isEmpty()) {
+            inventory.setItem(13, MenuItems.item(Material.GRAY_DYE,
+                    text(player, Message.ANNIVERSARY_BAG_EMPTY, NamedTextColor.GRAY), List.of()));
+        }
+        inventory.setItem(VIRTUAL_BAG_CLOSE_SLOT, MenuItems.item(Material.BARRIER,
+                text(player, Message.CLOSE, NamedTextColor.RED), List.of()));
+        player.openInventory(inventory);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    static int[] virtualBagPrizeSlots(int prizeCount) {
+        return switch (prizeCount) {
+            case 0 -> new int[0];
+            case 1 -> new int[]{13};
+            case 2 -> new int[]{12, 14};
+            case 3 -> new int[]{11, 13, 15};
+            default -> throw new IllegalArgumentException("Unexpected virtual bag prize count");
+        };
+    }
+
+    private ItemStack virtualPrizeItem(Player player, String prizeId) {
+        int prizeIndex = prizeIndex(prizeId);
+        ItemStack item = new ItemStack(PRIZE_MATERIALS[prizeIndex]);
+        ItemMeta meta = item.getItemMeta();
+        meta.customName(text(player, Message.ANNIVERSARY_BAG_ITEM_NAME,
+                NamedTextColor.GOLD, prizeName(player, prizeId)));
+        meta.lore(List.of(
+                text(player, Message.ANNIVERSARY_BAG_ITEM_LORE, NamedTextColor.GRAY),
+                text(player, Message.ANNIVERSARY_BAG_ITEM_LOCKED, NamedTextColor.DARK_GRAY)));
+        meta.setEnchantmentGlintOverride(true);
+        meta.setMaxStackSize(1);
+        item.setItemMeta(meta);
+        return item;
     }
 
     private boolean isEventAdministrator(CommandSender sender) {
@@ -401,13 +503,15 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         List<WinnerEntry> winners = new ArrayList<>();
         for (Map.Entry<UUID, Participant> entry : participants.entrySet()) {
             Participant participant = entry.getValue();
-            participant.regularDraws.stream()
-                    .filter(draw -> isWinningPrize(draw.prizeId))
-                    .map(draw -> new WinnerEntry(entry.getKey(), participant.lastKnownName, draw))
-                    .forEach(winners::add);
-            if (participant.bonusDraw != null && isWinningPrize(participant.bonusDraw.prizeId)) {
-                winners.add(new WinnerEntry(entry.getKey(), participant.lastKnownName,
-                        participant.bonusDraw));
+            List<DrawResult> draws = allDrawResults(
+                    participant.regularDraws, participant.bonusDraw);
+            for (String prizeId : participant.virtualBag) {
+                draws.stream()
+                        .filter(draw -> prizeId.equals(draw.prizeId) && !draw.superseded)
+                        .max(Comparator.comparingLong(draw -> draw.drawnAt))
+                        .map(draw -> new WinnerEntry(
+                                entry.getKey(), participant.lastKnownName, draw))
+                        .ifPresent(winners::add);
             }
         }
         return winners;
@@ -461,8 +565,12 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 readyRegularDrawCount(participant)));
         sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_PLAYER_OUTCOME,
                 NamedTextColor.WHITE, participant.wins, participant.losses,
-                participant.prizes.size(), participant.bonusGranted
+                performedDrawCount(participant), participant.bonusGranted
                         ? adminBonusState(sender, participant) : adminValue(sender, Message.ANNIVERSARY_ADMIN_NONE)));
+        sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_PLAYER_BAG,
+                NamedTextColor.YELLOW, participant.virtualBag.isEmpty()
+                        ? adminValue(sender, Message.ANNIVERSARY_ADMIN_NONE)
+                        : localizedPrizes(sender, participant.virtualBag)));
         if (participant.bonusGranted) {
             sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_PLAYER_BONUS,
                     NamedTextColor.AQUA, adminBonusState(sender, participant),
@@ -488,8 +596,11 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private void sendDrawAudit(CommandSender sender, String label, DrawResult draw) {
+        String effectiveLabel = draw.superseded
+                ? label + " · " + adminValue(sender, Message.ANNIVERSARY_ADMIN_DRAW_REPLACED)
+                : label;
         sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_DRAW_DETAIL,
-                NamedTextColor.WHITE, label, formatAdminTime(draw.drawnAt),
+                NamedTextColor.WHITE, effectiveLabel, formatAdminTime(draw.drawnAt),
                 prizeName(sender, draw.prizeId)));
         sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_DRAW_METRICS,
                 NamedTextColor.GRAY, formatProbability(draw.probability),
@@ -517,6 +628,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private String adminBonusState(CommandSender sender, Participant participant) {
+        if (hasGiftPack(participant)) {
+            return adminValue(sender, Message.ANNIVERSARY_ADMIN_BONUS_CANCELLED);
+        }
         return adminValue(sender, participant.bonusDraw != null
                 ? Message.ANNIVERSARY_ADMIN_BONUS_USED
                 : Message.ANNIVERSARY_ADMIN_BONUS_PENDING);
@@ -586,8 +700,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return value == null ? "-" : value.toString();
     }
 
-    private void openRulesDialog(Player player) {
-        Component rules = Component.text()
+    private Component rulesDialogBody(Player player) {
+        return Component.text()
                 .append(text(player, Message.ANNIVERSARY_DIALOG_TIME, NamedTextColor.YELLOW, EVENT_TIME_TEXT))
                 .appendNewline()
                 .append(text(player, Message.ANNIVERSARY_DIALOG_PRIZES, NamedTextColor.GOLD,
@@ -599,6 +713,19 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 .appendNewline()
                 .append(rules(player))
                 .build();
+    }
+
+    private DialogBase rulesDialogBase(Player player) {
+        return DialogBase.builder(text(player, Message.ANNIVERSARY_DIALOG_TITLE, NamedTextColor.GOLD))
+                .canCloseWithEscape(true)
+                .pause(false)
+                .afterAction(DialogBase.DialogAfterAction.CLOSE)
+                .body(List.of(DialogBody.plainMessage(rulesDialogBody(player), 400)))
+                .inputs(List.of())
+                .build();
+    }
+
+    private void openRulesDialog(Player player) {
 
         ActionButton confirm = ActionButton.create(
                 text(player, Message.ANNIVERSARY_CONFIRM, NamedTextColor.GREEN),
@@ -610,15 +737,25 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 text(player, Message.ANNIVERSARY_CANCEL, NamedTextColor.GRAY), null, 100, null);
 
         Dialog dialog = Dialog.create(builder -> builder.empty()
-                .base(DialogBase.builder(text(player, Message.ANNIVERSARY_DIALOG_TITLE, NamedTextColor.GOLD))
-                        .canCloseWithEscape(true)
-                        .pause(false)
-                        .afterAction(DialogBase.DialogAfterAction.CLOSE)
-                        .body(List.of(DialogBody.plainMessage(rules, 400)))
-                        .inputs(List.of())
-                        .build())
+                .base(rulesDialogBase(player))
                 .type(DialogType.confirmation(confirm, cancel)));
         player.showDialog(dialog);
+    }
+
+    private int showRules(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(languageService.text(Language.DEFAULT, Message.PLAYER_ONLY,
+                    NamedTextColor.RED));
+            return 0;
+        }
+
+        ActionButton close = ActionButton.create(
+                text(player, Message.CLOSE, NamedTextColor.GRAY), null, 100, null);
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(rulesDialogBase(player))
+                .type(DialogType.notice(close)));
+        player.showDialog(dialog);
+        return Command.SINGLE_SUCCESS;
     }
 
     private void confirmParticipation(Player player) {
@@ -649,21 +786,42 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private boolean regularDrawReady(Participant participant) {
-        return readyRegularDrawCount(participant) > 0;
+        return !hasGiftPack(participant) && readyRegularDrawCount(participant) > 0;
     }
 
     private int readyRegularDrawCount(Participant participant) {
-        return readyRegularDrawCount(participant.activeMillis, participant.regularDraws.size());
+        return readyRegularDrawCount(participant.activeMillis,
+                participant.regularDraws.size(), hasGiftPack(participant));
     }
 
     static int readyRegularDrawCount(long activeMillis, int performedDraws) {
+        return readyRegularDrawCount(activeMillis, performedDraws, false);
+    }
+
+    static int readyRegularDrawCount(
+            long activeMillis,
+            int performedDraws,
+            boolean giftPackFinal
+    ) {
+        if (giftPackFinal) {
+            return 0;
+        }
         int unlocked = (int) Math.min(MAX_DRAWS,
                 Math.max(0L, activeMillis) / DRAW_INTERVAL_MILLIS);
         return Math.max(0, unlocked - Math.max(0, performedDraws));
     }
 
     private boolean bonusDrawReady(Participant participant) {
-        return participant.bonusGranted && participant.bonusDraw == null;
+        return bonusDrawReady(
+                hasGiftPack(participant), participant.bonusGranted, participant.bonusDraw != null);
+    }
+
+    static boolean bonusDrawReady(
+            boolean giftPackFinal,
+            boolean bonusGranted,
+            boolean bonusDrawn
+    ) {
+        return !giftPackFinal && bonusGranted && !bonusDrawn;
     }
 
     private int readyOpportunityCount(Participant participant) {
@@ -671,9 +829,16 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private int earnedOpportunityCount(Participant participant) {
+        if (hasGiftPack(participant)) {
+            return performedDrawCount(participant);
+        }
         int regular = (int) Math.min(MAX_DRAWS,
                 participant.activeMillis / DRAW_INTERVAL_MILLIS);
         return regular + (participant.bonusGranted ? 1 : 0);
+    }
+
+    private int performedDrawCount(Participant participant) {
+        return participant.regularDraws.size() + (participant.bonusDraw == null ? 0 : 1);
     }
 
     private boolean drawNext(Player player, Participant participant, long drawnAt) {
@@ -694,7 +859,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private void finishRegularDraw(Player player, Participant participant, DrawResult draw) {
-        participant.prizes.add(draw.prizeId);
+        int replaced = applyDrawToVirtualBag(participant, draw);
         participant.lastKnownName = player.getName();
         saveData();
 
@@ -707,16 +872,22 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             player.sendMessage(text(player, Message.ANNIVERSARY_DRAW_WON, NamedTextColor.GREEN,
                     draw.round, prizeName(player, draw.prizeId)));
             player.sendMessage(text(player, Message.ANNIVERSARY_DELIVERY_NOTE, NamedTextColor.YELLOW));
+            player.sendMessage(text(player, Message.ANNIVERSARY_BAG_UPDATED, NamedTextColor.AQUA,
+                    "/" + COMMAND_NAME + " bag"));
+            if (GIFT_PACK_ID.equals(draw.prizeId)) {
+                player.sendMessage(text(player, Message.ANNIVERSARY_GIFT_PACK_FINAL,
+                        NamedTextColor.GOLD, replaced));
+            }
             broadcastWinner(player.getName(), draw.round, draw.prizeId);
         }
-        if (participant.regularDraws.size() < MAX_DRAWS) {
+        if (!hasGiftPack(participant) && participant.regularDraws.size() < MAX_DRAWS) {
             player.sendMessage(text(player, Message.ANNIVERSARY_SECOND_ROUND_HINT, NamedTextColor.GRAY));
         }
         updateBossBar(player, Instant.now());
     }
 
     private void finishBonusDraw(Player player, Participant participant, DrawResult draw) {
-        participant.prizes.add(draw.prizeId);
+        int replaced = applyDrawToVirtualBag(participant, draw);
         participant.lastKnownName = player.getName();
         saveData();
 
@@ -729,6 +900,12 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             player.sendMessage(text(player, Message.ANNIVERSARY_BONUS_DRAW_WON, NamedTextColor.GREEN,
                     prizeName(player, draw.prizeId)));
             player.sendMessage(text(player, Message.ANNIVERSARY_DELIVERY_NOTE, NamedTextColor.YELLOW));
+            player.sendMessage(text(player, Message.ANNIVERSARY_BAG_UPDATED, NamedTextColor.AQUA,
+                    "/" + COMMAND_NAME + " bag"));
+            if (GIFT_PACK_ID.equals(draw.prizeId)) {
+                player.sendMessage(text(player, Message.ANNIVERSARY_GIFT_PACK_FINAL,
+                        NamedTextColor.GOLD, replaced));
+            }
             broadcastBonusWinner(player.getName(), draw.prizeId);
         }
         updateBossBar(player, Instant.now());
@@ -765,6 +942,11 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         }
 
         Participant participant = targetEntry.getValue();
+        if (hasGiftPack(participant)) {
+            sender.sendMessage(text(sender, Message.ANNIVERSARY_BONUS_GIFT_PACK_FINAL,
+                    NamedTextColor.RED, participant.lastKnownName));
+            return 0;
+        }
         if (participant.bonusGranted) {
             sender.sendMessage(text(sender, Message.ANNIVERSARY_BONUS_ALREADY_GRANTED,
                     NamedTextColor.RED, participant.lastKnownName));
@@ -795,7 +977,10 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             int round,
             long drawnAt
     ) {
-        double baseProbability = baseProbability(drawnAt);
+        Set<String> excludedPrizeIds = Set.copyOf(participant.virtualBag);
+        int[] availableByType = availablePrizeStockForPlayer(drawnAt, excludedPrizeIds);
+        double baseProbability = Arrays.stream(availableByType).sum() > 0
+                ? baseProbability(drawnAt) : 0.0D;
         double weight = personalWeight(participant.wins, participant.losses);
         double calibration = baseProbability > 0.0D
                 ? calibrationOffset(baseProbability) : 0.0D;
@@ -808,7 +993,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         double roll = random.nextDouble();
         String prizeId = remainingStock() <= 0 ? SOLD_OUT_ID : NO_PRIZE_ID;
         if (roll < probability) {
-            prizeId = selectReleasedPrize(drawnAt);
+            prizeId = selectReleasedPrize(availableByType);
         }
         if (isWinningPrize(prizeId)) {
             participant.wins++;
@@ -816,7 +1001,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             participant.losses++;
         }
         return new DrawResult(round, drawnAt, prizeId,
-                probability, roll, ALGORITHM_VERSION);
+                probability, roll, ALGORITHM_VERSION, false);
     }
 
     private double baseProbability(long nowMillis) {
@@ -892,6 +1077,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
 
     private int knownFutureRegularOpportunities() {
         return participants.values().stream()
+                .filter(participant -> !hasGiftPack(participant))
                 .mapToInt(participant -> MAX_DRAWS - participant.regularDraws.size())
                 .sum();
     }
@@ -904,6 +1090,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private List<Double> futureOpportunityWeights() {
         List<Double> weights = new ArrayList<>();
         for (Participant participant : participants.values()) {
+            if (hasGiftPack(participant)) {
+                continue;
+            }
             int remainingOpportunities = MAX_DRAWS - participant.regularDraws.size();
             if (participant.bonusGranted && participant.bonusDraw == null) {
                 remainingOpportunities++;
@@ -963,10 +1152,16 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return sigmoid(weightedLogOdds);
     }
 
-    private String selectReleasedPrize(long nowMillis) {
+    private int[] availablePrizeStockForPlayer(
+            long nowMillis,
+            Set<String> excludedPrizeIds
+    ) {
         int[] availableByType = new int[INITIAL_STOCKS.length];
         int total = 0;
         for (int index = 0; index < INITIAL_STOCKS.length; index++) {
+            if (!isPrizeTypeEligible(excludedPrizeIds, PRIZE_IDS[index])) {
+                continue;
+            }
             int awarded = INITIAL_STOCKS[index] - remainingStocks[index];
             int unlocked = releasedForTypeAt(index, nowMillis);
             availableByType[index] = Math.clamp(
@@ -978,11 +1173,12 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             int borrowCapacity = Math.min(Arrays.stream(INITIAL_STOCKS).sum(),
                     releasedStockAt(nowMillis) + RELEASE_BORROW_LIMIT) - awarded;
             if (borrowCapacity <= 0) {
-                return NO_PRIZE_ID;
+                return availableByType;
             }
             int earliestSlot = Integer.MAX_VALUE;
             for (int index = 0; index < remainingStocks.length; index++) {
-                if (remainingStocks[index] <= 0) {
+                if (remainingStocks[index] <= 0
+                        || !isPrizeTypeEligible(excludedPrizeIds, PRIZE_IDS[index])) {
                     continue;
                 }
                 int awardedForType = INITIAL_STOCKS[index] - remainingStocks[index];
@@ -998,9 +1194,71 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 }
             }
         }
+        return availableByType;
+    }
+
+    private String selectReleasedPrize(int[] availableByType) {
+        int total = Arrays.stream(availableByType).sum();
+        if (total <= 0) {
+            return NO_PRIZE_ID;
+        }
         int prizeIndex = takeAvailablePrize(
                 remainingStocks, availableByType, random.nextInt(total));
         return PRIZE_IDS[prizeIndex];
+    }
+
+    private int applyDrawToVirtualBag(Participant participant, DrawResult draw) {
+        int restored = applyWinningPrizeToVirtualBag(
+                participant.virtualBag, draw.prizeId, remainingStocks);
+        if (GIFT_PACK_ID.equals(draw.prizeId)) {
+            markSupersededDraws(participant, draw);
+        }
+        return restored;
+    }
+
+    static int applyWinningPrizeToVirtualBag(
+            List<String> virtualBag,
+            String prizeId,
+            int[] stocks
+    ) {
+        if (!isWinningPrize(prizeId)) {
+            return 0;
+        }
+        if (!GIFT_PACK_ID.equals(prizeId)) {
+            if (!virtualBag.contains(GIFT_PACK_ID) && !virtualBag.contains(prizeId)) {
+                virtualBag.add(prizeId);
+            }
+            return 0;
+        }
+
+        List<String> replacedPrizeIds = virtualBag.stream()
+                .filter(existingPrizeId -> !GIFT_PACK_ID.equals(existingPrizeId))
+                .toList();
+        int restored = restoreWinningPrizeStocks(stocks, replacedPrizeIds);
+        virtualBag.clear();
+        virtualBag.add(GIFT_PACK_ID);
+        return restored;
+    }
+
+    static boolean isPrizeTypeEligible(Set<String> virtualBag, String prizeId) {
+        return isWinningPrize(prizeId)
+                && !virtualBag.contains(GIFT_PACK_ID)
+                && !virtualBag.contains(prizeId);
+    }
+
+    private void markSupersededDraws(Participant participant, DrawResult giftPackDraw) {
+        participant.regularDraws.stream()
+                .filter(draw -> draw != giftPackDraw && isWinningPrize(draw.prizeId))
+                .forEach(draw -> draw.superseded = true);
+        if (participant.bonusDraw != null
+                && participant.bonusDraw != giftPackDraw
+                && isWinningPrize(participant.bonusDraw.prizeId)) {
+            participant.bonusDraw.superseded = true;
+        }
+    }
+
+    private boolean hasGiftPack(Participant participant) {
+        return participant.virtualBag.contains(GIFT_PACK_ID);
     }
 
     static int takeAvailablePrize(
@@ -1076,10 +1334,18 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private List<DrawResult> allDrawResults() {
         List<DrawResult> draws = new ArrayList<>();
         for (Participant participant : participants.values()) {
-            draws.addAll(participant.regularDraws);
-            if (participant.bonusDraw != null) {
-                draws.add(participant.bonusDraw);
-            }
+            draws.addAll(allDrawResults(participant.regularDraws, participant.bonusDraw));
+        }
+        return draws;
+    }
+
+    private static List<DrawResult> allDrawResults(
+            List<DrawResult> regularDraws,
+            DrawResult bonusDraw
+    ) {
+        List<DrawResult> draws = new ArrayList<>(regularDraws);
+        if (bonusDraw != null) {
+            draws.add(bonusDraw);
         }
         return draws;
     }
@@ -1166,9 +1432,16 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         player.sendMessage(text(player, Message.ANNIVERSARY_STATUS_TITLE, NamedTextColor.GOLD));
         player.sendMessage(text(player, Message.ANNIVERSARY_STATUS_PROGRESS, NamedTextColor.WHITE,
                 participant.regularDraws.size(), MAX_DRAWS, formatDuration(participant.activeMillis)));
-        if (!participant.prizes.isEmpty()) {
+        if (!participant.virtualBag.isEmpty()) {
             player.sendMessage(text(player, Message.ANNIVERSARY_STATUS_RESULTS, NamedTextColor.YELLOW,
-                    localizedPrizes(player, participant.prizes)));
+                    localizedPrizes(player, participant.virtualBag)));
+            player.sendMessage(text(player, Message.ANNIVERSARY_BAG_UPDATED, NamedTextColor.AQUA,
+                    "/" + COMMAND_NAME + " bag"));
+        }
+        if (hasGiftPack(participant)) {
+            player.sendMessage(text(player, Message.ANNIVERSARY_STATUS_GIFT_PACK_FINAL,
+                    NamedTextColor.GOLD));
+            return;
         }
         if (participant.bonusGranted) {
             Message bonusStatus = participant.bonusDraw != null
@@ -1190,9 +1463,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private void sendEndedStatus(Player player) {
         Participant participant = participants.get(player.getUniqueId());
         player.sendMessage(text(player, Message.ANNIVERSARY_ENDED, NamedTextColor.YELLOW));
-        if (participant != null && !participant.prizes.isEmpty()) {
+        if (participant != null && !participant.virtualBag.isEmpty()) {
             player.sendMessage(text(player, Message.ANNIVERSARY_ENDED_RESULTS, NamedTextColor.WHITE,
-                    localizedPrizes(player, participant.prizes)));
+                    localizedPrizes(player, participant.virtualBag)));
         }
     }
 
@@ -1231,7 +1504,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         lastAccountedAt.put(playerId, nowMillis);
 
         Participant participant = participants.get(playerId);
-        if (participant == null || !active || participant.activeMillis >= MAX_COUNTED_MILLIS) {
+        if (participant == null || hasGiftPack(participant)
+                || !active || participant.activeMillis >= MAX_COUNTED_MILLIS) {
             return;
         }
         long from = Math.max(previous, Math.max(EVENT_START.toEpochMilli(), participant.acceptedAt));
@@ -1269,6 +1543,11 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             long remaining = Duration.between(now, EVENT_END_EXCLUSIVE).toMillis();
             progress = progress(remaining, total);
             color = BossBar.Color.YELLOW;
+        } else if (hasGiftPack(participant)) {
+            name = text(player, Message.ANNIVERSARY_BOSS_GIFT_PACK_FINAL, NamedTextColor.WHITE,
+                    "/" + COMMAND_NAME + " bag");
+            progress = 1.0F;
+            color = BossBar.Color.PURPLE;
         } else if (regularDrawReady(participant)) {
             int nextRound = participant.regularDraws.size() + 1;
             name = text(player, Message.ANNIVERSARY_BOSS_READY, NamedTextColor.WHITE,
@@ -1367,14 +1646,16 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return languageService.t(Language.DEFAULT, message, args);
     }
 
-    private String localizedPrizes(Player player, List<String> prizeIds) {
-        String delimiter = switch (languageService.language(player)) {
+    private String localizedPrizes(CommandSender sender, List<String> prizeIds) {
+        Language language = sender instanceof Player player
+                ? languageService.language(player) : Language.DEFAULT;
+        String delimiter = switch (language) {
             case ZH_CN, ZH_HK, ZH_TW, LZH, JA_JP -> "、";
             default -> ", ";
         };
         return prizeIds.stream()
                 .map(this::normalizePrizeId)
-                .map(prizeId -> prizeName(player, prizeId))
+                .map(prizeId -> prizeName(language, prizeId))
                 .reduce((left, right) -> left + delimiter + right)
                 .orElse("");
     }
@@ -1409,6 +1690,15 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return Message.ANNIVERSARY_PRIZE_SOLD_OUT;
     }
 
+    private int prizeIndex(String prizeId) {
+        for (int index = 0; index < PRIZE_IDS.length; index++) {
+            if (PRIZE_IDS[index].equals(prizeId)) {
+                return index;
+            }
+        }
+        throw new IllegalArgumentException("Unknown anniversary prize: " + prizeId);
+    }
+
     private String normalizePrizeId(String storedPrize) {
         return switch (storedPrize) {
             case "Logo 钥匙扣" -> PRIZE_IDS[0];
@@ -1422,6 +1712,17 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
 
     private static boolean isWinningPrize(String prizeId) {
         return Arrays.asList(PRIZE_IDS).contains(prizeId);
+    }
+
+    static List<String> normalizeVirtualBag(List<String> storedPrizeIds) {
+        List<String> normalized = storedPrizeIds.stream()
+                .filter(FifthAnniversaryEventModule::isWinningPrize)
+                .distinct()
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        if (normalized.contains(GIFT_PACK_ID)) {
+            return new ArrayList<>(List.of(GIFT_PACK_ID));
+        }
+        return normalized;
     }
 
     private UUID parseUuid(String value) {
@@ -1485,19 +1786,21 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 String bonusGrantedBy = data.getString(path + "bonus-granted-by");
                 UUID bonusGrantedById = parseUuid(data.getString(path + "bonus-granted-by-uuid"));
                 long bonusGrantedAt = Math.max(0L, data.getLong(path + "bonus-granted-at"));
-                List<String> prizes = data.getStringList(path + "prizes").stream()
-                        .map(this::normalizePrizeId)
-                        .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+                List<String> virtualBag = normalizeVirtualBag(
+                        data.getStringList(path + "virtual-bag").stream()
+                                .map(this::normalizePrizeId)
+                                .toList());
                 List<DrawResult> regularDraws = loadRegularDraws(data, path);
                 DrawResult bonusDraw = loadDraw(data, path + "bonus-draw", 0);
                 int wins = data.contains(path + "wins")
                         ? Math.max(0, data.getInt(path + "wins"))
-                        : (int) prizes.stream().filter(FifthAnniversaryEventModule::isWinningPrize).count();
+                        : (int) allDrawResults(regularDraws, bonusDraw).stream()
+                                .filter(draw -> isWinningPrize(draw.prizeId)).count();
                 int losses = data.contains(path + "losses")
                         ? Math.max(0, data.getInt(path + "losses"))
-                        : Math.max(0, prizes.size() - wins);
+                        : Math.max(0, regularDraws.size() + (bonusDraw == null ? 0 : 1) - wins);
                 participants.put(playerId,
-                        new Participant(name, acceptedAt, activeMillis, prizes,
+                        new Participant(name, acceptedAt, activeMillis, virtualBag,
                                 regularDraws, bonusDraw, wins, losses,
                                 bonusGranted, bonusGrantedBy, bonusGrantedById,
                                 bonusGrantedAt));
@@ -1542,10 +1845,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         long now = System.currentTimeMillis();
         for (Map.Entry<UUID, Participant> entry : administrators) {
             Participant participant = entry.getValue();
-            int restoredPrizes = restoreDrawPrizes(participant.regularDraws);
-            if (participant.bonusDraw != null) {
-                restoredPrizes += restoreDrawPrizes(List.of(participant.bonusDraw));
-            }
+            int restoredPrizes = restoreWinningPrizeStocks(
+                    remainingStocks, participant.virtualBag);
             appendAudit(AuditAction.ADMIN_PARTICIPANT_REMOVED, now, null, null,
                     entry.getKey(), participant.lastKnownName,
                     Integer.toString(restoredPrizes));
@@ -1555,12 +1856,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                     + entry.getKey());
         }
         return true;
-    }
-
-    private int restoreDrawPrizes(List<DrawResult> draws) {
-        return restoreWinningPrizeStocks(remainingStocks, draws.stream()
-                .map(draw -> draw.prizeId)
-                .toList());
     }
 
     static int restoreWinningPrizeStocks(int[] stocks, List<String> prizeIds) {
@@ -1634,7 +1929,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         double probability = Math.clamp(data.getDouble(path + ".probability"), 0.0D, 1.0D);
         double roll = Math.clamp(data.getDouble(path + ".roll"), 0.0D, 1.0D);
         int version = Math.max(0, data.getInt(path + ".algorithm-version"));
-        return new DrawResult(round, drawnAt, prizeId, probability, roll, version);
+        boolean superseded = data.getBoolean(path + ".superseded");
+        return new DrawResult(round, drawnAt, prizeId, probability, roll, version, superseded);
     }
 
     private void saveData() {
@@ -1659,7 +1955,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             data.set(path + "name", participant.lastKnownName);
             data.set(path + "accepted-at", participant.acceptedAt);
             data.set(path + "active-millis", participant.activeMillis);
-            data.set(path + "prizes", participant.prizes);
+            data.set(path + "virtual-bag", participant.virtualBag);
             data.set(path + "wins", participant.wins);
             data.set(path + "losses", participant.losses);
             for (DrawResult draw : participant.regularDraws) {
@@ -1698,6 +1994,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         data.set(path + ".probability", draw.probability);
         data.set(path + ".roll", draw.roll);
         data.set(path + ".algorithm-version", draw.algorithmVersion);
+        data.set(path + ".superseded", draw.superseded);
     }
 
     private static final class Participant {
@@ -1705,7 +2002,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         private String lastKnownName;
         private final long acceptedAt;
         private long activeMillis;
-        private final List<String> prizes;
+        private final List<String> virtualBag;
         private final List<DrawResult> regularDraws;
         private DrawResult bonusDraw;
         private int wins;
@@ -1719,7 +2016,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 String lastKnownName,
                 long acceptedAt,
                 long activeMillis,
-                List<String> prizes,
+                List<String> virtualBag,
                 List<DrawResult> regularDraws,
                 DrawResult bonusDraw,
                 int wins,
@@ -1732,7 +2029,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             this.lastKnownName = lastKnownName;
             this.acceptedAt = acceptedAt;
             this.activeMillis = activeMillis;
-            this.prizes = prizes;
+            this.virtualBag = virtualBag;
             this.regularDraws = regularDraws;
             this.bonusDraw = bonusDraw;
             this.wins = wins;
@@ -1750,6 +2047,25 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         private static final String ADMIN_PARTICIPANT_REMOVED = "admin-participant-removed";
 
         private AuditAction() {
+        }
+    }
+
+    private static final class VirtualBagHolder implements InventoryHolder {
+
+        private final UUID playerId;
+        private Inventory inventory;
+
+        private VirtualBagHolder(UUID playerId) {
+            this.playerId = playerId;
+        }
+
+        private void attach(Inventory inventory) {
+            this.inventory = inventory;
+        }
+
+        @Override
+        public Inventory getInventory() {
+            return inventory;
         }
     }
 
@@ -1832,6 +2148,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         private final double probability;
         private final double roll;
         private final int algorithmVersion;
+        private boolean superseded;
 
         private DrawResult(
                 int round,
@@ -1839,7 +2156,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 String prizeId,
                 double probability,
                 double roll,
-                int algorithmVersion
+                int algorithmVersion,
+                boolean superseded
         ) {
             this.round = round;
             this.drawnAt = drawnAt;
@@ -1847,6 +2165,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             this.probability = probability;
             this.roll = roll;
             this.algorithmVersion = algorithmVersion;
+            this.superseded = superseded;
         }
     }
 }

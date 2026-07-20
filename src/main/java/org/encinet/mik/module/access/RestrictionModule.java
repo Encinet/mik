@@ -20,9 +20,7 @@ import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -37,7 +35,6 @@ public class RestrictionModule implements Listener {
     private static final Pattern UUID_PATTERN = Pattern.compile(
             "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
     );
-    private static final Set<String> ALLOWED_COMMANDS = new HashSet<>(Arrays.asList("w", "tell", "msg", "tp", "teleport"));
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
@@ -109,38 +106,48 @@ public class RestrictionModule implements Listener {
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         Player player = event.getPlayer();
         String message = event.getMessage().trim();
-        String commandLower = message.toLowerCase();
+        ParsedCommand command = parseCommand(message);
+        if (command == null) return;
 
-        // 全员禁止 /kill @e
-        if (message.equals("/kill @e")) {
-            event.setCancelled(true);
-            player.sendMessage(mm(player, Message.RESTRICTION_NO_KILL_E_MM));
+        RestrictionViolation violation = evaluateCommand(player, command);
+        if (violation == RestrictionViolation.NONE) return;
+
+        event.setCancelled(true);
+        player.sendMessage(mm(player, violation.message()));
+        if (violation == RestrictionViolation.KILL_ALL_ENTITIES) {
             plugin.getLogger().warning("Blocked /kill @e from " + player.getName());
-            return;
+        } else {
+            plugin.getLogger().info("Blocked " + violation.logLabel() + " from "
+                    + player.getName() + ": " + message);
         }
+    }
 
-        // Helper 权限放行
+    private RestrictionViolation evaluateCommand(Player player, ParsedCommand command) {
+        if (command.name().equals("kill") && command.arguments().equalsIgnoreCase("@e")) {
+            return RestrictionViolation.KILL_ALL_ENTITIES;
+        }
         if (player.hasPermission("group." + Mik.GROUP_HELPER)) {
-            return;
+            return RestrictionViolation.NONE;
         }
 
-        String[] parts = message.substring(1).split("\\s+", 2);
-        String commandName = parts[0].toLowerCase();
-
-        // 阻止目标选择器
-        if (SELECTOR_PATTERN.matcher(commandLower).find()) {
-            event.setCancelled(true);
-            player.sendMessage(mm(player, Message.RESTRICTION_NO_SELECTOR_MM));
-            plugin.getLogger().info("Blocked selector command from " + player.getName() + ": " + message);
-            return;
+        CommandPolicy policy = policyFor(command.name());
+        if (containsRestrictedSelector(command, policy)) {
+            return RestrictionViolation.SELECTOR;
         }
-
-        if (ALLOWED_COMMANDS.contains(commandName)) {
-            return;
+        if (!policy.checkIdentities()) {
+            return RestrictionViolation.NONE;
         }
+        if (containsForeignUuid(command.arguments(), player)) {
+            return RestrictionViolation.FOREIGN_UUID;
+        }
+        if (containsOtherPlayerName(command.arguments(), player)) {
+            return RestrictionViolation.OTHER_PLAYER;
+        }
+        return RestrictionViolation.NONE;
+    }
 
-        // 检查命令中出现的所有 UUID
-        Matcher uuidMatcher = UUID_PATTERN.matcher(message);
+    private boolean containsForeignUuid(String arguments, Player player) {
+        Matcher uuidMatcher = UUID_PATTERN.matcher(arguments);
         while (uuidMatcher.find()) {
             String uuidStr = uuidMatcher.group();
             UUID uuid;
@@ -159,24 +166,124 @@ public class RestrictionModule implements Listener {
             if (isOwnedTamedMob(uuid, player)) {
                 continue;
             }
-
-            // 其他 UUID 一律拒绝
-            event.setCancelled(true);
-            player.sendMessage(mm(player, Message.RESTRICTION_FOREIGN_UUID_MM));
-            plugin.getLogger().info("Blocked foreign UUID command from " + player.getName() + ": " + message);
-            return;
+            return true;
         }
-
-        // 检查是否包含其他在线玩家的名字
-        if (containsOtherPlayerName(message, player)) {
-            event.setCancelled(true);
-            player.sendMessage(mm(player, Message.RESTRICTION_OTHER_PLAYER_NAME_MM));
-            plugin.getLogger().info("Blocked player name command from " + player.getName() + ": " + message);
-        }
+        return false;
     }
 
     private Component mm(Player player, Message message) {
         return MINI_MESSAGE.deserialize(languageService.t(player, message));
+    }
+
+    static boolean containsRestrictedSelector(String rawCommand) {
+        ParsedCommand command = parseCommand(rawCommand);
+        return command != null && containsRestrictedSelector(command, policyFor(command.name()));
+    }
+
+    static boolean checksIdentities(String rawCommand) {
+        ParsedCommand command = parseCommand(rawCommand);
+        return command != null && policyFor(command.name()).checkIdentities();
+    }
+
+    private static boolean containsRestrictedSelector(ParsedCommand command, CommandPolicy policy) {
+        String arguments = policy.selectorScope().select(command.arguments());
+        return SELECTOR_PATTERN.matcher(arguments.toLowerCase(Locale.ROOT)).find();
+    }
+
+    private static CommandPolicy policyFor(String commandName) {
+        return switch (commandName) {
+            case "w", "tell", "msg", "whisper" -> CommandPolicy.DIRECT_MESSAGE;
+            case "r", "reply" -> CommandPolicy.REPLY;
+            case "tp", "teleport" -> CommandPolicy.TELEPORT;
+            default -> CommandPolicy.DEFAULT;
+        };
+    }
+
+    private static String firstArgument(String arguments) {
+        int separator = firstWhitespace(arguments);
+        return separator < 0 ? arguments : arguments.substring(0, separator);
+    }
+
+    private static ParsedCommand parseCommand(String rawCommand) {
+        if (rawCommand == null) return null;
+
+        String command = rawCommand.trim();
+        if (command.startsWith("/")) {
+            command = command.substring(1).stripLeading();
+        }
+        if (command.isEmpty()) return null;
+
+        int separator = firstWhitespace(command);
+        String name = separator < 0 ? command : command.substring(0, separator);
+        String arguments = separator < 0 ? "" : command.substring(separator + 1).stripLeading();
+        int namespaceSeparator = name.lastIndexOf(':');
+        if (namespaceSeparator >= 0) {
+            name = name.substring(namespaceSeparator + 1);
+        }
+        if (name.isEmpty()) return null;
+
+        return new ParsedCommand(name.toLowerCase(Locale.ROOT), arguments);
+    }
+
+    private static int firstWhitespace(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isWhitespace(value.charAt(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private record ParsedCommand(String name, String arguments) {
+    }
+
+    private enum SelectorScope {
+        ALL_ARGUMENTS,
+        FIRST_ARGUMENT,
+        NO_ARGUMENTS;
+
+        private String select(String arguments) {
+            return switch (this) {
+                case ALL_ARGUMENTS -> arguments;
+                case FIRST_ARGUMENT -> firstArgument(arguments);
+                case NO_ARGUMENTS -> "";
+            };
+        }
+    }
+
+    private record CommandPolicy(SelectorScope selectorScope, boolean checkIdentities) {
+        private static final CommandPolicy DEFAULT =
+                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, true);
+        private static final CommandPolicy DIRECT_MESSAGE =
+                new CommandPolicy(SelectorScope.FIRST_ARGUMENT, false);
+        private static final CommandPolicy REPLY =
+                new CommandPolicy(SelectorScope.NO_ARGUMENTS, false);
+        private static final CommandPolicy TELEPORT =
+                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false);
+    }
+
+    private enum RestrictionViolation {
+        NONE(null, ""),
+        KILL_ALL_ENTITIES(Message.RESTRICTION_NO_KILL_E_MM, "kill-all command"),
+        SELECTOR(Message.RESTRICTION_NO_SELECTOR_MM, "selector command"),
+        FOREIGN_UUID(Message.RESTRICTION_FOREIGN_UUID_MM, "foreign UUID command"),
+        OTHER_PLAYER(Message.RESTRICTION_OTHER_PLAYER_NAME_MM, "player name command");
+
+        private final Message message;
+        private final String logLabel;
+
+        RestrictionViolation(Message message, String logLabel) {
+            this.message = message;
+            this.logLabel = logLabel;
+        }
+
+        private Message message() {
+            return message;
+        }
+
+        private String logLabel() {
+            return logLabel;
+        }
     }
 
     /**

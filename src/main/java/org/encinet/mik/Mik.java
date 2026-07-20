@@ -311,6 +311,10 @@ public final class Mik extends JavaPlugin {
             flightModule.disable();
         }
 
+        if (playerBoundaryModule != null) {
+            playerBoundaryModule.disable();
+        }
+
         if (banModule != null) {
             banModule.disable();
         }
