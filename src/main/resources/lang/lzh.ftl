@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>少許物事或顯有舛。</green>
 client-reminder-default-title-mm = <gray><bold>客端之版較舊</bold></gray>
 client-reminder-default-message-mm = <gray>今版稍舊，少許物事或弗能盡顯。</gray>
 
+player-association-header = [入服關聯] { $arg0 } 與舊錄中 { $arg1 } 人之址相合
+player-association-hover = 此惟言舊網錄相合，以供參酌；不示其址。
+player-association-entry = { $arg0 }. { $arg1 } · 相合 { $arg2 } 項 · 彼錄於 { $arg3 }
+player-association-more-players = 尚有 { $arg0 } 人
+player-association-time-today = 今日
+player-association-time-days = { $arg0 } 日前
+player-association-time-occurrences = { $arg0 }（{ $arg1 } 項）
+player-association-more-addresses = 尚有 { $arg0 } 項
+player-association-time-separator = 、
+
 invisibility-single-mm = <yellow>近有戲者 <gold>隱身</gold></yellow> <gray>·</gray> <gray>約去 <distance> 方內</gray>
 invisibility-multi-mm = <yellow>近有 <gold><count></gold> 戲者 <gold>隱身</gold></yellow> <gray>·</gray> <gray>至近約去 <distance> 方</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = 禁等不正
 ban-already-banned = { $arg0 } 已禁
 ban-self = 不可自禁
 ban-success = 已禁 { $arg0 }，至 { $arg1 }
+ban-broadcast-prefix = [禁令公報]
+ban-broadcast-operator = 行禁者
 ban-permanent = 永久
 ban-unknown-reason = 無由
 ban-system-source = 系統
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = 施禁
 ban-dialog-never-joined-title = 此人未嘗入服
 ban-dialog-never-joined-warning = { $arg0 } 未嘗入此服。請復核其名，以免誤禁他人。
 ban-dialog-never-joined-confirm-action = 仍禁之
+ban-severity-warning = 警告（三日）
 ban-severity-excusable = 情有可原（三十日）
 ban-severity-minor = 小過（一百五十日）
 ban-severity-severe = 重過（三百六十日）

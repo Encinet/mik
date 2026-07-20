@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>A few things may display incorrectly.
 client-reminder-default-title-mm = <gray><bold>Client Version Warning</bold></gray>
 client-reminder-default-message-mm = <gray>Your client is outdated and may not display all content correctly.</gray>
 
+player-association-header = [Login association] { $arg0 } overlaps address history with { $arg1 } player(s)
+player-association-hover = Historical network records overlap. This is only an investigation aid; addresses are not shown.
+player-association-entry = { $arg0 }. { $arg1 } · { $arg2 } matching record(s) · their record: { $arg3 }
+player-association-more-players = { $arg0 } more player(s)
+player-association-time-today = today
+player-association-time-days = { $arg0 } days ago
+player-association-time-occurrences = { $arg0 } ({ $arg1 } record(s))
+player-association-more-addresses = { $arg0 } more record(s)
+player-association-time-separator = ,
+
 invisibility-single-mm = <yellow>A player nearby is <gold>invisible</gold></yellow> <gray>·</gray> <gray>within about <distance> blocks</gray>
 invisibility-multi-mm = <yellow><gold><count></gold> nearby players are <gold>invisible</gold></yellow> <gray>·</gray> <gray>nearest about <distance> blocks</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = Invalid ban severity
 ban-already-banned = { $arg0 } is already banned
 ban-self = You cannot ban yourself
 ban-success = Banned { $arg0 } until { $arg1 }
+ban-broadcast-prefix = [Ban bulletin]
+ban-broadcast-operator = Moderator
 ban-permanent = Permanent
 ban-unknown-reason = No reason provided
 ban-system-source = System
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = Ban Player
 ban-dialog-never-joined-title = Player Has Never Joined
 ban-dialog-never-joined-warning = { $arg0 } has never joined this server. Verify the player name to avoid banning the wrong player.
 ban-dialog-never-joined-confirm-action = Ban Anyway
+ban-severity-warning = Warning (3 days)
 ban-severity-excusable = Excusable (30 days)
 ban-severity-minor = Minor violation (150 days)
 ban-severity-severe = Severe violation (360 days)

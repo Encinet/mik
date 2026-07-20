@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 
-public final class PlayerAddressModule implements Listener, PlayerAddressLookup {
+public final class PlayerAddressModule implements Listener, PlayerAddressLookup, PlayerAssociationLookup {
 
     private static final String DATA_FILE_NAME = "player-addresses.tsv";
     private static final String HEADER = "# address\tplayer-id\tcount\tlast-seen-at";
@@ -41,7 +40,7 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
     private static final Duration REVERSE_LOOKUP_WINDOW = Duration.ofDays(30);
 
     private final JavaPlugin plugin;
-    private final Map<String, AddressHistory> historiesByAddress = new ConcurrentHashMap<>();
+    private final PlayerAddressStore addressStore = new PlayerAddressStore();
     private final Map<UUID, String> displayNamesByPlayer = new ConcurrentHashMap<>();
     private final ReentrantLock saveLock = new ReentrantLock();
     private final Object saveTaskLock = new Object();
@@ -95,7 +94,7 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
         }
 
         String addressText = addressKey(address);
-        Optional<PlayerAddressRecord> record = inferPlayerRecordByAddress(addressText, Instant.now());
+        Optional<PlayerAddressStore.PlayerAddressRecord> record = inferPlayerRecordByAddress(addressText, Instant.now());
         return record
                 .map(value -> new AddressPlayer(value.playerId(), displayName(value.playerId()).orElse(null)));
     }
@@ -105,15 +104,16 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
         if (address == null || notBefore == null) {
             return List.of();
         }
-        AddressHistory history = historiesByAddress.get(addressKey(address));
-        if (history == null) {
-            return List.of();
-        }
-        return history.records().values().stream()
+        return addressStore.recordsByAddress(addressKey(address)).stream()
                 .filter(record -> !record.lastSeenAt().isBefore(notBefore))
-                .sorted(Comparator.comparing(PlayerAddressRecord::lastSeenAt).reversed())
+                .sorted(Comparator.comparing(PlayerAddressStore.PlayerAddressRecord::lastSeenAt).reversed())
                 .map(record -> new AddressUse(record.playerId(), record.lastSeenAt()))
                 .toList();
+    }
+
+    @Override
+    public List<PlayerAssociation> findAssociations(UUID playerId) {
+        return addressStore.findAssociations(playerId);
     }
 
     private void recordLogin(UUID playerId, InetAddress address, Instant now) {
@@ -122,23 +122,15 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
         }
 
         String addressText = addressKey(address);
-        AddressHistory history = historiesByAddress.computeIfAbsent(addressText, ignored -> new AddressHistory());
-        PlayerAddressRecord updated = history.record(addressText, playerId, now);
-        if (updated == null) {
-            return;
-        }
+        PlayerAddressStore.PlayerAddressRecord updated = addressStore.recordLogin(addressText, playerId, now);
         changeVersion.incrementAndGet();
         scheduleSave();
 
-        plugin.getLogger().fine("Recorded login address " + addressText + " for " + updated.playerId());
+        plugin.getLogger().fine("Recorded login address history for " + updated.playerId());
     }
 
-    private Optional<PlayerAddressRecord> inferPlayerRecordByAddress(String address, Instant now) {
-        AddressHistory history = historiesByAddress.get(address);
-        if (history == null) {
-            return Optional.empty();
-        }
-        return history.latest()
+    private Optional<PlayerAddressStore.PlayerAddressRecord> inferPlayerRecordByAddress(String address, Instant now) {
+        return addressStore.latestByAddress(address)
                 .filter(record -> !record.lastSeenAt().plus(REVERSE_LOOKUP_WINDOW).isBefore(now));
     }
 
@@ -189,7 +181,7 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
         AtomicReference<BukkitTask> scheduledTask = new AtomicReference<>();
         BukkitTask task = Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, () -> {
             long snapshotVersion = changeVersion.get();
-            Map<String, AddressHistory> snapshot = snapshot();
+            List<PlayerAddressStore.PlayerAddressRecord> snapshot = snapshot();
             saveSnapshot(snapshotVersion, snapshot);
             saveTask.compareAndSet(scheduledTask.get(), null);
             saveScheduled.set(false);
@@ -208,14 +200,12 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
         }
     }
 
-    private Map<String, AddressHistory> snapshot() {
-        Map<String, AddressHistory> snapshot = new HashMap<>();
-        historiesByAddress.forEach((address, history) -> snapshot.put(address, history.copy()));
-        return snapshot;
+    private List<PlayerAddressStore.PlayerAddressRecord> snapshot() {
+        return addressStore.snapshotRecords();
     }
 
     private void load() {
-        historiesByAddress.clear();
+        addressStore.clear();
 
         if (!dataFile.exists()) {
             return;
@@ -229,18 +219,14 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
                 if (line.isBlank() || line.startsWith("#")) {
                     continue;
                 }
-                readRecord(line, lineNumber).ifPresent(record -> {
-                    historiesByAddress
-                            .computeIfAbsent(record.address(), ignored -> new AddressHistory())
-                            .put(record);
-                });
+                readRecord(line, lineNumber).ifPresent(addressStore::put);
             }
         } catch (IOException e) {
             plugin.getLogger().severe("Failed to load " + DATA_FILE_NAME + ": " + e.getMessage());
         }
     }
 
-    private Optional<PlayerAddressRecord> readRecord(String line, int lineNumber) {
+    private Optional<PlayerAddressStore.PlayerAddressRecord> readRecord(String line, int lineNumber) {
         String[] parts = line.split("\\t", -1);
         if (parts.length != 4) {
             plugin.getLogger().warning("Invalid row in " + DATA_FILE_NAME + " at line " + lineNumber);
@@ -255,20 +241,20 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
             if (address.isBlank() || count <= 0) {
                 return Optional.empty();
             }
-            return Optional.of(new PlayerAddressRecord(address, playerId, count, lastSeenAt));
+            return Optional.of(new PlayerAddressStore.PlayerAddressRecord(address, playerId, count, lastSeenAt));
         } catch (RuntimeException e) {
             plugin.getLogger().warning("Invalid row in " + DATA_FILE_NAME + " at line " + lineNumber + ": " + e.getMessage());
             return Optional.empty();
         }
     }
 
-    private void saveSnapshot(long snapshotVersion, Map<String, AddressHistory> snapshot) {
+    private void saveSnapshot(long snapshotVersion, List<PlayerAddressStore.PlayerAddressRecord> snapshot) {
         if (saveNow(snapshot)) {
             savedVersion = snapshotVersion;
         }
     }
 
-    private boolean saveNow(Map<String, AddressHistory> snapshot) {
+    private boolean saveNow(List<PlayerAddressStore.PlayerAddressRecord> snapshot) {
         saveLock.lock();
         try {
             if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
@@ -281,17 +267,15 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
             try (BufferedWriter writer = Files.newBufferedWriter(temp, StandardCharsets.UTF_8)) {
                 writer.write(HEADER);
                 writer.newLine();
-                for (AddressHistory history : snapshot.values()) {
-                    for (PlayerAddressRecord record : history.records().values()) {
-                        writer.write(record.address());
-                        writer.write('\t');
-                        writer.write(record.playerId().toString());
-                        writer.write('\t');
-                        writer.write(Integer.toString(record.count()));
-                        writer.write('\t');
-                        writer.write(record.lastSeenAt().toString());
-                        writer.newLine();
-                    }
+                for (PlayerAddressStore.PlayerAddressRecord record : snapshot) {
+                    writer.write(record.address());
+                    writer.write('\t');
+                    writer.write(record.playerId().toString());
+                    writer.write('\t');
+                    writer.write(Integer.toString(record.count()));
+                    writer.write('\t');
+                    writer.write(record.lastSeenAt().toString());
+                    writer.newLine();
                 }
             }
             moveIntoPlace(temp, target);
@@ -312,61 +296,9 @@ public final class PlayerAddressModule implements Listener, PlayerAddressLookup 
         }
     }
 
-    private record PlayerAddressRecord(String address, UUID playerId, int count, Instant lastSeenAt) {
-    }
-
     public record AddressPlayer(UUID playerId, String playerName) {
         public Optional<String> playerNameOptional() {
             return Optional.ofNullable(playerName);
-        }
-    }
-
-    private static final class AddressHistory {
-        private final Map<UUID, PlayerAddressRecord> records = new ConcurrentHashMap<>();
-        private volatile PlayerAddressRecord latest;
-
-        PlayerAddressRecord record(String address, UUID playerId, Instant now) {
-            PlayerAddressRecord updated = records.compute(playerId, (ignored, current) -> new PlayerAddressRecord(
-                        address,
-                        playerId,
-                        loginCount(current, now),
-                        now));
-            rememberLatest(updated);
-            return updated;
-        }
-
-        private int loginCount(PlayerAddressRecord previous, Instant now) {
-            if (previous == null) {
-                return 1;
-            }
-            return previous.count() + 1;
-        }
-
-        void put(PlayerAddressRecord record) {
-            records.put(record.playerId(), record);
-            rememberLatest(record);
-        }
-
-        Optional<PlayerAddressRecord> latest() {
-            return Optional.ofNullable(latest);
-        }
-
-        Map<UUID, PlayerAddressRecord> records() {
-            return records;
-        }
-
-        AddressHistory copy() {
-            AddressHistory copy = new AddressHistory();
-            copy.records.putAll(records);
-            copy.latest = latest;
-            return copy;
-        }
-
-        private synchronized void rememberLatest(PlayerAddressRecord candidate) {
-            PlayerAddressRecord current = latest;
-            if (current == null || candidate.lastSeenAt().isAfter(current.lastSeenAt())) {
-                latest = candidate;
-            }
         }
     }
 }

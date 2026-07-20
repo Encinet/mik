@@ -31,11 +31,13 @@ public final class BanModule {
                 new File(plugin.getDataFolder(), "bans.db"), paperSynchronizer, plugin.getLogger());
         this.paperSynchronizer.bind(banService);
         BanMessageRenderer renderer = new BanMessageRenderer(languageService, zoneId);
+        BanAnnouncementBroadcaster announcementBroadcaster = new BanAnnouncementBroadcaster(languageService, renderer);
         BanAdmissionChecker admissionChecker = new BanAdmissionChecker(banService, addressLookup);
         BanDialogController dialogController = new BanDialogController(
-                plugin, languageService, banService, renderer);
+                plugin, languageService, banService, renderer, announcementBroadcaster);
         this.commandController = new BanCommandController(
-                plugin, languageService, paperSynchronizer, banService, renderer, dialogController);
+                plugin, languageService, paperSynchronizer, banService, renderer, announcementBroadcaster,
+                dialogController);
         this.loginListener = new BanLoginListener(
                 plugin, paperSynchronizer, languageService, renderer, admissionChecker);
     }

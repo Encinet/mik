@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>Alcune cose potrebbero essere visuali
 client-reminder-default-title-mm = <gray><bold>Avviso sulla versione del client</bold></gray>
 client-reminder-default-message-mm = <gray>Il tuo client è obsoleto e potrebbe non visualizzare correttamente tutti i contenuti.</gray>
 
+player-association-header = [Associazione accesso] { $arg0 } condivide lo storico degli indirizzi con { $arg1 } giocatore/i
+player-association-hover = Alcuni record storici di rete coincidono. È solo un aiuto per la verifica; gli indirizzi non vengono mostrati.
+player-association-entry = { $arg0 }. { $arg1 } · { $arg2 } corrispondenza/e · record dell'altro giocatore: { $arg3 }
+player-association-more-players = Altri { $arg0 } giocatore/i
+player-association-time-today = oggi
+player-association-time-days = { $arg0 } giorni fa
+player-association-time-occurrences = { $arg0 } ({ $arg1 } record)
+player-association-more-addresses = Altri { $arg0 } record
+player-association-time-separator = ,
+
 invisibility-single-mm = <yellow>Un giocatore nelle vicinanze è <gold>invisibile</gold></yellow> <gray>·</gray> <gray>a circa <distance> blocchi</gray>
 invisibility-multi-mm = <yellow><gold><count></gold> giocatori nelle vicinanze sono <gold>invisibili</gold></yellow> <gray>·</gray> <gray>il più vicino è a circa <distance> blocchi</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = Gravità del ban non valida
 ban-already-banned = { $arg0 } è già escluso
 ban-self = Non puoi escludere te stesso
 ban-success = { $arg0 } è stato escluso fino al { $arg1 }
+ban-broadcast-prefix = [Bollettino di ban]
+ban-broadcast-operator = Moderatore
 ban-permanent = Permanente
 ban-unknown-reason = Nessun motivo fornito
 ban-system-source = Sistema
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = Escludi giocatore
 ban-dialog-never-joined-title = Il giocatore non è mai entrato
 ban-dialog-never-joined-warning = { $arg0 } non è mai entrato in questo server. Verifica il nome per evitare di escludere il giocatore sbagliato.
 ban-dialog-never-joined-confirm-action = Escludi comunque
+ban-severity-warning = Avvertimento (3 giorni)
 ban-severity-excusable = Giustificabile (30 giorni)
 ban-severity-minor = Violazione minore (150 giorni)
 ban-severity-severe = Violazione grave (360 giorni)

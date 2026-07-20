@@ -14,6 +14,7 @@ class BanSeverityTest {
 
     @Test
     void mapsEachSeverityToItsFixedDuration() {
+        assertEquals(NOW.plus(Duration.ofDays(3)), BanSeverity.WARNING.expiresAt(NOW));
         assertEquals(NOW.plus(Duration.ofDays(30)), BanSeverity.EXCUSABLE.expiresAt(NOW));
         assertEquals(NOW.plus(Duration.ofDays(150)), BanSeverity.MINOR.expiresAt(NOW));
         assertEquals(NOW.plus(Duration.ofDays(360)), BanSeverity.SEVERE.expiresAt(NOW));

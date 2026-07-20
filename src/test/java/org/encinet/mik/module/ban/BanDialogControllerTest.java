@@ -26,6 +26,7 @@ class BanDialogControllerTest {
 
     private static final List<Message> BAN_DIALOG_MESSAGES = Arrays.stream(Message.values())
             .filter(message -> message.name().startsWith("BAN_DIALOG_")
+                    || message.name().startsWith("BAN_SEVERITY_")
                     || message == Message.BAN_REASON_REQUIRED)
             .toList();
 

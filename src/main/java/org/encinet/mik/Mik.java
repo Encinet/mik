@@ -30,6 +30,7 @@ import org.encinet.mik.module.player.InvisibilityNotifyModule;
 import org.encinet.mik.module.player.NameTagModule;
 import org.encinet.mik.module.player.PlayerBoundaryModule;
 import org.encinet.mik.module.player.PlayerAddressModule;
+import org.encinet.mik.module.player.PlayerAssociationNotifier;
 import org.encinet.mik.module.player.PlayerPresenceModule;
 import org.encinet.mik.module.player.MainMenuModule;
 import org.encinet.mik.module.player.WelcomeModule;
@@ -87,6 +88,7 @@ public final class Mik extends JavaPlugin {
     private MenuNavigation menuNavigation;
     private LanguageService languageService;
     private PlayerAddressModule playerAddressModule;
+    private PlayerAssociationNotifier playerAssociationNotifier;
     private SpawnBeaconColorModule spawnBeaconColorModule;
     private FifthAnniversaryEventModule fifthAnniversaryEventModule;
 
@@ -109,6 +111,9 @@ public final class Mik extends JavaPlugin {
 
         playerAddressModule = new PlayerAddressModule(this);
         playerAddressModule.enable();
+
+        playerAssociationNotifier = new PlayerAssociationNotifier(this, languageService, playerAddressModule);
+        playerAssociationNotifier.enable();
 
         banModule = new BanModule(this, languageService, playerAddressModule);
         banModule.enable();

@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>Sommige onderdelen worden mogelijk on
 client-reminder-default-title-mm = <gray><bold>Waarschuwing clientversie</bold></gray>
 client-reminder-default-message-mm = <gray>Je client is verouderd en geeft mogelijk niet alle inhoud correct weer.</gray>
 
+player-association-header = [Login-koppeling] { $arg0 } deelt adresgeschiedenis met { $arg1 } speler(s)
+player-association-hover = Historische netwerkgegevens komen overeen. Dit is alleen een hulpmiddel bij controle; adressen worden niet getoond.
+player-association-entry = { $arg0 }. { $arg1 } · { $arg2 } overeenkomst(en) · hun registratie: { $arg3 }
+player-association-more-players = Nog { $arg0 } speler(s)
+player-association-time-today = vandaag
+player-association-time-days = { $arg0 } dagen geleden
+player-association-time-occurrences = { $arg0 } ({ $arg1 } registraties)
+player-association-more-addresses = Nog { $arg0 } registraties
+player-association-time-separator = ,
+
 invisibility-single-mm = <yellow>Een speler in de buurt is <gold>onzichtbaar</gold></yellow> <gray>·</gray> <gray>op ongeveer <distance> blokken afstand</gray>
 invisibility-multi-mm = <yellow><gold><count></gold> spelers in de buurt zijn <gold>onzichtbaar</gold></yellow> <gray>·</gray> <gray>dichtstbijzijnde: ongeveer <distance> blokken afstand</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = Ongeldige ernst van verbanning
 ban-already-banned = { $arg0 } is al verbannen
 ban-self = Je kunt jezelf niet verbannen
 ban-success = { $arg0 } is verbannen tot { $arg1 }
+ban-broadcast-prefix = [Banbericht]
+ban-broadcast-operator = Moderator
 ban-permanent = Permanent
 ban-unknown-reason = Geen reden opgegeven
 ban-system-source = Systeem
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = Speler verbannen
 ban-dialog-never-joined-title = Speler is nooit toegetreden
 ban-dialog-never-joined-warning = { $arg0 } is nooit op deze server geweest. Controleer de spelersnaam om te voorkomen dat je de verkeerde speler verbant.
 ban-dialog-never-joined-confirm-action = Toch verbannen
+ban-severity-warning = Waarschuwing (3 dagen)
 ban-severity-excusable = Verschoonbaar (30 dagen)
 ban-severity-minor = Lichte overtreding (150 dagen)
 ban-severity-severe = Ernstige overtreding (360 dagen)

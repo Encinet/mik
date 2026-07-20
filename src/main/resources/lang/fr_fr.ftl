@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>Certaines choses peuvent s'afficher d
 client-reminder-default-title-mm = <gray><bold>Avertissement concernant la version du client</bold></gray>
 client-reminder-default-message-mm = <gray>Votre client est obsolète et peut ne pas afficher correctement tout le contenu.</gray>
 
+player-association-header = [Association de connexion] { $arg0 } partage un historique d'adresses avec { $arg1 } joueur(s)
+player-association-hover = Des historiques réseau correspondent. Ceci sert uniquement d'aide à la vérification ; les adresses ne sont pas affichées.
+player-association-entry = { $arg0 }. { $arg1 } · { $arg2 } correspondance(s) · leur entrée : { $arg3 }
+player-association-more-players = { $arg0 } autre(s) joueur(s)
+player-association-time-today = aujourd'hui
+player-association-time-days = il y a { $arg0 } jours
+player-association-time-occurrences = { $arg0 } ({ $arg1 } entrées)
+player-association-more-addresses = { $arg0 } autre(s) entrée(s)
+player-association-time-separator = ,
+
 invisibility-single-mm = <yellow>Un joueur à proximité est <gold>invisible</gold></yellow> <gray>·</gray> <gray>dans environ <distance> blocs</gray>
 invisibility-multi-mm = <yellow><gold><count></gold> joueurs proches sont <gold>invisibles</gold></yellow> <gray>·</gray> <gray>le plus proche à environ <distance> blocs</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = Niveau de bannissement invalide
 ban-already-banned = { $arg0 } est déjà banni
 ban-self = Vous ne pouvez pas vous bannir vous-même
 ban-success = { $arg0 } est banni jusqu'au { $arg1 }
+ban-broadcast-prefix = [Bulletin de bannissement]
+ban-broadcast-operator = Modérateur
 ban-permanent = Permanent
 ban-unknown-reason = Aucun motif indiqué
 ban-system-source = Système
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = Bannir le joueur
 ban-dialog-never-joined-title = Le joueur ne s'est jamais connecté
 ban-dialog-never-joined-warning = { $arg0 } ne s'est jamais connecté à ce serveur. Vérifiez le nom pour éviter de bannir le mauvais joueur.
 ban-dialog-never-joined-confirm-action = Bannir quand même
+ban-severity-warning = Avertissement (3 jours)
 ban-severity-excusable = Excusable (30 jours)
 ban-severity-minor = Infraction mineure (150 jours)
 ban-severity-severe = Infraction grave (360 jours)

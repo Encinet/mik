@@ -40,6 +40,7 @@ final class BanDialogController {
     private static final String PLAYER_OPTION = DialogInputKeys.requireValid("online_player");
     private static final String REASON_INPUT = DialogInputKeys.requireValid("ban_reason");
     private static final Pattern PLAYER_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_]{3,16}$");
+    private static final int SEVERITY_DIALOG_WIDTH = 320;
     private static final ClickCallback.Options CALLBACK_OPTIONS = ClickCallback.Options.builder()
             .uses(1)
             .lifetime(Duration.ofMinutes(5))
@@ -49,17 +50,20 @@ final class BanDialogController {
     private final LanguageService languageService;
     private final BanService banService;
     private final BanMessageRenderer renderer;
+    private final BanAnnouncementBroadcaster announcementBroadcaster;
 
     BanDialogController(
             JavaPlugin plugin,
             LanguageService languageService,
             BanService banService,
-            BanMessageRenderer renderer
+            BanMessageRenderer renderer,
+            BanAnnouncementBroadcaster announcementBroadcaster
     ) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.banService = banService;
         this.renderer = renderer;
+        this.announcementBroadcaster = announcementBroadcaster;
     }
 
     void open(Player moderator) {
@@ -161,7 +165,7 @@ final class BanDialogController {
             severityButtons.add(ActionButton.create(
                     Component.text(t(language, severity.label()), NamedTextColor.YELLOW),
                     null,
-                    130,
+                    SEVERITY_DIALOG_WIDTH,
                     DialogAction.customClick((response, audience) -> runOnMain(audience,
                             player -> openConfirmation(player, target, severity, "")), CALLBACK_OPTIONS)));
         }
@@ -171,7 +175,7 @@ final class BanDialogController {
                         .pause(false)
                         .afterAction(DialogBase.DialogAfterAction.CLOSE)
                         .body(List.of(DialogBody.plainMessage(
-                                Component.text(target.name(), NamedTextColor.WHITE), 260)))
+                                Component.text(target.name(), NamedTextColor.WHITE), SEVERITY_DIALOG_WIDTH)))
                         .inputs(List.of())
                         .build())
                 .type(DialogType.multiAction(severityButtons,
@@ -281,24 +285,12 @@ final class BanDialogController {
             String expiration = renderer.expirationText(language, record.expiresAt());
             moderator.sendMessage(Component.text(t(language, Message.BAN_SUCCESS, record.playerName(), expiration),
                     NamedTextColor.GREEN));
-            broadcast(moderator.getName(), record, language);
+            announcementBroadcaster.broadcast(moderator.getName(), record);
             kickIfOnline(record);
         } catch (BanServiceException e) {
             plugin.getLogger().log(Level.SEVERE, "Ban dialog failed", e);
             moderator.sendMessage(error(moderator, Message.BAN_DATABASE_ERROR));
         }
-    }
-
-    private void broadcast(String operator, BanRecord record, Language language) {
-        Bukkit.broadcast(Component.text()
-                .append(Component.text("[Ban] ", NamedTextColor.GOLD))
-                .append(Component.text(operator, NamedTextColor.WHITE))
-                .append(Component.text(" -> ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(record.playerName(), NamedTextColor.YELLOW))
-                .append(Component.text(" | " + renderer.expirationText(language, record.expiresAt()) + " | ",
-                        NamedTextColor.GRAY))
-                .append(Component.text(renderer.reasonText(language, record.reason()), NamedTextColor.RED))
-                .build());
     }
 
     private void kickIfOnline(BanRecord record) {

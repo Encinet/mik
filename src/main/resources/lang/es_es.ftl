@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>Es posible que algunas cosas se muest
 client-reminder-default-title-mm = <gray><bold>Advertencia de versión del cliente</bold></gray>
 client-reminder-default-message-mm = <gray>Tu cliente está desactualizado y es posible que no muestre todo el contenido correctamente.</gray>
 
+player-association-header = [Asociación de inicio] { $arg0 } comparte historial de direcciones con { $arg1 } jugador(es)
+player-association-hover = Coinciden registros históricos de red. Es solo una ayuda de revisión; no se muestran direcciones.
+player-association-entry = { $arg0 }. { $arg1 } · { $arg2 } coincidencia(s) · su registro: { $arg3 }
+player-association-more-players = { $arg0 } jugador(es) más
+player-association-time-today = hoy
+player-association-time-days = hace { $arg0 } días
+player-association-time-occurrences = { $arg0 } ({ $arg1 } registros)
+player-association-more-addresses = { $arg0 } registros más
+player-association-time-separator = ,
+
 invisibility-single-mm = <yellow>Hay un jugador <gold>invisible</gold> cerca</yellow> <gray>·</gray> <gray>a unos <distance> bloques o menos</gray>
 invisibility-multi-mm = <yellow>Hay <gold><count></gold> jugadores <gold>invisibles</gold> cerca</yellow> <gray>·</gray> <gray>el más cercano está a unos <distance> bloques</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = Gravedad de expulsión no válida
 ban-already-banned = { $arg0 } ya está expulsado
 ban-self = No puedes expulsarte a ti mismo
 ban-success = Se expulsó a { $arg0 } hasta { $arg1 }
+ban-broadcast-prefix = [Boletín de sanción]
+ban-broadcast-operator = Moderador
 ban-permanent = Permanente
 ban-unknown-reason = Sin motivo
 ban-system-source = Sistema
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = Expulsar jugador
 ban-dialog-never-joined-title = El jugador nunca se ha conectado
 ban-dialog-never-joined-warning = { $arg0 } nunca se ha conectado a este servidor. Verifica el nombre para evitar expulsar al jugador equivocado.
 ban-dialog-never-joined-confirm-action = Expulsar de todos modos
+ban-severity-warning = Advertencia (3 días)
 ban-severity-excusable = Justificable (30 días)
 ban-severity-minor = Infracción leve (150 días)
 ban-severity-severe = Infracción grave (360 días)

@@ -50,6 +50,7 @@ final class BanCommandController {
     private final PaperBanSynchronizer paperSynchronizer;
     private final BanService banService;
     private final BanMessageRenderer renderer;
+    private final BanAnnouncementBroadcaster announcementBroadcaster;
     private final BanDialogController dialogController;
 
     BanCommandController(
@@ -58,6 +59,7 @@ final class BanCommandController {
             PaperBanSynchronizer paperSynchronizer,
             BanService banService,
             BanMessageRenderer renderer,
+            BanAnnouncementBroadcaster announcementBroadcaster,
             BanDialogController dialogController
     ) {
         this.plugin = plugin;
@@ -65,6 +67,7 @@ final class BanCommandController {
         this.paperSynchronizer = paperSynchronizer;
         this.banService = banService;
         this.renderer = renderer;
+        this.announcementBroadcaster = announcementBroadcaster;
         this.dialogController = dialogController;
     }
 
@@ -177,7 +180,7 @@ final class BanCommandController {
             Language language = senderLanguage(sender);
             sender.sendMessage(Component.text(t(sender, Message.BAN_SUCCESS, record.playerName(),
                     renderer.expirationText(language, record.expiresAt())), NamedTextColor.GREEN));
-            broadcast(sender.getName(), record, language);
+            announcementBroadcaster.broadcast(sender.getName(), record);
             kickIfOnline(record);
             return Command.SINGLE_SUCCESS;
         } catch (BanServiceException e) {
@@ -480,18 +483,6 @@ final class BanCommandController {
         plugin.getLogger().log(Level.SEVERE, "Ban command failed", error);
         sender.sendMessage(error(sender, Message.BAN_DATABASE_ERROR));
         return 0;
-    }
-
-    private void broadcast(String operator, BanRecord record, Language language) {
-        Bukkit.broadcast(Component.text()
-                .append(Component.text("[Ban] ", NamedTextColor.GOLD))
-                .append(Component.text(operator, NamedTextColor.WHITE))
-                .append(Component.text(" -> ", NamedTextColor.DARK_GRAY))
-                .append(Component.text(record.playerName(), NamedTextColor.YELLOW))
-                .append(Component.text(" | " + renderer.expirationText(language, record.expiresAt()) + " | ",
-                        NamedTextColor.GRAY))
-                .append(Component.text(renderer.reasonText(language, record.reason()), NamedTextColor.RED))
-                .build());
     }
 
     private void kickIfOnline(BanRecord record) {

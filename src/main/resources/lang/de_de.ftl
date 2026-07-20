@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>Einige Inhalte werden möglicherweise
 client-reminder-default-title-mm = <gray><bold>Warnung zur Clientversion</bold></gray>
 client-reminder-default-message-mm = <gray>Dein Client ist veraltet und stellt möglicherweise nicht alle Inhalte korrekt dar.</gray>
 
+player-association-header = [Login-Verknüpfung] { $arg0 } überschneidet sich mit dem Adressverlauf von { $arg1 } Spieler(n)
+player-association-hover = Historische Netzwerkdaten stimmen überein. Dies ist nur ein Prüfhinweis; Adressen werden nicht angezeigt.
+player-association-entry = { $arg0 }. { $arg1 } · { $arg2 } Treffer · deren Eintrag: { $arg3 }
+player-association-more-players = { $arg0 } weitere Spieler
+player-association-time-today = heute
+player-association-time-days = vor { $arg0 } Tagen
+player-association-time-occurrences = { $arg0 } ({ $arg1 } Einträge)
+player-association-more-addresses = { $arg0 } weitere Einträge
+player-association-time-separator = ,
+
 invisibility-single-mm = <yellow>Ein Spieler in deiner Nähe ist <gold>unsichtbar</gold></yellow> <gray>·</gray> <gray>etwa <distance> Blöcke entfernt</gray>
 invisibility-multi-mm = <yellow><gold><count></gold> Spieler in deiner Nähe sind <gold>unsichtbar</gold></yellow> <gray>·</gray> <gray>nächster etwa <distance> Blöcke entfernt</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = Ungültige Sperrstufe
 ban-already-banned = { $arg0 } ist bereits gesperrt
 ban-self = Du kannst dich nicht selbst sperren
 ban-success = { $arg0 } wurde bis { $arg1 } gesperrt
+ban-broadcast-prefix = [Sperrmitteilung]
+ban-broadcast-operator = Moderator
 ban-permanent = Dauerhaft
 ban-unknown-reason = Kein Grund angegeben
 ban-system-source = System
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = Spieler sperren
 ban-dialog-never-joined-title = Spieler war noch nie auf dem Server
 ban-dialog-never-joined-warning = { $arg0 } war noch nie auf diesem Server. Prüfe den Spielernamen, damit du nicht den falschen Spieler sperrst.
 ban-dialog-never-joined-confirm-action = Trotzdem sperren
+ban-severity-warning = Verwarnung (3 Tage)
 ban-severity-excusable = Entschuldbar (30 Tage)
 ban-severity-minor = Leichter Verstoß (150 Tage)
 ban-severity-severe = Schwerer Verstoß (360 Tage)

@@ -283,6 +283,16 @@ client-reminder-update-message-mm = <green>Alguns elementos podem ser exibidos i
 client-reminder-default-title-mm = <gray><bold>Aviso de versão do cliente</bold></gray>
 client-reminder-default-message-mm = <gray>Seu cliente está desatualizado e pode não exibir todo o conteúdo corretamente.</gray>
 
+player-association-header = [Associação de login] { $arg0 } compartilha histórico de endereços com { $arg1 } jogador(es)
+player-association-hover = Há registros históricos de rede em comum. Isto serve apenas como apoio à análise; os endereços não são exibidos.
+player-association-entry = { $arg0 }. { $arg1 } · { $arg2 } correspondência(s) · registro da outra pessoa: { $arg3 }
+player-association-more-players = Mais { $arg0 } jogador(es)
+player-association-time-today = hoje
+player-association-time-days = há { $arg0 } dias
+player-association-time-occurrences = { $arg0 } ({ $arg1 } registros)
+player-association-more-addresses = Mais { $arg0 } registros
+player-association-time-separator = ,
+
 invisibility-single-mm = <yellow>Um jogador próximo está <gold>invisível</gold></yellow> <gray>·</gray> <gray>a cerca de <distance> blocos</gray>
 invisibility-multi-mm = <yellow><gold><count></gold> jogadores próximos estão <gold>invisíveis</gold></yellow> <gray>·</gray> <gray>o mais próximo está a cerca de <distance> blocos</gray>
 
@@ -328,6 +338,8 @@ ban-invalid-severity = Gravidade de banimento inválida
 ban-already-banned = { $arg0 } já está banido
 ban-self = Você não pode banir a si mesmo
 ban-success = { $arg0 } foi banido até { $arg1 }
+ban-broadcast-prefix = [Boletim de banimento]
+ban-broadcast-operator = Moderador
 ban-permanent = Permanente
 ban-unknown-reason = Nenhum motivo informado
 ban-system-source = Sistema
@@ -369,6 +381,7 @@ ban-dialog-confirm-action = Banir jogador
 ban-dialog-never-joined-title = O jogador nunca entrou
 ban-dialog-never-joined-warning = { $arg0 } nunca entrou neste servidor. Verifique o nome para evitar banir o jogador errado.
 ban-dialog-never-joined-confirm-action = Banir mesmo assim
+ban-severity-warning = Advertência (3 dias)
 ban-severity-excusable = Justificável (30 dias)
 ban-severity-minor = Infração leve (150 dias)
 ban-severity-severe = Infração grave (360 dias)

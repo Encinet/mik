@@ -88,6 +88,19 @@ class BanServiceTest {
     }
 
     @Test
+    void warningSeverityCreatesThreeDayBan() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-07-16T00:00:00Z"));
+        try (BanService service = service(clock, new RecordingMirror())) {
+            BanRecord warning = service.ban(
+                    PLAYER_ID, "TestPlayer", BanSeverity.WARNING, "first warning", "Admin");
+
+            assertEquals(clock.instant().plus(Duration.ofDays(3)), warning.expiresAt());
+            assertEquals(BanSeverity.WARNING, BanSeverity.fromStoredReason(warning.reason()).orElseThrow());
+            assertEquals("first warning", BanSeverity.userReason(warning.reason()));
+        }
+    }
+
+    @Test
     void severityBanRejectsBlankReason() throws Exception {
         MutableClock clock = new MutableClock(Instant.parse("2026-07-16T00:00:00Z"));
         try (BanService service = service(clock, new RecordingMirror())) {

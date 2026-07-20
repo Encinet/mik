@@ -13,6 +13,7 @@ import java.util.Optional;
  * so existing ban storage remains compatible while the rendered text is localized.
  */
 public enum BanSeverity {
+    WARNING("warning", Duration.ofDays(3), Message.BAN_SEVERITY_WARNING),
     EXCUSABLE("excusable", Duration.ofDays(30), Message.BAN_SEVERITY_EXCUSABLE),
     MINOR("minor", Duration.ofDays(150), Message.BAN_SEVERITY_MINOR),
     SEVERE("severe", Duration.ofDays(360), Message.BAN_SEVERITY_SEVERE),
