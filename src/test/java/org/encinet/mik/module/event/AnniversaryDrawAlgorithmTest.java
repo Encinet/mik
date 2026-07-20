@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AnniversaryDrawAlgorithmTest {
@@ -44,7 +45,7 @@ class AnniversaryDrawAlgorithmTest {
 
     @Test
     void administratorRemovalRestoresOnlyKnownWinningPrizesWithinInitialStock() {
-        int[] stocks = {19, 8, 20};
+        int[] stocks = {19, 8, 20, 4};
 
         int restored = FifthAnniversaryEventModule.restoreWinningPrizeStocks(stocks, List.of(
                 "logo-keychain",
@@ -53,12 +54,14 @@ class AnniversaryDrawAlgorithmTest {
                 "logo-mug",
                 "logo-mug",
                 "group-photo-badge",
+                "anniversary-gift-pack",
+                "anniversary-gift-pack",
                 "not-won",
                 "sold-out",
                 "unknown"));
 
-        assertEquals(3, restored);
-        assertTrue(Arrays.equals(new int[]{20, 10, 20}, stocks));
+        assertEquals(4, restored);
+        assertTrue(Arrays.equals(new int[]{20, 10, 20, 5}, stocks));
     }
 
     @Test
@@ -120,17 +123,53 @@ class AnniversaryDrawAlgorithmTest {
 
     @Test
     void releasePlansConserveStockAndRemainFrontLoaded() {
-        for (long seed = 1L; seed <= 250L; seed++) {
-            int[] slots = FifthAnniversaryEventModule.generateReleaseSlots(20, seed);
+        for (int stock : new int[]{20, 10, 20, 5}) {
+            for (long seed = 1L; seed <= 250L; seed++) {
+                int[] slots = FifthAnniversaryEventModule.generateReleaseSlots(stock, seed);
 
-            assertEquals(20, slots.length);
-            assertTrue(isSorted(slots));
-            assertTrue(slots[0] >= 0);
-            assertTrue(slots[slots.length - 1] < 144);
-            long firstHalf = Arrays.stream(slots).filter(slot -> slot < 72).count();
-            assertTrue(firstHalf >= 10,
-                    "release plan was not front-loaded for seed " + seed);
+                assertEquals(stock, slots.length);
+                assertTrue(isSorted(slots));
+                assertTrue(slots[0] >= 0);
+                assertTrue(slots[slots.length - 1] < 144);
+                long firstHalf = Arrays.stream(slots).filter(slot -> slot < 72).count();
+                assertTrue(firstHalf >= (stock + 1L) / 2L,
+                        "release plan was not front-loaded for stock " + stock
+                                + " and seed " + seed);
+            }
         }
+    }
+
+    @Test
+    void allFiftyFivePrizesCanBeTakenWithoutNegativeStock() {
+        int[] remaining = {20, 10, 20, 5};
+        int[] awarded = new int[remaining.length];
+
+        for (int draw = 0; draw < 55; draw++) {
+            int[] available = remaining.clone();
+            int prizeIndex = FifthAnniversaryEventModule.takeAvailablePrize(
+                    remaining, available, draw % Arrays.stream(available).sum());
+            awarded[prizeIndex]++;
+            assertTrue(Arrays.stream(remaining).allMatch(stock -> stock >= 0));
+        }
+
+        assertTrue(Arrays.equals(new int[]{20, 10, 20, 5}, awarded));
+        assertTrue(Arrays.equals(new int[]{0, 0, 0, 0}, remaining));
+        assertThrows(IllegalArgumentException.class,
+                () -> FifthAnniversaryEventModule.takeAvailablePrize(
+                        remaining, remaining.clone(), 0));
+    }
+
+    @Test
+    void unavailablePrizeTypesCannotBeSelectedOrOverdrawn() {
+        int[] remaining = {1, 1, 0, 1};
+        int[] available = {0, 1, 0, 0};
+
+        assertEquals(1, FifthAnniversaryEventModule.takeAvailablePrize(
+                remaining, available, 0));
+        assertTrue(Arrays.equals(new int[]{1, 0, 0, 1}, remaining));
+        assertThrows(IllegalArgumentException.class,
+                () -> FifthAnniversaryEventModule.takeAvailablePrize(
+                        remaining, new int[]{0, 1, 0, 0}, 0));
     }
 
     @Test
@@ -147,13 +186,13 @@ class AnniversaryDrawAlgorithmTest {
     @Test
     void releaseBorrowingNeverExceedsTheCumulativeLimit() {
         assertEquals(12, FifthAnniversaryEventModule.availableReleasedStock(
-                50, 50, 10, 2));
+                55, 55, 10, 2));
         assertEquals(1, FifthAnniversaryEventModule.availableReleasedStock(
-                50, 39, 10, 2));
+                55, 44, 10, 2));
         assertEquals(0, FifthAnniversaryEventModule.availableReleasedStock(
-                50, 38, 10, 2));
+                55, 43, 10, 2));
         assertEquals(0, FifthAnniversaryEventModule.availableReleasedStock(
-                50, 30, 10, 2));
+                55, 35, 10, 2));
     }
 
     @Test

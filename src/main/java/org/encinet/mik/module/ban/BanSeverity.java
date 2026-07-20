@@ -13,12 +13,13 @@ import java.util.Optional;
  * so existing ban storage remains compatible while the rendered text is localized.
  */
 public enum BanSeverity {
-    EXCUSABLE("excusable", Duration.ofDays(1), Message.BAN_SEVERITY_EXCUSABLE),
-    MINOR("minor", Duration.ofDays(7), Message.BAN_SEVERITY_MINOR),
-    SEVERE("severe", Duration.ofDays(30), Message.BAN_SEVERITY_SEVERE),
-    EXTREME("extreme", Duration.ofDays(3000), Message.BAN_SEVERITY_EXTREME);
+    EXCUSABLE("excusable", Duration.ofDays(30), Message.BAN_SEVERITY_EXCUSABLE),
+    MINOR("minor", Duration.ofDays(150), Message.BAN_SEVERITY_MINOR),
+    SEVERE("severe", Duration.ofDays(360), Message.BAN_SEVERITY_SEVERE),
+    EXTREME("extreme", Duration.ofDays(1500), Message.BAN_SEVERITY_EXTREME);
 
     private static final String REASON_PREFIX = "severity:";
+    private static final String REASON_SEPARATOR = "\n";
 
     private final String id;
     private final Duration duration;
@@ -46,6 +47,10 @@ public enum BanSeverity {
         return REASON_PREFIX + id;
     }
 
+    String storedReason(String reason) {
+        return storedReason() + REASON_SEPARATOR + reason;
+    }
+
     static Optional<BanSeverity> fromId(String value) {
         if (value == null) {
             return Optional.empty();
@@ -55,9 +60,23 @@ public enum BanSeverity {
     }
 
     static Optional<BanSeverity> fromStoredReason(String reason) {
-        if (reason == null || !reason.startsWith(REASON_PREFIX)) {
+        if (reason == null) {
             return Optional.empty();
         }
-        return fromId(reason.substring(REASON_PREFIX.length()));
+        return Arrays.stream(values())
+                .filter(severity -> reason.equals(severity.storedReason())
+                        || reason.startsWith(severity.storedReason() + REASON_SEPARATOR))
+                .findFirst();
+    }
+
+    public static String userReason(String storedReason) {
+        BanSeverity severity = fromStoredReason(storedReason).orElse(null);
+        if (severity == null) {
+            return storedReason;
+        }
+        String prefix = severity.storedReason();
+        return storedReason.length() == prefix.length()
+                ? ""
+                : storedReason.substring(prefix.length() + REASON_SEPARATOR.length());
     }
 }

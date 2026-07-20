@@ -18,6 +18,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
@@ -25,7 +26,10 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -69,6 +73,16 @@ final class BanCommandController {
             event.registrar().register(Commands.literal("ban")
                             .requires(source -> canManageBans(source.getSender()))
                             .executes(this::openBanDialog)
+                            .then(Commands.literal("add")
+                                    .then(Commands.argument("player", StringArgumentType.word())
+                                            .suggests(bannablePlayerSuggestions())
+                                            .then(Commands.argument("severity", StringArgumentType.word())
+                                                    .suggests(severitySuggestions())
+                                                    .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                                            .executes(context -> executeBan(context, false)))
+                                                    .then(Commands.literal("--confirm")
+                                                            .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                                                    .executes(context -> executeBan(context, true)))))))
                             .then(Commands.literal("info")
                                     .then(Commands.argument("player", StringArgumentType.word())
                                             .suggests(knownPlayerSuggestions())
@@ -124,6 +138,87 @@ final class BanCommandController {
         }
         dialogController.open(player);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private int executeBan(CommandContext<CommandSourceStack> context, boolean neverJoinedConfirmed) {
+        CommandSender sender = context.getSource().getSender();
+        String requestedName = StringArgumentType.getString(context, "player");
+        if (!validPlayerName(sender, requestedName)) {
+            return 0;
+        }
+        BanSeverity severity = BanSeverity.fromId(StringArgumentType.getString(context, "severity")).orElse(null);
+        if (severity == null) {
+            sender.sendMessage(error(sender, Message.BAN_INVALID_SEVERITY));
+            return 0;
+        }
+        String reason = BanReason.normalize(StringArgumentType.getString(context, "reason")).orElse(null);
+        if (reason == null) {
+            sender.sendMessage(error(sender, Message.BAN_REASON_REQUIRED));
+            return 0;
+        }
+
+        BanTarget target = resolveBanTarget(requestedName);
+        if (isSelf(sender, target)) {
+            sender.sendMessage(error(sender, Message.BAN_SELF));
+            return 0;
+        }
+        if (banService.active(target.uuid(), target.name()).isPresent()) {
+            sender.sendMessage(error(sender, Message.BAN_ALREADY_BANNED, target.name()));
+            return 0;
+        }
+        if (needsNeverJoinedConfirmation(target.hasPlayedBefore(), neverJoinedConfirmed)) {
+            sendNeverJoinedConfirmation(sender, target.name(), severity, reason);
+            return 0;
+        }
+
+        try {
+            BanRecord record = banService.ban(
+                    target.uuid(), target.name(), severity, reason, sender.getName());
+            Language language = senderLanguage(sender);
+            sender.sendMessage(Component.text(t(sender, Message.BAN_SUCCESS, record.playerName(),
+                    renderer.expirationText(language, record.expiresAt())), NamedTextColor.GREEN));
+            broadcast(sender.getName(), record, language);
+            kickIfOnline(record);
+            return Command.SINGLE_SUCCESS;
+        } catch (BanServiceException e) {
+            if (banService.active(target.uuid(), target.name()).isPresent()) {
+                sender.sendMessage(error(sender, Message.BAN_ALREADY_BANNED, target.name()));
+                return 0;
+            }
+            return databaseError(sender, e);
+        }
+    }
+
+    private void sendNeverJoinedConfirmation(
+            CommandSender sender,
+            String playerName,
+            BanSeverity severity,
+            String reason
+    ) {
+        String command = "/ban add " + playerName + " " + severity.id() + " --confirm " + reason;
+        Component confirmButton = Component.text()
+                .append(Component.text("[", NamedTextColor.DARK_GRAY))
+                .append(Component.text(t(sender, Message.BAN_DIALOG_NEVER_JOINED_CONFIRM_ACTION),
+                        NamedTextColor.RED, TextDecoration.BOLD))
+                .append(Component.text("]", NamedTextColor.DARK_GRAY))
+                .clickEvent(ClickEvent.runCommand(command))
+                .hoverEvent(HoverEvent.showText(Component.text(command, NamedTextColor.GRAY)))
+                .build();
+        sender.sendMessage(Component.text(t(sender, Message.BAN_DIALOG_NEVER_JOINED_WARNING, playerName),
+                        NamedTextColor.RED)
+                .appendNewline()
+                .append(confirmButton)
+                .append(Component.text(" " + command, NamedTextColor.GRAY)));
+    }
+
+    static boolean needsNeverJoinedConfirmation(boolean hasPlayedBefore, boolean explicitlyConfirmed) {
+        return !hasPlayedBefore && !explicitlyConfirmed;
+    }
+
+    private boolean isSelf(CommandSender sender, BanTarget target) {
+        return sender instanceof Player player
+                && (player.getUniqueId().equals(target.uuid())
+                || player.getName().equalsIgnoreCase(target.name()));
     }
 
     private int executePardon(CommandContext<CommandSourceStack> context) {
@@ -300,6 +395,17 @@ final class BanCommandController {
                 banService.allRecords().stream().map(BanRecord::playerName).distinct().toList());
     }
 
+    private SuggestionProvider<CommandSourceStack> bannablePlayerSuggestions() {
+        return (context, builder) -> {
+            List<String> playerNames = new ArrayList<>();
+            Bukkit.getOnlinePlayers().stream().map(Player::getName).forEach(playerNames::add);
+            banService.allRecords().stream().map(BanRecord::playerName)
+                    .filter(name -> playerNames.stream().noneMatch(name::equalsIgnoreCase))
+                    .forEach(playerNames::add);
+            return suggest(builder, playerNames);
+        };
+    }
+
     private java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggest(
             com.mojang.brigadier.suggestion.SuggestionsBuilder builder, List<String> values) {
         String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
@@ -323,6 +429,29 @@ final class BanCommandController {
         }
         OfflinePlayer player = Bukkit.getOfflinePlayer(requestedName);
         return new PlayerIdentity(player.getUniqueId(), player.getName() == null ? requestedName : player.getName());
+    }
+
+    private BanTarget resolveBanTarget(String requestedName) {
+        Player online = Bukkit.getOnlinePlayers().stream()
+                .filter(player -> player.getName().equalsIgnoreCase(requestedName))
+                .findFirst()
+                .orElse(null);
+        if (online != null) {
+            return new BanTarget(online.getUniqueId(), online.getName(), true);
+        }
+        OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(requestedName);
+        if (cached != null) {
+            return new BanTarget(cached.getUniqueId(),
+                    cached.getName() == null ? requestedName : cached.getName(), cached.hasPlayedBefore());
+        }
+        Optional<BanRecord> known = banService.allRecords().stream()
+                .filter(record -> record.playerName().equalsIgnoreCase(requestedName))
+                .findFirst();
+        if (known.isPresent()) {
+            BanRecord record = known.get();
+            return new BanTarget(record.playerUuid(), record.playerName(), false);
+        }
+        return new BanTarget(null, requestedName, false);
     }
 
     private boolean validPlayerName(CommandSender sender, String playerName) {
@@ -351,6 +480,31 @@ final class BanCommandController {
         plugin.getLogger().log(Level.SEVERE, "Ban command failed", error);
         sender.sendMessage(error(sender, Message.BAN_DATABASE_ERROR));
         return 0;
+    }
+
+    private void broadcast(String operator, BanRecord record, Language language) {
+        Bukkit.broadcast(Component.text()
+                .append(Component.text("[Ban] ", NamedTextColor.GOLD))
+                .append(Component.text(operator, NamedTextColor.WHITE))
+                .append(Component.text(" -> ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(record.playerName(), NamedTextColor.YELLOW))
+                .append(Component.text(" | " + renderer.expirationText(language, record.expiresAt()) + " | ",
+                        NamedTextColor.GRAY))
+                .append(Component.text(renderer.reasonText(language, record.reason()), NamedTextColor.RED))
+                .build());
+    }
+
+    private void kickIfOnline(BanRecord record) {
+        Player player = record.playerUuid() == null
+                ? Bukkit.getPlayerExact(record.playerName())
+                : Bukkit.getPlayer(record.playerUuid());
+        if (player == null) {
+            return;
+        }
+        InetSocketAddress socketAddress = player.getAddress();
+        InetAddress address = socketAddress == null ? null : socketAddress.getAddress();
+        player.kick(renderer.banMessage(languageService.languageForAddress(address), record),
+                PlayerKickEvent.Cause.BANNED);
     }
 
     private List<BanRecord> page(List<BanRecord> records, int page) {
@@ -395,5 +549,8 @@ final class BanCommandController {
     }
 
     private record PlayerIdentity(UUID uuid, String name) {
+    }
+
+    private record BanTarget(UUID uuid, String name, boolean hasPlayedBefore) {
     }
 }

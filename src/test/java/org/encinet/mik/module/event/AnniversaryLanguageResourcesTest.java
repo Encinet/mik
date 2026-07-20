@@ -34,6 +34,7 @@ class AnniversaryLanguageResourcesTest {
                 .add("arg1", "B")
                 .add("arg2", "C")
                 .add("arg3", "D")
+                .add("arg4", "E")
                 .build();
 
         for (Language language : Language.values()) {

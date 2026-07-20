@@ -255,7 +255,8 @@ final class PaperBanSynchronizer implements BanMirror {
             if (player == null || service.active(player.getUniqueId(), player.getName()).isEmpty()) {
                 return;
             }
-            String reason = record.reason().isBlank() ? "Banned" : record.reason();
+            String userReason = BanSeverity.userReason(record.reason());
+            String reason = userReason == null || userReason.isBlank() ? "Banned" : userReason;
             player.kick(net.kyori.adventure.text.Component.text(reason), PlayerKickEvent.Cause.BANNED);
         });
     }

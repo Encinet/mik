@@ -38,6 +38,7 @@ final class BanDialogController {
     private static final String MANUAL_PLAYER_OPTION = "manual";
     private static final String PLAYER_INPUT = DialogInputKeys.requireValid("manual_player");
     private static final String PLAYER_OPTION = DialogInputKeys.requireValid("online_player");
+    private static final String REASON_INPUT = DialogInputKeys.requireValid("ban_reason");
     private static final Pattern PLAYER_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_]{3,16}$");
     private static final ClickCallback.Options CALLBACK_OPTIONS = ClickCallback.Options.builder()
             .uses(1)
@@ -130,13 +131,14 @@ final class BanDialogController {
         }
         Player online = Bukkit.getPlayerExact(requestedName);
         if (online != null) {
-            return new Target(online.getUniqueId(), online.getName());
+            return new Target(online.getUniqueId(), online.getName(), true);
         }
         OfflinePlayer cached = Bukkit.getOfflinePlayerIfCached(requestedName);
         if (cached != null) {
-            return new Target(cached.getUniqueId(), cached.getName() == null ? requestedName : cached.getName());
+            return new Target(cached.getUniqueId(), cached.getName() == null ? requestedName : cached.getName(),
+                    cached.hasPlayedBefore());
         }
-        return new Target(null, requestedName);
+        return new Target(null, requestedName, false);
     }
 
     private Target onlineTarget(String selectedOption) {
@@ -146,7 +148,7 @@ final class BanDialogController {
         try {
             UUID playerId = UUID.fromString(selectedOption.substring("online:".length()));
             Player player = Bukkit.getPlayer(playerId);
-            return player == null ? null : new Target(player.getUniqueId(), player.getName());
+            return player == null ? null : new Target(player.getUniqueId(), player.getName(), true);
         } catch (IllegalArgumentException ignored) {
             return null;
         }
@@ -161,7 +163,7 @@ final class BanDialogController {
                     null,
                     130,
                     DialogAction.customClick((response, audience) -> runOnMain(audience,
-                            player -> openConfirmation(player, target, severity)), CALLBACK_OPTIONS)));
+                            player -> openConfirmation(player, target, severity, "")), CALLBACK_OPTIONS)));
         }
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text(t(language, Message.BAN_DIALOG_SEVERITY_TITLE), NamedTextColor.GOLD))
@@ -176,11 +178,11 @@ final class BanDialogController {
                         ActionButton.create(Component.text(t(language, Message.BAN_DIALOG_BACK), NamedTextColor.GRAY),
                                 null, 90, DialogAction.customClick((response, audience) -> runOnMain(audience, this::open),
                                 CALLBACK_OPTIONS)),
-                        2)));
+                        1)));
         moderator.showDialog(dialog);
     }
 
-    private void openConfirmation(Player moderator, Target target, BanSeverity severity) {
+    private void openConfirmation(Player moderator, Target target, BanSeverity severity, String reason) {
         Language language = languageService.language(moderator);
         Instant expiration = severity.expiresAt(Instant.now());
         Component details = Component.text()
@@ -198,19 +200,72 @@ final class BanDialogController {
                         .pause(false)
                         .afterAction(DialogBase.DialogAfterAction.CLOSE)
                         .body(List.of(DialogBody.plainMessage(details, 260)))
-                        .inputs(List.of())
+                        .inputs(List.of(DialogInput.text(REASON_INPUT, 260,
+                                Component.text(t(language, Message.BANLIST_REASON), NamedTextColor.GRAY),
+                                true, reason, 256, null)))
                         .build())
                 .type(DialogType.confirmation(
                         button(language, Message.BAN_DIALOG_CONFIRM_ACTION, NamedTextColor.RED,
                                 (response, audience) -> runOnMain(audience,
-                                        player -> confirm(player, target, severity))),
+                                        player -> confirmOrWarn(
+                                                player, target, severity, response.getText(REASON_INPUT)))),
                         ActionButton.create(Component.text(t(language, Message.BAN_DIALOG_BACK), NamedTextColor.GRAY),
                                 null, 90, DialogAction.customClick((response, audience) -> runOnMain(audience,
                                 player -> openSeverity(player, target)), CALLBACK_OPTIONS)))));
         moderator.showDialog(dialog);
     }
 
-    private void confirm(Player moderator, Target target, BanSeverity severity) {
+    private void confirmOrWarn(Player moderator, Target target, BanSeverity severity, String rawReason) {
+        String reason = BanReason.normalize(rawReason).orElse(null);
+        if (reason == null) {
+            moderator.sendMessage(error(moderator, Message.BAN_REASON_REQUIRED));
+            openConfirmation(moderator, target, severity, "");
+            return;
+        }
+        if (needsNeverJoinedConfirmation(target.hasPlayedBefore())) {
+            openNeverJoinedConfirmation(moderator, target, severity, reason);
+            return;
+        }
+        confirm(moderator, target, severity, reason);
+    }
+
+    private void openNeverJoinedConfirmation(
+            Player moderator,
+            Target target,
+            BanSeverity severity,
+            String reason
+    ) {
+        Language language = languageService.language(moderator);
+        Component warning = Component.text()
+                .append(Component.text(
+                        t(language, Message.BAN_DIALOG_NEVER_JOINED_WARNING, target.name()), NamedTextColor.RED))
+                .appendNewline()
+                .append(renderer.labelLine(language, Message.BANLIST_REASON, reason))
+                .build();
+        Dialog dialog = Dialog.create(builder -> builder.empty()
+                .base(DialogBase.builder(Component.text(
+                                t(language, Message.BAN_DIALOG_NEVER_JOINED_TITLE), NamedTextColor.RED))
+                        .canCloseWithEscape(true)
+                        .pause(false)
+                        .afterAction(DialogBase.DialogAfterAction.CLOSE)
+                        .body(List.of(DialogBody.plainMessage(warning, 280)))
+                        .inputs(List.of())
+                        .build())
+                .type(DialogType.confirmation(
+                        button(language, Message.BAN_DIALOG_NEVER_JOINED_CONFIRM_ACTION, NamedTextColor.RED,
+                                (response, audience) -> runOnMain(audience,
+                                        player -> confirm(player, target, severity, reason))),
+                        ActionButton.create(Component.text(t(language, Message.BAN_DIALOG_BACK), NamedTextColor.GRAY),
+                                null, 90, DialogAction.customClick((response, audience) -> runOnMain(audience,
+                                player -> openConfirmation(player, target, severity, reason)), CALLBACK_OPTIONS)))));
+        moderator.showDialog(dialog);
+    }
+
+    static boolean needsNeverJoinedConfirmation(boolean hasPlayedBefore) {
+        return !hasPlayedBefore;
+    }
+
+    private void confirm(Player moderator, Target target, BanSeverity severity, String reason) {
         if (moderator.getUniqueId().equals(target.uuid())) {
             moderator.sendMessage(error(moderator, Message.BAN_SELF));
             return;
@@ -220,7 +275,8 @@ final class BanDialogController {
             return;
         }
         try {
-            BanRecord record = banService.ban(target.uuid(), target.name(), severity, moderator.getName());
+            BanRecord record = banService.ban(
+                    target.uuid(), target.name(), severity, reason, moderator.getName());
             Language language = languageService.language(moderator);
             String expiration = renderer.expirationText(language, record.expiresAt());
             moderator.sendMessage(Component.text(t(language, Message.BAN_SUCCESS, record.playerName(), expiration),
@@ -286,6 +342,6 @@ final class BanDialogController {
         return languageService.t(language, message, args);
     }
 
-    private record Target(UUID uuid, String name) {
+    private record Target(UUID uuid, String name, boolean hasPlayedBefore) {
     }
 }

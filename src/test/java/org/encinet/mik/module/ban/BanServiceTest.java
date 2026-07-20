@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BanServiceTest {
@@ -60,12 +61,38 @@ class BanServiceTest {
             BanRecord pardoned = service.pardon(PLAYER_ID, "TestPlayer", "Moderator", "appeal accepted");
 
             assertEquals(created.id(), edited.id());
-            assertEquals(BanSeverity.MINOR.storedReason(), edited.reason());
-            assertEquals(clock.instant().plus(Duration.ofDays(7)), edited.expiresAt());
+            assertEquals(BanSeverity.MINOR.storedReason("old reason"), edited.reason());
+            assertEquals("old reason", BanSeverity.userReason(edited.reason()));
+            assertEquals(clock.instant().plus(Duration.ofDays(150)), edited.expiresAt());
             assertEquals(BanRecord.Status.REVOKED, pardoned.statusAt(clock.instant()));
             assertTrue(service.active(PLAYER_ID, "TestPlayer").isEmpty());
             assertEquals(1, service.history(PLAYER_ID, "TestPlayer").size());
             assertEquals(1, mirror.pardons.size());
+        }
+    }
+
+    @Test
+    void severityBanStoresRequiredReasonAndReasonEditsPreserveSeverity() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-07-16T00:00:00Z"));
+        try (BanService service = service(clock, new RecordingMirror())) {
+            BanRecord created = service.ban(
+                    PLAYER_ID, "TestPlayer", BanSeverity.SEVERE, "griefing", "Admin");
+            BanRecord edited = service.editReason(
+                    PLAYER_ID, "TestPlayer", "repeated griefing", "Admin");
+
+            assertEquals(BanSeverity.SEVERE, BanSeverity.fromStoredReason(created.reason()).orElseThrow());
+            assertEquals("griefing", BanSeverity.userReason(created.reason()));
+            assertEquals(BanSeverity.SEVERE, BanSeverity.fromStoredReason(edited.reason()).orElseThrow());
+            assertEquals("repeated griefing", BanSeverity.userReason(edited.reason()));
+        }
+    }
+
+    @Test
+    void severityBanRejectsBlankReason() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-07-16T00:00:00Z"));
+        try (BanService service = service(clock, new RecordingMirror())) {
+            assertThrows(BanServiceException.class, () -> service.ban(
+                    PLAYER_ID, "TestPlayer", BanSeverity.SEVERE, "   ", "Admin"));
         }
     }
 

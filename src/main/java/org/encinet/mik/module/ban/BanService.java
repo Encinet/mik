@@ -125,12 +125,19 @@ public final class BanService implements BanManager, AutoCloseable {
         }
     }
 
-    synchronized BanRecord ban(UUID playerUuid, String playerName, BanSeverity severity, String operator)
+    synchronized BanRecord ban(
+            UUID playerUuid,
+            String playerName,
+            BanSeverity severity,
+            String reason,
+            String operator
+    )
             throws BanServiceException {
         if (severity == null) {
             throw new BanServiceException("severity must not be null");
         }
-        return ban(playerUuid, playerName, severity.storedReason(), operator,
+        String validReason = requireText(reason, "reason");
+        return ban(playerUuid, playerName, severity.storedReason(validReason), operator,
                 severity.expiresAt(clock.instant()), BanRecord.Origin.MIK);
     }
 
@@ -139,9 +146,11 @@ public final class BanService implements BanManager, AutoCloseable {
         requireWriteThread();
         BanRecord current = requireActive(playerUuid, playerName);
         String newReason = requireText(reason, "reason");
+        BanSeverity severity = BanSeverity.fromStoredReason(current.reason()).orElse(null);
+        String storedReason = severity == null ? newReason : severity.storedReason(newReason);
         String validOperator = requireText(operator, "operator");
         try {
-            BanRecord updated = repository.updateReason(current.id(), newReason, clock.instant());
+            BanRecord updated = repository.updateReason(current.id(), storedReason, clock.instant());
             reload();
             mirrorUpsert(updated);
             log("EDIT_REASON", updated, validOperator, "old=\"" + logText(current.reason())
@@ -191,8 +200,11 @@ public final class BanService implements BanManager, AutoCloseable {
         Instant now = clock.instant();
         Instant expiresAt = severity.expiresAt(now);
         try {
-            BanRecord updated = repository.updateSeverity(
-                    current.id(), severity.storedReason(), expiresAt, now);
+            String reason = BanSeverity.userReason(current.reason());
+            String storedReason = reason == null || reason.isBlank()
+                    ? severity.storedReason()
+                    : severity.storedReason(reason);
+            BanRecord updated = repository.updateSeverity(current.id(), storedReason, expiresAt, now);
             reload();
             mirrorUpsert(updated);
             log("EDIT_SEVERITY", updated, validOperator,

@@ -23,6 +23,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.Mik;
 import org.encinet.mik.module.ban.BanRecord;
 import org.encinet.mik.module.ban.BanManager;
+import org.encinet.mik.module.ban.BanSeverity;
 import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
@@ -493,7 +494,8 @@ public class ApiModule implements Listener {
 
             sb.append("{\"playerName\":\"").append(escapeJson(record.playerName())).append("\"")
                     .append(",\"playerUuid\":\"").append(escapeJson(playerUuid)).append("\"")
-                    .append(",\"reason\":\"").append(escapeJson(record.reason())).append("\"")
+                    .append(",\"reason\":\"")
+                    .append(escapeJson(BanSeverity.userReason(record.reason()))).append("\"")
                     .append(",\"bannedBy\":\"").append(escapeJson(record.source())).append("\"")
                     .append(",\"bannedAt\":\"").append(record.createdAt()).append("\"")
                     .append(",\"expiresAt\":").append(expiresAt == null ? "null" : "\"" + escapeJson(expiresAt) + "\"")

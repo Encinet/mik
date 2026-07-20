@@ -99,11 +99,14 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             .uses(1)
             .lifetime(Duration.ofMinutes(5))
             .build();
-    private static final String[] PRIZE_IDS = {"logo-keychain", "logo-mug", "group-photo-badge"};
+    private static final String[] PRIZE_IDS = {
+            "logo-keychain", "logo-mug", "group-photo-badge", "anniversary-gift-pack"
+    };
     private static final Message[] PRIZE_MESSAGES = {
             Message.ANNIVERSARY_PRIZE_KEYCHAIN,
             Message.ANNIVERSARY_PRIZE_MUG,
-            Message.ANNIVERSARY_PRIZE_BADGE
+            Message.ANNIVERSARY_PRIZE_BADGE,
+            Message.ANNIVERSARY_PRIZE_GIFT_PACK
     };
     private static final Message[] RULE_MESSAGES = {
             Message.ANNIVERSARY_RULE_1,
@@ -114,7 +117,16 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             Message.ANNIVERSARY_RULE_6,
             Message.ANNIVERSARY_RULE_7
     };
-    private static final int[] INITIAL_STOCKS = {20, 10, 20};
+    private static final int[] INITIAL_STOCKS = {20, 10, 20, 5};
+
+    static {
+        if (PRIZE_IDS.length != PRIZE_MESSAGES.length
+                || PRIZE_IDS.length != INITIAL_STOCKS.length
+                || Set.of(PRIZE_IDS).size() != PRIZE_IDS.length
+                || Arrays.stream(INITIAL_STOCKS).anyMatch(stock -> stock <= 0)) {
+            throw new IllegalStateException("Invalid anniversary prize configuration");
+        }
+    }
 
     private final JavaPlugin plugin;
     private final AfkService afkService;
@@ -345,6 +357,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 prizeName(sender, PRIZE_IDS[0]) + " " + remainingStocks[0] + "/" + INITIAL_STOCKS[0],
                 prizeName(sender, PRIZE_IDS[1]) + " " + remainingStocks[1] + "/" + INITIAL_STOCKS[1],
                 prizeName(sender, PRIZE_IDS[2]) + " " + remainingStocks[2] + "/" + INITIAL_STOCKS[2],
+                prizeName(sender, PRIZE_IDS[3]) + " " + remainingStocks[3] + "/" + INITIAL_STOCKS[3],
                 remainingStock() + "/" + Arrays.stream(INITIAL_STOCKS).sum()));
         sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_CONTROL, NamedTextColor.AQUA,
                 releasedStockAt(nowMillis), availableReleasedStock(nowMillis),
@@ -580,7 +593,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 .append(text(player, Message.ANNIVERSARY_DIALOG_PRIZES, NamedTextColor.GOLD,
                         prizeName(player, PRIZE_IDS[0]),
                         prizeName(player, PRIZE_IDS[1]),
-                        prizeName(player, PRIZE_IDS[2])))
+                        prizeName(player, PRIZE_IDS[2]),
+                        prizeName(player, PRIZE_IDS[3])))
                 .appendNewline()
                 .appendNewline()
                 .append(rules(player))
@@ -984,13 +998,36 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 }
             }
         }
-        int selected = random.nextInt(total);
-        for (int index = 0; index < availableByType.length; index++) {
-            if (selected < availableByType[index]) {
-                remainingStocks[index]--;
-                return PRIZE_IDS[index];
+        int prizeIndex = takeAvailablePrize(
+                remainingStocks, availableByType, random.nextInt(total));
+        return PRIZE_IDS[prizeIndex];
+    }
+
+    static int takeAvailablePrize(
+            int[] remaining,
+            int[] available,
+            int selected
+    ) {
+        if (remaining.length != available.length) {
+            throw new IllegalArgumentException("Prize stock and availability lengths differ");
+        }
+        for (int index = 0; index < available.length; index++) {
+            if (remaining[index] < 0
+                    || available[index] < 0
+                    || available[index] > remaining[index]) {
+                throw new IllegalArgumentException("Invalid released prize availability");
             }
-            selected -= availableByType[index];
+        }
+        int total = Arrays.stream(available).sum();
+        if (selected < 0 || selected >= total) {
+            throw new IllegalArgumentException("Selected prize offset is out of bounds");
+        }
+        for (int index = 0; index < available.length; index++) {
+            if (selected < available[index]) {
+                remaining[index]--;
+                return index;
+            }
+            selected -= available[index];
         }
         throw new IllegalStateException("Released prize selection was out of bounds");
     }
@@ -1377,6 +1414,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             case "Logo 钥匙扣" -> PRIZE_IDS[0];
             case "Logo 马克杯" -> PRIZE_IDS[1];
             case "五周年合照吧唧" -> PRIZE_IDS[2];
+            case "五周年大礼包" -> PRIZE_IDS[3];
             case "奖品池已抽完" -> SOLD_OUT_ID;
             default -> storedPrize;
         };

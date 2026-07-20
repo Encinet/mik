@@ -63,13 +63,10 @@ final class BanMessageRenderer {
     }
 
     String reasonText(Language language, String reason) {
-        BanSeverity severity = BanSeverity.fromStoredReason(reason).orElse(null);
-        if (severity != null) {
-            return languageService.t(language, severity.label());
-        }
-        return reason == null || reason.isBlank()
+        String userReason = BanSeverity.userReason(reason);
+        return userReason == null || userReason.isBlank()
                 ? languageService.t(language, Message.BAN_UNKNOWN_REASON)
-                : reason;
+                : userReason;
     }
 
     String sourceText(Language language, String source) {
