@@ -21,10 +21,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerFishEvent;
 import org.bukkit.event.player.PlayerInputEvent;
@@ -35,15 +38,18 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerVelocityEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageChangeListener;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.util.PlayerDisplay;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -57,9 +63,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class AfkModule implements Listener, AfkService {
+public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
-    private static final long AFK_TIMEOUT_MILLIS = 3L * 60L * 1000L;
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
     private static final int MAX_STATUS_LENGTH = 20;
@@ -80,7 +85,7 @@ public class AfkModule implements Listener, AfkService {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
-    private final Map<UUID, Long> lastActiveAt = new HashMap<>();
+    private final Map<UUID, AfkActivityTracker> activityTrackers = new HashMap<>();
     private final Map<UUID, AfkState> states = new HashMap<>();
     private final Set<UUID> pendingAsyncActivity = ConcurrentHashMap.newKeySet();
     private final List<AfkStateListener> listeners = new CopyOnWriteArrayList<>();
@@ -98,8 +103,10 @@ public class AfkModule implements Listener, AfkService {
 
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        long now = System.currentTimeMillis();
-        Bukkit.getOnlinePlayers().forEach(player -> lastActiveAt.put(player.getUniqueId(), now));
+        languageService.addLanguageChangeListener(this);
+        long now = activityTimeMillis();
+        Bukkit.getOnlinePlayers().forEach(player -> activityTrackers.put(
+                player.getUniqueId(), newTracker(now, player.getLocation())));
         updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, UPDATE_INTERVAL_TICKS, UPDATE_INTERVAL_TICKS);
         plugin.getLogger().info("AfkModule enabled");
     }
@@ -109,9 +116,10 @@ public class AfkModule implements Listener, AfkService {
             updateTask.cancel();
         }
         updateTask = null;
+        languageService.removeLanguageChangeListener(this);
         collisionController.clear();
         states.clear();
-        lastActiveAt.clear();
+        activityTrackers.clear();
         pendingAsyncActivity.clear();
         displayController.removeAll();
     }
@@ -153,9 +161,16 @@ public class AfkModule implements Listener, AfkService {
         listeners.remove(listener);
     }
 
+    @Override
+    public void onLanguageChanged(Player player) {
+        displayController.refreshViewerLanguage(player);
+    }
+
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        lastActiveAt.put(event.getPlayer().getUniqueId(), System.currentTimeMillis());
+        Player player = event.getPlayer();
+        activityTrackers.put(player.getUniqueId(), newTracker(
+                activityTimeMillis(), player.getLocation()));
         Bukkit.getScheduler().runTask(plugin, () -> collisionController.syncViewer(event.getPlayer()));
     }
 
@@ -164,9 +179,10 @@ public class AfkModule implements Listener, AfkService {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
         states.remove(playerId);
-        lastActiveAt.remove(playerId);
+        activityTrackers.remove(playerId);
         pendingAsyncActivity.remove(playerId);
         restoreAfkProtection(player);
+        collisionController.forgetViewer(player);
         displayController.remove(playerId);
         displayController.forgetViewer(playerId);
         notifyListeners(player, null);
@@ -174,43 +190,68 @@ public class AfkModule implements Listener, AfkService {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerMove(PlayerMoveEvent event) {
-        if (!isMeaningfulActivity(event.getFrom(), event.getTo())) {
+        boolean positionChange = isPositionChange(event.getFrom(), event.getTo());
+        if (!positionChange && !isMeaningfulActivity(event.getFrom(), event.getTo())) {
             return;
         }
 
-        if (isAfk(event.getPlayer().getUniqueId())) {
-            if (isPositionChange(event.getFrom(), event.getTo())) {
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        if (isAfk(playerId)) {
+            if (positionChange) {
                 event.setCancelled(true);
+                AfkActivityTracker tracker = tracker(player, activityTimeMillis());
+                if (tracker.hasActiveMovementGesture()) {
+                    clearAfk(player, false);
+                    startMovementGesture(tracker, player, activityTimeMillis());
+                }
             } else {
-                recordActivity(event.getPlayer());
+                recordLightActivity(player);
             }
             return;
         }
 
-        recordActivity(event.getPlayer());
+        if (positionChange) {
+            if (!(event instanceof PlayerTeleportEvent)) {
+                recordMovement(player, event.getTo());
+            }
+        } else {
+            recordLightActivity(player);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerInput(PlayerInputEvent event) {
-        if (hasMovementInput(event.getInput())) {
-            recordActivity(event.getPlayer());
-        }
+        Player player = event.getPlayer();
+        long now = activityTimeMillis();
+        Location location = player.getLocation();
+        tracker(player, now).recordMovementInput(
+                hasMovementInput(event.getInput()),
+                worldId(location),
+                location.getX(),
+                location.getY(),
+                location.getZ(),
+                now);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerInteract(PlayerInteractEvent event) {
-        recordActivity(event.getPlayer());
+        if (isSubstantialInteraction(event.getAction())) {
+            recordAction(event.getPlayer());
+        } else {
+            recordLightActivity(event.getPlayer());
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        recordActivity(event.getPlayer());
+        recordAction(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         if (!isAfkCommand(event.getMessage())) {
-            recordActivity(event.getPlayer());
+            recordLightActivity(event.getPlayer());
         }
     }
 
@@ -221,22 +262,33 @@ public class AfkModule implements Listener, AfkService {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockBreak(BlockBreakEvent event) {
-        recordActivity(event.getPlayer());
+        recordAction(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockPlace(BlockPlaceEvent event) {
-        recordActivity(event.getPlayer());
+        recordAction(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerSneak(PlayerToggleSneakEvent event) {
-        recordActivity(event.getPlayer());
+        recordLightActivity(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerSprint(PlayerToggleSprintEvent event) {
-        recordActivity(event.getPlayer());
+        recordLightActivity(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (event.getWhoClicked() instanceof Player player) {
+            if (isSubstantialInventoryAction(event.getAction())) {
+                recordAction(player);
+            } else {
+                recordLightActivity(player);
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -244,12 +296,12 @@ public class AfkModule implements Listener, AfkService {
         if (event.getEntity() instanceof Player target && isAfk(target.getUniqueId())) {
             event.setCancelled(true);
             if (event.getDamager() instanceof Player damager && !damager.getUniqueId().equals(target.getUniqueId())) {
-                recordActivity(damager);
+                recordAction(damager);
             }
             return;
         }
         if (event.getDamager() instanceof Player player) {
-            recordActivity(player);
+            recordAction(player);
         }
     }
 
@@ -267,7 +319,7 @@ public class AfkModule implements Listener, AfkService {
     public void onPlayerFishAfkPlayer(PlayerFishEvent event) {
         if (event.getCaught() instanceof Player target && isAfk(target.getUniqueId())) {
             event.setCancelled(true);
-            recordActivity(event.getPlayer());
+            recordAction(event.getPlayer());
         }
     }
 
@@ -328,12 +380,15 @@ public class AfkModule implements Listener, AfkService {
 
     private void tick() {
         flushPendingActivity();
-        displayController.updateTrackedDisplays(states.values());
 
-        tickCounter = (tickCounter + 1) % AUTO_CHECK_TICKS;
-        if (tickCounter == 0) {
-            checkAutoAfk();
+        tickCounter++;
+        if (tickCounter < AUTO_CHECK_TICKS) {
+            return;
         }
+        tickCounter = 0;
+
+        checkAutoAfk();
+        displayController.updateTrackedDisplays(states.values());
     }
 
     private void flushPendingActivity() {
@@ -344,41 +399,126 @@ public class AfkModule implements Listener, AfkService {
             pendingAsyncActivity.remove(playerId);
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
-                recordActivity(player);
+                recordLightActivity(player);
             }
         }
     }
 
     private void checkAutoAfk() {
-        long now = System.currentTimeMillis();
+        long now = activityTimeMillis();
+        List<Player> newlyAfk = new ArrayList<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID playerId = player.getUniqueId();
             if (states.containsKey(playerId)) {
                 continue;
             }
-            long lastActive = lastActiveAt.computeIfAbsent(playerId, ignored -> now);
-            if (now - lastActive >= AFK_TIMEOUT_MILLIS) {
-                setAfk(player, null, true);
+            AfkActivityTracker tracker = tracker(player, now);
+            switch (tracker.check(now)) {
+                case ACTIVE -> {
+                }
+                case AFK_IDLE, AFK_PASSIVE -> newlyAfk.add(player);
             }
         }
+        setAutomaticAfk(newlyAfk, now);
     }
 
-    private void recordActivity(Player player) {
-        lastActiveAt.put(player.getUniqueId(), System.currentTimeMillis());
+    private void recordLightActivity(Player player) {
+        long now = activityTimeMillis();
+        tracker(player, now).recordLightActivity(now);
+    }
+
+    private void recordMovement(Player player, Location location) {
+        long now = activityTimeMillis();
+        tracker(player, now).recordMovement(
+                worldId(location), location.getX(), location.getY(), location.getZ(), now);
+    }
+
+    private void startMovementGesture(AfkActivityTracker tracker, Player player, long now) {
+        Location location = player.getLocation();
+        tracker.recordMovementInput(
+                true,
+                worldId(location),
+                location.getX(),
+                location.getY(),
+                location.getZ(),
+                now);
+    }
+
+    private void recordAction(Player player) {
+        long now = activityTimeMillis();
+        tracker(player, now).recordAction(now);
         if (isAfk(player.getUniqueId())) {
             clearAfk(player, false);
         }
     }
 
+    private AfkActivityTracker tracker(Player player, long now) {
+        UUID playerId = player.getUniqueId();
+        AfkActivityTracker tracker = activityTrackers.get(playerId);
+        if (tracker == null) {
+            tracker = newTracker(now, player.getLocation());
+            activityTrackers.put(playerId, tracker);
+        }
+        return tracker;
+    }
+
+    private static AfkActivityTracker newTracker(long now, Location location) {
+        return new AfkActivityTracker(
+                now,
+                worldId(location),
+                location.getX(),
+                location.getY(),
+                location.getZ()
+        );
+    }
+
+    private static UUID worldId(Location location) {
+        return location.getWorld() == null ? null : location.getWorld().getUID();
+    }
+
+    private static long activityTimeMillis() {
+        return System.nanoTime() / 1_000_000L;
+    }
+
     private void setAfk(Player player, String customMessage, boolean automatic) {
+        long now = activityTimeMillis();
         UUID playerId = player.getUniqueId();
         boolean hasCustomMessage = customMessage != null && !customMessage.isBlank();
-        AfkState state = new AfkState(playerId, hasCustomMessage ? customMessage : null, automatic, System.currentTimeMillis());
+        AfkState state = new AfkState(
+                playerId,
+                hasCustomMessage ? customMessage : null,
+                automatic,
+                System.currentTimeMillis());
         states.put(playerId, state);
+        tracker(player, now).suspendMovementGesture();
         applyAfkProtection(player);
         displayController.update(player, state);
         notifyListeners(player, state);
         broadcastEnterMessage(player, customMessage, hasCustomMessage);
+    }
+
+    private void setAutomaticAfk(List<Player> players, long now) {
+        if (players.isEmpty()) {
+            return;
+        }
+
+        long sinceMillis = System.currentTimeMillis();
+        Map<UUID, AfkState> newStates = new HashMap<>(players.size());
+        for (Player player : players) {
+            UUID playerId = player.getUniqueId();
+            AfkState state = new AfkState(playerId, null, true, sinceMillis);
+            states.put(playerId, state);
+            newStates.put(playerId, state);
+            tracker(player, now).suspendMovementGesture();
+            clearNearbyMobTargets(player);
+        }
+        collisionController.addAll(players);
+
+        for (Player player : players) {
+            AfkState state = newStates.get(player.getUniqueId());
+            notifyListeners(player, state);
+        }
+        broadcastAutomaticEnterMessages(players);
     }
 
     private void clearAfk(Player player, boolean notifyPlayer) {
@@ -390,7 +530,14 @@ public class AfkModule implements Listener, AfkService {
             return;
         }
 
-        lastActiveAt.put(playerId, System.currentTimeMillis());
+        long now = activityTimeMillis();
+        Location location = player.getLocation();
+        tracker(player, now).reset(
+                now,
+                worldId(location),
+                location.getX(),
+                location.getY(),
+                location.getZ());
         restoreAfkProtection(player);
         displayController.remove(playerId);
         notifyListeners(player, null);
@@ -424,13 +571,20 @@ public class AfkModule implements Listener, AfkService {
                 && Math.abs(fromPitch - toPitch) >= 8.0F;
     }
 
+    static boolean isSubstantialInteraction(Action action) {
+        return action == Action.LEFT_CLICK_BLOCK || action == Action.RIGHT_CLICK_BLOCK;
+    }
+
+    static boolean isSubstantialInventoryAction(InventoryAction action) {
+        return action != InventoryAction.NOTHING && action != InventoryAction.UNKNOWN;
+    }
+
     private boolean isPositionChange(Location from, Location to) {
         if (to == null) return false;
         if (!Objects.equals(from.getWorld(), to.getWorld())) return true;
-        double dx = from.getX() - to.getX();
-        double dy = from.getY() - to.getY();
-        double dz = from.getZ() - to.getZ();
-        return dx * dx + dy * dy + dz * dz > 0.01D;
+        return from.getX() != to.getX()
+                || from.getY() != to.getY()
+                || from.getZ() != to.getZ();
     }
 
     private boolean hasMovementInput(Input input) {
@@ -498,6 +652,21 @@ public class AfkModule implements Listener, AfkService {
             localizedMessages.computeIfAbsent(language,
                             ignored -> enterMessage(language, player, customMessage, customMessagePresent))
                     .ifPresent(viewer::sendMessage);
+        }
+    }
+
+    private void broadcastAutomaticEnterMessages(List<? extends Player> players) {
+        Map<Language, List<Player>> viewersByLanguage = new EnumMap<>(Language.class);
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            viewersByLanguage.computeIfAbsent(languageService.language(viewer), ignored -> new ArrayList<>())
+                    .add(viewer);
+        }
+
+        for (Player player : players) {
+            for (Map.Entry<Language, List<Player>> entry : viewersByLanguage.entrySet()) {
+                enterMessage(entry.getKey(), player, null, false)
+                        .ifPresent(message -> entry.getValue().forEach(viewer -> viewer.sendMessage(message)));
+            }
         }
     }
 

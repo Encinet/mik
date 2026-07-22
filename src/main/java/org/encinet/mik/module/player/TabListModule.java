@@ -51,6 +51,7 @@ public class TabListModule implements Listener, AfkStateListener {
     private final LanguageService languageService;
     private LuckPerms luckPerms;
     private BukkitTask refreshTask;
+    private BukkitTask pendingAfkRefreshTask;
 
     public TabListModule(JavaPlugin plugin, AfkService afkService, LanguageService languageService) {
         this.plugin = plugin;
@@ -96,7 +97,7 @@ public class TabListModule implements Listener, AfkStateListener {
     public void onAfkStateChanged(Player player, AfkState state) {
         if (player.isOnline()) {
             updatePlayerListName(player);
-            updateAllHeadersAndFooters();
+            scheduleAfkHeaderRefresh();
         }
     }
 
@@ -105,6 +106,10 @@ public class TabListModule implements Listener, AfkStateListener {
         if (refreshTask != null) {
             refreshTask.cancel();
             refreshTask = null;
+        }
+        if (pendingAfkRefreshTask != null) {
+            pendingAfkRefreshTask.cancel();
+            pendingAfkRefreshTask = null;
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.playerListName(null);
@@ -156,6 +161,16 @@ public class TabListModule implements Listener, AfkStateListener {
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendPlayerListHeaderAndFooter(header, tabListFooter(player));
         }
+    }
+
+    private void scheduleAfkHeaderRefresh() {
+        if (pendingAfkRefreshTask != null) {
+            return;
+        }
+        pendingAfkRefreshTask = Bukkit.getScheduler().runTask(plugin, () -> {
+            pendingAfkRefreshTask = null;
+            updateAllHeadersAndFooters();
+        });
     }
 
     private Component tabListFooter(Player viewer) {

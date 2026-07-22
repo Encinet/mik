@@ -154,6 +154,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private final int[] remainingStocks = new int[INITIAL_STOCKS.length];
     private final int[][] releaseSlots = new int[INITIAL_STOCKS.length][];
     private final SecureRandom random = new SecureRandom();
+    private final SecureRandom simulationRandom = new SecureRandom();
 
     private BukkitTask tickTask;
     private int ticksSinceSave;
@@ -256,6 +257,18 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                                             return builder.buildFuture();
                                         })
                                         .executes(context -> grantBuildingBonus(
+                                                context.getSource().getSender(),
+                                                StringArgumentType.getString(context, "player")))))
+                        .then(Commands.literal("test")
+                                .requires(source -> isEventAdministrator(source.getSender()))
+                                .executes(context -> simulateNeutralDraw(
+                                        context.getSource().getSender()))
+                                .then(Commands.argument("player", StringArgumentType.word())
+                                        .suggests((context, builder) -> {
+                                            suggestParticipantNames(builder.getRemaining(), builder::suggest);
+                                            return builder.buildFuture();
+                                        })
+                                        .executes(context -> simulateParticipantDraw(
                                                 context.getSource().getSender(),
                                                 StringArgumentType.getString(context, "player")))))
                         .build(),
@@ -595,6 +608,41 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return Command.SINGLE_SUCCESS;
     }
 
+    private int simulateParticipantDraw(CommandSender sender, String requestedName) {
+        Map.Entry<UUID, Participant> target = findParticipant(requestedName);
+        if (target == null) {
+            sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_PLAYER_NOT_FOUND,
+                    NamedTextColor.RED, requestedName));
+            return 0;
+        }
+
+        Participant participant = target.getValue();
+        long now = System.currentTimeMillis();
+        int round = participant.regularDraws.size() < MAX_DRAWS
+                ? participant.regularDraws.size() + 1
+                : 0;
+        DrawResult draw = simulateDrawOpportunity(participant, round, now);
+        String source = round == 0
+                ? adminValue(sender, Message.ANNIVERSARY_ADMIN_DRAW_BONUS)
+                : adminValue(sender, Message.ANNIVERSARY_ADMIN_DRAW_ROUND, round);
+
+        sender.sendMessage(Component.text("[TEST] ", NamedTextColor.AQUA)
+                .append(Component.text(displayValue(participant.lastKnownName), NamedTextColor.WHITE)));
+        sendDrawAudit(sender, "[TEST] " + source, draw);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int simulateNeutralDraw(CommandSender sender) {
+        long now = System.currentTimeMillis();
+        DrawResult draw = simulateDrawOpportunity(
+                Set.of(), 0, 0, 1, now);
+        sender.sendMessage(Component.text("[TEST]", NamedTextColor.AQUA));
+        sendDrawAudit(sender,
+                "[TEST] " + adminValue(sender, Message.ANNIVERSARY_ADMIN_DRAW_ROUND, 1),
+                draw);
+        return Command.SINGLE_SUCCESS;
+    }
+
     private void sendDrawAudit(CommandSender sender, String label, DrawResult draw) {
         String effectiveLabel = draw.superseded
                 ? label + " · " + adminValue(sender, Message.ANNIVERSARY_ADMIN_DRAW_REPLACED)
@@ -653,6 +701,10 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 || nowMillis >= EVENT_END_EXCLUSIVE.toEpochMilli()) {
             return 0.0D;
         }
+        return calculateBaseProbabilityAt(nowMillis);
+    }
+
+    private double calculateBaseProbabilityAt(long nowMillis) {
         int available = availableReleasedStock(nowMillis);
         if (remainingStock() <= 0 || available <= 0) {
             return 0.0D;
@@ -977,11 +1029,78 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             int round,
             long drawnAt
     ) {
-        Set<String> excludedPrizeIds = Set.copyOf(participant.virtualBag);
+        DrawResult draw = rollOpportunity(
+                participant, round, drawnAt, baseProbability(drawnAt), random);
+        if (isWinningPrize(draw.prizeId)) {
+            remainingStocks[prizeIndex(draw.prizeId)]--;
+            participant.wins++;
+        } else {
+            participant.losses++;
+        }
+        return draw;
+    }
+
+    private DrawResult simulateDrawOpportunity(
+            Participant participant,
+            int round,
+            long drawnAt
+    ) {
+        return simulateDrawOpportunity(
+                Set.copyOf(participant.virtualBag),
+                participant.wins,
+                participant.losses,
+                round,
+                drawnAt);
+    }
+
+    private DrawResult simulateDrawOpportunity(
+            Set<String> excludedPrizeIds,
+            int wins,
+            int losses,
+            int round,
+            long drawnAt
+    ) {
+        return rollOpportunity(
+                excludedPrizeIds,
+                wins,
+                losses,
+                round,
+                drawnAt,
+                calculateBaseProbabilityAt(drawnAt),
+                simulationRandom);
+    }
+
+    private DrawResult rollOpportunity(
+            Participant participant,
+            int round,
+            long drawnAt,
+            double baseProbability,
+            SecureRandom randomSource
+    ) {
+        return rollOpportunity(
+                Set.copyOf(participant.virtualBag),
+                participant.wins,
+                participant.losses,
+                round,
+                drawnAt,
+                baseProbability,
+                randomSource);
+    }
+
+    private DrawResult rollOpportunity(
+            Set<String> excludedPrizeIds,
+            int wins,
+            int losses,
+            int round,
+            long drawnAt,
+            double baseProbability,
+            SecureRandom randomSource
+    ) {
         int[] availableByType = availablePrizeStockForPlayer(drawnAt, excludedPrizeIds);
-        double baseProbability = Arrays.stream(availableByType).sum() > 0
-                ? baseProbability(drawnAt) : 0.0D;
-        double weight = personalWeight(participant.wins, participant.losses);
+        if (Arrays.stream(availableByType).sum() <= 0) {
+            baseProbability = 0.0D;
+        }
+        double weight = personalWeight(wins, losses);
         double calibration = baseProbability > 0.0D
                 ? calibrationOffset(baseProbability) : 0.0D;
         double probability = baseProbability <= 0.0D
@@ -990,47 +1109,21 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                         baseProbability, weight, calibration),
                         0.0D, 1.0D);
 
-        double roll = random.nextDouble();
+        double roll = randomSource.nextDouble();
         String prizeId = remainingStock() <= 0 ? SOLD_OUT_ID : NO_PRIZE_ID;
         if (roll < probability) {
-            prizeId = selectReleasedPrize(availableByType);
-        }
-        if (isWinningPrize(prizeId)) {
-            participant.wins++;
-        } else {
-            participant.losses++;
+            prizeId = selectReleasedPrize(availableByType, randomSource);
         }
         return new DrawResult(round, drawnAt, prizeId,
                 probability, roll, ALGORITHM_VERSION, false);
     }
 
     private double baseProbability(long nowMillis) {
-        int available = availableReleasedStock(nowMillis);
-        if (remainingStock() <= 0 || available <= 0) {
+        double candidate = calculateBaseProbabilityAt(nowMillis);
+        if (candidate <= 0.0D) {
             return 0.0D;
         }
         long bucket = Math.floorDiv(nowMillis, CONTROL_BUCKET_MILLIS) * CONTROL_BUCKET_MILLIS;
-        if (lastBaseProbabilityAt == bucket && lastBaseProbability > 0.0D) {
-            return lastBaseProbability;
-        }
-
-        // Global pacing controls expected wins; personal history only redistributes that budget.
-        double opportunityRate = opportunityRate(nowMillis);
-        int releaseInWindow = releasedStockAt(nowMillis + RELEASE_SLOT_MILLIS)
-                - releasedStockAt(nowMillis);
-        double remainingHours = Math.max(0.0D,
-                (EVENT_END_EXCLUSIVE.toEpochMilli() - nowMillis) / 3_600_000.0D);
-        int knownFuture = knownFutureRegularOpportunities();
-        ControllerSnapshot snapshot = new ControllerSnapshot(
-                remainingStock(), available, Math.max(0, releaseInWindow),
-                opportunityRate, remainingHours, knownFuture);
-        double candidate = calculateBaseProbability(snapshot);
-        if (lastBaseProbability > 0.0D && lastBaseProbabilityAt > 0L) {
-            long elapsedBuckets = Math.max(1L,
-                    Math.floorDiv(bucket - lastBaseProbabilityAt, CONTROL_BUCKET_MILLIS));
-            candidate = limitOddsChange(lastBaseProbability, candidate,
-                    Math.pow(0.80D, elapsedBuckets), Math.pow(1.20D, elapsedBuckets));
-        }
         lastBaseProbability = candidate;
         lastBaseProbabilityAt = bucket;
         return candidate;
@@ -1197,13 +1290,15 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return availableByType;
     }
 
-    private String selectReleasedPrize(int[] availableByType) {
+    private String selectReleasedPrize(
+            int[] availableByType,
+            SecureRandom randomSource
+    ) {
         int total = Arrays.stream(availableByType).sum();
         if (total <= 0) {
             return NO_PRIZE_ID;
         }
-        int prizeIndex = takeAvailablePrize(
-                remainingStocks, availableByType, random.nextInt(total));
+        int prizeIndex = releasedPrizeIndex(availableByType, randomSource.nextInt(total));
         return PRIZE_IDS[prizeIndex];
     }
 
@@ -1280,9 +1375,21 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         if (selected < 0 || selected >= total) {
             throw new IllegalArgumentException("Selected prize offset is out of bounds");
         }
+        int prizeIndex = releasedPrizeIndex(available, selected);
+        remaining[prizeIndex]--;
+        return prizeIndex;
+    }
+
+    static int releasedPrizeIndex(int[] available, int selected) {
+        if (Arrays.stream(available).anyMatch(value -> value < 0)) {
+            throw new IllegalArgumentException("Released prize availability cannot be negative");
+        }
+        int total = Arrays.stream(available).sum();
+        if (selected < 0 || selected >= total) {
+            throw new IllegalArgumentException("Selected prize offset is out of bounds");
+        }
         for (int index = 0; index < available.length; index++) {
             if (selected < available[index]) {
-                remaining[index]--;
                 return index;
             }
             selected -= available[index];
@@ -1602,11 +1709,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private int remainingStock() {
-        int total = 0;
-        for (int stock : remainingStocks) {
-            total += stock;
-        }
-        return total;
+        return Arrays.stream(remainingStocks).sum();
     }
 
     private String formatDuration(long millis) {

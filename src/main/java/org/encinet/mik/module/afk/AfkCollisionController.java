@@ -7,6 +7,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
+import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -19,16 +20,34 @@ final class AfkCollisionController {
     private final Set<UUID> viewersWithTeam = new LinkedHashSet<>();
 
     void add(Player player) {
-        if (afkEntries.add(player.getName())) {
-            syncAllViewers();
+        String entry = player.getName();
+        if (afkEntries.add(entry)) {
+            syncMembershipChange(WrapperPlayServerTeams.TeamMode.ADD_ENTITIES, Set.of(entry));
+        }
+    }
+
+    void addAll(Collection<? extends Player> players) {
+        Set<String> addedEntries = new LinkedHashSet<>();
+        for (Player player : players) {
+            String entry = player.getName();
+            if (afkEntries.add(entry)) {
+                addedEntries.add(entry);
+            }
+        }
+        if (!addedEntries.isEmpty()) {
+            syncMembershipChange(WrapperPlayServerTeams.TeamMode.ADD_ENTITIES, addedEntries);
         }
     }
 
     void remove(Player player) {
-        if (afkEntries.remove(player.getName())) {
-            syncAllViewers();
+        String entry = player.getName();
+        if (afkEntries.remove(entry)) {
+            if (afkEntries.isEmpty()) {
+                removeFromAllViewers();
+            } else {
+                syncMembershipChange(WrapperPlayServerTeams.TeamMode.REMOVE_ENTITIES, Set.of(entry));
+            }
         }
-        forgetViewer(player);
     }
 
     void syncViewer(Player viewer) {
@@ -60,9 +79,25 @@ final class AfkCollisionController {
         viewersWithTeam.remove(viewer.getUniqueId());
     }
 
-    private void syncAllViewers() {
+    private void syncMembershipChange(
+            WrapperPlayServerTeams.TeamMode mode,
+            Collection<String> changedEntries
+    ) {
         for (Player viewer : Bukkit.getOnlinePlayers()) {
-            syncViewer(viewer);
+            if (viewersWithTeam.contains(viewer.getUniqueId())) {
+                sendMembershipChange(viewer, mode, changedEntries);
+            } else {
+                createTeam(viewer);
+                viewersWithTeam.add(viewer.getUniqueId());
+            }
+        }
+    }
+
+    private void removeFromAllViewers() {
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            if (viewersWithTeam.remove(viewer.getUniqueId())) {
+                removeTeam(viewer);
+            }
         }
     }
 
@@ -86,6 +121,22 @@ final class AfkCollisionController {
                         WrapperPlayServerTeams.TeamMode.REMOVE,
                         (WrapperPlayServerTeams.ScoreBoardTeamInfo) null,
                         Set.of()
+                )
+        );
+    }
+
+    private void sendMembershipChange(
+            Player viewer,
+            WrapperPlayServerTeams.TeamMode mode,
+            Collection<String> changedEntries
+    ) {
+        PacketEvents.getAPI().getPlayerManager().sendPacket(
+                viewer,
+                new WrapperPlayServerTeams(
+                        TEAM_NAME,
+                        mode,
+                        (WrapperPlayServerTeams.ScoreBoardTeamInfo) null,
+                        changedEntries
                 )
         );
     }

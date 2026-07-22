@@ -98,6 +98,7 @@ public class MotdModule implements Listener, AfkStateListener {
     private long saltKnownPlayer;
 
     private BukkitTask stateRefreshTask;
+    private BukkitTask pendingAfkRefreshTask;
 
     // -------------------------------------------------------------------------
     // Constructor
@@ -136,6 +137,7 @@ public class MotdModule implements Listener, AfkStateListener {
     public void disable() {
         pingTracker.clear();
         afkService.removeListener(this);
+        cancelPendingAfkRefresh();
         cancelRefreshTask();
         holidayMotdService.disable();
     }
@@ -175,7 +177,7 @@ public class MotdModule implements Listener, AfkStateListener {
 
     @Override
     public void onAfkStateChanged(Player player, AfkState state) {
-        refreshStateMotds();
+        scheduleAfkStateRefresh();
     }
 
     // -------------------------------------------------------------------------
@@ -303,6 +305,16 @@ public class MotdModule implements Listener, AfkStateListener {
         scheduleNextStateRefresh();
     }
 
+    private void scheduleAfkStateRefresh() {
+        if (pendingAfkRefreshTask != null) {
+            return;
+        }
+        pendingAfkRefreshTask = Bukkit.getScheduler().runTask(plugin, () -> {
+            pendingAfkRefreshTask = null;
+            refreshStateMotds();
+        });
+    }
+
     /**
      * Returns a state-override MOTD, or {@code null} if normal MOTD selection should apply.
      */
@@ -342,6 +354,13 @@ public class MotdModule implements Listener, AfkStateListener {
         if (stateRefreshTask != null) {
             stateRefreshTask.cancel();
             stateRefreshTask = null;
+        }
+    }
+
+    private void cancelPendingAfkRefresh() {
+        if (pendingAfkRefreshTask != null) {
+            pendingAfkRefreshTask.cancel();
+            pendingAfkRefreshTask = null;
         }
     }
 

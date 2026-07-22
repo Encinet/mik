@@ -180,6 +180,23 @@ class AnniversaryDrawAlgorithmTest {
     }
 
     @Test
+    void simulatedPrizeSelectionIsReadOnly() {
+        int[] available = {2, 1, 0, 2};
+        int[] before = available.clone();
+
+        assertEquals(0, FifthAnniversaryEventModule.releasedPrizeIndex(available, 0));
+        assertEquals(0, FifthAnniversaryEventModule.releasedPrizeIndex(available, 1));
+        assertEquals(1, FifthAnniversaryEventModule.releasedPrizeIndex(available, 2));
+        assertEquals(3, FifthAnniversaryEventModule.releasedPrizeIndex(available, 3));
+        assertEquals(3, FifthAnniversaryEventModule.releasedPrizeIndex(available, 4));
+        assertTrue(Arrays.equals(before, available));
+        assertThrows(IllegalArgumentException.class,
+                () -> FifthAnniversaryEventModule.releasedPrizeIndex(available, 5));
+        assertThrows(IllegalArgumentException.class,
+                () -> FifthAnniversaryEventModule.releasedPrizeIndex(new int[]{1, -1}, 0));
+    }
+
+    @Test
     void eachPlayerCanWinEachPrizeTypeOnlyOnce() {
         assertFalse(FifthAnniversaryEventModule.isPrizeTypeEligible(
                 Set.of("logo-mug"), "logo-mug"));

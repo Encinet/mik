@@ -16,13 +16,15 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -69,17 +71,27 @@ final class AfkDisplayController {
         VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(), VirtualDisplay::new);
         boolean metadataChanged = display.state != state;
         display.state = state;
-        syncDisplay(player, display, metadataChanged);
+        syncDisplay(player, display, metadataChanged, OnlineView.capture());
     }
 
     void updateTrackedDisplays(Collection<AfkState> states) {
+        if (states.isEmpty()) {
+            return;
+        }
+
+        OnlineView online = OnlineView.capture();
+
         for (AfkState state : states) {
-            Player player = Bukkit.getPlayer(state.playerId());
-            if (player == null || !player.isOnline()) {
+            ViewerSnapshot subject = online.byId.get(state.playerId());
+            if (subject == null) {
                 remove(state.playerId());
                 continue;
             }
-            update(player, state);
+            Player player = subject.player;
+            VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(), VirtualDisplay::new);
+            boolean metadataChanged = display.state != state;
+            display.state = state;
+            syncDisplay(player, display, metadataChanged, online);
         }
     }
 
@@ -101,6 +113,15 @@ final class AfkDisplayController {
         }
     }
 
+    void refreshViewerLanguage(Player viewer) {
+        UUID viewerId = viewer.getUniqueId();
+        for (VirtualDisplay display : displays.values()) {
+            if (display.viewers.contains(viewerId) && display.state != null) {
+                sendMetadata(viewer, display);
+            }
+        }
+    }
+
     private Location displayLocation(Player player) {
         Location location = player.getLocation();
         location.add(0.0D, player.getHeight() + DISPLAY_Y_OFFSET, 0.0D);
@@ -116,7 +137,12 @@ final class AfkDisplayController {
                 Placeholder.component("message", SAFE_MESSAGE.deserialize(state.message())));
     }
 
-    private void syncDisplay(Player subject, VirtualDisplay display, boolean metadataChanged) {
+    private void syncDisplay(
+            Player subject,
+            VirtualDisplay display,
+            boolean metadataChanged,
+            OnlineView online
+    ) {
         Location location = displayLocation(subject);
         boolean worldChanged = display.world != null && !display.world.equals(subject.getWorld());
         if (worldChanged) {
@@ -127,44 +153,47 @@ final class AfkDisplayController {
         Iterator<UUID> tracked = display.viewers.iterator();
         while (tracked.hasNext()) {
             UUID viewerId = tracked.next();
-            Player viewer = Bukkit.getPlayer(viewerId);
+            ViewerSnapshot viewer = online.byId.get(viewerId);
             if (!canSeeDisplay(viewer, subject, location)) {
-                if (viewer != null && viewer.isOnline()) {
-                    destroy(viewer, display);
+                if (viewer != null) {
+                    destroy(viewer.player, display);
                 }
                 tracked.remove();
                 continue;
             }
             if (metadataChanged) {
-                sendMetadata(viewer, display);
+                sendMetadata(viewer.player, display);
             }
             if (moved) {
-                teleport(viewer, display);
+                teleport(viewer.player, display);
             }
         }
 
-        for (Player viewer : Bukkit.getOnlinePlayers()) {
-            UUID viewerId = viewer.getUniqueId();
+        for (ViewerSnapshot viewer : online.viewersIn(subject.getWorld())) {
+            UUID viewerId = viewer.player.getUniqueId();
             if (display.viewers.contains(viewerId) || !canSeeDisplay(viewer, subject, location)) {
                 continue;
             }
-            spawn(viewer, display);
-            sendMetadata(viewer, display);
+            spawn(viewer.player, display);
+            sendMetadata(viewer.player, display);
             display.viewers.add(viewerId);
         }
     }
 
-    private boolean canSeeDisplay(Player viewer, Player subject, Location location) {
-        if (viewer == null || !viewer.isOnline()) {
+    private boolean canSeeDisplay(ViewerSnapshot viewer, Player subject, Location location) {
+        if (viewer == null || !viewer.player.isOnline()) {
             return false;
         }
-        if (!viewer.getWorld().equals(subject.getWorld())) {
+        if (!viewer.world.equals(subject.getWorld())) {
             return false;
         }
-        if (!viewer.getUniqueId().equals(subject.getUniqueId()) && !viewer.canSee(subject)) {
+        if (!viewer.player.getUniqueId().equals(subject.getUniqueId()) && !viewer.player.canSee(subject)) {
             return false;
         }
-        return viewer.getLocation().distanceSquared(location) <= DISPLAY_SYNC_RANGE_SQUARED;
+        double dx = viewer.x - location.getX();
+        double dy = viewer.y - location.getY();
+        double dz = viewer.z - location.getZ();
+        return dx * dx + dy * dy + dz * dz <= DISPLAY_SYNC_RANGE_SQUARED;
     }
 
     private void destroyDisplay(VirtualDisplay display) {
@@ -251,6 +280,39 @@ final class AfkDisplayController {
             y = location.getY();
             z = location.getZ();
             return changed;
+        }
+    }
+
+    private record ViewerSnapshot(Player player, World world, double x, double y, double z) {
+
+        private static ViewerSnapshot capture(Player player) {
+            Location location = player.getLocation();
+            return new ViewerSnapshot(
+                    player,
+                    location.getWorld(),
+                    location.getX(),
+                    location.getY(),
+                    location.getZ()
+            );
+        }
+    }
+
+    private static final class OnlineView {
+        private final Map<UUID, ViewerSnapshot> byId = new HashMap<>();
+        private final Map<World, List<ViewerSnapshot>> byWorld = new HashMap<>();
+
+        private static OnlineView capture() {
+            OnlineView online = new OnlineView();
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                ViewerSnapshot viewer = ViewerSnapshot.capture(player);
+                online.byId.put(player.getUniqueId(), viewer);
+                online.byWorld.computeIfAbsent(viewer.world, ignored -> new ArrayList<>()).add(viewer);
+            }
+            return online;
+        }
+
+        private Collection<ViewerSnapshot> viewersIn(World world) {
+            return byWorld.getOrDefault(world, List.of());
         }
     }
 }

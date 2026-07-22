@@ -54,6 +54,7 @@ import java.util.UUID;
 import java.util.Optional;
 import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class LanguageService implements Listener {
 
@@ -69,6 +70,7 @@ public class LanguageService implements Listener {
     private final Map<UUID, String> preferences = new ConcurrentHashMap<>();
     private final Map<UUID, Language> clientLanguages = new ConcurrentHashMap<>();
     private final Map<Language, FluentBundle> bundles = new EnumMap<>(Language.class);
+    private final List<LanguageChangeListener> languageChangeListeners = new CopyOnWriteArrayList<>();
 
     private File languageFile;
     private YamlConfiguration languageData;
@@ -152,7 +154,11 @@ public class LanguageService implements Listener {
 
     @EventHandler
     public void onPlayerLocaleChange(PlayerLocaleChangeEvent event) {
-        rememberClientLanguage(event.getPlayer().getUniqueId(), event.locale());
+        UUID playerId = event.getPlayer().getUniqueId();
+        boolean automatic = AUTO.equals(preference(playerId));
+        if (rememberClientLanguage(playerId, event.locale()) && automatic) {
+            notifyLanguageChanged(event.getPlayer());
+        }
     }
 
     public void openMenu(Player player) {
@@ -216,19 +222,24 @@ public class LanguageService implements Listener {
         }
     }
 
-    private void rememberClientLanguage(UUID playerId, Locale locale) {
-        Language.fromLocale(locale).ifPresent(language -> {
-            Language previous = clientLanguages.put(playerId, language);
-            if (previous == language && language.id().equals(languageData.getString(playerId + ".client-language"))) {
-                return;
-            }
-            languageData.set(playerId + ".client-language", language.id());
-            try {
-                languageData.save(languageFile);
-            } catch (IOException e) {
-                plugin.getLogger().warning("Failed to save client language for " + playerId + ": " + e.getMessage());
-            }
-        });
+    private boolean rememberClientLanguage(UUID playerId, Locale locale) {
+        Language language = Language.fromLocale(locale).orElse(null);
+        if (language == null) {
+            return false;
+        }
+
+        Language previous = clientLanguages.put(playerId, language);
+        if (previous == language
+                && language.id().equals(languageData.getString(playerId + ".client-language"))) {
+            return false;
+        }
+        languageData.set(playerId + ".client-language", language.id());
+        try {
+            languageData.save(languageFile);
+        } catch (IOException e) {
+            plugin.getLogger().warning("Failed to save client language for " + playerId + ": " + e.getMessage());
+        }
+        return previous != language;
     }
 
     private Language recordedClientLanguage(UUID playerId) {
@@ -441,6 +452,8 @@ public class LanguageService implements Listener {
     }
 
     public void setPreference(UUID playerId, String value) {
+        Player player = Bukkit.getPlayer(playerId);
+        Language previousLanguage = player == null ? null : language(player);
         String normalized = normalizePreference(value);
         preferences.put(playerId, normalized);
         languageData.set(playerId.toString() + ".language", normalized);
@@ -448,6 +461,23 @@ public class LanguageService implements Listener {
             languageData.save(languageFile);
         } catch (IOException e) {
             plugin.getLogger().warning("Failed to save language preference for " + playerId + ": " + e.getMessage());
+        }
+        if (player != null && previousLanguage != language(player)) {
+            notifyLanguageChanged(player);
+        }
+    }
+
+    public void addLanguageChangeListener(LanguageChangeListener listener) {
+        languageChangeListeners.add(listener);
+    }
+
+    public void removeLanguageChangeListener(LanguageChangeListener listener) {
+        languageChangeListeners.remove(listener);
+    }
+
+    private void notifyLanguageChanged(Player player) {
+        for (LanguageChangeListener listener : languageChangeListeners) {
+            listener.onLanguageChanged(player);
         }
     }
 
