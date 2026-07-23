@@ -239,15 +239,54 @@ class AnniversaryDrawAlgorithmTest {
     }
 
     @Test
-    void persistedGiftPackAlwaysNormalizesToTheOnlyFinalPrize() {
-        assertEquals(List.of("anniversary-gift-pack"),
+    void giftingMovesOneClaimWithoutChangingEitherPlayersDrawEligibility() {
+        List<String> senderBag = new java.util.ArrayList<>(List.of("logo-keychain"));
+        List<String> recipientBag = new java.util.ArrayList<>();
+        Set<String> senderDrawHistory = Set.of("logo-keychain");
+        Set<String> recipientDrawHistory = Set.of();
+
+        assertTrue(FifthAnniversaryEventModule.transferPrizeOwnership(
+                senderBag, recipientBag, "logo-keychain"));
+
+        assertEquals(List.of(), senderBag);
+        assertEquals(List.of("logo-keychain"), recipientBag);
+        assertFalse(FifthAnniversaryEventModule.isPrizeTypeEligible(
+                senderDrawHistory, "logo-keychain"));
+        assertTrue(FifthAnniversaryEventModule.isPrizeTypeEligible(
+                recipientDrawHistory, "logo-keychain"));
+    }
+
+    @Test
+    void giftingOneOfSeveralReceivedCopiesMovesOnlyOnePrize() {
+        List<String> senderBag = new java.util.ArrayList<>(List.of(
+                "logo-keychain", "logo-keychain"));
+        List<String> recipientBag = new java.util.ArrayList<>(List.of("logo-mug"));
+
+        assertTrue(FifthAnniversaryEventModule.transferPrizeOwnership(
+                senderBag, recipientBag, "logo-keychain"));
+
+        assertEquals(List.of("logo-keychain"), senderBag);
+        assertEquals(List.of("logo-mug", "logo-keychain"), recipientBag);
+        assertFalse(FifthAnniversaryEventModule.transferPrizeOwnership(
+                senderBag, recipientBag, "group-photo-badge"));
+        assertEquals(List.of("logo-keychain"), senderBag);
+        assertEquals(List.of("logo-mug", "logo-keychain"), recipientBag);
+    }
+
+    @Test
+    void persistedBagPreservesTransferredDuplicatesAndMixedPrizeTypes() {
+        assertEquals(List.of(
+                        "logo-keychain",
+                        "anniversary-gift-pack",
+                        "logo-mug",
+                        "anniversary-gift-pack"),
                 FifthAnniversaryEventModule.normalizeVirtualBag(List.of(
                         "logo-keychain",
                         "anniversary-gift-pack",
                         "logo-mug",
                         "anniversary-gift-pack",
                         "not-won")));
-        assertEquals(List.of("logo-keychain", "logo-mug"),
+        assertEquals(List.of("logo-keychain", "logo-keychain", "logo-mug"),
                 FifthAnniversaryEventModule.normalizeVirtualBag(List.of(
                         "logo-keychain", "logo-keychain", "not-won", "logo-mug")));
     }
@@ -262,8 +301,10 @@ class AnniversaryDrawAlgorithmTest {
                 FifthAnniversaryEventModule.virtualBagPrizeSlots(2)));
         assertTrue(Arrays.equals(new int[]{11, 13, 15},
                 FifthAnniversaryEventModule.virtualBagPrizeSlots(3)));
+        assertTrue(Arrays.equals(new int[]{10, 12, 14, 16},
+                FifthAnniversaryEventModule.virtualBagPrizeSlots(4)));
         assertThrows(IllegalArgumentException.class,
-                () -> FifthAnniversaryEventModule.virtualBagPrizeSlots(4));
+                () -> FifthAnniversaryEventModule.virtualBagPrizeSlots(5));
     }
 
     @Test

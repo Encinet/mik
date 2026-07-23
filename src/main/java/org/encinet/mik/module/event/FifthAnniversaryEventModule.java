@@ -225,6 +225,26 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                         .then(Commands.literal("bag")
                                 .executes(context -> openVirtualBag(
                                         context.getSource().getSender())))
+                        .then(Commands.literal("gift")
+                                .executes(context -> sendGiftUsage(
+                                        context.getSource().getSender()))
+                                .then(Commands.argument("prize", StringArgumentType.word())
+                                        .suggests((context, builder) -> {
+                                            suggestOwnedPrizeIds(
+                                                    context.getSource().getSender(),
+                                                    builder.getRemaining(), builder::suggest);
+                                            return builder.buildFuture();
+                                        })
+                                        .then(Commands.argument("player", StringArgumentType.word())
+                                                .suggests((context, builder) -> {
+                                                    suggestParticipantNames(
+                                                            builder.getRemaining(), builder::suggest);
+                                                    return builder.buildFuture();
+                                                })
+                                                .executes(context -> giftPrize(
+                                                        context.getSource().getSender(),
+                                                        StringArgumentType.getString(context, "prize"),
+                                                        StringArgumentType.getString(context, "player"))))))
                         .then(Commands.literal("admin")
                                 .requires(source -> isEventAdministrator(source.getSender()))
                                 .executes(context -> sendAdminDashboard(
@@ -386,10 +406,12 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         Inventory inventory = Bukkit.createInventory(holder, VIRTUAL_BAG_SIZE,
                 text(player, Message.ANNIVERSARY_BAG_TITLE, NamedTextColor.GOLD));
         holder.attach(inventory);
-        int[] prizeSlots = virtualBagPrizeSlots(participant.virtualBag.size());
-        for (int index = 0; index < participant.virtualBag.size(); index++) {
+        List<PrizeStack> prizeStacks = prizeStacks(participant.virtualBag);
+        int[] prizeSlots = virtualBagPrizeSlots(prizeStacks.size());
+        for (int index = 0; index < prizeStacks.size(); index++) {
+            PrizeStack stack = prizeStacks.get(index);
             inventory.setItem(prizeSlots[index],
-                    virtualPrizeItem(player, participant.virtualBag.get(index)));
+                    virtualPrizeItem(player, stack.prizeId, stack.amount));
         }
         if (participant.virtualBag.isEmpty()) {
             inventory.setItem(13, MenuItems.item(Material.GRAY_DYE,
@@ -401,27 +423,147 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return Command.SINGLE_SUCCESS;
     }
 
+    private int sendGiftUsage(CommandSender sender) {
+        sender.sendMessage(text(sender, Message.ANNIVERSARY_GIFT_USAGE, NamedTextColor.YELLOW,
+                "/" + COMMAND_NAME + " gift <prize> <player>"));
+        return 0;
+    }
+
+    private int giftPrize(CommandSender sender, String requestedPrizeId, String requestedPlayer) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(languageService.text(Language.DEFAULT, Message.PLAYER_ONLY,
+                    NamedTextColor.RED));
+            return 0;
+        }
+        if (isEventAdministrator(player.getUniqueId())) {
+            return sendAdminDashboard(player);
+        }
+
+        Participant senderParticipant = participants.get(player.getUniqueId());
+        if (senderParticipant == null) {
+            player.sendMessage(text(player, Message.ANNIVERSARY_BAG_NOT_PARTICIPATING,
+                    NamedTextColor.YELLOW, "/" + COMMAND_NAME));
+            return 0;
+        }
+        String prizeId = normalizePrizeId(requestedPrizeId);
+        if (!isWinningPrize(prizeId)) {
+            player.sendMessage(text(player, Message.ANNIVERSARY_GIFT_PRIZE_NOT_OWNED,
+                    NamedTextColor.RED, requestedPrizeId));
+            return 0;
+        }
+
+        Map.Entry<UUID, Participant> recipientEntry = findParticipant(requestedPlayer);
+        if (recipientEntry == null || isEventAdministrator(recipientEntry.getKey())) {
+            player.sendMessage(text(player, Message.ANNIVERSARY_BONUS_PARTICIPANT_NOT_FOUND,
+                    NamedTextColor.RED, requestedPlayer));
+            return 0;
+        }
+        UUID recipientId = recipientEntry.getKey();
+        Participant recipientParticipant = recipientEntry.getValue();
+        if (recipientId.equals(player.getUniqueId())) {
+            player.sendMessage(text(player, Message.ANNIVERSARY_GIFT_SELF, NamedTextColor.RED));
+            return 0;
+        }
+
+        DrawResult claim = findOwnedPrizeClaim(player.getUniqueId(), prizeId);
+        if (claim == null || !transferPrizeOwnership(
+                senderParticipant.virtualBag, recipientParticipant.virtualBag, prizeId)) {
+            player.sendMessage(text(player, Message.ANNIVERSARY_GIFT_PRIZE_NOT_OWNED,
+                    NamedTextColor.RED, prizeName(player, prizeId)));
+            return 0;
+        }
+
+        claim.claimOwnerId = recipientId;
+        senderParticipant.lastKnownName = player.getName();
+        long now = System.currentTimeMillis();
+        appendAudit(AuditAction.GIFT, now, player.getUniqueId(), player.getName(),
+                recipientId, recipientParticipant.lastKnownName, prizeId);
+        saveData();
+        player.sendMessage(text(player, Message.ANNIVERSARY_GIFT_SUCCESS, NamedTextColor.GREEN,
+                prizeName(player, prizeId), recipientParticipant.lastKnownName));
+        closeVirtualBag(player);
+
+        Player recipient = Bukkit.getPlayer(recipientId);
+        if (recipient != null) {
+            recipient.sendMessage(text(recipient, Message.ANNIVERSARY_GIFT_RECEIVED,
+                    NamedTextColor.GREEN, player.getName(), prizeName(recipient, prizeId)));
+            closeVirtualBag(recipient);
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private DrawResult findOwnedPrizeClaim(UUID ownerId, String prizeId) {
+        for (Map.Entry<UUID, Participant> entry : participants.entrySet()) {
+            Participant participant = entry.getValue();
+            for (DrawResult draw : allDrawResults(participant.regularDraws, participant.bonusDraw)) {
+                if (!draw.superseded
+                        && prizeId.equals(draw.prizeId)
+                        && ownerId.equals(claimOwnerId(entry.getKey(), draw))) {
+                    return draw;
+                }
+            }
+        }
+        return null;
+    }
+
+    static boolean transferPrizeOwnership(
+            List<String> senderBag,
+            List<String> recipientBag,
+            String prizeId
+    ) {
+        if (!isWinningPrize(prizeId) || !senderBag.remove(prizeId)) {
+            return false;
+        }
+        recipientBag.add(prizeId);
+        return true;
+    }
+
+    private UUID claimOwnerId(UUID drawingPlayerId, DrawResult draw) {
+        return draw.claimOwnerId == null ? drawingPlayerId : draw.claimOwnerId;
+    }
+
+    private void closeVirtualBag(Player player) {
+        if (player.getOpenInventory().getTopInventory().getHolder() instanceof VirtualBagHolder) {
+            player.closeInventory();
+        }
+    }
+
     static int[] virtualBagPrizeSlots(int prizeCount) {
         return switch (prizeCount) {
             case 0 -> new int[0];
             case 1 -> new int[]{13};
             case 2 -> new int[]{12, 14};
             case 3 -> new int[]{11, 13, 15};
-            default -> throw new IllegalArgumentException("Unexpected virtual bag prize count");
+            case 4 -> new int[]{10, 12, 14, 16};
+            default -> throw new IllegalArgumentException("Unexpected virtual bag prize type count");
         };
     }
 
-    private ItemStack virtualPrizeItem(Player player, String prizeId) {
+    private List<PrizeStack> prizeStacks(List<String> virtualBag) {
+        List<PrizeStack> stacks = new ArrayList<>();
+        for (String configuredPrizeId : PRIZE_IDS) {
+            int amount = (int) virtualBag.stream()
+                    .filter(configuredPrizeId::equals)
+                    .count();
+            if (amount > 0) {
+                stacks.add(new PrizeStack(configuredPrizeId, amount));
+            }
+        }
+        return stacks;
+    }
+
+    private ItemStack virtualPrizeItem(Player player, String prizeId, int amount) {
         int prizeIndex = prizeIndex(prizeId);
-        ItemStack item = new ItemStack(PRIZE_MATERIALS[prizeIndex]);
+        ItemStack item = new ItemStack(PRIZE_MATERIALS[prizeIndex], amount);
         ItemMeta meta = item.getItemMeta();
         meta.customName(text(player, Message.ANNIVERSARY_BAG_ITEM_NAME,
                 NamedTextColor.GOLD, prizeName(player, prizeId)));
         meta.lore(List.of(
                 text(player, Message.ANNIVERSARY_BAG_ITEM_LORE, NamedTextColor.GRAY),
-                text(player, Message.ANNIVERSARY_BAG_ITEM_LOCKED, NamedTextColor.DARK_GRAY)));
+                text(player, Message.ANNIVERSARY_BAG_ITEM_LOCKED, NamedTextColor.DARK_GRAY),
+                text(player, Message.ANNIVERSARY_GIFT_USAGE, NamedTextColor.AQUA,
+                        "/" + COMMAND_NAME + " gift " + prizeId + " <player>")));
         meta.setEnchantmentGlintOverride(true);
-        meta.setMaxStackSize(1);
         item.setItemMeta(meta);
         return item;
     }
@@ -444,6 +586,25 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 .map(participant -> participant.lastKnownName)
                 .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(prefix))
                 .sorted(String.CASE_INSENSITIVE_ORDER)
+                .forEach(suggestionConsumer);
+    }
+
+    private void suggestOwnedPrizeIds(
+            CommandSender sender,
+            String remaining,
+            java.util.function.Consumer<String> suggestionConsumer
+    ) {
+        if (!(sender instanceof Player player)) {
+            return;
+        }
+        Participant participant = participants.get(player.getUniqueId());
+        if (participant == null) {
+            return;
+        }
+        String prefix = remaining.toLowerCase(Locale.ROOT);
+        participant.virtualBag.stream()
+                .distinct()
+                .filter(prizeId -> prizeId.startsWith(prefix))
                 .forEach(suggestionConsumer);
     }
 
@@ -516,15 +677,15 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         List<WinnerEntry> winners = new ArrayList<>();
         for (Map.Entry<UUID, Participant> entry : participants.entrySet()) {
             Participant participant = entry.getValue();
-            List<DrawResult> draws = allDrawResults(
-                    participant.regularDraws, participant.bonusDraw);
-            for (String prizeId : participant.virtualBag) {
-                draws.stream()
-                        .filter(draw -> prizeId.equals(draw.prizeId) && !draw.superseded)
-                        .max(Comparator.comparingLong(draw -> draw.drawnAt))
-                        .map(draw -> new WinnerEntry(
-                                entry.getKey(), participant.lastKnownName, draw))
-                        .ifPresent(winners::add);
+            for (DrawResult draw : allDrawResults(participant.regularDraws, participant.bonusDraw)) {
+                if (!isWinningPrize(draw.prizeId) || draw.superseded) {
+                    continue;
+                }
+                UUID ownerId = claimOwnerId(entry.getKey(), draw);
+                Participant owner = participants.get(ownerId);
+                if (owner != null) {
+                    winners.add(new WinnerEntry(ownerId, owner.lastKnownName, draw));
+                }
             }
         }
         return winners;
@@ -688,6 +849,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return switch (entry.action) {
             case AuditAction.BONUS_GRANT -> adminValue(sender,
                     Message.ANNIVERSARY_ADMIN_AUDIT_ACTION_BONUS);
+            case AuditAction.GIFT -> adminValue(sender,
+                    Message.ANNIVERSARY_ADMIN_AUDIT_ACTION_GIFT,
+                    prizeName(sender, entry.detail));
             case AuditAction.ADMIN_PARTICIPANT_REMOVED -> adminValue(sender,
                     Message.ANNIVERSARY_ADMIN_AUDIT_ACTION_REMOVAL,
                     displayValue(entry.detail));
@@ -911,7 +1075,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private void finishRegularDraw(Player player, Participant participant, DrawResult draw) {
-        int replaced = applyDrawToVirtualBag(participant, draw);
+        int replaced = applyDrawToVirtualBag(player.getUniqueId(), participant, draw);
         participant.lastKnownName = player.getName();
         saveData();
 
@@ -939,7 +1103,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private void finishBonusDraw(Player player, Participant participant, DrawResult draw) {
-        int replaced = applyDrawToVirtualBag(participant, draw);
+        int replaced = applyDrawToVirtualBag(player.getUniqueId(), participant, draw);
         participant.lastKnownName = player.getName();
         saveData();
 
@@ -1046,7 +1210,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             long drawnAt
     ) {
         return simulateDrawOpportunity(
-                Set.copyOf(participant.virtualBag),
+                awardedPrizeIds(participant),
                 participant.wins,
                 participant.losses,
                 round,
@@ -1078,7 +1242,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             SecureRandom randomSource
     ) {
         return rollOpportunity(
-                Set.copyOf(participant.virtualBag),
+                awardedPrizeIds(participant),
                 participant.wins,
                 participant.losses,
                 round,
@@ -1115,7 +1279,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             prizeId = selectReleasedPrize(availableByType, randomSource);
         }
         return new DrawResult(round, drawnAt, prizeId,
-                probability, roll, ALGORITHM_VERSION, false);
+                probability, roll, ALGORITHM_VERSION, false, null);
     }
 
     private double baseProbability(long nowMillis) {
@@ -1302,12 +1466,38 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return PRIZE_IDS[prizeIndex];
     }
 
-    private int applyDrawToVirtualBag(Participant participant, DrawResult draw) {
-        int restored = applyWinningPrizeToVirtualBag(
-                participant.virtualBag, draw.prizeId, remainingStocks);
-        if (GIFT_PACK_ID.equals(draw.prizeId)) {
-            markSupersededDraws(participant, draw);
+    private int applyDrawToVirtualBag(
+            UUID drawingPlayerId,
+            Participant participant,
+            DrawResult draw
+    ) {
+        if (!isWinningPrize(draw.prizeId)) {
+            return 0;
         }
+        if (!GIFT_PACK_ID.equals(draw.prizeId)) {
+            participant.virtualBag.add(draw.prizeId);
+            return 0;
+        }
+
+        int restored = 0;
+        for (DrawResult previous : allDrawResults(
+                participant.regularDraws, participant.bonusDraw)) {
+            if (previous == draw || previous.superseded
+                    || !isWinningPrize(previous.prizeId)
+                    || GIFT_PACK_ID.equals(previous.prizeId)
+                    || !drawingPlayerId.equals(claimOwnerId(drawingPlayerId, previous))) {
+                continue;
+            }
+            UUID ownerId = claimOwnerId(drawingPlayerId, previous);
+            Participant owner = participants.get(ownerId);
+            if (owner != null) {
+                owner.virtualBag.remove(previous.prizeId);
+            }
+            restored += restoreWinningPrizeStocks(
+                    remainingStocks, List.of(previous.prizeId));
+            previous.superseded = true;
+        }
+        participant.virtualBag.add(GIFT_PACK_ID);
         return restored;
     }
 
@@ -1341,19 +1531,15 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 && !virtualBag.contains(prizeId);
     }
 
-    private void markSupersededDraws(Participant participant, DrawResult giftPackDraw) {
-        participant.regularDraws.stream()
-                .filter(draw -> draw != giftPackDraw && isWinningPrize(draw.prizeId))
-                .forEach(draw -> draw.superseded = true);
-        if (participant.bonusDraw != null
-                && participant.bonusDraw != giftPackDraw
-                && isWinningPrize(participant.bonusDraw.prizeId)) {
-            participant.bonusDraw.superseded = true;
-        }
+    private boolean hasGiftPack(Participant participant) {
+        return awardedPrizeIds(participant).contains(GIFT_PACK_ID);
     }
 
-    private boolean hasGiftPack(Participant participant) {
-        return participant.virtualBag.contains(GIFT_PACK_ID);
+    private Set<String> awardedPrizeIds(Participant participant) {
+        return allDrawResults(participant.regularDraws, participant.bonusDraw).stream()
+                .filter(draw -> !draw.superseded && isWinningPrize(draw.prizeId))
+                .map(draw -> draw.prizeId)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
     static int takeAvailablePrize(
@@ -1818,14 +2004,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     static List<String> normalizeVirtualBag(List<String> storedPrizeIds) {
-        List<String> normalized = storedPrizeIds.stream()
+        return storedPrizeIds.stream()
                 .filter(FifthAnniversaryEventModule::isWinningPrize)
-                .distinct()
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
-        if (normalized.contains(GIFT_PACK_ID)) {
-            return new ArrayList<>(List.of(GIFT_PACK_ID));
-        }
-        return normalized;
     }
 
     private UUID parseUuid(String value) {
@@ -1911,6 +2092,38 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 plugin.getLogger().warning("Ignoring invalid anniversary participant UUID: " + rawPlayerId);
             }
         }
+        rebuildVirtualBagsFromClaims();
+    }
+
+    private void rebuildVirtualBagsFromClaims() {
+        Map<UUID, List<String>> storedBags = new HashMap<>();
+        participants.forEach((playerId, participant) -> {
+            storedBags.put(playerId, List.copyOf(participant.virtualBag));
+            participant.virtualBag.clear();
+        });
+
+        for (Map.Entry<UUID, Participant> entry : participants.entrySet()) {
+            for (DrawResult draw : allDrawResults(
+                    entry.getValue().regularDraws, entry.getValue().bonusDraw)) {
+                if (draw.superseded || !isWinningPrize(draw.prizeId)) {
+                    continue;
+                }
+                UUID ownerId = claimOwnerId(entry.getKey(), draw);
+                Participant owner = participants.get(ownerId);
+                if (owner == null) {
+                    draw.claimOwnerId = null;
+                    owner = entry.getValue();
+                    dataNeedsSave = true;
+                }
+                owner.virtualBag.add(draw.prizeId);
+            }
+        }
+
+        participants.forEach((playerId, participant) -> {
+            if (!participant.virtualBag.equals(storedBags.get(playerId))) {
+                dataNeedsSave = true;
+            }
+        });
     }
 
     private void loadAuditEntries(YamlConfiguration data) {
@@ -2033,7 +2246,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         double roll = Math.clamp(data.getDouble(path + ".roll"), 0.0D, 1.0D);
         int version = Math.max(0, data.getInt(path + ".algorithm-version"));
         boolean superseded = data.getBoolean(path + ".superseded");
-        return new DrawResult(round, drawnAt, prizeId, probability, roll, version, superseded);
+        UUID claimOwnerId = parseUuid(data.getString(path + ".claim-owner-uuid"));
+        return new DrawResult(round, drawnAt, prizeId, probability, roll, version,
+                superseded, claimOwnerId);
     }
 
     private void saveData() {
@@ -2098,6 +2313,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         data.set(path + ".roll", draw.roll);
         data.set(path + ".algorithm-version", draw.algorithmVersion);
         data.set(path + ".superseded", draw.superseded);
+        data.set(path + ".claim-owner-uuid",
+                draw.claimOwnerId == null ? null : draw.claimOwnerId.toString());
     }
 
     private static final class Participant {
@@ -2147,6 +2364,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private static final class AuditAction {
 
         private static final String BONUS_GRANT = "bonus-grant";
+        private static final String GIFT = "gift";
         private static final String ADMIN_PARTICIPANT_REMOVED = "admin-participant-removed";
 
         private AuditAction() {
@@ -2182,6 +2400,17 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             this.playerId = playerId;
             this.playerName = playerName;
             this.draw = draw;
+        }
+    }
+
+    private static final class PrizeStack {
+
+        private final String prizeId;
+        private final int amount;
+
+        private PrizeStack(String prizeId, int amount) {
+            this.prizeId = prizeId;
+            this.amount = amount;
         }
     }
 
@@ -2252,6 +2481,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         private final double roll;
         private final int algorithmVersion;
         private boolean superseded;
+        private UUID claimOwnerId;
 
         private DrawResult(
                 int round,
@@ -2260,7 +2490,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 double probability,
                 double roll,
                 int algorithmVersion,
-                boolean superseded
+                boolean superseded,
+                UUID claimOwnerId
         ) {
             this.round = round;
             this.drawnAt = drawnAt;
@@ -2269,6 +2500,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             this.roll = roll;
             this.algorithmVersion = algorithmVersion;
             this.superseded = superseded;
+            this.claimOwnerId = claimOwnerId;
         }
     }
 }

@@ -134,13 +134,10 @@ public class RestrictionModule implements Listener {
         if (containsRestrictedSelector(command, policy)) {
             return RestrictionViolation.SELECTOR;
         }
-        if (!policy.checkIdentities()) {
-            return RestrictionViolation.NONE;
-        }
         if (containsForeignUuid(command.arguments(), player)) {
             return RestrictionViolation.FOREIGN_UUID;
         }
-        if (containsOtherPlayerName(command.arguments(), player)) {
+        if (policy.checkPlayerNames() && containsOtherPlayerName(command.arguments(), player)) {
             return RestrictionViolation.OTHER_PLAYER;
         }
         return RestrictionViolation.NONE;
@@ -180,9 +177,13 @@ public class RestrictionModule implements Listener {
         return command != null && containsRestrictedSelector(command, policyFor(command.name()));
     }
 
-    static boolean checksIdentities(String rawCommand) {
+    static boolean checksUuids(String rawCommand) {
+        return parseCommand(rawCommand) != null;
+    }
+
+    static boolean checksPlayerNames(String rawCommand) {
         ParsedCommand command = parseCommand(rawCommand);
-        return command != null && policyFor(command.name()).checkIdentities();
+        return command != null && policyFor(command.name()).checkPlayerNames();
     }
 
     private static boolean containsRestrictedSelector(ParsedCommand command, CommandPolicy policy) {
@@ -251,7 +252,10 @@ public class RestrictionModule implements Listener {
         }
     }
 
-    private record CommandPolicy(SelectorScope selectorScope, boolean checkIdentities) {
+    private record CommandPolicy(
+            SelectorScope selectorScope,
+            boolean checkPlayerNames
+    ) {
         private static final CommandPolicy DEFAULT =
                 new CommandPolicy(SelectorScope.ALL_ARGUMENTS, true);
         private static final CommandPolicy DIRECT_MESSAGE =
