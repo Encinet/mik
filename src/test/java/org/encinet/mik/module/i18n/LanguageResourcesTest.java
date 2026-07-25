@@ -140,16 +140,15 @@ class LanguageResourcesTest {
     }
 
     @Test
-    void localLibraryMessagesDoNotClaimToContainLxContent() throws IOException {
+    void libraryMessagesDescribeCachedOnlineTracksWithoutImplementationBranding() throws IOException {
         var arguments = ArgumentListBuilder.builder().build();
         for (Language language : Language.values()) {
             FluentBundle bundle = bundle(language);
-            for (Message message : Set.of(
-                    Message.MUSIC_EMPTY_LIBRARY_LORE,
+            for (Message message : Set.of(Message.MUSIC_EMPTY_LIBRARY_LORE,
                     Message.MUSIC_LIBRARY_BUTTON_LORE)) {
                 String value = resolve(bundle, message.key(), arguments);
                 assertFalse(value.toLowerCase(java.util.Locale.ROOT).contains("lx"),
-                        () -> language.id() + " local-library text contains LX content: " + value);
+                        () -> language.id() + " library text contains LX content: " + value);
             }
         }
     }

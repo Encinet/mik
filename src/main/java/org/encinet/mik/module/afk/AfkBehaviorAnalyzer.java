@@ -10,24 +10,18 @@ final class AfkBehaviorAnalyzer {
     static final long SAMPLE_INTERVAL_MILLIS = 500L;
     static final long WINDOW_MILLIS = 5L * 60L * 1_000L;
     static final long ANALYSIS_MILLIS = 2L * WINDOW_MILLIS;
-    static final int YAW_BUCKETS = 16;
     static final int MOVEMENT_DIRECTION_BUCKETS = 4;
     static final int MIN_SAMPLES_PER_WINDOW = 360;
     static final double MIN_MOVING_SAMPLE_RATIO = 0.50D;
-    static final int MIN_OCCUPIED_YAW_BUCKETS = YAW_BUCKETS;
-    static final double MIN_NORMALIZED_YAW_ENTROPY = 0.990D;
-    static final double MAX_YAW_BUCKET_COEFFICIENT_OF_VARIATION = 0.30D;
     static final int MIN_MOVEMENT_DIRECTION_SAMPLES = 180;
     static final int MIN_OCCUPIED_MOVEMENT_DIRECTION_BUCKETS = MOVEMENT_DIRECTION_BUCKETS;
     static final double MIN_NORMALIZED_MOVEMENT_DIRECTION_ENTROPY = 0.985D;
     static final double MAX_MOVEMENT_DIRECTION_BUCKET_COEFFICIENT_OF_VARIATION = 0.25D;
     static final double MIN_NORMALIZED_MOVEMENT_DISTANCE_ENTROPY = 0.980D;
     static final double MAX_MOVEMENT_DISTANCE_BUCKET_COEFFICIENT_OF_VARIATION = 0.30D;
-    static final double MAX_NET_MOVEMENT_RATIO = 0.35D;
-    static final int MIN_LARGE_MOVEMENT_DIRECTION_TURNS = 12;
-    static final float LARGE_TURN_DEGREES = 30.0F;
-    static final double MIN_LARGE_TURN_RATIO = 0.15D;
-    static final double MIN_DIRECTION_REVERSAL_RATIO = 0.15D;
+    static final double MAX_NET_MOVEMENT_RATIO = 0.20D;
+    static final int MIN_LARGE_MOVEMENT_DIRECTION_TURNS = 24;
+    static final float LARGE_MOVEMENT_DIRECTION_TURN_DEGREES = 30.0F;
 
     private final Deque<Sample> samples = new ArrayDeque<>();
     private long lastSampleAt = Long.MIN_VALUE;
@@ -42,7 +36,7 @@ final class AfkBehaviorAnalyzer {
             double x,
             double y,
             double z,
-            float yaw,
+            float ignoredYaw,
             boolean movementInputActive,
             long now
     ) {
@@ -56,17 +50,13 @@ final class AfkBehaviorAnalyzer {
         double deltaY = sameWorld ? y - lastY : 0.0D;
         double deltaZ = sameWorld ? z - lastZ : 0.0D;
         double horizontalDistance = Math.hypot(deltaX, deltaZ);
-        boolean moved = sameWorld && movementInputActive
-                && distanceSquared(deltaX, deltaY, deltaZ) >= 0.01D;
         boolean horizontalMovement = sameWorld && movementInputActive && horizontalDistance >= 0.1D;
         float movementDirection = horizontalMovement
                 ? normalizeYaw((float) Math.toDegrees(Math.atan2(deltaZ, deltaX)))
                 : 0.0F;
         samples.addLast(new Sample(
                 now,
-                yawBucket(yaw),
-                normalizeYaw(yaw),
-                moved,
+                horizontalMovement,
                 horizontalMovement ? movementDirectionBucket(movementDirection) : -1,
                 movementDirection,
                 deltaX,
@@ -122,47 +112,24 @@ final class AfkBehaviorAnalyzer {
     }
 
     private Window summarize(long fromInclusive, long toExclusive) {
-        int[] yawCounts = new int[YAW_BUCKETS];
         int[] movementDirectionCounts = new int[MOVEMENT_DIRECTION_BUCKETS];
         double[] movementDirectionDistances = new double[MOVEMENT_DIRECTION_BUCKETS];
         int sampleCount = 0;
         int movingSamples = 0;
-        int turnTransitions = 0;
-        int largeTurns = 0;
-        int directionReversals = 0;
         int movementDirectionSamples = 0;
         int largeMovementDirectionTurns = 0;
         double netMovementX = 0.0D;
         double netMovementZ = 0.0D;
         double totalMovementDistance = 0.0D;
-        Float previousYaw = null;
-        int previousDirection = 0;
         Float previousMovementDirection = null;
         for (Sample sample : samples) {
             if (sample.at < fromInclusive || sample.at >= toExclusive) {
                 continue;
             }
             sampleCount++;
-            yawCounts[sample.yawBucket]++;
             if (sample.moving) {
                 movingSamples++;
             }
-            if (previousYaw != null) {
-                turnTransitions++;
-                float turn = signedAngularDelta(previousYaw, sample.yaw);
-                if (Math.abs(turn) >= LARGE_TURN_DEGREES) {
-                    largeTurns++;
-                }
-                int direction = Float.compare(turn, 0.0F);
-                if (direction != 0 && previousDirection != 0 && direction != previousDirection) {
-                    directionReversals++;
-                }
-                if (direction != 0) {
-                    previousDirection = direction;
-                }
-            }
-            previousYaw = sample.yaw;
-
             if (sample.movementDirectionBucket < 0) {
                 continue;
             }
@@ -174,13 +141,12 @@ final class AfkBehaviorAnalyzer {
             totalMovementDistance += sample.horizontalDistance;
             if (previousMovementDirection != null
                     && Math.abs(signedAngularDelta(previousMovementDirection, sample.movementDirection))
-                    >= LARGE_TURN_DEGREES) {
+                    >= LARGE_MOVEMENT_DIRECTION_TURN_DEGREES) {
                 largeMovementDirectionTurns++;
             }
             previousMovementDirection = sample.movementDirection;
         }
-        return Window.from(yawCounts, sampleCount, movingSamples, turnTransitions,
-                largeTurns, directionReversals, movementDirectionCounts,
+        return Window.from(sampleCount, movingSamples, movementDirectionCounts,
                 movementDirectionDistances, movementDirectionSamples,
                 largeMovementDirectionTurns, netMovementX, netMovementZ,
                 totalMovementDistance);
@@ -191,14 +157,6 @@ final class AfkBehaviorAnalyzer {
         while (!samples.isEmpty() && samples.peekFirst().at < oldestAllowed) {
             samples.removeFirst();
         }
-    }
-
-    private static double distanceSquared(double x, double y, double z) {
-        return x * x + y * y + z * z;
-    }
-
-    private static int yawBucket(float yaw) {
-        return bucket(yaw, YAW_BUCKETS);
     }
 
     private static int movementDirectionBucket(float direction) {
@@ -231,8 +189,6 @@ final class AfkBehaviorAnalyzer {
 
     private record Sample(
             long at,
-            int yawBucket,
-            float yaw,
             boolean moving,
             int movementDirectionBucket,
             float movementDirection,
@@ -242,7 +198,7 @@ final class AfkBehaviorAnalyzer {
     ) {
 
         private Sample shiftedBy(long delta) {
-            return new Sample(at + delta, yawBucket, yaw, moving, movementDirectionBucket,
+            return new Sample(at + delta, moving, movementDirectionBucket,
                     movementDirection, deltaX, deltaZ, horizontalDistance);
         }
     }
@@ -250,12 +206,6 @@ final class AfkBehaviorAnalyzer {
     private record Window(
             int samples,
             int movingSamples,
-            int occupiedYawBuckets,
-            double yawEntropy,
-            double yawBucketCoefficientOfVariation,
-            int turnTransitions,
-            int largeTurns,
-            int directionReversals,
             int movementDirectionSamples,
             int occupiedMovementDirectionBuckets,
             double movementDirectionEntropy,
@@ -267,12 +217,8 @@ final class AfkBehaviorAnalyzer {
     ) {
 
         private static Window from(
-                int[] yawCounts,
                 int samples,
                 int movingSamples,
-                int turnTransitions,
-                int largeTurns,
-                int directionReversals,
                 int[] movementDirectionCounts,
                 double[] movementDirectionDistances,
                 int movementDirectionSamples,
@@ -282,12 +228,10 @@ final class AfkBehaviorAnalyzer {
                 double totalMovementDistance
         ) {
             if (samples == 0) {
-                return new Window(0, 0, 0, 0.0D, Double.POSITIVE_INFINITY, 0, 0, 0,
-                        0, 0, 0.0D, Double.POSITIVE_INFINITY,
+                return new Window(0, 0, 0, 0, 0.0D, Double.POSITIVE_INFINITY,
                         0.0D, Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY, 0);
             }
 
-            Distribution yawDistribution = Distribution.from(yawCounts, samples);
             Distribution movementDirectionDistribution = Distribution.from(
                     movementDirectionCounts, movementDirectionSamples);
             Distribution movementDistanceDistribution = Distribution.from(
@@ -298,12 +242,6 @@ final class AfkBehaviorAnalyzer {
             return new Window(
                     samples,
                     movingSamples,
-                    yawDistribution.occupiedBuckets,
-                    yawDistribution.normalizedEntropy,
-                    yawDistribution.coefficientOfVariation,
-                    turnTransitions,
-                    largeTurns,
-                    directionReversals,
                     movementDirectionSamples,
                     movementDirectionDistribution.occupiedBuckets,
                     movementDirectionDistribution.normalizedEntropy,
@@ -318,16 +256,7 @@ final class AfkBehaviorAnalyzer {
         private boolean isSuspicious() {
             return samples >= MIN_SAMPLES_PER_WINDOW
                     && (double) movingSamples / samples >= MIN_MOVING_SAMPLE_RATIO
-                    && (hasSuspiciousYawDistribution() || hasSuspiciousMovementDistribution());
-        }
-
-        private boolean hasSuspiciousYawDistribution() {
-            return occupiedYawBuckets >= MIN_OCCUPIED_YAW_BUCKETS
-                    && yawEntropy >= MIN_NORMALIZED_YAW_ENTROPY
-                    && yawBucketCoefficientOfVariation <= MAX_YAW_BUCKET_COEFFICIENT_OF_VARIATION
-                    && turnTransitions > 0
-                    && (double) largeTurns / turnTransitions >= MIN_LARGE_TURN_RATIO
-                    && (double) directionReversals / turnTransitions >= MIN_DIRECTION_REVERSAL_RATIO;
+                    && hasSuspiciousMovementDistribution();
         }
 
         private boolean hasSuspiciousMovementDistribution() {

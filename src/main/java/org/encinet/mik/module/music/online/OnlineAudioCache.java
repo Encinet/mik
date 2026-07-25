@@ -1,8 +1,11 @@
 package org.encinet.mik.module.music.online;
 
+import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.TrackTarget;
 
 import java.io.IOException;
+import java.io.EOFException;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.URI;
@@ -10,15 +13,19 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -66,6 +73,8 @@ public final class OnlineAudioCache implements AutoCloseable {
     private final ConcurrentHashMap<String, DownloadOperation> inFlight = new ConcurrentHashMap<>();
     private final Set<DownloadOperation> activeDownloads = ConcurrentHashMap.newKeySet();
     private final Set<String> cachedEntries = ConcurrentHashMap.newKeySet();
+    private final CachedOnlineTrackCatalog trackCatalog;
+    private final MusicPlaybackStats playbackStats;
     private final Semaphore downloadPermits = new Semaphore(MAX_CONCURRENT_DOWNLOADS);
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicLong generation = new AtomicLong();
@@ -78,22 +87,41 @@ public final class OnlineAudioCache implements AutoCloseable {
     public OnlineAudioCache(Path cacheDirectory, LxSourceService upstream,
                            Consumer<String> warningLogger) {
         this(cacheDirectory, upstream, warningLogger,
-                MAX_AUDIO_BYTES, MAX_CACHE_BYTES, DOWNLOAD_TIMEOUT);
+                MAX_AUDIO_BYTES, MAX_CACHE_BYTES, DOWNLOAD_TIMEOUT,
+                MusicPlaybackStats.EMPTY);
+    }
+
+    public OnlineAudioCache(Path cacheDirectory, LxSourceService upstream,
+                            Consumer<String> warningLogger,
+                            MusicPlaybackStats playbackStats) {
+        this(cacheDirectory, upstream, warningLogger,
+                MAX_AUDIO_BYTES, MAX_CACHE_BYTES, DOWNLOAD_TIMEOUT, playbackStats);
     }
 
     OnlineAudioCache(Path cacheDirectory, LxTrackResolver upstream,
                     Consumer<String> warningLogger, long maxAudioBytes,
                     Duration downloadTimeout) {
         this(cacheDirectory, upstream, warningLogger, maxAudioBytes,
-                Math.max(maxAudioBytes, multiplySaturated(maxAudioBytes, 16)), downloadTimeout);
+                Math.max(maxAudioBytes, multiplySaturated(maxAudioBytes, 16)), downloadTimeout,
+                MusicPlaybackStats.EMPTY);
     }
 
     OnlineAudioCache(Path cacheDirectory, LxTrackResolver upstream,
                     Consumer<String> warningLogger, long maxAudioBytes,
                     long maxCacheBytes, Duration downloadTimeout) {
+        this(cacheDirectory, upstream, warningLogger, maxAudioBytes,
+                maxCacheBytes, downloadTimeout, MusicPlaybackStats.EMPTY);
+    }
+
+    OnlineAudioCache(Path cacheDirectory, LxTrackResolver upstream,
+                     Consumer<String> warningLogger, long maxAudioBytes,
+                     long maxCacheBytes, Duration downloadTimeout,
+                     MusicPlaybackStats playbackStats) {
         this.cacheDirectory = cacheDirectory.toAbsolutePath().normalize();
         this.upstream = upstream;
         this.warningLogger = warningLogger;
+        this.trackCatalog = new CachedOnlineTrackCatalog(this.cacheDirectory, warningLogger);
+        this.playbackStats = Objects.requireNonNull(playbackStats, "playbackStats");
         this.maxAudioBytes = maxAudioBytes;
         this.maxCacheBytes = maxCacheBytes;
         this.downloadTimeout = downloadTimeout;
@@ -119,7 +147,49 @@ public final class OnlineAudioCache implements AutoCloseable {
         return target != null && cachedEntries.contains(cacheKey(target));
     }
 
+    /** Returns validated online tracks whose exact playback targets have complete cached audio. */
+    public List<MusicTrack> cachedTracks() {
+        return trackCatalog.tracks();
+    }
+
+    /** Persists metadata for a complete cache entry without blocking the caller thread. */
+    public CompletableFuture<Boolean> indexAsync(MusicTrack track) {
+        Objects.requireNonNull(track, "track");
+        if (!(track.target() instanceof TrackTarget.Lx target)) {
+            return CompletableFuture.failedFuture(
+                    new IllegalArgumentException("Only online music tracks can be indexed"));
+        }
+        String entryKey = cacheKey(target);
+        try {
+            return resolve(target).thenApplyAsync(
+                            ignored -> indexNow(entryKey, track), downloadExecutor)
+                    .exceptionally(ignored -> false);
+        } catch (RuntimeException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+    }
+
+    private boolean indexNow(String entryKey, MusicTrack track) {
+        synchronized (cacheLock) {
+            if (closed.get() || clearInFlight != null || deleteOnRelease.contains(entryKey)
+                    || !isUsable(entryKey, cachePath(entryKey))) {
+                return false;
+            }
+            return trackCatalog.store(entryKey, track);
+        }
+    }
+
     public CompletableFuture<String> resolve(TrackTarget.Lx target) {
+        Objects.requireNonNull(target, "target");
+        if (closed.get()) {
+            return CompletableFuture.failedFuture(new IOException("Music audio cache is closed"));
+        }
+
+        return start(target).thenCompose(DownloadAccess::completed)
+                .thenApply(Path::toString);
+    }
+
+    private CompletableFuture<DownloadAccess> start(TrackTarget.Lx target) {
         Objects.requireNonNull(target, "target");
         if (closed.get()) {
             return CompletableFuture.failedFuture(new IOException("Music audio cache is closed"));
@@ -134,7 +204,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 return CompletableFuture.failedFuture(new IOException("Music audio cache is closed"));
             }
             if (clearInFlight != null) {
-                return clearInFlight.thenCompose(ignored -> resolve(target));
+                return clearInFlight.thenCompose(ignored -> start(target));
             }
             if (deleteOnRelease.contains(entryKey)) {
                 return CompletableFuture.failedFuture(new IOException(
@@ -142,11 +212,19 @@ public final class OnlineAudioCache implements AutoCloseable {
             }
             if (isUsable(entryKey, destination)) {
                 touch(destination);
-                return CompletableFuture.completedFuture(destination.toString());
+                try {
+                    StreamingState state = StreamingState.completed(
+                            destination, Files.size(destination));
+                    return CompletableFuture.completedFuture(new DownloadAccess(
+                            CompletableFuture.completedFuture(destination),
+                            CompletableFuture.completedFuture(state)));
+                } catch (IOException exception) {
+                    return CompletableFuture.failedFuture(exception);
+                }
             }
             DownloadOperation existing = inFlight.get(entryKey);
             if (existing != null) {
-                return existing.result.thenApply(Path::toString);
+                return CompletableFuture.completedFuture(existing.access());
             }
             created = track(new DownloadOperation());
             expectedGeneration = generation.get();
@@ -158,9 +236,9 @@ public final class OnlineAudioCache implements AutoCloseable {
             resolved = upstream.resolve(target);
         } catch (RuntimeException exception) {
             inFlight.remove(entryKey, created);
-            created.result.completeExceptionally(exception);
+            created.fail(exception);
             created.completeWithoutWorker();
-            return created.result.thenApply(Path::toString);
+            return CompletableFuture.completedFuture(created.access());
         }
         created.setUpstream(resolved);
         resolved.whenComplete((url, error) -> {
@@ -185,16 +263,16 @@ public final class OnlineAudioCache implements AutoCloseable {
                 finishDownload(entryKey, created, null, exception);
             }
         });
-        return created.result.thenApply(Path::toString);
+        return CompletableFuture.completedFuture(created.access());
     }
 
     private void finishDownload(String entryKey, DownloadOperation operation,
                                 Path path, Throwable error) {
         inFlight.remove(entryKey, operation);
         if (error == null) {
-            operation.result.complete(path);
+            operation.complete(path);
         } else {
-            operation.result.completeExceptionally(error);
+            operation.fail(error);
         }
     }
 
@@ -215,6 +293,35 @@ public final class OnlineAudioCache implements AutoCloseable {
                 return;
             }
             CachedAudio audio = new CachedAudio(identifier, reservation::close);
+            if (!result.complete(audio)) {
+                audio.close();
+            }
+        });
+        result.whenComplete((audio, error) -> {
+            if (error != null) {
+                reservation.close();
+            }
+        });
+        return result;
+    }
+
+    /** Acquires a lease which can be read while the online audio is still downloading. */
+    public CompletableFuture<StreamingAudio> acquireStreaming(TrackTarget.Lx target) {
+        Objects.requireNonNull(target, "target");
+        EntryReservation reservation;
+        try {
+            reservation = reserve(cacheKey(target));
+        } catch (RuntimeException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+        CompletableFuture<StreamingAudio> result = new CompletableFuture<>();
+        start(target).thenCompose(DownloadAccess::streaming).whenComplete((state, error) -> {
+            if (error != null) {
+                reservation.close();
+                result.completeExceptionally(error);
+                return;
+            }
+            StreamingAudio audio = new StreamingAudio(state, reservation::close);
             if (!result.complete(audio)) {
                 audio.close();
             }
@@ -307,6 +414,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                     Set<Path> activePaths = activeCachePaths();
                     deleteOnRelease.addAll(activeEntries.keySet());
                     cachedEntries.removeAll(activeEntries.keySet());
+                    trackCatalog.clear();
                     try (Stream<Path> paths = Files.list(cacheDirectory)) {
                         for (Path path : paths.filter(path -> Files.isRegularFile(
                                 path, LinkOption.NOFOLLOW_LINKS)).toList()) {
@@ -378,6 +486,11 @@ public final class OnlineAudioCache implements AutoCloseable {
                     new IOException("Music audio cache is closed"));
         }
         if (isUsable(entryKey, destination)) {
+            try {
+                owner.useCompleted(destination, Files.size(destination));
+            } catch (IOException exception) {
+                throw new java.util.concurrent.CompletionException(exception);
+            }
             return destination;
         }
 
@@ -416,7 +529,12 @@ public final class OnlineAudioCache implements AutoCloseable {
                             new IOException("Audio download exceeds " + maxAudioBytes + " bytes"));
                 }
                 try {
-                    LimitedFileSubscriber subscriber = new LimitedFileSubscriber(target, maxAudioBytes);
+                    String contentType = response.headers().firstValue("Content-Type")
+                            .map(OnlineAudioCache::baseContentType).orElse(null);
+                    StreamingState state = owner.createStreamingState(
+                            target, declaredLength, contentType);
+                    LimitedFileSubscriber subscriber = new LimitedFileSubscriber(
+                            target, maxAudioBytes, state, owner);
                     subscriberRef.set(subscriber);
                     owner.setSubscriber(subscriber);
                     return subscriber;
@@ -449,7 +567,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 reservedDownloadBytes -= maxAudioBytes;
                 quotaReserved = false;
                 evictFor(Files.size(part), destination);
-                moveIntoPlace(part, destination);
+                owner.publish(destination);
                 cachedEntries.add(entryKey);
                 touch(destination);
             }
@@ -514,12 +632,12 @@ public final class OnlineAudioCache implements AutoCloseable {
                 cachedEntries.add(entryKey);
                 return true;
             }
-            cachedEntries.remove(entryKey);
+            removeIndex(entryKey, true);
             if (size == 0 || size > maxAudioBytes) {
                 Files.deleteIfExists(path);
             }
         } catch (IOException exception) {
-            cachedEntries.remove(entryKey);
+            removeIndex(entryKey, true);
             warningLogger.accept("Failed to inspect music cache file " + path.getFileName()
                     + ": " + exception.getMessage());
         }
@@ -529,13 +647,19 @@ public final class OnlineAudioCache implements AutoCloseable {
     private void evictFor(long incomingBytes, Path destination) throws IOException {
         List<CacheEntry> entries;
         Set<Path> activePaths = activeCachePaths();
+        Instant now = Instant.now();
         try (Stream<Path> paths = Files.list(cacheDirectory)) {
             entries = paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .filter(this::isCacheFile)
                     .filter(path -> !path.equals(destination))
                     .map(this::cacheEntry)
                     .filter(java.util.Objects::nonNull)
-                    .sorted(java.util.Comparator.comparing(CacheEntry::lastUsed))
+                    .sorted(java.util.Comparator
+                            .comparingDouble((CacheEntry entry) -> evictionScore(entry, now))
+                            .thenComparing(CacheEntry::lastUsed)
+                            .thenComparing(java.util.Comparator.comparingLong(
+                                    CacheEntry::bytes).reversed())
+                            .thenComparing(entry -> entry.path().getFileName().toString()))
                     .toList();
         }
         long usedBytes = 0;
@@ -551,12 +675,20 @@ public final class OnlineAudioCache implements AutoCloseable {
                 continue;
             }
             Files.deleteIfExists(entry.path());
-            cachedEntries.remove(cacheEntryKey(entry.path()));
+            removeIndex(cacheEntryKey(entry.path()), true);
             usedBytes -= entry.bytes();
         }
         if (usedBytes > available) {
             throw new IOException("Music cache cannot free enough disk quota");
         }
+    }
+
+    private double evictionScore(CacheEntry entry, Instant now) {
+        MusicTrack track = trackCatalog.track(cacheEntryKey(entry.path()));
+        MusicPlaybackStats.TrackStats stats = track == null
+                ? MusicPlaybackStats.TrackStats.EMPTY : playbackStats.stats(track);
+        return CacheEvictionPolicy.retentionScore(entry.bytes(),
+                entry.lastUsed().toInstant(), stats, now);
     }
 
     private CacheEntry cacheEntry(Path path) {
@@ -571,7 +703,8 @@ public final class OnlineAudioCache implements AutoCloseable {
 
     private void touch(Path path) {
         try {
-            Files.setLastModifiedTime(path, FileTime.fromMillis(System.currentTimeMillis()));
+            long now = System.currentTimeMillis();
+            Files.setLastModifiedTime(path, FileTime.fromMillis(now));
         } catch (IOException exception) {
             warningLogger.accept("Failed to update music cache access time " + path.getFileName()
                     + ": " + exception.getMessage());
@@ -598,14 +731,19 @@ public final class OnlineAudioCache implements AutoCloseable {
     private void loadCacheIndex() {
         try {
             Files.createDirectories(cacheDirectory);
+            Set<String> audioEntries = new HashSet<>();
             try (Stream<Path> paths = Files.list(cacheDirectory)) {
                 for (Path path : paths.filter(value -> Files.isRegularFile(
                                 value, LinkOption.NOFOLLOW_LINKS))
                         .filter(this::isCacheFile).toList()) {
                     String entryKey = cacheEntryKey(path);
-                    isUsable(entryKey, path);
+                    if (isUsable(entryKey, path)) {
+                        audioEntries.add(entryKey);
+                        trackCatalog.load(entryKey);
+                    }
                 }
             }
+            trackCatalog.deleteOrphans(audioEntries);
         } catch (IOException exception) {
             warningLogger.accept("Failed to index music cache: " + exception.getMessage());
         }
@@ -640,7 +778,7 @@ public final class OnlineAudioCache implements AutoCloseable {
     }
 
     private void deleteOrDefer(String entryKey, String description) {
-        cachedEntries.remove(entryKey);
+        removeIndex(entryKey, false);
         if (activeEntries.containsKey(entryKey)) {
             deleteOnRelease.add(entryKey);
         } else {
@@ -649,12 +787,14 @@ public final class OnlineAudioCache implements AutoCloseable {
     }
 
     private void deleteNow(String entryKey, String description) {
-        cachedEntries.remove(entryKey);
+        removeIndex(entryKey, false);
         try {
             Files.deleteIfExists(cachePath(entryKey));
         } catch (IOException exception) {
             warningLogger.accept("Failed to remove " + description + " "
                     + entryKey + ": " + exception.getMessage());
+        } finally {
+            trackCatalog.remove(entryKey);
         }
     }
 
@@ -665,6 +805,15 @@ public final class OnlineAudioCache implements AutoCloseable {
     private static String cacheEntryKey(Path path) {
         String name = path.getFileName().toString();
         return name.substring(0, name.length() - CACHE_SUFFIX.length());
+    }
+
+    private void removeIndex(String entryKey, boolean deleteTrackFile) {
+        cachedEntries.remove(entryKey);
+        if (deleteTrackFile) {
+            trackCatalog.remove(entryKey);
+        } else {
+            trackCatalog.forget(entryKey);
+        }
     }
 
     static String cacheKey(TrackTarget.Lx target) {
@@ -722,6 +871,13 @@ public final class OnlineAudioCache implements AutoCloseable {
         }
     }
 
+    private static String baseContentType(String value) {
+        int separator = value.indexOf(';');
+        String contentType = (separator < 0 ? value : value.substring(0, separator))
+                .strip().toLowerCase(Locale.ROOT);
+        return contentType.isEmpty() ? null : contentType;
+    }
+
     private void ensureOpen() {
         if (closed.get()) {
             throw new java.util.concurrent.CompletionException(
@@ -743,6 +899,7 @@ public final class OnlineAudioCache implements AutoCloseable {
             activeEntries.clear();
             deleteOnRelease.clear();
             cachedEntries.clear();
+            trackCatalog.clear();
             clear = clearInFlight;
             clearInFlight = null;
         }
@@ -778,6 +935,106 @@ public final class OnlineAudioCache implements AutoCloseable {
         }
     }
 
+    /** A leased cache entry which remains readable while its backing download grows. */
+    public static final class StreamingAudio implements AutoCloseable {
+        private final StreamingState state;
+        private final Runnable release;
+        private final AtomicBoolean closed = new AtomicBoolean();
+
+        private StreamingAudio(StreamingState state, Runnable release) {
+            this.state = state;
+            this.release = release;
+        }
+
+        /** HTTP content length, or {@code -1} when the server did not declare one. */
+        public long contentLength() {
+            return state.contentLength();
+        }
+
+        /** Normalized HTTP media type without parameters, when provided by the server. */
+        public String contentType() {
+            return state.contentType();
+        }
+
+        public Reader openReader() throws IOException {
+            if (closed.get()) {
+                throw new IOException("Streaming audio lease is closed");
+            }
+            return state.openReader();
+        }
+
+        @Override
+        public void close() {
+            if (closed.compareAndSet(false, true)) {
+                release.run();
+            }
+        }
+
+        /** Independent seekable reader over the bytes currently entering the cache. */
+        public static final class Reader implements AutoCloseable {
+            private final StreamingState state;
+            private final FileChannel channel;
+            private final AtomicBoolean closed = new AtomicBoolean();
+            private long position;
+
+            private Reader(StreamingState state, FileChannel channel) {
+                this.state = state;
+                this.channel = channel;
+            }
+
+            public int read() throws IOException {
+                byte[] single = new byte[1];
+                int read = read(single, 0, 1);
+                return read < 0 ? -1 : Byte.toUnsignedInt(single[0]);
+            }
+
+            public int read(byte[] bytes, int offset, int length) throws IOException {
+                Objects.checkFromIndexSize(offset, length, bytes.length);
+                if (length == 0) {
+                    return 0;
+                }
+                while (true) {
+                    int readable = state.awaitReadable(position, length, closed);
+                    if (readable < 0) {
+                        return -1;
+                    }
+                    int read = channel.read(ByteBuffer.wrap(bytes, offset, readable), position);
+                    if (read > 0) {
+                        position += read;
+                        return read;
+                    }
+                }
+            }
+
+            public long position() {
+                return position;
+            }
+
+            public void seek(long newPosition) throws IOException {
+                if (newPosition < 0) {
+                    throw new IOException("Cannot seek before the start of streaming audio");
+                }
+                state.validatePosition(newPosition);
+                position = newPosition;
+            }
+
+            public int available() throws IOException {
+                if (closed.get()) {
+                    throw new IOException("Streaming audio reader is closed");
+                }
+                return state.availableFrom(position);
+            }
+
+            @Override
+            public void close() throws IOException {
+                if (closed.compareAndSet(false, true)) {
+                    state.readerClosed();
+                    channel.close();
+                }
+            }
+        }
+    }
+
     private final class EntryReservation implements AutoCloseable {
         private final String entryKey;
         private final AtomicBoolean released = new AtomicBoolean();
@@ -797,14 +1054,193 @@ public final class OnlineAudioCache implements AutoCloseable {
     private record CacheEntry(Path path, long bytes, FileTime lastUsed) {
     }
 
+    private record DownloadAccess(CompletableFuture<Path> completed,
+                                  CompletableFuture<StreamingState> streaming) {
+    }
+
+    private static final class StreamingState {
+        private Path path;
+        private final long declaredLength;
+        private final String contentType;
+        private long availableBytes;
+        private boolean completed;
+        private IOException failure;
+
+        private StreamingState(Path path, long declaredLength, String contentType) {
+            this.path = path;
+            this.declaredLength = declaredLength;
+            this.contentType = contentType;
+        }
+
+        private static StreamingState completed(Path path, long length) {
+            StreamingState state = new StreamingState(path, length, null);
+            state.availableBytes = length;
+            state.completed = true;
+            return state;
+        }
+
+        private synchronized long contentLength() {
+            return declaredLength;
+        }
+
+        private synchronized String contentType() {
+            return contentType;
+        }
+
+        private synchronized StreamingAudio.Reader openReader() throws IOException {
+            throwIfFailed();
+            try {
+                return new StreamingAudio.Reader(this,
+                        FileChannel.open(path, StandardOpenOption.READ));
+            } catch (NoSuchFileException exception) {
+                throw new IOException("Streaming audio file is no longer available", exception);
+            }
+        }
+
+        private synchronized void bytesWritten(long bytes) {
+            if (failure == null && !completed && bytes > availableBytes) {
+                availableBytes = bytes;
+                notifyAll();
+            }
+        }
+
+        private synchronized void publish(Path destination) throws IOException {
+            throwIfFailed();
+            moveIntoPlace(path, destination);
+            path = destination;
+            completed = true;
+            notifyAll();
+        }
+
+        private synchronized void fail(Throwable throwable) {
+            if (failure != null || completed) {
+                return;
+            }
+            failure = asIOException(throwable);
+            notifyAll();
+        }
+
+        private synchronized int awaitReadable(long position, int requested,
+                                                AtomicBoolean readerClosed) throws IOException {
+            while (position >= availableBytes && !completed && failure == null
+                    && !readerClosed.get()) {
+                try {
+                    wait();
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    InterruptedIOException interrupted = new InterruptedIOException(
+                            "Interrupted while buffering online audio");
+                    interrupted.initCause(exception);
+                    throw interrupted;
+                }
+            }
+            if (readerClosed.get()) {
+                throw new IOException("Streaming audio reader is closed");
+            }
+            throwIfFailed();
+            long available = availableBytes - position;
+            if (available <= 0) {
+                return -1;
+            }
+            return (int) Math.min(requested, available);
+        }
+
+        private synchronized void validatePosition(long position) throws IOException {
+            throwIfFailed();
+            long knownLength = completed ? availableBytes : declaredLength;
+            if (knownLength >= 0 && position > knownLength) {
+                throw new EOFException("Cannot seek beyond the end of streaming audio");
+            }
+        }
+
+        private synchronized int availableFrom(long position) throws IOException {
+            throwIfFailed();
+            return (int) Math.min(Integer.MAX_VALUE,
+                    Math.max(0, availableBytes - position));
+        }
+
+        private synchronized void readerClosed() {
+            notifyAll();
+        }
+
+        private void throwIfFailed() throws IOException {
+            if (failure != null) {
+                throw failure;
+            }
+        }
+
+        private static IOException asIOException(Throwable throwable) {
+            Throwable cause = throwable;
+            while ((cause instanceof java.util.concurrent.CompletionException
+                    || cause instanceof java.util.concurrent.ExecutionException)
+                    && cause.getCause() != null) {
+                cause = cause.getCause();
+            }
+            return cause instanceof IOException ioException ? ioException
+                    : new IOException("Online audio download failed", cause);
+        }
+    }
+
     private static final class DownloadOperation {
         private final CompletableFuture<Path> result = new CompletableFuture<>();
+        private final CompletableFuture<StreamingState> streaming = new CompletableFuture<>();
         private final CompletableFuture<Void> terminated = new CompletableFuture<>();
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final AtomicReference<CompletableFuture<?>> upstream = new AtomicReference<>();
         private final AtomicReference<Future<?>> worker = new AtomicReference<>();
         private final AtomicReference<CompletableFuture<?>> httpRequest = new AtomicReference<>();
         private final AtomicReference<LimitedFileSubscriber> subscriber = new AtomicReference<>();
+        private final AtomicReference<StreamingState> streamingState = new AtomicReference<>();
+
+        private DownloadAccess access() {
+            return new DownloadAccess(result, streaming);
+        }
+
+        private StreamingState createStreamingState(Path path, long declaredLength,
+                                                    String contentType) {
+            StreamingState state = new StreamingState(path, declaredLength, contentType);
+            if (!streamingState.compareAndSet(null, state)) {
+                throw new IllegalStateException("Streaming state is already initialized");
+            }
+            if (cancelled.get()) {
+                state.fail(new IOException("Music download was cancelled"));
+            }
+            return state;
+        }
+
+        private void useCompleted(Path path, long length) {
+            StreamingState state = StreamingState.completed(path, length);
+            if (streamingState.compareAndSet(null, state)) {
+                streaming.complete(state);
+            }
+        }
+
+        private void bytesAvailable(StreamingState state) {
+            streaming.complete(state);
+        }
+
+        private void publish(Path destination) throws IOException {
+            StreamingState state = streamingState.get();
+            if (state == null) {
+                throw new IOException("Audio response did not initialize a streaming cache file");
+            }
+            state.publish(destination);
+            streaming.complete(state);
+        }
+
+        private void complete(Path path) {
+            result.complete(path);
+        }
+
+        private void fail(Throwable throwable) {
+            StreamingState state = streamingState.get();
+            if (state != null) {
+                state.fail(throwable);
+            }
+            IOException failure = StreamingState.asIOException(throwable);
+            streaming.completeExceptionally(failure);
+            result.completeExceptionally(failure);
+        }
 
         private void setUpstream(CompletableFuture<?> future) {
             setCancellable(upstream, future);
@@ -848,14 +1284,20 @@ public final class OnlineAudioCache implements AutoCloseable {
             if (!cancelled.compareAndSet(false, true)) {
                 return;
             }
+            IOException cancellation = new IOException("Music download was cancelled");
+            StreamingState state = streamingState.get();
+            if (state != null) {
+                state.fail(cancellation);
+            }
+            streaming.completeExceptionally(cancellation);
+            result.completeExceptionally(cancellation);
             cancel(upstream.getAndSet(null));
             cancel(httpRequest.getAndSet(null));
             LimitedFileSubscriber activeSubscriber = subscriber.getAndSet(null);
             if (activeSubscriber != null) {
-                activeSubscriber.abort(new IOException("Music download was cancelled"));
+                activeSubscriber.abort(cancellation);
             }
             cancel(worker.getAndSet(null));
-            result.cancel(true);
         }
 
         private static void cancel(Future<?> future) {
@@ -895,15 +1337,21 @@ public final class OnlineAudioCache implements AutoCloseable {
     private static final class LimitedFileSubscriber implements HttpResponse.BodySubscriber<Path> {
         private final Path target;
         private final long maximumBytes;
+        private final StreamingState streamingState;
+        private final DownloadOperation owner;
         private final CompletableFuture<Path> body = new CompletableFuture<>();
         private final OutputStream output;
         private Flow.Subscription subscription;
         private long received;
         private boolean finished;
 
-        private LimitedFileSubscriber(Path target, long maximumBytes) throws IOException {
+        private LimitedFileSubscriber(Path target, long maximumBytes,
+                                      StreamingState streamingState,
+                                      DownloadOperation owner) throws IOException {
             this.target = target;
             this.maximumBytes = maximumBytes;
+            this.streamingState = streamingState;
+            this.owner = owner;
             this.output = Files.newOutputStream(target);
         }
 
@@ -941,6 +1389,8 @@ public final class OnlineAudioCache implements AutoCloseable {
                         output.write(bytes, 0, length);
                     }
                 }
+                streamingState.bytesWritten(received);
+                owner.bytesAvailable(streamingState);
                 subscription.request(1);
             } catch (IOException exception) {
                 subscription.cancel();

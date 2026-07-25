@@ -2,6 +2,7 @@ package org.encinet.mik.module.music.ui;
 
 import org.bukkit.Location;
 import org.bukkit.inventory.Inventory;
+import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 
 import java.util.HashMap;
@@ -17,13 +18,16 @@ final class MusicBrowserSessions {
     private final Map<UUID, Session> sessions = new HashMap<>();
     private final Map<UUID, JukeboxContext> jukeboxContexts = new HashMap<>();
 
-    Session showLibrary(UUID playerId, List<MusicTrack> tracks, int page) {
+    Session showLibrary(UUID playerId, List<MusicTrack> tracks, int page,
+                        MusicPlaybackStats playbackStats) {
         Session session = session(playerId);
         session.generation++;
         session.view = View.LIBRARY;
         session.page = page;
         session.keyword = null;
-        session.tracks = List.copyOf(tracks);
+        session.sourceTracks = List.copyOf(tracks);
+        session.sort = MusicBrowserSort.DEFAULT;
+        session.tracks = session.sort.order(session.sourceTracks, playbackStats);
         session.loading = false;
         session.requestError = null;
         session.partialFailures = 0;
@@ -36,7 +40,9 @@ final class MusicBrowserSessions {
         session.view = View.ONLINE_SONGS;
         session.page = 0;
         session.keyword = keyword;
+        session.sourceTracks = List.of();
         session.tracks = List.of();
+        session.sort = MusicBrowserSort.DEFAULT;
         session.loading = true;
         session.requestError = null;
         session.partialFailures = 0;
@@ -45,11 +51,13 @@ final class MusicBrowserSessions {
 
     boolean completeSearch(UUID playerId, Session expected, int generation,
                            Inventory currentInventory, List<MusicTrack> tracks,
-                           String requestError, int partialFailures) {
+                           String requestError, int partialFailures,
+                           MusicPlaybackStats playbackStats) {
         if (!isCurrent(playerId, expected, generation, currentInventory)) {
             return false;
         }
-        expected.tracks = List.copyOf(tracks);
+        expected.sourceTracks = List.copyOf(tracks);
+        expected.tracks = expected.sort.order(expected.sourceTracks, playbackStats);
         expected.loading = false;
         expected.requestError = requestError;
         expected.partialFailures = partialFailures;
@@ -62,6 +70,12 @@ final class MusicBrowserSessions {
 
     void setPage(Session session, int page) {
         session.page = page;
+    }
+
+    void cycleSort(Session session, MusicPlaybackStats playbackStats) {
+        session.sort = session.sort.next();
+        session.tracks = session.sort.order(session.sourceTracks, playbackStats);
+        session.page = 0;
     }
 
     void attachInventory(Session session, Inventory inventory) {
@@ -160,7 +174,9 @@ final class MusicBrowserSessions {
         private int page;
         private int generation;
         private String keyword;
+        private List<MusicTrack> sourceTracks = List.of();
         private List<MusicTrack> tracks = List.of();
+        private MusicBrowserSort sort = MusicBrowserSort.DEFAULT;
         private boolean loading;
         private String requestError;
         private int partialFailures;
@@ -171,6 +187,7 @@ final class MusicBrowserSessions {
         int generation() { return generation; }
         String keyword() { return keyword; }
         List<MusicTrack> tracks() { return tracks; }
+        MusicBrowserSort sort() { return sort; }
         boolean loading() { return loading; }
         String requestError() { return requestError; }
         int partialFailures() { return partialFailures; }

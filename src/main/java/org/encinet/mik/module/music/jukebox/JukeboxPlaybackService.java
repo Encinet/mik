@@ -14,6 +14,7 @@ import org.encinet.mik.module.music.catalog.TrackTarget;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
+import org.encinet.mik.module.music.lyrics.LyricDisplayService;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
@@ -22,6 +23,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /** Coordinates jukebox discs, playback state, notifications, and backend lifecycle. */
 public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPlayback {
@@ -33,6 +35,8 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     private final VanillaRecordSilencer recordSilencer;
     private final AudioPlaybackEngine audioEngine;
     private final NbsPlaybackEngine nbsEngine;
+    private final LyricDisplayService lyricDisplay;
+    private final Consumer<MusicTrack> playbackRecorder;
     private final Map<JukeboxKey, Playback> playbacks = new ConcurrentHashMap<>();
     private final AtomicBoolean enabled = new AtomicBoolean();
     private volatile BiConsumer<Location, MusicTrack> trackFinishedListener;
@@ -40,12 +44,17 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     public JukeboxPlaybackService(JavaPlugin plugin, PlasmoVoiceServer voiceServer,
                        MusicDiscResolver discResolver, OnlineAudioCache audioCache,
                        MusicDiscFactory discFactory, JukeboxPlaybackNotifier notifier,
-                       VanillaRecordSilencer recordSilencer) {
+                       VanillaRecordSilencer recordSilencer,
+                       Consumer<MusicTrack> playbackRecorder,
+                       LyricDisplayService lyricDisplay) {
         this.plugin = plugin;
         this.discResolver = discResolver;
         this.discFactory = discFactory;
         this.notifier = notifier;
         this.recordSilencer = recordSilencer;
+        this.playbackRecorder = java.util.Objects.requireNonNull(
+                playbackRecorder, "playbackRecorder");
+        this.lyricDisplay = java.util.Objects.requireNonNull(lyricDisplay, "lyricDisplay");
 
         this.audioEngine = new AudioPlaybackEngine(plugin, voiceServer, audioCache);
         this.nbsEngine = new NbsPlaybackEngine(plugin);
@@ -163,6 +172,21 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             @Override
             public void started() {
                 playback.notifyStarted(plugin);
+                PlaybackSession session = playback.session;
+                if (session != null) {
+                    LyricDisplayService.PlaybackLyrics lyrics = lyricDisplay.start(
+                            playback.location, playback.music,
+                            session::positionMillis, this::isValid);
+                    if (!playback.lyrics.compareAndSet(null, lyrics)) {
+                        lyrics.close();
+                    } else if (playback.cleaned.get()) {
+                        LyricDisplayService.PlaybackLyrics stale =
+                                playback.lyrics.getAndSet(null);
+                        if (stale != null) {
+                            stale.close();
+                        }
+                    }
+                }
                 if (playback.announce) {
                     notifier.broadcastStarted(playback.location,
                             playback.musicName, playback.music);
@@ -176,6 +200,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
 
             @Override
             public void finished() {
+                playback.recordPlaybackIfQualified(true, playbackRecorder, plugin);
                 finishPlayback(playback);
             }
 
@@ -324,6 +349,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         if (playback != null) {
             recordSilencer.playbackStopped(playback.location);
             playback.stopped.set(true);
+            playback.recordPlaybackIfQualified(false, playbackRecorder, plugin);
             cleanup(playback);
         }
 
@@ -347,6 +373,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         }
         recordSilencer.playbackStopped(playback.location);
         playback.stopped.set(true);
+        playback.recordPlaybackIfQualified(false, playbackRecorder, plugin);
         cleanup(playback);
     }
 
@@ -355,6 +382,10 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             return;
         }
         PlaybackSession session = playback.session;
+        LyricDisplayService.PlaybackLyrics lyrics = playback.lyrics.getAndSet(null);
+        if (lyrics != null) {
+            lyrics.close();
+        }
         if (session != null) {
             session.stop();
         }
@@ -413,7 +444,10 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         private final AtomicBoolean failed = new AtomicBoolean();
         private final AtomicBoolean cleaned = new AtomicBoolean();
         private final AtomicBoolean failureNotified = new AtomicBoolean();
+        private final AtomicBoolean playbackRecorded = new AtomicBoolean();
         private volatile PlaybackSession session;
+        private final java.util.concurrent.atomic.AtomicReference<
+                LyricDisplayService.PlaybackLyrics> lyrics = new java.util.concurrent.atomic.AtomicReference<>();
 
         private Playback(JukeboxKey key, Location location, MusicTrack music,
                          java.util.UUID requestingPlayer,
@@ -435,6 +469,29 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                 onStarted.run();
             } catch (RuntimeException exception) {
                 plugin.getLogger().warning("Music playback start callback failed: "
+                        + exception.getMessage());
+            }
+        }
+
+        private void recordPlaybackIfQualified(boolean finishedNaturally,
+                                               Consumer<MusicTrack> playbackRecorder,
+                                               JavaPlugin plugin) {
+            if (failed.get() || !started.get() || playbackRecorded.get()) {
+                return;
+            }
+            PlaybackSession activeSession = session;
+            long playedMillis = activeSession == null ? 0 : activeSession.positionMillis();
+            if (!PlaybackCountPolicy.qualifies(finishedNaturally, playedMillis,
+                    music.details().audio().duration())) {
+                return;
+            }
+            if (!playbackRecorded.compareAndSet(false, true)) {
+                return;
+            }
+            try {
+                playbackRecorder.accept(music);
+            } catch (RuntimeException exception) {
+                plugin.getLogger().warning("Failed to record music playback: "
                         + exception.getMessage());
             }
         }

@@ -7,8 +7,8 @@ import org.bukkit.inventory.ItemStack;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
-import org.encinet.mik.module.music.catalog.MusicLibrary;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.jukebox.NearbyJukeboxPlayback;
@@ -16,16 +16,16 @@ import org.encinet.mik.module.music.jukebox.NearbyJukeboxPlayback;
 /** Player-facing random track operations shared by commands and GUI actions. */
 public final class RandomMusicActions {
 
-    private final MusicLibrary musicLibrary;
+    private final MusicTrackPool trackPool;
     private final MusicTrackSelector trackSelector;
     private final MusicDiscFactory discFactory;
     private final NearbyJukeboxPlayback nearbyPlayback;
     private final LanguageService languageService;
 
-    public RandomMusicActions(MusicLibrary musicLibrary, MusicTrackSelector trackSelector,
+    public RandomMusicActions(MusicTrackPool trackPool, MusicTrackSelector trackSelector,
                               MusicDiscFactory discFactory, NearbyJukeboxPlayback nearbyPlayback,
                               LanguageService languageService) {
-        this.musicLibrary = musicLibrary;
+        this.trackPool = trackPool;
         this.trackSelector = trackSelector;
         this.discFactory = discFactory;
         this.nearbyPlayback = nearbyPlayback;
@@ -33,7 +33,7 @@ public final class RandomMusicActions {
     }
 
     public void giveRandomDisc(Player player) {
-        MusicTrack track = trackSelector.select(musicLibrary.tracks());
+        MusicTrack track = trackSelector.select(trackPool.tracks());
         if (track == null) {
             player.sendMessage(languageService.text(player, Message.MUSIC_NO_FILES, NamedTextColor.RED));
             return;
@@ -50,7 +50,7 @@ public final class RandomMusicActions {
     }
 
     public void playRandomDisc(Player player) {
-        MusicTrack track = trackSelector.select(musicLibrary.tracks());
+        MusicTrack track = trackSelector.select(trackPool.tracks());
         if (track == null) {
             player.sendMessage(languageService.text(player, Message.MUSIC_NO_FILES, NamedTextColor.RED));
             return;

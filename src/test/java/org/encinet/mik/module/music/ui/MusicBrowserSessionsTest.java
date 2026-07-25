@@ -3,6 +3,7 @@ package org.encinet.mik.module.music.ui;
 import org.bukkit.inventory.Inventory;
 import org.encinet.mik.module.music.catalog.AudioProperties;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.TrackDetails;
 import org.encinet.mik.module.music.catalog.TrackTarget;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class MusicBrowserSessionsTest {
         sessions.attachInventory(current, currentInventory);
 
         assertFalse(sessions.completeSearch(playerId, first, firstGeneration,
-                firstInventory, List.of(track("stale")), null, 0));
+                firstInventory, List.of(track("stale")), null, 0, MusicPlaybackStats.EMPTY));
         assertTrue(current.loading());
         assertTrue(current.tracks().isEmpty());
     }
@@ -53,7 +54,7 @@ class MusicBrowserSessionsTest {
         assertFalse(sessions.isCurrentInventory(playerId, inventory, generation,
                 state.view(), state.page()));
         assertFalse(sessions.completeSearch(playerId, state, generation, inventory,
-                List.of(track("late")), null, 0));
+                List.of(track("late")), null, 0, MusicPlaybackStats.EMPTY));
     }
 
     @Test
@@ -66,7 +67,7 @@ class MusicBrowserSessionsTest {
         MusicTrack track = track("online");
 
         assertTrue(sessions.completeSearch(playerId, state, state.generation(), inventory,
-                List.of(track), null, 2));
+                List.of(track), null, 2, MusicPlaybackStats.EMPTY));
         assertSame(track, state.tracks().getFirst());
         assertFalse(state.loading());
     }

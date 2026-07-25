@@ -7,5 +7,7 @@ interface PlaybackSession {
 
     PlaybackStatus status();
 
+    long positionMillis();
+
     void stop();
 }

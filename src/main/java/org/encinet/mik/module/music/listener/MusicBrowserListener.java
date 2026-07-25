@@ -21,6 +21,7 @@ import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.music.catalog.MusicLibrary;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 import org.encinet.mik.module.music.command.RandomMusicActions;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
@@ -30,12 +31,14 @@ import org.encinet.mik.module.music.ui.JukeboxAccess;
 import org.encinet.mik.module.music.ui.JukeboxControlGui;
 import org.encinet.mik.module.music.ui.MusicBrowserGui;
 
+import java.util.List;
 import java.util.Set;
 
 /** Handles music-browser sessions and track selection on the Bukkit main thread. */
 public final class MusicBrowserListener implements Listener {
 
     private final MusicLibrary musicLibrary;
+    private final MusicTrackPool trackPool;
     private final MusicDiscFactory discFactory;
     private final NearbyJukeboxPlayback nearbyPlayback;
     private final MusicBrowserGui browser;
@@ -46,7 +49,7 @@ public final class MusicBrowserListener implements Listener {
     private final RandomMusicActions randomActions;
     private Set<Location> musicChestLocations = Set.of();
 
-    public MusicBrowserListener(MusicLibrary musicLibrary,
+    public MusicBrowserListener(MusicLibrary musicLibrary, MusicTrackPool trackPool,
                                 MusicDiscFactory discFactory,
                                 NearbyJukeboxPlayback nearbyPlayback, MusicBrowserGui browser,
                                 JukeboxQueueService queueService,
@@ -54,6 +57,7 @@ public final class MusicBrowserListener implements Listener {
                                 LanguageService languageService, MusicTrackSelector trackSelector,
                                 RandomMusicActions randomActions) {
         this.musicLibrary = musicLibrary;
+        this.trackPool = trackPool;
         this.discFactory = discFactory;
         this.nearbyPlayback = nearbyPlayback;
         this.browser = browser;
@@ -150,6 +154,10 @@ public final class MusicBrowserListener implements Listener {
                 browser.showLibrary(player, 0);
             }
             case 47 -> search(event, player);
+            case 48 -> {
+                event.setCancelled(true);
+                browser.cycleSort(player);
+            }
             case 50 -> randomTrack(event, player, rightClick);
             case 52 -> back(event, player);
             case 53 -> nextPage(event, player);
@@ -246,9 +254,11 @@ public final class MusicBrowserListener implements Listener {
                 return;
             }
             JukeboxQueueService.JukeboxState data = queueService.state(jukeboxLocation);
-            MusicTrack track = trackSelector.select(musicLibrary.tracks(), candidate -> !data.contains(candidate));
+            List<MusicTrack> candidates = trackPool.tracks();
+            MusicTrack track = trackSelector.select(candidates,
+                    candidate -> !data.contains(candidate));
             if (track == null) {
-                Message message = musicLibrary.tracks().isEmpty()
+                Message message = candidates.isEmpty()
                         ? Message.MUSIC_NO_FILES : Message.MUSIC_ALL_IN_QUEUE;
                 player.sendMessage(languageService.text(player, message, NamedTextColor.RED));
                 return;

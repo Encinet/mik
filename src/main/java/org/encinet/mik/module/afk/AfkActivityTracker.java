@@ -21,7 +21,7 @@ final class AfkActivityTracker {
         ACTIVE,
         AFK_IDLE,
         AFK_PASSIVE,
-        AFK_AUTOMATED
+        ACTIVITY_REWARD_LOCKED
     }
 
     private final AfkBehaviorAnalyzer behaviorAnalyzer = new AfkBehaviorAnalyzer();
@@ -31,9 +31,7 @@ final class AfkActivityTracker {
     private long lastIntentionalActivityAt;
     private long lastCountedActionAt = Long.MIN_VALUE;
     private boolean movementGestureActive;
-    private boolean movementGestureCredited;
     private boolean movementReleaseRequired;
-    private boolean automationExitLocked;
     private boolean automationRewardLocked;
     private boolean intentionalActivityWhileSuspended;
     private long suspendedAt = Long.MIN_VALUE;
@@ -41,6 +39,7 @@ final class AfkActivityTracker {
     private double movementGestureX;
     private double movementGestureY;
     private double movementGestureZ;
+    private double movementDistanceSinceSubstantial;
 
     AfkActivityTracker(long now, UUID worldId, double x, double y, double z) {
         reset(now, worldId, x, y, z);
@@ -62,8 +61,8 @@ final class AfkActivityTracker {
     ) {
         if (!active) {
             movementGestureActive = false;
-            movementGestureCredited = false;
             movementReleaseRequired = false;
+            movementDistanceSinceSubstantial = 0.0D;
             return;
         }
 
@@ -72,11 +71,11 @@ final class AfkActivityTracker {
             return;
         }
         movementGestureActive = true;
-        movementGestureCredited = false;
         movementGestureWorldId = worldId;
         movementGestureX = x;
         movementGestureY = y;
         movementGestureZ = z;
+        movementDistanceSinceSubstantial = 0.0D;
     }
 
     boolean recordMovement(UUID worldId, double x, double y, double z, long now) {
@@ -84,24 +83,25 @@ final class AfkActivityTracker {
             return false;
         }
         recordLightActivity(now);
-        if (movementGestureCredited) {
-            return false;
-        }
-        if (!Objects.equals(movementGestureWorldId, worldId)
-                || distanceSquared(x, y, z) >= square(SUBSTANTIAL_MOVEMENT_DISTANCE)) {
+        if (!Objects.equals(movementGestureWorldId, worldId)) {
+            updateMovementPosition(worldId, x, y, z);
+            movementDistanceSinceSubstantial = 0.0D;
             markSubstantial(now);
-            movementGestureCredited = true;
+            return true;
+        }
+
+        movementDistanceSinceSubstantial += Math.sqrt(distanceSquared(x, y, z));
+        updateMovementPosition(worldId, x, y, z);
+        if (movementDistanceSinceSubstantial >= SUBSTANTIAL_MOVEMENT_DISTANCE) {
+            movementDistanceSinceSubstantial %= SUBSTANTIAL_MOVEMENT_DISTANCE;
+            markSubstantial(now);
             return true;
         }
         return false;
     }
 
     boolean canMovementClearAfk() {
-        return movementGestureActive && !automationExitLocked;
-    }
-
-    boolean canActionClearAfk() {
-        return !automationExitLocked;
+        return movementGestureActive;
     }
 
     boolean isActivityEligible(long now) {
@@ -114,10 +114,6 @@ final class AfkActivityTracker {
         return automationRewardLocked;
     }
 
-    boolean isAutomationExitLocked() {
-        return automationExitLocked;
-    }
-
     void recordObservation(UUID worldId, double x, double y, double z, float yaw, long now) {
         if (suspendedAt == Long.MIN_VALUE) {
             behaviorAnalyzer.record(worldId, x, y, z, yaw, movementGestureActive, now);
@@ -127,7 +123,7 @@ final class AfkActivityTracker {
     void suspendMovementGesture() {
         movementReleaseRequired = movementGestureActive;
         movementGestureActive = false;
-        movementGestureCredited = false;
+        movementDistanceSinceSubstantial = 0.0D;
     }
 
     boolean recordAction(AfkActionEvidence evidence, long now) {
@@ -157,7 +153,6 @@ final class AfkActivityTracker {
         markSubstantial(now);
         lastIntentionalActivityAt = now;
         intentionalActivityWhileSuspended = suspendedAt != Long.MIN_VALUE;
-        automationExitLocked = false;
         automationRewardLocked = false;
         behaviorAnalyzer.reset();
         return true;
@@ -168,11 +163,12 @@ final class AfkActivityTracker {
             return CheckResult.AFK_IDLE;
         }
 
-        if (behaviorAnalyzer.isLikelyAutomated(now, lastIntentionalActivityAt)) {
-            automationExitLocked = true;
+        if (!automationRewardLocked
+                && behaviorAnalyzer.isLikelyAutomated(now, lastIntentionalActivityAt)) {
             automationRewardLocked = true;
             resetActionWindow();
-            return CheckResult.AFK_AUTOMATED;
+            behaviorAnalyzer.reset();
+            return CheckResult.ACTIVITY_REWARD_LOCKED;
         }
 
         long passiveFor = elapsed(now, lastSubstantialAt);
@@ -188,9 +184,7 @@ final class AfkActivityTracker {
         lastIntentionalActivityAt = now;
         resetActionWindow();
         movementGestureActive = false;
-        movementGestureCredited = false;
         movementReleaseRequired = false;
-        automationExitLocked = false;
         automationRewardLocked = false;
         intentionalActivityWhileSuspended = false;
         suspendedAt = Long.MIN_VALUE;
@@ -198,14 +192,15 @@ final class AfkActivityTracker {
         movementGestureX = x;
         movementGestureY = y;
         movementGestureZ = z;
+        movementDistanceSinceSubstantial = 0.0D;
         behaviorAnalyzer.reset();
     }
 
     void suspendSession(long now) {
         beginSuspension(now);
         movementGestureActive = false;
-        movementGestureCredited = false;
         movementReleaseRequired = false;
+        movementDistanceSinceSubstantial = 0.0D;
     }
 
     void suspendForAfk(long now) {
@@ -216,7 +211,7 @@ final class AfkActivityTracker {
         beginSuspension(now);
         movementReleaseRequired = movementInputActive;
         movementGestureActive = false;
-        movementGestureCredited = false;
+        movementDistanceSinceSubstantial = 0.0D;
     }
 
     void resumeSession(long now, UUID worldId, double x, double y, double z) {
@@ -251,7 +246,6 @@ final class AfkActivityTracker {
         lastObservedAt = now;
         lastSubstantialAt = now;
         resetActionWindow();
-        automationExitLocked = false;
         behaviorAnalyzer.reset();
         resetMovementGesture(worldId, x, y, z, movementReleaseRequired);
         finishSuspension();
@@ -276,12 +270,12 @@ final class AfkActivityTracker {
             boolean releaseRequired
     ) {
         movementGestureActive = false;
-        movementGestureCredited = false;
         movementReleaseRequired = releaseRequired;
         movementGestureWorldId = worldId;
         movementGestureX = x;
         movementGestureY = y;
         movementGestureZ = z;
+        movementDistanceSinceSubstantial = 0.0D;
     }
 
     private void finishSuspension() {
@@ -327,8 +321,11 @@ final class AfkActivityTracker {
         return dx * dx + dy * dy + dz * dz;
     }
 
-    private static double square(double value) {
-        return value * value;
+    private void updateMovementPosition(UUID worldId, double x, double y, double z) {
+        movementGestureWorldId = worldId;
+        movementGestureX = x;
+        movementGestureY = y;
+        movementGestureZ = z;
     }
 
     private static long elapsed(long now, long then) {

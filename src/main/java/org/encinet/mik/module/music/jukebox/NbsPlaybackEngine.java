@@ -71,6 +71,8 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final AtomicBoolean started = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
         private volatile PlaybackStatus status = PlaybackStatus.LOADING;
+        private volatile long playbackStartedNanos;
+        private volatile long finalPositionMillis;
         private volatile CompletableFuture<NbsSong> parsing;
         private volatile NbsPlaybackCursor cursor;
         private volatile ScheduledPlayback task;
@@ -133,6 +135,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             try {
                 cursor = new NbsPlaybackCursor(Objects.requireNonNull(song, "song"));
                 task = scheduler.scheduleEveryTick(this::tick);
+                playbackStartedNanos = System.nanoTime();
                 status = PlaybackStatus.PLAYING;
                 callbacks.started();
             } catch (RuntimeException exception) {
@@ -162,6 +165,22 @@ final class NbsPlaybackEngine implements AutoCloseable {
         @Override
         public PlaybackStatus status() {
             return terminal.get() ? PlaybackStatus.STOPPED : status;
+        }
+
+        @Override
+        public long positionMillis() {
+            if (terminal.get()) {
+                return finalPositionMillis;
+            }
+            return elapsedPositionMillis();
+        }
+
+        private long elapsedPositionMillis() {
+            long startedAt = playbackStartedNanos;
+            if (startedAt == 0) {
+                return 0;
+            }
+            return Math.max(0, (System.nanoTime() - startedAt) / 1_000_000);
         }
 
         @Override
@@ -198,6 +217,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
 
         private void cleanup() {
             status = PlaybackStatus.STOPPED;
+            finalPositionMillis = Math.max(finalPositionMillis, elapsedPositionMillis());
             CompletableFuture<NbsSong> currentParsing = parsing;
             if (currentParsing != null) {
                 currentParsing.cancel(true);

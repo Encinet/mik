@@ -9,7 +9,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.music.catalog.MusicLibrary;
+import org.encinet.mik.module.music.catalog.MusicPlaybackHistory;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
+import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.command.MusicCommandRegistrar;
 import org.encinet.mik.module.music.command.RandomMusicActions;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
@@ -21,6 +23,8 @@ import org.encinet.mik.module.music.jukebox.NearbyJukeboxPlayback;
 import org.encinet.mik.module.music.listener.JukeboxControlListener;
 import org.encinet.mik.module.music.listener.MusicBrowserListener;
 import org.encinet.mik.module.music.listener.MusicJukeboxListener;
+import org.encinet.mik.module.music.lyrics.LyricDisplayService;
+import org.encinet.mik.module.music.lyrics.LyricsService;
 import org.encinet.mik.module.music.online.LxSourceService;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackNotifier;
@@ -49,6 +53,8 @@ public final class MusicModule {
     private final MusicLibrary musicLibrary;
     private final LxSourceService sourceService;
     private final OnlineAudioCache audioCache;
+    private final MusicPlaybackHistory playbackHistory;
+    private final LyricsService lyricsService;
     private final VanillaRecordSilencer recordSilencer;
     private final JukeboxPlaybackService playbackService;
     private final JukeboxQueueService queueService;
@@ -71,6 +77,9 @@ public final class MusicModule {
                 message -> plugin.getLogger().warning(message));
         MusicDiscSigner discSigner = new MusicDiscSigner(
                 plugin.getDataFolder().toPath().resolve("state/music-disc.key"));
+        this.playbackHistory = new MusicPlaybackHistory(
+                plugin.getDataFolder().toPath().resolve("state/music-playback.json"),
+                message -> plugin.getLogger().warning(message));
         MusicDiscResolver discResolver = new MusicDiscResolver(musicLibrary, discSigner);
         var lxDirectory = plugin.getDataFolder().toPath().resolve("lxmusic");
         this.sourceService = new LxSourceService(lxDirectory,
@@ -78,27 +87,35 @@ public final class MusicModule {
                 message -> plugin.getLogger().warning(message));
         this.audioCache = new OnlineAudioCache(
                 plugin.getDataFolder().toPath().resolve("cache/music"), sourceService,
+                message -> plugin.getLogger().warning(message), playbackHistory);
+        this.lyricsService = new LyricsService(
+                plugin.getDataFolder().toPath().resolve("cache/lyrics"), sourceService,
                 message -> plugin.getLogger().warning(message));
         MusicDiscFactory discFactory = new MusicDiscFactory(languageService, discSigner);
         MusicTrackSelector trackSelector = new MusicTrackSelector();
+        MusicTrackPool trackPool = new MusicTrackPool(
+                musicLibrary::tracks, audioCache::cachedTracks);
         this.recordSilencer = new VanillaRecordSilencer();
         JukeboxPlaybackNotifier playbackNotifier = new JukeboxPlaybackNotifier(languageService);
+        LyricDisplayService lyricDisplay = new LyricDisplayService(plugin, lyricsService);
         this.playbackService = new JukeboxPlaybackService(plugin, voiceServer, discResolver,
-                audioCache, discFactory, playbackNotifier, recordSilencer);
+                audioCache, discFactory, playbackNotifier, recordSilencer,
+                playbackHistory::recordPlayback, lyricDisplay);
         NearbyJukeboxPlayback nearbyPlayback = new NearbyJukeboxPlayback(
                 playbackService, languageService);
-        MusicBrowserGui browserGui = new MusicBrowserGui(plugin, musicLibrary, sourceService,
+        MusicBrowserGui browserGui = new MusicBrowserGui(plugin, musicLibrary, trackPool,
+                sourceService,
                 track -> track.target() instanceof org.encinet.mik.module.music.catalog.TrackTarget.Lx lx
                         && audioCache.isCached(lx),
-                discFactory, languageService);
-        this.queueService = new JukeboxQueueService(musicLibrary, trackSelector);
+                playbackHistory, discFactory, languageService);
+        this.queueService = new JukeboxQueueService(trackPool, trackSelector);
         JukeboxControlGui jukeboxControlGui = new JukeboxControlGui(
                 queueService, discFactory, discResolver, playbackService, languageService);
         this.autoPlayService = new JukeboxAutoPlayService(plugin, queueService, playbackService);
         RandomMusicActions randomActions = new RandomMusicActions(
-                musicLibrary, trackSelector, discFactory, nearbyPlayback, languageService);
+                trackPool, trackSelector, discFactory, nearbyPlayback, languageService);
         this.browserListener = new MusicBrowserListener(
-                musicLibrary, discFactory, nearbyPlayback, browserGui,
+                musicLibrary, trackPool, discFactory, nearbyPlayback, browserGui,
                 queueService, jukeboxControlGui, languageService, trackSelector, randomActions);
         this.controlListener = new JukeboxControlListener(
                 musicLibrary, playbackService, browserGui, queueService,
@@ -208,6 +225,8 @@ public final class MusicModule {
         playbackService.stopAll();
         recordSilencer.close();
         audioCache.close();
+        lyricsService.close();
+        playbackHistory.close();
         musicLibrary.close();
         sourceService.close();
         queueService.clear();

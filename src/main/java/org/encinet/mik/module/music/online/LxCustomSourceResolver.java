@@ -37,6 +37,7 @@ import java.util.stream.Stream;
 final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchService, AutoCloseable {
 
     public static final String ACTION_MUSIC_SEARCH = "musicSearch";
+    public static final String ACTION_LYRIC = "lyric";
     private static final int MAX_RESULTS = 200;
     private static final int MAX_KEYWORD_LENGTH = 256;
     private static final int MAX_AGGREGATE_CALLS = 128;
@@ -154,6 +155,27 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                     "No healthy LX custom source supports " + target.source()));
         }
         return attempt(current, target, attempts, 0, new ArrayList<>());
+    }
+
+    CompletableFuture<JsonElement> lyrics(TrackTarget.Lx target) {
+        ResolverState current = state;
+        if (!current.enabled()) {
+            return CompletableFuture.failedFuture(new IOException("LX custom sources are disabled"));
+        }
+        List<Channel> channels = actionChannels(current, target, ACTION_LYRIC);
+        if (channels.isEmpty()) {
+            return CompletableFuture.failedFuture(new IOException(
+                    "No healthy LX custom source supports lyrics for " + target.source()));
+        }
+        JsonObject info = new JsonObject();
+        try {
+            info.add("musicInfo", com.google.gson.JsonParser.parseString(target.musicInfoJson()));
+        } catch (RuntimeException exception) {
+            return CompletableFuture.failedFuture(new IOException(
+                    "LX track contains invalid MusicInfo", exception));
+        }
+        return attemptAction(current, target.source(), ACTION_LYRIC, info,
+                channels, 0, new ArrayList<>());
     }
 
     public List<SourceStatus> statuses() {
@@ -307,7 +329,7 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                     }
                     String message = rootMessage(error);
                     if (isTimeout(error)) {
-                        channel.timedOut(state.retryDelay(), message);
+                        channel.timedOut(state.failureThreshold(), state.retryDelay(), message);
                     } else {
                         channel.failed(state.failureThreshold(), state.retryDelay(), message);
                     }
@@ -397,7 +419,8 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                     }
                     String message = rootMessage(error);
                     if (isTimeout(error)) {
-                        attempt.channel().timedOut(state.retryDelay(), message);
+                        attempt.channel().timedOut(
+                                state.failureThreshold(), state.retryDelay(), message);
                     } else {
                         attempt.channel().failed(state.failureThreshold(), state.retryDelay(), message);
                     }
@@ -405,6 +428,52 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                     return attempt(state, target, attempts, index + 1, errors);
                 })
                 .thenCompose(future -> future);
+    }
+
+    private CompletableFuture<JsonElement> attemptAction(
+            ResolverState state, String source, String action, JsonObject info,
+            List<Channel> channels, int index, List<String> errors) {
+        if (index >= channels.size()) {
+            return CompletableFuture.failedFuture(new IOException(
+                    "All LX custom sources failed " + action + ": " + String.join("; ", errors)));
+        }
+        Channel channel = channels.get(index);
+        return invokeAction(state, channel, source, action, info.deepCopy())
+                .thenCompose(result -> {
+                    if (result.error() == null && usableLyricResult(result.value(), 0)) {
+                        return CompletableFuture.completedFuture(result.value());
+                    }
+                    errors.add(result.label() + ": " + (result.error() == null
+                            ? "empty result" : result.error()));
+                    return attemptAction(state, source, action, info,
+                            channels, index + 1, errors);
+                });
+    }
+
+    private static boolean usableLyricResult(JsonElement value, int depth) {
+        if (value == null || value.isJsonNull() || depth >= 5) {
+            return false;
+        }
+        if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+            return !value.getAsString().isBlank();
+        }
+        if (!value.isJsonObject()) {
+            return false;
+        }
+        JsonObject object = value.getAsJsonObject();
+        for (String key : List.of("lyric", "lrc", "lxlyric", "original",
+                "tlyric", "tlrc", "translation", "trans",
+                "rlyric", "rlrc", "romanization", "roma")) {
+            if (usableLyricResult(object.get(key), depth + 1)) {
+                return true;
+            }
+        }
+        for (String key : List.of("data", "result", "body", "text", "content")) {
+            if (usableLyricResult(object.get(key), depth + 1)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isTimeout(Throwable error) {
@@ -424,6 +493,33 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
         appendAttempts(attempts, state, target, now, true);
         appendAttempts(attempts, state, target, now, false);
         return attempts;
+    }
+
+    private static List<Channel> actionChannels(
+            ResolverState state, TrackTarget.Lx target, String action) {
+        Instant now = Instant.now();
+        List<Channel> channels = new ArrayList<>();
+        appendActionChannels(channels, state, target, action, now, true);
+        appendActionChannels(channels, state, target, action, now, false);
+        return List.copyOf(channels);
+    }
+
+    private static void appendActionChannels(
+            List<Channel> output, ResolverState state, TrackTarget.Lx target,
+            String action, Instant now, boolean originatingProvider) {
+        for (Channel channel : state.channels()) {
+            boolean matchesProvider = target.providerId() != null
+                    && target.providerId().equals(channel.info().id());
+            if (matchesProvider != originatingProvider
+                    || target.providerId() == null && originatingProvider) {
+                continue;
+            }
+            channel.refreshIfNeeded(now, state.retryDelay());
+            if (channel.available(now)
+                    && channel.info().supports(target.source(), action)) {
+                output.add(channel);
+            }
+        }
     }
 
     private static void appendAttempts(List<Attempt> attempts, ResolverState state,
@@ -786,13 +882,15 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
             }
         }
 
-        synchronized void timedOut(Duration retryDelay, String error) {
+        synchronized void timedOut(int threshold, Duration retryDelay, String error) {
             consecutiveFailures++;
             lastError = error;
-            retryAt = Instant.now().plus(retryDelay);
-            if (runtime != null) {
-                runtime.close();
-                runtime = null;
+            if (consecutiveFailures >= threshold) {
+                retryAt = Instant.now().plus(retryDelay);
+                if (runtime != null) {
+                    runtime.close();
+                    runtime = null;
+                }
             }
         }
 

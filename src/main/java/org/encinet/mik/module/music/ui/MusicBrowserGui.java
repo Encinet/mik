@@ -20,12 +20,16 @@ import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.music.online.MusicSearchResult;
 import org.encinet.mik.module.music.catalog.MusicLibrary;
+import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.online.MusicSearchService;
 import org.encinet.mik.module.music.catalog.TrackTarget;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.disc.MusicDiscKeys;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,20 +46,26 @@ public final class MusicBrowserGui {
 
     private final JavaPlugin plugin;
     private final MusicLibrary musicLibrary;
+    private final MusicTrackPool trackPool;
     private final MusicSearchService onlineSearch;
     private final Predicate<MusicTrack> cachedTrack;
+    private final MusicPlaybackStats playbackStats;
     private final MusicDiscFactory discFactory;
     private final LanguageService languageService;
     private final MusicBrowserSessions sessions = new MusicBrowserSessions();
 
     public MusicBrowserGui(JavaPlugin plugin, MusicLibrary musicLibrary,
+                           MusicTrackPool trackPool,
                            MusicSearchService onlineSearch, Predicate<MusicTrack> cachedTrack,
+                           MusicPlaybackStats playbackStats,
                            MusicDiscFactory discFactory,
                            LanguageService languageService) {
         this.plugin = plugin;
         this.musicLibrary = musicLibrary;
+        this.trackPool = trackPool;
         this.onlineSearch = onlineSearch;
         this.cachedTrack = cachedTrack;
+        this.playbackStats = playbackStats;
         this.discFactory = discFactory;
         this.languageService = languageService;
     }
@@ -66,7 +76,7 @@ public final class MusicBrowserGui {
 
     public void showLibrary(Player player, int page) {
         MusicBrowserSessions.Session state = sessions.showLibrary(
-                player.getUniqueId(), musicLibrary.tracks(), page);
+                player.getUniqueId(), trackPool.tracks(), page, playbackStats);
         openCurrent(player, state);
     }
 
@@ -86,7 +96,7 @@ public final class MusicBrowserGui {
         openCurrent(player, state);
 
         List<MusicTrack> localMatches = musicLibrary.tracks().stream()
-                .filter(track -> track.matches(normalized)).toList();
+                .filter(track -> MusicSearchRanker.matches(normalized, track)).toList();
         onlineSearch.searchMusic(normalized, 1, SEARCH_LIMIT)
                 .whenComplete((result, error) -> runOnMainThread(() -> {
                     if (!isCurrent(player, state, generation)) {
@@ -108,12 +118,13 @@ public final class MusicBrowserGui {
         Map<String, MusicTrack> merged = new LinkedHashMap<>();
         localMatches.forEach(track -> merged.put(track.id(), track));
         onlineResult.items().forEach(track -> merged.putIfAbsent(track.id(), track));
-        List<MusicTrack> tracks = prioritizeCachedOnline(
-                List.copyOf(merged.values()), cachedTrack);
+        List<MusicTrack> tracks = MusicSearchRanker.rank(
+                keyword, List.copyOf(merged.values()), cachedTrack);
         String requestError = tracks.isEmpty() && !onlineResult.failures().isEmpty()
                 ? onlineResult.failures().getFirst() : null;
         if (!sessions.completeSearch(player.getUniqueId(), state, generation,
-                state.activeInventory(), tracks, requestError, onlineResult.failures().size())) {
+                state.activeInventory(), tracks, requestError, onlineResult.failures().size(),
+                playbackStats)) {
             return;
         }
         sendPartialFailure(player, onlineResult.failures());
@@ -123,27 +134,6 @@ public final class MusicBrowserGui {
                     RichArg.component("keyword", Component.text(keyword, NamedTextColor.YELLOW), keyword)));
         }
         openCurrent(player, state);
-    }
-
-    static List<MusicTrack> prioritizeCachedOnline(
-            List<MusicTrack> tracks, Predicate<MusicTrack> cachedTrack) {
-        List<MusicTrack> local = new ArrayList<>();
-        List<MusicTrack> cached = new ArrayList<>();
-        List<MusicTrack> uncached = new ArrayList<>();
-        for (MusicTrack track : tracks) {
-            if (!(track.target() instanceof TrackTarget.Lx)) {
-                local.add(track);
-            } else if (cachedTrack.test(track)) {
-                cached.add(track);
-            } else {
-                uncached.add(track);
-            }
-        }
-        List<MusicTrack> ordered = new ArrayList<>(tracks.size());
-        ordered.addAll(local);
-        ordered.addAll(cached);
-        ordered.addAll(uncached);
-        return List.copyOf(ordered);
     }
 
     private void sendPartialFailure(Player player, List<String> failures) {
@@ -164,6 +154,16 @@ public final class MusicBrowserGui {
         openCurrent(player, state);
     }
 
+    public void cycleSort(Player player) {
+        MusicBrowserSessions.Session state = sessions.current(player.getUniqueId());
+        if (state == null) {
+            showLibrary(player, 0);
+            return;
+        }
+        sessions.cycleSort(state, playbackStats);
+        openCurrent(player, state);
+    }
+
     public Integer getPlayerPage(UUID playerId) {
         MusicBrowserSessions.Session state = sessions.current(playerId);
         return state == null ? null : state.page();
@@ -171,7 +171,7 @@ public final class MusicBrowserGui {
 
     public int getTotalPages(UUID playerId) {
         MusicBrowserSessions.Session state = sessions.current(playerId);
-        int count = state == null ? musicLibrary.tracks().size() : state.tracks().size();
+        int count = state == null ? trackPool.tracks().size() : state.tracks().size();
         return Math.max(1, (count + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE);
     }
 
@@ -269,6 +269,7 @@ public final class MusicBrowserGui {
         inventory.setItem(46, button(player, Material.CHEST,
                 Message.MUSIC_LIBRARY_BUTTON, Message.MUSIC_LIBRARY_BUTTON_LORE, NamedTextColor.GREEN));
         inventory.setItem(47, createSearchButton(player));
+        inventory.setItem(48, createSortButton(player, state.sort()));
         inventory.setItem(49, createPageInfo(player, state, state.page() + 1, totalPages,
                 items.size()));
         inventory.setItem(50, createRandomDiscButton(player, jukeboxContext));
@@ -294,6 +295,13 @@ public final class MusicBrowserGui {
                     NamedTextColor.GREEN)));
             lore.add(1, Component.empty());
         }
+        MusicPlaybackStats.TrackStats stats = playbackStats.stats(track);
+        if (stats.playCount() > 0) {
+            lore.addFirst(plain(Component.text(languageService.t(player,
+                    Message.MUSIC_PLAY_STATS, stats.playCount(),
+                    formatLastPlayed(player, stats.lastPlayedAt())), NamedTextColor.GOLD)));
+            lore.add(1, Component.empty());
+        }
         if (jukeboxContext) {
             lore.add(Component.empty());
             lore.add(plain(Component.text(languageService.t(player,
@@ -302,6 +310,40 @@ public final class MusicBrowserGui {
         meta.lore(lore);
         disc.setItemMeta(meta);
         return disc;
+    }
+
+    private ItemStack createSortButton(Player player, MusicBrowserSort sort) {
+        Message current = switch (sort) {
+            case DEFAULT -> Message.MUSIC_SORT_DEFAULT;
+            case MOST_PLAYED -> Message.MUSIC_SORT_MOST_PLAYED;
+            case RECENTLY_PLAYED -> Message.MUSIC_SORT_RECENTLY_PLAYED;
+        };
+        return item(Material.HOPPER,
+                plain(Component.text(languageService.t(player, Message.MUSIC_SORT_BUTTON),
+                        NamedTextColor.YELLOW)),
+                List.of(
+                        plain(Component.text(languageService.t(player,
+                                Message.MUSIC_SORT_CURRENT,
+                                languageService.t(player, current)), NamedTextColor.GRAY)),
+                        plain(Component.text(languageService.t(player,
+                                Message.MUSIC_SORT_BUTTON_LORE), NamedTextColor.AQUA))));
+    }
+
+    private String formatLastPlayed(Player player, Instant lastPlayedAt) {
+        if (lastPlayedAt == null) {
+            return languageService.t(player, Message.MUSIC_LAST_PLAYED_UNKNOWN);
+        }
+        long seconds = Math.max(0, Duration.between(lastPlayedAt, Instant.now()).toSeconds());
+        if (seconds < 60) {
+            return languageService.t(player, Message.MUSIC_LAST_PLAYED_JUST_NOW);
+        }
+        if (seconds < 3_600) {
+            return languageService.t(player, Message.MUSIC_LAST_PLAYED_MINUTES, seconds / 60);
+        }
+        if (seconds < 86_400) {
+            return languageService.t(player, Message.MUSIC_LAST_PLAYED_HOURS, seconds / 3_600);
+        }
+        return languageService.t(player, Message.MUSIC_LAST_PLAYED_DAYS, seconds / 86_400);
     }
 
     private ItemStack createPageInfo(Player player, MusicBrowserSessions.Session state,

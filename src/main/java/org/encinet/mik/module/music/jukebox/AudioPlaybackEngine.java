@@ -48,7 +48,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         this.sourceLine = voiceServer.getSourceLineManager()
                 .createBuilder(plugin, "music", "soundCategory.record",
                         "plasmovoice:textures/icons/speaker_disc.png", 10)
-                .setDefaultVolume(0.5)
+                .setDefaultVolume(1.0)
                 .build();
     }
 
@@ -85,6 +85,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final AtomicReference<AudioTrackLoader.LoadedAudio> loadedAudio = new AtomicReference<>();
         private volatile PlaybackStatus status = PlaybackStatus.LOADING;
         private volatile AudioPlayer audioPlayer;
+        private volatile long finalPositionMillis;
         private volatile ServerProximitySource<?> source;
         private volatile AudioSender sender;
 
@@ -233,6 +234,12 @@ final class AudioPlaybackEngine implements AutoCloseable {
         }
 
         @Override
+        public long positionMillis() {
+            AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
+            return loaded == null ? finalPositionMillis : Math.max(0, loaded.track().getPosition());
+        }
+
+        @Override
         public void stop() {
             if (!stopped.compareAndSet(false, true)) {
                 return;
@@ -243,6 +250,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
 
         private void cleanup() {
             status = PlaybackStatus.STOPPED;
+            finalPositionMillis = Math.max(finalPositionMillis, positionMillis());
             AudioSender currentSender = sender;
             sender = null;
             if (currentSender != null) {

@@ -2,8 +2,8 @@ package org.encinet.mik.module.music.jukebox;
 
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.encinet.mik.module.music.catalog.MusicLibrary;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 
 import java.util.*;
@@ -14,11 +14,11 @@ import java.util.*;
 public class JukeboxQueueService {
 
     private final Map<Location, JukeboxState> states = new HashMap<>();
-    private final MusicLibrary musicLibrary;
+    private final MusicTrackPool trackPool;
     private final MusicTrackSelector trackSelector;
 
-    public JukeboxQueueService(MusicLibrary musicLibrary, MusicTrackSelector trackSelector) {
-        this.musicLibrary = musicLibrary;
+    public JukeboxQueueService(MusicTrackPool trackPool, MusicTrackSelector trackSelector) {
+        this.trackPool = Objects.requireNonNull(trackPool, "trackPool");
         this.trackSelector = Objects.requireNonNull(trackSelector, "trackSelector");
     }
 
@@ -46,7 +46,7 @@ public class JukeboxQueueService {
     }
 
     public int availableTrackCount() {
-        return musicLibrary.tracks().size();
+        return trackPool.tracks().size();
     }
 
     /**
@@ -56,7 +56,7 @@ public class JukeboxQueueService {
         JukeboxState data = state(location);
 
         if (data.randomMode()) {
-            List<MusicTrack> allSongs = musicLibrary.tracks();
+            List<MusicTrack> allSongs = trackPool.tracks();
             return trackSelector.select(allSongs);
         } else {
             return data.firstTrack();

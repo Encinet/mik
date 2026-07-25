@@ -1,6 +1,5 @@
 package org.encinet.mik.module.afk;
 
-import com.destroystokyo.paper.event.entity.EntityKnockbackByEntityEvent;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -40,7 +39,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.event.player.PlayerToggleSprintEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
-import org.bukkit.event.player.PlayerVelocityEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -234,9 +232,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         UUID playerId = player.getUniqueId();
         if (isAfk(playerId)) {
             if (positionChange) {
-                AfkActivityTracker tracker = tracker(player, now);
-                syncMovementInput(tracker, player, event.getFrom(), now);
-                if (shouldCancelAfkMovement(event instanceof PlayerTeleportEvent, tracker)) {
+                if (event instanceof PlayerTeleportEvent) {
                     event.setCancelled(true);
                 } else {
                     clearAfk(player, false);
@@ -389,20 +385,6 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onAfkPlayerVelocity(PlayerVelocityEvent event) {
-        if (isAfk(event.getPlayer().getUniqueId())) {
-            event.setCancelled(true);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onAfkPlayerKnockback(EntityKnockbackByEntityEvent event) {
-        if (event.getEntity() instanceof Player player && isAfk(player.getUniqueId())) {
-            event.setCancelled(true);
-        }
-    }
-
     private int cmdToggle(Player player) {
         if (player == null) {
             return 0;
@@ -484,11 +466,13 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
             switch (result) {
                 case ACTIVE -> {
                 }
-                case AFK_IDLE, AFK_PASSIVE, AFK_AUTOMATED -> newlyAfk.add(player);
-            }
-            if (result == AfkActivityTracker.CheckResult.AFK_AUTOMATED) {
-                plugin.getLogger().info("Marked " + player.getName()
-                        + " (" + playerId + ") AFK after sustained automated movement patterns");
+                case AFK_IDLE, AFK_PASSIVE -> {
+                    if (canEnterAutomaticAfk(player)) {
+                        newlyAfk.add(player);
+                    }
+                }
+                case ACTIVITY_REWARD_LOCKED -> plugin.getLogger().info("Excluded " + player.getName()
+                        + " (" + playerId + ") from activity rewards after sustained automated movement patterns");
             }
         }
         setAutomaticAfk(newlyAfk, now);
@@ -517,11 +501,8 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private void recordAction(Player player, AfkActionEvidence evidence) {
         long now = activityTimeMillis();
         AfkActivityTracker tracker = tracker(player, now);
-        boolean automationExitLocked = tracker.isAutomationExitLocked();
-        boolean intentionalActivity = tracker.recordAction(evidence, now);
-        if (isAfk(player.getUniqueId())
-                && (!automationExitLocked || intentionalActivity)
-                && tracker.canActionClearAfk()) {
+        tracker.recordAction(evidence, now);
+        if (isAfk(player.getUniqueId())) {
             clearAfk(player, false);
         }
     }
@@ -680,10 +661,6 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         return action != InventoryAction.NOTHING && action != InventoryAction.UNKNOWN;
     }
 
-    static boolean shouldCancelAfkMovement(boolean teleport, AfkActivityTracker tracker) {
-        return teleport || !tracker.canMovementClearAfk();
-    }
-
     private boolean isPositionChange(Location from, Location to) {
         if (to == null) return false;
         if (!Objects.equals(from.getWorld(), to.getWorld())) return true;
@@ -698,6 +675,15 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
                 || input.isLeft()
                 || input.isRight()
                 || input.isJump();
+    }
+
+    private static boolean canEnterAutomaticAfk(Player player) {
+        return !player.isFlying()
+                && !player.isGliding()
+                && !player.isRiptiding()
+                && !player.isInsideVehicle()
+                && player.getFallDistance() == 0.0F
+                && player.getVelocity().lengthSquared() < 0.01D;
     }
 
     private static float angularDelta(float a, float b) {

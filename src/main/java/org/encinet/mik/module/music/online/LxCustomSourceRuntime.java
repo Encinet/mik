@@ -668,7 +668,8 @@ final class LxCustomSourceRuntime implements AutoCloseable {
                 continue;
             }
             actions = actions.stream()
-                    .filter(action -> action.equals("musicurl") || action.equals("musicsearch"))
+                    .filter(action -> action.equals("musicurl") || action.equals("musicsearch")
+                            || action.equals("lyric"))
                     .toList();
             List<String> qualities = stringArray(details.getMember("qualitys"));
             if (!qualities.isEmpty()) {

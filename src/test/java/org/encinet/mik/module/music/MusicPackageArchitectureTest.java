@@ -18,7 +18,7 @@ class MusicPackageArchitectureTest {
 
     private static final Path MUSIC = Path.of("src/main/java/org/encinet/mik/module/music");
     private static final Set<String> CAPABILITIES = Set.of(
-            "catalog", "command", "disc", "jukebox", "listener", "online", "ui");
+            "catalog", "command", "disc", "jukebox", "listener", "lyrics", "online", "ui");
 
     @Test
     void rootOnlyContainsTheModuleCompositionRootAndCapabilityDirectories() throws IOException {
@@ -40,6 +40,7 @@ class MusicPackageArchitectureTest {
         assertNoImport(MUSIC.resolve("jukebox"), "org.encinet.mik.module.music.ui.");
         assertNoImport(MUSIC.resolve("online"), "org.encinet.mik.module.music.ui.");
         assertNoImport(MUSIC.resolve("online"), "org.encinet.mik.module.music.listener.");
+        assertNoImport(MUSIC.resolve("lyrics"), "org.encinet.mik.module.music.jukebox.");
         assertNoImport(MUSIC.resolve("ui"), "org.encinet.mik.module.music.listener.");
         assertNoImport(MUSIC.resolve("listener"), "org.encinet.mik.module.music.online.LxCustomSource");
     }
@@ -62,10 +63,12 @@ class MusicPackageArchitectureTest {
     @Test
     void staticLibraryDoesNotOwnOnlineSearchState() throws IOException {
         String library = source("catalog/MusicLibrary.java");
+        String pool = source("catalog/MusicTrackPool.java");
         String browser = source("ui/MusicBrowserGui.java");
 
         assertFalse(library.contains("onlineTracks"));
         assertFalse(library.contains("registerOnlineTracks"));
+        assertFalse(pool.contains("OnlineAudioCache"));
         assertFalse(browser.contains("registerOnlineTracks"));
         assertFalse(Files.exists(MUSIC.resolve("catalog/MusicSearchService.java")));
         assertTrue(Files.exists(MUSIC.resolve("online/MusicSearchService.java")));
@@ -106,7 +109,8 @@ class MusicPackageArchitectureTest {
         assertTrue(source("online/LxSourceService.java").contains("public final class LxSourceService"));
         for (String implementation : List.of(
                 "LxCustomSourceResolver.java", "LxSubscriptionManager.java",
-                "LxCustomSourceRuntime.java", "LxMusicTrackMapper.java", "LxTrackResolver.java")) {
+                "LxCustomSourceRuntime.java", "LxMusicTrackMapper.java", "LxTrackResolver.java",
+                "CachedOnlineTrackCatalog.java")) {
             String value = source("online/" + implementation);
             assertFalse(value.contains("public final class"), implementation);
             assertFalse(value.contains("public interface"), implementation);
@@ -119,14 +123,33 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
-    void onlineCacheOnlyAcceptsLxTargetsAndOwnsPersistentLeases() throws IOException {
+    void onlineCacheOwnsPersistentLeasesAndCachedTrackMetadata() throws IOException {
         String cache = source("online/OnlineAudioCache.java");
+        String catalog = source("online/CachedOnlineTrackCatalog.java");
         assertTrue(cache.contains("isCached(TrackTarget.Lx target)"));
         assertTrue(cache.contains("acquire(TrackTarget.Lx target)"));
         assertTrue(cache.contains("invalidate(TrackTarget.Lx target)"));
+        assertTrue(cache.contains("cachedTracks()"));
+        assertTrue(cache.contains("indexAsync(MusicTrack track)"));
         assertFalse(cache.contains("acquire(MusicTrack"));
         assertTrue(cache.contains("activeEntries"));
         assertTrue(cache.contains(".part"));
+        assertTrue(cache.contains("trackCatalog"));
+        assertTrue(catalog.contains(".track.json"));
+        assertTrue(catalog.contains("OnlineTrackSnapshot.deserialize"));
+    }
+
+    @Test
+    void randomActionsUseTheDynamicTrackPoolInsteadOfOnlyTheLocalLibrary() throws IOException {
+        String random = source("command/RandomMusicActions.java");
+        String queue = source("jukebox/JukeboxQueueService.java");
+        String browserListener = source("listener/MusicBrowserListener.java");
+
+        assertTrue(random.contains("MusicTrackPool"));
+        assertFalse(random.contains("MusicLibrary"));
+        assertTrue(queue.contains("MusicTrackPool"));
+        assertFalse(queue.contains("MusicLibrary"));
+        assertTrue(browserListener.contains("trackPool.tracks()"));
     }
 
     @Test
@@ -142,6 +165,13 @@ class MusicPackageArchitectureTest {
         assertFalse(source("jukebox/AudioPlaybackEngine.java").contains("NbsPlaybackCursor"));
         assertFalse(source("jukebox/NbsPlaybackEngine.java").contains("lavaplayer"));
         assertFalse(source("jukebox/NbsPlaybackEngine.java").contains("PlasmoVoice"));
+    }
+
+    @Test
+    void plasmoMusicSourceUsesFullDefaultVolume() throws IOException {
+        String engine = source("jukebox/AudioPlaybackEngine.java");
+        assertTrue(engine.contains(".setDefaultVolume(1.0)"));
+        assertFalse(engine.contains(".setDefaultVolume(0.5)"));
     }
 
     @Test

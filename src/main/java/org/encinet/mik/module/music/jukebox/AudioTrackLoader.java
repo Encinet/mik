@@ -25,6 +25,7 @@ final class AudioTrackLoader implements AutoCloseable {
         this.resources = Objects.requireNonNull(resources, "resources");
         this.players = new DefaultAudioPlayerManager();
         this.players.registerSourceManager(new LocalAudioSourceManager());
+        this.players.registerSourceManager(resources.streamingSourceManager());
     }
 
     CompletableFuture<LoadedAudio> load(MusicTrack music) {
@@ -40,6 +41,7 @@ final class AudioTrackLoader implements AutoCloseable {
                         music.details().title(), null), new AudioLoadResultHandler() {
                     @Override
                     public void trackLoaded(AudioTrack track) {
+                        resources.index(music);
                         complete(result, new LoadedAudio(track, resource));
                     }
 
@@ -53,6 +55,7 @@ final class AudioTrackLoader implements AutoCloseable {
                             fail(result, resource, music,
                                     new IllegalStateException("The source contains no audio track"));
                         } else {
+                            resources.index(music);
                             complete(result, new LoadedAudio(selected, resource));
                         }
                     }

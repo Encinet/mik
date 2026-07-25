@@ -14,16 +14,29 @@ final class PlaybackResourceResolver {
 
     private final OnlineAudioCache onlineCache;
     private final LocalMediaPreparer localMediaPreparer;
+    private final GrowingCacheAudioSourceManager streamingSourceManager;
 
     PlaybackResourceResolver(OnlineAudioCache onlineCache) {
-        this(onlineCache, new LocalMediaPreparer());
+        this(onlineCache, new LocalMediaPreparer(), new GrowingCacheAudioSourceManager());
     }
 
     PlaybackResourceResolver(OnlineAudioCache onlineCache,
                              LocalMediaPreparer localMediaPreparer) {
+        this(onlineCache, localMediaPreparer, new GrowingCacheAudioSourceManager());
+    }
+
+    PlaybackResourceResolver(OnlineAudioCache onlineCache,
+                             LocalMediaPreparer localMediaPreparer,
+                             GrowingCacheAudioSourceManager streamingSourceManager) {
         this.onlineCache = Objects.requireNonNull(onlineCache, "onlineCache");
         this.localMediaPreparer = Objects.requireNonNull(
                 localMediaPreparer, "localMediaPreparer");
+        this.streamingSourceManager = Objects.requireNonNull(
+                streamingSourceManager, "streamingSourceManager");
+    }
+
+    GrowingCacheAudioSourceManager streamingSourceManager() {
+        return streamingSourceManager;
     }
 
     CompletableFuture<Resource> acquire(MusicTrack track) {
@@ -37,8 +50,13 @@ final class PlaybackResourceResolver {
             }
         }
         if (track.target() instanceof TrackTarget.Lx online) {
-            return onlineCache.acquire(online)
-                    .thenApply(cached -> new Resource(cached.identifier(), cached::close));
+            return onlineCache.acquireStreaming(online).thenApply(streaming -> {
+                String identifier = streamingSourceManager.register(streaming);
+                return new Resource(identifier, () -> {
+                    streamingSourceManager.unregister(identifier);
+                    streaming.close();
+                });
+            });
         }
         return CompletableFuture.failedFuture(new IOException(
                 "NBS tracks use the note-block playback engine"));
@@ -47,6 +65,12 @@ final class PlaybackResourceResolver {
     void invalidate(MusicTrack track) {
         if (track != null && track.target() instanceof TrackTarget.Lx online) {
             onlineCache.invalidate(online);
+        }
+    }
+
+    void index(MusicTrack track) {
+        if (track != null && track.target() instanceof TrackTarget.Lx) {
+            onlineCache.indexAsync(track);
         }
     }
 

@@ -101,6 +101,44 @@ class LxCustomSourceResolverTest {
     }
 
     @Test
+    void invokesDeclaredLyricActionWithCompleteMusicInfo() throws Exception {
+        Files.writeString(localDirectory().resolve("lyrics.js"), """
+                /*! * @name Lyrics */
+                const { EVENT_NAMES, on, send } = globalThis.lx
+                on(EVENT_NAMES.request, ({ action, source, info }) => {
+                  if (action === 'musicUrl') return 'https://cdn.example/song.mp3'
+                  if (action !== 'lyric' || source !== 'kw'
+                      || info.musicInfo.songmid !== '1'
+                      || info.musicInfo.name !== 'Song') throw new Error('invalid lyric request')
+                  return { lyric: '[00:01.00]Original',
+                    tlyric: '[00:01.00]Translated', rlyric: '[00:01.00]Romanized' }
+                })
+                send(EVENT_NAMES.inited, { status: true, sources: {
+                  kw: { type: 'music', actions: ['musicUrl', 'lyric'], qualitys: ['320k'] }
+                }})
+                """);
+        resolver = resolver();
+
+        var result = resolver.lyrics(target()).get(5, TimeUnit.SECONDS).getAsJsonObject();
+
+        assertEquals("[00:01.00]Original", result.get("lyric").getAsString());
+        assertEquals("[00:01.00]Translated", result.get("tlyric").getAsString());
+        assertTrue(resolver.statuses().getFirst().actions().get("kw").contains("lyric"));
+    }
+
+    @Test
+    void fallsBackToNextLyricSourceAfterEmptyResponse() throws Exception {
+        Files.writeString(localDirectory().resolve("first.js"), lyricScript("First", "{}"));
+        Files.writeString(localDirectory().resolve("second.js"),
+                lyricScript("Second", "{ lyric: '[00:01.00]Found' }"));
+        resolver = resolver();
+
+        var result = resolver.lyrics(target()).get(5, TimeUnit.SECONDS).getAsJsonObject();
+
+        assertEquals("[00:01.00]Found", result.get("lyric").getAsString());
+    }
+
+    @Test
     void aggregatesSourcesInPathOrderAndFallsBackAfterFailure() throws Exception {
         Files.writeString(localDirectory().resolve("first.js"), rejectingScript("First"));
         Files.writeString(localDirectory().resolve("second.js"), resolvingScript("Second",
@@ -172,9 +210,8 @@ class LxCustomSourceResolverTest {
     }
 
     @Test
-    void isolatesTimedOutSourceAndReloadsItAfterRetryDelay() throws Exception {
-        Path first = localDirectory().resolve("first.js");
-        Files.writeString(first, pendingScript("First"));
+    void singleTimeoutKeepsSourceAvailableAndA_successfulRetryClearsFailure() throws Exception {
+        Files.writeString(localDirectory().resolve("first.js"), retryAfterTimeoutScript("First"));
         Files.writeString(localDirectory().resolve("second.js"), resolvingScript("Second",
                 "https://cdn.example/fallback.mp3"));
 
@@ -183,7 +220,34 @@ class LxCustomSourceResolverTest {
 
         assertEquals("https://cdn.example/fallback.mp3",
                 resolver.resolve(target()).get(3, TimeUnit.SECONDS));
-        assertFalse(resolver.statuses().getFirst().available());
+        LxCustomSourceResolver.SourceStatus afterTimeout = resolver.statuses().getFirst();
+        assertTrue(afterTimeout.available());
+        assertEquals(1, afterTimeout.consecutiveFailures());
+        assertEquals(null, afterTimeout.retryAt());
+
+        assertEquals("https://cdn.example/retry.mp3",
+                resolver.resolve(target()).get(3, TimeUnit.SECONDS));
+        assertEquals(0, resolver.statuses().getFirst().consecutiveFailures());
+    }
+
+    @Test
+    void repeatedTimeoutsCloseSourceAtThresholdAndReloadAfterRetryDelay() throws Exception {
+        Path first = localDirectory().resolve("first.js");
+        Files.writeString(first, pendingScript("First"));
+        Files.writeString(localDirectory().resolve("second.js"), resolvingScript("Second",
+                "https://cdn.example/fallback.mp3"));
+        resolver = resolver(Duration.ofMillis(150), 2, Duration.ofMillis(150));
+
+        assertEquals("https://cdn.example/fallback.mp3",
+                resolver.resolve(target()).get(3, TimeUnit.SECONDS));
+        assertTrue(resolver.statuses().getFirst().available());
+        assertEquals("https://cdn.example/fallback.mp3",
+                resolver.resolve(target()).get(3, TimeUnit.SECONDS));
+
+        LxCustomSourceResolver.SourceStatus isolated = resolver.statuses().getFirst();
+        assertFalse(isolated.available());
+        assertEquals(2, isolated.consecutiveFailures());
+        assertTrue(isolated.retryAt().isAfter(java.time.Instant.now()));
 
         Files.writeString(first, resolvingScript("First recovered",
                 "https://cdn.example/recovered.mp3"));
@@ -712,11 +776,40 @@ class LxCustomSourceResolverTest {
                 """.formatted(name, url);
     }
 
+    private String lyricScript(String name, String lyricResult) {
+        return """
+                /*! * @name %s */
+                const { EVENT_NAMES, on, send } = globalThis.lx
+                on(EVENT_NAMES.request, ({ action }) => {
+                  if (action === 'musicUrl') return 'https://cdn.example/song.mp3'
+                  if (action === 'lyric') return %s
+                  throw new Error('unsupported')
+                })
+                send(EVENT_NAMES.inited, { status: true, sources: {
+                  kw: { type: 'music', actions: ['musicUrl', 'lyric'], qualitys: ['320k'] }
+                }})
+                """.formatted(name, lyricResult);
+    }
+
     private String pendingScript(String name) {
         return """
                 /*! * @name %s */
                 const { EVENT_NAMES, on, send } = globalThis.lx
                 on(EVENT_NAMES.request, () => new Promise(() => {}))
+                send(EVENT_NAMES.inited, { status: true, sources: {
+                  kw: { type: 'music', actions: ['musicUrl'], qualitys: ['320k'] }
+                }})
+                """.formatted(name);
+    }
+
+    private String retryAfterTimeoutScript(String name) {
+        return """
+                /*! * @name %s */
+                const { EVENT_NAMES, on, send } = globalThis.lx
+                let requests = 0
+                on(EVENT_NAMES.request, () => ++requests === 1
+                  ? new Promise(() => {})
+                  : Promise.resolve('https://cdn.example/retry.mp3'))
                 send(EVENT_NAMES.inited, { status: true, sources: {
                   kw: { type: 'music', actions: ['musicUrl'], qualitys: ['320k'] }
                 }})

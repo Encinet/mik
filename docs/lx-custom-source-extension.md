@@ -4,13 +4,14 @@ MIK accepts trusted LX Music custom-source JavaScript files from
 `plugins/mik/lxmusic/local`. Local scripts are loaded recursively in
 relative-path order; numeric filename prefixes can define fallback priority.
 The official LX `musicUrl` action remains the minimum playback capability.
-Online song search optionally uses one MIK action:
+MIK also supports these optional actions:
 
 - `musicSearch`: search songs
+- `lyric`: load lyrics for one song
 
-Only `musicUrl` is part of the LX Music custom-source protocol. `musicSearch`
-is a MIK extension. Existing LX scripts that only declare `musicUrl` work for
-MIK online song search.
+Only `musicUrl` is required. `musicSearch` is a MIK extension and `lyric` is
+an optional LX-compatible capability. Existing LX scripts that only declare
+`musicUrl` continue to work for MIK online song search and playback.
 For online song search, MIK queries the catalog of each healthy declared
 `kw`, `kg`, `tx`, `wy`, or `mg` channel, then sends the resulting MusicInfo back
 to that script through `musicUrl`. Scripts without MIK search actions therefore
@@ -79,7 +80,7 @@ send(EVENT_NAMES.inited, {
   sources: {
     kw: {
       type: 'music',
-      actions: ['musicUrl', 'musicSearch'],
+      actions: ['musicUrl', 'musicSearch', 'lyric'],
       qualitys: ['128k', '320k']
     }
   }
@@ -88,6 +89,31 @@ send(EVENT_NAMES.inited, {
 
 The request handler receives `{ action, source, info }`. It may return a value
 or a Promise.
+
+## Lyrics
+
+For `action: 'lyric'`, `info` is `{ musicInfo }`, where `musicInfo` is the
+same complete LX MusicInfo object passed to `musicUrl`. The action can return
+plain LRC text or an object containing original lyrics and optional secondary
+tracks. MIK recognizes `lyric`, `lrc`, `lxlyric`, or `original` for the
+original text; `tlyric`, `tlrc`, `translation`, or `trans` for translations;
+and `rlyric`, `rlrc`, `romanization`, or `roma` for romanization. A `data`,
+`result`, or `body` wrapper is also accepted.
+
+```js
+if (action === 'lyric') {
+  return {
+    lyric: '[00:01.20]Original lyric',
+    tlyric: '[00:01.20]Translated lyric',
+    rlyric: '[00:01.20]Romanized lyric'
+  }
+}
+```
+
+Lyrics are optional. When no healthy source declares `lyric`, MIK attempts the
+HTTP(S) `lrcUrl` stored in the provider MusicInfo and may use `trcUrl` as a
+translation track. Results are bounded and cached separately from audio; no
+lyrics are included in disc snapshots or cached music metadata.
 
 ## Song search
 
@@ -122,5 +148,6 @@ Action responses are limited to 2 MiB and 200 accepted items per request.
 
 Use `/music sources` as a manager to inspect source IDs, supported channels,
 actions, failure counts, retry time, and the last error. After the fixed
-three-failure threshold, MIK temporarily skips a source. Timed-out runtimes are
-closed and re-created after the retry delay.
+three-failure threshold, MIK temporarily skips a source. A timeout counts as one
+failure; only repeated timeouts reaching that same threshold close the runtime,
+which is then re-created after the retry delay.

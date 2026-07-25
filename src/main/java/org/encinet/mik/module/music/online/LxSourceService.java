@@ -1,5 +1,7 @@
 package org.encinet.mik.module.music.online;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.TrackTarget;
 
@@ -121,6 +123,85 @@ public final class LxSourceService
         return resolver.resolve(target);
     }
 
+    /** Loads and normalizes optional lyrics returned by an LX custom source. */
+    public CompletableFuture<LyricsPayload> lyrics(TrackTarget.Lx target) {
+        Objects.requireNonNull(target, "target");
+        if (closed.get()) {
+            return CompletableFuture.failedFuture(
+                    new IllegalStateException("LX source service is closed"));
+        }
+        return resolver.lyrics(target).thenApply(LxSourceService::lyricsPayload);
+    }
+
+    static LyricsPayload lyricsPayload(JsonElement result) {
+        JsonElement value = unwrap(result, 0);
+        if (value == null || value.isJsonNull()) {
+            return LyricsPayload.EMPTY;
+        }
+        if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+            return new LyricsPayload(value.getAsString(), null, null);
+        }
+        if (!value.isJsonObject()) {
+            return LyricsPayload.EMPTY;
+        }
+        JsonObject object = value.getAsJsonObject();
+        return new LyricsPayload(
+                text(object, "lyric", "lrc", "lxlyric", "original"),
+                text(object, "tlyric", "tlrc", "translation", "trans"),
+                text(object, "rlyric", "rlrc", "romanization", "roma"));
+    }
+
+    private static JsonElement unwrap(JsonElement value, int depth) {
+        if (value == null || depth >= 4 || !value.isJsonObject()) {
+            return value;
+        }
+        JsonObject object = value.getAsJsonObject();
+        for (String key : List.of("lyric", "lrc", "lxlyric", "original",
+                "tlyric", "tlrc", "translation", "trans",
+                "rlyric", "rlrc", "romanization", "roma")) {
+            if (object.has(key)) {
+                return value;
+            }
+        }
+        for (String key : List.of("data", "result", "body")) {
+            JsonElement nested = object.get(key);
+            if (nested != null && !nested.isJsonNull()) {
+                return unwrap(nested, depth + 1);
+            }
+        }
+        return value;
+    }
+
+    private static String text(JsonObject object, String... keys) {
+        for (String key : keys) {
+            String value = textValue(object.get(key), 0);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private static String textValue(JsonElement value, int depth) {
+        if (value == null || value.isJsonNull() || depth >= 3) {
+            return null;
+        }
+        if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
+            String text = value.getAsString().strip();
+            return text.isEmpty() ? null : text;
+        }
+        if (value.isJsonObject()) {
+            JsonObject object = value.getAsJsonObject();
+            for (String key : List.of("lyric", "lrc", "text", "content")) {
+                String text = textValue(object.get(key), depth + 1);
+                if (text != null) {
+                    return text;
+                }
+            }
+        }
+        return null;
+    }
+
     private <T> CompletableFuture<T> submit(CheckedSupplier<T> operation) {
         if (closed.get()) {
             return CompletableFuture.failedFuture(new IllegalStateException("LX source service is closed"));
@@ -180,6 +261,29 @@ public final class LxSourceService
     }
 
     public record RuntimeReload(boolean successful, int available, int total, String error) {
+    }
+
+    public record LyricsPayload(String original, String translation, String romanization) {
+        public static final LyricsPayload EMPTY = new LyricsPayload(null, null, null);
+
+        public LyricsPayload {
+            original = normalize(original);
+            translation = normalize(translation);
+            romanization = normalize(romanization);
+        }
+
+        public boolean isEmpty() {
+            return original == null && translation == null && romanization == null;
+        }
+
+        private static String normalize(String value) {
+            if (value == null) {
+                return null;
+            }
+            String normalized = value.replace("\r\n", "\n")
+                    .replace('\r', '\n').replace('\0', ' ').strip();
+            return normalized.isEmpty() ? null : normalized;
+        }
     }
 
     @FunctionalInterface
