@@ -22,6 +22,10 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: true
+    PlasmoVoice:
+      load: BEFORE
+      required: true
+      join-classpath: true
   server:
     packetevents:
       load: BEFORE
@@ -38,4 +42,8 @@ dependencies:
     ViaVersion:
       load: BEFORE
       required: false
+      join-classpath: true
+    PlasmoVoice:
+      load: BEFORE
+      required: true
       join-classpath: true

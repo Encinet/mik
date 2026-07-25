@@ -24,7 +24,12 @@ public class MikLoader implements PluginLoader {
         ).build());
         resolver.addDependency(new Dependency(new DefaultArtifact("com.google.code.gson:gson:2.11.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.quickwrite:fluent-builder:1.0.0"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.49.1.0"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.53.2.1"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("dev.arbjerg:lavaplayer:2.2.7"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("net.jthink:jaudiotagger:3.0.1"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("org.graalvm.polyglot:polyglot:25.1.3"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact(
+                "org.graalvm.polyglot:js:pom:25.1.3"), null));
         builder.addLibrary(resolver);
     }
 }

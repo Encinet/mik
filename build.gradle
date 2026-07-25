@@ -19,27 +19,40 @@ repositories {
     maven { url = uri("https://repo.codemc.io/repository/maven-releases/") }
     maven { url = uri("https://repo.codemc.io/repository/maven-snapshots/") }
     maven { url = uri("https://dl.cloudsmith.io/public/quickwrite-net/fluent4j/maven/") }
+    maven { url = uri("https://repo.plasmoverse.com/releases") }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.69-stable")
-    compileOnly("com.github.retrooper:packetevents-spigot:2.11.2")
+    compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
     compileOnly("com.viaversion:viaversion-api:5.10.0")
     compileOnly("com.google.code.gson:gson:2.11.0")
     compileOnly('net.luckperms:api:5.4')
     compileOnly("net.quickwrite:fluent-builder:1.0.0")
-    testRuntimeOnly("org.xerial:sqlite-jdbc:3.49.1.0")
+    compileOnly("su.plo.voice.server:paper:2.1.13")
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.0")
+    compileOnly("dev.arbjerg:lavaplayer:2.2.7")
+    compileOnly("net.jthink:jaudiotagger:3.0.1")
+    compileOnly("org.graalvm.polyglot:polyglot:25.1.3")
+    testRuntimeOnly("org.xerial:sqlite-jdbc:3.53.2.1")
     testImplementation(platform("org.junit:junit-bom:6.0.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("dev.arbjerg:lavaplayer:2.2.7")
+    testImplementation("net.jthink:jaudiotagger:3.0.1")
     testImplementation("io.papermc.paper:paper-api:26.1.2.build.69-stable")
     testImplementation("net.quickwrite:fluent-builder:1.0.0")
     testImplementation("com.google.code.gson:gson:2.11.0")
     testImplementation("net.kyori:adventure-text-minimessage:5.2.0")
+    testImplementation("org.graalvm.polyglot:js:25.1.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 test {
     useJUnitPlatform()
+    jvmArgs(
+            "--enable-native-access=ALL-UNNAMED",
+            "--sun-misc-unsafe-memory-access=allow"
+    )
 }
 
 tasks {
@@ -47,7 +60,7 @@ tasks {
         // Configure the Minecraft version for our task.
         // This is the only required configuration besides applying the plugin.
         // Your plugin's jar (or shadowJar if present) will be used automatically.
-        minecraftVersion("1.21")
+        minecraftVersion("26.1.2")
     }
 }
 
@@ -56,9 +69,7 @@ java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     sourceCompatibility = javaVersion
     targetCompatibility = javaVersion
-    if (JavaVersion.current() < javaVersion) {
-        toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
-    }
+    toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -70,6 +81,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 processResources {
+    includeEmptyDirs = false
     def props = [version: version]
     inputs.properties props
     filteringCharset = 'UTF-8'

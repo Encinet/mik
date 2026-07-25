@@ -1,5 +1,8 @@
 package org.encinet.mik.module.afk;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.EnumSet;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -9,22 +12,31 @@ final class AfkActivityTracker {
     static final long PASSIVE_TIMEOUT_MILLIS = 10L * 60L * 1_000L;
     static final double SUBSTANTIAL_MOVEMENT_DISTANCE = 8.0D;
     static final long ACTION_DEDUPLICATION_MILLIS = 1_000L;
+    static final long ACTION_TARGET_DEDUPLICATION_MILLIS = 30_000L;
+    static final long MOVEMENT_ONLY_REWARD_TIMEOUT_MILLIS = 15L * 60L * 1_000L;
+    static final int REQUIRED_ACTIONS = 3;
+    static final int REQUIRED_UNLOCK_ACTION_TYPES = 2;
 
     enum CheckResult {
         ACTIVE,
         AFK_IDLE,
-        AFK_PASSIVE
+        AFK_PASSIVE,
+        AFK_AUTOMATED
     }
 
+    private final AfkBehaviorAnalyzer behaviorAnalyzer = new AfkBehaviorAnalyzer();
+    private final Deque<TimedAction> recentActions = new ArrayDeque<>();
     private long lastObservedAt;
     private long lastSubstantialAt;
+    private long lastIntentionalActivityAt;
     private long lastCountedActionAt = Long.MIN_VALUE;
-    private long thirdLatestActionAt = Long.MIN_VALUE;
-    private long secondLatestActionAt = Long.MIN_VALUE;
-    private long latestActionAt = Long.MIN_VALUE;
     private boolean movementGestureActive;
     private boolean movementGestureCredited;
     private boolean movementReleaseRequired;
+    private boolean automationExitLocked;
+    private boolean automationRewardLocked;
+    private boolean intentionalActivityWhileSuspended;
+    private long suspendedAt = Long.MIN_VALUE;
     private UUID movementGestureWorldId;
     private double movementGestureX;
     private double movementGestureY;
@@ -35,7 +47,9 @@ final class AfkActivityTracker {
     }
 
     void recordLightActivity(long now) {
-        lastObservedAt = now;
+        if (suspendedAt == Long.MIN_VALUE) {
+            lastObservedAt = now;
+        }
     }
 
     void recordMovementInput(
@@ -82,8 +96,32 @@ final class AfkActivityTracker {
         return false;
     }
 
-    boolean hasActiveMovementGesture() {
-        return movementGestureActive;
+    boolean canMovementClearAfk() {
+        return movementGestureActive && !automationExitLocked;
+    }
+
+    boolean canActionClearAfk() {
+        return !automationExitLocked;
+    }
+
+    boolean isActivityEligible(long now) {
+        return !automationRewardLocked
+                && elapsed(now, lastObservedAt) < IDLE_TIMEOUT_MILLIS
+                && elapsed(now, lastIntentionalActivityAt) < MOVEMENT_ONLY_REWARD_TIMEOUT_MILLIS;
+    }
+
+    boolean isAutomationRewardLocked() {
+        return automationRewardLocked;
+    }
+
+    boolean isAutomationExitLocked() {
+        return automationExitLocked;
+    }
+
+    void recordObservation(UUID worldId, double x, double y, double z, float yaw, long now) {
+        if (suspendedAt == Long.MIN_VALUE) {
+            behaviorAnalyzer.record(worldId, x, y, z, yaw, movementGestureActive, now);
+        }
     }
 
     void suspendMovementGesture() {
@@ -92,29 +130,49 @@ final class AfkActivityTracker {
         movementGestureCredited = false;
     }
 
-    boolean recordAction(long now) {
+    boolean recordAction(AfkActionEvidence evidence, long now) {
         recordLightActivity(now);
         if (lastCountedActionAt != Long.MIN_VALUE
                 && now - lastCountedActionAt < ACTION_DEDUPLICATION_MILLIS) {
             return false;
         }
 
+        removeExpiredActions(now);
+        if (recentActions.stream().anyMatch(action -> action.matchesRecentTarget(evidence, now))) {
+            return false;
+        }
+
         lastCountedActionAt = now;
-        thirdLatestActionAt = secondLatestActionAt;
-        secondLatestActionAt = latestActionAt;
-        latestActionAt = now;
-        if (thirdLatestActionAt == Long.MIN_VALUE
-                || elapsed(now, thirdLatestActionAt) > PASSIVE_TIMEOUT_MILLIS) {
+        recentActions.addLast(new TimedAction(evidence, now));
+        if (recentActions.size() < REQUIRED_ACTIONS) {
+            return false;
+        }
+
+        if (automationRewardLocked
+                && (distinctActionTypes() < REQUIRED_UNLOCK_ACTION_TYPES
+                || distinctActionTargets() < REQUIRED_ACTIONS)) {
             return false;
         }
 
         markSubstantial(now);
+        lastIntentionalActivityAt = now;
+        intentionalActivityWhileSuspended = suspendedAt != Long.MIN_VALUE;
+        automationExitLocked = false;
+        automationRewardLocked = false;
+        behaviorAnalyzer.reset();
         return true;
     }
 
     CheckResult check(long now) {
         if (elapsed(now, lastObservedAt) >= IDLE_TIMEOUT_MILLIS) {
             return CheckResult.AFK_IDLE;
+        }
+
+        if (behaviorAnalyzer.isLikelyAutomated(now, lastIntentionalActivityAt)) {
+            automationExitLocked = true;
+            automationRewardLocked = true;
+            resetActionWindow();
+            return CheckResult.AFK_AUTOMATED;
         }
 
         long passiveFor = elapsed(now, lastSubstantialAt);
@@ -127,21 +185,139 @@ final class AfkActivityTracker {
     void reset(long now, UUID worldId, double x, double y, double z) {
         lastObservedAt = now;
         lastSubstantialAt = now;
-        lastCountedActionAt = Long.MIN_VALUE;
-        thirdLatestActionAt = Long.MIN_VALUE;
-        secondLatestActionAt = Long.MIN_VALUE;
-        latestActionAt = Long.MIN_VALUE;
+        lastIntentionalActivityAt = now;
+        resetActionWindow();
         movementGestureActive = false;
         movementGestureCredited = false;
         movementReleaseRequired = false;
+        automationExitLocked = false;
+        automationRewardLocked = false;
+        intentionalActivityWhileSuspended = false;
+        suspendedAt = Long.MIN_VALUE;
+        movementGestureWorldId = worldId;
+        movementGestureX = x;
+        movementGestureY = y;
+        movementGestureZ = z;
+        behaviorAnalyzer.reset();
+    }
+
+    void suspendSession(long now) {
+        beginSuspension(now);
+        movementGestureActive = false;
+        movementGestureCredited = false;
+        movementReleaseRequired = false;
+    }
+
+    void suspendForAfk(long now) {
+        suspendForAfk(now, movementGestureActive);
+    }
+
+    void suspendForAfk(long now, boolean movementInputActive) {
+        beginSuspension(now);
+        movementReleaseRequired = movementInputActive;
+        movementGestureActive = false;
+        movementGestureCredited = false;
+    }
+
+    void resumeSession(long now, UUID worldId, double x, double y, double z) {
+        long pausedFor = suspendedAt == Long.MIN_VALUE ? 0L : elapsed(now, suspendedAt);
+        if (pausedFor > 0L) {
+            lastObservedAt += pausedFor;
+            lastSubstantialAt += pausedFor;
+            lastIntentionalActivityAt += pausedFor;
+            if (lastCountedActionAt != Long.MIN_VALUE) {
+                lastCountedActionAt += pausedFor;
+            }
+            if (!recentActions.isEmpty()) {
+                Deque<TimedAction> shifted = new ArrayDeque<>(recentActions.size());
+                for (TimedAction action : recentActions) {
+                    shifted.addLast(action.shiftedBy(pausedFor));
+                }
+                recentActions.clear();
+                recentActions.addAll(shifted);
+            }
+        }
+        behaviorAnalyzer.resumeAfter(pausedFor, worldId, x, y, z);
+        resetMovementGesture(worldId, x, y, z, false);
+        finishSuspension();
+    }
+
+    void resumeFromAfk(long now, UUID worldId, double x, double y, double z) {
+        long pausedFor = suspendedAt == Long.MIN_VALUE ? 0L : elapsed(now, suspendedAt);
+        if (pausedFor > 0L && !intentionalActivityWhileSuspended) {
+            lastIntentionalActivityAt += pausedFor;
+        }
+
+        lastObservedAt = now;
+        lastSubstantialAt = now;
+        resetActionWindow();
+        automationExitLocked = false;
+        behaviorAnalyzer.reset();
+        resetMovementGesture(worldId, x, y, z, movementReleaseRequired);
+        finishSuspension();
+    }
+
+    boolean isSuspended() {
+        return suspendedAt != Long.MIN_VALUE;
+    }
+
+    private void beginSuspension(long now) {
+        if (suspendedAt == Long.MIN_VALUE) {
+            suspendedAt = now;
+            intentionalActivityWhileSuspended = false;
+        }
+    }
+
+    private void resetMovementGesture(
+            UUID worldId,
+            double x,
+            double y,
+            double z,
+            boolean releaseRequired
+    ) {
+        movementGestureActive = false;
+        movementGestureCredited = false;
+        movementReleaseRequired = releaseRequired;
         movementGestureWorldId = worldId;
         movementGestureX = x;
         movementGestureY = y;
         movementGestureZ = z;
     }
 
+    private void finishSuspension() {
+        suspendedAt = Long.MIN_VALUE;
+        intentionalActivityWhileSuspended = false;
+    }
+
     private void markSubstantial(long now) {
         lastSubstantialAt = now;
+    }
+
+    private void resetActionWindow() {
+        lastCountedActionAt = Long.MIN_VALUE;
+        recentActions.clear();
+    }
+
+    private void removeExpiredActions(long now) {
+        while (!recentActions.isEmpty()
+                && elapsed(now, recentActions.peekFirst().at) > PASSIVE_TIMEOUT_MILLIS) {
+            recentActions.removeFirst();
+        }
+    }
+
+    private int distinctActionTypes() {
+        EnumSet<AfkActionEvidence.Type> types = EnumSet.noneOf(AfkActionEvidence.Type.class);
+        for (TimedAction action : recentActions) {
+            types.add(action.evidence.type());
+        }
+        return types.size();
+    }
+
+    private long distinctActionTargets() {
+        return recentActions.stream()
+                .map(action -> action.evidence.targetKey())
+                .distinct()
+                .count();
     }
 
     private double distanceSquared(double x, double y, double z) {
@@ -157,5 +333,17 @@ final class AfkActivityTracker {
 
     private static long elapsed(long now, long then) {
         return Math.max(0L, now - then);
+    }
+
+    private record TimedAction(AfkActionEvidence evidence, long at) {
+
+        private boolean matchesRecentTarget(AfkActionEvidence other, long now) {
+            return evidence.targetKey().equals(other.targetKey())
+                    && elapsed(now, at) < ACTION_TARGET_DEDUPLICATION_MILLIS;
+        }
+
+        private TimedAction shiftedBy(long delta) {
+            return new TimedAction(evidence, at + delta);
+        }
     }
 }

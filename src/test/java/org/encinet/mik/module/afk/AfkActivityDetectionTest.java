@@ -1,5 +1,6 @@
 package org.encinet.mik.module.afk;
 
+import org.bukkit.Input;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryAction;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AfkActivityDetectionTest {
 
     private static final UUID WORLD_ID = new UUID(0L, 1L);
+    private static final AfkActionEvidence.Type BLOCK = AfkActionEvidence.Type.BLOCK_CHANGE;
+    private static final AfkActionEvidence.Type INVENTORY = AfkActionEvidence.Type.INVENTORY;
 
     @Test
     void yawOnlyRotationDoesNotCountAsActivity() {
@@ -76,9 +79,9 @@ class AfkActivityDetectionTest {
     @Test
     void repeatedCallbacksWithinOneSecondCountAsOneAction() {
         AfkActivityTracker tracker = tracker(0L);
-        tracker.recordAction(1_000L);
-        tracker.recordAction(1_500L);
-        tracker.recordAction(1_999L);
+        tracker.recordAction(action(BLOCK, "a"), 1_000L);
+        tracker.recordAction(action(BLOCK, "b"), 1_500L);
+        tracker.recordAction(action(BLOCK, "c"), 1_999L);
         tracker.recordLightActivity(AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS);
 
         assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE,
@@ -88,10 +91,10 @@ class AfkActivityDetectionTest {
     @Test
     void threeDistinctActionsRefreshPassiveActivity() {
         AfkActivityTracker tracker = tracker(0L);
-        tracker.recordAction(1_000L);
-        tracker.recordAction(3_000L);
-        assertFalse(tracker.recordAction(3_500L));
-        assertTrue(tracker.recordAction(4_000L));
+        tracker.recordAction(action(BLOCK, "a"), 1_000L);
+        tracker.recordAction(action(BLOCK, "b"), 3_000L);
+        assertFalse(tracker.recordAction(action(BLOCK, "c"), 3_500L));
+        assertTrue(tracker.recordAction(action(BLOCK, "c"), 4_000L));
 
         tracker.recordLightActivity(4_000L + AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS - 1L);
         assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
@@ -104,11 +107,11 @@ class AfkActivityDetectionTest {
     @Test
     void actionThresholdUsesAnOverlappingSlidingWindow() {
         AfkActivityTracker tracker = tracker(0L);
-        tracker.recordAction(60_000L);
-        tracker.recordAction(2 * 60_000L);
-        tracker.recordAction(9 * 60_000L);
-        tracker.recordAction(15 * 60_000L);
-        assertTrue(tracker.recordAction(18 * 60_000L));
+        tracker.recordAction(action(BLOCK, "a"), 60_000L);
+        tracker.recordAction(action(BLOCK, "b"), 2 * 60_000L);
+        tracker.recordAction(action(BLOCK, "c"), 9 * 60_000L);
+        tracker.recordAction(action(BLOCK, "d"), 15 * 60_000L);
+        assertTrue(tracker.recordAction(action(BLOCK, "e"), 18 * 60_000L));
 
         tracker.recordLightActivity(19 * 60_000L);
         assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(19 * 60_000L));
@@ -158,12 +161,12 @@ class AfkActivityDetectionTest {
         tracker.suspendMovementGesture();
 
         tracker.recordMovementInput(true, WORLD_ID, 0.0D, 100.0D, 0.0D, 1_000L);
-        assertFalse(tracker.hasActiveMovementGesture());
+        assertFalse(tracker.canMovementClearAfk());
         assertFalse(tracker.recordMovement(WORLD_ID, 0.0D, 200.0D, 0.0D, 2_000L));
 
         tracker.recordMovementInput(false, WORLD_ID, 0.0D, 200.0D, 0.0D, 3_000L);
         tracker.recordMovementInput(true, WORLD_ID, 0.0D, 200.0D, 0.0D, 4_000L);
-        assertTrue(tracker.hasActiveMovementGesture());
+        assertTrue(tracker.canMovementClearAfk());
         assertTrue(tracker.recordMovement(WORLD_ID, 0.0D, 208.0D, 0.0D, 5_000L));
     }
 
@@ -174,7 +177,72 @@ class AfkActivityDetectionTest {
 
         tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 1_000L);
 
-        assertTrue(tracker.hasActiveMovementGesture());
+        assertTrue(tracker.canMovementClearAfk());
+        assertFalse(AfkModule.shouldCancelAfkMovement(false, tracker));
+        assertTrue(AfkModule.shouldCancelAfkMovement(true, tracker));
+    }
+
+    @Test
+    void currentReleasedInputOverridesAStaleMovementGestureWhenEnteringAfk() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        tracker.suspendForAfk(1_000L, false);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 2_000L);
+
+        assertTrue(tracker.canMovementClearAfk());
+    }
+
+    @Test
+    void currentlyHeldInputStillRequiresAReleaseAfterEnteringAfk() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.suspendForAfk(1_000L, true);
+
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 2_000L);
+        assertFalse(tracker.canMovementClearAfk());
+
+        tracker.recordMovementInput(false, WORLD_ID, 0.0D, 0.0D, 0.0D, 3_000L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 4_000L);
+        assertTrue(tracker.canMovementClearAfk());
+    }
+
+    @Test
+    void afkExitDoesNotImmediatelyReenterPassiveAfk() {
+        AfkActivityTracker tracker = tracker(0L);
+        for (long now = 60_000L; now < AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS; now += 60_000L) {
+            tracker.recordLightActivity(now);
+        }
+
+        long afkAt = AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS;
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE, tracker.check(afkAt));
+        tracker.suspendForAfk(afkAt, false);
+
+        long returnedAt = afkAt + 5L * 60L * 1_000L;
+        tracker.resumeFromAfk(returnedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(returnedAt + 1_000L));
+    }
+
+    @Test
+    void afkExitRetainsTheReleaseGateForHeldDirectionalInput() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.suspendForAfk(1_000L, true);
+
+        tracker.resumeFromAfk(2_000L, WORLD_ID, 0.0D, 0.0D, 0.0D);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 2_000L);
+        assertFalse(tracker.canMovementClearAfk());
+
+        tracker.recordMovementInput(false, WORLD_ID, 0.0D, 0.0D, 0.0D, 3_000L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 4_000L);
+        assertTrue(tracker.canMovementClearAfk());
+    }
+
+    @Test
+    void sneakAndSprintAloneDoNotBlockTheMovementReleaseGate() {
+        assertFalse(AfkModule.hasMovementInput(input(false, false, false, false, false, true, false)));
+        assertFalse(AfkModule.hasMovementInput(input(false, false, false, false, false, false, true)));
+        assertTrue(AfkModule.hasMovementInput(input(false, false, false, false, true, false, false)));
+        assertTrue(AfkModule.hasMovementInput(input(true, false, false, false, false, true, true)));
     }
 
     @Test
@@ -184,6 +252,506 @@ class AfkActivityDetectionTest {
         assertFalse(tracker.recordMovement(WORLD_ID, 100.0D, 0.0D, 0.0D, 2_000L));
         assertEquals(AfkActivityTracker.CheckResult.AFK_IDLE,
                 tracker.check(AfkActivityTracker.IDLE_TIMEOUT_MILLIS));
+    }
+
+    @Test
+    void uniformlyRandomMovementAcrossTwoWindowsIsDetectedAsAutomated() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void directedLongDistanceTravelIsNotDetectedAsAutomated() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordTravelSamples(tracker, index -> 15.0F);
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void smoothCircularTravelIsNotDetectedAsRandomAutomation() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordTravelSamples(tracker, index -> index % 360);
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void evenlyCyclingThroughMovementDirectionsWithAFixedViewIsDetectedAsAutomated() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordDirectionalTravelSamples(tracker, index -> (index - 1) / 5 % 4);
+
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void lopsidedMovementDirectionDistributionIsNotDetectedAsAutomated() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordDirectionalTravelSamples(tracker, index -> {
+            int position = (index - 1) % 10;
+            return position < 7 ? 0 : position - 6;
+        });
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void longSquareRouteIsNotDetectedFromDirectionBalanceAlone() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordDirectionalTravelSamples(tracker, index -> (index - 1) / 150 % 4);
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void verticalRandomMovementContributesToAutomationDetection() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        int samples = analysisSampleCount();
+        for (int index = 1; index <= samples; index++) {
+            long now = index * AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS;
+            double y = index * 0.25D;
+            tracker.recordObservation(WORLD_ID, 0.0D, y, 0.0D,
+                    randomYaw(index), now);
+            tracker.recordMovement(WORLD_ID, 0.0D, y, 0.0D, now);
+        }
+
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void movementAloneEventuallyStopsRewardEligibility() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        long beforeLimit = AfkActivityTracker.MOVEMENT_ONLY_REWARD_TIMEOUT_MILLIS - 1L;
+        tracker.recordLightActivity(beforeLimit);
+        assertTrue(tracker.isActivityEligible(beforeLimit));
+
+        long atLimit = AfkActivityTracker.MOVEMENT_ONLY_REWARD_TIMEOUT_MILLIS;
+        tracker.recordLightActivity(atLimit);
+        assertFalse(tracker.isActivityEligible(atLimit));
+
+        recordIntentionalActions(tracker, atLimit + 1_500L);
+        assertTrue(tracker.isActivityEligible(atLimit + 4_500L));
+    }
+
+    @Test
+    void afkExitDoesNotResetMovementOnlyEligibilityAge() {
+        AfkActivityTracker tracker = tracker(0L);
+        long beforePause = 14L * 60L * 1_000L;
+        tracker.recordLightActivity(beforePause);
+        tracker.suspendForAfk(beforePause);
+
+        long resumedAt = beforePause + 10L * 60L * 1_000L;
+        tracker.resumeFromAfk(resumedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+        long oneMinuteLater = resumedAt + 60_000L;
+        tracker.recordLightActivity(oneMinuteLater);
+
+        assertFalse(tracker.isActivityEligible(oneMinuteLater));
+    }
+
+    @Test
+    void partialAutomationUnlockKeepsTheTrackerSuspended() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+
+        tracker.suspendForAfk(AfkBehaviorAnalyzer.ANALYSIS_MILLIS, false);
+        tracker.recordAction(action(BLOCK, "unlock-a"),
+                AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 1_500L);
+
+        assertTrue(tracker.isSuspended());
+        assertTrue(tracker.isAutomationRewardLocked());
+    }
+
+    @Test
+    void completedAutomationUnlockMakesActivityEligibleAfterAfkExit() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+        long detectedAt = AfkBehaviorAnalyzer.ANALYSIS_MILLIS;
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED, tracker.check(detectedAt));
+
+        tracker.suspendForAfk(detectedAt, false);
+        tracker.recordAction(action(BLOCK, "unlock-a"), detectedAt + 1_500L);
+        tracker.recordAction(action(INVENTORY, "unlock-b"), detectedAt + 3_000L);
+        assertTrue(tracker.recordAction(action(BLOCK, "unlock-c"), detectedAt + 4_500L));
+
+        long returnedAt = detectedAt + 4_500L;
+        tracker.resumeFromAfk(returnedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+
+        assertFalse(tracker.isAutomationRewardLocked());
+        assertTrue(tracker.isActivityEligible(returnedAt));
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(returnedAt + 1_000L));
+    }
+
+    @Test
+    void commandStyleExitReleasesMovementButKeepsAutomationRewardLock() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+        long detectedAt = AfkBehaviorAnalyzer.ANALYSIS_MILLIS;
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED, tracker.check(detectedAt));
+
+        tracker.suspendForAfk(detectedAt, false);
+        long returnedAt = detectedAt + 60_000L;
+        tracker.resumeFromAfk(returnedAt, WORLD_ID, 300.0D, 0.0D, 0.0D);
+
+        assertFalse(tracker.isSuspended());
+        assertTrue(tracker.isAutomationRewardLocked());
+        assertFalse(tracker.isAutomationExitLocked());
+        assertFalse(tracker.isActivityEligible(returnedAt));
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(returnedAt + 1_000L));
+
+        tracker.recordMovementInput(true, WORLD_ID, 300.0D, 0.0D, 0.0D, returnedAt + 1_000L);
+        assertTrue(tracker.canMovementClearAfk());
+
+        tracker.recordAction(action(BLOCK, "unlock-a"), returnedAt + 1_500L);
+        tracker.recordAction(action(INVENTORY, "unlock-b"), returnedAt + 3_000L);
+        assertTrue(tracker.recordAction(action(BLOCK, "unlock-c"), returnedAt + 4_500L));
+        assertTrue(tracker.isActivityEligible(returnedAt + 4_500L));
+    }
+
+    @Test
+    void afkExitDiscardsSuspiciousBehaviorFromBeforeAfk() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+
+        long afkAt = AfkBehaviorAnalyzer.ANALYSIS_MILLIS;
+        tracker.suspendForAfk(afkAt, false);
+        long returnedAt = afkAt + 60_000L;
+        tracker.resumeFromAfk(returnedAt, WORLD_ID, 300.0D, 0.0D, 0.0D);
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(returnedAt + 1_000L));
+        assertFalse(tracker.isAutomationRewardLocked());
+    }
+
+    @Test
+    void disconnectAfterAfkExitDoesNotRestoreExpiredAfkTimers() {
+        AfkActivityTracker tracker = tracker(0L);
+        for (long now = 60_000L; now < AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS; now += 60_000L) {
+            tracker.recordLightActivity(now);
+        }
+        long afkAt = AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS;
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE, tracker.check(afkAt));
+
+        tracker.suspendForAfk(afkAt, false);
+        long disconnectedAt = afkAt + 60_000L;
+        tracker.resumeFromAfk(disconnectedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+        tracker.suspendSession(disconnectedAt);
+
+        long reconnectedAt = disconnectedAt + 60_000L;
+        tracker.resumeSession(reconnectedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(reconnectedAt + 1_000L));
+    }
+
+    @Test
+    void oneUniformWindowIsNotEnoughToDetectAutomation() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordTravelSamples(tracker, index -> index <= 600
+                ? 15.0F
+                : randomYaw(index));
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void visitingEveryDirectionWithALopsidedDistributionIsNotAutomated() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        recordTravelSamples(tracker, index -> index % 5 == 0
+                ? (float) ((index % AfkBehaviorAnalyzer.YAW_BUCKETS)
+                        * 360.0D / AfkBehaviorAnalyzer.YAW_BUCKETS)
+                : 15.0F);
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+    }
+
+    @Test
+    void intentionalInteractionRestartsAutomationObservation() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+
+        recordIntentionalActions(tracker, AfkBehaviorAnalyzer.ANALYSIS_MILLIS);
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 3_000L));
+    }
+
+    @Test
+    void automatedAfkCannotBeClearedByMoreMovement() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+
+        tracker.suspendMovementGesture();
+        tracker.recordMovementInput(false, WORLD_ID, 300.0D, 0.0D, 0.0D,
+                AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 500L);
+        tracker.recordMovementInput(true, WORLD_ID, 300.0D, 0.0D, 0.0D,
+                AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 1_000L);
+
+        assertFalse(tracker.canMovementClearAfk());
+        assertTrue(AfkModule.shouldCancelAfkMovement(false, tracker));
+        tracker.recordAction(action(BLOCK, "unlock-a"), AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 1_500L);
+        tracker.recordAction(action(BLOCK, "unlock-b"), AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 3_000L);
+        assertFalse(tracker.canActionClearAfk());
+        tracker.recordAction(action(BLOCK, "unlock-c"), AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 4_500L);
+        assertFalse(tracker.canActionClearAfk());
+        tracker.recordAction(action(INVENTORY, "unlock-d"), AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 6_000L);
+        assertTrue(tracker.canActionClearAfk());
+        assertTrue(tracker.canMovementClearAfk());
+    }
+
+    @Test
+    void automatedAfkRequiresThreeDifferentTargetsEvenAfterCooldown() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, AfkActivityDetectionTest::randomYaw);
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+
+        long start = AfkBehaviorAnalyzer.ANALYSIS_MILLIS;
+        tracker.recordAction(action(BLOCK, "same"), start + 1_500L);
+        tracker.recordAction(action(INVENTORY, "same"),
+                start + AfkActivityTracker.ACTION_TARGET_DEDUPLICATION_MILLIS + 2_000L);
+        tracker.recordAction(action(BLOCK, "different"),
+                start + AfkActivityTracker.ACTION_TARGET_DEDUPLICATION_MILLIS + 3_500L);
+
+        assertFalse(tracker.canActionClearAfk());
+        tracker.recordAction(action(INVENTORY, "third"),
+                start + AfkActivityTracker.ACTION_TARGET_DEDUPLICATION_MILLIS + 5_000L);
+        assertTrue(tracker.canActionClearAfk());
+    }
+
+    @Test
+    void actionsBeforeAutomationDetectionDoNotCountTowardUnlocking() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+
+        int samples = (int) (AfkBehaviorAnalyzer.ANALYSIS_MILLIS
+                / AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS);
+        for (int index = 1; index <= samples; index++) {
+            long now = index * AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS;
+            double x = index * 0.25D;
+            tracker.recordObservation(WORLD_ID, x, 0.0D, 0.0D,
+                    randomYaw(index), now);
+            tracker.recordMovement(WORLD_ID, x, 0.0D, 0.0D, now);
+            if (now == 5L * 60L * 1_000L || now == 9L * 60L * 1_000L) {
+                tracker.recordAction(action(BLOCK, "before-" + now), now);
+            }
+        }
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));
+
+        tracker.recordAction(action(BLOCK, "unlock-a"), AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 1_500L);
+        tracker.recordAction(action(INVENTORY, "unlock-b"), AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 3_000L);
+        assertFalse(tracker.canActionClearAfk());
+        tracker.recordAction(action(BLOCK, "unlock-c"), AfkBehaviorAnalyzer.ANALYSIS_MILLIS + 4_500L);
+        assertTrue(tracker.canActionClearAfk());
+    }
+
+    @Test
+    void repeatedActionsAgainstOneTargetAreDeduplicated() {
+        AfkActivityTracker tracker = tracker(0L);
+
+        assertFalse(tracker.recordAction(action(BLOCK, "same"), 1_000L));
+        assertFalse(tracker.recordAction(action(BLOCK, "same"), 3_000L));
+        assertFalse(tracker.recordAction(action(BLOCK, "same"), 5_000L));
+        tracker.recordLightActivity(AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS);
+
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE,
+                tracker.check(AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS));
+    }
+
+    @Test
+    void changingActionTypeDoesNotMakeOneTargetDistinct() {
+        AfkActivityTracker tracker = tracker(0L);
+
+        assertFalse(tracker.recordAction(action(AfkActionEvidence.Type.BLOCK_INTERACTION, "block:a"), 1_000L));
+        assertFalse(tracker.recordAction(action(AfkActionEvidence.Type.BLOCK_CHANGE, "block:a"), 3_000L));
+        assertFalse(tracker.recordAction(action(INVENTORY, "inventory:b"), 5_000L));
+
+        assertTrue(tracker.recordAction(action(BLOCK, "block:c"), 7_000L));
+    }
+
+    @Test
+    void shortReconnectPausesInsteadOfResettingObservationHistory() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordTravelSamples(tracker, index -> randomYaw(index), 0L, 600);
+        long disconnectAt = AfkBehaviorAnalyzer.WINDOW_MILLIS;
+        tracker.suspendSession(disconnectAt);
+        long reconnectAt = disconnectAt + 60_000L;
+        tracker.resumeSession(reconnectAt, WORLD_ID, 150.0D, 0.0D, 0.0D);
+        tracker.recordMovementInput(true, WORLD_ID, 150.0D, 0.0D, 0.0D, reconnectAt);
+        recordTravelSamples(tracker, index -> randomYaw(index + 600), reconnectAt, 600);
+
+        assertEquals(AfkActivityTracker.CheckResult.AFK_AUTOMATED,
+                tracker.check(reconnectAt + AfkBehaviorAnalyzer.WINDOW_MILLIS));
+    }
+
+    @Test
+    void randomLookingWithoutMovementDoesNotTriggerAutomationDetection() {
+        AfkBehaviorAnalyzer analyzer = new AfkBehaviorAnalyzer();
+        int samples = (int) (AfkBehaviorAnalyzer.ANALYSIS_MILLIS
+                / AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS);
+        for (int index = 1; index <= samples; index++) {
+            long now = index * AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS;
+            analyzer.record(WORLD_ID, 0.0D, 0.0D, 0.0D,
+                    randomYaw(index), false, now);
+        }
+
+        assertFalse(analyzer.isLikelyAutomated(AfkBehaviorAnalyzer.ANALYSIS_MILLIS, 0L));
+    }
+
+    private void recordTravelSamples(AfkActivityTracker tracker, YawSequence yaws) {
+        recordTravelSamples(tracker, yaws, 0L, analysisSampleCount());
+    }
+
+    private void recordTravelSamples(
+            AfkActivityTracker tracker,
+            YawSequence yaws,
+            long startAt,
+            int samples
+    ) {
+        for (int index = 1; index <= samples; index++) {
+            long now = startAt + index * AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS;
+            double x = now / AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS * 0.25D;
+            tracker.recordObservation(WORLD_ID, x, 0.0D, 0.0D, yaws.yaw(index), now);
+            tracker.recordMovement(WORLD_ID, x, 0.0D, 0.0D, now);
+        }
+    }
+
+    private void recordDirectionalTravelSamples(
+            AfkActivityTracker tracker,
+            DirectionSequence directions
+    ) {
+        double x = 0.0D;
+        double z = 0.0D;
+        for (int index = 1; index <= analysisSampleCount(); index++) {
+            switch (directions.direction(index)) {
+                case 0 -> x += 0.25D;
+                case 1 -> z += 0.25D;
+                case 2 -> x -= 0.25D;
+                case 3 -> z -= 0.25D;
+                default -> throw new IllegalArgumentException("direction must be between 0 and 3");
+            }
+            long now = index * AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS;
+            tracker.recordObservation(WORLD_ID, x, 0.0D, z, 15.0F, now);
+            tracker.recordMovement(WORLD_ID, x, 0.0D, z, now);
+        }
+    }
+
+    private void recordIntentionalActions(AfkActivityTracker tracker, long startAt) {
+        tracker.recordAction(action(BLOCK, "a-" + startAt), startAt);
+        tracker.recordAction(action(BLOCK, "b-" + startAt), startAt + 1_500L);
+        tracker.recordAction(action(BLOCK, "c-" + startAt), startAt + 3_000L);
+    }
+
+    private static AfkActionEvidence action(AfkActionEvidence.Type type, String target) {
+        return new AfkActionEvidence(type, target);
+    }
+
+    private static Input input(
+            boolean forward,
+            boolean backward,
+            boolean left,
+            boolean right,
+            boolean jump,
+            boolean sneak,
+            boolean sprint
+    ) {
+        return new Input() {
+            @Override
+            public boolean isForward() {
+                return forward;
+            }
+
+            @Override
+            public boolean isBackward() {
+                return backward;
+            }
+
+            @Override
+            public boolean isLeft() {
+                return left;
+            }
+
+            @Override
+            public boolean isRight() {
+                return right;
+            }
+
+            @Override
+            public boolean isJump() {
+                return jump;
+            }
+
+            @Override
+            public boolean isSneak() {
+                return sneak;
+            }
+
+            @Override
+            public boolean isSprint() {
+                return sprint;
+            }
+        };
+    }
+
+    private static int analysisSampleCount() {
+        return (int) (AfkBehaviorAnalyzer.ANALYSIS_MILLIS
+                / AfkBehaviorAnalyzer.SAMPLE_INTERVAL_MILLIS);
+    }
+
+    private static float randomYaw(int index) {
+        long value = index * 0x9E3779B97F4A7C15L;
+        value = (value ^ value >>> 30) * 0xBF58476D1CE4E5B9L;
+        value = (value ^ value >>> 27) * 0x94D049BB133111EBL;
+        value ^= value >>> 31;
+        return (float) ((value >>> 11) * 0x1.0p-53 * 360.0D);
+    }
+
+    @FunctionalInterface
+    private interface YawSequence {
+        float yaw(int index);
+    }
+
+    @FunctionalInterface
+    private interface DirectionSequence {
+        int direction(int index);
     }
 
     private AfkActivityTracker tracker(long now) {

@@ -17,7 +17,7 @@ import org.encinet.mik.module.communication.TipModule;
 import org.encinet.mik.module.event.FifthAnniversaryEventModule;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.menu.MenuNavigation;
-import org.encinet.mik.module.musicdisc.MusicDiscModule;
+import org.encinet.mik.module.music.MusicModule;
 import org.encinet.mik.module.performance.NetworkEgressModule;
 import org.encinet.mik.module.performance.PerformanceModule;
 import org.encinet.mik.module.performance.TPSBarModule;
@@ -44,6 +44,13 @@ import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
 
+@su.plo.voice.api.addon.annotation.Addon(
+        id = "mik-music",
+        name = "MIK Music",
+        scope = su.plo.voice.api.addon.AddonLoaderScope.SERVER,
+        version = "1.0",
+        authors = {"Noctiro", "Aeolic"}
+)
 public final class Mik extends JavaPlugin {
 
     public static final String GROUP_MEMBER = "member";
@@ -55,7 +62,7 @@ public final class Mik extends JavaPlugin {
     private AfkModule afkModule;
     private PerformanceModule performanceModule;
     private NetworkEgressModule networkEgressModule;
-    private MusicDiscModule musicDiscModule;
+    private MusicModule musicModule;
     private MentionService mentionService;
     private ChatSettingsStore chatSettingsStore;
     private ChatModule chatModule;
@@ -92,11 +99,13 @@ public final class Mik extends JavaPlugin {
     private SpawnBeaconColorModule spawnBeaconColorModule;
     private FifthAnniversaryEventModule fifthAnniversaryEventModule;
 
+    @su.plo.voice.api.addon.InjectPlasmoVoice
+    private su.plo.voice.api.server.PlasmoVoiceServer voiceServer;
+
     @Override
     public void onLoad() {
-        // PacketEvents requires BrandingModule to load before onEnable.
-        brandingModule = new BrandingModule(this);
-        brandingModule.load();
+        brandingModule = new BrandingModule();
+        su.plo.voice.api.server.PlasmoVoiceServer.getAddonsLoader().load(this);
     }
 
     @Override
@@ -173,10 +182,10 @@ public final class Mik extends JavaPlugin {
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
 
-        musicDiscModule = new MusicDiscModule(this, languageService);
-        musicDiscModule.loadMusicFiles();
-        musicDiscModule.registerCommands(this.getLifecycleManager());
-        musicDiscModule.enableMusicChests();
+        musicModule = new MusicModule(this, languageService, voiceServer);
+        musicModule.enable();
+        musicModule.registerCommands(this.getLifecycleManager());
+        musicModule.enableMusicChests();
 
         commandsModule = new SimpleFeaturesModule(this, languageService);
         commandsModule.enable();
@@ -256,6 +265,10 @@ public final class Mik extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (musicModule != null) {
+            musicModule.disable();
+        }
+
         if (fifthAnniversaryEventModule != null) {
             fifthAnniversaryEventModule.disable();
         }
@@ -278,6 +291,10 @@ public final class Mik extends JavaPlugin {
 
         if (tabListModule != null) {
             tabListModule.disable();
+        }
+
+        if (gameModeSwitchModule != null) {
+            gameModeSwitchModule.disable();
         }
 
         if (brandingModule != null) {
@@ -323,5 +340,7 @@ public final class Mik extends JavaPlugin {
         if (banModule != null) {
             banModule.disable();
         }
+
+        su.plo.voice.api.server.PlasmoVoiceServer.getAddonsLoader().unload(this);
     }
 }

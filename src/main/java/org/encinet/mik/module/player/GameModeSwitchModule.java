@@ -1,6 +1,7 @@
 package org.encinet.mik.module.player;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.EventManager;
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
@@ -12,6 +13,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -19,19 +21,31 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class GameModeSwitchModule implements Listener {
 
     private final JavaPlugin plugin;
+    private final GameModeSwitchPacketListener packetListener = new GameModeSwitchPacketListener();
+    private EventManager eventManager;
 
     public GameModeSwitchModule(JavaPlugin plugin) {
         this.plugin = plugin;
     }
 
     public void enable() {
+        if (eventManager != null) {
+            return;
+        }
         Bukkit.getPluginManager().registerEvents(this, plugin);
-
-        PacketEvents.getAPI().getEventManager().registerListener(
-                new GameModeSwitchPacketListener()
-        );
+        eventManager = PacketEvents.getAPI().getEventManager();
+        eventManager.registerListener(packetListener);
 
         plugin.getLogger().info("GameModeSwitchModule enabled");
+    }
+
+    public void disable() {
+        if (eventManager == null) {
+            return;
+        }
+        eventManager.unregisterListener(packetListener);
+        eventManager = null;
+        HandlerList.unregisterAll(this);
     }
 
     @EventHandler

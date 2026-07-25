@@ -42,6 +42,7 @@ import java.util.UUID;
 public class ChatModule implements Listener {
 
     private static final String STAFF_PERMISSION = "group." + Mik.GROUP_HELPER;
+    private static final String REPEAT_COMMAND = "mikrepeat";
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -51,6 +52,8 @@ public class ChatModule implements Listener {
     private final ChatSettingsMenu settingsMenu;
     private final ChatMessageFormatter formatter;
     private final ChatDelayScheduler delayScheduler;
+    private final ChatRepeatTracker repeatTracker = new ChatRepeatTracker();
+    private final ChatRepeatActionStore repeatActionStore = new ChatRepeatActionStore();
     private final Map<UUID, ChatChannelState> channelStates = new HashMap<>();
     private final Map<UUID, UUID> lastPrivatePartner = new HashMap<>();
 
@@ -98,14 +101,23 @@ public class ChatModule implements Listener {
                             }))
                     .build(), languageService.t(Language.DEFAULT, Message.CHAT_STAFF_COMMAND_DESCRIPTION), List.of("staffchat"));
 
-            commands.register(Commands.literal("chat")
+            commands.register(Commands.literal("public")
                     .executes(ctx -> {
                         Player player = requirePlayer(ctx.getSource().getSender());
                         if (player != null) {
                             switchPublic(player);
                         }
                         return Command.SINGLE_SUCCESS;
-                    }).build(), languageService.t(Language.DEFAULT, Message.CHAT_PUBLIC_COMMAND_DESCRIPTION), List.of("global"));
+                    })
+                    .then(Commands.argument("message", StringArgumentType.greedyString())
+                            .executes(ctx -> {
+                                Player player = requirePlayer(ctx.getSource().getSender());
+                                if (player != null) {
+                                    sendTemporaryPublicCommand(player, StringArgumentType.getString(ctx, "message"));
+                                }
+                                return Command.SINGLE_SUCCESS;
+                            }))
+                    .build(), languageService.t(Language.DEFAULT, Message.CHAT_PUBLIC_COMMAND_DESCRIPTION), List.of("global"));
 
             commands.register(Commands.literal("msg")
                     .executes(ctx -> {
@@ -170,6 +182,17 @@ public class ChatModule implements Listener {
                         return Command.SINGLE_SUCCESS;
                     })
                     .build(), languageService.t(Language.DEFAULT, Message.CHAT_DELAY_CANCEL_COMMAND_DESCRIPTION), List.of("c"));
+
+            commands.register(Commands.literal(REPEAT_COMMAND)
+                    .then(Commands.argument("token", StringArgumentType.word())
+                            .executes(ctx -> {
+                                Player player = requirePlayer(ctx.getSource().getSender());
+                                if (player != null) {
+                                    repeatMessage(player, StringArgumentType.getString(ctx, "token"));
+                                }
+                                return Command.SINGLE_SUCCESS;
+                            }))
+                    .build(), "Repeat a chat message", List.of());
         });
     }
 
@@ -203,6 +226,8 @@ public class ChatModule implements Listener {
         lastPrivatePartner.remove(playerId);
         settingsStore.forget(playerId);
         delayScheduler.cancel(playerId);
+        repeatTracker.forget(playerId);
+        repeatActionStore.forgetPrivateActions(playerId);
         clearPrivateChannelsTargeting(event.getPlayer());
     }
 
@@ -221,8 +246,11 @@ public class ChatModule implements Listener {
 
     private void routePublic(AsyncChatEvent event, Player sender) {
         String copyText = PlainTextComponentSerializer.plainText().serialize(event.message());
+        boolean repeated = repeatTracker.recordPublic(sender.getUniqueId(), copyText);
+        String repeatCommand = repeated ? repeatCommand(repeatActionStore.createPublic(copyText)) : null;
         event.message(parseMessage(sender, event.message(), playersIn(event.viewers())));
-        event.renderer((source, sourceDisplayName, message, viewer) -> formatter.publicMessage(source, viewer, message, copyText));
+        event.renderer((source, sourceDisplayName, message, viewer) -> formatter.publicMessage(source, viewer, message,
+                copyText, repeatCommand));
     }
 
     private void routeStaff(AsyncChatEvent event, Player sender) {
@@ -243,8 +271,11 @@ public class ChatModule implements Listener {
             }
         }
         String copyText = PlainTextComponentSerializer.plainText().serialize(event.message());
+        boolean repeated = repeatTracker.recordStaff(sender.getUniqueId(), copyText);
+        String repeatCommand = repeated ? repeatCommand(repeatActionStore.createStaff(copyText)) : null;
         event.message(parseMessage(sender, event.message(), channelPlayers));
-        event.renderer((source, sourceDisplayName, message, viewer) -> formatter.staffMessage(source, viewer, message, copyText));
+        event.renderer((source, sourceDisplayName, message, viewer) -> formatter.staffMessage(source, viewer, message,
+                copyText, repeatCommand));
     }
 
     private void routePrivate(AsyncChatEvent event, Player sender, ChatChannelState state) {
@@ -262,9 +293,14 @@ public class ChatModule implements Listener {
         viewers.add(target);
         Set<Player> channelPlayers = Set.of(sender, target);
         String copyText = PlainTextComponentSerializer.plainText().serialize(event.message());
+        boolean repeated = repeatTracker.recordPrivate(sender.getUniqueId(), target.getUniqueId(), copyText);
+        String repeatCommand = repeated
+                ? repeatCommand(repeatActionStore.createPrivate(copyText, sender.getUniqueId(), target.getUniqueId()))
+                : null;
         event.message(parseMessage(sender, event.message(), channelPlayers));
         touchPrivatePartners(sender, target);
-        event.renderer((source, sourceDisplayName, message, viewer) -> formatter.privateMessage(source, target, viewer, message, copyText));
+        event.renderer((source, sourceDisplayName, message, viewer) -> formatter.privateMessage(source, target, viewer,
+                message, copyText, repeatCommand));
     }
 
     private void toggleStaff(Player player) {
@@ -329,14 +365,25 @@ public class ChatModule implements Listener {
         sendPrivateMessage(sender, target, plainMessage);
     }
 
+    private void sendTemporaryPublicCommand(Player sender, String plainMessage) {
+        if (delayScheduler.queue(sender, plainMessage, ChatChannelState.publicChannel())) {
+            return;
+        }
+        sendPublicMessage(sender, plainMessage);
+    }
+
     private void sendPrivateMessage(Player sender, Player target, String plainMessage) {
         touchPrivatePartners(sender, target);
         Set<Player> channelPlayers = Set.of(sender, target);
         Component message = parseMessage(sender, plainMessage, channelPlayers);
-        sender.sendMessage(formatter.privateMessage(sender, target, sender, message, plainMessage));
-        target.sendMessage(formatter.privateMessage(sender, target, target, message, plainMessage));
+        boolean repeated = repeatTracker.recordPrivate(sender.getUniqueId(), target.getUniqueId(), plainMessage);
+        String repeatCommand = repeated
+                ? repeatCommand(repeatActionStore.createPrivate(plainMessage, sender.getUniqueId(), target.getUniqueId()))
+                : null;
+        sender.sendMessage(formatter.privateMessage(sender, target, sender, message, plainMessage, repeatCommand));
+        target.sendMessage(formatter.privateMessage(sender, target, target, message, plainMessage, repeatCommand));
         plugin.getServer().getConsoleSender().sendMessage(formatter.privateMessage(sender, target,
-                plugin.getServer().getConsoleSender(), message, plainMessage));
+                plugin.getServer().getConsoleSender(), message, plainMessage, repeatCommand));
         mentionService.notifyPrivateMessage(sender, plainMessage, target);
     }
 
@@ -360,10 +407,12 @@ public class ChatModule implements Listener {
 
         Set<Player> channelPlayers = staffChannelPlayers();
         Component message = parseMessage(sender, plainMessage, channelPlayers);
+        boolean repeated = repeatTracker.recordStaff(sender.getUniqueId(), plainMessage);
+        String repeatCommand = repeated ? repeatCommand(repeatActionStore.createStaff(plainMessage)) : null;
         plugin.getServer().getConsoleSender().sendMessage(formatter.staffMessage(sender,
-                plugin.getServer().getConsoleSender(), message, plainMessage));
+                plugin.getServer().getConsoleSender(), message, plainMessage, repeatCommand));
         for (Player player : channelPlayers) {
-            player.sendMessage(formatter.staffMessage(sender, player, message, plainMessage));
+            player.sendMessage(formatter.staffMessage(sender, player, message, plainMessage, repeatCommand));
         }
         mentionService.notifyMessage(sender, plainMessage, channelPlayers);
     }
@@ -453,11 +502,13 @@ public class ChatModule implements Listener {
         return switch (state.channel()) {
             case PUBLIC -> {
                 Set<Player> channelPlayers = new HashSet<>(Bukkit.getOnlinePlayers());
-                yield formatter.publicMessage(sender, sender, parseMessage(sender, plainMessage, channelPlayers), plainMessage);
+                yield formatter.publicMessage(sender, sender, parseMessage(sender, plainMessage, channelPlayers),
+                        plainMessage, null);
             }
             case STAFF -> {
                 Set<Player> channelPlayers = staffChannelPlayers();
-                yield formatter.staffMessage(sender, sender, parseMessage(sender, plainMessage, channelPlayers), plainMessage);
+                yield formatter.staffMessage(sender, sender, parseMessage(sender, plainMessage, channelPlayers),
+                        plainMessage, null);
             }
             case PRIVATE -> {
                 Player target = Bukkit.getPlayer(state.targetId());
@@ -465,7 +516,7 @@ public class ChatModule implements Listener {
                 Component message = parseMessage(sender, plainMessage, channelPlayers);
                 yield target == null
                         ? formatPrivatePreviewWithOfflineTarget(sender, state.targetName(), message, plainMessage)
-                        : formatter.privateMessage(sender, target, sender, message, plainMessage);
+                        : formatter.privateMessage(sender, target, sender, message, plainMessage, null);
             }
         };
     }
@@ -492,12 +543,44 @@ public class ChatModule implements Listener {
     private void sendPublicMessage(Player sender, String plainMessage) {
         Set<Player> channelPlayers = new HashSet<>(Bukkit.getOnlinePlayers());
         Component message = parseMessage(sender, plainMessage, channelPlayers);
+        boolean repeated = repeatTracker.recordPublic(sender.getUniqueId(), plainMessage);
+        String repeatCommand = repeated ? repeatCommand(repeatActionStore.createPublic(plainMessage)) : null;
         plugin.getServer().getConsoleSender().sendMessage(formatter.publicMessage(sender,
-                plugin.getServer().getConsoleSender(), message, plainMessage));
+                plugin.getServer().getConsoleSender(), message, plainMessage, repeatCommand));
         for (Player player : Bukkit.getOnlinePlayers()) {
-            player.sendMessage(formatter.publicMessage(sender, player, message, plainMessage));
+            player.sendMessage(formatter.publicMessage(sender, player, message, plainMessage, repeatCommand));
         }
         mentionService.notifyMessage(sender, plainMessage, channelPlayers);
+    }
+
+    private String repeatCommand(String token) {
+        return "/" + REPEAT_COMMAND + " " + token;
+    }
+
+    private void repeatMessage(Player player, String token) {
+        repeatActionStore.resolve(token).ifPresent(action -> {
+            switch (action.channel()) {
+                case PUBLIC -> sendTemporaryPublicCommand(player, action.message());
+                case STAFF -> sendStaffCommand(player, action.message());
+                case PRIVATE -> repeatPrivateMessage(player, action);
+            }
+        });
+    }
+
+    private void repeatPrivateMessage(Player player, ChatRepeatActionStore.RepeatAction action) {
+        UUID targetId = action.privateTargetFor(player.getUniqueId());
+        if (targetId == null) {
+            return;
+        }
+        Player target = Bukkit.getPlayer(targetId);
+        if (target == null) {
+            player.sendMessage(Component.text(languageService.t(player, Message.CHAT_PRIVATE_TARGET_OFFLINE), NamedTextColor.RED));
+            return;
+        }
+        if (delayScheduler.queue(player, action.message(), ChatChannelState.privateChannel(target.getUniqueId(), target.getName()))) {
+            return;
+        }
+        sendPrivateMessage(player, target, action.message());
     }
 
     private void cancelDelayedMessages(Player player) {

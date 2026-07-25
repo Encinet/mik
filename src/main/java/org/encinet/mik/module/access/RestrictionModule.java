@@ -193,6 +193,7 @@ public class RestrictionModule implements Listener {
 
     private static CommandPolicy policyFor(String commandName) {
         return switch (commandName) {
+            case "global", "public" -> CommandPolicy.CHAT_MESSAGE;
             case "w", "tell", "msg", "whisper" -> CommandPolicy.DIRECT_MESSAGE;
             case "r", "reply" -> CommandPolicy.REPLY;
             case "tp", "teleport" -> CommandPolicy.TELEPORT;
@@ -261,6 +262,8 @@ public class RestrictionModule implements Listener {
         private static final CommandPolicy DIRECT_MESSAGE =
                 new CommandPolicy(SelectorScope.FIRST_ARGUMENT, false);
         private static final CommandPolicy REPLY =
+                new CommandPolicy(SelectorScope.NO_ARGUMENTS, false);
+        private static final CommandPolicy CHAT_MESSAGE =
                 new CommandPolicy(SelectorScope.NO_ARGUMENTS, false);
         private static final CommandPolicy TELEPORT =
                 new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false);

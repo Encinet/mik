@@ -1,6 +1,7 @@
 package org.encinet.mik.module.presentation;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.EventManager;
 import com.github.retrooper.packetevents.event.PacketListenerAbstract;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
@@ -9,9 +10,7 @@ import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.configuration.server.WrapperConfigServerPluginMessage;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPluginMessage;
 import com.github.retrooper.packetevents.wrapper.status.server.WrapperStatusServerResponse;
-import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import io.papermc.paper.ServerBuildInfo;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.util.ProtocolUtil;
 import org.jspecify.annotations.NonNull;
 
@@ -22,20 +21,14 @@ public class BrandingModule {
     private static final String BRAND_CHANNEL = "minecraft:brand";
     private static final String CUSTOM_BRAND = "§r§6Mi§fk §aCasual§r";
 
-    private final JavaPlugin plugin;
+    private final BrandPacketListener listener = new BrandPacketListener();
     private byte[] customBrandBytes;
-
-    public BrandingModule(JavaPlugin plugin) {
-        this.plugin = plugin;
-    }
-
-    public void load() {
-        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(plugin));
-        PacketEvents.getAPI().load();
-    }
+    private EventManager eventManager;
 
     public void enable() {
-        PacketEvents.getAPI().init();
+        if (eventManager != null) {
+            return;
+        }
 
         byte[] brandBytes = CUSTOM_BRAND.getBytes(StandardCharsets.UTF_8);
         byte[] varIntLength = ProtocolUtil.encodeVarInt(brandBytes.length);
@@ -43,13 +36,16 @@ public class BrandingModule {
         System.arraycopy(varIntLength, 0, customBrandBytes, 0, varIntLength.length);
         System.arraycopy(brandBytes, 0, customBrandBytes, varIntLength.length, brandBytes.length);
 
-        PacketEvents.getAPI().getEventManager().registerListener(
-                new BrandPacketListener()
-        );
+        eventManager = PacketEvents.getAPI().getEventManager();
+        eventManager.registerListener(listener);
     }
 
     public void disable() {
-        PacketEvents.getAPI().terminate();
+        if (eventManager == null) {
+            return;
+        }
+        eventManager.unregisterListener(listener);
+        eventManager = null;
     }
 
     private class BrandPacketListener extends PacketListenerAbstract {

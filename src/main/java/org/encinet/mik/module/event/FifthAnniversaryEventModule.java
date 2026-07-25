@@ -203,7 +203,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         }
         long now = System.currentTimeMillis();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            accountTime(player, now, !afkService.isAfk(player.getUniqueId()));
+            accountTime(player, now, afkService.isActivityEligible(player.getUniqueId()));
             if (player.getOpenInventory().getTopInventory().getHolder() instanceof VirtualBagHolder) {
                 player.closeInventory();
             }
@@ -309,7 +309,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         long now = System.currentTimeMillis();
-        accountTime(player, now, !afkService.isAfk(player.getUniqueId()));
+        accountTime(player, now, afkService.isActivityEligible(player.getUniqueId()));
         lastAccountedAt.remove(player.getUniqueId());
         hideBossBar(player);
         saveData();
@@ -373,7 +373,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             return Command.SINGLE_SUCCESS;
         }
 
-        accountTime(player, now.toEpochMilli(), !afkService.isAfk(player.getUniqueId()));
+        accountTime(player, now.toEpochMilli(), afkService.isActivityEligible(player.getUniqueId()));
         Participant participant = participants.get(player.getUniqueId());
         if (participant == null) {
             openRulesDialog(player);
@@ -1766,7 +1766,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         Instant now = Instant.now();
         long nowMillis = now.toEpochMilli();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            accountTime(player, nowMillis, !afkService.isAfk(player.getUniqueId()));
+            accountTime(player, nowMillis, afkService.isActivityEligible(player.getUniqueId()));
             updateBossBar(player, now);
         }
 
@@ -1865,7 +1865,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             long phaseProgress = participant.activeMillis
                     - DRAW_INTERVAL_MILLIS * participant.regularDraws.size();
             progress = progress(phaseProgress, DRAW_INTERVAL_MILLIS);
-            color = afkService.isAfk(player.getUniqueId()) ? BossBar.Color.WHITE : BossBar.Color.YELLOW;
+            color = afkService.isActivityEligible(player.getUniqueId())
+                    ? BossBar.Color.YELLOW
+                    : BossBar.Color.WHITE;
         }
 
         BossBar bossBar = bossBars.get(player.getUniqueId());

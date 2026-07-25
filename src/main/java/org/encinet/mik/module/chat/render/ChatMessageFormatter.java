@@ -46,18 +46,19 @@ public final class ChatMessageFormatter {
         luckPerms = provider.getProvider();
     }
 
-    public Component publicMessage(Player sender, Audience viewer, Component message, String copyText) {
-        return channelMessage(ChannelMarker.empty(), sender, viewer, playerBody(sender), message, copyText);
+    public Component publicMessage(Player sender, Audience viewer, Component message, String copyText, String repeatCommand) {
+        return channelMessage(ChannelMarker.empty(), sender, viewer, playerBody(sender), message, copyText, repeatCommand);
     }
 
-    public Component staffMessage(Player sender, Audience viewer, Component message, String copyText) {
+    public Component staffMessage(Player sender, Audience viewer, Component message, String copyText, String repeatCommand) {
         return channelMessage(ChannelMarker.text("STAFF", NamedTextColor.GOLD), sender, viewer,
-                playerBody(sender), message, copyText);
+                playerBody(sender), message, copyText, repeatCommand);
     }
 
-    public Component privateMessage(Player sender, Player target, Audience viewer, Component message, String copyText) {
+    public Component privateMessage(Player sender, Player target, Audience viewer, Component message, String copyText,
+                                    String repeatCommand) {
         return channelMessage(ChannelMarker.text(privateLabel(viewer), NamedTextColor.LIGHT_PURPLE), sender, viewer,
-                privateBody(sender, ChatDisplayRenderer.playerName(target)), message, copyText);
+                privateBody(sender, ChatDisplayRenderer.playerName(target)), message, copyText, repeatCommand);
     }
 
     public Component privatePreview(Player sender, String targetName, Component message, String copyText) {
@@ -65,17 +66,23 @@ public final class ChatMessageFormatter {
         Component target = ChatDisplayRenderer.clickablePlayerName(
                 Component.text(username, NamedTextColor.WHITE), username);
         return channelMessage(ChannelMarker.text(privateLabel(sender), NamedTextColor.LIGHT_PURPLE), sender, sender,
-                privateBody(sender, target), message, copyText);
+                privateBody(sender, target), message, copyText, null);
     }
 
     private Component channelMessage(ChannelMarker marker, Player sender, Audience viewer,
-                                     Component body, Component message, String copyText) {
+                                     Component body, Component message, String copyText, String repeatCommand) {
         return Component.text()
                 .append(marker.component())
                 .append(body)
                 .append(Component.text(" »", NamedTextColor.GOLD))
                 .append(timeHoveredMessage(message, copyText, copyHint(viewer)))
+                .append(repeatSuffix(repeatCommand))
                 .build();
+    }
+
+    static Component repeatSuffix(String repeatCommand) {
+        return repeatCommand == null ? Component.empty()
+                : Component.text(" [+1]", NamedTextColor.GRAY).clickEvent(ClickEvent.runCommand(repeatCommand));
     }
 
     private Component playerBody(Player sender) {

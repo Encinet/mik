@@ -27,6 +27,12 @@ class RestrictionModuleTest {
     }
 
     @Test
+    void selectorsInPublicChatBodyArePlainText() {
+        assertFalse(RestrictionModule.containsRestrictedSelector("/public hello @a and @e[type=zombie]"));
+        assertFalse(RestrictionModule.containsRestrictedSelector("/global hello @p"));
+    }
+
+    @Test
     void teleportAndOtherCommandsStillRejectSelectors() {
         assertTrue(RestrictionModule.containsRestrictedSelector("/tp @a 0 64 0"));
         assertTrue(RestrictionModule.containsRestrictedSelector("/teleport Steve @e"));
@@ -60,6 +66,8 @@ class RestrictionModuleTest {
 
     @Test
     void playerNameChecksStillAllowNormalTeleportSyntax() {
+        assertFalse(RestrictionModule.checksPlayerNames("/public Steve hello"));
+        assertFalse(RestrictionModule.checksPlayerNames("/global Steve hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/msg Steve hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/reply hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/teleport Steve Alex"));

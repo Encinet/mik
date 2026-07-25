@@ -290,7 +290,7 @@ public class LanguageService implements Listener {
         ArgumentList arguments = arguments(args);
         return bundle.resolveMessage(message.key(), arguments, StringResultFactory.construct())
                 .map(Object::toString)
-                .orElseGet(() -> fallbackText(message, args));
+                .orElseGet(() -> resolveDefault(message, arguments, args));
     }
 
     public List<String> attributeNames(Language language, String messageId) {
@@ -594,6 +594,16 @@ public class LanguageService implements Listener {
             builder.append(' ').append(arg);
         }
         return builder.toString();
+    }
+
+    private String resolveDefault(Message message, ArgumentList arguments, Object... args) {
+        FluentBundle fallback = bundles.get(Language.DEFAULT);
+        if (fallback == null) {
+            return fallbackText(message, args);
+        }
+        return fallback.resolveMessage(message.key(), arguments, StringResultFactory.construct())
+                .map(Object::toString)
+                .orElseGet(() -> fallbackText(message, args));
     }
 
     private boolean isLanguageMenuTitle(String title) {

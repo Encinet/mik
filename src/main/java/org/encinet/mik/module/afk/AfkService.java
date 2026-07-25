@@ -7,6 +7,10 @@ public interface AfkService {
 
     boolean isAfk(UUID playerId);
 
+    default boolean isActivityEligible(UUID playerId) {
+        return !isAfk(playerId);
+    }
+
     Optional<AfkState> getState(UUID playerId);
 
     void addListener(AfkStateListener listener);
