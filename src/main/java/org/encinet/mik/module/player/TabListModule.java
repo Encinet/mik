@@ -33,7 +33,6 @@ import java.util.concurrent.ThreadLocalRandom;
 public class TabListModule implements Listener, AfkStateListener {
 
     private static final long REFRESH_INTERVAL_TICKS = 5L * 20L;
-    private static final long DAY_TICKS = 24_000L;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     public static int footerOnlinePlayersMinOnline = 5;
@@ -189,7 +188,6 @@ public class TabListModule implements Listener, AfkStateListener {
         footers.add(tpsFooter(viewer));
         footers.add(msptFooter(viewer));
         footers.add(pingFooter(viewer));
-        footers.add(worldDaysFooter(viewer));
         return footers;
     }
 
@@ -219,13 +217,6 @@ public class TabListModule implements Listener, AfkStateListener {
         int ping = Math.max(0, viewer.getPing());
         return languageService.rich(viewer, Message.TABLIST_FOOTER_PING_RICH, NamedTextColor.GRAY,
                 RichArg.component("ping", Component.text(ping, pingColor(ping)), Integer.toString(ping)));
-    }
-
-    private Component worldDaysFooter(Player viewer) {
-        long days = Math.max(0L, viewer.getWorld().getFullTime() / DAY_TICKS);
-        return languageService.rich(viewer, Message.TABLIST_FOOTER_WORLD_DAYS_RICH, NamedTextColor.GRAY,
-                RichArg.component("world", Component.text(viewer.getWorld().getName(), NamedTextColor.AQUA), viewer.getWorld().getName()),
-                RichArg.component("days", Component.text(days, NamedTextColor.GREEN), Long.toString(days)));
     }
 
     private RichArg richNumber(String name, int value, NamedTextColor color) {

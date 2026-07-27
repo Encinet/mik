@@ -119,7 +119,7 @@ public final class MusicBrowserGui {
         localMatches.forEach(track -> merged.put(track.id(), track));
         onlineResult.items().forEach(track -> merged.putIfAbsent(track.id(), track));
         List<MusicTrack> tracks = MusicSearchRanker.rank(
-                keyword, List.copyOf(merged.values()), cachedTrack);
+                keyword, List.copyOf(merged.values()));
         String requestError = tracks.isEmpty() && !onlineResult.failures().isEmpty()
                 ? onlineResult.failures().getFirst() : null;
         if (!sessions.completeSearch(player.getUniqueId(), state, generation,
@@ -164,6 +164,20 @@ public final class MusicBrowserGui {
         openCurrent(player, state);
     }
 
+    public void cycleSection(Player player) {
+        MusicBrowserSessions.Session state = sessions.current(player.getUniqueId());
+        if (state == null) {
+            showLibrary(player, 0);
+            return;
+        }
+        sessions.cycleSection(player.getUniqueId(), state, playbackStats);
+        openCurrent(player, state);
+    }
+
+    public List<MusicTrack> tracksInCurrentSection(UUID playerId, List<MusicTrack> tracks) {
+        return sessions.tracksInSection(playerId, tracks);
+    }
+
     public Integer getPlayerPage(UUID playerId) {
         MusicBrowserSessions.Session state = sessions.current(playerId);
         return state == null ? null : state.page();
@@ -171,7 +185,9 @@ public final class MusicBrowserGui {
 
     public int getTotalPages(UUID playerId) {
         MusicBrowserSessions.Session state = sessions.current(playerId);
-        int count = state == null ? trackPool.tracks().size() : state.tracks().size();
+        int count = state == null
+                ? sessions.tracksInSection(playerId, trackPool.tracks()).size()
+                : state.tracks().size();
         return Math.max(1, (count + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE);
     }
 
@@ -239,9 +255,14 @@ public final class MusicBrowserGui {
         sessions.setPage(state, Math.max(0, Math.min(state.page(), totalPages - 1)));
 
         String title = switch (state.view()) {
-            case LIBRARY -> languageService.t(player, Message.MUSIC_MENU_TITLE,
+            case LIBRARY -> languageService.t(player,
+                    state.section() == MusicBrowserSessions.Section.NBS
+                            ? Message.MUSIC_MENU_NBS_TITLE : Message.MUSIC_MENU_TITLE,
                     state.page() + 1, totalPages);
-            case ONLINE_SONGS -> languageService.t(player, Message.MUSIC_MENU_SEARCH_TITLE,
+            case ONLINE_SONGS -> languageService.t(player,
+                    state.section() == MusicBrowserSessions.Section.NBS
+                            ? Message.MUSIC_MENU_SEARCH_NBS_TITLE
+                            : Message.MUSIC_MENU_SEARCH_TITLE,
                     truncate(state.keyword(), 24), state.page() + 1, totalPages);
         };
 
@@ -270,8 +291,8 @@ public final class MusicBrowserGui {
                 Message.MUSIC_LIBRARY_BUTTON, Message.MUSIC_LIBRARY_BUTTON_LORE, NamedTextColor.GREEN));
         inventory.setItem(47, createSearchButton(player));
         inventory.setItem(48, createSortButton(player, state.sort()));
-        inventory.setItem(49, createPageInfo(player, state, state.page() + 1, totalPages,
-                items.size()));
+        inventory.setItem(49, createSectionButton(player, state, state.page() + 1,
+                totalPages, items.size()));
         inventory.setItem(50, createRandomDiscButton(player, jukeboxContext));
         inventory.setItem(51, createHelpButton(player));
         if (jukeboxContext) {
@@ -306,6 +327,8 @@ public final class MusicBrowserGui {
             lore.add(Component.empty());
             lore.add(plain(Component.text(languageService.t(player,
                     Message.MUSIC_DISC_ADD_TO_QUEUE_LORE), NamedTextColor.GREEN)));
+            lore.add(plain(Component.text(languageService.t(player,
+                    Message.MUSIC_DISC_PLAY_NOW_LORE), NamedTextColor.AQUA)));
         }
         meta.lore(lore);
         disc.setItemMeta(meta);
@@ -346,9 +369,11 @@ public final class MusicBrowserGui {
         return languageService.t(player, Message.MUSIC_LAST_PLAYED_DAYS, seconds / 86_400);
     }
 
-    private ItemStack createPageInfo(Player player, MusicBrowserSessions.Session state,
-                                     int current, int pages, int total) {
+    private ItemStack createSectionButton(Player player, MusicBrowserSessions.Session state,
+                                          int current, int pages, int total) {
         List<Component> lore = new ArrayList<>();
+        lore.add(plain(Component.text(languageService.t(player,
+                Message.MUSIC_PAGE_INFO, current, pages), NamedTextColor.GOLD)));
         lore.add(plain(Component.text(languageService.t(player, Message.MUSIC_PAGE_TOTAL, total),
                 NamedTextColor.GRAY)));
         if (state.requestError() != null) {
@@ -358,10 +383,14 @@ public final class MusicBrowserGui {
             lore.add(plain(Component.text(languageService.t(player, Message.MUSIC_PARTIAL_RESULTS,
                     state.partialFailures()), NamedTextColor.YELLOW)));
         }
-        return item(Material.PAPER,
-                plain(Component.text(languageService.t(player, Message.MUSIC_PAGE_INFO, current, pages),
-                        NamedTextColor.GOLD)),
-                lore);
+        lore.add(Component.empty());
+        lore.add(plain(Component.text(languageService.t(player,
+                Message.MUSIC_SECTION_SWITCH_LORE), NamedTextColor.AQUA)));
+        boolean nbs = state.section() == MusicBrowserSessions.Section.NBS;
+        return item(nbs ? Material.NOTE_BLOCK : Material.JUKEBOX,
+                plain(Component.text(languageService.t(player,
+                                nbs ? Message.MUSIC_SECTION_NBS : Message.MUSIC_SECTION_ALL),
+                        nbs ? NamedTextColor.YELLOW : NamedTextColor.GREEN)), lore);
     }
 
     private ItemStack createStateItem(Player player, MusicBrowserSessions.Session state) {
@@ -377,6 +406,13 @@ public final class MusicBrowserGui {
                     plain(Component.text(languageService.t(player, Message.MUSIC_REQUEST_ERROR,
                             truncate(state.requestError(), 80)), NamedTextColor.RED)),
                     List.of(plain(Component.text(emptyLore(player, state.view()), NamedTextColor.GRAY))));
+        }
+        if (state.section() == MusicBrowserSessions.Section.NBS) {
+            return item(Material.NOTE_BLOCK,
+                    plain(Component.text(languageService.t(player, Message.MUSIC_EMPTY_NBS),
+                            NamedTextColor.GRAY)),
+                    List.of(plain(Component.text(languageService.t(player,
+                            Message.MUSIC_EMPTY_NBS_LORE), NamedTextColor.DARK_GRAY))));
         }
         Message title = switch (state.view()) {
             case LIBRARY -> Message.MUSIC_EMPTY_LIBRARY;
@@ -409,10 +445,9 @@ public final class MusicBrowserGui {
         Message lore = jukeboxContext ? Message.MUSIC_RANDOM_ADD_LORE : Message.MUSIC_RANDOM_DISC_LEFT;
         List<Component> loreLines = new ArrayList<>();
         loreLines.add(plain(Component.text(languageService.t(player, lore), NamedTextColor.GRAY)));
-        if (!jukeboxContext) {
-            loreLines.add(plain(Component.text(languageService.t(player,
-                    Message.MUSIC_RANDOM_DISC_RIGHT), NamedTextColor.GRAY)));
-        }
+        loreLines.add(plain(Component.text(languageService.t(player, jukeboxContext
+                ? Message.MUSIC_RANDOM_PLAY_NOW_LORE : Message.MUSIC_RANDOM_DISC_RIGHT),
+                NamedTextColor.GRAY)));
         ItemStack item = item(Material.MUSIC_DISC_13,
                 plain(Component.text(languageService.t(player, name), NamedTextColor.LIGHT_PURPLE)
                         .decorate(TextDecoration.BOLD)),

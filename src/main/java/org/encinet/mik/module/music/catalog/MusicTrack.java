@@ -24,6 +24,8 @@ public record MusicTrack(
                 || details.title().toLowerCase(Locale.ROOT).contains(normalized)
                 || (details.artist() != null
                 && details.artist().toLowerCase(Locale.ROOT).contains(normalized))
+                || (details.originalAuthor() != null
+                && details.originalAuthor().toLowerCase(Locale.ROOT).contains(normalized))
                 || (details.album() != null
                 && details.album().toLowerCase(Locale.ROOT).contains(normalized));
     }

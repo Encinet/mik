@@ -13,6 +13,8 @@ import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.jukebox.NearbyJukeboxPlayback;
 
+import java.util.List;
+
 /** Player-facing random track operations shared by commands and GUI actions. */
 public final class RandomMusicActions {
 
@@ -33,7 +35,11 @@ public final class RandomMusicActions {
     }
 
     public void giveRandomDisc(Player player) {
-        MusicTrack track = trackSelector.select(trackPool.tracks());
+        giveRandomDisc(player, trackPool.tracks());
+    }
+
+    public void giveRandomDisc(Player player, List<MusicTrack> candidates) {
+        MusicTrack track = trackSelector.select(candidates);
         if (track == null) {
             player.sendMessage(languageService.text(player, Message.MUSIC_NO_FILES, NamedTextColor.RED));
             return;
@@ -50,7 +56,11 @@ public final class RandomMusicActions {
     }
 
     public void playRandomDisc(Player player) {
-        MusicTrack track = trackSelector.select(trackPool.tracks());
+        playRandomDisc(player, trackPool.tracks());
+    }
+
+    public void playRandomDisc(Player player, List<MusicTrack> candidates) {
+        MusicTrack track = trackSelector.select(candidates);
         if (track == null) {
             player.sendMessage(languageService.text(player, Message.MUSIC_NO_FILES, NamedTextColor.RED));
             return;

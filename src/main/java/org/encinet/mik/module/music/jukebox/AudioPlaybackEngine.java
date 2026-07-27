@@ -31,8 +31,6 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Streams local or cached online audio through a Plasmo Voice proximity source. */
 final class AudioPlaybackEngine implements AutoCloseable {
 
-    private static final short PLAY_DISTANCE = 65;
-
     private final JavaPlugin plugin;
     private final PlasmoVoiceServer voiceServer;
     private final AudioTrackLoader loader;
@@ -53,11 +51,11 @@ final class AudioPlaybackEngine implements AutoCloseable {
     }
 
     PlaybackSession create(Location location, MusicTrack music, String sourceName,
-                           PlaybackCallbacks callbacks) {
+                           JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
         if (closed.get()) {
             throw new IllegalStateException("Audio playback backend is closed");
         }
-        Session session = new Session(location.clone(), music, sourceName, callbacks);
+        Session session = new Session(location.clone(), music, sourceName, settings, callbacks);
         sessions.add(session);
         return session;
     }
@@ -83,6 +81,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final AtomicBoolean terminal = new AtomicBoolean();
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
         private final AtomicReference<AudioTrackLoader.LoadedAudio> loadedAudio = new AtomicReference<>();
+        private volatile JukeboxSoundSettings settings;
         private volatile PlaybackStatus status = PlaybackStatus.LOADING;
         private volatile AudioPlayer audioPlayer;
         private volatile long finalPositionMillis;
@@ -90,10 +89,11 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private volatile AudioSender sender;
 
         private Session(Location location, MusicTrack music, String sourceName,
-                        PlaybackCallbacks callbacks) {
+                        JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
             this.location = location;
             this.music = Objects.requireNonNull(music, "music");
             this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
+            this.settings = Objects.requireNonNull(settings, "settings");
             this.callbacks = Objects.requireNonNull(callbacks, "callbacks");
         }
 
@@ -141,6 +141,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 AudioTrack track = loaded.track();
                 AudioPlayer player = loader.createPlayer();
                 audioPlayer = player;
+                player.setVolume(settings.volumePercent());
                 player.addListener(new AudioEventAdapter() {
                     @Override
                     public void onTrackException(AudioPlayer ignored, AudioTrack failedTrack,
@@ -166,7 +167,8 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 source = proximitySource;
                 proximitySource.setName(sourceName);
                 AudioFrameProvider provider = () -> provideFrame(track, player);
-                AudioSender audioSender = proximitySource.createAudioSender(provider, PLAY_DISTANCE);
+                AudioSender audioSender = proximitySource.createAudioSender(
+                        provider, () -> (short) settings.rangeBlocks());
                 sender = audioSender;
                 audioSender.onStop(this::complete);
                 status = PlaybackStatus.PLAYING;
@@ -237,6 +239,15 @@ final class AudioPlaybackEngine implements AutoCloseable {
         public long positionMillis() {
             AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
             return loaded == null ? finalPositionMillis : Math.max(0, loaded.track().getPosition());
+        }
+
+        @Override
+        public void updateSettings(JukeboxSoundSettings settings) {
+            this.settings = Objects.requireNonNull(settings, "settings");
+            AudioPlayer currentPlayer = audioPlayer;
+            if (currentPlayer != null) {
+                currentPlayer.setVolume(settings.volumePercent());
+            }
         }
 
         @Override

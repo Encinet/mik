@@ -19,7 +19,10 @@ import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
 import org.encinet.mik.module.music.jukebox.JukeboxQueueService;
+import org.encinet.mik.module.music.jukebox.JukeboxPlaybackMode;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackStatus;
+import org.encinet.mik.module.music.jukebox.JukeboxSettingsStore;
+import org.encinet.mik.module.music.jukebox.JukeboxSoundSettings;
 import org.encinet.mik.module.music.jukebox.PlaybackStatus;
 
 import java.util.ArrayList;
@@ -31,6 +34,8 @@ public final class JukeboxControlGui {
     private static final int GUI_SIZE = 54;
     private static final int CURRENT_PLAYING_SLOT = 4;
     public static final int PREVIOUS_PAGE_SLOT = 36;
+    public static final int VOLUME_SLOT = 38;
+    public static final int RANGE_SLOT = 39;
     public static final int NEXT_PAGE_SLOT = 44;
     public static final int STOP_EJECT_SLOT = 50;
     private static final int[] QUEUE_SLOTS = {
@@ -43,15 +48,19 @@ public final class JukeboxControlGui {
     private final MusicDiscFactory discFactory;
     private final MusicDiscResolver discResolver;
     private final JukeboxPlaybackStatus playbackStatus;
+    private final JukeboxSettingsStore settingsStore;
     private final LanguageService languageService;
 
     public JukeboxControlGui(JukeboxQueueService queueService, MusicDiscFactory discFactory,
                              MusicDiscResolver discResolver,
-                             JukeboxPlaybackStatus playbackStatus, LanguageService languageService) {
+                             JukeboxPlaybackStatus playbackStatus,
+                             JukeboxSettingsStore settingsStore,
+                             LanguageService languageService) {
         this.queueService = queueService;
         this.discFactory = discFactory;
         this.discResolver = discResolver;
         this.playbackStatus = playbackStatus;
+        this.settingsStore = settingsStore;
         this.languageService = languageService;
     }
 
@@ -145,6 +154,8 @@ public final class JukeboxControlGui {
                 discItem.setItemMeta(meta);
             }
             inv.setItem(CURRENT_PLAYING_SLOT, discItem);
+        } else if (jukebox.hasRecord() && !MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
+            inv.setItem(CURRENT_PLAYING_SLOT, createVanillaRecordItem(player, jukebox));
         } else {
             boolean hasRecord = jukebox.hasRecord();
             inv.setItem(CURRENT_PLAYING_SLOT, createInfoItem(player, Material.BARRIER,
@@ -152,44 +163,36 @@ public final class JukeboxControlGui {
                     hasRecord ? Message.MUSIC_UNAVAILABLE_DISC_LORE : Message.MUSIC_NO_DISC));
         }
 
-        if (!data.randomMode()) {
-            inv.setItem(8, createMusicSelectionButton(player));
+        inv.setItem(8, createMusicSelectionButton(player));
+
+        int start = page * QUEUE_SLOTS.length;
+        int end = Math.min(start + QUEUE_SLOTS.length, queue.size());
+        for (int index = start; index < end; index++) {
+            MusicTrack music = queue.get(index);
+            ItemStack discItem = createQueueDiscItem(player, music, index + 1);
+            inv.setItem(QUEUE_SLOTS[index - start], discItem);
+        }
+        if (queue.isEmpty()) {
+            inv.setItem(22, createInfoItem(player, Material.GRAY_DYE,
+                    Message.MUSIC_QUEUE_EMPTY, Message.MUSIC_QUEUE_EMPTY_LORE));
         }
 
-        if (!data.randomMode()) {
-            int start = page * QUEUE_SLOTS.length;
-            int end = Math.min(start + QUEUE_SLOTS.length, queue.size());
-            for (int index = start; index < end; index++) {
-                MusicTrack music = queue.get(index);
-                ItemStack discItem = createQueueDiscItem(player, music, index + 1);
-                inv.setItem(QUEUE_SLOTS[index - start], discItem);
-            }
-            if (queue.isEmpty()) {
-                inv.setItem(22, createInfoItem(player, Material.GRAY_DYE,
-                        Message.MUSIC_QUEUE_EMPTY, Message.MUSIC_QUEUE_EMPTY_LORE));
-            }
-        } else {
-            inv.setItem(22, createDisabledQueueItem(player));
-        }
-
-        inv.setItem(38, createPlayModeButton(player, data.randomMode()));
-        inv.setItem(40, createAutoPlayButton(player, data.autoPlay()));
-        inv.setItem(42, createPlayNextButton(player, data.randomMode()));
-        if (!data.randomMode() && page > 0) {
+        JukeboxSoundSettings settings = settingsStore.read(jukebox);
+        inv.setItem(VOLUME_SLOT, createVolumeButton(player, settings));
+        inv.setItem(RANGE_SLOT, createRangeButton(player, settings));
+        inv.setItem(40, createPlayModeButton(player, data.playbackMode()));
+        inv.setItem(42, createPlayNextButton(player, data.playbackMode()));
+        if (page > 0) {
             inv.setItem(PREVIOUS_PAGE_SLOT, navigationButton(player, true));
         }
-        if (!data.randomMode() && page < totalPages - 1) {
+        if (page < totalPages - 1) {
             inv.setItem(NEXT_PAGE_SLOT, navigationButton(player, false));
         }
 
-        if (!data.randomMode()) {
-            inv.setItem(46, createAddAllButton(player));
-            inv.setItem(48, createClearQueueButton(player));
-        }
-        inv.setItem(49, data.randomMode()
-                ? createLibrarySummary(player, queueService.availableTrackCount())
-                : createQueueSummary(player, queue.size(), page + 1, totalPages));
-        if (MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
+        inv.setItem(46, createAddAllButton(player));
+        inv.setItem(48, createClearQueueButton(player));
+        inv.setItem(49, createQueueSummary(player, queue.size(), page + 1, totalPages));
+        if (jukebox.hasRecord()) {
             inv.setItem(STOP_EJECT_SLOT, createStopEjectButton(player));
         }
         inv.setItem(53, createCloseButton(player));
@@ -208,7 +211,7 @@ public final class JukeboxControlGui {
                     .color(NamedTextColor.GOLD)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text(""));
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_QUEUE_PLAY_REMOVE))
+            lore.add(Component.text(languageService.t(player, Message.MUSIC_QUEUE_PLAY))
                     .color(NamedTextColor.GREEN)
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text(languageService.t(player, Message.MUSIC_QUEUE_REMOVE_ONLY))
@@ -224,6 +227,25 @@ public final class JukeboxControlGui {
             discItem.setItemMeta(meta);
         }
         return discItem;
+    }
+
+    private ItemStack createVanillaRecordItem(Player player, Jukebox jukebox) {
+        ItemStack record = jukebox.getRecord().asOne();
+        ItemMeta meta = record.getItemMeta();
+        if (meta != null) {
+            List<Component> lore = meta.lore() == null
+                    ? new ArrayList<>() : new ArrayList<>(meta.lore());
+            PlaybackStatus status = jukebox.isPlaying()
+                    ? PlaybackStatus.PLAYING : PlaybackStatus.STOPPED;
+            lore.addFirst(Component.text(languageService.t(player, Message.MUSIC_PLAYBACK_STATUS,
+                            languageService.t(player, statusMessage(status))))
+                    .color(statusColor(status))
+                    .decoration(TextDecoration.ITALIC, false));
+            lore.add(1, Component.empty());
+            meta.lore(lore);
+            record.setItemMeta(meta);
+        }
+        return record;
     }
 
     private ItemStack createMusicSelectionButton(Player player) {
@@ -244,34 +266,14 @@ public final class JukeboxControlGui {
         return button;
     }
 
-    private ItemStack createDisabledQueueItem(Player player) {
-        ItemStack item = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.displayName(Component.text(languageService.t(player, Message.MUSIC_RANDOM_MODE_UNAVAILABLE))
-                    .color(NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, false));
-            meta.lore(List.of(
-                    Component.text(languageService.t(player, Message.MUSIC_RANDOM_MODE_UNAVAILABLE_LORE))
-                            .color(NamedTextColor.GRAY)
-                            .decoration(TextDecoration.ITALIC, false)
-            ));
-            item.setItemMeta(meta);
-        }
-        return item;
-    }
-
-    private ItemStack createPlayModeButton(Player player, boolean isRandomMode) {
-        Material material = isRandomMode ? Material.PURPLE_DYE : Material.LIME_DYE;
-        ItemStack button = new ItemStack(material);
+    private ItemStack createPlayModeButton(Player player, JukeboxPlaybackMode mode) {
+        ItemStack button = new ItemStack(modeMaterial(mode));
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
-            String modeName = languageService.t(player, isRandomMode
-                    ? Message.MUSIC_RANDOM_MODE
-                    : Message.MUSIC_SEQUENTIAL_MODE);
+            String modeName = languageService.t(player, modeName(mode));
             meta.displayName(Component.text(modeName)
-                    .color(isRandomMode ? NamedTextColor.LIGHT_PURPLE : NamedTextColor.GREEN)
+                    .color(modeColor(mode))
                     .decoration(TextDecoration.ITALIC, false)
                     .decoration(TextDecoration.BOLD, true));
 
@@ -281,15 +283,9 @@ public final class JukeboxControlGui {
                     .decoration(TextDecoration.ITALIC, false));
             lore.add(Component.text(""));
 
-            if (isRandomMode) {
-                lore.add(Component.text(languageService.t(player, Message.MUSIC_RANDOM_MODE_DESC))
-                        .color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            } else {
-                lore.add(Component.text(languageService.t(player, Message.MUSIC_SEQUENTIAL_MODE_DESC))
-                        .color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
+            lore.add(Component.text(languageService.t(player, modeDescription(mode)))
+                    .color(NamedTextColor.GRAY)
+                    .decoration(TextDecoration.ITALIC, false));
 
             lore.add(Component.text(""));
             lore.add(Component.text(languageService.t(player, Message.MUSIC_CLICK_SWITCH_MODE))
@@ -303,50 +299,77 @@ public final class JukeboxControlGui {
         return button;
     }
 
-    private ItemStack createAutoPlayButton(Player player, boolean enabled) {
-        Material material = enabled ? Material.LIME_DYE : Material.GRAY_DYE;
+    private ItemStack createVolumeButton(Player player, JukeboxSoundSettings settings) {
+        return createSettingButton(player, Material.NOTE_BLOCK,
+                Message.MUSIC_JUKEBOX_VOLUME, Message.MUSIC_JUKEBOX_VOLUME_VALUE,
+                settings.volumePercent(),
+                JukeboxSoundSettings.VOLUME_COARSE_STEP + "%",
+                JukeboxSoundSettings.VOLUME_FINE_STEP + "%");
+    }
+
+    private ItemStack createRangeButton(Player player, JukeboxSoundSettings settings) {
+        return createSettingButton(player, Material.SPYGLASS,
+                Message.MUSIC_JUKEBOX_RANGE, Message.MUSIC_JUKEBOX_RANGE_VALUE,
+                settings.rangeBlocks(),
+                Integer.toString(JukeboxSoundSettings.RANGE_COARSE_STEP),
+                Integer.toString(JukeboxSoundSettings.RANGE_FINE_STEP));
+    }
+
+    private ItemStack createSettingButton(Player player, Material material, Message name,
+                                          Message valueMessage, int value,
+                                          String coarseStep, String fineStep) {
         ItemStack button = new ItemStack(material);
         ItemMeta meta = button.getItemMeta();
-
-        if (meta != null) {
-            meta.displayName(Component.text(languageService.t(player, Message.MUSIC_AUTOPLAY))
-                    .color(enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, false)
-                    .decoration(TextDecoration.BOLD, true));
-
-            List<Component> lore = new ArrayList<>();
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_STATUS,
-                            languageService.t(player, enabled ? Message.MUSIC_STATUS_ON : Message.MUSIC_STATUS_OFF)))
-                    .color(NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text(""));
-            lore.add(Component.text(languageService.t(player, Message.MUSIC_AUTOPLAY_LORE))
-                    .color(NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, false));
-            lore.add(Component.text(languageService.t(player, Message.CLICK_SWITCH))
-                    .color(NamedTextColor.YELLOW)
-                    .decoration(TextDecoration.ITALIC, false));
-
-            meta.lore(lore);
-            button.setItemMeta(meta);
+        if (meta == null) {
+            return button;
         }
-
+        meta.displayName(Component.text(languageService.t(player, name))
+                .color(NamedTextColor.AQUA)
+                .decoration(TextDecoration.ITALIC, false)
+                .decoration(TextDecoration.BOLD, true));
+        meta.lore(List.of(
+                Component.text(languageService.t(player, valueMessage, value))
+                        .color(NamedTextColor.GOLD)
+                        .decoration(TextDecoration.ITALIC, false),
+                Component.empty(),
+                settingAction(player, Message.MUSIC_SETTING_INCREASE,
+                        coarseStep, NamedTextColor.GREEN),
+                settingAction(player, Message.MUSIC_SETTING_DECREASE,
+                        coarseStep, NamedTextColor.YELLOW),
+                settingAction(player, Message.MUSIC_SETTING_FINE_INCREASE,
+                        fineStep, NamedTextColor.AQUA),
+                settingAction(player, Message.MUSIC_SETTING_FINE_DECREASE,
+                        fineStep, NamedTextColor.GRAY),
+                Component.empty(),
+                Component.text(languageService.t(player, Message.MUSIC_JUKEBOX_SETTINGS_MIK_ONLY))
+                        .color(NamedTextColor.DARK_GRAY)
+                        .decoration(TextDecoration.ITALIC, false)
+        ));
+        button.setItemMeta(meta);
         return button;
     }
 
-    private ItemStack createPlayNextButton(Player player, boolean randomMode) {
-        ItemStack button = new ItemStack(randomMode ? Material.ENDER_EYE : Material.ARROW);
+    private Component settingAction(Player player, Message message, String step,
+                                    NamedTextColor color) {
+        return Component.text(languageService.t(player, message, step))
+                .color(color)
+                .decoration(TextDecoration.ITALIC, false);
+    }
+
+    private ItemStack createPlayNextButton(Player player, JukeboxPlaybackMode mode) {
+        boolean shuffle = mode == JukeboxPlaybackMode.SHUFFLE;
+        ItemStack button = new ItemStack(shuffle ? Material.ENDER_EYE : Material.ARROW);
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
-            meta.displayName(Component.text(languageService.t(player, randomMode
+            meta.displayName(Component.text(languageService.t(player, shuffle
                             ? Message.MUSIC_PLAY_RANDOM : Message.MUSIC_PLAY_NEXT))
                     .color(NamedTextColor.AQUA)
                     .decoration(TextDecoration.ITALIC, false)
                     .decoration(TextDecoration.BOLD, true));
 
             meta.lore(List.of(
-                    Component.text(languageService.t(player, randomMode
+                    Component.text(languageService.t(player, shuffle
                                     ? Message.MUSIC_PLAY_RANDOM_LORE : Message.MUSIC_PLAY_NEXT_LORE))
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)
@@ -378,11 +401,6 @@ public final class JukeboxControlGui {
         return item;
     }
 
-    private ItemStack createLibrarySummary(Player player, int size) {
-        return createInfoItem(player, Material.PAPER,
-                Message.MUSIC_LIBRARY_SUMMARY, Message.MUSIC_LIBRARY_SUMMARY_LORE, size);
-    }
-
     private ItemStack createStopEjectButton(Player player) {
         return createInfoItem(player, Material.HOPPER,
                 Message.MUSIC_STOP_EJECT, Message.MUSIC_STOP_EJECT_LORE);
@@ -401,6 +419,38 @@ public final class JukeboxControlGui {
             case STOPPED -> NamedTextColor.YELLOW;
             case LOADING -> NamedTextColor.AQUA;
             case PLAYING -> NamedTextColor.GREEN;
+        };
+    }
+
+    private static Material modeMaterial(JukeboxPlaybackMode mode) {
+        return switch (mode) {
+            case REPEAT_ALL -> Material.REPEATER;
+            case REPEAT_ONE -> Material.MUSIC_DISC_11;
+            case SHUFFLE -> Material.ENDER_EYE;
+        };
+    }
+
+    private static NamedTextColor modeColor(JukeboxPlaybackMode mode) {
+        return switch (mode) {
+            case REPEAT_ALL -> NamedTextColor.GREEN;
+            case REPEAT_ONE -> NamedTextColor.GOLD;
+            case SHUFFLE -> NamedTextColor.LIGHT_PURPLE;
+        };
+    }
+
+    private static Message modeName(JukeboxPlaybackMode mode) {
+        return switch (mode) {
+            case REPEAT_ALL -> Message.MUSIC_SEQUENTIAL_MODE;
+            case REPEAT_ONE -> Message.MUSIC_REPEAT_ONE_MODE;
+            case SHUFFLE -> Message.MUSIC_RANDOM_MODE;
+        };
+    }
+
+    private static Message modeDescription(JukeboxPlaybackMode mode) {
+        return switch (mode) {
+            case REPEAT_ALL -> Message.MUSIC_SEQUENTIAL_MODE_DESC;
+            case REPEAT_ONE -> Message.MUSIC_REPEAT_ONE_MODE_DESC;
+            case SHUFFLE -> Message.MUSIC_RANDOM_MODE_DESC;
         };
     }
 

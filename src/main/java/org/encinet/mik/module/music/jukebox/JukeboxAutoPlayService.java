@@ -39,7 +39,7 @@ public class JukeboxAutoPlayService {
         cancelScheduledTask(blockLocation);
 
         JukeboxQueueService.JukeboxState data = queueService.findState(blockLocation);
-        if (data == null || !data.autoPlay()) {
+        if (data == null) {
             return;
         }
 
@@ -59,12 +59,11 @@ public class JukeboxAutoPlayService {
         JukeboxQueueService.JukeboxState data = finishedTrack == null
                 ? queueService.state(blockLocation)
                 : queueService.findState(blockLocation);
-        if (data == null || !data.autoPlay() && finishedTrack != null) {
+        if (data == null) {
             return false;
         }
         Block block = blockLocation.getBlock();
         if (!(block.getState() instanceof Jukebox jukebox)) {
-            data.disableAutoPlay();
             return false;
         }
 
@@ -75,19 +74,23 @@ public class JukeboxAutoPlayService {
             }
         }
 
-        MusicTrack nextTrack = queueService.nextTrack(blockLocation);
+        MusicTrack currentTrack = finishedTrack != null
+                ? finishedTrack
+                : data.trackById(MusicDiscKeys.trackId(jukebox.getRecord()));
+        MusicTrack nextTrack = queueService.nextTrack(
+                blockLocation, currentTrack, finishedTrack != null);
         if (nextTrack == null) {
             return false;
         }
 
         Player nearestPlayer = findNearestPlayer(blockLocation);
-        boolean sequential = !data.randomMode();
-        boolean accepted = playback.playVirtualTrackOnJukebox(
-                nearestPlayer, jukebox, nextTrack, () -> {
-                    if (sequential) {
-                        data.removeFromQueue(nextTrack);
-                    }
-                });
+        boolean repeatInsertedDisc = finishedTrack != null
+                && data.playbackMode() == JukeboxPlaybackMode.REPEAT_ONE
+                && finishedTrack.id().equals(MusicDiscKeys.trackId(jukebox.getRecord()));
+        boolean accepted = repeatInsertedDisc
+                ? playback.playInsertedDisc(nearestPlayer, jukebox)
+                : playback.playVirtualTrackOnJukebox(
+                        nearestPlayer, jukebox, nextTrack, () -> {});
         if (!accepted) {
             return false;
         }

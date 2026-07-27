@@ -3,7 +3,6 @@ package org.encinet.mik.module.music.jukebox;
 import org.bukkit.Location;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
-import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.catalog.AudioProperties;
 import org.encinet.mik.module.music.catalog.TrackDetails;
 import org.encinet.mik.module.music.catalog.TrackTarget;
@@ -71,8 +70,9 @@ class JukeboxQueueServiceTest {
 
         assertNull(manager.findState(location));
 
-        manager.state(location).toggleAutoPlay();
-        assertTrue(manager.findState(location).autoPlay());
+        manager.state(location).cyclePlaybackMode();
+        assertEquals(JukeboxPlaybackMode.REPEAT_ONE,
+                manager.findState(location).playbackMode());
     }
 
     @Test
@@ -86,42 +86,57 @@ class JukeboxQueueServiceTest {
     }
 
     @Test
-    void autoPlayHasAnExplicitDisableOperation() {
+    void cyclesAllSupportedPlaybackModes() {
         JukeboxQueueService.JukeboxState data = new JukeboxQueueService.JukeboxState();
-        data.toggleAutoPlay();
 
-        data.disableAutoPlay();
-
-        assertFalse(data.autoPlay());
+        assertEquals(JukeboxPlaybackMode.REPEAT_ALL, data.playbackMode());
+        assertEquals(JukeboxPlaybackMode.REPEAT_ONE, data.cyclePlaybackMode());
+        assertEquals(JukeboxPlaybackMode.SHUFFLE, data.cyclePlaybackMode());
+        assertEquals(JukeboxPlaybackMode.REPEAT_ALL, data.cyclePlaybackMode());
     }
 
     @Test
-    void sequentialPlaybackUsesTheQueuedTrackSnapshot() {
+    void repeatAllAdvancesAndWrapsThePlaylist() {
         JukeboxQueueService manager = manager();
         Location location = new Location(null, 1, 64, 2);
-        MusicTrack online = new MusicTrack("lx:kw:1",
-                new TrackDetails("Online", "Artist", null, "LX/KW", AudioProperties.EMPTY),
-                new TrackTarget.Lx("kw", "1", java.util.List.of("320k"),
-                        "{\"source\":\"kw\",\"meta\":{\"songId\":\"1\"}}"));
-        manager.state(location).addToQueue(online);
+        MusicTrack first = track("first.mp3", "First");
+        MusicTrack second = track("second.mp3", "Second");
+        manager.state(location).addToQueue(first);
+        manager.state(location).addToQueue(second);
 
-        assertEquals(online, manager.nextTrack(location));
+        assertEquals(first, manager.nextTrack(location, null, false));
+        assertEquals(second, manager.nextTrack(location, first, true));
+        assertEquals(first, manager.nextTrack(location, second, true));
     }
 
     @Test
-    void randomModeCanSelectAFullyCachedOnlineTrack() {
-        MusicTrack cachedOnline = new MusicTrack("lx:kw:1",
-                new TrackDetails("Online", "Artist", null, "LX/KW", AudioProperties.EMPTY),
-                new TrackTarget.Lx("kw", "1", List.of("320k"),
-                        "{\"source\":\"kw\",\"meta\":{\"songId\":\"1\"}}"));
-        JukeboxQueueService manager = new JukeboxQueueService(
-                new MusicTrackPool(List::of, () -> List.of(cachedOnline)),
-                new MusicTrackSelector());
+    void repeatOneOnlyRepeatsAfterNaturalCompletion() {
+        JukeboxQueueService manager = manager();
         Location location = new Location(null, 1, 64, 2);
-        manager.state(location).toggleRandomMode();
+        MusicTrack first = track("first.mp3", "First");
+        MusicTrack second = track("second.mp3", "Second");
+        manager.state(location).addToQueue(first);
+        manager.state(location).addToQueue(second);
+        manager.state(location).setPlaybackMode(JukeboxPlaybackMode.REPEAT_ONE);
 
-        assertEquals(cachedOnline, manager.nextTrack(location));
-        assertEquals(1, manager.availableTrackCount());
+        assertEquals(first, manager.nextTrack(location, first, true));
+        assertEquals(second, manager.nextTrack(location, first, false));
+    }
+
+    @Test
+    void shuffleUsesOnlyPlaylistTracksAndAvoidsImmediateRepeats() {
+        JukeboxQueueService manager = manager();
+        Location location = new Location(null, 1, 64, 2);
+        MusicTrack current = track("current.mp3", "Current");
+        MusicTrack other = track("other.mp3", "Other");
+        manager.state(location).addToQueue(current);
+        manager.state(location).addToQueue(other);
+        manager.state(location).setPlaybackMode(JukeboxPlaybackMode.SHUFFLE);
+
+        assertEquals(other, manager.nextTrack(location, current, true));
+
+        manager.state(location).removeFromQueue(other);
+        assertEquals(current, manager.nextTrack(location, current, true));
     }
 
     @Test
@@ -139,8 +154,6 @@ class JukeboxQueueServiceTest {
     }
 
     private static JukeboxQueueService manager() {
-        return new JukeboxQueueService(
-                new MusicTrackPool(java.util.List::of, java.util.List::of),
-                new MusicTrackSelector());
+        return new JukeboxQueueService(new MusicTrackSelector());
     }
 }

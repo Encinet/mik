@@ -134,7 +134,7 @@ public class RestrictionModule implements Listener {
         if (containsRestrictedSelector(command, policy)) {
             return RestrictionViolation.SELECTOR;
         }
-        if (containsForeignUuid(command.arguments(), player)) {
+        if (policy.checkUuids() && containsForeignUuid(command.arguments(), player)) {
             return RestrictionViolation.FOREIGN_UUID;
         }
         if (policy.checkPlayerNames() && containsOtherPlayerName(command.arguments(), player)) {
@@ -178,7 +178,8 @@ public class RestrictionModule implements Listener {
     }
 
     static boolean checksUuids(String rawCommand) {
-        return parseCommand(rawCommand) != null;
+        ParsedCommand command = parseCommand(rawCommand);
+        return command != null && policyFor(command.name()).checkUuids();
     }
 
     static boolean checksPlayerNames(String rawCommand) {
@@ -197,6 +198,8 @@ public class RestrictionModule implements Listener {
             case "w", "tell", "msg", "whisper" -> CommandPolicy.DIRECT_MESSAGE;
             case "r", "reply" -> CommandPolicy.REPLY;
             case "tp", "teleport" -> CommandPolicy.TELEPORT;
+            case "summon" -> CommandPolicy.SUMMON;
+            case "mikrepeat" -> CommandPolicy.UUID_EXEMPT;
             default -> CommandPolicy.DEFAULT;
         };
     }
@@ -255,18 +258,23 @@ public class RestrictionModule implements Listener {
 
     private record CommandPolicy(
             SelectorScope selectorScope,
+            boolean checkUuids,
             boolean checkPlayerNames
     ) {
         private static final CommandPolicy DEFAULT =
-                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, true);
+                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, true, true);
         private static final CommandPolicy DIRECT_MESSAGE =
-                new CommandPolicy(SelectorScope.FIRST_ARGUMENT, false);
+                new CommandPolicy(SelectorScope.FIRST_ARGUMENT, true, false);
         private static final CommandPolicy REPLY =
-                new CommandPolicy(SelectorScope.NO_ARGUMENTS, false);
+                new CommandPolicy(SelectorScope.NO_ARGUMENTS, true, false);
         private static final CommandPolicy CHAT_MESSAGE =
-                new CommandPolicy(SelectorScope.NO_ARGUMENTS, false);
+                new CommandPolicy(SelectorScope.NO_ARGUMENTS, true, false);
         private static final CommandPolicy TELEPORT =
-                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false);
+                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, true, false);
+        private static final CommandPolicy SUMMON =
+                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false, false);
+        private static final CommandPolicy UUID_EXEMPT =
+                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false, true);
     }
 
     private enum RestrictionViolation {

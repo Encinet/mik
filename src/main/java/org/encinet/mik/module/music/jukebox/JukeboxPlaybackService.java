@@ -31,6 +31,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     private final JavaPlugin plugin;
     private final MusicDiscResolver discResolver;
     private final MusicDiscFactory discFactory;
+    private final JukeboxSettingsStore settingsStore;
     private final JukeboxPlaybackNotifier notifier;
     private final VanillaRecordSilencer recordSilencer;
     private final AudioPlaybackEngine audioEngine;
@@ -45,6 +46,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                        MusicDiscResolver discResolver, OnlineAudioCache audioCache,
                        MusicDiscFactory discFactory, JukeboxPlaybackNotifier notifier,
                        VanillaRecordSilencer recordSilencer,
+                       JukeboxSettingsStore settingsStore,
                        Consumer<MusicTrack> playbackRecorder,
                        LyricDisplayService lyricDisplay) {
         this.plugin = plugin;
@@ -52,6 +54,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         this.discFactory = discFactory;
         this.notifier = notifier;
         this.recordSilencer = recordSilencer;
+        this.settingsStore = java.util.Objects.requireNonNull(settingsStore, "settingsStore");
         this.playbackRecorder = java.util.Objects.requireNonNull(
                 playbackRecorder, "playbackRecorder");
         this.lyricDisplay = java.util.Objects.requireNonNull(lyricDisplay, "lyricDisplay");
@@ -133,23 +136,23 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         Playback playback = new Playback(key, location, music,
                 player == null ? null : player.getUniqueId(),
                 musicName == null || musicName.isBlank() ? music.details().title() : musicName,
-                announce, onStarted);
+                settingsStore.read(jukebox), announce, onStarted);
         playbacks.put(key, playback);
         recordSilencer.playbackStarted(location);
         jukebox.stopPlaying();
         jukebox.update(true, false);
 
         startBackend(playback);
-        return true;
+        return !playback.failed.get();
     }
 
     private void startBackend(Playback playback) {
         try {
             PlaybackCallbacks callbacks = callbacks(playback);
             playback.session = playback.music.target() instanceof TrackTarget.NbsFile nbs
-                    ? nbsEngine.create(playback.location, nbs, callbacks)
+                    ? nbsEngine.create(playback.location, nbs, playback.settings, callbacks)
                     : audioEngine.create(playback.location, playback.music,
-                            playback.musicName, callbacks);
+                            playback.musicName, playback.settings, callbacks);
             playback.session.start();
         } catch (RuntimeException exception) {
             backendFailed(playback, exception);
@@ -176,7 +179,8 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                 if (session != null) {
                     LyricDisplayService.PlaybackLyrics lyrics = lyricDisplay.start(
                             playback.location, playback.music,
-                            session::positionMillis, this::isValid);
+                            session::positionMillis, this::isValid,
+                            () -> playback.settings.rangeBlocks());
                     if (!playback.lyrics.compareAndSet(null, lyrics)) {
                         lyrics.close();
                     } else if (playback.cleaned.get()) {
@@ -189,7 +193,8 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                 }
                 if (playback.announce) {
                     notifier.broadcastStarted(playback.location,
-                            playback.musicName, playback.music);
+                            playback.musicName, playback.music,
+                            playback.settings.rangeBlocks());
                 }
             }
 
@@ -222,6 +227,21 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         stop(JukeboxKey.of(block.getLocation()), false);
     }
 
+    /** Applies changed block settings to an active MIK playback without restarting it. */
+    public void updateSettings(Block block, JukeboxSoundSettings settings) {
+        java.util.Objects.requireNonNull(block, "block");
+        java.util.Objects.requireNonNull(settings, "settings");
+        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        if (playback == null || playback.stopped.get()) {
+            return;
+        }
+        playback.settings = settings;
+        PlaybackSession session = playback.session;
+        if (session != null) {
+            session.updateSettings(settings);
+        }
+    }
+
     /** Captures the exact playback attempt currently owned by this jukebox. */
     public PlaybackHandle activePlayback(Block block) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
@@ -248,8 +268,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
 
     public boolean stopAndEject(Block block) {
         stop(JukeboxKey.of(block.getLocation()), false);
-        if (!(block.getState() instanceof Jukebox jukebox)
-                || !MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
+        if (!(block.getState() instanceof Jukebox jukebox) || !jukebox.hasRecord()) {
             return false;
         }
         jukebox.stopPlaying();
@@ -438,6 +457,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         private final String musicName;
         private final boolean announce;
         private final Runnable onStarted;
+        private volatile JukeboxSoundSettings settings;
         private final AtomicBoolean stopped = new AtomicBoolean();
         private final AtomicBoolean started = new AtomicBoolean();
         private final AtomicBoolean finishing = new AtomicBoolean();
@@ -451,12 +471,14 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
 
         private Playback(JukeboxKey key, Location location, MusicTrack music,
                          java.util.UUID requestingPlayer,
-                         String musicName, boolean announce, Runnable onStarted) {
+                         String musicName, JukeboxSoundSettings settings,
+                         boolean announce, Runnable onStarted) {
             this.key = key;
             this.location = location;
             this.music = music;
             this.requestingPlayer = requestingPlayer;
             this.musicName = musicName;
+            this.settings = java.util.Objects.requireNonNull(settings, "settings");
             this.announce = announce;
             this.onStarted = java.util.Objects.requireNonNull(onStarted, "onStarted");
         }

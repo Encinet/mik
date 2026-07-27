@@ -4,6 +4,7 @@ import org.bukkit.Location;
 import org.bukkit.inventory.Inventory;
 import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.TrackTarget;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ final class MusicBrowserSessions {
     private static final long JUKEBOX_SEARCH_CONTEXT_MILLIS = 2 * 60 * 1000L;
 
     private final Map<UUID, Session> sessions = new HashMap<>();
+    private final Map<UUID, Section> sections = new HashMap<>();
     private final Map<UUID, JukeboxContext> jukeboxContexts = new HashMap<>();
 
     Session showLibrary(UUID playerId, List<MusicTrack> tracks, int page,
@@ -27,7 +29,8 @@ final class MusicBrowserSessions {
         session.keyword = null;
         session.sourceTracks = List.copyOf(tracks);
         session.sort = MusicBrowserSort.DEFAULT;
-        session.tracks = session.sort.order(session.sourceTracks, playbackStats);
+        session.section = sections.getOrDefault(playerId, Section.ALL);
+        refreshTracks(session, playbackStats);
         session.loading = false;
         session.requestError = null;
         session.partialFailures = 0;
@@ -41,8 +44,9 @@ final class MusicBrowserSessions {
         session.page = 0;
         session.keyword = keyword;
         session.sourceTracks = List.of();
-        session.tracks = List.of();
         session.sort = MusicBrowserSort.DEFAULT;
+        session.section = sections.getOrDefault(playerId, Section.ALL);
+        refreshTracks(session, MusicPlaybackStats.EMPTY);
         session.loading = true;
         session.requestError = null;
         session.partialFailures = 0;
@@ -57,7 +61,7 @@ final class MusicBrowserSessions {
             return false;
         }
         expected.sourceTracks = List.copyOf(tracks);
-        expected.tracks = expected.sort.order(expected.sourceTracks, playbackStats);
+        refreshTracks(expected, playbackStats);
         expected.loading = false;
         expected.requestError = requestError;
         expected.partialFailures = partialFailures;
@@ -74,8 +78,19 @@ final class MusicBrowserSessions {
 
     void cycleSort(Session session, MusicPlaybackStats playbackStats) {
         session.sort = session.sort.next();
-        session.tracks = session.sort.order(session.sourceTracks, playbackStats);
+        refreshTracks(session, playbackStats);
         session.page = 0;
+    }
+
+    void cycleSection(UUID playerId, Session session, MusicPlaybackStats playbackStats) {
+        session.section = session.section.next();
+        sections.put(playerId, session.section);
+        refreshTracks(session, playbackStats);
+        session.page = 0;
+    }
+
+    List<MusicTrack> tracksInSection(UUID playerId, List<MusicTrack> tracks) {
+        return sections.getOrDefault(playerId, Section.ALL).filter(tracks);
     }
 
     void attachInventory(Session session, Inventory inventory) {
@@ -101,6 +116,7 @@ final class MusicBrowserSessions {
             session.activeInventory = null;
         }
         jukeboxContexts.remove(playerId);
+        sections.remove(playerId);
     }
 
     void closeInventory(UUID playerId, Inventory inventory) {
@@ -154,6 +170,11 @@ final class MusicBrowserSessions {
         return sessions.computeIfAbsent(playerId, ignored -> new Session());
     }
 
+    private static void refreshTracks(Session session, MusicPlaybackStats playbackStats) {
+        session.tracks = session.sort.order(
+                session.section.filter(session.sourceTracks), playbackStats);
+    }
+
     private JukeboxContext currentJukeboxContext(UUID playerId) {
         JukeboxContext context = jukeboxContexts.get(playerId);
         if (context != null && context.pendingUntilMillis > 0
@@ -169,6 +190,28 @@ final class MusicBrowserSessions {
         ONLINE_SONGS
     }
 
+    enum Section {
+        ALL,
+        NBS;
+
+        Section next() {
+            return this == ALL ? NBS : ALL;
+        }
+
+        List<MusicTrack> filter(List<MusicTrack> tracks) {
+            if (tracks == null || tracks.isEmpty()) {
+                return List.of();
+            }
+            if (this == ALL) {
+                return List.copyOf(tracks);
+            }
+            return tracks.stream()
+                    .filter(track -> track != null
+                            && track.target() instanceof TrackTarget.NbsFile)
+                    .toList();
+        }
+    }
+
     static final class Session {
         private View view = View.LIBRARY;
         private int page;
@@ -177,6 +220,7 @@ final class MusicBrowserSessions {
         private List<MusicTrack> sourceTracks = List.of();
         private List<MusicTrack> tracks = List.of();
         private MusicBrowserSort sort = MusicBrowserSort.DEFAULT;
+        private Section section = Section.ALL;
         private boolean loading;
         private String requestError;
         private int partialFailures;
@@ -188,6 +232,7 @@ final class MusicBrowserSessions {
         String keyword() { return keyword; }
         List<MusicTrack> tracks() { return tracks; }
         MusicBrowserSort sort() { return sort; }
+        Section section() { return section; }
         boolean loading() { return loading; }
         String requestError() { return requestError; }
         int partialFailures() { return partialFailures; }

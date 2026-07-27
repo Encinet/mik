@@ -81,7 +81,8 @@ public final class LocalMusicSource {
             String displayName = song.title() == null ? displayName(id)
                     : limit(song.title(), 512);
             return new MusicTrack(id,
-                    new TrackDetails(displayName, limit(song.displayAuthor(), 512), null, "NBS",
+                    new TrackDetails(displayName, limit(song.author(), 512),
+                            limit(song.originalAuthor(), 512), null, "NBS",
                             new AudioProperties(fileSize(path), null,
                                     song.duration())),
                     new TrackTarget.NbsFile(path, root));

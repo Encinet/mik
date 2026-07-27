@@ -7,15 +7,16 @@ import org.encinet.mik.module.music.catalog.TrackTarget;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
-import java.util.function.Predicate;
 
-/** Ranks merged local and online results without using provider traversal order. */
+/** Merges source-ranked results by comparing only the current head of each source. */
 final class MusicSearchRanker {
 
-    private static final Comparator<RankedTrack> ORDER = Comparator
+    private static final Comparator<RankedTrack> RELEVANCE = Comparator
             .comparingInt((RankedTrack ranked) -> ranked.match().tier()).reversed()
             .thenComparing(Comparator.comparingInt(
                     (RankedTrack ranked) -> ranked.match().matchedTerms()).reversed())
@@ -23,40 +24,57 @@ final class MusicSearchRanker {
                     (RankedTrack ranked) -> ranked.match().titleTerms()).reversed())
             .thenComparingInt(ranked -> ranked.match().positionBand())
             .thenComparingInt(ranked -> ranked.match().compactnessBand())
-            .thenComparingInt(ranked -> ranked.readyPreference() ? 0 : 1)
             .thenComparingInt(ranked -> ranked.match().position())
-            .thenComparingInt(ranked -> ranked.match().excessLength())
-            .thenComparing(ranked -> ranked.track().details().title(),
-                    String.CASE_INSENSITIVE_ORDER)
-            .thenComparing(ranked -> text(ranked.track().details().artist()),
-                    String.CASE_INSENSITIVE_ORDER)
-            .thenComparing(ranked -> text(ranked.track().details().album()),
-                    String.CASE_INSENSITIVE_ORDER)
-            .thenComparing(ranked -> ranked.track().id(), String.CASE_INSENSITIVE_ORDER);
+            .thenComparingInt(ranked -> ranked.match().excessLength());
 
     private MusicSearchRanker() {
     }
 
-    static List<MusicTrack> rank(String keyword, List<MusicTrack> tracks,
-                                 Predicate<MusicTrack> cachedTrack) {
+    static List<MusicTrack> rank(String keyword, List<MusicTrack> tracks) {
         Objects.requireNonNull(tracks, "tracks");
-        Objects.requireNonNull(cachedTrack, "cachedTrack");
         String query = normalize(keyword);
         if (query.isEmpty()) {
             throw new IllegalArgumentException("Search keyword must not be blank");
         }
         List<String> terms = List.of(query.split(" "));
-        List<RankedTrack> ranked = new ArrayList<>(tracks.size());
+        Map<String, SourceQueue> sources = new LinkedHashMap<>();
         for (MusicTrack track : tracks) {
             if (track == null) {
                 continue;
             }
-            boolean readyToPlay = !(track.target() instanceof TrackTarget.Lx)
-                    || cachedTrack.test(track);
-            ranked.add(new RankedTrack(track, match(track, query, terms), readyToPlay));
+            sources.computeIfAbsent(sourceKey(track), ignored -> new SourceQueue())
+                    .add(new RankedTrack(track, match(track, query, terms)));
         }
-        ranked.sort(ORDER);
-        return ranked.stream().map(RankedTrack::track).toList();
+
+        SourceQueue local = sources.get("local");
+        if (local != null) {
+            local.sortByRelevance();
+        }
+
+        List<MusicTrack> merged = new ArrayList<>(tracks.size());
+        while (true) {
+            SourceQueue best = null;
+            for (SourceQueue source : sources.values()) {
+                if (source.isEmpty()) {
+                    continue;
+                }
+                if (best == null || RELEVANCE.compare(source.head(), best.head()) < 0) {
+                    best = source;
+                }
+            }
+            if (best == null) {
+                return List.copyOf(merged);
+            }
+            merged.add(best.removeHead().track());
+        }
+    }
+
+    private static String sourceKey(MusicTrack track) {
+        if (!(track.target() instanceof TrackTarget.Lx lx)) {
+            return "local";
+        }
+        String provider = lx.providerId() == null ? "catalog" : lx.providerId();
+        return "lx:" + provider + ":" + lx.source();
     }
 
     static boolean matches(String keyword, MusicTrack track) {
@@ -73,11 +91,13 @@ final class MusicSearchRanker {
         TrackDetails details = track.details();
         String title = normalize(details.title());
         String artist = normalize(details.artist());
+        String originalAuthor = normalize(details.originalAuthor());
         String album = normalize(details.album());
         String id = normalize(track.id());
         String titleArtist = join(title, artist);
         String artistTitle = join(artist, title);
-        String metadata = join(title, artist, album, id);
+        String titleAuthors = join(title, artist, originalAuthor);
+        String metadata = join(title, artist, originalAuthor, album, id);
         int titleTerms = countTerms(title, terms);
         int metadataTerms = countTerms(metadata, terms);
 
@@ -99,9 +119,9 @@ final class MusicSearchRanker {
             return matched(MatchTier.ALL_TERMS_IN_TITLE,
                     metadataTerms, titleTerms, title, terms.getFirst());
         }
-        if (titleTerms > 0 && allTermsIn(join(title, artist), terms)) {
+        if (titleTerms > 0 && allTermsIn(titleAuthors, terms)) {
             return matched(MatchTier.ALL_TERMS_IN_TITLE_AND_ARTIST,
-                    metadataTerms, titleTerms, titleArtist, terms.getFirst());
+                    metadataTerms, titleTerms, titleAuthors, terms.getFirst());
         }
         if (artist.equals(query)) {
             return matched(MatchTier.EXACT_ARTIST,
@@ -110,6 +130,14 @@ final class MusicSearchRanker {
         if (artist.startsWith(query) || artist.contains(query)) {
             return matched(MatchTier.ARTIST_PHRASE,
                     metadataTerms, titleTerms, artist, query);
+        }
+        if (originalAuthor.equals(query)) {
+            return matched(MatchTier.EXACT_ARTIST,
+                    terms.size(), titleTerms, originalAuthor, query);
+        }
+        if (originalAuthor.startsWith(query) || originalAuthor.contains(query)) {
+            return matched(MatchTier.ARTIST_PHRASE,
+                    metadataTerms, titleTerms, originalAuthor, query);
         }
         if (album.equals(query)) {
             return matched(MatchTier.EXACT_ALBUM,
@@ -232,10 +260,6 @@ final class MusicSearchRanker {
         return result.toString();
     }
 
-    private static String text(String value) {
-        return value == null ? "" : value;
-    }
-
     private enum MatchTier {
         NO_LITERAL_MATCH(0),
         PARTIAL_TERMS(10),
@@ -267,9 +291,31 @@ final class MusicSearchRanker {
                          int position, int excessLength) {
     }
 
-    private record RankedTrack(MusicTrack track, Match match, boolean readyToPlay) {
-        private boolean readyPreference() {
-            return match.tier() > MatchTier.NO_LITERAL_MATCH.score() && readyToPlay;
+    private record RankedTrack(MusicTrack track, Match match) {
+    }
+
+    private static final class SourceQueue {
+        private final List<RankedTrack> tracks = new ArrayList<>();
+        private int index;
+
+        private void add(RankedTrack track) {
+            tracks.add(track);
+        }
+
+        private void sortByRelevance() {
+            tracks.sort(RELEVANCE);
+        }
+
+        private boolean isEmpty() {
+            return index >= tracks.size();
+        }
+
+        private RankedTrack head() {
+            return tracks.get(index);
+        }
+
+        private RankedTrack removeHead() {
+            return tracks.get(index++);
         }
     }
 }

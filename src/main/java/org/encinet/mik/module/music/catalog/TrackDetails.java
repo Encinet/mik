@@ -6,14 +6,21 @@ import java.util.Objects;
 public record TrackDetails(
         String title,
         String artist,
+        String originalAuthor,
         String album,
         String format,
         AudioProperties audio
 ) {
 
+    public TrackDetails(String title, String artist, String album, String format,
+                        AudioProperties audio) {
+        this(title, artist, null, album, format, audio);
+    }
+
     public TrackDetails {
         title = requireText(title, "title");
         artist = normalize(artist);
+        originalAuthor = normalize(originalAuthor);
         album = normalize(album);
         format = requireText(format, "format");
         audio = Objects.requireNonNullElse(audio, AudioProperties.EMPTY);

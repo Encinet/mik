@@ -44,13 +44,23 @@ public final class PlayerPresenceModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        Component original = clickablePresenceMessage(event.joinMessage(), event.getPlayer());
+        Component joinMessage = event.joinMessage();
+        if (isRenamedJoinMessage(joinMessage)) {
+            return;
+        }
+
+        Component original = clickablePresenceMessage(joinMessage, event.getPlayer());
         if (shouldUseEasterEgg()) {
             event.joinMessage(null);
             broadcast(event.getPlayer(), JOIN_EGGS, original, true);
         } else {
             event.joinMessage(original);
         }
+    }
+
+    static boolean isRenamedJoinMessage(Component message) {
+        return message instanceof TranslatableComponent translatable
+                && translatable.key().equals("multiplayer.player.joined.renamed");
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -88,6 +98,15 @@ public final class PlayerPresenceModule implements Listener {
                 }
             });
         }
+
+        Optional<Component> consoleMessage = localizedMessages.computeIfAbsent(
+                Language.DEFAULT,
+                ignored -> randomEasterEgg(subject, Language.DEFAULT, messageId));
+        consoleMessage.ifPresentOrElse(Bukkit.getConsoleSender()::sendMessage, () -> {
+            if (original != null) {
+                Bukkit.getConsoleSender().sendMessage(original);
+            }
+        });
     }
 
     private Optional<Component> randomEasterEgg(Player subject, Language language, String messageId) {

@@ -3,7 +3,6 @@ package org.encinet.mik.module.music.jukebox;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.encinet.mik.module.music.catalog.MusicTrack;
-import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 
 import java.util.*;
@@ -14,11 +13,9 @@ import java.util.*;
 public class JukeboxQueueService {
 
     private final Map<Location, JukeboxState> states = new HashMap<>();
-    private final MusicTrackPool trackPool;
     private final MusicTrackSelector trackSelector;
 
-    public JukeboxQueueService(MusicTrackPool trackPool, MusicTrackSelector trackSelector) {
-        this.trackPool = Objects.requireNonNull(trackPool, "trackPool");
+    public JukeboxQueueService(MusicTrackSelector trackSelector) {
         this.trackSelector = Objects.requireNonNull(trackSelector, "trackSelector");
     }
 
@@ -45,22 +42,10 @@ public class JukeboxQueueService {
         }
     }
 
-    public int availableTrackCount() {
-        return trackPool.tracks().size();
-    }
-
-    /**
-     * Play next track in queue or random from all songs
-     */
-    public MusicTrack nextTrack(Location location) {
-        JukeboxState data = state(location);
-
-        if (data.randomMode()) {
-            List<MusicTrack> allSongs = trackPool.tracks();
-            return trackSelector.select(allSongs);
-        } else {
-            return data.firstTrack();
-        }
+    /** Selects the next playlist entry for a manual skip or a natural completion. */
+    public MusicTrack nextTrack(
+            Location location, MusicTrack currentTrack, boolean naturalCompletion) {
+        return state(location).nextTrack(currentTrack, naturalCompletion, trackSelector);
     }
 
     private static Location blockLocation(Location location) {
@@ -72,8 +57,7 @@ public class JukeboxQueueService {
     /** Main-thread-confined queue and playback-mode state for one jukebox. */
     public static final class JukeboxState {
         private final List<MusicTrack> queue = new ArrayList<>();
-        private boolean randomMode;
-        private boolean autoPlay;
+        private JukeboxPlaybackMode playbackMode = JukeboxPlaybackMode.REPEAT_ALL;
 
         public List<MusicTrack> queue() {
             return List.copyOf(queue);
@@ -87,16 +71,8 @@ public class JukeboxQueueService {
             return queue.isEmpty();
         }
 
-        MusicTrack firstTrack() {
-            return queue.isEmpty() ? null : queue.getFirst();
-        }
-
-        public boolean randomMode() {
-            return randomMode;
-        }
-
-        public boolean autoPlay() {
-            return autoPlay;
+        public JukeboxPlaybackMode playbackMode() {
+            return playbackMode;
         }
 
         public void addToQueue(MusicTrack music) {
@@ -152,16 +128,49 @@ public class JukeboxQueueService {
             queue.clear();
         }
 
-        public void toggleRandomMode() {
-            randomMode = !randomMode;
+        public JukeboxPlaybackMode cyclePlaybackMode() {
+            playbackMode = playbackMode.next();
+            return playbackMode;
         }
 
-        public void toggleAutoPlay() {
-            autoPlay = !autoPlay;
+        public void setPlaybackMode(JukeboxPlaybackMode playbackMode) {
+            this.playbackMode = Objects.requireNonNull(playbackMode, "playbackMode");
         }
 
-        public void disableAutoPlay() {
-            autoPlay = false;
+        MusicTrack trackById(String trackId) {
+            if (trackId == null) {
+                return null;
+            }
+            return queue.stream()
+                    .filter(track -> trackId.equals(track.id()))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        private MusicTrack nextTrack(
+                MusicTrack currentTrack, boolean naturalCompletion,
+                MusicTrackSelector trackSelector) {
+            if (naturalCompletion && playbackMode == JukeboxPlaybackMode.REPEAT_ONE
+                    && currentTrack != null) {
+                return currentTrack;
+            }
+            if (queue.isEmpty()) {
+                return null;
+            }
+            if (playbackMode == JukeboxPlaybackMode.SHUFFLE) {
+                return trackSelector.select(queue, candidate -> queue.size() == 1
+                        || currentTrack == null || !sameTrack(candidate, currentTrack));
+            }
+
+            int currentIndex = indexOf(currentTrack);
+            if (currentIndex < 0) {
+                return queue.getFirst();
+            }
+            int nextIndex = currentIndex + 1;
+            if (nextIndex < queue.size()) {
+                return queue.get(nextIndex);
+            }
+            return queue.getFirst();
         }
 
         private static boolean sameTrack(MusicTrack first, MusicTrack second) {

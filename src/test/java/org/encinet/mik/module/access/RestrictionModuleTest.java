@@ -52,7 +52,7 @@ class RestrictionModuleTest {
     }
 
     @Test
-    void everyCommandChecksUuidOwnership() {
+    void commandsCheckUuidOwnershipExceptExplicitExemptions() {
         assertTrue(RestrictionModule.checksUuids("/msg Steve hello"));
         assertTrue(RestrictionModule.checksUuids("/reply hello"));
         assertTrue(RestrictionModule.checksUuids(
@@ -61,6 +61,14 @@ class RestrictionModuleTest {
                 "/minecraft:tp 00000000-0000-0000-0000-000000000001 0 64 0"));
         assertTrue(RestrictionModule.checksUuids("/data get entity Steve"));
         assertTrue(RestrictionModule.checksUuids("/unknown argument"));
+        assertFalse(RestrictionModule.checksUuids(
+                "/summon wolf ~ ~ ~ {Owner:\"00000000-0000-0000-0000-000000000001\"}"));
+        assertFalse(RestrictionModule.checksUuids(
+                "/minecraft:summon wolf ~ ~ ~ {Owner:\"00000000-0000-0000-0000-000000000001\"}"));
+        assertFalse(RestrictionModule.checksUuids(
+                "/mikrepeat 00000000-0000-0000-0000-000000000001"));
+        assertFalse(RestrictionModule.checksUuids(
+                "/mik:mikrepeat 00000000-0000-0000-0000-000000000001"));
         assertFalse(RestrictionModule.checksUuids("/"));
     }
 
@@ -72,6 +80,16 @@ class RestrictionModuleTest {
         assertFalse(RestrictionModule.checksPlayerNames("/reply hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/teleport Steve Alex"));
         assertFalse(RestrictionModule.checksPlayerNames("/minecraft:tp Steve Alex"));
+        assertFalse(RestrictionModule.checksPlayerNames(
+                "/summon armor_stand ~ ~ ~ {CustomName:'{\"text\":\"Steve\"}'}"));
+        assertFalse(RestrictionModule.checksPlayerNames(
+                "/minecraft:summon armor_stand ~ ~ ~ {CustomName:'{\"text\":\"Steve\"}'}"));
         assertTrue(RestrictionModule.checksPlayerNames("/data get entity Steve"));
+    }
+
+    @Test
+    void summonStillRejectsTargetSelectors() {
+        assertTrue(RestrictionModule.containsRestrictedSelector(
+                "/summon armor_stand @a"));
     }
 }

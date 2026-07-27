@@ -13,11 +13,13 @@ class MusicTrackTest {
     @Test
     void searchesStructuredMetadataWithoutACombinedDisplayName() {
         MusicTrack track = new MusicTrack("album/song.mp3",
-                new TrackDetails("Song", "Artist", "Collection", "MP3", AudioProperties.EMPTY),
+                new TrackDetails("Song", "Artist", "Original Author", "Collection", "MP3",
+                        AudioProperties.EMPTY),
                 new TrackTarget.LocalFile(Path.of("song.mp3")));
 
         assertTrue(track.matches("song"));
         assertTrue(track.matches("artist"));
+        assertTrue(track.matches("original author"));
         assertTrue(track.matches("collection"));
         assertTrue(track.matches("album/song"));
         assertFalse(track.matches("missing"));

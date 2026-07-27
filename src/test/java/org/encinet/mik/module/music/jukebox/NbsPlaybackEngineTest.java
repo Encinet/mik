@@ -48,7 +48,8 @@ class NbsPlaybackEngineTest {
                 java.util.concurrent.Executors.newSingleThreadExecutor());
         RecordingCallbacks callbacks = new RecordingCallbacks();
 
-        engine.create(new Location(null, 0, 0, 0), target, callbacks).start();
+        engine.create(new Location(null, 0, 0, 0), target,
+                JukeboxSoundSettings.defaults(), callbacks).start();
 
         assertTrue(callbacks.terminal.await(5, TimeUnit.SECONDS));
         assertInstanceOf(java.io.IOException.class, callbacks.failure.get());
@@ -66,7 +67,8 @@ class NbsPlaybackEngineTest {
                 executor);
         RecordingCallbacks callbacks = new RecordingCallbacks();
         PlaybackSession session = engine.create(new Location(null, 0, 0, 0),
-                new TrackTarget.NbsFile(file, directory), callbacks);
+                new TrackTarget.NbsFile(file, directory),
+                JukeboxSoundSettings.defaults(), callbacks);
 
         session.start();
         session.stop();

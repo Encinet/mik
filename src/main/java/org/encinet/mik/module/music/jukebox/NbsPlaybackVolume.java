@@ -10,9 +10,10 @@ final class NbsPlaybackVolume {
     private NbsPlaybackVolume() {
     }
 
-    static float volume(NbsNote note) {
+    static float volume(NbsNote note, int volumePercent) {
         return MAX_SOUND_VOLUME
                 * (note.velocity() / 100.0F)
-                * (note.layerVolume() / 100.0F);
+                * (note.layerVolume() / 100.0F)
+                * (Math.max(0, Math.min(100, volumePercent)) / 100.0F);
     }
 }

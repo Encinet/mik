@@ -9,5 +9,8 @@ interface PlaybackSession {
 
     long positionMillis();
 
+    default void updateSettings(JukeboxSoundSettings settings) {
+    }
+
     void stop();
 }

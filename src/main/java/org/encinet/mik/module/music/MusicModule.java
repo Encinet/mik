@@ -19,6 +19,7 @@ import org.encinet.mik.module.music.disc.MusicDiscResolver;
 import org.encinet.mik.module.music.disc.MusicDiscSigner;
 import org.encinet.mik.module.music.jukebox.JukeboxAutoPlayService;
 import org.encinet.mik.module.music.jukebox.JukeboxQueueService;
+import org.encinet.mik.module.music.jukebox.JukeboxSettingsStore;
 import org.encinet.mik.module.music.jukebox.NearbyJukeboxPlayback;
 import org.encinet.mik.module.music.listener.JukeboxControlListener;
 import org.encinet.mik.module.music.listener.MusicBrowserListener;
@@ -98,9 +99,10 @@ public final class MusicModule {
         this.recordSilencer = new VanillaRecordSilencer();
         JukeboxPlaybackNotifier playbackNotifier = new JukeboxPlaybackNotifier(languageService);
         LyricDisplayService lyricDisplay = new LyricDisplayService(plugin, lyricsService);
+        JukeboxSettingsStore settingsStore = new JukeboxSettingsStore();
         this.playbackService = new JukeboxPlaybackService(plugin, voiceServer, discResolver,
                 audioCache, discFactory, playbackNotifier, recordSilencer,
-                playbackHistory::recordPlayback, lyricDisplay);
+                settingsStore, playbackHistory::recordPlayback, lyricDisplay);
         NearbyJukeboxPlayback nearbyPlayback = new NearbyJukeboxPlayback(
                 playbackService, languageService);
         MusicBrowserGui browserGui = new MusicBrowserGui(plugin, musicLibrary, trackPool,
@@ -108,18 +110,20 @@ public final class MusicModule {
                 track -> track.target() instanceof org.encinet.mik.module.music.catalog.TrackTarget.Lx lx
                         && audioCache.isCached(lx),
                 playbackHistory, discFactory, languageService);
-        this.queueService = new JukeboxQueueService(trackPool, trackSelector);
+        this.queueService = new JukeboxQueueService(trackSelector);
         JukeboxControlGui jukeboxControlGui = new JukeboxControlGui(
-                queueService, discFactory, discResolver, playbackService, languageService);
+                queueService, discFactory, discResolver, playbackService,
+                settingsStore, languageService);
         this.autoPlayService = new JukeboxAutoPlayService(plugin, queueService, playbackService);
         RandomMusicActions randomActions = new RandomMusicActions(
                 trackPool, trackSelector, discFactory, nearbyPlayback, languageService);
         this.browserListener = new MusicBrowserListener(
-                musicLibrary, trackPool, discFactory, nearbyPlayback, browserGui,
-                queueService, jukeboxControlGui, languageService, trackSelector, randomActions);
+                trackPool, discFactory, nearbyPlayback, browserGui,
+                queueService, jukeboxControlGui, playbackService, autoPlayService,
+                languageService, trackSelector, randomActions);
         this.controlListener = new JukeboxControlListener(
                 musicLibrary, playbackService, browserGui, queueService,
-                jukeboxControlGui, autoPlayService, languageService);
+                jukeboxControlGui, autoPlayService, settingsStore, languageService);
         this.jukeboxListener = new MusicJukeboxListener(
                 plugin, musicLibrary, playbackService, recordSilencer,
                 queueService, autoPlayService);

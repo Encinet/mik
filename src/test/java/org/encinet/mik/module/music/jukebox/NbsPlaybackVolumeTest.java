@@ -29,8 +29,17 @@ class NbsPlaybackVolumeTest {
         assertEquals(0.0F, volume(0, 0));
     }
 
+    @Test
+    void appliesTheJukeboxVolumeLinearly() {
+        NbsNote note = new NbsNote(0, 0, 45, 100, 100, 0, 0);
+
+        assertEquals(4.0F, NbsPlaybackVolume.volume(note, 100));
+        assertEquals(2.0F, NbsPlaybackVolume.volume(note, 50));
+        assertEquals(0.0F, NbsPlaybackVolume.volume(note, 0));
+    }
+
     private static float volume(int velocity, int layerVolume) {
         return NbsPlaybackVolume.volume(
-                new NbsNote(0, 0, 45, velocity, layerVolume, 0, 0));
+                new NbsNote(0, 0, 45, velocity, layerVolume, 0, 0), 100);
     }
 }

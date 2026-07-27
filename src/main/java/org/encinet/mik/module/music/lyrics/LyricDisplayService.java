@@ -17,13 +17,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
+import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
 
 /** Keeps lyrics synchronized in the action bar for nearby listeners. */
 public final class LyricDisplayService {
 
-    public static final double DISPLAY_DISTANCE = 65.0;
-    private static final double DISPLAY_DISTANCE_SQUARED = DISPLAY_DISTANCE * DISPLAY_DISTANCE;
     private static final long UPDATE_INTERVAL_TICKS = 5;
     private static final int REFRESH_AFTER_TICKS = 40;
     private static final int MAX_DISPLAY_CHARACTERS = 240;
@@ -37,8 +36,9 @@ public final class LyricDisplayService {
     }
 
     public PlaybackLyrics start(Location location, MusicTrack track,
-                                LongSupplier positionMillis, BooleanSupplier active) {
-        Handle handle = new Handle(location.clone(), positionMillis, active);
+                                LongSupplier positionMillis, BooleanSupplier active,
+                                IntSupplier rangeBlocks) {
+        Handle handle = new Handle(location.clone(), positionMillis, active, rangeBlocks);
         lyricsService.load(track).whenComplete((lyrics, error) -> {
             if (error != null || lyrics == null || lyrics.isEmpty()) {
                 handle.close();
@@ -79,15 +79,11 @@ public final class LyricDisplayService {
         Optional<LyricLine> current = handle.lyrics.lineAt(
                 Math.max(0, handle.positionMillis.getAsLong()));
         if (current.isEmpty()) {
+            handle.clear(handle.audience);
+            handle.audience = Set.of();
             return;
         }
         LyricLine line = current.get();
-        if (line.timestampMillis() == handle.lastLineTimestamp
-                && ++handle.ticksSinceDisplay < REFRESH_AFTER_TICKS / UPDATE_INTERVAL_TICKS) {
-            return;
-        }
-        handle.lastLineTimestamp = line.timestampMillis();
-        handle.ticksSinceDisplay = 0;
         if (line.text().isBlank()) {
             handle.clear(handle.audience);
             handle.audience = Set.of();
@@ -100,16 +96,34 @@ public final class LyricDisplayService {
             handle.close();
             return;
         }
+        int rangeBlocks = Math.max(0, handle.rangeBlocks.getAsInt());
+        double rangeSquared = (double) rangeBlocks * rangeBlocks;
         for (Player player : world.getPlayers()) {
-            if (player.getLocation().distanceSquared(handle.location) <= DISPLAY_DISTANCE_SQUARED) {
-                player.sendActionBar(message);
+            if (player.getLocation().distanceSquared(handle.location) <= rangeSquared) {
                 audience.add(player.getUniqueId());
             }
         }
         Set<UUID> departed = new HashSet<>(handle.audience);
         departed.removeAll(audience);
         handle.clear(departed);
+        Set<UUID> arrived = new HashSet<>(audience);
+        arrived.removeAll(handle.audience);
         handle.audience = Set.copyOf(audience);
+
+        boolean lineChanged = line.timestampMillis() != handle.lastLineTimestamp;
+        boolean refresh = ++handle.ticksSinceDisplay
+                >= REFRESH_AFTER_TICKS / UPDATE_INTERVAL_TICKS;
+        if (!lineChanged && !refresh && arrived.isEmpty()) {
+            return;
+        }
+        handle.lastLineTimestamp = line.timestampMillis();
+        handle.ticksSinceDisplay = 0;
+        for (UUID playerId : audience) {
+            Player player = plugin.getServer().getPlayer(playerId);
+            if (player != null) {
+                player.sendActionBar(message);
+            }
+        }
     }
 
     static Component component(LyricLine line) {
@@ -143,6 +157,7 @@ public final class LyricDisplayService {
         private final Location location;
         private final LongSupplier positionMillis;
         private final BooleanSupplier active;
+        private final IntSupplier rangeBlocks;
         private final AtomicBoolean closed = new AtomicBoolean();
         private volatile Lyrics lyrics;
         private volatile BukkitTask task;
@@ -150,10 +165,12 @@ public final class LyricDisplayService {
         private long lastLineTimestamp = -1;
         private int ticksSinceDisplay;
 
-        private Handle(Location location, LongSupplier positionMillis, BooleanSupplier active) {
+        private Handle(Location location, LongSupplier positionMillis, BooleanSupplier active,
+                       IntSupplier rangeBlocks) {
             this.location = Objects.requireNonNull(location, "location");
             this.positionMillis = Objects.requireNonNull(positionMillis, "positionMillis");
             this.active = Objects.requireNonNull(active, "active");
+            this.rangeBlocks = Objects.requireNonNull(rangeBlocks, "rangeBlocks");
         }
 
         @Override

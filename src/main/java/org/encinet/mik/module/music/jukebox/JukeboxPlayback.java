@@ -10,6 +10,8 @@ public interface JukeboxPlayback {
 
     boolean isPlaying(Block block);
 
+    boolean playInsertedDisc(Player player, Jukebox jukebox);
+
     boolean playVirtualTrackOnJukebox(
             Player player, Jukebox jukebox, MusicTrack track, Runnable onStarted);
 }

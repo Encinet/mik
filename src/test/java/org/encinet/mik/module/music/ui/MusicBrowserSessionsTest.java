@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,6 +73,44 @@ class MusicBrowserSessionsTest {
         assertFalse(state.loading());
     }
 
+    @Test
+    void nbsSectionFiltersEveryViewAndPersistsUntilPlayerRemoval() {
+        MusicBrowserSessions sessions = new MusicBrowserSessions();
+        UUID playerId = UUID.randomUUID();
+        MusicTrack audio = track("audio");
+        MusicTrack nbs = nbsTrack("notes");
+
+        MusicBrowserSessions.Session library = sessions.showLibrary(
+                playerId, List.of(audio, nbs), 4, MusicPlaybackStats.EMPTY);
+        sessions.cycleSection(playerId, library, MusicPlaybackStats.EMPTY);
+
+        assertEquals(MusicBrowserSessions.Section.NBS, library.section());
+        assertEquals(List.of(nbs), library.tracks());
+        assertEquals(0, library.page());
+        assertEquals(List.of(nbs), sessions.tracksInSection(
+                playerId, List.of(audio, nbs)));
+
+        Inventory searchInventory = inventory();
+        MusicBrowserSessions.Session search = sessions.beginSearch(playerId, "song");
+        sessions.attachInventory(search, searchInventory);
+        assertTrue(sessions.completeSearch(playerId, search, search.generation(),
+                searchInventory, List.of(audio, nbs), null, 0, MusicPlaybackStats.EMPTY));
+        assertEquals(MusicBrowserSessions.Section.NBS, search.section());
+        assertEquals(List.of(nbs), search.tracks());
+
+        sessions.closeInventory(playerId, searchInventory);
+        MusicBrowserSessions.Session reopened = sessions.showLibrary(
+                playerId, List.of(audio, nbs), 0, MusicPlaybackStats.EMPTY);
+        assertEquals(MusicBrowserSessions.Section.NBS, reopened.section());
+        assertEquals(List.of(nbs), reopened.tracks());
+
+        sessions.removePlayer(playerId);
+        MusicBrowserSessions.Session afterQuit = sessions.showLibrary(
+                playerId, List.of(audio, nbs), 0, MusicPlaybackStats.EMPTY);
+        assertEquals(MusicBrowserSessions.Section.ALL, afterQuit.section());
+        assertEquals(List.of(audio, nbs), afterQuit.tracks());
+    }
+
     private static Inventory inventory() {
         return (Inventory) Proxy.newProxyInstance(Inventory.class.getClassLoader(),
                 new Class<?>[]{Inventory.class}, (proxy, method, arguments) -> {
@@ -93,5 +132,11 @@ class MusicBrowserSessionsTest {
         return new MusicTrack(id,
                 new TrackDetails(id, null, null, "MP3", AudioProperties.EMPTY),
                 new TrackTarget.LocalFile(Path.of(id + ".mp3")));
+    }
+
+    private static MusicTrack nbsTrack(String id) {
+        return new MusicTrack(id,
+                new TrackDetails(id, null, null, "NBS", AudioProperties.EMPTY),
+                new TrackTarget.NbsFile(Path.of(id + ".nbs")));
     }
 }

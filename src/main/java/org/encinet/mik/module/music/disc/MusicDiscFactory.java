@@ -85,6 +85,11 @@ public class MusicDiscFactory {
                         .color(NamedTextColor.GRAY)
                         .decoration(TextDecoration.ITALIC, false));
             }
+            if (details.originalAuthor() != null) {
+                lore.add(lore(language, Message.MUSIC_ORIGINAL_AUTHOR, details.originalAuthor())
+                        .color(NamedTextColor.GRAY)
+                        .decoration(TextDecoration.ITALIC, false));
+            }
             if (details.album() != null) {
                 lore.add(lore(language, Message.MUSIC_ALBUM, details.album())
                         .color(NamedTextColor.GRAY)

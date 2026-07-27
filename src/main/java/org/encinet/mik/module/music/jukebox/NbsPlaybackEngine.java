@@ -3,10 +3,12 @@ package org.encinet.mik.module.music.jukebox;
 import org.bukkit.Location;
 import org.bukkit.SoundCategory;
 import org.bukkit.World;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.music.catalog.TrackTarget;
 import org.encinet.mik.module.music.catalog.nbs.NbsInstruments;
 import org.encinet.mik.module.music.catalog.nbs.NbsNote;
+import org.encinet.mik.module.music.catalog.nbs.NbsNoteType;
 import org.encinet.mik.module.music.catalog.nbs.NbsParser;
 import org.encinet.mik.module.music.catalog.nbs.NbsSong;
 
@@ -45,11 +47,11 @@ final class NbsPlaybackEngine implements AutoCloseable {
     }
 
     PlaybackSession create(Location location, TrackTarget.NbsFile target,
-                           PlaybackCallbacks callbacks) {
+                           JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
         if (closed.get()) {
             throw new IllegalStateException("NBS playback backend is closed");
         }
-        Session session = new Session(location.clone(), target, callbacks);
+        Session session = new Session(location.clone(), target, settings, callbacks);
         sessions.add(session);
         return session;
     }
@@ -70,6 +72,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final PlaybackCallbacks callbacks;
         private final AtomicBoolean started = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
+        private volatile JukeboxSoundSettings settings;
         private volatile PlaybackStatus status = PlaybackStatus.LOADING;
         private volatile long playbackStartedNanos;
         private volatile long finalPositionMillis;
@@ -78,9 +81,10 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private volatile ScheduledPlayback task;
 
         private Session(Location location, TrackTarget.NbsFile target,
-                        PlaybackCallbacks callbacks) {
+                        JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
             this.location = location;
             this.target = Objects.requireNonNull(target, "target");
+            this.settings = Objects.requireNonNull(settings, "settings");
             this.callbacks = Objects.requireNonNull(callbacks, "callbacks");
         }
 
@@ -153,7 +157,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             }
             try {
                 NbsPlaybackCursor.PollResult result = cursor.poll(System.nanoTime());
-                playNotes(location, result.notes());
+                playNotes(location, result.notes(), settings);
                 if (result.finished()) {
                     finish();
                 }
@@ -173,6 +177,11 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 return finalPositionMillis;
             }
             return elapsedPositionMillis();
+        }
+
+        @Override
+        public void updateSettings(JukeboxSoundSettings settings) {
+            this.settings = Objects.requireNonNull(settings, "settings");
         }
 
         private long elapsedPositionMillis() {
@@ -268,23 +277,38 @@ final class NbsPlaybackEngine implements AutoCloseable {
         return current;
     }
 
-    private static void playNotes(Location jukeboxLocation, List<NbsNote> notes) {
+    private static void playNotes(Location jukeboxLocation, List<NbsNote> notes,
+                                  JukeboxSoundSettings settings) {
         World world = jukeboxLocation.getWorld();
-        if (world == null) {
+        if (world == null || notes.isEmpty() || settings.volumePercent() == 0) {
+            return;
+        }
+        double rangeSquared = (double) settings.rangeBlocks() * settings.rangeBlocks();
+        List<Player> audience = world.getPlayers().stream()
+                .filter(player -> player.getLocation().distanceSquared(jukeboxLocation)
+                        <= rangeSquared)
+                .toList();
+        if (audience.isEmpty()) {
             return;
         }
         for (NbsNote note : notes) {
-            float volume = NbsPlaybackVolume.volume(note);
+            if (note.type() != NbsNoteType.SOUND) {
+                continue;
+            }
+            float volume = NbsPlaybackVolume.volume(note, settings.volumePercent());
             if (volume == 0.0F) {
                 continue;
             }
             Location soundLocation = jukeboxLocation.clone().add(
                     0.5 + note.panning() / 50.0, 1.0, 0.5);
-            float semitones = note.key() - 45 + note.finePitch() / 100.0F;
+            float semitones = note.playbackPitchCents() / 100.0F;
             float pitch = (float) Math.pow(2.0, semitones / 12.0);
             pitch = Math.max(0.5F, Math.min(2.0F, pitch));
-            world.playSound(soundLocation, NbsInstruments.minecraftSound(note.instrument()),
-                    SoundCategory.RECORDS, volume, pitch);
+            for (Player player : audience) {
+                player.playSound(soundLocation,
+                        NbsInstruments.minecraftSound(note.instrument()),
+                        SoundCategory.RECORDS, volume, pitch);
+            }
         }
     }
 }

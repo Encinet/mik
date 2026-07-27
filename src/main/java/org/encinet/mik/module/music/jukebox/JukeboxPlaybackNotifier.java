@@ -23,8 +23,6 @@ import java.util.UUID;
 /** Renders player-facing jukebox playback notices and failures. */
 public final class JukeboxPlaybackNotifier {
 
-    private static final int BROADCAST_RADIUS = 50;
-
     private final LanguageService languageService;
 
     public JukeboxPlaybackNotifier(LanguageService languageService) {
@@ -52,7 +50,8 @@ public final class JukeboxPlaybackNotifier {
         }
     }
 
-    void broadcastStarted(Location jukeboxLocation, String musicName, MusicTrack track) {
+    void broadcastStarted(Location jukeboxLocation, String musicName, MusicTrack track,
+                          int rangeBlocks) {
         World world = jukeboxLocation.getWorld();
         if (world == null) {
             return;
@@ -60,7 +59,7 @@ public final class JukeboxPlaybackNotifier {
         String teleportCommand = String.format("/tp @s %d %d %d",
                 jukeboxLocation.getBlockX(), jukeboxLocation.getBlockY(),
                 jukeboxLocation.getBlockZ());
-        double radiusSquared = BROADCAST_RADIUS * BROADCAST_RADIUS;
+        double radiusSquared = (double) rangeBlocks * rangeBlocks;
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distanceSquared(jukeboxLocation) > radiusSquared) {
                 continue;
@@ -91,6 +90,7 @@ public final class JukeboxPlaybackNotifier {
         lines.add(Component.text(languageService.t(player, Message.MUSIC_FORMAT, details.format()),
                 NamedTextColor.GRAY));
         add(lines, player, Message.MUSIC_ARTIST, details.artist());
+        add(lines, player, Message.MUSIC_ORIGINAL_AUTHOR, details.originalAuthor());
         add(lines, player, Message.MUSIC_ALBUM, details.album());
         add(lines, player, Message.MUSIC_SIZE,
                 AudioPropertiesFormatter.fileSize(audio.fileSizeBytes()));

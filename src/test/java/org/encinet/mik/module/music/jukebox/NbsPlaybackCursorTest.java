@@ -96,6 +96,44 @@ class NbsPlaybackCursorTest {
         assertTrue(cursor.poll(150_000_000).finished());
     }
 
+    @Test
+    void appliesTempoChangerEventsToFollowingTickIntervals() {
+        NbsNote tempoChange = new NbsNote(1, 0, 45, 100, 100, 0, 300,
+                0, 20, 0, 45,
+                org.encinet.mik.module.music.catalog.nbs.NbsNoteType.TEMPO_CHANGE);
+        NbsSong tempoChangingSong = new NbsSong(6, "Tempo", null, null, null,
+                10, 3, false, 0, 0,
+                List.of(new NbsNote(0, 0, 45, 100, 100, 0, 0), tempoChange,
+                        new NbsNote(2, 0, 45, 100, 100, 0, 0)));
+        NbsPlaybackCursor cursor = new NbsPlaybackCursor(tempoChangingSong);
+
+        assertEquals(List.of(0), ticks(cursor.poll(0)));
+        assertEquals(List.of(1, 2), ticks(cursor.poll(150_000_000)));
+        assertTrue(cursor.poll(200_000_000).finished());
+        assertEquals(java.time.Duration.ofSeconds(1), tempoChangingSong.duration());
+    }
+
+    @Test
+    void restoresTheTempoAtTheLoopStart() {
+        NbsNote fast = new NbsNote(0, 0, 45, 100, 100, 0, 300,
+                0, 20, 0, 45,
+                org.encinet.mik.module.music.catalog.nbs.NbsNoteType.TEMPO_CHANGE);
+        NbsNote slow = new NbsNote(2, 0, 45, 100, 100, 0, 75,
+                0, 20, 0, 45,
+                org.encinet.mik.module.music.catalog.nbs.NbsNoteType.TEMPO_CHANGE);
+        NbsSong loopingSong = new NbsSong(6, "Tempo loop", null, null, null,
+                10, 3, true, 1, 1,
+                List.of(fast,
+                        new NbsNote(1, 0, 45, 100, 100, 0, 0), slow));
+        NbsPlaybackCursor cursor = new NbsPlaybackCursor(loopingSong);
+
+        assertEquals(List.of(0), ticks(cursor.poll(0)));
+        assertEquals(List.of(1), ticks(cursor.poll(50_000_000)));
+        assertEquals(List.of(2), ticks(cursor.poll(100_000_000)));
+        assertEquals(List.of(1), ticks(cursor.poll(300_000_000)));
+        assertEquals(List.of(2), ticks(cursor.poll(350_000_000)));
+    }
+
     private static List<Integer> ticks(NbsPlaybackCursor.PollResult result) {
         return result.notes().stream().map(NbsNote::tick).toList();
     }

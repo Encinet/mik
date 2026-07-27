@@ -147,9 +147,27 @@ class MusicPackageArchitectureTest {
 
         assertTrue(random.contains("MusicTrackPool"));
         assertFalse(random.contains("MusicLibrary"));
-        assertTrue(queue.contains("MusicTrackPool"));
+        assertFalse(queue.contains("MusicTrackPool"));
         assertFalse(queue.contains("MusicLibrary"));
         assertTrue(browserListener.contains("trackPool.tracks()"));
+    }
+
+    @Test
+    void jukeboxPlaybackModesAlwaysOperateOnTheEditablePlaylist() throws IOException {
+        String queue = source("jukebox/JukeboxQueueService.java");
+        String gui = source("ui/JukeboxControlGui.java");
+        String control = source("listener/JukeboxControlListener.java");
+
+        assertTrue(queue.contains("JukeboxPlaybackMode.REPEAT_ALL"));
+        assertTrue(queue.contains("JukeboxPlaybackMode.REPEAT_ONE"));
+        assertTrue(queue.contains("JukeboxPlaybackMode.SHUFFLE"));
+        assertTrue(queue.contains("trackSelector.select(queue"));
+        assertFalse(queue.contains("trackPool.tracks()"));
+        assertFalse(gui.contains("createDisabledQueueItem"));
+        assertFalse(control.contains("removeFromQueue(track);\n"
+                + "                player.sendMessage"));
+        assertTrue(source("jukebox/JukeboxAutoPlayService.java")
+                .contains("playback.playInsertedDisc(nearestPlayer, jukebox)"));
     }
 
     @Test
@@ -268,6 +286,49 @@ class MusicPackageArchitectureTest {
         assertTrue(insertion.contains("interactionItem.asOne()"));
         assertTrue(insertion.contains("jukebox.setRecord(inserted)"));
         assertTrue(insertion.contains("playbackService.playInsertedDisc(event.getPlayer(), jukebox)"));
+    }
+
+    @Test
+    void automatedCustomDiscInsertionIsTransactionalAndKeepsVanillaBehavior() throws IOException {
+        String listener = source("listener/MusicJukeboxListener.java");
+        String inventoryMove = method(listener, "public void onAutomatedJukeboxMove(",
+                "@EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)\n"
+                        + "    public void onAutomatedJukeboxDispense(");
+        String dispenser = method(listener, "public void onAutomatedJukeboxDispense(",
+                "private void stopAfterConfirmedRemoval(");
+        String insertion = method(listener, "private void insertAutomatedDisc(",
+                "private static int findSimilarItem(");
+
+        assertTrue(inventoryMove.contains("event.setCancelled(true)"));
+        assertTrue(inventoryMove.contains("scheduleAutomatedInsertion("));
+        assertTrue(dispenser.contains("event.getBlock().getRelative(directional.getFacing())"));
+        assertTrue(dispenser.contains("event.setCancelled(true)"));
+        assertTrue(dispenser.contains("DataComponentTypes.JUKEBOX_PLAYABLE"));
+        assertTrue(dispenser.contains(", event.getItem(), customDisc)"));
+        assertTrue(insertion.contains("playbackService.playInsertedDisc(null, jukebox)"));
+        assertTrue(insertion.indexOf("playbackService.playInsertedDisc(null, jukebox)")
+                < insertion.indexOf("consumeOne(source, sourceSlot, disc)"));
+        assertTrue(insertion.contains("playbackService.stopAndClear(block)"));
+        assertTrue(listener.contains("currentSourceInventory(source, sourceLocation, sourceType)"));
+        assertTrue(listener.contains("instanceof BlockInventoryHolder holder"));
+        assertTrue(listener.contains("sourceLocation.getBlock().getType() == sourceType"));
+        assertTrue(listener.contains("MusicDiscKeys.isInternal(event.getItem())"));
+        assertFalse(listener.contains("event.getItem().getType().isRecord()"));
+    }
+
+    @Test
+    void jukeboxControlsDisplayAndEjectVanillaRecords() throws IOException {
+        String gui = source("ui/JukeboxControlGui.java");
+        String listener = source("listener/JukeboxControlListener.java");
+        String playback = source("jukebox/JukeboxPlaybackService.java");
+
+        assertTrue(gui.contains("createVanillaRecordItem(player, jukebox)"));
+        assertTrue(gui.contains("ItemStack record = jukebox.getRecord().asOne()"));
+        assertTrue(gui.contains("PlaybackStatus status = jukebox.isPlaying()"));
+        assertTrue(gui.contains("&& !MusicDiscKeys.isCustomDisc(jukebox.getRecord())"));
+        assertTrue(gui.contains("if (jukebox.hasRecord())"));
+        assertTrue(listener.contains("if (!jukebox.hasRecord())"));
+        assertTrue(playback.contains("|| !jukebox.hasRecord()"));
     }
 
     private static void assertNoImport(Path directory, String forbidden) throws IOException {

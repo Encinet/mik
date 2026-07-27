@@ -1,6 +1,7 @@
 package org.encinet.mik.module.music.jukebox;
 
 import org.encinet.mik.module.music.catalog.nbs.NbsNote;
+import org.encinet.mik.module.music.catalog.nbs.NbsNoteType;
 import org.encinet.mik.module.music.catalog.nbs.NbsSong;
 
 import java.util.ArrayList;
@@ -18,13 +19,15 @@ final class NbsPlaybackCursor {
     private int currentTick;
     private int noteIndex;
     private int completedLoops;
-    private double pendingTicks;
+    private double ticksPerSecond;
+    private double pendingSeconds;
     private long lastPollNanos;
     private boolean started;
     private boolean finished;
 
     NbsPlaybackCursor(NbsSong song) {
         this.song = song;
+        this.ticksPerSecond = song.ticksPerSecond();
     }
 
     PollResult poll(long nowNanos) {
@@ -45,17 +48,20 @@ final class NbsPlaybackCursor {
             elapsed = 0;
         }
         lastPollNanos = nowNanos;
-        double elapsedTicks = elapsed * song.ticksPerSecond() / 1_000_000_000.0;
-        double staleTimingLimit = Math.max(1.0, Math.min(MAX_CATCH_UP_TICKS,
-                song.ticksPerSecond() * MAX_CATCH_UP_SECONDS));
-        double normalPollLimit = Math.ceil(song.ticksPerSecond() / SERVER_TICKS_PER_SECOND);
+        double elapsedSeconds = elapsed / 1_000_000_000.0;
+        double staleTimingLimit = Math.max(1.0 / ticksPerSecond,
+                Math.min(MAX_CATCH_UP_SECONDS, MAX_CATCH_UP_TICKS / ticksPerSecond));
+        double normalPollLimit = Math.ceil(ticksPerSecond / SERVER_TICKS_PER_SECOND)
+                / ticksPerSecond;
         double catchUpLimit = Math.max(staleTimingLimit, normalPollLimit);
-        pendingTicks = Math.min(catchUpLimit, pendingTicks + elapsedTicks);
-        while (pendingTicks >= 1.0 && !finished) {
-            pendingTicks -= 1.0;
+        pendingSeconds = Math.min(catchUpLimit, pendingSeconds + elapsedSeconds);
+        double tickSeconds = 1.0 / ticksPerSecond;
+        while (pendingSeconds + 1.0e-12 >= tickSeconds && !finished) {
+            pendingSeconds -= tickSeconds;
             advanceTick();
             if (!finished) {
                 appendCurrentTick(notes);
+                tickSeconds = 1.0 / ticksPerSecond;
             }
         }
         return new PollResult(List.copyOf(notes), finished);
@@ -75,6 +81,7 @@ final class NbsPlaybackCursor {
         completedLoops++;
         currentTick = song.loopStartTick();
         noteIndex = lowerBound(currentTick);
+        ticksPerSecond = song.ticksPerSecondBefore(currentTick);
     }
 
     private void appendCurrentTick(List<NbsNote> output) {
@@ -82,7 +89,12 @@ final class NbsPlaybackCursor {
             noteIndex++;
         }
         while (noteIndex < song.notes().size() && song.notes().get(noteIndex).tick() == currentTick) {
-            output.add(song.notes().get(noteIndex++));
+            NbsNote note = song.notes().get(noteIndex++);
+            output.add(note);
+            if (note.type() == NbsNoteType.TEMPO_CHANGE
+                    && NbsSong.isPlayableTempo(note.tempoChangeTicksPerSecond())) {
+                ticksPerSecond = note.tempoChangeTicksPerSecond();
+            }
         }
     }
 

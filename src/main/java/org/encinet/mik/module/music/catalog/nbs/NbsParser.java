@@ -4,6 +4,10 @@ import java.io.BufferedInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -17,9 +21,9 @@ public final class NbsParser {
     private static final int MAX_STRING_BYTES = 64 * 1024;
     private static final int MAX_LAYERS = 4096;
     private static final int MAX_NOTES = 200_000;
-    private static final int MAX_NOTES_PER_TICK = 256;
     private static final int MAX_TICK = 10_000_000;
-    private static final int MAX_SUPPORTED_VERSION = 5;
+    private static final int MAX_SUPPORTED_VERSION = 6;
+    private static final Charset LEGACY_STRING_CHARSET = StandardCharsets.ISO_8859_1;
 
     public NbsSong parse(Path path) throws IOException {
         long size = Files.size(path);
@@ -69,9 +73,15 @@ public final class NbsParser {
             throw new IOException("NBS tempo must be at least 0.01 ticks per second");
         }
 
-        data.skipFully(3);
-        data.skipFully(5L * Integer.BYTES);
-        data.string();
+        int autoSaveFlag = data.unsignedByte();
+        int autoSaveIntervalMinutes = data.unsignedByte();
+        int timeSignature = data.unsignedByte();
+        int minutesSpent = data.signedInt();
+        int leftClicks = data.signedInt();
+        int rightClicks = data.signedInt();
+        int notesAdded = data.signedInt();
+        int notesRemoved = data.signedInt();
+        String importedFileName = data.string();
 
         boolean loopEnabled = false;
         int maxLoopCount = 0;
@@ -83,17 +93,27 @@ public final class NbsParser {
         }
 
         List<RawNote> rawNotes = readNotes(data, version, layerCount);
-        List<Layer> layers = readLayers(data, version, layerCount);
-        List<NbsInstruments.CustomInstrument> customInstruments = readCustomInstruments(data);
+        List<NbsLayer> layers = data.hasRemaining()
+                ? readLayers(data, version, layerCount) : defaultLayers(layerCount);
+        List<NbsCustomInstrument> customInstruments = data.hasRemaining()
+                ? readCustomInstruments(data) : List.of();
+        if (data.hasRemaining()) {
+            throw new IOException("Unexpected data after the NBS custom instrument section");
+        }
 
         List<NbsNote> notes = new ArrayList<>(rawNotes.size());
         int lastTick = 0;
         for (RawNote raw : rawNotes) {
-            Layer layer = layers.get(raw.layer());
-            int panning = clamp(raw.panning() + layer.panning(), -100, 100);
+            NbsLayer layer = layers.get(raw.layer());
+            int panning = combinePanning(raw.panning(), layer.panning());
             notes.add(new NbsNote(raw.tick(), NbsInstruments.resolve(raw.instrument(),
                             vanillaInstrumentCount, customInstruments),
-                    raw.key(), raw.velocity(), layer.volume(), panning, raw.finePitch()));
+                    raw.key(), raw.velocity(), layer.volume(), panning, raw.finePitch(),
+                    raw.layer(), raw.instrument(), raw.panning(),
+                    NbsInstruments.instrumentKey(raw.instrument(),
+                            vanillaInstrumentCount, customInstruments),
+                    NbsInstruments.noteType(raw.instrument(),
+                            vanillaInstrumentCount, customInstruments)));
             lastTick = Math.max(lastTick, raw.tick());
         }
 
@@ -105,9 +125,13 @@ public final class NbsParser {
             loopEnabled = false;
             loopStartTick = 0;
         }
+        NbsFileMetadata fileMetadata = new NbsFileMetadata(
+                vanillaInstrumentCount, declaredLength, autoSaveFlag,
+                autoSaveIntervalMinutes, timeSignature, minutesSpent,
+                leftClicks, rightClicks, notesAdded, notesRemoved, importedFileName);
         return new NbsSong(version, title, author, originalAuthor, description,
                 tempo / 100.0, lengthTicks, loopEnabled, maxLoopCount,
-                loopStartTick, notes);
+                loopStartTick, notes, fileMetadata, layers, customInstruments);
     }
 
     private static List<RawNote> readNotes(LittleEndianInput data, int version, int layerCount)
@@ -125,7 +149,6 @@ public final class NbsParser {
             }
 
             int layer = -1;
-            int notesThisTick = 0;
             while (true) {
                 int layerJump = data.unsignedShort();
                 if (layerJump == 0) {
@@ -153,9 +176,6 @@ public final class NbsParser {
                 }
                 notes.add(new RawNote(tick, layer, instrument, key,
                         velocity, panning, finePitch));
-                if (++notesThisTick > MAX_NOTES_PER_TICK) {
-                    throw new IOException("NBS tick contains too many simultaneous notes");
-                }
                 if (notes.size() > MAX_NOTES) {
                     throw new IOException("NBS file contains too many notes");
                 }
@@ -164,40 +184,51 @@ public final class NbsParser {
         return notes;
     }
 
-    private static List<Layer> readLayers(LittleEndianInput data, int version, int layerCount)
+    private static List<NbsLayer> readLayers(
+            LittleEndianInput data, int version, int layerCount)
             throws IOException {
-        List<Layer> layers = new ArrayList<>(layerCount);
+        List<NbsLayer> layers = new ArrayList<>(layerCount);
         for (int index = 0; index < layerCount; index++) {
-            data.string();
-            if (version >= 4) {
-                data.unsignedByte();
-            }
+            String name = data.string();
+            int lockState = version >= 4 ? data.unsignedByte() : 0;
             int volume = data.unsignedByte();
             int panning = version >= 2 ? data.unsignedByte() - 100 : 0;
             if (volume > 100 || panning < -100 || panning > 100) {
                 throw new IOException("NBS layer volume or panning is out of range");
             }
-            layers.add(new Layer(volume, panning));
+            layers.add(new NbsLayer(name, lockState, volume, panning));
         }
-        return layers;
+        return List.copyOf(layers);
     }
 
-    private static List<NbsInstruments.CustomInstrument> readCustomInstruments(
+    private static List<NbsCustomInstrument> readCustomInstruments(
             LittleEndianInput data) throws IOException {
         int count = data.unsignedByte();
-        List<NbsInstruments.CustomInstrument> instruments = new ArrayList<>(count);
+        List<NbsCustomInstrument> instruments = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             String name = data.string();
             String fileName = data.string();
-            data.unsignedByte();
-            data.unsignedByte();
-            instruments.add(new NbsInstruments.CustomInstrument(name, fileName));
+            int key = data.unsignedByte();
+            int pressKeyFlag = data.unsignedByte();
+            instruments.add(new NbsCustomInstrument(name, fileName, key, pressKeyFlag));
         }
         return List.copyOf(instruments);
     }
 
+    private static List<NbsLayer> defaultLayers(int layerCount) {
+        List<NbsLayer> layers = new ArrayList<>(layerCount);
+        for (int index = 0; index < layerCount; index++) {
+            layers.add(NbsLayer.defaults());
+        }
+        return List.copyOf(layers);
+    }
+
     private static int clamp(int value, int minimum, int maximum) {
         return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    private static int combinePanning(int notePanning, int layerPanning) {
+        return layerPanning == 0 ? notePanning : (notePanning + layerPanning) / 2;
     }
 
     private static int addJump(int current, int jump, String field) throws IOException {
@@ -212,18 +243,22 @@ public final class NbsParser {
                            int velocity, int panning, int finePitch) {
     }
 
-    private record Layer(int volume, int panning) {
-    }
-
     private static final class LittleEndianInput {
         private final InputStream input;
+        private int pendingByte = -1;
 
         private LittleEndianInput(InputStream input) {
             this.input = input;
         }
 
         private int unsignedByte() throws IOException {
-            int value = input.read();
+            int value;
+            if (pendingByte >= 0) {
+                value = pendingByte;
+                pendingByte = -1;
+            } else {
+                value = input.read();
+            }
             if (value < 0) {
                 throw new EOFException("Unexpected end of NBS file");
             }
@@ -255,21 +290,25 @@ public final class NbsParser {
             if (bytes.length != length) {
                 throw new EOFException("Unexpected end of NBS string");
             }
-            return new String(bytes, StandardCharsets.UTF_8);
+            return decodeString(bytes);
         }
 
-        private void skipFully(long bytes) throws IOException {
-            long remaining = bytes;
-            while (remaining > 0) {
-                long skipped = input.skip(remaining);
-                if (skipped > 0) {
-                    remaining -= skipped;
-                    continue;
-                }
-                if (input.read() < 0) {
-                    throw new EOFException("Unexpected end of NBS file");
-                }
-                remaining--;
+        private boolean hasRemaining() throws IOException {
+            if (pendingByte >= 0) {
+                return true;
+            }
+            pendingByte = input.read();
+            return pendingByte >= 0;
+        }
+
+        private static String decodeString(byte[] bytes) {
+            try {
+                return StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(CodingErrorAction.REPORT)
+                        .decode(ByteBuffer.wrap(bytes)).toString();
+            } catch (CharacterCodingException ignored) {
+                return LEGACY_STRING_CHARSET.decode(ByteBuffer.wrap(bytes)).toString();
             }
         }
     }

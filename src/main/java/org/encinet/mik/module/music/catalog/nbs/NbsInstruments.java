@@ -15,7 +15,7 @@ public final class NbsInstruments {
     }
 
     static int resolve(int instrument, int declaredVanillaCount,
-                       java.util.List<CustomInstrument> customInstruments) {
+                       java.util.List<NbsCustomInstrument> customInstruments) {
         if (instrument < Math.min(declaredVanillaCount, VANILLA_INSTRUMENT_COUNT)) {
             return instrument;
         }
@@ -24,6 +24,27 @@ public final class NbsInstruments {
             return HARP;
         }
         return fromCustomInstrument(customInstruments.get(customIndex));
+    }
+
+    static int instrumentKey(int instrument, int declaredVanillaCount,
+                             java.util.List<NbsCustomInstrument> customInstruments) {
+        NbsCustomInstrument custom = customInstrument(
+                instrument, declaredVanillaCount, customInstruments);
+        return custom == null ? 45 : custom.key();
+    }
+
+    static NbsNoteType noteType(int instrument, int declaredVanillaCount,
+                                java.util.List<NbsCustomInstrument> customInstruments) {
+        NbsCustomInstrument custom = customInstrument(
+                instrument, declaredVanillaCount, customInstruments);
+        if (custom == null) {
+            return NbsNoteType.SOUND;
+        }
+        return switch (custom.name().strip().toLowerCase(Locale.ROOT)) {
+            case "tempo changer" -> NbsNoteType.TEMPO_CHANGE;
+            case "sound stopper" -> NbsNoteType.SOUND_STOP;
+            default -> NbsNoteType.SOUND;
+        };
     }
 
     public static String minecraftSound(int instrument) {
@@ -51,7 +72,7 @@ public final class NbsInstruments {
         };
     }
 
-    private static int fromCustomInstrument(CustomInstrument instrument) {
+    private static int fromCustomInstrument(NbsCustomInstrument instrument) {
         String text = (instrument.name() + " " + instrument.fileName())
                 .toLowerCase(Locale.ROOT)
                 .replace('-', '_')
@@ -71,6 +92,14 @@ public final class NbsInstruments {
         return TRUMPET;
     }
 
+    private static NbsCustomInstrument customInstrument(
+            int instrument, int declaredVanillaCount,
+            java.util.List<NbsCustomInstrument> customInstruments) {
+        int customIndex = instrument - declaredVanillaCount;
+        return customIndex < 0 || customIndex >= customInstruments.size()
+                ? null : customInstruments.get(customIndex);
+    }
+
     private static boolean containsAny(String value, String... candidates) {
         for (String candidate : candidates) {
             if (value.contains(candidate)) {
@@ -78,8 +107,5 @@ public final class NbsInstruments {
             }
         }
         return false;
-    }
-
-    record CustomInstrument(String name, String fileName) {
     }
 }

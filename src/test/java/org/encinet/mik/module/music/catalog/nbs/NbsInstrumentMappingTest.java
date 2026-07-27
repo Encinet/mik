@@ -38,7 +38,7 @@ class NbsInstrumentMappingTest {
         assertEquals(expected, NbsInstruments.resolve(
                 NbsInstruments.TRUMPET,
                 16,
-                List.of(new NbsInstruments.CustomInstrument(name, fileName))
+                List.of(new NbsCustomInstrument(name, fileName, 45, 0))
         ));
     }
 }

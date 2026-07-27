@@ -85,7 +85,8 @@ class LocalMusicSourceTest {
 
     @Test
     void loadsValidNbsTrackAndSkipsDamagedNbsFile() throws Exception {
-        Files.write(musicFolder.resolve("brass.nbs"), minimalNbs("Brass Song", 16));
+        Files.write(musicFolder.resolve("brass.nbs"),
+                minimalNbs("Brass Song", "Original Composer", 16));
         Files.write(musicFolder.resolve("broken.nbs"), new byte[]{0, 0, 5});
         List<String> warnings = new ArrayList<>();
 
@@ -96,6 +97,7 @@ class LocalMusicSourceTest {
         assertEquals("brass.nbs", track.id());
         assertEquals("Brass Song", track.details().title());
         assertEquals("Composer", track.details().artist());
+        assertEquals("Original Composer", track.details().originalAuthor());
         assertEquals("NBS", track.details().format());
         assertEquals(Duration.ofSeconds(1), track.details().audio().duration());
         TrackTarget.NbsFile target = assertInstanceOf(TrackTarget.NbsFile.class,
@@ -109,7 +111,7 @@ class LocalMusicSourceTest {
     @Test
     void fallsBackToFileIdWhenSanitizedLocalOrNbsNameIsEmpty() throws Exception {
         Files.writeString(musicFolder.resolve("_.mp3"), "audio");
-        Files.write(musicFolder.resolve("'.nbs"), minimalNbs("", 0));
+        Files.write(musicFolder.resolve("'.nbs"), minimalNbs("", "", 0));
 
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
                 (path, extension) -> LocalTrackMetadata.EMPTY,
@@ -146,10 +148,10 @@ class LocalMusicSourceTest {
         }
     }
 
-    private static byte[] minimalNbs(String title, int instrument) {
+    private static byte[] minimalNbs(String title, String originalAuthor, int instrument) {
         Bytes bytes = new Bytes();
         bytes.u16(0).u8(5).u8(20).u16(1).u16(1)
-                .string(title).string("Composer").string("").string("")
+                .string(title).string("Composer").string(originalAuthor).string("")
                 .u16(1000).u8(0).u8(10).u8(4)
                 .i32(0).i32(0).i32(0).i32(0).i32(0).string("")
                 .u8(0).u8(0).u16(0)
