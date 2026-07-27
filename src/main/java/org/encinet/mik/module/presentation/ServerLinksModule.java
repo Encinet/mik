@@ -93,7 +93,6 @@ public final class ServerLinksModule implements Listener {
     }
 
     public void register(JavaPlugin plugin) {
-        fillLinks(plugin.getServer().getServerLinks(), Language.DEFAULT);
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 

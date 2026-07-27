@@ -34,6 +34,17 @@ class PacketEventsLifecycleTest {
         assertTrue(plugin.contains("brandingModule.disable()"));
     }
 
+    @Test
+    void gameModeSwitcherUsesPaperApiAcrossClientStateResets() throws IOException {
+        String source = source("module/player/GameModeSwitchModule.java");
+
+        assertTrue(source.contains("sendOpLevel("));
+        assertTrue(source.contains("PlayerJoinEvent"));
+        assertTrue(source.contains("PlayerPostRespawnEvent"));
+        assertTrue(source.contains("PlayerChangedWorldEvent"));
+        assertFalse(source.contains("packetevents"));
+    }
+
     private static void assertRegistersAndUnregisters(String relative) throws IOException {
         String source = source(relative);
         assertTrue(source.contains("registerListener("), relative);

@@ -1,9 +1,13 @@
 package org.encinet.mik.module.player;
 
+import com.destroystokyo.paper.event.player.PlayerPostRespawnEvent;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -36,8 +40,22 @@ public class GameModeSwitchModule implements Listener {
         enabled = false;
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        event.getPlayer().sendOpLevel(GAME_MODE_SWITCHER_OP_LEVEL);
+        enableGameModeSwitcher(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerPostRespawn(PlayerPostRespawnEvent event) {
+        enableGameModeSwitcher(event.getPlayer());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
+        enableGameModeSwitcher(event.getPlayer());
+    }
+
+    private void enableGameModeSwitcher(Player player) {
+        player.sendOpLevel(GAME_MODE_SWITCHER_OP_LEVEL);
     }
 }
