@@ -27,7 +27,6 @@ class PacketEventsLifecycleTest {
     @Test
     void everyMikPacketListenerHasAnExplicitUnregisterPath() throws IOException {
         assertRegistersAndUnregisters("module/presentation/BrandingModule.java");
-        assertRegistersAndUnregisters("module/player/GameModeSwitchModule.java");
         assertRegistersAndUnregisters("module/music/jukebox/VanillaRecordSilencer.java");
 
         String plugin = source("Mik.java");

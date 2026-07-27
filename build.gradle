@@ -23,7 +23,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly("io.papermc.paper:paper-api:26.1.2.build.69-stable")
+    compileOnly("io.papermc.paper:paper-api:26.2.build.84-stable")
     compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
     compileOnly("com.viaversion:viaversion-api:5.10.0")
     compileOnly("com.google.code.gson:gson:2.11.0")
