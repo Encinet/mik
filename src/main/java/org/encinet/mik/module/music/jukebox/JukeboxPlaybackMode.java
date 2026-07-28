@@ -4,7 +4,8 @@ package org.encinet.mik.module.music.jukebox;
 public enum JukeboxPlaybackMode {
     REPEAT_ALL,
     REPEAT_ONE,
-    SHUFFLE;
+    SHUFFLE,
+    LIBRARY_SHUFFLE;
 
     public JukeboxPlaybackMode next() {
         JukeboxPlaybackMode[] modes = values();

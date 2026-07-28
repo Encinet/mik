@@ -110,7 +110,7 @@ public final class MusicModule {
                 track -> track.target() instanceof org.encinet.mik.module.music.catalog.TrackTarget.Lx lx
                         && audioCache.isCached(lx),
                 playbackHistory, discFactory, languageService);
-        this.queueService = new JukeboxQueueService(trackSelector);
+        this.queueService = new JukeboxQueueService(trackSelector, trackPool::tracks);
         JukeboxControlGui jukeboxControlGui = new JukeboxControlGui(
                 queueService, discFactory, discResolver, playbackService,
                 settingsStore, languageService);

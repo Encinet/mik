@@ -36,13 +36,16 @@ final class PvpCombatController implements Listener {
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private final PvpSettingsStore settingsStore;
+    private final PvpStateResolver stateResolver;
     private final Map<UUID, PendingAttack> pendingAutoEnable = new ConcurrentHashMap<>();
     private final Map<UUID, Long> combatTaggedUntil = new ConcurrentHashMap<>();
 
-    PvpCombatController(JavaPlugin plugin, LanguageService languageService, PvpSettingsStore settingsStore) {
+    PvpCombatController(JavaPlugin plugin, LanguageService languageService, PvpSettingsStore settingsStore,
+                        PvpStateResolver stateResolver) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.settingsStore = settingsStore;
+        this.stateResolver = stateResolver;
     }
 
     void enable() {
@@ -50,14 +53,18 @@ final class PvpCombatController implements Listener {
         Bukkit.getScheduler().runTaskTimer(plugin, this::cleanupExpiredCombatTags, 20L * 60L, 20L * 60L);
     }
 
-    void onPvpStateSet(UUID playerId, boolean enabled) {
+    void onPvpStateChanged(UUID playerId) {
         pendingAutoEnable.remove(playerId);
-        if (!enabled) {
+        if (!stateResolver.effectiveEnabled(playerId)) {
             combatTaggedUntil.remove(playerId);
         }
     }
 
     boolean isCombatTagged(UUID playerId) {
+        if (!stateResolver.effectiveEnabled(playerId)) {
+            combatTaggedUntil.remove(playerId);
+            return false;
+        }
         Long expiresAt = combatTaggedUntil.get(playerId);
         if (expiresAt == null) {
             return false;
@@ -104,7 +111,8 @@ final class PvpCombatController implements Listener {
         if (attacker == null || attacker.playerId().equals(victim.getUniqueId())) {
             return;
         }
-        if (!settingsStore.get(attacker.playerId()).enabled() || !settingsStore.get(victim.getUniqueId()).enabled()) {
+        if (!stateResolver.effectiveEnabled(attacker.playerId())
+                || !stateResolver.effectiveEnabled(victim.getUniqueId())) {
             return;
         }
 
@@ -161,14 +169,18 @@ final class PvpCombatController implements Listener {
         }
 
         PvpSettings attackerSettings = settingsStore.get(attacker.playerId());
-        PvpSettings victimSettings = settingsStore.get(victim.getUniqueId());
-        if (!victimSettings.enabled()) {
+        if (!stateResolver.effectiveEnabled(victim.getUniqueId())) {
             event.setCancelled(true);
             sendActionBar(attacker, Message.PVP_TARGET_DISABLED_ACTIONBAR_MM);
             return;
         }
 
-        if (attackerSettings.enabled()) {
+        if (stateResolver.effectiveEnabled(attacker.playerId())) {
+            return;
+        }
+
+        if (stateResolver.hasOverride(attacker.playerId())) {
+            event.setCancelled(true);
             return;
         }
 
@@ -211,8 +223,8 @@ final class PvpCombatController implements Listener {
             }
             PvpSettings riderSettings = settingsStore.get(rider.getUniqueId());
             PvpSettings attackerSettings = settingsStore.get(attacker.playerId());
-            boolean mountedDamageAllowed = riderSettings.enabled()
-                    && attackerSettings.enabled()
+            boolean mountedDamageAllowed = stateResolver.effectiveEnabled(rider.getUniqueId())
+                    && stateResolver.effectiveEnabled(attacker.playerId())
                     && riderSettings.allowMountedMobDamage();
             if (riderSettings.protectMobs() && !mountedDamageAllowed) {
                 return true;

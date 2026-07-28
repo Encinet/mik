@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -92,6 +93,7 @@ class JukeboxQueueServiceTest {
         assertEquals(JukeboxPlaybackMode.REPEAT_ALL, data.playbackMode());
         assertEquals(JukeboxPlaybackMode.REPEAT_ONE, data.cyclePlaybackMode());
         assertEquals(JukeboxPlaybackMode.SHUFFLE, data.cyclePlaybackMode());
+        assertEquals(JukeboxPlaybackMode.LIBRARY_SHUFFLE, data.cyclePlaybackMode());
         assertEquals(JukeboxPlaybackMode.REPEAT_ALL, data.cyclePlaybackMode());
     }
 
@@ -140,6 +142,46 @@ class JukeboxQueueServiceTest {
     }
 
     @Test
+    void libraryShuffleUsesTheDynamicLibraryWithoutRepeatingTheCurrentTrack() {
+        Location location = new Location(null, 1, 64, 2);
+        MusicTrack current = track("current.mp3", "Current");
+        MusicTrack other = track("other.mp3", "Other");
+        MusicTrack addedLater = track("later.mp3", "Later");
+        AtomicReference<List<MusicTrack>> library = new AtomicReference<>(
+                List.of(current, other));
+        JukeboxQueueService manager = new JukeboxQueueService(
+                new MusicTrackSelector(), library::get);
+        manager.state(location).setPlaybackMode(JukeboxPlaybackMode.LIBRARY_SHUFFLE);
+
+        assertTrue(manager.state(location).queueEmpty());
+        assertEquals(other, manager.nextTrack(location, current, true));
+
+        library.set(List.of(current, addedLater));
+        assertEquals(addedLater, manager.nextTrack(location, current, false));
+    }
+
+    @Test
+    void libraryShuffleDoesNotRepeatWhenOnlyTheCurrentTrackIsAvailable() {
+        Location location = new Location(null, 1, 64, 2);
+        MusicTrack current = track("current.mp3", "Current");
+        JukeboxQueueService manager = new JukeboxQueueService(
+                new MusicTrackSelector(), () -> List.of(current));
+        manager.state(location).setPlaybackMode(JukeboxPlaybackMode.LIBRARY_SHUFFLE);
+
+        assertNull(manager.nextTrack(location, current, true));
+    }
+
+    @Test
+    void resolvesCurrentLibraryTrackOutsideThePlaylist() {
+        Location location = new Location(null, 1, 64, 2);
+        MusicTrack libraryTrack = track("library.mp3", "Library");
+        JukeboxQueueService manager = new JukeboxQueueService(
+                new MusicTrackSelector(), () -> List.of(libraryTrack));
+
+        assertEquals(libraryTrack, manager.trackById(location, libraryTrack.id()));
+    }
+
+    @Test
     void rejectsNullQueueEntries() {
         JukeboxQueueService.JukeboxState data = new JukeboxQueueService.JukeboxState();
 
@@ -154,6 +196,6 @@ class JukeboxQueueServiceTest {
     }
 
     private static JukeboxQueueService manager() {
-        return new JukeboxQueueService(new MusicTrackSelector());
+        return new JukeboxQueueService(new MusicTrackSelector(), List::of);
     }
 }

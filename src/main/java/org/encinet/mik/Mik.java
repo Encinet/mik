@@ -43,6 +43,7 @@ import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
+import org.encinet.mik.module.skript.MikSkriptModule;
 
 @su.plo.voice.api.addon.annotation.Addon(
         id = "mik-music",
@@ -98,6 +99,7 @@ public final class Mik extends JavaPlugin {
     private PlayerAssociationNotifier playerAssociationNotifier;
     private SpawnBeaconColorModule spawnBeaconColorModule;
     private FifthAnniversaryEventModule fifthAnniversaryEventModule;
+    private MikSkriptModule skriptModule;
 
     @su.plo.voice.api.addon.InjectPlasmoVoice
     private su.plo.voice.api.server.PlasmoVoiceServer voiceServer;
@@ -175,6 +177,15 @@ public final class Mik extends JavaPlugin {
             clientVersionReminderModule.enable();
         } else {
             getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
+        }
+
+        if (getServer().getPluginManager().isPluginEnabled("Skript")) {
+            skriptModule = new MikSkriptModule(
+                    this, languageService, clientVersionReminderModule, afkModule, pvpModule);
+            skriptModule.enable();
+            skriptModule.registerCommands(this.getLifecycleManager());
+        } else {
+            getLogger().info("Skript not found; MIK Skript expressions are disabled.");
         }
 
         mainMenuModule = new MainMenuModule(this, afkModule, chatModule, teleportPreferenceModule,
@@ -265,6 +276,10 @@ public final class Mik extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (skriptModule != null) {
+            skriptModule.disable();
+        }
+
         if (musicModule != null) {
             musicModule.disable();
         }

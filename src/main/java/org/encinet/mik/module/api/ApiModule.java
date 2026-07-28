@@ -28,6 +28,7 @@ import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.player.PlayerRole;
 
 import java.io.File;
 import java.io.IOException;
@@ -312,7 +313,7 @@ public class ApiModule implements Listener {
         WebLoginConfirmation confirmation = new WebLoginConfirmation(
                 player.getUniqueId(),
                 player.getName(),
-                playerRole(player),
+                PlayerRole.resolve(player).id(),
                 formatIso(Instant.now()),
                 System.currentTimeMillis() + WEB_LOGIN_CONFIRMATION_MILLIS,
                 new AtomicBoolean(false));
@@ -329,20 +330,6 @@ public class ApiModule implements Listener {
 
     private String normalizeWebLoginCode(String code) {
         return code == null ? "" : code.trim();
-    }
-
-    private String playerRole(Player player) {
-        if (player.hasPermission("group." + Mik.GROUP_MANAGER)) {
-            return Mik.GROUP_MANAGER;
-        }
-        if (player.hasPermission("group." + Mik.GROUP_HELPER)) {
-            return Mik.GROUP_HELPER;
-        }
-        if (player.hasPermission("group." + Mik.GROUP_MEMBER)) {
-            return Mik.GROUP_MEMBER;
-        }
-
-        return "";
     }
 
     private byte[] playerResolveJson(String name) {

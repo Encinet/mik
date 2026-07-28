@@ -6,6 +6,7 @@ import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 
 import java.util.*;
+import java.util.function.Supplier;
 
 /**
  * Main-thread-confined manager for jukebox queues and playback modes.
@@ -14,9 +15,12 @@ public class JukeboxQueueService {
 
     private final Map<Location, JukeboxState> states = new HashMap<>();
     private final MusicTrackSelector trackSelector;
+    private final Supplier<List<MusicTrack>> libraryTracks;
 
-    public JukeboxQueueService(MusicTrackSelector trackSelector) {
+    public JukeboxQueueService(MusicTrackSelector trackSelector,
+                               Supplier<List<MusicTrack>> libraryTracks) {
         this.trackSelector = Objects.requireNonNull(trackSelector, "trackSelector");
+        this.libraryTracks = Objects.requireNonNull(libraryTracks, "libraryTracks");
     }
 
     /** Returns the mutable state owned by one jukebox, creating it when needed. */
@@ -45,7 +49,28 @@ public class JukeboxQueueService {
     /** Selects the next playlist entry for a manual skip or a natural completion. */
     public MusicTrack nextTrack(
             Location location, MusicTrack currentTrack, boolean naturalCompletion) {
-        return state(location).nextTrack(currentTrack, naturalCompletion, trackSelector);
+        return state(location).nextTrack(
+                currentTrack, naturalCompletion, trackSelector, currentLibraryTracks());
+    }
+
+    MusicTrack trackById(Location location, String trackId) {
+        if (trackId == null) {
+            return null;
+        }
+        JukeboxState data = findState(location);
+        MusicTrack queuedTrack = data == null ? null : data.trackById(trackId);
+        if (queuedTrack != null) {
+            return queuedTrack;
+        }
+        return currentLibraryTracks().stream()
+                .filter(track -> trackId.equals(track.id()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private List<MusicTrack> currentLibraryTracks() {
+        List<MusicTrack> tracks = libraryTracks.get();
+        return tracks == null ? List.of() : tracks;
     }
 
     private static Location blockLocation(Location location) {
@@ -149,10 +174,14 @@ public class JukeboxQueueService {
 
         private MusicTrack nextTrack(
                 MusicTrack currentTrack, boolean naturalCompletion,
-                MusicTrackSelector trackSelector) {
+                MusicTrackSelector trackSelector, List<MusicTrack> libraryTracks) {
             if (naturalCompletion && playbackMode == JukeboxPlaybackMode.REPEAT_ONE
                     && currentTrack != null) {
                 return currentTrack;
+            }
+            if (playbackMode == JukeboxPlaybackMode.LIBRARY_SHUFFLE) {
+                return trackSelector.select(libraryTracks, candidate -> currentTrack == null
+                        || !sameTrack(candidate, currentTrack));
             }
             if (queue.isEmpty()) {
                 return null;

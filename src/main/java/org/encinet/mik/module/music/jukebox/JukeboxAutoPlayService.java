@@ -76,7 +76,8 @@ public class JukeboxAutoPlayService {
 
         MusicTrack currentTrack = finishedTrack != null
                 ? finishedTrack
-                : data.trackById(MusicDiscKeys.trackId(jukebox.getRecord()));
+                : queueService.trackById(
+                        blockLocation, MusicDiscKeys.trackId(jukebox.getRecord()));
         MusicTrack nextTrack = queueService.nextTrack(
                 blockLocation, currentTrack, finishedTrack != null);
         if (nextTrack == null) {

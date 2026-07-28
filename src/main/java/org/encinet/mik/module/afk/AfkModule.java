@@ -68,7 +68,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
     private static final long SUSPENDED_TRACKER_RETENTION_MILLIS = 30L * 60L * 1_000L;
-    private static final int MAX_STATUS_LENGTH = 20;
+    public static final int MAX_STATUS_LENGTH = 20;
     private static final String DEFAULT_STATUSES = "afk-default-statuses";
     private static final String DEFAULT_ENTER_TEMPLATES = "afk-enter-default-templates";
     private static final String CUSTOM_ENTER_TEMPLATES = "afk-enter-custom-templates";
@@ -88,7 +88,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private final LanguageService languageService;
     private final Map<UUID, AfkActivityTracker> activityTrackers = new HashMap<>();
     private final Map<UUID, SuspendedTracker> suspendedTrackers = new HashMap<>();
-    private final Map<UUID, AfkState> states = new HashMap<>();
+    private final Map<UUID, AfkState> states = new ConcurrentHashMap<>();
     private final Set<UUID> pendingAsyncActivity = ConcurrentHashMap.newKeySet();
     private final List<AfkStateListener> listeners = new CopyOnWriteArrayList<>();
     private final AfkDisplayController displayController;
@@ -235,7 +235,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
                 if (event instanceof PlayerTeleportEvent) {
                     event.setCancelled(true);
                 } else {
-                    clearAfk(player, false);
+                    clearAfk(player, false, true);
                 }
             } else {
                 recordLightActivity(player);
@@ -282,7 +282,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         if (movementInput
                 && isAfk(player.getUniqueId())
                 && tracker.canMovementClearAfk()) {
-            clearAfk(player, false);
+            clearAfk(player, false, true);
         }
     }
 
@@ -390,9 +390,9 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
             return 0;
         }
         if (isAfk(player.getUniqueId())) {
-            clearAfk(player, true);
+            clearAfk(player, true, true);
         } else {
-            setAfk(player, null, false);
+            setAfk(player, null, AfkSource.MANUAL, true);
         }
         return Command.SINGLE_SUCCESS;
     }
@@ -404,7 +404,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
         String message = normalizeMessage(rawMessage);
         if (isClearKeyword(message)) {
-            clearAfk(player, true);
+            clearAfk(player, true, true);
             return Command.SINGLE_SUCCESS;
         }
 
@@ -413,7 +413,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
                     languageService.t(player, Message.AFK_STATUS_TOO_LONG_MM, MAX_STATUS_LENGTH)));
             return Command.SINGLE_SUCCESS;
         }
-        setAfk(player, message.isEmpty() ? null : message, false);
+        setAfk(player, message.isEmpty() ? null : message, AfkSource.MANUAL, true);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -503,7 +503,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         AfkActivityTracker tracker = tracker(player, now);
         tracker.recordAction(evidence, now);
         if (isAfk(player.getUniqueId())) {
-            clearAfk(player, false);
+            clearAfk(player, false, true);
         }
     }
 
@@ -564,21 +564,45 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         return System.nanoTime() / 1_000_000L;
     }
 
-    private void setAfk(Player player, String customMessage, boolean automatic) {
+    public void setAfkFromSkript(Player player, String customMessage, boolean broadcast) {
+        String message = normalizeMessage(customMessage);
+        if (message.codePointCount(0, message.length()) > MAX_STATUS_LENGTH) {
+            throw new IllegalArgumentException("AFK message cannot exceed " + MAX_STATUS_LENGTH + " characters");
+        }
+        AfkState current = states.get(player.getUniqueId());
+        if (current != null) {
+            AfkState updated = new AfkState(
+                    current.playerId(), message.isEmpty() ? null : message,
+                    AfkSource.SKRIPT, current.sinceMillis());
+            states.put(current.playerId(), updated);
+            displayController.update(player, updated);
+            notifyListeners(player, updated);
+            return;
+        }
+        setAfk(player, message.isEmpty() ? null : message, AfkSource.SKRIPT, broadcast);
+    }
+
+    public boolean clearAfkFromSkript(Player player, boolean broadcast) {
+        return clearAfk(player, false, broadcast);
+    }
+
+    private void setAfk(Player player, String customMessage, AfkSource source, boolean broadcast) {
         long now = activityTimeMillis();
         UUID playerId = player.getUniqueId();
         boolean hasCustomMessage = customMessage != null && !customMessage.isBlank();
         AfkState state = new AfkState(
                 playerId,
                 hasCustomMessage ? customMessage : null,
-                automatic,
+                source,
                 System.currentTimeMillis());
         states.put(playerId, state);
         tracker(player, now).suspendForAfk(now, hasMovementInput(player.getCurrentInput()));
         applyAfkProtection(player);
         displayController.update(player, state);
         notifyListeners(player, state);
-        broadcastEnterMessage(player, customMessage, hasCustomMessage);
+        if (broadcast) {
+            broadcastEnterMessage(player, customMessage, hasCustomMessage);
+        }
     }
 
     private void setAutomaticAfk(List<Player> players, long now) {
@@ -590,7 +614,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         Map<UUID, AfkState> newStates = new HashMap<>(players.size());
         for (Player player : players) {
             UUID playerId = player.getUniqueId();
-            AfkState state = new AfkState(playerId, null, true, sinceMillis);
+            AfkState state = new AfkState(playerId, null, AfkSource.AUTOMATIC, sinceMillis);
             states.put(playerId, state);
             newStates.put(playerId, state);
             tracker(player, now).suspendForAfk(now, hasMovementInput(player.getCurrentInput()));
@@ -605,13 +629,13 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         broadcastAutomaticEnterMessages(players);
     }
 
-    private void clearAfk(Player player, boolean notifyPlayer) {
+    private boolean clearAfk(Player player, boolean notifyPlayer, boolean broadcast) {
         UUID playerId = player.getUniqueId();
         if (states.remove(playerId) == null) {
             if (notifyPlayer) {
                 player.sendMessage(MINI_MESSAGE.deserialize(languageService.t(player, Message.AFK_NOT_AFK_MM)));
             }
-            return;
+            return false;
         }
 
         long now = activityTimeMillis();
@@ -623,7 +647,10 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         restoreAfkProtection(player);
         displayController.remove(playerId);
         notifyListeners(player, null);
-        broadcastExitMessage(player);
+        if (broadcast) {
+            broadcastExitMessage(player);
+        }
+        return true;
     }
 
     private void notifyListeners(Player player, AfkState state) {

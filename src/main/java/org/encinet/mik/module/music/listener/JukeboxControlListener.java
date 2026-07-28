@@ -279,6 +279,7 @@ public final class JukeboxControlListener implements Listener {
             case REPEAT_ALL -> Message.MUSIC_SEQUENTIAL_MODE;
             case REPEAT_ONE -> Message.MUSIC_REPEAT_ONE_MODE;
             case SHUFFLE -> Message.MUSIC_RANDOM_MODE;
+            case LIBRARY_SHUFFLE -> Message.MUSIC_LIBRARY_RANDOM_MODE;
         };
     }
 
@@ -287,6 +288,7 @@ public final class JukeboxControlListener implements Listener {
             case REPEAT_ALL -> Message.MUSIC_SEQUENTIAL_MODE_DESC;
             case REPEAT_ONE -> Message.MUSIC_REPEAT_ONE_MODE_DESC;
             case SHUFFLE -> Message.MUSIC_RANDOM_MODE_DESC;
+            case LIBRARY_SHUFFLE -> Message.MUSIC_LIBRARY_RANDOM_MODE_DESC;
         };
     }
 

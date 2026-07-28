@@ -26,15 +26,20 @@ import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
-public class PvpModule implements Listener {
+public class PvpModule implements Listener, PvpStateResolver {
+
+    public static final long PERMANENT_OVERRIDE = -1L;
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private final PvpSettingsStore settingsStore;
+    private final PvpOverrideRegistry overrideRegistry;
     private final PvpCombatController combatController;
     private final PvpMenuController menuController;
 
@@ -42,8 +47,10 @@ public class PvpModule implements Listener {
         this.plugin = plugin;
         this.languageService = languageService;
         this.settingsStore = new PvpSettingsStore(plugin);
-        this.combatController = new PvpCombatController(plugin, languageService, settingsStore);
-        this.menuController = new PvpMenuController(plugin, menuNavigation, languageService, settingsStore, combatController);
+        this.overrideRegistry = new PvpOverrideRegistry();
+        this.combatController = new PvpCombatController(plugin, languageService, settingsStore, this);
+        this.menuController = new PvpMenuController(
+                plugin, menuNavigation, languageService, settingsStore, combatController, this);
     }
 
     public void enable() {
@@ -184,7 +191,9 @@ public class PvpModule implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        settingsStore.invalidate(event.getPlayer().getUniqueId());
+        UUID playerId = event.getPlayer().getUniqueId();
+        overrideRegistry.clearAll(playerId);
+        settingsStore.invalidate(playerId);
     }
 
     public void openMenu(Player player) {
@@ -204,22 +213,79 @@ public class PvpModule implements Listener {
     }
 
     public void setPvp(Player player, boolean enabled) {
-        if (!enabled && isCombatTagged(player.getUniqueId())) {
+        UUID playerId = player.getUniqueId();
+        if (!enabled && isCombatTagged(playerId)
+                && effectiveEnabled(playerId)
+                && !effectiveEnabled(playerId, false)) {
             player.sendMessage(mm(player, Message.PVP_COMBAT_LOCKED_MM, combatTagRemainingSeconds(player.getUniqueId())));
             return;
         }
-        PvpSettings current = settingsStore.get(player.getUniqueId());
-        settingsStore.save(player.getUniqueId(), current.withEnabled(enabled));
-        combatController.onPvpStateSet(player.getUniqueId(), enabled);
+        setPreference(player, enabled);
         player.sendMessage(mm(player, enabled ? Message.PVP_TOGGLED_ON_MM : Message.PVP_TOGGLED_OFF_MM));
     }
 
     public boolean isEnabled(Player player) {
+        return effectiveEnabled(player.getUniqueId());
+    }
+
+    public boolean preferenceEnabled(Player player) {
         return settingsStore.get(player.getUniqueId()).enabled();
     }
 
+    public void setPreference(Player player, boolean enabled) {
+        UUID playerId = player.getUniqueId();
+        PvpSettings current = settingsStore.get(playerId);
+        settingsStore.save(playerId, current.withEnabled(enabled));
+        combatController.onPvpStateChanged(playerId);
+    }
+
+    public void setOverride(Player player, String owner, String id,
+                            boolean enabled, int priority, long durationMillis) {
+        UUID playerId = player.getUniqueId();
+        overrideRegistry.put(playerId, owner, id, enabled, priority, durationMillis);
+        combatController.onPvpStateChanged(playerId);
+    }
+
+    public boolean clearOverride(Player player, String owner, String id) {
+        UUID playerId = player.getUniqueId();
+        boolean removed = overrideRegistry.remove(playerId, owner, id);
+        if (removed) {
+            combatController.onPvpStateChanged(playerId);
+        }
+        return removed;
+    }
+
+    public void clearOverrides(Player player, String owner) {
+        UUID playerId = player.getUniqueId();
+        if (overrideRegistry.clear(playerId, owner)) {
+            combatController.onPvpStateChanged(playerId);
+        }
+    }
+
+    public void clearOverridesOwnedBy(String owner) {
+        for (UUID playerId : overrideRegistry.clearOwner(owner)) {
+            combatController.onPvpStateChanged(playerId);
+        }
+    }
+
+    public Optional<PvpOverrideState> activeOverride(Player player) {
+        return overrideRegistry.activeState(player.getUniqueId());
+    }
+
+    public boolean hasOverride(Player player, String owner, String id) {
+        return overrideRegistry.contains(player.getUniqueId(), owner, id);
+    }
+
+    public Set<String> overrideIds(Player player, String owner) {
+        return overrideRegistry.ids(player.getUniqueId(), owner);
+    }
+
+    public static String normalizeOverrideId(String id) {
+        return PvpOverrideRegistry.normalizeId(id);
+    }
+
     public String summary(Player player) {
-        return languageService.t(player, settingsStore.get(player.getUniqueId()).enabled()
+        return languageService.t(player, isEnabled(player)
                 ? Message.PVP_SUMMARY_ENABLED
                 : Message.PVP_SUMMARY_DISABLED);
     }
@@ -254,9 +320,7 @@ public class PvpModule implements Listener {
             return;
         }
 
-        PvpSettings current = settingsStore.get(target.getUniqueId());
-        settingsStore.save(target.getUniqueId(), current.withEnabled(enabled));
-        combatController.onPvpStateSet(target.getUniqueId(), enabled);
+        setPreference(target, enabled);
 
         if (sender instanceof Player viewer) {
             viewer.sendMessage(languageService.rich(viewer, Message.PVP_SET_OTHER_RICH, NamedTextColor.GREEN,
@@ -292,7 +356,7 @@ public class PvpModule implements Listener {
                     .append(Component.text(languageService.t(Language.DEFAULT, Message.PVP_STATUS_PLAYER, target.getName()), NamedTextColor.GRAY));
         }
         message = message.append(Component.newline())
-                .append(statusLine(sender, Message.PVP_STATE_LABEL, settings.enabled()))
+                .append(statusLine(sender, Message.PVP_STATE_LABEL, isEnabled(target)))
                 .append(Component.newline())
                 .append(statusLine(sender, Message.PVP_MOB_PROTECTION_LABEL, settings.protectMobs()))
                 .append(Component.newline())
@@ -339,7 +403,22 @@ public class PvpModule implements Listener {
         return combatController.isCombatTagged(playerId);
     }
 
-    private long combatTagRemainingSeconds(UUID playerId) {
+    @Override
+    public boolean effectiveEnabled(UUID playerId) {
+        return effectiveEnabled(playerId, settingsStore.get(playerId).enabled());
+    }
+
+    @Override
+    public boolean effectiveEnabled(UUID playerId, boolean preference) {
+        return overrideRegistry.effectiveEnabled(playerId, preference);
+    }
+
+    @Override
+    public boolean hasOverride(UUID playerId) {
+        return overrideRegistry.hasOverride(playerId);
+    }
+
+    public long combatTagRemainingSeconds(UUID playerId) {
         return combatController.combatTagRemainingSeconds(playerId);
     }
 

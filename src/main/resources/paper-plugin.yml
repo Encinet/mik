@@ -26,6 +26,10 @@ dependencies:
       load: BEFORE
       required: true
       join-classpath: true
+    Skript:
+      load: BEFORE
+      required: false
+      join-classpath: true
   server:
     packetevents:
       load: BEFORE
@@ -46,4 +50,8 @@ dependencies:
     PlasmoVoice:
       load: BEFORE
       required: true
+      join-classpath: true
+    Skript:
+      load: BEFORE
+      required: false
       join-classpath: true

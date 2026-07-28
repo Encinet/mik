@@ -52,15 +52,18 @@ final class PvpMenuController implements Listener {
     private final LanguageService languageService;
     private final PvpSettingsStore settingsStore;
     private final PvpCombatController combatController;
+    private final PvpStateResolver stateResolver;
     private final NamespacedKey actionKey;
 
     PvpMenuController(JavaPlugin plugin, MenuNavigation menuNavigation, LanguageService languageService,
-                      PvpSettingsStore settingsStore, PvpCombatController combatController) {
+                      PvpSettingsStore settingsStore, PvpCombatController combatController,
+                      PvpStateResolver stateResolver) {
         this.plugin = plugin;
         this.menuNavigation = menuNavigation;
         this.languageService = languageService;
         this.settingsStore = settingsStore;
         this.combatController = combatController;
+        this.stateResolver = stateResolver;
         this.actionKey = new NamespacedKey(plugin, "pvp_action");
     }
 
@@ -199,7 +202,7 @@ final class PvpMenuController implements Listener {
     private void setTargetPvp(CommandSender sender, Player target, boolean enabled) {
         PvpSettings current = settingsStore.get(target.getUniqueId());
         settingsStore.save(target.getUniqueId(), current.withEnabled(enabled));
-        combatController.onPvpStateSet(target.getUniqueId(), enabled);
+        combatController.onPvpStateChanged(target.getUniqueId());
 
         if (sender instanceof Player viewer) {
             viewer.sendMessage(languageService.rich(viewer, Message.PVP_SET_OTHER_RICH, NamedTextColor.GREEN,
@@ -214,7 +217,7 @@ final class PvpMenuController implements Listener {
 
     private ItemStack sectionItem(Player viewer, Player target, boolean self) {
         List<Component> lore = new ArrayList<>();
-        lore.add(stateLine(viewer, Message.PVP_STATE_LABEL, settingsStore.get(target.getUniqueId()).enabled()));
+        lore.add(stateLine(viewer, Message.PVP_STATE_LABEL, stateResolver.effectiveEnabled(target.getUniqueId())));
         lore.add(stateLine(viewer, Message.PVP_MOB_PROTECTION_LABEL, settingsStore.get(target.getUniqueId()).protectMobs()));
         lore.add(stateLine(viewer, Message.PVP_MOUNTED_DAMAGE_LABEL, settingsStore.get(target.getUniqueId()).allowMountedMobDamage()));
         lore.add(stateLine(viewer, Message.PVP_ENABLE_ON_DEATH_LABEL, settingsStore.get(target.getUniqueId()).enableOnDeath()));
@@ -248,10 +251,11 @@ final class PvpMenuController implements Listener {
         ItemStack item = playerHead(target);
         PvpSettings settings = settingsStore.get(target.getUniqueId());
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(PlayerDisplay.name(target, settings.enabled() ? NamedTextColor.GREEN : NamedTextColor.GRAY));
+        boolean effectiveEnabled = stateResolver.effectiveEnabled(target.getUniqueId());
+        meta.displayName(PlayerDisplay.name(target, effectiveEnabled ? NamedTextColor.GREEN : NamedTextColor.GRAY));
         List<Component> lore = new ArrayList<>();
         lore.add(Component.text(languageService.t(viewer, Message.PVP_ADMIN_PLAYER_LORE), NamedTextColor.GRAY));
-        lore.add(stateLine(viewer, Message.PVP_STATE_LABEL, settings.enabled()));
+        lore.add(stateLine(viewer, Message.PVP_STATE_LABEL, effectiveEnabled));
         lore.add(stateLine(viewer, Message.PVP_MOB_PROTECTION_LABEL, settings.protectMobs()));
         lore.add(stateLine(viewer, Message.PVP_MOUNTED_DAMAGE_LABEL, settings.allowMountedMobDamage()));
         lore.add(stateLine(viewer, Message.PVP_ENABLE_ON_DEATH_LABEL, settings.enableOnDeath()));
@@ -300,14 +304,17 @@ final class PvpMenuController implements Listener {
         PvpSettings current = settingsStore.get(target.getUniqueId());
         PvpSettings next = current.toggle(key);
         boolean self = viewer.getUniqueId().equals(target.getUniqueId());
-        if (key == PvpSettingKey.ENABLED && !next.enabled() && self && combatController.isCombatTagged(target.getUniqueId())) {
+        if (key == PvpSettingKey.ENABLED && !next.enabled() && self
+                && combatController.isCombatTagged(target.getUniqueId())
+                && stateResolver.effectiveEnabled(target.getUniqueId())
+                && !stateResolver.effectiveEnabled(target.getUniqueId(), false)) {
             viewer.sendMessage(mm(viewer, Message.PVP_COMBAT_LOCKED_MM,
                     combatController.combatTagRemainingSeconds(target.getUniqueId())));
             return;
         }
         settingsStore.save(target.getUniqueId(), next);
         if (key == PvpSettingKey.ENABLED) {
-            combatController.onPvpStateSet(target.getUniqueId(), next.enabled());
+            combatController.onPvpStateChanged(target.getUniqueId());
             if (!viewer.getUniqueId().equals(target.getUniqueId())) {
                 target.sendActionBar(mm(target, Message.PVP_SET_BY_STAFF_MM,
                         languageService.t(target, next.enabled() ? Message.PVP_STATE_ON : Message.PVP_STATE_OFF)));

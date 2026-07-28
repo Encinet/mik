@@ -153,7 +153,7 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
-    void jukeboxPlaybackModesAlwaysOperateOnTheEditablePlaylist() throws IOException {
+    void jukeboxPlaybackModesUseTheirDocumentedTrackSources() throws IOException {
         String queue = source("jukebox/JukeboxQueueService.java");
         String gui = source("ui/JukeboxControlGui.java");
         String control = source("listener/JukeboxControlListener.java");
@@ -161,13 +161,23 @@ class MusicPackageArchitectureTest {
         assertTrue(queue.contains("JukeboxPlaybackMode.REPEAT_ALL"));
         assertTrue(queue.contains("JukeboxPlaybackMode.REPEAT_ONE"));
         assertTrue(queue.contains("JukeboxPlaybackMode.SHUFFLE"));
+        assertTrue(queue.contains("JukeboxPlaybackMode.LIBRARY_SHUFFLE"));
         assertTrue(queue.contains("trackSelector.select(queue"));
+        assertTrue(queue.contains("trackSelector.select(libraryTracks"));
         assertFalse(queue.contains("trackPool.tracks()"));
         assertFalse(gui.contains("createDisabledQueueItem"));
         assertFalse(control.contains("removeFromQueue(track);\n"
                 + "                player.sendMessage"));
         assertTrue(source("jukebox/JukeboxAutoPlayService.java")
                 .contains("playback.playInsertedDisc(nearestPlayer, jukebox)"));
+    }
+
+    @Test
+    void repeatOneControlHidesTheVanillaDiscDescription() throws IOException {
+        String gui = source("ui/JukeboxControlGui.java");
+
+        assertTrue(gui.contains("if (mode == JukeboxPlaybackMode.REPEAT_ONE)"));
+        assertTrue(gui.contains(".addHiddenComponents(DataComponentTypes.JUKEBOX_PLAYABLE)"));
     }
 
     @Test

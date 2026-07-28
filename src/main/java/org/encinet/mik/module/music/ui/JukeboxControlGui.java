@@ -1,5 +1,7 @@
 package org.encinet.mik.module.music.ui;
 
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -295,6 +297,11 @@ public final class JukeboxControlGui {
             meta.lore(lore);
             button.setItemMeta(meta);
         }
+        if (mode == JukeboxPlaybackMode.REPEAT_ONE) {
+            button.setData(DataComponentTypes.TOOLTIP_DISPLAY, TooltipDisplay.tooltipDisplay()
+                    .addHiddenComponents(DataComponentTypes.JUKEBOX_PLAYABLE)
+                    .build());
+        }
 
         return button;
     }
@@ -357,8 +364,19 @@ public final class JukeboxControlGui {
     }
 
     private ItemStack createPlayNextButton(Player player, JukeboxPlaybackMode mode) {
-        boolean shuffle = mode == JukeboxPlaybackMode.SHUFFLE;
-        ItemStack button = new ItemStack(shuffle ? Material.ENDER_EYE : Material.ARROW);
+        boolean shuffle = mode == JukeboxPlaybackMode.SHUFFLE
+                || mode == JukeboxPlaybackMode.LIBRARY_SHUFFLE;
+        Material material = switch (mode) {
+            case SHUFFLE -> Material.ENDER_EYE;
+            case LIBRARY_SHUFFLE -> Material.CHISELED_BOOKSHELF;
+            default -> Material.ARROW;
+        };
+        Message lore = switch (mode) {
+            case SHUFFLE -> Message.MUSIC_PLAY_RANDOM_LORE;
+            case LIBRARY_SHUFFLE -> Message.MUSIC_PLAY_LIBRARY_RANDOM_LORE;
+            default -> Message.MUSIC_PLAY_NEXT_LORE;
+        };
+        ItemStack button = new ItemStack(material);
         ItemMeta meta = button.getItemMeta();
 
         if (meta != null) {
@@ -369,8 +387,7 @@ public final class JukeboxControlGui {
                     .decoration(TextDecoration.BOLD, true));
 
             meta.lore(List.of(
-                    Component.text(languageService.t(player, shuffle
-                                    ? Message.MUSIC_PLAY_RANDOM_LORE : Message.MUSIC_PLAY_NEXT_LORE))
+                    Component.text(languageService.t(player, lore))
                             .color(NamedTextColor.GRAY)
                             .decoration(TextDecoration.ITALIC, false)
             ));
@@ -427,6 +444,7 @@ public final class JukeboxControlGui {
             case REPEAT_ALL -> Material.REPEATER;
             case REPEAT_ONE -> Material.MUSIC_DISC_11;
             case SHUFFLE -> Material.ENDER_EYE;
+            case LIBRARY_SHUFFLE -> Material.CHISELED_BOOKSHELF;
         };
     }
 
@@ -435,6 +453,7 @@ public final class JukeboxControlGui {
             case REPEAT_ALL -> NamedTextColor.GREEN;
             case REPEAT_ONE -> NamedTextColor.GOLD;
             case SHUFFLE -> NamedTextColor.LIGHT_PURPLE;
+            case LIBRARY_SHUFFLE -> NamedTextColor.AQUA;
         };
     }
 
@@ -443,6 +462,7 @@ public final class JukeboxControlGui {
             case REPEAT_ALL -> Message.MUSIC_SEQUENTIAL_MODE;
             case REPEAT_ONE -> Message.MUSIC_REPEAT_ONE_MODE;
             case SHUFFLE -> Message.MUSIC_RANDOM_MODE;
+            case LIBRARY_SHUFFLE -> Message.MUSIC_LIBRARY_RANDOM_MODE;
         };
     }
 
@@ -451,6 +471,7 @@ public final class JukeboxControlGui {
             case REPEAT_ALL -> Message.MUSIC_SEQUENTIAL_MODE_DESC;
             case REPEAT_ONE -> Message.MUSIC_REPEAT_ONE_MODE_DESC;
             case SHUFFLE -> Message.MUSIC_RANDOM_MODE_DESC;
+            case LIBRARY_SHUFFLE -> Message.MUSIC_LIBRARY_RANDOM_MODE_DESC;
         };
     }
 
