@@ -4,16 +4,12 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.cacheddata.CachedMetaData;
-import net.luckperms.api.model.user.User;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.Mik;
@@ -23,7 +19,7 @@ import org.encinet.mik.module.afk.AfkStateListener;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
-import org.encinet.mik.util.NameMetaRenderer;
+import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,24 +44,20 @@ public class TabListModule implements Listener, AfkStateListener {
     private final JavaPlugin plugin;
     private final AfkService afkService;
     private final LanguageService languageService;
-    private LuckPerms luckPerms;
+    private final PlayerIdentityRenderer playerIdentities;
     private BukkitTask refreshTask;
     private BukkitTask pendingAfkRefreshTask;
 
-    public TabListModule(JavaPlugin plugin, AfkService afkService, LanguageService languageService) {
+    public TabListModule(JavaPlugin plugin, AfkService afkService,
+                         LanguageService languageService,
+                         PlayerIdentityRenderer playerIdentities) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.languageService = languageService;
+        this.playerIdentities = playerIdentities;
     }
 
     public void enable() {
-        RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-        if (provider == null) {
-            plugin.getLogger().warning("LuckPerms not found! TabListModule disabled.");
-            return;
-        }
-        luckPerms = provider.getProvider();
-
         Bukkit.getPluginManager().registerEvents(this, plugin);
         afkService.addListener(this);
 
@@ -128,26 +120,8 @@ public class TabListModule implements Listener, AfkStateListener {
     }
 
     private void updatePlayerListName(Player player) {
-        User user = luckPerms.getUserManager().getUser(player.getUniqueId());
-        if (user == null) {
-            return;
-        }
-
-        CachedMetaData metaData = user.getCachedData().getMetaData();
-        String prefix = metaData.getPrefix();
-        String suffix = metaData.getSuffix();
-
         TextComponent.Builder builder = Component.text();
-
-        if (prefix != null && !prefix.isEmpty()) {
-            builder.append(renderMiniMessage(player, prefix));
-        }
-
-        builder.append(renderPlayerName(player));
-
-        if (suffix != null && !suffix.isEmpty()) {
-            builder.append(renderMiniMessage(player, suffix));
-        }
+        builder.append(playerIdentities.renderGlobal(player, renderPlayerName(player)).combined());
 
         if (afkService.isAfk(player.getUniqueId())) {
             builder.append(renderAfkBadge());
@@ -279,14 +253,6 @@ public class TabListModule implements Listener, AfkStateListener {
                 ? NamedTextColor.WHITE
                 : NamedTextColor.YELLOW;
         return Component.text(player.getName(), color);
-    }
-
-    private Component renderMiniMessage(Player player, String raw) {
-        try {
-            return NameMetaRenderer.deserialize(player, raw);
-        } catch (RuntimeException e) {
-            return NameMetaRenderer.fallback(player, raw);
-        }
     }
 
     private Component renderAfkBadge() {

@@ -21,7 +21,7 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
-import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.List;
@@ -43,14 +43,14 @@ public class PvpModule implements Listener, PvpStateResolver {
     private final PvpCombatController combatController;
     private final PvpMenuController menuController;
 
-    public PvpModule(JavaPlugin plugin, MenuNavigation menuNavigation, LanguageService languageService) {
+    public PvpModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.settingsStore = new PvpSettingsStore(plugin);
         this.overrideRegistry = new PvpOverrideRegistry();
         this.combatController = new PvpCombatController(plugin, languageService, settingsStore, this);
         this.menuController = new PvpMenuController(
-                plugin, menuNavigation, languageService, settingsStore, combatController, this);
+                plugin, languageService, settingsStore, combatController, this);
     }
 
     public void enable() {
@@ -453,7 +453,7 @@ public class PvpModule implements Listener, PvpStateResolver {
     }
 
     private void denyManageOthers(Player player) {
-        player.closeInventory();
+        FloatingMenus.current(player).ifPresent(handle -> handle.close());
         player.sendMessage(mm(player, Message.PVP_NO_PERMISSION_MM));
     }
 

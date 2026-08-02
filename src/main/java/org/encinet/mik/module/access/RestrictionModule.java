@@ -197,7 +197,7 @@ public class RestrictionModule implements Listener {
             case "global", "public" -> CommandPolicy.CHAT_MESSAGE;
             case "w", "tell", "msg", "whisper" -> CommandPolicy.DIRECT_MESSAGE;
             case "r", "reply" -> CommandPolicy.REPLY;
-            case "tp", "teleport" -> CommandPolicy.TELEPORT;
+            case "tp", "teleport", "give" -> CommandPolicy.PLAYER_TARGET;
             case "summon" -> CommandPolicy.SUMMON;
             case "mikrepeat" -> CommandPolicy.UUID_EXEMPT;
             default -> CommandPolicy.DEFAULT;
@@ -269,7 +269,7 @@ public class RestrictionModule implements Listener {
                 new CommandPolicy(SelectorScope.NO_ARGUMENTS, true, false);
         private static final CommandPolicy CHAT_MESSAGE =
                 new CommandPolicy(SelectorScope.NO_ARGUMENTS, true, false);
-        private static final CommandPolicy TELEPORT =
+        private static final CommandPolicy PLAYER_TARGET =
                 new CommandPolicy(SelectorScope.ALL_ARGUMENTS, true, false);
         private static final CommandPolicy SUMMON =
                 new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false, false);

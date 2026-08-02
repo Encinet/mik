@@ -1,7 +1,5 @@
 package org.encinet.mik.module.music.ui;
 
-import io.papermc.paper.datacomponent.DataComponentTypes;
-import io.papermc.paper.datacomponent.item.TooltipDisplay;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -9,27 +7,30 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
+import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuContext;
+import org.encinet.mik.module.menu.FloatingMenuDecoration;
+import org.encinet.mik.module.menu.FloatingMenuFraming;
+import org.encinet.mik.module.menu.FloatingMenuInteraction;
+import org.encinet.mik.module.menu.FloatingMenuLayouts;
+import org.encinet.mik.module.menu.FloatingMenuScreen;
+import org.encinet.mik.module.menu.FloatingMenuTextWidth;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.music.online.MusicSearchResult;
+import org.encinet.mik.module.music.catalog.AudioProperties;
+import org.encinet.mik.module.music.catalog.AudioPropertiesFormatter;
 import org.encinet.mik.module.music.catalog.MusicLibrary;
 import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.MusicTrackPool;
+import org.encinet.mik.module.music.catalog.TrackDetails;
+import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.online.MusicSearchService;
 import org.encinet.mik.module.music.catalog.TrackTarget;
-import org.encinet.mik.module.music.disc.MusicDiscFactory;
-import org.encinet.mik.module.music.disc.MusicDiscKeys;
-
-import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,9 +41,10 @@ import java.util.function.Predicate;
 /** Renders the music browser and publishes asynchronous search results into player sessions. */
 public final class MusicBrowserGui {
 
-    private static final int ITEMS_PER_PAGE = 45;
-    private static final int GUI_SIZE = 54;
+    private static final int ITEMS_PER_PAGE = 18;
     private static final int SEARCH_LIMIT = 200;
+    private static final int TRACK_TITLE_DISPLAY_LIMIT = 24;
+    private static final int TRACK_ARTIST_DISPLAY_LIMIT = 32;
 
     private final JavaPlugin plugin;
     private final MusicLibrary musicLibrary;
@@ -50,34 +52,43 @@ public final class MusicBrowserGui {
     private final MusicSearchService onlineSearch;
     private final Predicate<MusicTrack> cachedTrack;
     private final MusicPlaybackStats playbackStats;
-    private final MusicDiscFactory discFactory;
     private final LanguageService languageService;
+    private final MusicDiscFactory discFactory;
     private final MusicBrowserSessions sessions = new MusicBrowserSessions();
+    private final FloatingMenuScreen<MusicBrowserSessions.Session> screen;
+    private MusicBrowserActionHandler actionHandler;
 
     public MusicBrowserGui(JavaPlugin plugin, MusicLibrary musicLibrary,
                            MusicTrackPool trackPool,
                            MusicSearchService onlineSearch, Predicate<MusicTrack> cachedTrack,
                            MusicPlaybackStats playbackStats,
-                           MusicDiscFactory discFactory,
-                           LanguageService languageService) {
+                           LanguageService languageService,
+                           MusicDiscFactory discFactory) {
         this.plugin = plugin;
         this.musicLibrary = musicLibrary;
         this.trackPool = trackPool;
         this.onlineSearch = onlineSearch;
         this.cachedTrack = cachedTrack;
         this.playbackStats = playbackStats;
-        this.discFactory = discFactory;
         this.languageService = languageService;
+        this.discFactory = discFactory;
+        this.screen = new FloatingMenuScreen<>("music-browser",
+                ignored -> new MusicBrowserSessions.Session(),
+                this::buildCurrent);
     }
 
-    public void openMusicInventory(Player player) {
+    public void openMenu(Player player) {
         showLibrary(player, 0);
     }
 
+    public void setActionHandler(MusicBrowserActionHandler actionHandler) {
+        this.actionHandler = actionHandler;
+    }
+
     public void showLibrary(Player player, int page) {
-        MusicBrowserSessions.Session state = sessions.showLibrary(
-                player.getUniqueId(), trackPool.tracks(), page, playbackStats);
-        openCurrent(player, state);
+        MusicBrowserSessions.Session state = currentOrNew(player.getUniqueId());
+        sessions.showLibrary(player.getUniqueId(), state, trackPool.tracks(), page, playbackStats);
+        screen.open(player, state);
     }
 
     public void searchMusic(Player player, String keyword) {
@@ -88,12 +99,12 @@ public final class MusicBrowserGui {
             sendKeywordError(player, keyword);
             return;
         }
-        MusicBrowserSessions.Session state = sessions.beginSearch(
-                player.getUniqueId(), normalized);
+        MusicBrowserSessions.Session state = currentOrNew(player.getUniqueId());
+        sessions.beginSearch(player.getUniqueId(), state, normalized);
         int generation = state.generation();
         player.sendMessage(languageService.text(player, Message.MUSIC_ONLINE_SEARCHING,
                 NamedTextColor.YELLOW, normalized));
-        openCurrent(player, state);
+        screen.open(player, state);
 
         List<MusicTrack> localMatches = musicLibrary.tracks().stream()
                 .filter(track -> MusicSearchRanker.matches(normalized, track)).toList();
@@ -122,8 +133,8 @@ public final class MusicBrowserGui {
                 keyword, List.copyOf(merged.values()));
         String requestError = tracks.isEmpty() && !onlineResult.failures().isEmpty()
                 ? onlineResult.failures().getFirst() : null;
-        if (!sessions.completeSearch(player.getUniqueId(), state, generation,
-                state.activeInventory(), tracks, requestError, onlineResult.failures().size(),
+        if (!sessions.completeSearch(state, generation,
+                tracks, requestError, onlineResult.failures().size(),
                 playbackStats)) {
             return;
         }
@@ -133,7 +144,7 @@ public final class MusicBrowserGui {
                     NamedTextColor.RED,
                     RichArg.component("keyword", Component.text(keyword, NamedTextColor.YELLOW), keyword)));
         }
-        openCurrent(player, state);
+        screen.open(player, state);
     }
 
     private void sendPartialFailure(Player player, List<String> failures) {
@@ -145,33 +156,33 @@ public final class MusicBrowserGui {
     }
 
     public void openCurrentPage(Player player, int page) {
-        MusicBrowserSessions.Session state = sessions.current(player.getUniqueId());
+        MusicBrowserSessions.Session state = screen.state(player).orElse(null);
         if (state == null) {
             showLibrary(player, page);
             return;
         }
         sessions.setPage(state, page);
-        openCurrent(player, state);
+        screen.open(player, state);
     }
 
     public void cycleSort(Player player) {
-        MusicBrowserSessions.Session state = sessions.current(player.getUniqueId());
+        MusicBrowserSessions.Session state = screen.state(player).orElse(null);
         if (state == null) {
             showLibrary(player, 0);
             return;
         }
         sessions.cycleSort(state, playbackStats);
-        openCurrent(player, state);
+        screen.open(player, state);
     }
 
     public void cycleSection(Player player) {
-        MusicBrowserSessions.Session state = sessions.current(player.getUniqueId());
+        MusicBrowserSessions.Session state = screen.state(player).orElse(null);
         if (state == null) {
             showLibrary(player, 0);
             return;
         }
         sessions.cycleSection(player.getUniqueId(), state, playbackStats);
-        openCurrent(player, state);
+        screen.open(player, state);
     }
 
     public List<MusicTrack> tracksInCurrentSection(UUID playerId, List<MusicTrack> tracks) {
@@ -179,53 +190,20 @@ public final class MusicBrowserGui {
     }
 
     public Integer getPlayerPage(UUID playerId) {
-        MusicBrowserSessions.Session state = sessions.current(playerId);
+        MusicBrowserSessions.Session state = screen.state(playerId).orElse(null);
         return state == null ? null : state.page();
     }
 
     public int getTotalPages(UUID playerId) {
-        MusicBrowserSessions.Session state = sessions.current(playerId);
+        MusicBrowserSessions.Session state = screen.state(playerId).orElse(null);
         int count = state == null
                 ? sessions.tracksInSection(playerId, trackPool.tracks()).size()
                 : state.tracks().size();
-        return Math.max(1, (count + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE);
-    }
-
-    public MusicTrack trackAt(UUID playerId, Inventory inventory,
-                              int rawSlot, ItemStack displayedItem) {
-        if (rawSlot < 0 || rawSlot >= ITEMS_PER_PAGE) {
-            return null;
-        }
-        String displayedTrackId = MusicDiscKeys.trackId(displayedItem);
-        if (displayedTrackId == null) {
-            return null;
-        }
-        MusicBrowserSessions.Session state = sessions.current(playerId);
-        if (!isCurrentInventory(playerId, inventory)) {
-            return null;
-        }
-        List<MusicTrack> tracks = state.tracks();
-        int index = state.page() * ITEMS_PER_PAGE + rawSlot;
-        if (index >= tracks.size()) {
-            return null;
-        }
-        MusicTrack track = tracks.get(index);
-        return track.id().equals(displayedTrackId) ? track : null;
-    }
-
-    public boolean isMusicInventory(Inventory inventory) {
-        return inventory != null && inventory.getHolder() instanceof BrowserHolder;
-    }
-
-    public boolean isCurrentInventory(UUID playerId, Inventory inventory) {
-        if (inventory == null || !(inventory.getHolder() instanceof BrowserHolder holder)) {
-            return false;
-        }
-        return holder.playerId.equals(playerId) && sessions.isCurrentInventory(
-                playerId, inventory, holder.generation, holder.view, holder.page);
+        return pageCount(count);
     }
 
     public void removePlayerData(UUID playerId) {
+        screen.forget(playerId);
         sessions.removePlayer(playerId);
     }
 
@@ -245,14 +223,16 @@ public final class MusicBrowserGui {
         sessions.resumeJukeboxSearch(playerId);
     }
 
-    public void closeBrowserInventory(UUID playerId, Inventory inventory) {
-        sessions.closeInventory(playerId, inventory);
-    }
-
-    private void openCurrent(Player player, MusicBrowserSessions.Session state) {
+    private FloatingMenuDefinition buildCurrent(
+            FloatingMenuContext<MusicBrowserSessions.Session> context) {
+        Player player = context.player();
+        MusicBrowserSessions.Session state = context.state();
         List<MusicTrack> items = state.tracks();
-        int totalPages = Math.max(1, (items.size() + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE);
+        int totalPages = pageCount(items.size());
         sessions.setPage(state, Math.max(0, Math.min(state.page(), totalPages - 1)));
+        int start = state.page() * ITEMS_PER_PAGE;
+        int end = Math.min(start + ITEMS_PER_PAGE, items.size());
+        MusicTrack selectedTrack = sessions.focusedTrackOnPage(state, start, end);
 
         String title = switch (state.view()) {
             case LIBRARY -> languageService.t(player,
@@ -266,236 +246,312 @@ public final class MusicBrowserGui {
                     truncate(state.keyword(), 24), state.page() + 1, totalPages);
         };
 
-        BrowserHolder holder = new BrowserHolder(
-                player.getUniqueId(), state.generation(), state.view(), state.page());
-        Inventory inventory = Bukkit.createInventory(holder, GUI_SIZE,
-                Component.text(title, NamedTextColor.DARK_PURPLE));
-        holder.attach(inventory);
-
         boolean jukeboxContext = sessions.hasJukeboxContext(player.getUniqueId());
-        int start = state.page() * ITEMS_PER_PAGE;
-        int end = Math.min(start + ITEMS_PER_PAGE, items.size());
+        MusicBrowserActionHandler actions = java.util.Objects.requireNonNull(actionHandler,
+                "music browser action handler");
+        FloatingMenuLayouts.Panel browserPanel = FloatingMenuLayouts.panel("browser",
+                FloatingMenuLayouts.verticalRegions(0.28,
+                        FloatingMenuLayouts.region("context",
+                                FloatingMenuLayouts.adaptiveRow(0.0)),
+                        FloatingMenuLayouts.region("results",
+                                FloatingMenuLayouts.adaptiveCurvedList(
+                                        3, 6, 0.38, 0.18, 0.34)),
+                        FloatingMenuLayouts.region("controls",
+                                FloatingMenuLayouts.adaptiveCurvedGrid(
+                                        4, 0.26, 0.18, 0.18))),
+                "context", "results", "controls");
+        FloatingMenuLayouts.Panel detailPanel = FloatingMenuLayouts.panel("track-detail",
+                FloatingMenuLayouts.offset(
+                        FloatingMenuLayouts.orient(
+                                FloatingMenuLayouts.verticalRegions(0.20,
+                                        FloatingMenuLayouts.region("detail-identity",
+                                                FloatingMenuLayouts.adaptiveColumn(0.0)),
+                                        FloatingMenuLayouts.region("detail-metadata",
+                                                FloatingMenuLayouts.adaptiveColumn(0.0)),
+                                        FloatingMenuLayouts.region("detail-actions",
+                                                FloatingMenuLayouts.adaptiveColumn(0.0))),
+                                9.0, -2.0),
+                        0.0, 0.0, 0.16),
+                "detail-identity", "detail-metadata", "detail-actions");
+        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("music-browser")
+                .framing(FloatingMenuFraming.PANORAMIC)
+                .stableAnchor()
+                .layout(FloatingMenuLayouts.sidecar(browserPanel, detailPanel,
+                        FloatingMenuLayouts.Side.RIGHT, 0.52));
+        menu.information("view-context",
+                        browserContext(player, state, title, items.size()))
+                .region("context");
         for (int index = start; index < end; index++) {
-            inventory.setItem(index - start,
-                    createTrackItem(player, state.tracks().get(index), jukeboxContext));
+            MusicTrack track = state.tracks().get(index);
+            menu.control("track:" + track.id(), trackLabel(player, track))
+                    .region("results")
+                    .textWidth(FloatingMenuTextWidth.WIDE)
+                    .alignment(FloatingMenuDecoration.Alignment.LEFT)
+                    .selected(selectedTrack != null && track.id().equals(selectedTrack.id()))
+                    .focus((p, handle, focused) -> {
+                        if (focused && !track.id().equals(state.focusedTrackId())) {
+                            sessions.focusTrack(state, track.id());
+                            context.redraw();
+                        }
+                    })
+                    .primary((p, handle) -> actions.track(p, track, false))
+                    .secondary((p, handle) -> actions.track(p, track, true));
         }
         if (items.isEmpty()) {
-            inventory.setItem(22, createStateItem(player, state));
+            menu.information("state", stateText(player, state))
+                    .region("results");
+        } else if (selectedTrack != null) {
+            menu.item("selected-track",
+                            discFactory.createDisplayDisc(selectedTrack, false, player),
+                            trackIdentityLabel(selectedTrack))
+                    .region("detail-identity")
+                    .textWidth(FloatingMenuTextWidth.WIDE)
+                    .alignment(FloatingMenuDecoration.Alignment.LEFT)
+                    .selected(true)
+                    .primary((p, handle) -> actions.track(p, selectedTrack, false))
+                    .secondary((p, handle) -> actions.track(p, selectedTrack, true));
+            menu.information("selected-track-metadata",
+                            trackMetadataLabel(player, selectedTrack))
+                    .region("detail-metadata")
+                    .textWidth(FloatingMenuTextWidth.WIDE)
+                    .alignment(FloatingMenuDecoration.Alignment.LEFT);
+            menu.control("selected-track-actions",
+                            trackActionLabel(player, jukeboxContext))
+                    .region("detail-actions")
+                    .textWidth(FloatingMenuTextWidth.WIDE)
+                    .alignment(FloatingMenuDecoration.Alignment.LEFT)
+                    .primary((p, handle) -> actions.track(p, selectedTrack, false))
+                    .secondary((p, handle) -> actions.track(p, selectedTrack, true));
         }
 
         if (state.page() > 0) {
-            inventory.setItem(45, button(player, Material.ARROW,
-                    Message.MUSIC_PREV_PAGE, Message.MUSIC_PREV_PAGE_LORE, NamedTextColor.YELLOW));
+            menu.navigation("previous",
+                            Component.text("‹ " + languageService.t(player,
+                                    Message.MUSIC_PREV_PAGE), NamedTextColor.YELLOW))
+                    .region("controls")
+                    .primary((p, handle) -> actions.previousPage(p));
+            menu.on(FloatingMenuInteraction.SCROLL_UP,
+                    (p, handle, input) -> actions.previousPage(p));
         }
-        inventory.setItem(46, button(player, Material.CHEST,
-                Message.MUSIC_LIBRARY_BUTTON, Message.MUSIC_LIBRARY_BUTTON_LORE, NamedTextColor.GREEN));
-        inventory.setItem(47, createSearchButton(player));
-        inventory.setItem(48, createSortButton(player, state.sort()));
-        inventory.setItem(49, createSectionButton(player, state, state.page() + 1,
-                totalPages, items.size()));
-        inventory.setItem(50, createRandomDiscButton(player, jukeboxContext));
-        inventory.setItem(51, createHelpButton(player));
-        if (jukeboxContext) {
-            inventory.setItem(52, button(player, Material.ARROW,
-                    Message.MUSIC_BACK, Message.MUSIC_BACK_LORE, NamedTextColor.RED));
-        }
+        menu.item("library", Material.CHEST,
+                        Component.text(languageService.t(player, Message.MUSIC_LIBRARY_BUTTON),
+                                NamedTextColor.GREEN))
+                .region("controls")
+                .primary((p, handle) -> actions.library(p));
+        menu.item("search", Material.COMPASS,
+                        Component.text(languageService.t(player, Message.MUSIC_SEARCH_BUTTON),
+                                NamedTextColor.AQUA))
+                .region("controls")
+                .primary((p, handle) -> actions.search(p));
+        menu.item("sort", Material.HOPPER, sortLabel(player, state.sort()))
+                .region("controls")
+                .primary((p, handle) -> actions.cycleSort(p));
+        boolean nbsSection = state.section() == MusicBrowserSessions.Section.NBS;
+        menu.item("section", nbsSection ? Material.NOTE_BLOCK : Material.JUKEBOX,
+                        sectionLabel(player, state))
+                .region("controls")
+                .primary((p, handle) -> actions.cycleSection(p));
+        menu.item("random", randomVisual(), randomLabel(player, jukeboxContext))
+                .region("controls")
+                .primary((p, handle) -> actions.random(p, false))
+                .secondary((p, handle) -> actions.random(p, true));
+        menu.navigation("back",
+                        Component.text(languageService.t(player, Message.MUSIC_BACK),
+                                NamedTextColor.RED))
+                .region("controls")
+                .primary((p, handle) -> actions.back(p));
         if (state.page() < totalPages - 1) {
-            inventory.setItem(53, button(player, Material.ARROW,
-                    Message.MUSIC_NEXT_PAGE, Message.MUSIC_NEXT_PAGE_LORE, NamedTextColor.YELLOW));
+            menu.navigation("next",
+                            Component.text(languageService.t(player,
+                                    Message.MUSIC_NEXT_PAGE) + " ›", NamedTextColor.YELLOW))
+                    .region("controls")
+                    .primary((p, handle) -> actions.nextPage(p));
+            menu.on(FloatingMenuInteraction.SCROLL_DOWN,
+                    (p, handle, input) -> actions.nextPage(p));
         }
-        sessions.attachInventory(state, inventory);
-        player.openInventory(inventory);
+        return menu.build();
     }
 
-    private ItemStack createTrackItem(Player player, MusicTrack track, boolean jukeboxContext) {
-        ItemStack disc = discFactory.createDisplayDisc(track, !jukeboxContext, player);
-        ItemMeta meta = disc.getItemMeta();
-        List<Component> lore = meta.lore() == null ? new ArrayList<>() : new ArrayList<>(meta.lore());
+    private Component trackLabel(Player player, MusicTrack track) {
+        Component label = Component.text(truncate(
+                        track.details().title(), TRACK_TITLE_DISPLAY_LIMIT),
+                NamedTextColor.WHITE);
+        String artist = track.details().artist() != null
+                ? track.details().artist() : track.details().originalAuthor();
+        Component metadata = artist == null || artist.isBlank()
+                ? Component.empty()
+                : Component.text(truncate(artist, TRACK_ARTIST_DISPLAY_LIMIT),
+                        NamedTextColor.DARK_GRAY);
         if (track.target() instanceof TrackTarget.Lx && cachedTrack.test(track)) {
-            lore.addFirst(plain(Component.text(languageService.t(player, Message.MUSIC_CACHED),
-                    NamedTextColor.GREEN)));
-            lore.add(1, Component.empty());
+            if (!Component.empty().equals(metadata)) {
+                metadata = metadata.append(Component.text(" · ", NamedTextColor.DARK_GRAY));
+            }
+            metadata = metadata.append(Component.text(languageService.t(player,
+                    Message.MUSIC_CACHED), NamedTextColor.GREEN));
         }
-        MusicPlaybackStats.TrackStats stats = playbackStats.stats(track);
-        if (stats.playCount() > 0) {
-            lore.addFirst(plain(Component.text(languageService.t(player,
-                    Message.MUSIC_PLAY_STATS, stats.playCount(),
-                    formatLastPlayed(player, stats.lastPlayedAt())), NamedTextColor.GOLD)));
-            lore.add(1, Component.empty());
-        }
-        if (jukeboxContext) {
-            lore.add(Component.empty());
-            lore.add(plain(Component.text(languageService.t(player,
-                    Message.MUSIC_DISC_ADD_TO_QUEUE_LORE), NamedTextColor.GREEN)));
-            lore.add(plain(Component.text(languageService.t(player,
-                    Message.MUSIC_DISC_PLAY_NOW_LORE), NamedTextColor.AQUA)));
-        }
-        meta.lore(lore);
-        disc.setItemMeta(meta);
-        return disc;
+        return Component.empty().equals(metadata)
+                ? label : label.append(Component.newline()).append(metadata);
     }
 
-    private ItemStack createSortButton(Player player, MusicBrowserSort sort) {
+    private Component sortLabel(Player player, MusicBrowserSort sort) {
         Message current = switch (sort) {
             case DEFAULT -> Message.MUSIC_SORT_DEFAULT;
             case MOST_PLAYED -> Message.MUSIC_SORT_MOST_PLAYED;
             case RECENTLY_PLAYED -> Message.MUSIC_SORT_RECENTLY_PLAYED;
         };
-        return item(Material.HOPPER,
-                plain(Component.text(languageService.t(player, Message.MUSIC_SORT_BUTTON),
-                        NamedTextColor.YELLOW)),
-                List.of(
-                        plain(Component.text(languageService.t(player,
-                                Message.MUSIC_SORT_CURRENT,
-                                languageService.t(player, current)), NamedTextColor.GRAY)),
-                        plain(Component.text(languageService.t(player,
-                                Message.MUSIC_SORT_BUTTON_LORE), NamedTextColor.AQUA))));
+        return Component.text(languageService.t(player, Message.MUSIC_SORT_BUTTON),
+                        NamedTextColor.YELLOW)
+                .append(Component.newline())
+                .append(Component.text(languageService.t(player, Message.MUSIC_SORT_CURRENT,
+                        languageService.t(player, current)), NamedTextColor.GRAY));
     }
 
-    private String formatLastPlayed(Player player, Instant lastPlayedAt) {
-        if (lastPlayedAt == null) {
-            return languageService.t(player, Message.MUSIC_LAST_PLAYED_UNKNOWN);
-        }
-        long seconds = Math.max(0, Duration.between(lastPlayedAt, Instant.now()).toSeconds());
-        if (seconds < 60) {
-            return languageService.t(player, Message.MUSIC_LAST_PLAYED_JUST_NOW);
-        }
-        if (seconds < 3_600) {
-            return languageService.t(player, Message.MUSIC_LAST_PLAYED_MINUTES, seconds / 60);
-        }
-        if (seconds < 86_400) {
-            return languageService.t(player, Message.MUSIC_LAST_PLAYED_HOURS, seconds / 3_600);
-        }
-        return languageService.t(player, Message.MUSIC_LAST_PLAYED_DAYS, seconds / 86_400);
-    }
-
-    private ItemStack createSectionButton(Player player, MusicBrowserSessions.Session state,
-                                          int current, int pages, int total) {
-        List<Component> lore = new ArrayList<>();
-        lore.add(plain(Component.text(languageService.t(player,
-                Message.MUSIC_PAGE_INFO, current, pages), NamedTextColor.GOLD)));
-        lore.add(plain(Component.text(languageService.t(player, Message.MUSIC_PAGE_TOTAL, total),
-                NamedTextColor.GRAY)));
-        if (state.requestError() != null) {
-            lore.add(plain(Component.text(languageService.t(player, Message.MUSIC_REQUEST_ERROR,
-                    truncate(state.requestError(), 120)), NamedTextColor.RED)));
-        } else if (state.partialFailures() > 0) {
-            lore.add(plain(Component.text(languageService.t(player, Message.MUSIC_PARTIAL_RESULTS,
-                    state.partialFailures()), NamedTextColor.YELLOW)));
-        }
-        lore.add(Component.empty());
-        lore.add(plain(Component.text(languageService.t(player,
-                Message.MUSIC_SECTION_SWITCH_LORE), NamedTextColor.AQUA)));
+    private Component sectionLabel(Player player, MusicBrowserSessions.Session state) {
         boolean nbs = state.section() == MusicBrowserSessions.Section.NBS;
-        return item(nbs ? Material.NOTE_BLOCK : Material.JUKEBOX,
-                plain(Component.text(languageService.t(player,
-                                nbs ? Message.MUSIC_SECTION_NBS : Message.MUSIC_SECTION_ALL),
-                        nbs ? NamedTextColor.YELLOW : NamedTextColor.GREEN)), lore);
+        return Component.text(languageService.t(player,
+                        nbs ? Message.MUSIC_SECTION_NBS : Message.MUSIC_SECTION_ALL),
+                nbs ? NamedTextColor.YELLOW : NamedTextColor.GREEN);
     }
 
-    private ItemStack createStateItem(Player player, MusicBrowserSessions.Session state) {
+    private Component browserContext(Player player, MusicBrowserSessions.Session state,
+                                     String title, int total) {
+        Component label = Component.text(title, NamedTextColor.DARK_PURPLE)
+                .append(Component.newline())
+                .append(Component.text(languageService.t(player,
+                        Message.MUSIC_PAGE_TOTAL, total), NamedTextColor.GRAY));
+        if (state.requestError() != null) {
+            label = label.append(Component.newline()).append(Component.text(languageService.t(player,
+                    Message.MUSIC_REQUEST_ERROR, truncate(state.requestError(), 80)), NamedTextColor.RED));
+        } else if (state.partialFailures() > 0) {
+            label = label.append(Component.newline()).append(Component.text(languageService.t(player,
+                    Message.MUSIC_PARTIAL_RESULTS, state.partialFailures()), NamedTextColor.YELLOW));
+        }
+        return label;
+    }
+
+    private Component trackIdentityLabel(MusicTrack track) {
+        TrackDetails details = track.details();
+        Component identity = Component.text(truncate(details.title(), 64), NamedTextColor.WHITE)
+                .decorate(TextDecoration.BOLD);
+        String artist = details.artist() != null
+                ? details.artist() : details.originalAuthor();
+        return artist == null ? identity : identity.append(Component.newline())
+                .append(Component.text(truncate(artist, 64), NamedTextColor.GRAY));
+    }
+
+    private Component trackMetadataLabel(Player player, MusicTrack track) {
+        TrackDetails details = track.details();
+        AudioProperties audio = details.audio();
+        List<Component> lines = new ArrayList<>();
+        if (details.artist() != null && details.originalAuthor() != null) {
+            addDetailLine(lines, player, Message.MUSIC_ORIGINAL_AUTHOR,
+                    details.originalAuthor());
+        }
+        addDetailLine(lines, player, Message.MUSIC_ALBUM, details.album());
+        addDetailLine(lines, player, Message.MUSIC_DURATION,
+                AudioPropertiesFormatter.duration(audio.duration()));
+        addDetailLine(lines, player, Message.MUSIC_FORMAT, details.format());
+        addDetailLine(lines, player, Message.MUSIC_SAMPLE_RATE,
+                AudioPropertiesFormatter.sampleRate(audio.sampleRateHz()));
+        addDetailLine(lines, player, Message.MUSIC_SIZE,
+                AudioPropertiesFormatter.fileSize(audio.fileSizeBytes()));
+        if (track.target() instanceof TrackTarget.Lx && cachedTrack.test(track)) {
+            lines.add(Component.text(languageService.t(player, Message.MUSIC_CACHED),
+                    NamedTextColor.GREEN));
+        }
+        return joinLines(lines);
+    }
+
+    private Component trackActionLabel(Player player, boolean jukeboxContext) {
+        return Component.text(languageService.t(player, jukeboxContext
+                        ? Message.MUSIC_BROWSER_LEFT_ADD_QUEUE
+                        : Message.MUSIC_BROWSER_LEFT_TAKE_DISC), NamedTextColor.YELLOW)
+                .append(Component.newline())
+                .append(Component.text(languageService.t(player, jukeboxContext
+                        ? Message.MUSIC_BROWSER_RIGHT_PLAY_NOW
+                        : Message.MUSIC_BROWSER_RIGHT_PLAY_NEARBY), NamedTextColor.AQUA));
+    }
+
+    private void addDetailLine(List<Component> lines, Player player,
+                               Message message, String value) {
+        if (value != null && !value.isBlank()) {
+            lines.add(Component.text(languageService.t(player, message,
+                    truncate(value, 72)), NamedTextColor.GRAY));
+        }
+    }
+
+    private static Component joinLines(List<Component> lines) {
+        Component result = Component.empty();
+        for (int index = 0; index < lines.size(); index++) {
+            if (index > 0) result = result.append(Component.newline());
+            result = result.append(lines.get(index));
+        }
+        return result;
+    }
+
+    static int pageCount(int itemCount) {
+        return Math.max(1, (Math.max(0, itemCount) + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE);
+    }
+
+    private Component stateText(Player player, MusicBrowserSessions.Session state) {
         if (state.loading()) {
-            return item(Material.CLOCK,
-                    plain(Component.text(languageService.t(player, Message.MUSIC_LOADING_TITLE),
-                            NamedTextColor.YELLOW)),
-                    List.of(plain(Component.text(languageService.t(player, Message.MUSIC_LOADING_LORE),
-                            NamedTextColor.GRAY))));
+            return Component.text(languageService.t(player, Message.MUSIC_LOADING_TITLE),
+                            NamedTextColor.YELLOW)
+                    .append(Component.newline())
+                    .append(Component.text(languageService.t(player,
+                            Message.MUSIC_LOADING_DESCRIPTION),
+                            NamedTextColor.GRAY));
         }
         if (state.requestError() != null) {
-            return item(Material.BARRIER,
-                    plain(Component.text(languageService.t(player, Message.MUSIC_REQUEST_ERROR,
-                            truncate(state.requestError(), 80)), NamedTextColor.RED)),
-                    List.of(plain(Component.text(emptyLore(player, state.view()), NamedTextColor.GRAY))));
+            return Component.text(languageService.t(player, Message.MUSIC_REQUEST_ERROR,
+                            truncate(state.requestError(), 80)), NamedTextColor.RED)
+                    .append(Component.newline())
+                    .append(Component.text(emptyText(player, state.view()), NamedTextColor.GRAY));
         }
         if (state.section() == MusicBrowserSessions.Section.NBS) {
-            return item(Material.NOTE_BLOCK,
-                    plain(Component.text(languageService.t(player, Message.MUSIC_EMPTY_NBS),
-                            NamedTextColor.GRAY)),
-                    List.of(plain(Component.text(languageService.t(player,
-                            Message.MUSIC_EMPTY_NBS_LORE), NamedTextColor.DARK_GRAY))));
+            return Component.text(languageService.t(player, Message.MUSIC_EMPTY_NBS),
+                            NamedTextColor.GRAY)
+                    .append(Component.newline())
+                    .append(Component.text(languageService.t(player,
+                            Message.MUSIC_EMPTY_NBS_DESCRIPTION), NamedTextColor.DARK_GRAY));
         }
         Message title = switch (state.view()) {
             case LIBRARY -> Message.MUSIC_EMPTY_LIBRARY;
             case ONLINE_SONGS -> Message.MUSIC_EMPTY_SEARCH;
         };
-        return item(Material.GRAY_DYE,
-                plain(Component.text(languageService.t(player, title), NamedTextColor.GRAY)),
-                List.of(plain(Component.text(emptyLore(player, state.view()), NamedTextColor.DARK_GRAY))));
+        return Component.text(languageService.t(player, title), NamedTextColor.GRAY)
+                .append(Component.newline())
+                .append(Component.text(emptyText(player, state.view()), NamedTextColor.DARK_GRAY));
     }
 
-    private String emptyLore(Player player, MusicBrowserSessions.View view) {
-        Message lore = switch (view) {
-            case LIBRARY -> Message.MUSIC_EMPTY_LIBRARY_LORE;
-            case ONLINE_SONGS -> Message.MUSIC_EMPTY_SEARCH_LORE;
+    private String emptyText(Player player, MusicBrowserSessions.View view) {
+        Message message = switch (view) {
+            case LIBRARY -> Message.MUSIC_EMPTY_LIBRARY_DESCRIPTION;
+            case ONLINE_SONGS -> Message.MUSIC_EMPTY_SEARCH_DESCRIPTION;
         };
-        return languageService.t(player, lore);
+        return languageService.t(player, message);
     }
 
-    private ItemStack createSearchButton(Player player) {
-        String command = "/music search <keyword>";
-        return item(Material.COMPASS,
-                plain(Component.text(languageService.t(player, Message.MUSIC_SEARCH_BUTTON),
-                        NamedTextColor.AQUA)),
-                List.of(plain(Component.text(languageService.t(player,
-                        Message.MUSIC_SEARCH_LORE_COMMAND, command), NamedTextColor.GRAY))));
-    }
-
-    private ItemStack createRandomDiscButton(Player player, boolean jukeboxContext) {
+    private Component randomLabel(Player player, boolean jukeboxContext) {
         Message name = jukeboxContext ? Message.MUSIC_RANDOM_ADD : Message.MUSIC_RANDOM_DISC;
-        Message lore = jukeboxContext ? Message.MUSIC_RANDOM_ADD_LORE : Message.MUSIC_RANDOM_DISC_LEFT;
-        List<Component> loreLines = new ArrayList<>();
-        loreLines.add(plain(Component.text(languageService.t(player, lore), NamedTextColor.GRAY)));
-        loreLines.add(plain(Component.text(languageService.t(player, jukeboxContext
-                ? Message.MUSIC_RANDOM_PLAY_NOW_LORE : Message.MUSIC_RANDOM_DISC_RIGHT),
-                NamedTextColor.GRAY)));
-        ItemStack item = item(Material.MUSIC_DISC_13,
-                plain(Component.text(languageService.t(player, name), NamedTextColor.LIGHT_PURPLE)
-                        .decorate(TextDecoration.BOLD)),
-                loreLines);
-        item.setData(DataComponentTypes.TOOLTIP_DISPLAY, TooltipDisplay.tooltipDisplay()
-                .addHiddenComponents(DataComponentTypes.JUKEBOX_PLAYABLE).build());
-        return item;
+        return Component.text(languageService.t(player, name), NamedTextColor.LIGHT_PURPLE)
+                .decorate(TextDecoration.BOLD);
     }
 
-    private ItemStack createHelpButton(Player player) {
-        List<Component> lore = new ArrayList<>();
-        lore.add(plain(Component.text("/music", NamedTextColor.AQUA)));
-        lore.add(plain(Component.text("/music search <keyword>", NamedTextColor.AQUA)));
-        lore.add(plain(Component.text("/music page <page>", NamedTextColor.AQUA)));
-        lore.add(plain(Component.text("/music random", NamedTextColor.AQUA)));
-        lore.add(plain(Component.text("/music randomplay", NamedTextColor.AQUA)));
-        if (player.hasPermission("group." + Mik.GROUP_MANAGER)) {
-            lore.add(plain(Component.text("/music reload", NamedTextColor.AQUA)));
-            lore.add(plain(Component.text("/music sources", NamedTextColor.AQUA)));
-            lore.add(plain(Component.text("/music sources import <url>", NamedTextColor.AQUA)));
-            lore.add(plain(Component.text("/music sources update", NamedTextColor.AQUA)));
-            lore.add(plain(Component.text("/music sources remove <id>", NamedTextColor.AQUA)));
-            lore.add(plain(Component.text("/music cache [clear]", NamedTextColor.AQUA)));
-        }
-        return item(Material.BOOK,
-                plain(Component.text(languageService.t(player, Message.MUSIC_HELP_TITLE),
-                        NamedTextColor.GOLD).decorate(TextDecoration.BOLD)), lore);
-    }
-
-    private ItemStack button(Player player, Material material, Message name,
-                             Message lore, NamedTextColor color) {
-        return item(material, plain(Component.text(languageService.t(player, name), color)),
-                List.of(plain(Component.text(languageService.t(player, lore), NamedTextColor.GRAY))));
-    }
-
-    private static ItemStack item(Material material, Component name, List<Component> lore) {
-        ItemStack item = new ItemStack(material);
-        ItemMeta meta = item.getItemMeta();
-        meta.displayName(name);
-        meta.lore(lore);
-        item.setItemMeta(meta);
-        return item;
+    private ItemStack randomVisual() {
+        return new ItemStack(Material.MUSIC_DISC_13);
     }
 
     private boolean isCurrent(Player player, MusicBrowserSessions.Session expectedState,
                               int generation) {
-        return player.isOnline() && sessions.isCurrent(player.getUniqueId(), expectedState,
-                generation, player.getOpenInventory().getTopInventory());
+        return player.isOnline() && screen.flow(player)
+                .filter(flow -> flow.state() == expectedState)
+                .filter(flow -> expectedState.generation() == generation)
+                .isPresent();
+    }
+
+    private MusicBrowserSessions.Session currentOrNew(UUID playerId) {
+        return screen.state(playerId).orElseGet(MusicBrowserSessions.Session::new);
     }
 
     private void runOnMainThread(Runnable task) {
@@ -545,32 +601,4 @@ public final class MusicBrowserGui {
         return text.substring(0, end) + "...";
     }
 
-    private static Component plain(Component component) {
-        return component.decoration(TextDecoration.ITALIC, false);
-    }
-
-    private static final class BrowserHolder implements InventoryHolder {
-        private final UUID playerId;
-        private final int generation;
-        private final MusicBrowserSessions.View view;
-        private final int page;
-        private Inventory inventory;
-
-        private BrowserHolder(UUID playerId, int generation,
-                              MusicBrowserSessions.View view, int page) {
-            this.playerId = playerId;
-            this.generation = generation;
-            this.view = view;
-            this.page = page;
-        }
-
-        private void attach(Inventory inventory) {
-            this.inventory = inventory;
-        }
-
-        @Override
-        public Inventory getInventory() {
-            return inventory;
-        }
-    }
 }

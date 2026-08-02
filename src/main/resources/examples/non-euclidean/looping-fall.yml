@@ -1,0 +1,25 @@
+# Build a matching vertical shaft between y=40 and y=72. Falling through the
+# lower plane continues below the upper plane with velocity and fall distance intact.
+version: 3
+enabled: true
+
+surfaces:
+  shaft-bottom:
+    world: world
+    area:
+      corner-a: [62.5, 40.0, 62.5]
+      corner-b: [66.5, 40.0, 66.5]
+    through: down
+    up: north
+  shaft-top:
+    world: world
+    area:
+      corner-a: [62.5, 72.0, 62.5]
+      corner-b: [66.5, 72.0, 66.5]
+    through: down
+    up: north
+
+links:
+  looping-fall:
+    connect: [shaft-bottom, shaft-top]
+    entrances: first

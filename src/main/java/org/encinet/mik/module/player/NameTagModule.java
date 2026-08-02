@@ -29,6 +29,8 @@ import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.util.NameMetaRenderer;
 import org.encinet.mik.util.PlayerDisplay;
+import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
+import org.encinet.mik.module.player.identity.PlayerNameTag;
 
 import java.util.List;
 import java.util.function.Predicate;
@@ -61,11 +63,14 @@ public class NameTagModule {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
+    private final PlayerIdentityRenderer playerIdentities;
     private LuckPerms luckPerms;
 
-    public NameTagModule(JavaPlugin plugin, LanguageService languageService) {
+    public NameTagModule(JavaPlugin plugin, LanguageService languageService,
+                         PlayerIdentityRenderer playerIdentities) {
         this.plugin = plugin;
         this.languageService = languageService;
+        this.playerIdentities = playerIdentities;
     }
 
     public void enable() {
@@ -175,15 +180,14 @@ public class NameTagModule {
      * 聊天预览行。
      */
     private Component chatPreview(Player player, String prefixRaw, String suffixRaw) {
-        Component pre = (prefixRaw != null && !prefixRaw.isEmpty())
-                ? NameMetaRenderer.deserialize(player, prefixRaw) : Component.empty();
-        Component suf = (suffixRaw != null && !suffixRaw.isEmpty())
-                ? NameMetaRenderer.deserialize(player, suffixRaw) : Component.empty();
+        Component identity = playerIdentities.renderPreview(
+                player,
+                player,
+                PlayerDisplay.name(player, NamedTextColor.WHITE),
+                new PlayerNameTag(prefixRaw, suffixRaw)).combined();
 
         return Component.text()
-                .append(pre)
-                .append(PlayerDisplay.name(player, NamedTextColor.WHITE))
-                .append(suf)
+                .append(identity)
                 .append(Component.text(" » ", NamedTextColor.GOLD))
                 .append(Component.text(languageService.t(player, Message.NAMETAG_SAMPLE_MESSAGE), NamedTextColor.WHITE))
                 .build();

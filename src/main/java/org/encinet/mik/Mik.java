@@ -15,8 +15,11 @@ import org.encinet.mik.module.commands.SimpleFeaturesModule;
 import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.communication.TipModule;
 import org.encinet.mik.module.event.FifthAnniversaryEventModule;
+import org.encinet.mik.module.geyser.BedrockPlayerBadge;
+import org.encinet.mik.module.geyser.GeyserService;
 import org.encinet.mik.module.i18n.LanguageService;
-import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.module.menu.FloatingMenuService;
+import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.music.MusicModule;
 import org.encinet.mik.module.performance.NetworkEgressModule;
 import org.encinet.mik.module.performance.PerformanceModule;
@@ -34,16 +37,21 @@ import org.encinet.mik.module.player.PlayerAssociationNotifier;
 import org.encinet.mik.module.player.PlayerPresenceModule;
 import org.encinet.mik.module.player.MainMenuModule;
 import org.encinet.mik.module.player.WelcomeModule;
+import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
+import org.encinet.mik.module.player.identity.PlayerNameTagRenderer;
 import org.encinet.mik.module.pvp.PvpModule;
 import org.encinet.mik.module.player.TabListModule;
 import org.encinet.mik.module.player.TeleportPreferenceModule;
 import org.encinet.mik.module.presentation.BrandingModule;
+import org.encinet.mik.module.presentation.AxiomGizmoService;
 import org.encinet.mik.module.presentation.MotdModule;
 import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
 import org.encinet.mik.module.skript.MikSkriptModule;
+import org.encinet.mik.module.space.NonEuclideanSpaceModule;
+import org.encinet.mik.module.world.regen.AsyncRegenModule;
 
 @su.plo.voice.api.addon.annotation.Addon(
         id = "mik-music",
@@ -93,13 +101,17 @@ public final class Mik extends JavaPlugin {
     private ClientVersionReminderModule clientVersionReminderModule;
     private WelcomeModule welcomeModule;
     private PlayerPresenceModule playerPresenceModule;
-    private MenuNavigation menuNavigation;
+    private FloatingMenuService floatingMenuService;
+    private AxiomGizmoService axiomGizmoService;
+    private GeyserService geyserService;
     private LanguageService languageService;
     private PlayerAddressModule playerAddressModule;
     private PlayerAssociationNotifier playerAssociationNotifier;
     private SpawnBeaconColorModule spawnBeaconColorModule;
     private FifthAnniversaryEventModule fifthAnniversaryEventModule;
     private MikSkriptModule skriptModule;
+    private AsyncRegenModule asyncRegenModule;
+    private NonEuclideanSpaceModule nonEuclideanSpaceModule;
 
     @su.plo.voice.api.addon.InjectPlasmoVoice
     private su.plo.voice.api.server.PlasmoVoiceServer voiceServer;
@@ -114,11 +126,33 @@ public final class Mik extends JavaPlugin {
     public void onEnable() {
         brandingModule.enable();
 
-        menuNavigation = new MenuNavigation();
+        axiomGizmoService = new AxiomGizmoService(this);
+        axiomGizmoService.enable();
 
-        languageService = new LanguageService(this, menuNavigation);
+        geyserService = GeyserService.create(this);
+
+        languageService = new LanguageService(this);
         languageService.enable();
         languageService.registerCommands(this.getLifecycleManager());
+        BedrockPlayerBadge bedrockPlayerBadge =
+                new BedrockPlayerBadge(geyserService, languageService);
+        PlayerNameTagRenderer playerNameTags = new PlayerNameTagRenderer(this);
+        playerNameTags.enable();
+        PlayerIdentityRenderer playerIdentities =
+                new PlayerIdentityRenderer(bedrockPlayerBadge, playerNameTags);
+
+        floatingMenuService = new FloatingMenuService(
+                this, axiomGizmoService, geyserService, languageService);
+        floatingMenuService.enable();
+        FloatingMenus.install(floatingMenuService);
+
+        asyncRegenModule = new AsyncRegenModule(this, languageService);
+        asyncRegenModule.enable();
+        asyncRegenModule.registerCommands(this.getLifecycleManager());
+
+        nonEuclideanSpaceModule = new NonEuclideanSpaceModule(this);
+        nonEuclideanSpaceModule.enable();
+        nonEuclideanSpaceModule.registerCommands(this.getLifecycleManager());
 
         playerAddressModule = new PlayerAddressModule(this);
         playerAddressModule.enable();
@@ -133,7 +167,7 @@ public final class Mik extends JavaPlugin {
         serverLinksModule = new ServerLinksModule(languageService);
         serverLinksModule.register(this);
 
-        afkModule = new AfkModule(this, languageService);
+        afkModule = new AfkModule(this, languageService, axiomGizmoService);
         afkModule.enable();
         afkModule.registerCommands(this.getLifecycleManager());
 
@@ -143,8 +177,9 @@ public final class Mik extends JavaPlugin {
 
         performanceModule = new PerformanceModule(this, afkModule);
         performanceModule.start();
+        performanceModule.registerCommands(this.getLifecycleManager());
 
-        pvpModule = new PvpModule(this, menuNavigation, languageService);
+        pvpModule = new PvpModule(this, languageService);
         pvpModule.enable();
         pvpModule.registerCommands(this.getLifecycleManager());
 
@@ -159,11 +194,12 @@ public final class Mik extends JavaPlugin {
                 ChatDisplayRenderer::playerName);
         mentionService.enable();
 
-        chatModule = new ChatModule(this, mentionService, languageService, chatSettingsStore, menuNavigation);
+        chatModule = new ChatModule(
+                this, mentionService, languageService, chatSettingsStore, playerIdentities);
         chatModule.enable();
         chatModule.registerCommands(this.getLifecycleManager());
 
-        teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, menuNavigation, languageService);
+        teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, languageService);
         teleportPreferenceModule.enable();
 
         welcomeModule = new WelcomeModule(this, languageService);
@@ -189,7 +225,7 @@ public final class Mik extends JavaPlugin {
         }
 
         mainMenuModule = new MainMenuModule(this, afkModule, chatModule, teleportPreferenceModule,
-                pvpModule, menuNavigation, languageService, clientVersionReminderModule);
+                pvpModule, languageService, clientVersionReminderModule);
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
 
@@ -223,7 +259,8 @@ public final class Mik extends JavaPlugin {
         tpsBarModule.start();
         tpsBarModule.registerCommands(this.getLifecycleManager());
 
-        tabListModule = new TabListModule(this, afkModule, languageService);
+        tabListModule = new TabListModule(
+                this, afkModule, languageService, playerIdentities);
         tabListModule.enable();
 
         fixBugModule = new FixBugModule(this);
@@ -232,7 +269,7 @@ public final class Mik extends JavaPlugin {
         grieferModule = new GrieferModule(this, banModule.manager());
         grieferModule.enable();
 
-        announcementModule = new AnnouncementModule(this, menuNavigation);
+        announcementModule = new AnnouncementModule(this);
         announcementModule.enable();
         announcementModule.registerCommands(this.getLifecycleManager());
 
@@ -253,7 +290,7 @@ public final class Mik extends JavaPlugin {
         motdModule = new MotdModule(this, afkModule, languageService, playerAddressModule);
         motdModule.enable();
 
-        homeModule = new HomeModule(this, menuNavigation, languageService);
+        homeModule = new HomeModule(this, languageService);
         homeModule.enable();
         homeModule.registerCommands(this.getLifecycleManager());
 
@@ -261,7 +298,7 @@ public final class Mik extends JavaPlugin {
         backModule.enable();
         backModule.registerCommands(this.getLifecycleManager());
 
-        prefixSuffixModule = new NameTagModule(this, languageService);
+        prefixSuffixModule = new NameTagModule(this, languageService, playerIdentities);
         prefixSuffixModule.enable();
         prefixSuffixModule.registerCommands(this.getLifecycleManager());
 
@@ -276,6 +313,16 @@ public final class Mik extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        FloatingMenus.uninstall();
+        if (asyncRegenModule != null) {
+            asyncRegenModule.disable();
+        }
+        if (nonEuclideanSpaceModule != null) {
+            nonEuclideanSpaceModule.disable();
+        }
+        if (floatingMenuService != null) {
+            floatingMenuService.disable();
+        }
         if (skriptModule != null) {
             skriptModule.disable();
         }
@@ -342,6 +389,10 @@ public final class Mik extends JavaPlugin {
 
         if (spawnBeaconColorModule != null) {
             spawnBeaconColorModule.disable();
+        }
+
+        if (axiomGizmoService != null) {
+            axiomGizmoService.disable();
         }
 
         if (flightModule != null) {

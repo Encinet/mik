@@ -73,18 +73,27 @@ class RestrictionModuleTest {
     }
 
     @Test
-    void playerNameChecksStillAllowNormalTeleportSyntax() {
+    void playerNameChecksAllowCommandsWithExplicitPlayerTargets() {
         assertFalse(RestrictionModule.checksPlayerNames("/public Steve hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/global Steve hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/msg Steve hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/reply hello"));
         assertFalse(RestrictionModule.checksPlayerNames("/teleport Steve Alex"));
         assertFalse(RestrictionModule.checksPlayerNames("/minecraft:tp Steve Alex"));
+        assertFalse(RestrictionModule.checksPlayerNames("/give Steve minecraft:stone"));
+        assertFalse(RestrictionModule.checksPlayerNames("/minecraft:give Alex minecraft:stone 64"));
         assertFalse(RestrictionModule.checksPlayerNames(
                 "/summon armor_stand ~ ~ ~ {CustomName:'{\"text\":\"Steve\"}'}"));
         assertFalse(RestrictionModule.checksPlayerNames(
                 "/minecraft:summon armor_stand ~ ~ ~ {CustomName:'{\"text\":\"Steve\"}'}"));
         assertTrue(RestrictionModule.checksPlayerNames("/data get entity Steve"));
+    }
+
+    @Test
+    void giveStillRejectsTargetSelectors() {
+        assertTrue(RestrictionModule.containsRestrictedSelector("/give @a minecraft:stone"));
+        assertTrue(RestrictionModule.containsRestrictedSelector(
+                "/minecraft:give @e[type=minecraft:zombie] minecraft:stone"));
     }
 
     @Test

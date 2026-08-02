@@ -16,7 +16,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
@@ -29,7 +28,7 @@ import org.encinet.mik.module.chat.render.ChatMessageFormatter;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
-import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -58,20 +57,20 @@ public class ChatModule implements Listener {
     private final Map<UUID, UUID> lastPrivatePartner = new HashMap<>();
 
     public ChatModule(JavaPlugin plugin, MentionService mentionService, LanguageService languageService,
-                      ChatSettingsStore settingsStore, MenuNavigation menuNavigation) {
+                      ChatSettingsStore settingsStore,
+                      PlayerIdentityRenderer playerIdentities) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.mentionService = mentionService;
         this.settingsStore = settingsStore;
-        this.settingsMenu = new ChatSettingsMenu(plugin, languageService, mentionService, settingsStore, menuNavigation);
-        this.formatter = new ChatMessageFormatter(plugin, languageService);
+        this.settingsMenu = new ChatSettingsMenu(languageService, mentionService, settingsStore);
+        this.formatter = new ChatMessageFormatter(languageService,
+                java.util.Objects.requireNonNull(playerIdentities, "playerIdentities"));
         this.delayScheduler = new ChatDelayScheduler(plugin, languageService, settingsStore,
                 this::sendDelayedMessage, this::sendDelayedPreview);
     }
 
     public void enable() {
-        formatter.enable();
-
         for (Player player : Bukkit.getOnlinePlayers()) {
             settingsStore.get(player.getUniqueId());
         }
@@ -229,11 +228,6 @@ public class ChatModule implements Listener {
         repeatTracker.forget(playerId);
         repeatActionStore.forgetPrivateActions(playerId);
         clearPrivateChannelsTargeting(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
-        settingsMenu.handleClick(event);
     }
 
     public void openSettingsMenu(Player player) {

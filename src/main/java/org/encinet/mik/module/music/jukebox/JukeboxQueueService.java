@@ -6,6 +6,7 @@ import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 
 import java.util.*;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /**
@@ -16,6 +17,7 @@ public class JukeboxQueueService {
     private final Map<Location, JukeboxState> states = new HashMap<>();
     private final MusicTrackSelector trackSelector;
     private final Supplier<List<MusicTrack>> libraryTracks;
+    private volatile Consumer<Location> stateChangedListener = ignored -> { };
 
     public JukeboxQueueService(MusicTrackSelector trackSelector,
                                Supplier<List<MusicTrack>> libraryTracks) {
@@ -25,7 +27,13 @@ public class JukeboxQueueService {
 
     /** Returns the mutable state owned by one jukebox, creating it when needed. */
     public JukeboxState state(Location location) {
-        return states.computeIfAbsent(blockLocation(location), ignored -> new JukeboxState());
+        Location target = blockLocation(location);
+        return states.computeIfAbsent(target,
+                ignored -> new JukeboxState(() -> stateChanged(target)));
+    }
+
+    public void setStateChangedListener(Consumer<Location> listener) {
+        stateChangedListener = Objects.requireNonNull(listener, "listener");
     }
 
     public JukeboxState findState(Location location) {
@@ -73,6 +81,10 @@ public class JukeboxQueueService {
         return tracks == null ? List.of() : tracks;
     }
 
+    private void stateChanged(Location location) {
+        stateChangedListener.accept(location.clone());
+    }
+
     private static Location blockLocation(Location location) {
         Objects.requireNonNull(location, "location");
         return new Location(location.getWorld(), location.getBlockX(),
@@ -82,7 +94,16 @@ public class JukeboxQueueService {
     /** Main-thread-confined queue and playback-mode state for one jukebox. */
     public static final class JukeboxState {
         private final List<MusicTrack> queue = new ArrayList<>();
+        private final Runnable stateChanged;
         private JukeboxPlaybackMode playbackMode = JukeboxPlaybackMode.REPEAT_ALL;
+
+        JukeboxState() {
+            this(() -> { });
+        }
+
+        private JukeboxState(Runnable stateChanged) {
+            this.stateChanged = Objects.requireNonNull(stateChanged, "stateChanged");
+        }
 
         public List<MusicTrack> queue() {
             return List.copyOf(queue);
@@ -104,6 +125,7 @@ public class JukeboxQueueService {
             Objects.requireNonNull(music, "music");
             if (!contains(music)) {
                 queue.add(music);
+                stateChanged.run();
             }
         }
 
@@ -118,11 +140,14 @@ public class JukeboxQueueService {
                     added++;
                 }
             }
+            if (added > 0) stateChanged.run();
             return added;
         }
 
         public void removeFromQueue(MusicTrack music) {
-            queue.removeIf(existing -> sameTrack(existing, music));
+            if (queue.removeIf(existing -> sameTrack(existing, music))) {
+                stateChanged.run();
+            }
         }
 
         public boolean contains(MusicTrack music) {
@@ -142,24 +167,33 @@ public class JukeboxQueueService {
         }
 
         public void moveInQueue(int fromIndex, int toIndex) {
-            if (fromIndex < 0 || fromIndex >= queue.size() || toIndex < 0 || toIndex >= queue.size()) {
+            if (fromIndex < 0 || fromIndex >= queue.size()
+                    || toIndex < 0 || toIndex >= queue.size()
+                    || fromIndex == toIndex) {
                 return;
             }
             MusicTrack music = queue.remove(fromIndex);
             queue.add(toIndex, music);
+            stateChanged.run();
         }
 
         public void clearQueue() {
+            if (queue.isEmpty()) return;
             queue.clear();
+            stateChanged.run();
         }
 
         public JukeboxPlaybackMode cyclePlaybackMode() {
             playbackMode = playbackMode.next();
+            stateChanged.run();
             return playbackMode;
         }
 
         public void setPlaybackMode(JukeboxPlaybackMode playbackMode) {
-            this.playbackMode = Objects.requireNonNull(playbackMode, "playbackMode");
+            JukeboxPlaybackMode next = Objects.requireNonNull(playbackMode, "playbackMode");
+            if (this.playbackMode == next) return;
+            this.playbackMode = next;
+            stateChanged.run();
         }
 
         MusicTrack trackById(String trackId) {

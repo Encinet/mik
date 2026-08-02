@@ -18,7 +18,8 @@ class MusicPackageArchitectureTest {
 
     private static final Path MUSIC = Path.of("src/main/java/org/encinet/mik/module/music");
     private static final Set<String> CAPABILITIES = Set.of(
-            "catalog", "command", "disc", "jukebox", "listener", "lyrics", "online", "ui");
+            "catalog", "command", "disc", "jukebox", "listener", "lyrics", "online",
+            "rhythm", "ui");
 
     @Test
     void rootOnlyContainsTheModuleCompositionRootAndCapabilityDirectories() throws IOException {
@@ -41,6 +42,8 @@ class MusicPackageArchitectureTest {
         assertNoImport(MUSIC.resolve("online"), "org.encinet.mik.module.music.ui.");
         assertNoImport(MUSIC.resolve("online"), "org.encinet.mik.module.music.listener.");
         assertNoImport(MUSIC.resolve("lyrics"), "org.encinet.mik.module.music.jukebox.");
+        assertNoImport(MUSIC.resolve("rhythm"), "org.encinet.mik.module.music.ui.");
+        assertNoImport(MUSIC.resolve("rhythm"), "org.encinet.mik.module.music.listener.");
         assertNoImport(MUSIC.resolve("ui"), "org.encinet.mik.module.music.listener.");
         assertNoImport(MUSIC.resolve("listener"), "org.encinet.mik.module.music.online.LxCustomSource");
     }
@@ -75,16 +78,23 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
-    void browserSessionOwnsSearchAndInventoryState() throws IOException {
+    void browserSessionOwnsSearchStateWithoutInventoryCoupling() throws IOException {
         String gui = source("ui/MusicBrowserGui.java");
         String sessions = source("ui/MusicBrowserSessions.java");
 
         assertFalse(gui.contains("Map<UUID, PlayerState>"));
         assertFalse(gui.contains("playerJukeboxContext"));
-        assertTrue(sessions.contains("Map<UUID, Session>"));
+        assertFalse(sessions.contains("Map<UUID, Session>"));
+        assertTrue(gui.contains("FloatingMenuScreen<MusicBrowserSessions.Session>"));
+        assertTrue(gui.contains("FloatingMenuLayouts.sidecar("));
+        assertTrue(gui.contains("menu.item(\"selected-track\""));
+        assertTrue(gui.contains("Message.MUSIC_BROWSER_LEFT_ADD_QUEUE"));
+        assertTrue(gui.contains("Message.MUSIC_BROWSER_RIGHT_PLAY_NEARBY"));
         assertTrue(sessions.contains("Map<UUID, JukeboxContext>"));
+        assertTrue(sessions.contains("focusedTrackOnPage("));
         assertTrue(sessions.contains("completeSearch("));
-        assertTrue(sessions.contains("activeInventory"));
+        assertFalse(sessions.contains("activeInventory"));
+        assertFalse(gui.contains("createInventory("));
     }
 
     @Test
@@ -173,11 +183,32 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
-    void repeatOneControlHidesTheVanillaDiscDescription() throws IOException {
+    void spatialControlsContainNoInventoryMetadataContracts() throws IOException {
         String gui = source("ui/JukeboxControlGui.java");
+        String browser = source("ui/MusicBrowserGui.java");
 
-        assertTrue(gui.contains("if (mode == JukeboxPlaybackMode.REPEAT_ONE)"));
-        assertTrue(gui.contains(".addHiddenComponents(DataComponentTypes.JUKEBOX_PLAYABLE)"));
+        String legacyDisplayMetadata = "Tooltip" + "Display";
+        assertFalse(gui.contains(legacyDisplayMetadata));
+        assertFalse(browser.contains(legacyDisplayMetadata));
+    }
+
+    @Test
+    void jukeboxStateOwnersInvalidateEveryMatchingViewer() throws IOException {
+        String module = source("MusicModule.java");
+        String gui = source("ui/JukeboxControlGui.java");
+        String queue = source("jukebox/JukeboxQueueService.java");
+        String settings = source("jukebox/JukeboxSettingsStore.java");
+        String playback = source("jukebox/JukeboxPlaybackService.java");
+
+        assertTrue(gui.contains("FloatingMenuScreen<ViewState>"));
+        assertTrue(gui.contains("screen.updateWhere("));
+        assertTrue(gui.contains("screen.closeWhere("));
+        assertTrue(queue.contains("stateChanged.run()"));
+        assertTrue(settings.contains("stateChangedListener.accept("));
+        assertTrue(playback.contains("notifyStateChanged("));
+        assertTrue(module.contains("queueService.setStateChangedListener("));
+        assertTrue(module.contains("settingsStore.setStateChangedListener("));
+        assertTrue(module.contains("playbackService.setStateChangedListener("));
     }
 
     @Test
@@ -332,12 +363,16 @@ class MusicPackageArchitectureTest {
         String listener = source("listener/JukeboxControlListener.java");
         String playback = source("jukebox/JukeboxPlaybackService.java");
 
-        assertTrue(gui.contains("createVanillaRecordItem(player, jukebox)"));
-        assertTrue(gui.contains("ItemStack record = jukebox.getRecord().asOne()"));
-        assertTrue(gui.contains("PlaybackStatus status = jukebox.isPlaying()"));
-        assertTrue(gui.contains("&& !MusicDiscKeys.isCustomDisc(jukebox.getRecord())"));
+        assertTrue(gui.contains("jukebox.getRecord().asOne()"));
+        assertTrue(gui.contains("return jukebox.isPlaying() ? PlaybackStatus.PLAYING"));
+        assertTrue(gui.contains("MusicDiscKeys.isCustomDisc(jukebox.getRecord())"));
+        assertTrue(gui.contains("worldItemDecoration(\"disc\""));
+        assertTrue(gui.contains("FloatingMenuDecoration.Motion.SPIN"));
+        assertTrue(gui.contains("FloatingMenuAppearance.TRANSPARENT"));
+        assertFalse(gui.contains("MUSIC_JUKEBOX_TITLE"));
+        assertFalse(gui.contains("element(\"current\""));
         assertTrue(gui.contains("if (jukebox.hasRecord())"));
-        assertTrue(listener.contains("if (!jukebox.hasRecord())"));
+        assertTrue(listener.contains("!jukebox.hasRecord()"));
         assertTrue(playback.contains("|| !jukebox.hasRecord()"));
     }
 

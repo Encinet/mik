@@ -1,7 +1,6 @@
 package org.encinet.mik.module.music.ui;
 
 import org.bukkit.Location;
-import org.bukkit.inventory.Inventory;
 import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.TrackTarget;
@@ -16,13 +15,11 @@ final class MusicBrowserSessions {
 
     private static final long JUKEBOX_SEARCH_CONTEXT_MILLIS = 2 * 60 * 1000L;
 
-    private final Map<UUID, Session> sessions = new HashMap<>();
     private final Map<UUID, Section> sections = new HashMap<>();
     private final Map<UUID, JukeboxContext> jukeboxContexts = new HashMap<>();
 
-    Session showLibrary(UUID playerId, List<MusicTrack> tracks, int page,
+    Session showLibrary(UUID playerId, Session session, List<MusicTrack> tracks, int page,
                         MusicPlaybackStats playbackStats) {
-        Session session = session(playerId);
         session.generation++;
         session.view = View.LIBRARY;
         session.page = page;
@@ -37,8 +34,7 @@ final class MusicBrowserSessions {
         return session;
     }
 
-    Session beginSearch(UUID playerId, String keyword) {
-        Session session = session(playerId);
+    Session beginSearch(UUID playerId, Session session, String keyword) {
         session.generation++;
         session.view = View.ONLINE_SONGS;
         session.page = 0;
@@ -53,11 +49,11 @@ final class MusicBrowserSessions {
         return session;
     }
 
-    boolean completeSearch(UUID playerId, Session expected, int generation,
-                           Inventory currentInventory, List<MusicTrack> tracks,
+    boolean completeSearch(Session expected, int generation,
+                           List<MusicTrack> tracks,
                            String requestError, int partialFailures,
                            MusicPlaybackStats playbackStats) {
-        if (!isCurrent(playerId, expected, generation, currentInventory)) {
+        if (expected.generation != generation) {
             return false;
         }
         expected.sourceTracks = List.copyOf(tracks);
@@ -68,12 +64,25 @@ final class MusicBrowserSessions {
         return true;
     }
 
-    Session current(UUID playerId) {
-        return sessions.get(playerId);
-    }
-
     void setPage(Session session, int page) {
         session.page = page;
+    }
+
+    void focusTrack(Session session, String trackId) {
+        session.focusedTrackId = trackId == null || trackId.isBlank() ? null : trackId;
+    }
+
+    /** Keeps focus on a visible track and otherwise selects the page's first result. */
+    MusicTrack focusedTrackOnPage(Session session, int fromIndex, int toIndex) {
+        if (fromIndex < 0 || toIndex < fromIndex || toIndex > session.tracks.size()) {
+            throw new IllegalArgumentException("Invalid visible track range");
+        }
+        List<MusicTrack> visible = session.tracks.subList(fromIndex, toIndex);
+        MusicTrack focused = visible.stream()
+                .filter(track -> track.id().equals(session.focusedTrackId))
+                .findFirst().orElse(visible.isEmpty() ? null : visible.getFirst());
+        session.focusedTrackId = focused == null ? null : focused.id();
+        return focused;
     }
 
     void cycleSort(Session session, MusicPlaybackStats playbackStats) {
@@ -93,44 +102,9 @@ final class MusicBrowserSessions {
         return sections.getOrDefault(playerId, Section.ALL).filter(tracks);
     }
 
-    void attachInventory(Session session, Inventory inventory) {
-        session.activeInventory = inventory;
-    }
-
-    boolean isCurrentInventory(UUID playerId, Inventory inventory, int generation,
-                               View view, int page) {
-        Session session = sessions.get(playerId);
-        return session != null && session.activeInventory == inventory
-                && session.generation == generation && session.view == view && session.page == page;
-    }
-
-    boolean isCurrent(UUID playerId, Session expected, int generation, Inventory inventory) {
-        return sessions.get(playerId) == expected && expected.generation == generation
-                && expected.activeInventory == inventory;
-    }
-
     void removePlayer(UUID playerId) {
-        Session session = sessions.remove(playerId);
-        if (session != null) {
-            session.generation++;
-            session.activeInventory = null;
-        }
         jukeboxContexts.remove(playerId);
         sections.remove(playerId);
-    }
-
-    void closeInventory(UUID playerId, Inventory inventory) {
-        Session session = sessions.get(playerId);
-        if (session == null || session.activeInventory != inventory) {
-            return;
-        }
-        sessions.remove(playerId, session);
-        session.generation++;
-        session.activeInventory = null;
-        JukeboxContext context = jukeboxContexts.get(playerId);
-        if (context == null || context.pendingUntilMillis <= System.currentTimeMillis()) {
-            jukeboxContexts.remove(playerId);
-        }
     }
 
     void setJukeboxContext(UUID playerId, Location location) {
@@ -164,10 +138,6 @@ final class MusicBrowserSessions {
             return;
         }
         jukeboxContexts.replace(playerId, context, new JukeboxContext(context.location, 0));
-    }
-
-    private Session session(UUID playerId) {
-        return sessions.computeIfAbsent(playerId, ignored -> new Session());
     }
 
     private static void refreshTracks(Session session, MusicPlaybackStats playbackStats) {
@@ -224,7 +194,7 @@ final class MusicBrowserSessions {
         private boolean loading;
         private String requestError;
         private int partialFailures;
-        private Inventory activeInventory;
+        private String focusedTrackId;
 
         View view() { return view; }
         int page() { return page; }
@@ -236,7 +206,7 @@ final class MusicBrowserSessions {
         boolean loading() { return loading; }
         String requestError() { return requestError; }
         int partialFailures() { return partialFailures; }
-        Inventory activeInventory() { return activeInventory; }
+        String focusedTrackId() { return focusedTrackId; }
     }
 
     private static final class JukeboxContext {

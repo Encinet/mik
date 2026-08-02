@@ -1,0 +1,23 @@
+# Two visually matching openings point in different directions. The spatial frame
+# rotates entity orientation and momentum through the corner without a separate mode.
+version: 3
+enabled: true
+
+surfaces:
+  east-opening:
+    world: world
+    area:
+      corner-a: [24.0, 64.0, -1.0]
+      corner-b: [24.0, 67.0, 2.0]
+    through: east
+  north-opening:
+    world: world
+    area:
+      corner-a: [39.0, 64.0, 16.0]
+      corner-b: [42.0, 67.0, 16.0]
+    through: north
+
+links:
+  impossible-corner:
+    connect: [east-opening, north-opening]
+    entrances: first

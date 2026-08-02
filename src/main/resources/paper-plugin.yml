@@ -47,11 +47,19 @@ dependencies:
       load: BEFORE
       required: false
       join-classpath: true
+    Geyser-Spigot:
+      load: BEFORE
+      required: false
+      join-classpath: true
     PlasmoVoice:
       load: BEFORE
       required: true
       join-classpath: true
     Skript:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    WorldEdit:
       load: BEFORE
       required: false
       join-classpath: true

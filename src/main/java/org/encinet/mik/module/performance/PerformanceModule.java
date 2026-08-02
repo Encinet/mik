@@ -1,5 +1,10 @@
 package org.encinet.mik.module.performance;
 
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -8,6 +13,7 @@ import org.bukkit.ServerTickManager;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Hopper;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -21,6 +27,7 @@ import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.Mik;
@@ -85,6 +92,37 @@ public class PerformanceModule implements Listener {
                 () -> WindChargeCleaner.run(Bukkit.getWorlds()),
                 WIND_CHARGE_CLEANUP_INTERVAL_TICKS,
                 WIND_CHARGE_CLEANUP_INTERVAL_TICKS);
+    }
+
+    public void registerCommands(LifecycleEventManager<Plugin> manager) {
+        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
+                Commands.literal("performance")
+                        .requires(source -> source.getSender().hasPermission(MANAGER_PERMISSION))
+                        .then(Commands.literal("viewdistance")
+                                .executes(context -> sendMaximumViewDistance(
+                                        context.getSource().getSender()))
+                                .then(Commands.argument("chunks", IntegerArgumentType.integer(2, 32))
+                                        .executes(context -> setMaximumViewDistance(
+                                                context.getSource().getSender(),
+                                                IntegerArgumentType.getInteger(context, "chunks")))))
+                        .executes(context -> sendMaximumViewDistance(context.getSource().getSender()))
+                        .build(),
+                "Performance controls"));
+    }
+
+    private int sendMaximumViewDistance(CommandSender sender) {
+        sender.sendMessage(Component.text("当前最大视距上限：", NamedTextColor.GRAY)
+                .append(Component.text(distanceController.maximumRenderDistance(), NamedTextColor.AQUA))
+                .append(Component.text(" 区块", NamedTextColor.GRAY)));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int setMaximumViewDistance(CommandSender sender, int distance) {
+        distanceController.setMaximumRenderDistance(distance, lastEffectiveMspt);
+        sender.sendMessage(Component.text("最大视距上限已设置为 ", NamedTextColor.GREEN)
+                .append(Component.text(distance, NamedTextColor.AQUA))
+                .append(Component.text(" 区块", NamedTextColor.GREEN)));
+        return Command.SINGLE_SUCCESS;
     }
 
     public void stop() {
@@ -456,11 +494,12 @@ public class PerformanceModule implements Listener {
         private static final int DISTANCE_RECOVERY_CONFIRM_WINDOWS = 5;  // ~10 s
 
         private final AfkService afkService;
-        private final int baseRenderDistance;
+        private final int originalRenderDistance;
         private final int baseSimulationDistance;
         private final int afkRenderDistance;
         private final int afkSimulationDistance;
         private final Map<UUID, AppliedDistances> appliedDistances = new HashMap<>();
+        private int maximumRenderDistance;
         private int currentPerformanceRenderDistance;
         private int currentPerformanceSimulationDistance;
         private int distanceAdjustCooldown = 0;
@@ -468,17 +507,18 @@ public class PerformanceModule implements Listener {
 
         PlayerDistanceController(AfkService afkService, int baseRenderDistance, int baseSimulationDistance) {
             this.afkService = afkService;
-            this.baseRenderDistance = Math.max(2, baseRenderDistance);
+            this.originalRenderDistance = Math.clamp(baseRenderDistance, 2, 32);
+            this.maximumRenderDistance = this.originalRenderDistance;
             this.baseSimulationDistance = Math.max(2, baseSimulationDistance);
-            this.afkRenderDistance = Math.clamp(AFK_RENDER_DISTANCE, 2, this.baseRenderDistance);
+            this.afkRenderDistance = Math.clamp(AFK_RENDER_DISTANCE, 2, this.originalRenderDistance);
             this.afkSimulationDistance = Math.clamp(AFK_SIMULATION_DISTANCE, 2, this.baseSimulationDistance);
-            this.currentPerformanceRenderDistance = this.baseRenderDistance;
+            this.currentPerformanceRenderDistance = this.maximumRenderDistance;
             this.currentPerformanceSimulationDistance = this.baseSimulationDistance;
         }
 
         void primeOnlinePlayers() {
             Bukkit.getOnlinePlayers().forEach(player -> apply(player,
-                    baseRenderDistance,
+                    maximumRenderDistance,
                     baseSimulationDistance));
         }
 
@@ -493,7 +533,7 @@ public class PerformanceModule implements Listener {
         }
 
         void adjust(double effectiveMspt) {
-            int performanceRender = interpolateMspt(effectiveMspt, baseRenderDistance, PERFORMANCE_RENDER_MIN);
+            int performanceRender = interpolateMspt(effectiveMspt, maximumRenderDistance, PERFORMANCE_RENDER_MIN);
             int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
             updatePerformanceDistances(performanceRender, performanceSimulation);
             for (Player player : Bukkit.getOnlinePlayers()) {
@@ -502,14 +542,30 @@ public class PerformanceModule implements Listener {
         }
 
         void resetAll() {
-            currentPerformanceRenderDistance = baseRenderDistance;
+            maximumRenderDistance = originalRenderDistance;
+            currentPerformanceRenderDistance = originalRenderDistance;
             currentPerformanceSimulationDistance = baseSimulationDistance;
             distanceAdjustCooldown = 0;
             recoveryConfirmCount = 0;
             for (Player player : Bukkit.getOnlinePlayers()) {
-                applyIfChanged(player, baseRenderDistance, baseSimulationDistance);
+                applyIfChanged(player, originalRenderDistance, baseSimulationDistance);
             }
             appliedDistances.clear();
+        }
+
+        int maximumRenderDistance() {
+            return maximumRenderDistance;
+        }
+
+        void setMaximumRenderDistance(int distance, double effectiveMspt) {
+            maximumRenderDistance = Math.clamp(distance, 2, 32);
+            currentPerformanceRenderDistance = interpolateMspt(
+                    effectiveMspt, maximumRenderDistance, PERFORMANCE_RENDER_MIN);
+            distanceAdjustCooldown = DISTANCE_ADJUST_COOLDOWN_WINDOWS;
+            recoveryConfirmCount = 0;
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                apply(player, currentPerformanceRenderDistance, currentPerformanceSimulationDistance);
+            }
         }
 
         private void apply(Player player, int performanceRender, int performanceSimulation) {
@@ -557,7 +613,7 @@ public class PerformanceModule implements Listener {
         }
 
         private boolean isMinimumPerformanceDistance(int renderDistance, int simulationDistance) {
-            return renderDistance <= Math.clamp(PERFORMANCE_RENDER_MIN, 2, baseRenderDistance)
+            return renderDistance <= Math.clamp(PERFORMANCE_RENDER_MIN, 2, maximumRenderDistance)
                     && simulationDistance <= Math.clamp(PERFORMANCE_SIMULATION_MIN, 2, baseSimulationDistance);
         }
 

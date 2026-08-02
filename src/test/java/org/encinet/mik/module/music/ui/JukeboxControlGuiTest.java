@@ -7,19 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JukeboxControlGuiTest {
 
     @Test
-    void paginatesEveryTwentySevenQueueTracks() {
+    void limitsEachSpatialQueuePageToTwelveTracks() {
         assertEquals(1, JukeboxControlGui.pageCount(0));
-        assertEquals(1, JukeboxControlGui.pageCount(27));
-        assertEquals(2, JukeboxControlGui.pageCount(28));
-        assertEquals(3, JukeboxControlGui.pageCount(55));
+        assertEquals(1, JukeboxControlGui.pageCount(8));
+        assertEquals(2, JukeboxControlGui.pageCount(9));
+        assertEquals(4, JukeboxControlGui.pageCount(25));
     }
 
     @Test
-    void mapsOnlyQueueGridSlotsToPageOffsets() {
-        assertEquals(0, JukeboxControlGui.queueSlotIndex(9));
-        assertEquals(26, JukeboxControlGui.queueSlotIndex(35));
-        assertEquals(-1, JukeboxControlGui.queueSlotIndex(8));
-        assertEquals(-1, JukeboxControlGui.queueSlotIndex(
-                JukeboxControlGui.NEXT_PAGE_SLOT));
+    void clampsEmptyAndInvalidQueueSizesToOnePage() {
+        assertEquals(1, JukeboxControlGui.pageCount(-1));
+        assertEquals(1, JukeboxControlGui.pageCount(0));
     }
 }

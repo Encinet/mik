@@ -9,6 +9,7 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerDe
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityMetadata;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityTeleport;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
+import io.github.retrooper.packetevents.util.SpigotReflectionUtil;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -20,6 +21,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.presentation.AxiomGizmoService;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 final class AfkDisplayController {
 
@@ -48,7 +49,6 @@ final class AfkDisplayController {
     private static final int VIEW_RANGE_METADATA_INDEX = 17;
     private static final byte BILLBOARD_CENTER = 3;
     private static final byte TEXT_SHADOW_FLAG = 0x01;
-    private static final AtomicInteger NEXT_ENTITY_ID = new AtomicInteger(1_000_000_000);
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final MiniMessage SAFE_MESSAGE = MiniMessage.builder()
             .tags(TagResolver.resolver(
@@ -61,14 +61,17 @@ final class AfkDisplayController {
             .build();
 
     private final LanguageService languageService;
+    private final AxiomGizmoService.Scope axiomGizmos;
     private final Map<UUID, VirtualDisplay> displays = new HashMap<>();
 
-    AfkDisplayController(LanguageService languageService) {
+    AfkDisplayController(LanguageService languageService, AxiomGizmoService.Scope axiomGizmos) {
         this.languageService = languageService;
+        this.axiomGizmos = axiomGizmos;
     }
 
     void update(Player player, AfkState state) {
-        VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(), VirtualDisplay::new);
+        VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(),
+                ignored -> new VirtualDisplay(player.getWorld()));
         boolean metadataChanged = display.state != state;
         display.state = state;
         syncDisplay(player, display, metadataChanged, OnlineView.capture());
@@ -88,7 +91,8 @@ final class AfkDisplayController {
                 continue;
             }
             Player player = subject.player;
-            VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(), VirtualDisplay::new);
+            VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(),
+                    ignored -> new VirtualDisplay(player.getWorld()));
             boolean metadataChanged = display.state != state;
             display.state = state;
             syncDisplay(player, display, metadataChanged, online);
@@ -107,10 +111,16 @@ final class AfkDisplayController {
         displays.clear();
     }
 
+    void disable() {
+        removeAll();
+        axiomGizmos.close();
+    }
+
     void forgetViewer(UUID viewerId) {
         for (VirtualDisplay display : displays.values()) {
             display.viewers.remove(viewerId);
         }
+        axiomGizmos.forgetViewer(viewerId);
     }
 
     void refreshViewerLanguage(Player viewer) {
@@ -207,6 +217,7 @@ final class AfkDisplayController {
     }
 
     private void spawn(Player viewer, VirtualDisplay display) {
+        axiomGizmos.synchronize(viewer, display.entityUuid, Set.of(display.entityUuid));
         PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
                 new WrapperPlayServerSpawnEntity(
                         display.entityId,
@@ -238,6 +249,7 @@ final class AfkDisplayController {
     private void destroy(Player viewer, VirtualDisplay display) {
         PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
                 new WrapperPlayServerDestroyEntities(display.entityId));
+        axiomGizmos.remove(viewer, display.entityUuid);
     }
 
     private List<EntityData<?>> metadata(Player viewer, AfkState state) {
@@ -257,7 +269,7 @@ final class AfkDisplayController {
     }
 
     private static final class VirtualDisplay {
-        private final int entityId = NEXT_ENTITY_ID.getAndDecrement();
+        private final int entityId;
         private final UUID entityUuid = UUID.randomUUID();
         private final Set<UUID> viewers = new HashSet<>();
         private org.bukkit.World world;
@@ -266,7 +278,8 @@ final class AfkDisplayController {
         private double y;
         private double z;
 
-        private VirtualDisplay(UUID playerId) {
+        private VirtualDisplay(World world) {
+            this.entityId = SpigotReflectionUtil.generateEntityId(world);
         }
 
         private boolean updateLocation(Location location) {

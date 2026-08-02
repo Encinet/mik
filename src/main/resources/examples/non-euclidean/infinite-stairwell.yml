@@ -1,0 +1,23 @@
+# One physical stair flight becomes endless in both directions. Build the flight
+# northward from lower-loop to upper-loop and hide both planes in matching landings.
+version: 3
+enabled: true
+
+surfaces:
+  upper-loop:
+    world: world
+    area:
+      corner-a: [321.0, 81.5, 1351.0]
+      corner-b: [322.0, 79.5, 1351.0]
+    through: north
+  lower-loop:
+    world: world
+    area:
+      corner-a: [321.0, 76.5, 1351.0]
+      corner-b: [322.0, 74.5, 1351.0]
+    through: north
+
+links:
+  infinite-stairwell:
+    connect: [upper-loop, lower-loop]
+    entrances: first

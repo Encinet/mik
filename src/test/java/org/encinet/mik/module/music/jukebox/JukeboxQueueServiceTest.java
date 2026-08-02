@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -187,6 +188,33 @@ class JukeboxQueueServiceTest {
 
         assertThrows(NullPointerException.class, () -> data.addToQueue(null));
         assertTrue(data.queueEmpty());
+    }
+
+    @Test
+    void publishesOnlyEffectiveQueueAndModeChanges() {
+        JukeboxQueueService manager = manager();
+        Location location = new Location(null, 12.8, 64, -3.2);
+        MusicTrack first = track("first.mp3", "First");
+        MusicTrack second = track("second.mp3", "Second");
+        AtomicInteger changes = new AtomicInteger();
+        AtomicReference<Location> changedLocation = new AtomicReference<>();
+        manager.setStateChangedListener(changed -> {
+            changes.incrementAndGet();
+            changedLocation.set(changed);
+        });
+
+        JukeboxQueueService.JukeboxState data = manager.state(location);
+        data.addToQueue(first);
+        data.addToQueue(first);
+        data.addToQueue(second);
+        data.moveInQueue(1, 0);
+        data.moveInQueue(0, 0);
+        data.removeFromQueue(track("missing.mp3", "Missing"));
+        data.cyclePlaybackMode();
+
+        assertEquals(4, changes.get());
+        assertEquals(12, changedLocation.get().getBlockX());
+        assertEquals(-4, changedLocation.get().getBlockZ());
     }
 
     private static MusicTrack track(String id, String name) {

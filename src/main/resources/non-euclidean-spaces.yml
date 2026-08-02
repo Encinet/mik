@@ -1,0 +1,12 @@
+# Invisible spatial seams with mandatory inverse routes. Older formats are not accepted.
+version: 3
+enabled: true
+
+# Each surface is an actual rectangular area, not a single block or destination
+# point. Its two corners are opposite corners in the plane. "through" is the
+# direction in which an entity crosses the plane.
+surfaces: {}
+
+# A link stitches two equal-area surfaces. "entrances" explicitly selects whether
+# only connect[0]'s through face or both configured through faces can initiate.
+links: {}

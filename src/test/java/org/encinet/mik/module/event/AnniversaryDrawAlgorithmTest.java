@@ -292,22 +292,6 @@ class AnniversaryDrawAlgorithmTest {
     }
 
     @Test
-    void virtualBagItemsUseStableCenteredSlots() {
-        assertTrue(Arrays.equals(new int[0],
-                FifthAnniversaryEventModule.virtualBagPrizeSlots(0)));
-        assertTrue(Arrays.equals(new int[]{13},
-                FifthAnniversaryEventModule.virtualBagPrizeSlots(1)));
-        assertTrue(Arrays.equals(new int[]{12, 14},
-                FifthAnniversaryEventModule.virtualBagPrizeSlots(2)));
-        assertTrue(Arrays.equals(new int[]{11, 13, 15},
-                FifthAnniversaryEventModule.virtualBagPrizeSlots(3)));
-        assertTrue(Arrays.equals(new int[]{10, 12, 14, 16},
-                FifthAnniversaryEventModule.virtualBagPrizeSlots(4)));
-        assertThrows(IllegalArgumentException.class,
-                () -> FifthAnniversaryEventModule.virtualBagPrizeSlots(5));
-    }
-
-    @Test
     void oddsLimiterCapsAbruptControllerChanges() {
         double increased = FifthAnniversaryEventModule.limitOddsChange(
                 0.20D, 0.58D, 0.80D, 1.20D);

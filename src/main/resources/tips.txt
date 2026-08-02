@@ -1,7 +1,145 @@
-<aqua>使用 /spawn 可以随时回到主城</aqua>
-===
-<yellow>挂机时可以使用 /afk <gray>稍后回来</gray> 设置头顶状态；上线后可以用 /announcements 查看最近公告</yellow>
-===
-<green>成员可以使用 /sethome 设置家，之后用 /home 回去</green>
-===
-<gold>遇到问题时，先查看官网 mcmik.top，那里通常有最新说明</gold>
+<!--
+  每条提示都会自动进入定时轮播，也可以通过 /tip 主动查看，不需要额外声明。
+  topics 表示提示涉及的功能；triggers 只声明额外的即时触发场景。
+  triggers 可选：join、chat、respawn、world-change。完全省略时仅参与轮播。
+
+  内容只描述语义，不写颜色。可用的行内标签：
+  command、key、feature、place、value、status、site、player、item、action、mode、
+  emphasis、strong、mark、code。每次显示时会从同一套和谐色板中为不同语义随机配色。
+-->
+
+<tip topics="spawn" triggers="join chat respawn">
+使用 <command>/spawn</command> 可以随时返回 <place>主城</place>。
+</tip>
+
+<tip topics="menu" triggers="join chat">
+按下 <key>潜行 + F</key> 可以打开 <feature>主菜单</feature>，也可以使用 <command>/menu</command>。
+</tip>
+
+<tip topics="menu">
+操作悬浮菜单时，先注视目标等待高亮；<key>左键</key>执行主要操作，提供次要操作的项目可用<key>右键</key>执行。
+</tip>
+
+<tip topics="menu">
+带分页或数值调节的悬浮菜单会接管<key>滚轮</key>；离开菜单打开位置超过 <value>3 格</value>时，菜单会自动关闭。
+</tip>
+
+<tip topics="afk" triggers="chat">
+暂时离开时，可以用 <command>/afk <status>稍后回来</status></command> 设置头顶状态；回来后再次使用 <command>/afk</command> 即可取消。
+</tip>
+
+<tip topics="announcements" triggers="join chat">
+使用 <command>/announcements</command> 可以查看最近的 <feature>服务器公告</feature>，滚轮可以切换较长的公告列表。
+</tip>
+
+<tip topics="home" triggers="join chat">
+先用 <command>/sethome <value>名字</value></command> 保存位置，之后可用 <command>/home <value>名字</value></command> 返回；直接使用 <command>/home</command> 会打开空间菜单。
+</tip>
+
+<tip topics="home">
+在家园菜单中，<key>左键</key>家园可传送；选中家园后，对“更新位置”使用<key>右键</key>并在确认窗确认，才会覆盖原位置。
+</tip>
+
+<tip topics="home">
+手持物品对家园使用<key>右键</key>可以把该物品设为图标；空手右键家园会先打开删除确认，也可以使用 <command>/delhome <value>名字</value></command>。
+</tip>
+
+<tip topics="music" triggers="chat">
+使用 <command>/music</command> 打开音乐库；注视歌曲后，侧边详情会显示曲名、歌手、时长以及该歌曲当前可用的左右键操作。
+</tip>
+
+<tip topics="music-search" triggers="chat">
+使用 <command>/music search <value>关键词</value></command> 可以搜索歌曲；搜索结果较多时可直接用<key>滚轮</key>翻页。
+</tip>
+
+<tip topics="music">
+在普通音乐库中，歌曲<key>左键</key>用于取得唱片，<key>右键</key>用于在最近的唱片机直接播放。
+</tip>
+
+<tip topics="music">
+使用 <command>/music random</command> 可以取得随机唱片；<command>/music randomplay</command> 会在 <value>50 格</value>内最近的已加载唱片机播放随机曲目。
+</tip>
+
+<tip topics="music">
+音乐库可以在<mode>全部音乐</mode>和<mode>NBS 专区</mode>之间切换，也可以按<feature>播放次数</feature>或<feature>最近播放</feature>排序。
+</tip>
+
+<tip topics="jukebox" triggers="chat">
+空手对唱片机使用 <key>潜行 + 右键</key>可以打开唱片机控制场景；悬浮唱片会直接反映当前的播放、加载或停止状态。
+</tip>
+
+<tip topics="jukebox">
+唱片机队列中，歌曲<key>左键</key>立即播放、<key>右键</key>移出队列；注视歌曲并转动<key>滚轮</key>可以前移或后移顺序。
+</tip>
+
+<tip topics="jukebox">
+注视唱片机的<feature>音量</feature>或<feature>范围</feature>控制时，左右键可粗调、滚轮可细调；播放范围最高为 <value>256 格</value>，播放模式可在列表循环、单曲循环和随机模式间切换。
+</tip>
+
+<tip topics="teleport" triggers="chat respawn world-change">
+使用 <command>/back</command> 返回上一处重要位置；如果走错了，可以用 <command>/reback</command> 或 <command>/back undo</command> 撤销这次返回。
+</tip>
+
+<tip topics="teleport">
+返回历史最多保存 <value>20 个位置</value>；使用 <command>/back <value>次数</value></command> 可以一次向前回溯多步。
+</tip>
+
+<tip topics="teleport">
+主菜单的<feature>传送设置</feature>可以禁止其他玩家把你传走，也可以只在 <status>AFK</status> 时阻止传送。
+</tip>
+
+<tip topics="language" triggers="join chat">
+使用 <command>/lang</command> 可以立即切换<feature>界面语言</feature>；选择<mode>自动</mode>后会跟随客户端语言变化。
+</tip>
+
+<tip topics="pvp" triggers="chat">
+使用 <command>/pvp</command> 可以快速切换自己的对战状态，使用 <command>/pvp settings</command> 可以打开完整设置。
+</tip>
+
+<tip topics="trash" triggers="chat">
+使用 <command>/trash</command> 可以检查背包中的物品；删除操作不会把物品转移到可恢复的容器中。
+</tip>
+
+<tip topics="trash">
+在垃圾桶菜单中，准星指向物品后按 <key>F</key> 可删除整组物品；滚轮可以切换背包物品分页。
+</tip>
+
+<tip topics="performance" triggers="chat">
+拥有对应权限时，使用 <command>/tpsbar</command> 可以显示或隐藏包含 <feature>TPS</feature>、<feature>MSPT</feature>和延迟的性能栏。
+</tip>
+
+<tip topics="flight" triggers="chat">
+使用 <command>/fly</command> 可以切换飞行；<command>/fly on</command>、<command>/fly off</command>和<command>/fly status</command>可以明确控制或查看状态。
+</tip>
+
+<tip topics="flight">
+使用 <command>/flyspeed <value>倍速</value></command> 可以调整飞行速度；<command>/flyspeed reset</command> 会恢复默认速度。
+</tip>
+
+<tip topics="private-chat" triggers="chat">
+使用 <command>/msg <player>玩家</player> <value>消息</value></command> 发送私聊；收到私聊后可用 <command>/r <value>消息</value></command> 回复最近的对象。
+</tip>
+
+<tip topics="private-chat">
+只使用 <command>/msg <player>玩家</player></command> 会进入持续私聊频道，再次使用 <command>/msg</command> 或使用 <command>/public</command> 可以回到公共频道。
+</tip>
+
+<tip topics="chat-settings" triggers="chat">
+主菜单的<feature>聊天设置</feature>可以分别控制提及提醒、声音、屏幕提示和 AFK 静音，也可以设置消息延迟发送时间。
+</tip>
+
+<tip topics="chat-settings">
+启用聊天延迟后，消息在倒计时结束前不会发出；使用 <command>/cancel</command> 或 <command>/c</command> 可以取消仍在等待的消息。
+</tip>
+
+<tip topics="nametag" triggers="chat">
+使用 <command>/nametag</command> 查看当前名称标签；<command>/nametag prefix set <value>内容</value></command>和 <command>/nametag suffix set <value>内容</value></command>可分别设置前后缀。
+</tip>
+
+<tip topics="hat" triggers="chat">
+把物品拿在主手并使用 <command>/hat</command>，可以把它与当前头部物品交换。
+</tip>
+
+<tip topics="tips">
+使用 <command>/tip</command> 可以立即查看一条提示；自动轮播会优先选择你还没有看过的内容，全部看过后再从最久未显示的内容开始。
+</tip>

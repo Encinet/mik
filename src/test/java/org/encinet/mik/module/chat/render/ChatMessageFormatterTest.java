@@ -19,4 +19,5 @@ class ChatMessageFormatterTest {
         assertEquals(ClickEvent.runCommand("/mikrepeat token"), suffix.clickEvent());
         assertEquals(Component.empty(), ChatMessageFormatter.repeatSuffix(null));
     }
+
 }

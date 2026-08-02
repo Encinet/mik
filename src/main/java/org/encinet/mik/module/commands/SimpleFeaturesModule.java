@@ -24,7 +24,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerKickEvent;
-import org.bukkit.inventory.Inventory;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -33,8 +33,16 @@ import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.i18n.TextArg;
+import org.encinet.mik.module.menu.FloatingMenuContext;
+import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuFeedbackKind;
+import org.encinet.mik.module.menu.FloatingMenuLayouts;
+import org.encinet.mik.module.menu.FloatingMenuPage;
+import org.encinet.mik.module.menu.FloatingMenuScreen;
 import org.encinet.mik.util.PlayerDisplay;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,14 +58,19 @@ public class SimpleFeaturesModule implements Listener {
     private static final float SPAWN_YAW = -90.0f;
     private static final float SPAWN_PITCH = 0.0f;
     private static final int MAX_SELF_KICK_REASON_LENGTH = 200;
+    private static final int TRASH_ITEMS_PER_PAGE = 9;
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
-    private final Map<UUID, String> pendingSelfKicks = new HashMap<>();
+    private final SelfKickMessageService selfKickMessages;
+    private final Map<UUID, SelfKickMessageService.Request> pendingSelfKicks = new HashMap<>();
+    private final FloatingMenuScreen<Integer> trashScreen;
 
     public SimpleFeaturesModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
         this.languageService = languageService;
+        this.selfKickMessages = new SelfKickMessageService(languageService);
+        this.trashScreen = new FloatingMenuScreen<>("trash", ignored -> 0, this::buildTrashMenu);
     }
 
     public void enable() {
@@ -168,12 +181,7 @@ public class SimpleFeaturesModule implements Listener {
                     .executes(ctx -> {
                         Entity executor = ctx.getSource().getExecutor();
                         if (executor instanceof Player player) {
-                            // 创建一个临时的 27 格箱子界面
-                            Component title = Component.text(languageService.t(player, Message.TRASH_TITLE), NamedTextColor.RED, TextDecoration.BOLD)
-                                    .append(Component.space())
-                                    .append(Component.text(languageService.t(player, Message.TRASH_TITLE_HINT), NamedTextColor.GRAY));
-                            Inventory trash = Bukkit.createInventory(null, 27, title);
-                            player.openInventory(trash);
+                            trashScreen.open(player, 0);
                             return Command.SINGLE_SUCCESS;
                         }
                         ctx.getSource().getSender().sendMessage(
@@ -197,15 +205,97 @@ public class SimpleFeaturesModule implements Listener {
         });
     }
 
+    private FloatingMenuDefinition buildTrashMenu(FloatingMenuContext<Integer> context) {
+        Player player = context.player();
+        List<TrashEntry> carried = carriedItems(player);
+        FloatingMenuPage page = new FloatingMenuPage(context.state(), carried.size(),
+                TRASH_ITEMS_PER_PAGE);
+        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
+                        "trash",
+                        Component.text(languageService.t(player, Message.TRASH_TITLE),
+                                NamedTextColor.RED, TextDecoration.BOLD))
+                .layout(FloatingMenuLayouts.menu(
+                        FloatingMenuLayouts.cards("items", 3, 3),
+                        FloatingMenuLayouts.navigation("controls")));
+
+        if (carried.isEmpty()) {
+            menu.information("empty", Component.text("0", NamedTextColor.GRAY)
+                            .append(Component.newline())
+                            .append(Component.text(languageService.t(player,
+                                    Message.TRASH_TITLE_HINT), NamedTextColor.DARK_GRAY)))
+                    .region("items");
+        } else {
+            for (TrashEntry entry : page.slice(carried)) {
+                ItemStack snapshot = entry.item().clone();
+                menu.item("inventory:" + entry.slot(), snapshot, snapshot.effectiveName())
+                        .region("items")
+                        .primary((p, handle) -> handle.feedback(
+                                Component.text(languageService.t(p, Message.TRASH_TITLE_HINT),
+                                        NamedTextColor.YELLOW), FloatingMenuFeedbackKind.INFO))
+                        .hotkey((p, handle) -> deleteCarriedItem(
+                                context, entry.slot(), snapshot));
+            }
+        }
+
+        menu.pagination("controls", page, context::setState);
+        menu.dismiss(
+                        Component.text(languageService.t(player, Message.CLOSE), NamedTextColor.RED))
+                .region("controls");
+        return menu.build();
+    }
+
+    private void deleteCarriedItem(FloatingMenuContext<Integer> context, int slot,
+                                   ItemStack expected) {
+        Player player = context.player();
+        ItemStack current = player.getInventory().getItem(slot);
+        if (current == null || current.getType().isAir() || !current.isSimilar(expected)
+                || current.getAmount() != expected.getAmount()) {
+            context.feedback(Component.text(languageService.t(player, Message.TRASH_TITLE_HINT),
+                    NamedTextColor.RED), FloatingMenuFeedbackKind.ERROR);
+            context.redraw();
+            return;
+        }
+        Component itemName = expected.effectiveName();
+        int amount = expected.getAmount();
+        player.getInventory().setItem(slot, null);
+        context.feedback(Component.text("× ", NamedTextColor.RED)
+                        .append(itemName)
+                        .append(Component.text(" ×" + amount, NamedTextColor.GRAY)),
+                FloatingMenuFeedbackKind.SUCCESS);
+        context.redraw();
+    }
+
+    private static List<TrashEntry> carriedItems(Player player) {
+        List<TrashEntry> result = new ArrayList<>();
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int slot = 0; slot < contents.length; slot++) {
+            ItemStack item = contents[slot];
+            if (item != null && !item.getType().isAir()) {
+                result.add(new TrashEntry(slot, item.clone()));
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private record TrashEntry(int slot, ItemStack item) { }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        pendingSelfKicks.remove(playerId);
+        trashScreen.forget(playerId);
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSelfKick(PlayerKickEvent event) {
-        String reason = pendingSelfKicks.remove(event.getPlayer().getUniqueId());
-        if (reason == null || event.getCause() != PlayerKickEvent.Cause.SELF_INTERACTION) {
+        SelfKickMessageService.Request request = pendingSelfKicks.remove(
+                event.getPlayer().getUniqueId());
+        if (request == null || event.getCause() != PlayerKickEvent.Cause.SELF_INTERACTION) {
             return;
         }
 
         event.leaveMessage(null);
-        broadcastSelfKick(event.getPlayer().getName(), reason);
+        broadcastSelfKick(event.getPlayer(), request);
     }
 
     private int selfKick(CommandSender sender, String rawReason) {
@@ -221,14 +311,11 @@ public class SimpleFeaturesModule implements Listener {
             return 0;
         }
 
-        String storedReason = reason == null ? "" : reason;
         UUID playerId = player.getUniqueId();
-        pendingSelfKicks.put(playerId, storedReason);
-        String displayedReason = reason == null
-                ? languageService.t(player, Message.SELF_KICK_DEFAULT_REASON)
-                : reason;
-        player.kick(languageService.text(player, Message.SELF_KICK_SCREEN, NamedTextColor.YELLOW,
-                displayedReason), PlayerKickEvent.Cause.SELF_INTERACTION);
+        SelfKickMessageService.Request request = selfKickMessages.createRequest(reason);
+        pendingSelfKicks.put(playerId, request);
+        player.kick(selfKickMessages.message(player, player, request),
+                PlayerKickEvent.Cause.SELF_INTERACTION);
         Bukkit.getScheduler().runTask(plugin, () -> pendingSelfKicks.remove(playerId));
         return Command.SINGLE_SUCCESS;
     }
@@ -241,20 +328,18 @@ public class SimpleFeaturesModule implements Listener {
         return reason.isEmpty() ? null : reason;
     }
 
-    private void broadcastSelfKick(String playerName, String reason) {
+    private void broadcastSelfKick(Player kickedPlayer,
+                                   SelfKickMessageService.Request request) {
+        Map<Language, Component> localizedMessages = new EnumMap<>(Language.class);
         for (Player recipient : Bukkit.getOnlinePlayers()) {
-            String displayedReason = reason.isEmpty()
-                    ? languageService.t(recipient, Message.SELF_KICK_DEFAULT_REASON)
-                    : reason;
-            recipient.sendMessage(languageService.text(recipient, Message.SELF_KICK_BROADCAST,
-                    NamedTextColor.YELLOW, playerName, displayedReason));
+            if (recipient.getUniqueId().equals(kickedPlayer.getUniqueId())) continue;
+            Language language = languageService.language(recipient);
+            recipient.sendMessage(localizedMessages.computeIfAbsent(language,
+                    ignored -> selfKickMessages.message(language, kickedPlayer, request)));
         }
 
-        String consoleReason = reason.isEmpty()
-                ? languageService.t(Language.DEFAULT, Message.SELF_KICK_DEFAULT_REASON)
-                : reason;
-        Bukkit.getConsoleSender().sendMessage(languageService.text(Language.DEFAULT, Message.SELF_KICK_BROADCAST,
-                NamedTextColor.YELLOW, playerName, consoleReason));
+        Bukkit.getConsoleSender().sendMessage(selfKickMessages.message(
+                Language.DEFAULT, kickedPlayer, request));
     }
 
     private int removeItems(CommandSourceStack source, int radius) {

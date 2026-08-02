@@ -13,6 +13,8 @@ import org.bukkit.block.Block;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
+import org.encinet.mik.module.music.rhythm.RhythmAudioFilterFactory;
+import org.encinet.mik.module.music.rhythm.RhythmTimeline;
 import su.plo.slib.api.server.position.ServerPos3d;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 import su.plo.voice.api.server.audio.line.ServerSourceLine;
@@ -51,11 +53,13 @@ final class AudioPlaybackEngine implements AutoCloseable {
     }
 
     PlaybackSession create(Location location, MusicTrack music, String sourceName,
-                           JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
+                           JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
+                           RhythmTimeline rhythmTimeline) {
         if (closed.get()) {
             throw new IllegalStateException("Audio playback backend is closed");
         }
-        Session session = new Session(location.clone(), music, sourceName, settings, callbacks);
+        Session session = new Session(location.clone(), music, sourceName, settings,
+                callbacks, rhythmTimeline);
         sessions.add(session);
         return session;
     }
@@ -76,6 +80,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final MusicTrack music;
         private final String sourceName;
         private final PlaybackCallbacks callbacks;
+        private final RhythmTimeline rhythmTimeline;
         private final AtomicBoolean started = new AtomicBoolean();
         private final AtomicBoolean stopped = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
@@ -89,12 +94,14 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private volatile AudioSender sender;
 
         private Session(Location location, MusicTrack music, String sourceName,
-                        JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
+                        JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
+                        RhythmTimeline rhythmTimeline) {
             this.location = location;
             this.music = Objects.requireNonNull(music, "music");
             this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
             this.settings = Objects.requireNonNull(settings, "settings");
             this.callbacks = Objects.requireNonNull(callbacks, "callbacks");
+            this.rhythmTimeline = Objects.requireNonNull(rhythmTimeline, "rhythmTimeline");
         }
 
         @Override
@@ -142,6 +149,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 AudioPlayer player = loader.createPlayer();
                 audioPlayer = player;
                 player.setVolume(settings.volumePercent());
+                player.setFilterFactory(new RhythmAudioFilterFactory(rhythmTimeline));
                 player.addListener(new AudioEventAdapter() {
                     @Override
                     public void onTrackException(AudioPlayer ignored, AudioTrack failedTrack,
@@ -281,6 +289,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
             if (loaded != null) {
                 loaded.close();
             }
+            rhythmTimeline.markAudioComplete(finalPositionMillis);
             sessions.remove(this);
         }
     }

@@ -8,25 +8,24 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
-import org.encinet.mik.module.menu.MenuItems;
-import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.module.menu.FloatingMenus;
+import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuInteraction;
+import org.encinet.mik.module.menu.FloatingMenuLayouts;
+import org.encinet.mik.module.menu.FloatingMenuContext;
+import org.encinet.mik.module.menu.FloatingMenuPage;
+import org.encinet.mik.module.menu.FloatingMenuScreen;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,35 +46,22 @@ public class AnnouncementModule implements Listener {
     private static final DateTimeFormatter MONTH_FMT = DateTimeFormatter.ofPattern("yyyy年MM月");
     private static final int JOIN_PUSH_LIMIT = 5;
     private static final String MENU_TITLE = "服务器公告";
-    private static final String ACTION_CLOSE = "close";
-    private static final int MENU_SIZE = 54;
-    private static final int ANNOUNCEMENTS_PER_PAGE = 28;
-    private static final int[] CONTENT_SLOTS = {
-            10, 11, 12, 13, 14, 15, 16,
-            19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34,
-            37, 38, 39, 40, 41, 42, 43
-    };
-    /**
-     * lore 每行最大字符数（半角计；中文字符建议按 2 算，此处简单按字符数截断）
-     */
-    private static final int LORE_LINE_WIDTH = 36;
+    private static final int ANNOUNCEMENTS_PER_PAGE = 6;
+    private static final int TEXT_LINE_WIDTH = 36;
 
     private final JavaPlugin plugin;
-    private final MenuNavigation menuNavigation;
-    private final NamespacedKey menuActionKey;
     private final File stateFile;
     private final Map<UUID, Long> playerSeenUntil = new ConcurrentHashMap<>();
-    private final Map<UUID, MenuState> menuStates = new ConcurrentHashMap<>();
+    private final FloatingMenuScreen<MenuState> menuScreen;
     private List<Announcement> announcements = List.of();
     private volatile String announcementsJson = "[]";
     private volatile byte[] announcementsJsonBytes = "[]".getBytes(StandardCharsets.UTF_8);
 
-    public AnnouncementModule(JavaPlugin plugin, MenuNavigation menuNavigation) {
+    public AnnouncementModule(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.menuNavigation = menuNavigation;
-        this.menuActionKey = new NamespacedKey(plugin, "announcement_action");
         this.stateFile = new File(plugin.getDataFolder(), "announcements-state.yml");
+        this.menuScreen = new FloatingMenuScreen<>("announcements",
+                ignored -> new MenuState(null, 0), this::buildAnnouncementsMenu);
     }
 
     public void enable() {
@@ -86,37 +72,6 @@ public class AnnouncementModule implements Listener {
 
     public void disable() {
         saveState();
-    }
-
-    //  Inventory 事件
-
-    @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) return;
-
-        // 必须用 PlainTextComponentSerializer，直接 toString() 会得到 Component JSON
-        String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-
-        if (title.equals(MENU_TITLE)) {
-            event.setCancelled(true);
-            ItemStack item = event.getCurrentItem();
-            if (item != null && item.hasItemMeta()) handleMenuClick(player, item);
-        }
-    }
-
-    @EventHandler
-    public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)) return;
-
-        String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!MENU_TITLE.equals(title)) return;
-
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            String currentTitle = PlainTextComponentSerializer.plainText().serialize(player.getOpenInventory().title());
-            if (!MENU_TITLE.equals(currentTitle)) {
-                menuNavigation.clearMainMenuReturn(player, MenuNavigation.ChildMenu.ANNOUNCEMENTS);
-            }
-        });
     }
 
     //  reload
@@ -206,7 +161,7 @@ public class AnnouncementModule implements Listener {
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
-        menuStates.remove(event.getPlayer().getUniqueId());
+        menuScreen.forget(event.getPlayer());
     }
 
     private Component chatHeader(String title, Component badge) {
@@ -265,179 +220,159 @@ public class AnnouncementModule implements Listener {
     public void openAnnouncementsMenu(Player player) {
         markSeenThroughLatest(player.getUniqueId());
         saveState();
-        MenuState state = menuStates.computeIfAbsent(player.getUniqueId(), _ -> new MenuState(null, 0));
-        openAnnouncementsMenu(player, state);
+        menuScreen.open(player);
     }
 
-    private void openAnnouncementsMenu(Player player, MenuState requestedState) {
+    private FloatingMenuDefinition buildAnnouncementsMenu(FloatingMenuContext<MenuState> context) {
+        Player player = context.player();
+        MenuState requestedState = context.state();
         MenuState state = normalizeState(requestedState);
-        menuStates.put(player.getUniqueId(), state);
 
         List<Announcement> visible = filterAnnouncements(state.monthFilter());
-        int totalPages = Math.max(1, (visible.size() + ANNOUNCEMENTS_PER_PAGE - 1) / ANNOUNCEMENTS_PER_PAGE);
-        int page = Math.clamp(state.page(), 0, totalPages - 1);
+        FloatingMenuPage pagination = new FloatingMenuPage(
+                state.page(), visible.size(), ANNOUNCEMENTS_PER_PAGE);
+        int totalPages = pagination.count();
+        int page = pagination.index();
         if (page != state.page()) {
             state = new MenuState(state.monthFilter(), page);
-            menuStates.put(player.getUniqueId(), state);
         }
 
-        Inventory inv = Bukkit.createInventory(null, MENU_SIZE, Component.text(MENU_TITLE, MenuItems.TITLE_COLOR));
-        paintFrame(inv);
-        paintToolbar(inv, state, visible.size(), totalPages);
-        paintAnnouncements(inv, visible, page);
-        paintFooter(inv, page, totalPages, player.hasPermission("mik.command.reloadannouncements"), player);
+        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
+                        "announcements",
+                        Component.text(MENU_TITLE, NamedTextColor.DARK_PURPLE))
+                .layout(FloatingMenuLayouts.menu(
+                        FloatingMenuLayouts.actions("toolbar", 4),
+                        FloatingMenuLayouts.information("summary"),
+                        FloatingMenuLayouts.cards("content", 2, 3),
+                        FloatingMenuLayouts.actions("footer", 4)));
 
-        player.openInventory(inv);
-    }
-
-    public void handleMenuClick(Player player, ItemStack item) {
-        String action = readMenuAction(item);
-        if (action == null) return;
-
-        MenuState state = menuStates.getOrDefault(player.getUniqueId(), new MenuState(null, 0));
-        switch (action) {
-            case ACTION_CLOSE -> {
-                if (!menuNavigation.returnToMainMenuIfNeeded(player, MenuNavigation.ChildMenu.ANNOUNCEMENTS)) {
-                    player.closeInventory();
-                }
-            }
-            case "all" -> openAnnouncementsMenu(player, new MenuState(null, 0));
-            case "latest_month" -> openAnnouncementsMenu(player, new MenuState(latestMonth(), 0));
-            case "month_prev" -> openAnnouncementsMenu(player, new MenuState(shiftMonth(state.monthFilter(), -1), 0));
-            case "month_next" -> openAnnouncementsMenu(player, new MenuState(shiftMonth(state.monthFilter(), 1), 0));
-            case "page_prev" -> openAnnouncementsMenu(player, new MenuState(state.monthFilter(), state.page() - 1));
-            case "page_next" -> openAnnouncementsMenu(player, new MenuState(state.monthFilter(), state.page() + 1));
-            case "reload" -> {
-                if (!player.hasPermission("mik.command.reloadannouncements")) return;
-                reload();
-                openAnnouncementsMenu(player, state);
-                player.sendMessage(Component.text("公告已重新加载", NamedTextColor.GREEN));
-            }
-            default -> {
-            }
+        boolean hasEarlierMonth = hasAdjacentMonth(state.monthFilter(), -1);
+        var previousMonth = menu.navigation("month:previous",
+                        Component.text("‹ 上个月", hasEarlierMonth
+                                        ? NamedTextColor.AQUA : NamedTextColor.DARK_GRAY)
+                                .decorate(TextDecoration.BOLD))
+                .region("toolbar");
+        if (hasEarlierMonth) {
+            previousMonth.primary((p, handle) -> context.update(value ->
+                    new MenuState(shiftMonth(value.monthFilter(), -1), 0)));
+        } else {
+            previousMonth.disabled(Component.text("没有更早的月份", NamedTextColor.GRAY));
         }
-    }
 
-    private void paintFrame(Inventory inv) {
-        MenuItems.fillExcept(inv, Material.GRAY_STAINED_GLASS_PANE, CONTENT_SLOTS);
-    }
+        menu.item("range:all", Material.COMPASS,
+                        Component.text("全部公告", NamedTextColor.GOLD).decorate(TextDecoration.BOLD))
+                .region("toolbar")
+                .primary((p, handle) -> context.setState(new MenuState(null, 0)));
+        menu.information("summary", buildSummary(state, visible.size(), totalPages))
+                .region("summary");
+        menu.item("range:latest", Material.CLOCK,
+                        Component.text("最新月份", NamedTextColor.YELLOW).decorate(TextDecoration.BOLD))
+                .region("toolbar")
+                .primary((p, handle) -> context.setState(new MenuState(latestMonth(), 0)));
 
-    private void paintToolbar(Inventory inv, MenuState state, int visibleCount, int totalPages) {
-        boolean canMoveMonthBack = hasAdjacentMonth(state.monthFilter(), -1);
-        boolean canMoveMonthForward = hasAdjacentMonth(state.monthFilter(), 1);
-
-        inv.setItem(0, canMoveMonthBack
-                ? actionItem(Material.ARROW,
-                Component.text("上个月", NamedTextColor.AQUA).decorate(TextDecoration.BOLD),
-                List.of(),
-                "month_prev")
-                : disabledItem(Component.text("上个月", NamedTextColor.GRAY),
-                List.of(Component.text("没有更早的月份", NamedTextColor.GRAY))));
-        inv.setItem(2, actionItem(Material.COMPASS,
-                Component.text("全部公告", NamedTextColor.GOLD).decorate(TextDecoration.BOLD),
-                List.of(Component.text("当前范围：" + rangeLabel(state.monthFilter()), NamedTextColor.GRAY)),
-                "all"));
-        inv.setItem(4, buildSummaryItem(state, visibleCount, totalPages));
-        inv.setItem(6, actionItem(Material.CLOCK,
-                Component.text("最新月份", NamedTextColor.YELLOW).decorate(TextDecoration.BOLD),
-                List.of(),
-                "latest_month"));
-        inv.setItem(8, canMoveMonthForward
-                ? actionItem(Material.ARROW,
-                Component.text("下个月", NamedTextColor.AQUA).decorate(TextDecoration.BOLD),
-                List.of(),
-                "month_next")
-                : disabledItem(Component.text("下个月", NamedTextColor.GRAY),
-                List.of(Component.text("没有更晚的月份", NamedTextColor.GRAY))));
-    }
-
-    private void paintAnnouncements(Inventory inv, List<Announcement> visible, int page) {
-        if (visible.isEmpty()) {
-            inv.setItem(22, simpleItem(Material.BARRIER,
-                    Component.text("暂无公告", NamedTextColor.GRAY).decorate(TextDecoration.BOLD),
-                    List.of(Component.text("当前范围内没有可显示的公告", NamedTextColor.GRAY))));
-            return;
+        boolean hasLaterMonth = hasAdjacentMonth(state.monthFilter(), 1);
+        var nextMonth = menu.navigation("month:next",
+                        Component.text("下个月 ›", hasLaterMonth
+                                        ? NamedTextColor.AQUA : NamedTextColor.DARK_GRAY)
+                                .decorate(TextDecoration.BOLD))
+                .region("toolbar");
+        if (hasLaterMonth) {
+            nextMonth.primary((p, handle) -> context.update(value ->
+                    new MenuState(shiftMonth(value.monthFilter(), 1), 0)));
+        } else {
+            nextMonth.disabled(Component.text("没有更晚的月份", NamedTextColor.GRAY));
         }
 
         int start = page * ANNOUNCEMENTS_PER_PAGE;
         int end = Math.min(start + ANNOUNCEMENTS_PER_PAGE, visible.size());
-        for (int i = start; i < end; i++) {
-            inv.setItem(CONTENT_SLOTS[i - start], buildAnnouncementItem(visible.get(i)));
+        if (start == end) {
+            menu.information("content:empty",
+                            Component.text("暂无公告", NamedTextColor.GRAY).decorate(TextDecoration.BOLD)
+                                    .append(Component.newline())
+                                    .append(Component.text("当前范围内没有可显示的公告",
+                                            NamedTextColor.DARK_GRAY)))
+                    .region("content");
+        } else {
+            for (int index = start; index < end; index++) {
+                Announcement announcement = visible.get(index);
+                String date = java.time.Instant.ofEpochSecond(announcement.timestamp())
+                        .atZone(ZoneId.systemDefault()).format(DISPLAY_FMT);
+                Component content = Component.text(date, NamedTextColor.GOLD)
+                        .decorate(TextDecoration.BOLD)
+                        .append(Component.newline())
+                        .append(Component.text(monthOf(announcement).format(MONTH_FMT),
+                                NamedTextColor.DARK_AQUA));
+                List<Component> previewLines = wrapText(announcement.content());
+                for (Component line : previewLines.subList(0, Math.min(2, previewLines.size()))) {
+                    content = content.append(Component.newline()).append(line);
+                }
+                if (previewLines.size() > 2) {
+                    content = content.append(Component.text(" …", NamedTextColor.DARK_GRAY));
+                }
+                menu.information("announcement:" + announcement.timestamp() + ":" + index,
+                                content)
+                        .region("content");
+            }
         }
-    }
 
-    private void paintFooter(Inventory inv, int page, int totalPages, boolean canReload, Player player) {
-        inv.setItem(45, page > 0 ? actionItem(Material.SPECTRAL_ARROW,
-                Component.text("上一页", NamedTextColor.AQUA).decorate(TextDecoration.BOLD),
-                List.of(Component.text("第 " + (page + 1) + " / " + totalPages + " 页", NamedTextColor.GRAY)),
-                "page_prev") : disabledItem(Component.text("上一页", NamedTextColor.GRAY),
-                List.of(Component.text("已经是第一页", NamedTextColor.GRAY))));
-        if (canReload) {
-            inv.setItem(51, actionItem(Material.LIME_DYE,
-                    Component.text("重新加载公告", NamedTextColor.GREEN).decorate(TextDecoration.BOLD),
-                    List.of(Component.text("从 announcements.txt 重新读取", NamedTextColor.GRAY)),
-                    "reload"));
+        if (pagination.hasPrevious()) {
+            menu.navigation("page:previous",
+                            Component.text("‹ 上一页", NamedTextColor.AQUA)
+                                    .decorate(TextDecoration.BOLD))
+                    .region("footer")
+                    .primary((p, handle) -> context.update(value ->
+                            new MenuState(value.monthFilter(), pagination.previous().index())));
+            menu.on(FloatingMenuInteraction.SCROLL_UP, (p, handle, input) -> context.update(value ->
+                    new MenuState(value.monthFilter(), pagination.previous().index())));
+        } else {
+            menu.navigation("page:previous", Component.text("‹ 上一页", NamedTextColor.DARK_GRAY))
+                    .region("footer")
+                    .disabled(Component.text("已经是第一页", NamedTextColor.GRAY));
         }
-        inv.setItem(52, closeItem(menuNavigation.shouldReturnToMainMenu(player, MenuNavigation.ChildMenu.ANNOUNCEMENTS)));
-        inv.setItem(53, page + 1 < totalPages ? actionItem(Material.SPECTRAL_ARROW,
-                Component.text("下一页", NamedTextColor.AQUA).decorate(TextDecoration.BOLD),
-                List.of(Component.text("第 " + (page + 1) + " / " + totalPages + " 页", NamedTextColor.GRAY)),
-                "page_next") : disabledItem(Component.text("下一页", NamedTextColor.GRAY),
-                List.of(Component.text("已经是最后一页", NamedTextColor.GRAY))));
-    }
-
-    private ItemStack buildSummaryItem(MenuState state, int visibleCount, int totalPages) {
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("当前范围：" + rangeLabel(state.monthFilter()), NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("公告数量：" + visibleCount + " 条", NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.text("页数：" + Math.max(1, state.page() + 1) + " / " + totalPages, NamedTextColor.GRAY)
-                .decoration(TextDecoration.ITALIC, false));
-
-        return simpleItem(Material.WRITABLE_BOOK,
-                Component.text("服务器公告", NamedTextColor.GOLD).decorate(TextDecoration.BOLD),
-                lore);
-    }
-
-    private ItemStack buildAnnouncementItem(Announcement a) {
-        String dateStr = java.time.Instant.ofEpochSecond(a.timestamp())
-                .atZone(ZoneId.systemDefault())
-                .format(DISPLAY_FMT);
-        String monthStr = monthOf(a).format(MONTH_FMT);
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(Component.text(monthStr, NamedTextColor.DARK_AQUA)
-                .decoration(TextDecoration.ITALIC, false));
-        lore.add(Component.empty());
-        lore.addAll(wrapToLore(a.content()));
-
-        return MenuItems.item(Material.PAPER, Component.text(dateStr, NamedTextColor.GOLD).decorate(TextDecoration.BOLD), lore);
-    }
-
-    private ItemStack closeItem(boolean returnToMainMenu) {
-        if (returnToMainMenu) {
-            return actionItem(Material.ARROW, Component.text("返回主菜单", NamedTextColor.GREEN).decorate(TextDecoration.BOLD),
-                    List.of(Component.text("回到主菜单", NamedTextColor.GRAY)), ACTION_CLOSE);
+        if (player.hasPermission("mik.command.reloadannouncements")) {
+            menu.item("reload", Material.LIME_DYE,
+                            Component.text("重新加载公告", NamedTextColor.GREEN)
+                                    .decorate(TextDecoration.BOLD))
+                    .region("footer")
+                    .primary((p, handle) -> {
+                        reload();
+                        context.redraw();
+                        p.sendMessage(Component.text("公告已重新加载", NamedTextColor.GREEN));
+                    });
         }
-        return actionItem(Material.BARRIER, Component.text("关闭", NamedTextColor.RED).decorate(TextDecoration.BOLD),
-                List.of(Component.text("返回游戏", NamedTextColor.GRAY)), ACTION_CLOSE);
+        menu.dismiss(
+                        Component.text(context.canGoBack() ? "返回" : "关闭", NamedTextColor.RED)
+                                .decorate(TextDecoration.BOLD))
+                .region("footer");
+        if (pagination.hasNext()) {
+            menu.navigation("page:next",
+                            Component.text("下一页 ›", NamedTextColor.AQUA)
+                                    .decorate(TextDecoration.BOLD))
+                    .region("footer")
+                    .primary((p, handle) -> context.update(value ->
+                            new MenuState(value.monthFilter(), pagination.next().index())));
+            menu.on(FloatingMenuInteraction.SCROLL_DOWN, (p, handle, input) -> context.update(value ->
+                    new MenuState(value.monthFilter(), pagination.next().index())));
+        } else {
+            menu.navigation("page:next", Component.text("下一页 ›", NamedTextColor.DARK_GRAY))
+                    .region("footer")
+                    .disabled(Component.text("已经是最后一页", NamedTextColor.GRAY));
+        }
+        return menu.build();
     }
 
-    private ItemStack actionItem(Material material, Component name, List<Component> lore, String action) {
-        return MenuItems.action(material, name, lore, menuActionKey, action);
-    }
-
-    private ItemStack disabledItem(Component name, List<Component> lore) {
-        return simpleItem(Material.GRAY_DYE, name, lore);
-    }
-
-    private ItemStack simpleItem(Material material, Component name, List<Component> lore) {
-        return MenuItems.item(material, name, lore);
-    }
-
-    private String readMenuAction(ItemStack item) {
-        return MenuItems.readAction(item, menuActionKey);
+    private Component buildSummary(MenuState state, int visibleCount, int totalPages) {
+        Component summary = Component.text("服务器公告", NamedTextColor.GOLD)
+                .decorate(TextDecoration.BOLD)
+                .append(Component.newline())
+                .append(Component.text("当前范围：" + rangeLabel(state.monthFilter()),
+                        NamedTextColor.GRAY))
+                .append(Component.newline())
+                .append(Component.text("公告数量：" + visibleCount + " 条", NamedTextColor.GRAY))
+                .append(Component.newline())
+                .append(Component.text("页数：" + Math.max(1, state.page() + 1)
+                        + " / " + totalPages, NamedTextColor.GRAY));
+        return summary;
     }
 
     private MenuState normalizeState(MenuState state) {
@@ -501,14 +436,8 @@ public class AnnouncementModule implements Listener {
     private record MenuState(YearMonth monthFilter, int page) {
     }
 
-    // lore 折行辅助
-
-    /**
-     * 将任意字符串折行为 lore 用的 Component 列表。
-     * 先按 \n 分割，再对每段按 LORE_LINE_WIDTH 折行。
-     * 所有行统一关闭斜体（Minecraft lore 默认斜体）。
-     */
-    private List<Component> wrapToLore(String text) {
+    /** Wraps announcement copy into stable, directly rendered scene text. */
+    private List<Component> wrapText(String text) {
         List<Component> lines = new ArrayList<>();
         for (String paragraph : normalizeAnnouncementText(text).split("\n", -1)) {
             String remaining = paragraph;
@@ -516,11 +445,11 @@ public class AnnouncementModule implements Listener {
                 lines.add(Component.empty());
                 continue;
             }
-            while (remaining.length() > LORE_LINE_WIDTH) {
+            while (remaining.length() > TEXT_LINE_WIDTH) {
                 // 尽量在空格处断行
-                int cut = LORE_LINE_WIDTH;
+                int cut = TEXT_LINE_WIDTH;
                 int spacePos = remaining.lastIndexOf(' ', cut);
-                if (spacePos > LORE_LINE_WIDTH / 2) {
+                if (spacePos > TEXT_LINE_WIDTH / 2) {
                     cut = spacePos;
                 }
                 lines.add(Component.text(remaining.substring(0, cut).stripTrailing(), NamedTextColor.WHITE)

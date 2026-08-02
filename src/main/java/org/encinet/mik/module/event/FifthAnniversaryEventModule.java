@@ -26,14 +26,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.encinet.mik.module.menu.FloatingMenus;
+import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuLayouts;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -43,7 +42,6 @@ import org.encinet.mik.module.afk.AfkStateListener;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
-import org.encinet.mik.module.menu.MenuItems;
 
 import java.io.File;
 import java.io.IOException;
@@ -101,8 +99,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private static final double PRIOR_OPPORTUNITIES_PER_HOUR = 1.5D;
     private static final int ADMIN_AUDIT_LIMIT = 10;
     private static final int WINNER_LIST_PAGE_SIZE = 10;
-    private static final int VIRTUAL_BAG_SIZE = 27;
-    private static final int VIRTUAL_BAG_CLOSE_SLOT = 22;
     private static final String GIFT_PACK_ID = "anniversary-gift-pack";
     private static final DateTimeFormatter ADMIN_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(EVENT_ZONE);
@@ -204,9 +200,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         long now = System.currentTimeMillis();
         for (Player player : Bukkit.getOnlinePlayers()) {
             accountTime(player, now, afkService.isActivityEligible(player.getUniqueId()));
-            if (player.getOpenInventory().getTopInventory().getHolder() instanceof VirtualBagHolder) {
-                player.closeInventory();
-            }
+            FloatingMenus.current(player).ifPresent(handle -> handle.close());
             hideBossBar(player);
         }
         afkService.removeListener(this);
@@ -315,24 +309,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         saveData();
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onVirtualBagClick(InventoryClickEvent event) {
-        if (event.getView().getTopInventory().getHolder() instanceof VirtualBagHolder) {
-            event.setCancelled(true);
-            if (event.getRawSlot() == VIRTUAL_BAG_CLOSE_SLOT
-                    && event.getWhoClicked() instanceof Player player) {
-                player.closeInventory();
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onVirtualBagDrag(InventoryDragEvent event) {
-        if (event.getView().getTopInventory().getHolder() instanceof VirtualBagHolder) {
-            event.setCancelled(true);
-        }
-    }
-
     @Override
     public void onAfkStateChanged(Player player, AfkState state) {
         long now = System.currentTimeMillis();
@@ -402,24 +378,29 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             return 0;
         }
 
-        VirtualBagHolder holder = new VirtualBagHolder(player.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(holder, VIRTUAL_BAG_SIZE,
-                text(player, Message.ANNIVERSARY_BAG_TITLE, NamedTextColor.GOLD));
-        holder.attach(inventory);
+        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
+                        "anniversary-bag",
+                        text(player, Message.ANNIVERSARY_BAG_TITLE, NamedTextColor.GOLD))
+                .layout(FloatingMenuLayouts.menu(
+                        FloatingMenuLayouts.actions("prizes", 3),
+                        FloatingMenuLayouts.information("status"),
+                        FloatingMenuLayouts.navigation("controls")));
         List<PrizeStack> prizeStacks = prizeStacks(participant.virtualBag);
-        int[] prizeSlots = virtualBagPrizeSlots(prizeStacks.size());
-        for (int index = 0; index < prizeStacks.size(); index++) {
-            PrizeStack stack = prizeStacks.get(index);
-            inventory.setItem(prizeSlots[index],
-                    virtualPrizeItem(player, stack.prizeId, stack.amount));
+        for (PrizeStack stack : prizeStacks) {
+            menu.item("prize:" + stack.prizeId,
+                            virtualPrizeVisual(stack.prizeId, stack.amount),
+                            virtualPrizeLabel(player, stack.prizeId, stack.amount))
+                    .region("prizes")
+                    .passive();
         }
         if (participant.virtualBag.isEmpty()) {
-            inventory.setItem(13, MenuItems.item(Material.GRAY_DYE,
-                    text(player, Message.ANNIVERSARY_BAG_EMPTY, NamedTextColor.GRAY), List.of()));
+            menu.information("bag:empty", text(player, Message.ANNIVERSARY_BAG_EMPTY,
+                            NamedTextColor.GRAY))
+                    .region("status");
         }
-        inventory.setItem(VIRTUAL_BAG_CLOSE_SLOT, MenuItems.item(Material.BARRIER,
-                text(player, Message.CLOSE, NamedTextColor.RED), List.of()));
-        player.openInventory(inventory);
+        menu.close(text(player, Message.CLOSE, NamedTextColor.RED))
+                .region("controls");
+        FloatingMenus.present(player, menu.build());
         return Command.SINGLE_SUCCESS;
     }
 
@@ -523,20 +504,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private void closeVirtualBag(Player player) {
-        if (player.getOpenInventory().getTopInventory().getHolder() instanceof VirtualBagHolder) {
-            player.closeInventory();
-        }
-    }
-
-    static int[] virtualBagPrizeSlots(int prizeCount) {
-        return switch (prizeCount) {
-            case 0 -> new int[0];
-            case 1 -> new int[]{13};
-            case 2 -> new int[]{12, 14};
-            case 3 -> new int[]{11, 13, 15};
-            case 4 -> new int[]{10, 12, 14, 16};
-            default -> throw new IllegalArgumentException("Unexpected virtual bag prize type count");
-        };
+        FloatingMenus.current(player).ifPresent(handle -> handle.close());
     }
 
     private List<PrizeStack> prizeStacks(List<String> virtualBag) {
@@ -552,20 +520,23 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return stacks;
     }
 
-    private ItemStack virtualPrizeItem(Player player, String prizeId, int amount) {
+    private ItemStack virtualPrizeVisual(String prizeId, int amount) {
         int prizeIndex = prizeIndex(prizeId);
         ItemStack item = new ItemStack(PRIZE_MATERIALS[prizeIndex], amount);
         ItemMeta meta = item.getItemMeta();
-        meta.customName(text(player, Message.ANNIVERSARY_BAG_ITEM_NAME,
-                NamedTextColor.GOLD, prizeName(player, prizeId)));
-        meta.lore(List.of(
-                text(player, Message.ANNIVERSARY_BAG_ITEM_LORE, NamedTextColor.GRAY),
-                text(player, Message.ANNIVERSARY_BAG_ITEM_LOCKED, NamedTextColor.DARK_GRAY),
-                text(player, Message.ANNIVERSARY_GIFT_USAGE, NamedTextColor.AQUA,
-                        "/" + COMMAND_NAME + " gift " + prizeId + " <player>")));
         meta.setEnchantmentGlintOverride(true);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private Component virtualPrizeLabel(Player player, String prizeId, int amount) {
+        return text(player, Message.ANNIVERSARY_BAG_ITEM_NAME,
+                        NamedTextColor.GOLD, prizeName(player, prizeId))
+                .append(Component.newline())
+                .append(Component.text("× " + amount, NamedTextColor.YELLOW))
+                .append(Component.newline())
+                .append(text(player, Message.ANNIVERSARY_BAG_ITEM_LOCKED,
+                        NamedTextColor.DARK_GRAY));
     }
 
     private boolean isEventAdministrator(CommandSender sender) {
@@ -2370,25 +2341,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         private static final String ADMIN_PARTICIPANT_REMOVED = "admin-participant-removed";
 
         private AuditAction() {
-        }
-    }
-
-    private static final class VirtualBagHolder implements InventoryHolder {
-
-        private final UUID playerId;
-        private Inventory inventory;
-
-        private VirtualBagHolder(UUID playerId) {
-            this.playerId = playerId;
-        }
-
-        private void attach(Inventory inventory) {
-            this.inventory = inventory;
-        }
-
-        @Override
-        public Inventory getInventory() {
-            return inventory;
         }
     }
 

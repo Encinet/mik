@@ -11,6 +11,8 @@ import org.encinet.mik.module.music.catalog.nbs.NbsNote;
 import org.encinet.mik.module.music.catalog.nbs.NbsNoteType;
 import org.encinet.mik.module.music.catalog.nbs.NbsParser;
 import org.encinet.mik.module.music.catalog.nbs.NbsSong;
+import org.encinet.mik.module.music.rhythm.NbsRhythmChartGenerator;
+import org.encinet.mik.module.music.rhythm.RhythmTimeline;
 
 import java.io.IOException;
 import java.util.List;
@@ -47,13 +49,21 @@ final class NbsPlaybackEngine implements AutoCloseable {
     }
 
     PlaybackSession create(Location location, TrackTarget.NbsFile target,
-                           JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
+                           JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
+                           RhythmTimeline rhythmTimeline) {
         if (closed.get()) {
             throw new IllegalStateException("NBS playback backend is closed");
         }
-        Session session = new Session(location.clone(), target, settings, callbacks);
+        Session session = new Session(location.clone(), target, settings, callbacks,
+                rhythmTimeline);
         sessions.add(session);
         return session;
+    }
+
+    PlaybackSession create(Location location, TrackTarget.NbsFile target,
+                           JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
+        return create(location, target, settings, callbacks,
+                new RhythmTimeline(target.path().toString()));
     }
 
     @Override
@@ -70,6 +80,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final Location location;
         private final TrackTarget.NbsFile target;
         private final PlaybackCallbacks callbacks;
+        private final RhythmTimeline rhythmTimeline;
         private final AtomicBoolean started = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
         private volatile JukeboxSoundSettings settings;
@@ -81,11 +92,13 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private volatile ScheduledPlayback task;
 
         private Session(Location location, TrackTarget.NbsFile target,
-                        JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
+                        JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
+                        RhythmTimeline rhythmTimeline) {
             this.location = location;
             this.target = Objects.requireNonNull(target, "target");
             this.settings = Objects.requireNonNull(settings, "settings");
             this.callbacks = Objects.requireNonNull(callbacks, "callbacks");
+            this.rhythmTimeline = Objects.requireNonNull(rhythmTimeline, "rhythmTimeline");
         }
 
         @Override
@@ -107,7 +120,9 @@ final class NbsPlaybackEngine implements AutoCloseable {
 
         private NbsSong loadSong() {
             try {
-                return parser.parse(mediaPreparer.prepare(target));
+                NbsSong song = parser.parse(mediaPreparer.prepare(target));
+                NbsRhythmChartGenerator.populate(song, rhythmTimeline);
+                return song;
             } catch (IOException exception) {
                 throw new CompletionException(exception);
             }
@@ -305,7 +320,9 @@ final class NbsPlaybackEngine implements AutoCloseable {
             float pitch = (float) Math.pow(2.0, semitones / 12.0);
             pitch = Math.max(0.5F, Math.min(2.0F, pitch));
             for (Player player : audience) {
-                player.playSound(soundLocation,
+                Location audibleLocation = NbsPlaybackRange.forListener(
+                        soundLocation, player.getEyeLocation(), settings.rangeBlocks(), volume);
+                player.playSound(audibleLocation,
                         NbsInstruments.minecraftSound(note.instrument()),
                         SoundCategory.RECORDS, volume, pitch);
             }

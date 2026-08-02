@@ -139,7 +139,7 @@ public final class MusicCommandRegistrar {
             return Command.SINGLE_SUCCESS;
         }
         browser.setJukeboxContext(player.getUniqueId(), null);
-        browser.openMusicInventory(player);
+        browser.openMenu(player);
         return Command.SINGLE_SUCCESS;
     }
 

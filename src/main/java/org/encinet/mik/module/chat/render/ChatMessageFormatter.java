@@ -5,18 +5,13 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.luckperms.api.LuckPerms;
-import net.luckperms.api.cacheddata.CachedMetaData;
-import net.luckperms.api.model.user.User;
-import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.RegisteredServiceProvider;
-import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.chat.ChatDisplayRenderer;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
-import org.encinet.mik.util.NameMetaRenderer;
+import org.encinet.mik.module.player.identity.PlayerIdentityComponent;
+import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -27,51 +22,48 @@ public final class ChatMessageFormatter {
     private static final ZoneId CHAT_TIME_ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter CHAT_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss zzzz");
 
-    private final JavaPlugin plugin;
     private final LanguageService languageService;
-    private LuckPerms luckPerms;
+    private final PlayerIdentityRenderer playerIdentities;
 
-    public ChatMessageFormatter(JavaPlugin plugin, LanguageService languageService) {
-        this.plugin = plugin;
+    public ChatMessageFormatter(LanguageService languageService,
+                                PlayerIdentityRenderer playerIdentities) {
         this.languageService = languageService;
-    }
-
-    public void enable() {
-        RegisteredServiceProvider<LuckPerms> provider = Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-        if (provider == null) {
-            plugin.getLogger().warning("LuckPerms not found; chat prefix and suffix rendering will use defaults.");
-            luckPerms = null;
-            return;
-        }
-        luckPerms = provider.getProvider();
+        this.playerIdentities = playerIdentities;
     }
 
     public Component publicMessage(Player sender, Audience viewer, Component message, String copyText, String repeatCommand) {
-        return channelMessage(ChannelMarker.empty(), sender, viewer, playerBody(sender), message, copyText, repeatCommand);
+        PlayerIdentityComponent identity = identity(sender, viewer);
+        return channelMessage(ChannelMarker.empty(), identity, viewer,
+                identity.nameTag(), message, copyText, repeatCommand);
     }
 
     public Component staffMessage(Player sender, Audience viewer, Component message, String copyText, String repeatCommand) {
-        return channelMessage(ChannelMarker.text("STAFF", NamedTextColor.GOLD), sender, viewer,
-                playerBody(sender), message, copyText, repeatCommand);
+        PlayerIdentityComponent identity = identity(sender, viewer);
+        return channelMessage(ChannelMarker.text("STAFF", NamedTextColor.GOLD), identity, viewer,
+                identity.nameTag(), message, copyText, repeatCommand);
     }
 
     public Component privateMessage(Player sender, Player target, Audience viewer, Component message, String copyText,
                                     String repeatCommand) {
-        return channelMessage(ChannelMarker.text(privateLabel(viewer), NamedTextColor.LIGHT_PURPLE), sender, viewer,
-                privateBody(sender, ChatDisplayRenderer.playerName(target)), message, copyText, repeatCommand);
+        PlayerIdentityComponent identity = identity(sender, viewer);
+        return channelMessage(ChannelMarker.text(privateLabel(viewer), NamedTextColor.LIGHT_PURPLE), identity, viewer,
+                privateBody(identity.nameTag(), ChatDisplayRenderer.playerName(target)),
+                message, copyText, repeatCommand);
     }
 
     public Component privatePreview(Player sender, String targetName, Component message, String copyText) {
         String username = targetName == null ? "?" : targetName;
         Component target = ChatDisplayRenderer.clickablePlayerName(
                 Component.text(username, NamedTextColor.WHITE), username);
-        return channelMessage(ChannelMarker.text(privateLabel(sender), NamedTextColor.LIGHT_PURPLE), sender, sender,
-                privateBody(sender, target), message, copyText, null);
+        PlayerIdentityComponent identity = identity(sender, sender);
+        return channelMessage(ChannelMarker.text(privateLabel(sender), NamedTextColor.LIGHT_PURPLE), identity, sender,
+                privateBody(identity.nameTag(), target), message, copyText, null);
     }
 
-    private Component channelMessage(ChannelMarker marker, Player sender, Audience viewer,
+    private Component channelMessage(ChannelMarker marker, PlayerIdentityComponent identity, Audience viewer,
                                      Component body, Component message, String copyText, String repeatCommand) {
         return Component.text()
+                .append(identity.platformBadge())
                 .append(marker.component())
                 .append(body)
                 .append(Component.text(" »", NamedTextColor.GOLD))
@@ -85,17 +77,13 @@ public final class ChatMessageFormatter {
                 : Component.text(" [+1]", NamedTextColor.GRAY).clickEvent(ClickEvent.runCommand(repeatCommand));
     }
 
-    private Component playerBody(Player sender) {
-        return Component.text()
-                .append(metaComponent(sender, true))
-                .append(ChatDisplayRenderer.playerName(sender))
-                .append(metaComponent(sender, false))
-                .build();
+    private PlayerIdentityComponent identity(Player sender, Audience viewer) {
+        return playerIdentities.render(sender, viewer, ChatDisplayRenderer.playerName(sender));
     }
 
-    private Component privateBody(Player sender, Component target) {
+    private Component privateBody(Component senderIdentity, Component target) {
         return Component.text()
-                .append(ChatDisplayRenderer.playerName(sender))
+                .append(senderIdentity)
                 .append(Component.text(" -> ", NamedTextColor.DARK_GRAY))
                 .append(target)
                 .build();
@@ -123,32 +111,6 @@ public final class ChatMessageFormatter {
             return languageService.t(player, Message.CHAT_COPY_HOVER);
         }
         return languageService.t(Language.DEFAULT, Message.CHAT_COPY_HOVER);
-    }
-
-    private Component metaComponent(Player player, boolean prefix) {
-        CachedMetaData metaData = cachedMetaData(player);
-        if (metaData == null) {
-            return Component.empty();
-        }
-        String raw = prefix ? metaData.getPrefix() : metaData.getSuffix();
-        if (raw == null || raw.isEmpty()) {
-            return Component.empty();
-        }
-        try {
-            return NameMetaRenderer.deserialize(player, raw);
-        } catch (RuntimeException e) {
-            plugin.getLogger().warning("Failed to parse LuckPerms " + (prefix ? "prefix" : "suffix")
-                    + " for " + player.getName() + ": " + e.getMessage());
-            return NameMetaRenderer.fallback(player, raw);
-        }
-    }
-
-    private CachedMetaData cachedMetaData(Player player) {
-        if (luckPerms == null) {
-            return null;
-        }
-        User user = luckPerms.getUserManager().getUser(player.getUniqueId());
-        return user == null ? null : user.getCachedData().getMetaData();
     }
 
     private record ChannelMarker(String label, NamedTextColor color) {

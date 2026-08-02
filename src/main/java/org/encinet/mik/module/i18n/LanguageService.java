@@ -27,16 +27,15 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerLocaleChangeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.module.menu.MenuBuilder;
-import org.encinet.mik.module.menu.MenuItems;
-import org.encinet.mik.module.menu.MenuNavigation;
+import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuFraming;
+import org.encinet.mik.module.menu.FloatingMenuLayouts;
+import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.util.GeoUtil;
 
 import java.io.File;
@@ -60,13 +59,12 @@ public class LanguageService implements Listener {
 
     public static final String AUTO = "auto";
 
-    private static final int MENU_SIZE = 27;
-    private static final String ACTION_BACK_MAIN = "back:main";
     private static final String ACTION_LANGUAGE_PREFIX = "language:";
+    private static final String REGION_AUTOMATIC = "automatic";
+    private static final String REGION_LANGUAGES = "languages";
+    private static final String REGION_NAVIGATION = "navigation";
 
     private final JavaPlugin plugin;
-    private final MenuNavigation menuNavigation;
-    private final NamespacedKey actionKey;
     private final Map<UUID, String> preferences = new ConcurrentHashMap<>();
     private final Map<UUID, Language> clientLanguages = new ConcurrentHashMap<>();
     private final Map<Language, FluentBundle> bundles = new EnumMap<>(Language.class);
@@ -75,10 +73,8 @@ public class LanguageService implements Listener {
     private File languageFile;
     private YamlConfiguration languageData;
 
-    public LanguageService(JavaPlugin plugin, MenuNavigation menuNavigation) {
+    public LanguageService(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.menuNavigation = menuNavigation;
-        this.actionKey = new NamespacedKey(plugin, "language_action");
     }
 
     public void enable() {
@@ -114,29 +110,7 @@ public class LanguageService implements Listener {
                 .build(), t(Language.DEFAULT, Message.LANGUAGE_COMMAND_DESCRIPTION)));
     }
 
-    @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)) return;
-
-        String title = PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (!isLanguageMenuTitle(title)) return;
-
-        event.setCancelled(true);
-        ItemStack item = event.getCurrentItem();
-        if (item == null || !item.hasItemMeta()) return;
-
-        String action = MenuItems.readAction(item, actionKey);
-        if (action == null) return;
-
-        if (ACTION_BACK_MAIN.equals(action)) {
-            menuNavigation.openMainMenu(player);
-            return;
-        }
-
-        if (!action.startsWith(ACTION_LANGUAGE_PREFIX)) return;
-        String value = action.substring(ACTION_LANGUAGE_PREFIX.length()).toLowerCase(Locale.ROOT);
-        if (!AUTO.equals(value) && Language.fromId(value).isEmpty()) return;
-
+    private void selectLanguage(Player player, String value) {
         setPreference(player.getUniqueId(), value);
         player.sendMessage(Component.text(t(player, Message.LANGUAGE_SET, languageLabel(player, value)), NamedTextColor.GREEN));
         openMenu(player);
@@ -163,16 +137,36 @@ public class LanguageService implements Listener {
 
     public void openMenu(Player player) {
         Language language = language(player);
-        MenuBuilder builder = MenuBuilder.create(MENU_SIZE, Component.text(t(language, Message.LANGUAGE_MENU_TITLE), MenuItems.TITLE_COLOR))
-                .item(0, preferenceItem(player, AUTO, Material.COMPASS));
-        int slot = 2;
+        String currentPreference = preference(player.getUniqueId());
+        FloatingMenuDefinition.Builder builder = FloatingMenuDefinition.screen(
+                        "language",
+                        Component.text(t(language, Message.LANGUAGE_MENU_TITLE),
+                                NamedTextColor.DARK_PURPLE))
+                .framing(FloatingMenuFraming.PANORAMIC)
+                .layout(FloatingMenuLayouts.menu(
+                        FloatingMenuLayouts.region(REGION_AUTOMATIC,
+                                FloatingMenuLayouts.offset(
+                                        FloatingMenuLayouts.adaptiveRow(0.0),
+                                        0.0, 0.0, 0.30)),
+                        FloatingMenuLayouts.region(REGION_LANGUAGES,
+                                FloatingMenuLayouts.adaptiveDomeGrid(
+                                        6, 0.34, 0.22, 0.48, 0.22)),
+                        FloatingMenuLayouts.navigation(REGION_NAVIGATION)));
+        builder.choice("automatic", AUTO.equals(currentPreference), Material.COMPASS,
+                        preferenceLabel(player, AUTO))
+                .region(REGION_AUTOMATIC)
+                .primary((p, handle) -> selectLanguage(p, AUTO));
         for (Language option : Language.values()) {
-            builder.item(slot++, preferenceItem(player, option.id(), languageMaterial(option)));
+            String value = option.id();
+            builder.choice(ACTION_LANGUAGE_PREFIX + value, value.equals(currentPreference),
+                            languageMaterial(option),
+                            preferenceLabel(player, value))
+                    .region(REGION_LANGUAGES)
+                    .primary((p, handle) -> selectLanguage(p, value));
         }
-        builder.item(MENU_SIZE - 1, MenuItems.action(Material.ARROW,
-                Component.text(t(language, Message.BACK_TO_MAIN), NamedTextColor.GREEN),
-                List.of(Component.text(t(language, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY)),
-                actionKey, ACTION_BACK_MAIN)).open(player);
+        builder.back(Component.text(t(language, Message.BACK_TO_MAIN), NamedTextColor.GREEN))
+                .region(REGION_NAVIGATION);
+        FloatingMenus.present(player, builder.build());
     }
 
     public Language language(Player player) {
@@ -401,23 +395,22 @@ public class LanguageService implements Listener {
         return replaceRichTokens(rendered, baseColor, tokens);
     }
 
-    private ItemStack preferenceItem(Player player, String value, Material material) {
+    private Component preferenceLabel(Player player, String value) {
         Language language = language(player);
         boolean selected = preference(player.getUniqueId()).equals(value);
-        List<Component> lore = new ArrayList<>();
+        Component label = Component.text(languageLabel(player, value),
+                selected ? NamedTextColor.GREEN : NamedTextColor.AQUA);
         if (AUTO.equals(value)) {
-            lore.add(Component.text(t(language, Message.LANGUAGE_AUTO_LORE), NamedTextColor.GRAY));
-        } else {
-            lore.add(Component.text(t(language, Message.LANGUAGE_USE, languageLabel(player, value)), NamedTextColor.GRAY));
+            label = label.append(Component.newline())
+                    .append(Component.text(t(language, Message.LANGUAGE_AUTO_DESCRIPTION),
+                            NamedTextColor.DARK_GRAY));
         }
-        lore.add(Component.empty());
-        lore.add(Component.text(selected
-                ? t(language, Message.LANGUAGE_SELECTED)
-                : t(language, Message.CLICK_SET), selected ? NamedTextColor.GREEN : NamedTextColor.YELLOW));
-
-        return MenuItems.action(material,
-                Component.text(languageLabel(player, value), selected ? NamedTextColor.GREEN : NamedTextColor.AQUA),
-                lore, actionKey, ACTION_LANGUAGE_PREFIX + value);
+        if (selected) {
+            label = label.append(Component.newline())
+                    .append(Component.text(t(language, Message.LANGUAGE_SELECTED),
+                            NamedTextColor.GREEN));
+        }
+        return label;
     }
 
     private Material languageMaterial(Language language) {

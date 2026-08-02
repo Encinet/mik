@@ -9,6 +9,7 @@ import io.papermc.paper.registry.data.dialog.type.DialogType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -23,7 +24,8 @@ public final class MenuDialogs {
 
     public static void openUrlConfirm(Player player, String label, String url, LanguageService languageService) {
         Dialog dialog = Dialog.create(builder -> builder.empty()
-                .base(DialogBase.builder(Component.text(languageService.t(player, Message.URL_DIALOG_TITLE, label), MenuItems.TITLE_COLOR))
+                .base(DialogBase.builder(Component.text(languageService.t(player,
+                                Message.URL_DIALOG_TITLE, label), TextColor.color(0xC86A1D)))
                         .canCloseWithEscape(true)
                         .pause(false)
                         .afterAction(DialogBase.DialogAfterAction.CLOSE)
@@ -46,7 +48,8 @@ public final class MenuDialogs {
                                 DialogAction.staticAction(ClickEvent.openUrl(url))),
                         ActionButton.create(
                                 Component.text(languageService.t(player, Message.BACK_TO_MAIN), NamedTextColor.GRAY),
-                                Component.text(languageService.t(player, Message.BACK_TO_MAIN_LORE), NamedTextColor.GRAY),
+                                Component.text(languageService.t(player,
+                                        Message.BACK_TO_MAIN_DESCRIPTION), NamedTextColor.GRAY),
                                 100,
                                 DialogAction.staticAction(ClickEvent.runCommand("/menu")))
                 )));

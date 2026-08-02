@@ -16,17 +16,24 @@ import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
 import org.encinet.mik.module.music.lyrics.LyricDisplayService;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
+import org.encinet.mik.module.music.rhythm.RhythmPlaybackSnapshot;
+import org.encinet.mik.module.music.rhythm.RhythmPlaybackSource;
+import org.encinet.mik.module.music.rhythm.RhythmPlaybackState;
+import org.encinet.mik.module.music.rhythm.RhythmTimeline;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /** Coordinates jukebox discs, playback state, notifications, and backend lifecycle. */
-public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPlayback {
+public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPlayback,
+        RhythmPlaybackSource {
 
     private final JavaPlugin plugin;
     private final MusicDiscResolver discResolver;
@@ -41,6 +48,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     private final Map<JukeboxKey, Playback> playbacks = new ConcurrentHashMap<>();
     private final AtomicBoolean enabled = new AtomicBoolean();
     private volatile BiConsumer<Location, MusicTrack> trackFinishedListener;
+    private volatile Consumer<Location> stateChangedListener = ignored -> { };
 
     public JukeboxPlaybackService(JavaPlugin plugin, PlasmoVoiceServer voiceServer,
                        MusicDiscResolver discResolver, OnlineAudioCache audioCache,
@@ -73,6 +81,11 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         this.trackFinishedListener = listener;
     }
 
+    /** Publishes observable disc and playback-status changes on the Bukkit main thread. */
+    public void setStateChangedListener(Consumer<Location> listener) {
+        this.stateChangedListener = java.util.Objects.requireNonNull(listener, "listener");
+    }
+
     /** Replaces the current record and starts a non-droppable disc created by a GUI or command. */
     public boolean playVirtualTrackOnJukebox(
             Player player, Jukebox jukebox, MusicTrack track) {
@@ -95,6 +108,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         if (music == null) {
             jukebox.stopPlaying();
             jukebox.update(true, false);
+            notifyStateChanged(jukebox.getLocation());
             if (player != null) {
                 notifier.unavailableDisc(player);
             }
@@ -141,6 +155,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         recordSilencer.playbackStarted(location);
         jukebox.stopPlaying();
         jukebox.update(true, false);
+        notifyStateChanged(location);
 
         startBackend(playback);
         return !playback.failed.get();
@@ -150,9 +165,11 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         try {
             PlaybackCallbacks callbacks = callbacks(playback);
             playback.session = playback.music.target() instanceof TrackTarget.NbsFile nbs
-                    ? nbsEngine.create(playback.location, nbs, playback.settings, callbacks)
+                    ? nbsEngine.create(playback.location, nbs, playback.settings, callbacks,
+                            playback.rhythmTimeline)
                     : audioEngine.create(playback.location, playback.music,
-                            playback.musicName, playback.settings, callbacks);
+                            playback.musicName, playback.settings, callbacks,
+                            playback.rhythmTimeline);
             playback.session.start();
         } catch (RuntimeException exception) {
             backendFailed(playback, exception);
@@ -175,6 +192,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             @Override
             public void started() {
                 playback.notifyStarted(plugin);
+                notifyStateChanged(playback.location);
                 PlaybackSession session = playback.session;
                 if (session != null) {
                     LyricDisplayService.PlaybackLyrics lyrics = lyricDisplay.start(
@@ -272,12 +290,16 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             return false;
         }
         jukebox.stopPlaying();
+        boolean ejected;
         if (MusicDiscKeys.isInternal(jukebox.getRecord())) {
             jukebox.setRecord(new ItemStack(Material.AIR));
             jukebox.update(true, false);
-            return true;
+            ejected = true;
+        } else {
+            ejected = jukebox.eject();
         }
-        return jukebox.eject();
+        notifyStateChanged(block.getLocation());
+        return ejected;
     }
 
     public void stopAll() {
@@ -318,6 +340,24 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         return session == null ? PlaybackStatus.LOADING : session.status();
     }
 
+    /** Exposes one coherent playback clock and its automatically generated chart. */
+    @Override
+    public Optional<RhythmPlaybackSnapshot> rhythmPlayback(Block block) {
+        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        if (playback == null || playback.stopped.get()) return Optional.empty();
+        PlaybackSession session = playback.session;
+        PlaybackStatus currentStatus = session == null
+                ? PlaybackStatus.LOADING : session.status();
+        long position = session == null ? 0L : session.positionMillis();
+        RhythmPlaybackState rhythmState = switch (currentStatus) {
+            case LOADING -> RhythmPlaybackState.LOADING;
+            case PLAYING -> RhythmPlaybackState.PLAYING;
+            case STOPPED -> RhythmPlaybackState.STOPPED;
+        };
+        return Optional.of(new RhythmPlaybackSnapshot(playback.rhythmId,
+                playback.music, position, rhythmState, playback.rhythmTimeline));
+    }
+
     public boolean shouldRestore(Block block, ItemStack record) {
         return MusicDiscKeys.isCustomDisc(record) && !isPlaying(block);
     }
@@ -349,6 +389,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                 }
 
                 notifyFailure(playback);
+                notifyStateChanged(playback.location);
 
                 if (!playback.stopped.get() && !playback.failed.get()) {
                     BiConsumer<Location, MusicTrack> listener = trackFinishedListener;
@@ -365,6 +406,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
 
     private void stop(JukeboxKey key, boolean removeRecord) {
         Playback playback = playbacks.remove(key);
+        Location changedLocation = playback == null ? null : playback.location;
         if (playback != null) {
             recordSilencer.playbackStopped(playback.location);
             playback.stopped.set(true);
@@ -375,15 +417,18 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         if (removeRecord) {
             World world = Bukkit.getWorld(key.world());
             if (world == null) {
+                if (changedLocation != null) notifyStateChanged(changedLocation);
                 return;
             }
             Block block = world.getBlockAt(key.x(), key.y(), key.z());
+            changedLocation = block.getLocation();
             if (block.getState() instanceof Jukebox jukebox
                     && MusicDiscKeys.trackId(jukebox.getRecord()) != null) {
                 jukebox.setRecord(new ItemStack(Material.AIR));
                 jukebox.update(true, false);
             }
         }
+        if (changedLocation != null) notifyStateChanged(changedLocation);
     }
 
     private void stop(Playback playback) {
@@ -394,6 +439,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         playback.stopped.set(true);
         playback.recordPlaybackIfQualified(false, playbackRecorder, plugin);
         cleanup(playback);
+        notifyStateChanged(playback.location);
     }
 
     private void cleanup(Playback playback) {
@@ -439,6 +485,22 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         return true;
     }
 
+    private void notifyStateChanged(Location location) {
+        if (location == null || location.getWorld() == null) return;
+        Location snapshot = new Location(location.getWorld(), location.getBlockX(),
+                location.getBlockY(), location.getBlockZ());
+        Runnable notification = () -> stateChangedListener.accept(snapshot.clone());
+        if (Bukkit.isPrimaryThread()) {
+            notification.run();
+            return;
+        }
+        try {
+            Bukkit.getScheduler().runTask(plugin, notification);
+        } catch (IllegalStateException ignored) {
+            // Plugin shutdown won the race with an asynchronous playback callback.
+        }
+    }
+
     private static String rootMessage(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null && current.getCause() != current) {
@@ -450,6 +512,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     }
 
     private static final class Playback {
+        private final UUID rhythmId = UUID.randomUUID();
         private final JukeboxKey key;
         private final Location location;
         private final MusicTrack music;
@@ -465,6 +528,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         private final AtomicBoolean cleaned = new AtomicBoolean();
         private final AtomicBoolean failureNotified = new AtomicBoolean();
         private final AtomicBoolean playbackRecorded = new AtomicBoolean();
+        private final RhythmTimeline rhythmTimeline;
         private volatile PlaybackSession session;
         private final java.util.concurrent.atomic.AtomicReference<
                 LyricDisplayService.PlaybackLyrics> lyrics = new java.util.concurrent.atomic.AtomicReference<>();
@@ -481,6 +545,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             this.settings = java.util.Objects.requireNonNull(settings, "settings");
             this.announce = announce;
             this.onStarted = java.util.Objects.requireNonNull(onStarted, "onStarted");
+            this.rhythmTimeline = new RhythmTimeline(music.id());
         }
 
         private void notifyStarted(JavaPlugin plugin) {

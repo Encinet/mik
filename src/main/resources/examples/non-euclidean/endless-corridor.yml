@@ -1,0 +1,23 @@
+# Build one matching corridor segment between x=8 and x=24. Passing either end
+# returns to the opposite end while retaining the exact lateral offset and motion.
+version: 3
+enabled: true
+
+surfaces:
+  corridor-end:
+    world: world
+    area:
+      corner-a: [24.0, 64.0, -1.0]
+      corner-b: [24.0, 67.0, 2.0]
+    through: east
+  corridor-start:
+    world: world
+    area:
+      corner-a: [8.0, 64.0, -1.0]
+      corner-b: [8.0, 67.0, 2.0]
+    through: east
+
+links:
+  endless-corridor:
+    connect: [corridor-end, corridor-start]
+    entrances: first

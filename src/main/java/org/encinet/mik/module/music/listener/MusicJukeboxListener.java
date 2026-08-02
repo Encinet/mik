@@ -38,6 +38,7 @@ import org.encinet.mik.module.music.jukebox.JukeboxAutoPlayService;
 import org.encinet.mik.module.music.jukebox.JukeboxQueueService;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.module.music.jukebox.VanillaRecordSilencer;
+import org.encinet.mik.module.music.ui.JukeboxControlGui;
 
 /** Maintains playback state as jukebox blocks and records move through the world. */
 public final class MusicJukeboxListener implements Listener {
@@ -48,17 +49,20 @@ public final class MusicJukeboxListener implements Listener {
     private final VanillaRecordSilencer recordSilencer;
     private final JukeboxQueueService queueService;
     private final JukeboxAutoPlayService autoPlayService;
+    private final JukeboxControlGui controlGui;
 
     public MusicJukeboxListener(JavaPlugin plugin, MusicLibrary musicLibrary, JukeboxPlaybackService playbackService,
                                 VanillaRecordSilencer recordSilencer,
                                 JukeboxQueueService queueService,
-                                JukeboxAutoPlayService autoPlayService) {
+                                JukeboxAutoPlayService autoPlayService,
+                                JukeboxControlGui controlGui) {
         this.plugin = plugin;
         this.musicLibrary = musicLibrary;
         this.playbackService = playbackService;
         this.recordSilencer = recordSilencer;
         this.queueService = queueService;
         this.autoPlayService = autoPlayService;
+        this.controlGui = controlGui;
     }
 
     public void restorePlaybackInLoadedChunks() {
@@ -134,6 +138,18 @@ public final class MusicJukeboxListener implements Listener {
         }
     }
 
+    /** Vanilla insertion and ejection mutate the block after the interaction event returns. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onVanillaJukeboxInteract(PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND || !event.getAction().isRightClick()) {
+            return;
+        }
+        Block block = event.getClickedBlock();
+        if (block == null || block.getType() != Material.JUKEBOX) return;
+        Location location = block.getLocation();
+        Bukkit.getScheduler().runTask(plugin, () -> controlGui.refreshViewers(location));
+    }
+
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onJukeboxBreak(BlockBreakEvent event) {
         if (event.getBlock().getType() == org.bukkit.Material.JUKEBOX) {
@@ -165,8 +181,11 @@ public final class MusicJukeboxListener implements Listener {
     @EventHandler
     public void onChunkUnload(ChunkUnloadEvent event) {
         for (org.bukkit.block.BlockState state : event.getChunk().getTileEntities(false)) {
-            if (state instanceof Jukebox jukebox && MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
-                stopJukebox(jukebox.getBlock());
+            if (state instanceof Jukebox jukebox) {
+                controlGui.closeViewers(jukebox.getLocation());
+                if (MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
+                    stopJukebox(jukebox.getBlock());
+                }
             }
         }
     }
@@ -178,6 +197,7 @@ public final class MusicJukeboxListener implements Listener {
 
     @EventHandler
     public void onWorldUnload(WorldUnloadEvent event) {
+        controlGui.closeWorld(event.getWorld());
         playbackService.removeWorld(event.getWorld());
         recordSilencer.removeWorld(event.getWorld());
         autoPlayService.removeWorld(event.getWorld());
@@ -247,6 +267,7 @@ public final class MusicJukeboxListener implements Listener {
         if (currentTrackId == null || stoppedMovedTrack) {
             autoPlayService.cancelScheduledTask(block.getLocation());
         }
+        controlGui.refreshViewers(location);
     }
 
     private static void consumeInsertedDisc(org.bukkit.entity.Player player, ItemStack inserted) {
@@ -315,6 +336,7 @@ public final class MusicJukeboxListener implements Listener {
     }
 
     private void removeJukebox(Block block) {
+        controlGui.closeViewers(block.getLocation());
         if (block.getState() instanceof Jukebox jukebox
                 && MusicDiscKeys.isInternal(jukebox.getRecord())) {
             playbackService.stopAndClear(block);
@@ -414,6 +436,7 @@ public final class MusicJukeboxListener implements Listener {
             if (customDisc) {
                 recordSilencer.release(block);
             }
+            controlGui.refreshViewers(jukebox.getLocation());
         }
     }
 

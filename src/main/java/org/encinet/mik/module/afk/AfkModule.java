@@ -46,6 +46,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageChangeListener;
 import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.presentation.AxiomGizmoService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.util.PlayerDisplay;
 
@@ -97,10 +98,12 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private BukkitTask updateTask;
     private int tickCounter;
 
-    public AfkModule(JavaPlugin plugin, LanguageService languageService) {
+    public AfkModule(JavaPlugin plugin, LanguageService languageService,
+                     AxiomGizmoService axiomGizmoService) {
         this.plugin = plugin;
         this.languageService = languageService;
-        this.displayController = new AfkDisplayController(languageService);
+        this.displayController = new AfkDisplayController(languageService,
+                java.util.Objects.requireNonNull(axiomGizmoService, "axiomGizmoService").scope("afk"));
     }
 
     public void enable() {
@@ -124,7 +127,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         activityTrackers.clear();
         suspendedTrackers.clear();
         pendingAsyncActivity.clear();
-        displayController.removeAll();
+        displayController.disable();
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -247,7 +250,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onAcceptedPlayerMove(PlayerMoveEvent event) {
-        if (event instanceof PlayerTeleportEvent || event.getTo() == null) {
+        if (event instanceof PlayerTeleportEvent) {
             return;
         }
 

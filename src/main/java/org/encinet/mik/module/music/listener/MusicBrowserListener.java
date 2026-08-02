@@ -8,14 +8,11 @@ import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryAction;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
@@ -31,12 +28,13 @@ import org.encinet.mik.module.music.jukebox.NearbyJukeboxPlayback;
 import org.encinet.mik.module.music.ui.JukeboxAccess;
 import org.encinet.mik.module.music.ui.JukeboxControlGui;
 import org.encinet.mik.module.music.ui.MusicBrowserGui;
+import org.encinet.mik.module.music.ui.MusicBrowserActionHandler;
 
 import java.util.List;
 import java.util.Set;
 
 /** Handles music-browser sessions and track selection on the Bukkit main thread. */
-public final class MusicBrowserListener implements Listener {
+public final class MusicBrowserListener implements Listener, MusicBrowserActionHandler {
 
     private final MusicTrackPool trackPool;
     private final MusicDiscFactory discFactory;
@@ -89,40 +87,7 @@ public final class MusicBrowserListener implements Listener {
         }
         event.setCancelled(true);
         browser.setJukeboxContext(event.getPlayer().getUniqueId(), null);
-        browser.openMusicInventory(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onInventoryClick(InventoryClickEvent event) {
-        if (!(event.getWhoClicked() instanceof Player player)
-                || !browser.isMusicInventory(event.getView().getTopInventory())) {
-            return;
-        }
-        if (!browser.isCurrentInventory(player.getUniqueId(),
-                event.getView().getTopInventory())) {
-            event.setCancelled(true);
-            return;
-        }
-        int topSize = event.getView().getTopInventory().getSize();
-        if (event.getRawSlot() >= topSize) {
-            if (event.isShiftClick()
-                    || event.getAction() == InventoryAction.COLLECT_TO_CURSOR) {
-                event.setCancelled(true);
-            }
-            return;
-        }
-        handleClick(event, player);
-    }
-
-    @EventHandler
-    public void onInventoryDrag(InventoryDragEvent event) {
-        if (!browser.isMusicInventory(event.getView().getTopInventory())) {
-            return;
-        }
-        int topSize = event.getView().getTopInventory().getSize();
-        if (event.getRawSlots().stream().anyMatch(slot -> slot < topSize)) {
-            event.setCancelled(true);
-        }
+        browser.openMenu(event.getPlayer());
     }
 
     @EventHandler
@@ -130,68 +95,15 @@ public final class MusicBrowserListener implements Listener {
         browser.removePlayerData(event.getPlayer().getUniqueId());
     }
 
-    @EventHandler
-    public void onInventoryClose(InventoryCloseEvent event) {
-        if (!(event.getPlayer() instanceof Player player)
-                || !browser.isMusicInventory(event.getView().getTopInventory())) {
-            return;
-        }
-        browser.closeBrowserInventory(player.getUniqueId(), event.getView().getTopInventory());
-    }
-
-    private void handleClick(InventoryClickEvent event, Player player) {
-        int slot = event.getRawSlot();
-        boolean rightClick = event.isRightClick();
-        if (slot >= 0 && slot < 45) {
-            ItemStack clickedItem = event.getCurrentItem();
-            if (clickedItem == null || !clickedItem.getType().toString().startsWith("MUSIC_DISC_")) {
-                event.setCancelled(true);
-                return;
-            }
-            handleTrackClick(event, player, rightClick);
-            return;
-        }
-
-        switch (slot) {
-            case 45 -> previousPage(event, player);
-            case 46 -> {
-                event.setCancelled(true);
-                browser.showLibrary(player, 0);
-            }
-            case 47 -> search(event, player);
-            case 48 -> {
-                event.setCancelled(true);
-                browser.cycleSort(player);
-            }
-            case 49 -> {
-                event.setCancelled(true);
-                browser.cycleSection(player);
-            }
-            case 50 -> randomTrack(event, player, rightClick);
-            case 52 -> back(event, player);
-            case 53 -> nextPage(event, player);
-            default -> {
-                if (slot >= 45 && slot < 54) {
-                    event.setCancelled(true);
-                }
-            }
-        }
-    }
-
-    private void handleTrackClick(InventoryClickEvent event, Player player, boolean rightClick) {
-        event.setCancelled(true);
-        ItemStack clickedItem = event.getCurrentItem();
-        MusicTrack track = browser.trackAt(player.getUniqueId(),
-                event.getView().getTopInventory(), event.getRawSlot(), clickedItem);
-        if (track == null) {
-            return;
-        }
+    @Override
+    public void track(Player player, MusicTrack track, boolean rightClick) {
+        if (track == null) return;
 
         Location jukeboxLocation = browser.getJukeboxContext(player.getUniqueId());
         if (jukeboxLocation != null) {
             if (!JukeboxAccess.canControl(player, jukeboxLocation)) {
                 browser.setJukeboxContext(player.getUniqueId(), null);
-                player.closeInventory();
+                closeMenu(player);
                 sendJukeboxControlError(player, jukeboxLocation);
                 return;
             }
@@ -201,7 +113,7 @@ public final class MusicBrowserListener implements Listener {
                 if (!(block.getState() instanceof Jukebox jukebox)) {
                     return;
                 }
-                player.closeInventory();
+                closeMenu(player);
                 autoPlayService.cancelScheduledTask(jukeboxLocation);
                 playbackService.playVirtualTrackOnJukebox(player, jukebox, track, () ->
                         player.sendMessage(musicMessage(player,
@@ -221,7 +133,7 @@ public final class MusicBrowserListener implements Listener {
         }
 
         if (rightClick) {
-            player.closeInventory();
+            closeMenu(player);
             nearbyPlayback.play(player, track);
             return;
         }
@@ -232,26 +144,26 @@ public final class MusicBrowserListener implements Listener {
         }
     }
 
-    private void previousPage(InventoryClickEvent event, Player player) {
-        event.setCancelled(true);
+    @Override
+    public void previousPage(Player player) {
         Integer page = browser.getPlayerPage(player.getUniqueId());
         if (page != null && page > 0) {
             browser.openCurrentPage(player, page - 1);
         }
     }
 
-    private void nextPage(InventoryClickEvent event, Player player) {
-        event.setCancelled(true);
+    @Override
+    public void nextPage(Player player) {
         Integer page = browser.getPlayerPage(player.getUniqueId());
         if (page != null) {
             browser.openCurrentPage(player, page + 1);
         }
     }
 
-    private void search(InventoryClickEvent event, Player player) {
-        event.setCancelled(true);
+    @Override
+    public void search(Player player) {
         browser.prepareJukeboxSearch(player.getUniqueId());
-        player.closeInventory();
+        closeMenu(player);
         String command = "/music search ";
         player.sendMessage(Component.text()
                 .append(Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT),
@@ -265,13 +177,13 @@ public final class MusicBrowserListener implements Listener {
                 .build());
     }
 
-    private void randomTrack(InventoryClickEvent event, Player player, boolean rightClick) {
-        event.setCancelled(true);
+    @Override
+    public void random(Player player, boolean rightClick) {
         Location jukeboxLocation = browser.getJukeboxContext(player.getUniqueId());
         if (jukeboxLocation != null) {
             if (!JukeboxAccess.canControl(player, jukeboxLocation)) {
                 browser.setJukeboxContext(player.getUniqueId(), null);
-                player.closeInventory();
+                closeMenu(player);
                 sendJukeboxControlError(player, jukeboxLocation);
                 return;
             }
@@ -289,7 +201,7 @@ public final class MusicBrowserListener implements Listener {
                 if (!(block.getState() instanceof Jukebox jukebox)) {
                     return;
                 }
-                player.closeInventory();
+                closeMenu(player);
                 autoPlayService.cancelScheduledTask(jukeboxLocation);
                 playbackService.playVirtualTrackOnJukebox(player, jukebox, track, () ->
                         player.sendMessage(musicMessage(player, Message.MUSIC_PLAYING_NOW_RICH,
@@ -310,7 +222,7 @@ public final class MusicBrowserListener implements Listener {
             return;
         }
 
-        player.closeInventory();
+        closeMenu(player);
         List<MusicTrack> candidates = browser.tracksInCurrentSection(
                 player.getUniqueId(), trackPool.tracks());
         if (rightClick) {
@@ -320,22 +232,37 @@ public final class MusicBrowserListener implements Listener {
         }
     }
 
-    private void back(InventoryClickEvent event, Player player) {
-        event.setCancelled(true);
+    @Override
+    public void back(Player player) {
         Location jukeboxLocation = browser.getJukeboxContext(player.getUniqueId());
         if (jukeboxLocation == null) {
+            FloatingMenus.current(player).ifPresent(handle -> handle.back());
             return;
         }
         browser.setJukeboxContext(player.getUniqueId(), null);
         Block block = jukeboxLocation.getBlock();
         if (JukeboxAccess.canControl(player, jukeboxLocation)
                 && block.getState() instanceof Jukebox jukebox) {
-            player.closeInventory();
-            jukeboxControlGui.openJukeboxControl(player, jukebox);
+            FloatingMenus.current(player).ifPresent(handle -> {
+                if (handle.depth() > 0) handle.back();
+                else {
+                    handle.close();
+                    jukeboxControlGui.openJukeboxControl(player, jukebox);
+                }
+            });
         } else {
             sendJukeboxControlError(player, jukeboxLocation);
         }
     }
+
+    @Override
+    public void library(Player player) { browser.showLibrary(player, 0); }
+
+    @Override
+    public void cycleSort(Player player) { browser.cycleSort(player); }
+
+    @Override
+    public void cycleSection(Player player) { browser.cycleSection(player); }
 
     private void sendJukeboxControlError(Player player, Location location) {
         if (JukeboxAccess.isAvailable(location)) {
@@ -345,6 +272,10 @@ public final class MusicBrowserListener implements Listener {
             player.sendMessage(languageService.text(player, Message.MUSIC_JUKEBOX_UNAVAILABLE,
                     NamedTextColor.RED));
         }
+    }
+
+    private static void closeMenu(Player player) {
+        FloatingMenus.current(player).ifPresent(handle -> handle.close());
     }
 
     private Component musicMessage(Player player, Message message, NamedTextColor baseColor,

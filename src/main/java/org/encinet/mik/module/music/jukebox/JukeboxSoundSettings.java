@@ -11,9 +11,9 @@ public record JukeboxSoundSettings(int volumePercent, int rangeBlocks) {
 
     public static final int DEFAULT_RANGE_BLOCKS = 64;
     public static final int MIN_RANGE_BLOCKS = 8;
-    public static final int MAX_RANGE_BLOCKS = 64;
-    public static final int RANGE_COARSE_STEP = 8;
-    public static final int RANGE_FINE_STEP = 1;
+    public static final int MAX_RANGE_BLOCKS = 256;
+    public static final int RANGE_COARSE_STEP = 32;
+    public static final int RANGE_FINE_STEP = 4;
 
     public JukeboxSoundSettings {
         volumePercent = clamp(volumePercent, MIN_VOLUME_PERCENT, MAX_VOLUME_PERCENT);

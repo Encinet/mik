@@ -33,6 +33,7 @@ import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.module.music.jukebox.VanillaRecordSilencer;
 import org.encinet.mik.module.music.ui.JukeboxControlGui;
 import org.encinet.mik.module.music.ui.MusicBrowserGui;
+import org.encinet.mik.module.music.rhythm.RhythmGameService;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 import java.util.Set;
@@ -60,6 +61,7 @@ public final class MusicModule {
     private final JukeboxPlaybackService playbackService;
     private final JukeboxQueueService queueService;
     private final JukeboxAutoPlayService autoPlayService;
+    private final RhythmGameService rhythmGameService;
     private final MusicBrowserListener browserListener;
     private final JukeboxControlListener controlListener;
     private final MusicJukeboxListener jukeboxListener;
@@ -103,13 +105,15 @@ public final class MusicModule {
         this.playbackService = new JukeboxPlaybackService(plugin, voiceServer, discResolver,
                 audioCache, discFactory, playbackNotifier, recordSilencer,
                 settingsStore, playbackHistory::recordPlayback, lyricDisplay);
+        this.rhythmGameService = new RhythmGameService(
+                plugin, playbackService, languageService);
         NearbyJukeboxPlayback nearbyPlayback = new NearbyJukeboxPlayback(
                 playbackService, languageService);
         MusicBrowserGui browserGui = new MusicBrowserGui(plugin, musicLibrary, trackPool,
                 sourceService,
                 track -> track.target() instanceof org.encinet.mik.module.music.catalog.TrackTarget.Lx lx
                         && audioCache.isCached(lx),
-                playbackHistory, discFactory, languageService);
+                playbackHistory, languageService, discFactory);
         this.queueService = new JukeboxQueueService(trackSelector, trackPool::tracks);
         JukeboxControlGui jukeboxControlGui = new JukeboxControlGui(
                 queueService, discFactory, discResolver, playbackService,
@@ -121,12 +125,18 @@ public final class MusicModule {
                 trackPool, discFactory, nearbyPlayback, browserGui,
                 queueService, jukeboxControlGui, playbackService, autoPlayService,
                 languageService, trackSelector, randomActions);
+        browserGui.setActionHandler(browserListener);
         this.controlListener = new JukeboxControlListener(
                 musicLibrary, playbackService, browserGui, queueService,
-                jukeboxControlGui, autoPlayService, settingsStore, languageService);
+                jukeboxControlGui, autoPlayService, settingsStore, languageService,
+                rhythmGameService);
+        jukeboxControlGui.setActionHandler(controlListener);
+        queueService.setStateChangedListener(jukeboxControlGui::refreshViewers);
+        settingsStore.setStateChangedListener(jukeboxControlGui::refreshViewers);
+        playbackService.setStateChangedListener(jukeboxControlGui::refreshViewers);
         this.jukeboxListener = new MusicJukeboxListener(
                 plugin, musicLibrary, playbackService, recordSilencer,
-                queueService, autoPlayService);
+                queueService, autoPlayService, jukeboxControlGui);
         this.commandRegistrar = new MusicCommandRegistrar(
                 languageService, browserGui, randomActions, sourceService, audioCache,
                 this::reloadAsync,
@@ -144,6 +154,7 @@ public final class MusicModule {
         Bukkit.getPluginManager().registerEvents(jukeboxListener, plugin);
         recordSilencer.enable();
         playbackService.enable();
+        rhythmGameService.enable();
         remoteSourceUpdateTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
                 plugin, this::updateRemoteSourcesAutomatically,
                 REMOTE_SOURCE_UPDATE_INTERVAL_TICKS, REMOTE_SOURCE_UPDATE_INTERVAL_TICKS);
@@ -226,6 +237,7 @@ public final class MusicModule {
         }
         reloadExecutor.shutdownNow();
         autoPlayService.stopAll();
+        rhythmGameService.close();
         playbackService.stopAll();
         recordSilencer.close();
         audioCache.close();
