@@ -180,7 +180,7 @@ final class SkriptInfoCommand {
 
                 写代码前，按已安装版本核对实际用到的事件、条件、表达式、effect 和类型。若无法访问链接，请明确告诉我需要粘贴哪一页；不要假装查过文档，也不要从其他 Skript 附属插件猜测相似语法。
 
-                MIK API 是本服务器专用扩展。需求涉及玩家语言、客户端版本、身份、AFK 或 PVP 时，必须使用上面的 MIK 文档核对语法和副作用，不要猜测。
+                MIK API 是本服务器专用扩展。需求涉及玩家语言、客户端版本、身份、AFK、PVP 或非欧空间时，必须使用上面的 MIK 文档核对语法和副作用，不要猜测。
 
                 功能需求写在本提示词末尾。若需求尚未填写，请先问我想实现什么；若已有描述，只追问会影响正确实现的歧义。必要信息确认前不要输出代码。
 
@@ -227,7 +227,7 @@ final class SkriptInfoCommand {
 
                 Before coding, check every event, condition, expression, effect, and type actually used against the installed versions. If you cannot access a link, tell me exactly which page I should paste. Never pretend that you read it, and never infer similar syntax from another Skript addon.
 
-                MIK API is a server-specific extension. If the feature needs player language, client version, role, AFK, or PVP integration, use the MIK document above to verify its syntax and side effects instead of guessing.
+                MIK API is a server-specific extension. If the feature needs player language, client version, role, AFK, PVP, or non-Euclidean space integration, use the MIK document above to verify its syntax and side effects instead of guessing.
 
                 Reply in the player's selected language, %s (locale %s). The feature request is at the end of this prompt. If it is still blank, first ask what I want to build. If it is present, ask only about ambiguities that affect correctness. Do not output code before the necessary details are settled.
 

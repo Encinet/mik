@@ -14,13 +14,15 @@ import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.player.ClientVersionReminderModule;
 import org.encinet.mik.module.player.PlayerRole;
 import org.encinet.mik.module.pvp.PvpModule;
+import org.encinet.mik.module.space.NonEuclideanSpaceService;
+import org.jetbrains.annotations.Nullable;
 import org.skriptlang.skript.addon.SkriptAddon;
 import org.skriptlang.skript.registration.SyntaxInfo;
 import org.skriptlang.skript.registration.SyntaxRegistry;
 
 import java.util.Objects;
 
-/** Registers MIK's player state API with Skript when it is installed. */
+/** Registers MIK's server API with Skript when it is installed. */
 public final class MikSkriptModule {
 
     public static final String ADDON_NAME = "MIK";
@@ -34,13 +36,22 @@ public final class MikSkriptModule {
     public MikSkriptModule(JavaPlugin plugin, LanguageService languageService,
                            ClientVersionReminderModule clientVersionModule,
                            AfkModule afkModule, PvpModule pvpModule) {
+        this(plugin, languageService, clientVersionModule,
+                afkModule, pvpModule, null);
+    }
+
+    public MikSkriptModule(JavaPlugin plugin, LanguageService languageService,
+                           ClientVersionReminderModule clientVersionModule,
+                           AfkModule afkModule, PvpModule pvpModule,
+                           @Nullable NonEuclideanSpaceService spaceService) {
         this(plugin, new MikSkriptFacade(
                 plugin,
                 player -> languageService.language(player).id(),
                 player -> clientVersionName(clientVersionModule, player),
                 player -> PlayerRole.resolve(player).id(),
                 afkModule,
-                pvpModule), new SkriptInfoCommand(plugin, languageService));
+                pvpModule,
+                spaceService), new SkriptInfoCommand(plugin, languageService));
     }
 
     MikSkriptModule(JavaPlugin plugin, MikSkriptFacade facade) {
@@ -51,8 +62,11 @@ public final class MikSkriptModule {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.facade = Objects.requireNonNull(facade, "facade");
         this.infoCommand = infoCommand;
-        this.unloadListener = (parser, script) ->
-                facade.clearPvpOverridesOwnedBy(MikSkriptOwner.of(script));
+        this.unloadListener = (parser, script) -> {
+            String owner = MikSkriptOwner.of(script);
+            facade.clearPvpOverridesOwnedBy(owner);
+            facade.clearSpacesOwnedBy(owner);
+        };
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -69,11 +83,12 @@ public final class MikSkriptModule {
         }
         register(Skript.instance(), facade);
         ScriptLoader.eventRegistry().register(ScriptLoader.ScriptUnloadEvent.class, unloadListener);
-        plugin.getLogger().info("Registered MIK player state API with Skript.");
+        plugin.getLogger().info("Registered MIK server API with Skript.");
     }
 
     public void disable() {
         ScriptLoader.eventRegistry().unregister(unloadListener);
+        facade.clearSpaces();
     }
 
     static void register(org.skriptlang.skript.Skript skript, MikSkriptFacade facade) {
@@ -177,6 +192,16 @@ public final class MikSkriptModule {
                         "clear all [of the] mik pvp overrides (of|for|from) %players%"
                 )
                 .build());
+        registry.register(SyntaxRegistry.EFFECT, SyntaxInfo.builder(MikSpaceUnregisterEffect.class)
+                .supplier(() -> new MikSpaceUnregisterEffect(facade))
+                .addPattern("unregister [the] mik space %string%")
+                .build());
+
+        registry.register(SyntaxRegistry.SECTION,
+                SyntaxInfo.builder(MikSpaceRegisterSection.class)
+                        .supplier(() -> new MikSpaceRegisterSection(facade))
+                        .addPattern("register [the] mik space %string%")
+                        .build());
 
         registry.register(SyntaxRegistry.CONDITION, SyntaxInfo.builder(MikPlayerStateCondition.class)
                 .supplier(() -> new MikPlayerStateCondition(facade))
@@ -198,6 +223,14 @@ public final class MikSkriptModule {
                 .addPatterns(
                         "%players% (has|have) [the] mik pvp override %string%",
                         "%players% (doesn't|does not|do not|don't) have [the] mik pvp override %string%"
+                )
+                .build());
+        registry.register(SyntaxRegistry.CONDITION, SyntaxInfo.builder(MikSpaceRegisteredCondition.class)
+                .supplier(() -> new MikSpaceRegisteredCondition(facade))
+                .priority(PropertyExpression.DEFAULT_PRIORITY)
+                .addPatterns(
+                        "[the] mik space %string% is registered",
+                        "[the] mik space %string% (isn't|is not) registered"
                 )
                 .build());
     }

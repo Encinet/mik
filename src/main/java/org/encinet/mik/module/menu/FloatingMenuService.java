@@ -43,8 +43,6 @@ import java.util.function.Consumer;
 
 /** Owns one declarative menu lifecycle and projects it to the viewer's client UI. */
 public final class FloatingMenuService implements Listener {
-    /** Global movement policy shared by every floating menu. */
-    private static final double CLOSE_DISTANCE_SQUARED = 3.0D * 3.0D;
     private static final double HOVER_SURFACE_MARGIN = 0.08D;
     private static final double SURFACE_DISTANCE_EPSILON = 1.0E-4D;
     private static final long INPUT_DEBOUNCE_MILLIS = 55L;
@@ -341,7 +339,8 @@ public final class FloatingMenuService implements Listener {
             closeImmediately(session.playerId, FloatingMenuCloseReason.WORLD_CHANGE);
             return;
         }
-        if (player.getEyeLocation().distanceSquared(session.openedAt) > CLOSE_DISTANCE_SQUARED) {
+        if (session.definition.movementPolicy().exceeded(
+                player.getEyeLocation().distanceSquared(session.openedAt))) {
             closeImmediately(session.playerId, FloatingMenuCloseReason.DISTANCE);
             return;
         }

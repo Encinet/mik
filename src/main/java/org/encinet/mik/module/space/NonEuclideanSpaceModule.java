@@ -71,6 +71,7 @@ public final class NonEuclideanSpaceModule
         }
         Bukkit.getPluginManager().registerEvents(this, plugin);
         Bukkit.getPluginManager().registerEvents(traversalController, plugin);
+        traversalController.start();
         Bukkit.getServicesManager().register(
                 NonEuclideanSpaceService.class, this, plugin, ServicePriority.Normal);
         enabled = true;

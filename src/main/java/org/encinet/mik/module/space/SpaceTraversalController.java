@@ -1,11 +1,15 @@
 package org.encinet.mik.module.space;
 
+import com.destroystokyo.paper.event.entity.EntityAddToWorldEvent;
+import com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent;
+import com.destroystokyo.paper.event.server.ServerTickEndEvent;
 import io.papermc.paper.event.entity.EntityMoveEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.entity.ComplexEntityPart;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -13,6 +17,7 @@ import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityTeleportEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.vehicle.VehicleMoveEvent;
@@ -21,13 +26,14 @@ import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-/** Bridges the immutable topology to Paper movement for independent entities and vehicle trees. */
+/** Bridges the immutable topology to event-driven and end-of-tick entity movement. */
 final class SpaceTraversalController implements Listener, AutoCloseable {
 
     private static final long WARNING_INTERVAL_MILLIS = 30_000L;
@@ -37,21 +43,69 @@ final class SpaceTraversalController implements Listener, AutoCloseable {
     private final Supplier<SpaceNetwork> network;
     private final Map<String, Long> warningTimes = new HashMap<>();
     private final Set<UUID> applyingRoots = new HashSet<>();
+    private final Map<UUID, PolledEntity> polledEntities = new HashMap<>();
+
+    private boolean trackingStarted;
 
     SpaceTraversalController(JavaPlugin plugin, Supplier<SpaceNetwork> network) {
         this.plugin = plugin;
         this.network = network;
     }
 
+    void start() {
+        if (trackingStarted) {
+            return;
+        }
+        trackingStarted = true;
+        for (World world : Bukkit.getWorlds()) {
+            for (Entity entity : world.getEntities()) {
+                track(entity);
+            }
+        }
+    }
+
     void networkChanged() {
         warningTimes.clear();
         applyingRoots.clear();
+        rebaselinePolledEntities();
     }
 
     @Override
     public void close() {
+        trackingStarted = false;
         warningTimes.clear();
         applyingRoots.clear();
+        polledEntities.clear();
+    }
+
+    @EventHandler
+    public void onEntityAdded(EntityAddToWorldEvent event) {
+        track(event.getEntity());
+    }
+
+    @EventHandler
+    public void onEntityRemoved(EntityRemoveFromWorldEvent event) {
+        polledEntities.remove(event.getEntity().getUniqueId());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityTeleport(EntityTeleportEvent event) {
+        Entity entity = event.getEntity();
+        if (applyingRoots.contains(entity.getUniqueId())) {
+            return;
+        }
+        Location destination = event.getTo();
+        if (destination == null || !requiresPolling(entity)) {
+            polledEntities.remove(entity.getUniqueId());
+            return;
+        }
+        polledEntities.put(entity.getUniqueId(),
+                new PolledEntity(entity, destination.clone()));
+    }
+
+    @EventHandler
+    public void onServerTickEnd(ServerTickEndEvent event) {
+        pollNonLivingEntities();
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -141,6 +195,102 @@ final class SpaceTraversalController implements Listener, AutoCloseable {
                         source, PlayerTeleportEvent.TeleportCause.PLUGIN);
             }
         });
+    }
+
+    private void pollNonLivingEntities() {
+        if (!trackingStarted || network.get().links().isEmpty()) {
+            return;
+        }
+        for (PolledEntity tracked : List.copyOf(polledEntities.values())) {
+            UUID id = tracked.entity().getUniqueId();
+            if (polledEntities.get(id) != tracked) {
+                continue;
+            }
+            try {
+                poll(tracked);
+            } catch (RuntimeException error) {
+                rebaseline(tracked);
+                warn("polled-entity:" + tracked.entity().getType(),
+                        "Could not process spatial movement for entity " + id
+                                + " (" + tracked.entity().getType() + "): "
+                                + error.getMessage());
+            }
+        }
+    }
+
+    private void poll(PolledEntity tracked) {
+        Entity entity = tracked.entity();
+        UUID id = entity.getUniqueId();
+        if (!entity.isValid() || !requiresPolling(entity)) {
+            polledEntities.remove(id, tracked);
+            return;
+        }
+
+        Location current = entity.getLocation();
+        Location previous = tracked.previous();
+        if (entity.getVehicle() != null
+                || previous.getWorld() == null
+                || current.getWorld() == null
+                || !previous.getWorld().equals(current.getWorld())
+                || !explicitlyChangedPosition(previous, current)) {
+            tracked.previous(current);
+            return;
+        }
+
+        traverse(entity, previous, current, new MovementControl() {
+            @Override
+            public boolean moveTo(Location destination) {
+                return entity.teleport(
+                        destination, PlayerTeleportEvent.TeleportCause.PLUGIN);
+            }
+
+            @Override
+            public boolean reject() {
+                SpaceEntityTree.capture(entity).stop();
+                Location actual = entity.getLocation();
+                if (samePosition(actual, previous)) {
+                    return true;
+                }
+                return entity.teleport(
+                        previous, PlayerTeleportEvent.TeleportCause.PLUGIN);
+            }
+        });
+
+        if (!entity.isValid()) {
+            polledEntities.remove(id, tracked);
+        } else if (polledEntities.get(id) == tracked) {
+            tracked.previous(entity.getLocation());
+        }
+    }
+
+    private void track(Entity entity) {
+        if (!requiresPolling(entity)) {
+            return;
+        }
+        polledEntities.put(entity.getUniqueId(),
+                new PolledEntity(entity, entity.getLocation()));
+    }
+
+    private void rebaselinePolledEntities() {
+        for (PolledEntity tracked : List.copyOf(polledEntities.values())) {
+            rebaseline(tracked);
+        }
+    }
+
+    private void rebaseline(PolledEntity tracked) {
+        Entity entity = tracked.entity();
+        UUID id = entity.getUniqueId();
+        if (!entity.isValid() || !requiresPolling(entity)) {
+            polledEntities.remove(id, tracked);
+        } else if (polledEntities.get(id) == tracked) {
+            tracked.previous(entity.getLocation());
+        }
+    }
+
+    static boolean requiresPolling(Entity entity) {
+        return !(entity instanceof LivingEntity)
+                && !(entity instanceof Vehicle)
+                && !(entity instanceof ComplexEntityPart);
     }
 
     private void traverse(
@@ -351,6 +501,12 @@ final class SpaceTraversalController implements Listener, AutoCloseable {
                 && first.distanceSquared(second) <= SAME_POSITION_EPSILON_SQUARED;
     }
 
+    private boolean explicitlyChangedPosition(Location first, Location second) {
+        return first.getX() != second.getX()
+                || first.getY() != second.getY()
+                || first.getZ() != second.getZ();
+    }
+
     private void warn(String key, String message) {
         long now = System.currentTimeMillis();
         Long previous = warningTimes.get(key);
@@ -366,5 +522,28 @@ final class SpaceTraversalController implements Listener, AutoCloseable {
         boolean moveTo(Location destination);
 
         boolean reject();
+    }
+
+    private static final class PolledEntity {
+
+        private final Entity entity;
+        private Location previous;
+
+        private PolledEntity(Entity entity, Location previous) {
+            this.entity = entity;
+            this.previous = previous.clone();
+        }
+
+        private Entity entity() {
+            return entity;
+        }
+
+        private Location previous() {
+            return previous;
+        }
+
+        private void previous(Location location) {
+            previous = location.clone();
+        }
     }
 }

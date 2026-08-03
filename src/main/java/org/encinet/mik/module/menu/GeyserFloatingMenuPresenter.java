@@ -53,7 +53,8 @@ final class GeyserFloatingMenuPresenter {
         for (FloatingMenuInteraction interaction : option.interactions()) {
             buttons.add(labels.label(interaction));
         }
-        buttons.add(languageService.t(player, Message.BEDROCK_MENU_BACK));
+        buttons.add(BedrockMenuTranslator.plainLabel(
+                languageService.t(player, Message.BEDROCK_MENU_BACK)));
         return geyser.sendForm(player.getUniqueId(), new BedrockSimpleForm(
                 BedrockMenuTranslator.firstLine(option.label()), option.label(), buttons,
                 index -> {

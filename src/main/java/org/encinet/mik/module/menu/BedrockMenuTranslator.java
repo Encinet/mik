@@ -1,6 +1,7 @@
 package org.encinet.mik.module.menu;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
@@ -54,9 +55,9 @@ final class BedrockMenuTranslator {
             String label = serialize(entry.label());
             if (entry.selected()) label = "§a✓ §r" + label;
             String disabledReason = entry.disabledReason() == null
-                    ? "" : serialize(entry.disabledReason());
+                    ? "" : serializeDisabledReason(entry.disabledReason());
             if (!entry.enabled() && !disabledReason.isEmpty()) {
-                label = label + "\n§c" + disabledReason;
+                label = label + "\n" + disabledReason;
             }
             options.add(new Option(entry.id(), label, interactions,
                     entry.enabled(), disabledReason));
@@ -96,7 +97,15 @@ final class BedrockMenuTranslator {
     }
 
     private static String serialize(Component component) {
-        return LEGACY.serialize(component).strip();
+        return LEGACY.serialize(FloatingMenuText.withDefaultWhite(component)).strip();
+    }
+
+    private static String serializeDisabledReason(Component component) {
+        return LEGACY.serialize(component.colorIfAbsent(NamedTextColor.RED)).strip();
+    }
+
+    static String plainLabel(String value) {
+        return serialize(Component.text(Objects.requireNonNull(value, "value")));
     }
 
     static String firstLine(String value) {
@@ -132,11 +141,11 @@ final class BedrockMenuTranslator {
                      String scrollUp, String scrollDown) {
             EnumMap<FloatingMenuInteraction, String> labels =
                     new EnumMap<>(FloatingMenuInteraction.class);
-            labels.put(FloatingMenuInteraction.PRIMARY, primary);
-            labels.put(FloatingMenuInteraction.SECONDARY, secondary);
-            labels.put(FloatingMenuInteraction.HOTKEY, hotkey);
-            labels.put(FloatingMenuInteraction.SCROLL_UP, scrollUp);
-            labels.put(FloatingMenuInteraction.SCROLL_DOWN, scrollDown);
+            labels.put(FloatingMenuInteraction.PRIMARY, plainLabel(primary));
+            labels.put(FloatingMenuInteraction.SECONDARY, plainLabel(secondary));
+            labels.put(FloatingMenuInteraction.HOTKEY, plainLabel(hotkey));
+            labels.put(FloatingMenuInteraction.SCROLL_UP, plainLabel(scrollUp));
+            labels.put(FloatingMenuInteraction.SCROLL_DOWN, plainLabel(scrollDown));
             labels.replaceAll((key, value) -> Objects.requireNonNull(value, key.name()));
             values = Map.copyOf(labels);
         }

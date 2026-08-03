@@ -104,7 +104,7 @@ final class VirtualMenuEntityRenderer {
                 new Quaternionf(),
                 new Vector3f(scale, scale, scale),
                 new Quaternionf()));
-        display.text(text);
+        display.text(FloatingMenuText.withDefaultWhite(text));
         display.setLineWidth(lineWidthPixels);
         display.setBackgroundColor(Color.fromARGB(background));
         display.setTextOpacity((byte) -1);

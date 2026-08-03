@@ -32,6 +32,7 @@ public final class FloatingMenuDefinition {
     private final FloatingMenuFraming framing;
     private final FloatingMenuPresentation presentation;
     private final FloatingMenuAnchorMode anchorMode;
+    private final FloatingMenuMovementPolicy movementPolicy;
     private final Map<FloatingMenuInteraction, FloatingMenuAction> triggers;
     private final FloatingMenuLifecycle lifecycle;
     private final FloatingMenuRefresh refresh;
@@ -44,6 +45,7 @@ public final class FloatingMenuDefinition {
                                    FloatingMenuFraming framing,
                                    FloatingMenuPresentation presentation,
                                    FloatingMenuAnchorMode anchorMode,
+                                   FloatingMenuMovementPolicy movementPolicy,
                                    Map<FloatingMenuInteraction, FloatingMenuAction> triggers,
                                    FloatingMenuLifecycle lifecycle,
                                    FloatingMenuRefresh refresh) {
@@ -59,6 +61,7 @@ public final class FloatingMenuDefinition {
         this.framing = framing;
         this.presentation = presentation;
         this.anchorMode = anchorMode;
+        this.movementPolicy = movementPolicy;
         this.triggers = Map.copyOf(triggers);
         this.lifecycle = lifecycle;
         this.refresh = refresh;
@@ -100,6 +103,7 @@ public final class FloatingMenuDefinition {
     public FloatingMenuFraming framing() { return framing; }
     public FloatingMenuPresentation presentation() { return presentation; }
     public FloatingMenuAnchorMode anchorMode() { return anchorMode; }
+    public FloatingMenuMovementPolicy movementPolicy() { return movementPolicy; }
     public Map<FloatingMenuInteraction, FloatingMenuAction> triggers() { return triggers; }
     public FloatingMenuLifecycle lifecycle() { return lifecycle; }
     public FloatingMenuRefresh refresh() { return refresh; }
@@ -112,14 +116,14 @@ public final class FloatingMenuDefinition {
         if (id.equals(screenId)) return this;
         return new FloatingMenuDefinition(title, titleVisible, id, entries, decorations,
                 animation, layout, feedback, appearance, framing,
-                presentation, anchorMode,
+                presentation, anchorMode, movementPolicy,
                 triggers, lifecycle, refresh);
     }
 
     FloatingMenuDefinition withLifecycle(FloatingMenuLifecycle nextLifecycle) {
         return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations,
                 animation, layout, feedback, appearance, framing,
-                presentation, anchorMode,
+                presentation, anchorMode, movementPolicy,
                 triggers, FloatingMenuLifecycle.combine(lifecycle,
                         Objects.requireNonNull(nextLifecycle, "nextLifecycle")), refresh);
     }
@@ -192,6 +196,8 @@ public final class FloatingMenuDefinition {
         private FloatingMenuFraming framing = FloatingMenuFraming.COMFORTABLE;
         private FloatingMenuPresentation presentation = FloatingMenuPresentation.ADAPTIVE;
         private FloatingMenuAnchorMode anchorMode = FloatingMenuAnchorMode.ADAPTIVE;
+        private FloatingMenuMovementPolicy movementPolicy =
+                FloatingMenuMovementPolicy.STANDARD;
         private FloatingMenuLifecycle lifecycle = FloatingMenuLifecycle.NONE;
         private FloatingMenuRefresh refresh = FloatingMenuRefresh.NONE;
         private final Map<FloatingMenuInteraction, FloatingMenuAction> triggers =
@@ -491,6 +497,12 @@ public final class FloatingMenuDefinition {
             return this;
         }
 
+        /** Selects the safety leash appropriate to this screen's input model. */
+        public Builder movementPolicy(FloatingMenuMovementPolicy movementPolicy) {
+            this.movementPolicy = Objects.requireNonNull(movementPolicy, "movementPolicy");
+            return this;
+        }
+
         /** Adds or replaces the optional title node for this scene. */
         public Builder title(Component title) {
             this.title = Objects.requireNonNull(title, "title");
@@ -554,7 +566,7 @@ public final class FloatingMenuDefinition {
         public FloatingMenuDefinition build() {
             return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations,
                     animation, layout, feedback, appearance, framing,
-                    presentation, anchorMode,
+                    presentation, anchorMode, movementPolicy,
                     triggers, lifecycle, refresh);
         }
 

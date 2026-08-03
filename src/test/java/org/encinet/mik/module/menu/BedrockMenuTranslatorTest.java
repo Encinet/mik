@@ -34,7 +34,7 @@ class BedrockMenuTranslatorTest {
         BedrockMenuTranslator.Menu menu =
                 new BedrockMenuTranslator().translate(builder.build(), LABELS);
 
-        assertEquals("Settings", menu.title());
+        assertEquals("§fSettings", menu.title());
         assertFalse(menu.content().contains("Settings"));
         assertTrue(menu.content().contains("Current state"));
         assertTrue(menu.content().contains("Details"));
@@ -48,12 +48,12 @@ class BedrockMenuTranslatorTest {
 
         BedrockMenuTranslator.Option locked = menu.options().get(1);
         assertFalse(locked.enabled());
-        assertEquals("Unavailable", locked.disabledReason());
+        assertEquals("§cUnavailable", locked.disabledReason());
         assertTrue(locked.label().contains("Unavailable"));
 
         BedrockMenuTranslator.Option global = menu.options().get(2);
         assertNull(global.elementId());
-        assertEquals("Down", global.label());
+        assertEquals("§fDown", global.label());
         assertEquals(java.util.List.of(FloatingMenuInteraction.SCROLL_DOWN),
                 global.interactions());
     }
@@ -66,7 +66,7 @@ class BedrockMenuTranslatorTest {
         BedrockMenuTranslator.Menu menu =
                 new BedrockMenuTranslator().translate(builder.build(), LABELS);
 
-        assertEquals("Now playing", menu.title());
+        assertEquals("§fNow playing", menu.title());
         assertTrue(menu.content().contains("Track name"));
         assertTrue(menu.options().isEmpty());
     }

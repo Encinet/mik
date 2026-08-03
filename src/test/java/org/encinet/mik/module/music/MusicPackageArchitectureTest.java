@@ -376,6 +376,18 @@ class MusicPackageArchitectureTest {
         assertTrue(playback.contains("|| !jukebox.hasRecord()"));
     }
 
+    @Test
+    void rhythmInputHasAWideSafetyLeashAndAnAimIndependentExit() throws IOException {
+        String rhythm = source("rhythm/RhythmGameService.java");
+
+        assertTrue(rhythm.contains(
+                ".movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)"));
+        assertTrue(rhythm.contains("menu.on(FloatingMenuInteraction.HOTKEY,"));
+        assertTrue(rhythm.contains("Component.text(\"[F] \""));
+        assertTrue(rhythm.contains("event.setTo(locked)"));
+        assertTrue(rhythm.contains("player.setVelocity(player.getVelocity().zero())"));
+    }
+
     private static void assertNoImport(Path directory, String forbidden) throws IOException {
         List<String> violations;
         try (Stream<Path> files = Files.walk(directory)) {

@@ -2,6 +2,7 @@ package org.encinet.mik.module.skript;
 
 import ch.njol.skript.util.Timespan;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.afk.AfkModule;
@@ -9,11 +10,14 @@ import org.encinet.mik.module.afk.AfkSource;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.pvp.PvpModule;
 import org.encinet.mik.module.pvp.PvpOverrideState;
+import org.encinet.mik.module.space.NonEuclideanSpaceService;
+import org.encinet.mik.module.space.SpaceLinkEntrances;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.function.Function;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 final class MikSkriptFacade {
 
@@ -23,6 +27,7 @@ final class MikSkriptFacade {
     private final Function<Player, String> role;
     private final AfkModule afkModule;
     private final PvpModule pvpModule;
+    private final MikSkriptSpaceRegistry spaces;
 
     MikSkriptFacade(JavaPlugin plugin,
                     Function<Player, String> language,
@@ -30,12 +35,23 @@ final class MikSkriptFacade {
                     Function<Player, String> role,
                     AfkModule afkModule,
                     PvpModule pvpModule) {
+        this(plugin, language, clientVersion, role, afkModule, pvpModule, null);
+    }
+
+    MikSkriptFacade(JavaPlugin plugin,
+                    Function<Player, String> language,
+                    Function<Player, String> clientVersion,
+                    Function<Player, String> role,
+                    AfkModule afkModule,
+                    PvpModule pvpModule,
+                    @Nullable NonEuclideanSpaceService spaceService) {
         this.plugin = plugin;
         this.language = language;
         this.clientVersion = clientVersion;
         this.role = role;
         this.afkModule = afkModule;
         this.pvpModule = pvpModule;
+        this.spaces = new MikSkriptSpaceRegistry(spaceService);
     }
 
     String language(Player player) {
@@ -154,6 +170,49 @@ final class MikSkriptFacade {
 
     void clearPvpOverridesOwnedBy(String owner) {
         onMainThread(() -> pvpModule.clearOverridesOwnedBy(owner));
+    }
+
+    void registerSpace(
+            String owner,
+            String id,
+            Location firstCornerA,
+            Location firstCornerB,
+            String firstThrough,
+            @Nullable String firstUp,
+            Location secondCornerA,
+            Location secondCornerB,
+            String secondThrough,
+            @Nullable String secondUp,
+            SpaceLinkEntrances entrances
+    ) {
+        onMainThread(() -> spaces.register(
+                owner,
+                id,
+                firstCornerA,
+                firstCornerB,
+                firstThrough,
+                firstUp,
+                secondCornerA,
+                secondCornerB,
+                secondThrough,
+                secondUp,
+                entrances));
+    }
+
+    void unregisterSpace(String owner, String id) {
+        onMainThread(() -> spaces.unregister(owner, id));
+    }
+
+    boolean spaceRegistered(String id) {
+        return onMainThread(() -> spaces.registered(id));
+    }
+
+    void clearSpacesOwnedBy(String owner) {
+        onMainThread(() -> spaces.clearOwnedBy(owner));
+    }
+
+    void clearSpaces() {
+        onMainThread(spaces::clear);
     }
 
     String normalizePvpOverrideId(String id) {

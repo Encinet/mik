@@ -217,7 +217,8 @@ public final class Mik extends JavaPlugin {
 
         if (getServer().getPluginManager().isPluginEnabled("Skript")) {
             skriptModule = new MikSkriptModule(
-                    this, languageService, clientVersionReminderModule, afkModule, pvpModule);
+                    this, languageService, clientVersionReminderModule, afkModule, pvpModule,
+                    nonEuclideanSpaceModule);
             skriptModule.enable();
             skriptModule.registerCommands(this.getLifecycleManager());
         } else {
@@ -317,14 +318,14 @@ public final class Mik extends JavaPlugin {
         if (asyncRegenModule != null) {
             asyncRegenModule.disable();
         }
+        if (skriptModule != null) {
+            skriptModule.disable();
+        }
         if (nonEuclideanSpaceModule != null) {
             nonEuclideanSpaceModule.disable();
         }
         if (floatingMenuService != null) {
             floatingMenuService.disable();
-        }
-        if (skriptModule != null) {
-            skriptModule.disable();
         }
 
         if (musicModule != null) {

@@ -22,8 +22,8 @@ public final class FloatingMenuAppearance {
             .build();
 
     /**
-     * Removes passive text surfaces while retaining visible hover, hold, and
-     * press feedback for interactive controls.
+     * Removes passive text surfaces while retaining visible hover and press
+     * feedback for interactive controls.
      */
     public static final FloatingMenuAppearance SPATIAL = builder()
             .titleBackground(TRANSPARENT)

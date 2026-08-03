@@ -1,7 +1,7 @@
 # MIK Skript API
 
 MIK 在 Skript 已安装并启用时，以 addon 名称 `MIK` 注册玩家语言、客户端版本、身份、
-AFK 和 PVP API。本文只描述 MIK 自己提供的 Skript 语法和行为。
+AFK、PVP 和非欧空间 API。本文只描述 MIK 自己提供的 Skript 语法和行为。
 
 ## 通用规则
 
@@ -268,3 +268,90 @@ if player is mik combat tagged:
 
 `mik combat tag remaining time` 在未锁定时无值。MIK 没有向 Skript 暴露创建、延长或
 清除战斗锁定的 effect。
+
+## 非欧空间
+
+### 注册
+
+Skript 可以用带名称的字段，一次性注册一条由两张矩形接缝组成的运行时空间连接：
+
+```text
+register [the] mik space %string%:
+    first surface:
+        corner a: %location%
+        corner b: %location%
+        through: north|south|east|west|up|down
+        up: north|south|east|west|up|down  # 可选
+    second surface:
+        corner a: %location%
+        corner b: %location%
+        through: north|south|east|west|up|down
+        up: north|south|east|west|up|down  # 可选
+    entrances: first|both
+```
+
+例如下面的墙面与水平面连接会保持南北方向，同时令 `west` 与 `down` 对应：
+
+```applescript
+on load:
+    set {_world} to world "world"
+    set {_wall-a} to location at 329.5, 80, 1363 in {_world}
+    set {_wall-b} to location at 329.5, 83, 1366 in {_world}
+    set {_floor-a} to location at 324, 72.5, 1363 in {_world}
+    set {_floor-b} to location at 321, 72.5, 1366 in {_world}
+
+    register mik space "jump-door":
+        first surface:
+            corner a: {_wall-a}
+            corner b: {_wall-b}
+            through: west
+            up: up
+        second surface:
+            corner a: {_floor-a}
+            corner b: {_floor-b}
+            through: down
+            up: west
+        entrances: both
+```
+
+注册使用与 `non-euclidean-spaces.yml` 相同的几何规则：两个角点必须形成非零矩形，
+`through` 必须垂直于矩形，两张接缝必须位于同一世界且宽高相同。方向字段的含义是：
+
+| 字段 | 含义 |
+| --- | --- |
+| `through` | 穿过该平面的方向，也是从另一张接缝出来后对应的前进方向。第一面的 `through` 会映射到第二面的 `through`。 |
+| `up` | 接缝自身坐标系的上方。第一面的 `up` 会映射到第二面的 `up`，从而确定视角和速度如何旋转；它必须与 `through` 垂直。 |
+
+方向直接填写 `north`、`south`、`east`、`west`、`up`、`down`，不加引号。`up` 可省略：
+墙面默认采用世界的 `up`，地面或天花板默认采用 `north`，与 YAML 一致。Location 的 yaw
+和 pitch 不参与区域定义。
+
+因此示例中第一面与第二面的轴对应关系恰好为 `west → down`、`up → west`、
+`north → north`；反向穿过则为严格逆变换 `down → west`，仍保持 `north → north`。
+
+`entrances: first` 和 `entrances: both` 分别对应配置文件中的 `first` 与 `both`。注册是
+原子的：任何字段无效或 ID 冲突时，整条连接都不会加入网络。ID 必须由 1–57 个小写
+ASCII 字母、数字、点、下划线或连字符组成，并以字母或数字开头；它与 YAML 及其他
+脚本注册的 link ID 共用全局命名空间。
+
+### 查询与注销
+
+注销 effect 的完整形式为 `unregister [the] mik space %string%`。
+
+```applescript
+if mik space "jump-door" is registered:
+    unregister mik space "jump-door"
+```
+
+完整条件为：
+
+```text
+mik space %string% is registered
+mik space %string% isn't registered
+mik space %string% is not registered
+```
+
+条件查询全局活动网络，因此也能看到 YAML 注册的 link。`unregister` 只能删除当前
+Skript 文件自己注册的同名 link，不能删除 YAML 或其他脚本的连接。脚本 reload、unload
+或 MIK 停止时，其运行时连接会自动注销；这些连接不会写入 YAML，也不会跨服务器重启
+保存。全局空间配置的 `enabled: false` 同样会停用 Skript 动态连接。

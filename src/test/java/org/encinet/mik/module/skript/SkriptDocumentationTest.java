@@ -49,7 +49,10 @@ class SkriptDocumentationTest {
                 "set mik pvp override %string% of %players% to %boolean%",
                 "force mik pvp on for %players%",
                 "clear mik pvp override %string% from %players%",
-                "clear all mik pvp overrides from %players%"
+                "clear all mik pvp overrides from %players%",
+                "register [the] mik space %string%:",
+                "unregister [the] mik space %string%",
+                "mik space %string% is registered"
         );
 
         assertAll(requiredSyntax.stream()

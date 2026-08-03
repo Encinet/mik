@@ -16,6 +16,8 @@ class SpaceTraversalArchitectureTest {
             throws IOException {
         String controller = Files.readString(Path.of(
                 "src/main/java/org/encinet/mik/module/space/SpaceTraversalController.java"));
+        String module = Files.readString(Path.of(
+                "src/main/java/org/encinet/mik/module/space/NonEuclideanSpaceModule.java"));
         String tree = Files.readString(Path.of(
                 "src/main/java/org/encinet/mik/module/space/SpaceEntityTree.java"));
         String remoteSnap = Files.readString(Path.of(
@@ -25,10 +27,24 @@ class SpaceTraversalArchitectureTest {
         assertTrue(controller.contains("entity.getVehicle() != null"));
         assertTrue(controller.contains("vehicle.getVehicle() != null"));
         assertTrue(controller.contains("root.getVehicle() != null"));
+        assertTrue(controller.contains("EntityAddToWorldEvent"));
+        assertTrue(controller.contains("EntityRemoveFromWorldEvent"));
+        assertTrue(controller.contains("EntityTeleportEvent"));
+        assertTrue(controller.contains("ServerTickEndEvent"));
+        assertTrue(controller.contains("pollNonLivingEntities()"));
+        assertTrue(controller.contains("traverse(entity, previous, current"));
+        assertTrue(controller.contains("!(entity instanceof LivingEntity)"));
+        assertTrue(controller.contains("!(entity instanceof Vehicle)"));
+        assertTrue(controller.contains("!(entity instanceof ComplexEntityPart)"));
         assertTrue(controller.contains("return player.teleport("));
         assertTrue(controller.contains("return entity.teleport("));
         assertTrue(controller.contains("return vehicle.teleport("));
         assertFalse(controller.contains("event.setTo(destination)"));
+        int registerTraversal = module.indexOf(
+                "registerEvents(traversalController, plugin)");
+        int startTraversal = module.indexOf("traversalController.start()");
+        assertTrue(registerTraversal >= 0 && startTraversal > registerTraversal,
+                "non-living tracking must start after its lifecycle listeners are registered");
 
         assertTrue(tree.contains("for (Entity passenger : entity.getPassengers())"));
         assertTrue(tree.contains("collect(passenger, members, visited)"));

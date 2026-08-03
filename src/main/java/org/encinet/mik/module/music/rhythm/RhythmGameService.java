@@ -31,6 +31,8 @@ import org.encinet.mik.module.menu.FloatingMenuDefinition;
 import org.encinet.mik.module.menu.FloatingMenuFlow;
 import org.encinet.mik.module.menu.FloatingMenuFraming;
 import org.encinet.mik.module.menu.FloatingMenuLayouts;
+import org.encinet.mik.module.menu.FloatingMenuInteraction;
+import org.encinet.mik.module.menu.FloatingMenuMovementPolicy;
 import org.encinet.mik.module.menu.FloatingMenuPoint;
 import org.encinet.mik.module.menu.FloatingMenuPose;
 import org.encinet.mik.module.menu.FloatingMenuScreen;
@@ -112,16 +114,24 @@ public final class RhythmGameService implements Listener, AutoCloseable {
         RhythmPlaybackSnapshot playback = current.get();
         RhythmChartView chart = new RhythmChartView(playback.timeline(), difficulty,
                 playback.positionMillis());
+        preparePlayerForCapturedInput(player);
         ActiveGame game = new ActiveGame(target, playback.playbackId(),
                 player.getLocation().clone(), InputState.of(player.getCurrentInput()),
                 chart, new RhythmGameSession(playback.playbackId(),
                         playback.positionMillis(), difficulty));
         activeGames.put(player.getUniqueId(), game);
         preferredDifficulties.put(player.getUniqueId(), difficulty);
-        player.setVelocity(player.getVelocity().zero());
         gameScreen.open(player, new GameView(
                 player.getUniqueId(), target, playback.playbackId()));
         player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.35F, 1.2F);
+    }
+
+    private static void preparePlayerForCapturedInput(Player player) {
+        if (player.isInsideVehicle()) player.leaveVehicle();
+        if (player.isGliding()) player.setGliding(false);
+        player.setSprinting(false);
+        player.setVelocity(player.getVelocity().zero());
+        player.setFallDistance(0.0F);
     }
 
     private void tick() {
@@ -232,6 +242,7 @@ public final class RhythmGameService implements Listener, AutoCloseable {
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .requireSpatialPresentation()
                 .stableAnchor()
+                .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .layout(FloatingMenuLayouts.fixedPoses(Map.of(
                         "exit", FloatingMenuPose.at(new FloatingMenuPoint(2.08, 0.83, 0.28)))))
                 .lifecycle((closedPlayer, handle, previous, next, reason) -> {
@@ -245,9 +256,10 @@ public final class RhythmGameService implements Listener, AutoCloseable {
         menu.textDecoration("status", new FloatingMenuPoint(-2.12, 0.82, 0.34),
                 statusPanel(player, playback, game), FloatingMenuAppearance.TRANSPARENT,
                 3.2F, 2.1F, 0.66F, FloatingMenuDecoration.Alignment.LEFT);
-        menu.navigation("exit", languageService.text(player,
-                        Message.MUSIC_RHYTHM_EXIT, NamedTextColor.RED))
+        menu.navigation("exit", exitLabel(player))
                 .primary((p, handle) -> exit(p, handle));
+        menu.on(FloatingMenuInteraction.HOTKEY,
+                (p, handle, input) -> exit(p, handle));
 
         RhythmGameSession.View sessionView = game.session.view();
         for (RhythmInput input : RhythmInput.values()) {
@@ -311,10 +323,19 @@ public final class RhythmGameService implements Listener, AutoCloseable {
                 });
         menu.information("unavailable", languageService.text(player,
                 Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.RED));
-        menu.navigation("exit", languageService.text(player,
-                        Message.MUSIC_RHYTHM_EXIT, NamedTextColor.RED))
+        menu.navigation("exit", exitLabel(player))
                 .primary((p, handle) -> exit(p, handle));
+        menu.on(FloatingMenuInteraction.HOTKEY,
+                (p, handle, input) -> exit(p, handle));
         return menu.build();
+    }
+
+    private Component exitLabel(Player player) {
+        return Component.text("[F] ", NamedTextColor.GOLD)
+                .decoration(TextDecoration.BOLD, true)
+                .append(languageService.text(player,
+                                Message.MUSIC_RHYTHM_EXIT, NamedTextColor.RED)
+                        .decoration(TextDecoration.BOLD, false));
     }
 
     private Component statusPanel(Player player, RhythmPlaybackSnapshot playback,

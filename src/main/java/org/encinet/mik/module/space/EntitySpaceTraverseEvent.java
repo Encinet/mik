@@ -9,7 +9,7 @@ import java.util.Objects;
 
 /**
  * Fired before an entity root and its complete passenger tree cross a spatial link.
- * The event entity is always the outermost vehicle, or the independently moving entity.
+ * The event entity is always the outermost root, or the independently moving entity.
  */
 public final class EntitySpaceTraverseEvent extends EntityEvent implements Cancellable {
 
