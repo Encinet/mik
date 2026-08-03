@@ -186,15 +186,32 @@ final class SkriptInfoCommand {
 
                 生成要求：
                 1. 只输出一个完整、自包含的 .sk 文件，不要求安装清单之外的插件。优先选择简单、容易审核的写法。
-                2. 若包含玩家命令，说明它应公开还是受权限保护；仅在需要限制时加入明确的权限节点和拒绝提示。持久或全局变量使用独特前缀，避免与其他脚本冲突。
-                3. 默认不使用高权限或高风险能力，例如控制台命令、OP/权限变更、插件或脚本管理、任意文件/网络访问、世界或服务器 tick 控制、动态解析并执行代码。若需求离不开其中某项，先说明原因和影响，等待管理员确认后再继续。
-                4. 仅当功能包含循环、重复任务、实体或粒子时，给出明确的频率、数量、并发或持续时间上限，并在适用时清理任务与临时状态。正常的一次性、低频操作不必添加无关限制。
-                5. 不取消与功能无关的事件，不修改无关数据。若某项语法、版本兼容性或副作用无法确认，请把它列为待确认项，不要猜测或悄悄替换实现。
+                2. 文件名必须准确描述功能，采用小写 ASCII kebab-case，并以 .sk 结尾，例如 player-welcome.sk。必须以英文字母开头，除扩展名前只允许 a-z、0-9 和单个连字符；禁止空格、下划线、中文、连续连字符、首尾连字符及其他特殊字符。不要使用 script.sk、test.sk、new.sk 等含义不明的名称。
+                3. 脚本第一行必须就是下面的文件头，前面不得有空行或其他内容。字段顺序与名称保持一致，所有占位符都要替换为真实内容；建议文件名必须与 File 字段完全一致。Version 使用语义化版本，初始版本默认 1.0.0。Dependencies 只列实际使用且已安装的组件及所需 SkBee 模块；Access 写 Public，或写实际允许的 MIK 角色。
+
+                   Author 行语法为 # Author: NAME[ <TYPE:VALUE> ...]；方括号表示可选内容，不得原样输出。NAME 必填，去掉首尾空白后必须非空、单行且不含 < 或 >；允许中文和内部空格，其他拼写保持原样。名称缺失时先询问，禁止猜测或填写 AI、ChatGPT、Unknown。联系方式全部选填；未提供时只写 NAME，不得追问或阻塞生成。每个标签前恰好一个空格，例如 Noctiro <email:noctiro@example.com> <qq:123456789>。type 使用小写 ASCII kebab-case，优先选 email、qq、github、discord、website、matrix。标签中的第一个冒号分隔 type 与 value；value 必须非空且不含空白、<、>、换行，但可继续包含冒号，如 website:https://example.com 或 matrix:@user:example.com。只写我明确提供的联系方式，不得猜测、补全或虚构。
+
+                # File: <规范化文件名>.sk
+                # Description: <一至两句说明用途、触发方式和主要行为>
+                # Author: <规范化作者信息>
+                # Version: <语义化版本>
+                # Environment: Paper / Minecraft <版本>
+                # Dependencies: <实际使用的组件与模块，或 None>
+                # Access: <Public，或允许的 MIK 角色>
+
+                4. 文件使用 UTF-8 且不带 BOM。七行文件头严格采用 # Field: Value，之后恰好一个空行。仅为已有内容添加固定英文标题，顺序为 # --- Configuration ---、# --- Functions ---、# --- Commands ---、# --- Events ---、# --- Scheduled Tasks ---；禁止空章节和其他装饰线。普通说明注释统一使用 # <内容>，单独放在相关代码块上方，以玩家选择的语言简述目的、原因、单位、限制或非显而易见的副作用，不复述代码。禁止行尾注释、连续多个 #、表情符号、注释掉的旧代码、TODO/FIXME 和对话内容。
+                5. 所有命令和功能默认向全部玩家开放，不得创建或使用任何权限节点，不得使用 Skript 命令的 permission 字段、permission message、玩家权限判断或底层 group.* 权限。只有需求明确要求区分玩家群体时，才使用 MIK API 的 mik role of player 做角色白名单判断：default 表示新成员，member 表示正式成员，helper 表示协管，manager 表示管理员。“正式成员可用”默认允许 member、helper、manager；不要按字符串大小推断角色层级，应明确列出允许的角色。目标群体不清楚时先询问；采用角色限制时应给被拒绝者明确提示，并安全处理非玩家命令发送者。持久或全局变量使用独特前缀，避免与其他脚本冲突。
+                6. 默认不使用高权限或高风险能力，例如控制台命令、OP/权限变更、插件或脚本管理、任意文件/网络访问、世界或服务器 tick 控制、动态解析并执行代码。若需求离不开其中某项，先说明原因和影响，等待管理员确认后再继续。
+                7. 仅当功能包含循环、重复任务、实体或粒子时，给出明确的频率、数量、并发或持续时间上限，并在适用时清理任务与临时状态。正常的一次性、低频操作不必添加无关限制。
+                8. 不取消与功能无关的事件，不修改无关数据。若某项语法、版本兼容性或副作用无法确认，请把它列为待确认项，不要猜测或悄悄替换实现。
 
                 最终回答格式：
-                - 简要复述功能和必要假设，并列出实际使用的 Skript 附属插件/SkBee 模块；只在适用时列权限节点。
-                - 提供建议文件名，以及唯一一个包含完整脚本的 Skript 代码块；不要再给第二份候选代码。
+                - 简要复述功能和必要假设，并列出实际使用的 Skript 附属插件/SkBee 模块；说明功能是公开的，或仅在适用时列出允许的 MIK 角色。不要列出权限节点。
+                - 提供一个符合上述规则的建议文件名，以及唯一一个包含完整脚本的 Skript 代码块；文件头必须位于代码块第一行，且 File 字段与建议文件名完全一致。不要再给第二份候选代码。
                 - 最后列出简短的管理员测试步骤、资源或数据副作用，以及所有尚未验证的事项。
+
+                作者信息（名称必填；联系方式选填，例如 Noctiro <email:noctiro@example.com> <qq:123456789>）：
+                [名称尚未填写]
 
                 功能需求：
                 [尚未填写]
@@ -233,15 +250,32 @@ final class SkriptInfoCommand {
 
                 Requirements:
                 1. Produce one complete, self-contained .sk file and require no plugin outside the permitted list. Prefer the simplest implementation that is easy to audit.
-                2. For player commands, state whether each command should be public or permission-protected. Add an explicit permission node and denial message only when access should be restricted. Give persistent or global variables a unique prefix to avoid collisions.
-                3. By default, do not use privileged or high-risk capabilities such as console commands, OP/permission changes, plugin or script management, arbitrary file/network access, world or server-tick control, or dynamic code parsing/execution. If a requirement truly needs one, explain why and its impact, then wait for administrator approval before proceeding.
-                4. Only when the feature uses loops, recurring tasks, entities, or particles, specify explicit frequency, count, concurrency, or duration limits and clean up tasks or temporary state where applicable. Do not add irrelevant restrictions to normal one-shot, low-frequency work.
-                5. Do not cancel unrelated events or modify unrelated data. If syntax, version compatibility, or side effects cannot be verified, list the item as unresolved rather than guessing or silently changing the design.
+                2. The file name must describe the feature, use lowercase ASCII kebab-case, and end in .sk, for example player-welcome.sk. It must start with a letter; before the extension, allow only a-z, 0-9, and single hyphens. Do not use spaces, underscores, non-ASCII characters, repeated hyphens, leading or trailing hyphens, or other special characters. Avoid vague names such as script.sk, test.sk, or new.sk.
+                3. The very first line of the script must begin the exact header below, with no blank line or other content before it. Keep the field names and order, replace every placeholder with real information, and make File exactly match the suggested file name. Use semantic versioning and default a new script to 1.0.0. Dependencies must list only installed components and SkBee modules actually used. Write Public for Access, or list the MIK roles actually allowed.
+
+                   Author syntax is # Author: NAME[ <TYPE:VALUE> ...]; brackets denote optional content and are not literal. NAME is required, non-empty after trimming, single-line, and contains neither < nor >. Allow Unicode and internal spaces; otherwise preserve spelling. If absent, ask instead of guessing or using AI, ChatGPT, or Unknown. Every contact is optional; with none supplied, output only NAME without asking or blocking. Put exactly one space before each tag, for example Noctiro <email:noctiro@example.com> <qq:123456789>. Use lowercase ASCII kebab-case types, preferably email, qq, github, discord, website, or matrix. The first colon in a tag separates type from value. Its value must be non-empty and contain no whitespace, <, >, or newline; further colons are valid, as in website:https://example.com and matrix:@user:example.com. Include only explicitly supplied details; never infer, complete, or invent them.
+
+                # File: <normalized-file-name>.sk
+                # Description: <one or two sentences covering purpose, trigger, and main behavior>
+                # Author: <normalized author information>
+                # Version: <semantic version>
+                # Environment: Paper / Minecraft <version>
+                # Dependencies: <components and modules actually used, or None>
+                # Access: <Public, or allowed MIK roles>
+
+                4. Encode the file as UTF-8 without a BOM. Keep the seven header lines in exact # Field: Value form, followed by exactly one blank line. Add only non-empty fixed English headings, ordered # --- Configuration ---, # --- Functions ---, # --- Commands ---, # --- Events ---, and # --- Scheduled Tasks ---; use no other decorative divider. Write ordinary explanatory comments as # <text> immediately above the relevant block, in the player's language. Explain purpose, rationale, units, limits, or non-obvious side effects without narrating code. Do not use end-of-line comments, repeated # markers, emoji, commented-out old code, TODO/FIXME markers, or conversational notes.
+                5. Make every command and feature available to all players by default. Never create or use permission nodes, Skript command permission fields, permission messages, player permission checks, or underlying group.* permissions. Only when the request explicitly distinguishes player groups, use mik role of player from the MIK API as an allowlist: default means a new member, member means a full member, helper means staff helper, and manager means manager. “Full members only” allows member, helper, and manager unless I explicitly request a narrower audience. Never infer hierarchy from string ordering; list every allowed role explicitly. If the intended audience is unclear, ask first. When role-gating a feature, give rejected users a clear message and safely handle non-player command senders. Give persistent or global variables a unique prefix to avoid collisions.
+                6. By default, do not use privileged or high-risk capabilities such as console commands, OP/permission changes, plugin or script management, arbitrary file/network access, world or server-tick control, or dynamic code parsing/execution. If a requirement truly needs one, explain why and its impact, then wait for administrator approval before proceeding.
+                7. Only when the feature uses loops, recurring tasks, entities, or particles, specify explicit frequency, count, concurrency, or duration limits and clean up tasks or temporary state where applicable. Do not add irrelevant restrictions to normal one-shot, low-frequency work.
+                8. Do not cancel unrelated events or modify unrelated data. If syntax, version compatibility, or side effects cannot be verified, list the item as unresolved rather than guessing or silently changing the design.
 
                 Final response format:
-                - Briefly restate the feature and necessary assumptions. List the Skript addons and SkBee modules actually used; list permission nodes only when applicable.
-                - Give a suggested file name and exactly one Skript code block containing the complete script. Do not provide a second alternative implementation.
+                - Briefly restate the feature and necessary assumptions. List the Skript addons and SkBee modules actually used. State that access is public, or list allowed MIK roles only when role gating applies. Do not list permission nodes.
+                - Give one suggested file name that follows the rules above and exactly one Skript code block containing the complete script. The header must start on the first line of the code block, and its File value must exactly match the suggested name. Do not provide a second alternative implementation.
                 - End with concise administrator test steps, resource or data side effects, and every item that remains unverified.
+
+                Author information (name required; contacts optional, for example Noctiro <email:noctiro@example.com> <qq:123456789>):
+                [name not provided yet]
 
                 Feature request:
                 [not provided yet]
