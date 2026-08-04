@@ -212,6 +212,20 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
+    void jukeboxControlsConsumeAndRefreshTheLivePlaybackClock() throws IOException {
+        String status = source("jukebox/JukeboxPlaybackStatus.java");
+        String playback = source("jukebox/JukeboxPlaybackService.java");
+        String gui = source("ui/JukeboxControlGui.java");
+
+        assertTrue(status.contains("default JukeboxPlaybackSnapshot snapshot(Block block)"));
+        assertTrue(playback.contains("public JukeboxPlaybackSnapshot snapshot(Block block)"));
+        assertTrue(playback.contains("session.positionMillis()"));
+        assertTrue(gui.contains(".refreshWhenChanged(PLAYBACK_PROGRESS_REFRESH_TICKS"));
+        assertTrue(gui.contains("playback.positionMillis()"));
+        assertTrue(gui.contains("completedProgressSegments("));
+    }
+
+    @Test
     void jukeboxCoordinatorContainsNoDecoderOrPacketDetails() throws IOException {
         String coordinator = source("jukebox/JukeboxPlaybackService.java");
         for (String forbidden : List.of(
@@ -384,7 +398,8 @@ class MusicPackageArchitectureTest {
                 ".movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)"));
         assertTrue(rhythm.contains("menu.on(FloatingMenuInteraction.HOTKEY,"));
         assertTrue(rhythm.contains("Component.text(\"[F] \""));
-        assertTrue(rhythm.contains("event.setTo(locked)"));
+        assertTrue(rhythm.contains("event.setCancelled(true)"));
+        assertFalse(rhythm.contains("event.setTo(locked)"));
         assertTrue(rhythm.contains("player.setVelocity(player.getVelocity().zero())"));
     }
 

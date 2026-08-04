@@ -284,8 +284,6 @@ home-distance-blocks = { $arg0 } блоков
 tip-reload-done = Подсказки перезагружены
 tip-reload-count = Записей: { $arg0 }
 tip-reload-command-description = Перезагрузить tips.txt
-tip-command-description = Посмотреть подсказку сервера
-tip-empty = Подсказок нет
 tip-label = ПОДСКАЗКА
 tip-hover = Подсказка сервера
 

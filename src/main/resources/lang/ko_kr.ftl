@@ -284,8 +284,6 @@ home-distance-blocks = { $arg0 }블록
 tip-reload-done = 팁을 다시 불러왔습니다
 tip-reload-count = { $arg0 }개 항목
 tip-reload-command-description = tips.txt 다시 불러오기
-tip-command-description = 서버 팁 보기
-tip-empty = 표시할 팁이 없습니다
 tip-label = 팁
 tip-hover = 서버 팁
 

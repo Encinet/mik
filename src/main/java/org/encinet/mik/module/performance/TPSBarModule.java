@@ -12,6 +12,11 @@ import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -19,11 +24,13 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class TPSBarModule {
+public class TPSBarModule implements Listener {
 
     public static String commandTPSBarTitle = "<gray>TPS<yellow>:</yellow> <tps> MSPT<yellow>:</yellow> <mspt> Ping<yellow>:</yellow> <ping>ms";
     public static BossBar.Overlay commandTPSBarProgressOverlay = BossBar.Overlay.NOTCHED_20;
@@ -45,6 +52,7 @@ public class TPSBarModule {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
+    private final TPSBarSettingsStore settingsStore;
     private final Map<UUID, BossBar> playerBossBars;
     private BukkitTask updateTask;
 
@@ -55,10 +63,18 @@ public class TPSBarModule {
     public TPSBarModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
         this.languageService = languageService;
+        this.settingsStore = new TPSBarSettingsStore(
+                new File(plugin.getDataFolder(), "tpsbar-settings.yml"));
         this.playerBossBars = new ConcurrentHashMap<>();
     }
 
     public void start() {
+        if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
+            plugin.getLogger().warning("Failed to create plugin data folder for TPS bar settings");
+        }
+        settingsStore.load();
+        Bukkit.getPluginManager().registerEvents(this, plugin);
+        Bukkit.getOnlinePlayers().forEach(this::restoreTPSBar);
         this.updateTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (++tick < commandTPSBarTickInterval) {
                 return;
@@ -75,8 +91,13 @@ public class TPSBarModule {
     public void stop() {
         if (updateTask != null) {
             updateTask.cancel();
+            updateTask = null;
         }
-        playerBossBars.values().forEach(bossBar -> Bukkit.getOnlinePlayers().forEach(player -> player.hideBossBar(bossBar)));
+        HandlerList.unregisterAll(this);
+        playerBossBars.forEach((playerId, bossBar) -> {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) player.hideBossBar(bossBar);
+        });
         playerBossBars.clear();
     }
 
@@ -105,17 +126,53 @@ public class TPSBarModule {
      */
     private void toggleTPSBar(Player player) {
         UUID playerId = player.getUniqueId();
+        boolean enabled = !settingsStore.isEnabled(playerId);
+        persistEnabled(playerId, enabled);
 
-        if (playerBossBars.containsKey(playerId)) {
-            BossBar bossBar = playerBossBars.remove(playerId);
-            player.hideBossBar(bossBar);
+        if (!enabled) {
+            hideTPSBar(player);
             player.sendMessage(languageService.text(player, Message.TPSBAR_HIDDEN, NamedTextColor.GRAY));
         } else {
-            BossBar bossBar = createBossBar();
-            playerBossBars.put(playerId, bossBar);
-            player.showBossBar(bossBar);
-            updateBossBar(bossBar, player);
+            showTPSBar(player);
             player.sendMessage(languageService.text(player, Message.TPSBAR_SHOWN, NamedTextColor.GREEN));
+        }
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        restoreTPSBar(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        hideTPSBar(event.getPlayer());
+    }
+
+    private void restoreTPSBar(Player player) {
+        if (settingsStore.isEnabled(player.getUniqueId())
+                && player.hasPermission("mik.tpsbar")) {
+            showTPSBar(player);
+        }
+    }
+
+    private void showTPSBar(Player player) {
+        BossBar bossBar = playerBossBars.computeIfAbsent(
+                player.getUniqueId(), ignored -> createBossBar());
+        player.showBossBar(bossBar);
+        updateBossBar(bossBar, player);
+    }
+
+    private void hideTPSBar(Player player) {
+        BossBar bossBar = playerBossBars.remove(player.getUniqueId());
+        if (bossBar != null) player.hideBossBar(bossBar);
+    }
+
+    private void persistEnabled(UUID playerId, boolean enabled) {
+        try {
+            settingsStore.setEnabled(playerId, enabled);
+        } catch (IOException exception) {
+            plugin.getLogger().warning("Failed to save TPS bar setting for " + playerId
+                    + ": " + exception.getMessage());
         }
     }
 

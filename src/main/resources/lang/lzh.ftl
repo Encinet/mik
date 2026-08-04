@@ -284,8 +284,6 @@ home-distance-blocks = { $arg0 } 方
 tip-reload-done = 箴言既復載
 tip-reload-count = 凡 { $arg0 } 則
 tip-reload-command-description = 復載 tips.txt
-tip-command-description = 覽一則伺服器箴言
-tip-empty = 暫無箴言
 tip-label = 箴
 tip-hover = 伺服器小箴
 

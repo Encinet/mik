@@ -37,6 +37,7 @@ import org.encinet.mik.module.menu.FloatingMenuPoint;
 import org.encinet.mik.module.menu.FloatingMenuPose;
 import org.encinet.mik.module.menu.FloatingMenuScreen;
 import org.encinet.mik.module.menu.FloatingMenuState;
+import org.encinet.mik.module.menu.FloatingMenuViewpoint;
 
 import java.time.Duration;
 import java.util.EnumMap;
@@ -242,6 +243,7 @@ public final class RhythmGameService implements Listener, AutoCloseable {
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .requireSpatialPresentation()
                 .stableAnchor()
+                .viewpoint(FloatingMenuViewpoint.STANDING)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .layout(FloatingMenuLayouts.fixedPoses(Map.of(
                         "exit", FloatingMenuPose.at(new FloatingMenuPoint(2.08, 0.83, 0.28)))))
@@ -315,6 +317,7 @@ public final class RhythmGameService implements Listener, AutoCloseable {
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-rhythm")
                 .requireSpatialPresentation()
                 .stableAnchor()
+                .viewpoint(FloatingMenuViewpoint.STANDING)
                 .layout(FloatingMenuLayouts.adaptiveColumn(0.25))
                 .lifecycle((closedPlayer, handle, previous, next, reason) -> {
                     if (next == FloatingMenuState.CLOSED) {
@@ -431,14 +434,24 @@ public final class RhythmGameService implements Listener, AutoCloseable {
             finish(event.getPlayer(), game, false);
             return;
         }
-        if (to.getX() == game.anchor.getX() && to.getY() == game.anchor.getY()
-                && to.getZ() == game.anchor.getZ()) return;
-        Location locked = to.clone();
-        locked.setX(game.anchor.getX());
-        locked.setY(game.anchor.getY());
-        locked.setZ(game.anchor.getZ());
-        event.setTo(locked);
-        event.getPlayer().setFallDistance(0.0F);
+        if (capturePositionChange(event, game.anchor)) {
+            event.getPlayer().setFallDistance(0.0F);
+        }
+    }
+
+    /**
+     * Cancelling returns the player to {@code from} without another event. Rewriting
+     * {@code to} would make Paper perform a PLUGIN teleport, which the rhythm game
+     * correctly treats as a real exit.
+     */
+    static boolean capturePositionChange(PlayerMoveEvent event, Location anchor) {
+        Location to = event.getTo();
+        if (to == null || to.getX() == anchor.getX() && to.getY() == anchor.getY()
+                && to.getZ() == anchor.getZ()) {
+            return false;
+        }
+        event.setCancelled(true);
+        return true;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

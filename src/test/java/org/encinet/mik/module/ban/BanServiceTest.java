@@ -74,7 +74,8 @@ class BanServiceTest {
     @Test
     void severityBanStoresRequiredReasonAndReasonEditsPreserveSeverity() throws Exception {
         MutableClock clock = new MutableClock(Instant.parse("2026-07-16T00:00:00Z"));
-        try (BanService service = service(clock, new RecordingMirror())) {
+        RecordingMirror mirror = new RecordingMirror();
+        try (BanService service = service(clock, mirror)) {
             BanRecord created = service.ban(
                     PLAYER_ID, "TestPlayer", BanSeverity.SEVERE, "griefing", "Admin");
             BanRecord edited = service.editReason(
@@ -84,6 +85,8 @@ class BanServiceTest {
             assertEquals("griefing", BanSeverity.userReason(created.reason()));
             assertEquals(BanSeverity.SEVERE, BanSeverity.fromStoredReason(edited.reason()).orElseThrow());
             assertEquals("repeated griefing", BanSeverity.userReason(edited.reason()));
+            assertEquals(edited, service.active(PLAYER_ID, "TestPlayer").orElseThrow());
+            assertEquals(edited, mirror.upserts.getLast());
         }
     }
 

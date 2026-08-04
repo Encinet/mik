@@ -56,7 +56,7 @@ public final class NetworkEgressModule implements Listener {
     private static final double SOFT_DISTANCE_FACTOR = 0.75D;
     private static final double HARD_DISTANCE_FACTOR = 0.50D;
     private static final String NETWORK_INTERFACE = "auto";
-    private static final double OUTBOUND_BUDGET_MEGABITS = 100.0D;
+    private static final double OUTBOUND_BUDGET_MEGABITS = 20.0D;
     private static final double OUTBOUND_BUDGET_BYTES_PER_SECOND =
             OUTBOUND_BUDGET_MEGABITS * 1_000_000.0D / 8.0D;
     private static final int MINIMUM_SEND_DISTANCE = 3;

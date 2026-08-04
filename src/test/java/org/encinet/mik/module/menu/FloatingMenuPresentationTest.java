@@ -21,6 +21,26 @@ class FloatingMenuPresentationTest {
     }
 
     @Test
+    void ordinaryScenesFollowThePlayersPoseByDefault() {
+        FloatingMenuDefinition definition = FloatingMenuDefinition.builder().build();
+
+        assertEquals(FloatingMenuViewpoint.POSE_AWARE, definition.viewpoint());
+        assertEquals(1.27, definition.viewpoint().eyeHeight(1.27, 1.62));
+        assertEquals(1.62,
+                FloatingMenuViewpoint.STANDING.eyeHeight(1.27, 1.62));
+    }
+
+    @Test
+    void standingViewpointIsIndependentOfAnchorStability() {
+        FloatingMenuDefinition definition = FloatingMenuDefinition.builder()
+                .viewpoint(FloatingMenuViewpoint.STANDING)
+                .build();
+
+        assertEquals(FloatingMenuViewpoint.STANDING, definition.viewpoint());
+        assertEquals(FloatingMenuAnchorMode.ADAPTIVE, definition.anchorMode());
+    }
+
+    @Test
     void decorationCanOptIntoExactTracking() {
         FloatingMenuDecoration decoration = FloatingMenuDecoration.text(
                 "moving", FloatingMenuPoint.ORIGIN, Component.text("cue")).tracking();

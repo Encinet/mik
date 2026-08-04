@@ -367,6 +367,7 @@ public final class FloatingMenuService implements Listener {
         }
         refreshLiveDefinitions(session, player);
         if (sessions.get(session.playerId) != session) return;
+        synchronizeViewpoint(session, player);
         updateHover(session, player);
         updateScrollCapture(session);
         animate(session, player);
@@ -838,7 +839,9 @@ public final class FloatingMenuService implements Listener {
         session.feedback = definition.feedback();
         session.appearance = definition.appearance();
         session.layoutSnapshot = nextLayout;
-        if (definition.anchorMode() == FloatingMenuAnchorMode.ADAPTIVE) {
+        boolean viewpointChanged = session.synchronizeViewpoint(player);
+        if (viewpointChanged
+                || definition.anchorMode() == FloatingMenuAnchorMode.ADAPTIVE) {
             session.reanchor(definition, nextLayout);
         }
         session.initializeMissingButtonPositions();
@@ -941,6 +944,24 @@ public final class FloatingMenuService implements Listener {
                     || decoration.metadataDirty) {
                 updateDecoration(session, player, decoration);
             }
+        }
+    }
+
+    private void synchronizeViewpoint(Session session, Player player) {
+        if (session.state == FloatingMenuState.CLOSING
+                || !session.synchronizeViewpoint(player)) {
+            return;
+        }
+        refreshSpatialAnchor(session, player);
+    }
+
+    private void refreshSpatialAnchor(Session session, Player player) {
+        session.reanchor(session.definition, session.layoutSnapshot);
+        session.layoutDirty = true;
+        for (Decoration decoration : session.decorations) decoration.metadataDirty = true;
+        refresh(session, player);
+        if (session.titleSpawned) {
+            updateTitle(session, player, session.titleId, session.definition.title());
         }
     }
 
@@ -1515,14 +1536,7 @@ public final class FloatingMenuService implements Listener {
                 return;
             }
             session.captureAnchorView(player);
-            session.reanchor(session.definition, session.layoutSnapshot);
-            session.layoutDirty = true;
-            for (Decoration decoration : session.decorations) decoration.metadataDirty = true;
-            FloatingMenuService.this.refresh(session, player);
-            if (session.titleSpawned) {
-                FloatingMenuService.this.updateTitle(
-                        session, player, session.titleId, session.definition.title());
-            }
+            FloatingMenuService.this.refreshSpatialAnchor(session, player);
             FloatingMenuService.this.animate(session, player);
         }
 
@@ -1761,6 +1775,8 @@ public final class FloatingMenuService implements Listener {
         private final boolean nativeForm;
         private Location origin;
         private Location openedAt;
+        private Location anchorView;
+        private double anchorEyeHeight;
         private Vector requestedForward;
         private Vector right;
         private final Vector up = new Vector(0, 1, 0);
@@ -1813,6 +1829,7 @@ public final class FloatingMenuService implements Listener {
             this.nativeForm = nativeForm;
             this.interfaceScale = interfaceScale;
             this.titleId = nativeForm ? -1 : allocateEntityId(player);
+            this.definition = definition;
             captureAnchorView(player);
             Vector horizontal = requestedForward.clone();
             if (nativeForm) {
@@ -1823,7 +1840,7 @@ public final class FloatingMenuService implements Listener {
                 this.right = new Vector(-forward.getZ(), 0.0, forward.getX());
                 this.presentationYaw = (float) Math.toDegrees(
                         Math.atan2(forward.getX(), -forward.getZ()));
-                this.origin = openedAt.clone();
+                this.origin = anchorView.clone();
                 this.spatialScale = 1.0;
             } else {
                 reanchor(definition, layoutSnapshot);
@@ -1836,7 +1853,6 @@ public final class FloatingMenuService implements Listener {
             this.animation = animation;
             this.feedback = feedback;
             this.appearance = appearance;
-            this.definition = definition;
             this.refreshRevision = definition.refresh().revision(player);
             this.layoutSnapshot = layoutSnapshot;
             this.ancestors = new ArrayList<>(ancestors);
@@ -1845,13 +1861,26 @@ public final class FloatingMenuService implements Listener {
 
         private void captureAnchorView(Player player) {
             this.openedAt = player.getEyeLocation().clone();
-            Vector horizontal = openedAt.getDirection().setY(0);
+            double posedEyeHeight = player.getEyeHeight();
+            this.anchorEyeHeight = definition.viewpoint().eyeHeight(
+                    posedEyeHeight, player.getEyeHeight(true));
+            this.anchorView = openedAt.clone()
+                    .add(0.0, anchorEyeHeight - posedEyeHeight, 0.0);
+            Vector horizontal = anchorView.getDirection().setY(0);
             if (!Double.isFinite(horizontal.getX()) || !Double.isFinite(horizontal.getZ())
                     || horizontal.lengthSquared() < 1.0E-8) {
-                double yaw = Math.toRadians(openedAt.getYaw());
+                double yaw = Math.toRadians(anchorView.getYaw());
                 horizontal = new Vector(-Math.sin(yaw), 0, Math.cos(yaw));
             }
             this.requestedForward = horizontal.clone();
+        }
+
+        private boolean synchronizeViewpoint(Player player) {
+            double nextEyeHeight = definition.viewpoint().eyeHeight(player);
+            if (Math.abs(nextEyeHeight - anchorEyeHeight) < 1.0E-6) return false;
+            anchorView.add(0.0, nextEyeHeight - anchorEyeHeight, 0.0);
+            anchorEyeHeight = nextEyeHeight;
+            return true;
         }
 
         private void reanchor(FloatingMenuDefinition definition,
@@ -1860,7 +1889,7 @@ public final class FloatingMenuService implements Listener {
                     FloatingMenuAnchorResolver.measure(definition,
                             layoutSnapshot.poses(), layoutSnapshot.sizes());
             FloatingMenuAnchorResolver.Anchor anchor = FloatingMenuAnchorResolver.resolve(
-                    openedAt, requestedForward, sceneBounds, interfaceScale);
+                    anchorView, requestedForward, sceneBounds, interfaceScale);
             this.forward = anchor.forward();
             this.right = anchor.right();
             this.presentationYaw = (float) Math.toDegrees(

@@ -284,8 +284,6 @@ home-distance-blocks = { $arg0 } บล็อก
 tip-reload-done = โหลดคำแนะนำใหม่แล้ว
 tip-reload-count = { $arg0 } รายการ
 tip-reload-command-description = โหลด tips.txt ใหม่
-tip-command-description = ดูคำแนะนำจากเซิร์ฟเวอร์
-tip-empty = ไม่มีคำแนะนำ
 tip-label = คำแนะนำ
 tip-hover = คำแนะนำจากเซิร์ฟเวอร์
 

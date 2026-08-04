@@ -30,11 +30,13 @@ import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
 import org.encinet.mik.module.music.jukebox.JukeboxQueueService;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackMode;
+import org.encinet.mik.module.music.jukebox.JukeboxPlaybackSnapshot;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackStatus;
 import org.encinet.mik.module.music.jukebox.JukeboxSettingsStore;
 import org.encinet.mik.module.music.jukebox.JukeboxSoundSettings;
 import org.encinet.mik.module.music.jukebox.PlaybackStatus;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -44,6 +46,8 @@ public final class JukeboxControlGui {
     private JukeboxControlActionHandler actionHandler;
 
     private static final int ITEMS_PER_PAGE = 8;
+    private static final int PLAYBACK_PROGRESS_REFRESH_TICKS = 5;
+    private static final int PLAYBACK_PROGRESS_SEGMENTS = 12;
 
     private final JukeboxQueueService queueService;
     private final MusicDiscFactory discFactory;
@@ -137,7 +141,8 @@ public final class JukeboxControlGui {
         int totalPages = pageCount(queue.size());
         int currentPage = Math.max(0, Math.min(view.page(), totalPages - 1));
         MusicTrack currentDisc = discResolver.resolve(jukebox.getRecord());
-        PlaybackStatus currentStatus = currentPlaybackStatus(jukebox, currentDisc);
+        JukeboxPlaybackSnapshot currentPlayback = currentPlayback(jukebox);
+        PlaybackStatus currentStatus = currentPlayback.status();
 
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-control")
                 .layout(FloatingMenuLayouts.verticalRegions(0.36,
@@ -148,12 +153,16 @@ public final class JukeboxControlGui {
                                         -0.90, 0.0, 0.0)),
                         FloatingMenuLayouts.region("controls",
                                 FloatingMenuLayouts.adaptiveCurvedGrid(
-                                        5, 0.30, 0.22, 0.18))));
+                                        5, 0.30, 0.22, 0.18))))
+                .refreshWhenChanged(PLAYBACK_PROGRESS_REFRESH_TICKS,
+                        ignored -> playbackRevision(view),
+                        (p, handle) -> screen.flow(p)
+                                .ifPresent(FloatingMenuFlow::redraw));
 
         menu.textDecoration("disc-info",
                 FloatingMenuPose.oriented(new FloatingMenuPoint(2.75, 0.72, 1.25),
                         20.0, 0.0),
-                currentDiscInfo(player, jukebox, currentDisc, currentStatus),
+                currentDiscInfo(player, jukebox, currentDisc, currentPlayback),
                 FloatingMenuAppearance.TRANSPARENT, 3.6F, 3.1F, 0.66F,
                 FloatingMenuDecoration.Alignment.LEFT);
         if (jukebox.hasRecord()) {
@@ -305,12 +314,29 @@ public final class JukeboxControlGui {
         this.actionHandler = actionHandler;
     }
 
-    private PlaybackStatus currentPlaybackStatus(Jukebox jukebox, MusicTrack currentDisc) {
-        if (!jukebox.hasRecord()) return PlaybackStatus.STOPPED;
-        if (currentDisc != null || MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
-            return playbackStatus.status(jukebox.getBlock());
+    private JukeboxPlaybackSnapshot currentPlayback(Jukebox jukebox) {
+        if (!jukebox.hasRecord()) {
+            return new JukeboxPlaybackSnapshot(PlaybackStatus.STOPPED, 0L);
         }
+        if (MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
+            return playbackStatus.snapshot(jukebox.getBlock());
+        }
+        return new JukeboxPlaybackSnapshot(currentVanillaPlaybackStatus(jukebox), 0L);
+    }
+
+    private static PlaybackStatus currentVanillaPlaybackStatus(Jukebox jukebox) {
         return jukebox.isPlaying() ? PlaybackStatus.PLAYING : PlaybackStatus.STOPPED;
+    }
+
+    private PlaybackRevision playbackRevision(ViewState view) {
+        Location location = view.target().location();
+        if (location == null || !(location.getBlock().getState() instanceof Jukebox jukebox)) {
+            return PlaybackRevision.UNAVAILABLE;
+        }
+        JukeboxPlaybackSnapshot playback = currentPlayback(jukebox);
+        long elapsedSeconds = playback.status() == PlaybackStatus.PLAYING
+                ? playback.positionMillis() / 1_000L : 0L;
+        return new PlaybackRevision(playback.status(), elapsedSeconds);
     }
 
     private ItemStack currentDiscVisual(Player player, Jukebox jukebox, MusicTrack currentDisc) {
@@ -320,7 +346,8 @@ public final class JukeboxControlGui {
     }
 
     private Component currentDiscInfo(Player player, Jukebox jukebox,
-                                      MusicTrack currentDisc, PlaybackStatus status) {
+                                      MusicTrack currentDisc,
+                                      JukeboxPlaybackSnapshot playback) {
         if (!jukebox.hasRecord()) {
             return Component.text(languageService.t(player, Message.MUSIC_NO_DISC),
                     NamedTextColor.GRAY);
@@ -336,6 +363,7 @@ public final class JukeboxControlGui {
         Component name = currentDisc == null
                 ? jukebox.getRecord().effectiveName().colorIfAbsent(NamedTextColor.WHITE)
                 : Component.text(truncate(currentDisc.details().title(), 64), NamedTextColor.WHITE);
+        PlaybackStatus status = playback.status();
         Component information = name.decoration(TextDecoration.ITALIC, false)
                 .decoration(TextDecoration.BOLD, true)
                 .append(Component.newline())
@@ -357,12 +385,61 @@ public final class JukeboxControlGui {
             information = information.append(metadataLine(player,
                     Message.MUSIC_ALBUM, details.album()));
         }
-        String duration = AudioPropertiesFormatter.duration(details.audio().duration());
-        if (duration != null) {
+        Duration trackDuration = details.audio().duration();
+        if (status == PlaybackStatus.PLAYING) {
+            information = information.append(playbackProgress(
+                    playback.positionMillis(), trackDuration));
+        } else {
+            String duration = AudioPropertiesFormatter.duration(trackDuration);
+            if (duration == null) return information;
             information = information.append(metadataLine(player,
                     Message.MUSIC_DURATION, duration));
         }
         return information;
+    }
+
+    static Component playbackProgress(long positionMillis, Duration duration) {
+        String elapsed = playbackTime(positionMillis);
+        Component line = Component.newline()
+                .append(Component.text("▶ ", NamedTextColor.AQUA)
+                        .decoration(TextDecoration.BOLD, false)
+                        .decoration(TextDecoration.ITALIC, false));
+        if (duration == null || duration.isZero() || duration.isNegative()) {
+            return line.append(Component.text(elapsed, NamedTextColor.GRAY)
+                    .decoration(TextDecoration.BOLD, false)
+                    .decoration(TextDecoration.ITALIC, false));
+        }
+
+        long durationMillis = Math.max(1L, duration.toMillis());
+        long boundedPosition = Math.min(Math.max(0L, positionMillis), durationMillis);
+        int completed = completedProgressSegments(boundedPosition, durationMillis);
+        String total = AudioPropertiesFormatter.duration(duration);
+        if (boundedPosition == durationMillis) elapsed = total;
+        return line
+                .append(Component.text("[", NamedTextColor.DARK_GRAY))
+                .append(Component.text("=".repeat(completed), NamedTextColor.AQUA))
+                .append(Component.text("-".repeat(PLAYBACK_PROGRESS_SEGMENTS - completed),
+                        NamedTextColor.DARK_GRAY))
+                .append(Component.text("] " + elapsed + " / " + total,
+                                NamedTextColor.GRAY)
+                        .decoration(TextDecoration.BOLD, false)
+                        .decoration(TextDecoration.ITALIC, false));
+    }
+
+    static String playbackTime(long positionMillis) {
+        long seconds = Math.max(0L, positionMillis) / 1_000L;
+        long hours = seconds / 3_600L;
+        long minutes = seconds % 3_600L / 60L;
+        long remainingSeconds = seconds % 60L;
+        return hours > 0
+                ? "%d:%02d:%02d".formatted(hours, minutes, remainingSeconds)
+                : "%d:%02d".formatted(minutes, remainingSeconds);
+    }
+
+    static int completedProgressSegments(long positionMillis, long durationMillis) {
+        if (durationMillis <= 0L) return 0;
+        double ratio = Math.clamp(positionMillis / (double) durationMillis, 0.0, 1.0);
+        return (int) Math.floor(ratio * PLAYBACK_PROGRESS_SEGMENTS);
     }
 
     private Component metadataLine(Player player, Message message, String value) {
@@ -514,6 +591,11 @@ public final class JukeboxControlGui {
             int clamped = Math.min(page, Math.max(0, maximumPage));
             return clamped == page ? this : new ViewState(target, clamped);
         }
+    }
+
+    private record PlaybackRevision(PlaybackStatus status, long elapsedSeconds) {
+        private static final PlaybackRevision UNAVAILABLE =
+                new PlaybackRevision(PlaybackStatus.STOPPED, 0L);
     }
 
     private record JukeboxTarget(UUID worldId, int x, int y, int z) {

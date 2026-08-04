@@ -18,30 +18,20 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Loads semantic {@code <tip>} records without accepting presentation markup. */
+/** Loads chat-topic {@code <tip>} records without accepting presentation markup. */
 public final class TipCatalog {
 
     private static final int MAX_TIPS = 512;
     private static final Pattern TIP_BLOCK = Pattern.compile(
             "(?is)<tip\\b([^>]*)>(.*?)</tip\\s*>");
-    private static final Pattern TIP_OPEN = Pattern.compile("(?i)<tip\\b");
     private static final Pattern ATTRIBUTE = Pattern.compile(
             "([a-z][a-z0-9-]*)\\s*=\\s*\"([^\"]*)\"");
     private static final Pattern COMMENT = Pattern.compile("(?s)<!--.*?-->");
     private static final Pattern TOPIC = Pattern.compile("[a-z][a-z0-9-]{0,31}");
-    private static final Pattern LEGACY_PRESENTATION_TAG = Pattern.compile(
-            "(?is)<(?:aqua|black|blue|dark_[a-z]+|gold|gray|green|light_purple|red|white|yellow)>"
-    );
-
     private final TipMarkupParser markupParser = new TipMarkupParser();
 
     public LoadResult load(Path path) throws IOException {
         return parse(Files.readString(path, StandardCharsets.UTF_8));
-    }
-
-    public boolean isLegacyDocument(String source) {
-        if (source == null || TIP_OPEN.matcher(source).find()) return false;
-        return source.contains("===") || LEGACY_PRESENTATION_TAG.matcher(source).find();
     }
 
     public LoadResult parse(String source) {
@@ -58,29 +48,20 @@ public final class TipCatalog {
             try {
                 Map<String, String> attributes = parseAttributes(matcher.group(1));
                 Set<String> topics = parseTopics(attributes.remove("topics"));
-                String triggerValue = attributes.remove("triggers");
-                String legacySceneValue = attributes.remove("scenes");
-                if (triggerValue != null && legacySceneValue != null) {
-                    throw new IllegalArgumentException(
-                            "Use triggers, not both triggers and the legacy scenes attribute");
-                }
-                Set<TipScene> triggers = triggerValue != null
-                        ? parseTriggers(triggerValue, false)
-                        : parseTriggers(legacySceneValue, true);
                 if (!attributes.isEmpty()) {
                     throw new IllegalArgumentException("Unsupported <tip> attribute(s): "
                             + String.join(", ", attributes.keySet()));
                 }
                 String content = matcher.group(2).strip();
                 TipTemplate template = markupParser.parse(content);
-                String id = hashTip(canonical(topics, triggers, content));
+                String id = hashTip(canonical(topics, content));
                 if (!ids.add(id)) {
                     throw new IllegalArgumentException("Duplicate tip content");
                 }
                 if (entries.size() >= MAX_TIPS) {
                     throw new IllegalArgumentException("Tip document exceeds " + MAX_TIPS + " entries");
                 }
-                entries.add(new TipEntry(id, topics, triggers, template));
+                entries.add(new TipEntry(id, topics, template));
             } catch (IllegalArgumentException exception) {
                 errors.add("line " + line + ": " + exception.getMessage());
             }
@@ -123,22 +104,6 @@ public final class TipCatalog {
         return Set.copyOf(result);
     }
 
-    private static Set<TipScene> parseTriggers(String value, boolean legacyScenes) {
-        if (value == null || value.isBlank()) return Set.of();
-        Set<TipScene> result = new LinkedHashSet<>();
-        for (String token : value.split("[,\\s]+")) {
-            TipScene scene = TipScene.fromId(token).orElseThrow(() ->
-                    new IllegalArgumentException("Unknown tip trigger: " + token));
-            if (scene == TipScene.MANUAL || scene == TipScene.PERIODIC) {
-                if (legacyScenes && scene == TipScene.PERIODIC) continue;
-                throw new IllegalArgumentException(scene.id()
-                        + " is implicit for every tip and cannot be declared as a trigger");
-            }
-            result.add(scene);
-        }
-        return Set.copyOf(result);
-    }
-
     private static void reportUnexpected(String source, int start, int end,
                                          List<String> errors) {
         if (start >= end) return;
@@ -169,9 +134,8 @@ public final class TipCatalog {
         return line;
     }
 
-    private static String canonical(Set<String> topics, Set<TipScene> triggers, String content) {
-        return topics.stream().sorted().toList() + "\n"
-                + triggers.stream().map(TipScene::id).sorted().toList() + "\n" + content;
+    private static String canonical(Set<String> topics, String content) {
+        return topics.stream().sorted().toList() + "\n" + content;
     }
 
     private static String hashTip(String content) {

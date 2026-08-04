@@ -49,6 +49,7 @@ import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
+import org.encinet.mik.module.safety.TrampleProtectionModule;
 import org.encinet.mik.module.skript.MikSkriptModule;
 import org.encinet.mik.module.space.NonEuclideanSpaceModule;
 import org.encinet.mik.module.world.regen.AsyncRegenModule;
@@ -86,6 +87,7 @@ public final class Mik extends JavaPlugin {
     private TabListModule tabListModule;
     private FixBugModule fixBugModule;
     private GrieferModule grieferModule;
+    private TrampleProtectionModule trampleProtectionModule;
     private ApiModule apiModule;
     private WhitelistModule whitelistModule;
     private MotdModule motdModule;
@@ -267,6 +269,9 @@ public final class Mik extends JavaPlugin {
         fixBugModule = new FixBugModule(this);
         fixBugModule.enable();
 
+        trampleProtectionModule = new TrampleProtectionModule(this);
+        trampleProtectionModule.enable();
+
         grieferModule = new GrieferModule(this, banModule.manager());
         grieferModule.enable();
 
@@ -402,6 +407,10 @@ public final class Mik extends JavaPlugin {
 
         if (playerBoundaryModule != null) {
             playerBoundaryModule.disable();
+        }
+
+        if (trampleProtectionModule != null) {
+            trampleProtectionModule.disable();
         }
 
         if (banModule != null) {

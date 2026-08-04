@@ -332,12 +332,19 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
 
     @Override
     public PlaybackStatus status(Block block) {
+        return snapshot(block).status();
+    }
+
+    @Override
+    public JukeboxPlaybackSnapshot snapshot(Block block) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
         if (playback == null || playback.stopped.get()) {
-            return PlaybackStatus.STOPPED;
+            return new JukeboxPlaybackSnapshot(PlaybackStatus.STOPPED, 0L);
         }
         PlaybackSession session = playback.session;
-        return session == null ? PlaybackStatus.LOADING : session.status();
+        return session == null
+                ? new JukeboxPlaybackSnapshot(PlaybackStatus.LOADING, 0L)
+                : new JukeboxPlaybackSnapshot(session.status(), session.positionMillis());
     }
 
     /** Exposes one coherent playback clock and its automatically generated chart. */

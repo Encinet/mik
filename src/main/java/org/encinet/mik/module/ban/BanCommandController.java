@@ -103,7 +103,10 @@ final class BanCommandController {
                                             .then(Commands.literal("severity")
                                                     .then(Commands.argument("severity", StringArgumentType.word())
                                                             .suggests(severitySuggestions())
-                                                            .executes(this::editSeverity)))))
+                                                            .executes(this::editSeverity)))
+                                            .then(Commands.literal("reason")
+                                                    .then(Commands.argument("reason", StringArgumentType.greedyString())
+                                                            .executes(this::editReason)))))
                             .then(Commands.literal("sync").executes(this::syncPaperBans))
                             .build(),
                     languageService.t(Language.DEFAULT, Message.BAN_COMMAND_DESCRIPTION), List.of("bb"));
@@ -263,6 +266,26 @@ final class BanCommandController {
                     identity.uuid(), identity.name(), severity, sender.getName());
             sender.sendMessage(Component.text(t(sender, Message.BAN_UPDATE_SUCCESS,
                     updated.playerName(), t(sender, Message.BAN_DIALOG_CONFIRM_SEVERITY)), NamedTextColor.GREEN));
+            return Command.SINGLE_SUCCESS;
+        } catch (BanServiceException e) {
+            return serviceError(sender, identity.name(), e);
+        }
+    }
+
+    private int editReason(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        PlayerIdentity identity = resolveIdentity(StringArgumentType.getString(context, "player"));
+        String reason = BanReason.normalize(
+                StringArgumentType.getString(context, "reason")).orElse(null);
+        if (reason == null) {
+            sender.sendMessage(error(sender, Message.BAN_REASON_REQUIRED));
+            return 0;
+        }
+        try {
+            BanRecord updated = banService.editReason(
+                    identity.uuid(), identity.name(), reason, sender.getName());
+            sender.sendMessage(Component.text(t(sender, Message.BAN_UPDATE_SUCCESS,
+                    updated.playerName(), t(sender, Message.BANLIST_REASON)), NamedTextColor.GREEN));
             return Command.SINGLE_SUCCESS;
         } catch (BanServiceException e) {
             return serviceError(sender, identity.name(), e);

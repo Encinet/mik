@@ -32,6 +32,7 @@ public final class FloatingMenuDefinition {
     private final FloatingMenuFraming framing;
     private final FloatingMenuPresentation presentation;
     private final FloatingMenuAnchorMode anchorMode;
+    private final FloatingMenuViewpoint viewpoint;
     private final FloatingMenuMovementPolicy movementPolicy;
     private final Map<FloatingMenuInteraction, FloatingMenuAction> triggers;
     private final FloatingMenuLifecycle lifecycle;
@@ -45,6 +46,7 @@ public final class FloatingMenuDefinition {
                                    FloatingMenuFraming framing,
                                    FloatingMenuPresentation presentation,
                                    FloatingMenuAnchorMode anchorMode,
+                                   FloatingMenuViewpoint viewpoint,
                                    FloatingMenuMovementPolicy movementPolicy,
                                    Map<FloatingMenuInteraction, FloatingMenuAction> triggers,
                                    FloatingMenuLifecycle lifecycle,
@@ -61,6 +63,7 @@ public final class FloatingMenuDefinition {
         this.framing = framing;
         this.presentation = presentation;
         this.anchorMode = anchorMode;
+        this.viewpoint = viewpoint;
         this.movementPolicy = movementPolicy;
         this.triggers = Map.copyOf(triggers);
         this.lifecycle = lifecycle;
@@ -103,6 +106,7 @@ public final class FloatingMenuDefinition {
     public FloatingMenuFraming framing() { return framing; }
     public FloatingMenuPresentation presentation() { return presentation; }
     public FloatingMenuAnchorMode anchorMode() { return anchorMode; }
+    public FloatingMenuViewpoint viewpoint() { return viewpoint; }
     public FloatingMenuMovementPolicy movementPolicy() { return movementPolicy; }
     public Map<FloatingMenuInteraction, FloatingMenuAction> triggers() { return triggers; }
     public FloatingMenuLifecycle lifecycle() { return lifecycle; }
@@ -116,14 +120,14 @@ public final class FloatingMenuDefinition {
         if (id.equals(screenId)) return this;
         return new FloatingMenuDefinition(title, titleVisible, id, entries, decorations,
                 animation, layout, feedback, appearance, framing,
-                presentation, anchorMode, movementPolicy,
+                presentation, anchorMode, viewpoint, movementPolicy,
                 triggers, lifecycle, refresh);
     }
 
     FloatingMenuDefinition withLifecycle(FloatingMenuLifecycle nextLifecycle) {
         return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations,
                 animation, layout, feedback, appearance, framing,
-                presentation, anchorMode, movementPolicy,
+                presentation, anchorMode, viewpoint, movementPolicy,
                 triggers, FloatingMenuLifecycle.combine(lifecycle,
                         Objects.requireNonNull(nextLifecycle, "nextLifecycle")), refresh);
     }
@@ -196,6 +200,7 @@ public final class FloatingMenuDefinition {
         private FloatingMenuFraming framing = FloatingMenuFraming.COMFORTABLE;
         private FloatingMenuPresentation presentation = FloatingMenuPresentation.ADAPTIVE;
         private FloatingMenuAnchorMode anchorMode = FloatingMenuAnchorMode.ADAPTIVE;
+        private FloatingMenuViewpoint viewpoint = FloatingMenuViewpoint.POSE_AWARE;
         private FloatingMenuMovementPolicy movementPolicy =
                 FloatingMenuMovementPolicy.STANDARD;
         private FloatingMenuLifecycle lifecycle = FloatingMenuLifecycle.NONE;
@@ -497,6 +502,12 @@ public final class FloatingMenuDefinition {
             return this;
         }
 
+        /** Selects whether this scene follows the player's pose or uses standing eye level. */
+        public Builder viewpoint(FloatingMenuViewpoint viewpoint) {
+            this.viewpoint = Objects.requireNonNull(viewpoint, "viewpoint");
+            return this;
+        }
+
         /** Selects the safety leash appropriate to this screen's input model. */
         public Builder movementPolicy(FloatingMenuMovementPolicy movementPolicy) {
             this.movementPolicy = Objects.requireNonNull(movementPolicy, "movementPolicy");
@@ -566,7 +577,7 @@ public final class FloatingMenuDefinition {
         public FloatingMenuDefinition build() {
             return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations,
                     animation, layout, feedback, appearance, framing,
-                    presentation, anchorMode, movementPolicy,
+                    presentation, anchorMode, viewpoint, movementPolicy,
                     triggers, lifecycle, refresh);
         }
 

@@ -17,19 +17,14 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerChangedWorldEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.communication.tip.TipCatalog;
 import org.encinet.mik.module.communication.tip.TipEntry;
 import org.encinet.mik.module.communication.tip.TipIntentMatcher;
-import org.encinet.mik.module.communication.tip.TipLegacyMigrator;
 import org.encinet.mik.module.communication.tip.TipRenderer;
-import org.encinet.mik.module.communication.tip.TipScene;
 import org.encinet.mik.module.communication.tip.TipSelector;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
@@ -37,30 +32,30 @@ import org.encinet.mik.module.i18n.Message;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
-/** Coordinates contextual tip triggers, semantic rendering, selection, and player history. */
+/** Answers recognized chat intents with semantic tips and per-player history. */
 public final class TipModule implements Listener {
 
-    private static final long FIRST_PERIODIC_DELAY_TICKS = 20L * 60 * 5;
-    private static final long PERIODIC_INTERVAL_TICKS = 20L * 60 * 15;
-    private static final long JOIN_DELAY_TICKS = 20L * 90;
     private static final long CHAT_DELAY_TICKS = 12L;
-    private static final long RESPAWN_DELAY_TICKS = 20L * 4;
-    private static final long WORLD_CHANGE_DELAY_TICKS = 20L * 12;
     private static final long STATE_SAVE_DELAY_TICKS = 20L * 60;
+    private static final long CHAT_GLOBAL_COOLDOWN_MILLIS = TimeUnit.SECONDS.toMillis(30);
     private static final long CHAT_TOPIC_COOLDOWN_MILLIS = TimeUnit.MINUTES.toMillis(30);
+    private static final long CHAT_REPEAT_COOLDOWN_MILLIS = TimeUnit.HOURS.toMillis(6);
+    private static final Pattern TIP_COMMENT = Pattern.compile("(?s)<!--.*?-->");
+    private static final Pattern TIP_OPEN = Pattern.compile("(?i)<tip\\b");
+    private static final Pattern REMOVED_TRIGGER_ATTRIBUTE = Pattern.compile(
+            "(?is)<tip\\b[^>]*\\b(?:triggers|scenes)\\s*=");
+    private static final Pattern REMOVED_PRESENTATION_TAG = Pattern.compile(
+            "(?is)<(?:aqua|black|blue|dark_[a-z]+|gold|gray|green|light_purple|red|white|yellow)>"
+    );
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -68,14 +63,12 @@ public final class TipModule implements Listener {
     private final File stateFile;
     private final TipCatalog catalog = new TipCatalog();
     private final TipIntentMatcher intentMatcher = new TipIntentMatcher();
-    private final TipLegacyMigrator legacyMigrator = new TipLegacyMigrator();
     private final TipSelector selector = new TipSelector();
     private final TipRenderer renderer = new TipRenderer();
     private final Map<UUID, PlayerTipState> playerStates = new HashMap<>();
-    private final Map<PendingTrigger, BukkitTask> pendingTriggers = new HashMap<>();
+    private final Map<UUID, BukkitTask> pendingChatTips = new HashMap<>();
 
     private List<TipEntry> tips = List.of();
-    private BukkitTask broadcastTask;
     private BukkitTask stateSaveTask;
     private boolean stateDirty;
 
@@ -91,22 +84,16 @@ public final class TipModule implements Listener {
         reload();
         loadState();
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        broadcastTask = Bukkit.getScheduler().runTaskTimer(plugin, this::broadcastTips,
-                FIRST_PERIODIC_DELAY_TICKS, PERIODIC_INTERVAL_TICKS);
     }
 
     public void disable() {
         HandlerList.unregisterAll(this);
-        if (broadcastTask != null) {
-            broadcastTask.cancel();
-            broadcastTask = null;
-        }
         if (stateSaveTask != null) {
             stateSaveTask.cancel();
             stateSaveTask = null;
         }
-        pendingTriggers.values().forEach(BukkitTask::cancel);
-        pendingTriggers.clear();
+        pendingChatTips.values().forEach(BukkitTask::cancel);
+        pendingChatTips.clear();
         saveState();
     }
 
@@ -127,14 +114,6 @@ public final class TipModule implements Listener {
                         return Command.SINGLE_SUCCESS;
                     }).build(), languageService.t(Language.DEFAULT,
                             Message.TIP_RELOAD_COMMAND_DESCRIPTION));
-
-            event.registrar().register(Commands.literal("tip")
-                    .executes(ctx -> {
-                        if (ctx.getSource().getSender() instanceof Player player) {
-                            deliver(player, TipScene.MANUAL, null);
-                        }
-                        return Command.SINGLE_SUCCESS;
-                    }).build(), languageService.t(Language.DEFAULT, Message.TIP_COMMAND_DESCRIPTION));
         });
     }
 
@@ -156,91 +135,39 @@ public final class TipModule implements Listener {
         }
     }
 
-    /** Public contextual entry point for other modules; delivery always returns to the main thread. */
-    public void trigger(Player player, TipScene scene) {
-        trigger(player, scene, null);
-    }
-
-    public void trigger(Player player, TipScene scene, String topic) {
-        if (player == null || scene == null) throw new NullPointerException();
-        String normalizedTopic = normalizeTopic(topic);
-        if (topic != null && !topic.isBlank() && normalizedTopic == null) {
-            throw new IllegalArgumentException("Invalid tip topic: " + topic);
-        }
-        Runnable action = () -> {
-            if (player.isOnline()) deliver(player, scene, normalizedTopic);
-        };
-        if (Bukkit.isPrimaryThread()) action.run();
-        else Bukkit.getScheduler().runTask(plugin, action);
-    }
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        scheduleTrigger(event.getPlayer().getUniqueId(), TipScene.JOIN, null, JOIN_DELAY_TICKS);
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onPlayerRespawn(PlayerRespawnEvent event) {
-        scheduleTrigger(event.getPlayer().getUniqueId(), TipScene.RESPAWN,
-                null, RESPAWN_DELAY_TICKS);
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        scheduleTrigger(event.getPlayer().getUniqueId(), TipScene.WORLD_CHANGE,
-                "teleport", WORLD_CHANGE_DELAY_TICKS);
-    }
-
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerChat(AsyncChatEvent event) {
         String message = PlainTextComponentSerializer.plainText()
                 .serialize(event.originalMessage());
         intentMatcher.match(message).ifPresent(match -> {
             UUID playerId = event.getPlayer().getUniqueId();
-            Bukkit.getScheduler().runTask(plugin, () -> scheduleTrigger(
-                    playerId, TipScene.CHAT, match.topic(), CHAT_DELAY_TICKS));
+            Bukkit.getScheduler().runTask(plugin, () -> scheduleChatTip(
+                    playerId, match.topic()));
         });
     }
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
-        pendingTriggers.entrySet().removeIf(entry -> {
-            if (!entry.getKey().playerId.equals(playerId)) return false;
-            entry.getValue().cancel();
-            return true;
-        });
+        BukkitTask pending = pendingChatTips.remove(playerId);
+        if (pending != null) pending.cancel();
     }
 
-    private void broadcastTips() {
-        if (tips.isEmpty()) return;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            deliver(player, TipScene.PERIODIC, null);
-        }
-    }
-
-    private boolean deliver(Player player, TipScene scene, String topic) {
-        if (tips.isEmpty()) {
-            if (scene == TipScene.MANUAL) {
-                player.sendMessage(languageService.text(player, Message.TIP_EMPTY,
-                        NamedTextColor.GRAY));
-            }
-            return false;
-        }
+    private boolean deliverChatTip(Player player, String topic) {
+        if (tips.isEmpty()) return false;
 
         long now = System.currentTimeMillis();
         PlayerTipState state = playerStates.computeIfAbsent(
                 player.getUniqueId(), ignored -> new PlayerTipState());
-        if (!canDeliver(state, scene, topic, now)) return false;
-        TipEntry tip = selector.select(tips, scene, topic, state.seenAt,
-                        now, ThreadLocalRandom.current())
+        if (!canDeliverChatTip(state, topic, now)) return false;
+        TipEntry tip = selector.select(tips, topic, state.seenAt, now,
+                        CHAT_REPEAT_COOLDOWN_MILLIS)
                 .orElse(null);
         if (tip == null) return false;
 
         state.lastSentAt = now;
         state.seenAt.put(tip.id(), now);
-        if (scene != TipScene.MANUAL) state.sceneSentAt.put(scene, now);
-        if (topic != null) state.topicSentAt.put(topic, now);
+        state.topicSentAt.put(topic, now);
         player.sendMessage(renderer.render(
                 languageService.t(player, Message.TIP_LABEL),
                 languageService.t(player, Message.TIP_HOVER),
@@ -249,27 +176,21 @@ public final class TipModule implements Listener {
         return true;
     }
 
-    private static boolean canDeliver(PlayerTipState state, TipScene scene,
-                                      String topic, long now) {
-        if (scene == TipScene.MANUAL) return true;
-        if (now - state.lastSentAt < scene.globalCooldownMillis()) return false;
-        if (now - state.sceneSentAt.getOrDefault(scene, 0L)
-                < scene.sceneCooldownMillis()) return false;
-        return topic == null || now - state.topicSentAt.getOrDefault(topic, 0L)
+    private static boolean canDeliverChatTip(PlayerTipState state, String topic, long now) {
+        if (now - state.lastSentAt < CHAT_GLOBAL_COOLDOWN_MILLIS) return false;
+        return now - state.topicSentAt.getOrDefault(topic, 0L)
                 >= CHAT_TOPIC_COOLDOWN_MILLIS;
     }
 
-    private void scheduleTrigger(UUID playerId, TipScene scene,
-                                 String topic, long delayTicks) {
-        PendingTrigger key = new PendingTrigger(playerId, scene);
-        BukkitTask previous = pendingTriggers.remove(key);
+    private void scheduleChatTip(UUID playerId, String topic) {
+        BukkitTask previous = pendingChatTips.remove(playerId);
         if (previous != null) previous.cancel();
         BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            pendingTriggers.remove(key);
+            pendingChatTips.remove(playerId);
             Player player = Bukkit.getPlayer(playerId);
-            if (player != null && player.isOnline()) deliver(player, scene, topic);
-        }, delayTicks);
-        pendingTriggers.put(key, task);
+            if (player != null && player.isOnline()) deliverChatTip(player, topic);
+        }, CHAT_DELAY_TICKS);
+        pendingChatTips.put(playerId, task);
     }
 
     private String t(CommandSender sender, Message message, Object... args) {
@@ -286,45 +207,25 @@ public final class TipModule implements Listener {
             plugin.saveResource("tips.txt", false);
             return;
         }
-        upgradeTipsFile();
-    }
-
-    private void upgradeTipsFile() {
-        Path current = tipsFile.toPath();
         try {
-            String source = Files.readString(current);
-            boolean legacyDocument = catalog.isLegacyDocument(source);
-            boolean previousBundledDefaults = legacyMigrator.isBundledSemanticV2(source);
-            if (!legacyDocument && !previousBundledDefaults) return;
-            byte[] bundled;
-            try (InputStream input = plugin.getResource("tips.txt")) {
-                if (input == null) throw new IOException("Bundled tips.txt is unavailable");
-                bundled = input.readAllBytes();
-            }
-            Path backup = nextLegacyBackup(current);
-            Files.copy(current, backup);
-            String migrated = legacyMigrator.isBundledV1(source) || previousBundledDefaults
-                    ? new String(bundled, StandardCharsets.UTF_8)
-                    : legacyMigrator.migrate(source);
-            Files.writeString(current, migrated, StandardCharsets.UTF_8);
-            plugin.getLogger().warning((previousBundledDefaults
-                    ? "Updated previous bundled tips.txt defaults"
-                    : "Migrated legacy tips.txt to semantic markup")
-                    + "; backup: " + backup.getFileName());
-        } catch (IOException | IllegalArgumentException exception) {
-            plugin.getLogger().severe("Failed to migrate legacy tips.txt: "
+            String source = Files.readString(tipsFile.toPath());
+            if (!usesRemovedTipFormat(source)) return;
+            Files.delete(tipsFile.toPath());
+            plugin.saveResource("tips.txt", false);
+            plugin.getLogger().warning(
+                    "Deleted removed tips.txt format and restored the chat-only defaults");
+        } catch (IOException exception) {
+            plugin.getLogger().severe("Failed to replace removed tips.txt format: "
                     + exception.getMessage());
         }
     }
 
-    private static Path nextLegacyBackup(Path current) throws IOException {
-        Path directory = current.toAbsolutePath().getParent();
-        if (directory == null) throw new IOException("tips.txt has no parent directory");
-        for (int version = 1; version <= 100; version++) {
-            Path candidate = directory.resolve("tips.txt.legacy-v" + version);
-            if (!Files.exists(candidate)) return candidate;
-        }
-        throw new IOException("Too many legacy tips.txt backups");
+    static boolean usesRemovedTipFormat(String source) {
+        String document = TIP_COMMENT.matcher(source).replaceAll("");
+        if (REMOVED_TRIGGER_ATTRIBUTE.matcher(document).find()) return true;
+        return !TIP_OPEN.matcher(document).find()
+                && (document.contains("===")
+                || REMOVED_PRESENTATION_TAG.matcher(document).find());
     }
 
     private void loadState() {
@@ -341,15 +242,6 @@ public final class TipModule implements Listener {
                 String base = "players." + uuidString;
                 state.lastSentAt = config.getLong(base + ".last-sent-at", 0L);
                 loadLongMap(config.getConfigurationSection(base + ".seen"), state.seenAt);
-                ConfigurationSection scenes = config.getConfigurationSection(base + ".scenes");
-                if (scenes != null) {
-                    for (String sceneId : scenes.getKeys(false)) {
-                        TipScene.fromId(sceneId)
-                                .filter(scene -> scene != TipScene.MANUAL)
-                                .ifPresent(scene -> state.sceneSentAt.put(
-                                        scene, scenes.getLong(sceneId)));
-                    }
-                }
                 loadLongMap(config.getConfigurationSection(base + ".topics"), state.topicSentAt);
                 playerStates.put(uuid, state);
             } catch (IllegalArgumentException ignored) {
@@ -389,8 +281,6 @@ public final class TipModule implements Listener {
             config.set(base + ".last-sent-at", state.lastSentAt);
             state.seenAt.forEach((id, timestamp) ->
                     config.set(base + ".seen." + id, timestamp));
-            state.sceneSentAt.forEach((scene, timestamp) ->
-                    config.set(base + ".scenes." + scene.id(), timestamp));
             state.topicSentAt.forEach((topic, timestamp) ->
                     config.set(base + ".topics." + topic, timestamp));
         }
@@ -402,19 +292,9 @@ public final class TipModule implements Listener {
         }
     }
 
-    private static String normalizeTopic(String topic) {
-        if (topic == null || topic.isBlank()) return null;
-        String normalized = topic.strip().toLowerCase(Locale.ROOT);
-        return normalized.matches("[a-z][a-z0-9-]{0,31}") ? normalized : null;
-    }
-
-    private record PendingTrigger(UUID playerId, TipScene scene) {
-    }
-
     private static final class PlayerTipState {
         private long lastSentAt;
         private final Map<String, Long> seenAt = new HashMap<>();
-        private final EnumMap<TipScene, Long> sceneSentAt = new EnumMap<>(TipScene.class);
         private final Map<String, Long> topicSentAt = new HashMap<>();
     }
 }

@@ -284,8 +284,6 @@ home-distance-blocks = { $arg0 }ブロック
 tip-reload-done = ヒントを再読み込みしました
 tip-reload-count = { $arg0 }件
 tip-reload-command-description = tips.txtを再読み込み
-tip-command-description = サーバーのヒントを表示
-tip-empty = 表示できるヒントがありません
 tip-label = ヒント
 tip-hover = サーバーのヒント
 

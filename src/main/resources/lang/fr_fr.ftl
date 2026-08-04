@@ -284,8 +284,6 @@ home-distance-blocks = { $arg0 } blocs
 tip-reload-done = Conseils rechargés
 tip-reload-count = { $arg0 } entrées
 tip-reload-command-description = Recharger le fichier tips.txt
-tip-command-description = Afficher une astuce du serveur
-tip-empty = Aucun conseil disponible
 tip-label = CONSEIL
 tip-hover = Astuce du serveur
 

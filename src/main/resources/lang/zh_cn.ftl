@@ -284,8 +284,6 @@ home-distance-blocks = { $arg0 } 格
 tip-reload-done = Tips 已重新加载
 tip-reload-count = { $arg0 } 条
 tip-reload-command-description = 重新加载 tips.txt
-tip-command-description = 查看一条服务器 Tip
-tip-empty = 暂无 Tip
 tip-label = TIP
 tip-hover = 服务器小提示
 
