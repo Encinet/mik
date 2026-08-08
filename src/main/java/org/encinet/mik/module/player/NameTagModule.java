@@ -184,7 +184,7 @@ public class NameTagModule {
                 player,
                 player,
                 PlayerDisplay.name(player, NamedTextColor.WHITE),
-                new PlayerNameTag(prefixRaw, suffixRaw)).combined();
+                new PlayerNameTag(prefixRaw, suffixRaw)).component();
 
         return Component.text()
                 .append(identity)

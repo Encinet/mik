@@ -18,6 +18,8 @@ import org.encinet.mik.module.chat.modifier.ChatReplacementSpacing;
 import org.encinet.mik.module.chat.modifier.GitHubModifier;
 import org.encinet.mik.module.chat.modifier.ItemModifier;
 import org.encinet.mik.module.chat.modifier.InventorySlotModifier;
+import org.encinet.mik.module.chat.modifier.MinecraftWikiModifier;
+import org.encinet.mik.module.chat.modifier.MojiraModifier;
 import org.encinet.mik.module.chat.modifier.PlayerMentionModifier;
 import org.encinet.mik.module.chat.modifier.UrlModifier;
 
@@ -42,6 +44,8 @@ final class ChatMessageParser {
     private final List<ChatModifier> modifiers = List.of(
             new BilibiliModifier(),
             new GitHubModifier(),
+            new MinecraftWikiModifier(),
+            new MojiraModifier(),
             new UrlModifier(),
             new ItemModifier(),
             new InventorySlotModifier(),

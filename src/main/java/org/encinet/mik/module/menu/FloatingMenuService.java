@@ -26,6 +26,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.encinet.mik.module.geyser.GeyserService;
+import org.encinet.mik.module.i18n.LanguageChangeListener;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.presentation.AxiomGizmoService;
@@ -42,10 +43,11 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 /** Owns one declarative menu lifecycle and projects it to the viewer's client UI. */
-public final class FloatingMenuService implements Listener {
+public final class FloatingMenuService implements Listener, LanguageChangeListener {
     private static final double HOVER_SURFACE_MARGIN = 0.08D;
     private static final double SURFACE_DISTANCE_EPSILON = 1.0E-4D;
     private static final long INPUT_DEBOUNCE_MILLIS = 55L;
+    private static final int MENU_STATUS_SYNC_INTERVAL_TICKS = 5;
     private static final FloatingMenuWorldInteractionGuard WORLD_INTERACTION_GUARD =
             FloatingMenuWorldInteractionGuard.UNIFIED;
     private static final LayoutSnapshot EMPTY_LAYOUT =
@@ -54,6 +56,7 @@ public final class FloatingMenuService implements Listener {
     private final JavaPlugin plugin;
     private final VirtualMenuEntityRenderer virtualEntities = new VirtualMenuEntityRenderer();
     private final AxiomGizmoService.Scope axiomGizmos;
+    private final MenuUsageDisplayController menuStatusDisplays;
     private final GeyserFloatingMenuPresenter nativeForms;
     private final LanguageService languageService;
     private final FloatingMenuSettingsStore settings;
@@ -61,16 +64,20 @@ public final class FloatingMenuService implements Listener {
     private final Map<Integer, Target> targets = new HashMap<>();
     private final Set<UUID> scrollCaptures = new HashSet<>();
     private BukkitTask animationTask;
+    private int menuStatusSyncTicks;
     private Consumer<Player> mainMenuOpener;
 
     public FloatingMenuService(JavaPlugin plugin, AxiomGizmoService axiomGizmoService,
                                GeyserService geyserService,
                                LanguageService languageService) {
         this.plugin = plugin;
-        this.axiomGizmos = java.util.Objects.requireNonNull(
-                axiomGizmoService, "axiomGizmoService").scope("floating-menu");
+        AxiomGizmoService gizmoService = java.util.Objects.requireNonNull(
+                axiomGizmoService, "axiomGizmoService");
+        this.axiomGizmos = gizmoService.scope("floating-menu");
         this.languageService = java.util.Objects.requireNonNull(
                 languageService, "languageService");
+        this.menuStatusDisplays = new MenuUsageDisplayController(
+                this.languageService, gizmoService.scope("floating-menu-status"));
         this.settings = new FloatingMenuSettingsStore(plugin);
         this.nativeForms = new GeyserFloatingMenuPresenter(
                 java.util.Objects.requireNonNull(geyserService, "geyserService"),
@@ -80,6 +87,7 @@ public final class FloatingMenuService implements Listener {
     public void enable() {
         settings.enable();
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        languageService.addLanguageChangeListener(this);
         animationTask = Bukkit.getScheduler().runTaskTimer(plugin, (Runnable) this::tick, 1L, 1L);
         plugin.getLogger().info("Floating menu renderer: virtual entities with automatic Bedrock forms");
     }
@@ -87,6 +95,8 @@ public final class FloatingMenuService implements Listener {
     public void disable() {
         closeAllImmediately(FloatingMenuCloseReason.PLUGIN_DISABLE);
         if (animationTask != null) animationTask.cancel();
+        languageService.removeLanguageChangeListener(this);
+        menuStatusDisplays.disable();
         axiomGizmos.close();
     }
 
@@ -142,7 +152,10 @@ public final class FloatingMenuService implements Listener {
         Session session = sessions.get(player.getUniqueId());
         if (session != null) {
             session.interfaceScale = selected.factor();
+            session.typographyScale = selected.typographyFactor();
             if (!session.nativeForm) {
+                session.layoutSnapshot = layoutSnapshot(session.definition,
+                        session.typographyScale);
                 session.reanchor(session.definition, session.layoutSnapshot);
                 session.layoutDirty = true;
             }
@@ -158,6 +171,8 @@ public final class FloatingMenuService implements Listener {
         };
         return Component.text(languageService.t(player, name),
                         selected ? NamedTextColor.GREEN : NamedTextColor.AQUA)
+                .append(Component.text(" · " + option.textPercent() + "%",
+                        NamedTextColor.WHITE))
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player,
                                 selected ? Message.INTERFACE_SCALE_SELECTED : Message.CLICK_SET),
@@ -254,7 +269,7 @@ public final class FloatingMenuService implements Listener {
                                 boolean resumed, FloatingMenuCloseReason replacementReason) {
         Session session = Session.create(player, id, definition, ancestors,
                 definition.presentation().nativeFormCompatible()
-                        && nativeForms.supports(player), scale(player).factor());
+                        && nativeForms.supports(player), scale(player));
         Session current = sessions.get(player.getUniqueId());
         if (current != null) {
             if (suspendCurrent) {
@@ -266,6 +281,7 @@ public final class FloatingMenuService implements Listener {
         }
         sessions.put(player.getUniqueId(), session);
         try {
+            menuStatusDisplays.update(player, session.definition.screenId());
             FloatingMenuState previous = resumed
                     ? FloatingMenuState.SUSPENDED : FloatingMenuState.CLOSED;
             if (session.nativeForm) {
@@ -327,6 +343,17 @@ public final class FloatingMenuService implements Listener {
                 closeImmediately(session.playerId, FloatingMenuCloseReason.ERROR);
             }
         }
+        if (++menuStatusSyncTicks >= MENU_STATUS_SYNC_INTERVAL_TICKS) {
+            menuStatusSyncTicks = 0;
+            menuStatusDisplays.updateTrackedPlayers(activeScreenIds());
+        }
+    }
+
+    private Map<UUID, String> activeScreenIds() {
+        Map<UUID, String> screens = new HashMap<>();
+        sessions.forEach((playerId, session) ->
+                screens.put(playerId, session.definition.screenId()));
+        return screens;
     }
 
     private void tick(Session session) {
@@ -733,11 +760,14 @@ public final class FloatingMenuService implements Listener {
     private void updateDecoration(Session session, Player player, Decoration decoration) {
         double coordinateScale = decoration.definition.worldAnchored()
                 ? 1.0 : session.spatialScale;
+        double typographyScale = decoration.definition.worldAnchored()
+                ? 1.0 : session.typographyScale;
         switch (decoration.definition.content()) {
             case FloatingMenuDecoration.Text text -> virtualEntities.text(
                     player, decoration.entityId, text.text(), text.background(),
                     text.displayWidth(), text.displayHeight(),
-                    (float) (text.scale() * coordinateScale), text.alignment());
+                    (float) (text.scale() * coordinateScale * typographyScale),
+                    text.alignment());
             case FloatingMenuDecoration.Visual visual -> virtualEntities.visual(
                     player, decoration.entityId, visual.item(), visual.block(),
                     (float) (visual.scale() * coordinateScale));
@@ -768,7 +798,8 @@ public final class FloatingMenuService implements Listener {
             updateNative(session, player, definition);
             return;
         }
-        LayoutSnapshot nextLayout = layoutSnapshot(definition);
+        LayoutSnapshot nextLayout = layoutSnapshot(definition,
+                session.typographyScale);
         if (session.titleSpawned && !definition.titleVisible()) {
             virtualEntities.destroy(player, session.titleId);
             session.titleSpawned = false;
@@ -793,7 +824,8 @@ public final class FloatingMenuService implements Listener {
             if (button == null || button.style != entry.style()
                     || button.interactive != entry.interactive()) {
                 if (button != null) destroyButton(player, button);
-                button = new Button(player, entry, index);
+                button = new Button(player, entry, index,
+                        session.typographyScale);
                 button.appearProgress = session.state == FloatingMenuState.ACTIVE ? 0.0 : 1.0;
                 buttonsToSpawn.add(button);
             }
@@ -916,7 +948,8 @@ public final class FloatingMenuService implements Listener {
             button.item = item;
             button.block = nextBlock;
             button.label = entry.label();
-            button.measurement = FloatingMenuNodeSizing.measure(entry);
+            button.measurement = FloatingMenuNodeSizing.measure(entry,
+                    session.typographyScale);
             button.region = entry.region();
             button.alignment = entry.alignment();
             button.selected = entry.selected();
@@ -1027,7 +1060,8 @@ public final class FloatingMenuService implements Listener {
                             session.spatialScale, idle);
             Location visualAt = at.clone().add(panelUp.clone().multiply(placement.visualUp()));
             double textAnchorDown = FloatingMenuNodeGeometry.textAnchorDown(
-                    button.measurement.text(), session.spatialScale);
+                    button.measurement.text(), session.spatialScale
+                            * session.typographyScale);
             Location textAt = at.clone().add(panelUp.clone().multiply(
                     placement.textUp() - textAnchorDown));
             textAt.add(panelNormal.clone().multiply(placement.textForward()));
@@ -1083,6 +1117,8 @@ public final class FloatingMenuService implements Listener {
                 yaw += (float) ((session.totalTicks * 2.4 + decoration.phaseOffset) % 360.0);
             }
             teleport(player, decoration.entityId, at, yaw, pitch);
+            session.definition.frameObserver().presented(player,
+                    decoration.definition.id(), System.nanoTime());
         }
         if (layoutAnimation && session.titleSpawned) {
             Location titleAt = session.headerPosition();
@@ -1107,6 +1143,9 @@ public final class FloatingMenuService implements Listener {
         Session session = sessions.get(playerId);
         if (session == null) return;
         removeCurrentVisuals(session, FloatingMenuState.CLOSED, reason);
+        if (!sessions.containsKey(playerId)) {
+            menuStatusDisplays.remove(playerId);
+        }
         Player player = Bukkit.getPlayer(playerId);
         if (player != null) {
             for (Frame frame : session.ancestors) {
@@ -1298,11 +1337,12 @@ public final class FloatingMenuService implements Listener {
         }
     }
 
-    private static LayoutSnapshot layoutSnapshot(FloatingMenuDefinition definition) {
+    private static LayoutSnapshot layoutSnapshot(FloatingMenuDefinition definition,
+                                                 double typographyScale) {
         List<FloatingMenuLayout.Node> nodes = new ArrayList<>();
         for (FloatingMenuDefinition.Entry entry : definition.entries().values()) {
             FloatingMenuNodeSizing.Measurement measurement =
-                    FloatingMenuNodeSizing.measure(entry);
+                    FloatingMenuNodeSizing.measure(entry, typographyScale);
             nodes.add(new FloatingMenuLayout.Node(entry.id(), entry.style(), entry.role(),
                     entry.region(), measurement.footprint()));
         }
@@ -1342,7 +1382,14 @@ public final class FloatingMenuService implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
         closeImmediately(playerId, FloatingMenuCloseReason.QUIT);
+        menuStatusDisplays.remove(playerId);
+        menuStatusDisplays.forgetViewer(playerId);
         settings.forget(playerId);
+    }
+
+    @Override
+    public void onLanguageChanged(Player player) {
+        menuStatusDisplays.refreshViewerLanguage(player);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -1395,7 +1442,8 @@ public final class FloatingMenuService implements Listener {
         virtualEntities.text(player, button.textId, button.label,
                 session.appearance.elementBackground(state),
                 text.displayWidth(), text.displayHeight(), text.lineWidthPixels(),
-                (float) (FloatingMenuNodeSizing.TEXT_SCALE * session.spatialScale),
+                (float) (FloatingMenuNodeSizing.TEXT_SCALE * session.spatialScale
+                        * session.typographyScale),
                 button.alignment);
     }
 
@@ -1403,7 +1451,8 @@ public final class FloatingMenuService implements Listener {
                              Component text) {
         virtualEntities.text(player, entityId, text,
                 session.appearance.titleBackground(), 5.0F, 1.5F,
-                (float) (0.86F * session.spatialScale),
+                (float) (0.86F * session.spatialScale
+                        * session.typographyScale),
                 FloatingMenuDecoration.Alignment.CENTER);
     }
 
@@ -1667,7 +1716,8 @@ public final class FloatingMenuService implements Listener {
         private float surfaceYaw;
         private float surfacePitch;
 
-        private Button(Player player, FloatingMenuDefinition.Entry entry, int index) {
+        private Button(Player player, FloatingMenuDefinition.Entry entry, int index,
+                       double typographyScale) {
             this.id = entry.id();
             this.index = index;
             this.region = entry.region();
@@ -1680,7 +1730,8 @@ public final class FloatingMenuService implements Listener {
             this.textOnly = style == FloatingMenuElementStyle.TEXT;
             this.interactive = entry.interactive();
             this.label = entry.label();
-            this.measurement = FloatingMenuNodeSizing.measure(entry);
+            this.measurement = FloatingMenuNodeSizing.measure(entry,
+                    typographyScale);
             this.alignment = entry.alignment();
             this.selected = entry.selected();
             this.enabled = entry.enabled();
@@ -1784,6 +1835,7 @@ public final class FloatingMenuService implements Listener {
         private float presentationYaw;
         private double spatialScale;
         private double interfaceScale;
+        private double typographyScale;
         private final List<Button> buttons;
         private final List<Decoration> decorations;
         private Map<String, Map<FloatingMenuInteraction, FloatingMenuAction>> actions;
@@ -1823,11 +1875,13 @@ public final class FloatingMenuService implements Listener {
                         FloatingMenuAnimation animation, FloatingMenuFeedback feedback,
                         FloatingMenuAppearance appearance,
                         FloatingMenuDefinition definition, LayoutSnapshot layoutSnapshot,
-                        List<Frame> ancestors, boolean nativeForm, double interfaceScale) {
+                        List<Frame> ancestors, boolean nativeForm,
+                        FloatingMenuScale selectedScale) {
             this.id = id;
             this.playerId = player.getUniqueId();
             this.nativeForm = nativeForm;
-            this.interfaceScale = interfaceScale;
+            this.interfaceScale = selectedScale.factor();
+            this.typographyScale = selectedScale.typographyFactor();
             this.titleId = nativeForm ? -1 : allocateEntityId(player);
             this.definition = definition;
             captureAnchorView(player);
@@ -1887,7 +1941,8 @@ public final class FloatingMenuService implements Listener {
                               LayoutSnapshot layoutSnapshot) {
             FloatingMenuAnchorResolver.SceneBounds sceneBounds =
                     FloatingMenuAnchorResolver.measure(definition,
-                            layoutSnapshot.poses(), layoutSnapshot.sizes());
+                            layoutSnapshot.poses(), layoutSnapshot.sizes(),
+                            typographyScale);
             FloatingMenuAnchorResolver.Anchor anchor = FloatingMenuAnchorResolver.resolve(
                     anchorView, requestedForward, sceneBounds, interfaceScale);
             this.forward = anchor.forward();
@@ -1900,16 +1955,19 @@ public final class FloatingMenuService implements Listener {
 
         private static Session create(Player player, UUID id, FloatingMenuDefinition definition,
                                       List<Frame> ancestors, boolean nativeForm,
-                                      double interfaceScale) {
+                                      FloatingMenuScale selectedScale) {
+            double typographyScale = selectedScale.typographyFactor();
             LayoutSnapshot layoutSnapshot = nativeForm
-                    ? EMPTY_LAYOUT : FloatingMenuService.layoutSnapshot(definition);
+                    ? EMPTY_LAYOUT : FloatingMenuService.layoutSnapshot(
+                            definition, typographyScale);
             List<Button> buttons = new ArrayList<>();
             List<Decoration> decorations = new ArrayList<>();
             Map<String, Map<FloatingMenuInteraction, FloatingMenuAction>> actions = new HashMap<>();
             Map<String, FloatingMenuFocusAction> focusActions = new HashMap<>();
             int index = 0;
             for (FloatingMenuDefinition.Entry entry : definition.entries().values()) {
-                if (!nativeForm) buttons.add(new Button(player, entry, index));
+                if (!nativeForm) buttons.add(new Button(player, entry, index,
+                        typographyScale));
                 index++;
                 actions.put(entry.id(), entry.triggers());
                 if (entry.focusAction() != null) focusActions.put(entry.id(), entry.focusAction());
@@ -1922,7 +1980,7 @@ public final class FloatingMenuService implements Listener {
             return new Session(player, buttons, decorations, id, actions,
                     definition.triggers(), focusActions,
                     definition.animation(), definition.feedback(), definition.appearance(),
-                    definition, layoutSnapshot, ancestors, nativeForm, interfaceScale);
+                    definition, layoutSnapshot, ancestors, nativeForm, selectedScale);
         }
 
         private Location position(Button button) {

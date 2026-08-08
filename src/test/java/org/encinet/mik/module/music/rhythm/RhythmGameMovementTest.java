@@ -1,12 +1,14 @@
 package org.encinet.mik.module.music.rhythm;
 
 import org.bukkit.Location;
+import org.bukkit.Input;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,6 +37,58 @@ class RhythmGameMovementTest {
         assertSame(rotated, event.getTo());
     }
 
+    @Test
+    void crouchExitsOnlyOnThePressEdge() {
+        RhythmGameService.InputState released = RhythmGameService.InputState.of(
+                input(false, false));
+        RhythmGameService.InputState crouched = RhythmGameService.InputState.of(
+                input(false, true));
+
+        assertTrue(released.exitPressed(crouched));
+        assertFalse(crouched.exitPressed(crouched));
+        assertFalse(crouched.exitPressed(released));
+    }
+
+    @Test
+    void movementInputDoesNotTriggerTheCrouchExit() {
+        RhythmGameService.InputState released = RhythmGameService.InputState.of(
+                input(false, false));
+        RhythmGameService.InputState moving = RhythmGameService.InputState.of(
+                input(true, false));
+
+        assertFalse(released.exitPressed(moving));
+    }
+
+    @Test
+    void hotbarSlotsOneThroughFourMapToTheFourLanes() {
+        assertEquals(java.util.Optional.of(RhythmInput.ONE),
+                RhythmInput.fromHotbarSlot(0));
+        assertEquals(java.util.Optional.of(RhythmInput.TWO),
+                RhythmInput.fromHotbarSlot(1));
+        assertEquals(java.util.Optional.of(RhythmInput.THREE),
+                RhythmInput.fromHotbarSlot(2));
+        assertEquals(java.util.Optional.of(RhythmInput.FOUR),
+                RhythmInput.fromHotbarSlot(3));
+        assertTrue(RhythmInput.fromHotbarSlot(4).isEmpty());
+        assertTrue(RhythmInput.fromHotbarSlot(8).isEmpty());
+    }
+
+    @Test
+    void notesFallVerticallyThroughAFixedLaneAndCrossTheHitLine() {
+        org.encinet.mik.module.menu.FloatingMenuPoint target =
+                new org.encinet.mik.module.menu.FloatingMenuPoint(0.29, -0.42, 0.30);
+
+        var spawn = RhythmGameService.fallingPoint(target, 0.0);
+        var hit = RhythmGameService.fallingPoint(target, 1.0);
+        var late = RhythmGameService.fallingPoint(target, 1.1);
+
+        assertEquals(target.right(), spawn.right(), 1.0E-9);
+        assertEquals(target.forward(), spawn.forward(), 1.0E-9);
+        assertTrue(spawn.up() > hit.up());
+        assertEquals(target.up(), hit.up(), 1.0E-9);
+        assertTrue(late.up() < hit.up());
+    }
+
     private static Player player() {
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
                 new Class<?>[]{Player.class}, (proxy, method, arguments) -> switch (method.getName()) {
@@ -43,6 +97,45 @@ class RhythmGameMovementTest {
                     case "toString" -> "rhythm-test-player";
                     default -> defaultValue(method.getReturnType());
                 });
+    }
+
+    private static Input input(boolean forward, boolean sneak) {
+        return new Input() {
+            @Override
+            public boolean isForward() {
+                return forward;
+            }
+
+            @Override
+            public boolean isBackward() {
+                return false;
+            }
+
+            @Override
+            public boolean isLeft() {
+                return false;
+            }
+
+            @Override
+            public boolean isRight() {
+                return false;
+            }
+
+            @Override
+            public boolean isJump() {
+                return false;
+            }
+
+            @Override
+            public boolean isSneak() {
+                return sneak;
+            }
+
+            @Override
+            public boolean isSprint() {
+                return false;
+            }
+        };
     }
 
     private static Object defaultValue(Class<?> type) {

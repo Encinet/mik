@@ -16,10 +16,11 @@ import org.encinet.mik.module.menu.FloatingMenuInteraction;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
-import org.encinet.mik.module.music.catalog.MusicLibrary;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.jukebox.JukeboxAutoPlayService;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackMode;
+import org.encinet.mik.module.music.jukebox.JukeboxExperienceMode;
 import org.encinet.mik.module.music.jukebox.JukeboxQueueService;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.module.music.jukebox.JukeboxSettingsStore;
@@ -28,12 +29,12 @@ import org.encinet.mik.module.music.ui.JukeboxAccess;
 import org.encinet.mik.module.music.ui.JukeboxControlActionHandler;
 import org.encinet.mik.module.music.ui.JukeboxControlGui;
 import org.encinet.mik.module.music.ui.MusicBrowserGui;
+import org.encinet.mik.module.music.ui.RhythmCalibrationPrompt;
 import org.encinet.mik.module.music.rhythm.RhythmGameService;
 
 /** Handles physical jukebox control-panel sessions on the Bukkit main thread. */
 public final class JukeboxControlListener implements Listener, JukeboxControlActionHandler {
 
-    private final MusicLibrary musicLibrary;
     private final JukeboxPlaybackService playbackService;
     private final MusicBrowserGui browser;
     private final JukeboxQueueService queueService;
@@ -42,16 +43,17 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
     private final JukeboxSettingsStore settingsStore;
     private final LanguageService languageService;
     private final RhythmGameService rhythmGameService;
+    private final RhythmCalibrationPrompt calibrationPrompt;
 
-    public JukeboxControlListener(MusicLibrary musicLibrary, JukeboxPlaybackService playbackService,
+    public JukeboxControlListener(JukeboxPlaybackService playbackService,
                                   MusicBrowserGui browser,
                                   JukeboxQueueService queueService,
                                   JukeboxControlGui controlGui,
                                   JukeboxAutoPlayService autoPlayService,
                                   JukeboxSettingsStore settingsStore,
                                   LanguageService languageService,
-                                  RhythmGameService rhythmGameService) {
-        this.musicLibrary = musicLibrary;
+                                  RhythmGameService rhythmGameService,
+                                  RhythmCalibrationPrompt calibrationPrompt) {
         this.playbackService = playbackService;
         this.browser = browser;
         this.queueService = queueService;
@@ -60,6 +62,8 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
         this.settingsStore = settingsStore;
         this.languageService = languageService;
         this.rhythmGameService = rhythmGameService;
+        this.calibrationPrompt = java.util.Objects.requireNonNull(
+                calibrationPrompt, "calibrationPrompt");
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -136,15 +140,24 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
     }
 
     @Override
-    public void playNext(Player player, Location location) {
+    public void cycleExperienceMode(Player player, Location location) {
         Jukebox jukebox = resolveJukebox(player, location);
-        if (jukebox != null) playNextTrack(player, jukebox);
+        if (jukebox == null) return;
+        JukeboxExperienceMode mode = settingsStore.readExperienceMode(jukebox).next();
+        settingsStore.writeExperienceMode(jukebox, mode);
+        autoPlayService.cancelScheduledTask(jukebox.getLocation());
+        if (MusicDiscKeys.isCustomDisc(jukebox.getRecord())) {
+            playbackService.playInsertedDisc(player, jukebox);
+        }
+        String modeName = languageService.t(player, experienceModeName(mode));
+        player.sendMessage(languageService.text(player, Message.MUSIC_MODE_SWITCHED,
+                NamedTextColor.GREEN, modeName, ""));
     }
 
     @Override
-    public void addAll(Player player, Location location) {
+    public void playNext(Player player, Location location) {
         Jukebox jukebox = resolveJukebox(player, location);
-        if (jukebox != null) addAllTracks(player, location);
+        if (jukebox != null) playNextTrack(player, jukebox);
     }
 
     @Override
@@ -156,7 +169,41 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
     @Override
     public void openRhythmGame(Player player, Location location) {
         Jukebox jukebox = resolveJukebox(player, location);
-        if (jukebox != null) rhythmGameService.open(player, jukebox.getLocation());
+        if (jukebox == null) return;
+        Location target = jukebox.getLocation().clone();
+        if (!rhythmGameService.hasCompletedLatencyCalibration(player)) {
+            calibrationPrompt.show(player,
+                    confirmed -> confirmLatencyCalibration(confirmed, target));
+            return;
+        }
+        // Starting an interactive rhythm session supersedes any delayed auto-play task.
+        autoPlayService.cancelScheduledTask(target);
+        rhythmGameService.open(player, target);
+    }
+
+    private void confirmLatencyCalibration(Player player, Location location) {
+        Jukebox jukebox = resolveJukebox(player, location);
+        if (jukebox == null) return;
+        if (rhythmGameService.hasCompletedLatencyCalibration(player)) {
+            openRhythmGame(player, jukebox.getLocation());
+            return;
+        }
+        rhythmGameService.openCalibration(player, jukebox.getLocation());
+    }
+
+    @Override
+    public void openLatencyCalibration(Player player, Location location) {
+        Jukebox jukebox = resolveJukebox(player, location);
+        if (jukebox != null) {
+            rhythmGameService.openCalibration(player, jukebox.getLocation());
+        }
+    }
+
+    @Override
+    public void resetLatencyCalibration(Player player, Location location) {
+        if (resolveJukebox(player, location) != null) {
+            rhythmGameService.resetCalibration(player);
+        }
     }
 
     @Override
@@ -236,13 +283,6 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
         closeMenu(player);
     }
 
-    private void addAllTracks(Player player, Location location) {
-        JukeboxQueueService.JukeboxState data = queueService.state(location);
-        int added = data.addAllToQueue(musicLibrary.tracks());
-        player.sendMessage(languageService.text(player, Message.MUSIC_ADD_ALL_DONE,
-                NamedTextColor.GREEN, added));
-    }
-
     private void clearQueuedTracks(Player player, Location location) {
         JukeboxQueueService.JukeboxState data = queueService.state(location);
         int count = data.queueSize();
@@ -290,6 +330,13 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
             case REPEAT_ONE -> Message.MUSIC_REPEAT_ONE_MODE_DESC;
             case SHUFFLE -> Message.MUSIC_RANDOM_MODE_DESC;
             case LIBRARY_SHUFFLE -> Message.MUSIC_LIBRARY_RANDOM_MODE_DESC;
+        };
+    }
+
+    private static Message experienceModeName(JukeboxExperienceMode mode) {
+        return switch (mode) {
+            case MUSIC -> Message.MUSIC_JUKEBOX_MUSIC_MODE;
+            case RHYTHM -> Message.MUSIC_JUKEBOX_RHYTHM_MODE;
         };
     }
 

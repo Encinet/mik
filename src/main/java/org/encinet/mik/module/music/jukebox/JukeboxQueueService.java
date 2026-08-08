@@ -129,21 +129,6 @@ public class JukeboxQueueService {
             }
         }
 
-        public int addAllToQueue(Collection<MusicTrack> tracks) {
-            Objects.requireNonNull(tracks, "tracks");
-            Set<String> existingIds = new HashSet<>();
-            queue.forEach(track -> existingIds.add(track.id()));
-            int added = 0;
-            for (MusicTrack track : tracks) {
-                if (track != null && existingIds.add(track.id())) {
-                    queue.add(track);
-                    added++;
-                }
-            }
-            if (added > 0) stateChanged.run();
-            return added;
-        }
-
         public void removeFromQueue(MusicTrack music) {
             if (queue.removeIf(existing -> sameTrack(existing, music))) {
                 stateChanged.run();

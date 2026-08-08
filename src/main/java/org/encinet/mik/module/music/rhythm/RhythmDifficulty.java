@@ -2,10 +2,10 @@ package org.encinet.mik.module.music.rhythm;
 
 /** Per-player chart density, judgement timing, and score policy. */
 public enum RhythmDifficulty {
-    EASY(600L, 120L, 200L, 300L, 0.80),
-    NORMAL(400L, 90L, 150L, 220L, 1.00),
-    HARD(250L, 70L, 120L, 165L, 1.15),
-    EXPERT(200L, 55L, 90L, 125L, 1.35);
+    EASY(500L, 120L, 200L, 300L, 0.80),
+    NORMAL(250L, 90L, 150L, 220L, 1.00),
+    HARD(170L, 70L, 120L, 165L, 1.15),
+    EXPERT(130L, 55L, 90L, 125L, 1.35);
 
     private final long minimumCueSpacingMillis;
     private final long perfectWindowMillis;

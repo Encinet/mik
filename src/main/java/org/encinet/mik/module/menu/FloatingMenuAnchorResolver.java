@@ -107,9 +107,19 @@ final class FloatingMenuAnchorResolver {
     static SceneBounds measure(FloatingMenuDefinition definition,
                                java.util.Map<String, FloatingMenuPose> layoutPoses,
                                java.util.Map<String, FloatingMenuSize> layoutSizes) {
+        return measure(definition, layoutPoses, layoutSizes, 1.0);
+    }
+
+    static SceneBounds measure(FloatingMenuDefinition definition,
+                               java.util.Map<String, FloatingMenuPose> layoutPoses,
+                               java.util.Map<String, FloatingMenuSize> layoutSizes,
+                               double typographyScale) {
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(layoutPoses, "layoutPoses");
         Objects.requireNonNull(layoutSizes, "layoutSizes");
+        if (!Double.isFinite(typographyScale) || typographyScale <= 0.0) {
+            throw new IllegalArgumentException("Typography scale must be positive and finite");
+        }
         List<FloatingMenuPoint> points = new ArrayList<>();
         for (java.util.Map.Entry<String, FloatingMenuPose> entry : layoutPoses.entrySet()) {
             FloatingMenuPose pose = entry.getValue();
@@ -121,8 +131,8 @@ final class FloatingMenuAnchorResolver {
             if (decoration.placement() instanceof FloatingMenuPlacement.Local local) {
                 FloatingMenuSize size = switch (decoration.content()) {
                     case FloatingMenuDecoration.Text text -> new FloatingMenuSize(
-                            text.displayWidth() * text.scale(),
-                            text.displayHeight() * text.scale());
+                            text.displayWidth() * text.scale() * typographyScale,
+                            text.displayHeight() * text.scale() * typographyScale);
                     case FloatingMenuDecoration.Visual visual -> new FloatingMenuSize(
                             visual.scale(), visual.scale());
                 };

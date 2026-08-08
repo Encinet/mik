@@ -4,10 +4,11 @@ import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.geyser.BedrockPlayerBadge;
+import org.encinet.mik.module.i18n.Language;
 
 import java.util.Objects;
 
-/** Composes independent player identity parts for viewer-local, global and preview surfaces. */
+/** Composes one atomic player identity for viewer-localized and preview surfaces. */
 public final class PlayerIdentityRenderer {
 
     private final BedrockPlayerBadge platformBadge;
@@ -27,15 +28,19 @@ public final class PlayerIdentityRenderer {
             Audience viewer,
             Component baseName
     ) {
-        return new PlayerIdentityComponent(
+        return compose(
                 platformBadge.prefix(subject, viewer),
                 nameTags.render(subject, baseName));
     }
 
-    /** Resolves live tags for a component shared by all viewers, such as a Tab entry. */
-    public PlayerIdentityComponent renderGlobal(Player subject, Component baseName) {
-        return new PlayerIdentityComponent(
-                platformBadge.globalPrefix(subject),
+    /** Resolves live tags with a badge translated for a known viewer language. */
+    public PlayerIdentityComponent render(
+            Player subject,
+            Language language,
+            Component baseName
+    ) {
+        return compose(
+                platformBadge.prefix(subject, language),
                 nameTags.render(subject, baseName));
     }
 
@@ -46,8 +51,15 @@ public final class PlayerIdentityRenderer {
             Component baseName,
             PlayerNameTag preview
     ) {
-        return new PlayerIdentityComponent(
+        return compose(
                 platformBadge.prefix(subject, viewer),
                 nameTags.render(subject, baseName, preview));
+    }
+
+    private PlayerIdentityComponent compose(Component platformBadge, Component nameTag) {
+        return new PlayerIdentityComponent(Component.text()
+                .append(platformBadge)
+                .append(nameTag)
+                .build());
     }
 }

@@ -24,28 +24,23 @@ public final class BedrockPlayerBadge {
         this.languageService = Objects.requireNonNull(languageService, "languageService");
     }
 
-    /** A viewer-localized prefix for chat and other viewer-specific output. */
+    /** A viewer-localized badge for chat and other viewer-specific output. */
     public Component prefix(Player subject, Audience viewer) {
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(viewer, "viewer");
-        if (!detector.isBedrockPlayer(subject.getUniqueId())) {
-            return Component.empty();
-        }
-        String label = viewer instanceof Player player
-                ? languageService.t(player, Message.CHAT_BEDROCK_LABEL)
-                : languageService.t(Language.DEFAULT, Message.CHAT_BEDROCK_LABEL);
-        return render(true, label);
+        Language language = viewer instanceof Player player
+                ? languageService.language(player)
+                : Language.DEFAULT;
+        return prefix(subject, language);
     }
 
-    /**
-     * A stable prefix for globally shared components such as a Bukkit player-list name.
-     * Those components cannot vary by viewer locale.
-     */
-    public Component globalPrefix(Player subject) {
+    /** A badge translated for a known viewer language. */
+    public Component prefix(Player subject, Language language) {
         Objects.requireNonNull(subject, "subject");
+        Objects.requireNonNull(language, "language");
         return render(
                 detector.isBedrockPlayer(subject.getUniqueId()),
-                languageService.t(Language.DEFAULT, Message.CHAT_BEDROCK_LABEL));
+                languageService.t(language, Message.PLAYER_BEDROCK_LABEL));
     }
 
     static Component render(boolean bedrockPlayer, String label) {

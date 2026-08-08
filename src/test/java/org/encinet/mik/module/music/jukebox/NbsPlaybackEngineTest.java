@@ -17,6 +17,7 @@ import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,9 +84,39 @@ class NbsPlaybackEngineTest {
         assertEquals(PlaybackStatus.STOPPED, session.status());
     }
 
+    @Test
+    void sessionPublishesTheBoundedNbsClockAfterAServerStall() throws Exception {
+        Path file = directory.resolve("clock.nbs");
+        Files.write(file, minimalNbs());
+        ManualExecutor executor = new ManualExecutor();
+        ImmediateScheduler scheduler = new ImmediateScheduler();
+        AtomicLong clock = new AtomicLong(1_000_000_000L);
+        engine = new NbsPlaybackEngine(scheduler, new LocalMediaPreparer(),
+                new NbsParser(), executor,
+                org.encinet.mik.module.music.rhythm.analysis.NbsRhythmExtractor.INSTANCE,
+                clock::get);
+        RecordingCallbacks callbacks = new RecordingCallbacks();
+        PlaybackSession session = engine.create(new Location(null, 0, 0, 0),
+                new TrackTarget.NbsFile(file, directory),
+                JukeboxSoundSettings.defaults(), callbacks);
+
+        session.start();
+        executor.runAll();
+        assertEquals(0L, session.positionMillis());
+        assertEquals(1, callbacks.started.get());
+
+        clock.addAndGet(60_000_000_000L);
+        scheduler.runPlaybackTick();
+
+        assertEquals(100L, session.positionMillis(),
+                "a 60-second wall-clock stall must not move past the final NBS tick");
+        assertEquals(1, callbacks.finished.get());
+    }
+
     private static final class ImmediateScheduler implements NbsPlaybackEngine.Scheduler {
         private final AtomicInteger mainThreadTasks = new AtomicInteger();
         private final AtomicInteger repeatingTasks = new AtomicInteger();
+        private final AtomicReference<Runnable> repeatingTask = new AtomicReference<>();
 
         @Override
         public void runOnMainThread(Runnable task) {
@@ -96,7 +127,14 @@ class NbsPlaybackEngineTest {
         @Override
         public NbsPlaybackEngine.ScheduledPlayback scheduleEveryTick(Runnable task) {
             repeatingTasks.incrementAndGet();
-            return () -> {};
+            repeatingTask.set(task);
+            return () -> repeatingTask.compareAndSet(task, null);
+        }
+
+        private void runPlaybackTick() {
+            Runnable task = repeatingTask.get();
+            if (task == null) throw new IllegalStateException("no playback task scheduled");
+            task.run();
         }
     }
 

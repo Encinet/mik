@@ -37,6 +37,7 @@ public final class FloatingMenuDefinition {
     private final Map<FloatingMenuInteraction, FloatingMenuAction> triggers;
     private final FloatingMenuLifecycle lifecycle;
     private final FloatingMenuRefresh refresh;
+    private final FloatingMenuFrameObserver frameObserver;
 
     private FloatingMenuDefinition(Component title, boolean titleVisible,
                                    String screenId, Map<String, Entry> entries,
@@ -50,7 +51,8 @@ public final class FloatingMenuDefinition {
                                    FloatingMenuMovementPolicy movementPolicy,
                                    Map<FloatingMenuInteraction, FloatingMenuAction> triggers,
                                    FloatingMenuLifecycle lifecycle,
-                                   FloatingMenuRefresh refresh) {
+                                   FloatingMenuRefresh refresh,
+                                   FloatingMenuFrameObserver frameObserver) {
         this.title = title;
         this.titleVisible = titleVisible;
         this.screenId = screenId;
@@ -68,6 +70,7 @@ public final class FloatingMenuDefinition {
         this.triggers = Map.copyOf(triggers);
         this.lifecycle = lifecycle;
         this.refresh = refresh;
+        this.frameObserver = frameObserver;
     }
 
     /** Creates a spatial scene with no fixed capacity or numeric positions. */
@@ -111,6 +114,7 @@ public final class FloatingMenuDefinition {
     public Map<FloatingMenuInteraction, FloatingMenuAction> triggers() { return triggers; }
     public FloatingMenuLifecycle lifecycle() { return lifecycle; }
     public FloatingMenuRefresh refresh() { return refresh; }
+    public FloatingMenuFrameObserver frameObserver() { return frameObserver; }
 
     FloatingMenuDefinition identifiedBy(String id) {
         if (screenId != null && !screenId.equals(id)) {
@@ -121,7 +125,7 @@ public final class FloatingMenuDefinition {
         return new FloatingMenuDefinition(title, titleVisible, id, entries, decorations,
                 animation, layout, feedback, appearance, framing,
                 presentation, anchorMode, viewpoint, movementPolicy,
-                triggers, lifecycle, refresh);
+                triggers, lifecycle, refresh, frameObserver);
     }
 
     FloatingMenuDefinition withLifecycle(FloatingMenuLifecycle nextLifecycle) {
@@ -129,7 +133,8 @@ public final class FloatingMenuDefinition {
                 animation, layout, feedback, appearance, framing,
                 presentation, anchorMode, viewpoint, movementPolicy,
                 triggers, FloatingMenuLifecycle.combine(lifecycle,
-                        Objects.requireNonNull(nextLifecycle, "nextLifecycle")), refresh);
+                        Objects.requireNonNull(nextLifecycle, "nextLifecycle")), refresh,
+                frameObserver);
     }
 
     /** One independently addressable node in the floating scene. */
@@ -205,6 +210,8 @@ public final class FloatingMenuDefinition {
                 FloatingMenuMovementPolicy.STANDARD;
         private FloatingMenuLifecycle lifecycle = FloatingMenuLifecycle.NONE;
         private FloatingMenuRefresh refresh = FloatingMenuRefresh.NONE;
+        private FloatingMenuFrameObserver frameObserver =
+                FloatingMenuFrameObserver.NONE;
         private final Map<FloatingMenuInteraction, FloatingMenuAction> triggers =
                 new EnumMap<>(FloatingMenuInteraction.class);
 
@@ -547,6 +554,12 @@ public final class FloatingMenuDefinition {
             return this;
         }
 
+        /** Receives decoration packet commit timestamps for time-critical scenes. */
+        public Builder observeFrames(FloatingMenuFrameObserver observer) {
+            this.frameObserver = Objects.requireNonNull(observer, "observer");
+            return this;
+        }
+
         /** Stable logical identity used for reconciliation and hierarchy pop-to behavior. */
         public Builder screen(String screenId) {
             if (screenId == null || screenId.isBlank()) {
@@ -578,7 +591,7 @@ public final class FloatingMenuDefinition {
             return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations,
                     animation, layout, feedback, appearance, framing,
                     presentation, anchorMode, viewpoint, movementPolicy,
-                    triggers, lifecycle, refresh);
+                    triggers, lifecycle, refresh, frameObserver);
         }
 
         private void requireNewId(String id) {

@@ -49,4 +49,23 @@ class FloatingMenuNodeSizingTest {
         assertTrue(wide.lines() < automatic.lines());
         assertTrue(wide.size().width() > automatic.size().width());
     }
+
+    @Test
+    void readingScaleExpandsTextAndItsInteractiveFootprintTogether() {
+        FloatingMenuDefinition.Builder builder = FloatingMenuDefinition.builder();
+        builder.control("readable", Component.text("Readable text"));
+        FloatingMenuDefinition.Entry entry = builder.build().entries().get("readable");
+
+        var small = FloatingMenuNodeSizing.measure(entry,
+                FloatingMenuScale.SMALL.typographyFactor());
+        var normal = FloatingMenuNodeSizing.measure(entry,
+                FloatingMenuScale.NORMAL.typographyFactor());
+        var large = FloatingMenuNodeSizing.measure(entry,
+                FloatingMenuScale.LARGE.typographyFactor());
+
+        assertTrue(small.footprint().width() < normal.footprint().width());
+        assertTrue(large.footprint().width() > normal.footprint().width());
+        assertTrue(small.footprint().height() < normal.footprint().height());
+        assertTrue(large.footprint().height() > normal.footprint().height());
+    }
 }

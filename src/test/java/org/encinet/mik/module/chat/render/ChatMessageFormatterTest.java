@@ -11,6 +11,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class ChatMessageFormatterTest {
 
     @Test
+    void channelMarkerPrecedesTheCompleteSenderIdentity() {
+        Component privateBody = ChatMessageFormatter.privateBody(
+                Component.text("[Bedrock] A"),
+                Component.text("B"));
+        Component prefix = ChatMessageFormatter.channelPrefix(
+                Component.text("[MSG] "),
+                privateBody);
+
+        assertEquals("[MSG] [Bedrock] A -> B",
+                PlainTextComponentSerializer.plainText().serialize(prefix));
+    }
+
+    @Test
     void repeatSuffixUsesTheExpectedTextColorAndClickAction() {
         Component suffix = ChatMessageFormatter.repeatSuffix("/mikrepeat token");
 

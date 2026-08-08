@@ -15,6 +15,7 @@ import org.encinet.mik.module.menu.FloatingMenuDecoration;
 import org.encinet.mik.module.menu.FloatingMenuDefinition;
 import org.encinet.mik.module.menu.FloatingMenuFlow;
 import org.encinet.mik.module.menu.FloatingMenuInteraction;
+import org.encinet.mik.module.menu.FloatingMenuLayout;
 import org.encinet.mik.module.menu.FloatingMenuLayouts;
 import org.encinet.mik.module.menu.FloatingMenuPoint;
 import org.encinet.mik.module.menu.FloatingMenuPose;
@@ -29,12 +30,15 @@ import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
 import org.encinet.mik.module.music.jukebox.JukeboxQueueService;
+import org.encinet.mik.module.music.jukebox.JukeboxExperienceMode;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackMode;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackSnapshot;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackStatus;
+import org.encinet.mik.module.music.jukebox.JukeboxRhythmReadiness;
 import org.encinet.mik.module.music.jukebox.JukeboxSettingsStore;
 import org.encinet.mik.module.music.jukebox.JukeboxSoundSettings;
 import org.encinet.mik.module.music.jukebox.PlaybackStatus;
+import org.encinet.mik.module.music.rhythm.RhythmCalibrationStatus;
 
 import java.time.Duration;
 import java.util.List;
@@ -54,6 +58,7 @@ public final class JukeboxControlGui {
     private final MusicDiscResolver discResolver;
     private final JukeboxPlaybackStatus playbackStatus;
     private final JukeboxSettingsStore settingsStore;
+    private final RhythmCalibrationStatus calibrationStatus;
     private final LanguageService languageService;
     private final FloatingMenuScreen<ViewState> screen;
 
@@ -61,12 +66,15 @@ public final class JukeboxControlGui {
                              MusicDiscResolver discResolver,
                              JukeboxPlaybackStatus playbackStatus,
                              JukeboxSettingsStore settingsStore,
+                             RhythmCalibrationStatus calibrationStatus,
                              LanguageService languageService) {
         this.queueService = queueService;
         this.discFactory = discFactory;
         this.discResolver = discResolver;
         this.playbackStatus = playbackStatus;
         this.settingsStore = settingsStore;
+        this.calibrationStatus = Objects.requireNonNull(
+                calibrationStatus, "calibrationStatus");
         this.languageService = languageService;
         this.screen = new FloatingMenuScreen<>("jukebox-control",
                 context -> buildCurrent(context.player(), context.state()));
@@ -136,64 +144,120 @@ public final class JukeboxControlGui {
         if (location == null || !(location.getBlock().getState() instanceof Jukebox jukebox)) {
             return unavailableMenu(player, actions);
         }
-        JukeboxQueueService.JukeboxState data = queueService.state(location);
-        List<MusicTrack> queue = data.queue();
-        int totalPages = pageCount(queue.size());
-        int currentPage = Math.max(0, Math.min(view.page(), totalPages - 1));
-        MusicTrack currentDisc = discResolver.resolve(jukebox.getRecord());
-        JukeboxPlaybackSnapshot currentPlayback = currentPlayback(jukebox);
-        PlaybackStatus currentStatus = currentPlayback.status();
-
+        ControlView control = controlView(jukebox, view.page());
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-control")
-                .layout(FloatingMenuLayouts.verticalRegions(0.36,
-                        FloatingMenuLayouts.region("queue",
-                                FloatingMenuLayouts.offset(
-                                        FloatingMenuLayouts.adaptiveCurvedList(
-                                                2, 4, 0.42, 0.18, 0.26),
-                                        -0.90, 0.0, 0.0)),
-                        FloatingMenuLayouts.region("controls",
-                                FloatingMenuLayouts.adaptiveCurvedGrid(
-                                        5, 0.30, 0.22, 0.18))))
+                .layout(controlLayout(control.experienceMode()))
                 .refreshWhenChanged(PLAYBACK_PROGRESS_REFRESH_TICKS,
                         ignored -> playbackRevision(view),
                         (p, handle) -> screen.flow(p)
                                 .ifPresent(FloatingMenuFlow::redraw));
 
+        addDiscPresentation(player, menu, control);
+        addExperienceModeControl(player, menu, actions, control);
+        switch (control.experienceMode()) {
+            case MUSIC -> addMusicModeControls(player, menu, actions, control);
+            case RHYTHM -> addRhythmModeControls(player, menu, actions, control);
+        }
+        addSoundControls(player, menu, actions, control);
+        addCommonNavigation(player, menu, actions, control);
+        return menu.build();
+    }
+
+    private ControlView controlView(Jukebox jukebox, int requestedPage) {
+        Location location = jukebox.getLocation();
+        JukeboxQueueService.JukeboxState data = queueService.state(location);
+        List<MusicTrack> queue = data.queue();
+        int totalPages = pageCount(queue.size());
+        int currentPage = Math.max(0, Math.min(requestedPage, totalPages - 1));
+        MusicTrack currentDisc = discResolver.resolve(jukebox.getRecord());
+        JukeboxPlaybackSnapshot currentPlayback = currentPlayback(jukebox);
+        JukeboxSoundSettings settings = settingsStore.read(jukebox);
+        JukeboxExperienceMode experienceMode = settingsStore.readExperienceMode(jukebox);
+        JukeboxExperienceMode activeExperienceMode = playbackStatus
+                .activeExperienceMode(jukebox.getBlock()).orElse(experienceMode);
+        JukeboxRhythmReadiness rhythmReadiness = playbackStatus
+                .rhythmReadiness(jukebox.getBlock());
+        return new ControlView(location, jukebox, data, queue, currentPage,
+                totalPages, currentDisc, currentPlayback, settings,
+                experienceMode, activeExperienceMode, rhythmReadiness);
+    }
+
+    private static FloatingMenuLayout controlLayout(JukeboxExperienceMode mode) {
+        FloatingMenuLayout content = mode == JukeboxExperienceMode.MUSIC
+                ? FloatingMenuLayouts.adaptiveCurvedList(2, 4,
+                        0.42, 0.18, 0.26)
+                : FloatingMenuLayouts.adaptiveColumn(0.18);
+        int controlColumns = mode == JukeboxExperienceMode.MUSIC ? 5 : 4;
+        return FloatingMenuLayouts.verticalRegions(0.36,
+                FloatingMenuLayouts.region("content",
+                        FloatingMenuLayouts.offset(content, -0.90, 0.0, 0.0)),
+                FloatingMenuLayouts.region("controls",
+                        FloatingMenuLayouts.adaptiveCurvedGrid(
+                                controlColumns, 0.30, 0.22, 0.18)));
+    }
+
+    private void addDiscPresentation(Player player,
+                                     FloatingMenuDefinition.Builder menu,
+                                     ControlView control) {
         menu.textDecoration("disc-info",
                 FloatingMenuPose.oriented(new FloatingMenuPoint(2.75, 0.72, 1.25),
                         20.0, 0.0),
-                currentDiscInfo(player, jukebox, currentDisc, currentPlayback),
+                currentDiscInfo(player, control.jukebox(), control.currentDisc(),
+                        control.playback(), control.activeExperienceMode()),
                 FloatingMenuAppearance.TRANSPARENT, 3.6F, 3.1F, 0.66F,
                 FloatingMenuDecoration.Alignment.LEFT);
-        if (jukebox.hasRecord()) {
+        if (control.jukebox().hasRecord()) {
             menu.worldItemDecoration("disc",
-                    location.clone().add(0.5, 1.20, 0.5),
-                    0.0, 90.0, currentDiscVisual(player, jukebox, currentDisc),
-                    0.78F, discMotion(currentStatus));
+                    control.location().clone().add(0.5, 1.20, 0.5),
+                    0.0, 90.0, currentDiscVisual(player,
+                            control.jukebox(), control.currentDisc()),
+                    0.78F, discMotion(control.status()));
         }
+    }
 
+    private void addExperienceModeControl(Player player,
+                                          FloatingMenuDefinition.Builder menu,
+                                          JukeboxControlActionHandler actions,
+                                          ControlView control) {
+        menu.item("experience-mode", experienceModeMaterial(control.experienceMode()),
+                        experienceModeLabel(player, control.experienceMode()))
+                .region("controls")
+                .primary((p, handle) -> actions.cycleExperienceMode(
+                        p, control.location()));
+    }
+
+    private void addMusicModeControls(Player player,
+                                      FloatingMenuDefinition.Builder menu,
+                                      JukeboxControlActionHandler actions,
+                                      ControlView control) {
         menu.item("select-music", Material.MUSIC_DISC_WAIT, selectMusicLabel(player))
                 .region("controls")
-                .primary((p, handle) -> actions.selectMusic(p, location));
-
-        var rhythmControl = menu.item("rhythm-game", Material.TARGET,
-                        Component.text(languageService.t(player, Message.MUSIC_RHYTHM_GAME),
-                                        NamedTextColor.LIGHT_PURPLE)
-                                .decoration(TextDecoration.BOLD, true)
-                                .append(Component.newline())
-                                .append(Component.text(languageService.t(player,
-                                                Message.MUSIC_RHYTHM_GAME_DESCRIPTION),
-                                        NamedTextColor.GRAY)
-                                        .decoration(TextDecoration.BOLD, false)))
+                .primary((p, handle) -> actions.selectMusic(p, control.location()));
+        addQueue(player, menu, actions, control);
+        menu.item("playback-mode", modeVisual(control.data().playbackMode()),
+                        modeLabel(player, control.data().playbackMode()))
                 .region("controls")
-                .primary((p, handle) -> actions.openRhythmGame(p, location));
-        if (currentDisc == null || currentStatus != PlaybackStatus.PLAYING) {
-            rhythmControl.disabled(languageService.text(player,
-                    Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.RED));
-        }
+                .primary((p, handle) -> actions.cycleMode(p, control.location()));
+        menu.control("play-next", playNextLabel(player,
+                        control.data().playbackMode()))
+                .region("controls")
+                .primary((p, handle) -> actions.playNext(p, control.location()));
+        addQueueNavigation(player, menu, actions, control);
+        menu.control("queue:clear",
+                        Component.text(languageService.t(player,
+                                Message.MUSIC_CLEAR_QUEUE), NamedTextColor.RED))
+                .region("controls")
+                .primary((p, handle) -> actions.clearQueue(p, control.location()));
+        menu.information("queue:summary", queueSummary(player,
+                        control.queue().size(), control.currentPage() + 1,
+                        control.totalPages()))
+                .region("controls");
+    }
 
-        int start = currentPage * ITEMS_PER_PAGE;
-        int end = Math.min(start + ITEMS_PER_PAGE, queue.size());
+    private void addQueue(Player player, FloatingMenuDefinition.Builder menu,
+                          JukeboxControlActionHandler actions, ControlView control) {
+        int start = control.currentPage() * ITEMS_PER_PAGE;
+        int end = Math.min(start + ITEMS_PER_PAGE, control.queue().size());
         if (start == end) {
             menu.information("queue:empty",
                             Component.text(languageService.t(player, Message.MUSIC_QUEUE_EMPTY),
@@ -201,100 +265,133 @@ public final class JukeboxControlGui {
                                     .append(Component.newline())
                                     .append(Component.text(languageService.t(player,
                                             Message.MUSIC_QUEUE_EMPTY_DESCRIPTION), NamedTextColor.DARK_GRAY)))
-                    .region("queue");
+                    .region("content");
         } else {
             for (int index = start; index < end; index++) {
-                MusicTrack track = queue.get(index);
+                MusicTrack track = control.queue().get(index);
                 menu.control("queue:" + track.id(), queueLabel(track, index + 1))
-                        .region("queue")
-                        .primary((p, handle) -> actions.queueTrack(p, location,
+                        .region("content")
+                        .primary((p, handle) -> actions.queueTrack(p, control.location(),
                                 track, FloatingMenuInteraction.PRIMARY))
-                        .secondary((p, handle) -> actions.queueTrack(p, location,
+                        .secondary((p, handle) -> actions.queueTrack(p, control.location(),
                                 track, FloatingMenuInteraction.SECONDARY))
-                        .scrollUp((p, handle) -> actions.queueTrack(p, location,
+                        .scrollUp((p, handle) -> actions.queueTrack(p, control.location(),
                                 track, FloatingMenuInteraction.SCROLL_UP))
-                        .scrollDown((p, handle) -> actions.queueTrack(p, location,
+                        .scrollDown((p, handle) -> actions.queueTrack(p, control.location(),
                                 track, FloatingMenuInteraction.SCROLL_DOWN));
             }
         }
+    }
 
-        JukeboxSoundSettings settings = settingsStore.read(jukebox);
+    private void addRhythmModeControls(Player player,
+                                       FloatingMenuDefinition.Builder menu,
+                                       JukeboxControlActionHandler actions,
+                                       ControlView control) {
+        boolean ready = control.rhythmReady();
+        boolean calibrated = calibrationStatus.hasCompletedLatencyCalibration(player);
+        boolean rhythmTrackAvailable = control.currentDisc() != null
+                && control.activeExperienceMode() == JukeboxExperienceMode.RHYTHM;
+        menu.information("rhythm:status",
+                        rhythmModeStatusLabel(player, control, calibrated))
+                .region("content");
+        menu.item("select-rhythm-track", Material.MUSIC_DISC_5,
+                        selectRhythmTrackLabel(player))
+                .region("controls")
+                .primary((p, handle) -> actions.selectMusic(p, control.location()));
+
+        var rhythmControl = menu.item("rhythm-game", Material.TARGET,
+                        rhythmGameLabel(player, control, calibrated))
+                .region("controls")
+                .primary((p, handle) -> actions.openRhythmGame(
+                        p, control.location()));
+        if (!rhythmTrackAvailable) {
+            rhythmControl.disabled(rhythmUnavailableReason(player, control));
+        }
+
+        menu.item("latency-calibration", Material.REPEATER,
+                        latencyCalibrationLabel(player, calibrated))
+                .region("controls")
+                .selected(calibrated)
+                .primary((p, handle) -> actions.openLatencyCalibration(
+                        p, control.location()))
+                .secondary((p, handle) -> actions.resetLatencyCalibration(
+                        p, control.location()));
+    }
+
+    private void addSoundControls(Player player,
+                                  FloatingMenuDefinition.Builder menu,
+                                  JukeboxControlActionHandler actions,
+                                  ControlView control) {
         menu.item("volume", Material.NOTE_BLOCK, settingLabel(player,
                         Message.MUSIC_JUKEBOX_VOLUME, Message.MUSIC_JUKEBOX_VOLUME_VALUE,
-                        settings.volumePercent()))
+                        control.settings().volumePercent()))
                 .region("controls")
-                .primary((p, handle) -> actions.adjustVolume(p, location,
+                .primary((p, handle) -> actions.adjustVolume(p, control.location(),
                         FloatingMenuInteraction.PRIMARY))
-                .secondary((p, handle) -> actions.adjustVolume(p, location,
+                .secondary((p, handle) -> actions.adjustVolume(p, control.location(),
                         FloatingMenuInteraction.SECONDARY))
-                .scrollUp((p, handle) -> actions.adjustVolume(p, location,
+                .scrollUp((p, handle) -> actions.adjustVolume(p, control.location(),
                         FloatingMenuInteraction.SCROLL_UP))
-                .scrollDown((p, handle) -> actions.adjustVolume(p, location,
+                .scrollDown((p, handle) -> actions.adjustVolume(p, control.location(),
                         FloatingMenuInteraction.SCROLL_DOWN));
         menu.item("range", Material.SPYGLASS, settingLabel(player,
                         Message.MUSIC_JUKEBOX_RANGE, Message.MUSIC_JUKEBOX_RANGE_VALUE,
-                        settings.rangeBlocks()))
+                        control.settings().rangeBlocks()))
                 .region("controls")
-                .primary((p, handle) -> actions.adjustRange(p, location,
+                .primary((p, handle) -> actions.adjustRange(p, control.location(),
                         FloatingMenuInteraction.PRIMARY))
-                .secondary((p, handle) -> actions.adjustRange(p, location,
+                .secondary((p, handle) -> actions.adjustRange(p, control.location(),
                         FloatingMenuInteraction.SECONDARY))
-                .scrollUp((p, handle) -> actions.adjustRange(p, location,
+                .scrollUp((p, handle) -> actions.adjustRange(p, control.location(),
                         FloatingMenuInteraction.SCROLL_UP))
-                .scrollDown((p, handle) -> actions.adjustRange(p, location,
+                .scrollDown((p, handle) -> actions.adjustRange(p, control.location(),
                         FloatingMenuInteraction.SCROLL_DOWN));
-        menu.item("playback-mode", modeVisual(data.playbackMode()),
-                        modeLabel(player, data.playbackMode()))
-                .region("controls")
-                .primary((p, handle) -> actions.cycleMode(p, location));
-        menu.control("play-next", playNextLabel(player, data.playbackMode()))
-                .region("controls")
-                .primary((p, handle) -> actions.playNext(p, location));
+    }
 
-        if (currentPage > 0) {
+    private void addQueueNavigation(Player player,
+                                    FloatingMenuDefinition.Builder menu,
+                                    JukeboxControlActionHandler actions,
+                                    ControlView control) {
+        if (control.currentPage() > 0) {
             menu.navigation("page:previous",
                             Component.text("‹ " + languageService.t(player,
                                     Message.MUSIC_PREV_PAGE), NamedTextColor.YELLOW))
                     .region("controls")
-                    .primary((p, handle) -> actions.openPage(p, location, currentPage - 1));
+                    .primary((p, handle) -> actions.openPage(p, control.location(),
+                            control.currentPage() - 1));
             menu.on(FloatingMenuInteraction.SCROLL_UP,
-                    (p, handle, input) -> actions.openPage(p, location, currentPage - 1));
+                    (p, handle, input) -> actions.openPage(p, control.location(),
+                            control.currentPage() - 1));
         }
-        if (currentPage < totalPages - 1) {
+        if (control.currentPage() < control.totalPages() - 1) {
             menu.navigation("page:next",
                             Component.text(languageService.t(player,
                                     Message.MUSIC_NEXT_PAGE) + " ›", NamedTextColor.YELLOW))
                     .region("controls")
-                    .primary((p, handle) -> actions.openPage(p, location, currentPage + 1));
+                    .primary((p, handle) -> actions.openPage(p, control.location(),
+                            control.currentPage() + 1));
             menu.on(FloatingMenuInteraction.SCROLL_DOWN,
-                    (p, handle, input) -> actions.openPage(p, location, currentPage + 1));
+                    (p, handle, input) -> actions.openPage(p, control.location(),
+                            control.currentPage() + 1));
         }
-        menu.item("queue:add-all", Material.CHEST,
-                        Component.text(languageService.t(player, Message.MUSIC_ADD_ALL),
-                                NamedTextColor.GOLD))
-                .region("controls")
-                .primary((p, handle) -> actions.addAll(p, location));
-        menu.control("queue:clear",
-                        Component.text(languageService.t(player, Message.MUSIC_CLEAR_QUEUE),
-                                NamedTextColor.RED))
-                .region("controls")
-                .primary((p, handle) -> actions.clearQueue(p, location));
-        menu.information("queue:summary", queueSummary(player, queue.size(),
-                        currentPage + 1, totalPages))
-                .region("controls");
-        if (jukebox.hasRecord()) {
+    }
+
+    private void addCommonNavigation(Player player,
+                                     FloatingMenuDefinition.Builder menu,
+                                     JukeboxControlActionHandler actions,
+                                     ControlView control) {
+        if (control.jukebox().hasRecord()) {
             menu.control("stop-eject",
                             Component.text(languageService.t(player, Message.MUSIC_STOP_EJECT),
                                     NamedTextColor.YELLOW))
                     .region("controls")
-                    .primary((p, handle) -> actions.stopAndEject(p, location));
+                    .primary((p, handle) -> actions.stopAndEject(
+                            p, control.location()));
         }
         menu.navigation("close",
                         Component.text(languageService.t(player, Message.CLOSE), NamedTextColor.RED))
                 .region("controls")
                 .primary((p, handle) -> actions.close(p));
-
-        return menu.build();
     }
 
     private FloatingMenuDefinition unavailableMenu(Player player,
@@ -336,7 +433,12 @@ public final class JukeboxControlGui {
         JukeboxPlaybackSnapshot playback = currentPlayback(jukebox);
         long elapsedSeconds = playback.status() == PlaybackStatus.PLAYING
                 ? playback.positionMillis() / 1_000L : 0L;
-        return new PlaybackRevision(playback.status(), elapsedSeconds);
+        JukeboxExperienceMode configured = settingsStore.readExperienceMode(jukebox);
+        JukeboxExperienceMode active = playbackStatus
+                .activeExperienceMode(jukebox.getBlock()).orElse(configured);
+        return new PlaybackRevision(playback.status(), elapsedSeconds,
+                configured, active,
+                playbackStatus.rhythmReadiness(jukebox.getBlock()));
     }
 
     private ItemStack currentDiscVisual(Player player, Jukebox jukebox, MusicTrack currentDisc) {
@@ -347,7 +449,8 @@ public final class JukeboxControlGui {
 
     private Component currentDiscInfo(Player player, Jukebox jukebox,
                                       MusicTrack currentDisc,
-                                      JukeboxPlaybackSnapshot playback) {
+                                      JukeboxPlaybackSnapshot playback,
+                                      JukeboxExperienceMode experienceMode) {
         if (!jukebox.hasRecord()) {
             return Component.text(languageService.t(player, Message.MUSIC_NO_DISC),
                     NamedTextColor.GRAY);
@@ -371,6 +474,24 @@ public final class JukeboxControlGui {
                                 languageService.t(player, statusMessage(status))))
                         .color(statusColor(status))
                         .decoration(TextDecoration.ITALIC, false));
+        Message experienceName = experienceMode == JukeboxExperienceMode.MUSIC
+                ? Message.MUSIC_JUKEBOX_MUSIC_MODE
+                : Message.MUSIC_JUKEBOX_RHYTHM_MODE;
+        information = information.append(Component.newline())
+                .append(languageService.text(player,
+                        Message.MUSIC_JUKEBOX_USAGE_MODE, NamedTextColor.GRAY))
+                .append(Component.text(": ", NamedTextColor.DARK_GRAY))
+                .append(languageService.text(player, experienceName,
+                        experienceMode == JukeboxExperienceMode.MUSIC
+                                ? NamedTextColor.AQUA
+                                : NamedTextColor.LIGHT_PURPLE));
+        if (status == PlaybackStatus.LOADING
+                && experienceMode == JukeboxExperienceMode.RHYTHM) {
+            information = information.append(Component.newline())
+                    .append(languageService.text(player,
+                            Message.MUSIC_RHYTHM_PREPARING,
+                            NamedTextColor.AQUA));
+        }
         if (currentDisc == null) return information;
 
         TrackDetails details = currentDisc.details();
@@ -474,18 +595,148 @@ public final class JukeboxControlGui {
                 .decoration(TextDecoration.BOLD, true);
     }
 
+    private Component selectRhythmTrackLabel(Player player) {
+        return languageService.text(player, Message.MUSIC_RHYTHM_SELECT_TRACK,
+                        NamedTextColor.LIGHT_PURPLE)
+                .decoration(TextDecoration.BOLD, true);
+    }
+
+    private Component rhythmModeStatusLabel(Player player, ControlView control,
+                                            boolean calibrated) {
+        return languageService.text(player, Message.MUSIC_JUKEBOX_RHYTHM_MODE,
+                        NamedTextColor.LIGHT_PURPLE)
+                .decoration(TextDecoration.BOLD, true)
+                .append(Component.newline())
+                .append(rhythmStatusLine(player, control))
+                .append(Component.newline())
+                .append(calibrationStatusLine(player, calibrated));
+    }
+
+    private Component calibrationStatusLine(Player player, boolean calibrated) {
+        return languageService.text(player,
+                calibrated ? Message.MUSIC_RHYTHM_CALIBRATION_COMPLETE
+                        : Message.MUSIC_RHYTHM_CALIBRATION_REQUIRED,
+                calibrated ? NamedTextColor.GREEN : NamedTextColor.YELLOW);
+    }
+
+    private Component rhythmStatusLine(Player player, ControlView control) {
+        if (control.readiness() == JukeboxRhythmReadiness.WAITING_FOR_PLAYER) {
+            return languageService.text(player,
+                    Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER, NamedTextColor.YELLOW);
+        }
+        if (control.rhythmReady()) {
+            return languageService.text(player, Message.MUSIC_RHYTHM_READY,
+                    NamedTextColor.GREEN);
+        }
+        return switch (control.readiness()) {
+            case WAITING_FOR_PLAYER -> languageService.text(player,
+                    Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER, NamedTextColor.YELLOW);
+            case PREPARING -> languageService.text(player,
+                    Message.MUSIC_RHYTHM_PREPARING, NamedTextColor.AQUA);
+            case NO_BEATS -> languageService.text(player,
+                    Message.MUSIC_RHYTHM_NO_BEATS, NamedTextColor.RED);
+            case READY -> languageService.text(player,
+                    Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.RED);
+            case UNAVAILABLE -> languageService.text(player,
+                    control.currentDisc() != null
+                            && control.activeExperienceMode() == JukeboxExperienceMode.RHYTHM
+                            ? Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER
+                            : Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK,
+                    NamedTextColor.RED);
+        };
+    }
+
+    private Component rhythmUnavailableReason(Player player, ControlView control) {
+        Message message = switch (control.readiness()) {
+            case WAITING_FOR_PLAYER -> Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER;
+            case PREPARING -> Message.MUSIC_RHYTHM_PREPARING;
+            case NO_BEATS -> Message.MUSIC_RHYTHM_NO_BEATS;
+            case READY -> control.activeExperienceMode() == JukeboxExperienceMode.RHYTHM
+                    ? Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK
+                    : Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK;
+            case UNAVAILABLE -> control.currentDisc() == null
+                    ? Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK
+                    : Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER;
+        };
+        NamedTextColor color = message == Message.MUSIC_RHYTHM_PREPARING
+                ? NamedTextColor.AQUA
+                : message == Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER
+                ? NamedTextColor.YELLOW : NamedTextColor.RED;
+        return languageService.text(player, message, color);
+    }
+
     private ItemStack modeVisual(JukeboxPlaybackMode mode) {
         return new ItemStack(modeMaterial(mode));
     }
 
     private Component modeLabel(Player player, JukeboxPlaybackMode mode) {
         String name = languageService.t(player, modeName(mode));
-        return Component.text(name, modeColor(mode))
+        return languageService.text(player, Message.MUSIC_JUKEBOX_PLAY_ORDER,
+                        NamedTextColor.GRAY)
+                .append(Component.text(" · ", NamedTextColor.DARK_GRAY))
+                .append(Component.text(name, modeColor(mode)))
                 .decoration(TextDecoration.BOLD, true)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player, modeDescription(mode)),
                                 NamedTextColor.DARK_GRAY)
                         .decoration(TextDecoration.BOLD, false));
+    }
+
+    private Component experienceModeLabel(Player player, JukeboxExperienceMode mode) {
+        Message name = mode == JukeboxExperienceMode.MUSIC
+                ? Message.MUSIC_JUKEBOX_MUSIC_MODE : Message.MUSIC_JUKEBOX_RHYTHM_MODE;
+        NamedTextColor color = mode == JukeboxExperienceMode.MUSIC
+                ? NamedTextColor.AQUA : NamedTextColor.LIGHT_PURPLE;
+        return languageService.text(player, Message.MUSIC_JUKEBOX_USAGE_MODE,
+                        NamedTextColor.GRAY)
+                .append(Component.text(" · ", NamedTextColor.DARK_GRAY))
+                .append(languageService.text(player, name, color))
+                .decoration(TextDecoration.BOLD, true);
+    }
+
+    private Component rhythmGameLabel(Player player, ControlView control,
+                                      boolean calibrated) {
+        Component label = languageService.text(player, Message.MUSIC_RHYTHM_START_GAME,
+                        NamedTextColor.LIGHT_PURPLE)
+                .decoration(TextDecoration.BOLD, true)
+                .append(Component.newline());
+        boolean trackAvailable = control.currentDisc() != null
+                && control.activeExperienceMode() == JukeboxExperienceMode.RHYTHM;
+        Message detail = !trackAvailable
+                ? Message.MUSIC_RHYTHM_GAME_DESCRIPTION
+                : !calibrated
+                ? Message.MUSIC_RHYTHM_CALIBRATION_REQUIRED
+                : !control.rhythmReady()
+                && control.readiness() == JukeboxRhythmReadiness.WAITING_FOR_PLAYER
+                ? Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER
+                : !control.rhythmReady() ? Message.MUSIC_RHYTHM_PREPARING
+                : Message.MUSIC_RHYTHM_READY;
+        return label.append(languageService.text(player, detail,
+                        !trackAvailable
+                                ? NamedTextColor.RED
+                                : !calibrated
+                                ? NamedTextColor.YELLOW
+                                : !control.rhythmReady()
+                                && control.readiness() == JukeboxRhythmReadiness.NO_BEATS
+                                ? NamedTextColor.RED
+                                : !control.rhythmReady()
+                                ? NamedTextColor.YELLOW
+                                : NamedTextColor.GREEN)
+                .decoration(TextDecoration.BOLD, false));
+    }
+
+    private Component latencyCalibrationLabel(Player player, boolean calibrated) {
+        return languageService.text(player, Message.MUSIC_RHYTHM_CALIBRATION,
+                        NamedTextColor.GOLD)
+                .decoration(TextDecoration.BOLD, true)
+                .append(Component.newline())
+                .append(calibrationStatusLine(player, calibrated)
+                        .decoration(TextDecoration.BOLD, false));
+    }
+
+    private static ItemStack experienceModeMaterial(JukeboxExperienceMode mode) {
+        return new ItemStack(mode == JukeboxExperienceMode.MUSIC
+                ? Material.JUKEBOX : Material.CALIBRATED_SCULK_SENSOR);
     }
 
     private Component settingLabel(Player player, Message name, Message valueMessage, int value) {
@@ -593,9 +844,47 @@ public final class JukeboxControlGui {
         }
     }
 
-    private record PlaybackRevision(PlaybackStatus status, long elapsedSeconds) {
+    private record PlaybackRevision(PlaybackStatus status, long elapsedSeconds,
+                                    JukeboxExperienceMode configuredMode,
+                                    JukeboxExperienceMode activeMode,
+                                    JukeboxRhythmReadiness readiness) {
         private static final PlaybackRevision UNAVAILABLE =
-                new PlaybackRevision(PlaybackStatus.STOPPED, 0L);
+                new PlaybackRevision(PlaybackStatus.STOPPED, 0L,
+                        JukeboxExperienceMode.MUSIC,
+                        JukeboxExperienceMode.MUSIC,
+                        JukeboxRhythmReadiness.UNAVAILABLE);
+    }
+
+    private record ControlView(Location location, Jukebox jukebox,
+                               JukeboxQueueService.JukeboxState data,
+                               List<MusicTrack> queue, int currentPage,
+                               int totalPages, MusicTrack currentDisc,
+                               JukeboxPlaybackSnapshot playback,
+                               JukeboxSoundSettings settings,
+                               JukeboxExperienceMode experienceMode,
+                               JukeboxExperienceMode activeExperienceMode,
+                               JukeboxRhythmReadiness readiness) {
+        private ControlView {
+            Objects.requireNonNull(location, "location");
+            Objects.requireNonNull(jukebox, "jukebox");
+            Objects.requireNonNull(data, "data");
+            queue = List.copyOf(Objects.requireNonNull(queue, "queue"));
+            Objects.requireNonNull(playback, "playback");
+            Objects.requireNonNull(settings, "settings");
+            Objects.requireNonNull(experienceMode, "experienceMode");
+            Objects.requireNonNull(activeExperienceMode, "activeExperienceMode");
+            Objects.requireNonNull(readiness, "readiness");
+        }
+
+        private PlaybackStatus status() {
+            return playback.status();
+        }
+
+        private boolean rhythmReady() {
+            return status() == PlaybackStatus.PLAYING
+                    && activeExperienceMode == JukeboxExperienceMode.RHYTHM
+                    && readiness.playable();
+        }
     }
 
     private record JukeboxTarget(UUID worldId, int x, int y, int z) {

@@ -42,12 +42,7 @@ final class PlaybackResourceResolver {
     CompletableFuture<Resource> acquire(MusicTrack track) {
         Objects.requireNonNull(track, "track");
         if (track.target() instanceof TrackTarget.LocalFile local) {
-            try {
-                return CompletableFuture.completedFuture(
-                        new Resource(localMediaPreparer.prepare(local).toString(), () -> {}));
-            } catch (IOException exception) {
-                return CompletableFuture.failedFuture(exception);
-            }
+            return acquireLocal(local);
         }
         if (track.target() instanceof TrackTarget.Lx online) {
             return onlineCache.acquireStreaming(online).thenApply(streaming -> {
@@ -60,6 +55,29 @@ final class PlaybackResourceResolver {
         }
         return CompletableFuture.failedFuture(new IOException(
                 "NBS tracks use the note-block playback engine"));
+    }
+
+    /** Resolves only immutable, complete media suitable for whole-track analysis. */
+    CompletableFuture<Resource> acquireComplete(MusicTrack track) {
+        Objects.requireNonNull(track, "track");
+        if (track.target() instanceof TrackTarget.LocalFile local) {
+            return acquireLocal(local);
+        }
+        if (track.target() instanceof TrackTarget.Lx online) {
+            return onlineCache.acquire(online).thenApply(cached ->
+                    new Resource(cached.identifier(), cached::close));
+        }
+        return CompletableFuture.failedFuture(new IOException(
+                "NBS tracks use the note-block playback engine"));
+    }
+
+    private CompletableFuture<Resource> acquireLocal(TrackTarget.LocalFile local) {
+        try {
+            return CompletableFuture.completedFuture(
+                    new Resource(localMediaPreparer.prepare(local).toString(), () -> {}));
+        } catch (IOException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
     }
 
     void invalidate(MusicTrack track) {

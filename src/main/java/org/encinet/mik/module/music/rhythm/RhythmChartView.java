@@ -1,40 +1,43 @@
 package org.encinet.mik.module.music.rhythm;
 
+import org.encinet.mik.module.music.rhythm.analysis.RhythmBeat;
+import org.encinet.mik.module.music.rhythm.analysis.RhythmTrack;
+
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * Per-player salience projection of one shared raw timeline.
+ * Per-player density projection of one shared extracted rhythm track.
  *
- * <p>Each selection window is observed in full before its strongest onset is
- * committed. This produces a stable, density-bounded chart and prevents an
- * earlier weak transient from hiding a stronger musical accent.</p>
+ * <p>Only pulses closer than the difficulty's minimum spacing compete, and the
+ * stronger local accent wins after the full stability horizon is observed. This
+ * avoids both transient bursts and the old near-double spacing gap. Extraction
+ * remains mode-independent. The assigned input is the default lane for keyed
+ * modes; spatial modes may instead consume cue identity, time, and strength.</p>
  */
 public final class RhythmChartView {
-    private static final RhythmInput[] DIRECTIONS = {
-            RhythmInput.FORWARD, RhythmInput.BACKWARD,
-            RhythmInput.LEFT, RhythmInput.RIGHT
-    };
+    private static final long MAXIMUM_ONSET_JITTER_MILLIS = 25L;
+    private static final long MINIMUM_ONSET_JITTER_MILLIS = 8L;
 
-    private final RhythmTimeline timeline;
+    private final RhythmTrack track;
     private final RhythmDifficulty difficulty;
+    private final RhythmLaneSequencer lanes;
     private final List<RhythmCue> selected = new ArrayList<>();
-    private long selectionCursorMillis;
-    private RhythmInput previousInput;
-    private int cuesSinceVertical = 12;
+    private long evaluationCursorMillis;
+    private RhythmBeat pending;
 
-    public RhythmChartView(RhythmTimeline timeline, RhythmDifficulty difficulty) {
-        this(timeline, difficulty, 0L);
+    public RhythmChartView(RhythmTrack track, RhythmDifficulty difficulty) {
+        this(track, difficulty, 0L);
     }
 
     /** Starts projection near a join position instead of scanning the elapsed song. */
-    public RhythmChartView(RhythmTimeline timeline, RhythmDifficulty difficulty,
+    public RhythmChartView(RhythmTrack track, RhythmDifficulty difficulty,
                            long startAtMillis) {
-        this.timeline = Objects.requireNonNull(timeline, "timeline");
+        this.track = Objects.requireNonNull(track, "track");
         this.difficulty = Objects.requireNonNull(difficulty, "difficulty");
-        this.selectionCursorMillis = Math.max(0L, startAtMillis);
+        this.lanes = new RhythmLaneSequencer(track.seed());
+        this.evaluationCursorMillis = Math.max(0L, startAtMillis);
     }
 
     public RhythmDifficulty difficulty() {
@@ -56,85 +59,95 @@ public final class RhythmChartView {
 
     /** Whether the chart is finalized through the requested playback time. */
     public boolean preparedThrough(long timeMillis) {
-        if (timeline.complete()) return true;
+        if (track.complete()) return true;
         long spacing = difficulty.minimumCueSpacingMillis();
         long required = saturatedAdd(Math.max(0L, timeMillis), spacing);
-        return timeline.analyzedThroughMillis() >= required;
+        return track.analyzedThroughMillis() >= required;
     }
 
     public boolean complete() {
-        return timeline.complete();
+        return track.complete();
     }
 
-    /** Watermark of stable, salience-selected cues rather than raw analyzer frames. */
+    /**
+     * Releases projected cues that can no longer be queried by a moving game
+     * session. Lane sequencing and the extraction cursor remain continuous.
+     */
+    void discardBefore(long timeMillis) {
+        long cutoff = Math.max(0L, timeMillis);
+        evaluateThrough(cutoff);
+        int removalCount = lowerBound(cutoff);
+        if (removalCount > 0) selected.subList(0, removalCount).clear();
+    }
+
+    int retainedCueCount() {
+        return selected.size();
+    }
+
+    /** Watermark of stable, salience-selected cues rather than extractor frames. */
     public long analyzedThroughMillis() {
-        if (timeline.complete()) return timeline.analyzedThroughMillis();
-        return Math.max(0L, timeline.analyzedThroughMillis()
+        if (track.complete()) return track.analyzedThroughMillis();
+        return Math.max(0L, track.analyzedThroughMillis()
                 - difficulty.minimumCueSpacingMillis());
     }
 
     private void evaluateThrough(long requestedMillis) {
         long spacing = difficulty.minimumCueSpacingMillis();
-        long rawAvailable = timeline.complete()
+        long competitionSpacing = competitionSpacing(spacing);
+        long rawAvailable = track.complete()
                 ? saturatedAdd(requestedMillis, spacing)
-                : timeline.analyzedThroughMillis();
-        while (selectionCursorMillis <= requestedMillis) {
-            long windowEnd = saturatedAdd(selectionCursorMillis, spacing - 1L);
-            if (windowEnd > rawAvailable) return;
-            List<RhythmCue> window = timeline.between(selectionCursorMillis, windowEnd);
-            if (window.isEmpty()) {
-                selectionCursorMillis = saturatedAdd(windowEnd, 1L);
-                continue;
+                : track.analyzedThroughMillis();
+        if (evaluationCursorMillis <= rawAvailable) {
+            for (RhythmBeat beat : track.between(evaluationCursorMillis, rawAvailable)) {
+                consider(beat, competitionSpacing);
             }
-            RhythmCue strongest = window.stream()
-                    .max(Comparator.comparingDouble(RhythmCue::strength)
-                            .thenComparing(Comparator.comparingLong(
-                                    RhythmCue::timeMillis).reversed())
-                            .thenComparing(Comparator.comparingLong(
-                                    RhythmCue::id).reversed()))
-                    .orElseThrow();
-            RhythmCue arranged = arrange(strongest);
-            selected.add(arranged);
-            selectionCursorMillis = saturatedAdd(
-                    strongest.timeMillis(), spacing);
+            evaluationCursorMillis = saturatedAdd(rawAvailable, 1L);
+        }
+        if (pending != null
+                && saturatedAdd(pending.timeMillis(), spacing) <= rawAvailable) {
+            commitPending();
         }
     }
 
-    private RhythmCue arrange(RhythmCue cue) {
-        RhythmInput input = cue.input();
-        int verticalGap = minimumVerticalGap();
-        boolean vertical = isVertical(input);
-        if (input == previousInput || vertical && cuesSinceVertical < verticalGap) {
-            input = alternateDirection(cue);
-            vertical = false;
+    private void consider(RhythmBeat beat, long spacing) {
+        if (pending == null) {
+            pending = beat;
+            return;
         }
-        if (vertical) cuesSinceVertical = 0;
-        else cuesSinceVertical++;
-        previousInput = input;
-        return input == cue.input() ? cue
-                : new RhythmCue(cue.id(), cue.timeMillis(), input, cue.strength());
+        if (beat.timeMillis() - pending.timeMillis() < spacing) {
+            if (stronger(beat, pending)) pending = beat;
+            return;
+        }
+        commitPending();
+        pending = beat;
     }
 
-    private RhythmInput alternateDirection(RhythmCue cue) {
-        long mixed = cue.id() ^ Long.rotateLeft(cue.timeMillis(), 21)
-                ^ timeline.seed().hashCode();
-        int index = Math.floorMod((int) (mixed ^ (mixed >>> 32)), DIRECTIONS.length);
-        RhythmInput input = DIRECTIONS[index];
-        if (input == previousInput) input = DIRECTIONS[(index + 1) % DIRECTIONS.length];
-        return input;
+    private void commitPending() {
+        RhythmBeat beat = pending;
+        if (beat == null) return;
+        selected.add(new RhythmCue(beat.id(), beat.timeMillis(),
+                lanes.next(beat.signature(), beat.stereoBalance(),
+                        beat.toneBalance()), beat.strength()));
+        pending = null;
     }
 
-    private int minimumVerticalGap() {
-        return switch (difficulty) {
-            case EASY -> 6;
-            case NORMAL -> 4;
-            case HARD -> 3;
-            case EXPERT -> 2;
-        };
+    private static boolean stronger(RhythmBeat candidate, RhythmBeat current) {
+        int strength = Double.compare(candidate.strength(), current.strength());
+        if (strength != 0) return strength > 0;
+        if (candidate.timeMillis() != current.timeMillis()) return false;
+        return candidate.id() < current.id();
     }
 
-    private static boolean isVertical(RhythmInput input) {
-        return input == RhythmInput.JUMP || input == RhythmInput.SNEAK;
+    /**
+     * Onsets are measured in 20 ms PCM windows, so a stable musical period can
+     * alternate just below and above a difficulty boundary (for example
+     * 240/260 ms around Normal's 250 ms spacing). Reserve a small, bounded
+     * tolerance for that quantization instead of deleting every second beat.
+     */
+    private static long competitionSpacing(long nominalSpacingMillis) {
+        long allowance = Math.clamp(nominalSpacingMillis / 10L,
+                MINIMUM_ONSET_JITTER_MILLIS, MAXIMUM_ONSET_JITTER_MILLIS);
+        return Math.max(1L, nominalSpacingMillis - allowance);
     }
 
     private int lowerBound(long timeMillis) {

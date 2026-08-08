@@ -1,23 +1,23 @@
 package org.encinet.mik.module.music.rhythm;
 
 import java.util.Comparator;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
 /** Main-thread-owned score and judgement state for one player and playback identity. */
 public final class RhythmGameSession {
     private final UUID playbackId;
     private final RhythmDifficulty difficulty;
-    private final Set<Long> judged = new HashSet<>();
+    private final Map<Long, Long> judged = new HashMap<>();
     private long missCursorMillis;
-    private int score;
-    private int combo;
-    private int maximumCombo;
-    private int hits;
-    private int misses;
+    private long score;
+    private long combo;
+    private long maximumCombo;
+    private long hits;
+    private long misses;
     private RhythmJudgement lastJudgement = RhythmJudgement.NONE;
     private RhythmInput lastInput;
     private long lastJudgementAtMillis = Long.MIN_VALUE / 4L;
@@ -56,12 +56,13 @@ public final class RhythmGameSession {
         if (safeCutoff < missCursorMillis) return 0;
         int newlyMissed = 0;
         for (RhythmCue cue : chart.between(missCursorMillis, safeCutoff)) {
-            if (judged.add(cue.id())) {
+            if (markJudged(cue)) {
                 registerMiss(cue.input(), playbackPositionMillis);
                 newlyMissed++;
             }
         }
-        missCursorMillis = safeCutoff + 1L;
+        missCursorMillis = safeCutoff == Long.MAX_VALUE
+                ? Long.MAX_VALUE : safeCutoff + 1L;
         return newlyMissed;
     }
 
@@ -83,8 +84,8 @@ public final class RhythmGameSession {
         long goodWindow = difficulty.goodWindowMillis();
         List<RhythmCue> candidates = chart.between(
                         Math.max(0L, position - goodWindow),
-                        position + goodWindow).stream()
-                .filter(cue -> !judged.contains(cue.id()))
+                        saturatedAdd(position, goodWindow)).stream()
+                .filter(cue -> !judged.containsKey(cue.id()))
                 .sorted(Comparator.comparingLong(cue ->
                         Math.abs(cue.timeMillis() - position)))
                 .toList();
@@ -94,26 +95,50 @@ public final class RhythmGameSession {
         if (matching == null) {
             if (candidates.isEmpty()) return Result.NONE;
             RhythmCue wrong = candidates.getFirst();
-            judged.add(wrong.id());
+            markJudged(wrong);
             registerMiss(pressed.getFirst(), position);
             return new Result(RhythmJudgement.MISS, wrong,
                     position - wrong.timeMillis(), 0);
         }
 
-        judged.add(matching.id());
+        return registerHit(matching, position);
+    }
+
+    /**
+     * Judges one explicitly aimed cue without projecting the click onto a lane.
+     * Empty-space clicks remain neutral and the normal expiry path owns misses.
+     */
+    public Result hit(RhythmCue aimedCue, long playbackPositionMillis,
+                      RhythmChartView chart) {
+        Objects.requireNonNull(aimedCue, "aimedCue");
+        Objects.requireNonNull(chart, "chart");
+        long position = Math.max(0L, playbackPositionMillis);
+        long goodWindow = difficulty.goodWindowMillis();
+        RhythmCue matching = chart.between(
+                        Math.max(0L, position - goodWindow),
+                        saturatedAdd(position, goodWindow)).stream()
+                .filter(cue -> cue.id() == aimedCue.id()
+                        && cue.timeMillis() == aimedCue.timeMillis()
+                        && !judged.containsKey(cue.id()))
+                .findFirst().orElse(null);
+        return matching == null ? Result.NONE : registerHit(matching, position);
+    }
+
+    private Result registerHit(RhythmCue matching, long position) {
+        markJudged(matching);
         long error = position - matching.timeMillis();
         long absoluteError = Math.abs(error);
         RhythmJudgement judgement = absoluteError <= difficulty.perfectWindowMillis()
                 ? RhythmJudgement.PERFECT
                 : absoluteError <= difficulty.greatWindowMillis()
                 ? RhythmJudgement.GREAT : RhythmJudgement.GOOD;
-        combo++;
+        combo = incrementSaturated(combo);
         maximumCombo = Math.max(maximumCombo, combo);
-        hits++;
+        hits = incrementSaturated(hits);
         int delta = (int) Math.round(judgement.baseScore()
-                * (100 + Math.min(combo, 50)) / 100.0
+                * (100L + Math.min(combo, 50L)) / 100.0
                 * difficulty.scoreMultiplier());
-        score += delta;
+        score = score > Long.MAX_VALUE - delta ? Long.MAX_VALUE : score + delta;
         lastJudgement = judgement;
         lastInput = matching.input();
         lastJudgementAtMillis = position;
@@ -122,7 +147,7 @@ public final class RhythmGameSession {
 
     private void registerMiss(RhythmInput input, long position) {
         combo = 0;
-        misses++;
+        misses = incrementSaturated(misses);
         lastJudgement = RhythmJudgement.MISS;
         lastInput = input;
         lastJudgementAtMillis = position;
@@ -134,13 +159,35 @@ public final class RhythmGameSession {
     }
 
     public boolean isJudged(long cueId) {
-        return judged.contains(cueId);
+        return judged.containsKey(cueId);
     }
 
     /** Removes a cue that could not be presented with a fair visual lead time. */
-    public void ignore(long cueId) {
-        if (cueId == 0L) throw new IllegalArgumentException("cue id must not be zero");
-        judged.add(cueId);
+    public void ignore(RhythmCue cue) {
+        markJudged(Objects.requireNonNull(cue, "cue"));
+    }
+
+    /** Releases judgement identities after the chart has discarded the same history. */
+    void discardBefore(long timeMillis) {
+        long cutoff = Math.max(0L, timeMillis);
+        judged.entrySet().removeIf(entry -> entry.getValue() < cutoff);
+    }
+
+    int retainedJudgementCount() {
+        return judged.size();
+    }
+
+    private boolean markJudged(RhythmCue cue) {
+        return judged.putIfAbsent(cue.id(), cue.timeMillis()) == null;
+    }
+
+    private static long incrementSaturated(long value) {
+        return value == Long.MAX_VALUE ? Long.MAX_VALUE : value + 1L;
+    }
+
+    private static long saturatedAdd(long value, long increment) {
+        return value > Long.MAX_VALUE - increment
+                ? Long.MAX_VALUE : value + increment;
     }
 
     public record Result(RhythmJudgement judgement, RhythmCue cue,
@@ -156,7 +203,7 @@ public final class RhythmGameSession {
         }
     }
 
-    public record View(int score, int combo, int maximumCombo, int hits, int misses,
+    public record View(long score, long combo, long maximumCombo, long hits, long misses,
                        RhythmJudgement lastJudgement, RhythmInput lastInput,
                        long lastJudgementAtMillis) {
     }

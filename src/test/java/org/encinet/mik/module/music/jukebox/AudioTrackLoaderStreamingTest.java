@@ -89,6 +89,50 @@ class AudioTrackLoaderStreamingTest {
                 .get(5, TimeUnit.SECONDS));
     }
 
+    @Test
+    void completeLoadWaitsForTheEntireOnlineResponse() throws Exception {
+        byte[] wav = wav(4096);
+        int initialBytes = 1024;
+        CountDownLatch initialChunkSent = new CountDownLatch(1);
+        CountDownLatch releaseRemainingAudio = new CountDownLatch(1);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/stream.wav", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "audio/wav");
+            exchange.sendResponseHeaders(200, wav.length);
+            exchange.getResponseBody().write(wav, 0, initialBytes);
+            exchange.getResponseBody().flush();
+            initialChunkSent.countDown();
+            try {
+                releaseRemainingAudio.await(5, TimeUnit.SECONDS);
+                exchange.getResponseBody().write(wav, initialBytes,
+                        wav.length - initialBytes);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            } finally {
+                exchange.close();
+            }
+        });
+        server.start();
+        String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stream.wav";
+        cache = OnlineAudioCacheTestSupport.create(directory,
+                ignored -> CompletableFuture.completedFuture(url));
+        loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
+        MusicTrack track = onlineTrack();
+
+        CompletableFuture<AudioTrackLoader.LoadedAudio> loading = loader.loadComplete(track);
+        assertTrue(initialChunkSent.await(5, TimeUnit.SECONDS));
+        try {
+            assertFalse(loading.isDone());
+            assertFalse(cache.isCached((TrackTarget.Lx) track.target()));
+        } finally {
+            releaseRemainingAudio.countDown();
+        }
+
+        try (AudioTrackLoader.LoadedAudio ignored = loading.get(5, TimeUnit.SECONDS)) {
+            assertTrue(cache.isCached((TrackTarget.Lx) track.target()));
+        }
+    }
+
     private static MusicTrack onlineTrack() {
         TrackTarget.Lx target = new TrackTarget.Lx("kw", "streaming-test",
                 List.of("320k"),

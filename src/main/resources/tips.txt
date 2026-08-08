@@ -25,7 +25,7 @@
 </tip>
 
 <tip topics="afk">
-暂时离开时，可以用 <command>/afk <status>稍后回来</status></command> 设置头顶状态；回来后再次使用 <command>/afk</command> 即可取消。
+    暂时离开时，可以用 <command>/afk <status>稍后回来</status></command> 设置头顶状态；再次使用 <command>/afk</command> 会提示你已处于 AFK 状态。
 </tip>
 
 <tip topics="announcements">
@@ -37,7 +37,7 @@
 </tip>
 
 <tip topics="home">
-先用 <command>/sethome <value>名字</value></command> 保存位置，之后可用 <command>/home <value>名字</value></command> 返回；直接使用 <command>/home</command> 会打开空间菜单。
+先用 <command>/sethome <value>名字</value></command> 保存位置，之后可用 <command>/home tp <value>名字</value></command> 返回；直接使用 <command>/home</command> 会打开空间菜单。
 </tip>
 
 <tip topics="home">

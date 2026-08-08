@@ -21,6 +21,7 @@ final class NbsPlaybackCursor {
     private int completedLoops;
     private double ticksPerSecond;
     private double pendingSeconds;
+    private double completedTickSeconds;
     private long lastPollNanos;
     private boolean started;
     private boolean finished;
@@ -32,14 +33,14 @@ final class NbsPlaybackCursor {
 
     PollResult poll(long nowNanos) {
         if (finished) {
-            return new PollResult(List.of(), true);
+            return result(List.of());
         }
         List<NbsNote> notes = new ArrayList<>();
         if (!started) {
             started = true;
             lastPollNanos = nowNanos;
             appendCurrentTick(notes);
-            return new PollResult(notes, false);
+            return result(notes);
         }
 
         long elapsed = nowNanos - lastPollNanos;
@@ -58,13 +59,29 @@ final class NbsPlaybackCursor {
         double tickSeconds = 1.0 / ticksPerSecond;
         while (pendingSeconds + 1.0e-12 >= tickSeconds && !finished) {
             pendingSeconds -= tickSeconds;
+            completedTickSeconds += tickSeconds;
             advanceTick();
             if (!finished) {
                 appendCurrentTick(notes);
                 tickSeconds = 1.0 / ticksPerSecond;
             }
         }
-        return new PollResult(List.copyOf(notes), finished);
+        return result(notes);
+    }
+
+    /**
+     * Playback time owned by the same bounded clock that emits notes.
+     *
+     * <p>When the server stalls, stale scheduler debt is deliberately dropped.
+     * Reporting wall time here would therefore put rhythm visuals permanently
+     * ahead of the NBS sounds. Completed songs also exclude any elapsed time that
+     * arrived after their final tick.</p>
+     */
+    private PollResult result(List<NbsNote> notes) {
+        double positionSeconds = completedTickSeconds
+                + (finished ? 0.0 : pendingSeconds);
+        long positionMillis = Math.max(0L, Math.round(positionSeconds * 1_000.0));
+        return new PollResult(notes, finished, positionMillis);
     }
 
     private void advanceTick() {
@@ -112,6 +129,10 @@ final class NbsPlaybackCursor {
         return low;
     }
 
-    record PollResult(List<NbsNote> notes, boolean finished) {
+    record PollResult(List<NbsNote> notes, boolean finished, long positionMillis) {
+        PollResult {
+            notes = List.copyOf(notes);
+            positionMillis = Math.max(0L, positionMillis);
+        }
     }
 }

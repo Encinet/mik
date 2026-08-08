@@ -14,6 +14,7 @@ import org.encinet.mik.module.music.catalog.MusicTrack;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /** Loads local or cached online audio into Lavaplayer and owns decoder resources. */
 final class AudioTrackLoader implements AutoCloseable {
@@ -29,9 +30,27 @@ final class AudioTrackLoader implements AutoCloseable {
     }
 
     CompletableFuture<LoadedAudio> load(MusicTrack music) {
+        return load(music, resources::acquire);
+    }
+
+    /** Waits for a complete cache file before creating an analysis decoder. */
+    CompletableFuture<LoadedAudio> loadComplete(MusicTrack music) {
+        return load(music, resources::acquireComplete);
+    }
+
+    private CompletableFuture<LoadedAudio> load(
+            MusicTrack music,
+            Function<MusicTrack, CompletableFuture<PlaybackResourceResolver.Resource>> acquire
+    ) {
         Objects.requireNonNull(music, "music");
         CompletableFuture<LoadedAudio> result = new CompletableFuture<>();
-        resources.acquire(music).whenComplete((resource, resolveError) -> {
+        CompletableFuture<PlaybackResourceResolver.Resource> acquiring;
+        try {
+            acquiring = acquire.apply(music);
+        } catch (RuntimeException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+        acquiring.whenComplete((resource, resolveError) -> {
             if (resolveError != null) {
                 result.completeExceptionally(resolveError);
                 return;

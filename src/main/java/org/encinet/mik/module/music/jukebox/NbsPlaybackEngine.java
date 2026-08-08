@@ -11,19 +11,23 @@ import org.encinet.mik.module.music.catalog.nbs.NbsNote;
 import org.encinet.mik.module.music.catalog.nbs.NbsNoteType;
 import org.encinet.mik.module.music.catalog.nbs.NbsParser;
 import org.encinet.mik.module.music.catalog.nbs.NbsSong;
-import org.encinet.mik.module.music.rhythm.NbsRhythmChartGenerator;
-import org.encinet.mik.module.music.rhythm.RhythmTimeline;
+import org.encinet.mik.module.music.rhythm.analysis.NbsRhythmExtractor;
+import org.encinet.mik.module.music.rhythm.analysis.RhythmExtractor;
+import org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 
 /** Loads NBS files off-thread and plays their note-block sounds on the main thread. */
 final class NbsPlaybackEngine implements AutoCloseable {
@@ -31,21 +35,57 @@ final class NbsPlaybackEngine implements AutoCloseable {
     private final Scheduler scheduler;
     private final LocalMediaPreparer mediaPreparer;
     private final NbsParser parser;
+    private final RhythmExtractor<NbsSong> rhythmExtractor;
     private final ExecutorService parsingExecutor;
+    private final LongSupplier nanoClock;
+    private final Predicate<UUID> audibleToPlayer;
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     NbsPlaybackEngine(JavaPlugin plugin) {
+        this(plugin, ignored -> true);
+    }
+
+    NbsPlaybackEngine(JavaPlugin plugin, Predicate<UUID> audibleToPlayer) {
         this(new BukkitScheduler(plugin), new LocalMediaPreparer(), new NbsParser(),
-                Executors.newVirtualThreadPerTaskExecutor());
+                Executors.newVirtualThreadPerTaskExecutor(), NbsRhythmExtractor.INSTANCE,
+                System::nanoTime, audibleToPlayer);
     }
 
     NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
                        NbsParser parser, ExecutorService parsingExecutor) {
+        this(scheduler, mediaPreparer, parser, parsingExecutor,
+                NbsRhythmExtractor.INSTANCE, System::nanoTime, ignored -> true);
+    }
+
+    NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
+                      NbsParser parser, ExecutorService parsingExecutor,
+                      RhythmExtractor<NbsSong> rhythmExtractor) {
+        this(scheduler, mediaPreparer, parser, parsingExecutor, rhythmExtractor,
+                System::nanoTime, ignored -> true);
+    }
+
+    NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
+                      NbsParser parser, ExecutorService parsingExecutor,
+                      RhythmExtractor<NbsSong> rhythmExtractor,
+                      LongSupplier nanoClock) {
+        this(scheduler, mediaPreparer, parser, parsingExecutor, rhythmExtractor,
+                nanoClock, ignored -> true);
+    }
+
+    NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
+                      NbsParser parser, ExecutorService parsingExecutor,
+                      RhythmExtractor<NbsSong> rhythmExtractor,
+                      LongSupplier nanoClock,
+                      Predicate<UUID> audibleToPlayer) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.mediaPreparer = Objects.requireNonNull(mediaPreparer, "mediaPreparer");
         this.parser = Objects.requireNonNull(parser, "parser");
         this.parsingExecutor = Objects.requireNonNull(parsingExecutor, "parsingExecutor");
+        this.rhythmExtractor = Objects.requireNonNull(rhythmExtractor, "rhythmExtractor");
+        this.nanoClock = Objects.requireNonNull(nanoClock, "nanoClock");
+        this.audibleToPlayer = Objects.requireNonNull(
+                audibleToPlayer, "audibleToPlayer");
     }
 
     PlaybackSession create(Location location, TrackTarget.NbsFile target,
@@ -85,7 +125,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final AtomicBoolean terminal = new AtomicBoolean();
         private volatile JukeboxSoundSettings settings;
         private volatile PlaybackStatus status = PlaybackStatus.LOADING;
-        private volatile long playbackStartedNanos;
+        private volatile long playbackPositionMillis;
         private volatile long finalPositionMillis;
         private volatile CompletableFuture<NbsSong> parsing;
         private volatile NbsPlaybackCursor cursor;
@@ -121,7 +161,9 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private NbsSong loadSong() {
             try {
                 NbsSong song = parser.parse(mediaPreparer.prepare(target));
-                NbsRhythmChartGenerator.populate(song, rhythmTimeline);
+                if (!rhythmTimeline.complete()) {
+                    rhythmExtractor.extract(song, rhythmTimeline);
+                }
                 return song;
             } catch (IOException exception) {
                 throw new CompletionException(exception);
@@ -153,9 +195,11 @@ final class NbsPlaybackEngine implements AutoCloseable {
             }
             try {
                 cursor = new NbsPlaybackCursor(Objects.requireNonNull(song, "song"));
+                NbsPlaybackCursor.PollResult initial = cursor.poll(nanoClock.getAsLong());
+                playbackPositionMillis = initial.positionMillis();
                 task = scheduler.scheduleEveryTick(this::tick);
-                playbackStartedNanos = System.nanoTime();
                 status = PlaybackStatus.PLAYING;
+                playNotes(location, initial.notes(), settings, audibleToPlayer);
                 callbacks.started();
             } catch (RuntimeException exception) {
                 fail(exception);
@@ -171,8 +215,9 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 return;
             }
             try {
-                NbsPlaybackCursor.PollResult result = cursor.poll(System.nanoTime());
-                playNotes(location, result.notes(), settings);
+                NbsPlaybackCursor.PollResult result = cursor.poll(nanoClock.getAsLong());
+                playbackPositionMillis = result.positionMillis();
+                playNotes(location, result.notes(), settings, audibleToPlayer);
                 if (result.finished()) {
                     finish();
                 }
@@ -191,20 +236,12 @@ final class NbsPlaybackEngine implements AutoCloseable {
             if (terminal.get()) {
                 return finalPositionMillis;
             }
-            return elapsedPositionMillis();
+            return playbackPositionMillis;
         }
 
         @Override
         public void updateSettings(JukeboxSoundSettings settings) {
             this.settings = Objects.requireNonNull(settings, "settings");
-        }
-
-        private long elapsedPositionMillis() {
-            long startedAt = playbackStartedNanos;
-            if (startedAt == 0) {
-                return 0;
-            }
-            return Math.max(0, (System.nanoTime() - startedAt) / 1_000_000);
         }
 
         @Override
@@ -241,7 +278,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
 
         private void cleanup() {
             status = PlaybackStatus.STOPPED;
-            finalPositionMillis = Math.max(finalPositionMillis, elapsedPositionMillis());
+            finalPositionMillis = Math.max(finalPositionMillis, playbackPositionMillis);
             CompletableFuture<NbsSong> currentParsing = parsing;
             if (currentParsing != null) {
                 currentParsing.cancel(true);
@@ -293,13 +330,15 @@ final class NbsPlaybackEngine implements AutoCloseable {
     }
 
     private static void playNotes(Location jukeboxLocation, List<NbsNote> notes,
-                                  JukeboxSoundSettings settings) {
+                                  JukeboxSoundSettings settings,
+                                  Predicate<UUID> audibleToPlayer) {
         World world = jukeboxLocation.getWorld();
         if (world == null || notes.isEmpty() || settings.volumePercent() == 0) {
             return;
         }
         double rangeSquared = (double) settings.rangeBlocks() * settings.rangeBlocks();
         List<Player> audience = world.getPlayers().stream()
+                .filter(player -> audibleToPlayer.test(player.getUniqueId()))
                 .filter(player -> player.getLocation().distanceSquared(jukeboxLocation)
                         <= rangeSquared)
                 .toList();

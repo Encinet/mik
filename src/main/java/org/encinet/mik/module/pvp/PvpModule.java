@@ -131,61 +131,60 @@ public class PvpModule implements Listener, PvpStateResolver {
                                 openAdminMenu(player, 0);
                             }
                             return Command.SINGLE_SUCCESS;
-                        }))
-                .then(Commands.argument("player", StringArgumentType.word())
-                        .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_HELPER))
-                        .suggests((ctx, builder) -> {
-                            String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
-                            Bukkit.getOnlinePlayers().stream()
-                                    .map(Player::getName)
-                                    .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(remaining))
-                                    .forEach(builder::suggest);
-                            return builder.buildFuture();
                         })
-                        .executes(ctx -> {
-                            Player target = onlineTarget(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"));
-                            if (target != null) {
-                                sendStatus(ctx.getSource().getSender(), target);
-                            }
-                            return Command.SINGLE_SUCCESS;
-                        })
-                        .then(Commands.literal("status")
+                        .then(Commands.argument("player", StringArgumentType.word())
+                                .suggests((ctx, builder) -> {
+                                    String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
+                                    Bukkit.getOnlinePlayers().stream()
+                                            .map(Player::getName)
+                                            .filter(name -> name.toLowerCase(Locale.ROOT).startsWith(remaining))
+                                            .forEach(builder::suggest);
+                                    return builder.buildFuture();
+                                })
                                 .executes(ctx -> {
                                     Player target = onlineTarget(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"));
                                     if (target != null) {
                                         sendStatus(ctx.getSource().getSender(), target);
                                     }
                                     return Command.SINGLE_SUCCESS;
-                                }))
-                        .then(Commands.literal("on")
-                                .executes(ctx -> {
-                                    setTargetPvp(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"), true);
-                                    return Command.SINGLE_SUCCESS;
-                                }))
-                        .then(Commands.literal("off")
-                                .executes(ctx -> {
-                                    setTargetPvp(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"), false);
-                                    return Command.SINGLE_SUCCESS;
-                                }))
-                        .then(Commands.literal("toggle")
-                                .executes(ctx -> {
-                                    Player target = onlineTarget(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"));
-                                    if (target != null) {
-                                        setTargetPvp(ctx.getSource().getSender(), target, !settingsStore.get(target.getUniqueId()).enabled());
-                                    }
-                                    return Command.SINGLE_SUCCESS;
-                                }))
-                        .then(Commands.literal("gui")
-                                .executes(ctx -> {
-                                    Player viewer = requirePlayer(ctx.getSource().getSender());
-                                    if (viewer != null) {
-                                        Player target = onlineTarget(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"));
-                                        if (target != null) {
-                                            openMenu(viewer, target);
-                                        }
-                                    }
-                                    return Command.SINGLE_SUCCESS;
-                                })))
+                                })
+                                .then(Commands.literal("status")
+                                        .executes(ctx -> {
+                                            Player target = onlineTarget(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"));
+                                            if (target != null) {
+                                                sendStatus(ctx.getSource().getSender(), target);
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        }))
+                                .then(Commands.literal("on")
+                                        .executes(ctx -> {
+                                            setTargetPvp(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"), true);
+                                            return Command.SINGLE_SUCCESS;
+                                        }))
+                                .then(Commands.literal("off")
+                                        .executes(ctx -> {
+                                            setTargetPvp(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"), false);
+                                            return Command.SINGLE_SUCCESS;
+                                        }))
+                                .then(Commands.literal("toggle")
+                                        .executes(ctx -> {
+                                            Player target = onlineTarget(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"));
+                                            if (target != null) {
+                                                setTargetPvp(ctx.getSource().getSender(), target, !settingsStore.get(target.getUniqueId()).enabled());
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        }))
+                                .then(Commands.literal("gui")
+                                        .executes(ctx -> {
+                                            Player viewer = requirePlayer(ctx.getSource().getSender());
+                                            if (viewer != null) {
+                                                Player target = onlineTarget(ctx.getSource().getSender(), StringArgumentType.getString(ctx, "player"));
+                                                if (target != null) {
+                                                    openMenu(viewer, target);
+                                                }
+                                            }
+                                            return Command.SINGLE_SUCCESS;
+                                        }))))
                 .build(), languageService.t(Language.DEFAULT, Message.PVP_COMMAND_DESCRIPTION)));
     }
 

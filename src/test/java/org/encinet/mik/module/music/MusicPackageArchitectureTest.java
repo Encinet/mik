@@ -183,6 +183,55 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
+    void listeningAndRhythmModesExposeDifferentControlsAndReadiness()
+            throws IOException {
+        String settings = source("jukebox/JukeboxSettingsStore.java");
+        String playback = source("jukebox/JukeboxPlaybackService.java");
+        String status = source("jukebox/JukeboxPlaybackStatus.java");
+        String audio = source("jukebox/AudioPlaybackEngine.java");
+        String gui = source("ui/JukeboxControlGui.java");
+        String actions = source("ui/JukeboxControlActionHandler.java");
+        String listener = source("listener/JukeboxControlListener.java");
+        String musicControls = method(gui,
+                "private void addMusicModeControls(",
+                "private void addQueue(");
+        String rhythmControls = method(gui,
+                "private void addRhythmModeControls(",
+                "private void addSoundControls(");
+
+        assertTrue(settings.contains("readExperienceMode(Jukebox jukebox)"));
+        assertTrue(settings.contains("writeExperienceMode(Jukebox jukebox"));
+        assertTrue(listener.contains("playbackService.playInsertedDisc(player, jukebox)"));
+        assertTrue(playback.contains("playback.experienceMode"));
+        assertTrue(playback.contains("Optional<Participation> join(Block block"));
+        assertTrue(playback.contains("resetRhythmPlaybackToWaiting(playback)"));
+        assertTrue(playback.contains("JukeboxRhythmReadiness.WAITING_FOR_PLAYER"));
+        assertTrue(playback.contains("backendStarted.compareAndSet(false, true)"));
+        assertTrue(playback.contains("if (playback.experienceMode == JukeboxExperienceMode.MUSIC)"));
+        assertTrue(playback.contains("JukeboxRhythmReadiness rhythmReadiness"));
+        assertTrue(status.contains("rhythmReadiness(Block block)"));
+        assertTrue(audio.contains("experienceMode.waitsForRhythmAnalysis()"));
+        assertTrue(audio.contains("rhythmAnalysis.completion().whenComplete"));
+        assertTrue(gui.contains("\"experience-mode\""));
+        assertTrue(musicControls.contains("\"playback-mode\""));
+        assertTrue(musicControls.contains("\"play-next\""));
+        assertTrue(musicControls.contains("\"queue:clear\""));
+        assertFalse(musicControls.contains("\"rhythm-game\""));
+        assertFalse(rhythmControls.contains("\"prepare-rhythm-track\""));
+        assertTrue(rhythmControls.contains("\"rhythm-game\""));
+        assertTrue(gui.contains("MUSIC_RHYTHM_START_GAME"));
+        assertTrue(gui.contains("MUSIC_RHYTHM_WAITING_FOR_PLAYER"));
+        assertFalse(actions.contains("prepareRhythmTrack"));
+        assertTrue(rhythmControls.contains("\"latency-calibration\""));
+        assertFalse(rhythmControls.contains("\"source-latency-calibration\""));
+        assertFalse(actions.contains("SourceLatencyCalibration"));
+        assertFalse(rhythmControls.contains("\"playback-mode\""));
+        assertFalse(rhythmControls.contains("\"queue:clear\""));
+        assertFalse(gui.contains("queue:add-all"));
+        assertFalse(actions.contains("void addAll("));
+    }
+
+    @Test
     void spatialControlsContainNoInventoryMetadataContracts() throws IOException {
         String gui = source("ui/JukeboxControlGui.java");
         String browser = source("ui/MusicBrowserGui.java");
@@ -385,22 +434,294 @@ class MusicPackageArchitectureTest {
         assertTrue(gui.contains("FloatingMenuAppearance.TRANSPARENT"));
         assertFalse(gui.contains("MUSIC_JUKEBOX_TITLE"));
         assertFalse(gui.contains("element(\"current\""));
-        assertTrue(gui.contains("if (jukebox.hasRecord())"));
+        assertTrue(gui.contains("if (control.jukebox().hasRecord())"));
         assertTrue(listener.contains("!jukebox.hasRecord()"));
         assertTrue(playback.contains("|| !jukebox.hasRecord()"));
     }
 
     @Test
-    void rhythmInputHasAWideSafetyLeashAndAnAimIndependentExit() throws IOException {
+    void rhythmInputUsesHotbarOneThroughFourWithNineAsTheNeutralSlot()
+            throws IOException {
         String rhythm = source("rhythm/RhythmGameService.java");
 
         assertTrue(rhythm.contains(
                 ".movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)"));
-        assertTrue(rhythm.contains("menu.on(FloatingMenuInteraction.HOTKEY,"));
-        assertTrue(rhythm.contains("Component.text(\"[F] \""));
+        assertFalse(rhythm.contains("menu.on(FloatingMenuInteraction.HOTKEY,"));
+        assertTrue(rhythm.contains("Component.keybind(\"key.sneak\""));
+        assertTrue(rhythm.contains("if (exitPressed)"));
+        assertTrue(rhythm.contains("public void onHeldItemChange(PlayerItemHeldEvent event)"));
+        assertTrue(rhythm.contains("RhythmInput.fromHotbarSlot(event.getNewSlot())"));
+        assertTrue(rhythm.contains("NEUTRAL_HOTBAR_SLOT = 8"));
+        assertTrue(rhythm.contains("selectNeutralHotbarSlot(player)"));
+        assertTrue(rhythm.contains("expected.heldSlotBeforeGame"));
+        assertTrue(rhythm.contains("public void onSwapHandItems(PlayerSwapHandItemsEvent event)"));
+        assertFalse(rhythm.contains("List.of(RhythmInput.FOUR)"));
+        assertTrue(rhythm.contains("game.mode != RhythmGameMode.FALLING"));
         assertTrue(rhythm.contains("event.setCancelled(true)"));
         assertFalse(rhythm.contains("event.setTo(locked)"));
         assertTrue(rhythm.contains("player.setVelocity(player.getVelocity().zero())"));
+        assertTrue(rhythm.contains("game.latency.inputPosition("));
+        assertTrue(rhythm.contains("game.latency.missPosition("));
+        assertTrue(rhythm.contains("RhythmLatencyProfile profile = calibrationProfiles(player)"));
+        assertTrue(rhythm.contains(".forChannel(playback.audioChannel())"));
+        assertTrue(rhythm.contains("profile.judgementOffsetMillis()"));
+        assertTrue(rhythm.contains("profile.animationOffsetMillis()"));
+        assertTrue(rhythm.contains("rhythm_minecraft_judgement_ms"));
+        assertTrue(rhythm.contains("rhythm_minecraft_animation_ms"));
+        assertTrue(rhythm.contains("rhythm_plasmo_judgement_ms"));
+        assertTrue(rhythm.contains("rhythm_plasmo_animation_ms"));
+        assertFalse(rhythm.contains("rhythm_latency_base_calibration_ms"));
+        assertFalse(rhythm.contains("rhythm_animation_calibration_ms"));
+        assertFalse(rhythm.contains("rhythm_latency_calibration_ms"));
+        assertFalse(rhythm.contains("rhythm_latency_nbs_calibration_ms"));
+        assertTrue(rhythm.contains("PersistentDataType.INTEGER"));
+        assertTrue(rhythm.contains("calibration.latency.compensationMillis()"));
+        assertTrue(rhythm.contains("inputTimestamps.claimHotbar("));
+        assertTrue(rhythm.contains("game.playbackClock.positionAt("));
+        assertTrue(rhythm.contains("game.latency.visualPosition("));
+        assertTrue(rhythm.contains("game.latency.visualNetworkPosition("));
+        assertTrue(rhythm.contains("game.latency.totalCompensationMillis()"));
+        assertFalse(rhythm.contains("- Math.clamp(player.getPing()"));
+    }
+
+    @Test
+    void rhythmGameRequiresOneCompletedLatencyTestAndHasNoSongFineTuning()
+            throws IOException {
+        String rhythm = source("rhythm/RhythmGameService.java");
+        String gui = source("ui/JukeboxControlGui.java");
+        String actions = source("ui/JukeboxControlActionHandler.java");
+
+        assertTrue(rhythm.contains("implements Listener, AutoCloseable,"));
+        assertTrue(rhythm.contains("RhythmCalibrationStatus"));
+        assertTrue(rhythm.contains(
+                "public boolean hasCompletedLatencyCalibration(Player player)"));
+        assertEquals(2, occurrences(rhythm,
+                "if (!requireCompletedCalibration(player))"));
+        assertTrue(gui.contains(
+                "calibrationStatus.hasCompletedLatencyCalibration(player)"));
+        assertTrue(gui.contains("MUSIC_RHYTHM_CALIBRATION_REQUIRED"));
+        assertTrue(gui.contains("MUSIC_RHYTHM_CALIBRATION_COMPLETE"));
+        assertEquals(1, occurrences(gui, "\"latency-calibration\""));
+        assertFalse(gui.contains("source-latency-calibration"));
+        assertFalse(actions.contains("SourceLatencyCalibration"));
+        assertFalse(rhythm.contains("SOURCE_AUDIO"));
+        assertFalse(rhythm.contains("sourceFineTune"));
+        assertFalse(rhythm.contains("openSourceCalibration"));
+    }
+
+    @Test
+    void uncalibratedStartUsesAFloatingConfirmationWithoutWeakeningServiceGuards()
+            throws IOException {
+        String gui = source("ui/JukeboxControlGui.java");
+        String listener = source("listener/JukeboxControlListener.java");
+        String prompt = source("ui/RhythmCalibrationPrompt.java");
+        String rhythm = source("rhythm/RhythmGameService.java");
+        String module = source("MusicModule.java");
+        String controls = method(gui, "private void addRhythmModeControls(",
+                "private void addSoundControls(");
+
+        assertEquals(1, occurrences(controls, "rhythmControl.disabled("),
+                "only an unavailable rhythm track may disable Start Game");
+        assertTrue(listener.contains(
+                "if (!rhythmGameService.hasCompletedLatencyCalibration(player))"));
+        assertTrue(listener.contains("calibrationPrompt.show(player,"));
+        assertTrue(listener.contains("confirmLatencyCalibration(confirmed, target)"));
+        assertTrue(listener.contains("resolveJukebox(player, location)"));
+        assertTrue(prompt.contains("FloatingMenuScreen<PromptState>"));
+        assertTrue(prompt.contains("\"rhythm-calibration-prompt\""));
+        assertTrue(prompt.contains("screen.open(player, new PromptState(confirmAction))"));
+        assertTrue(prompt.contains("requireSpatialPresentation()"));
+        assertTrue(prompt.contains("stableAnchor()"));
+        assertTrue(prompt.contains("FloatingMenuLayouts.information(\"information\")"));
+        assertTrue(prompt.contains("FloatingMenuLayouts.actions(\"actions\", 2)"));
+        assertTrue(prompt.contains("Material.LIME_CONCRETE"));
+        assertTrue(prompt.contains("Material.GRAY_CONCRETE"));
+        assertTrue(prompt.contains("state.confirmAction().accept(confirmed)"));
+        assertTrue(prompt.contains("if (handle.depth() > 0) handle.back()"));
+        assertTrue(prompt.contains("MUSIC_RHYTHM_CALIBRATION_PROMPT_REASON"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_CALIBRATION_STAGE_VISUAL"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_CALIBRATION_STAGE_MINECRAFT"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_CALIBRATION_STAGE_PLASMO"));
+        assertFalse(prompt.contains("io.papermc.paper.dialog"));
+        assertFalse(prompt.contains("DialogType"));
+        assertFalse(prompt.contains("showDialog("));
+        assertFalse(prompt.contains("Bukkit"));
+        assertFalse(prompt.contains("sendActionBar"));
+        assertEquals(2, occurrences(rhythm,
+                "if (!requireCompletedCalibration(player))"));
+        assertTrue(module.contains(
+                "new RhythmCalibrationPrompt(languageService)"));
+    }
+
+    @Test
+    void latencyTestSilencesEveryJukeboxBackendOnlyForItsPlayer()
+            throws IOException {
+        String playback = source("jukebox/JukeboxPlaybackService.java");
+        String audio = source("jukebox/AudioPlaybackEngine.java");
+        String nbs = source("jukebox/NbsPlaybackEngine.java");
+        String rhythm = source("rhythm/RhythmGameService.java");
+
+        assertTrue(playback.contains("RhythmPlaybackGateway, RhythmPlaybackIsolation"));
+        assertTrue(playback.contains("audioAudience::canHear"));
+        assertTrue(playback.contains("SilenceLease silenceFor(Player player)"));
+        assertTrue(audio.contains("proximitySource.<VoicePlayer>addFilter"));
+        assertTrue(audio.contains("audibleToPlayer.test("));
+        assertTrue(nbs.contains(
+                ".filter(player -> audibleToPlayer.test(player.getUniqueId()))"));
+        assertTrue(rhythm.contains("playbackIsolation.silenceFor(player)"));
+        assertTrue(rhythm.contains("expected.silenceLease.close()"));
+        assertTrue(rhythm.contains("calibration.silenceLease.close()"));
+    }
+
+    @Test
+    void completeLatencyTestMeasuresMinecraftAndPlasmoVoiceIndependently()
+            throws IOException {
+        String rhythm = source("rhythm/RhythmGameService.java");
+        String calibrationAudio = source(
+                "rhythm/calibration/PlasmoVoiceCalibrationAudio.java");
+        String frameProvider = source(
+                "rhythm/calibration/LoopingAudioFrameProvider.java");
+        String pattern = source(
+                "rhythm/calibration/RhythmCalibrationPattern.java");
+        String acceptsInput = method(rhythm,
+                "private boolean acceptsRawMeasurement()",
+                "private void noteInput(");
+        String calibrationView = method(rhythm,
+                "private FloatingMenuDefinition renderCalibration(",
+                "private FloatingMenuDefinition unavailableCalibration(");
+        String calibrationProgress = method(rhythm,
+                "private Component calibrationProgress(",
+                "private static String signedMillis(");
+        String advancePlasmo = method(rhythm,
+                "private CalibrationAdvance advancePlasmo(",
+                "private void restartPlasmo(");
+        String playback = source("jukebox/JukeboxPlaybackService.java");
+        String module = source("MusicModule.java");
+
+        assertTrue(rhythm.contains("MINECRAFT_LISTEN"));
+        assertTrue(rhythm.contains("MINECRAFT_AUDIO"));
+        assertTrue(rhythm.contains("TRANSITION_TO_PLASMO"));
+        assertTrue(rhythm.contains("PLASMO_LISTEN"));
+        assertTrue(rhythm.contains("PLASMO_AUDIO"));
+        assertTrue(rhythm.contains("TRANSITION_TO_VISUAL"));
+        assertTrue(rhythm.contains("VISUAL_LISTEN"));
+        assertFalse(rhythm.contains("TRANSITION_TO_VALIDATION"));
+        assertFalse(rhythm.contains("VALIDATE_MINECRAFT"));
+        assertFalse(rhythm.contains("VALIDATE_PLASMO_LISTEN"));
+        assertFalse(rhythm.contains("VALIDATE_PLASMO"));
+        assertFalse(rhythm.contains("VALIDATION_COMPLETE"));
+        assertTrue(rhythm.contains("SoundCategory.RECORDS"));
+        assertTrue(rhythm.contains("RhythmCalibrationProfiles.fromTests("));
+        assertTrue(rhythm.contains("RhythmCalibrationPattern.fixed()"));
+        assertTrue(rhythm.contains("pattern.durationMillis()"));
+        assertTrue(rhythm.contains("playMinecraftCues(player, 0L, nowNanos"));
+        assertTrue(rhythm.contains("output.play(player, pattern)"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_CALIBRATION_LISTEN"));
+        assertFalse(acceptsInput.contains("MINECRAFT_LISTEN"));
+        assertFalse(acceptsInput.contains("PLASMO_LISTEN"));
+        assertTrue(acceptsInput.contains("MINECRAFT_AUDIO"));
+        assertTrue(acceptsInput.contains("PLASMO_AUDIO"));
+        assertFalse(calibrationView.contains("signedMillis("));
+        assertFalse(calibrationView.contains("medianDeviationMillis"));
+        assertFalse(calibrationView.contains("compensationMillis()"));
+        assertFalse(calibrationView.contains("MAD"));
+        assertTrue(calibrationView.contains("\"calibration-target\""));
+        assertTrue(calibrationView.contains("Material.GLASS"));
+        assertFalse(calibrationView.contains("Material.TARGET"));
+        assertFalse(calibrationProgress.contains("REQUIRED_SAMPLES"));
+        assertFalse(calibrationProgress.contains("sampleCount()"));
+        assertFalse(calibrationProgress.contains("observationCount()"));
+        assertFalse(calibrationProgress.contains("rejectedCount()"));
+        assertFalse(rhythm.contains("MUSIC_RHYTHM_CALIBRATION_REJECTED"));
+        assertFalse(rhythm.contains("CALIBRATION_CUE_INTERVAL_MILLIS"));
+        assertFalse(rhythm.contains("CALIBRATION_PRESENTED_CUES"));
+        assertFalse(rhythm.contains("stageExpired()"));
+        assertFalse(rhythm.contains("restartCalibrationStage"));
+        assertTrue(rhythm.contains("calibration.closeStagePlayback()"));
+        assertTrue(rhythm.contains("== CalibrationAdvance.START_PLASMO"));
+        assertTrue(advancePlasmo.contains(
+                "plasmoMeasurement.advanceToCycle(completed);"));
+        assertTrue(advancePlasmo.contains("return CalibrationAdvance.NONE;"));
+        assertFalse(advancePlasmo.contains(
+                "plasmoMeasurement.advanceToCycle(completed);\n"
+                        + "            return CalibrationAdvance.START_PLASMO;"));
+        assertTrue(rhythm.contains("calibrationAudioOutput.available(player)"));
+        assertTrue(frameProvider.contains(
+                "RhythmCalibrationDrumSynth.timeline(pattern)"));
+        assertTrue(calibrationAudio.contains("sourceLine.createDirectSource("));
+        assertTrue(calibrationAudio.contains("voicePlayer, false"));
+        assertTrue(calibrationAudio.contains("source.setSender(voicePlayer)"));
+        assertFalse(calibrationAudio.contains("createPlayerSource("));
+        assertFalse(calibrationAudio.contains("addFilter("));
+        assertTrue(calibrationAudio.contains("public boolean active()"));
+        assertTrue(calibrationAudio.contains("drainPresentations()"));
+        assertTrue(calibrationAudio.contains("PlaybackProgress progress()"));
+        assertEquals(1, occurrences(calibrationAudio, "createAudioSender("));
+        assertTrue(frameProvider.contains("implements AudioFrameProvider"));
+        assertTrue(frameProvider.contains("MONO_FRAME_SAMPLES = 960"));
+        assertTrue(frameProvider.contains("new AudioFrameResult.Provided(frame)"));
+        assertTrue(frameProvider.contains("lastFrameAtNanos"));
+        assertTrue(frameProvider.contains("completedCycles"));
+        assertFalse(frameProvider.contains("EndOfStream"));
+        assertFalse(frameProvider.contains("addEnd("));
+        assertTrue(pattern.contains("PHRASE_BEATS = 8"));
+        assertTrue(pattern.contains("BEAT_INTERVAL_MILLIS = 800L"));
+        assertTrue(pattern.contains("next - previous != BEAT_INTERVAL_MILLIS"));
+        assertTrue(pattern.contains("cueIndexNearest("));
+        assertTrue(playback.contains("RhythmAudioChannel.MINECRAFT"));
+        assertTrue(playback.contains("RhythmAudioChannel.PLASMO_VOICE"));
+        assertTrue(module.contains("new PlasmoVoiceCalibrationAudio("));
+    }
+
+    @Test
+    void rhythmModesShareOneChartWhileOwningIndependentPresentations()
+            throws IOException {
+        String rhythm = source("rhythm/RhythmGameService.java");
+        String radial = source("rhythm/RhythmRadialPath.java");
+        String open = method(rhythm, "public boolean open(", "private void start(");
+        String start = method(rhythm, "private void start(",
+                "private static void preparePlayerForCapturedInput(");
+
+        assertTrue(rhythm.contains("new FloatingMenuScreen<>(\"jukebox-rhythm-mode\""));
+        assertTrue(rhythm.contains("case FALLING -> renderFallingScene("));
+        assertTrue(rhythm.contains("case RADIAL -> renderRadialScene("));
+        assertEquals(1, occurrences(rhythm,
+                "new RhythmChartView(playback.timeline(), difficulty"));
+        assertFalse(open.contains("playbackGateway.join("));
+        assertTrue(start.contains("playbackGateway.join("));
+        assertTrue(rhythm.contains("game.participation.close()"));
+        assertTrue(rhythm.contains("GAME_JOIN_DELAY_MILLIS = 3_000L"));
+        assertTrue(rhythm.contains("readyAfterMillis"));
+        assertTrue(rhythm.contains("renderGameOverlay(menu, player, playback"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_CHART_PREPARING"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_GET_READY"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_GO"));
+        assertTrue(radial.contains("MAXIMUM_TURN_DEGREES = 28.0"));
+        assertTrue(radial.contains("MAXIMUM_TURN_ACCELERATION_DEGREES = 8.0"));
+        assertTrue(radial.contains("cuesUntilNewTarget = 3 +"));
+        assertTrue(radial.contains("static Location point(Location anchor"));
+        assertTrue(rhythm.contains("FloatingMenuDecoration.worldBlock("));
+        assertTrue(rhythm.contains("public void onRadialSwing(PlayerAnimationEvent event)"));
+        assertTrue(rhythm.contains("public void onRadialInteract(PlayerInteractEvent event)"));
+        assertTrue(rhythm.contains("game.session.hit("));
+        assertFalse(rhythm.contains("RADIAL_CENTER"));
+        assertFalse(rhythm.contains("radial:target:"));
+    }
+
+    @Test
+    void audioRhythmAnalysisUsesOnlyCompleteMediaAndPublishesAtomically()
+            throws IOException {
+        String engine = source("jukebox/AudioPlaybackEngine.java");
+        String analyzer = source("jukebox/OfflineRhythmAnalyzer.java");
+        String loader = source("jukebox/AudioTrackLoader.java");
+
+        assertTrue(engine.contains("rhythmAnalyzer.analyze(music, rhythmTimeline)"));
+        assertFalse(engine.contains("setFilterFactory("));
+        assertTrue(loader.contains("resources::acquireComplete"));
+        assertTrue(analyzer.contains("loader.loadComplete(music)"));
+        assertTrue(analyzer.contains("new RhythmTimeline(destination.seed())"));
+        assertTrue(analyzer.contains("WholeTrackRhythmExtractor::new"));
+        assertTrue(analyzer.indexOf("drain(decoder)") < analyzer.indexOf("publish(track);"));
     }
 
     private static void assertNoImport(Path directory, String forbidden) throws IOException {
@@ -434,6 +755,16 @@ class MusicPackageArchitectureTest {
         assertTrue(start >= 0, () -> "Missing source marker: " + startMarker);
         assertTrue(end > start, () -> "Missing source marker after method: " + endMarker);
         return source.substring(start, end);
+    }
+
+    private static int occurrences(String source, String value) {
+        int count = 0;
+        int cursor = 0;
+        while ((cursor = source.indexOf(value, cursor)) >= 0) {
+            count++;
+            cursor += value.length();
+        }
+        return count;
     }
 
     private static boolean contains(Path path, String text) {

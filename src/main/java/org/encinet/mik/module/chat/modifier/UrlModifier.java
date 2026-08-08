@@ -1,5 +1,7 @@
 package org.encinet.mik.module.chat.modifier;
 
+import com.google.common.net.InternetDomainName;
+
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -12,6 +14,13 @@ public final class UrlModifier implements ChatModifier {
     // \p{M}  = Mark（组合音标，如泰文元音符号）
     private static final String U_ALNUM = "[\\p{L}\\p{N}\\p{M}]";
 
+    private static final String ASCII_DOMAIN_LABEL =
+            "[a-z0-9](?:[a-z0-9\\-]{0,61}[a-z0-9])?";
+    private static final String ASCII_TOP_LEVEL_DOMAIN =
+            "(?:[a-z]{2,63}|xn--[a-z0-9\\-]{2,59})";
+    private static final String ASCII_DOMAIN =
+            "(?:" + ASCII_DOMAIN_LABEL + "\\.)+" + ASCII_TOP_LEVEL_DOMAIN;
+
     // 域名 label：ASCII 字母数字 + 连字符，或纯 Unicode 字符序列
     // ASCII label：[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?
     // Unicode label：一个或多个 Unicode 字母/数字（CJK 域名不含连字符）
@@ -23,8 +32,6 @@ public final class UrlModifier implements ChatModifier {
             "(?:[a-z]{2,63}|xn--[a-z0-9\\-]{2,59}|" + U_ALNUM + "{2,})";
 
     private static final String DOMAIN = "(?:" + DOMAIN_LABEL + "\\.)+" + TOP_LEVEL_DOMAIN;
-
-    // bare www. 前缀域名（无协议头）
     private static final String BARE_WWW_DOMAIN =
             "www\\.(?:" + DOMAIN_LABEL + "\\.)*" + TOP_LEVEL_DOMAIN;
 
@@ -37,10 +44,15 @@ public final class UrlModifier implements ChatModifier {
     // path/query/fragment：允许非 ASCII Unicode 字符（中文路径、日文参数等）
     // 排除空白和 < > 即可；百分号编码和原始 Unicode 都接受
     private static final String RESOURCE = "(?:[/?#][^\\s<>]*)?";
+    private static final String ASCII_HOST_END =
+            "(?![a-z0-9_@\\-]|\\." + U_ALNUM + "|:[0-9])";
 
     private static final Pattern URL_PATTERN = Pattern.compile(
-            "(?i)(https?://" + HOST + PORT + RESOURCE
-                    + "|" + BARE_WWW_DOMAIN + PORT + RESOURCE + ")",
+            "(?i)(?:https?://" + HOST + PORT + RESOURCE
+                    // ASCII 裸域名允许紧邻中文文本，例如“查看google.com”。
+                    + "|(?<![a-z0-9_@.\\-])" + ASCII_DOMAIN + PORT + ASCII_HOST_END + RESOURCE
+                    // 保留 www. 开头的 Unicode 裸域名支持，同时用边界排除邮箱。
+                    + "|(?<![a-z0-9_@.\\-])" + BARE_WWW_DOMAIN + PORT + ASCII_HOST_END + RESOURCE + ")",
             Pattern.UNICODE_CHARACTER_CLASS  // 让 \p{L} 等正确匹配 Unicode，Java 8u20+ 默认也可，显式更安全
     );
 
@@ -65,52 +77,106 @@ public final class UrlModifier implements ChatModifier {
     public ChatReplacement find(String text, int fromIndex, ChatModifierContext context) {
         Matcher matcher = MATCHER_CACHE.get();
         matcher.reset(text);
-        if (!matcher.find(fromIndex)) {
-            return null;
+        int searchIndex = fromIndex;
+        while (matcher.find(searchIndex)) {
+            String token = matcher.group();
+            int linkLength = urlEnd(token);
+            String link = token.substring(0, linkLength);
+            if (!hasHttpScheme(link) && !hasRegistrableDomain(link)) {
+                // 当前候选可能只是文件名（如 config.yaml）；继续寻找后面的真正链接。
+                searchIndex = matcher.start() + 1;
+                continue;
+            }
+            String cleanedLink = stripTrackingParams(link);
+            String url = normalizedUrl(cleanedLink);
+            return new ChatReplacement(
+                    matcher.start(), matcher.start() + linkLength,
+                    ChatRenderUtil.link(ChatRenderUtil.compactLinkLabel(cleanedLink), url)
+            );
         }
-        String token = matcher.group();
-        int linkLength = urlEnd(token);
-        String link = token.substring(0, linkLength);
-        String cleanedLink = stripTrackingParams(link);
-        String url = normalizedUrl(cleanedLink);
-        return new ChatReplacement(
-                matcher.start(), matcher.start() + linkLength,
-                ChatRenderUtil.link(ChatRenderUtil.compactLinkLabel(cleanedLink), url)
-        );
+        return null;
     }
 
     private String normalizedUrl(String token) {
-        if (token.regionMatches(true, 0, "http://", 0, 7)
-                || token.regionMatches(true, 0, "https://", 0, 8)) {
+        if (hasHttpScheme(token)) {
             return token;
         }
         return "https://" + token;
     }
 
+    private boolean hasHttpScheme(String token) {
+        return token.regionMatches(true, 0, "http://", 0, 7)
+                || token.regionMatches(true, 0, "https://", 0, 8);
+    }
+
+    private boolean hasRegistrableDomain(String token) {
+        String host = bareHost(token);
+        try {
+            return InternetDomainName.from(host).isUnderRegistrySuffix();
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+    }
+
+    private String bareHost(String token) {
+        int end = token.length();
+        for (int i = 0; i < token.length(); i++) {
+            char c = token.charAt(i);
+            if (c == ':' || c == '/' || c == '?' || c == '#') {
+                end = i;
+                break;
+            }
+        }
+        return token.substring(0, end);
+    }
+
     private int urlEnd(String token) {
         int end = token.length();
-        // 先去除 ASCII 标点
-        while (end > 0 && isTrailingUrlPunctuation(token.charAt(end - 1))) {
-            end--;
-        }
-        // 再去除 Unicode 标点，需要按码点倒退
         while (end > 0) {
             int cp = token.codePointBefore(end);
-            if (!isTrailingUnicodePunctuation(cp)) break;
+            if (!isTrailingPunctuation(cp) && !isUnmatchedClosing(token, end, cp)) {
+                break;
+            }
             end -= Character.charCount(cp);
         }
         return Math.max(end, 1);
     }
 
-    private boolean isTrailingUrlPunctuation(char c) {
-        return c == '.' || c == ',' || c == '!' || c == '?' || c == ':' || c == ';';
+    private boolean isTrailingPunctuation(int cp) {
+        return switch (cp) {
+            case '.', ',', '!', '?', ':', ';', '\'', '"',
+                    '。', '，', '！', '？', '；', '：', '、', '…' -> true;
+            default -> false;
+        };
     }
 
-    private boolean isTrailingUnicodePunctuation(int cp) {
-        return cp == '。' || cp == '，' || cp == '！' || cp == '？'
-                || cp == '；' || cp == '：' || cp == '、' || cp == '…'
-                || cp == '》' || cp == '』'
-                || cp == '）';
+    private boolean isUnmatchedClosing(String token, int end, int closing) {
+        int opening = switch (closing) {
+            case ')' -> '(';
+            case ']' -> '[';
+            case '}' -> '{';
+            case '）' -> '（';
+            case '】' -> '【';
+            case '》' -> '《';
+            case '」' -> '「';
+            case '』' -> '『';
+            default -> -1;
+        };
+        if (opening < 0) {
+            return false;
+        }
+
+        int balance = 0;
+        for (int i = 0; i < end; ) {
+            int cp = token.codePointAt(i);
+            if (cp == opening) {
+                balance++;
+            } else if (cp == closing) {
+                balance--;
+            }
+            i += Character.charCount(cp);
+        }
+        return balance < 0;
     }
 
     private String stripTrackingParams(String url) {

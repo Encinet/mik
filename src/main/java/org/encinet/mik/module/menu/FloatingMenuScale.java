@@ -2,18 +2,20 @@ package org.encinet.mik.module.menu;
 
 import java.util.Arrays;
 
-/** Player-selected size of Java Edition spatial menus. */
+/** Player-selected reading size of Java Edition spatial menus. */
 public enum FloatingMenuScale {
-    SMALL("small", 0.82),
-    NORMAL("normal", 1.00),
-    LARGE("large", 1.18);
+    SMALL("small", 0.90, 0.75),
+    NORMAL("normal", 1.00, 1.00),
+    LARGE("large", 1.10, 1.40);
 
     private final String id;
-    private final double factor;
+    private final double layoutFactor;
+    private final double textFactor;
 
-    FloatingMenuScale(String id, double factor) {
+    FloatingMenuScale(String id, double layoutFactor, double textFactor) {
         this.id = id;
-        this.factor = factor;
+        this.layoutFactor = layoutFactor;
+        this.textFactor = textFactor;
     }
 
     public String id() {
@@ -21,7 +23,21 @@ public enum FloatingMenuScale {
     }
 
     public double factor() {
-        return factor;
+        return layoutFactor;
+    }
+
+    /** Effective glyph size relative to the normal option in an open scene. */
+    public double textFactor() {
+        return textFactor;
+    }
+
+    /** Extra local glyph scale after the shared spatial layout scale is applied. */
+    double typographyFactor() {
+        return textFactor / layoutFactor;
+    }
+
+    public int textPercent() {
+        return (int) Math.round(textFactor * 100.0);
     }
 
     /** Moves through the discrete size choices without wrapping at either edge. */

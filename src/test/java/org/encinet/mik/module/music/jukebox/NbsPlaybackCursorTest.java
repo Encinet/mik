@@ -77,8 +77,24 @@ class NbsPlaybackCursorTest {
 
         assertEquals(java.util.stream.IntStream.rangeClosed(1, 20).boxed().toList(),
                 ticks(delayed));
+        assertEquals(1_000L, delayed.positionMillis(),
+                "the public clock must drop the same stale debt as note playback");
         assertFalse(delayed.finished());
-        assertEquals(List.of(21), ticks(cursor.poll(60_050_000_000L)));
+        NbsPlaybackCursor.PollResult resumed = cursor.poll(60_050_000_000L);
+        assertEquals(List.of(21), ticks(resumed));
+        assertEquals(1_050L, resumed.positionMillis());
+    }
+
+    @Test
+    void finishedClockStopsAtTheActualSongEndInsteadOfTheLatePollTime() {
+        NbsPlaybackCursor cursor = new NbsPlaybackCursor(song(false, 0));
+
+        assertEquals(0L, cursor.poll(1_000_000_000L).positionMillis());
+        NbsPlaybackCursor.PollResult finished = cursor.poll(2_000_000_000L);
+
+        assertTrue(finished.finished());
+        assertEquals(300L, finished.positionMillis());
+        assertEquals(300L, cursor.poll(10_000_000_000L).positionMillis());
     }
 
     @Test

@@ -33,21 +33,21 @@ public final class ChatMessageFormatter {
 
     public Component publicMessage(Player sender, Audience viewer, Component message, String copyText, String repeatCommand) {
         PlayerIdentityComponent identity = identity(sender, viewer);
-        return channelMessage(ChannelMarker.empty(), identity, viewer,
-                identity.nameTag(), message, copyText, repeatCommand);
+        return channelMessage(ChannelMarker.empty(), viewer,
+                identity.component(), message, copyText, repeatCommand);
     }
 
     public Component staffMessage(Player sender, Audience viewer, Component message, String copyText, String repeatCommand) {
         PlayerIdentityComponent identity = identity(sender, viewer);
-        return channelMessage(ChannelMarker.text("STAFF", NamedTextColor.GOLD), identity, viewer,
-                identity.nameTag(), message, copyText, repeatCommand);
+        return channelMessage(ChannelMarker.text("STAFF", NamedTextColor.GOLD), viewer,
+                identity.component(), message, copyText, repeatCommand);
     }
 
     public Component privateMessage(Player sender, Player target, Audience viewer, Component message, String copyText,
                                     String repeatCommand) {
         PlayerIdentityComponent identity = identity(sender, viewer);
-        return channelMessage(ChannelMarker.text(privateLabel(viewer), NamedTextColor.LIGHT_PURPLE), identity, viewer,
-                privateBody(identity.nameTag(), ChatDisplayRenderer.playerName(target)),
+        return channelMessage(ChannelMarker.text(privateLabel(viewer), NamedTextColor.LIGHT_PURPLE), viewer,
+                privateBody(identity.component(), ChatDisplayRenderer.playerName(target)),
                 message, copyText, repeatCommand);
     }
 
@@ -56,16 +56,14 @@ public final class ChatMessageFormatter {
         Component target = ChatDisplayRenderer.clickablePlayerName(
                 Component.text(username, NamedTextColor.WHITE), username);
         PlayerIdentityComponent identity = identity(sender, sender);
-        return channelMessage(ChannelMarker.text(privateLabel(sender), NamedTextColor.LIGHT_PURPLE), identity, sender,
-                privateBody(identity.nameTag(), target), message, copyText, null);
+        return channelMessage(ChannelMarker.text(privateLabel(sender), NamedTextColor.LIGHT_PURPLE), sender,
+                privateBody(identity.component(), target), message, copyText, null);
     }
 
-    private Component channelMessage(ChannelMarker marker, PlayerIdentityComponent identity, Audience viewer,
+    private Component channelMessage(ChannelMarker marker, Audience viewer,
                                      Component body, Component message, String copyText, String repeatCommand) {
         return Component.text()
-                .append(identity.platformBadge())
-                .append(marker.component())
-                .append(body)
+                .append(channelPrefix(marker.component(), body))
                 .append(Component.text(" »", NamedTextColor.GOLD))
                 .append(timeHoveredMessage(message, copyText, copyHint(viewer)))
                 .append(repeatSuffix(repeatCommand))
@@ -81,7 +79,14 @@ public final class ChatMessageFormatter {
         return playerIdentities.render(sender, viewer, ChatDisplayRenderer.playerName(sender));
     }
 
-    private Component privateBody(Component senderIdentity, Component target) {
+    static Component channelPrefix(Component marker, Component body) {
+        return Component.text()
+                .append(marker)
+                .append(body)
+                .build();
+    }
+
+    static Component privateBody(Component senderIdentity, Component target) {
         return Component.text()
                 .append(senderIdentity)
                 .append(Component.text(" -> ", NamedTextColor.DARK_GRAY))

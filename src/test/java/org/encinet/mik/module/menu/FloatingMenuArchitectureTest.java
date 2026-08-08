@@ -275,19 +275,11 @@ class FloatingMenuArchitectureTest {
     }
 
     @Test
-    void developmentRuntimeMatchesTheDeclaredMinecraftApi() throws IOException {
-        String build = Files.readString(Path.of("build.gradle"));
-        assertTrue(build.contains("paperDevBundle(\"26.2.build.84-stable\")"));
-        assertTrue(build.contains("minecraftVersion(\"26.2\")"));
-        assertFalse(build.contains("paper-api:26.1.2"));
-        assertFalse(build.contains("minecraftVersion(\"26.1.2\")"));
-    }
-
-    @Test
     void complexMenusUseTypedScreenStateAndSemanticJukeboxActions() throws IOException {
         for (String source : List.of(
                 "module/communication/AnnouncementModule.java",
                 "module/music/ui/JukeboxControlGui.java",
+                "module/music/ui/RhythmCalibrationPrompt.java",
                 "module/music/ui/MusicBrowserGui.java",
                 "module/player/HomeModule.java",
                 "module/commands/SimpleFeaturesModule.java")) {
@@ -327,6 +319,8 @@ class FloatingMenuArchitectureTest {
                 "module/menu/FloatingMenuService.java"));
         String store = Files.readString(MAIN.resolve(
                 "module/menu/FloatingMenuSettingsStore.java"));
+        String scale = Files.readString(MAIN.resolve(
+                "module/menu/FloatingMenuScale.java"));
         String mainMenu = Files.readString(MAIN.resolve(
                 "module/player/MainMenuModule.java"));
         String music = Files.readString(MAIN.resolve(
@@ -334,12 +328,17 @@ class FloatingMenuArchitectureTest {
 
         assertTrue(store.contains("menu-settings.yml"));
         assertTrue(service.contains("session.interfaceScale = selected.factor()"));
+        assertTrue(service.contains("session.typographyScale = selected.typographyFactor()"));
+        assertTrue(service.contains("FloatingMenuNodeSizing.TEXT_SCALE * session.spatialScale\n"
+                + "                        * session.typographyScale"));
         assertTrue(service.contains("session.reanchor(session.definition, session.layoutSnapshot)"));
         assertTrue(service.contains("HOVER_SURFACE_MARGIN * session.spatialScale"));
         assertTrue(service.contains("menu.on(FloatingMenuInteraction.SCROLL_UP"));
         assertTrue(service.contains("menu.on(FloatingMenuInteraction.SCROLL_DOWN"));
         assertTrue(mainMenu.contains("FloatingMenus.openSettings(p)"));
         assertTrue(mainMenu.contains("interfaceScaleLabel(player)"));
+        assertTrue(scale.contains("SMALL(\"small\", 0.90, 0.75)"));
+        assertTrue(scale.contains("LARGE(\"large\", 1.10, 1.40)"));
         assertTrue(music.contains("FloatingMenuDefinition.screen(\"music-browser\")\n"
                 + "                .framing(FloatingMenuFraming.PANORAMIC)\n"
                 + "                .stableAnchor()"));

@@ -16,10 +16,13 @@ import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
 import org.encinet.mik.module.music.lyrics.LyricDisplayService;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
-import org.encinet.mik.module.music.rhythm.RhythmPlaybackSnapshot;
-import org.encinet.mik.module.music.rhythm.RhythmPlaybackSource;
-import org.encinet.mik.module.music.rhythm.RhythmPlaybackState;
-import org.encinet.mik.module.music.rhythm.RhythmTimeline;
+import org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline;
+import org.encinet.mik.module.music.rhythm.playback.RhythmPlaybackGateway;
+import org.encinet.mik.module.music.rhythm.playback.RhythmPlaybackIsolation;
+import org.encinet.mik.module.music.rhythm.playback.RhythmPlaybackSnapshot;
+import org.encinet.mik.module.music.rhythm.playback.RhythmPlaybackState;
+import org.encinet.mik.module.music.rhythm.playback.RhythmParticipants;
+import org.encinet.mik.module.music.rhythm.playback.RhythmAudioChannel;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 import java.util.List;
@@ -33,7 +36,7 @@ import java.util.function.Consumer;
 
 /** Coordinates jukebox discs, playback state, notifications, and backend lifecycle. */
 public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPlayback,
-        RhythmPlaybackSource {
+        RhythmPlaybackGateway, RhythmPlaybackIsolation {
 
     private final JavaPlugin plugin;
     private final MusicDiscResolver discResolver;
@@ -41,6 +44,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     private final JukeboxSettingsStore settingsStore;
     private final JukeboxPlaybackNotifier notifier;
     private final VanillaRecordSilencer recordSilencer;
+    private final JukeboxAudioAudience audioAudience = new JukeboxAudioAudience();
     private final AudioPlaybackEngine audioEngine;
     private final NbsPlaybackEngine nbsEngine;
     private final LyricDisplayService lyricDisplay;
@@ -67,8 +71,9 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                 playbackRecorder, "playbackRecorder");
         this.lyricDisplay = java.util.Objects.requireNonNull(lyricDisplay, "lyricDisplay");
 
-        this.audioEngine = new AudioPlaybackEngine(plugin, voiceServer, audioCache);
-        this.nbsEngine = new NbsPlaybackEngine(plugin);
+        this.audioEngine = new AudioPlaybackEngine(plugin, voiceServer, audioCache,
+                audioAudience::canHear);
+        this.nbsEngine = new NbsPlaybackEngine(plugin, audioAudience::canHear);
     }
 
     public void enable() {
@@ -150,18 +155,77 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         Playback playback = new Playback(key, location, music,
                 player == null ? null : player.getUniqueId(),
                 musicName == null || musicName.isBlank() ? music.details().title() : musicName,
-                settingsStore.read(jukebox), announce, onStarted);
+                settingsStore.read(jukebox), settingsStore.readExperienceMode(jukebox),
+                announce, onStarted);
         playbacks.put(key, playback);
-        recordSilencer.playbackStarted(location);
         jukebox.stopPlaying();
         jukebox.update(true, false);
         notifyStateChanged(location);
 
-        startBackend(playback);
+        if (playback.experienceMode == JukeboxExperienceMode.MUSIC) {
+            recordSilencer.playbackStarted(location);
+            startBackend(playback);
+        }
         return !playback.failed.get();
     }
 
+    /** Acquires one actual game participant; menus alone never start playback. */
+    @Override
+    public Optional<Participation> join(Block block, UUID playerId) {
+        java.util.Objects.requireNonNull(block, "block");
+        java.util.Objects.requireNonNull(playerId, "playerId");
+        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        if (playback == null || playback.stopped.get()
+                || playback.experienceMode != JukeboxExperienceMode.RHYTHM) {
+            return Optional.empty();
+        }
+
+        RhythmParticipants.Participation participant =
+                playback.rhythmParticipants.acquire(playerId,
+                        () -> resetRhythmPlaybackToWaiting(playback));
+        if (participant.first() && playback.session == null) {
+            recordSilencer.playbackStarted(playback.location);
+            startBackend(playback);
+        }
+        if (playback.failed.get() || playbacks.get(playback.key) != playback) {
+            participant.close();
+            return Optional.empty();
+        }
+
+        UUID playbackId = playback.rhythmId;
+        return Optional.of(new Participation() {
+            @Override
+            public UUID playbackId() {
+                return playbackId;
+            }
+
+            @Override
+            public void close() {
+                participant.close();
+            }
+        });
+    }
+
+    /** Stops and discards the song clock while retaining the disc as a waiting track. */
+    private void resetRhythmPlaybackToWaiting(Playback playback) {
+        if (!playback.rhythmParticipants.isEmpty()
+                || playbacks.get(playback.key) != playback
+                || playback.stopped.get()) {
+            return;
+        }
+        PlaybackSession session = playback.session;
+        playback.session = null;
+        playback.backendStarted.set(false);
+        playback.rhythmId = UUID.randomUUID();
+        LyricDisplayService.PlaybackLyrics lyrics = playback.lyrics.getAndSet(null);
+        if (lyrics != null) lyrics.close();
+        if (session != null) session.stop();
+        recordSilencer.playbackStopped(playback.location);
+        notifyStateChanged(playback.location);
+    }
+
     private void startBackend(Playback playback) {
+        if (!playback.backendStarted.compareAndSet(false, true)) return;
         try {
             PlaybackCallbacks callbacks = callbacks(playback);
             playback.session = playback.music.target() instanceof TrackTarget.NbsFile nbs
@@ -169,7 +233,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                             playback.rhythmTimeline)
                     : audioEngine.create(playback.location, playback.music,
                             playback.musicName, playback.settings, callbacks,
-                            playback.rhythmTimeline);
+                            playback.rhythmTimeline, playback.experienceMode);
             playback.session.start();
         } catch (RuntimeException exception) {
             backendFailed(playback, exception);
@@ -347,11 +411,39 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                 : new JukeboxPlaybackSnapshot(session.status(), session.positionMillis());
     }
 
+    @Override
+    public Optional<JukeboxExperienceMode> activeExperienceMode(Block block) {
+        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        return playback == null || playback.stopped.get()
+                ? Optional.empty() : Optional.of(playback.experienceMode);
+    }
+
+    @Override
+    public JukeboxRhythmReadiness rhythmReadiness(Block block) {
+        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        if (playback == null || playback.stopped.get()) {
+            return JukeboxRhythmReadiness.UNAVAILABLE;
+        }
+        if (playback.experienceMode == JukeboxExperienceMode.RHYTHM
+                && playback.rhythmParticipants.isEmpty()) {
+            return JukeboxRhythmReadiness.WAITING_FOR_PLAYER;
+        }
+        if (!playback.rhythmTimeline.complete()) {
+            return JukeboxRhythmReadiness.PREPARING;
+        }
+        return playback.rhythmTimeline.playable()
+                ? JukeboxRhythmReadiness.READY
+                : JukeboxRhythmReadiness.NO_BEATS;
+    }
+
     /** Exposes one coherent playback clock and its automatically generated chart. */
     @Override
     public Optional<RhythmPlaybackSnapshot> rhythmPlayback(Block block) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
-        if (playback == null || playback.stopped.get()) return Optional.empty();
+        if (playback == null || playback.stopped.get()
+                || playback.experienceMode != JukeboxExperienceMode.RHYTHM) {
+            return Optional.empty();
+        }
         PlaybackSession session = playback.session;
         PlaybackStatus currentStatus = session == null
                 ? PlaybackStatus.LOADING : session.status();
@@ -362,7 +454,17 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             case STOPPED -> RhythmPlaybackState.STOPPED;
         };
         return Optional.of(new RhythmPlaybackSnapshot(playback.rhythmId,
-                playback.music, position, rhythmState, playback.rhythmTimeline));
+                playback.music, playback.music.target() instanceof TrackTarget.NbsFile
+                        ? RhythmAudioChannel.MINECRAFT
+                        : RhythmAudioChannel.PLASMO_VOICE,
+                position, rhythmState, playback.rhythmTimeline));
+    }
+
+    /** Silences all managed jukebox backends only for this player. */
+    @Override
+    public SilenceLease silenceFor(Player player) {
+        return audioAudience.silence(java.util.Objects.requireNonNull(
+                player, "player").getUniqueId());
     }
 
     public boolean shouldRestore(Block block, ItemStack record) {
@@ -519,23 +621,26 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     }
 
     private static final class Playback {
-        private final UUID rhythmId = UUID.randomUUID();
+        private volatile UUID rhythmId = UUID.randomUUID();
         private final JukeboxKey key;
         private final Location location;
         private final MusicTrack music;
         private final java.util.UUID requestingPlayer;
         private final String musicName;
+        private final JukeboxExperienceMode experienceMode;
         private final boolean announce;
         private final Runnable onStarted;
         private volatile JukeboxSoundSettings settings;
         private final AtomicBoolean stopped = new AtomicBoolean();
         private final AtomicBoolean started = new AtomicBoolean();
+        private final AtomicBoolean backendStarted = new AtomicBoolean();
         private final AtomicBoolean finishing = new AtomicBoolean();
         private final AtomicBoolean failed = new AtomicBoolean();
         private final AtomicBoolean cleaned = new AtomicBoolean();
         private final AtomicBoolean failureNotified = new AtomicBoolean();
         private final AtomicBoolean playbackRecorded = new AtomicBoolean();
-        private final RhythmTimeline rhythmTimeline;
+        private volatile RhythmTimeline rhythmTimeline;
+        private final RhythmParticipants rhythmParticipants = new RhythmParticipants();
         private volatile PlaybackSession session;
         private final java.util.concurrent.atomic.AtomicReference<
                 LyricDisplayService.PlaybackLyrics> lyrics = new java.util.concurrent.atomic.AtomicReference<>();
@@ -543,6 +648,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         private Playback(JukeboxKey key, Location location, MusicTrack music,
                          java.util.UUID requestingPlayer,
                          String musicName, JukeboxSoundSettings settings,
+                         JukeboxExperienceMode experienceMode,
                          boolean announce, Runnable onStarted) {
             this.key = key;
             this.location = location;
@@ -550,6 +656,8 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             this.requestingPlayer = requestingPlayer;
             this.musicName = musicName;
             this.settings = java.util.Objects.requireNonNull(settings, "settings");
+            this.experienceMode = java.util.Objects.requireNonNull(
+                    experienceMode, "experienceMode");
             this.announce = announce;
             this.onStarted = java.util.Objects.requireNonNull(onStarted, "onStarted");
             this.rhythmTimeline = new RhythmTimeline(music.id());

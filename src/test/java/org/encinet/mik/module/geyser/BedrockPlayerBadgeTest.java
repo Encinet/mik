@@ -34,16 +34,35 @@ class BedrockPlayerBadgeTest {
         String nameTag = Files.readString(MAIN.resolve("player/NameTagModule.java"));
         String identities = Files.readString(
                 MAIN.resolve("player/identity/PlayerIdentityRenderer.java"));
+        String identityComponent = Files.readString(
+                MAIN.resolve("player/identity/PlayerIdentityComponent.java"));
 
         assertTrue(chat.contains("playerIdentities.render(sender, viewer"));
-        assertTrue(tabList.contains("playerIdentities.renderGlobal(player"));
+        assertTrue(tabList.contains(".render(subject, language"));
         assertTrue(nameTag.contains("playerIdentities.renderPreview("));
         assertTrue(identities.contains("platformBadge.prefix(subject, viewer)"));
         assertTrue(identities.contains("nameTags.render(subject, baseName"));
+        assertTrue(identityComponent.contains("record PlayerIdentityComponent(Component component)"));
+        assertFalse(chat.contains("identity.platformBadge()"));
+        assertFalse(chat.contains("identity.nameTag()"));
         for (String consumer : new String[]{chat, tabList}) {
             assertFalse(consumer.contains("net.luckperms"));
             assertFalse(consumer.contains("NameMetaRenderer"));
             assertFalse(consumer.contains("BedrockPlayerBadge"));
         }
+    }
+
+    @Test
+    void tabListBadgeIsLocalizedPerViewer() throws IOException {
+        String badge = Files.readString(MAIN.resolve("geyser/BedrockPlayerBadge.java"));
+        String tabList = Files.readString(MAIN.resolve("player/TabListModule.java"));
+
+        assertTrue(badge.contains("Message.PLAYER_BEDROCK_LABEL"));
+        assertFalse(badge.contains("globalPrefix"));
+        assertTrue(tabList.contains("implements Listener, AfkStateListener, LanguageChangeListener"));
+        assertTrue(tabList.contains("languageService.language(viewer)"));
+        assertTrue(tabList.contains("Action.UPDATE_DISPLAY_NAME"));
+        assertTrue(tabList.contains("addLanguageChangeListener(this)"));
+        assertTrue(tabList.contains("removeLanguageChangeListener(this)"));
     }
 }

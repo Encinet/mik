@@ -179,7 +179,7 @@ public class HomeModule implements Listener {
                     languageService.t(Language.DEFAULT, Message.HOME_SET_COMMAND_DESCRIPTION)
             );
 
-            // /home <name>
+            // /home, /home tp <name>, /home icon <material> <name>
             commands.register(
                     Commands.literal("home")
                             .executes(ctx -> {
@@ -228,24 +228,34 @@ public class HomeModule implements Listener {
                                                         setHomeIcon(player, name, material);
                                                         return Command.SINGLE_SUCCESS;
                                                     }))))
-                            .then(Commands.argument("name", StringArgumentType.greedyString())
-                                    .suggests((ctx, builder) -> {
-                                        if (ctx.getSource().getSender() instanceof Player player) {
-                                            getHomeNames(player).forEach(builder::suggest);
-                                        }
-                                        return builder.buildFuture();
-                                    })
+                            .then(Commands.literal("tp")
                                     .executes(ctx -> {
                                         Player player = requirePlayer(ctx.getSource().getSender());
-                                        if (player == null) {
-                                            return Command.SINGLE_SUCCESS;
+                                        if (player != null) {
+                                            sendUsage(player, "/home tp <name>",
+                                                    Message.HOME_TELEPORT_COMMAND_DESCRIPTION);
+                                            sendHomeList(player);
                                         }
-                                        String name = StringArgumentType.getString(ctx, "name");
-                                        teleportHome(player, name);
                                         return Command.SINGLE_SUCCESS;
-                                    }))
+                                    })
+                                    .then(Commands.argument("name", StringArgumentType.greedyString())
+                                            .suggests((ctx, builder) -> {
+                                                if (ctx.getSource().getSender() instanceof Player player) {
+                                                    getHomeNames(player).forEach(builder::suggest);
+                                                }
+                                                return builder.buildFuture();
+                                            })
+                                            .executes(ctx -> {
+                                                Player player = requirePlayer(ctx.getSource().getSender());
+                                                if (player == null) {
+                                                    return Command.SINGLE_SUCCESS;
+                                                }
+                                                String name = StringArgumentType.getString(ctx, "name");
+                                                teleportHome(player, name);
+                                                return Command.SINGLE_SUCCESS;
+                                            })))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.HOME_TELEPORT_COMMAND_DESCRIPTION)
+                    languageService.t(Language.DEFAULT, Message.HOME_MENU_TITLE)
             );
 
             // /delhome <name>

@@ -18,15 +18,28 @@ final class FloatingMenuNodeSizing {
     }
 
     static Measurement measure(FloatingMenuDefinition.Entry entry) {
+        return measure(entry, 1.0);
+    }
+
+    static Measurement measure(FloatingMenuDefinition.Entry entry,
+                               double typographyFactor) {
         Objects.requireNonNull(entry, "entry");
+        if (!Double.isFinite(typographyFactor) || typographyFactor <= 0.0) {
+            throw new IllegalArgumentException("Typography factor must be positive and finite");
+        }
         TextLayout text = measureText(entry.label(), entry.role(), entry.interactive(),
                 entry.textWidth());
+        FloatingMenuSize renderedText = scaled(text.size(), typographyFactor);
         FloatingMenuSize footprint = switch (entry.style()) {
-            case TEXT -> text.size();
-            case ITEM -> FloatingMenuNodeGeometry.visualFootprint(text.size(), 0.58);
-            case BLOCK -> FloatingMenuNodeGeometry.visualFootprint(text.size(), 0.46);
+            case TEXT -> renderedText;
+            case ITEM -> FloatingMenuNodeGeometry.visualFootprint(renderedText, 0.58);
+            case BLOCK -> FloatingMenuNodeGeometry.visualFootprint(renderedText, 0.46);
         };
         return new Measurement(text, footprint);
+    }
+
+    private static FloatingMenuSize scaled(FloatingMenuSize size, double factor) {
+        return new FloatingMenuSize(size.width() * factor, size.height() * factor);
     }
 
     static TextLayout measureText(Component component, FloatingMenuNodeRole role,

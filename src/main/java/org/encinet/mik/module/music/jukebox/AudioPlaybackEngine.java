@@ -13,8 +13,7 @@ import org.bukkit.block.Block;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
-import org.encinet.mik.module.music.rhythm.RhythmAudioFilterFactory;
-import org.encinet.mik.module.music.rhythm.RhythmTimeline;
+import org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline;
 import su.plo.slib.api.server.position.ServerPos3d;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 import su.plo.voice.api.server.audio.line.ServerSourceLine;
@@ -22,13 +21,16 @@ import su.plo.voice.api.server.audio.provider.AudioFrameProvider;
 import su.plo.voice.api.server.audio.provider.AudioFrameResult;
 import su.plo.voice.api.server.audio.source.AudioSender;
 import su.plo.voice.api.server.audio.source.ServerProximitySource;
+import su.plo.voice.api.server.player.VoicePlayer;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 
 /** Streams local or cached online audio through a Plasmo Voice proximity source. */
 final class AudioPlaybackEngine implements AutoCloseable {
@@ -36,15 +38,22 @@ final class AudioPlaybackEngine implements AutoCloseable {
     private final JavaPlugin plugin;
     private final PlasmoVoiceServer voiceServer;
     private final AudioTrackLoader loader;
+    private final OfflineRhythmAnalyzer rhythmAnalyzer;
     private final ServerSourceLine sourceLine;
+    private final Predicate<UUID> audibleToPlayer;
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     AudioPlaybackEngine(JavaPlugin plugin, PlasmoVoiceServer voiceServer,
-                         OnlineAudioCache onlineCache) {
+                        OnlineAudioCache onlineCache,
+                        Predicate<UUID> audibleToPlayer) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.voiceServer = Objects.requireNonNull(voiceServer, "voiceServer");
         this.loader = new AudioTrackLoader(new PlaybackResourceResolver(onlineCache));
+        this.rhythmAnalyzer = new OfflineRhythmAnalyzer(loader,
+                message -> plugin.getLogger().warning(message));
+        this.audibleToPlayer = Objects.requireNonNull(
+                audibleToPlayer, "audibleToPlayer");
         this.sourceLine = voiceServer.getSourceLineManager()
                 .createBuilder(plugin, "music", "soundCategory.record",
                         "plasmovoice:textures/icons/speaker_disc.png", 10)
@@ -54,12 +63,13 @@ final class AudioPlaybackEngine implements AutoCloseable {
 
     PlaybackSession create(Location location, MusicTrack music, String sourceName,
                            JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
-                           RhythmTimeline rhythmTimeline) {
+                           RhythmTimeline rhythmTimeline,
+                           JukeboxExperienceMode experienceMode) {
         if (closed.get()) {
             throw new IllegalStateException("Audio playback backend is closed");
         }
         Session session = new Session(location.clone(), music, sourceName, settings,
-                callbacks, rhythmTimeline);
+                callbacks, rhythmTimeline, experienceMode);
         sessions.add(session);
         return session;
     }
@@ -71,6 +81,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         }
         List.copyOf(sessions).forEach(Session::stop);
         sessions.clear();
+        rhythmAnalyzer.close();
         loader.close();
         voiceServer.getSourceLineManager().unregister(sourceLine);
     }
@@ -81,6 +92,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final String sourceName;
         private final PlaybackCallbacks callbacks;
         private final RhythmTimeline rhythmTimeline;
+        private final JukeboxExperienceMode experienceMode;
         private final AtomicBoolean started = new AtomicBoolean();
         private final AtomicBoolean stopped = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
@@ -92,16 +104,20 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private volatile long finalPositionMillis;
         private volatile ServerProximitySource<?> source;
         private volatile AudioSender sender;
+        private volatile OfflineRhythmAnalyzer.Analysis rhythmAnalysis;
 
         private Session(Location location, MusicTrack music, String sourceName,
                         JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
-                        RhythmTimeline rhythmTimeline) {
+                        RhythmTimeline rhythmTimeline,
+                        JukeboxExperienceMode experienceMode) {
             this.location = location;
             this.music = Objects.requireNonNull(music, "music");
             this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
             this.settings = Objects.requireNonNull(settings, "settings");
             this.callbacks = Objects.requireNonNull(callbacks, "callbacks");
             this.rhythmTimeline = Objects.requireNonNull(rhythmTimeline, "rhythmTimeline");
+            this.experienceMode = Objects.requireNonNull(
+                    experienceMode, "experienceMode");
         }
 
         @Override
@@ -113,6 +129,39 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 fail(new IllegalStateException("Audio playback backend is closed"));
                 return;
             }
+            if (experienceMode.waitsForRhythmAnalysis()) {
+                if (rhythmTimeline.complete()) {
+                    beginAudioLoad();
+                    return;
+                }
+                rhythmAnalysis = rhythmAnalyzer.analyze(music, rhythmTimeline);
+                rhythmAnalysis.completion().whenComplete((ignored, error) ->
+                        completeRhythmPreparationOnMainThread(error));
+                return;
+            }
+            rhythmAnalysis = rhythmAnalyzer.analyze(music, rhythmTimeline);
+            beginAudioLoad();
+        }
+
+        private void completeRhythmPreparationOnMainThread(Throwable error) {
+            if (stopped.get() || closed.get()) return;
+            try {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (stopped.get() || closed.get() || !callbacks.isValid()) {
+                        cancel();
+                    } else if (error != null) {
+                        fail(unwrap(error));
+                    } else {
+                        beginAudioLoad();
+                    }
+                });
+            } catch (IllegalStateException exception) {
+                fail(error == null ? exception : unwrap(error));
+            }
+        }
+
+        private void beginAudioLoad() {
+            if (stopped.get() || closed.get()) return;
             loader.load(music).whenComplete((loaded, error) -> {
                 if (stopped.get() || closed.get()) {
                     if (loaded != null) {
@@ -149,7 +198,6 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 AudioPlayer player = loader.createPlayer();
                 audioPlayer = player;
                 player.setVolume(settings.volumePercent());
-                player.setFilterFactory(new RhythmAudioFilterFactory(rhythmTimeline));
                 player.addListener(new AudioEventAdapter() {
                     @Override
                     public void onTrackException(AudioPlayer ignored, AudioTrack failedTrack,
@@ -174,6 +222,8 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 ServerProximitySource<?> proximitySource = sourceLine.createStaticSource(position, true);
                 source = proximitySource;
                 proximitySource.setName(sourceName);
+                proximitySource.<VoicePlayer>addFilter(voicePlayer ->
+                        audibleToPlayer.test(voicePlayer.getInstance().getUuid()));
                 AudioFrameProvider provider = () -> provideFrame(track, player);
                 AudioSender audioSender = proximitySource.createAudioSender(
                         provider, () -> (short) settings.rangeBlocks());
@@ -289,8 +339,22 @@ final class AudioPlaybackEngine implements AutoCloseable {
             if (loaded != null) {
                 loaded.close();
             }
-            rhythmTimeline.markAudioComplete(finalPositionMillis);
+            OfflineRhythmAnalyzer.Analysis analysis = rhythmAnalysis;
+            rhythmAnalysis = null;
+            if (analysis != null) {
+                analysis.close();
+            }
             sessions.remove(this);
+        }
+
+        private static Throwable unwrap(Throwable error) {
+            Throwable current = error;
+            while ((current instanceof java.util.concurrent.CompletionException
+                    || current instanceof java.util.concurrent.ExecutionException)
+                    && current.getCause() != null) {
+                current = current.getCause();
+            }
+            return current;
         }
     }
 }

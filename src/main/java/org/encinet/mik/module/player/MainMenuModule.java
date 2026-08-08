@@ -264,12 +264,14 @@ public class MainMenuModule {
             case NORMAL -> Message.INTERFACE_SCALE_NORMAL;
             case LARGE -> Message.INTERFACE_SCALE_LARGE;
         };
+        String current = languageService.t(player, name)
+                + " · " + scale.textPercent() + "%";
         return Component.text(languageService.t(player, Message.INTERFACE_SCALE_MENU_TITLE),
                         NamedTextColor.AQUA)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player,
                                 Message.INTERFACE_SCALE_CURRENT,
-                                languageService.t(player, name)),
+                                current),
                         NamedTextColor.GRAY));
     }
 

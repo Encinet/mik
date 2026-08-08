@@ -29,6 +29,7 @@ final class AfkActivityTracker {
     private long lastObservedAt;
     private long lastSubstantialAt;
     private long lastIntentionalActivityAt;
+    private long activityVersion;
     private long lastCountedActionAt = Long.MIN_VALUE;
     private boolean movementGestureActive;
     private boolean movementReleaseRequired;
@@ -48,10 +49,11 @@ final class AfkActivityTracker {
     void recordLightActivity(long now) {
         if (suspendedAt == Long.MIN_VALUE) {
             lastObservedAt = now;
+            activityVersion++;
         }
     }
 
-    void recordMovementInput(
+    boolean recordMovementInput(
             boolean active,
             UUID worldId,
             double x,
@@ -63,12 +65,12 @@ final class AfkActivityTracker {
             movementGestureActive = false;
             movementReleaseRequired = false;
             movementDistanceSinceSubstantial = 0.0D;
-            return;
+            return false;
         }
 
         recordLightActivity(now);
         if (movementGestureActive || movementReleaseRequired) {
-            return;
+            return false;
         }
         movementGestureActive = true;
         movementGestureWorldId = worldId;
@@ -76,6 +78,7 @@ final class AfkActivityTracker {
         movementGestureY = y;
         movementGestureZ = z;
         movementDistanceSinceSubstantial = 0.0D;
+        return true;
     }
 
     boolean recordMovement(UUID worldId, double x, double y, double z, long now) {
@@ -102,6 +105,10 @@ final class AfkActivityTracker {
 
     boolean canMovementClearAfk() {
         return movementGestureActive;
+    }
+
+    long activityVersion() {
+        return activityVersion;
     }
 
     boolean isActivityEligible(long now) {
@@ -182,6 +189,7 @@ final class AfkActivityTracker {
         lastObservedAt = now;
         lastSubstantialAt = now;
         lastIntentionalActivityAt = now;
+        activityVersion = 0L;
         resetActionWindow();
         movementGestureActive = false;
         movementReleaseRequired = false;
@@ -245,6 +253,7 @@ final class AfkActivityTracker {
 
         lastObservedAt = now;
         lastSubstantialAt = now;
+        activityVersion++;
         resetActionWindow();
         behaviorAnalyzer.reset();
         resetMovementGesture(worldId, x, y, z, movementReleaseRequired);

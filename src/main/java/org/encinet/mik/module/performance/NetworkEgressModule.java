@@ -1,5 +1,6 @@
 package org.encinet.mik.module.performance;
 
+import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent;
 import com.mojang.brigadier.Command;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
@@ -118,12 +119,22 @@ public final class NetworkEgressModule implements Listener {
     }
 
     @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        Player player = event.getPlayer();
-        SendDistanceOverride override = sendDistanceOverrides.remove(player.getUniqueId());
-        if (override != null && player.getSendViewDistance() == override.appliedDistance()) {
-            player.setSendViewDistance(override.originalDistance());
+    public void onPlayerClientOptionsChange(PlayerClientOptionsChangeEvent event) {
+        if (!event.hasViewDistanceChanged()) {
+            return;
         }
+
+        Player player = event.getPlayer();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (mode != ThrottleMode.OFF && player.isOnline()) {
+                applyCurrentMode(player);
+            }
+        });
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        sendDistanceOverrides.remove(event.getPlayer().getUniqueId());
     }
 
     private synchronized void scheduleNextSample(SamplingState state, long delayTicks) {
@@ -264,10 +275,23 @@ public final class NetworkEgressModule implements Listener {
         }
         UUID playerId = player.getUniqueId();
         int defaultDistance = baseSendDistance(player.getWorld());
-        int targetDistance = targetSendDistance(defaultDistance, MINIMUM_SEND_DISTANCE, mode);
+        int targetDistance = PlayerViewDistancePolicy.sendDistance(
+                targetSendDistance(defaultDistance, MINIMUM_SEND_DISTANCE, mode),
+                player.getClientViewDistance());
         sendDistanceOverrides.compute(playerId, (ignored, currentOverride) -> {
+            int currentDistance = player.getSendViewDistance();
+            int unthrottledDistance = PlayerViewDistancePolicy.sendDistance(
+                    defaultDistance,
+                    player.getClientViewDistance());
+            int inheritedDistance = inheritedSendDistance(player, unthrottledDistance);
+            boolean inheritsDefault = currentOverride == null
+                    && currentDistance == inheritedDistance;
             SendDistanceUpdate update = sendDistanceUpdate(
-                    player.getSendViewDistance(), defaultDistance, targetDistance, currentOverride);
+                    currentDistance,
+                    unthrottledDistance,
+                    targetDistance,
+                    currentOverride,
+                    inheritsDefault);
             if (update.apply()) {
                 player.setSendViewDistance(update.distance());
             }
@@ -277,12 +301,48 @@ public final class NetworkEgressModule implements Listener {
 
     static SendDistanceUpdate sendDistanceUpdate(
             int currentDistance,
-            int defaultDistance,
+            int unthrottledDistance,
             int targetDistance,
             SendDistanceOverride currentOverride
     ) {
+        return sendDistanceUpdate(
+                currentDistance,
+                unthrottledDistance,
+                targetDistance,
+                currentOverride,
+                false);
+    }
+
+    static SendDistanceUpdate sendDistanceUpdate(
+            int currentDistance,
+            int unthrottledDistance,
+            int targetDistance,
+            SendDistanceOverride currentOverride,
+            boolean inheritsDefault
+    ) {
+        int originalDistance = currentOverride == null
+                ? (inheritsDefault ? -1 : currentDistance)
+                : currentOverride.originalDistance();
+        int originalEffectiveDistance = effectiveSendDistance(originalDistance, unthrottledDistance);
+        int limitedDistance = Math.min(originalEffectiveDistance, Math.clamp(targetDistance, 2, 32));
+        int nextDistance = limitedDistance < originalEffectiveDistance ? limitedDistance : originalDistance;
+        SendDistanceOverride nextOverride = nextDistance != originalDistance
+                ? new SendDistanceOverride(originalDistance, nextDistance)
+                : null;
+
+        if (currentOverride != null && nextDistance != currentOverride.appliedDistance()) {
+            // The policy changed. Update the explicit override even when another distance cap already
+            // makes the getter report the same effective value, so a later cap increase stays correct.
+            return new SendDistanceUpdate(true, nextDistance, nextOverride);
+        }
+
         if (currentOverride != null && currentDistance != currentOverride.appliedDistance()) {
-            int currentEffectiveDistance = effectiveSendDistance(currentDistance, defaultDistance);
+            int currentEffectiveDistance = effectiveSendDistance(currentDistance, unthrottledDistance);
+            if (currentEffectiveDistance < currentOverride.appliedDistance()) {
+                // View/client limits can make an explicit send override appear lower. Keep ownership
+                // without forcing a redundant update; external lower limits are respected as well.
+                return new SendDistanceUpdate(false, currentDistance, currentOverride);
+            }
             if (currentEffectiveDistance <= targetDistance) {
                 return new SendDistanceUpdate(false, currentDistance, null);
             }
@@ -292,22 +352,20 @@ public final class NetworkEgressModule implements Listener {
                     new SendDistanceOverride(currentDistance, targetDistance));
         }
 
-        int originalDistance = currentOverride == null
-                ? currentDistance
-                : currentOverride.originalDistance();
-        int originalEffectiveDistance = effectiveSendDistance(originalDistance, defaultDistance);
-        int limitedDistance = Math.min(originalEffectiveDistance, Math.clamp(targetDistance, 2, 32));
-        int nextDistance = limitedDistance < originalEffectiveDistance ? limitedDistance : originalDistance;
-        SendDistanceOverride nextOverride = nextDistance != originalDistance
-                ? new SendDistanceOverride(originalDistance, nextDistance)
-                : null;
+        if (currentOverride == null && inheritsDefault && nextOverride == null) {
+            return new SendDistanceUpdate(false, currentDistance, null);
+        }
         return new SendDistanceUpdate(currentDistance != nextDistance, nextDistance, nextOverride);
     }
 
-    private static int effectiveSendDistance(int distance, int defaultDistance) {
+    private static int effectiveSendDistance(int distance, int unthrottledDistance) {
         return distance == -1
-                ? Math.clamp(defaultDistance, 2, 32)
+                ? Math.clamp(unthrottledDistance, 2, 32)
                 : Math.clamp(distance, 2, 32);
+    }
+
+    private static int inheritedSendDistance(Player player, int unthrottledDistance) {
+        return Math.min(player.getViewDistance(), unthrottledDistance);
     }
 
     private void restoreSendDistances() {

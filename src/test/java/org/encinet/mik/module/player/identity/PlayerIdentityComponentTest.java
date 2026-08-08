@@ -9,14 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class PlayerIdentityComponentTest {
 
     @Test
-    void partsRemainIndependentAndCombineInIdentityOrder() {
+    void identityIsAnAtomicComponent() {
         PlayerIdentityComponent identity = new PlayerIdentityComponent(
-                Component.text("[Bedrock] "),
-                Component.text("[Member] Alex"));
+                Component.text("[Bedrock] [Member] Alex"));
 
-        assertEquals("[Bedrock] ", plain(identity.platformBadge()));
-        assertEquals("[Member] Alex", plain(identity.nameTag()));
-        assertEquals("[Bedrock] [Member] Alex", plain(identity.combined()));
+        assertEquals("[Bedrock] [Member] Alex", plain(identity.component()));
+        assertEquals(1, PlayerIdentityComponent.class.getRecordComponents().length);
+        assertEquals("component",
+                PlayerIdentityComponent.class.getRecordComponents()[0].getName());
     }
 
     @Test

@@ -14,4 +14,14 @@ public interface JukeboxPlaybackStatus {
     default JukeboxPlaybackSnapshot snapshot(Block block) {
         return new JukeboxPlaybackSnapshot(status(block), 0L);
     }
+
+    /** Returns the mode captured by the active attempt; setting changes affect the next one. */
+    default java.util.Optional<JukeboxExperienceMode> activeExperienceMode(Block block) {
+        return java.util.Optional.empty();
+    }
+
+    /** Reports chart readiness without leaking the mutable extraction timeline into UI code. */
+    default JukeboxRhythmReadiness rhythmReadiness(Block block) {
+        return JukeboxRhythmReadiness.UNAVAILABLE;
+    }
 }

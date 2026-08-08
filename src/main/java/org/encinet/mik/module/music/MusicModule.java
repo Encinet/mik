@@ -33,7 +33,9 @@ import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.module.music.jukebox.VanillaRecordSilencer;
 import org.encinet.mik.module.music.ui.JukeboxControlGui;
 import org.encinet.mik.module.music.ui.MusicBrowserGui;
+import org.encinet.mik.module.music.ui.RhythmCalibrationPrompt;
 import org.encinet.mik.module.music.rhythm.RhythmGameService;
+import org.encinet.mik.module.music.rhythm.calibration.PlasmoVoiceCalibrationAudio;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 import java.util.Set;
@@ -106,7 +108,8 @@ public final class MusicModule {
                 audioCache, discFactory, playbackNotifier, recordSilencer,
                 settingsStore, playbackHistory::recordPlayback, lyricDisplay);
         this.rhythmGameService = new RhythmGameService(
-                plugin, playbackService, languageService);
+                plugin, playbackService, playbackService,
+                new PlasmoVoiceCalibrationAudio(plugin, voiceServer), languageService);
         NearbyJukeboxPlayback nearbyPlayback = new NearbyJukeboxPlayback(
                 playbackService, languageService);
         MusicBrowserGui browserGui = new MusicBrowserGui(plugin, musicLibrary, trackPool,
@@ -117,7 +120,7 @@ public final class MusicModule {
         this.queueService = new JukeboxQueueService(trackSelector, trackPool::tracks);
         JukeboxControlGui jukeboxControlGui = new JukeboxControlGui(
                 queueService, discFactory, discResolver, playbackService,
-                settingsStore, languageService);
+                settingsStore, rhythmGameService, languageService);
         this.autoPlayService = new JukeboxAutoPlayService(plugin, queueService, playbackService);
         RandomMusicActions randomActions = new RandomMusicActions(
                 trackPool, trackSelector, discFactory, nearbyPlayback, languageService);
@@ -127,9 +130,10 @@ public final class MusicModule {
                 languageService, trackSelector, randomActions);
         browserGui.setActionHandler(browserListener);
         this.controlListener = new JukeboxControlListener(
-                musicLibrary, playbackService, browserGui, queueService,
+                playbackService, browserGui, queueService,
                 jukeboxControlGui, autoPlayService, settingsStore, languageService,
-                rhythmGameService);
+                rhythmGameService,
+                new RhythmCalibrationPrompt(languageService));
         jukeboxControlGui.setActionHandler(controlListener);
         queueService.setStateChangedListener(jukeboxControlGui::refreshViewers);
         settingsStore.setStateChangedListener(jukeboxControlGui::refreshViewers);

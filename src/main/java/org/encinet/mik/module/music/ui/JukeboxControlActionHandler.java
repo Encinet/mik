@@ -24,13 +24,17 @@ public interface JukeboxControlActionHandler {
 
     void cycleMode(Player player, Location jukebox);
 
-    void playNext(Player player, Location jukebox);
+    void cycleExperienceMode(Player player, Location jukebox);
 
-    void addAll(Player player, Location jukebox);
+    void playNext(Player player, Location jukebox);
 
     void clearQueue(Player player, Location jukebox);
 
     void openRhythmGame(Player player, Location jukebox);
+
+    void openLatencyCalibration(Player player, Location jukebox);
+
+    void resetLatencyCalibration(Player player, Location jukebox);
 
     void close(Player player);
 }

@@ -4,21 +4,15 @@ import net.kyori.adventure.text.Component;
 
 import java.util.Objects;
 
-/** Independently composable platform and name-tag portions of a player identity. */
-public record PlayerIdentityComponent(
-        Component platformBadge,
-        Component nameTag
-) {
+/**
+ * A fully composed player identity.
+ *
+ * <p>The platform badge and the LuckPerms prefix/name/suffix are intentionally
+ * kept atomic so surrounding UI markers cannot be inserted between them.</p>
+ */
+public record PlayerIdentityComponent(Component component) {
 
     public PlayerIdentityComponent {
-        Objects.requireNonNull(platformBadge, "platformBadge");
-        Objects.requireNonNull(nameTag, "nameTag");
-    }
-
-    public Component combined() {
-        return Component.text()
-                .append(platformBadge)
-                .append(nameTag)
-                .build();
+        Objects.requireNonNull(component, "component");
     }
 }

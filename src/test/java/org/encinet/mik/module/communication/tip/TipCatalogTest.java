@@ -37,14 +37,14 @@ class TipCatalogTest {
     void parsesNestedSemanticInformationAndTopics() {
         TipCatalog.LoadResult result = new TipCatalog().parse("""
                 <tip topics="home navigation">
-                  Use <command>/home <value>name</value></command> to return.
+                  Use <command>/home tp <value>name</value></command> to return.
                 </tip>
                 """);
 
         assertTrue(result.errors().isEmpty());
         TipEntry tip = result.entries().getFirst();
         assertEquals(java.util.Set.of("home", "navigation"), tip.topics());
-        assertEquals("Use /home name to return.", tip.template().plainText().strip());
+        assertEquals("Use /home tp name to return.", tip.template().plainText().strip());
     }
 
     @Test

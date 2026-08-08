@@ -1,5 +1,6 @@
 package org.encinet.mik.module.performance;
 
+import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -180,6 +181,13 @@ public class PerformanceModule implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         distanceController.track(event.getPlayer());
+    }
+
+    @EventHandler
+    public void onPlayerClientOptionsChange(PlayerClientOptionsChangeEvent event) {
+        if (event.hasViewDistanceChanged()) {
+            distanceController.clientViewDistanceChanged(event.getPlayer(), event.getViewDistance());
+        }
     }
 
     @EventHandler
@@ -517,15 +525,27 @@ public class PerformanceModule implements Listener {
         }
 
         void primeOnlinePlayers() {
-            Bukkit.getOnlinePlayers().forEach(player -> apply(player,
+            Bukkit.getOnlinePlayers().forEach(player -> apply(
+                    player,
                     maximumRenderDistance,
-                    baseSimulationDistance));
+                    baseSimulationDistance,
+                    player.getClientViewDistance()));
         }
 
         void track(Player player) {
-            apply(player,
+            apply(
+                    player,
                     currentPerformanceRenderDistance,
-                    currentPerformanceSimulationDistance);
+                    currentPerformanceSimulationDistance,
+                    player.getClientViewDistance());
+        }
+
+        void clientViewDistanceChanged(Player player, int clientViewDistance) {
+            apply(
+                    player,
+                    currentPerformanceRenderDistance,
+                    currentPerformanceSimulationDistance,
+                    clientViewDistance);
         }
 
         void untrack(Player player) {
@@ -537,7 +557,11 @@ public class PerformanceModule implements Listener {
             int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
             updatePerformanceDistances(performanceRender, performanceSimulation);
             for (Player player : Bukkit.getOnlinePlayers()) {
-                apply(player, currentPerformanceRenderDistance, currentPerformanceSimulationDistance);
+                apply(
+                        player,
+                        currentPerformanceRenderDistance,
+                        currentPerformanceSimulationDistance,
+                        player.getClientViewDistance());
             }
         }
 
@@ -564,17 +588,33 @@ public class PerformanceModule implements Listener {
             distanceAdjustCooldown = DISTANCE_ADJUST_COOLDOWN_WINDOWS;
             recoveryConfirmCount = 0;
             for (Player player : Bukkit.getOnlinePlayers()) {
-                apply(player, currentPerformanceRenderDistance, currentPerformanceSimulationDistance);
+                apply(
+                        player,
+                        currentPerformanceRenderDistance,
+                        currentPerformanceSimulationDistance,
+                        player.getClientViewDistance());
             }
         }
 
-        private void apply(Player player, int performanceRender, int performanceSimulation) {
+        private void apply(
+                Player player,
+                int performanceRender,
+                int performanceSimulation,
+                int clientViewDistance
+        ) {
+            int requestedRender = performanceRender;
+            int requestedSimulation = performanceSimulation;
             if (afkService.isAfk(player.getUniqueId())) {
-                applyIfChanged(player, afkRenderDistance, afkSimulationDistance);
-                return;
+                requestedRender = afkRenderDistance;
+                requestedSimulation = afkSimulationDistance;
             }
 
-            applyIfChanged(player, performanceRender, performanceSimulation);
+            PlayerViewDistancePolicy.EffectiveDistances distances =
+                    PlayerViewDistancePolicy.performanceDistances(
+                            requestedRender,
+                            requestedSimulation,
+                            clientViewDistance);
+            applyIfChanged(player, distances.viewDistance(), distances.simulationDistance());
         }
 
         private void updatePerformanceDistances(int targetRender, int targetSimulation) {
@@ -620,14 +660,25 @@ public class PerformanceModule implements Listener {
         private void applyIfChanged(Player player, int renderDistance, int simulationDistance) {
             UUID playerId = player.getUniqueId();
             AppliedDistances current = appliedDistances.get(playerId);
-            if (current != null
-                    && current.renderDistance == renderDistance
-                    && current.simulationDistance == simulationDistance) {
-                return;
+            int currentRenderDistance = current == null
+                    ? player.getViewDistance()
+                    : current.renderDistance;
+            int currentSimulationDistance = current == null
+                    ? player.getSimulationDistance()
+                    : current.simulationDistance;
+            PlayerViewDistancePolicy.DistanceChanges changes = PlayerViewDistancePolicy.changes(
+                    currentRenderDistance,
+                    currentSimulationDistance,
+                    renderDistance,
+                    simulationDistance);
+
+            if (changes.viewDistanceChanged()) {
+                player.setViewDistance(renderDistance);
+            }
+            if (changes.simulationDistanceChanged()) {
+                player.setSimulationDistance(simulationDistance);
             }
 
-            player.setViewDistance(renderDistance);
-            player.setSimulationDistance(simulationDistance);
             appliedDistances.put(playerId, new AppliedDistances(renderDistance, simulationDistance));
         }
 

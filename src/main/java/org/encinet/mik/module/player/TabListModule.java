@@ -1,7 +1,8 @@
 package org.encinet.mik.module.player;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
@@ -16,17 +17,23 @@ import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
+import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.i18n.LanguageChangeListener;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class TabListModule implements Listener, AfkStateListener {
+public class TabListModule implements Listener, AfkStateListener, LanguageChangeListener {
 
     private static final long REFRESH_INTERVAL_TICKS = 5L * 20L;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
@@ -60,6 +67,7 @@ public class TabListModule implements Listener, AfkStateListener {
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
         afkService.addListener(this);
+        languageService.addLanguageChangeListener(this);
 
         refreshAll();
         refreshTask = Bukkit.getScheduler().runTaskTimer(plugin, this::refreshAll, REFRESH_INTERVAL_TICKS, REFRESH_INTERVAL_TICKS);
@@ -73,7 +81,7 @@ public class TabListModule implements Listener, AfkStateListener {
         player.sendPlayerListHeaderAndFooter(resolveTabListHeader(), tabListFooter(player));
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
-                updatePlayerListName(player);
+                updateAllPlayerListNames();
                 updateAllHeadersAndFooters();
             }
         }, 1L);
@@ -87,13 +95,23 @@ public class TabListModule implements Listener, AfkStateListener {
     @Override
     public void onAfkStateChanged(Player player, AfkState state) {
         if (player.isOnline()) {
-            updatePlayerListName(player);
+            updatePlayerListNameForAllViewers(player);
             scheduleAfkHeaderRefresh();
         }
     }
 
+    @Override
+    public void onLanguageChanged(Player player) {
+        if (!player.isOnline()) {
+            return;
+        }
+        updatePlayerListNamesForViewer(player);
+        player.sendPlayerListHeaderAndFooter(resolveTabListHeader(), tabListFooter(player));
+    }
+
     public void disable() {
         afkService.removeListener(this);
+        languageService.removeLanguageChangeListener(this);
         if (refreshTask != null) {
             refreshTask.cancel();
             refreshTask = null;
@@ -102,9 +120,10 @@ public class TabListModule implements Listener, AfkStateListener {
             pendingAfkRefreshTask.cancel();
             pendingAfkRefreshTask = null;
         }
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            player.playerListName(null);
-            player.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
+        List<Player> onlinePlayers = List.copyOf(Bukkit.getOnlinePlayers());
+        for (Player viewer : onlinePlayers) {
+            restorePlayerListNames(viewer, onlinePlayers);
+            viewer.sendPlayerListHeaderAndFooter(Component.empty(), Component.empty());
         }
     }
 
@@ -114,19 +133,115 @@ public class TabListModule implements Listener, AfkStateListener {
     }
 
     private void updateAllPlayerListNames() {
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            updatePlayerListName(player);
+        List<Player> onlinePlayers = List.copyOf(Bukkit.getOnlinePlayers());
+        Map<Language, Map<UUID, Component>> namesByLanguage = new EnumMap<>(Language.class);
+        for (Player viewer : onlinePlayers) {
+            Language language = languageService.language(viewer);
+            Map<UUID, Component> localizedNames = namesByLanguage.computeIfAbsent(
+                    language,
+                    value -> renderPlayerListNames(onlinePlayers, value));
+            sendPlayerListNames(viewer, onlinePlayers, localizedNames);
         }
     }
 
-    private void updatePlayerListName(Player player) {
-        TextComponent.Builder builder = Component.text();
-        builder.append(playerIdentities.renderGlobal(player, renderPlayerName(player)).combined());
-
-        if (afkService.isAfk(player.getUniqueId())) {
-            builder.append(renderAfkBadge());
+    private void updatePlayerListNameForAllViewers(Player subject) {
+        Map<Language, Component> localizedNames = new EnumMap<>(Language.class);
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            if (!canSee(viewer, subject)) {
+                continue;
+            }
+            Language language = languageService.language(viewer);
+            Component displayName = localizedNames.computeIfAbsent(
+                    language,
+                    value -> renderPlayerListName(subject, value));
+            sendPlayerListNames(viewer, List.of(subject),
+                    Map.of(subject.getUniqueId(), displayName));
         }
-        player.playerListName(builder.build());
+    }
+
+    private void updatePlayerListNamesForViewer(Player viewer) {
+        List<Player> onlinePlayers = List.copyOf(Bukkit.getOnlinePlayers());
+        sendPlayerListNames(
+                viewer,
+                onlinePlayers,
+                renderPlayerListNames(onlinePlayers, languageService.language(viewer)));
+    }
+
+    private Map<UUID, Component> renderPlayerListNames(
+            List<Player> subjects,
+            Language language
+    ) {
+        Map<UUID, Component> names = new HashMap<>();
+        for (Player subject : subjects) {
+            names.put(subject.getUniqueId(), renderPlayerListName(subject, language));
+        }
+        return names;
+    }
+
+    private Component renderPlayerListName(Player subject, Language language) {
+        Component identity = playerIdentities
+                .render(subject, language, renderPlayerName(subject))
+                .component();
+        return afkService.isAfk(subject.getUniqueId())
+                ? identity.append(renderAfkBadge())
+                : identity;
+    }
+
+    private void sendPlayerListNames(
+            Player viewer,
+            List<Player> subjects,
+            Map<UUID, Component> displayNames
+    ) {
+        List<WrapperPlayServerPlayerInfoUpdate.PlayerInfo> entries = new ArrayList<>();
+        for (Player subject : subjects) {
+            if (!canSee(viewer, subject)) {
+                continue;
+            }
+            Component displayName = displayNames.get(subject.getUniqueId());
+            if (displayName == null) {
+                continue;
+            }
+            entries.add(playerInfo(subject, displayName));
+        }
+        sendPlayerListNames(viewer, entries);
+    }
+
+    private void restorePlayerListNames(Player viewer, List<Player> subjects) {
+        List<WrapperPlayServerPlayerInfoUpdate.PlayerInfo> entries = new ArrayList<>();
+        for (Player subject : subjects) {
+            if (canSee(viewer, subject)) {
+                entries.add(playerInfo(subject, subject.playerListName()));
+            }
+        }
+        sendPlayerListNames(viewer, entries);
+    }
+
+    private WrapperPlayServerPlayerInfoUpdate.PlayerInfo playerInfo(
+            Player subject,
+            Component displayName
+    ) {
+        WrapperPlayServerPlayerInfoUpdate.PlayerInfo entry =
+                new WrapperPlayServerPlayerInfoUpdate.PlayerInfo(subject.getUniqueId());
+        entry.setDisplayName(displayName);
+        return entry;
+    }
+
+    private void sendPlayerListNames(
+            Player viewer,
+            List<WrapperPlayServerPlayerInfoUpdate.PlayerInfo> entries
+    ) {
+        if (entries.isEmpty()) {
+            return;
+        }
+        PacketEvents.getAPI().getPlayerManager().sendPacket(viewer,
+                new WrapperPlayServerPlayerInfoUpdate(
+                        WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_DISPLAY_NAME,
+                        entries));
+    }
+
+    private boolean canSee(Player viewer, Player subject) {
+        return subject.isOnline()
+                && (viewer.getUniqueId().equals(subject.getUniqueId()) || viewer.canSee(subject));
     }
 
     private void updateAllHeadersAndFooters() {
