@@ -89,7 +89,7 @@
 </tip>
 
 <tip topics="teleport">
-主菜单的<feature>传送设置</feature>可以禁止其他玩家把你传走，也可以只在 <status>AFK</status> 时阻止传送。
+主菜单的<feature>传送设置</feature>可设为<mode>始终允许</mode>、<mode>经过我允许</mode>或<mode>始终拒绝</mode>；也可以在 <status>AFK</status> 时直接阻止传送。
 </tip>
 
 <tip topics="language">

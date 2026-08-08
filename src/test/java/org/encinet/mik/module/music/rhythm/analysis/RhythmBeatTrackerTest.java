@@ -2,10 +2,12 @@ package org.encinet.mik.module.music.rhythm.analysis;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RhythmBeatTrackerTest {
@@ -134,6 +136,86 @@ class RhythmBeatTrackerTest {
     }
 
     @Test
+    void preservesOneHundredTwentyFiveMillisecondDjSubdivisions() {
+        List<RhythmPulse> candidates = new ArrayList<>();
+        List<RhythmPulse> anchors = new ArrayList<>();
+        int index = 0;
+        for (long time = 500L; time <= 6_000L; time += 125L) {
+            candidates.add(pulse(time, index % 4 == 0 ? 0.70 : 0.43));
+            if (index % 4 == 0) anchors.add(pulse(time, 0.78));
+            index++;
+        }
+
+        List<RhythmPulse> refined = RhythmBeatTracker.refine(
+                candidates, anchors, 6_500L);
+
+        assertCoverage(refined, 500L, 6_000L, 125L, 0.90);
+    }
+
+    @Test
+    void recognizesStableSwungSubdivisionsWithoutStraighteningAttacks() {
+        List<RhythmPulse> candidates = new ArrayList<>();
+        List<RhythmPulse> anchors = new ArrayList<>();
+        for (int pair = 0; pair < 14; pair++) {
+            long downbeat = 500L + pair * 500L;
+            long swung = downbeat + 333L;
+            candidates.add(pulse(downbeat, 0.68));
+            candidates.add(pulse(swung, 0.46));
+            if (pair % 2 == 0) anchors.add(pulse(downbeat, 0.78));
+        }
+
+        List<RhythmPulse> refined = RhythmBeatTracker.refine(
+                candidates, anchors, 7_500L);
+
+        for (RhythmPulse candidate : candidates) {
+            assertNear(refined, candidate.timeMillis(), 25L);
+        }
+        assertTrue(refined.stream().filter(pulse ->
+                pulse.timeMillis() % 500L >= 310L).count() >= 12,
+                () -> "missing swing subdivisions=" + times(refined));
+    }
+
+    @Test
+    void followsGradualClassicalAccelerandoWithoutAConstantTempoGrid() {
+        List<RhythmPulse> candidates = new ArrayList<>();
+        List<RhythmPulse> anchors = new ArrayList<>();
+        long time = 600L;
+        long interval = 720L;
+        for (int index = 0; index < 30; index++) {
+            candidates.add(pulse(time, 0.28));
+            if (index % 5 == 0) anchors.add(pulse(time, 0.72));
+            time += interval;
+            interval = Math.max(390L, interval - 12L);
+        }
+
+        List<RhythmPulse> refined = RhythmBeatTracker.refine(
+                candidates, anchors, time + 500L);
+
+        long matched = candidates.stream().filter(candidate ->
+                Math.abs(nearest(refined, candidate.timeMillis()).timeMillis()
+                        - candidate.timeMillis()) <= 55L).count();
+        assertTrue(matched >= 25,
+                () -> "accelerando coverage=" + matched + "/"
+                        + candidates.size() + ", pulses=" + times(refined));
+    }
+
+    @Test
+    void supportsSlowFortyBpmPulseWithoutDoublingIt() {
+        List<RhythmPulse> candidates = new ArrayList<>();
+        List<RhythmPulse> anchors = new ArrayList<>();
+        int index = 0;
+        for (long time = 1_000L; time <= 14_500L; time += 1_500L) {
+            candidates.add(pulse(time, 0.52));
+            if (index++ % 3 == 0) anchors.add(pulse(time, 0.76));
+        }
+
+        List<RhythmPulse> refined = RhythmBeatTracker.refine(
+                candidates, anchors, 16_000L);
+
+        assertEquals(times(candidates), times(refined));
+    }
+
+    @Test
     void keepsHumanizedAttackTimesInsteadOfQuantizingThemToTheGrid() {
         int[] jitter = {0, 18, -23, 11, -16, 25, -8, 14};
         List<RhythmPulse> candidates = new ArrayList<>();
@@ -217,6 +299,24 @@ class RhythmBeatTrackerTest {
                 candidates, List.of(), 6_000L);
 
         assertEquals(List.of(), refined);
+    }
+
+    @Test
+    void longDenseTrackKeepsBatchTrackingCostBounded() {
+        List<RhythmPulse> candidates = new ArrayList<>();
+        List<RhythmPulse> anchors = new ArrayList<>();
+        int index = 0;
+        for (long time = 500L; time <= 180_000L; time += 125L) {
+            candidates.add(pulse(time, index % 4 == 0 ? 0.68 : 0.43));
+            if (index % 4 == 0) anchors.add(pulse(time, 0.76));
+            index++;
+        }
+
+        List<RhythmPulse> refined = assertTimeout(Duration.ofSeconds(5),
+                () -> RhythmBeatTracker.refine(candidates, anchors, 181_000L));
+
+        assertTrue(refined.size() >= candidates.size() * 0.90,
+                () -> "long-track output=" + refined.size());
     }
 
     private static void addRun(List<RhythmPulse> candidates,

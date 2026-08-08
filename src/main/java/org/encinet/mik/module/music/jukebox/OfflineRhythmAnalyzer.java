@@ -37,6 +37,8 @@ final class OfflineRhythmAnalyzer implements AutoCloseable {
 
     private final AudioTrackLoader loader;
     private final Consumer<String> warningLogger;
+    // Each job mostly waits for Lavaplayer frames, so a virtual carrier is useful;
+    // the fixed size is still essential because decoder/DSP work is CPU-bound.
     private final ExecutorService executor = Executors.newFixedThreadPool(
             MAXIMUM_CONCURRENT_ANALYSES,
             Thread.ofVirtual().name("mik-rhythm-analysis-", 0).factory());

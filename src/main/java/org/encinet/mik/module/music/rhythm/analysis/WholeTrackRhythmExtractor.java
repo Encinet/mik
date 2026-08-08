@@ -8,33 +8,31 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * PCM extractor that deliberately waits for the complete song before emitting beats.
  *
- * <p>Two onset detectors observe the same decoded audio. A permissive detector
- * supplies weak-beat candidates while a stricter whole-track profile supplies
- * trustworthy anchors and a safe fallback. On flush, {@link RhythmBeatTracker}
- * uses whole-track tempo and phase evidence to publish the final pulses.</p>
+ * <p>One shared filter-bank pass feeds two peak policies. A permissive policy
+ * supplies weak-beat candidates while a stricter whole-track policy supplies
+ * trustworthy anchors and a safe fallback. Sharing the expensive PCM feature
+ * pass keeps analysis bounded without changing either policy's evidence. On
+ * flush, {@link RhythmBeatTracker} uses whole-track tempo and phase evidence to
+ * publish the final pulses.</p>
  */
 public final class WholeTrackRhythmExtractor implements PcmRhythmExtractor {
     private final RhythmExtractionSink output;
     private final CollectingSink candidates = new CollectingSink();
     private final CollectingSink anchors = new CollectingSink();
-    private final RhythmOnsetDetector candidateDetector;
-    private final RhythmOnsetDetector anchorDetector;
+    private final RhythmOnsetDetector onsetDetector;
     private final AtomicBoolean finished = new AtomicBoolean();
 
     public WholeTrackRhythmExtractor(RhythmExtractionSink output, int sampleRate,
                                      long initialPositionMillis) {
         this.output = Objects.requireNonNull(output, "output");
-        candidateDetector = RhythmOnsetDetector.wholeTrackCandidates(
-                candidates, sampleRate, initialPositionMillis);
-        anchorDetector = RhythmOnsetDetector.wholeTrackAnchors(
-                anchors, sampleRate, initialPositionMillis);
+        onsetDetector = RhythmOnsetDetector.wholeTrack(candidates, anchors,
+                sampleRate, initialPositionMillis);
     }
 
     @Override
     public void accept(float[][] channels, int offset, int length) {
         if (finished.get()) return;
-        candidateDetector.accept(channels, offset, length);
-        anchorDetector.accept(channels, offset, length);
+        onsetDetector.accept(channels, offset, length);
     }
 
     @Override
@@ -42,15 +40,13 @@ public final class WholeTrackRhythmExtractor implements PcmRhythmExtractor {
         if (finished.get()) return;
         candidates.clear();
         anchors.clear();
-        candidateDetector.seek(positionMillis);
-        anchorDetector.seek(positionMillis);
+        onsetDetector.seek(positionMillis);
     }
 
     @Override
     public void flush() {
         if (!finished.compareAndSet(false, true)) return;
-        candidateDetector.flush();
-        anchorDetector.flush();
+        onsetDetector.flush();
         long analyzedThrough = Math.max(candidates.analyzedThroughMillis(),
                 anchors.analyzedThroughMillis());
         List<RhythmPulse> refined = RhythmBeatTracker.refine(

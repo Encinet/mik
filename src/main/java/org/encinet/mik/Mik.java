@@ -203,6 +203,7 @@ public final class Mik extends JavaPlugin {
 
         teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, languageService);
         teleportPreferenceModule.enable();
+        teleportPreferenceModule.registerCommands(this.getLifecycleManager());
 
         welcomeModule = new WelcomeModule(this, languageService);
         welcomeModule.enable();

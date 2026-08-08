@@ -1,9 +1,17 @@
 package org.encinet.mik.module.player;
 
+import com.mojang.brigadier.Command;
+import io.papermc.paper.command.brigadier.Commands;
+import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -12,7 +20,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -24,7 +34,6 @@ import org.encinet.mik.util.PlayerDisplay;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -35,14 +44,16 @@ public class TeleportPreferenceModule implements Listener {
 
     private static final String STAFF_TELEPORT_BYPASS_PERMISSION = "group.helper";
     private static final Set<String> TP_COMMANDS = Set.of("tp", "teleport", "minecraft:tp", "minecraft:teleport");
-    private static final boolean DEFAULT_ALLOW_BEING_TELEPORTED = true;
+    private static final long REQUEST_TIMEOUT_TICKS = 20L * 60L;
     private static final boolean DEFAULT_BLOCK_TELEPORTS_WHILE_AFK = false;
 
     private final JavaPlugin plugin;
     private final AfkService afkService;
     private final LanguageService languageService;
     private final Map<UUID, TeleportSettings> settingsCache = new ConcurrentHashMap<>();
-    private final Map<UUID, String> pendingTeleports = new ConcurrentHashMap<>();
+    private final Map<UUID, TeleportInitiator> teleportInitiators = new ConcurrentHashMap<>();
+    private final Map<UUID, TeleportRequest> pendingRequests = new ConcurrentHashMap<>();
+    private final Set<TeleportAuthorization> authorizations = ConcurrentHashMap.newKeySet();
 
     private File settingsFile;
     private YamlConfiguration settingsData;
@@ -72,6 +83,24 @@ public class TeleportPreferenceModule implements Listener {
         plugin.getLogger().info("TeleportPreferenceModule enabled");
     }
 
+    public void registerCommands(LifecycleEventManager<Plugin> manager) {
+        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            Commands commands = event.registrar();
+            commands.register(Commands.literal("tpaccept")
+                            .executes(context -> respondToRequest(
+                                    context.getSource().getSender(), true))
+                            .build(),
+                    languageService.t(Language.DEFAULT,
+                            Message.TELEPORT_ACCEPT_COMMAND_DESCRIPTION));
+            commands.register(Commands.literal("tpdeny")
+                            .executes(context -> respondToRequest(
+                                    context.getSource().getSender(), false))
+                            .build(),
+                    languageService.t(Language.DEFAULT,
+                            Message.TELEPORT_DENY_COMMAND_DESCRIPTION));
+        });
+    }
+
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         String[] args = event.getMessage().substring(1).trim().split("\\s+");
@@ -86,13 +115,33 @@ public class TeleportPreferenceModule implements Listener {
         Player sender = event.getPlayer();
         Player victim = Bukkit.getPlayerExact(victimArg);
         if (victim != null && !victim.equals(sender)) {
-            if (shouldDenyTeleport(sender, victim)) {
-                event.setCancelled(true);
-                sender.sendMessage(languageService.rich(sender, Message.TELEPORT_DENIED, NamedTextColor.RED,
-                        RichArg.component("player", PlayerDisplay.name(victim, NamedTextColor.YELLOW), victim.getName())));
+            TeleportAuthorization authorization = new TeleportAuthorization(
+                    sender.getUniqueId(), victim.getUniqueId(), event.getMessage());
+            if (authorizations.remove(authorization)) {
+                rememberTeleportInitiator(victim, sender);
                 return;
             }
-            pendingTeleports.put(victim.getUniqueId(), sender.getName());
+
+            if (sender.hasPermission(STAFF_TELEPORT_BYPASS_PERMISSION)) {
+                rememberTeleportInitiator(victim, sender);
+                return;
+            }
+
+            TeleportSettings settings = getSettings(victim.getUniqueId());
+            if (settings.blockTeleportsWhileAfk()
+                    && afkService.isAfk(victim.getUniqueId())) {
+                denyTeleport(event, sender, victim);
+                return;
+            }
+
+            switch (settings.policy()) {
+                case ALWAYS_ALLOW -> rememberTeleportInitiator(victim, sender);
+                case REQUIRE_CONSENT -> {
+                    event.setCancelled(true);
+                    requestConsent(sender, victim, event.getMessage());
+                }
+                case ALWAYS_DENY -> denyTeleport(event, sender, victim);
+            }
         }
     }
 
@@ -101,10 +150,13 @@ public class TeleportPreferenceModule implements Listener {
         if (event.getCause() != PlayerTeleportEvent.TeleportCause.COMMAND) return;
 
         Player targetPlayer = event.getPlayer();
-        String senderName = pendingTeleports.remove(targetPlayer.getUniqueId());
+        TeleportInitiator initiator = teleportInitiators.remove(
+                targetPlayer.getUniqueId());
 
-        if (senderName != null) {
-            targetPlayer.sendActionBar(Component.text(languageService.t(targetPlayer, Message.TELEPORT_MOVED_HERE, senderName), NamedTextColor.AQUA));
+        if (initiator != null) {
+            targetPlayer.sendActionBar(Component.text(languageService.t(targetPlayer,
+                    Message.TELEPORT_MOVED_HERE, initiator.senderName()),
+                    NamedTextColor.AQUA));
         }
     }
 
@@ -112,7 +164,20 @@ public class TeleportPreferenceModule implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
         settingsCache.remove(playerId);
-        pendingTeleports.remove(playerId);
+        teleportInitiators.remove(playerId);
+        TeleportRequest incoming = pendingRequests.remove(playerId);
+        if (incoming != null) {
+            notifyRequestExpired(incoming.requesterId());
+        }
+        pendingRequests.forEach((targetId, request) -> {
+            if (request.requesterId().equals(playerId)
+                    && pendingRequests.remove(targetId, request)) {
+                notifyRequestExpired(targetId);
+            }
+        });
+        authorizations.removeIf(authorization ->
+                authorization.senderId().equals(playerId)
+                        || authorization.victimId().equals(playerId));
     }
 
     public void openMenu(Player player) {
@@ -122,24 +187,35 @@ public class TeleportPreferenceModule implements Listener {
                         Component.text(languageService.t(player, Message.TELEPORT_MENU_TITLE),
                                 NamedTextColor.DARK_PURPLE))
                 .layout(FloatingMenuLayouts.actions(3));
-        for (SettingKey key : SettingKey.values()) {
-            boolean enabled = switch (key) {
-                case ALLOW_BEING_TELEPORTED -> settings.allowBeingTeleported();
-                case BLOCK_TELEPORTS_WHILE_AFK -> settings.blockTeleportsWhileAfk();
-            };
-            menu.toggle("setting:" + key.name().toLowerCase(Locale.ROOT),
-                            enabled, key.enabledMaterial(), key.disabledMaterial(),
-                            toggleLabel(player, key, enabled))
-                    .primary((p, handle) -> toggle(p, key));
-        }
+        menu.item("setting:teleport-policy", policyMaterial(settings.policy()),
+                        policyLabel(player, settings.policy()))
+                .primary((p, handle) -> cyclePolicy(p));
+        menu.toggle("setting:block-teleports-while-afk",
+                        settings.blockTeleportsWhileAfk(), Material.SHIELD,
+                        Material.GRAY_DYE, afkToggleLabel(player,
+                                settings.blockTeleportsWhileAfk()))
+                .primary((p, handle) -> toggleAfkBlocking(p));
         menu.back(
                         Component.text(languageService.t(player, Message.BACK_TO_MAIN),
                                 NamedTextColor.GREEN));
         FloatingMenus.present(player, menu.build());
     }
 
-    private void toggle(Player player, SettingKey settingKey) {
-        TeleportSettings next = getSettings(player.getUniqueId()).toggle(settingKey);
+    private void cyclePolicy(Player player) {
+        TeleportSettings current = getSettings(player.getUniqueId());
+        TeleportSettings next = new TeleportSettings(
+                current.policy().next(), current.blockTeleportsWhileAfk());
+        updateSettings(player, next);
+    }
+
+    private void toggleAfkBlocking(Player player) {
+        TeleportSettings current = getSettings(player.getUniqueId());
+        TeleportSettings next = new TeleportSettings(
+                current.policy(), !current.blockTeleportsWhileAfk());
+        updateSettings(player, next);
+    }
+
+    private void updateSettings(Player player, TeleportSettings next) {
         settingsCache.put(player.getUniqueId(), next);
         saveSettings(player.getUniqueId(), next);
         openMenu(player);
@@ -147,32 +223,63 @@ public class TeleportPreferenceModule implements Listener {
 
     public String summary(Player player) {
         TeleportSettings settings = getSettings(player.getUniqueId());
-        if (!settings.allowBeingTeleported()) {
-            return languageService.t(player, Message.TELEPORT_SUMMARY_DENY);
+        String summary = switch (settings.policy()) {
+            case ALWAYS_ALLOW -> languageService.t(player,
+                    settings.blockTeleportsWhileAfk()
+                            ? Message.TELEPORT_SUMMARY_AFK
+                            : Message.TELEPORT_SUMMARY_ALLOW);
+            case REQUIRE_CONSENT -> languageService.t(player,
+                    Message.TELEPORT_SUMMARY_CONSENT);
+            case ALWAYS_DENY -> languageService.t(player,
+                    Message.TELEPORT_SUMMARY_DENY);
+        };
+        if (settings.policy() == TeleportPolicy.REQUIRE_CONSENT
+                && settings.blockTeleportsWhileAfk()) {
+            return summary + " · "
+                    + languageService.t(player, Message.TELEPORT_BLOCK_AFK);
         }
-        if (settings.blockTeleportsWhileAfk()) {
-            return languageService.t(player, Message.TELEPORT_SUMMARY_AFK);
-        }
-        return languageService.t(player, Message.TELEPORT_SUMMARY_ALLOW);
+        return summary;
     }
 
-    private boolean shouldDenyTeleport(Player sender, Player victim) {
-        if (sender.hasPermission(STAFF_TELEPORT_BYPASS_PERMISSION)) {
-            return false;
-        }
-        TeleportSettings settings = getSettings(victim.getUniqueId());
-        return !settings.allowBeingTeleported()
-                || settings.blockTeleportsWhileAfk() && afkService.isAfk(victim.getUniqueId());
+    private Component policyLabel(Player player, TeleportPolicy policy) {
+        return Component.text(languageService.t(player, Message.TELEPORT_ALLOW),
+                        NamedTextColor.AQUA)
+                .append(Component.newline())
+                .append(Component.text(languageService.t(player, policyMessage(policy)),
+                        policyColor(policy)));
     }
 
-
-    private Component toggleLabel(Player player, SettingKey settingKey, boolean enabled) {
-        return Component.text(languageService.t(player, settingKey.label()),
+    private Component afkToggleLabel(Player player, boolean enabled) {
+        return Component.text(languageService.t(player, Message.TELEPORT_BLOCK_AFK),
                         enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player,
                                 enabled ? Message.CURRENT_ON : Message.CURRENT_OFF),
                         enabled ? NamedTextColor.GREEN : NamedTextColor.DARK_GRAY));
+    }
+
+    private Message policyMessage(TeleportPolicy policy) {
+        return switch (policy) {
+            case ALWAYS_ALLOW -> Message.TELEPORT_POLICY_ALWAYS_ALLOW;
+            case REQUIRE_CONSENT -> Message.TELEPORT_POLICY_REQUIRE_CONSENT;
+            case ALWAYS_DENY -> Message.TELEPORT_POLICY_ALWAYS_DENY;
+        };
+    }
+
+    private NamedTextColor policyColor(TeleportPolicy policy) {
+        return switch (policy) {
+            case ALWAYS_ALLOW -> NamedTextColor.GREEN;
+            case REQUIRE_CONSENT -> NamedTextColor.GOLD;
+            case ALWAYS_DENY -> NamedTextColor.RED;
+        };
+    }
+
+    private Material policyMaterial(TeleportPolicy policy) {
+        return switch (policy) {
+            case ALWAYS_ALLOW -> Material.ENDER_PEARL;
+            case REQUIRE_CONSENT -> Material.WRITABLE_BOOK;
+            case ALWAYS_DENY -> Material.BARRIER;
+        };
     }
 
     private TeleportSettings getSettings(UUID playerId) {
@@ -182,7 +289,8 @@ public class TeleportPreferenceModule implements Listener {
     private TeleportSettings loadSettings(UUID playerId) {
         String path = playerId.toString();
         return new TeleportSettings(
-                loadBoolean(path, "allow-being-teleported", DEFAULT_ALLOW_BEING_TELEPORTED),
+                TeleportPolicy.fromId(settingsData.getString(
+                        path + ".teleport-policy")),
                 loadBoolean(path, "block-teleports-while-afk", DEFAULT_BLOCK_TELEPORTS_WHILE_AFK)
         );
     }
@@ -197,7 +305,7 @@ public class TeleportPreferenceModule implements Listener {
 
     private void saveSettings(UUID playerId, TeleportSettings settings) {
         String path = playerId.toString();
-        settingsData.set(path + ".allow-being-teleported", settings.allowBeingTeleported());
+        settingsData.set(path + ".teleport-policy", settings.policy().id());
         settingsData.set(path + ".block-teleports-while-afk", settings.blockTeleportsWhileAfk());
         try {
             settingsData.save(settingsFile);
@@ -207,62 +315,177 @@ public class TeleportPreferenceModule implements Listener {
     }
 
     private record TeleportSettings(
-            boolean allowBeingTeleported,
+            TeleportPolicy policy,
             boolean blockTeleportsWhileAfk
-    ) {
-        TeleportSettings toggle(SettingKey key) {
-            return switch (key) {
-                case ALLOW_BEING_TELEPORTED -> new TeleportSettings(!allowBeingTeleported, blockTeleportsWhileAfk);
-                case BLOCK_TELEPORTS_WHILE_AFK -> new TeleportSettings(allowBeingTeleported, !blockTeleportsWhileAfk);
-            };
-        }
+    ) {}
+
+    private void denyTeleport(PlayerCommandPreprocessEvent event,
+                              Player sender, Player victim) {
+        event.setCancelled(true);
+        sender.sendMessage(languageService.rich(sender, Message.TELEPORT_DENIED,
+                NamedTextColor.RED,
+                RichArg.component("player",
+                        PlayerDisplay.name(victim, NamedTextColor.YELLOW),
+                        victim.getName())));
     }
 
-    private enum SettingKey {
-        ALLOW_BEING_TELEPORTED("allow-being-teleported", Message.TELEPORT_ALLOW, Message.TELEPORT_ALLOW_DESC, Material.ENDER_PEARL, Material.GRAY_DYE),
-        BLOCK_TELEPORTS_WHILE_AFK("block-teleports-while-afk", Message.TELEPORT_BLOCK_AFK, Message.TELEPORT_BLOCK_AFK_DESC, Material.SHIELD, Material.GRAY_DYE);
-
-        private final String id;
-        private final Message label;
-        private final Message description;
-        private final Material enabledMaterial;
-        private final Material disabledMaterial;
-
-        SettingKey(String id, Message label, Message description, Material enabledMaterial, Material disabledMaterial) {
-            this.id = id;
-            this.label = label;
-            this.description = description;
-            this.enabledMaterial = enabledMaterial;
-            this.disabledMaterial = disabledMaterial;
+    private void requestConsent(Player sender, Player victim, String command) {
+        TeleportRequest request = new TeleportRequest(
+                UUID.randomUUID(), sender.getUniqueId(), command);
+        TeleportRequest replaced = pendingRequests.put(victim.getUniqueId(), request);
+        if (replaced != null) {
+            notifyRequestExpired(replaced.requesterId());
         }
 
-        String id() {
-            return id;
+        sender.sendMessage(languageService.rich(sender, Message.TELEPORT_REQUEST_SENT,
+                NamedTextColor.YELLOW,
+                RichArg.component("player",
+                        PlayerDisplay.name(victim, NamedTextColor.YELLOW),
+                        victim.getName())));
+
+        Component accept = requestButton(victim, Message.TELEPORT_REQUEST_ACCEPT,
+                NamedTextColor.GREEN, "/tpaccept");
+        Component deny = requestButton(victim, Message.TELEPORT_REQUEST_DENY_ACTION,
+                NamedTextColor.RED, "/tpdeny");
+        victim.sendMessage(languageService.rich(victim,
+                        Message.TELEPORT_REQUEST_RECEIVED, NamedTextColor.YELLOW,
+                        RichArg.component("sender",
+                                PlayerDisplay.name(sender, NamedTextColor.AQUA),
+                                sender.getName()),
+                        RichArg.component("command",
+                                Component.text(command, NamedTextColor.GRAY), command))
+                .append(Component.newline())
+                .append(accept)
+                .append(Component.space())
+                .append(deny));
+
+        Bukkit.getScheduler().runTaskLater(plugin,
+                () -> expireRequest(victim.getUniqueId(), request),
+                REQUEST_TIMEOUT_TICKS);
+    }
+
+    private Component requestButton(Player player, Message label,
+                                    NamedTextColor color, String command) {
+        return Component.text()
+                .append(Component.text("[", NamedTextColor.DARK_GRAY))
+                .append(Component.text(languageService.t(player, label), color,
+                        TextDecoration.BOLD))
+                .append(Component.text("]", NamedTextColor.DARK_GRAY))
+                .clickEvent(ClickEvent.runCommand(command))
+                .hoverEvent(HoverEvent.showText(
+                        Component.text(command, NamedTextColor.GRAY)))
+                .build();
+    }
+
+    private int respondToRequest(CommandSender sender, boolean accept) {
+        Player target = requirePlayer(sender);
+        if (target == null) {
+            return 0;
         }
 
-        Message label() {
-            return label;
+        TeleportRequest request = pendingRequests.remove(target.getUniqueId());
+        if (request == null) {
+            target.sendMessage(Component.text(languageService.t(target,
+                    Message.TELEPORT_REQUEST_NONE), NamedTextColor.YELLOW));
+            return 0;
         }
 
-        Message description() {
-            return description;
-        }
-
-        Material enabledMaterial() {
-            return enabledMaterial;
-        }
-
-        Material disabledMaterial() {
-            return disabledMaterial;
-        }
-
-        static SettingKey fromId(String id) {
-            for (SettingKey key : values()) {
-                if (key.id.equals(id)) {
-                    return key;
-                }
+        Player requester = Bukkit.getPlayer(request.requesterId());
+        if (!accept) {
+            target.sendMessage(Component.text(languageService.t(target,
+                    Message.TELEPORT_REQUEST_REJECTED), NamedTextColor.RED));
+            if (requester != null) {
+                requester.sendMessage(languageService.rich(requester,
+                        Message.TELEPORT_DENIED, NamedTextColor.RED,
+                        RichArg.component("player",
+                                PlayerDisplay.name(target, NamedTextColor.YELLOW),
+                                target.getName())));
             }
-            return null;
+            return Command.SINGLE_SUCCESS;
+        }
+
+        if (requester == null) {
+            target.sendMessage(Component.text(languageService.t(target,
+                    Message.TELEPORT_REQUEST_FAILED), NamedTextColor.RED));
+            return 0;
+        }
+
+        TeleportAuthorization authorization = new TeleportAuthorization(
+                requester.getUniqueId(), target.getUniqueId(), request.command());
+        authorizations.add(authorization);
+        boolean executed;
+        try {
+            executed = requester.performCommand(
+                    request.command().substring(1));
+        } finally {
+            authorizations.remove(authorization);
+        }
+
+        if (!executed) {
+            teleportInitiators.remove(target.getUniqueId());
+            target.sendMessage(Component.text(languageService.t(target,
+                    Message.TELEPORT_REQUEST_FAILED), NamedTextColor.RED));
+            requester.sendMessage(Component.text(languageService.t(requester,
+                    Message.TELEPORT_REQUEST_FAILED), NamedTextColor.RED));
+            return 0;
+        }
+
+        requester.sendMessage(languageService.rich(requester,
+                Message.TELEPORT_REQUEST_APPROVED, NamedTextColor.GREEN,
+                RichArg.component("player",
+                        PlayerDisplay.name(target, NamedTextColor.YELLOW),
+                        target.getName())));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private Player requirePlayer(CommandSender sender) {
+        if (sender instanceof Player player) {
+            return player;
+        }
+        sender.sendMessage(Component.text(languageService.t(Language.DEFAULT,
+                Message.PLAYER_ONLY), NamedTextColor.RED));
+        return null;
+    }
+
+    private void expireRequest(UUID targetId, TeleportRequest request) {
+        if (!pendingRequests.remove(targetId, request)) {
+            return;
+        }
+        notifyRequestExpired(targetId);
+        notifyRequestExpired(request.requesterId());
+    }
+
+    private void notifyRequestExpired(UUID playerId) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null) {
+            player.sendMessage(Component.text(languageService.t(player,
+                    Message.TELEPORT_REQUEST_EXPIRED), NamedTextColor.GRAY));
         }
     }
+
+    private void rememberTeleportInitiator(Player victim, Player sender) {
+        UUID victimId = victim.getUniqueId();
+        TeleportInitiator initiator = new TeleportInitiator(
+                UUID.randomUUID(), sender.getName());
+        teleportInitiators.put(victimId, initiator);
+        Bukkit.getScheduler().runTask(plugin,
+                () -> teleportInitiators.remove(victimId, initiator));
+    }
+
+    private record TeleportRequest(
+            UUID id,
+            UUID requesterId,
+            String command
+    ) {}
+
+    private record TeleportAuthorization(
+            UUID senderId,
+            UUID victimId,
+            String command
+    ) {}
+
+    private record TeleportInitiator(
+            UUID id,
+            String senderName
+    ) {}
 }
