@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -16,6 +17,53 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class NbsParserTest {
 
     private final NbsParser parser = new NbsParser();
+
+    @Test
+    void followsTheBinaryLayoutOfEveryReleasedNbsVersion() throws Exception {
+        for (int version = 0; version <= 6; version++) {
+            int vanillaInstruments = version == 0 ? 10 : version == 6 ? 20 : 16;
+            Bytes bytes = version == 0
+                    ? classicHeader(3, 1, "Classic", 1000)
+                    : modernHeader(version, vanillaInstruments, 3, 1,
+                            "Version " + version, 1000, true, 2, 1);
+            bytes.u16(3).u16(1).u8(0).u8(46);
+            if (version >= 4) {
+                bytes.u8(40).u8(125).i16(50);
+            }
+            bytes.u16(0).u16(0).string("Layer");
+            if (version >= 4) {
+                bytes.u8(2);
+            }
+            bytes.u8(60);
+            if (version >= 2) {
+                bytes.u8(80);
+            }
+            bytes.u8(0);
+
+            NbsSong song = parse(bytes);
+            NbsNote note = song.notes().getFirst();
+
+            assertEquals(version, song.version());
+            assertEquals(3, song.lengthTicks());
+            assertEquals(vanillaInstruments,
+                    song.fileMetadata().vanillaInstrumentCount());
+            assertEquals(version == 0 || version >= 3 ? 3 : 0,
+                    song.fileMetadata().declaredLengthTicks());
+            assertEquals(version >= 4, song.loopEnabled());
+            assertEquals(version >= 4 ? 2 : 0, song.maxLoopCount());
+            assertEquals(version >= 4 ? 1 : 0, song.loopStartTick());
+            assertEquals(version >= 4 ? 40 : 100, note.velocity());
+            assertEquals(version >= 4 ? 25 : 0, note.notePanning());
+            assertEquals(version < 2 ? 0 : version < 4 ? -10 : 2,
+                    note.panning());
+            assertEquals(version >= 4 ? 50 : 0, note.finePitch());
+            assertEquals(version >= 4 ? 2 : 0,
+                    song.layers().getFirst().lockState());
+            assertEquals(60, song.layers().getFirst().volume());
+            assertEquals(version >= 2 ? -20 : 0,
+                    song.layers().getFirst().panning());
+        }
+    }
 
     @Test
     void parsesVersionFiveLayersLoopsAndAllTrumpetStages() throws Exception {
@@ -271,9 +319,35 @@ class NbsParserTest {
         assertEquals(20, note.sourceInstrument());
         assertEquals(25, note.notePanning());
         assertEquals(10, note.panning());
-        assertEquals(70, note.layerVolume());
+        assertEquals(0, note.layerVolume());
         assertEquals(36, note.instrumentKey());
         assertEquals(-677, note.playbackPitchCents());
+    }
+
+    @Test
+    void appliesLockedAndSoloLayerMuteRulesWithoutLosingLayerMetadata()
+            throws Exception {
+        Bytes bytes = modernHeader(6, 20, 1, 3,
+                "Layer states", 1000, false, 0, 0)
+                .u16(1)
+                .u16(1).u8(0).u8(45).u8(100).u8(100).i16(0)
+                .u16(1).u8(0).u8(45).u8(100).u8(100).i16(0)
+                .u16(1).u8(0).u8(45).u8(100).u8(100).i16(0)
+                .u16(0).u16(0)
+                .string("Normal").u8(0).u8(50).u8(100)
+                .string("Locked").u8(1).u8(60).u8(100)
+                .string("Solo").u8(2).u8(70).u8(100)
+                .u8(0);
+
+        NbsSong song = parse(bytes);
+
+        assertEquals(Map.of(0, 0, 1, 0, 2, 70), song.notes().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        NbsNote::layer, NbsNote::layerVolume)));
+        assertEquals(List.of(50, 60, 70), song.layers().stream()
+                .map(NbsLayer::volume).toList());
+        assertTrue(song.layers().get(1).locked());
+        assertTrue(song.layers().get(2).solo());
     }
 
     @Test
@@ -305,7 +379,7 @@ class NbsParserTest {
     }
 
     @Test
-    void rejectsPartiallyWrittenOptionalSectionsAndTrailingGarbage() {
+    void rejectsPartiallyWrittenOptionalSections() {
         Bytes partialLayer = modernHeader(6, 20, 1, 1,
                 "Partial layer", 1000, false, 0, 0)
                 .u16(0).string("Layer").u8(0);
@@ -317,8 +391,6 @@ class NbsParserTest {
                 .u8(1).string("Instrument");
         assertThrows(IOException.class, () -> parse(partialInstrument));
 
-        Bytes trailing = emptySong(1000).u8(1);
-        assertThrows(IOException.class, () -> parse(trailing));
     }
 
     @Test
@@ -351,6 +423,72 @@ class NbsParserTest {
 
         assertEquals(List.of(NbsNoteType.TEMPO_CHANGE, NbsNoteType.SOUND_STOP),
                 song.notes().stream().map(NbsNote::type).toList());
+    }
+
+    @Test
+    void appliesControlInstrumentSemanticsOnlyInFormatsThatSupportThem()
+            throws Exception {
+        Bytes oldTempoChanger = modernHeader(3, 16, 1, 1,
+                "Old tempo custom", 1000, false, 0, 0)
+                .u16(1).u16(1).u8(16).u8(45).u16(0).u16(0)
+                .string("Layer").u8(100).u8(100)
+                .u8(1).customInstrument("Tempo Changer", "", 45, 0);
+        Bytes oldSoundStopper = modernHeader(4, 16, 1, 1,
+                "Old stop custom", 1000, false, 0, 0)
+                .u16(1).u16(1).u8(16).u8(45)
+                .u8(100).u8(100).i16(0).u16(0).u16(0)
+                .string("Layer").u8(0).u8(100).u8(100)
+                .u8(1).customInstrument("Sound Stopper", "", 45, 0);
+
+        assertEquals(NbsNoteType.SOUND,
+                parse(oldTempoChanger).notes().getFirst().type());
+        assertEquals(NbsNoteType.SOUND,
+                parse(oldSoundStopper).notes().getFirst().type());
+    }
+
+    @Test
+    void decodesSoundStopperLayerRangeFromItsOverloadedNoteBytes() throws Exception {
+        Bytes bytes = modernHeader(6, 20, 1, 1,
+                "Stopper", 1000, false, 0, 0)
+                .u16(1).u16(1).u8(20).u8(45)
+                .u8(227).u8(99).i16(2)
+                .u16(0).u16(0)
+                .string("Events").u8(0).u8(100).u8(100)
+                .u8(1).customInstrument("Sound Stopper", "", 45, 0);
+
+        NbsNote stopper = parse(bytes).notes().getFirst();
+
+        assertEquals(NbsNoteType.SOUND_STOP, stopper.type());
+        assertEquals(227, stopper.velocity());
+        assertEquals(99, stopper.encodedPanning());
+        assertEquals(2, stopper.soundStopStartLayer());
+        assertEquals(32_767, stopper.soundStopEndLayer());
+        assertEquals(0, stopper.panning(),
+                "layer panning must not alter control-instrument payloads");
+    }
+
+    @Test
+    void stillRejectsOverloadedVelocityAndPanningOnAudibleNotes() {
+        Bytes bytes = modernHeader(6, 20, 1, 1,
+                "Invalid sound", 1000, false, 0, 0)
+                .u16(1).u16(1).u8(0).u8(45)
+                .u8(227).u8(255).i16(0)
+                .u16(0).u16(0)
+                .string("Layer").u8(0).u8(100).u8(100).u8(0);
+
+        assertThrows(IOException.class, () -> parse(bytes));
+    }
+
+    @Test
+    void acceptsEmptySongsWhoseHeaderDeclaresZeroLayers() throws Exception {
+        Bytes withoutTail = modernHeader(6, 20, 0, 0,
+                "Empty", 1000, false, 0, 0).u16(0);
+        Bytes withCustomCount = modernHeader(6, 20, 0, 0,
+                "Empty tail", 1000, false, 0, 0).u16(0).u8(0);
+
+        assertEquals(List.of(), parse(withoutTail).layers());
+        assertEquals(List.of(), parse(withCustomCount).layers());
+        assertEquals(1, parse(withoutTail).lengthTicks());
     }
 
     @Test
@@ -440,6 +578,16 @@ class NbsParserTest {
             bytes.u8(loop ? 1 : 0).u8(maxLoops).u16(loopStart);
         }
         return bytes;
+    }
+
+    private static Bytes classicHeader(
+            int length, int layers, String title, int tempo) {
+        return new Bytes().u16(length).u16(layers)
+                .string(title).string("Composer").string("Original").string("Description")
+                .u16(tempo)
+                .u8(0).u8(10).u8(4)
+                .i32(0).i32(0).i32(0).i32(0).i32(0)
+                .string("");
     }
 
     private static Bytes emptySong(int tempo) {

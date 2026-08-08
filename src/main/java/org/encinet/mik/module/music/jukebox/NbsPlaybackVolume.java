@@ -1,18 +1,19 @@
 package org.encinet.mik.module.music.jukebox;
 
 import org.encinet.mik.module.music.catalog.nbs.NbsNote;
+import org.encinet.mik.module.music.catalog.nbs.NbsNoteType;
 
-/** Converts the two NBS volume components to Bukkit's note-block sound volume. */
+/** Converts NBS percentages to the client sound gain range of {@code 0..1}. */
 final class NbsPlaybackVolume {
-
-    private static final float MAX_SOUND_VOLUME = 4.0F;
 
     private NbsPlaybackVolume() {
     }
 
     static float volume(NbsNote note, int volumePercent) {
-        return MAX_SOUND_VOLUME
-                * (note.velocity() / 100.0F)
+        if (note.type() != NbsNoteType.SOUND) {
+            return 0.0F;
+        }
+        return (note.velocity() / 100.0F)
                 * (note.layerVolume() / 100.0F)
                 * (Math.max(0, Math.min(100, volumePercent)) / 100.0F);
     }

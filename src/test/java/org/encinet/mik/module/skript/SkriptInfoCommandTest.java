@@ -15,7 +15,7 @@ class SkriptInfoCommandTest {
 
     private static final SkriptInfoCommand.Environment ENVIRONMENT = new SkriptInfoCommand.Environment(
             "26.2",
-            List.of("Skript 2.16.0", "SkBee 3.25.2", "skript-particle 1.4.1",
+            List.of("Skript 2.16.1", "SkBee 3.25.2", "skript-particle 1.4.1",
                     "MIK Skript API (MIK 1.0)"));
 
     @Test

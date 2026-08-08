@@ -121,6 +121,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final TrackTarget.NbsFile target;
         private final PlaybackCallbacks callbacks;
         private final RhythmTimeline rhythmTimeline;
+        private final NbsSoundLedger soundLedger = new NbsSoundLedger();
         private final AtomicBoolean preparationStarted = new AtomicBoolean();
         private final AtomicBoolean playbackRequested = new AtomicBoolean();
         private final AtomicBoolean outputStarted = new AtomicBoolean();
@@ -224,7 +225,8 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 playbackPositionMillis = initial.positionMillis();
                 task = scheduler.scheduleEveryTick(this::tick);
                 status = PlaybackStatus.PLAYING;
-                playNotes(location, initial.notes(), settings, audibleToPlayer);
+                playNotes(location, initial.notes(), settings, audibleToPlayer,
+                        soundLedger);
                 callbacks.started();
             } catch (RuntimeException exception) {
                 fail(exception);
@@ -242,7 +244,8 @@ final class NbsPlaybackEngine implements AutoCloseable {
             try {
                 NbsPlaybackCursor.PollResult result = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = result.positionMillis();
-                playNotes(location, result.notes(), settings, audibleToPlayer);
+                playNotes(location, result.notes(), settings, audibleToPlayer,
+                        soundLedger);
                 if (result.finished()) {
                     finish();
                 }
@@ -274,6 +277,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             if (!terminal.compareAndSet(false, true)) {
                 return;
             }
+            stopActiveSounds();
             cleanup();
         }
 
@@ -281,6 +285,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             if (!terminal.compareAndSet(false, true)) {
                 return;
             }
+            stopActiveSounds();
             cleanup();
             callbacks.failed(error);
         }
@@ -297,6 +302,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             if (!terminal.compareAndSet(false, true)) {
                 return;
             }
+            stopActiveSounds();
             cleanup();
             callbacks.cancelled();
         }
@@ -313,6 +319,13 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 currentTask.cancel();
             }
             sessions.remove(this);
+        }
+
+        private void stopActiveSounds() {
+            World world = location.getWorld();
+            if (world != null) {
+                stopSounds(world, soundLedger.stopAll());
+            }
         }
     }
 
@@ -356,9 +369,10 @@ final class NbsPlaybackEngine implements AutoCloseable {
 
     private static void playNotes(Location jukeboxLocation, List<NbsNote> notes,
                                   JukeboxSoundSettings settings,
-                                  Predicate<UUID> audibleToPlayer) {
+                                  Predicate<UUID> audibleToPlayer,
+                                  NbsSoundLedger soundLedger) {
         World world = jukeboxLocation.getWorld();
-        if (world == null || notes.isEmpty() || settings.volumePercent() == 0) {
+        if (world == null || notes.isEmpty()) {
             return;
         }
         double rangeSquared = (double) settings.rangeBlocks() * settings.rangeBlocks();
@@ -368,9 +382,18 @@ final class NbsPlaybackEngine implements AutoCloseable {
                         <= rangeSquared)
                 .toList();
         if (audience.isEmpty()) {
+            for (NbsNote note : notes) {
+                if (note.type() == NbsNoteType.SOUND_STOP) {
+                    stopSounds(world, soundLedger.stop(note));
+                }
+            }
             return;
         }
         for (NbsNote note : notes) {
+            if (note.type() == NbsNoteType.SOUND_STOP) {
+                stopSounds(world, soundLedger.stop(note));
+                continue;
+            }
             if (note.type() != NbsNoteType.SOUND) {
                 continue;
             }
@@ -378,17 +401,37 @@ final class NbsPlaybackEngine implements AutoCloseable {
             if (volume == 0.0F) {
                 continue;
             }
-            Location soundLocation = jukeboxLocation.clone().add(
-                    0.5 + note.panning() / 50.0, 1.0, 0.5);
             float semitones = note.playbackPitchCents() / 100.0F;
             float pitch = (float) Math.pow(2.0, semitones / 12.0);
             pitch = Math.max(0.5F, Math.min(2.0F, pitch));
             for (Player player : audience) {
+                Location listener = player.getEyeLocation();
+                Location soundLocation = NbsPlaybackPosition.forListener(
+                        jukeboxLocation, listener, note.panning());
                 Location audibleLocation = NbsPlaybackRange.forListener(
-                        soundLocation, player.getEyeLocation(), settings.rangeBlocks(), volume);
+                        soundLocation, listener, settings.rangeBlocks());
                 player.playSound(audibleLocation,
                         NbsInstruments.minecraftSound(note.instrument()),
                         SoundCategory.RECORDS, volume, pitch);
+                soundLedger.record(note.layer(),
+                        NbsInstruments.minecraftSound(note.instrument()),
+                        player.getUniqueId());
+            }
+        }
+    }
+
+    private static void stopSounds(
+            World world, Set<NbsSoundLedger.StopRequest> requests) {
+        if (requests.isEmpty()) {
+            return;
+        }
+        java.util.Map<UUID, Player> players = world.getPlayers().stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Player::getUniqueId, player -> player));
+        for (NbsSoundLedger.StopRequest request : requests) {
+            Player player = players.get(request.listener());
+            if (player != null) {
+                player.stopSound(request.sound(), SoundCategory.RECORDS);
             }
         }
     }

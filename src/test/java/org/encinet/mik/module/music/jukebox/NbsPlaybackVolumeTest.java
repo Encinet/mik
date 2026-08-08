@@ -10,15 +10,15 @@ class NbsPlaybackVolumeTest {
 
     @Test
     void combinesNoteVelocityAndLayerVolumeLinearly() {
-        assertEquals(4.0F, volume(100, 100));
-        assertEquals(1.6F, volume(80, 50), 0.000_001F);
+        assertEquals(1.0F, volume(100, 100));
+        assertEquals(0.4F, volume(80, 50), 0.000_001F);
     }
 
     @Test
     void keepsVeryQuietNotesNonZeroWithoutRaisingTheirVolume() {
         float volume = volume(1, 1);
 
-        assertEquals(0.0004F, volume, 0.000_000_1F);
+        assertEquals(0.0001F, volume, 0.000_000_1F);
         assertTrue(volume > 0.0F);
     }
 
@@ -33,8 +33,8 @@ class NbsPlaybackVolumeTest {
     void appliesTheJukeboxVolumeLinearly() {
         NbsNote note = new NbsNote(0, 0, 45, 100, 100, 0, 0);
 
-        assertEquals(4.0F, NbsPlaybackVolume.volume(note, 100));
-        assertEquals(2.0F, NbsPlaybackVolume.volume(note, 50));
+        assertEquals(1.0F, NbsPlaybackVolume.volume(note, 100));
+        assertEquals(0.5F, NbsPlaybackVolume.volume(note, 50));
         assertEquals(0.0F, NbsPlaybackVolume.volume(note, 0));
     }
 

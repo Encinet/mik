@@ -11,6 +11,10 @@ NBS songs use the normal MIK disc, jukebox playlist, repeat, shuffle, and stop f
 They are played as spatial Minecraft note-block sounds at the jukebox rather
 than being decoded by Lavaplayer.
 
+The binary format is read by NoteBlockLib 3.3.0. MIK keeps a small adapter for
+its immutable playback model, input limits, unsigned header fields, and UTF-8
+metadata compatibility instead of maintaining a second binary parser.
+
 Supported data includes:
 
 - legacy NBS and modern versions 1 through 6
@@ -28,11 +32,20 @@ Versions 4 through 6 also preserve each note's 0%-100% velocity; legacy files an
 versions 1 through 3 use 100% note velocity as defined by the format. Playback
 multiplies these two values linearly. A zero in either field is silent, while a
 very low non-zero combination remains non-zero and is not raised to an artificial
-minimum volume.
+minimum volume. The result remains in the Minecraft client gain range of 0-1;
+playback distance is extended independently by a listener-relative virtual
+source, so increasing range no longer flattens the song's volume dynamics.
+
+NBS stereo values follow the format's direction: 0 is right, 100 is center, and
+200 is left. MIK rotates that offset for every listener instead of tying stereo
+to a fixed world axis.
+
+Locked layers are muted. If a song contains one or more solo layers, only those
+solo layers remain audible; their original layer metadata is still retained.
 
 Playback accepts the complete NBS tempo field from 0.01 through 655.35 ticks per second.
 Songs above 20 ticks per second advance multiple song ticks during one Paper server tick.
-One song tick may contain at most 256 notes, and one file may contain at most 200,000 notes.
+One file may contain at most 200,000 notes.
 Short scheduler delays preserve elapsed song time. After a long server stall, playback keeps
 at most one second or 20 song ticks of stale timing. For tempos above 400 ticks per second,
 one normal server tick's required progress is retained so the configured tempo remains
@@ -53,9 +66,9 @@ Custom audio samples are not loaded. Unrecognized custom instruments safely
 fall back to the vanilla harp sound, while their declared base key is retained
 for playback pitch. Note Block Studio's `Tempo Changer` and `Sound Stopper`
 custom instruments are retained as control events and are never misplayed as
-harp notes.
+harp notes. `Sound Stopper` events stop already emitted sounds in their encoded
+layer range for every listener.
 
 The layer and custom-instrument tails are optional in the NBS specification.
 MIK accepts files that omit an entire optional tail and supplies neutral layer
-defaults. Once an optional section starts, truncated records or trailing bytes
-are rejected instead of being silently misparsed.
+defaults. Once an optional section starts, truncated records are rejected.

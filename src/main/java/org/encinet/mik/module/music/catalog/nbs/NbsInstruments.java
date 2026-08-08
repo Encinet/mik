@@ -33,18 +33,21 @@ public final class NbsInstruments {
         return custom == null ? 45 : custom.key();
     }
 
-    static NbsNoteType noteType(int instrument, int declaredVanillaCount,
+    static NbsNoteType noteType(int version, int instrument, int declaredVanillaCount,
                                 java.util.List<NbsCustomInstrument> customInstruments) {
         NbsCustomInstrument custom = customInstrument(
                 instrument, declaredVanillaCount, customInstruments);
         if (custom == null) {
             return NbsNoteType.SOUND;
         }
-        return switch (custom.name().strip().toLowerCase(Locale.ROOT)) {
-            case "tempo changer" -> NbsNoteType.TEMPO_CHANGE;
-            case "sound stopper" -> NbsNoteType.SOUND_STOP;
-            default -> NbsNoteType.SOUND;
-        };
+        String name = custom.name().strip().toLowerCase(Locale.ROOT);
+        if (version >= 4 && name.equals("tempo changer")) {
+            return NbsNoteType.TEMPO_CHANGE;
+        }
+        if (version >= 5 && name.equals("sound stopper")) {
+            return NbsNoteType.SOUND_STOP;
+        }
+        return NbsNoteType.SOUND;
     }
 
     public static String minecraftSound(int instrument) {

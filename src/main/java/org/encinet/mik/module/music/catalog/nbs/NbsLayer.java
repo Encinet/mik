@@ -16,7 +16,11 @@ public record NbsLayer(String name, int lockState, int volume, int panning) {
     }
 
     public boolean locked() {
-        return lockState != 0;
+        return lockState == 1;
+    }
+
+    public boolean solo() {
+        return lockState == 2;
     }
 
     static NbsLayer defaults() {

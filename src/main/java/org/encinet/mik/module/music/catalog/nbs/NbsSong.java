@@ -56,9 +56,6 @@ public record NbsSong(
         layers = layers == null ? List.of() : List.copyOf(layers);
         customInstruments = customInstruments == null
                 ? List.of() : List.copyOf(customInstruments);
-        if (layers.isEmpty()) {
-            throw new IllegalArgumentException("layers must not be empty");
-        }
         for (NbsLayer layer : layers) {
             Objects.requireNonNull(layer, "layers must not contain null");
         }

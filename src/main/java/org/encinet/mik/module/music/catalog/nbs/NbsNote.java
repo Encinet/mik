@@ -21,6 +21,7 @@ public record NbsNote(
     }
 
     public NbsNote {
+        type = java.util.Objects.requireNonNull(type, "type");
         if (tick < 0) {
             throw new IllegalArgumentException("tick must not be negative");
         }
@@ -30,8 +31,10 @@ public record NbsNote(
         if (key < 0 || key > 87) {
             throw new IllegalArgumentException("key must be between 0 and 87");
         }
-        if (velocity < 0 || velocity > 100) {
-            throw new IllegalArgumentException("velocity must be between 0 and 100");
+        int maximumVelocity = type == NbsNoteType.SOUND ? 100 : 255;
+        if (velocity < 0 || velocity > maximumVelocity) {
+            throw new IllegalArgumentException(
+                    "velocity is out of range for the note type");
         }
         if (layerVolume < 0 || layerVolume > 100) {
             throw new IllegalArgumentException("layerVolume must be between 0 and 100");
@@ -48,13 +51,14 @@ public record NbsNote(
         if (sourceInstrument < 0 || sourceInstrument > 255) {
             throw new IllegalArgumentException("sourceInstrument must be between 0 and 255");
         }
-        if (notePanning < -100 || notePanning > 100) {
-            throw new IllegalArgumentException("notePanning must be between -100 and 100");
+        int maximumNotePanning = type == NbsNoteType.SOUND ? 100 : 155;
+        if (notePanning < -100 || notePanning > maximumNotePanning) {
+            throw new IllegalArgumentException(
+                    "notePanning is out of range for the note type");
         }
         if (instrumentKey < 0 || instrumentKey > 87) {
             throw new IllegalArgumentException("instrumentKey must be between 0 and 87");
         }
-        type = java.util.Objects.requireNonNull(type, "type");
     }
 
     public int playbackPitchCents() {
@@ -66,5 +70,35 @@ public record NbsNote(
             return Double.NaN;
         }
         return Math.abs((long) finePitch) / 15.0;
+    }
+
+    /** Raw unsigned panning byte stored in the NBS note record. */
+    public int encodedPanning() {
+        return notePanning + 100;
+    }
+
+    /**
+     * First one-based layer affected by a Sound Stopper; zero means all layers.
+     */
+    public int soundStopStartLayer() {
+        requireSoundStopper();
+        return Math.max(0, finePitch);
+    }
+
+    /**
+     * Last one-based layer affected by a Sound Stopper, decoded from the two
+     * bytes that normally hold panning and velocity.
+     */
+    public int soundStopEndLayer() {
+        requireSoundStopper();
+        int lowByte = Math.floorMod(encodedPanning() - 100, 256);
+        int highByte = Math.floorMod(velocity - 100, 256);
+        return lowByte | highByte << 8;
+    }
+
+    private void requireSoundStopper() {
+        if (type != NbsNoteType.SOUND_STOP) {
+            throw new IllegalStateException("note is not a Sound Stopper");
+        }
     }
 }

@@ -4,7 +4,7 @@ import org.bukkit.Location;
 
 import java.util.Objects;
 
-/** Keeps NBS sounds spatial while extending their native attenuation to the configured range. */
+/** Keeps gain independent from the configured spatial attenuation range. */
 final class NbsPlaybackRange {
 
     private static final double MIN_NATIVE_RANGE_BLOCKS = 16.0;
@@ -13,10 +13,10 @@ final class NbsPlaybackRange {
     }
 
     static Location forListener(Location source, Location listener,
-                                int configuredRange, float volume) {
+                                int configuredRange) {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(listener, "listener");
-        double scale = spatialScale(configuredRange, volume);
+        double scale = spatialScale(configuredRange);
         if (scale >= 1.0) return source;
 
         Location result = source.clone();
@@ -26,10 +26,8 @@ final class NbsPlaybackRange {
         return result;
     }
 
-    static double spatialScale(int configuredRange, float volume) {
-        if (configuredRange <= 0 || !Float.isFinite(volume)) return 1.0;
-        double nativeRange = Math.max(MIN_NATIVE_RANGE_BLOCKS,
-                Math.max(0.0F, volume) * MIN_NATIVE_RANGE_BLOCKS);
-        return Math.min(1.0, nativeRange / configuredRange);
+    static double spatialScale(int configuredRange) {
+        if (configuredRange <= 0) return 1.0;
+        return Math.min(1.0, MIN_NATIVE_RANGE_BLOCKS / configuredRange);
     }
 }
