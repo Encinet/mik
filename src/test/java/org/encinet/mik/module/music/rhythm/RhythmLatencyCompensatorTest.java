@@ -17,7 +17,7 @@ class RhythmLatencyCompensatorTest {
         RhythmLatencyCompensator latency = new RhythmLatencyCompensator(120);
 
         assertEquals(1_880L, latency.inputPosition(2_000L));
-        assertEquals(120, latency.compensationMillis());
+        assertEquals(120, latency.networkCompensationMillis());
     }
 
     @Test
@@ -27,7 +27,7 @@ class RhythmLatencyCompensatorTest {
         assertEquals(895L, latency.missPosition(1_000L));
         latency.observe(500);
 
-        assertEquals(80, latency.compensationMillis(),
+        assertEquals(80, latency.networkCompensationMillis(),
                 "one ping spike must not move the input judgement clock");
         assertTrue(latency.missGraceMillis() > 25,
                 "a spike may safely delay automatic misses");
@@ -38,11 +38,11 @@ class RhythmLatencyCompensatorTest {
         RhythmLatencyCompensator latency = new RhythmLatencyCompensator(60);
 
         latency.observe(260);
-        assertEquals(60, latency.compensationMillis());
+        assertEquals(60, latency.networkCompensationMillis());
         for (int sample = 0; sample < 16; sample++) latency.observe(200);
 
-        assertTrue(latency.compensationMillis() >= 185);
-        assertTrue(latency.compensationMillis() <= 205);
+        assertTrue(latency.networkCompensationMillis() >= 185);
+        assertTrue(latency.networkCompensationMillis() <= 205);
     }
 
     @Test
@@ -52,23 +52,24 @@ class RhythmLatencyCompensatorTest {
         for (long tick = 1L; tick < 20L; tick++) {
             assertTrue(!latency.sample(260, tick * 50_000_000L));
         }
-        assertEquals(60, latency.compensationMillis());
+        assertEquals(60, latency.networkCompensationMillis());
 
         for (int second = 1; second <= 16; second++) {
             assertTrue(latency.sample(200,
                     second * RhythmLatencyCompensator.SAMPLE_INTERVAL_NANOS));
         }
-        assertTrue(latency.compensationMillis() >= 185);
-        assertTrue(latency.compensationMillis() <= 205);
+        assertTrue(latency.networkCompensationMillis() >= 185);
+        assertTrue(latency.networkCompensationMillis() <= 205);
     }
 
     @Test
     void clampsUnusablePingValuesAndNeverCreatesNegativeSongTime() {
-        assertEquals(0, new RhythmLatencyCompensator(-30).compensationMillis());
+        assertEquals(0, new RhythmLatencyCompensator(-30)
+                .networkCompensationMillis());
         RhythmLatencyCompensator latency = new RhythmLatencyCompensator(5_000);
 
         assertEquals(RhythmLatencyCompensator.MAXIMUM_RTT_MILLIS,
-                latency.compensationMillis());
+                latency.networkCompensationMillis());
         assertEquals(0L, latency.inputPosition(200L));
         assertEquals(0L, latency.missPosition(200L));
     }
@@ -104,7 +105,7 @@ class RhythmLatencyCompensatorTest {
 
         for (int sample = 0; sample < 16; sample++) latency.observe(200);
 
-        assertTrue(latency.compensationMillis() >= 185);
+        assertTrue(latency.networkCompensationMillis() >= 185);
         assertEquals(45, latency.calibrationOffsetMillis(),
                 "network adaptation must not rewrite the device calibration");
         assertTrue(latency.totalCompensationMillis() >= 230);
@@ -148,7 +149,7 @@ class RhythmLatencyCompensatorTest {
         RhythmGameSession.Result firstResult = session.input(first.input(),
                 latency.inputPosition(1_105L), chart);
         for (int sample = 0; sample < 16; sample++) latency.observe(210);
-        int updatedNetworkDelay = latency.compensationMillis();
+        int updatedNetworkDelay = latency.networkCompensationMillis();
         RhythmGameSession.Result secondResult = session.input(second.input(),
                 latency.inputPosition(2_000L + updatedNetworkDelay + 45L), chart);
 

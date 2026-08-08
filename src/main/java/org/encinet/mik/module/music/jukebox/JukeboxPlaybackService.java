@@ -169,7 +169,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         return !playback.failed.get();
     }
 
-    /** Acquires one actual game participant; menus alone never start playback. */
+    /** Acquires a participant and prepares, but does not yet play, the transport. */
     @Override
     public Optional<Participation> join(Block block, UUID playerId) {
         java.util.Objects.requireNonNull(block, "block");
@@ -185,7 +185,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                         () -> resetRhythmPlaybackToWaiting(playback));
         if (participant.first() && playback.session == null) {
             recordSilencer.playbackStarted(playback.location);
-            startBackend(playback);
+            prepareBackend(playback);
         }
         if (playback.failed.get() || playbacks.get(playback.key) != playback) {
             participant.close();
@@ -194,16 +194,33 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
 
         UUID playbackId = playback.rhythmId;
         return Optional.of(new Participation() {
+            private final AtomicBoolean closed = new AtomicBoolean();
+
             @Override
             public UUID playbackId() {
                 return playbackId;
             }
 
             @Override
+            public void startPlayback() {
+                if (!closed.get()) startRhythmPlayback(playback, playbackId);
+            }
+
+            @Override
             public void close() {
-                participant.close();
+                if (closed.compareAndSet(false, true)) participant.close();
             }
         });
+    }
+
+    private void startRhythmPlayback(Playback playback, UUID playbackId) {
+        if (playbacks.get(playback.key) != playback || playback.stopped.get()
+                || !playback.rhythmId.equals(playbackId)
+                || playback.rhythmParticipants.isEmpty()) {
+            return;
+        }
+        PlaybackSession session = playback.session;
+        if (session != null) session.start();
     }
 
     /** Stops and discards the song clock while retaining the disc as a waiting track. */
@@ -225,6 +242,12 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     }
 
     private void startBackend(Playback playback) {
+        prepareBackend(playback);
+        PlaybackSession session = playback.session;
+        if (session != null) session.start();
+    }
+
+    private void prepareBackend(Playback playback) {
         if (!playback.backendStarted.compareAndSet(false, true)) return;
         try {
             PlaybackCallbacks callbacks = callbacks(playback);
@@ -234,7 +257,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                     : audioEngine.create(playback.location, playback.music,
                             playback.musicName, playback.settings, callbacks,
                             playback.rhythmTimeline, playback.experienceMode);
-            playback.session.start();
+            playback.session.prepare();
         } catch (RuntimeException exception) {
             backendFailed(playback, exception);
         }

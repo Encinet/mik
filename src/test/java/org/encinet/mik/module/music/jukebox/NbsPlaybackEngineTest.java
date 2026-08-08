@@ -85,6 +85,40 @@ class NbsPlaybackEngineTest {
     }
 
     @Test
+    void preparationDoesNotStartNotesOrSongClock() throws Exception {
+        Path file = directory.resolve("prepared.nbs");
+        Files.write(file, minimalNbs());
+        ManualExecutor executor = new ManualExecutor();
+        ImmediateScheduler scheduler = new ImmediateScheduler();
+        AtomicLong clock = new AtomicLong(1_000_000_000L);
+        engine = new NbsPlaybackEngine(scheduler, new LocalMediaPreparer(),
+                new NbsParser(), executor,
+                org.encinet.mik.module.music.rhythm.analysis.NbsRhythmExtractor.INSTANCE,
+                clock::get);
+        RecordingCallbacks callbacks = new RecordingCallbacks();
+        PlaybackSession session = engine.create(new Location(null, 0, 0, 0),
+                new TrackTarget.NbsFile(file, directory),
+                JukeboxSoundSettings.defaults(), callbacks);
+
+        session.prepare();
+        executor.runAll();
+        clock.addAndGet(10_000_000_000L);
+
+        assertEquals(PlaybackStatus.LOADING, session.status());
+        assertEquals(0L, session.positionMillis());
+        assertEquals(0, callbacks.started.get());
+        assertEquals(0, scheduler.repeatingTasks.get());
+
+        session.start();
+
+        assertEquals(PlaybackStatus.PLAYING, session.status());
+        assertEquals(0L, session.positionMillis(),
+                "the playback clock must begin when the countdown releases it");
+        assertEquals(1, callbacks.started.get());
+        assertEquals(1, scheduler.repeatingTasks.get());
+    }
+
+    @Test
     void sessionPublishesTheBoundedNbsClockAfterAServerStall() throws Exception {
         Path file = directory.resolve("clock.nbs");
         Files.write(file, minimalNbs());

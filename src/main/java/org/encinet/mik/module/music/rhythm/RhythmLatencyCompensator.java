@@ -8,8 +8,9 @@ import java.util.Arrays;
  * <p>A cue first travels from the server to the player and the resulting input
  * travels back, so the server receives a visually timed press roughly one RTT
  * after the cue's server timestamp. A rolling median rejects isolated ping spikes.
- * The separately calibrated offset accounts for the player's audio/display/input
- * path and remains stable while RTT keeps adapting. Automatic misses receive an
+ * The separately calibrated offset contains no network delay: calibration removes
+ * the RTT measured with every observation. Runtime then adds the rolling live RTT
+ * back to that fixed offset. Automatic misses receive an
  * additional jitter and tick-processing grace so they cannot consume a cue while
  * its legitimate input packet is still in flight.</p>
  */
@@ -51,7 +52,7 @@ final class RhythmLatencyCompensator {
     /** Creates a runtime clock with independent judgement and animation offsets. */
     RhythmLatencyCompensator(int initialPingMillis, int calibrationOffsetMillis,
                              int animationOffsetMillis, long initialSampleNanos) {
-        int initial = sanitize(initialPingMillis);
+        int initial = currentNetworkRttMillis(initialPingMillis);
         Arrays.fill(samples, initial);
         smoothedRttMillis = initial;
         this.calibrationOffsetMillis = Math.clamp(calibrationOffsetMillis,
@@ -65,7 +66,7 @@ final class RhythmLatencyCompensator {
 
     /** Records one already time-separated observation (primarily for deterministic tests). */
     void observe(int pingMillis) {
-        samples[cursor] = sanitize(pingMillis);
+        samples[cursor] = currentNetworkRttMillis(pingMillis);
         cursor = (cursor + 1) % samples.length;
         double target = percentile(0.50);
         smoothedRttMillis += (target - smoothedRttMillis) * SMOOTHING;
@@ -92,9 +93,9 @@ final class RhythmLatencyCompensator {
         return adjust(serverPlaybackPositionMillis, totalCompensationMillis());
     }
 
-    /** Clock used while measuring a new fixed offset, before applying the old one. */
+    /** Runtime clock with only the current rolling network RTT removed. */
     long networkAdjustedPosition(long serverPlaybackPositionMillis) {
-        return adjust(serverPlaybackPositionMillis, compensationMillis());
+        return adjust(serverPlaybackPositionMillis, networkCompensationMillis());
     }
 
     /** Reconstructs the calibrated scene clock visible when an input packet was sent. */
@@ -114,7 +115,7 @@ final class RhythmLatencyCompensator {
                 totalCompensationMillis() + missGraceMillis());
     }
 
-    int compensationMillis() {
+    int networkCompensationMillis() {
         return Math.clamp((int) Math.round(smoothedRttMillis),
                 0, MAXIMUM_RTT_MILLIS);
     }
@@ -128,7 +129,7 @@ final class RhythmLatencyCompensator {
     }
 
     int totalCompensationMillis() {
-        return compensationMillis() + calibrationOffsetMillis;
+        return networkCompensationMillis() + calibrationOffsetMillis;
     }
 
     int missGraceMillis() {
@@ -161,7 +162,8 @@ final class RhythmLatencyCompensator {
         return value > Long.MAX_VALUE - increment ? Long.MAX_VALUE : value + increment;
     }
 
-    private static int sanitize(int pingMillis) {
+    /** Normalizes one current server RTT reading for a calibration observation. */
+    static int currentNetworkRttMillis(int pingMillis) {
         return Math.clamp(pingMillis, 0, MAXIMUM_RTT_MILLIS);
     }
 }

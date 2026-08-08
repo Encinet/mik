@@ -486,13 +486,31 @@ final class RhythmLatencyCalibration {
         return (int) Math.round(sum / (double) values.size());
     }
 
+    /**
+     * One raw server-side timing observation and the RTT measured for that tap.
+     * The estimator only consumes {@link #errorMillis()}, so network delay can
+     * never be persisted as part of the player's fixed calibration profile.
+     */
     record Observation(long cueId, long cycleIndex, int cueIndex,
-                       int cuesPerCycle, int errorMillis, boolean coarseTiming) {
+                       int cuesPerCycle, int rawErrorMillis,
+                       int networkRttMillis, boolean coarseTiming) {
         Observation {
             if (cueId <= 0L || cycleIndex < 0L || cueIndex < 0
                     || cuesPerCycle < 1 || cueIndex >= cuesPerCycle) {
                 throw new IllegalArgumentException("invalid calibration cue identity");
             }
+            if (networkRttMillis < 0
+                    || networkRttMillis
+                    > RhythmLatencyCompensator.MAXIMUM_RTT_MILLIS) {
+                throw new IllegalArgumentException(
+                        "networkRttMillis is outside the supported range");
+            }
+        }
+
+        int errorMillis() {
+            long fixed = (long) rawErrorMillis - networkRttMillis;
+            return (int) Math.clamp(fixed,
+                    Integer.MIN_VALUE, Integer.MAX_VALUE);
         }
     }
 

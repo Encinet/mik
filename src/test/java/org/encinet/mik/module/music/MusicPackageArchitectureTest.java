@@ -232,6 +232,9 @@ class MusicPackageArchitectureTest {
         String gui = source("ui/JukeboxControlGui.java");
         String actions = source("ui/JukeboxControlActionHandler.java");
         String listener = source("listener/JukeboxControlListener.java");
+        String rhythmJoin = method(playback,
+                "public Optional<Participation> join(",
+                "/** Stops and discards the song clock");
         String musicControls = method(gui,
                 "private void addMusicModeControls(",
                 "private void addQueue(");
@@ -244,6 +247,9 @@ class MusicPackageArchitectureTest {
         assertTrue(listener.contains("playbackService.playInsertedDisc(player, jukebox)"));
         assertTrue(playback.contains("playback.experienceMode"));
         assertTrue(playback.contains("Optional<Participation> join(Block block"));
+        assertTrue(rhythmJoin.contains("prepareBackend(playback)"));
+        assertFalse(rhythmJoin.contains("startBackend(playback)"));
+        assertTrue(rhythmJoin.contains("startRhythmPlayback(playback, playbackId)"));
         assertTrue(playback.contains("resetRhythmPlaybackToWaiting(playback)"));
         assertTrue(playback.contains("JukeboxRhythmReadiness.WAITING_FOR_PLAYER"));
         assertTrue(playback.contains("backendStarted.compareAndSet(false, true)"));
@@ -483,6 +489,7 @@ class MusicPackageArchitectureTest {
     void rhythmInputUsesHotbarOneThroughFourWithNineAsTheNeutralSlot()
             throws IOException {
         String rhythm = source("rhythm/RhythmGameService.java");
+        String calibration = source("rhythm/RhythmLatencyCalibration.java");
 
         assertTrue(rhythm.contains(
                 ".movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)"));
@@ -515,7 +522,13 @@ class MusicPackageArchitectureTest {
         assertFalse(rhythm.contains("rhythm_latency_calibration_ms"));
         assertFalse(rhythm.contains("rhythm_latency_nbs_calibration_ms"));
         assertTrue(rhythm.contains("PersistentDataType.INTEGER"));
-        assertTrue(rhythm.contains("calibration.latency.compensationMillis()"));
+        assertTrue(rhythm.contains(
+                ".currentNetworkRttMillis(player.getPing())"));
+        assertTrue(rhythm.contains(
+                "rawErrorMillis, networkRttMillis,"));
+        assertFalse(rhythm.contains("calibration.latency"));
+        assertTrue(calibration.contains(
+                "(long) rawErrorMillis - networkRttMillis"));
         assertTrue(rhythm.contains("inputTimestamps.claimHotbar("));
         assertTrue(rhythm.contains("game.playbackClock.positionAt("));
         assertTrue(rhythm.contains("game.latency.visualPosition("));
@@ -765,7 +778,8 @@ class MusicPackageArchitectureTest {
         assertTrue(start.contains("playbackGateway.join("));
         assertTrue(rhythm.contains("game.participation.close()"));
         assertTrue(rhythm.contains("GAME_JOIN_DELAY_MILLIS = 3_000L"));
-        assertTrue(rhythm.contains("readyAfterMillis"));
+        assertTrue(rhythm.contains("new RhythmGamePreRoll(GAME_JOIN_DELAY_MILLIS)"));
+        assertTrue(rhythm.contains("game.participation::startPlayback"));
         assertTrue(rhythm.contains("renderGameOverlay(menu, player, playback"));
         assertTrue(rhythm.contains("MUSIC_RHYTHM_CHART_PREPARING"));
         assertTrue(rhythm.contains("MUSIC_RHYTHM_GET_READY"));

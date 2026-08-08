@@ -301,7 +301,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                     chart, new RhythmGameSession(playback.playbackId(),
                             latency.inputPosition(playback.positionMillis()), difficulty),
                     latency, mode, heldSlotBeforeGame, playback.timeline().seed(),
-                    saturatedAdd(playback.positionMillis(), GAME_JOIN_DELAY_MILLIS),
                     participation, new RhythmMonotonicPlaybackClock(
                     playback.positionMillis(),
                     playback.status() == RhythmPlaybackState.PLAYING,
@@ -407,8 +406,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             calibration = new ActiveCalibration(target,
                     runId, player.getLocation().clone(),
                     InputState.of(player.getCurrentInput()),
-                    new RhythmLatencyCompensator(player.getPing(), 0,
-                            startedAtNanos),
                     captureHotbar(player, RhythmGameMode.FALLING), silenceLease,
                     new RhythmNetworkLatencyGuard(startedAtNanos),
                     afkLease, startedAtNanos);
@@ -627,7 +624,17 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 player.setVelocity(player.getVelocity().zero());
             }
             if (menuState == FloatingMenuState.ACTIVE) {
-                if (!game.ready && playback.positionMillis() >= game.readyAfterMillis
+                if (!game.preRoll.started() && playback.timeline().complete()) {
+                    game.preRoll.begin(latencySampleNanos);
+                }
+                boolean countdownComplete = game.preRoll.completeAt(
+                        latencySampleNanos);
+                if (countdownComplete) {
+                    game.preRoll.requestPlaybackStart(latencySampleNanos,
+                            game.participation::startPlayback);
+                }
+                if (!game.ready && countdownComplete
+                        && playback.status() == RhythmPlaybackState.PLAYING
                         && game.chart.preparedThrough(
                         saturatedAdd(playback.positionMillis(),
                                 MINIMUM_REACTION_MILLIS))) {
@@ -639,9 +646,9 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                     game.lastCountdownNumber = 0;
                     player.playSound(player.getLocation(),
                             Sound.BLOCK_NOTE_BLOCK_CHIME, 0.48F, 1.72F);
-                } else if (!game.ready
-                        && playback.status() == RhythmPlaybackState.PLAYING) {
-                    playCountdownStep(player, game, playback.positionMillis());
+                } else if (!game.ready && game.preRoll.started()
+                        && !countdownComplete) {
+                    playCountdownStep(player, game, latencySampleNanos);
                     if (game.mode == RhythmGameMode.SPATIAL_AIM) {
                         if (!showNetworkLatencyWarning(
                                 player, game.networkLatency)) {
@@ -726,7 +733,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 endCalibration(player, calibration, true);
                 continue;
             }
-            calibration.latency.sample(player.getPing(), latencySampleNanos);
             player.setFallDistance(0.0F);
             if (player.getVelocity().lengthSquared() > 1.0E-6) {
                 player.setVelocity(player.getVelocity().zero());
@@ -1184,6 +1190,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             return unavailable(player, view);
         }
         RhythmPlaybackSnapshot playback = current.get();
+        long renderAtNanos = System.nanoTime();
         // Keep motion on the server playback clock. Its packets naturally incur
         // the downlink half of RTT; applying the judgement rewind here as well
         // would make notes visibly late on the client.
@@ -1210,7 +1217,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 });
 
         menu.textDecoration("status", new FloatingMenuPoint(-2.12, 0.82, 0.34),
-                statusPanel(player, playback, game, judgementNow),
+                statusPanel(player, playback, game, judgementNow, renderAtNanos),
                 FloatingMenuAppearance.TRANSPARENT,
                 3.2F, 2.1F, 0.66F, FloatingMenuDecoration.Alignment.LEFT);
         menu.navigation("exit", exitLabel(player))
@@ -1232,9 +1239,10 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             case RADIAL -> renderRadialScene(menu, game, sceneNow,
                     judgementNow, visible);
             case SPATIAL_AIM -> renderSpatialScene(menu, game, sceneNow,
-                    judgementNow, visible);
+                    judgementNow, visible, renderAtNanos);
         }
-        renderGameOverlay(menu, player, playback, game, judgementNow);
+        renderGameOverlay(menu, player, playback, game, judgementNow,
+                renderAtNanos);
         return menu.build();
     }
 
@@ -1308,12 +1316,11 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
     private void renderGameOverlay(FloatingMenuDefinition.Builder menu, Player player,
                                    RhythmPlaybackSnapshot playback, ActiveGame game,
-                                   long judgementNow) {
+                                   long judgementNow, long renderAtNanos) {
         Component overlay;
         int background = 0xB8181B22;
         float scale = 1.02F;
-        if (playback.status() != RhythmPlaybackState.PLAYING
-                || !playback.timeline().complete()) {
+        if (!playback.timeline().complete() || !game.preRoll.started()) {
             overlay = languageService.text(player,
                             Message.MUSIC_RHYTHM_CHART_PREPARING,
                             NamedTextColor.AQUA)
@@ -1322,9 +1329,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                     .append(Component.text("◌  " + playbackTime(playback),
                                     NamedTextColor.GRAY)
                             .decoration(TextDecoration.BOLD, false));
-        } else if (!game.ready) {
-            int number = countdownNumber(playback.positionMillis(),
-                    game.readyAfterMillis);
+        } else if (!game.ready && !game.preRoll.completeAt(renderAtNanos)) {
+            int number = game.preRoll.numberAt(renderAtNanos);
             overlay = Component.text(number, countdownColor(number))
                     .decoration(TextDecoration.BOLD, true)
                     .append(Component.newline())
@@ -1333,6 +1339,16 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                     NamedTextColor.WHITE)
                             .decoration(TextDecoration.BOLD, false));
             scale = 1.28F;
+        } else if (playback.status() != RhythmPlaybackState.PLAYING
+                || !game.ready) {
+            overlay = languageService.text(player,
+                            Message.MUSIC_RHYTHM_CHART_PREPARING,
+                            NamedTextColor.AQUA)
+                    .decoration(TextDecoration.BOLD, true)
+                    .append(Component.newline())
+                    .append(Component.text("◌  " + playbackTime(playback),
+                                    NamedTextColor.GRAY)
+                            .decoration(TextDecoration.BOLD, false));
         } else if (playback.positionMillis() <= game.goVisibleThroughMillis) {
             overlay = languageService.text(player, Message.MUSIC_RHYTHM_GO,
                             NamedTextColor.GREEN)
@@ -1364,12 +1380,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 FloatingMenuDecoration.Alignment.CENTER);
     }
 
-    static int countdownNumber(long playbackPositionMillis,
-                               long readyAfterMillis) {
-        long remaining = Math.max(1L, readyAfterMillis - playbackPositionMillis);
-        return (int) Math.clamp((remaining + 999L) / 1_000L, 1L, 3L);
-    }
-
     private static NamedTextColor countdownColor(int number) {
         return switch (number) {
             case 3 -> NamedTextColor.AQUA;
@@ -1379,9 +1389,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     }
 
     private static void playCountdownStep(Player player, ActiveGame game,
-                                          long playbackPositionMillis) {
-        int number = countdownNumber(playbackPositionMillis,
-                game.readyAfterMillis);
+                                          long nowNanos) {
+        int number = game.preRoll.numberAt(nowNanos);
         if (number == game.lastCountdownNumber) return;
         game.lastCountdownNumber = number;
         float pitch = switch (number) {
@@ -1490,9 +1499,10 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
     private void renderSpatialScene(FloatingMenuDefinition.Builder menu, ActiveGame game,
                                     long now, long judgementNow,
-                                    List<RhythmCue> visible) {
+                                    List<RhythmCue> visible, long renderAtNanos) {
         if (!game.ready) {
-            renderSpatialTutorial(menu, game, now);
+            renderSpatialTutorial(menu, game,
+                    game.preRoll.elapsedMillisAt(renderAtNanos));
             return;
         }
         List<RhythmSpatialGameplay.VisibleTarget> targets = new ArrayList<>();
@@ -1629,11 +1639,12 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     }
 
     private static void renderSpatialTutorial(FloatingMenuDefinition.Builder menu,
-                                              ActiveGame game, long now) {
+                                              ActiveGame game,
+                                              long countdownElapsedMillis) {
         Vector direction = RhythmSpatialPath.direction(game.anchor.getYaw(), 0.0);
         Location center = game.eyeAnchor.clone().add(direction.multiply(3.5));
         double progress = 1.0 - Math.clamp(
-                game.readyAfterMillis - now, 0L,
+                GAME_JOIN_DELAY_MILLIS - countdownElapsedMillis, 0L,
                 game.spatial.profile().approachMillis())
                 / (double) game.spatial.profile().approachMillis();
         double hitRadius = game.spatial.profile().worldHitRadius(3.5);
@@ -1645,7 +1656,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 new ItemStack(progress >= 0.96
                         ? Material.SEA_LANTERN : Material.TARGET),
                 spatialCoreScale(hitRadius), FloatingMenuDecoration.Motion.NONE));
-        RhythmCue tutorial = new RhythmCue(-1L, game.readyAfterMillis,
+        RhythmCue tutorial = new RhythmCue(-1L, GAME_JOIN_DELAY_MILLIS,
                 RhythmInput.ONE, 1.0);
         SpatialAxes axes = spatialAxes(game.eyeAnchor, center);
         addSpatialSatellitePair(menu, tutorial, "tutorial-x", center,
@@ -1698,7 +1709,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     }
 
     private Component statusPanel(Player player, RhythmPlaybackSnapshot playback,
-                                  ActiveGame game, long judgementNow) {
+                                  ActiveGame game, long judgementNow,
+                                  long renderAtNanos) {
         RhythmGameSession.View view = game.session.view();
         Component panel = Component.text(truncate(playback.track().details().title(), 42),
                         NamedTextColor.WHITE)
@@ -1742,23 +1754,28 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                     .append(networkLatencyWarning(player,
                             game.networkLatency));
         }
-        if (playback.status() != RhythmPlaybackState.PLAYING
-                || !playback.timeline().complete()
+        if (!playback.timeline().complete() || !game.preRoll.started()) {
+            return panel.append(Component.newline())
+                    .append(languageService.text(player,
+                            Message.MUSIC_RHYTHM_CHART_PREPARING,
+                            NamedTextColor.AQUA));
+        }
+        if (!game.ready && !game.preRoll.completeAt(renderAtNanos)) {
+            return panel.append(Component.newline())
+                    .append(languageService.text(player,
+                            Message.MUSIC_RHYTHM_GET_READY,
+                            NamedTextColor.YELLOW))
+                    .append(Component.text(" · "
+                                    + game.preRoll.numberAt(renderAtNanos),
+                            NamedTextColor.GOLD));
+        }
+        if (playback.status() != RhythmPlaybackState.PLAYING || !game.ready
                 || !game.chart.preparedThrough(
                 playback.positionMillis() + MINIMUM_REACTION_MILLIS)) {
             return panel.append(Component.newline())
                     .append(languageService.text(player,
                             Message.MUSIC_RHYTHM_CHART_PREPARING,
                             NamedTextColor.AQUA));
-        }
-        if (!game.ready) {
-            return panel.append(Component.newline())
-                    .append(languageService.text(player,
-                            Message.MUSIC_RHYTHM_GET_READY,
-                            NamedTextColor.YELLOW))
-                    .append(Component.text(" · " + countdownNumber(
-                                    playback.positionMillis(), game.readyAfterMillis),
-                            NamedTextColor.GOLD));
         }
         if (view.lastJudgement() != RhythmJudgement.NONE
                 && judgementNow - view.lastJudgementAtMillis() < 850L) {
@@ -2340,28 +2357,32 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         if (!calibration.acceptsModality(pointerInput)) return;
         if (!calibration.claimInput(Bukkit.getCurrentTick())) return;
         if (!calibration.acceptsInput()) return;
-        int compensationMillis = calibration.latency.compensationMillis();
-        long adjustedInputAtNanos = adjustNanos(
-                timedInput.receivedAtNanos(), compensationMillis);
+        int networkRttMillis = RhythmLatencyCompensator
+                .currentNetworkRttMillis(player.getPing());
+        long adjustedInputAtNanos = removeNetworkRtt(
+                timedInput.receivedAtNanos(), networkRttMillis);
         Optional<RhythmCuePresentation> closest =
                 calibration.closestPresentation(adjustedInputAtNanos);
         if (closest.isEmpty()) return;
-        long errorNanos = adjustedInputAtNanos
+        long rawErrorNanos = timedInput.receivedAtNanos()
                 - closest.get().presentedAtNanos();
-        int errorMillis = (int) Math.clamp(Math.round(
-                errorNanos / 1_000_000.0), Integer.MIN_VALUE,
+        int rawErrorMillis = (int) Math.clamp(Math.round(
+                rawErrorNanos / 1_000_000.0), Integer.MIN_VALUE,
                 Integer.MAX_VALUE);
-        if (Math.abs((long) errorMillis)
+        RhythmLatencyCalibration.Observation observation =
+                new RhythmLatencyCalibration.Observation(
+                        closest.get().cueId(), closest.get().cycleIndex(),
+                        closest.get().cueIndex(), closest.get().cuesPerCycle(),
+                        rawErrorMillis, networkRttMillis,
+                        timedInput.coarse());
+        if (Math.abs((long) observation.errorMillis())
                 > CALIBRATION_CAPTURE_WINDOW_MILLIS) return;
         afkActivityService.recordTrustedActivity(player.getUniqueId());
         calibration.noteInput(timedInput.receivedAtNanos());
 
         RhythmLatencyCalibration measurement = calibration.measurement();
-        RhythmLatencyCalibration.SampleResult sample = measurement.record(
-                new RhythmLatencyCalibration.Observation(
-                        closest.get().cueId(), closest.get().cycleIndex(),
-                        closest.get().cueIndex(), closest.get().cuesPerCycle(),
-                        errorMillis, timedInput.coarse()));
+        RhythmLatencyCalibration.SampleResult sample =
+                measurement.record(observation);
         if (sample != RhythmLatencyCalibration.SampleResult.COMPLETE) return;
 
         RhythmLatencyCalibration.Estimate estimate = measurement.estimate();
@@ -2386,8 +2407,9 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         }
     }
 
-    private static long adjustNanos(long timestampNanos, int delayMillis) {
-        long delayNanos = delayMillis * 1_000_000L;
+    private static long removeNetworkRtt(long timestampNanos,
+                                         int networkRttMillis) {
+        long delayNanos = networkRttMillis * 1_000_000L;
         // System.nanoTime values are modular. Plain subtraction keeps short
         // elapsed intervals correct even when the signed long wraps.
         return timestampNanos - delayNanos;
@@ -2887,7 +2909,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         private final Location anchor;
         private final RhythmCalibrationPattern pattern;
         private InputState input;
-        private final RhythmLatencyCompensator latency;
         private final RhythmNetworkLatencyGuard networkLatency;
         private final int heldSlotBeforeCalibration;
         private final RhythmPlaybackIsolation.SilenceLease silenceLease;
@@ -2923,7 +2944,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
         private ActiveCalibration(JukeboxTarget target, UUID runId,
                                   Location anchor, InputState input,
-                                  RhythmLatencyCompensator latency,
                                   int heldSlotBeforeCalibration,
                                   RhythmPlaybackIsolation.SilenceLease silenceLease,
                                   RhythmNetworkLatencyGuard networkLatency,
@@ -2934,7 +2954,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             this.anchor = Objects.requireNonNull(anchor, "anchor");
             this.pattern = RhythmCalibrationPattern.fixed();
             this.input = Objects.requireNonNull(input, "input");
-            this.latency = Objects.requireNonNull(latency, "latency");
             this.networkLatency = Objects.requireNonNull(
                     networkLatency, "networkLatency");
             this.heldSlotBeforeCalibration = heldSlotBeforeCalibration;
@@ -3358,7 +3377,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         private final int heldSlotBeforeGame;
         private final RhythmRadialPath radialPath;
         private final RhythmSpatialGameplay spatial;
-        private final long readyAfterMillis;
+        private final RhythmGamePreRoll preRoll =
+                new RhythmGamePreRoll(GAME_JOIN_DELAY_MILLIS);
         private final RhythmPlaybackGateway.Participation participation;
         private final AfkActivityService.ActivityLease afkLease;
         private final RhythmMonotonicPlaybackClock playbackClock;
@@ -3376,7 +3396,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                            RhythmGameSession session,
                            RhythmLatencyCompensator latency,
                            RhythmGameMode mode, int heldSlotBeforeGame,
-                           String trackSeed, long readyAfterMillis,
+                           String trackSeed,
                            RhythmPlaybackGateway.Participation participation,
                            RhythmMonotonicPlaybackClock playbackClock,
                            RhythmSpatialProfile spatialProfile,
@@ -3395,7 +3415,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                     networkLatency, "networkLatency");
             this.mode = Objects.requireNonNull(mode, "mode");
             this.heldSlotBeforeGame = heldSlotBeforeGame;
-            this.readyAfterMillis = readyAfterMillis;
             this.participation = Objects.requireNonNull(
                     participation, "participation");
             this.afkLease = Objects.requireNonNull(afkLease, "afkLease");

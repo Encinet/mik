@@ -179,11 +179,32 @@ class RhythmLatencyCalibrationTest {
                 calibration.record(first));
         assertEquals(RhythmLatencyCalibration.SampleResult.OUT_OF_RANGE,
                 calibration.record(new RhythmLatencyCalibration.Observation(
-                        99L, 0L, 1, CUES_PER_CYCLE, 451, false)));
+                        99L, 0L, 1, CUES_PER_CYCLE, 451, 0, false)));
         assertEquals(1, calibration.observationCount());
         assertThrows(IllegalArgumentException.class,
                 () -> new RhythmLatencyCalibration.Observation(
-                        0L, 0L, 0, CUES_PER_CYCLE, 0, false));
+                        0L, 0L, 0, CUES_PER_CYCLE, 0, 0, false));
+    }
+
+    @Test
+    void everyObservationRemovesItsOwnContemporaneousNetworkRtt() {
+        RhythmLatencyCalibration.Observation lowPing =
+                new RhythmLatencyCalibration.Observation(
+                        1L, 0L, 0, CUES_PER_CYCLE,
+                        105, 40, false);
+        RhythmLatencyCalibration.Observation highPing =
+                new RhythmLatencyCalibration.Observation(
+                        2L, 0L, 1, CUES_PER_CYCLE,
+                        325, 260, false);
+
+        assertEquals(65, lowPing.errorMillis());
+        assertEquals(65, highPing.errorMillis(),
+                "changing RTT must be removed before robust fixed-offset analysis");
+        assertThrows(IllegalArgumentException.class,
+                () -> new RhythmLatencyCalibration.Observation(
+                        3L, 0L, 2, CUES_PER_CYCLE,
+                        65, RhythmLatencyCompensator.MAXIMUM_RTT_MILLIS + 1,
+                        false));
     }
 
     @Test
@@ -232,13 +253,13 @@ class RhythmLatencyCalibrationTest {
             int cuesPerCycle, int error, boolean coarse) {
         long cueId = (long) cycle * cuesPerCycle + cue + 1L;
         return calibration.record(new RhythmLatencyCalibration.Observation(
-                cueId, cycle, cue, cuesPerCycle, error, coarse));
+                cueId, cycle, cue, cuesPerCycle, error, 0, coarse));
     }
 
     private static RhythmLatencyCalibration.Observation observation(
             int cycle, int cue, int error, boolean coarse) {
         long cueId = (long) cycle * CUES_PER_CYCLE + cue + 1L;
         return new RhythmLatencyCalibration.Observation(cueId, cycle, cue,
-                CUES_PER_CYCLE, error, coarse);
+                CUES_PER_CYCLE, error, 0, coarse);
     }
 }

@@ -121,13 +121,16 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final TrackTarget.NbsFile target;
         private final PlaybackCallbacks callbacks;
         private final RhythmTimeline rhythmTimeline;
-        private final AtomicBoolean started = new AtomicBoolean();
+        private final AtomicBoolean preparationStarted = new AtomicBoolean();
+        private final AtomicBoolean playbackRequested = new AtomicBoolean();
+        private final AtomicBoolean outputStarted = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
         private volatile JukeboxSoundSettings settings;
         private volatile PlaybackStatus status = PlaybackStatus.LOADING;
         private volatile long playbackPositionMillis;
         private volatile long finalPositionMillis;
         private volatile CompletableFuture<NbsSong> parsing;
+        private volatile NbsSong preparedSong;
         private volatile NbsPlaybackCursor cursor;
         private volatile ScheduledPlayback task;
 
@@ -142,8 +145,8 @@ final class NbsPlaybackEngine implements AutoCloseable {
         }
 
         @Override
-        public void start() {
-            if (!started.compareAndSet(false, true) || terminal.get()) {
+        public void prepare() {
+            if (!preparationStarted.compareAndSet(false, true) || terminal.get()) {
                 return;
             }
             if (closed.get() || !callbacks.isValid()) {
@@ -156,6 +159,14 @@ final class NbsPlaybackEngine implements AutoCloseable {
             } catch (RuntimeException exception) {
                 fail(exception);
             }
+        }
+
+        @Override
+        public void start() {
+            if (terminal.get()) return;
+            playbackRequested.set(true);
+            prepare();
+            startPreparedSong();
         }
 
         private NbsSong loadSong() {
@@ -193,8 +204,22 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 fail(unwrap(error));
                 return;
             }
+            preparedSong = Objects.requireNonNull(song, "song");
+            startPreparedSong();
+        }
+
+        private void startPreparedSong() {
+            NbsSong song = preparedSong;
+            if (!playbackRequested.get() || song == null || terminal.get()
+                    || closed.get() || !outputStarted.compareAndSet(false, true)) {
+                return;
+            }
             try {
-                cursor = new NbsPlaybackCursor(Objects.requireNonNull(song, "song"));
+                if (!callbacks.isValid()) {
+                    cancel();
+                    return;
+                }
+                cursor = new NbsPlaybackCursor(song);
                 NbsPlaybackCursor.PollResult initial = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = initial.positionMillis();
                 task = scheduler.scheduleEveryTick(this::tick);

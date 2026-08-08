@@ -93,7 +93,9 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final PlaybackCallbacks callbacks;
         private final RhythmTimeline rhythmTimeline;
         private final JukeboxExperienceMode experienceMode;
-        private final AtomicBoolean started = new AtomicBoolean();
+        private final AtomicBoolean preparationStarted = new AtomicBoolean();
+        private final AtomicBoolean playbackRequested = new AtomicBoolean();
+        private final AtomicBoolean outputStarted = new AtomicBoolean();
         private final AtomicBoolean stopped = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -121,8 +123,8 @@ final class AudioPlaybackEngine implements AutoCloseable {
         }
 
         @Override
-        public void start() {
-            if (!started.compareAndSet(false, true) || stopped.get()) {
+        public void prepare() {
+            if (!preparationStarted.compareAndSet(false, true) || stopped.get()) {
                 return;
             }
             if (closed.get()) {
@@ -141,6 +143,14 @@ final class AudioPlaybackEngine implements AutoCloseable {
             }
             rhythmAnalysis = rhythmAnalyzer.analyze(music, rhythmTimeline);
             beginAudioLoad();
+        }
+
+        @Override
+        public void start() {
+            if (stopped.get() || terminal.get()) return;
+            playbackRequested.set(true);
+            prepare();
+            startPreparedAudio();
         }
 
         private void completeRhythmPreparationOnMainThread(Throwable error) {
@@ -192,8 +202,27 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 fail(error);
                 return;
             }
+            if (loaded == null) {
+                fail(new IllegalStateException(
+                        "Audio loader completed without a track"));
+                return;
+            }
             loadedAudio.set(loaded);
+            startPreparedAudio();
+        }
+
+        private void startPreparedAudio() {
+            AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
+            if (!playbackRequested.get() || loaded == null
+                    || stopped.get() || closed.get() || terminal.get()
+                    || !outputStarted.compareAndSet(false, true)) {
+                return;
+            }
             try {
+                if (!callbacks.isValid()) {
+                    cancel();
+                    return;
+                }
                 AudioTrack track = loaded.track();
                 AudioPlayer player = loader.createPlayer();
                 audioPlayer = player;

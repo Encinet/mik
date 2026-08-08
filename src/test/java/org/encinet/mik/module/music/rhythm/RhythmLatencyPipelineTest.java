@@ -18,11 +18,8 @@ class RhythmLatencyPipelineTest {
     void musicTapCalibrationProducesZeroErrorAtEveryDifficulty() {
         int actualRttMillis = 140;
         int deviceOffsetMillis = 65;
-        RhythmLatencyCompensator calibrationClock =
-                new RhythmLatencyCompensator(actualRttMillis);
         RhythmLatencyCalibration calibration = new RhythmLatencyCalibration();
-        recordCycles(calibration, calibrationClock, actualRttMillis,
-                deviceOffsetMillis);
+        recordCycles(calibration, new int[]{actualRttMillis}, deviceOffsetMillis);
 
         int savedOffset = calibration.estimate().offsetMillis();
         assertEquals(deviceOffsetMillis, savedOffset);
@@ -47,6 +44,28 @@ class RhythmLatencyPipelineTest {
     }
 
     @Test
+    void calibrationRemovesEachChangingTapRttBeforeSavingTheFixedOffset() {
+        int fixedOffsetMillis = 65;
+        int[] changingRttMillis = {40, 260, 75, 190, 110, 300};
+        RhythmLatencyCalibration calibration = new RhythmLatencyCalibration();
+
+        recordCycles(calibration, changingRttMillis, fixedOffsetMillis);
+
+        int savedOffset = calibration.estimate().offsetMillis();
+        assertEquals(fixedOffsetMillis, savedOffset,
+                "no test-time RTT value may leak into the saved profile");
+
+        int currentGameRttMillis = 180;
+        RhythmLatencyCompensator gameClock = new RhythmLatencyCompensator(
+                currentGameRttMillis, savedOffset);
+        assertEquals(currentGameRttMillis + fixedOffsetMillis,
+                gameClock.totalCompensationMillis(),
+                "runtime must add the current session RTT back exactly once");
+        assertEquals(1_000L, gameClock.inputPosition(1_000L
+                + currentGameRttMillis + fixedOffsetMillis));
+    }
+
+    @Test
     void liveRttChangesWithoutRewritingTheFixedMusicOffset() {
         int fixedOffsetMillis = 65;
         int currentRttMillis = 200;
@@ -68,7 +87,7 @@ class RhythmLatencyPipelineTest {
                 clock.inputPosition(packetArrival), chart);
 
         assertEquals(fixedOffsetMillis, clock.calibrationOffsetMillis());
-        assertTrue(clock.compensationMillis() >= 185);
+        assertTrue(clock.networkCompensationMillis() >= 185);
         assertEquals(RhythmJudgement.PERFECT, result.judgement());
         assertTrue(Math.abs(result.timingErrorMillis()) <= 15L);
     }
@@ -98,9 +117,8 @@ class RhythmLatencyPipelineTest {
 
     @Test
     void recalibrationDoesNotFeedTheOldSavedOffsetBackIntoTheMeasurement() {
-        RhythmLatencyCompensator oldClock = new RhythmLatencyCompensator(100, 90);
         RhythmLatencyCalibration replacement = new RhythmLatencyCalibration();
-        recordCycles(replacement, oldClock, 100, 35);
+        recordCycles(replacement, new int[]{100}, 35);
 
         assertEquals(35, replacement.estimate().offsetMillis());
     }
@@ -176,19 +194,18 @@ class RhythmLatencyPipelineTest {
     }
 
     private static void recordCycles(RhythmLatencyCalibration calibration,
-                                     RhythmLatencyCompensator clock,
-                                     int rttMillis, int fixedOffsetMillis) {
+                                     int[] rttMillis,
+                                     int fixedOffsetMillis) {
         int cuesPerCycle = 6;
         for (int cycle = 0; cycle < 4; cycle++) {
             for (int cueIndex = 0; cueIndex < cuesPerCycle; cueIndex++) {
-                long cueTime = 1_000L + (long) cycle * 6_000L
-                        + cueIndex * 800L;
-                long packetArrival = cueTime + rttMillis + fixedOffsetMillis;
-                long adjusted = clock.networkAdjustedPosition(packetArrival);
-                int error = Math.toIntExact(adjusted - cueTime);
+                int sample = cycle * cuesPerCycle + cueIndex;
+                int tapRttMillis = rttMillis[sample % rttMillis.length];
                 long cueId = (long) cycle * cuesPerCycle + cueIndex + 1L;
                 calibration.record(new RhythmLatencyCalibration.Observation(
-                        cueId, cycle, cueIndex, cuesPerCycle, error, false));
+                        cueId, cycle, cueIndex, cuesPerCycle,
+                        tapRttMillis + fixedOffsetMillis,
+                        tapRttMillis, false));
             }
             calibration.advanceToCycle(cycle + 1L);
         }
