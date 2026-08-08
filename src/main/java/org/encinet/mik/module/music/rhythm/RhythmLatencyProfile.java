@@ -38,4 +38,19 @@ record RhythmLatencyProfile(int judgementOffsetMillis, int animationOffsetMillis
                 MAXIMUM_ANIMATION_OFFSET_MILLIS);
         return new RhythmLatencyProfile(sourceOffsetMillis, safeAnimation);
     }
+
+    /** Applies a mouse-vs-keyboard input delta without moving the visual clock. */
+    RhythmLatencyProfile withInputDelta(int inputDeltaMillis) {
+        long adjusted = (long) judgementOffsetMillis + inputDeltaMillis;
+        return new RhythmLatencyProfile((int) Math.clamp(adjusted,
+                RhythmLatencyCalibration.MINIMUM_OFFSET_MILLIS,
+                RhythmLatencyCalibration.MAXIMUM_OFFSET_MILLIS),
+                animationOffsetMillis);
+    }
+
+    static int pointerInputDelta(int keyboardVisualOffsetMillis,
+                                 int pointerVisualOffsetMillis) {
+        return (int) Math.clamp((long) pointerVisualOffsetMillis
+                - keyboardVisualOffsetMillis, -200L, 200L);
+    }
 }

@@ -126,11 +126,14 @@ class FloatingMenuArchitectureTest {
         assertTrue(renderer.contains("ClientboundAddEntityPacket"));
         assertTrue(renderer.contains("getEntityData().packAll()"));
         assertTrue(renderer.contains("setBrightness(FULL_BRIGHT)"));
-        assertTrue(renderer.contains("setSeeThrough(true)"));
+        assertTrue(renderer.contains("setSeeThrough(seeThrough)"));
+        assertTrue(renderer.contains("alignment, true);"));
         assertTrue(renderer.contains("Display.Billboard.FIXED"));
         assertFalse(renderer.contains("Display.Billboard.CENTER"));
         assertTrue(service.contains("button.renderedYaw"));
         assertTrue(service.contains("button.renderedPitch"));
+        assertTrue(service.contains("decoration.shouldTeleport(at, yaw, pitch)"));
+        assertTrue(service.contains("lastSentLocation.distanceSquared(location)"));
         assertTrue(service.contains("Vector panelNormal = FloatingMenuSurfaceGeometry.facing(yaw, pitch)"));
         assertTrue(renderer.contains("display.setTeleportDuration(0)"));
         assertTrue(renderer.contains("presentationYaw, float presentationPitch"));

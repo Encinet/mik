@@ -11,31 +11,43 @@ class AutomaticAfkGateTest {
     void entersOnlyAfterAnUninterruptedCandidatePeriod() {
         AutomaticAfkGate gate = new AutomaticAfkGate(1_000L, 1_250L);
 
-        assertFalse(gate.shouldEnter(0L, true, 7L));
-        assertFalse(gate.shouldEnter(999L, true, 7L));
-        assertTrue(gate.shouldEnter(1_000L, true, 7L));
-        assertFalse(gate.shouldEnter(1_001L, true, 7L));
+        assertFalse(gate.shouldEnter(0L, true));
+        assertFalse(gate.shouldEnter(999L, true));
+        assertTrue(gate.shouldEnter(1_000L, true));
+        assertFalse(gate.shouldEnter(1_001L, true));
     }
 
     @Test
-    void newActivityRestartsTheCandidatePeriod() {
+    void explicitResetDiscardsTheCandidateAndCooldown() {
         AutomaticAfkGate gate = new AutomaticAfkGate(1_000L, 1_250L);
 
-        assertFalse(gate.shouldEnter(0L, true, 1L));
-        assertFalse(gate.shouldEnter(900L, true, 2L));
-        assertFalse(gate.shouldEnter(1_899L, true, 2L));
-        assertTrue(gate.shouldEnter(1_900L, true, 2L));
+        assertFalse(gate.shouldEnter(0L, true));
+        gate.recordExit(100L);
+        gate.reset();
+        assertFalse(gate.shouldEnter(900L, true));
+        assertTrue(gate.shouldEnter(1_900L, true));
+    }
+
+    @Test
+    void repeatedEligibleChecksDoNotRestartTheCandidatePeriod() {
+        AutomaticAfkGate gate = new AutomaticAfkGate(1_000L, 1_250L);
+
+        assertFalse(gate.shouldEnter(10 * 60_000L, true));
+        assertFalse(gate.shouldEnter(10 * 60_000L + 250L, true));
+        assertFalse(gate.shouldEnter(10 * 60_000L + 500L, true));
+        assertFalse(gate.shouldEnter(10 * 60_000L + 750L, true));
+        assertTrue(gate.shouldEnter(10 * 60_000L + 1_000L, true));
     }
 
     @Test
     void losingEligibilityDiscardsTheOldCandidate() {
         AutomaticAfkGate gate = new AutomaticAfkGate(1_000L, 1_250L);
 
-        assertFalse(gate.shouldEnter(0L, true, 1L));
-        assertFalse(gate.shouldEnter(1_000L, false, 1L));
-        assertFalse(gate.shouldEnter(2_000L, true, 1L));
-        assertFalse(gate.shouldEnter(2_999L, true, 1L));
-        assertTrue(gate.shouldEnter(3_000L, true, 1L));
+        assertFalse(gate.shouldEnter(0L, true));
+        assertFalse(gate.shouldEnter(1_000L, false));
+        assertFalse(gate.shouldEnter(2_000L, true));
+        assertFalse(gate.shouldEnter(2_999L, true));
+        assertTrue(gate.shouldEnter(3_000L, true));
     }
 
     @Test
@@ -43,8 +55,8 @@ class AutomaticAfkGateTest {
         AutomaticAfkGate gate = new AutomaticAfkGate(1_000L, 1_250L);
         gate.recordExit(0L);
 
-        assertFalse(gate.shouldEnter(1_249L, true, 1L));
-        assertFalse(gate.shouldEnter(1_250L, true, 1L));
-        assertTrue(gate.shouldEnter(2_250L, true, 1L));
+        assertFalse(gate.shouldEnter(1_249L, true));
+        assertFalse(gate.shouldEnter(1_250L, true));
+        assertTrue(gate.shouldEnter(2_250L, true));
     }
 }

@@ -766,8 +766,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             case FloatingMenuDecoration.Text text -> virtualEntities.text(
                     player, decoration.entityId, text.text(), text.background(),
                     text.displayWidth(), text.displayHeight(),
+                    Math.max(80, Math.round(text.displayWidth() * 64.0F)),
                     (float) (text.scale() * coordinateScale * typographyScale),
-                    text.alignment());
+                    text.alignment(), text.seeThrough());
             case FloatingMenuDecoration.Visual visual -> virtualEntities.visual(
                     player, decoration.entityId, visual.item(), visual.block(),
                     (float) (visual.scale() * coordinateScale));
@@ -1116,9 +1117,11 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             if (decoration.definition.motion().spins()) {
                 yaw += (float) ((session.totalTicks * 2.4 + decoration.phaseOffset) % 360.0);
             }
-            teleport(player, decoration.entityId, at, yaw, pitch);
-            session.definition.frameObserver().presented(player,
-                    decoration.definition.id(), System.nanoTime());
+            if (decoration.shouldTeleport(at, yaw, pitch)) {
+                teleport(player, decoration.entityId, at, yaw, pitch);
+                session.definition.frameObserver().presented(player,
+                        decoration.definition.id(), System.nanoTime());
+            }
         }
         if (layoutAnimation && session.titleSpawned) {
             Location titleAt = session.headerPosition();
@@ -1782,6 +1785,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         private double renderedForward;
         private double renderedYaw;
         private double renderedPitch;
+        private Location lastSentLocation;
+        private float lastSentYaw;
+        private float lastSentPitch;
         private boolean metadataDirty = true;
 
         private Decoration(Player player, FloatingMenuDecoration definition) {
@@ -1817,6 +1823,20 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             renderedForward = approachSmooth(renderedForward, target.forward(), fraction);
             renderedYaw = approachAngleSmooth(renderedYaw, target.yawDegrees(), fraction);
             renderedPitch = approachSmooth(renderedPitch, target.pitchDegrees(), fraction);
+        }
+
+        private boolean shouldTeleport(Location location, float yaw, float pitch) {
+            if (lastSentLocation != null
+                    && lastSentLocation.getWorld() == location.getWorld()
+                    && lastSentLocation.distanceSquared(location) <= 1.0E-12
+                    && Math.abs(lastSentYaw - yaw) <= 1.0E-5F
+                    && Math.abs(lastSentPitch - pitch) <= 1.0E-5F) {
+                return false;
+            }
+            lastSentLocation = location.clone();
+            lastSentYaw = yaw;
+            lastSentPitch = pitch;
+            return true;
         }
     }
 

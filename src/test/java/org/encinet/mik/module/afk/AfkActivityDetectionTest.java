@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AfkActivityDetectionTest {
 
     private static final UUID WORLD_ID = new UUID(0L, 1L);
+    private static final AfkPolicy POLICY = AfkPolicy.DEFAULT;
     private static final AfkActionEvidence.Type BLOCK = AfkActionEvidence.Type.BLOCK_CHANGE;
     private static final AfkActionEvidence.Type INVENTORY = AfkActionEvidence.Type.INVENTORY;
 
@@ -73,7 +74,7 @@ class AfkActivityDetectionTest {
         AfkActivityTracker tracker = tracker(0L);
 
         assertEquals(AfkActivityTracker.CheckResult.AFK_IDLE,
-                tracker.check(AfkActivityTracker.IDLE_TIMEOUT_MILLIS));
+                tracker.check(POLICY.idleTimeoutMillis()));
     }
 
     @Test
@@ -82,10 +83,10 @@ class AfkActivityDetectionTest {
         tracker.recordAction(action(BLOCK, "a"), 1_000L);
         tracker.recordAction(action(BLOCK, "b"), 1_500L);
         tracker.recordAction(action(BLOCK, "c"), 1_999L);
-        tracker.recordLightActivity(AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS);
+        tracker.recordLightActivity(POLICY.passiveTimeoutMillis());
 
         assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE,
-                tracker.check(AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS));
+                tracker.check(POLICY.passiveTimeoutMillis()));
     }
 
     @Test
@@ -96,12 +97,12 @@ class AfkActivityDetectionTest {
         assertFalse(tracker.recordAction(action(BLOCK, "c"), 3_500L));
         assertTrue(tracker.recordAction(action(BLOCK, "c"), 4_000L));
 
-        tracker.recordLightActivity(4_000L + AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS - 1L);
+        tracker.recordLightActivity(4_000L + POLICY.passiveTimeoutMillis() - 1L);
         assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
-                tracker.check(4_000L + AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS - 1L));
-        tracker.recordLightActivity(4_000L + AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS);
+                tracker.check(4_000L + POLICY.passiveTimeoutMillis() - 1L));
+        tracker.recordLightActivity(4_000L + POLICY.passiveTimeoutMillis());
         assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE,
-                tracker.check(4_000L + AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS));
+                tracker.check(4_000L + POLICY.passiveTimeoutMillis()));
     }
 
     @Test
@@ -136,10 +137,10 @@ class AfkActivityDetectionTest {
         tracker.recordMovementInput(true, WORLD_ID, 0.0D, 100.0D, 0.0D, 5 * 60_000L);
         assertTrue(tracker.recordMovement(WORLD_ID, 0.0D, 100.0D, 0.0D, 5 * 60_000L));
         assertTrue(tracker.recordMovement(WORLD_ID, 0.0D, 200.0D, 0.0D, 9 * 60_000L));
-        tracker.recordLightActivity(10_000L + AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS);
+        tracker.recordLightActivity(10_000L + POLICY.passiveTimeoutMillis());
 
         assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
-                tracker.check(10_000L + AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS));
+                tracker.check(10_000L + POLICY.passiveTimeoutMillis()));
     }
 
     @Test
@@ -207,11 +208,11 @@ class AfkActivityDetectionTest {
     @Test
     void afkExitDoesNotImmediatelyReenterPassiveAfk() {
         AfkActivityTracker tracker = tracker(0L);
-        for (long now = 60_000L; now < AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS; now += 60_000L) {
+        for (long now = 60_000L; now < POLICY.passiveTimeoutMillis(); now += 60_000L) {
             tracker.recordLightActivity(now);
         }
 
-        long afkAt = AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS;
+        long afkAt = POLICY.passiveTimeoutMillis();
         assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE, tracker.check(afkAt));
         tracker.suspendForAfk(afkAt, false);
 
@@ -249,7 +250,7 @@ class AfkActivityDetectionTest {
 
         assertFalse(tracker.recordMovement(WORLD_ID, 100.0D, 0.0D, 0.0D, 2_000L));
         assertEquals(AfkActivityTracker.CheckResult.AFK_IDLE,
-                tracker.check(AfkActivityTracker.IDLE_TIMEOUT_MILLIS));
+                tracker.check(POLICY.idleTimeoutMillis()));
     }
 
     @Test
@@ -342,11 +343,11 @@ class AfkActivityDetectionTest {
     void movementAloneEventuallyStopsRewardEligibility() {
         AfkActivityTracker tracker = tracker(0L);
         tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
-        long beforeLimit = AfkActivityTracker.MOVEMENT_ONLY_REWARD_TIMEOUT_MILLIS - 1L;
+        long beforeLimit = POLICY.movementOnlyRewardTimeoutMillis() - 1L;
         tracker.recordLightActivity(beforeLimit);
         assertTrue(tracker.isActivityEligible(beforeLimit));
 
-        long atLimit = AfkActivityTracker.MOVEMENT_ONLY_REWARD_TIMEOUT_MILLIS;
+        long atLimit = POLICY.movementOnlyRewardTimeoutMillis();
         tracker.recordLightActivity(atLimit);
         assertFalse(tracker.isActivityEligible(atLimit));
 
@@ -407,6 +408,38 @@ class AfkActivityDetectionTest {
     }
 
     @Test
+    void trustedGameplayActivityImmediatelyClearsAutomationRewardLock() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        recordDirectionalTravelSamples(tracker, index -> (index - 1) / 5 % 4);
+        long detectedAt = AfkBehaviorAnalyzer.ANALYSIS_MILLIS;
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVITY_REWARD_LOCKED,
+                tracker.check(detectedAt));
+
+        long trustedAt = detectedAt + 1_000L;
+        tracker.recordTrustedActivity(trustedAt);
+
+        assertFalse(tracker.isAutomationRewardLocked());
+        assertTrue(tracker.isActivityEligible(trustedAt));
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(trustedAt));
+    }
+
+    @Test
+    void trustedGameplayActivityWhileAfkKeepsItsRealTimestampOnExit() {
+        AfkActivityTracker tracker = tracker(0L);
+        tracker.suspendForAfk(1_000L, false);
+        long trustedAt = 2_000L;
+        tracker.recordTrustedActivity(trustedAt);
+        tracker.resumeFromAfk(trustedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+
+        long rewardDeadline = trustedAt + POLICY.movementOnlyRewardTimeoutMillis();
+        tracker.recordLightActivity(rewardDeadline - 1L);
+        assertTrue(tracker.isActivityEligible(rewardDeadline - 1L));
+        tracker.recordLightActivity(rewardDeadline);
+        assertFalse(tracker.isActivityEligible(rewardDeadline));
+    }
+
+    @Test
     void commandStyleExitReleasesMovementButKeepsAutomationRewardLock() {
         AfkActivityTracker tracker = tracker(0L);
         tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
@@ -450,10 +483,10 @@ class AfkActivityDetectionTest {
     @Test
     void disconnectAfterAfkExitDoesNotRestoreExpiredAfkTimers() {
         AfkActivityTracker tracker = tracker(0L);
-        for (long now = 60_000L; now < AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS; now += 60_000L) {
+        for (long now = 60_000L; now < POLICY.passiveTimeoutMillis(); now += 60_000L) {
             tracker.recordLightActivity(now);
         }
-        long afkAt = AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS;
+        long afkAt = POLICY.passiveTimeoutMillis();
         assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE, tracker.check(afkAt));
 
         tracker.suspendForAfk(afkAt, false);
@@ -540,13 +573,13 @@ class AfkActivityDetectionTest {
         long start = AfkBehaviorAnalyzer.ANALYSIS_MILLIS;
         tracker.recordAction(action(BLOCK, "same"), start + 1_500L);
         tracker.recordAction(action(INVENTORY, "same"),
-                start + AfkActivityTracker.ACTION_TARGET_DEDUPLICATION_MILLIS + 2_000L);
+                start + POLICY.actionTargetDeduplicationMillis() + 2_000L);
         tracker.recordAction(action(BLOCK, "different"),
-                start + AfkActivityTracker.ACTION_TARGET_DEDUPLICATION_MILLIS + 3_500L);
+                start + POLICY.actionTargetDeduplicationMillis() + 3_500L);
 
         assertTrue(tracker.isAutomationRewardLocked());
         tracker.recordAction(action(INVENTORY, "third"),
-                start + AfkActivityTracker.ACTION_TARGET_DEDUPLICATION_MILLIS + 5_000L);
+                start + POLICY.actionTargetDeduplicationMillis() + 5_000L);
         assertFalse(tracker.isAutomationRewardLocked());
     }
 
@@ -592,10 +625,10 @@ class AfkActivityDetectionTest {
         assertFalse(tracker.recordAction(action(BLOCK, "same"), 1_000L));
         assertFalse(tracker.recordAction(action(BLOCK, "same"), 3_000L));
         assertFalse(tracker.recordAction(action(BLOCK, "same"), 5_000L));
-        tracker.recordLightActivity(AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS);
+        tracker.recordLightActivity(POLICY.passiveTimeoutMillis());
 
         assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE,
-                tracker.check(AfkActivityTracker.PASSIVE_TIMEOUT_MILLIS));
+                tracker.check(POLICY.passiveTimeoutMillis()));
     }
 
     @Test

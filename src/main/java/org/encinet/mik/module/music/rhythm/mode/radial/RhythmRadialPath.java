@@ -1,6 +1,7 @@
-package org.encinet.mik.module.music.rhythm;
+package org.encinet.mik.module.music.rhythm.mode.radial;
 
 import org.bukkit.Location;
+import org.encinet.mik.module.music.rhythm.RhythmCue;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,7 +12,7 @@ import java.util.Objects;
  * Both angular speed and angular acceleration are bounded, so a new direction
  * is disclosed over several cues instead of snapping across the scene.
  */
-final class RhythmRadialPath {
+public final class RhythmRadialPath {
     static final double MAXIMUM_TURN_DEGREES = 28.0;
     static final double MAXIMUM_TURN_ACCELERATION_DEGREES = 8.0;
     static final double SPAWN_RADIUS = 4.60;
@@ -30,7 +31,7 @@ final class RhythmRadialPath {
     private long layer;
     private boolean initialized;
 
-    RhythmRadialPath(String seed, double startingAngleDegrees) {
+    public RhythmRadialPath(String seed, double startingAngleDegrees) {
         this.seed = mix(Objects.requireNonNull(seed, "seed").hashCode());
         if (!Double.isFinite(startingAngleDegrees)) {
             throw new IllegalArgumentException("starting angle must be finite");
@@ -38,7 +39,7 @@ final class RhythmRadialPath {
         this.startingAngleDegrees = normalize(startingAngleDegrees);
     }
 
-    double angleDegrees(RhythmCue cue) {
+    public double angleDegrees(RhythmCue cue) {
         Objects.requireNonNull(cue, "cue");
         AssignedAngle existing = assignedAngles.get(cue.id());
         if (existing != null) return existing.angleDegrees();
@@ -58,12 +59,12 @@ final class RhythmRadialPath {
         return angleDegrees;
     }
 
-    void discardBefore(long timeMillis) {
+    public void discardBefore(long timeMillis) {
         long cutoff = Math.max(0L, timeMillis);
         assignedAngles.values().removeIf(value -> value.timeMillis() < cutoff);
     }
 
-    int retainedAngleCount() {
+    public int retainedAngleCount() {
         return assignedAngles.size();
     }
 
@@ -87,7 +88,8 @@ final class RhythmRadialPath {
     }
 
     /** Absolute world position of a cue approaching the player's body. */
-    static Location point(Location anchor, double angleDegrees, double progress) {
+    public static Location point(Location anchor, double angleDegrees,
+                                 double progress) {
         Objects.requireNonNull(anchor, "anchor");
         if (!Double.isFinite(angleDegrees) || !Double.isFinite(progress)) {
             throw new IllegalArgumentException("radial cue coordinates must be finite");
@@ -101,7 +103,7 @@ final class RhythmRadialPath {
     }
 
     /** Converts Bukkit yaw into this path's X/Z azimuth convention. */
-    static double facingAngle(float yawDegrees) {
+    public static double facingAngle(float yawDegrees) {
         return normalize(90.0 + yawDegrees);
     }
 

@@ -8,6 +8,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.afk.AfkActivityService;
 import org.encinet.mik.module.music.catalog.MusicLibrary;
 import org.encinet.mik.module.music.catalog.MusicPlaybackHistory;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
@@ -74,7 +75,13 @@ public final class MusicModule {
     private BukkitTask remoteSourceUpdateTask;
 
     public MusicModule(JavaPlugin plugin, LanguageService languageService,
-                           PlasmoVoiceServer voiceServer) {
+                       PlasmoVoiceServer voiceServer) {
+        this(plugin, languageService, voiceServer, AfkActivityService.NONE);
+    }
+
+    public MusicModule(JavaPlugin plugin, LanguageService languageService,
+                       PlasmoVoiceServer voiceServer,
+                       AfkActivityService afkActivityService) {
         this.plugin = plugin;
         this.musicLibrary = new MusicLibrary(
                 plugin.getDataFolder().toPath().resolve("music"), reloadExecutor,
@@ -109,7 +116,8 @@ public final class MusicModule {
                 settingsStore, playbackHistory::recordPlayback, lyricDisplay);
         this.rhythmGameService = new RhythmGameService(
                 plugin, playbackService, playbackService,
-                new PlasmoVoiceCalibrationAudio(plugin, voiceServer), languageService);
+                new PlasmoVoiceCalibrationAudio(plugin, voiceServer), languageService,
+                afkActivityService);
         NearbyJukeboxPlayback nearbyPlayback = new NearbyJukeboxPlayback(
                 playbackService, languageService);
         MusicBrowserGui browserGui = new MusicBrowserGui(plugin, musicLibrary, trackPool,

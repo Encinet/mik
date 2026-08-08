@@ -2,6 +2,7 @@ package org.encinet.mik.module.music.rhythm;
 
 import org.encinet.mik.module.music.rhythm.analysis.RhythmPulse;
 import org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline;
+import org.encinet.mik.module.music.rhythm.playback.RhythmAudioChannel;
 
 import org.junit.jupiter.api.Test;
 
@@ -116,6 +117,51 @@ class RhythmLatencyPipelineTest {
         assertEquals(2_045L, visualAimPosition,
                 "aim reconstruction must match the calibrated scene shown to the player");
         assertEquals(2_000L, judgementPosition);
+    }
+
+    @Test
+    void fourStageResultAlignsKeyboardAndPointerForBothAudioBackends() {
+        int rttMillis = 120;
+        RhythmCalibrationResult calibration = RhythmCalibrationResult.fromTests(
+                55, 100, 145, 73);
+        RhythmTimeline timeline = timelineAt(4_000L);
+        RhythmChartView chart = new RhythmChartView(
+                timeline, RhythmDifficulty.EXPERT);
+        RhythmCue cue = chart.between(4_000L, 4_000L).getFirst();
+
+        for (RhythmAudioChannel channel : RhythmAudioChannel.values()) {
+            RhythmLatencyProfile keyboardProfile =
+                    calibration.profiles().forChannel(channel);
+            RhythmLatencyProfile pointerProfile = keyboardProfile.withInputDelta(
+                    calibration.pointerInputDeltaMillis());
+            RhythmGameSession keyboardSession = new RhythmGameSession(
+                    UUID.randomUUID(), 0L, RhythmDifficulty.EXPERT);
+            RhythmGameSession pointerSession = new RhythmGameSession(
+                    UUID.randomUUID(), 0L, RhythmDifficulty.EXPERT);
+            RhythmLatencyCompensator keyboardClock = new RhythmLatencyCompensator(
+                    rttMillis, keyboardProfile.judgementOffsetMillis(),
+                    keyboardProfile.animationOffsetMillis());
+            RhythmLatencyCompensator pointerClock = new RhythmLatencyCompensator(
+                    rttMillis, pointerProfile.judgementOffsetMillis(),
+                    pointerProfile.animationOffsetMillis());
+            long keyboardArrival = cue.timeMillis() + rttMillis
+                    + keyboardProfile.judgementOffsetMillis();
+            long pointerArrival = cue.timeMillis() + rttMillis
+                    + pointerProfile.judgementOffsetMillis();
+
+            RhythmGameSession.Result keyboard = keyboardSession.hit(cue,
+                    keyboardClock.inputPosition(keyboardArrival), chart);
+            RhythmGameSession.Result pointer = pointerSession.hit(cue,
+                    pointerClock.inputPosition(pointerArrival), chart);
+
+            assertEquals(RhythmJudgement.PERFECT, keyboard.judgement(),
+                    channel + " keyboard");
+            assertEquals(RhythmJudgement.PERFECT, pointer.judgement(),
+                    channel + " pointer");
+            assertEquals(keyboardProfile.animationOffsetMillis(),
+                    pointerProfile.animationOffsetMillis(),
+                    "pointer calibration must not move the scene clock");
+        }
     }
 
     private static RhythmTimeline timelineAt(long timeMillis) {

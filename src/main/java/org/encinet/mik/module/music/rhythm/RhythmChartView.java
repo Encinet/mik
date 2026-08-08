@@ -127,7 +127,8 @@ public final class RhythmChartView {
         if (beat == null) return;
         selected.add(new RhythmCue(beat.id(), beat.timeMillis(),
                 lanes.next(beat.signature(), beat.stereoBalance(),
-                        beat.toneBalance()), beat.strength()));
+                        beat.toneBalance()), beat.strength(), beat.stereoBalance(),
+                beat.toneBalance(), beat.signature()));
         pending = null;
     }
 

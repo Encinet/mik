@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RhythmLatencyCalibrationTest {
@@ -180,6 +181,9 @@ class RhythmLatencyCalibrationTest {
                 calibration.record(new RhythmLatencyCalibration.Observation(
                         99L, 0L, 1, CUES_PER_CYCLE, 451, false)));
         assertEquals(1, calibration.observationCount());
+        assertThrows(IllegalArgumentException.class,
+                () -> new RhythmLatencyCalibration.Observation(
+                        0L, 0L, 0, CUES_PER_CYCLE, 0, false));
     }
 
     @Test

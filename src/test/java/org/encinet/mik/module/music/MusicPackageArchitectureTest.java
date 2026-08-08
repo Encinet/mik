@@ -49,6 +49,46 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
+    void rhythmModesOwnRealPackagesInsteadOfCrowdingTheRhythmRoot()
+            throws IOException {
+        Path modes = MUSIC.resolve("rhythm/mode");
+        try (Stream<Path> paths = Files.list(modes)) {
+            assertEquals(Set.of("falling", "radial", "spatial"),
+                    paths.filter(Files::isDirectory)
+                            .map(path -> path.getFileName().toString())
+                            .collect(java.util.stream.Collectors.toSet()));
+        }
+        try (Stream<Path> paths = Files.list(MUSIC.resolve("rhythm"))) {
+            assertTrue(paths.filter(Files::isRegularFile)
+                    .map(path -> path.getFileName().toString())
+                    .noneMatch(name -> name.startsWith("RhythmSpatial")
+                            || name.equals("RhythmRadialPath.java")
+                            || name.equals("RhythmWorldAim.java")));
+        }
+
+        String falling = source("rhythm/mode/falling/RhythmFallingLayout.java");
+        String pointer = source("rhythm/input/RhythmWorldAim.java");
+        String timestamps = source(
+                "rhythm/input/RhythmInputTimestampSource.java");
+        assertTrue(falling.contains("public final class RhythmFallingLayout"));
+        assertTrue(pointer.contains("public final class RhythmWorldAim"));
+        assertTrue(timestamps.contains(
+                "public final class RhythmInputTimestampSource"));
+        assertFalse(pointer.contains(".mode."));
+        assertFalse(timestamps.contains(".mode."));
+        assertNoImport(modes,
+                "org.encinet.mik.module.music.rhythm.RhythmGameService");
+        assertNoImport(modes.resolve("falling"),
+                "org.encinet.mik.module.music.rhythm.mode.radial.");
+        assertNoImport(modes.resolve("falling"),
+                "org.encinet.mik.module.music.rhythm.mode.spatial.");
+        assertNoImport(modes.resolve("radial"),
+                "org.encinet.mik.module.music.rhythm.mode.spatial.");
+        assertNoImport(MUSIC.resolve("rhythm/input"),
+                "org.encinet.mik.module.music.rhythm.mode.");
+    }
+
+    @Test
     void trackModelOnlyDescribesMetadataAndMediaTargets() throws IOException {
         String track = source("catalog/MusicTrack.java");
         String target = source("catalog/TrackTarget.java");
@@ -510,6 +550,26 @@ class MusicPackageArchitectureTest {
     }
 
     @Test
+    void calibrationAndGameplayShareHighLatencyAdmissionAndRuntimeGuards()
+            throws IOException {
+        String rhythm = source("rhythm/RhythmGameService.java");
+        String guard = source("rhythm/RhythmNetworkLatencyGuard.java");
+
+        assertEquals(4, occurrences(rhythm,
+                "if (!requirePlayableNetwork(player))"));
+        assertTrue(rhythm.contains(
+                "networkLatencyExceeded(player, game.networkLatency"));
+        assertTrue(rhythm.contains(
+                "networkLatencyExceeded(player, calibration.networkLatency"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_NETWORK_TOO_HIGH"));
+        assertTrue(rhythm.contains("MUSIC_RHYTHM_NETWORK_WARNING"));
+        assertTrue(guard.contains("MAXIMUM_PLAYABLE_RTT_MILLIS = 350"));
+        assertTrue(guard.contains("REQUIRED_CONSECUTIVE_HIGH_SAMPLES = 3"));
+        assertTrue(guard.contains("SAMPLE_INTERVAL_NANOS = 1_000_000_000L"));
+        assertTrue(guard.contains("consecutiveHighSamples = 0"));
+    }
+
+    @Test
     void uncalibratedStartUsesAFloatingConfirmationWithoutWeakeningServiceGuards()
             throws IOException {
         String gui = source("ui/JukeboxControlGui.java");
@@ -569,7 +629,7 @@ class MusicPackageArchitectureTest {
         assertTrue(nbs.contains(
                 ".filter(player -> audibleToPlayer.test(player.getUniqueId()))"));
         assertTrue(rhythm.contains("playbackIsolation.silenceFor(player)"));
-        assertTrue(rhythm.contains("expected.silenceLease.close()"));
+        assertTrue(rhythm.contains("releaseCalibrationResources(expected)"));
         assertTrue(rhythm.contains("calibration.silenceLease.close()"));
     }
 
@@ -583,9 +643,12 @@ class MusicPackageArchitectureTest {
                 "rhythm/calibration/LoopingAudioFrameProvider.java");
         String pattern = source(
                 "rhythm/calibration/RhythmCalibrationPattern.java");
-        String acceptsInput = method(rhythm,
-                "private boolean acceptsRawMeasurement()",
-                "private void noteInput(");
+        String stage = source("rhythm/calibration/CalibrationStage.java");
+        String calibrationResult = source(
+                "rhythm/RhythmCalibrationResult.java");
+        String acceptsInput = method(stage,
+                "public boolean acceptsInput(boolean pointerInput)",
+                "public boolean requiresPlasmoVoice()");
         String calibrationView = method(rhythm,
                 "private FloatingMenuDefinition renderCalibration(",
                 "private FloatingMenuDefinition unavailableCalibration(");
@@ -611,16 +674,19 @@ class MusicPackageArchitectureTest {
         assertFalse(rhythm.contains("VALIDATE_PLASMO"));
         assertFalse(rhythm.contains("VALIDATION_COMPLETE"));
         assertTrue(rhythm.contains("SoundCategory.RECORDS"));
-        assertTrue(rhythm.contains("RhythmCalibrationProfiles.fromTests("));
+        assertTrue(calibrationResult.contains(
+                "RhythmCalibrationProfiles.fromTests("));
         assertTrue(rhythm.contains("RhythmCalibrationPattern.fixed()"));
         assertTrue(rhythm.contains("pattern.durationMillis()"));
-        assertTrue(rhythm.contains("playMinecraftCues(player, 0L, nowNanos"));
+        assertTrue(rhythm.contains("playMinecraftCues(player, 0L, false)"));
+        assertTrue(rhythm.contains("playMinecraftCues(player, 0L, true)"));
         assertTrue(rhythm.contains("output.play(player, pattern)"));
         assertTrue(rhythm.contains("MUSIC_RHYTHM_CALIBRATION_LISTEN"));
         assertFalse(acceptsInput.contains("MINECRAFT_LISTEN"));
         assertFalse(acceptsInput.contains("PLASMO_LISTEN"));
         assertTrue(acceptsInput.contains("MINECRAFT_AUDIO"));
         assertTrue(acceptsInput.contains("PLASMO_AUDIO"));
+        assertTrue(acceptsInput.contains("POINTER_VISUAL"));
         assertFalse(calibrationView.contains("signedMillis("));
         assertFalse(calibrationView.contains("medianDeviationMillis"));
         assertFalse(calibrationView.contains("compensationMillis()"));
@@ -677,7 +743,14 @@ class MusicPackageArchitectureTest {
     void rhythmModesShareOneChartWhileOwningIndependentPresentations()
             throws IOException {
         String rhythm = source("rhythm/RhythmGameService.java");
-        String radial = source("rhythm/RhythmRadialPath.java");
+        String radial = source("rhythm/mode/radial/RhythmRadialPath.java");
+        String spatial = source("rhythm/mode/spatial/RhythmSpatialPath.java");
+        String arena = source("rhythm/mode/spatial/RhythmSpatialArena.java");
+        String slider = source("rhythm/mode/spatial/RhythmSpatialSlider.java");
+        String spatialGameplay = source(
+                "rhythm/mode/spatial/RhythmSpatialGameplay.java");
+        String timestamps = source(
+                "rhythm/input/RhythmInputTimestampSource.java");
         String open = method(rhythm, "public boolean open(", "private void start(");
         String start = method(rhythm, "private void start(",
                 "private static void preparePlayerForCapturedInput(");
@@ -685,6 +758,7 @@ class MusicPackageArchitectureTest {
         assertTrue(rhythm.contains("new FloatingMenuScreen<>(\"jukebox-rhythm-mode\""));
         assertTrue(rhythm.contains("case FALLING -> renderFallingScene("));
         assertTrue(rhythm.contains("case RADIAL -> renderRadialScene("));
+        assertTrue(rhythm.contains("case SPATIAL_AIM -> renderSpatialScene("));
         assertEquals(1, occurrences(rhythm,
                 "new RhythmChartView(playback.timeline(), difficulty"));
         assertFalse(open.contains("playbackGateway.join("));
@@ -704,6 +778,31 @@ class MusicPackageArchitectureTest {
         assertTrue(rhythm.contains("public void onRadialSwing(PlayerAnimationEvent event)"));
         assertTrue(rhythm.contains("public void onRadialInteract(PlayerInteractEvent event)"));
         assertTrue(rhythm.contains("game.session.hit("));
+        assertTrue(rhythm.contains("RhythmGameResult.from("));
+        assertTrue(rhythm.contains("pointerInputDelta(player)"));
+        assertTrue(spatial.contains("maximumTurnDegrees(interval)"));
+        assertTrue(arena.contains("inspectPlayableVolume()"));
+        assertTrue(slider.contains("never require a held-button state"));
+        assertTrue(slider.contains("MAXIMUM_INTERVAL_MILLIS = 1_400L"));
+        assertTrue(slider.contains("MAXIMUM_CONSECUTIVE_LINKS = 3"));
+        assertTrue(slider.contains("ENDPOINT_SETTLE_MILLIS = 50L"));
+        assertTrue(slider.contains("difficulty.goodWindowMillis() * 2L"));
+        assertTrue(slider.contains("static final class State"));
+        assertTrue(rhythm.contains("renderSpatialSlider("));
+        assertTrue(rhythm.contains("new RhythmSpatialGameplay("));
+        assertFalse(rhythm.contains("new RhythmSpatialPath("));
+        assertFalse(rhythm.contains("new RhythmSpatialSlider("));
+        assertTrue(spatialGameplay.contains("new RhythmSpatialPath("));
+        assertTrue(spatialGameplay.contains("new RhythmSpatialSlider("));
+        assertTrue(spatialGameplay.contains("void hit("));
+        assertTrue(spatialGameplay.contains("void miss("));
+        assertTrue(spatialGameplay.contains("Presentation.preview("));
+        assertTrue(spatialGameplay.contains("sliderStillVisible("));
+        assertTrue(spatialGameplay.contains("sliderLinks.values().removeIf("));
+        assertTrue(spatialGameplay.contains("void framePresented("));
+        assertTrue(spatialGameplay.contains("boolean presentationFair("));
+        assertFalse(rhythm.contains("Map<SliderKey"));
+        assertTrue(timestamps.contains("movement.hasRotationChanged()"));
         assertFalse(rhythm.contains("RADIAL_CENTER"));
         assertFalse(rhythm.contains("radial:target:"));
     }

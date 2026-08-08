@@ -14,12 +14,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /** Sends one continuously looping, player-private 48 kHz calibration drum. */
 public final class PlasmoVoiceCalibrationAudio
         implements RhythmCalibrationAudioOutput {
     private final PlasmoVoiceServer voiceServer;
     private final ServerSourceLine sourceLine;
+    private final Logger logger;
     private final Set<Playback> playbacks = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -27,6 +30,7 @@ public final class PlasmoVoiceCalibrationAudio
                                        PlasmoVoiceServer voiceServer) {
         Objects.requireNonNull(plugin, "plugin");
         this.voiceServer = Objects.requireNonNull(voiceServer, "voiceServer");
+        this.logger = plugin.getLogger();
         this.sourceLine = voiceServer.getSourceLineManager()
                 .createBuilder(plugin, "rhythm_calibration",
                         "soundCategory.record",
@@ -56,20 +60,36 @@ public final class PlasmoVoiceCalibrationAudio
                 .getPlayerByInstance(player);
         LoopingAudioFrameProvider provider = new LoopingAudioFrameProvider(
                 voiceServer, pattern);
+        ServerDirectSource source = null;
+        AudioSender sender = null;
         try {
-            ServerDirectSource source = sourceLine.createDirectSource(
+            source = sourceLine.createDirectSource(
                     voicePlayer, false);
             source.setIconVisible(false);
             source.setName("Rhythm latency calibration");
             // Push source metadata over TCP before the first UDP audio frame.
             source.setSender(voicePlayer);
-            AudioSender sender = source.createAudioSender(provider);
+            sender = source.createAudioSender(provider);
             Playback playback = new Playback(provider, source, sender);
             playbacks.add(playback);
             sender.onStop(playback::close);
             sender.start();
             return Optional.of(playback);
         } catch (RuntimeException exception) {
+            if (sender != null) {
+                try {
+                    sender.stop();
+                } catch (RuntimeException cleanupFailure) {
+                    exception.addSuppressed(cleanupFailure);
+                }
+            }
+            if (source != null) {
+                try {
+                    source.remove();
+                } catch (RuntimeException cleanupFailure) {
+                    exception.addSuppressed(cleanupFailure);
+                }
+            }
             provider.close();
             throw exception;
         }
@@ -115,9 +135,25 @@ public final class PlasmoVoiceCalibrationAudio
         public void close() {
             if (!stopped.compareAndSet(false, true)) return;
             playbacks.remove(this);
-            sender.stop();
-            source.remove();
-            provider.close();
+            RuntimeException failure = null;
+            try {
+                sender.stop();
+            } catch (RuntimeException exception) {
+                failure = exception;
+            }
+            try {
+                source.remove();
+            } catch (RuntimeException exception) {
+                if (failure == null) failure = exception;
+                else failure.addSuppressed(exception);
+            } finally {
+                provider.close();
+            }
+            if (failure != null) {
+                logger.log(Level.WARNING,
+                        "Unable to completely close latency calibration audio",
+                        failure);
+            }
         }
     }
 }

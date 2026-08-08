@@ -5,7 +5,7 @@ public record RhythmCuePresentation(long cueId, long cycleIndex, int cueIndex,
                                     int cuesPerCycle, long presentedAtNanos,
                                     double strength) {
     public RhythmCuePresentation {
-        if (cueId < 0L || cycleIndex < 0L || cueIndex < 0
+        if (cueId <= 0L || cycleIndex < 0L || cueIndex < 0
                 || cuesPerCycle < 1 || cueIndex >= cuesPerCycle) {
             throw new IllegalArgumentException("invalid calibration cue identity");
         }

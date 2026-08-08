@@ -1,5 +1,4 @@
-package org.encinet.mik.module.music.rhythm;
-
+package org.encinet.mik.module.music.rhythm.input;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -44,7 +43,37 @@ class RhythmInputTimestampSourceTest {
         source.recordForTest(playerId, true, -1, 100_000_000L);
         source.recordForTest(playerId, true, -1, 105_000_000L);
 
-        assertFalse(source.claimRadial(playerId, 110_000_000L).coarse());
-        assertTrue(source.claimRadial(playerId, 120_000_000L).coarse());
+        assertFalse(source.claimPointer(playerId, 110_000_000L).coarse());
+        assertTrue(source.claimPointer(playerId, 120_000_000L).coarse());
+    }
+
+    @Test
+    void pointerInputCarriesTheLatestPacketViewSnapshot() {
+        RhythmInputTimestampSource source = new RhythmInputTimestampSource();
+        UUID playerId = UUID.randomUUID();
+        source.recordViewForTest(playerId, 72.0F, -18.0F, 80_000_000L);
+        source.recordForTest(playerId, true, -1, 100_000_000L);
+
+        RhythmInputTimestampSource.TimedInput result = source.claimPointer(
+                playerId, 110_000_000L);
+
+        assertTrue(result.hasView());
+        assertEquals(RhythmWorldAim.viewDirection(72.0F, -18.0F),
+                result.viewDirection().orElseThrow());
+    }
+
+    @Test
+    void packetAgeMatchingSurvivesNanoTimeSignedWrap() {
+        RhythmInputTimestampSource source = new RhythmInputTimestampSource();
+        UUID playerId = UUID.randomUUID();
+        long receivedAt = Long.MAX_VALUE - 20_000_000L;
+        long claimedAt = Long.MIN_VALUE + 20_000_000L;
+        source.recordForTest(playerId, false, 3, receivedAt);
+
+        RhythmInputTimestampSource.TimedInput result = source.claimHotbar(
+                playerId, 3, claimedAt);
+
+        assertFalse(result.coarse());
+        assertEquals(receivedAt, result.receivedAtNanos());
     }
 }

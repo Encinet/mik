@@ -73,22 +73,6 @@ class RhythmGameMovementTest {
         assertTrue(RhythmInput.fromHotbarSlot(8).isEmpty());
     }
 
-    @Test
-    void notesFallVerticallyThroughAFixedLaneAndCrossTheHitLine() {
-        org.encinet.mik.module.menu.FloatingMenuPoint target =
-                new org.encinet.mik.module.menu.FloatingMenuPoint(0.29, -0.42, 0.30);
-
-        var spawn = RhythmGameService.fallingPoint(target, 0.0);
-        var hit = RhythmGameService.fallingPoint(target, 1.0);
-        var late = RhythmGameService.fallingPoint(target, 1.1);
-
-        assertEquals(target.right(), spawn.right(), 1.0E-9);
-        assertEquals(target.forward(), spawn.forward(), 1.0E-9);
-        assertTrue(spawn.up() > hit.up());
-        assertEquals(target.up(), hit.up(), 1.0E-9);
-        assertTrue(late.up() < hit.up());
-    }
-
     private static Player player() {
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
                 new Class<?>[]{Player.class}, (proxy, method, arguments) -> switch (method.getName()) {

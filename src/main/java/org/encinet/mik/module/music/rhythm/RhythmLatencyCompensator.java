@@ -78,9 +78,8 @@ final class RhythmLatencyCompensator {
      */
     boolean sample(int pingMillis, long sampledAtNanos) {
         if (lastTimedSampleNanos != Long.MIN_VALUE) {
-            if (sampledAtNanos < lastTimedSampleNanos
-                    || sampledAtNanos - lastTimedSampleNanos
-                    < SAMPLE_INTERVAL_NANOS) {
+            long elapsed = sampledAtNanos - lastTimedSampleNanos;
+            if (elapsed < SAMPLE_INTERVAL_NANOS) {
                 return false;
             }
         }

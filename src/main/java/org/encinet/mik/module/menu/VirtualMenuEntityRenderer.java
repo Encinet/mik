@@ -89,12 +89,20 @@ final class VirtualMenuEntityRenderer {
               float displayWidth, float displayHeight, float scale,
               FloatingMenuDecoration.Alignment alignment) {
         text(viewer, entityId, text, background, displayWidth, displayHeight,
-                Math.max(80, Math.round(displayWidth * 64.0F)), scale, alignment);
+                Math.max(80, Math.round(displayWidth * 64.0F)), scale, alignment,
+                true);
     }
 
     void text(Player viewer, int entityId, Component text, int background,
               float displayWidth, float displayHeight, int lineWidthPixels, float scale,
               FloatingMenuDecoration.Alignment alignment) {
+        text(viewer, entityId, text, background, displayWidth, displayHeight,
+                lineWidthPixels, scale, alignment, true);
+    }
+
+    void text(Player viewer, int entityId, Component text, int background,
+              float displayWidth, float displayHeight, int lineWidthPixels, float scale,
+              FloatingMenuDecoration.Alignment alignment, boolean seeThrough) {
         if (lineWidthPixels < 1) throw new IllegalArgumentException("Line width must be positive");
         Entity entity = virtualEntity(viewer, Kind.TEXT, entityId);
         TextDisplay display = (TextDisplay) entity.getBukkitEntity();
@@ -109,7 +117,7 @@ final class VirtualMenuEntityRenderer {
         display.setBackgroundColor(Color.fromARGB(background));
         display.setTextOpacity((byte) -1);
         display.setShadowed(true);
-        display.setSeeThrough(true);
+        display.setSeeThrough(seeThrough);
         display.setDefaultBackground(false);
         display.setAlignment(switch (alignment) {
             case LEFT -> TextDisplay.TextAlignment.LEFT;

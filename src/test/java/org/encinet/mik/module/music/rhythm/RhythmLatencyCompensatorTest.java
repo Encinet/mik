@@ -167,4 +167,13 @@ class RhythmLatencyCompensatorTest {
         assertEquals(Long.MAX_VALUE,
                 latency.inputPosition(Long.MAX_VALUE));
     }
+
+    @Test
+    void timedPingSamplingSurvivesNanoTimeSignedWrap() {
+        long initialSample = Long.MAX_VALUE - 500_000_000L;
+        RhythmLatencyCompensator latency = new RhythmLatencyCompensator(
+                60, 0, initialSample);
+
+        assertTrue(latency.sample(200, Long.MIN_VALUE + 600_000_000L));
+    }
 }

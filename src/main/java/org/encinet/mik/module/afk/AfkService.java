@@ -3,7 +3,7 @@ package org.encinet.mik.module.afk;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface AfkService {
+public interface AfkService extends AfkActivityService {
 
     boolean isAfk(UUID playerId);
 

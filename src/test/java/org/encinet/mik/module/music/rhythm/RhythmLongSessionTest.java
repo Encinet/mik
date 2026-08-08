@@ -3,6 +3,9 @@ package org.encinet.mik.module.music.rhythm;
 import org.encinet.mik.module.music.rhythm.analysis.RhythmPulse;
 import org.encinet.mik.module.music.rhythm.analysis.RhythmSource;
 import org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline;
+import org.encinet.mik.module.music.rhythm.mode.radial.RhythmRadialPath;
+import org.encinet.mik.module.music.rhythm.mode.spatial.RhythmSpatialPath;
+import org.encinet.mik.module.music.rhythm.mode.spatial.RhythmSpatialProfile;
 
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +32,8 @@ class RhythmLongSessionTest {
         RhythmGameSession session = new RhythmGameSession(
                 UUID.randomUUID(), 0L, RhythmDifficulty.EXPERT);
         RhythmRadialPath path = new RhythmRadialPath("infinite-soak", 90.0);
+        RhythmSpatialPath spatialPath = new RhythmSpatialPath("infinite-soak", 90.0,
+                RhythmSpatialProfile.forDifficulty(RhythmDifficulty.EXPERT));
 
         int playedCues = 0;
         for (long now = 0L; now <= 7_200_000L; now += 200L) {
@@ -38,12 +43,14 @@ class RhythmLongSessionTest {
             assertTrue(session.hit(cue, now, chart).judgement()
                     != RhythmJudgement.NONE);
             path.angleDegrees(cue);
+            spatialPath.point(cue);
             playedCues++;
 
             long cutoff = Math.max(0L, now - 5_000L);
             chart.discardBefore(cutoff);
             session.discardBefore(cutoff);
             path.discardBefore(cutoff);
+            spatialPath.discardBefore(cutoff);
         }
 
         assertTrue(playedCues > 30_000);
@@ -53,6 +60,8 @@ class RhythmLongSessionTest {
                 () -> "retained judgements=" + session.retainedJudgementCount());
         assertTrue(path.retainedAngleCount() <= 26,
                 () -> "retained radial angles=" + path.retainedAngleCount());
+        assertTrue(spatialPath.retainedPointCount() <= 26,
+                () -> "retained spatial points=" + spatialPath.retainedPointCount());
         assertTrue(session.view().score() > 50_000_000L);
     }
 }

@@ -35,10 +35,10 @@ class AfkMovementIntentTest {
     @Test
     void displacementWithoutPlayerInputDoesNotCreateActivity() {
         AfkActivityTracker tracker = tracker();
-        long version = tracker.activityVersion();
 
         assertFalse(tracker.recordMovement(WORLD_ID, 0.01D, 0.0D, 0.0D, 100L));
-        assertEquals(version, tracker.activityVersion());
+        assertEquals(AfkActivityTracker.CheckResult.AFK_IDLE,
+                tracker.check(AfkPolicy.DEFAULT.idleTimeoutMillis()));
     }
 
     private static AfkActivityTracker tracker() {

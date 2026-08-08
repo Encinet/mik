@@ -41,4 +41,16 @@ class RhythmLatencyProfileTest {
         assertEquals(130, tuned.judgementOffsetMillis());
         assertEquals(75, tuned.animationOffsetMillis());
     }
+
+    @Test
+    void pointerDeltaMovesOnlyTheJudgementClock() {
+        RhythmLatencyProfile baseline = new RhythmLatencyProfile(90, 35);
+
+        RhythmLatencyProfile pointer = baseline.withInputDelta(-18);
+
+        assertEquals(72, pointer.judgementOffsetMillis());
+        assertEquals(35, pointer.animationOffsetMillis());
+        assertEquals(-18, RhythmLatencyProfile.pointerInputDelta(108, 90));
+        assertEquals(200, RhythmLatencyProfile.pointerInputDelta(-250, 350));
+    }
 }

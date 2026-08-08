@@ -7,7 +7,6 @@ final class AutomaticAfkGate {
     private final long candidateGraceMillis;
     private final long reentryCooldownMillis;
     private long candidateSince = UNSET;
-    private long candidateActivityVersion = UNSET;
     private long cooldownUntil = UNSET;
 
     AutomaticAfkGate(long candidateGraceMillis, long reentryCooldownMillis) {
@@ -18,15 +17,14 @@ final class AutomaticAfkGate {
         this.reentryCooldownMillis = reentryCooldownMillis;
     }
 
-    boolean shouldEnter(long now, boolean eligible, long activityVersion) {
-        if (isCoolingDown(now) || !eligible) {
+    boolean shouldEnter(long now, boolean inactivityReached) {
+        if (isCoolingDown(now) || !inactivityReached) {
             clearCandidate();
             return false;
         }
 
-        if (candidateSince == UNSET || candidateActivityVersion != activityVersion) {
+        if (candidateSince == UNSET) {
             candidateSince = now;
-            candidateActivityVersion = activityVersion;
             if (candidateGraceMillis == 0L) {
                 clearCandidate();
                 return true;
@@ -39,6 +37,11 @@ final class AutomaticAfkGate {
         }
         clearCandidate();
         return true;
+    }
+
+    void reset() {
+        cooldownUntil = UNSET;
+        clearCandidate();
     }
 
     void recordExit(long now) {
@@ -59,7 +62,6 @@ final class AutomaticAfkGate {
 
     private void clearCandidate() {
         candidateSince = UNSET;
-        candidateActivityVersion = UNSET;
     }
 
     private static long elapsed(long now, long then) {

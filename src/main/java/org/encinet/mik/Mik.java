@@ -232,7 +232,7 @@ public final class Mik extends JavaPlugin {
         mainMenuModule.enable();
         mainMenuModule.registerCommands(this.getLifecycleManager());
 
-        musicModule = new MusicModule(this, languageService, voiceServer);
+        musicModule = new MusicModule(this, languageService, voiceServer, afkModule);
         musicModule.enable();
         musicModule.registerCommands(this.getLifecycleManager());
         musicModule.enableMusicChests();

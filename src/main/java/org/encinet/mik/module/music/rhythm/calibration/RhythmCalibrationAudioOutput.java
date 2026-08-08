@@ -35,8 +35,13 @@ public interface RhythmCalibrationAudioOutput extends AutoCloseable {
         }
 
         public boolean stalled(long nowNanos, long maximumSilenceNanos) {
-            return hasStarted() && nowNanos >= lastFrameAtNanos
-                    && nowNanos - lastFrameAtNanos > maximumSilenceNanos;
+            if (maximumSilenceNanos < 0L) {
+                throw new IllegalArgumentException(
+                        "maximum silence must not be negative");
+            }
+            if (!hasStarted()) return false;
+            long elapsed = nowNanos - lastFrameAtNanos;
+            return elapsed >= 0L && elapsed > maximumSilenceNanos;
         }
     }
 }

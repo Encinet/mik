@@ -53,14 +53,16 @@ import org.encinet.mik.util.PlayerDisplay;
 import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -74,8 +76,6 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private static final String DEFAULT_ENTER_TEMPLATES = "afk-enter-default-templates";
     private static final String CUSTOM_ENTER_TEMPLATES = "afk-enter-custom-templates";
     private static final String EXIT_TEMPLATES = "afk-exit-templates";
-    private static final long AFK_AUTO_ENTER_GRACE_MILLIS = 1_000L;
-    private static final long AFK_AUTO_ENTER_COOLDOWN_MILLIS = 1_250L;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final MiniMessage SAFE_MESSAGE = MiniMessage.builder()
             .tags(TagResolver.resolver(
@@ -89,12 +89,13 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
-    private final Map<UUID, AfkActivityTracker> activityTrackers = new HashMap<>();
-    private final Map<UUID, SuspendedTracker> suspendedTrackers = new HashMap<>();
+    private final Map<UUID, AfkPlayerSession> playerSessions = new HashMap<>();
+    private final Map<UUID, SuspendedSession> suspendedSessions = new HashMap<>();
     private final Map<UUID, AfkState> states = new ConcurrentHashMap<>();
-    private final Map<UUID, AutomaticAfkGate> automaticAfkGates = new HashMap<>();
-    private final Set<UUID> pendingAsyncActivity = ConcurrentHashMap.newKeySet();
+    private final Queue<UUID> pendingAsyncActivity = new ConcurrentLinkedQueue<>();
+    private final Queue<UUID> pendingTrustedActivity = new ConcurrentLinkedQueue<>();
     private final List<AfkStateListener> listeners = new CopyOnWriteArrayList<>();
+    private final AfkSuppressionRegistry suppressions = new AfkSuppressionRegistry();
     private final AfkDisplayController displayController;
     private final AfkCollisionController collisionController = new AfkCollisionController();
 
@@ -113,8 +114,8 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
         languageService.addLanguageChangeListener(this);
         long now = activityTimeMillis();
-        Bukkit.getOnlinePlayers().forEach(player -> activityTrackers.put(
-                player.getUniqueId(), newTracker(now, player.getLocation())));
+        Bukkit.getOnlinePlayers().forEach(player -> playerSessions.put(
+                player.getUniqueId(), newSession(now, player.getLocation())));
         updateTask = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, UPDATE_INTERVAL_TICKS, UPDATE_INTERVAL_TICKS);
         plugin.getLogger().info("AfkModule enabled");
     }
@@ -127,10 +128,11 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         languageService.removeLanguageChangeListener(this);
         collisionController.clear();
         states.clear();
-        automaticAfkGates.clear();
-        activityTrackers.clear();
-        suspendedTrackers.clear();
+        playerSessions.clear();
+        suspendedSessions.clear();
         pendingAsyncActivity.clear();
+        pendingTrustedActivity.clear();
+        suppressions.clear();
         displayController.disable();
     }
 
@@ -161,13 +163,31 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         if (isAfk(playerId)) {
             return false;
         }
-        AfkActivityTracker tracker = activityTrackers.get(playerId);
-        return tracker != null && tracker.isActivityEligible(activityTimeMillis());
+        AfkPlayerSession session = playerSessions.get(playerId);
+        return session != null && session.isActivityEligible(activityTimeMillis());
     }
 
     @Override
     public Optional<AfkState> getState(UUID playerId) {
         return Optional.ofNullable(states.get(playerId));
+    }
+
+    @Override
+    public AfkActivityService.ActivityLease suppressAutomaticAfk(
+            UUID playerId,
+            String reason
+    ) {
+        return suppressions.acquire(playerId, reason);
+    }
+
+    @Override
+    public void recordTrustedActivity(UUID playerId) {
+        Objects.requireNonNull(playerId, "playerId");
+        if (!Bukkit.isPrimaryThread()) {
+            pendingTrustedActivity.add(playerId);
+            return;
+        }
+        applyTrustedActivity(playerId);
     }
 
     @Override
@@ -190,16 +210,16 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         Player player = event.getPlayer();
         long now = activityTimeMillis();
         Location location = player.getLocation();
-        SuspendedTracker suspended = suspendedTrackers.remove(player.getUniqueId());
-        AfkActivityTracker tracker;
+        SuspendedSession suspended = suspendedSessions.remove(player.getUniqueId());
+        AfkPlayerSession session;
         if (suspended == null || suspended.expiresAt() < now) {
-            tracker = newTracker(now, location);
+            session = newSession(now, location);
         } else {
-            tracker = suspended.tracker();
-            tracker.resumeSession(now, worldId(location), location.getX(), location.getY(), location.getZ());
+            session = suspended.session();
+            session.resumeAfterReconnect(
+                    now, worldId(location), location.getX(), location.getY(), location.getZ());
         }
-        activityTrackers.put(player.getUniqueId(), tracker);
-        clearAutomaticAfkGate(player.getUniqueId());
+        playerSessions.put(player.getUniqueId(), session);
         Bukkit.getScheduler().runTask(plugin, () -> collisionController.syncViewer(event.getPlayer()));
     }
 
@@ -207,21 +227,20 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
-        clearAutomaticAfkGate(playerId);
         boolean wasAfk = states.remove(playerId) != null;
-        AfkActivityTracker tracker = activityTrackers.remove(playerId);
-        if (tracker != null) {
+        AfkPlayerSession session = playerSessions.remove(playerId);
+        if (session != null) {
             long now = activityTimeMillis();
-            if (wasAfk) {
-                Location location = player.getLocation();
-                tracker.resumeFromAfk(
-                        now, worldId(location), location.getX(), location.getY(), location.getZ());
-            }
-            tracker.suspendSession(now);
-            suspendedTrackers.put(playerId,
-                    new SuspendedTracker(tracker, now + SUSPENDED_TRACKER_RETENTION_MILLIS));
+            Location location = player.getLocation();
+            session.suspendForDisconnect(
+                    now, wasAfk, worldId(location),
+                    location.getX(), location.getY(), location.getZ());
+            suspendedSessions.put(playerId,
+                    new SuspendedSession(session, now + SUSPENDED_TRACKER_RETENTION_MILLIS));
         }
-        pendingAsyncActivity.remove(playerId);
+        pendingAsyncActivity.removeIf(playerId::equals);
+        pendingTrustedActivity.removeIf(playerId::equals);
+        suppressions.clear(playerId);
         restoreAfkProtection(player);
         collisionController.forgetViewer(player);
         displayController.remove(playerId);
@@ -442,55 +461,63 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     }
 
     private void flushPendingActivity() {
-        if (pendingAsyncActivity.isEmpty()) {
-            return;
-        }
-        for (UUID playerId : pendingAsyncActivity) {
-            pendingAsyncActivity.remove(playerId);
+        for (UUID playerId : drainUnique(pendingAsyncActivity)) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 recordLightActivity(player);
             }
         }
+        for (UUID playerId : drainUnique(pendingTrustedActivity)) {
+            applyTrustedActivity(playerId);
+        }
+    }
+
+    private static HashSet<UUID> drainUnique(Queue<UUID> pending) {
+        HashSet<UUID> playerIds = new HashSet<>();
+        UUID playerId;
+        while ((playerId = pending.poll()) != null) {
+            playerIds.add(playerId);
+        }
+        return playerIds;
+    }
+
+    private void applyTrustedActivity(UUID playerId) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null || !player.isOnline()) {
+            return;
+        }
+        long now = activityTimeMillis();
+        tracker(player, now).recordTrustedActivity(now);
+        if (isAfk(playerId)) {
+            clearAfk(player, false, true);
+        }
     }
 
     private void checkAutoAfk() {
         long now = activityTimeMillis();
-        suspendedTrackers.entrySet().removeIf(entry -> entry.getValue().expiresAt() < now);
+        suspendedSessions.entrySet().removeIf(entry -> entry.getValue().expiresAt() < now);
         List<Player> newlyAfk = new ArrayList<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID playerId = player.getUniqueId();
+            AfkPlayerSession session = session(player, now);
             if (states.containsKey(playerId)) {
-                clearAutomaticAfkGate(playerId);
+                session.cancelAutomaticEntry();
                 continue;
             }
 
-            AfkActivityTracker tracker = tracker(player, now);
-            AfkActivityTracker.CheckResult result = tracker.check(now);
-            boolean inactivityReached = switch (result) {
-                case ACTIVE -> false;
-                case AFK_IDLE, AFK_PASSIVE -> true;
-                case ACTIVITY_REWARD_LOCKED -> {
-                    plugin.getLogger().info("Excluded " + player.getName()
-                            + " (" + playerId + ") from activity rewards after sustained automated movement patterns");
-                    yield false;
-                }
-            };
-            boolean eligible = inactivityReached && canEnterAutomaticAfk(player);
-            if (automaticAfkGate(playerId).shouldEnter(now, eligible, tracker.activityVersion())) {
+            AfkPlayerSession.AutomaticCheck check = session.checkAutomaticAfk(
+                    now,
+                    entrySafety(player).permitsAutomaticAfk(),
+                    suppressions.isSuppressed(playerId));
+            if (check.result() == AfkActivityTracker.CheckResult.ACTIVITY_REWARD_LOCKED) {
+                plugin.getLogger().info("Excluded " + player.getName()
+                        + " (" + playerId + ") from activity rewards after sustained automated movement patterns");
+            }
+            if (check.shouldEnterAfk()) {
                 newlyAfk.add(player);
             }
         }
         setAutomaticAfk(newlyAfk, now);
-    }
-
-    private void clearAutomaticAfkGate(UUID playerId) {
-        automaticAfkGates.remove(playerId);
-    }
-
-    private AutomaticAfkGate automaticAfkGate(UUID playerId) {
-        return automaticAfkGates.computeIfAbsent(playerId, ignored -> new AutomaticAfkGate(
-                AFK_AUTO_ENTER_GRACE_MILLIS, AFK_AUTO_ENTER_COOLDOWN_MILLIS));
     }
 
     private void recordLightActivity(Player player) {
@@ -548,21 +575,25 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         return "inventory:" + owner + ":" + event.getSlot();
     }
 
-    private record SuspendedTracker(AfkActivityTracker tracker, long expiresAt) {
+    private record SuspendedSession(AfkPlayerSession session, long expiresAt) {
     }
 
     private AfkActivityTracker tracker(Player player, long now) {
-        UUID playerId = player.getUniqueId();
-        AfkActivityTracker tracker = activityTrackers.get(playerId);
-        if (tracker == null) {
-            tracker = newTracker(now, player.getLocation());
-            activityTrackers.put(playerId, tracker);
-        }
-        return tracker;
+        return session(player, now).activity();
     }
 
-    private static AfkActivityTracker newTracker(long now, Location location) {
-        return new AfkActivityTracker(
+    private AfkPlayerSession session(Player player, long now) {
+        UUID playerId = player.getUniqueId();
+        AfkPlayerSession session = playerSessions.get(playerId);
+        if (session == null) {
+            session = newSession(now, player.getLocation());
+            playerSessions.put(playerId, session);
+        }
+        return session;
+    }
+
+    private static AfkPlayerSession newSession(long now, Location location) {
+        return new AfkPlayerSession(
                 now,
                 worldId(location),
                 location.getX(),
@@ -586,7 +617,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         }
         AfkState current = states.get(player.getUniqueId());
         if (current != null) {
-            clearAutomaticAfkGate(player.getUniqueId());
+            session(player, activityTimeMillis()).cancelAutomaticEntry();
             AfkState updated = new AfkState(
                     current.playerId(), message.isEmpty() ? null : message,
                     AfkSource.SKRIPT, current.sinceMillis());
@@ -605,7 +636,6 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private void setAfk(Player player, String customMessage, AfkSource source, boolean broadcast) {
         long now = activityTimeMillis();
         UUID playerId = player.getUniqueId();
-        clearAutomaticAfkGate(playerId);
         boolean hasCustomMessage = customMessage != null && !customMessage.isBlank();
         AfkState state = new AfkState(
                 playerId,
@@ -613,7 +643,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
                 source,
                 System.currentTimeMillis());
         states.put(playerId, state);
-        tracker(player, now).suspendForAfk(now, hasMovementInput(player.getCurrentInput()));
+        session(player, now).enterAfk(now, hasMovementInput(player.getCurrentInput()));
         applyAfkProtection(player);
         displayController.update(player, state);
         notifyListeners(player, state);
@@ -634,13 +664,12 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
             AfkState state = new AfkState(playerId, null, AfkSource.AUTOMATIC, sinceMillis);
             states.put(playerId, state);
             newStates.put(playerId, state);
-            tracker(player, now).suspendForAfk(now, hasMovementInput(player.getCurrentInput()));
+            session(player, now).enterAfk(now, hasMovementInput(player.getCurrentInput()));
             clearNearbyMobTargets(player);
         }
         collisionController.addAll(players);
 
         for (Player player : players) {
-            clearAutomaticAfkGate(player.getUniqueId());
             AfkState state = newStates.get(player.getUniqueId());
             notifyListeners(player, state);
         }
@@ -657,12 +686,11 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         }
 
         long now = activityTimeMillis();
-        automaticAfkGate(playerId).recordExit(now);
         Location location = player.getLocation();
-        AfkActivityTracker tracker = tracker(player, now);
-        tracker.resumeFromAfk(
+        AfkPlayerSession session = session(player, now);
+        session.exitAfk(
                 now, worldId(location), location.getX(), location.getY(), location.getZ());
-        syncMovementInput(tracker, player, location, now);
+        syncMovementInput(session.activity(), player, location, now);
         restoreAfkProtection(player);
         displayController.remove(playerId);
         notifyListeners(player, null);
@@ -712,14 +740,18 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
                 || input.isJump();
     }
 
-    private static boolean canEnterAutomaticAfk(Player player) {
-        return !player.isFlying()
-                && !player.isGliding()
-                && !player.isRiptiding()
-                && !player.isInsideVehicle()
-                && player.getFallDistance() == 0.0F
-                && player.getVelocity().lengthSquared() < 0.01D
-                && !hasMovementInput(player.getCurrentInput());
+    private static AfkEntrySafety entrySafety(Player player) {
+        var vehicle = player.getVehicle();
+        double vehicleVelocitySquared = vehicle == null
+                ? 0.0D
+                : vehicle.getVelocity().lengthSquared();
+        return new AfkEntrySafety(
+                player.isGliding(),
+                player.isRiptiding(),
+                player.getFallDistance(),
+                player.getVelocity().lengthSquared(),
+                vehicleVelocitySquared
+        );
     }
 
     private static float angularDelta(float a, float b) {

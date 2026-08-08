@@ -18,6 +18,11 @@ public final class RhythmGameSession {
     private long maximumCombo;
     private long hits;
     private long misses;
+    private long perfectHits;
+    private long greatHits;
+    private long goodHits;
+    private long timingErrorTotalMillis;
+    private long lastTimingErrorMillis;
     private RhythmJudgement lastJudgement = RhythmJudgement.NONE;
     private RhythmInput lastInput;
     private long lastJudgementAtMillis = Long.MIN_VALUE / 4L;
@@ -48,22 +53,29 @@ public final class RhythmGameSession {
     }
 
     public int advance(long playbackPositionMillis, RhythmChartView chart) {
+        return advanceResults(playbackPositionMillis, chart).size();
+    }
+
+    /** Returns each expired cue so spatial modes can show a miss at its location. */
+    public List<Result> advanceResults(long playbackPositionMillis,
+                                       RhythmChartView chart) {
         Objects.requireNonNull(chart, "chart");
         long cutoff = Math.max(0L,
                 playbackPositionMillis - difficulty.goodWindowMillis());
         long safeCutoff = chart.complete()
                 ? cutoff : Math.min(cutoff, chart.analyzedThroughMillis());
-        if (safeCutoff < missCursorMillis) return 0;
-        int newlyMissed = 0;
+        if (safeCutoff < missCursorMillis) return List.of();
+        java.util.ArrayList<Result> newlyMissed = new java.util.ArrayList<>();
         for (RhythmCue cue : chart.between(missCursorMillis, safeCutoff)) {
             if (markJudged(cue)) {
                 registerMiss(cue.input(), playbackPositionMillis);
-                newlyMissed++;
+                newlyMissed.add(new Result(RhythmJudgement.MISS, cue,
+                        playbackPositionMillis - cue.timeMillis(), 0));
             }
         }
         missCursorMillis = safeCutoff == Long.MAX_VALUE
                 ? Long.MAX_VALUE : safeCutoff + 1L;
-        return newlyMissed;
+        return List.copyOf(newlyMissed);
     }
 
     public Result input(RhythmInput input, long playbackPositionMillis,
@@ -135,12 +147,21 @@ public final class RhythmGameSession {
         combo = incrementSaturated(combo);
         maximumCombo = Math.max(maximumCombo, combo);
         hits = incrementSaturated(hits);
+        switch (judgement) {
+            case PERFECT -> perfectHits = incrementSaturated(perfectHits);
+            case GREAT -> greatHits = incrementSaturated(greatHits);
+            case GOOD -> goodHits = incrementSaturated(goodHits);
+            case MISS, NONE -> { }
+        }
+        timingErrorTotalMillis = saturatedAddSigned(
+                timingErrorTotalMillis, error);
         int delta = (int) Math.round(judgement.baseScore()
                 * (100L + Math.min(combo, 50L)) / 100.0
                 * difficulty.scoreMultiplier());
         score = score > Long.MAX_VALUE - delta ? Long.MAX_VALUE : score + delta;
         lastJudgement = judgement;
         lastInput = matching.input();
+        lastTimingErrorMillis = error;
         lastJudgementAtMillis = position;
         return new Result(judgement, matching, error, delta);
     }
@@ -150,12 +171,15 @@ public final class RhythmGameSession {
         misses = incrementSaturated(misses);
         lastJudgement = RhythmJudgement.MISS;
         lastInput = input;
+        lastTimingErrorMillis = 0L;
         lastJudgementAtMillis = position;
     }
 
     public View view() {
         return new View(score, combo, maximumCombo, hits, misses,
-                lastJudgement, lastInput, lastJudgementAtMillis);
+                perfectHits, greatHits, goodHits, timingErrorTotalMillis,
+                lastTimingErrorMillis, lastJudgement, lastInput,
+                lastJudgementAtMillis);
     }
 
     public boolean isJudged(long cueId) {
@@ -190,6 +214,14 @@ public final class RhythmGameSession {
                 ? Long.MAX_VALUE : value + increment;
     }
 
+    private static long saturatedAddSigned(long value, long increment) {
+        try {
+            return Math.addExact(value, increment);
+        } catch (ArithmeticException ignored) {
+            return increment >= 0L ? Long.MAX_VALUE : Long.MIN_VALUE;
+        }
+    }
+
     public record Result(RhythmJudgement judgement, RhythmCue cue,
                          long timingErrorMillis, int scoreDelta) {
         public static final Result NONE = new Result(
@@ -204,7 +236,20 @@ public final class RhythmGameSession {
     }
 
     public record View(long score, long combo, long maximumCombo, long hits, long misses,
+                       long perfectHits, long greatHits, long goodHits,
+                       long timingErrorTotalMillis,
+                       long lastTimingErrorMillis,
                        RhythmJudgement lastJudgement, RhythmInput lastInput,
                        long lastJudgementAtMillis) {
+        public double accuracy() {
+            double total = (double) hits + misses;
+            if (total == 0.0) return 1.0;
+            double weighted = perfectHits + greatHits * 0.75 + goodHits * 0.45;
+            return weighted / total;
+        }
+
+        public double meanTimingErrorMillis() {
+            return hits == 0L ? 0.0 : timingErrorTotalMillis / (double) hits;
+        }
     }
 }

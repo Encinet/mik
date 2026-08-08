@@ -89,7 +89,7 @@ public record FloatingMenuDecoration(
         return new FloatingMenuDecoration(id, FloatingMenuPlacement.local(pose),
                 new Text(Objects.requireNonNull(text, "text"), background,
                         displayWidth, displayHeight, scale,
-                        Objects.requireNonNull(alignment, "alignment")), Motion.NONE);
+                        Objects.requireNonNull(alignment, "alignment"), true), Motion.NONE);
     }
 
     public static FloatingMenuDecoration item(String id, FloatingMenuPoint point,
@@ -119,11 +119,21 @@ public record FloatingMenuDecoration(
                                                     Component text, int background,
                                                     float displayWidth, float displayHeight,
                                                     float scale, Alignment alignment) {
+        return worldText(id, location, yawDegrees, pitchDegrees, text, background,
+                displayWidth, displayHeight, scale, alignment, true);
+    }
+
+    public static FloatingMenuDecoration worldText(String id, Location location,
+                                                    double yawDegrees, double pitchDegrees,
+                                                    Component text, int background,
+                                                    float displayWidth, float displayHeight,
+                                                    float scale, Alignment alignment,
+                                                    boolean seeThrough) {
         return new FloatingMenuDecoration(id,
                 FloatingMenuPlacement.world(location, yawDegrees, pitchDegrees),
                 new Text(Objects.requireNonNull(text, "text"), background,
                         displayWidth, displayHeight, scale,
-                        Objects.requireNonNull(alignment, "alignment")), Motion.NONE);
+                        Objects.requireNonNull(alignment, "alignment"), seeThrough), Motion.NONE);
     }
 
     public static FloatingMenuDecoration worldItem(String id, Location location,
@@ -157,7 +167,8 @@ public record FloatingMenuDecoration(
     }
 
     public record Text(Component text, int background, float displayWidth,
-                       float displayHeight, float scale, Alignment alignment) implements Content {
+                       float displayHeight, float scale, Alignment alignment,
+                       boolean seeThrough) implements Content {
         public Text {
             text = Objects.requireNonNull(text, "text");
             alignment = Objects.requireNonNull(alignment, "alignment");

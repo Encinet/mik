@@ -33,6 +33,10 @@ class RhythmGameSessionTest {
         assertEquals(RhythmJudgement.GREAT, second.judgement());
         assertEquals(2, session.view().combo());
         assertEquals(2, session.view().hits());
+        assertEquals(1, session.view().perfectHits());
+        assertEquals(1, session.view().greatHits());
+        assertEquals(120L, session.view().lastTimingErrorMillis());
+        assertEquals(82.5, session.view().meanTimingErrorMillis(), 0.000_001);
         assertTrue(session.view().score() > 1_700);
     }
 

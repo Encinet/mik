@@ -1,6 +1,8 @@
-package org.encinet.mik.module.music.rhythm;
+package org.encinet.mik.module.music.rhythm.mode.radial;
 
 import org.bukkit.Location;
+import org.encinet.mik.module.music.rhythm.RhythmCue;
+import org.encinet.mik.module.music.rhythm.RhythmInput;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
