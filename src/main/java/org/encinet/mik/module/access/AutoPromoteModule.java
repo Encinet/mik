@@ -32,49 +32,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 
 /**
- * Module for automatic player promotion based on activity stats.
- * <p>
- * Algorithm:
- * Hard requirements (rejected immediately if not met):
- * - Account age >= 2 days
- * - Playtime   >= 8 hours
- * <p>
- * Score-based criteria — each Criterion defines:
- * full  : value at which full points are awarded (linear from 0 to full)
- * max   : point cap for this criterion (prevents single-stat abuse)
- * <p>
- * Points are awarded proportionally: score = clamp(value * max / full, 0, max)
- * No single criterion can hard-fail the check — players earn points across all stats.
- * <p>
- * Promotion requires total score >= SCORE_THRESHOLD (100).
+ * Automatically promotes players who first joined at least three days ago and
+ * have played for at least eight hours.
  */
 public class AutoPromoteModule implements Listener {
 
-    /**
-     * Encapsulates per-stat scoring parameters.
-     */
-    private record Criterion(Statistic stat, int min, int full, int max) {
-        int score(OfflinePlayer op) {
-            int value = op.getStatistic(stat);
-            if (value < min) return -1;
-            return (int) ((long) (value - min) * max / (full - min));
-        }
-    }
-
-    private record ScoreBreakdown(int flyRaw, int sneakRaw, int leaveRaw, int jumpRaw, int total, boolean qualified) {
-    }
-
-    // Hard minimums (not stat-based)
-    private static final long JOIN_DAYS_MILLIS = TimeUnit.DAYS.toMillis(2);
-    private static final int PLAYED_HOURS_TICKS = 20 * 60 * 60 * 8; // 8 h
-
-    // Stat criteria: (stat, min, full, maxPoints)
-    private static final Criterion FLY = new Criterion(Statistic.FLY_ONE_CM, 2_000_000, 6_000_000, 25);
-    private static final Criterion SNEAK = new Criterion(Statistic.SNEAK_TIME, 6_000, 20_000, 25);
-    private static final Criterion LEAVE = new Criterion(Statistic.LEAVE_GAME, 3, 15, 25);
-    private static final Criterion JUMP = new Criterion(Statistic.JUMP, 600, 1_200, 25);
-
-    private static final int SCORE_THRESHOLD = 100;
+    private static final long REQUIRED_JOIN_AGE_MILLIS = TimeUnit.DAYS.toMillis(3);
+    private static final int REQUIRED_PLAYTIME_TICKS = 20 * 60 * 60 * 8;
     private static final long CHECK_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5);
 
     private static final String TAINT_PERMISSION = "mik.autopromote.taint";
@@ -128,23 +92,22 @@ public class AutoPromoteModule implements Listener {
                             CommandSender sender = ctx.getSource().getSender();
                             String name = StringArgumentType.getString(ctx, "player");
                             Language language = senderLanguage(sender);
-                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> sendScoreReport(sender, name, language));
+                            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> sendPromotionReport(sender, name, language));
                             return Command.SINGLE_SUCCESS;
                         })).build(), languageService.t(Language.DEFAULT, Message.PROMOTECHECK_COMMAND_DESCRIPTION)));
     }
 
-    private void sendScoreReport(CommandSender sender, String name, Language language) {
+    private void sendPromotionReport(CommandSender sender, String name, Language language) {
         OfflinePlayer target = Bukkit.getOfflinePlayer(name);
         Component report = !target.hasPlayedBefore()
                 ? Component.text(languageService.t(language, Message.PROMOTECHECK_NEVER_PLAYED, name), NamedTextColor.RED)
-                : buildScoreReport(target, language);
+                : buildPromotionReport(target, language);
         Bukkit.getScheduler().runTask(plugin, () -> sender.sendMessage(report));
     }
 
-    private Component buildScoreReport(OfflinePlayer op, Language language) {
-        boolean ageOk = System.currentTimeMillis() - op.getFirstPlayed() >= JOIN_DAYS_MILLIS;
-        boolean playtimeOk = op.getStatistic(Statistic.PLAY_ONE_MINUTE) >= PLAYED_HOURS_TICKS;
-        ScoreBreakdown scores = calculateScores(op);
+    private Component buildPromotionReport(OfflinePlayer op, Language language) {
+        boolean ageOk = System.currentTimeMillis() - op.getFirstPlayed() >= REQUIRED_JOIN_AGE_MILLIS;
+        boolean playtimeOk = op.getStatistic(Statistic.PLAY_ONE_MINUTE) >= REQUIRED_PLAYTIME_TICKS;
 
         String displayName = op.getName() != null ? op.getName() : op.getUniqueId().toString();
         Component header = Component.text(languageService.t(language, Message.PROMOTECHECK_HEADER, displayName), NamedTextColor.GOLD);
@@ -156,47 +119,16 @@ public class AutoPromoteModule implements Listener {
                 .append(Component.newline())
                 .append(status(ageOk)).append(Component.text("  " + languageService.t(language, Message.PROMOTECHECK_ACCOUNT_AGE), NamedTextColor.WHITE))
                 .append(Component.newline())
-                .append(status(playtimeOk)).append(Component.text("  " + languageService.t(language, Message.PROMOTECHECK_PLAYTIME), NamedTextColor.WHITE))
-                .append(Component.newline())
-                .append(scoreLabel(language, Message.PROMOTECHECK_FLY_DISTANCE))
-                .append(pts(language, scores.flyRaw(), FLY.max(), scores.flyRaw() >= 0))
-                .append(Component.newline())
-                .append(scoreLabel(language, Message.PROMOTECHECK_SNEAK_TIME))
-                .append(pts(language, scores.sneakRaw(), SNEAK.max(), scores.sneakRaw() >= 0))
-                .append(Component.newline())
-                .append(scoreLabel(language, Message.PROMOTECHECK_LEAVE_COUNT))
-                .append(pts(language, scores.leaveRaw(), LEAVE.max(), scores.leaveRaw() >= 0))
-                .append(Component.newline())
-                .append(scoreLabel(language, Message.PROMOTECHECK_JUMP_COUNT))
-                .append(pts(language, scores.jumpRaw(), JUMP.max(), scores.jumpRaw() >= 0))
-                .append(Component.newline())
-                .append(Component.text(languageService.t(language, Message.PROMOTECHECK_TOTAL) + " ", NamedTextColor.GOLD))
-                .append(Component.text(scores.total() + " / " + SCORE_THRESHOLD,
-                        scores.qualified() ? NamedTextColor.GREEN : NamedTextColor.RED));
-    }
-
-    private Component scoreLabel(Language language, Message message) {
-        return Component.text(languageService.t(language, message) + " : ", NamedTextColor.GRAY);
+                .append(status(playtimeOk)).append(Component.text("  " + languageService.t(language, Message.PROMOTECHECK_PLAYTIME), NamedTextColor.WHITE));
     }
 
     private Component status(boolean ok) {
         return ok ? Component.text("✔", NamedTextColor.GREEN) : Component.text("✘", NamedTextColor.RED);
     }
 
-    private Component pts(Language language, int pts, int max, boolean minMet) {
-        NamedTextColor color = !minMet ? NamedTextColor.RED : pts >= max ? NamedTextColor.GREEN : NamedTextColor.YELLOW;
-        String suffix = !minMet ? "  " + languageService.t(language, Message.PROMOTECHECK_BELOW_MINIMUM) : "";
-        return Component.text(pts + " / " + max + suffix, color);
-    }
-
     private boolean shouldPromotePlayer(OfflinePlayer player) {
-        // Hard requirement: account age
-        if (System.currentTimeMillis() - player.getFirstPlayed() < JOIN_DAYS_MILLIS) return false;
-
-        // Hard requirement: playtime
-        if (player.getStatistic(Statistic.PLAY_ONE_MINUTE) < PLAYED_HOURS_TICKS) return false;
-
-        return calculateScores(player).qualified();
+        return System.currentTimeMillis() - player.getFirstPlayed() >= REQUIRED_JOIN_AGE_MILLIS
+                && player.getStatistic(Statistic.PLAY_ONE_MINUTE) >= REQUIRED_PLAYTIME_TICKS;
     }
 
     private void schedulePromotionCheck(Player player) {
@@ -253,24 +185,6 @@ public class AutoPromoteModule implements Listener {
         });
 
         plugin.getLogger().info("Promoted player " + playerName + " to member group");
-    }
-
-    private ScoreBreakdown calculateScores(OfflinePlayer player) {
-        int flyRaw = FLY.score(player);
-        int sneakRaw = SNEAK.score(player);
-        int leaveRaw = LEAVE.score(player);
-        int jumpRaw = JUMP.score(player);
-
-        boolean qualified = flyRaw >= 0
-                && sneakRaw >= 0
-                && leaveRaw >= 0
-                && jumpRaw >= 0;
-
-        int total = qualified
-                ? flyRaw + sneakRaw + leaveRaw + jumpRaw
-                : 0;
-
-        return new ScoreBreakdown(flyRaw, sneakRaw, leaveRaw, jumpRaw, total, qualified);
     }
 
     private Language senderLanguage(CommandSender sender) {

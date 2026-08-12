@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>君無用目標擇器 <white>@e @a @r @p @n</w
 restriction-foreign-uuid-mm = <red>令中惟可用君所馴之生靈 UUID</red>
 restriction-other-player-name-mm = <red>君無於令中提及他戲者之名之權</red>
 
-promotecheck-command-description = 覽陞員之分
+promotecheck-command-description = 覽陞員之條件
 promotecheck-never-played = 戲者 { $arg0 } 未嘗入此伺服器
-promotecheck-header = ─── { $arg0 } 之陞員分 ───
+promotecheck-header = ─── { $arg0 } 之陞員條件 ───
 promotecheck-offline = [既去]
-promotecheck-account-age = 入簿之日 >= 2 日
+promotecheck-account-age = 初入伺服器 >= 3 日
 promotecheck-playtime = 嬉遊之時 >= 8 時
-promotecheck-fly-distance = 翔行之距
-promotecheck-sneak-time = 潛行之時
-promotecheck-leave-count = 去服之數
-promotecheck-jump-count = 躍起之數
-promotecheck-total = 總分：
-promotecheck-below-minimum = （未及其限）
 autopromote-success-mm = <green><bold>更上一層樓！</bold> 君今爲 <gold>正員</gold>，得用更多令與事，投影亦可一擊而印。</green>
 
 whitelist-temp-command-description = 納一時之暫準簿

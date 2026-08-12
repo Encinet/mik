@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>Você não tem permissão para usar os seletor
 restriction-foreign-uuid-mm = <red>Você só pode usar UUIDs de criaturas que domesticou</red>
 restriction-other-player-name-mm = <red>Você não tem permissão para mencionar nomes de outros jogadores em comandos</red>
 
-promotecheck-command-description = Ver a pontuação de promoção
+promotecheck-command-description = Ver os requisitos de promoção
 promotecheck-never-played = O jogador { $arg0 } nunca jogou neste servidor
-promotecheck-header = ─── Pontuação de promoção de { $arg0 } ───
+promotecheck-header = ─── Requisitos de promoção de { $arg0 } ───
 promotecheck-offline = [offline]
-promotecheck-account-age = Conta criada há pelo menos 2 dias
+promotecheck-account-age = Primeiro acesso há pelo menos 3 dias
 promotecheck-playtime = Tempo de jogo de pelo menos 8 horas
-promotecheck-fly-distance = Distância voada
-promotecheck-sneak-time = Tempo agachado
-promotecheck-leave-count = Número de saídas
-promotecheck-jump-count = Número de saltos
-promotecheck-total = Total:
-promotecheck-below-minimum = (abaixo do mínimo)
 autopromote-success-mm = <green><bold>Parabéns!</bold> Você agora é <gold>Membro</gold>. Agora tem acesso a mais comandos e recursos, incluindo a impressão simplificada de esquemas.</green>
 
 whitelist-temp-command-description = Adicionar uma entrada temporária de 1 hora à lista branca

@@ -12,6 +12,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.CountDownLatch;
@@ -21,6 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -173,6 +176,52 @@ class NbsPlaybackEngineTest {
         assertEquals(1, callbacks.started.get());
     }
 
+    @Test
+    void synchronizedJukeboxesKeepIndependentSessionsPlayingAtTheSameTime()
+            throws Exception {
+        Path file = directory.resolve("simultaneous.nbs");
+        Files.write(file, minimalNbs());
+        ManualExecutor executor = new ManualExecutor();
+        MultiSessionScheduler scheduler = new MultiSessionScheduler();
+        AtomicLong clock = new AtomicLong(1_000_000_000L);
+        engine = new NbsPlaybackEngine(scheduler, new LocalMediaPreparer(),
+                new NbsParser(), executor,
+                org.encinet.mik.module.music.rhythm.analysis.NbsRhythmExtractor.INSTANCE,
+                clock::get);
+        TrackTarget.NbsFile target = new TrackTarget.NbsFile(file, directory);
+        JukeboxPlaybackGroup group = new JukeboxPlaybackGroup(clock::get);
+        RecordingCallbacks firstCallbacks = new RecordingCallbacks();
+        RecordingCallbacks secondCallbacks = new RecordingCallbacks();
+        PlaybackSession first = engine.create(new Location(null, 0, 0, 0), target,
+                JukeboxSoundSettings.defaults(), firstCallbacks,
+                new org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline("first"),
+                group);
+        PlaybackSession second = engine.create(new Location(null, 16, 0, 0), target,
+                JukeboxSoundSettings.defaults(), secondCallbacks,
+                new org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline("second"),
+                group);
+
+        first.start();
+        second.start();
+        executor.runAll();
+
+        assertEquals(PlaybackStatus.PLAYING, first.status());
+        assertEquals(PlaybackStatus.PLAYING, second.status());
+        assertEquals(1, firstCallbacks.started.get());
+        assertEquals(1, secondCallbacks.started.get());
+        assertEquals(2, scheduler.activeTasks());
+        assertTrue(group.claimStartedAnnouncement());
+        assertFalse(group.claimStartedAnnouncement(),
+                "two playing sessions must still emit only one group announcement");
+
+        first.stop();
+
+        assertEquals(PlaybackStatus.STOPPED, first.status());
+        assertEquals(PlaybackStatus.PLAYING, second.status(),
+                "stopping one synchronized jukebox must not stop the other");
+        assertEquals(1, scheduler.activeTasks());
+    }
+
     private static JukeboxPlaybackGroup playbackGroupAt(long positionMillis) {
         JukeboxPlaybackGroup group = new JukeboxPlaybackGroup();
         group.publishPositionMillis(positionMillis);
@@ -201,6 +250,25 @@ class NbsPlaybackEngineTest {
             Runnable task = repeatingTask.get();
             if (task == null) throw new IllegalStateException("no playback task scheduled");
             task.run();
+        }
+    }
+
+    private static final class MultiSessionScheduler implements NbsPlaybackEngine.Scheduler {
+        private final List<Runnable> repeatingTasks = new ArrayList<>();
+
+        @Override
+        public void runOnMainThread(Runnable task) {
+            task.run();
+        }
+
+        @Override
+        public NbsPlaybackEngine.ScheduledPlayback scheduleEveryTick(Runnable task) {
+            repeatingTasks.add(task);
+            return () -> repeatingTasks.remove(task);
+        }
+
+        private int activeTasks() {
+            return repeatingTasks.size();
         }
     }
 

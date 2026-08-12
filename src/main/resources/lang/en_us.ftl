@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>You do not have permission to use target selec
 restriction-foreign-uuid-mm = <red>You can only use UUIDs for mobs you have tamed</red>
 restriction-other-player-name-mm = <red>You do not have permission to mention other player names in commands</red>
 
-promotecheck-command-description = View promotion score
+promotecheck-command-description = View promotion requirements
 promotecheck-never-played = Player { $arg0 } has never played on this server
-promotecheck-header = ─── { $arg0 }'s Promotion Score ───
+promotecheck-header = ─── { $arg0 }'s Promotion Requirements ───
 promotecheck-offline = [offline]
-promotecheck-account-age = Account age >= 2 days
+promotecheck-account-age = Time since first join >= 3 days
 promotecheck-playtime = Playtime >= 8 hours
-promotecheck-fly-distance = Fly distance
-promotecheck-sneak-time = Sneak time
-promotecheck-leave-count = Leave count
-promotecheck-jump-count = Jump count
-promotecheck-total = Total:
-promotecheck-below-minimum = (below minimum)
 autopromote-success-mm = <green><bold>Congratulations!</bold> You are now a <gold>Member</gold>. You now have access to more commands and features, including schematic easy printing.</green>
 
 whitelist-temp-command-description = Add a 1-hour temporary whitelist entry

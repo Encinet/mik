@@ -124,6 +124,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final PlaybackCallbacks callbacks;
         private final RhythmTimeline rhythmTimeline;
         private final JukeboxPlaybackGroup playbackGroup;
+        private final JukeboxPlaybackGroup.Member playbackMember;
         private final NbsSoundLedger soundLedger = new NbsSoundLedger();
         private final AtomicBoolean preparationStarted = new AtomicBoolean();
         private final AtomicBoolean playbackRequested = new AtomicBoolean();
@@ -149,6 +150,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             this.rhythmTimeline = Objects.requireNonNull(rhythmTimeline, "rhythmTimeline");
             this.playbackGroup = Objects.requireNonNull(
                     playbackGroup, "playbackGroup");
+            this.playbackMember = playbackGroup.newMember();
         }
 
         @Override
@@ -226,11 +228,12 @@ final class NbsPlaybackEngine implements AutoCloseable {
                     cancel();
                     return;
                 }
+                playbackMember.activate();
                 cursor = new NbsPlaybackCursor(song,
-                        playbackGroup.synchronizedPositionMillis());
+                        playbackMember.synchronizedPositionMillis());
                 NbsPlaybackCursor.PollResult initial = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = initial.positionMillis();
-                playbackGroup.publishPositionMillis(playbackPositionMillis);
+                playbackMember.publishPositionMillis(playbackPositionMillis);
                 task = scheduler.scheduleEveryTick(this::tick);
                 status = PlaybackStatus.PLAYING;
                 playNotes(location, initial.notes(), settings, audibleToPlayer,
@@ -252,7 +255,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             try {
                 NbsPlaybackCursor.PollResult result = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = result.positionMillis();
-                playbackGroup.publishPositionMillis(playbackPositionMillis);
+                playbackMember.publishPositionMillis(playbackPositionMillis);
                 playNotes(location, result.notes(), settings, audibleToPlayer,
                         soundLedger);
                 if (result.finished()) {
@@ -319,6 +322,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private void cleanup() {
             status = PlaybackStatus.STOPPED;
             finalPositionMillis = Math.max(finalPositionMillis, playbackPositionMillis);
+            playbackMember.close();
             CompletableFuture<NbsSong> currentParsing = parsing;
             if (currentParsing != null) {
                 currentParsing.cancel(true);

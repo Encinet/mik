@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>У вас нет прав на целевые 
 restriction-foreign-uuid-mm = <red>Можно использовать UUID только приручённых вами мобов</red>
 restriction-other-player-name-mm = <red>У вас нет прав упоминать имена других игроков в командах</red>
 
-promotecheck-command-description = Посмотреть очки повышения
+promotecheck-command-description = Посмотреть условия повышения
 promotecheck-never-played = Игрок { $arg0 } ещё не играл на этом сервере
-promotecheck-header = ─── Очки повышения игрока { $arg0 } ───
+promotecheck-header = ─── Условия повышения игрока { $arg0 } ───
 promotecheck-offline = [не в сети]
-promotecheck-account-age = Возраст учётной записи >= 2 дней
+promotecheck-account-age = С первого входа прошло >= 3 дней
 promotecheck-playtime = Время в игре >= 8 часов
-promotecheck-fly-distance = Расстояние полёта
-promotecheck-sneak-time = Крался
-promotecheck-leave-count = Выходов с сервера
-promotecheck-jump-count = Прыжков
-promotecheck-total = Всего:
-promotecheck-below-minimum = (меньше минимума)
 autopromote-success-mm = <green><bold>Поздравляем!</bold> Теперь вы <gold>Участник</gold>. Вам доступно больше команд и возможностей, включая упрощённую печать схем.</green>
 
 whitelist-temp-command-description = Временно добавить игрока в белый список на 1 час

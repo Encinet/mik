@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>ターゲットセレクター<white>@e @a @r 
 restriction-foreign-uuid-mm = <red>UUIDは自分が手懐けたMobにのみ使用できます</red>
 restriction-other-player-name-mm = <red>コマンドに他のプレイヤー名を指定する権限がありません</red>
 
-promotecheck-command-description = 昇格スコアを表示
+promotecheck-command-description = 昇格条件を表示
 promotecheck-never-played = プレイヤー「{ $arg0 }」はこのサーバーでプレイしたことがありません
-promotecheck-header = ─── { $arg0 }の昇格スコア ───
+promotecheck-header = ─── { $arg0 }の昇格条件 ───
 promotecheck-offline = [オフライン]
-promotecheck-account-age = アカウント作成から2日以上
+promotecheck-account-age = 初回参加から3日以上
 promotecheck-playtime = プレイ時間8時間以上
-promotecheck-fly-distance = 飛行距離
-promotecheck-sneak-time = スニーク時間
-promotecheck-leave-count = 退出回数
-promotecheck-jump-count = ジャンプ回数
-promotecheck-total = 合計:
-promotecheck-below-minimum = （最低条件未満）
 autopromote-success-mm = <green><bold>おめでとうございます！</bold> <gold>メンバー</gold>に昇格しました。schematicの簡易プリントなど、より多くのコマンドや機能を利用できるようになりました。</green>
 
 whitelist-temp-command-description = 1時間有効な一時ホワイトリストを追加

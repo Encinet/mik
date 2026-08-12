@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>คุณไม่ได้รับอนุ�
 restriction-foreign-uuid-mm = <red>ใช้ UUID ได้เฉพาะกับม็อบที่คุณฝึกให้เชื่องแล้ว</red>
 restriction-other-player-name-mm = <red>คุณไม่มีสิทธิ์ระบุชื่อผู้เล่นอื่นในคำสั่ง</red>
 
-promotecheck-command-description = ดูคะแนนเลื่อนขั้น
+promotecheck-command-description = ดูเงื่อนไขการเลื่อนขั้น
 promotecheck-never-played = ผู้เล่น { $arg0 } ไม่เคยเล่นบนเซิร์ฟเวอร์นี้
-promotecheck-header = ─── คะแนนเลื่อนขั้นของ { $arg0 } ───
+promotecheck-header = ─── เงื่อนไขการเลื่อนขั้นของ { $arg0 } ───
 promotecheck-offline = [ออฟไลน์]
-promotecheck-account-age = อายุบัญชี >= 2 วัน
+promotecheck-account-age = เวลานับจากเข้าร่วมครั้งแรก >= 3 วัน
 promotecheck-playtime = เวลาเล่น >= 8 ชั่วโมง
-promotecheck-fly-distance = ระยะทางที่บิน
-promotecheck-sneak-time = เวลาที่ย่อง
-promotecheck-leave-count = จำนวนครั้งที่ออก
-promotecheck-jump-count = จำนวนครั้งที่กระโดด
-promotecheck-total = รวม:
-promotecheck-below-minimum = (ต่ำกว่าขั้นต่ำ)
 autopromote-success-mm = <green><bold>ยินดีด้วย!</bold> คุณได้เป็น <gold>สมาชิก</gold> แล้ว และใช้คำสั่งกับฟีเจอร์เพิ่มเติมได้ รวมถึงการวางแบบแปลนอัตโนมัติ</green>
 
 whitelist-temp-command-description = เพิ่มผู้เล่นในบัญชีขาวชั่วคราว 1 ชั่วโมง

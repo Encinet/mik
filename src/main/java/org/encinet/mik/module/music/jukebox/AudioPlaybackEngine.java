@@ -15,6 +15,7 @@ import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
 import org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline;
 import su.plo.slib.api.server.position.ServerPos3d;
+import su.plo.voice.api.audio.codec.AudioEncoder;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 import su.plo.voice.api.server.audio.line.ServerSourceLine;
 import su.plo.voice.api.server.audio.provider.AudioFrameProvider;
@@ -29,6 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -44,6 +46,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
     private final Predicate<UUID> audibleToPlayer;
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final AtomicReference<byte[]> stereoSilenceOpus = new AtomicReference<>();
 
     AudioPlaybackEngine(JavaPlugin plugin, PlasmoVoiceServer voiceServer,
                         OnlineAudioCache onlineCache,
@@ -96,6 +99,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final RhythmTimeline rhythmTimeline;
         private final JukeboxExperienceMode experienceMode;
         private final JukeboxPlaybackGroup playbackGroup;
+        private final JukeboxPlaybackGroup.Member playbackMember;
         private final AtomicBoolean preparationStarted = new AtomicBoolean();
         private final AtomicBoolean playbackRequested = new AtomicBoolean();
         private final AtomicBoolean outputStarted = new AtomicBoolean();
@@ -103,6 +107,11 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final AtomicBoolean terminal = new AtomicBoolean();
         private final AtomicBoolean attemptCompleting = new AtomicBoolean();
         private final AtomicBoolean playbackStarted = new AtomicBoolean();
+        private final AtomicBoolean startupSeekApplied = new AtomicBoolean();
+        private final AtomicBoolean firstFrameSynchronized = new AtomicBoolean();
+        private final AtomicBoolean preRollTargeted = new AtomicBoolean();
+        private final AtomicInteger clientPreRollFramesRemaining = new AtomicInteger();
+        private final AtomicReference<AudioFrame> heldAheadFrame = new AtomicReference<>();
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
         private final AtomicReference<AudioTrackLoader.LoadedAudio> loadedAudio = new AtomicReference<>();
         private final AtomicLong attempt = new AtomicLong();
@@ -130,6 +139,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                     experienceMode, "experienceMode");
             this.playbackGroup = Objects.requireNonNull(
                     playbackGroup, "playbackGroup");
+            this.playbackMember = playbackGroup.newMember();
         }
 
         @Override
@@ -249,8 +259,10 @@ final class AudioPlaybackEngine implements AutoCloseable {
                     return;
                 }
                 AudioTrack track = loaded.track();
+                boolean joiningActivePlayback = playbackGroup.playbackHasStarted();
+                playbackMember.activate();
                 long previousPosition = Math.max(finalPositionMillis,
-                        playbackGroup.synchronizedPositionMillis());
+                        playbackMember.synchronizedPositionMillis());
                 long resumePosition = CorruptAudioRecovery.resumePositionMillis(
                         previousPosition, track.isSeekable(), track.getDuration());
                 finalPositionMillis = resumePosition;
@@ -262,6 +274,11 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 }
                 AudioPlayer player = loader.createPlayer();
                 audioPlayer = player;
+                boolean clientPreRoll = JukeboxAudioSynchronizer.requiresClientPreRoll(
+                        joiningActivePlayback && !playbackMember.isLeader(),
+                        track.isSeekable());
+                clientPreRollFramesRemaining.set(clientPreRoll
+                        ? JukeboxAudioSynchronizer.CLIENT_PRE_ROLL_FRAMES : 0);
                 player.setVolume(settings.volumePercent());
                 player.addListener(new AudioEventAdapter() {
                     @Override
@@ -312,15 +329,81 @@ final class AudioPlaybackEngine implements AutoCloseable {
 
         private AudioFrameResult provideFrame(long expectedAttempt,
                                               AudioTrack track, AudioPlayer player) {
-            if (!current(expectedAttempt) || track.getState() == AudioTrackState.FINISHED
-                    || track.getState() == AudioTrackState.INACTIVE && track.getPosition() > 0) {
+            // Lavaplayer may remain INACTIVE briefly after playTrack(), especially when
+            // the track was seeked before startup. Only FINISHED is terminal here.
+            if (!current(expectedAttempt)
+                    || track.getState() == AudioTrackState.FINISHED) {
                 return AudioFrameResult.Finished.INSTANCE;
             }
-            AudioFrame frame = player.provide();
+            if (clientPreRollFramesRemaining.get() > 0) {
+                try {
+                    if (playbackMember.ensureLeadership()) {
+                        // The old leader stopped during warm-up. This stream is now the
+                        // clock source, so resume immediately instead of waiting in silence.
+                        clientPreRollFramesRemaining.set(0);
+                        preRollTargeted.set(false);
+                        startupSeekApplied.set(false);
+                        track.setPosition(playbackMember.synchronizedPositionMillis());
+                        return new AudioFrameResult.Provided(null);
+                    }
+                    if (preRollTargeted.compareAndSet(false, true)) {
+                        long target = JukeboxAudioSynchronizer.preRollTargetPositionMillis(
+                                playbackMember.synchronizedPositionMillis(),
+                                track.getDuration());
+                        track.setPosition(target);
+                        startupSeekApplied.set(true);
+                    }
+                    clientPreRollFramesRemaining.decrementAndGet();
+                    return new AudioFrameResult.Provided(encryptedStereoSilenceFrame());
+                } catch (Exception exception) {
+                    markFailure(expectedAttempt, exception);
+                    return AudioFrameResult.Finished.INSTANCE;
+                }
+            }
+            AudioFrame frame = heldAheadFrame.getAndSet(null);
+            if (frame == null) {
+                frame = player.provide();
+            }
             if (frame == null) {
                 return new AudioFrameResult.Provided(null);
             }
-            playbackGroup.publishPositionMillis(track.getPosition());
+            if (!firstFrameSynchronized.get() && track.isSeekable()
+                    && startupSeekApplied.compareAndSet(false, true)) {
+                long catchUpPosition = JukeboxAudioSynchronizer.catchUpPositionMillis(
+                        frame.getTimecode(), playbackMember.synchronizedPositionMillis(),
+                        track.getDuration());
+                if (catchUpPosition >= 0L) {
+                    track.setPosition(catchUpPosition);
+                    return new AudioFrameResult.Provided(null);
+                }
+            }
+            boolean leader = playbackMember.ensureLeadership();
+            if (!leader) {
+                int discardedFrames = 0;
+                while (JukeboxAudioSynchronizer.frameIsBehind(
+                        frame.getTimecode(), playbackMember.synchronizedPositionMillis())) {
+                    if (discardedFrames++
+                            >= JukeboxAudioSynchronizer.MAX_DISCARDED_FRAMES_PER_POLL) {
+                        return new AudioFrameResult.Provided(null);
+                    }
+                    frame = player.provide();
+                    if (frame == null) {
+                        return new AudioFrameResult.Provided(null);
+                    }
+                }
+                long groupPosition = playbackMember.synchronizedPositionMillis();
+                if (JukeboxAudioSynchronizer.frameIsAhead(
+                        frame.getTimecode(), groupPosition)) {
+                    heldAheadFrame.compareAndSet(null, frame);
+                    return new AudioFrameResult.Provided(null);
+                }
+                firstFrameSynchronized.set(true);
+            } else {
+                firstFrameSynchronized.set(true);
+            }
+            // Publish the frame that is actually leaving the server. Decoder position may
+            // be ahead by its buffer and would make later jukeboxes seek too far forward.
+            playbackMember.publishPositionMillis(frame.getTimecode());
             try {
                 return new AudioFrameResult.Provided(
                         voiceServer.getDefaultEncryption().encrypt(frame.getData()));
@@ -374,6 +457,11 @@ final class AudioPlaybackEngine implements AutoCloseable {
             cleanupAttempt(true);
             failure.set(null);
             outputStarted.set(false);
+            startupSeekApplied.set(false);
+            firstFrameSynchronized.set(false);
+            preRollTargeted.set(false);
+            clientPreRollFramesRemaining.set(0);
+            heldAheadFrame.set(null);
             status = playbackStarted.get() ? PlaybackStatus.PLAYING : PlaybackStatus.LOADING;
             try {
                 callbacks.retrying();
@@ -446,6 +534,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 status = PlaybackStatus.STOPPED;
             }
             finalPositionMillis = Math.max(finalPositionMillis, positionMillis());
+            playbackMember.close();
             AudioSender currentSender = sender;
             sender = null;
             if (currentSender != null) {
@@ -483,5 +572,26 @@ final class AudioPlaybackEngine implements AutoCloseable {
             }
             return current;
         }
+    }
+
+    private byte[] encryptedStereoSilenceFrame() throws Exception {
+        byte[] encoded = stereoSilenceOpus.get();
+        if (encoded == null) {
+            synchronized (stereoSilenceOpus) {
+                encoded = stereoSilenceOpus.get();
+                if (encoded == null) {
+                    int sampleRate = voiceServer.getConfig() == null
+                            ? 48_000 : voiceServer.getConfig().voice().sampleRate();
+                    int samplesPerChannel = Math.multiplyExact(sampleRate / 1_000, 20);
+                    try (AudioEncoder encoder = voiceServer.createOpusEncoder(true)) {
+                        if (!encoder.isOpen()) encoder.open();
+                        encoded = encoder.encode(new short[Math.multiplyExact(
+                                samplesPerChannel, 2)]);
+                    }
+                    stereoSilenceOpus.set(encoded);
+                }
+            }
+        }
+        return voiceServer.getDefaultEncryption().encrypt(encoded);
     }
 }

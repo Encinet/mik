@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>你没有权限使用目标选择器 <white>@e
 restriction-foreign-uuid-mm = <red>你只能在命令中使用自己驯服生物的 UUID</red>
 restriction-other-player-name-mm = <red>你没有权限在命令中提及其他玩家的名字</red>
 
-promotecheck-command-description = 查看晋级评分
+promotecheck-command-description = 查看晋级条件
 promotecheck-never-played = 玩家 { $arg0 } 从未进入过服务器
-promotecheck-header = ─── { $arg0 } 的晋级评分 ───
+promotecheck-header = ─── { $arg0 } 的晋级条件 ───
 promotecheck-offline = [离线]
-promotecheck-account-age = 账号加入时间 >= 2 天
+promotecheck-account-age = 自首次加入以来 >= 3 天
 promotecheck-playtime = 在线时长 >= 8 小时
-promotecheck-fly-distance = 飞行距离
-promotecheck-sneak-time = 潜行时间
-promotecheck-leave-count = 退出次数
-promotecheck-jump-count = 跳跃次数
-promotecheck-total = 总分:
-promotecheck-below-minimum = (未达到最低要求)
 autopromote-success-mm = <green><bold>恭喜！</bold> 你已成为 <gold>正式成员</gold>，现在你拥有更多的命令和功能访问权限，比如可以进行投影一键打印！</green>
 
 whitelist-temp-command-description = 添加 1 小时临时白名单

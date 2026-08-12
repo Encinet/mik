@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>Je hebt geen toestemming om doelselectoren <wh
 restriction-foreign-uuid-mm = <red>Je kunt UUID's alleen gebruiken voor wezens die je hebt getemd</red>
 restriction-other-player-name-mm = <red>Je hebt geen toestemming om namen van andere spelers in commando's te vermelden</red>
 
-promotecheck-command-description = Bekijk promotiescore
+promotecheck-command-description = Bekijk promotievoorwaarden
 promotecheck-never-played = Speler { $arg0 } heeft nog nooit op deze server gespeeld
-promotecheck-header = ─── Promotiescore van { $arg0 } ───
+promotecheck-header = ─── Promotievoorwaarden van { $arg0 } ───
 promotecheck-offline = [offline]
-promotecheck-account-age = Accountleeftijd >= 2 dagen
+promotecheck-account-age = Tijd sinds eerste deelname >= 3 dagen
 promotecheck-playtime = Speeltijd >= 8 uur
-promotecheck-fly-distance = Vliegafstand
-promotecheck-sneak-time = Sluiptijd
-promotecheck-leave-count = Aantal keren vertrokken
-promotecheck-jump-count = Aantal sprongen
-promotecheck-total = Totaal:
-promotecheck-below-minimum = (onder minimum)
 autopromote-success-mm = <green><bold>Gefeliciteerd!</bold> Je bent nu <gold>Lid</gold>. Je hebt nu toegang tot meer commando's en functies, waaronder bouwschema's eenvoudig afdrukken.</green>
 
 whitelist-temp-command-description = Voeg een tijdelijke vermelding van 1 uur aan de witte lijst toe

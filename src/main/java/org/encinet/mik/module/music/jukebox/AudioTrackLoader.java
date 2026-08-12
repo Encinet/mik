@@ -25,6 +25,8 @@ final class AudioTrackLoader implements AutoCloseable {
     AudioTrackLoader(PlaybackResourceResolver resources) {
         this.resources = Objects.requireNonNull(resources, "resources");
         this.players = new DefaultAudioPlayerManager();
+        this.players.setUseSeekGhosting(false);
+        this.players.setFrameBufferDuration(200);
         this.players.registerSourceManager(new LocalAudioSourceManager());
         this.players.registerSourceManager(resources.streamingSourceManager());
     }

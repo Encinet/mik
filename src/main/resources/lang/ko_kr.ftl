@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>대상 선택자 <white>@e @a @r @p @n</white>
 restriction-foreign-uuid-mm = <red>직접 길들인 몹의 UUID만 사용할 수 있습니다</red>
 restriction-other-player-name-mm = <red>명령어에 다른 플레이어의 이름을 사용할 권한이 없습니다</red>
 
-promotecheck-command-description = 승급 점수 보기
+promotecheck-command-description = 승급 조건 보기
 promotecheck-never-played = 플레이어 { $arg0 }은(는) 이 서버에서 플레이한 적이 없습니다
-promotecheck-header = ─── { $arg0 }의 승급 점수 ───
+promotecheck-header = ─── { $arg0 }의 승급 조건 ───
 promotecheck-offline = [오프라인]
-promotecheck-account-age = 계정 생성 후 2일 이상
+promotecheck-account-age = 첫 접속 후 3일 이상
 promotecheck-playtime = 플레이 시간 8시간 이상
-promotecheck-fly-distance = 비행 거리
-promotecheck-sneak-time = 웅크린 시간
-promotecheck-leave-count = 퇴장 횟수
-promotecheck-jump-count = 점프 횟수
-promotecheck-total = 합계:
-promotecheck-below-minimum = (최소 기준 미달)
 autopromote-success-mm = <green><bold>축하합니다!</bold> 이제 <gold>멤버</gold>입니다. 도식 간편 출력 등 더 많은 명령어와 기능을 사용할 수 있습니다.</green>
 
 whitelist-temp-command-description = 1시간짜리 임시 화이트리스트 추가

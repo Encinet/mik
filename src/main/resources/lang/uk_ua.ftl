@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>Ви не маєте дозволу викор
 restriction-foreign-uuid-mm = <red>Можна використовувати UUID лише приручених вами мобів</red>
 restriction-other-player-name-mm = <red>Ви не маєте дозволу згадувати імена інших гравців у командах</red>
 
-promotecheck-command-description = Переглянути бали підвищення
+promotecheck-command-description = Переглянути умови підвищення
 promotecheck-never-played = Гравець { $arg0 } ще не грав на цьому сервері
-promotecheck-header = ─── Бали підвищення гравця { $arg0 } ───
+promotecheck-header = ─── Умови підвищення гравця { $arg0 } ───
 promotecheck-offline = [не в мережі]
-promotecheck-account-age = Вік облікового запису >= 2 дні
+promotecheck-account-age = З першого входу минуло >= 3 дні
 promotecheck-playtime = Час гри >= 8 годин
-promotecheck-fly-distance = Відстань польоту
-promotecheck-sneak-time = Час крадькома
-promotecheck-leave-count = Кількість виходів
-promotecheck-jump-count = Кількість стрибків
-promotecheck-total = Усього:
-promotecheck-below-minimum = (нижче мінімуму)
 autopromote-success-mm = <green><bold>Вітаємо!</bold> Тепер ваша роль: <gold>Учасник</gold>. Вам доступно більше команд і функцій, зокрема спрощений друк схем.</green>
 
 whitelist-temp-command-description = Тимчасово додати гравця до білого списку на 1 годину

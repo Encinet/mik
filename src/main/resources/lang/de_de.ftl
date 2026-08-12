@@ -423,18 +423,12 @@ restriction-no-selector-mm = <red>Du darfst die Zielselektoren <white>@e @a @r @
 restriction-foreign-uuid-mm = <red>Du kannst UUIDs nur für Mobs verwenden, die du gezähmt hast</red>
 restriction-other-player-name-mm = <red>Du darfst in Befehlen keine Namen anderer Spieler erwähnen</red>
 
-promotecheck-command-description = Beförderungspunktzahl anzeigen
+promotecheck-command-description = Beförderungsvoraussetzungen anzeigen
 promotecheck-never-played = Spieler { $arg0 } hat noch nie auf diesem Server gespielt
-promotecheck-header = ─── Beförderungspunktzahl von { $arg0 } ───
+promotecheck-header = ─── Beförderungsvoraussetzungen von { $arg0 } ───
 promotecheck-offline = [offline]
-promotecheck-account-age = Kontoalter >= 2 Tage
+promotecheck-account-age = Zeit seit dem ersten Beitritt >= 3 Tage
 promotecheck-playtime = Spielzeit >= 8 Stunden
-promotecheck-fly-distance = Flugdistanz
-promotecheck-sneak-time = Schleichzeit
-promotecheck-leave-count = Verlassen-Zähler
-promotecheck-jump-count = Anzahl der Sprünge
-promotecheck-total = Gesamt:
-promotecheck-below-minimum = (unter dem Minimum)
 autopromote-success-mm = <green><bold>Glückwunsch!</bold> Du bist jetzt <gold>Mitglied</gold> und hast Zugriff auf weitere Befehle und Funktionen, darunter den einfachen Schematikdruck.</green>
 
 whitelist-temp-command-description = Temporären Whitelist-Eintrag für eine Stunde hinzufügen
