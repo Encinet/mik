@@ -205,21 +205,32 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         displayController.refreshViewerLanguage(player);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         long now = activityTimeMillis();
         Location location = player.getLocation();
         SuspendedSession suspended = suspendedSessions.remove(player.getUniqueId());
         AfkPlayerSession session;
+        AfkState reconnectAfk = null;
+        boolean reconnectAutomaticCandidate = false;
         if (suspended == null || suspended.expiresAt() < now) {
             session = newSession(now, location);
         } else {
             session = suspended.session();
             session.resumeAfterReconnect(
                     now, worldId(location), location.getX(), location.getY(), location.getZ());
+            reconnectAfk = suspended.afkState();
+            reconnectAutomaticCandidate = suspended.automaticAfkCandidate();
         }
         playerSessions.put(player.getUniqueId(), session);
+        if (reconnectAfk != null) {
+            setAfk(player, reconnectAfk.message(), reconnectAfk.source(), false);
+        } else if (reconnectAutomaticCandidate
+                && session.isAutomaticAfkCandidate(now)
+                && entrySafety(player).permitsAutomaticAfk()) {
+            setAfk(player, null, AfkSource.AUTOMATIC, false);
+        }
         Bukkit.getScheduler().runTask(plugin, () -> collisionController.syncViewer(event.getPlayer()));
     }
 
@@ -227,16 +238,19 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
-        boolean wasAfk = states.remove(playerId) != null;
+        AfkState afkState = states.remove(playerId);
         AfkPlayerSession session = playerSessions.remove(playerId);
         if (session != null) {
             long now = activityTimeMillis();
-            Location location = player.getLocation();
-            session.suspendForDisconnect(
-                    now, wasAfk, worldId(location),
-                    location.getX(), location.getY(), location.getZ());
+            boolean automaticAfkCandidate = afkState == null
+                    && session.isAutomaticAfkCandidate(now);
+            session.suspendForDisconnect(now);
             suspendedSessions.put(playerId,
-                    new SuspendedSession(session, now + SUSPENDED_TRACKER_RETENTION_MILLIS));
+                    new SuspendedSession(
+                            session,
+                            now + SUSPENDED_TRACKER_RETENTION_MILLIS,
+                            afkState,
+                            automaticAfkCandidate));
         }
         pendingAsyncActivity.removeIf(playerId::equals);
         pendingTrustedActivity.removeIf(playerId::equals);
@@ -275,15 +289,9 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
                 event.getFrom().getYaw(), event.getFrom().getPitch(),
                 observed.getYaw(), observed.getPitch());
 
-        if (positionChange && isAfk(player.getUniqueId())) {
-            boolean freshMovementIntent = tracker.recordMovementInput(
-                    hasMovementInput(player.getCurrentInput()),
-                    worldId(observed), observed.getX(), observed.getY(), observed.getZ(), now);
-            if (freshMovementIntent || tracker.canMovementClearAfk()) {
-                clearAfk(player, false, true);
-            }
-        }
-
+        // A move event does not identify its cause: pistons and other server-side
+        // physics use the same path as client movement. Only PlayerInputEvent may
+        // create a movement gesture or clear AFK.
         tracker.recordObservation(
                 worldId(observed), observed.getX(), observed.getY(), observed.getZ(), observed.getYaw(),
                 now);
@@ -575,7 +583,12 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         return "inventory:" + owner + ":" + event.getSlot();
     }
 
-    private record SuspendedSession(AfkPlayerSession session, long expiresAt) {
+    private record SuspendedSession(
+            AfkPlayerSession session,
+            long expiresAt,
+            AfkState afkState,
+            boolean automaticAfkCandidate
+    ) {
     }
 
     private AfkActivityTracker tracker(Player player, long now) {

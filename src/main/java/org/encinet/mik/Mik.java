@@ -3,6 +3,7 @@ package org.encinet.mik;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.access.AutoPromoteModule;
 import org.encinet.mik.module.ban.BanModule;
+import org.encinet.mik.module.access.MaintenanceModule;
 import org.encinet.mik.module.access.RestrictionModule;
 import org.encinet.mik.module.access.WhitelistModule;
 import org.encinet.mik.module.afk.AfkModule;
@@ -18,6 +19,7 @@ import org.encinet.mik.module.event.FifthAnniversaryEventModule;
 import org.encinet.mik.module.geyser.BedrockPlayerBadge;
 import org.encinet.mik.module.geyser.GeyserService;
 import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.module.identity.IdentityBindingModule;
 import org.encinet.mik.module.menu.FloatingMenuService;
 import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.music.MusicModule;
@@ -47,12 +49,18 @@ import org.encinet.mik.module.presentation.AxiomGizmoService;
 import org.encinet.mik.module.presentation.MotdModule;
 import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
+import org.encinet.mik.module.social.SocialModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
 import org.encinet.mik.module.safety.TrampleProtectionModule;
 import org.encinet.mik.module.skript.MikSkriptModule;
 import org.encinet.mik.module.space.NonEuclideanSpaceModule;
 import org.encinet.mik.module.world.regen.AsyncRegenModule;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 @su.plo.voice.api.addon.annotation.Addon(
         id = "mik-music",
@@ -62,6 +70,8 @@ import org.encinet.mik.module.world.regen.AsyncRegenModule;
         authors = {"Noctiro", "Aeolic"}
 )
 public final class Mik extends JavaPlugin {
+
+    private static final String MAINTENANCE_CRASH_MARKER = "maintenance-unclean-shutdown.marker";
 
     public static final String GROUP_MEMBER = "member";
     public static final String GROUP_HELPER = "helper";
@@ -76,10 +86,13 @@ public final class Mik extends JavaPlugin {
     private MentionService mentionService;
     private ChatSettingsStore chatSettingsStore;
     private ChatModule chatModule;
+    private IdentityBindingModule identityBindingModule;
+    private SocialModule socialModule;
     private SimpleFeaturesModule commandsModule;
     private AutoPromoteModule autoPromoteModule;
     private BanModule banModule;
     private RestrictionModule restrictionModule;
+    private MaintenanceModule maintenanceModule;
     private FlightModule flightModule;
     private GameModeSwitchModule gameModeSwitchModule;
     private PlayerBoundaryModule playerBoundaryModule;
@@ -114,6 +127,7 @@ public final class Mik extends JavaPlugin {
     private MikSkriptModule skriptModule;
     private AsyncRegenModule asyncRegenModule;
     private NonEuclideanSpaceModule nonEuclideanSpaceModule;
+    private Path maintenanceCrashMarker;
 
     @su.plo.voice.api.addon.InjectPlasmoVoice
     private su.plo.voice.api.server.PlasmoVoiceServer voiceServer;
@@ -127,6 +141,20 @@ public final class Mik extends JavaPlugin {
     @Override
     public void onEnable() {
         brandingModule.enable();
+
+        maintenanceCrashMarker = getDataFolder().toPath().resolve(MAINTENANCE_CRASH_MARKER);
+        boolean resumeFromCrash = false;
+        try {
+            Files.createDirectories(getDataFolder().toPath());
+            resumeFromCrash = Files.exists(maintenanceCrashMarker);
+            Files.writeString(maintenanceCrashMarker,
+                    "running",
+                    java.nio.charset.StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
+        } catch (IOException e) {
+            getLogger().warning("Unable to initialize maintenance crash marker: " + e.getMessage());
+        }
 
         axiomGizmoService = new AxiomGizmoService(this);
         axiomGizmoService.enable();
@@ -201,6 +229,15 @@ public final class Mik extends JavaPlugin {
         chatModule.enable();
         chatModule.registerCommands(this.getLifecycleManager());
 
+        identityBindingModule = new IdentityBindingModule(this, languageService);
+        identityBindingModule.enable();
+        identityBindingModule.registerCommands(this.getLifecycleManager());
+
+        socialModule = new SocialModule(
+                this, identityBindingModule.manager(), languageService, afkModule);
+        socialModule.enable();
+        socialModule.registerCommands(this.getLifecycleManager());
+
         teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, languageService);
         teleportPreferenceModule.enable();
         teleportPreferenceModule.registerCommands(this.getLifecycleManager());
@@ -248,6 +285,14 @@ public final class Mik extends JavaPlugin {
 
         restrictionModule = new RestrictionModule(this, languageService);
         restrictionModule.enable();
+
+        maintenanceModule = new MaintenanceModule(this, languageService);
+        maintenanceModule.enable();
+        if (resumeFromCrash) {
+            maintenanceModule.setMaintenanceEnabled(true);
+            getLogger().warning("Detected unclean shutdown; maintenance mode enabled automatically.");
+        }
+        maintenanceModule.registerCommands(this.getLifecycleManager());
 
         gameModeSwitchModule = new GameModeSwitchModule(this);
         gameModeSwitchModule.enable();
@@ -321,6 +366,19 @@ public final class Mik extends JavaPlugin {
     @Override
     public void onDisable() {
         FloatingMenus.uninstall();
+        if (maintenanceCrashMarker != null) {
+            try {
+                Files.deleteIfExists(maintenanceCrashMarker);
+            } catch (IOException e) {
+                getLogger().warning("Unable to clear maintenance crash marker: " + e.getMessage());
+            }
+        }
+        if (socialModule != null) {
+            socialModule.disable();
+        }
+        if (identityBindingModule != null) {
+            identityBindingModule.disable();
+        }
         if (asyncRegenModule != null) {
             asyncRegenModule.disable();
         }

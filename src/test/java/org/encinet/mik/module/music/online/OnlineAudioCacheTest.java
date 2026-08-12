@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
@@ -17,8 +18,10 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -85,6 +88,72 @@ class OnlineAudioCacheTest {
     }
 
     @Test
+    void retriesTransientServerFailureThenFallsBackToAnotherProvider() throws Exception {
+        byte[] audio = "fallback-audio".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        AtomicInteger primaryRequests = new AtomicInteger();
+        AtomicInteger fallbackRequests = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/primary", exchange -> {
+            primaryRequests.incrementAndGet();
+            exchange.sendResponseHeaders(503, -1);
+            exchange.close();
+        });
+        server.createContext("/fallback", exchange -> {
+            fallbackRequests.incrementAndGet();
+            exchange.getResponseHeaders().set("Content-Type", "audio/mpeg");
+            exchange.sendResponseHeaders(200, audio.length);
+            exchange.getResponseBody().write(audio);
+            exchange.close();
+        });
+        server.start();
+        String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
+        List<Set<String>> exclusions = new CopyOnWriteArrayList<>();
+        List<String> failedProviders = new CopyOnWriteArrayList<>();
+        List<String> successfulProviders = new CopyOnWriteArrayList<>();
+        List<String> warnings = new CopyOnWriteArrayList<>();
+        LxTrackResolver upstream = new LxTrackResolver() {
+            @Override
+            public CompletableFuture<String> resolve(TrackTarget.Lx target) {
+                return resolveCandidate(target, Set.of())
+                        .thenApply(LxTrackResolver.Resolution::url);
+            }
+
+            @Override
+            public CompletableFuture<Resolution> resolveCandidate(
+                    TrackTarget.Lx target, Set<String> excludedProviderIds) {
+                exclusions.add(Set.copyOf(excludedProviderIds));
+                return CompletableFuture.completedFuture(excludedProviderIds.contains("primary")
+                        ? new Resolution(baseUrl + "/fallback", "fallback")
+                        : new Resolution(baseUrl + "/primary", "primary"));
+            }
+
+            @Override
+            public void candidateFailed(
+                    TrackTarget.Lx target, Resolution resolution, Throwable error) {
+                failedProviders.add(resolution.providerId());
+            }
+
+            @Override
+            public void candidateSucceeded(TrackTarget.Lx target, Resolution resolution) {
+                successfulProviders.add(resolution.providerId());
+            }
+        };
+        cache = new OnlineAudioCache(directory, upstream, warnings::add,
+                1024, Duration.ofSeconds(3));
+
+        Path cached = Path.of(cache.resolve(target()).get(5, TimeUnit.SECONDS));
+
+        assertArrayEquals(audio, Files.readAllBytes(cached));
+        assertEquals(2, primaryRequests.get());
+        assertEquals(1, fallbackRequests.get());
+        assertEquals(List.of(Set.of(), Set.of("primary")), exclusions);
+        assertEquals(List.of("primary"), failedProviders);
+        assertEquals(List.of("fallback"), successfulProviders);
+        assertTrue(warnings.stream().anyMatch(message -> message.contains("retrying once")));
+        assertTrue(warnings.stream().anyMatch(message -> message.contains("trying another source")));
+    }
+
+    @Test
     void streamsInitialBytesBeforeTheDownloadCompletesAndWaitsAtTemporaryEof() throws Exception {
         byte[] first = new byte[]{1, 2, 3};
         byte[] second = new byte[]{4, 5, 6};
@@ -142,6 +211,45 @@ class OnlineAudioCacheTest {
         assertArrayEquals(new byte[]{1, 2, 3, 4, 5, 6}, Files.readAllBytes(completed));
         assertTrue(cache.isCached(target()));
         assertEquals(1, requests.get());
+    }
+
+    @Test
+    void marksAnExposedStreamingTransportFailureForPlaybackRetry() throws Exception {
+        CountDownLatch firstChunkSent = new CountDownLatch(1);
+        CountDownLatch releaseServer = new CountDownLatch(1);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/broken-stream", exchange -> {
+            exchange.sendResponseHeaders(200, 0);
+            exchange.getResponseBody().write(new byte[]{1, 2, 3});
+            exchange.getResponseBody().flush();
+            firstChunkSent.countDown();
+            try {
+                releaseServer.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException exception) {
+                Thread.currentThread().interrupt();
+            } finally {
+                exchange.close();
+            }
+        });
+        server.start();
+        String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/broken-stream";
+        cache = new OnlineAudioCache(directory,
+                ignored -> CompletableFuture.completedFuture(url), ignored -> {},
+                1024, Duration.ofMillis(150));
+
+        OnlineAudioCache.StreamingAudio streaming = cache.acquireStreaming(target())
+                .get(5, TimeUnit.SECONDS);
+        assertTrue(firstChunkSent.await(5, TimeUnit.SECONDS));
+        try (streaming; OnlineAudioCache.StreamingAudio.Reader reader = streaming.openReader()) {
+            byte[] initial = new byte[3];
+            assertEquals(3, reader.read(initial, 0, initial.length));
+
+            IOException failure = assertThrows(IOException.class, reader::read);
+
+            assertTrue(OnlineAudioCache.isRecoverableRemoteFailure(failure));
+        } finally {
+            releaseServer.countDown();
+        }
     }
 
     @Test
@@ -316,6 +424,34 @@ class OnlineAudioCacheTest {
     }
 
     @Test
+    void rejectsResponsesThatEndBeforeTheirDeclaredLength() throws Exception {
+        byte[] partialAudio = new byte[]{1, 2, 3, 4};
+        AtomicInteger requests = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/truncated", exchange -> {
+            requests.incrementAndGet();
+            exchange.getResponseHeaders().set("Content-Type", "audio/mpeg");
+            exchange.sendResponseHeaders(200, partialAudio.length + 16L);
+            exchange.getResponseBody().write(partialAudio);
+            exchange.close();
+        });
+        server.start();
+        String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/truncated";
+        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+
+        CompletionException failure = assertThrows(CompletionException.class,
+                () -> cache.resolve(target()).join());
+        assertTrue(hasCause(failure, EOFException.class));
+        assertFalse(cache.isCached(target()));
+        assertEquals(new OnlineAudioCache.CacheStats(0, 0),
+                cache.statsAsync().get(5, TimeUnit.SECONDS));
+        assertTrue(requests.get() >= 1);
+        try (var files = Files.list(directory)) {
+            assertTrue(files.findAny().isEmpty());
+        }
+    }
+
+    @Test
     void rejectsOversizedDownloadsWithoutLeavingPartialFiles() throws Exception {
         byte[] audio = new byte[128];
         AtomicInteger requests = new AtomicInteger();
@@ -381,7 +517,8 @@ class OnlineAudioCacheTest {
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stalled";
         cache = new OnlineAudioCache(directory,
                 ignored -> CompletableFuture.completedFuture(url), ignored -> {},
-                1024, Duration.ofMillis(150));
+                1024, 16 * 1024, Duration.ofSeconds(3), Duration.ofMillis(150),
+                MusicPlaybackStats.EMPTY);
 
         assertFalse(cache.resolve(target()).handle((path, error) -> error == null)
                 .get(5, TimeUnit.SECONDS));
@@ -613,6 +750,38 @@ class OnlineAudioCacheTest {
     }
 
     @Test
+    void invalidatedActiveEntryIsDeletedOnReleaseAndDownloadedFresh() throws Exception {
+        byte[] corrupt = "corrupt-cache".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] fresh = "fresh-audio".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        AtomicInteger requests = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/recover", exchange -> {
+            byte[] body = requests.incrementAndGet() == 1 ? corrupt : fresh;
+            exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body);
+            exchange.close();
+        });
+        server.start();
+        String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/recover";
+        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+
+        OnlineAudioCache.CachedAudio active = cache.acquire(target())
+                .get(5, TimeUnit.SECONDS);
+        Path corruptPath = Path.of(active.identifier());
+        assertArrayEquals(corrupt, Files.readAllBytes(corruptPath));
+
+        cache.invalidate(target());
+        assertFalse(cache.isCached(target()));
+        assertTrue(Files.exists(corruptPath));
+        active.close();
+
+        assertFalse(Files.exists(corruptPath));
+        Path recoveredPath = Path.of(cache.resolve(target()).get(5, TimeUnit.SECONDS));
+        assertArrayEquals(fresh, Files.readAllBytes(recoveredPath));
+        assertEquals(2, requests.get());
+    }
+
+    @Test
     void clearDefersActiveEntryDeletionUntilLeaseCloses() throws Exception {
         byte[] audio = "leased".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String url = serve("/leased", audio, new AtomicInteger());
@@ -754,5 +923,14 @@ class OnlineAudioCacheTest {
                 throw new CompletionException(exception);
             }
         });
+    }
+
+    private static boolean hasCause(Throwable error, Class<? extends Throwable> type) {
+        Throwable current = error;
+        while (current != null) {
+            if (type.isInstance(current)) return true;
+            current = current.getCause();
+        }
+        return false;
     }
 }

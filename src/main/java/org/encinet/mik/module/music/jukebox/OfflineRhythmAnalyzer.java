@@ -94,7 +94,6 @@ final class OfflineRhythmAnalyzer implements AutoCloseable {
     private final class Job implements Analysis {
         private final MusicTrack music;
         private final RhythmTimeline destination;
-        private final RhythmTimeline staging;
         private final CompletableFuture<Void> completion = new CompletableFuture<>();
         private final AtomicBoolean cancelled = new AtomicBoolean();
         private final AtomicBoolean finished = new AtomicBoolean();
@@ -107,7 +106,6 @@ final class OfflineRhythmAnalyzer implements AutoCloseable {
         private Job(MusicTrack music, RhythmTimeline destination) {
             this.music = music;
             this.destination = destination;
-            this.staging = new RhythmTimeline(destination.seed());
         }
 
         private void start() {
@@ -145,6 +143,7 @@ final class OfflineRhythmAnalyzer implements AutoCloseable {
             try {
                 if (cancelled.get() || closed.get()) return;
                 AudioTrack track = loaded.track();
+                RhythmTimeline staging = new RhythmTimeline(destination.seed());
                 decoder = loader.createPlayer();
                 player.set(decoder);
                 if (cancelled.get() || closed.get()) return;
@@ -175,22 +174,28 @@ final class OfflineRhythmAnalyzer implements AutoCloseable {
                 filterFactory.finish();
 
                 if (cancelled.get() || closed.get()) return;
+                Throwable failure = decoderFailure.get();
+                if (failure != null) throw new CompletionException(failure);
                 if (filterFactory.analyzedSampleFrames() == 0L) {
                     throw new IOException(
                             "Whole-track rhythm decoder produced no PCM sample frames");
                 }
-                Throwable failure = decoderFailure.get();
-                if (failure != null) throw new CompletionException(failure);
                 if (!staging.playable()) {
                     warningLogger.accept("Whole-track rhythm analysis found no beats for "
                             + music.id() + " after "
                             + filterFactory.analyzedSampleFrames()
                             + " decoded PCM frames");
                 }
-                publish(track);
+                publish(track, staging);
                 completion.complete(null);
             } catch (Throwable error) {
-                if (!cancelled.get() && !closed.get()) fail(error);
+                if (!cancelled.get() && !closed.get()) {
+                    Throwable cause = unwrap(error);
+                    if (CorruptAudioRecovery.isRecoverable(music, cause)) {
+                        loader.invalidate(music);
+                    }
+                    fail(cause);
+                }
             } finally {
                 if (decoder != null && player.compareAndSet(decoder, null)) {
                     decoder.destroy();
@@ -213,7 +218,7 @@ final class OfflineRhythmAnalyzer implements AutoCloseable {
             }
         }
 
-        private void publish(AudioTrack track) {
+        private void publish(AudioTrack track, RhythmTimeline staging) {
             long durationMillis = completeDuration(track,
                     staging.analyzedThroughMillis());
             List<RhythmPulse> pulses = staging.between(0L, durationMillis).stream()

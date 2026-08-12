@@ -275,7 +275,7 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
     }
 
     private void playNextTrack(Player player, Jukebox jukebox) {
-        if (!autoPlayService.playNextTrack(jukebox.getLocation())) {
+        if (!autoPlayService.playNextTrack(jukebox.getLocation(), player)) {
             player.sendMessage(languageService.text(player, Message.MUSIC_QUEUE_EMPTY,
                     NamedTextColor.RED));
             return;

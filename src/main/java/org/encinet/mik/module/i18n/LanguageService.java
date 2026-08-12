@@ -200,6 +200,25 @@ public class LanguageService implements Listener {
         return geoLanguage(fallbackAddress);
     }
 
+    /**
+     * Returns a player's persisted language preference without guessing from an address.
+     *
+     * <p>This is intended for authenticated external identities, where the caller has a
+     * Minecraft UUID but no trustworthy client or network context. An empty result lets the
+     * external platform choose its own explicit default instead of inheriting the generic
+     * address fallback.</p>
+     */
+    public Optional<Language> preferredLanguage(UUID playerId) {
+        if (playerId == null) {
+            return Optional.empty();
+        }
+        Optional<Language> manual = Language.fromId(preference(playerId));
+        if (manual.isPresent()) {
+            return manual;
+        }
+        return Optional.ofNullable(recordedClientLanguage(playerId));
+    }
+
     public Language languageForAddress(InetAddress address) {
         return geoLanguage(address);
     }

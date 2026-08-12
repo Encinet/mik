@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,5 +39,20 @@ class RhythmTimelineTest {
         assertEquals(first, duplicate);
         assertEquals(1, timeline.baseBeatCount());
         assertNotEquals(first.id(), timeline.append(new RhythmPulse(536, 0.9)).id());
+    }
+
+    @Test
+    void resetReturnsAFailedDecodeTimelineToLoadingState() {
+        RhythmTimeline timeline = new RhythmTimeline("retry");
+        timeline.publish(RhythmSource.NBS_NOTES,
+                List.of(new RhythmPulse(250, 0.8)), 1_000, 100, 2);
+
+        timeline.reset();
+
+        assertFalse(timeline.complete());
+        assertFalse(timeline.playable());
+        assertEquals(0L, timeline.analyzedThroughMillis());
+        assertEquals(RhythmSource.AUDIO_ANALYSIS, timeline.source());
+        assertTrue(timeline.between(0, 5_000).isEmpty());
     }
 }

@@ -117,6 +117,7 @@ music-no-search-results-rich = "{ $keyword }"이(가) 포함된 곡이 없습니
 music-online-searching = 로컬 및 온라인 음원에서 "{ $arg0 }"을(를) 검색하는 중...
 music-search-keyword-required = 검색어를 입력해야 합니다
 music-search-keyword-too-long = 검색어는 { $arg0 }자를 초과할 수 없습니다
+music-online-rate-limited = 온라인 음악 요청이 너무 많습니다. { $arg0 }초 후 다시 시도하세요.
 music-online-partial-failure = 사용자 지정 음원 요청 { $arg0 }개가 실패하여 사용 가능한 결과만 표시합니다
 music-loading-title = 불러오는 중
 music-loading-description = 사용 가능한 콘텐츠를 불러오는 동안 기다려 주세요
@@ -168,6 +169,7 @@ music-stop-eject = 중지하고 꺼내기
 music-stop-eject-done = 재생을 중지하고 음반을 꺼냈습니다
 music-jukebox-unavailable = 주크박스가 제거되었거나 해당 청크를 사용할 수 없습니다
 music-jukebox-too-far = 주크박스에서 너무 멀리 떨어져 있습니다 (최대 { $arg0 }블록)
+music-jukebox-audible-field-conflict = 다른 주크박스가 겹치는 명확한 청취 범위에서 다른 곡을 재생 중입니다
 music-select-music = 음악 선택
 music-random-mode = 목록 무작위 재생
 music-library-random-mode = 음악 라이브러리 무작위 재생
@@ -209,6 +211,7 @@ music-random-disc-got-rich = 무작위 음반을 받았습니다: { $music }
 music-inventory-full = 보관함이 가득 차서 음반을 받을 수 없습니다
 music-nearest-jukebox-missing = { $arg0 }블록 안에 주크박스가 없습니다
 music-now-playing-rich = 재생 중: { $music } · 주크박스 { $location }
+music-plasmo-voice-unavailable = 곡은 재생되었지만 Plasmo Voice가 설치, 연결 또는 활성화되어 있지 않아 들을 수 없습니다
 music-jukebox-tp-hover = 클릭하여 주크박스로 순간이동
 music-rhythm-start-game = 게임 시작
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 }은(는) 이미 화이트리스트에 �
 whitelist-temp-added-rich = { $player }을(를) { $duration } 동안 임시 화이트리스트에 추가했습니다
 whitelist-temp-added-plain = { $arg0 }을(를) { $arg1 } 동안 임시 화이트리스트에 추가했습니다
 whitelist-temp-duration = 1시간
+
+maintenance-command-description = 유지보수 모드 전환 또는 상태 확인
+maintenance-status = 유지보수 모드: { $arg0 }
+maintenance-unchanged = 유지보수 모드는 이미 { $arg0 } 상태입니다
+maintenance-set = 유지보수 모드를 { $arg0 } 상태로 설정했습니다
+maintenance-state-enabled = 활성화
+maintenance-state-disabled = 비활성화
 
 ban-command-description = 고정된 심각도로 플레이어 차단
 banlist-command-description = 차단 목록 보기
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = 선택 영역이 이미 이 계획과 일치하�
 async-regen-structure-metadata-applied = 구조물 시작점 { $arg0 }개와 청크 참조 { $arg1 }개를 이전했습니다. /locate와 구조물 의존 생성에서 인식할 수 있습니다
 async-regen-visualization-legend = { $arg0 } 시각화: 청록색 = 선택 경계, 주황색 = 변경 블록 표본, 빨간색 = 위험한 블록 엔티티. 이 입자는 본인에게만 보입니다.
 async-regen-visualization-selection = { $arg0 }의 청록색 입자가 선택 경계를 표시하며 본인에게만 보입니다.
+identity-command-description = Minecraft를 외부 플랫폼 계정과 연결합니다
+identity-admin-command-description = 외부 계정 연결을 조회하거나 해제합니다
+identity-unsupported-platform = 지원하지 않는 플랫폼: { $arg0 }
+identity-code-copy = 클릭하여 전체 연결 명령어 복사
+identity-code-issued = { $arg0 } 연결 코드를 생성했습니다:
+identity-code-redeem = 대상 { $arg0 } 그룹에서 봇을 멘션하고 전송하세요: { $arg1 }
+identity-code-expiry = 코드는 5분 동안 유효하며 한 번만 사용할 수 있습니다. 새 코드를 만들면 이전 코드는 무효가 됩니다.
+identity-scope-notice = 이 플랫폼의 계정은 그룹별로 분리됩니다. 봇을 사용할 그룹에서 연결하고, 다른 그룹에서는 별도로 연결하세요.
+identity-bindings-empty = 연결된 외부 플랫폼 계정이 없습니다.
+identity-bindings-title = 연결된 외부 계정:
+identity-bindings-unlink-hint = /bind unlink <플랫폼>으로 해당 플랫폼의 모든 연결을 해제할 수 있습니다.
+identity-code-cancelled = 사용하지 않은 { $arg0 } 연결 코드를 취소했습니다.
+identity-code-not-pending = 사용하지 않은 { $arg0 } 연결 코드가 없습니다.
+identity-binding-not-owned = 해당 플랫폼에 연결된 계정이 없습니다.
+identity-binding-unlinked = { $arg0 } 연결 { $arg1 }개를 해제했습니다.
+identity-admin-lookup-empty = 해당 플레이어의 연결을 찾지 못했습니다.
+identity-admin-lookup-title = { $arg0 }의 연결:
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = 플레이어와 플랫폼 연결을 명확히 찾지 못했습니다.
+identity-admin-binding-unlinked = 플레이어 { $arg1 }의 { $arg0 } 연결 { $arg2 }개를 해제했습니다.
+identity-help =
+    계정 연결 명령어:
+    /bind qq — QQ 연결 명령어를 빠르게 생성
+    /bind <플랫폼> — 일회용 코드 생성
+    /bind list — 기존 연결 보기
+    /bind cancel <플랫폼> — 미사용 코드 취소
+    /bind unlink <플랫폼> — 해당 플랫폼의 모든 연결 해제
+identity-admin-help =
+    /bindadmin lookup <플레이어-또는-UUID>
+    /bindadmin unlink <플레이어-또는-UUID> <플랫폼> confirm
+identity-platforms = 지원 플랫폼: { $arg0 }
+identity-platform-none = 없음
+identity-binding-details =  · { $arg0 } · 범위 { $arg1 } · { $arg2 }
+identity-unavailable = 계정 연결 서비스를 현재 사용할 수 없습니다. 관리자에게 문의하세요.
+identity-storage-error = 계정 연결 데이터베이스 작업에 실패했습니다. 관리자에게 문의하세요.
+identity-notify-linked = { $arg0 } 신원이 확인되었습니다. /bind list로 확인하거나 /bind unlink { $arg0 }으로 해제할 수 있습니다.
+identity-notify-unlinked = { $arg0 } 신원 연결을 해제했습니다.
+
+social-command-description = 소셜 플랫폼 어댑터 관리
+social-admin-title = 소셜 플랫폼
+social-admin-help = /social platforms · /social status [플랫폼] · /social reload [플랫폼] · /social conversations <플랫폼>
+social-admin-platform = - { $arg0 }({ $arg1 }): { $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · 세대 { $arg2 } · 대화 { $arg3 }
+social-admin-unknown = 알 수 없는 소셜 플랫폼: { $arg0 }
+social-admin-reloaded-all = 모든 소셜 플랫폼을 다시 불러왔습니다.
+social-admin-reloaded = 소셜 플랫폼 { $arg0 }을(를) 다시 불러왔습니다.
+social-admin-conversations-empty = { $arg0 }에서 관찰된 대화가 없습니다.
+social-admin-conversations-title = { $arg0 }에서 관찰된 대화:
+social-state-disabled = 비활성화됨
+social-state-stopped = 중지됨
+social-state-starting = 시작 중
+social-state-ready = 준비됨
+social-state-failed = 실패
+social-title-online-players = 온라인 플레이어
+social-title-server-status = 서버 상태
+social-title-command-help = 명령어 도움말
+social-title-unknown-command = 알 수 없는 명령어
+social-title-player-profile = 플레이어 프로필
+social-title-identity-linking = 계정 연결
+social-title-identity-unlinking = 계정 연결 해제
+social-title-content-hidden = 콘텐츠 숨김
+social-query-online-label = 온라인
+social-query-players-label = 플레이어
+social-query-active-label = 활동 중
+social-query-uptime-label = 가동 시간
+social-query-version-label = 서버 버전
+social-query-no-players = 현재 온라인 플레이어가 없습니다.
+social-online-command-description = 온라인 플레이어 보기
+social-status-command-description = 플레이어, TPS, MSPT, 가동 시간 보기
+social-link-command-description = 게임 내 코드로 Minecraft 계정 연결
+social-profile-command-description = 내 프로필 보기; 정식 멤버는 이름, 멘션 또는 답장으로 다른 플레이어 조회 가능
+social-unlink-command-description = 확인 후 현재 계정 연결 해제
+social-help-command-description = 이 명령어 목록 보기
+social-query-unknown = 알 수 없는 명령어입니다. /도움말을 보내 사용 가능한 명령어를 확인하세요.
+social-profile-player-label = 플레이어
+social-profile-avatar-alt = Minecraft 얼굴
+social-profile-uuid-label = UUID
+social-profile-presence-label = 상태
+social-profile-play-time-label = 플레이 시간
+social-profile-first-joined-label = 첫 접속
+social-profile-last-seen-label = 마지막 접속
+social-profile-language-label = 언어
+social-profile-online = 온라인 · 활동 중
+social-profile-afk = 온라인 · AFK
+social-profile-offline = 오프라인
+social-profile-member-required = 연결된 정식 멤버, 헬퍼 또는 관리자만 다른 플레이어의 프로필을 볼 수 있습니다.
+social-profile-player-not-found = 해당 Minecraft 플레이어를 찾을 수 없습니다.
+social-profile-target-unbound = 멘션하거나 답장한 사용자는 Minecraft와 연결되어 있지 않습니다.
+social-profile-target-ambiguous = 플레이어 이름, 한 명 멘션 또는 한 명에게 답장 중 하나만 지정하세요.
+social-duration-days = { $arg0 }일 { $arg1 }시간 { $arg2 }분
+social-duration-hours = { $arg0 }시간 { $arg1 }분
+social-duration-minutes = { $arg0 }분
+social-binding-identity-missing = 이 메시지에는 신뢰할 수 있는 멤버 식별 정보가 없어 연결할 수 없습니다.
+social-binding-unlink-prompt = 연결을 해제하면 이 플랫폼 식별 정보와 Minecraft의 연결이 삭제됩니다. 계속하려면 /연결해제 확인을 보내세요.
+social-binding-unlinked = Minecraft 플레이어 { $arg0 }과(와)의 연결을 해제했습니다.
+social-binding-not-bound = 이 플랫폼 식별 정보는 연결되어 있지 않습니다.
+social-binding-help =
+    Minecraft에서 /bind qq를 실행합니다.
+    생성된 전체 명령어를 복사합니다.
+    해당 명령어를 여기에 보냅니다.
+    /프로필로 연결을 확인합니다.
+social-binding-unavailable = 현재 식별 정보 연결을 사용할 수 없습니다.
+social-binding-status-unbound = 이 식별 정보는 연결되어 있지 않습니다. 인증 코드와 함께 /연결을 사용하세요.
+social-binding-linked = Minecraft 플레이어 { $arg0 }과(와) 연결했습니다.
+social-binding-already-linked = 이 식별 정보는 이미 Minecraft 플레이어 { $arg0 }과(와) 연결되어 있습니다.
+social-binding-code-invalid = 인증 코드가 잘못되었거나 만료되었습니다. Minecraft에서 /bind qq로 새 코드를 생성하세요.
+social-binding-platform-mismatch = 이 인증 코드는 다른 플랫폼용으로 발급되었습니다.
+social-binding-external-in-use = 이 식별 정보는 이미 다른 Minecraft 플레이어와 연결되어 있습니다.
+social-binding-player-scope-in-use = 해당 Minecraft 플레이어는 이 대화에서 이미 다른 식별 정보와 연결되어 있습니다.
+social-binding-rate-limited = 실패 횟수가 너무 많습니다. 약 { $arg0 }분 후 다시 시도하세요.
+social-reply-hidden = 서버 콘텐츠 안전 정책에 따라 이 답변을 숨겼습니다.
+
+qq-command-description = QQ 플랫폼 어댑터 관리
+qq-admin-disabled = QQ 플랫폼이 비활성화되어 있습니다.
+qq-admin-status = QQ 상태: { $arg0 }
+qq-admin-last-error = 최근 오류: { $arg0 }
+qq-admin-reload-disabled = QQ가 비활성화되어 있어 다시 불러와도 시작되지 않았습니다.
+qq-admin-reloaded = QQ 플랫폼을 다시 불러왔습니다.
+qq-admin-groups-empty = 확인된 QQ 대화가 없습니다.
+qq-admin-groups-title = 확인된 QQ 대화:
+qq-receiver-stopped = 중지됨
+qq-receiver-connecting = 연결 중
+qq-receiver-ready = 준비됨
+qq-receiver-failed = 실패
+
 self-kick-command-description = 자신을 서버에서 추방합니다
 self-kick-reason-too-long = 추방 이유는 { $arg0 }자를 초과할 수 없습니다
 self-kick-with-reason = { $player }님이 다음 이유로 자신을 서버에서 추방했습니다: { $reason }

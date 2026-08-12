@@ -1,0 +1,27 @@
+# QQ platform adapter. It only handles authenticated inbound commands and passive replies.
+enabled: false
+app-id: ""
+app-secret: ""
+default-language: "zh_cn"
+
+api-base-url: "https://api.sgroup.qq.com"
+access-token-url: "https://bots.qq.com/app/getAppAccessToken"
+
+gateway:
+  debug: false
+  reconnect-base-delay-millis: 1000
+  reconnect-max-delay-millis: 30000
+  max-reconnect-attempts: 10
+  max-frame-bytes: 1048576
+  handshake-timeout-millis: 30000
+
+worker:
+  max-concurrent-tasks: 64
+
+allowed-group-openids: []
+
+content-safety:
+  enabled: true
+
+reply:
+  max-message-length: 1500

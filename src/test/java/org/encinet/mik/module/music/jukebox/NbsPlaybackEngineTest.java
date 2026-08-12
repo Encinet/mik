@@ -147,6 +147,38 @@ class NbsPlaybackEngineTest {
         assertEquals(1, callbacks.finished.get());
     }
 
+    @Test
+    void sessionJoinsTheSharedJukeboxSongPosition() throws Exception {
+        Path file = directory.resolve("synchronized.nbs");
+        Files.write(file, minimalNbs());
+        ManualExecutor executor = new ManualExecutor();
+        ImmediateScheduler scheduler = new ImmediateScheduler();
+        AtomicLong clock = new AtomicLong(1_000_000_000L);
+        engine = new NbsPlaybackEngine(scheduler, new LocalMediaPreparer(),
+                new NbsParser(), executor,
+                org.encinet.mik.module.music.rhythm.analysis.NbsRhythmExtractor.INSTANCE,
+                clock::get);
+        RecordingCallbacks callbacks = new RecordingCallbacks();
+        PlaybackSession session = engine.create(new Location(null, 0, 0, 0),
+                new TrackTarget.NbsFile(file, directory),
+                JukeboxSoundSettings.defaults(), callbacks,
+                new org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline("sync"),
+                playbackGroupAt(50L));
+
+        session.start();
+        executor.runAll();
+
+        assertEquals(PlaybackStatus.PLAYING, session.status());
+        assertEquals(50L, session.positionMillis());
+        assertEquals(1, callbacks.started.get());
+    }
+
+    private static JukeboxPlaybackGroup playbackGroupAt(long positionMillis) {
+        JukeboxPlaybackGroup group = new JukeboxPlaybackGroup();
+        group.publishPositionMillis(positionMillis);
+        return group;
+    }
+
     private static final class ImmediateScheduler implements NbsPlaybackEngine.Scheduler {
         private final AtomicInteger mainThreadTasks = new AtomicInteger();
         private final AtomicInteger repeatingTasks = new AtomicInteger();

@@ -21,6 +21,7 @@ import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.music.online.MusicSearchResult;
+import org.encinet.mik.module.music.online.OnlineMusicRequestLimiter;
 import org.encinet.mik.module.music.catalog.AudioProperties;
 import org.encinet.mik.module.music.catalog.AudioPropertiesFormatter;
 import org.encinet.mik.module.music.catalog.MusicLibrary;
@@ -50,6 +51,7 @@ public final class MusicBrowserGui {
     private final MusicLibrary musicLibrary;
     private final MusicTrackPool trackPool;
     private final MusicSearchService onlineSearch;
+    private final OnlineMusicRequestLimiter requestLimiter;
     private final Predicate<MusicTrack> cachedTrack;
     private final MusicPlaybackStats playbackStats;
     private final LanguageService languageService;
@@ -60,7 +62,9 @@ public final class MusicBrowserGui {
 
     public MusicBrowserGui(JavaPlugin plugin, MusicLibrary musicLibrary,
                            MusicTrackPool trackPool,
-                           MusicSearchService onlineSearch, Predicate<MusicTrack> cachedTrack,
+                           MusicSearchService onlineSearch,
+                           OnlineMusicRequestLimiter requestLimiter,
+                           Predicate<MusicTrack> cachedTrack,
                            MusicPlaybackStats playbackStats,
                            LanguageService languageService,
                            MusicDiscFactory discFactory) {
@@ -68,6 +72,7 @@ public final class MusicBrowserGui {
         this.musicLibrary = musicLibrary;
         this.trackPool = trackPool;
         this.onlineSearch = onlineSearch;
+        this.requestLimiter = requestLimiter;
         this.cachedTrack = cachedTrack;
         this.playbackStats = playbackStats;
         this.languageService = languageService;
@@ -97,6 +102,13 @@ public final class MusicBrowserGui {
             normalized = normalizeKeyword(keyword);
         } catch (IllegalArgumentException exception) {
             sendKeywordError(player, keyword);
+            return;
+        }
+        OnlineMusicRequestLimiter.Decision decision = requestLimiter.tryAcquire(
+                player.getUniqueId(), OnlineMusicRequestLimiter.Operation.SEARCH);
+        if (!decision.allowed()) {
+            player.sendMessage(languageService.text(player, Message.MUSIC_ONLINE_RATE_LIMITED,
+                    NamedTextColor.YELLOW, decision.retryAfterSeconds()));
             return;
         }
         MusicBrowserSessions.Session state = currentOrNew(player.getUniqueId());
@@ -205,6 +217,7 @@ public final class MusicBrowserGui {
     public void removePlayerData(UUID playerId) {
         screen.forget(playerId);
         sessions.removePlayer(playerId);
+        requestLimiter.forget(playerId);
     }
 
     public void setJukeboxContext(UUID playerId, Location jukeboxLocation) {

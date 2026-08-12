@@ -58,6 +58,10 @@ final class AfkPlayerSession {
         return activity.isActivityEligible(now);
     }
 
+    boolean isAutomaticAfkCandidate(long now) {
+        return activity.isAutomaticAfkCandidate(now);
+    }
+
     void enterAfk(long now, boolean movementInputActive) {
         automaticEntry.reset();
         activity.suspendForAfk(now, movementInputActive);
@@ -68,18 +72,8 @@ final class AfkPlayerSession {
         activity.resumeFromAfk(now, worldId, x, y, z);
     }
 
-    void suspendForDisconnect(
-            long now,
-            boolean wasAfk,
-            UUID worldId,
-            double x,
-            double y,
-            double z
-    ) {
+    void suspendForDisconnect(long now) {
         automaticEntry.reset();
-        if (wasAfk) {
-            activity.resumeFromAfk(now, worldId, x, y, z);
-        }
         activity.suspendSession(now);
     }
 

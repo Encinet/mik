@@ -117,6 +117,7 @@ music-no-search-results-rich = Keine Lieder mit "{ $keyword }" gefunden
 music-online-searching = Lokale und Online-Quellen werden nach "{ $arg0 }" durchsucht...
 music-search-keyword-required = Der Suchbegriff darf nicht leer sein
 music-search-keyword-too-long = Der Suchbegriff darf höchstens { $arg0 } Zeichen lang sein
+music-online-rate-limited = Zu viele Online-Musikanfragen. Versuche es in { $arg0 } Sekunden erneut.
 music-online-partial-failure = { $arg0 } Anfrage(n) an benutzerdefinierte Quellen fehlgeschlagen; verfügbare Ergebnisse werden angezeigt
 music-loading-title = Wird geladen
 music-loading-description = Bitte warte, während verfügbare Inhalte geladen werden
@@ -168,6 +169,7 @@ music-stop-eject = Anhalten und auswerfen
 music-stop-eject-done = Wiedergabe angehalten und Schallplatte ausgeworfen
 music-jukebox-unavailable = Der Plattenspieler wurde entfernt oder sein Chunk ist nicht verfügbar
 music-jukebox-too-far = Du bist zu weit vom Plattenspieler entfernt (maximal { $arg0 } Blöcke)
+music-jukebox-audible-field-conflict = Ein anderer Plattenspieler spielt in einem überlappenden deutlich hörbaren Bereich ein anderes Lied
 music-select-music = Musik auswählen
 music-random-mode = Wiedergabeliste mischen
 music-library-random-mode = Musikbibliothek mischen
@@ -209,6 +211,7 @@ music-random-disc-got-rich = Zufällige Schallplatte erhalten: { $music }
 music-inventory-full = Dein Inventar ist voll. Die Schallplatte konnte nicht hinzugefügt werden
 music-nearest-jukebox-missing = Im Umkreis von { $arg0 } Blöcken wurde kein Plattenspieler gefunden
 music-now-playing-rich = Läuft gerade: { $music } am Plattenspieler { $location }
+music-plasmo-voice-unavailable = Der Song wurde gestartet, aber du kannst ihn nicht hören, weil Plasmo Voice nicht installiert, verbunden oder aktiviert ist
 music-jukebox-tp-hover = Zum Plattenspieler teleportieren
 music-rhythm-start-game = Spiel starten
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 } ist bereits auf der Whitelist
 whitelist-temp-added-rich = { $player } für { $duration } vorübergehend zur Whitelist hinzugefügt
 whitelist-temp-added-plain = { $arg0 } für { $arg1 } vorübergehend zur Whitelist hinzugefügt
 whitelist-temp-duration = 1 Stunde
+
+maintenance-command-description = Wartungsmodus umschalten oder Status anzeigen
+maintenance-status = Wartungsmodus: { $arg0 }
+maintenance-unchanged = Der Wartungsmodus ist bereits { $arg0 }
+maintenance-set = Wartungsmodus wurde { $arg0 }
+maintenance-state-enabled = aktiviert
+maintenance-state-disabled = deaktiviert
 
 ban-command-description = Einen Spieler nach fester Schweregradstufe sperren
 banlist-command-description = Spielersperren anzeigen
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = Die Auswahl entspricht diesem Plan bereits; es is
 async-regen-structure-metadata-applied = { $arg0 } Strukturstarts und { $arg1 } Chunk-Referenzen übertragen; /locate und strukturabhängiges Spawning erkennen sie
 async-regen-visualization-legend = Visualisierung in { $arg0 }: Cyan = Auswahlgrenze, Orange = Stichprobe geänderter Blöcke, Rot = gefährdete Blockentität. Nur du siehst diese Partikel.
 async-regen-visualization-selection = Auswahl in { $arg0 }: Cyanfarbene Partikel markieren die Grenze. Nur du siehst sie.
+identity-command-description = Minecraft mit einer externen Plattformidentität verknüpfen
+identity-admin-command-description = Externe Identitätsverknüpfungen prüfen oder aufheben
+identity-unsupported-platform = Nicht unterstützte Plattform: { $arg0 }
+identity-code-copy = Klicken, um den vollständigen Verknüpfungsbefehl zu kopieren
+identity-code-issued = Verknüpfungscode für { $arg0 } erstellt:
+identity-code-redeem = In der gewünschten { $arg0 }-Gruppe den Bot erwähnen und senden: { $arg1 }
+identity-code-expiry = Der Code ist 5 Minuten gültig und einmalig verwendbar. Ein neuer Code macht ihn ungültig.
+identity-scope-notice = Diese Plattform trennt Identitäten nach Gruppe. Verknüpfe das Konto in der gewünschten Gruppe; jede weitere Gruppe muss separat verknüpft werden.
+identity-bindings-empty = Du hast keine externen Plattformkonten verknüpft.
+identity-bindings-title = Verknüpfte externe Identitäten:
+identity-bindings-unlink-hint = Mit /bind unlink <Plattform> entfernst du alle Verknüpfungen einer Plattform.
+identity-code-cancelled = Der ungenutzte Verknüpfungscode für { $arg0 } wurde verworfen.
+identity-code-not-pending = Es gibt keinen ungenutzten Verknüpfungscode für { $arg0 }.
+identity-binding-not-owned = Du hast keine Verknüpfung für diese Plattform.
+identity-binding-unlinked = { $arg1 } { $arg0 }-Verknüpfung(en) entfernt.
+identity-admin-lookup-empty = Für diesen Spieler wurden keine Verknüpfungen gefunden.
+identity-admin-lookup-title = Verknüpfungen von { $arg0 }:
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = Keine eindeutige Spieler- und Plattformverknüpfung gefunden.
+identity-admin-binding-unlinked = { $arg2 } { $arg0 }-Verknüpfung(en) von Spieler { $arg1 } entfernt.
+identity-help =
+    Befehle zur Identitätsverknüpfung:
+    /bind qq — schnell einen QQ-Verknüpfungsbefehl erzeugen
+    /bind <Plattform> — einmaligen Code erzeugen
+    /bind list — bestehende Verknüpfungen anzeigen
+    /bind cancel <Plattform> — ungenutzten Code verwerfen
+    /bind unlink <Plattform> — alle Verknüpfungen einer Plattform entfernen
+identity-admin-help =
+    /bindadmin lookup <Spieler-oder-UUID>
+    /bindadmin unlink <Spieler-oder-UUID> <Plattform> confirm
+identity-platforms = Unterstützte Plattformen: { $arg0 }
+identity-platform-none = keine
+identity-binding-details =  · { $arg0 } · Bereich { $arg1 } · { $arg2 }
+identity-unavailable = Die Identitätsverknüpfung ist derzeit nicht verfügbar. Wende dich an die Administration.
+identity-storage-error = Der Datenbankvorgang für die Identitätsverknüpfung ist fehlgeschlagen. Wende dich an die Administration.
+identity-notify-linked = Deine { $arg0 }-Identität wurde bestätigt. Mit /bind list ansehen oder mit /bind unlink { $arg0 } entfernen.
+identity-notify-unlinked = Deine { $arg0 }-Identitätsverknüpfung wurde entfernt.
+
+social-command-description = Adapter für soziale Plattformen verwalten
+social-admin-title = Soziale Plattformen
+social-admin-help = /social platforms · /social status [Plattform] · /social reload [Plattform] · /social conversations <Plattform>
+social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · Generation { $arg2 } · Konversationen { $arg3 }
+social-admin-unknown = Unbekannte soziale Plattform: { $arg0 }
+social-admin-reloaded-all = Alle sozialen Plattformen wurden neu geladen.
+social-admin-reloaded = Soziale Plattform { $arg0 } wurde neu geladen.
+social-admin-conversations-empty = Für { $arg0 } wurden keine Konversationen erfasst.
+social-admin-conversations-title = Erfasste Konversationen für { $arg0 }:
+social-state-disabled = deaktiviert
+social-state-stopped = gestoppt
+social-state-starting = wird gestartet
+social-state-ready = bereit
+social-state-failed = fehlgeschlagen
+social-title-online-players = Online-Spieler
+social-title-server-status = Serverstatus
+social-title-command-help = Befehlshilfe
+social-title-unknown-command = Unbekannter Befehl
+social-title-player-profile = Spielerprofil
+social-title-identity-linking = Konto verknüpfen
+social-title-identity-unlinking = Konto trennen
+social-title-content-hidden = Inhalt ausgeblendet
+social-query-online-label = Online
+social-query-players-label = Spieler
+social-query-active-label = Aktiv
+social-query-uptime-label = Laufzeit
+social-query-version-label = Serverversion
+social-query-no-players = Derzeit sind keine Spieler online.
+social-online-command-description = Online-Spieler anzeigen
+social-status-command-description = Spieler, TPS, MSPT und Laufzeit anzeigen
+social-link-command-description = Dein Minecraft-Konto mit einem Spielcode verknüpfen
+social-profile-command-description = Dein Profil anzeigen; Vollmitglieder können per Spielername, Erwähnung oder Antwort suchen
+social-unlink-command-description = Diese Identitätsverknüpfung nach Bestätigung entfernen
+social-help-command-description = Diese Befehlsliste anzeigen
+social-query-unknown = Unbekannter Befehl. Sende /hilfe, um die verfügbaren Befehle anzuzeigen.
+social-profile-player-label = Spieler
+social-profile-avatar-alt = Minecraft-Gesicht
+social-profile-uuid-label = UUID
+social-profile-presence-label = Status
+social-profile-play-time-label = Spielzeit
+social-profile-first-joined-label = Erster Beitritt
+social-profile-last-seen-label = Zuletzt gesehen
+social-profile-language-label = Sprache
+social-profile-online = Online · aktiv
+social-profile-afk = Online · AFK
+social-profile-offline = Offline
+social-profile-member-required = Nur verknüpfte Vollmitglieder, Helfer oder Manager können Profile anderer Spieler anzeigen.
+social-profile-player-not-found = Dieser Minecraft-Spieler wurde nicht gefunden.
+social-profile-target-unbound = Die erwähnte oder beantwortete Identität ist nicht mit Minecraft verknüpft.
+social-profile-target-ambiguous = Wähle genau ein Ziel: einen Spielernamen, eine Erwähnung oder einen beantworteten Benutzer.
+social-duration-days = { $arg0 } Tage { $arg1 } Stunden { $arg2 } Minuten
+social-duration-hours = { $arg0 } Stunden { $arg1 } Minuten
+social-duration-minutes = { $arg0 } Minuten
+social-binding-identity-missing = Diese Nachricht enthält keine vertrauenswürdige Mitgliederidentität; eine Verknüpfung ist daher nicht möglich.
+social-binding-unlink-prompt = Beim Trennen wird diese Plattformidentität von Minecraft gelöst. Sende zum Fortfahren /trennen bestätigen.
+social-binding-unlinked = Verknüpfung mit Minecraft-Spieler { $arg0 } wurde entfernt.
+social-binding-not-bound = Diese Plattformidentität ist nicht verknüpft.
+social-binding-help =
+    Führe in Minecraft /bind qq aus.
+    Kopiere den erzeugten vollständigen Befehl.
+    Sende den Befehl hier.
+    Prüfe die Verknüpfung mit /profil.
+social-binding-unavailable = Die Identitätsverknüpfung ist vorübergehend nicht verfügbar.
+social-binding-status-unbound = Diese Plattformidentität ist nicht verknüpft. Verwende /binden mit einem Bestätigungscode.
+social-binding-linked = Mit Minecraft-Spieler { $arg0 } verknüpft.
+social-binding-already-linked = Diese Plattformidentität ist bereits mit Minecraft-Spieler { $arg0 } verknüpft.
+social-binding-code-invalid = Der Bestätigungscode ist ungültig oder abgelaufen. Erzeuge in Minecraft mit /bind qq einen neuen.
+social-binding-platform-mismatch = Dieser Bestätigungscode wurde für eine andere Plattform ausgestellt.
+social-binding-external-in-use = Diese Plattformidentität ist bereits mit einem anderen Minecraft-Spieler verknüpft.
+social-binding-player-scope-in-use = Dieser Minecraft-Spieler hat in dieser Konversation bereits eine andere Identität verknüpft.
+social-binding-rate-limited = Zu viele fehlgeschlagene Versuche. Versuche es in etwa { $arg0 } Minuten erneut.
+social-reply-hidden = Diese Antwort wurde durch die Inhaltsrichtlinie des Servers ausgeblendet.
+
+qq-command-description = QQ-Plattformadapter verwalten
+qq-admin-disabled = Die QQ-Plattform ist deaktiviert.
+qq-admin-status = QQ-Status: { $arg0 }
+qq-admin-last-error = Letzter Fehler: { $arg0 }
+qq-admin-reload-disabled = QQ ist deaktiviert; beim Neuladen wurde es nicht gestartet.
+qq-admin-reloaded = Die QQ-Plattform wurde neu geladen.
+qq-admin-groups-empty = Es wurden keine QQ-Unterhaltungen beobachtet.
+qq-admin-groups-title = Beobachtete QQ-Unterhaltungen:
+qq-receiver-stopped = gestoppt
+qq-receiver-connecting = Verbindung wird hergestellt
+qq-receiver-ready = bereit
+qq-receiver-failed = fehlgeschlagen
+
 self-kick-command-description = Dich selbst vom Server kicken
 self-kick-reason-too-long = Der Kick-Grund darf höchstens { $arg0 } Zeichen lang sein
 self-kick-with-reason = { $player } hat sich selbst vom Server gekickt. Grund: { $reason }

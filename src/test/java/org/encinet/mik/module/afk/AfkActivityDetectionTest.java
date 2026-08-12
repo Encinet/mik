@@ -206,7 +206,7 @@ class AfkActivityDetectionTest {
     }
 
     @Test
-    void afkExitDoesNotImmediatelyReenterPassiveAfk() {
+    void afkExitPreservesPassiveInactivityUntilSubstantialMovement() {
         AfkActivityTracker tracker = tracker(0L);
         for (long now = 60_000L; now < POLICY.passiveTimeoutMillis(); now += 60_000L) {
             tracker.recordLightActivity(now);
@@ -219,7 +219,17 @@ class AfkActivityDetectionTest {
         long returnedAt = afkAt + 5L * 60L * 1_000L;
         tracker.resumeFromAfk(returnedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
 
-        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(returnedAt + 1_000L));
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE,
+                tracker.check(returnedAt + 1_000L));
+
+        tracker.recordMovementInput(
+                true, WORLD_ID, 0.0D, 0.0D, 0.0D, returnedAt + 1_000L);
+        assertTrue(tracker.recordMovement(
+                WORLD_ID, POLICY.substantialMovementDistance(), 0.0D, 0.0D,
+                returnedAt + 2_000L));
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
+                tracker.check(returnedAt + 2_000L));
+        assertFalse(tracker.isAutomaticAfkCandidate(returnedAt + 2_000L));
     }
 
     @Test
@@ -481,7 +491,7 @@ class AfkActivityDetectionTest {
     }
 
     @Test
-    void disconnectAfterAfkExitDoesNotRestoreExpiredAfkTimers() {
+    void disconnectAfterAfkExitKeepsExpiredPassiveTimer() {
         AfkActivityTracker tracker = tracker(0L);
         for (long now = 60_000L; now < POLICY.passiveTimeoutMillis(); now += 60_000L) {
             tracker.recordLightActivity(now);
@@ -496,7 +506,8 @@ class AfkActivityDetectionTest {
 
         long reconnectedAt = disconnectedAt + 60_000L;
         tracker.resumeSession(reconnectedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
-        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(reconnectedAt + 1_000L));
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE,
+                tracker.check(reconnectedAt + 1_000L));
     }
 
     @Test

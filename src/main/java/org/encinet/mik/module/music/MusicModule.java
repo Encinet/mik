@@ -29,6 +29,7 @@ import org.encinet.mik.module.music.lyrics.LyricDisplayService;
 import org.encinet.mik.module.music.lyrics.LyricsService;
 import org.encinet.mik.module.music.online.LxSourceService;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
+import org.encinet.mik.module.music.online.OnlineMusicRequestLimiter;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackNotifier;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.module.music.jukebox.VanillaRecordSilencer;
@@ -103,17 +104,19 @@ public final class MusicModule {
         this.lyricsService = new LyricsService(
                 plugin.getDataFolder().toPath().resolve("cache/lyrics"), sourceService,
                 message -> plugin.getLogger().warning(message));
+        OnlineMusicRequestLimiter requestLimiter = new OnlineMusicRequestLimiter();
         MusicDiscFactory discFactory = new MusicDiscFactory(languageService, discSigner);
         MusicTrackSelector trackSelector = new MusicTrackSelector();
         MusicTrackPool trackPool = new MusicTrackPool(
                 musicLibrary::tracks, audioCache::cachedTracks);
         this.recordSilencer = new VanillaRecordSilencer();
-        JukeboxPlaybackNotifier playbackNotifier = new JukeboxPlaybackNotifier(languageService);
+        JukeboxPlaybackNotifier playbackNotifier = new JukeboxPlaybackNotifier(
+                languageService, voiceServer);
         LyricDisplayService lyricDisplay = new LyricDisplayService(plugin, lyricsService);
         JukeboxSettingsStore settingsStore = new JukeboxSettingsStore();
         this.playbackService = new JukeboxPlaybackService(plugin, voiceServer, discResolver,
                 audioCache, discFactory, playbackNotifier, recordSilencer,
-                settingsStore, playbackHistory::recordPlayback, lyricDisplay);
+                settingsStore, playbackHistory::recordPlayback, lyricDisplay, requestLimiter);
         this.rhythmGameService = new RhythmGameService(
                 plugin, playbackService, playbackService,
                 new PlasmoVoiceCalibrationAudio(plugin, voiceServer), languageService,
@@ -121,7 +124,7 @@ public final class MusicModule {
         NearbyJukeboxPlayback nearbyPlayback = new NearbyJukeboxPlayback(
                 playbackService, languageService);
         MusicBrowserGui browserGui = new MusicBrowserGui(plugin, musicLibrary, trackPool,
-                sourceService,
+                sourceService, requestLimiter,
                 track -> track.target() instanceof org.encinet.mik.module.music.catalog.TrackTarget.Lx lx
                         && audioCache.isCached(lx),
                 playbackHistory, languageService, discFactory);
@@ -129,7 +132,8 @@ public final class MusicModule {
         JukeboxControlGui jukeboxControlGui = new JukeboxControlGui(
                 queueService, discFactory, discResolver, playbackService,
                 settingsStore, rhythmGameService, languageService);
-        this.autoPlayService = new JukeboxAutoPlayService(plugin, queueService, playbackService);
+        this.autoPlayService = new JukeboxAutoPlayService(
+                plugin, queueService, playbackService, settingsStore);
         RandomMusicActions randomActions = new RandomMusicActions(
                 trackPool, trackSelector, discFactory, nearbyPlayback, languageService);
         this.browserListener = new MusicBrowserListener(

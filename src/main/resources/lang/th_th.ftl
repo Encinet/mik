@@ -117,6 +117,7 @@ music-no-search-results-rich = ไม่พบเพลงที่มีคำ�
 music-online-searching = กำลังค้นหา "{ $arg0 }" จากแหล่งเพลงในเครื่องและออนไลน์...
 music-search-keyword-required = ต้องระบุคำค้นหา
 music-search-keyword-too-long = คำค้นหาต้องไม่เกิน { $arg0 } อักขระ
+music-online-rate-limited = มีคำขอเพลงออนไลน์มากเกินไป โปรดลองอีกครั้งใน { $arg0 } วินาที
 music-online-partial-failure = คำขอไปยังแหล่งเพลงกำหนดเองล้มเหลว { $arg0 } รายการ จึงแสดงเฉพาะผลลัพธ์ที่ใช้ได้
 music-loading-title = กำลังโหลด
 music-loading-description = โปรดรอขณะโหลดเนื้อหาที่ใช้ได้
@@ -168,6 +169,7 @@ music-stop-eject = หยุดและนำออก
 music-stop-eject-done = หยุดเล่นและนำแผ่นเสียงออกแล้ว
 music-jukebox-unavailable = ตู้เพลงถูกนำออกหรือชังก์ของตู้เพลงไม่พร้อมใช้งาน
 music-jukebox-too-far = คุณอยู่ไกลจากตู้เพลงเกินไป (สูงสุด { $arg0 } บล็อก)
+music-jukebox-audible-field-conflict = ตู้เพลงอื่นกำลังเล่นเพลงต่างกันในพื้นที่ที่ได้ยินชัดซึ่งทับซ้อนกัน
 music-select-music = เลือกเพลง
 music-random-mode = สุ่มรายการ
 music-library-random-mode = สุ่มคลังเพลง
@@ -209,6 +211,7 @@ music-random-disc-got-rich = ได้รับแผ่นเสียงแบ
 music-inventory-full = ช่องเก็บของเต็ม จึงไม่สามารถมอบแผ่นเสียงได้
 music-nearest-jukebox-missing = ไม่พบตู้เพลงภายใน { $arg0 } บล็อก
 music-now-playing-rich = กำลังเล่น: { $music } ที่ตู้เพลง { $location }
+music-plasmo-voice-unavailable = เพลงเริ่มเล่นแล้ว แต่คุณจะไม่ได้ยินเพราะยังไม่ได้ติดตั้ง เชื่อมต่อ หรือเปิดใช้ Plasmo Voice
 music-jukebox-tp-hover = คลิกเพื่อเทเลพอร์ตไปยังตู้เพลง
 music-rhythm-start-game = เริ่มเกม
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 } อยู่ในบัญชีข�
 whitelist-temp-added-rich = เพิ่ม { $player } เข้าบัญชีขาวชั่วคราวเป็นเวลา { $duration } แล้ว
 whitelist-temp-added-plain = เพิ่ม { $arg0 } เข้าบัญชีขาวชั่วคราวเป็นเวลา { $arg1 } แล้ว
 whitelist-temp-duration = 1 ชั่วโมง
+
+maintenance-command-description = เปิด ปิด หรือตรวจสอบโหมดบำรุงรักษา
+maintenance-status = โหมดบำรุงรักษา: { $arg0 }
+maintenance-unchanged = โหมดบำรุงรักษาอยู่ในสถานะ{ $arg0 }แล้ว
+maintenance-set = ตั้งค่าโหมดบำรุงรักษาเป็น{ $arg0 }แล้ว
+maintenance-state-enabled = เปิดใช้งาน
+maintenance-state-disabled = ปิดใช้งาน
 
 ban-command-description = แบนผู้เล่นตามระดับความรุนแรงที่กำหนด
 banlist-command-description = ดูรายชื่อผู้เล่นที่ถูกแบน
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = พื้นที่ที่เลือกต�
 async-regen-structure-metadata-applied = ย้ายจุดเริ่มโครงสร้าง { $arg0 } จุดและการอ้างอิงชังก์ { $arg1 } รายการแล้ว /locate และการเกิดที่พึ่งโครงสร้างสามารถตรวจพบได้
 async-regen-visualization-legend = ภาพแสดงใน { $arg0 }: สีฟ้า = ขอบเขตที่เลือก สีส้ม = ตัวอย่างบล็อกที่จะเปลี่ยน สีแดง = บล็อกเอนทิตีที่เสี่ยง มีเพียงคุณที่เห็นอนุภาคนี้
 async-regen-visualization-selection = อนุภาคสีฟ้าใน { $arg0 } แสดงขอบเขตที่เลือกและมีเพียงคุณที่เห็น
+identity-command-description = เชื่อม Minecraft กับตัวตนบนแพลตฟอร์มภายนอก
+identity-admin-command-description = ตรวจสอบหรือยกเลิกการเชื่อมตัวตนภายนอก
+identity-unsupported-platform = ไม่รองรับแพลตฟอร์ม: { $arg0 }
+identity-code-copy = คลิกเพื่อคัดลอกคำสั่งเชื่อมฉบับเต็ม
+identity-code-issued = สร้างรหัสเชื่อม { $arg0 } แล้ว:
+identity-code-redeem = ในกลุ่ม { $arg0 } เป้าหมาย ให้กล่าวถึงบอตแล้วส่ง: { $arg1 }
+identity-code-expiry = รหัสใช้ได้ 5 นาทีและใช้ได้ครั้งเดียว การสร้างรหัสใหม่จะทำให้รหัสเดิมใช้ไม่ได้
+identity-scope-notice = ตัวตนของแพลตฟอร์มนี้แยกตามกลุ่ม โปรดเชื่อมในกลุ่มที่จะใช้บอต และเชื่อมแยกสำหรับแต่ละกลุ่ม
+identity-bindings-empty = คุณยังไม่ได้เชื่อมบัญชีแพลตฟอร์มภายนอก
+identity-bindings-title = ตัวตนภายนอกที่เชื่อมแล้ว:
+identity-bindings-unlink-hint = ใช้ /bind unlink <แพลตฟอร์ม> เพื่อลบการเชื่อมทั้งหมดของแพลตฟอร์ม
+identity-code-cancelled = ยกเลิกรหัสเชื่อม { $arg0 } ที่ยังไม่ได้ใช้แล้ว
+identity-code-not-pending = ไม่มีรหัสเชื่อม { $arg0 } ที่ยังไม่ได้ใช้
+identity-binding-not-owned = คุณไม่มีการเชื่อมสำหรับแพลตฟอร์มนี้
+identity-binding-unlinked = ลบการเชื่อม { $arg0 } แล้ว { $arg1 } รายการ
+identity-admin-lookup-empty = ไม่พบการเชื่อมของผู้เล่นนี้
+identity-admin-lookup-title = การเชื่อมของ { $arg0 }:
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = ไม่พบการเชื่อมผู้เล่นและแพลตฟอร์มที่ระบุได้แน่ชัด
+identity-admin-binding-unlinked = ลบการเชื่อม { $arg0 } ของผู้เล่น { $arg1 } แล้ว { $arg2 } รายการ
+identity-help =
+    คำสั่งเชื่อมตัวตน:
+    /bind qq — สร้างคำสั่งเชื่อม QQ อย่างรวดเร็ว
+    /bind <แพลตฟอร์ม> — สร้างรหัสใช้ครั้งเดียว
+    /bind list — แสดงการเชื่อมที่มีอยู่
+    /bind cancel <แพลตฟอร์ม> — ยกเลิกรหัสที่ยังไม่ได้ใช้
+    /bind unlink <แพลตฟอร์ม> — ลบการเชื่อมทั้งหมดของแพลตฟอร์ม
+identity-admin-help =
+    /bindadmin lookup <ผู้เล่น-หรือ-UUID>
+    /bindadmin unlink <ผู้เล่น-หรือ-UUID> <แพลตฟอร์ม> confirm
+identity-platforms = แพลตฟอร์มที่รองรับ: { $arg0 }
+identity-platform-none = ไม่มี
+identity-binding-details =  · { $arg0 } · ขอบเขต { $arg1 } · { $arg2 }
+identity-unavailable = ขณะนี้ใช้บริการเชื่อมตัวตนไม่ได้ โปรดติดต่อผู้ดูแล
+identity-storage-error = การทำงานกับฐานข้อมูลการเชื่อมล้มเหลว โปรดติดต่อผู้ดูแล
+identity-notify-linked = ยืนยันตัวตน { $arg0 } ของคุณแล้ว ใช้ /bind list เพื่อตรวจสอบ หรือ /bind unlink { $arg0 } เพื่อยกเลิก
+identity-notify-unlinked = ยกเลิกการเชื่อมตัวตน { $arg0 } ของคุณแล้ว
+
+social-command-description = จัดการอะแดปเตอร์แพลตฟอร์มโซเชียล
+social-admin-title = แพลตฟอร์มโซเชียล
+social-admin-help = /social platforms · /social status [แพลตฟอร์ม] · /social reload [แพลตฟอร์ม] · /social conversations <แพลตฟอร์ม>
+social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · รุ่น { $arg2 } · การสนทนา { $arg3 }
+social-admin-unknown = ไม่รู้จักแพลตฟอร์มโซเชียล: { $arg0 }
+social-admin-reloaded-all = โหลดแพลตฟอร์มโซเชียลทั้งหมดใหม่แล้ว
+social-admin-reloaded = โหลดแพลตฟอร์มโซเชียล { $arg0 } ใหม่แล้ว
+social-admin-conversations-empty = ไม่พบการสนทนาสำหรับ { $arg0 }
+social-admin-conversations-title = การสนทนาที่พบสำหรับ { $arg0 }:
+social-state-disabled = ปิดใช้งาน
+social-state-stopped = หยุดแล้ว
+social-state-starting = กำลังเริ่ม
+social-state-ready = พร้อม
+social-state-failed = ล้มเหลว
+social-title-online-players = ผู้เล่นออนไลน์
+social-title-server-status = สถานะเซิร์ฟเวอร์
+social-title-command-help = วิธีใช้คำสั่ง
+social-title-unknown-command = คำสั่งที่ไม่รู้จัก
+social-title-player-profile = โปรไฟล์ผู้เล่น
+social-title-identity-linking = ผูกบัญชี
+social-title-identity-unlinking = ยกเลิกการผูกบัญชี
+social-title-content-hidden = ซ่อนเนื้อหาแล้ว
+social-query-online-label = ออนไลน์
+social-query-players-label = ผู้เล่น
+social-query-active-label = กำลังใช้งาน
+social-query-uptime-label = เวลาทำงาน
+social-query-version-label = เวอร์ชันเซิร์ฟเวอร์
+social-query-no-players = ขณะนี้ไม่มีผู้เล่นออนไลน์
+social-online-command-description = แสดงผู้เล่นออนไลน์
+social-status-command-description = แสดงผู้เล่น TPS, MSPT และเวลาทำงาน
+social-link-command-description = ผูกบัญชี Minecraft ด้วยรหัสจากในเกม
+social-profile-command-description = แสดงโปรไฟล์ตนเอง; สมาชิกเต็มรูปแบบค้นหาด้วยชื่อ การกล่าวถึง หรือการตอบกลับได้
+social-unlink-command-description = ยกเลิกการผูกตัวตนนี้หลังยืนยัน
+social-help-command-description = แสดงรายการคำสั่งนี้
+social-query-unknown = ไม่รู้จักคำสั่ง ส่ง /ช่วยเหลือ เพื่อดูคำสั่งที่ใช้ได้
+social-profile-player-label = ผู้เล่น
+social-profile-avatar-alt = ใบหน้า Minecraft
+social-profile-uuid-label = UUID
+social-profile-presence-label = สถานะ
+social-profile-play-time-label = เวลาเล่น
+social-profile-first-joined-label = เข้าครั้งแรก
+social-profile-last-seen-label = พบล่าสุด
+social-profile-language-label = ภาษา
+social-profile-online = ออนไลน์ · กำลังใช้งาน
+social-profile-afk = ออนไลน์ · AFK
+social-profile-offline = ออฟไลน์
+social-profile-member-required = เฉพาะสมาชิกเต็มรูปแบบ ผู้ช่วย หรือผู้จัดการที่ผูกบัญชีแล้วเท่านั้นที่ดูโปรไฟล์ผู้เล่นอื่นได้
+social-profile-player-not-found = ไม่พบผู้เล่น Minecraft คนนั้น
+social-profile-target-unbound = ผู้ใช้ที่กล่าวถึงหรือตอบกลับยังไม่ได้ผูกกับ Minecraft
+social-profile-target-ambiguous = เลือกเป้าหมายเพียงหนึ่งรายการ: ชื่อผู้เล่น การกล่าวถึงหนึ่งคน หรือผู้ใช้ที่ตอบกลับหนึ่งคน
+social-duration-days = { $arg0 } วัน { $arg1 } ชั่วโมง { $arg2 } นาที
+social-duration-hours = { $arg0 } ชั่วโมง { $arg1 } นาที
+social-duration-minutes = { $arg0 } นาที
+social-binding-identity-missing = ข้อความนี้ไม่มีข้อมูลสมาชิกที่เชื่อถือได้ จึงไม่สามารถผูกตัวตนได้
+social-binding-unlink-prompt = การยกเลิกผูกจะลบความเชื่อมโยงระหว่างตัวตนนี้กับ Minecraft ส่ง /ยกเลิกผูก ยืนยัน เพื่อดำเนินการต่อ
+social-binding-unlinked = ยกเลิกการผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
+social-binding-not-bound = ตัวตนบนแพลตฟอร์มนี้ยังไม่ได้ผูก
+social-binding-help =
+    ใช้ /bind qq ใน Minecraft
+    คัดลอกคำสั่งเต็มที่สร้างขึ้น
+    ส่งคำสั่งนั้นที่นี่
+    ใช้ /โปรไฟล์ เพื่อตรวจสอบการผูก
+social-binding-unavailable = ระบบผูกตัวตนไม่พร้อมใช้งานชั่วคราว
+social-binding-status-unbound = ตัวตนนี้ยังไม่ได้ผูก ใช้ /ผูก พร้อมรหัสยืนยัน
+social-binding-linked = ผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
+social-binding-already-linked = ตัวตนนี้ผูกกับผู้เล่น Minecraft { $arg0 } อยู่แล้ว
+social-binding-code-invalid = รหัสยืนยันไม่ถูกต้องหรือหมดอายุ สร้างรหัสใหม่ด้วย /bind qq ใน Minecraft
+social-binding-platform-mismatch = รหัสยืนยันนี้ออกให้สำหรับแพลตฟอร์มอื่น
+social-binding-external-in-use = ตัวตนนี้ผูกกับผู้เล่น Minecraft คนอื่นอยู่แล้ว
+social-binding-player-scope-in-use = ผู้เล่น Minecraft คนนั้นมีตัวตนอื่นที่ผูกไว้ในการสนทนานี้แล้ว
+social-binding-rate-limited = ลองไม่สำเร็จหลายครั้งเกินไป โปรดลองอีกครั้งในประมาณ { $arg0 } นาที
+social-reply-hidden = คำตอบนี้ถูกซ่อนตามนโยบายความปลอดภัยของเนื้อหาเซิร์ฟเวอร์
+
+qq-command-description = จัดการอะแดปเตอร์แพลตฟอร์ม QQ
+qq-admin-disabled = แพลตฟอร์ม QQ ถูกปิดใช้งาน
+qq-admin-status = สถานะ QQ: { $arg0 }
+qq-admin-last-error = ข้อผิดพลาดล่าสุด: { $arg0 }
+qq-admin-reload-disabled = QQ ถูกปิดใช้งาน การโหลดใหม่จึงไม่ได้เริ่มระบบ
+qq-admin-reloaded = โหลดแพลตฟอร์ม QQ ใหม่แล้ว
+qq-admin-groups-empty = ยังไม่พบการสนทนา QQ
+qq-admin-groups-title = การสนทนา QQ ที่พบ:
+qq-receiver-stopped = หยุดแล้ว
+qq-receiver-connecting = กำลังเชื่อมต่อ
+qq-receiver-ready = พร้อม
+qq-receiver-failed = ล้มเหลว
+
 self-kick-command-description = เตะตัวเองออกจากเซิร์ฟเวอร์
 self-kick-reason-too-long = เหตุผลการเตะต้องมีไม่เกิน { $arg0 } ตัวอักษร
 self-kick-with-reason = { $player } เตะตัวเองออกจากเซิร์ฟเวอร์ด้วยเหตุผลนี้: { $reason }

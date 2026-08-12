@@ -117,6 +117,7 @@ music-no-search-results-rich = Geen nummers met "{ $keyword }" gevonden
 music-online-searching = Lokale en online bronnen doorzoeken naar "{ $arg0 }"...
 music-search-keyword-required = De zoekterm mag niet leeg zijn
 music-search-keyword-too-long = De zoekterm mag niet langer zijn dan { $arg0 } tekens
+music-online-rate-limited = Te veel online muziekverzoeken. Probeer het over { $arg0 } seconden opnieuw.
 music-online-partial-failure = { $arg0 } aanvraag/aanvragen van aangepaste bronnen mislukt; beschikbare resultaten worden getoond
 music-loading-title = Laden
 music-loading-description = Wacht terwijl beschikbare inhoud wordt geladen
@@ -168,6 +169,7 @@ music-stop-eject = Stoppen en uitwerpen
 music-stop-eject-done = Afspelen gestopt en muziekplaat uitgeworpen
 music-jukebox-unavailable = De platenspeler is verwijderd of de chunk ervan is niet beschikbaar
 music-jukebox-too-far = Je bent te ver van de platenspeler verwijderd (maximaal { $arg0 } blokken)
+music-jukebox-audible-field-conflict = Een andere platenspeler speelt een ander nummer in een overlappend duidelijk hoorbaar gebied
 music-select-music = Muziek selecteren
 music-random-mode = Lijst willekeurig
 music-library-random-mode = Bibliotheek willekeurig
@@ -209,6 +211,7 @@ music-random-disc-got-rich = Willekeurige muziekplaat ontvangen: { $music }
 music-inventory-full = Inventaris is vol. Muziekplaat kon niet worden gegeven
 music-nearest-jukebox-missing = Geen platenspeler gevonden binnen { $arg0 } blokken
 music-now-playing-rich = Wordt nu afgespeeld: { $music } bij platenspeler { $location }
+music-plasmo-voice-unavailable = Het nummer is gestart, maar je kunt het niet horen omdat Plasmo Voice niet is geïnstalleerd, verbonden of ingeschakeld
 music-jukebox-tp-hover = Klik om naar de platenspeler te teleporteren
 music-rhythm-start-game = Spel starten
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 } staat al op de witte lijst
 whitelist-temp-added-rich = Tijdelijk aan de witte lijst toegevoegd: { $player } voor { $duration }
 whitelist-temp-added-plain = Tijdelijk aan de witte lijst toegevoegd: { $arg0 } voor { $arg1 }
 whitelist-temp-duration = 1 uur
+
+maintenance-command-description = Schakel de onderhoudsmodus om of bekijk de status
+maintenance-status = Onderhoudsmodus: { $arg0 }
+maintenance-unchanged = De onderhoudsmodus is al { $arg0 }
+maintenance-set = Onderhoudsmodus { $arg0 }
+maintenance-state-enabled = ingeschakeld
+maintenance-state-disabled = uitgeschakeld
 
 ban-command-description = Verban een speler met een vast ernstniveau
 banlist-command-description = Bekijk verbannen spelers
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = De selectie komt al overeen met dit plan; er hoef
 async-regen-structure-metadata-applied = { $arg0 } structuurstarts en { $arg1 } chunkverwijzingen overgedragen; /locate en structuurafhankelijke spawning herkennen ze
 async-regen-visualization-legend = Visualisatie in { $arg0 }: cyaan = selectiegrens, oranje = steekproef van gewijzigde blokken, rood = bedreigde blokentiteit. Alleen jij ziet deze deeltjes.
 async-regen-visualization-selection = Selectie in { $arg0 }: cyaan deeltjes markeren de grens. Alleen jij ziet ze.
+identity-command-description = Minecraft aan een externe platformidentiteit koppelen
+identity-admin-command-description = Externe identiteitskoppelingen bekijken of intrekken
+identity-unsupported-platform = Niet-ondersteund platform: { $arg0 }
+identity-code-copy = Klik om de volledige koppelopdracht te kopiëren
+identity-code-issued = Koppelcode voor { $arg0 } aangemaakt:
+identity-code-redeem = Vermeld de bot in de gekozen { $arg0 }-groep en stuur: { $arg1 }
+identity-code-expiry = De code is 5 minuten geldig en kan één keer worden gebruikt. Een nieuwe code maakt hem ongeldig.
+identity-scope-notice = Dit platform scheidt identiteiten per groep. Koppel in de groep waar je de bot gebruikt; elke groep moet apart worden gekoppeld.
+identity-bindings-empty = Je hebt geen externe platformaccounts gekoppeld.
+identity-bindings-title = Gekoppelde externe identiteiten:
+identity-bindings-unlink-hint = Gebruik /bind unlink <platform> om alle koppelingen van een platform te verwijderen.
+identity-code-cancelled = De ongebruikte koppelcode voor { $arg0 } is geannuleerd.
+identity-code-not-pending = Er is geen ongebruikte koppelcode voor { $arg0 }.
+identity-binding-not-owned = Je hebt geen koppelingen voor dat platform.
+identity-binding-unlinked = { $arg1 } { $arg0}-koppeling(en) verwijderd.
+identity-admin-lookup-empty = Voor die speler zijn geen koppelingen gevonden.
+identity-admin-lookup-title = Koppelingen van { $arg0 }:
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = Geen eenduidige speler- en platformkoppeling gevonden.
+identity-admin-binding-unlinked = { $arg2 } { $arg0}-koppeling(en) van speler { $arg1 } verwijderd.
+identity-help =
+    Opdrachten voor identiteitskoppeling:
+    /bind qq — snel een QQ-koppelopdracht maken
+    /bind <platform> — een eenmalige code maken
+    /bind list — bestaande koppelingen tonen
+    /bind cancel <platform> — een ongebruikte code annuleren
+    /bind unlink <platform> — alle koppelingen van een platform verwijderen
+identity-admin-help =
+    /bindadmin lookup <speler-of-UUID>
+    /bindadmin unlink <speler-of-UUID> <platform> confirm
+identity-platforms = Ondersteunde platforms: { $arg0 }
+identity-platform-none = geen
+identity-binding-details =  · { $arg0 } · bereik { $arg1 } · { $arg2 }
+identity-unavailable = Identiteiten koppelen is momenteel niet beschikbaar. Neem contact op met een beheerder.
+identity-storage-error = De databasebewerking voor identiteitskoppeling is mislukt. Neem contact op met een beheerder.
+identity-notify-linked = Je { $arg0}-identiteit is bevestigd. Bekijk haar met /bind list of verwijder haar met /bind unlink { $arg0 }.
+identity-notify-unlinked = Je { $arg0}-identiteitskoppeling is verwijderd.
+
+social-command-description = Sociaalplatformadapters beheren
+social-admin-title = Sociale platforms
+social-admin-help = /social platforms · /social status [platform] · /social reload [platform] · /social conversations <platform>
+social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · generatie { $arg2 } · gesprekken { $arg3 }
+social-admin-unknown = Onbekend sociaal platform: { $arg0 }
+social-admin-reloaded-all = Alle sociale platforms zijn opnieuw geladen.
+social-admin-reloaded = Sociaal platform { $arg0 } is opnieuw geladen.
+social-admin-conversations-empty = Geen gesprekken waargenomen voor { $arg0 }.
+social-admin-conversations-title = Waargenomen gesprekken voor { $arg0 }:
+social-state-disabled = uitgeschakeld
+social-state-stopped = gestopt
+social-state-starting = wordt gestart
+social-state-ready = gereed
+social-state-failed = mislukt
+social-title-online-players = Online spelers
+social-title-server-status = Serverstatus
+social-title-command-help = Opdrachthulp
+social-title-unknown-command = Onbekende opdracht
+social-title-player-profile = Spelersprofiel
+social-title-identity-linking = Account koppelen
+social-title-identity-unlinking = Account ontkoppelen
+social-title-content-hidden = Inhoud verborgen
+social-query-online-label = Online
+social-query-players-label = Spelers
+social-query-active-label = Actief
+social-query-uptime-label = Bedrijfstijd
+social-query-version-label = Serverversie
+social-query-no-players = Er zijn momenteel geen spelers online.
+social-online-command-description = Online spelers tonen
+social-status-command-description = Spelers, TPS, MSPT en looptijd tonen
+social-link-command-description = Je Minecraft-account met een spelcode koppelen
+social-profile-command-description = Je profiel tonen; volwaardige leden zoeken op naam, vermelding of antwoord
+social-unlink-command-description = Deze identiteitskoppeling na bevestiging verwijderen
+social-help-command-description = Deze opdrachtenlijst tonen
+social-query-unknown = Onbekende opdracht. Stuur /hulp om de beschikbare opdrachten te bekijken.
+social-profile-player-label = Speler
+social-profile-avatar-alt = Minecraft-gezicht
+social-profile-uuid-label = UUID
+social-profile-presence-label = Status
+social-profile-play-time-label = Speeltijd
+social-profile-first-joined-label = Eerste deelname
+social-profile-last-seen-label = Laatst gezien
+social-profile-language-label = Taal
+social-profile-online = Online · actief
+social-profile-afk = Online · AFK
+social-profile-offline = Offline
+social-profile-member-required = Alleen gekoppelde volwaardige leden, helpers of managers kunnen profielen van andere spelers bekijken.
+social-profile-player-not-found = Die Minecraft-speler is niet gevonden.
+social-profile-target-unbound = De genoemde of beantwoorde identiteit is niet aan Minecraft gekoppeld.
+social-profile-target-ambiguous = Kies precies één doel: een spelersnaam, één vermelding of één beantwoorde gebruiker.
+social-duration-days = { $arg0 } dagen { $arg1 } uur { $arg2 } minuten
+social-duration-hours = { $arg0 } uur { $arg1 } minuten
+social-duration-minutes = { $arg0 } minuten
+social-binding-identity-missing = Dit bericht bevat geen betrouwbare ledenidentiteit; koppelen is daarom niet mogelijk.
+social-binding-unlink-prompt = Ontkoppelen verwijdert de relatie tussen deze platformidentiteit en Minecraft. Stuur /ontkoppelen bevestigen om door te gaan.
+social-binding-unlinked = Ontkoppeld van Minecraft-speler { $arg0 }.
+social-binding-not-bound = Deze platformidentiteit is niet gekoppeld.
+social-binding-help =
+    Voer in Minecraft /bind qq uit.
+    Kopieer de volledige gegenereerde opdracht.
+    Stuur de opdracht hier.
+    Gebruik /profiel om de koppeling te controleren.
+social-binding-unavailable = Identiteitskoppeling is tijdelijk niet beschikbaar.
+social-binding-status-unbound = Deze identiteit is niet gekoppeld. Gebruik /koppelen met een verificatiecode.
+social-binding-linked = Gekoppeld aan Minecraft-speler { $arg0 }.
+social-binding-already-linked = Deze identiteit is al gekoppeld aan Minecraft-speler { $arg0 }.
+social-binding-code-invalid = De verificatiecode is ongeldig of verlopen. Genereer in Minecraft een nieuwe met /bind qq.
+social-binding-platform-mismatch = Deze verificatiecode is voor een ander platform uitgegeven.
+social-binding-external-in-use = Deze identiteit is al gekoppeld aan een andere Minecraft-speler.
+social-binding-player-scope-in-use = Die Minecraft-speler heeft in dit gesprek al een andere gekoppelde identiteit.
+social-binding-rate-limited = Te veel mislukte pogingen. Probeer het over ongeveer { $arg0 } minuten opnieuw.
+social-reply-hidden = Dit antwoord is verborgen door het inhoudsveiligheidsbeleid van de server.
+
+qq-command-description = De QQ-platformadapter beheren
+qq-admin-disabled = Het QQ-platform is uitgeschakeld.
+qq-admin-status = QQ-status: { $arg0 }
+qq-admin-last-error = Laatste fout: { $arg0 }
+qq-admin-reload-disabled = QQ is uitgeschakeld; herladen heeft het niet gestart.
+qq-admin-reloaded = Het QQ-platform is herladen.
+qq-admin-groups-empty = Er zijn geen QQ-gesprekken waargenomen.
+qq-admin-groups-title = Waargenomen QQ-gesprekken:
+qq-receiver-stopped = gestopt
+qq-receiver-connecting = verbinden
+qq-receiver-ready = gereed
+qq-receiver-failed = mislukt
+
 self-kick-command-description = Jezelf van de server kicken
 self-kick-reason-too-long = De reden mag niet langer zijn dan { $arg0 } tekens
 self-kick-with-reason = { $player } heeft zichzelf om deze reden van de server gekickt: { $reason }

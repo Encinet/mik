@@ -14,6 +14,7 @@ import org.encinet.mik.module.music.catalog.AudioProperties;
 import org.encinet.mik.module.music.catalog.AudioPropertiesFormatter;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.TrackDetails;
+import su.plo.voice.api.server.PlasmoVoiceServer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,9 +25,12 @@ import java.util.UUID;
 public final class JukeboxPlaybackNotifier {
 
     private final LanguageService languageService;
+    private final JukeboxPlaybackAudience audience;
 
-    public JukeboxPlaybackNotifier(LanguageService languageService) {
+    public JukeboxPlaybackNotifier(LanguageService languageService,
+                                   PlasmoVoiceServer voiceServer) {
         this.languageService = Objects.requireNonNull(languageService, "languageService");
+        this.audience = new JukeboxPlaybackAudience(voiceServer);
     }
 
     void unavailableDisc(Player player) {
@@ -39,6 +43,16 @@ public final class JukeboxPlaybackNotifier {
                 NamedTextColor.RED));
     }
 
+    void overlappingPlayback(Player player) {
+        player.sendMessage(languageService.text(player,
+                Message.MUSIC_JUKEBOX_AUDIBLE_FIELD_CONFLICT, NamedTextColor.RED));
+    }
+
+    void onlineRequestRateLimited(Player player, long retryAfterSeconds) {
+        player.sendMessage(languageService.text(player, Message.MUSIC_ONLINE_RATE_LIMITED,
+                NamedTextColor.YELLOW, retryAfterSeconds));
+    }
+
     void playbackFailed(UUID requestingPlayer, MusicTrack track) {
         if (requestingPlayer == null) {
             return;
@@ -47,6 +61,17 @@ public final class JukeboxPlaybackNotifier {
         if (player != null && player.isOnline()) {
             player.sendMessage(languageService.text(player, Message.MUSIC_PLAYBACK_FAILED,
                     NamedTextColor.RED, track.details().title()));
+        }
+    }
+
+    void playbackInaudible(UUID requestingPlayer, MusicTrack track) {
+        if (requestingPlayer == null) {
+            return;
+        }
+        Player player = Bukkit.getPlayer(requestingPlayer);
+        if (player != null && player.isOnline() && !audience.canHearBackend(player, track)) {
+            player.sendMessage(languageService.text(player,
+                    Message.MUSIC_PLASMO_VOICE_UNAVAILABLE, NamedTextColor.YELLOW));
         }
     }
 
@@ -62,6 +87,9 @@ public final class JukeboxPlaybackNotifier {
         double radiusSquared = (double) rangeBlocks * rangeBlocks;
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distanceSquared(jukeboxLocation) > radiusSquared) {
+                continue;
+            }
+            if (!audience.canHearBackend(player, track)) {
                 continue;
             }
             Component name = Component.text(musicName, NamedTextColor.YELLOW)

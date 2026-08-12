@@ -144,17 +144,58 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
 
     @Override
     public CompletableFuture<String> resolve(TrackTarget.Lx target) {
+        return resolveCandidate(target, Set.of()).thenApply(LxTrackResolver.Resolution::url);
+    }
+
+    @Override
+    public CompletableFuture<LxTrackResolver.Resolution> resolveCandidate(
+            TrackTarget.Lx target, Set<String> excludedProviderIds) {
+        java.util.Objects.requireNonNull(target, "target");
+        java.util.Objects.requireNonNull(excludedProviderIds, "excludedProviderIds");
         ResolverState current = state;
         if (!current.enabled()) {
             return CompletableFuture.failedFuture(new IOException("LX custom sources are disabled"));
         }
 
-        List<Attempt> attempts = buildAttempts(current, target);
+        List<Attempt> attempts = buildAttempts(current, target, Set.copyOf(excludedProviderIds));
         if (attempts.isEmpty()) {
             return CompletableFuture.failedFuture(new IOException(
                     "No healthy LX custom source supports " + target.source()));
         }
         return attempt(current, target, attempts, 0, new ArrayList<>());
+    }
+
+    @Override
+    public void candidateSucceeded(
+            TrackTarget.Lx target, LxTrackResolver.Resolution resolution) {
+        Channel channel = channel(resolution);
+        if (channel != null) {
+            channel.audioSucceeded();
+        }
+    }
+
+    @Override
+    public void candidateFailed(TrackTarget.Lx target, LxTrackResolver.Resolution resolution,
+                                Throwable error) {
+        ResolverState current = state;
+        Channel channel = channel(current, resolution);
+        if (channel != null) {
+            channel.audioFailed(current.failureThreshold(), current.retryDelay(), rootMessage(error));
+        }
+    }
+
+    private Channel channel(LxTrackResolver.Resolution resolution) {
+        return channel(state, resolution);
+    }
+
+    private static Channel channel(
+            ResolverState state, LxTrackResolver.Resolution resolution) {
+        if (resolution == null || resolution.providerId() == null) {
+            return null;
+        }
+        return state.channels().stream()
+                .filter(candidate -> resolution.providerId().equals(candidate.info().id()))
+                .findFirst().orElse(null);
     }
 
     CompletableFuture<JsonElement> lyrics(TrackTarget.Lx target) {
@@ -397,9 +438,9 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
         }
     }
 
-    private CompletableFuture<String> attempt(ResolverState state, TrackTarget.Lx target,
-                                              List<Attempt> attempts, int index,
-                                              List<String> errors) {
+    private CompletableFuture<LxTrackResolver.Resolution> attempt(
+            ResolverState state, TrackTarget.Lx target, List<Attempt> attempts, int index,
+            List<String> errors) {
         if (index >= attempts.size()) {
             return CompletableFuture.failedFuture(new IOException(
                     "All LX custom sources failed: " + String.join("; ", errors)));
@@ -415,7 +456,8 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                 .handle((url, error) -> {
                     if (error == null) {
                         attempt.channel().succeeded();
-                        return CompletableFuture.completedFuture(url);
+                        return CompletableFuture.completedFuture(new LxTrackResolver.Resolution(
+                                url, attempt.channel().info().id()));
                     }
                     String message = rootMessage(error);
                     if (isTimeout(error)) {
@@ -487,11 +529,14 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
         return false;
     }
 
-    private List<Attempt> buildAttempts(ResolverState state, TrackTarget.Lx target) {
+    private List<Attempt> buildAttempts(ResolverState state, TrackTarget.Lx target,
+                                        Set<String> excludedProviderIds) {
         Instant now = Instant.now();
         List<Attempt> attempts = new ArrayList<>();
-        appendAttempts(attempts, state, target, now, true);
-        appendAttempts(attempts, state, target, now, false);
+        appendAttempts(attempts, state, target, now, excludedProviderIds, true, false);
+        appendAttempts(attempts, state, target, now, excludedProviderIds, false, false);
+        appendAttempts(attempts, state, target, now, excludedProviderIds, true, true);
+        appendAttempts(attempts, state, target, now, excludedProviderIds, false, true);
         return attempts;
     }
 
@@ -522,9 +567,10 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
         }
     }
 
-    private static void appendAttempts(List<Attempt> attempts, ResolverState state,
-                                       TrackTarget.Lx target, Instant now,
-                                       boolean originatingProvider) {
+    private static void appendAttempts(
+            List<Attempt> attempts, ResolverState state, TrackTarget.Lx target, Instant now,
+            Set<String> excludedProviderIds, boolean originatingProvider,
+            boolean audioPenalized) {
         for (Channel channel : state.channels()) {
             boolean matchesProvider = target.providerId() != null
                     && target.providerId().equals(channel.info().id());
@@ -533,7 +579,9 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                 continue;
             }
             channel.refreshIfNeeded(now, state.retryDelay());
-            if (!channel.available(now)) {
+            if (!channel.available(now)
+                    || excludedProviderIds.contains(channel.info().id())
+                    || channel.audioPenalized(now) != audioPenalized) {
                 continue;
             }
             String quality = selectQuality(state.quality(), target.qualities(),
@@ -794,6 +842,8 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
         private LxCustomSourceRuntime.SourceInfo info;
         private int consecutiveFailures;
         private Instant retryAt;
+        private Instant audioPenaltyUntil;
+        private int consecutiveAudioFailures;
         private String lastError;
         private boolean refreshing;
         private boolean closed;
@@ -869,9 +919,30 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
         }
 
         synchronized void succeeded() {
+            if (consecutiveAudioFailures > 0) {
+                return;
+            }
             consecutiveFailures = 0;
             retryAt = null;
             lastError = null;
+        }
+
+        synchronized boolean audioPenalized(Instant now) {
+            return audioPenaltyUntil != null && now.isBefore(audioPenaltyUntil);
+        }
+
+        synchronized void audioSucceeded() {
+            consecutiveAudioFailures = 0;
+            audioPenaltyUntil = null;
+            consecutiveFailures = 0;
+            retryAt = null;
+            lastError = null;
+        }
+
+        synchronized void audioFailed(int threshold, Duration retryDelay, String error) {
+            consecutiveAudioFailures++;
+            audioPenaltyUntil = Instant.now().plus(retryDelay);
+            failed(threshold, retryDelay, error);
         }
 
         synchronized void failed(int threshold, java.time.Duration retryDelay, String error) {

@@ -117,6 +117,7 @@ music-no-search-results-rich = Композиции со строкой «{ $key
 music-online-searching = Поиск «{ $arg0 }» в локальных и онлайн-источниках...
 music-search-keyword-required = Поисковый запрос не может быть пустым
 music-search-keyword-too-long = Поисковый запрос не может превышать { $arg0 } символов
+music-online-rate-limited = Слишком много запросов онлайн-музыки. Повторите попытку через { $arg0 } секунд.
 music-online-partial-failure = Не удалось выполнить запросов к пользовательским источникам: { $arg0 }; показаны доступные результаты
 music-loading-title = Загрузка
 music-loading-description = Подождите, пока загрузится доступное содержимое
@@ -168,6 +169,7 @@ music-stop-eject = Остановить и извлечь
 music-stop-eject-done = Воспроизведение остановлено, пластинка извлечена
 music-jukebox-unavailable = Проигрыватель удалён или его чанк недоступен
 music-jukebox-too-far = Вы слишком далеко от проигрывателя (не более { $arg0 } блоков)
+music-jukebox-audible-field-conflict = Другой проигрыватель воспроизводит другую песню в пересекающейся зоне отчётной слышимости
 music-select-music = Выбрать музыку
 music-random-mode = Случайный список
 music-library-random-mode = Случайно из фонотеки
@@ -209,6 +211,7 @@ music-random-disc-got-rich = Получена случайная пластин�
 music-inventory-full = Инвентарь заполнен. Не удалось выдать пластинку
 music-nearest-jukebox-missing = В радиусе { $arg0 } блоков нет проигрывателя
 music-now-playing-rich = Сейчас играет: { $music } · проигрыватель { $location }
+music-plasmo-voice-unavailable = Трек запущен, но вы не можете его услышать, потому что Plasmo Voice не установлен, не подключён или отключён
 music-jukebox-tp-hover = Нажмите, чтобы телепортироваться к проигрывателю
 music-rhythm-start-game = Начать игру
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 } уже в белом списке
 whitelist-temp-added-rich = Игрок { $player } временно добавлен в белый список на { $duration }
 whitelist-temp-added-plain = Игрок { $arg0 } временно добавлен в белый список на { $arg1 }
 whitelist-temp-duration = 1 час
+
+maintenance-command-description = Включить, выключить или проверить режим технического обслуживания
+maintenance-status = Режим технического обслуживания: { $arg0 }
+maintenance-unchanged = Режим технического обслуживания уже { $arg0 }
+maintenance-set = Режим технического обслуживания { $arg0 }
+maintenance-state-enabled = включён
+maintenance-state-disabled = выключен
 
 ban-command-description = Заблокировать игрока по фиксированной степени нарушения
 banlist-command-description = Показать список блокировок
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = Выделение уже соответству�
 async-regen-structure-metadata-applied = Перенесено начал структур: { $arg0 }, ссылок чанков: { $arg1 }; /locate и зависящий от структур спавн смогут их распознавать
 async-regen-visualization-legend = Визуализация в { $arg0 }: голубой — граница выделения, оранжевый — выборка изменяемых блоков, красный — блок-сущность под риском. Эти частицы видны только вам.
 async-regen-visualization-selection = Выделение в { $arg0 }: голубые частицы отмечают границу и видны только вам.
+identity-command-description = Привязать Minecraft к учётной записи внешней платформы
+identity-admin-command-description = Просмотреть или отозвать внешние привязки
+identity-unsupported-platform = Неподдерживаемая платформа: { $arg0 }
+identity-code-copy = Нажмите, чтобы скопировать полную команду привязки
+identity-code-issued = Код привязки для { $arg0 } создан:
+identity-code-redeem = В нужной группе { $arg0 } упомяните бота и отправьте: { $arg1 }
+identity-code-expiry = Код действует 5 минут и используется один раз. Создание нового кода отменяет старый.
+identity-scope-notice = Эта платформа разделяет учётные записи по группам. Выполните привязку в нужной группе; каждую группу нужно привязать отдельно.
+identity-bindings-empty = У вас нет привязанных учётных записей внешних платформ.
+identity-bindings-title = Привязанные внешние учётные записи:
+identity-bindings-unlink-hint = Используйте /bind unlink <платформа>, чтобы удалить все привязки платформы.
+identity-code-cancelled = Неиспользованный код привязки { $arg0 } отменён.
+identity-code-not-pending = Неиспользованного кода привязки { $arg0 } нет.
+identity-binding-not-owned = У вас нет привязок для этой платформы.
+identity-binding-unlinked = Удалено привязок { $arg0 }: { $arg1 }.
+identity-admin-lookup-empty = Привязки этого игрока не найдены.
+identity-admin-lookup-title = Привязки игрока { $arg0 }:
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = Однозначная привязка игрока и платформы не найдена.
+identity-admin-binding-unlinked = У игрока { $arg1 } удалено привязок { $arg0 }: { $arg2 }.
+identity-help =
+    Команды привязки учётной записи:
+    /bind qq — быстро создать команду привязки QQ
+    /bind <платформа> — создать одноразовый код
+    /bind list — показать существующие привязки
+    /bind cancel <платформа> — отменить неиспользованный код
+    /bind unlink <платформа> — удалить все привязки платформы
+identity-admin-help =
+    /bindadmin lookup <игрок-или-UUID>
+    /bindadmin unlink <игрок-или-UUID> <платформа> confirm
+identity-platforms = Поддерживаемые платформы: { $arg0 }
+identity-platform-none = нет
+identity-binding-details =  · { $arg0 } · область { $arg1 } · { $arg2 }
+identity-unavailable = Привязка учётных записей сейчас недоступна. Обратитесь к администратору.
+identity-storage-error = Ошибка операции с базой привязок. Обратитесь к администратору.
+identity-notify-linked = Ваша личность { $arg0 } подтверждена. Просмотр: /bind list; удаление: /bind unlink { $arg0 }.
+identity-notify-unlinked = Ваша привязка { $arg0 } удалена.
+
+social-command-description = Управление адаптерами социальных платформ
+social-admin-title = Социальные платформы
+social-admin-help = /social platforms · /social status [платформа] · /social reload [платформа] · /social conversations <платформа>
+social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · поколение { $arg2 } · диалоги { $arg3 }
+social-admin-unknown = Неизвестная социальная платформа: { $arg0 }
+social-admin-reloaded-all = Все социальные платформы перезагружены.
+social-admin-reloaded = Социальная платформа { $arg0 } перезагружена.
+social-admin-conversations-empty = Для { $arg0 } не обнаружено диалогов.
+social-admin-conversations-title = Обнаруженные диалоги для { $arg0 }:
+social-state-disabled = отключена
+social-state-stopped = остановлена
+social-state-starting = запускается
+social-state-ready = готова
+social-state-failed = ошибка
+social-title-online-players = Игроки онлайн
+social-title-server-status = Состояние сервера
+social-title-command-help = Справка по командам
+social-title-unknown-command = Неизвестная команда
+social-title-player-profile = Профиль игрока
+social-title-identity-linking = Привязка аккаунта
+social-title-identity-unlinking = Отвязка аккаунта
+social-title-content-hidden = Содержимое скрыто
+social-query-online-label = В сети
+social-query-players-label = Игроки
+social-query-active-label = Активные
+social-query-uptime-label = Время работы
+social-query-version-label = Версия сервера
+social-query-no-players = Сейчас на сервере нет игроков.
+social-online-command-description = Показать игроков онлайн
+social-status-command-description = Показать игроков, TPS, MSPT и время работы
+social-link-command-description = Привязать учётную запись Minecraft кодом из игры
+social-profile-command-description = Показать свой профиль; полные участники ищут по имени, упоминанию или ответу
+social-unlink-command-description = Удалить эту привязку после подтверждения
+social-help-command-description = Показать этот список команд
+social-query-unknown = Неизвестная команда. Отправьте /помощь, чтобы посмотреть доступные команды.
+social-profile-player-label = Игрок
+social-profile-avatar-alt = Лицо Minecraft
+social-profile-uuid-label = UUID
+social-profile-presence-label = Статус
+social-profile-play-time-label = Время игры
+social-profile-first-joined-label = Первый вход
+social-profile-last-seen-label = Последний вход
+social-profile-language-label = Язык
+social-profile-online = В сети · активен
+social-profile-afk = В сети · AFK
+social-profile-offline = Не в сети
+social-profile-member-required = Только привязанные полные участники, помощники или управляющие могут смотреть профили других игроков.
+social-profile-player-not-found = Этот игрок Minecraft не найден.
+social-profile-target-unbound = Упомянутая личность или автор сообщения, на которое ответили, не привязаны к Minecraft.
+social-profile-target-ambiguous = Выберите одну цель: имя игрока, одно упоминание или одного автора ответа.
+social-duration-days = { $arg0 } дн. { $arg1 } ч. { $arg2 } мин.
+social-duration-hours = { $arg0 } ч. { $arg1 } мин.
+social-duration-minutes = { $arg0 } мин.
+social-binding-identity-missing = В этом сообщении нет надёжного идентификатора участника, поэтому привязка недоступна.
+social-binding-unlink-prompt = Отвязка удалит связь этой платформенной личности с Minecraft. Для продолжения отправьте /отвязать подтвердить.
+social-binding-unlinked = Привязка к игроку Minecraft { $arg0 } удалена.
+social-binding-not-bound = Эта платформенная личность не привязана.
+social-binding-help =
+    Выполните /bind qq в Minecraft.
+    Скопируйте созданную полную команду.
+    Отправьте эту команду сюда.
+    Проверьте привязку командой /профиль.
+social-binding-unavailable = Привязка личности временно недоступна.
+social-binding-status-unbound = Эта личность не привязана. Используйте /привязать с кодом подтверждения.
+social-binding-linked = Выполнена привязка к игроку Minecraft { $arg0 }.
+social-binding-already-linked = Эта личность уже привязана к игроку Minecraft { $arg0 }.
+social-binding-code-invalid = Код подтверждения неверен или истёк. Создайте новый командой /bind qq в Minecraft.
+social-binding-platform-mismatch = Этот код подтверждения выдан для другой платформы.
+social-binding-external-in-use = Эта личность уже привязана к другому игроку Minecraft.
+social-binding-player-scope-in-use = У этого игрока Minecraft в данном диалоге уже привязана другая личность.
+social-binding-rate-limited = Слишком много неудачных попыток. Повторите примерно через { $arg0 } мин.
+social-reply-hidden = Ответ скрыт политикой безопасности содержимого сервера.
+
+qq-command-description = Управление адаптером платформы QQ
+qq-admin-disabled = Платформа QQ отключена.
+qq-admin-status = Состояние QQ: { $arg0 }
+qq-admin-last-error = Последняя ошибка: { $arg0 }
+qq-admin-reload-disabled = QQ отключён, поэтому перезагрузка его не запустила.
+qq-admin-reloaded = Платформа QQ перезагружена.
+qq-admin-groups-empty = Разговоры QQ пока не наблюдались.
+qq-admin-groups-title = Наблюдавшиеся разговоры QQ:
+qq-receiver-stopped = остановлен
+qq-receiver-connecting = подключение
+qq-receiver-ready = готов
+qq-receiver-failed = ошибка
+
 self-kick-command-description = Кикнуть себя с сервера
 self-kick-reason-too-long = Причина кика не может превышать { $arg0 } символов
 self-kick-with-reason = { $player } кикнул себя с сервера по этой причине: { $reason }

@@ -90,12 +90,13 @@ final class NbsPlaybackEngine implements AutoCloseable {
 
     PlaybackSession create(Location location, TrackTarget.NbsFile target,
                            JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
-                           RhythmTimeline rhythmTimeline) {
+                           RhythmTimeline rhythmTimeline,
+                           JukeboxPlaybackGroup playbackGroup) {
         if (closed.get()) {
             throw new IllegalStateException("NBS playback backend is closed");
         }
         Session session = new Session(location.clone(), target, settings, callbacks,
-                rhythmTimeline);
+                rhythmTimeline, playbackGroup);
         sessions.add(session);
         return session;
     }
@@ -103,7 +104,8 @@ final class NbsPlaybackEngine implements AutoCloseable {
     PlaybackSession create(Location location, TrackTarget.NbsFile target,
                            JukeboxSoundSettings settings, PlaybackCallbacks callbacks) {
         return create(location, target, settings, callbacks,
-                new RhythmTimeline(target.path().toString()));
+                new RhythmTimeline(target.path().toString()),
+                new JukeboxPlaybackGroup());
     }
 
     @Override
@@ -121,6 +123,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
         private final TrackTarget.NbsFile target;
         private final PlaybackCallbacks callbacks;
         private final RhythmTimeline rhythmTimeline;
+        private final JukeboxPlaybackGroup playbackGroup;
         private final NbsSoundLedger soundLedger = new NbsSoundLedger();
         private final AtomicBoolean preparationStarted = new AtomicBoolean();
         private final AtomicBoolean playbackRequested = new AtomicBoolean();
@@ -137,12 +140,15 @@ final class NbsPlaybackEngine implements AutoCloseable {
 
         private Session(Location location, TrackTarget.NbsFile target,
                         JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
-                        RhythmTimeline rhythmTimeline) {
+                        RhythmTimeline rhythmTimeline,
+                        JukeboxPlaybackGroup playbackGroup) {
             this.location = location;
             this.target = Objects.requireNonNull(target, "target");
             this.settings = Objects.requireNonNull(settings, "settings");
             this.callbacks = Objects.requireNonNull(callbacks, "callbacks");
             this.rhythmTimeline = Objects.requireNonNull(rhythmTimeline, "rhythmTimeline");
+            this.playbackGroup = Objects.requireNonNull(
+                    playbackGroup, "playbackGroup");
         }
 
         @Override
@@ -220,9 +226,11 @@ final class NbsPlaybackEngine implements AutoCloseable {
                     cancel();
                     return;
                 }
-                cursor = new NbsPlaybackCursor(song);
+                cursor = new NbsPlaybackCursor(song,
+                        playbackGroup.synchronizedPositionMillis());
                 NbsPlaybackCursor.PollResult initial = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = initial.positionMillis();
+                playbackGroup.publishPositionMillis(playbackPositionMillis);
                 task = scheduler.scheduleEveryTick(this::tick);
                 status = PlaybackStatus.PLAYING;
                 playNotes(location, initial.notes(), settings, audibleToPlayer,
@@ -244,6 +252,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
             try {
                 NbsPlaybackCursor.PollResult result = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = result.positionMillis();
+                playbackGroup.publishPositionMillis(playbackPositionMillis);
                 playNotes(location, result.notes(), settings, audibleToPlayer,
                         soundLedger);
                 if (result.finished()) {

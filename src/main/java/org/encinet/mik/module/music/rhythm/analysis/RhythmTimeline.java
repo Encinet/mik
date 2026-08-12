@@ -108,6 +108,16 @@ public final class RhythmTimeline implements RhythmTrack, RhythmExtractionSink {
         complete = true;
     }
 
+    /** Clears a failed attempt before the same track is decoded again from fresh media. */
+    public synchronized void reset() {
+        beats.clear();
+        nextId = 1L;
+        analyzedThroughMillis = 0L;
+        complete = false;
+        source = RhythmSource.AUDIO_ANALYSIS;
+        loop = null;
+    }
+
     /** Returns stable beat occurrences in the inclusive playback-relative window. */
     @Override
     public synchronized List<RhythmBeat> between(long fromMillis, long toMillis) {

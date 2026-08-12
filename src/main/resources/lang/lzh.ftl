@@ -117,6 +117,7 @@ music-no-search-results-rich = 尋含「{ $keyword }」之曲未得
 music-online-searching = 方於本地與網上聲源尋「{ $arg0 }」⋯
 music-search-keyword-required = 尋詞不可空
 music-search-keyword-too-long = 尋詞不得逾 { $arg0 } 字
+music-online-rate-limited = 網上樂請過繁，請俟 { $arg0 } 秒復試
 music-online-partial-failure = 自定聲源有 { $arg0 } 請求未成，今示可得之果
 music-loading-title = 方載
 music-loading-description = 方載可用之物，請稍候
@@ -168,6 +169,7 @@ music-stop-eject = 止而出盤
 music-stop-eject-done = 奏既止，盤既出
 music-jukebox-unavailable = 留聲機既除，或其區不可用
 music-jukebox-too-far = 距留聲機過遠（至多 { $arg0 } 格）
+music-jukebox-audible-field-conflict = 他留聲機之顯聞域相重，而奏異曲
 music-select-music = 擇曲
 music-random-mode = 亂序循簿
 music-library-random-mode = 樂庫亂奏
@@ -209,6 +211,7 @@ music-random-disc-got-rich = 得無定留聲盤：{ $music }
 music-inventory-full = 行囊既滿，無以得留聲盤
 music-nearest-jukebox-missing = { $arg0 } 方之內，未得留聲機
 music-now-playing-rich = 方奏：{ $music }，留聲機在 { $location }
+music-plasmo-voice-unavailable = 曲雖已奏，然 Plasmo Voice 未裝、未接或未啟，故不可聞
 music-jukebox-tp-hover = 擊以移形至留聲機
 music-rhythm-start-game = 開戲
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 } 已在準簿中
 whitelist-temp-added-rich = { $player } 既納暫準簿，限 { $duration }
 whitelist-temp-added-plain = { $arg0 } 既納暫準簿，限 { $arg1 }
 whitelist-temp-duration = 1 時
+
+maintenance-command-description = 啟閉維護之式，並察其態
+maintenance-status = 維護之式：{ $arg0 }
+maintenance-unchanged = 維護之式已{ $arg0 }，無所更
+maintenance-set = 維護之式已{ $arg0 }
+maintenance-state-enabled = 啟
+maintenance-state-disabled = 閉
 
 ban-command-description = 依定等禁玩家
 banlist-command-description = 覽禁錄
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = 所選已合此策，無變可施
 async-regen-structure-metadata-applied = 已移營造之始 { $arg0 }、區塊之引 { $arg1 }；/locate 與依營造而生者皆可識之
 async-regen-visualization-legend = 選域之象見於 { $arg0 }：青者界，橙者所易方塊之樣，赤者或覆之方塊實體；此粒惟汝可見
 async-regen-visualization-selection = { $arg0 } 中青粒示選域之界，惟汝可見
+identity-command-description = 繫 Minecraft 與外臺之身份
+identity-admin-command-description = 察或解外臺身份之繫
+identity-unsupported-platform = 此臺未納：{ $arg0 }
+identity-code-copy = 點此抄完整繫定之令
+identity-code-issued = { $arg0 } 繫驗碼既成：
+identity-code-redeem = 至所欲之 { $arg0 } 群，呼機關人而發：{ $arg1 }
+identity-code-expiry = 驗碼五分而廢，且僅可一用；再取則舊碼失效。
+identity-scope-notice = 此臺身份以群為界；當於所欲之群繫之，異群須各繫。
+identity-bindings-empty = 今未繫外臺之號。
+identity-bindings-title = 已繫之外部身份：
+identity-bindings-unlink-hint = 以 /bind unlink <臺> 解此臺諸繫。
+identity-code-cancelled = 已廢未用之 { $arg0 } 驗碼。
+identity-code-not-pending = 無待用之 { $arg0 } 驗碼。
+identity-binding-not-owned = 君於此臺無繫。
+identity-binding-unlinked = 已解 { $arg0 } 之繫 { $arg1 }。
+identity-admin-lookup-empty = 未得此玩家之繫錄。
+identity-admin-lookup-title = { $arg0 } 之繫：
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = 未得獨一之玩家與臺繫。
+identity-admin-binding-unlinked = 已解玩家 { $arg1 } 之 { $arg0 } 繫 { $arg2 }。
+identity-help =
+    身份繫定之令：
+    /bind qq — 速取 QQ 繫定之令
+    /bind <臺> — 取一次驗碼
+    /bind list — 察既有之繫
+    /bind cancel <臺> — 廢待用驗碼
+    /bind unlink <臺> — 解此臺諸繫
+identity-admin-help =
+    /bindadmin lookup <玩家或UUID>
+    /bindadmin unlink <玩家或UUID> <臺> confirm
+identity-platforms = 所納之臺：{ $arg0 }
+identity-platform-none = 無
+identity-binding-details =  · { $arg0 } · 域 { $arg1 } · { $arg2 }
+identity-unavailable = 身份繫定之務今不可用，請告司者。
+identity-storage-error = 身份繫庫行事敗，請告司者。
+identity-notify-linked = { $arg0 } 身份已繫。可用 /bind list 察之，或用 /bind unlink { $arg0 } 解之。
+identity-notify-unlinked = 已解君之 { $arg0 } 身份繫。
+
+social-command-description = 治社交諸臺之接器
+social-admin-title = 社交諸臺
+social-admin-help = /social platforms · /social status [臺] · /social reload [臺] · /social conversations <臺>
+social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · 世 { $arg2 } · 談 { $arg3 }
+social-admin-unknown = 未識之社交臺：{ $arg0 }
+social-admin-reloaded-all = 社交諸臺皆已重載。
+social-admin-reloaded = 社交臺 { $arg0 } 已重載。
+social-admin-conversations-empty = 未見 { $arg0 } 之談。
+social-admin-conversations-title = 所見 { $arg0 } 之談：
+social-state-disabled = 已禁
+social-state-stopped = 已止
+social-state-starting = 方啟
+social-state-ready = 已備
+social-state-failed = 敗
+social-title-online-players = 在線玩家
+social-title-server-status = 伺服器狀
+social-title-command-help = 命令之助
+social-title-unknown-command = 未知命令
+social-title-player-profile = 玩家之錄
+social-title-identity-linking = 帳號繫結
+social-title-identity-unlinking = 解除繫結
+social-title-content-hidden = 內容已隱
+social-query-online-label = 在綫
+social-query-players-label = 遊者
+social-query-active-label = 活躍
+social-query-uptime-label = 運行之時
+social-query-version-label = 伺服器之版
+social-query-no-players = 今無遊者在綫。
+social-online-command-description = 覽在綫諸玩家
+social-status-command-description = 覽玩家、TPS、MSPT 與運行之時
+social-link-command-description = 以遊戲中驗碼繫 Minecraft 帳
+social-profile-command-description = 覽己之錄；正員可以玩家名、提及或回覆詢他人
+social-unlink-command-description = 確認而後解此身份之繫
+social-help-command-description = 覽此令表
+social-query-unknown = 未識此令。請發 /助 以觀諸令。
+social-profile-player-label = 遊者
+social-profile-avatar-alt = Minecraft 面像
+social-profile-uuid-label = UUID
+social-profile-presence-label = 狀況
+social-profile-play-time-label = 遊戲之時
+social-profile-first-joined-label = 初入
+social-profile-last-seen-label = 最近在綫
+social-profile-language-label = 語言
+social-profile-online = 在綫 · 活躍
+social-profile-afk = 在綫 · 暫離
+social-profile-offline = 離綫
+social-profile-member-required = 惟已繫之正員、協管、管理員可詢他人之錄。
+social-profile-player-not-found = 未得此 Minecraft 玩家。
+social-profile-target-unbound = 所提及或所覆之身份未繫 Minecraft 玩家。
+social-profile-target-ambiguous = 惟可擇一：玩家名、提及一人、或覆一人。
+social-duration-days = { $arg0 } 日 { $arg1 } 時 { $arg2 } 分
+social-duration-hours = { $arg0 } 時 { $arg1 } 分
+social-duration-minutes = { $arg0 } 分
+social-binding-identity-missing = 此訊無可信之臺員身分，故不可繫身分。
+social-binding-unlink-prompt = 解繫將去此臺身分與 Minecraft 之關聯。若決，請發 /解繫 確認。
+social-binding-unlinked = 已解與 Minecraft 遊者 { $arg0 } 之繫。
+social-binding-not-bound = 此臺身分未繫 Minecraft 遊者。
+social-binding-help =
+    於 Minecraft 行 /bind qq。
+    錄所得完整之令。
+    發於此。
+    以 /吾 驗之。
+social-binding-unavailable = 身分之繫暫不可用。
+social-binding-status-unbound = 此臺身分未繫。請用遊戲中所得驗碼行 /繫。
+social-binding-linked = 已繫 Minecraft 遊者 { $arg0 }。
+social-binding-already-linked = 此臺身分已繫 Minecraft 遊者 { $arg0 }。
+social-binding-code-invalid = 驗碼無效或已過期。請於 Minecraft 復行 /bind qq。
+social-binding-platform-mismatch = 此驗碼乃為他臺所發。
+social-binding-external-in-use = 此臺身分已繫他 Minecraft 遊者。
+social-binding-player-scope-in-use = 此 Minecraft 遊者於本談已有他身分之繫。
+social-binding-rate-limited = 試驗碼過頻，請約 { $arg0 } 分後復試。
+social-reply-hidden = 回覆犯伺服器內容安全之則，原文已隱。
+
+qq-command-description = 治 QQ 臺之接器
+qq-admin-disabled = QQ 臺未啟。
+qq-admin-status = QQ 之態：{ $arg0 }
+qq-admin-last-error = 末誤：{ $arg0 }
+qq-admin-reload-disabled = QQ 未啟，重載亦不啟之。
+qq-admin-reloaded = QQ 臺已重載。
+qq-admin-groups-empty = 未見 QQ 會話。
+qq-admin-groups-title = 所見 QQ 會話：
+qq-receiver-stopped = 已止
+qq-receiver-connecting = 連接中
+qq-receiver-ready = 已備
+qq-receiver-failed = 敗
+
 self-kick-command-description = 自逐出伺服器
 self-kick-reason-too-long = 逐出之故不可逾 { $arg0 } 字
 self-kick-with-reason = { $player } 自逐於服，其故曰：{ $reason }

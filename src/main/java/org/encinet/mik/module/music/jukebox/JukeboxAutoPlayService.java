@@ -20,18 +20,25 @@ import java.util.HashMap;
 public class JukeboxAutoPlayService {
 
     private static final long NEXT_TRACK_DELAY_TICKS = 40L;
-    private static final int PLAYER_SEARCH_RADIUS = 65;
 
     private final JavaPlugin plugin;
     private final JukeboxQueueService queueService;
     private final JukeboxPlayback playback;
+    private final JukeboxSettingsStore settingsStore;
     private final Map<Location, BukkitTask> autoPlayTasks = new HashMap<>();
 
     public JukeboxAutoPlayService(JavaPlugin plugin, JukeboxQueueService queueService,
                                   JukeboxPlayback playback) {
+        this(plugin, queueService, playback, new JukeboxSettingsStore());
+    }
+
+    public JukeboxAutoPlayService(JavaPlugin plugin, JukeboxQueueService queueService,
+                                  JukeboxPlayback playback,
+                                  JukeboxSettingsStore settingsStore) {
         this.plugin = plugin;
         this.queueService = queueService;
         this.playback = playback;
+        this.settingsStore = settingsStore;
     }
 
     public void onTrackFinished(Location location, MusicTrack finishedTrack) {
@@ -44,15 +51,21 @@ public class JukeboxAutoPlayService {
         }
 
         BukkitTask task = Bukkit.getScheduler().runTaskLater(
-                plugin, () -> playNextTrack(blockLocation, finishedTrack), NEXT_TRACK_DELAY_TICKS);
+                plugin, () -> playNextTrack(blockLocation, finishedTrack, null),
+                NEXT_TRACK_DELAY_TICKS);
         autoPlayTasks.put(blockLocation, task);
     }
 
     public boolean playNextTrack(Location location) {
-        return playNextTrack(location, null);
+        return playNextTrack(location, null, null);
     }
 
-    private boolean playNextTrack(Location location, MusicTrack finishedTrack) {
+    public boolean playNextTrack(Location location, Player requestingPlayer) {
+        return playNextTrack(location, null, requestingPlayer);
+    }
+
+    private boolean playNextTrack(Location location, MusicTrack finishedTrack,
+                                  Player requestingPlayer) {
         Location blockLocation = location.getBlock().getLocation();
         cancelScheduledTask(blockLocation);
 
@@ -74,6 +87,14 @@ public class JukeboxAutoPlayService {
             }
         }
 
+        Player nearestPlayer = requestingPlayer == null
+                ? findNearestPlayer(blockLocation,
+                        settingsStore.read(jukebox).rangeBlocks())
+                : requestingPlayer;
+        if (finishedTrack != null && nearestPlayer == null) {
+            return false;
+        }
+
         MusicTrack currentTrack = finishedTrack != null
                 ? finishedTrack
                 : queueService.trackById(
@@ -84,27 +105,29 @@ public class JukeboxAutoPlayService {
             return false;
         }
 
-        Player nearestPlayer = findNearestPlayer(blockLocation);
+        boolean notifyRequesterIfInaudible = requestingPlayer != null;
         boolean repeatInsertedDisc = finishedTrack != null
                 && data.playbackMode() == JukeboxPlaybackMode.REPEAT_ONE
                 && finishedTrack.id().equals(MusicDiscKeys.trackId(jukebox.getRecord()));
         boolean accepted = repeatInsertedDisc
-                ? playback.playInsertedDisc(nearestPlayer, jukebox)
+                ? playback.playInsertedDisc(nearestPlayer, jukebox,
+                        notifyRequesterIfInaudible)
                 : playback.playVirtualTrackOnJukebox(
-                        nearestPlayer, jukebox, nextTrack, () -> {});
+                        nearestPlayer, jukebox, nextTrack, () -> {},
+                        notifyRequesterIfInaudible);
         if (!accepted) {
             return false;
         }
         return true;
     }
 
-    private Player findNearestPlayer(Location location) {
+    static Player findNearestPlayer(Location location, int rangeBlocks) {
         if (location.getWorld() == null) {
             return null;
         }
 
         Player nearest = null;
-        double nearestDistanceSquared = PLAYER_SEARCH_RADIUS * PLAYER_SEARCH_RADIUS;
+        double nearestDistanceSquared = (double) rangeBlocks * rangeBlocks;
         for (Player player : location.getWorld().getPlayers()) {
             double distanceSquared = player.getLocation().distanceSquared(location);
             if (distanceSquared <= nearestDistanceSquared) {

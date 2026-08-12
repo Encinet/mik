@@ -7,6 +7,10 @@ interface PlaybackCallbacks {
 
     void started();
 
+    /** The backend is replacing a failed online stream while retaining user-visible state. */
+    default void retrying() {
+    }
+
     void failed(Throwable error);
 
     void finished();

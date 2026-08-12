@@ -1,6 +1,7 @@
 package org.encinet.mik.module.performance;
 
 import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent;
+import com.destroystokyo.paper.event.server.ServerTickEndEvent;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -52,7 +53,7 @@ public class PerformanceModule implements Listener {
     private final Component kickMessage;
 
     private final MsptSampler sampler;
-    private final EmergencyController emergencyController;
+    private final EmergencyTickPausePolicy tickPausePolicy;
     private final RandomTickAdjuster tickAdjuster;
     private final PlayerDistanceController distanceController;
     private final ChunkPressureController pressureController;
@@ -74,7 +75,7 @@ public class PerformanceModule implements Listener {
                 .append(Component.text("═══════════════════════════════"));
 
         this.sampler = new MsptSampler();
-        this.emergencyController = new EmergencyController();
+        this.tickPausePolicy = new EmergencyTickPausePolicy();
         this.tickAdjuster = new RandomTickAdjuster(Bukkit.getWorlds());
         this.distanceController = new PlayerDistanceController(
                 afkService,
@@ -133,7 +134,7 @@ public class PerformanceModule implements Listener {
         windChargeCleanupTask = null;
         if (liveFrozen && tickManager.isFrozen()) tickManager.setFrozen(false);
         liveFrozen = false;
-        emergencyController.reset();
+        tickPausePolicy.reset();
         tickAdjuster.reset();
         distanceController.resetAll();
         pressureController.reset();
@@ -143,31 +144,11 @@ public class PerformanceModule implements Listener {
         double rawMspt = Bukkit.getAverageTickTime();
         double mspt = sampler.update(rawMspt);
         double trend = sampler.trend();
-        EmergencyController.Decision emergencyDecision = emergencyController.evaluate(rawMspt, liveFrozen);
 
         double effectiveMspt = Math.max(mspt, mspt + trend);
-        boolean emergencyArmed = liveFrozen
-                || emergencyDecision == EmergencyController.Decision.FREEZE
-                || emergencyDecision == EmergencyController.Decision.FREEZE_AND_KICK;
-        boolean chunkGuardArmed = emergencyArmed || effectiveMspt >= THRESHOLD_CHUNK_GUARD;
+        boolean chunkGuardArmed = liveFrozen || effectiveMspt >= THRESHOLD_CHUNK_GUARD;
         lastEffectiveMspt = effectiveMspt;
         SchedulerUtil.runSync(plugin, () -> {
-            switch (emergencyDecision) {
-                case FREEZE -> freeze(rawMspt, false);
-                case FREEZE_AND_KICK -> freeze(rawMspt, true);
-                case KICK -> {
-                    int kicked = kickNonManagers();
-                    plugin.getLogger().warning(String.format(
-                            Locale.ROOT,
-                            "Extreme lag persisted while frozen (MSPT=%.1f); kicked %d players.",
-                            rawMspt,
-                            kicked));
-                }
-                case UNFREEZE -> unfreeze(rawMspt);
-                case HOLD -> {
-                }
-            }
-
             if (chunkGuardArmed) {
                 pressureController.rollWindow();
             } else {
@@ -176,6 +157,30 @@ public class PerformanceModule implements Listener {
             tickAdjuster.adjust(effectiveMspt);
             distanceController.adjust(effectiveMspt);
         });
+    }
+
+    /**
+     * Uses the duration of each completed server tick so emergency pausing is
+     * not delayed by a scheduler interval that stretches with low TPS.
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onServerTickEnd(ServerTickEndEvent event) {
+        double tickDurationMillis = event.getTickDuration();
+        switch (tickPausePolicy.evaluate(tickDurationMillis, liveFrozen)) {
+            case FREEZE -> freeze(tickDurationMillis, false);
+            case FREEZE_AND_KICK -> freeze(tickDurationMillis, true);
+            case KICK -> {
+                int kicked = kickNonManagers();
+                plugin.getLogger().warning(String.format(
+                        Locale.ROOT,
+                        "Extreme lag persisted while tick-paused (tick=%.1f ms); kicked %d players.",
+                        tickDurationMillis,
+                        kicked));
+            }
+            case UNFREEZE -> unfreeze(tickDurationMillis);
+            case HOLD -> {
+            }
+        }
     }
 
     @EventHandler
@@ -254,7 +259,7 @@ public class PerformanceModule implements Listener {
         return liveFrozen || lastEffectiveMspt >= THRESHOLD_CHUNK_GUARD;
     }
 
-    private void freeze(double mspt, boolean kickPlayers) {
+    private void freeze(double tickDurationMillis, boolean kickPlayers) {
         if (!tickManager.isFrozen()) {
             tickManager.setFrozen(true);
         }
@@ -265,14 +270,14 @@ public class PerformanceModule implements Listener {
         if (kickPlayers) {
             plugin.getLogger().warning(String.format(
                     Locale.ROOT,
-                    "Server emergency-frozen after sustained extreme lag (MSPT=%.1f); kicked %d players.",
-                    mspt,
+                    "Server tick-paused after sustained extreme lag (tick=%.1f ms); kicked %d players.",
+                    tickDurationMillis,
                     kicked));
         } else {
             plugin.getLogger().warning(String.format(
                     Locale.ROOT,
-                    "Server emergency-frozen after sustained extreme lag (MSPT=%.1f).",
-                    mspt));
+                    "Server tick-paused after sustained extreme lag (tick=%.1f ms).",
+                    tickDurationMillis));
         }
     }
 
@@ -288,15 +293,15 @@ public class PerformanceModule implements Listener {
         return kicked;
     }
 
-    private void unfreeze(double mspt) {
+    private void unfreeze(double tickDurationMillis) {
         if (tickManager.isFrozen()) {
             tickManager.setFrozen(false);
         }
         liveFrozen = false;
         plugin.getLogger().info(String.format(
                 Locale.ROOT,
-                "Server recovered from emergency freeze (MSPT=%.1f).",
-                mspt));
+                "Server recovered from emergency tick pause (tick=%.1f ms).",
+                tickDurationMillis));
     }
 
     public double effectiveMspt() {
@@ -356,83 +361,6 @@ public class PerformanceModule implements Listener {
             }
             double denom = n * sumX2 - sumX * sumX;
             return denom == 0.0 ? 0.0 : (n * sumXY - sumX * sumY) / denom;
-        }
-    }
-
-    /**
-     * Escalates only sustained near-stall conditions. Lower MSPT remains a
-     * supported degraded mode and never accumulates toward freeze or kick.
-     */
-    private static final class EmergencyController {
-
-        enum Decision {FREEZE, FREEZE_AND_KICK, KICK, UNFREEZE, HOLD}
-
-        private static final double FREEZE_MSPT = 1000.0; // ~1 TPS
-        private static final double KICK_MSPT = 2000.0; // ~0.5 TPS
-        private static final double RECOVERY_MSPT = 200.0; // ~5 TPS
-        private static final int FREEZE_CONFIRM_WINDOWS = 2;
-        private static final int KICK_CONFIRM_WINDOWS = 2;
-        private static final int RECOVERY_CONFIRM_WINDOWS = 5;
-
-        private int freezeCount;
-        private int kickCount;
-        private int recoveryCount;
-        private boolean kickedDuringFreeze;
-
-        Decision evaluate(double mspt, boolean frozen) {
-            if (frozen) {
-                freezeCount = 0;
-                if (!kickedDuringFreeze && mspt >= KICK_MSPT) {
-                    recoveryCount = 0;
-                    kickCount = Math.min(kickCount + 1, KICK_CONFIRM_WINDOWS);
-                    if (kickCount >= KICK_CONFIRM_WINDOWS) {
-                        kickCount = 0;
-                        kickedDuringFreeze = true;
-                        return Decision.KICK;
-                    }
-                    return Decision.HOLD;
-                }
-                kickCount = 0;
-                if (mspt > RECOVERY_MSPT) {
-                    recoveryCount = 0;
-                    return Decision.HOLD;
-                }
-                recoveryCount = Math.min(recoveryCount + 1, RECOVERY_CONFIRM_WINDOWS);
-                if (recoveryCount < RECOVERY_CONFIRM_WINDOWS) {
-                    return Decision.HOLD;
-                }
-                kickedDuringFreeze = false;
-                return Decision.UNFREEZE;
-            }
-
-            recoveryCount = 0;
-            kickedDuringFreeze = false;
-            freezeCount = mspt >= FREEZE_MSPT
-                    ? Math.min(freezeCount + 1, FREEZE_CONFIRM_WINDOWS)
-                    : 0;
-            kickCount = mspt >= KICK_MSPT
-                    ? Math.min(kickCount + 1, KICK_CONFIRM_WINDOWS)
-                    : 0;
-
-            if (kickCount >= KICK_CONFIRM_WINDOWS) {
-                freezeCount = 0;
-                kickCount = 0;
-                kickedDuringFreeze = true;
-                return Decision.FREEZE_AND_KICK;
-            }
-            if (freezeCount >= FREEZE_CONFIRM_WINDOWS) {
-                freezeCount = 0;
-                kickCount = 0;
-                return Decision.FREEZE;
-            }
-            return Decision.HOLD;
-        }
-
-        void reset() {
-            freezeCount = 0;
-            kickCount = 0;
-            recoveryCount = 0;
-            kickedDuringFreeze = false;
         }
     }
 

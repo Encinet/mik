@@ -1,0 +1,2 @@
+# Shared outbound social-platform safety rules. One keyword per line.
+# Empty lines and comments are ignored.

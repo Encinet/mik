@@ -117,6 +117,7 @@ music-no-search-results-rich = 「{ $keyword }」を含む曲は見つかりま�
 music-online-searching = ローカルとオンライン音源から「{ $arg0 }」を検索しています...
 music-search-keyword-required = 検索キーワードを入力してください
 music-search-keyword-too-long = 検索キーワードは { $arg0 } 文字以内にしてください
+music-online-rate-limited = オンライン音楽へのリクエストが多すぎます。{ $arg0 } 秒後に再試行してください。
 music-online-partial-failure = { $arg0 }件のカスタム音源リクエストに失敗しました。取得できた結果を表示します
 music-loading-title = 読み込み中
 music-loading-description = 利用可能な内容を読み込むまでお待ちください
@@ -168,6 +169,7 @@ music-stop-eject = 停止して取り出す
 music-stop-eject-done = 再生を停止してレコードを取り出しました
 music-jukebox-unavailable = ジュークボックスが撤去されたか、そのチャンクを利用できません
 music-jukebox-too-far = ジュークボックスから離れすぎています（最大 { $arg0 } ブロック）
+music-jukebox-audible-field-conflict = はっきり聞こえる範囲が重なる別のジュークボックスで異なる曲が再生されています
 music-select-music = 曲を選択
 music-random-mode = リストをシャッフル
 music-library-random-mode = ライブラリをシャッフル
@@ -209,6 +211,7 @@ music-random-disc-got-rich = ランダムなレコードを入手しました: {
 music-inventory-full = インベントリがいっぱいのため、レコードを渡せませんでした
 music-nearest-jukebox-missing = { $arg0 }ブロック以内にジュークボックスがありません
 music-now-playing-rich = 再生中: { $music }（ジュークボックス: { $location }）
+music-plasmo-voice-unavailable = 曲は再生されましたが、Plasmo Voice がインストール、接続、または有効化されていないため聴くことができません
 music-jukebox-tp-hover = クリックしてジュークボックスへテレポート
 music-rhythm-start-game = ゲーム開始
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 }はすでにホワイトリストに登
 whitelist-temp-added-rich = { $player }を一時ホワイトリストに追加しました（{ $duration }）
 whitelist-temp-added-plain = { $arg0 }を一時ホワイトリストに追加しました（{ $arg1 }）
 whitelist-temp-duration = 1時間
+
+maintenance-command-description = メンテナンスモードの切り替えまたは状態確認
+maintenance-status = メンテナンスモード: { $arg0 }
+maintenance-unchanged = メンテナンスモードはすでに{ $arg0 }です
+maintenance-set = メンテナンスモードを{ $arg0 }にしました
+maintenance-state-enabled = 有効
+maintenance-state-disabled = 無効
 
 ban-command-description = 固定の重大度でプレイヤーをBAN
 banlist-command-description = BAN一覧を表示
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = 選択範囲はこのプランと一致してい�
 async-regen-structure-metadata-applied = 構造物の開始点 { $arg0 } 件とチャンク参照 { $arg1 } 件を移行しました。/locate と構造物依存のスポーンから認識できます
 async-regen-visualization-legend = { $arg0 } の可視化：水色 = 選択範囲、オレンジ = 変更ブロックのサンプル、赤 = 上書きの危険があるブロックエンティティ。このパーティクルは自分にだけ見えます。
 async-regen-visualization-selection = { $arg0 } の水色パーティクルが選択範囲の境界を示します。自分にだけ見えます。
+identity-command-description = Minecraft を外部プラットフォームの ID と連携する
+identity-admin-command-description = 外部 ID の連携を確認または解除する
+identity-unsupported-platform = 未対応のプラットフォーム：{ $arg0 }
+identity-code-copy = クリックして完全な連携コマンドをコピー
+identity-code-issued = { $arg0 } の連携コードを発行しました：
+identity-code-redeem = 対象の { $arg0 } グループで Bot をメンションして送信：{ $arg1 }
+identity-code-expiry = コードの有効期限は 5 分で、1 回だけ使用できます。再発行すると古いコードは無効になります。
+identity-scope-notice = このプラットフォームの ID はグループごとに分離されています。利用するグループ内で連携し、別のグループでは再度連携してください。
+identity-bindings-empty = 外部プラットフォームのアカウントは連携されていません。
+identity-bindings-title = 連携済みの外部 ID：
+identity-bindings-unlink-hint = /bind unlink <プラットフォーム> でそのプラットフォームの全連携を解除できます。
+identity-code-cancelled = 未使用の { $arg0 } 連携コードを取り消しました。
+identity-code-not-pending = 未使用の { $arg0 } 連携コードはありません。
+identity-binding-not-owned = そのプラットフォームの連携はありません。
+identity-binding-unlinked = { $arg0 } の連携を { $arg1 } 件解除しました。
+identity-admin-lookup-empty = このプレイヤーの連携は見つかりませんでした。
+identity-admin-lookup-title = { $arg0 } の連携：
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = プレイヤーとプラットフォームを一意に特定できませんでした。
+identity-admin-binding-unlinked = プレイヤー { $arg1 } の { $arg0 } 連携を { $arg2 } 件解除しました。
+identity-help =
+    ID 連携コマンド：
+    /bind qq — QQ 連携コマンドをすぐに発行
+    /bind <プラットフォーム> — 使い捨てコードを発行
+    /bind list — 既存の連携を表示
+    /bind cancel <プラットフォーム> — 未使用コードを取り消す
+    /bind unlink <プラットフォーム> — そのプラットフォームの全連携を解除
+identity-admin-help =
+    /bindadmin lookup <プレイヤーまたはUUID>
+    /bindadmin unlink <プレイヤーまたはUUID> <プラットフォーム> confirm
+identity-platforms = 対応プラットフォーム：{ $arg0 }
+identity-platform-none = なし
+identity-binding-details =  · { $arg0 } · スコープ { $arg1 } · { $arg2 }
+identity-unavailable = ID 連携は現在利用できません。管理者に連絡してください。
+identity-storage-error = ID 連携データベースの処理に失敗しました。管理者に連絡してください。
+identity-notify-linked = { $arg0 } の ID 連携を確認しました。/bind list で確認、/bind unlink { $arg0 } で解除できます。
+identity-notify-unlinked = { $arg0 } の ID 連携を解除しました。
+
+social-command-description = ソーシャルプラットフォームアダプターを管理します
+social-admin-title = ソーシャルプラットフォーム
+social-admin-help = /social platforms · /social status [プラットフォーム] · /social reload [プラットフォーム] · /social conversations <プラットフォーム>
+social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · 世代 { $arg2 } · 会話 { $arg3 }
+social-admin-unknown = 不明なソーシャルプラットフォーム：{ $arg0 }
+social-admin-reloaded-all = すべてのソーシャルプラットフォームを再読み込みしました。
+social-admin-reloaded = ソーシャルプラットフォーム { $arg0 } を再読み込みしました。
+social-admin-conversations-empty = { $arg0 } で確認された会話はありません。
+social-admin-conversations-title = { $arg0 } で確認された会話：
+social-state-disabled = 無効
+social-state-stopped = 停止
+social-state-starting = 起動中
+social-state-ready = 準備完了
+social-state-failed = 失敗
+social-title-online-players = オンラインプレイヤー
+social-title-server-status = サーバー状態
+social-title-command-help = コマンドヘルプ
+social-title-unknown-command = 不明なコマンド
+social-title-player-profile = プレイヤープロフィール
+social-title-identity-linking = アカウント連携
+social-title-identity-unlinking = アカウント連携解除
+social-title-content-hidden = 内容を非表示
+social-query-online-label = オンライン
+social-query-players-label = プレイヤー
+social-query-active-label = アクティブ
+social-query-uptime-label = 稼働時間
+social-query-version-label = サーバーバージョン
+social-query-no-players = 現在オンラインのプレイヤーはいません。
+social-online-command-description = オンラインプレイヤーを表示
+social-status-command-description = プレイヤー数、TPS、MSPT、稼働時間を表示
+social-link-command-description = ゲーム内コードで Minecraft アカウントを連携
+social-profile-command-description = 自分を表示；正式メンバーは名前、メンション、返信で他のプレイヤーを検索可能
+social-unlink-command-description = 確認後にこの連携を解除
+social-help-command-description = このコマンド一覧を表示
+social-query-unknown = 不明なコマンドです。使用可能なコマンドは /ヘルプ で確認できます。
+social-profile-player-label = プレイヤー
+social-profile-avatar-alt = Minecraft の顔
+social-profile-uuid-label = UUID
+social-profile-presence-label = 状態
+social-profile-play-time-label = プレイ時間
+social-profile-first-joined-label = 初参加
+social-profile-last-seen-label = 最終オンライン
+social-profile-language-label = 言語
+social-profile-online = オンライン · アクティブ
+social-profile-afk = オンライン · AFK
+social-profile-offline = オフライン
+social-profile-member-required = 連携済みの正式メンバー、ヘルパー、管理者だけが他のプレイヤーを検索できます。
+social-profile-player-not-found = その Minecraft プレイヤーは見つかりませんでした。
+social-profile-target-unbound = メンションまたは返信先のユーザーは Minecraft と連携されていません。
+social-profile-target-ambiguous = プレイヤー名、1人へのメンション、または1人への返信のいずれか1つを指定してください。
+social-duration-days = { $arg0 } 日 { $arg1 } 時間 { $arg2 } 分
+social-duration-hours = { $arg0 } 時間 { $arg1 } 分
+social-duration-minutes = { $arg0 } 分
+social-binding-identity-missing = このメッセージには信頼できるメンバー識別情報がないため、連携できません。
+social-binding-unlink-prompt = 解除すると、このプラットフォーム識別情報と Minecraft の連携が削除されます。続行するには /解除 確認 を送信してください。
+social-binding-unlinked = Minecraft プレイヤー { $arg0 } との連携を解除しました。
+social-binding-not-bound = このプラットフォーム識別情報は連携されていません。
+social-binding-help =
+    Minecraft で /bind qq を実行します。
+    生成された完全なコマンドをコピーします。
+    そのコマンドをここに送信します。
+    /プロフィール で連携を確認します。
+social-binding-unavailable = 現在、識別情報の連携を利用できません。
+social-binding-status-unbound = この識別情報は連携されていません。確認コードを付けて /バインド を実行してください。
+social-binding-linked = Minecraft プレイヤー { $arg0 } と連携しました。
+social-binding-already-linked = この識別情報はすでに Minecraft プレイヤー { $arg0 } と連携されています。
+social-binding-code-invalid = 確認コードが無効または期限切れです。Minecraft で /bind qq を実行して新しいコードを生成してください。
+social-binding-platform-mismatch = この確認コードは別のプラットフォーム用です。
+social-binding-external-in-use = この識別情報はすでに別の Minecraft プレイヤーと連携されています。
+social-binding-player-scope-in-use = その Minecraft プレイヤーは、この会話ですでに別の識別情報と連携されています。
+social-binding-rate-limited = 失敗回数が多すぎます。約 { $arg0 } 分後に再試行してください。
+social-reply-hidden = この返信はサーバーのコンテンツ安全ポリシーにより非表示になりました。
+
+qq-command-description = QQプラットフォームアダプターを管理します
+qq-admin-disabled = QQプラットフォームは無効です。
+qq-admin-status = QQの状態：{ $arg0 }
+qq-admin-last-error = 直近のエラー：{ $arg0 }
+qq-admin-reload-disabled = QQが無効なため、再読み込みしても起動しませんでした。
+qq-admin-reloaded = QQプラットフォームを再読み込みしました。
+qq-admin-groups-empty = 確認済みのQQ会話はありません。
+qq-admin-groups-title = 確認済みのQQ会話：
+qq-receiver-stopped = 停止
+qq-receiver-connecting = 接続中
+qq-receiver-ready = 準備完了
+qq-receiver-failed = 失敗
+
 self-kick-command-description = 自分をサーバーからキックする
 self-kick-reason-too-long = キック理由は{ $arg0 }文字以内にしてください
 self-kick-with-reason = { $player } は次の理由で自分をサーバーからキックしました：{ $reason }

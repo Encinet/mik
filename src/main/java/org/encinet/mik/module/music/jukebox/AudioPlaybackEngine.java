@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
@@ -64,12 +65,13 @@ final class AudioPlaybackEngine implements AutoCloseable {
     PlaybackSession create(Location location, MusicTrack music, String sourceName,
                            JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
                            RhythmTimeline rhythmTimeline,
-                           JukeboxExperienceMode experienceMode) {
+                           JukeboxExperienceMode experienceMode,
+                           JukeboxPlaybackGroup playbackGroup) {
         if (closed.get()) {
             throw new IllegalStateException("Audio playback backend is closed");
         }
         Session session = new Session(location.clone(), music, sourceName, settings,
-                callbacks, rhythmTimeline, experienceMode);
+                callbacks, rhythmTimeline, experienceMode, playbackGroup);
         sessions.add(session);
         return session;
     }
@@ -93,13 +95,18 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final PlaybackCallbacks callbacks;
         private final RhythmTimeline rhythmTimeline;
         private final JukeboxExperienceMode experienceMode;
+        private final JukeboxPlaybackGroup playbackGroup;
         private final AtomicBoolean preparationStarted = new AtomicBoolean();
         private final AtomicBoolean playbackRequested = new AtomicBoolean();
         private final AtomicBoolean outputStarted = new AtomicBoolean();
         private final AtomicBoolean stopped = new AtomicBoolean();
         private final AtomicBoolean terminal = new AtomicBoolean();
+        private final AtomicBoolean attemptCompleting = new AtomicBoolean();
+        private final AtomicBoolean playbackStarted = new AtomicBoolean();
         private final AtomicReference<Throwable> failure = new AtomicReference<>();
         private final AtomicReference<AudioTrackLoader.LoadedAudio> loadedAudio = new AtomicReference<>();
+        private final AtomicLong attempt = new AtomicLong();
+        private final CorruptAudioRecovery corruptAudioRecovery = new CorruptAudioRecovery();
         private volatile JukeboxSoundSettings settings;
         private volatile PlaybackStatus status = PlaybackStatus.LOADING;
         private volatile AudioPlayer audioPlayer;
@@ -111,7 +118,8 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private Session(Location location, MusicTrack music, String sourceName,
                         JukeboxSoundSettings settings, PlaybackCallbacks callbacks,
                         RhythmTimeline rhythmTimeline,
-                        JukeboxExperienceMode experienceMode) {
+                        JukeboxExperienceMode experienceMode,
+                        JukeboxPlaybackGroup playbackGroup) {
             this.location = location;
             this.music = Objects.requireNonNull(music, "music");
             this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
@@ -120,6 +128,8 @@ final class AudioPlaybackEngine implements AutoCloseable {
             this.rhythmTimeline = Objects.requireNonNull(rhythmTimeline, "rhythmTimeline");
             this.experienceMode = Objects.requireNonNull(
                     experienceMode, "experienceMode");
+            this.playbackGroup = Objects.requireNonNull(
+                    playbackGroup, "playbackGroup");
         }
 
         @Override
@@ -128,21 +138,26 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 return;
             }
             if (closed.get()) {
-                fail(new IllegalStateException("Audio playback backend is closed"));
+                fail(attempt.get(), new IllegalStateException("Audio playback backend is closed"));
+                return;
+            }
+            prepareAttempt(attempt.get());
+        }
+
+        private void prepareAttempt(long expectedAttempt) {
+            if (!current(expectedAttempt)) return;
+            if (rhythmTimeline.complete()) {
+                beginAudioLoad(expectedAttempt);
                 return;
             }
             if (experienceMode.waitsForRhythmAnalysis()) {
-                if (rhythmTimeline.complete()) {
-                    beginAudioLoad();
-                    return;
-                }
                 rhythmAnalysis = rhythmAnalyzer.analyze(music, rhythmTimeline);
                 rhythmAnalysis.completion().whenComplete((ignored, error) ->
-                        completeRhythmPreparationOnMainThread(error));
+                        completeRhythmPreparationOnMainThread(expectedAttempt, error));
                 return;
             }
             rhythmAnalysis = rhythmAnalyzer.analyze(music, rhythmTimeline);
-            beginAudioLoad();
+            beginAudioLoad(expectedAttempt);
         }
 
         @Override
@@ -150,80 +165,101 @@ final class AudioPlaybackEngine implements AutoCloseable {
             if (stopped.get() || terminal.get()) return;
             playbackRequested.set(true);
             prepare();
-            startPreparedAudio();
+            startPreparedAudio(attempt.get());
         }
 
-        private void completeRhythmPreparationOnMainThread(Throwable error) {
-            if (stopped.get() || closed.get()) return;
+        private void completeRhythmPreparationOnMainThread(long expectedAttempt,
+                                                            Throwable error) {
+            if (!current(expectedAttempt)) return;
             try {
                 Bukkit.getScheduler().runTask(plugin, () -> {
-                    if (stopped.get() || closed.get() || !callbacks.isValid()) {
-                        cancel();
+                    if (!current(expectedAttempt)) {
+                        return;
+                    }
+                    if (!callbacks.isValid()) {
+                        cancel(expectedAttempt);
                     } else if (error != null) {
-                        fail(unwrap(error));
+                        fail(expectedAttempt, unwrap(error));
                     } else {
-                        beginAudioLoad();
+                        beginAudioLoad(expectedAttempt);
                     }
                 });
             } catch (IllegalStateException exception) {
-                fail(error == null ? exception : unwrap(error));
+                fail(expectedAttempt, error == null ? exception : unwrap(error));
             }
         }
 
-        private void beginAudioLoad() {
-            if (stopped.get() || closed.get()) return;
+        private void beginAudioLoad(long expectedAttempt) {
+            if (!current(expectedAttempt)) return;
             loader.load(music).whenComplete((loaded, error) -> {
-                if (stopped.get() || closed.get()) {
+                if (!current(expectedAttempt)) {
                     if (loaded != null) {
                         loaded.close();
                     }
                     return;
                 }
                 try {
-                    Bukkit.getScheduler().runTask(plugin, () -> completeLoad(loaded, error));
+                    Bukkit.getScheduler().runTask(plugin,
+                            () -> completeLoad(expectedAttempt, loaded, error));
                 } catch (IllegalStateException exception) {
                     if (loaded != null) {
                         loaded.close();
                     }
-                    fail(error == null ? exception : error);
+                    fail(expectedAttempt, error == null ? exception : error);
                 }
             });
         }
 
-        private void completeLoad(AudioTrackLoader.LoadedAudio loaded, Throwable error) {
-            if (stopped.get() || closed.get() || !callbacks.isValid()) {
+        private void completeLoad(long expectedAttempt,
+                                  AudioTrackLoader.LoadedAudio loaded, Throwable error) {
+            if (!current(expectedAttempt)) {
                 if (loaded != null) {
                     loaded.close();
                 }
-                cancel();
+                return;
+            }
+            if (!callbacks.isValid()) {
+                if (loaded != null) loaded.close();
+                cancel(expectedAttempt);
                 return;
             }
             if (error != null) {
-                fail(error);
+                fail(expectedAttempt, error);
                 return;
             }
             if (loaded == null) {
-                fail(new IllegalStateException(
+                fail(expectedAttempt, new IllegalStateException(
                         "Audio loader completed without a track"));
                 return;
             }
             loadedAudio.set(loaded);
-            startPreparedAudio();
+            startPreparedAudio(expectedAttempt);
         }
 
-        private void startPreparedAudio() {
+        private void startPreparedAudio(long expectedAttempt) {
             AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
             if (!playbackRequested.get() || loaded == null
-                    || stopped.get() || closed.get() || terminal.get()
+                    || !current(expectedAttempt)
                     || !outputStarted.compareAndSet(false, true)) {
                 return;
             }
             try {
                 if (!callbacks.isValid()) {
-                    cancel();
+                    cancel(expectedAttempt);
                     return;
                 }
                 AudioTrack track = loaded.track();
+                long previousPosition = Math.max(finalPositionMillis,
+                        playbackGroup.synchronizedPositionMillis());
+                long resumePosition = CorruptAudioRecovery.resumePositionMillis(
+                        previousPosition, track.isSeekable(), track.getDuration());
+                finalPositionMillis = resumePosition;
+                if (resumePosition > 0L) {
+                    track.setPosition(resumePosition);
+                } else if (previousPosition > 0L) {
+                    plugin.getLogger().warning("Online audio for " + music.id()
+                            + " is not seekable; recovery will restart from the beginning");
+                }
                 AudioPlayer player = loader.createPlayer();
                 audioPlayer = player;
                 player.setVolume(settings.volumePercent());
@@ -231,45 +267,52 @@ final class AudioPlaybackEngine implements AutoCloseable {
                     @Override
                     public void onTrackException(AudioPlayer ignored, AudioTrack failedTrack,
                                                  FriendlyException exception) {
-                        markFailure(exception);
+                        markFailure(expectedAttempt, exception);
                     }
 
                     @Override
                     public void onTrackEnd(AudioPlayer ignored, AudioTrack endedTrack,
                                            AudioTrackEndReason reason) {
                         if (reason == AudioTrackEndReason.LOAD_FAILED) {
-                            markFailure(new IllegalStateException("Audio decoder failed to load the track"));
+                            markFailure(expectedAttempt, new IllegalStateException(
+                                    "Audio decoder failed to load the track"));
                         }
                     }
                 });
                 player.playTrack(track);
 
-                Block block = location.getBlock();
-                ServerPos3d position = new ServerPos3d(
-                        voiceServer.getMinecraftServer().getWorld(block.getWorld()),
-                        block.getX() + 0.5, block.getY() + 1.5, block.getZ() + 0.5);
-                ServerProximitySource<?> proximitySource = sourceLine.createStaticSource(position, true);
-                source = proximitySource;
-                proximitySource.setName(sourceName);
-                proximitySource.<VoicePlayer>addFilter(voicePlayer ->
-                        audibleToPlayer.test(voicePlayer.getInstance().getUuid()));
-                AudioFrameProvider provider = () -> provideFrame(track, player);
+                ServerProximitySource<?> proximitySource = source;
+                if (proximitySource == null) {
+                    Block block = location.getBlock();
+                    ServerPos3d position = new ServerPos3d(
+                            voiceServer.getMinecraftServer().getWorld(block.getWorld()),
+                            block.getX() + 0.5, block.getY() + 1.5, block.getZ() + 0.5);
+                    proximitySource = sourceLine.createStaticSource(position, true);
+                    source = proximitySource;
+                    proximitySource.setName(sourceName);
+                    proximitySource.<VoicePlayer>addFilter(voicePlayer ->
+                            audibleToPlayer.test(voicePlayer.getInstance().getUuid()));
+                }
+                AudioFrameProvider provider = () -> provideFrame(
+                        expectedAttempt, track, player);
                 AudioSender audioSender = proximitySource.createAudioSender(
                         provider, () -> (short) settings.rangeBlocks());
                 sender = audioSender;
-                audioSender.onStop(this::complete);
+                audioSender.onStop(() -> complete(expectedAttempt));
                 status = PlaybackStatus.PLAYING;
                 audioSender.start();
-                if (!terminal.get() && !stopped.get()) {
+                if (current(expectedAttempt)) {
+                    playbackStarted.set(true);
                     callbacks.started();
                 }
             } catch (RuntimeException exception) {
-                fail(exception);
+                fail(expectedAttempt, exception);
             }
         }
 
-        private AudioFrameResult provideFrame(AudioTrack track, AudioPlayer player) {
-            if (stopped.get() || track.getState() == AudioTrackState.FINISHED
+        private AudioFrameResult provideFrame(long expectedAttempt,
+                                              AudioTrack track, AudioPlayer player) {
+            if (!current(expectedAttempt) || track.getState() == AudioTrackState.FINISHED
                     || track.getState() == AudioTrackState.INACTIVE && track.getPosition() > 0) {
                 return AudioFrameResult.Finished.INSTANCE;
             }
@@ -277,30 +320,41 @@ final class AudioPlaybackEngine implements AutoCloseable {
             if (frame == null) {
                 return new AudioFrameResult.Provided(null);
             }
+            playbackGroup.publishPositionMillis(track.getPosition());
             try {
                 return new AudioFrameResult.Provided(
                         voiceServer.getDefaultEncryption().encrypt(frame.getData()));
             } catch (Exception exception) {
-                markFailure(exception);
+                markFailure(expectedAttempt, exception);
                 return AudioFrameResult.Finished.INSTANCE;
             }
         }
 
-        private void markFailure(Throwable error) {
+        private void markFailure(long expectedAttempt, Throwable error) {
+            if (!current(expectedAttempt)) return;
             failure.compareAndSet(null, error);
             loader.invalidate(music);
         }
 
-        private void fail(Throwable error) {
-            markFailure(error);
-            complete();
+        private void fail(long expectedAttempt, Throwable error) {
+            markFailure(expectedAttempt, error);
+            complete(expectedAttempt);
         }
 
-        private void complete() {
-            if (!terminal.compareAndSet(false, true) || stopped.get()) {
+        private void complete(long expectedAttempt) {
+            if (!current(expectedAttempt)
+                    || !attemptCompleting.compareAndSet(false, true)) {
                 return;
             }
             Throwable error = failure.get();
+            if (error != null && corruptAudioRecovery.shouldRetry(music, error)) {
+                retryCorruptAudio(expectedAttempt);
+                return;
+            }
+            if (!terminal.compareAndSet(false, true) || stopped.get()) {
+                attemptCompleting.set(false);
+                return;
+            }
             cleanup();
             if (error == null) {
                 callbacks.finished();
@@ -309,8 +363,42 @@ final class AudioPlaybackEngine implements AutoCloseable {
             }
         }
 
-        private void cancel() {
-            if (!terminal.compareAndSet(false, true) || stopped.get()) {
+        private void retryCorruptAudio(long expectedAttempt) {
+            if (attempt.get() != expectedAttempt) {
+                attemptCompleting.set(false);
+                return;
+            }
+            long nextAttempt = attempt.incrementAndGet();
+            plugin.getLogger().warning("Discarded failed online audio stream for "
+                    + music.id() + " and retrying the download once");
+            cleanupAttempt(true);
+            failure.set(null);
+            outputStarted.set(false);
+            status = playbackStarted.get() ? PlaybackStatus.PLAYING : PlaybackStatus.LOADING;
+            try {
+                callbacks.retrying();
+            } catch (RuntimeException exception) {
+                plugin.getLogger().warning("Music playback retry callback failed: "
+                        + exception.getMessage());
+            } finally {
+                attemptCompleting.set(false);
+            }
+            if (stopped.get() || closed.get() || terminal.get()) {
+                sessions.remove(this);
+                return;
+            }
+            prepareAttempt(nextAttempt);
+            startPreparedAudio(nextAttempt);
+        }
+
+        private boolean current(long expectedAttempt) {
+            return attempt.get() == expectedAttempt
+                    && !stopped.get() && !closed.get() && !terminal.get();
+        }
+
+        private void cancel(long expectedAttempt) {
+            if (attempt.get() != expectedAttempt
+                    || !terminal.compareAndSet(false, true) || stopped.get()) {
                 return;
             }
             cleanup();
@@ -325,7 +413,8 @@ final class AudioPlaybackEngine implements AutoCloseable {
         @Override
         public long positionMillis() {
             AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
-            return loaded == null ? finalPositionMillis : Math.max(0, loaded.track().getPosition());
+            return loaded == null ? finalPositionMillis
+                    : Math.max(finalPositionMillis, Math.max(0, loaded.track().getPosition()));
         }
 
         @Override
@@ -347,7 +436,15 @@ final class AudioPlaybackEngine implements AutoCloseable {
         }
 
         private void cleanup() {
-            status = PlaybackStatus.STOPPED;
+            attempt.incrementAndGet();
+            cleanupAttempt(false);
+            sessions.remove(this);
+        }
+
+        private void cleanupAttempt(boolean preserveSource) {
+            if (!preserveSource) {
+                status = PlaybackStatus.STOPPED;
+            }
             finalPositionMillis = Math.max(finalPositionMillis, positionMillis());
             AudioSender currentSender = sender;
             sender = null;
@@ -359,10 +456,12 @@ final class AudioPlaybackEngine implements AutoCloseable {
             if (currentPlayer != null) {
                 currentPlayer.destroy();
             }
-            ServerProximitySource<?> currentSource = source;
-            source = null;
-            if (currentSource != null) {
-                currentSource.remove();
+            if (!preserveSource) {
+                ServerProximitySource<?> currentSource = source;
+                source = null;
+                if (currentSource != null) {
+                    currentSource.remove();
+                }
             }
             AudioTrackLoader.LoadedAudio loaded = loadedAudio.getAndSet(null);
             if (loaded != null) {
@@ -373,7 +472,6 @@ final class AudioPlaybackEngine implements AutoCloseable {
             if (analysis != null) {
                 analysis.close();
             }
-            sessions.remove(this);
         }
 
         private static Throwable unwrap(Throwable error) {

@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,6 +29,7 @@ public final class LxSourceService
 
     private final LxSubscriptionManager subscriptions;
     private final LxCustomSourceResolver resolver;
+    private final CachingMusicSearchService search;
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
             runnable -> Thread.ofVirtual().name("mik-lx-source-service").unstarted(runnable));
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -40,6 +42,7 @@ public final class LxSourceService
         this.subscriptions = new LxSubscriptionManager(directory, warningLogger);
         this.resolver = new LxCustomSourceResolver(directory, infoLogger, warningLogger,
                 subscriptions::managedScriptNames);
+        this.search = new CachingMusicSearchService(resolver);
     }
 
     /** Refreshes subscriptions and runtimes independently, retaining each previous state on failure. */
@@ -58,6 +61,7 @@ public final class LxSourceService
             RuntimeReload runtimesResult;
             try {
                 resolver.reload();
+                search.invalidate();
                 List<SourceStatus> statuses = statuses();
                 int available = (int) statuses.stream().filter(SourceStatus::available).count();
                 runtimesResult = new RuntimeReload(true, available, statuses.size(), null);
@@ -76,6 +80,7 @@ public final class LxSourceService
             LxSubscriptionManager.ImportResult result = subscriptions.importSource(url);
             if (result.added() || result.changed()) {
                 resolver.reload();
+                search.invalidate();
             }
             return new ImportResult(result.id(), result.added(), result.changed());
         });
@@ -86,6 +91,7 @@ public final class LxSourceService
             boolean removed = subscriptions.remove(id);
             if (removed) {
                 resolver.reload();
+                search.invalidate();
             }
             return removed;
         });
@@ -97,6 +103,7 @@ public final class LxSourceService
             LxSubscriptionManager.RefreshResult result = subscriptions.refreshAll();
             if (result.changed() > 0) {
                 resolver.reload();
+                search.invalidate();
             }
             return new RefreshResult(result.total(), result.changed(), result.failed());
         });
@@ -115,12 +122,28 @@ public final class LxSourceService
 
     @Override
     public CompletableFuture<MusicSearchResult<MusicTrack>> searchMusic(String keyword, int page, int limit) {
-        return resolver.searchMusic(keyword, page, limit);
+        return search.searchMusic(keyword, page, limit);
     }
 
     @Override
     public CompletableFuture<String> resolve(TrackTarget.Lx target) {
         return resolver.resolve(target);
+    }
+
+    @Override
+    public CompletableFuture<Resolution> resolveCandidate(
+            TrackTarget.Lx target, Set<String> excludedProviderIds) {
+        return resolver.resolveCandidate(target, excludedProviderIds);
+    }
+
+    @Override
+    public void candidateSucceeded(TrackTarget.Lx target, Resolution resolution) {
+        resolver.candidateSucceeded(target, resolution);
+    }
+
+    @Override
+    public void candidateFailed(TrackTarget.Lx target, Resolution resolution, Throwable error) {
+        resolver.candidateFailed(target, resolution, error);
     }
 
     /** Loads and normalizes optional lyrics returned by an LX custom source. */
@@ -229,6 +252,7 @@ public final class LxSourceService
             return;
         }
         resolver.close();
+        search.invalidate();
         subscriptions.close();
         executor.shutdownNow();
     }

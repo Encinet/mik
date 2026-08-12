@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LanguageResourcesTest {
 
@@ -150,6 +151,47 @@ class LanguageResourcesTest {
                 assertFalse(value.toLowerCase(java.util.Locale.ROOT).contains("lx"),
                         () -> language.id() + " library text contains LX content: " + value);
             }
+        }
+    }
+
+    @Test
+    void sharedSocialResponsesHaveLocalizedResourceKeys() throws IOException {
+        var arguments = ArgumentListBuilder.builder().build();
+
+        assertEquals("服务器版本",
+                resolve(bundle(Language.ZH_CN),
+                        Message.SOCIAL_QUERY_VERSION_LABEL.key(), arguments));
+        assertEquals("Server version",
+                resolve(bundle(Language.EN_US),
+                        Message.SOCIAL_QUERY_VERSION_LABEL.key(), arguments));
+        assertEquals("服务器状态",
+                resolve(bundle(Language.ZH_CN),
+                        Message.SOCIAL_TITLE_SERVER_STATUS.key(), arguments));
+        assertEquals("Player profile",
+                resolve(bundle(Language.EN_US),
+                        Message.SOCIAL_TITLE_PLAYER_PROFILE.key(), arguments));
+    }
+
+    @Test
+    void everyNonEnglishLocaleTranslatesTheSocialSurface() throws IOException {
+        var arguments = ArgumentListBuilder.builder()
+                .add("arg0", "A").add("arg1", "B").add("arg2", "C")
+                .add("arg3", "D").build();
+        FluentBundle english = bundle(Language.EN_US);
+        Set<String> socialKeys = MESSAGE_KEYS.stream()
+                .filter(key -> key.startsWith("social-"))
+                .collect(Collectors.toUnmodifiableSet());
+        for (Language language : Language.values()) {
+            if (language == Language.EN_US) {
+                continue;
+            }
+            FluentBundle localized = bundle(language);
+            long unchanged = socialKeys.stream().filter(key ->
+                    resolve(english, key, arguments).equals(
+                            resolve(localized, key, arguments))).count();
+            assertTrue(unchanged <= 8,
+                    () -> language.id() + " leaves " + unchanged
+                            + " social messages untranslated");
         }
     }
 

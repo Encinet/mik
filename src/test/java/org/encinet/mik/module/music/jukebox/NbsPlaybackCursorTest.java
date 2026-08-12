@@ -130,6 +130,36 @@ class NbsPlaybackCursorTest {
     }
 
     @Test
+    void synchronizedCursorStartsAtTheSharedSongPositionWithoutReplayingOldNotes() {
+        NbsPlaybackCursor cursor = new NbsPlaybackCursor(song(false, 0), 150L);
+
+        NbsPlaybackCursor.PollResult joined = cursor.poll(1_000_000_000L);
+        assertEquals(List.of(), ticks(joined));
+        assertEquals(150L, joined.positionMillis());
+
+        NbsPlaybackCursor.PollResult next = cursor.poll(1_050_000_000L);
+        assertEquals(List.of(2), ticks(next));
+        assertEquals(200L, next.positionMillis());
+    }
+
+    @Test
+    void synchronizedCursorSeeksAcrossTempoChangesAndLoops() {
+        NbsNote tempoChange = new NbsNote(1, 0, 45, 100, 100, 0, 300,
+                0, 20, 0, 45,
+                org.encinet.mik.module.music.catalog.nbs.NbsNoteType.TEMPO_CHANGE);
+        NbsSong looping = new NbsSong(6, "Synced loop", null, null, null,
+                10, 3, true, 1, 1,
+                List.of(new NbsNote(0, 0, 45, 100, 100, 0, 0), tempoChange,
+                        new NbsNote(2, 0, 45, 100, 100, 0, 0)));
+        NbsPlaybackCursor cursor = new NbsPlaybackCursor(looping, 275L);
+
+        NbsPlaybackCursor.PollResult joined = cursor.poll(2_000_000_000L);
+        assertEquals(List.of(), ticks(joined));
+        assertEquals(275L, joined.positionMillis());
+        assertFalse(joined.finished());
+    }
+
+    @Test
     void restoresTheTempoAtTheLoopStart() {
         NbsNote fast = new NbsNote(0, 0, 45, 100, 100, 0, 300,
                 0, 20, 0, 45,

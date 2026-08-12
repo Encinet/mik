@@ -207,6 +207,7 @@ class MusicPackageArchitectureTest {
         String queue = source("jukebox/JukeboxQueueService.java");
         String gui = source("ui/JukeboxControlGui.java");
         String control = source("listener/JukeboxControlListener.java");
+        String autoPlay = source("jukebox/JukeboxAutoPlayService.java");
 
         assertTrue(queue.contains("JukeboxPlaybackMode.REPEAT_ALL"));
         assertTrue(queue.contains("JukeboxPlaybackMode.REPEAT_ONE"));
@@ -218,8 +219,13 @@ class MusicPackageArchitectureTest {
         assertFalse(gui.contains("createDisabledQueueItem"));
         assertFalse(control.contains("removeFromQueue(track);\n"
                 + "                player.sendMessage"));
-        assertTrue(source("jukebox/JukeboxAutoPlayService.java")
-                .contains("playback.playInsertedDisc(nearestPlayer, jukebox)"));
+        assertTrue(autoPlay.contains("Player nearestPlayer = requestingPlayer == null"));
+        assertTrue(autoPlay.contains("settingsStore.read(jukebox).rangeBlocks()"));
+        assertTrue(autoPlay.contains("finishedTrack != null && nearestPlayer == null"));
+        assertFalse(autoPlay.contains("PLAYER_SEARCH_RADIUS"));
+        assertTrue(autoPlay.contains(
+                "boolean notifyRequesterIfInaudible = requestingPlayer != null"));
+        assertTrue(autoPlay.contains("playback.playInsertedDisc(nearestPlayer, jukebox,"));
     }
 
     @Test
@@ -330,6 +336,26 @@ class MusicPackageArchitectureTest {
         String engine = source("jukebox/AudioPlaybackEngine.java");
         assertTrue(engine.contains(".setDefaultVolume(1.0)"));
         assertFalse(engine.contains(".setDefaultVolume(0.5)"));
+    }
+
+    @Test
+    void onlineRecoveryRetainsProgressLyricsAndTheSpatialSource() throws IOException {
+        String engine = source("jukebox/AudioPlaybackEngine.java");
+        String playback = source("jukebox/JukeboxPlaybackService.java");
+        String retry = method(engine, "private void retryCorruptAudio(",
+                "private boolean current(");
+        String retryCallback = method(playback, "public void retrying()",
+                "public void failed(");
+
+        assertTrue(engine.contains("track.setPosition(resumePosition)"));
+        assertTrue(engine.contains("Math.max(finalPositionMillis, Math.max(0,"));
+        assertTrue(engine.contains("cleanupAttempt(true)"));
+        assertTrue(engine.contains("if (current(expectedAttempt))"));
+        assertTrue(engine.contains("if (!preserveSource)"));
+        assertFalse(retry.contains("finalPositionMillis = 0L"));
+        assertFalse(retry.contains("rhythmTimeline.reset()"));
+        assertTrue(playback.contains("if (firstStart && session != null)"));
+        assertFalse(retryCallback.contains("lyrics.getAndSet"));
     }
 
     @Test

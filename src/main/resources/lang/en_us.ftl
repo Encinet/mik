@@ -117,6 +117,7 @@ music-no-search-results-rich = No songs found containing "{ $keyword }"
 music-online-searching = Searching local and online sources for "{ $arg0 }"...
 music-search-keyword-required = Search keyword must not be empty
 music-search-keyword-too-long = Search keyword must not exceed { $arg0 } characters
+music-online-rate-limited = Too many online music requests. Try again in { $arg0 } seconds.
 music-online-partial-failure = { $arg0 } custom-source request(s) failed; available results are shown
 music-loading-title = Loading
 music-loading-description = Please wait while available content is loaded
@@ -168,6 +169,7 @@ music-stop-eject = Stop and Eject
 music-stop-eject-done = Stopped playback and ejected the disc
 music-jukebox-unavailable = The jukebox was removed or its chunk is unavailable
 music-jukebox-too-far = You are too far from the jukebox (maximum { $arg0 } blocks)
+music-jukebox-audible-field-conflict = Another jukebox is playing a different song in an overlapping clearly audible area
 music-select-music = Select Music
 music-random-mode = Shuffle List
 music-library-random-mode = Shuffle Library
@@ -209,6 +211,7 @@ music-random-disc-got-rich = Got random music disc: { $music }
 music-inventory-full = Inventory is full. Could not give the music disc
 music-nearest-jukebox-missing = No jukebox found within { $arg0 } blocks
 music-now-playing-rich = Now playing: { $music } at jukebox { $location }
+music-plasmo-voice-unavailable = The song has started, but you cannot hear it because Plasmo Voice is not installed, connected, or enabled
 music-jukebox-tp-hover = Click to teleport to the jukebox
 music-rhythm-start-game = Start Game
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 } is already whitelisted
 whitelist-temp-added-rich = Added temporary whitelist for { $player } for { $duration }
 whitelist-temp-added-plain = Added temporary whitelist for { $arg0 } for { $arg1 }
 whitelist-temp-duration = 1 hour
+
+maintenance-command-description = Toggle or check maintenance mode
+maintenance-status = Maintenance mode: { $arg0 }
+maintenance-unchanged = Maintenance mode is already { $arg0 }
+maintenance-set = Maintenance mode { $arg0 }
+maintenance-state-enabled = enabled
+maintenance-state-disabled = disabled
 
 ban-command-description = Ban a player using a fixed severity level
 banlist-command-description = View profile bans
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = The selection already matches this plan; nothing 
 async-regen-structure-metadata-applied = Migrated { $arg0 } structure starts and { $arg1 } chunk references; /locate and structure-dependent spawning can recognize them
 async-regen-visualization-legend = Visualization in { $arg0 }: cyan = selection boundary; orange = changed-block sample; red = block entity at risk. Only you can see these particles.
 async-regen-visualization-selection = Selection in { $arg0 }: cyan particles mark its boundary. Only you can see them.
+identity-command-description = Link Minecraft to an external platform identity
+identity-admin-command-description = Inspect or revoke external identity links
+identity-unsupported-platform = Unsupported platform: { $arg0 }
+identity-code-copy = Click to copy the complete linking command
+identity-code-issued = { $arg0 } link code generated:
+identity-code-redeem = In the target { $arg0 } group, mention the bot and send: { $arg1 }
+identity-code-expiry = The code is valid for 5 minutes and can be used once. Generating another code invalidates it.
+identity-scope-notice = This platform isolates identities by group. Link in the group where you will use the bot; each group must be linked separately.
+identity-bindings-empty = You have not linked any external platform accounts.
+identity-bindings-title = Linked external identities:
+identity-bindings-unlink-hint = Use /bind unlink <platform> to remove all of your links for a platform.
+identity-code-cancelled = The unused { $arg0 } link code was cancelled.
+identity-code-not-pending = There is no unused { $arg0 } link code.
+identity-binding-not-owned = You have no links for that platform.
+identity-binding-unlinked = Removed { $arg1 } { $arg0 } link(s).
+identity-admin-lookup-empty = No identity links were found for that player.
+identity-admin-lookup-title = Identity links for { $arg0 }:
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = No unambiguous player and platform link was found.
+identity-admin-binding-unlinked = Removed { $arg2 } { $arg0 } link(s) for player { $arg1 }.
+identity-help =
+    Identity linking commands:
+    /bind qq — quickly generate a QQ linking command
+    /bind <platform> — generate a one-time code
+    /bind list — show existing links
+    /bind cancel <platform> — cancel an unused code
+    /bind unlink <platform> — remove all links for a platform
+identity-admin-help =
+    /bindadmin lookup <player-or-UUID>
+    /bindadmin unlink <player-or-UUID> <platform> confirm
+identity-platforms = Supported platforms: { $arg0 }
+identity-platform-none = none
+identity-binding-details =  · { $arg0 } · scope { $arg1 } · { $arg2 }
+identity-unavailable = Identity linking is currently unavailable. Contact an administrator.
+identity-storage-error = The identity-link database operation failed. Contact an administrator.
+identity-notify-linked = Your { $arg0 } identity was verified. Use /bind list to inspect it or /bind unlink { $arg0 } to remove the platform links.
+identity-notify-unlinked = Your { $arg0 } identity link was removed.
+
+social-command-description = Manage social platform adapters
+social-admin-title = Social platforms
+social-admin-help = /social platforms · /social status [platform] · /social reload [platform] · /social conversations <platform>
+social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · generation { $arg2 } · conversations { $arg3 }
+social-admin-unknown = Unknown social platform: { $arg0 }
+social-admin-reloaded-all = Reloaded all social platforms.
+social-admin-reloaded = Reloaded social platform { $arg0 }.
+social-admin-conversations-empty = No conversations observed for { $arg0 }.
+social-admin-conversations-title = Observed conversations for { $arg0 }:
+social-state-disabled = disabled
+social-state-stopped = stopped
+social-state-starting = starting
+social-state-ready = ready
+social-state-failed = failed
+social-title-online-players = Online players
+social-title-server-status = Server status
+social-title-command-help = Command help
+social-title-unknown-command = Unknown command
+social-title-player-profile = Player profile
+social-title-identity-linking = Link account
+social-title-identity-unlinking = Unlink account
+social-title-content-hidden = Content hidden
+social-query-online-label = Online
+social-query-players-label = Players
+social-query-active-label = Active
+social-query-uptime-label = Uptime
+social-query-version-label = Server version
+social-query-no-players = No players are currently online.
+social-online-command-description = Show online players
+social-status-command-description = Show players, TPS, MSPT and uptime
+social-link-command-description = Link your Minecraft account with an in-game code
+social-profile-command-description = Show your profile; full members can query by player name, mention, or reply
+social-unlink-command-description = Remove this identity link after confirmation
+social-help-command-description = Show this command list
+social-query-unknown = Unknown command. Send /help to view available commands.
+social-profile-player-label = Player
+social-profile-avatar-alt = Minecraft face
+social-profile-uuid-label = UUID
+social-profile-presence-label = Presence
+social-profile-play-time-label = Play time
+social-profile-first-joined-label = First joined
+social-profile-last-seen-label = Last seen
+social-profile-language-label = Language
+social-profile-online = Online · active
+social-profile-afk = Online · AFK
+social-profile-offline = Offline
+social-profile-member-required = Only linked full members can view another player's profile.
+social-profile-player-not-found = That Minecraft player was not found.
+social-profile-target-unbound = The mentioned or replied-to identity is not linked to Minecraft.
+social-profile-target-ambiguous = Choose exactly one target: a player name, one mention, or one replied-to user.
+social-duration-days = { $arg0 } days { $arg1 } hours { $arg2 } minutes
+social-duration-hours = { $arg0 } hours { $arg1 } minutes
+social-duration-minutes = { $arg0 } minutes
+social-binding-identity-missing = This message has no trusted member identity, so identity binding is unavailable.
+social-binding-unlink-prompt = Unlinking removes this social identity from Minecraft. Send /unbind confirm to continue.
+social-binding-unlinked = Unlinked from Minecraft player { $arg0 }.
+social-binding-not-bound = This social identity is not linked.
+social-binding-help =
+    Run /bind qq in Minecraft.
+    Copy the complete generated command.
+    Send the command here.
+    Use /profile to verify the link.
+social-binding-unavailable = Identity binding is temporarily unavailable.
+social-binding-status-unbound = This social identity is not linked. Use /bind with a verification code.
+social-binding-linked = Linked to Minecraft player { $arg0 }.
+social-binding-already-linked = This platform identity is already linked to Minecraft player { $arg0 }.
+social-binding-code-invalid = The verification code is invalid or expired. Generate a new one with /bind qq in Minecraft.
+social-binding-platform-mismatch = This verification code was issued for another platform.
+social-binding-external-in-use = This social identity is already linked to another Minecraft player.
+social-binding-player-scope-in-use = That Minecraft player already has a different identity linked in this conversation.
+social-binding-rate-limited = Too many failed attempts. Try again in about { $arg0 } minutes.
+social-reply-hidden = This reply was hidden by the server content-safety policy.
+
+qq-command-description = Manage the QQ platform adapter
+qq-admin-disabled = The QQ platform is disabled.
+qq-admin-status = QQ status: { $arg0 }
+qq-admin-last-error = Last error: { $arg0 }
+qq-admin-reload-disabled = QQ is disabled; reload did not start it.
+qq-admin-reloaded = Reloaded the QQ platform.
+qq-admin-groups-empty = No QQ conversations have been observed.
+qq-admin-groups-title = Observed QQ conversations:
+qq-receiver-stopped = stopped
+qq-receiver-connecting = connecting
+qq-receiver-ready = ready
+qq-receiver-failed = failed
+
 self-kick-command-description = Kick yourself from the server
 self-kick-reason-too-long = The kick reason cannot exceed { $arg0 } characters
 self-kick-with-reason = { $player } kicked themselves from the server because: { $reason }

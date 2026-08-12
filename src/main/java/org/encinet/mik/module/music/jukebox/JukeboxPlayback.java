@@ -10,8 +10,19 @@ public interface JukeboxPlayback {
 
     boolean isPlaying(Block block);
 
-    boolean playInsertedDisc(Player player, Jukebox jukebox);
+    default boolean playInsertedDisc(Player player, Jukebox jukebox) {
+        return playInsertedDisc(player, jukebox, true);
+    }
+
+    boolean playInsertedDisc(Player player, Jukebox jukebox,
+                             boolean notifyRequesterIfInaudible);
+
+    default boolean playVirtualTrackOnJukebox(
+            Player player, Jukebox jukebox, MusicTrack track, Runnable onStarted) {
+        return playVirtualTrackOnJukebox(player, jukebox, track, onStarted, true);
+    }
 
     boolean playVirtualTrackOnJukebox(
-            Player player, Jukebox jukebox, MusicTrack track, Runnable onStarted);
+            Player player, Jukebox jukebox, MusicTrack track, Runnable onStarted,
+            boolean notifyRequesterIfInaudible);
 }

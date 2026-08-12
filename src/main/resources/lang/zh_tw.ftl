@@ -117,6 +117,7 @@ music-no-search-results-rich = 找不到包含「{ $keyword }」的歌曲
 music-online-searching = 正在從本機和線上音源搜尋「{ $arg0 }」...
 music-search-keyword-required = 搜尋關鍵字不能為空
 music-search-keyword-too-long = 搜尋關鍵字不能超過 { $arg0 } 個字元
+music-online-rate-limited = 線上音樂請求過於頻繁，請在 { $arg0 } 秒後重試
 music-online-partial-failure = 有 { $arg0 } 個自訂音源請求失敗，已顯示其餘可用結果
 music-loading-title = 正在載入
 music-loading-description = 請稍候，正在讀取可用內容
@@ -168,6 +169,7 @@ music-stop-eject = 停止並退出
 music-stop-eject-done = 已停止播放並退出唱片
 music-jukebox-unavailable = 唱片機已被移除或所在區塊無法使用
 music-jukebox-too-far = 你離唱片機太遠了（最多 { $arg0 } 格）
+music-jukebox-audible-field-conflict = 另一台唱片機正在重疊的明顯聽聞範圍內播放不同歌曲
 music-select-music = 選擇音樂
 music-random-mode = 列表隨機
 music-library-random-mode = 音樂庫隨機
@@ -209,6 +211,7 @@ music-random-disc-got-rich = 取得隨機音樂唱片: { $music }
 music-inventory-full = 物品欄已滿，無法取得音樂唱片
 music-nearest-jukebox-missing = 附近 { $arg0 } 格內沒有找到唱片機
 music-now-playing-rich = 正在播放: { $music } 於唱片機 { $location }
+music-plasmo-voice-unavailable = 歌曲已開始播放，但你未安裝、連線或啟用 Plasmo Voice，因此無法收聽
 music-jukebox-tp-hover = 點擊傳送到唱片機
 music-rhythm-start-game = 開始遊戲
 music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
@@ -444,6 +447,13 @@ whitelist-already-whitelisted = { $arg0 } 已經在白名單中
 whitelist-temp-added-rich = 已將 { $player } 加入臨時白名單 { $duration }
 whitelist-temp-added-plain = 已將 { $arg0 } 加入臨時白名單 { $arg1 }
 whitelist-temp-duration = 1 小時
+
+maintenance-command-description = 切換或查看維護模式
+maintenance-status = 維護模式：{ $arg0 }
+maintenance-unchanged = 維護模式已處於{ $arg0 }狀態
+maintenance-set = 已將維護模式{ $arg0 }
+maintenance-state-enabled = 開啟
+maintenance-state-disabled = 關閉
 
 ban-command-description = 按固定嚴重程度封禁玩家
 banlist-command-description = 查看玩家封禁列表
@@ -861,6 +871,131 @@ async-regen-nothing-to-apply = 選區已符合這份計畫，沒有需要套用�
 async-regen-structure-metadata-applied = 已遷移 { $arg0 } 個結構起點及 { $arg1 } 個區塊引用；/locate 與依賴結構的生物生成可以識別它們
 async-regen-visualization-legend = 選區視覺化位於 { $arg0 }：青色 = 選區邊界，橙色 = 將變更方塊抽樣，紅色 = 可能被覆蓋的方塊實體；粒子只有你可見
 async-regen-visualization-selection = { $arg0 } 中的青色粒子表示選區邊界，只有你可見
+identity-command-description = 將 Minecraft 與外部平台身分綁定
+identity-admin-command-description = 管理員檢視或撤銷外部身分綁定
+identity-unsupported-platform = 不支援的平台：{ $arg0 }
+identity-code-copy = 點擊複製完整綁定指令
+identity-code-issued = 已產生 { $arg0 } 綁定驗證碼：
+identity-code-redeem = 請到目標 { $arg0 } 群 @機器人並傳送：{ $arg1 }
+identity-code-expiry = 驗證碼 5 分鐘內有效且只能使用一次；重新產生會使舊碼失效。
+identity-scope-notice = 此平台身分按群組隔離；請在你要使用的群完成綁定，不同群需要分別綁定。
+identity-bindings-empty = 目前沒有綁定任何外部平台帳號。
+identity-bindings-title = 已綁定的外部身分：
+identity-bindings-unlink-hint = 使用 /bind unlink <平台> 解除該平台的全部綁定。
+identity-code-cancelled = 已取消尚未使用的 { $arg0 } 綁定驗證碼。
+identity-code-not-pending = 沒有待使用的 { $arg0 } 綁定驗證碼。
+identity-binding-not-owned = 你在該平台沒有綁定。
+identity-binding-unlinked = 已解除 { $arg0 } 的 { $arg1 } 個綁定。
+identity-admin-lookup-empty = 找不到該玩家的綁定紀錄。
+identity-admin-lookup-title = { $arg0 } 的綁定：
+identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
+identity-admin-binding-not-found = 未找到唯一匹配的玩家與平台綁定。
+identity-admin-binding-unlinked = 已解除玩家 { $arg1 } 的 { $arg2 } 個 { $arg0 } 綁定。
+identity-help =
+    身分綁定指令：
+    /bind qq — 快速產生 QQ 綁定指令
+    /bind <平台> — 產生一次性驗證碼
+    /bind list — 檢視已有綁定
+    /bind cancel <平台> — 取消待用驗證碼
+    /bind unlink <平台> — 解除該平台的全部綁定
+identity-admin-help =
+    /bindadmin lookup <玩家或UUID>
+    /bindadmin unlink <玩家或UUID> <平台> confirm
+identity-platforms = 支援的平台：{ $arg0 }
+identity-platform-none = 無
+identity-binding-details =  · { $arg0 } · 範圍 { $arg1 } · { $arg2 }
+identity-unavailable = 身分綁定服務目前無法使用，請聯絡管理員。
+identity-storage-error = 身分綁定資料庫操作失敗，請聯絡管理員。
+identity-notify-linked = { $arg0 } 身分綁定成功。可用 /bind list 檢視，或用 /bind unlink { $arg0 } 解除該平台綁定。
+identity-notify-unlinked = 已解除你的 { $arg0 } 身分綁定。
+
+social-command-description = 管理社群平台介接器
+social-admin-title = 社群平台
+social-admin-help = /social platforms · /social status [平台] · /social reload [平台] · /social conversations <平台>
+social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
+social-admin-status = { $arg0 } · { $arg1 } · 世代 { $arg2 } · 對話 { $arg3 }
+social-admin-unknown = 未知社群平台：{ $arg0 }
+social-admin-reloaded-all = 已重新載入所有社群平台。
+social-admin-reloaded = 已重新載入社群平台 { $arg0 }。
+social-admin-conversations-empty = 尚未觀察到 { $arg0 } 的對話。
+social-admin-conversations-title = { $arg0 } 已觀察到的對話：
+social-state-disabled = 已停用
+social-state-stopped = 已停止
+social-state-starting = 正在啟動
+social-state-ready = 就緒
+social-state-failed = 失敗
+social-title-online-players = 線上玩家
+social-title-server-status = 伺服器狀態
+social-title-command-help = 指令說明
+social-title-unknown-command = 未知指令
+social-title-player-profile = 玩家資料
+social-title-identity-linking = 帳號綁定
+social-title-identity-unlinking = 解除綁定
+social-title-content-hidden = 內容已隱藏
+social-query-online-label = 線上
+social-query-players-label = 玩家
+social-query-active-label = 活躍
+social-query-uptime-label = 執行時間
+social-query-version-label = 伺服器版本
+social-query-no-players = 目前沒有玩家在線上。
+social-online-command-description = 查看在線玩家
+social-status-command-description = 查看玩家、TPS、MSPT 與運行時間
+social-link-command-description = 使用遊戲內驗證碼綁定 Minecraft 帳號
+social-profile-command-description = 查看自己；正式成員可按玩家名稱、@提及或回覆查詢他人
+social-unlink-command-description = 確認後解除目前身分綁定
+social-help-command-description = 顯示此命令清單
+social-query-unknown = 未知指令。傳送 /幫助 查看可用指令。
+social-profile-player-label = 玩家
+social-profile-avatar-alt = Minecraft 頭像
+social-profile-uuid-label = UUID
+social-profile-presence-label = 狀態
+social-profile-play-time-label = 遊玩時間
+social-profile-first-joined-label = 首次加入
+social-profile-last-seen-label = 最近上線
+social-profile-language-label = 語言
+social-profile-online = 線上 · 活躍
+social-profile-afk = 線上 · AFK
+social-profile-offline = 離線
+social-profile-member-required = 只有已綁定的正式成員、協管或管理員可以查詢其他玩家。
+social-profile-player-not-found = 找不到該 Minecraft 玩家。
+social-profile-target-unbound = 被提及或回覆的平台身分尚未綁定 Minecraft 玩家。
+social-profile-target-ambiguous = 請只指定一個玩家名稱、@一名使用者，或回覆一名使用者。
+social-duration-days = { $arg0 } 天 { $arg1 } 小時 { $arg2 } 分鐘
+social-duration-hours = { $arg0 } 小時 { $arg1 } 分鐘
+social-duration-minutes = { $arg0 } 分鐘
+social-binding-identity-missing = 此訊息沒有可靠的平台成員身分，無法執行身分綁定。
+social-binding-unlink-prompt = 解綁會移除目前平台身分與 Minecraft 的關聯。如確定，請傳送 /解綁 確認。
+social-binding-unlinked = 已解除與 Minecraft 玩家 { $arg0 } 的綁定。
+social-binding-not-bound = 目前平台身分尚未綁定 Minecraft 玩家。
+social-binding-help =
+    在 Minecraft 內執行 /bind qq。
+    複製產生的完整指令。
+    在此傳送該指令。
+    使用 /我的帳號 驗證綁定。
+social-binding-unavailable = 身分綁定暫時無法使用，請聯絡伺服器管理員。
+social-binding-status-unbound = 目前平台身分尚未綁定。請使用遊戲內產生的驗證碼執行 /綁定。
+social-binding-linked = 已綁定 Minecraft 玩家 { $arg0 }。
+social-binding-already-linked = 目前平台身分已綁定 Minecraft 玩家 { $arg0 }。
+social-binding-code-invalid = 驗證碼無效或已過期。請在 Minecraft 內重新執行 /bind qq。
+social-binding-platform-mismatch = 此驗證碼是為其他平台產生的。
+social-binding-external-in-use = 目前平台身分已綁定其他 Minecraft 玩家。
+social-binding-player-scope-in-use = 此 Minecraft 玩家已在目前對話綁定其他平台身分。
+social-binding-rate-limited = 驗證碼嘗試次數過多，請約 { $arg0 } 分鐘後再試。
+social-reply-hidden = 回覆命中伺服器內容安全規則，已隱藏原內容。
+
+qq-command-description = 管理 QQ 平台介接器
+qq-admin-disabled = QQ 平台已停用。
+qq-admin-status = QQ 狀態：{ $arg0 }
+qq-admin-last-error = 最近錯誤：{ $arg0 }
+qq-admin-reload-disabled = QQ 已停用，重新載入不會啟動。
+qq-admin-reloaded = 已重新載入 QQ 平台。
+qq-admin-groups-empty = 尚未觀察到 QQ 會話。
+qq-admin-groups-title = 已觀察到的 QQ 會話：
+qq-receiver-stopped = 已停止
+qq-receiver-connecting = 正在連線
+qq-receiver-ready = 就緒
+qq-receiver-failed = 失敗
+
 self-kick-command-description = 把自己踢出伺服器
 self-kick-reason-too-long = 踢出原因不可超過 { $arg0 } 個字元
 self-kick-with-reason = { $player } 自己把自己踢出了伺服器，原因是：{ $reason }

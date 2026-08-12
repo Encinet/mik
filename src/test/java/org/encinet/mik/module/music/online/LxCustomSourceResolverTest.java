@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletableFuture;
@@ -151,6 +152,37 @@ class LxCustomSourceResolverTest {
                 resolver.resolve(target()).get(5, TimeUnit.SECONDS));
         assertEquals(1, resolver.statuses().getFirst().consecutiveFailures());
         assertEquals("Second", resolver.statuses().get(1).name());
+    }
+
+    @Test
+    void downloadFailureTemporarilyPrefersAnotherProvider() throws Exception {
+        Files.writeString(localDirectory().resolve("first.js"), resolvingScript("First",
+                "https://cdn.example/first.mp3"));
+        Files.writeString(localDirectory().resolve("second.js"), resolvingScript("Second",
+                "https://cdn.example/second.mp3"));
+        resolver = resolver();
+
+        LxTrackResolver.Resolution first = resolver.resolveCandidate(target(), Set.of())
+                .get(5, TimeUnit.SECONDS);
+        LxTrackResolver.Resolution explicitlyExcluded = resolver.resolveCandidate(
+                        target(), Set.of(first.providerId()))
+                .get(5, TimeUnit.SECONDS);
+        resolver.candidateFailed(target(), first, new java.io.IOException("CDN unavailable"));
+        LxTrackResolver.Resolution fallback = resolver.resolveCandidate(target(), Set.of())
+                .get(5, TimeUnit.SECONDS);
+
+        assertEquals("local/first.js", first.providerId());
+        assertEquals("https://cdn.example/first.mp3", first.url());
+        assertEquals("local/second.js", explicitlyExcluded.providerId());
+        assertEquals("local/second.js", fallback.providerId());
+        assertEquals("https://cdn.example/second.mp3", fallback.url());
+        assertEquals(1, resolver.statuses().getFirst().consecutiveFailures());
+
+        resolver.candidateSucceeded(target(), first);
+
+        assertEquals("local/first.js", resolver.resolveCandidate(target(), Set.of())
+                .get(5, TimeUnit.SECONDS).providerId());
+        assertEquals(0, resolver.statuses().getFirst().consecutiveFailures());
     }
 
     @Test

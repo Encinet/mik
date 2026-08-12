@@ -35,6 +35,7 @@ final class AfkActivityTracker {
     private boolean movementGestureActive;
     private boolean movementReleaseRequired;
     private boolean automationRewardLocked;
+    private boolean substantialActivityWhileSuspended;
     private boolean intentionalActivityWhileSuspended;
     private long suspendedAt = Long.MIN_VALUE;
     private UUID movementGestureWorldId;
@@ -171,7 +172,7 @@ final class AfkActivityTracker {
         if (suspendedAt == Long.MIN_VALUE) {
             lastObservedAt = now;
         }
-        lastSubstantialAt = now;
+        markSubstantial(now);
         lastIntentionalActivityAt = now;
         intentionalActivityWhileSuspended = suspendedAt != Long.MIN_VALUE;
         automationRewardLocked = false;
@@ -199,6 +200,11 @@ final class AfkActivityTracker {
         return CheckResult.ACTIVE;
     }
 
+    boolean isAutomaticAfkCandidate(long now) {
+        return elapsed(now, lastObservedAt) >= policy.idleTimeoutMillis()
+                || elapsed(now, lastSubstantialAt) >= policy.passiveTimeoutMillis();
+    }
+
     void reset(long now, UUID worldId, double x, double y, double z) {
         lastObservedAt = now;
         lastSubstantialAt = now;
@@ -207,6 +213,7 @@ final class AfkActivityTracker {
         movementGestureActive = false;
         movementReleaseRequired = false;
         automationRewardLocked = false;
+        substantialActivityWhileSuspended = false;
         intentionalActivityWhileSuspended = false;
         suspendedAt = Long.MIN_VALUE;
         movementGestureWorldId = worldId;
@@ -260,12 +267,16 @@ final class AfkActivityTracker {
 
     void resumeFromAfk(long now, UUID worldId, double x, double y, double z) {
         long pausedFor = suspendedAt == Long.MIN_VALUE ? 0L : elapsed(now, suspendedAt);
-        if (pausedFor > 0L && !intentionalActivityWhileSuspended) {
-            lastIntentionalActivityAt += pausedFor;
+        if (pausedFor > 0L) {
+            if (!substantialActivityWhileSuspended) {
+                lastSubstantialAt += pausedFor;
+            }
+            if (!intentionalActivityWhileSuspended) {
+                lastIntentionalActivityAt += pausedFor;
+            }
         }
 
         lastObservedAt = now;
-        lastSubstantialAt = now;
         resetActionWindow();
         behaviorAnalyzer.reset();
         resetMovementGesture(worldId, x, y, z, movementReleaseRequired);
@@ -279,6 +290,7 @@ final class AfkActivityTracker {
     private void beginSuspension(long now) {
         if (suspendedAt == Long.MIN_VALUE) {
             suspendedAt = now;
+            substantialActivityWhileSuspended = false;
             intentionalActivityWhileSuspended = false;
         }
     }
@@ -301,11 +313,13 @@ final class AfkActivityTracker {
 
     private void finishSuspension() {
         suspendedAt = Long.MIN_VALUE;
+        substantialActivityWhileSuspended = false;
         intentionalActivityWhileSuspended = false;
     }
 
     private void markSubstantial(long now) {
         lastSubstantialAt = now;
+        substantialActivityWhileSuspended = suspendedAt != Long.MIN_VALUE;
     }
 
     private void resetActionWindow() {

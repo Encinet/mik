@@ -24,11 +24,17 @@ final class NbsPlaybackCursor {
     private double completedTickSeconds;
     private long lastPollNanos;
     private boolean started;
+    private boolean clockAnchored;
     private boolean finished;
 
     NbsPlaybackCursor(NbsSong song) {
+        this(song, 0L);
+    }
+
+    NbsPlaybackCursor(NbsSong song, long initialPositionMillis) {
         this.song = song;
         this.ticksPerSecond = song.ticksPerSecond();
+        seek(Math.max(0L, initialPositionMillis) / 1_000.0);
     }
 
     PollResult poll(long nowNanos) {
@@ -36,10 +42,13 @@ final class NbsPlaybackCursor {
             return result(List.of());
         }
         List<NbsNote> notes = new ArrayList<>();
-        if (!started) {
-            started = true;
+        if (!clockAnchored) {
+            clockAnchored = true;
             lastPollNanos = nowNanos;
-            appendCurrentTick(notes);
+            if (!started) {
+                started = true;
+                appendCurrentTick(notes);
+            }
             return result(notes);
         }
 
@@ -67,6 +76,27 @@ final class NbsPlaybackCursor {
             }
         }
         return result(notes);
+    }
+
+    private void seek(double positionSeconds) {
+        if (positionSeconds <= 0.0) {
+            return;
+        }
+        started = true;
+        double remainingSeconds = positionSeconds;
+        List<NbsNote> discarded = new ArrayList<>();
+        while (!finished) {
+            discarded.clear();
+            appendCurrentTick(discarded);
+            double tickSeconds = 1.0 / ticksPerSecond;
+            if (remainingSeconds + 1.0e-12 < tickSeconds) {
+                pendingSeconds = remainingSeconds;
+                return;
+            }
+            remainingSeconds -= tickSeconds;
+            completedTickSeconds += tickSeconds;
+            advanceTick();
+        }
     }
 
     /**

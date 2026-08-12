@@ -101,6 +101,63 @@ class AfkPlayerSessionTest {
                 false).shouldEnterAfk());
     }
 
+    @Test
+    void slightMovementAndReconnectCannotErasePassiveInactivity() {
+        AfkPlayerSession session = session();
+        AfkActivityTracker activity = session.activity();
+        long passiveAt = AfkPolicy.DEFAULT.passiveTimeoutMillis();
+        activity.recordLightActivity(passiveAt);
+
+        assertFalse(session.checkAutomaticAfk(passiveAt, true).shouldEnterAfk());
+        long enteredAt = passiveAt + AfkPolicy.DEFAULT.automaticEntryGraceMillis();
+        assertTrue(session.checkAutomaticAfk(enteredAt, true).shouldEnterAfk());
+        session.enterAfk(enteredAt, false);
+
+        long movedAt = enteredAt + 5_000L;
+        assertTrue(activity.recordMovementInput(
+                true, WORLD_ID, 0.0D, 0.0D, 0.0D, movedAt));
+        session.exitAfk(movedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+        activity.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, movedAt);
+        assertFalse(activity.recordMovement(
+                WORLD_ID, 0.25D, 0.0D, 0.0D, movedAt + 100L));
+
+        long disconnectedAt = movedAt + 500L;
+        session.suspendForDisconnect(disconnectedAt);
+        long reconnectedAt = disconnectedAt + 1_000L;
+        session.resumeAfterReconnect(reconnectedAt, WORLD_ID, 0.25D, 0.0D, 0.0D);
+
+        assertTrue(session.isAutomaticAfkCandidate(reconnectedAt));
+        AfkPlayerSession.AutomaticCheck candidate = session.checkAutomaticAfk(reconnectedAt, true);
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE, candidate.result());
+        assertFalse(candidate.shouldEnterAfk());
+        assertTrue(session.checkAutomaticAfk(
+                reconnectedAt + AfkPolicy.DEFAULT.automaticEntryGraceMillis(), true)
+                .shouldEnterAfk());
+    }
+
+    @Test
+    void reconnectingWhileAfkDoesNotCountAsActivity() {
+        AfkPlayerSession session = session();
+        long idleAt = AfkPolicy.DEFAULT.idleTimeoutMillis();
+
+        assertFalse(session.checkAutomaticAfk(idleAt, true).shouldEnterAfk());
+        long enteredAt = idleAt + AfkPolicy.DEFAULT.automaticEntryGraceMillis();
+        assertTrue(session.checkAutomaticAfk(enteredAt, true).shouldEnterAfk());
+        session.enterAfk(enteredAt, false);
+
+        long disconnectedAt = enteredAt + 5_000L;
+        session.suspendForDisconnect(disconnectedAt);
+        long reconnectedAt = disconnectedAt + 1_000L;
+        session.resumeAfterReconnect(reconnectedAt, WORLD_ID, 0.0D, 0.0D, 0.0D);
+
+        AfkPlayerSession.AutomaticCheck candidate = session.checkAutomaticAfk(reconnectedAt, true);
+        assertEquals(AfkActivityTracker.CheckResult.AFK_IDLE, candidate.result());
+        assertFalse(candidate.shouldEnterAfk());
+        assertTrue(session.checkAutomaticAfk(
+                reconnectedAt + AfkPolicy.DEFAULT.automaticEntryGraceMillis(), true)
+                .shouldEnterAfk());
+    }
+
     private static AfkPlayerSession session() {
         return new AfkPlayerSession(0L, WORLD_ID, 0.0D, 0.0D, 0.0D);
     }
