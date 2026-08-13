@@ -253,6 +253,16 @@ final class IdentityBindingRepository implements AutoCloseable {
         }
     }
 
+    synchronized List<IdentityBinding> findAll() throws SQLException {
+        ensureOpen();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT * FROM identity_bindings
+                ORDER BY player_uuid, platform, issuer, identity_scope, subject
+                """)) {
+            return readBindings(statement);
+        }
+    }
+
     synchronized List<IdentityBinding> findByPlayerName(String playerName) throws SQLException {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement("""

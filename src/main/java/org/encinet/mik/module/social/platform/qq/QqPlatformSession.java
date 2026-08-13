@@ -17,6 +17,11 @@ final class QqPlatformSession implements SocialPlatformSession {
     }
 
     @Override
+    public void start() {
+        gateway.start();
+    }
+
+    @Override
     public void close() {
         gateway.close();
         httpClient.shutdownNow();

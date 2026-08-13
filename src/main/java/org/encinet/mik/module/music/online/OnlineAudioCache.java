@@ -1213,8 +1213,9 @@ public final class OnlineAudioCache implements AutoCloseable {
         /** Independent seekable reader over the bytes currently entering the cache. */
         public static final class Reader implements AutoCloseable {
             private final StreamingState state;
-            private final FileChannel channel;
+            private final Object channelLock = new Object();
             private final AtomicBoolean closed = new AtomicBoolean();
+            private FileChannel channel;
             private long position;
 
             private Reader(StreamingState state, FileChannel channel) {
@@ -1238,11 +1239,27 @@ public final class OnlineAudioCache implements AutoCloseable {
                     if (readable < 0) {
                         return -1;
                     }
-                    int read = channel.read(ByteBuffer.wrap(bytes, offset, readable), position);
+                    int read = readableChannel().read(
+                            ByteBuffer.wrap(bytes, offset, readable), position);
                     if (read > 0) {
                         position += read;
                         return read;
                     }
+                }
+            }
+
+            private FileChannel readableChannel() throws IOException {
+                synchronized (channelLock) {
+                    if (closed.get()) {
+                        throw new IOException("Streaming audio reader is closed");
+                    }
+                    // Lavaplayer interrupts its decoding thread to perform a seek. NIO
+                    // permanently closes a FileChannel when an in-progress read is
+                    // interrupted, so the next read must reopen the same cache file.
+                    if (!channel.isOpen()) {
+                        channel = state.openChannel();
+                    }
+                    return channel;
                 }
             }
 
@@ -1269,7 +1286,9 @@ public final class OnlineAudioCache implements AutoCloseable {
             public void close() throws IOException {
                 if (closed.compareAndSet(false, true)) {
                     state.readerClosed();
-                    channel.close();
+                    synchronized (channelLock) {
+                        channel.close();
+                    }
                 }
             }
         }
@@ -1333,10 +1352,13 @@ public final class OnlineAudioCache implements AutoCloseable {
         }
 
         private synchronized StreamingAudio.Reader openReader() throws IOException {
+            return new StreamingAudio.Reader(this, openChannel());
+        }
+
+        private synchronized FileChannel openChannel() throws IOException {
             throwIfFailed();
             try {
-                return new StreamingAudio.Reader(this,
-                        FileChannel.open(path, StandardOpenOption.READ));
+                return FileChannel.open(path, StandardOpenOption.READ);
             } catch (NoSuchFileException exception) {
                 throw new IOException("Streaming audio file is no longer available", exception);
             }

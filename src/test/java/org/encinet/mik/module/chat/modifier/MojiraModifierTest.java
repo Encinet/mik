@@ -1,7 +1,6 @@
 package org.encinet.mik.module.chat.modifier;
 
-import net.kyori.adventure.text.event.ClickEvent;
-import net.kyori.adventure.text.TextComponent;
+import org.encinet.mik.module.chat.model.ChatNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -80,7 +79,8 @@ class MojiraModifierTest {
     }
 
     private void assertReplacement(ChatReplacement replacement, String label, String url) {
-        assertEquals(label, ((TextComponent) replacement.component()).content());
-        assertEquals(ClickEvent.openUrl(url), replacement.component().clickEvent());
+        ChatNode.Link link = (ChatNode.Link) replacement.nodes().getFirst();
+        assertEquals(label, link.label());
+        assertEquals(url, link.target().toString());
     }
 }

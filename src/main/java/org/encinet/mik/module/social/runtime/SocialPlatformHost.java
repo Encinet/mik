@@ -1,8 +1,13 @@
 package org.encinet.mik.module.social.runtime;
 
+import org.encinet.mik.module.chat.model.ChatMessage;
 import org.encinet.mik.module.social.api.SocialPlatformAdapter;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.module.social.api.SocialPlatformPlan;
+import org.encinet.mik.module.social.chat.SocialChatGateway;
+import org.encinet.mik.module.social.chat.SocialChatPublisher;
+import org.encinet.mik.module.social.chat.SocialChatPublishReport;
+import org.encinet.mik.module.social.chat.SocialMentionBindingDirectory;
 import org.encinet.mik.module.social.command.SocialCommandDispatcher;
 
 import java.util.ArrayList;
@@ -18,13 +23,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /** Coordinates installed adapters while each generation owns its runtime resources. */
-public final class SocialPlatformHost implements SocialPlatformAdmin, AutoCloseable {
+public final class SocialPlatformHost implements SocialPlatformAdmin,
+        SocialChatPublisher, AutoCloseable {
 
     private final Map<String, SocialPlatformAdapter> adapters = new LinkedHashMap<>();
     private final Map<String, SocialPlatformGeneration> generations = new LinkedHashMap<>();
     private final SocialCommandDispatcher commands;
     private final SocialIdentityLeaseManager identityLeases;
     private final SocialContentGuard contentGuard;
+    private final SocialChatGateway chatGateway;
+    private final SocialMentionBindingDirectory mentionBindings;
     private final Logger logger;
     private boolean closed;
 
@@ -35,9 +43,39 @@ public final class SocialPlatformHost implements SocialPlatformAdmin, AutoClosea
             SocialContentGuard contentGuard,
             Logger logger
     ) {
+        this(adapters, commands, identityLeases, contentGuard,
+                (platform, message) ->
+                        java.util.concurrent.CompletableFuture.completedFuture(null),
+                playerId -> List.of(), logger);
+    }
+
+    public SocialPlatformHost(
+            Collection<? extends SocialPlatformAdapter> adapters,
+            SocialCommandDispatcher commands,
+            SocialIdentityLeaseManager identityLeases,
+            SocialContentGuard contentGuard,
+            SocialChatGateway chatGateway,
+            Logger logger
+    ) {
+        this(adapters, commands, identityLeases, contentGuard, chatGateway,
+                playerId -> List.of(), logger);
+    }
+
+    public SocialPlatformHost(
+            Collection<? extends SocialPlatformAdapter> adapters,
+            SocialCommandDispatcher commands,
+            SocialIdentityLeaseManager identityLeases,
+            SocialContentGuard contentGuard,
+            SocialChatGateway chatGateway,
+            SocialMentionBindingDirectory mentionBindings,
+            Logger logger
+    ) {
         this.commands = Objects.requireNonNull(commands, "commands");
         this.identityLeases = Objects.requireNonNull(identityLeases, "identityLeases");
         this.contentGuard = Objects.requireNonNull(contentGuard, "contentGuard");
+        this.chatGateway = Objects.requireNonNull(chatGateway, "chatGateway");
+        this.mentionBindings = Objects.requireNonNull(
+                mentionBindings, "mentionBindings");
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(adapters, "adapters").forEach(this::addAdapter);
     }
@@ -69,7 +107,8 @@ public final class SocialPlatformHost implements SocialPlatformAdmin, AutoClosea
         }
         SocialPlatformDescriptor descriptor = adapter.descriptor();
         SocialPlatformGeneration next = new SocialPlatformGeneration(
-                descriptor, number, commands, identityLeases, contentGuard, logger);
+                descriptor, number, commands, identityLeases, contentGuard,
+                chatGateway, mentionBindings, logger);
         generations.put(id, next);
         try {
             Optional<SocialPlatformPlan> plan = adapter.prepare();
@@ -109,6 +148,19 @@ public final class SocialPlatformHost implements SocialPlatformAdmin, AutoClosea
         SocialPlatformGeneration generation = generations.get(
                 normalizePlatformId(platformId));
         return generation == null ? Set.of() : generation.conversations();
+    }
+
+    @Override
+    public synchronized SocialChatPublishReport publish(ChatMessage message) {
+        Objects.requireNonNull(message, "message");
+        if (closed) {
+            return SocialChatPublishReport.empty();
+        }
+        SocialChatPublishReport report = SocialChatPublishReport.empty();
+        for (SocialPlatformGeneration generation : generations.values()) {
+            report = report.plus(generation.publishChat(message));
+        }
+        return report;
     }
 
     private void addAdapter(SocialPlatformAdapter adapter) {

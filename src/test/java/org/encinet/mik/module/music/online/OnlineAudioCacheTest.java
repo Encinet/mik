@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.EOFException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -274,6 +275,29 @@ class OnlineAudioCacheTest {
             assertArrayEquals(audio, secondBytes);
         }
         assertEquals(1, requests.get());
+    }
+
+    @Test
+    void reopensReaderChannelAfterLavaplayerSeekInterruptClosesIt() throws Exception {
+        byte[] audio = "seekable-progressive-audio"
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        String url = serve("/seekable-progressive", audio, new AtomicInteger());
+        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+
+        OnlineAudioCache.StreamingAudio streaming = cache.acquireStreaming(target())
+                .get(5, TimeUnit.SECONDS);
+        try (streaming; OnlineAudioCache.StreamingAudio.Reader reader = streaming.openReader()) {
+            assertEquals(Byte.toUnsignedInt(audio[0]), reader.read());
+
+            var channelField = reader.getClass().getDeclaredField("channel");
+            channelField.setAccessible(true);
+            ((FileChannel) channelField.get(reader)).close();
+
+            reader.seek(0);
+            byte[] replayed = new byte[audio.length];
+            assertEquals(audio.length, reader.read(replayed, 0, replayed.length));
+            assertArrayEquals(audio, replayed);
+        }
     }
 
     @Test

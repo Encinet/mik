@@ -50,6 +50,7 @@ import org.encinet.mik.module.presentation.MotdModule;
 import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.social.SocialModule;
+import org.encinet.mik.module.social.game.BukkitSocialChatGateway;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
 import org.encinet.mik.module.safety.TrampleProtectionModule;
@@ -224,17 +225,24 @@ public final class Mik extends JavaPlugin {
                 ChatDisplayRenderer::playerName);
         mentionService.enable();
 
-        chatModule = new ChatModule(
-                this, mentionService, languageService, chatSettingsStore, playerIdentities);
-        chatModule.enable();
-        chatModule.registerCommands(this.getLifecycleManager());
-
         identityBindingModule = new IdentityBindingModule(this, languageService);
         identityBindingModule.enable();
         identityBindingModule.registerCommands(this.getLifecycleManager());
 
+        BukkitSocialChatGateway socialChatGateway =
+                new BukkitSocialChatGateway(
+                        this, identityBindingModule.manager(), playerNameTags);
         socialModule = new SocialModule(
-                this, identityBindingModule.manager(), languageService, afkModule);
+                this, identityBindingModule.manager(), languageService, afkModule,
+                socialChatGateway);
+
+        chatModule = new ChatModule(
+                this, mentionService, languageService, chatSettingsStore, playerIdentities,
+                socialModule.chatPublisher(), identityBindingModule.manager());
+        socialChatGateway.bind(chatModule);
+        chatModule.enable();
+        chatModule.registerCommands(this.getLifecycleManager());
+
         socialModule.enable();
         socialModule.registerCommands(this.getLifecycleManager());
 
@@ -375,6 +383,9 @@ public final class Mik extends JavaPlugin {
         }
         if (socialModule != null) {
             socialModule.disable();
+        }
+        if (chatModule != null) {
+            chatModule.disable();
         }
         if (identityBindingModule != null) {
             identityBindingModule.disable();

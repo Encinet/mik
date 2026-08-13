@@ -564,6 +564,11 @@ chat-item-empty-hover = В основній руці немає предмета
 chat-mention-all-hover = Сповістити всіх видимих гравців у цьому каналі
 chat-bilibili-hover = Виявлено посилання на відео Bilibili
 chat-copy-hover = ЛКМ: скопіювати повідомлення
+chat-player-hover = ЛКМ: почати приватне повідомлення
+chat-social-name-label = Ім’я в соцмережі
+chat-social-account-label = Обліковий запис платформи
+chat-social-bound-player-label = Прив’язаний гравець
+chat-social-unbound = Не прив’язано до гравця Minecraft
 chat-settings-menu-title = Налаштування чату
 chat-delay-cancel-command-description = Скасувати відкладені повідомлення
 chat-delay-section = Відкладене надсилання
@@ -963,7 +968,7 @@ social-binding-unlink-prompt = Відв’язування видалить зв
 social-binding-unlinked = Відв’язано від гравця Minecraft { $arg0 }.
 social-binding-not-bound = Цю особу платформи не прив’язано.
 social-binding-help =
-    Виконайте /bind qq у Minecraft.
+    Виконайте /bind { $arg0 } у Minecraft.
     Скопіюйте створену повну команду.
     Надішліть цю команду сюди.
     Перевірте прив’язку командою /профіль.
@@ -971,7 +976,7 @@ social-binding-unavailable = Прив’язування особи тимчас
 social-binding-status-unbound = Цю особу не прив’язано. Використайте /прив’язати з кодом підтвердження.
 social-binding-linked = Прив’язано до гравця Minecraft { $arg0 }.
 social-binding-already-linked = Цю особу вже прив’язано до гравця Minecraft { $arg0 }.
-social-binding-code-invalid = Код підтвердження недійсний або прострочений. Створіть новий командою /bind qq у Minecraft.
+social-binding-code-invalid = Код підтвердження недійсний або прострочений. Створіть новий командою /bind { $arg0 } у Minecraft.
 social-binding-platform-mismatch = Цей код підтвердження видано для іншої платформи.
 social-binding-external-in-use = Цю особу вже прив’язано до іншого гравця Minecraft.
 social-binding-player-scope-in-use = Цей гравець Minecraft уже має іншу прив’язану особу в цій розмові.

@@ -160,6 +160,13 @@ public final class SocialManagementCommandRegistrar {
         sender.sendMessage(text(sender, Message.SOCIAL_ADMIN_STATUS, color(status.state()),
                 status.descriptor().displayName(), stateName(sender, status.state()),
                 status.generation(), status.observedConversations()));
+        sender.sendMessage(Component.text("in " + status.inboundAccepted()
+                + " / retry " + status.inboundBackpressured()
+                + " · out " + status.outboundAccepted()
+                + " / pressure " + status.outboundBackpressured()
+                + " · failures " + status.deliveryFailures(),
+                status.deliveryFailures() == 0
+                        ? NamedTextColor.DARK_GRAY : NamedTextColor.YELLOW));
         if (!status.endpoint().isBlank()) {
             sender.sendMessage(Component.text(status.endpoint(), NamedTextColor.GRAY));
         }

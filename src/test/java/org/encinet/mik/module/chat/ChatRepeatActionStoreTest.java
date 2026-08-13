@@ -46,4 +46,14 @@ class ChatRepeatActionStoreTest {
         assertTrue(store.resolve(privateToken).isEmpty());
         assertTrue(store.resolve(publicToken).isPresent());
     }
+
+    @Test
+    void preparedActionIsInvisibleUntilCommitted() {
+        ChatRepeatActionStore store = new ChatRepeatActionStore();
+        ChatRepeatActionStore.PendingAction pending = store.preparePublic("same");
+
+        assertTrue(store.resolve(pending.token()).isEmpty());
+        store.commit(pending);
+        assertTrue(store.resolve(pending.token()).isPresent());
+    }
 }

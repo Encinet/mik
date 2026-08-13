@@ -563,6 +563,11 @@ chat-item-empty-hover = Nessun oggetto nella mano principale
 chat-mention-all-hover = Avvisa ogni giocatore visibile in questo canale
 chat-bilibili-hover = Rilevato collegamento video Bilibili
 chat-copy-hover = Clic sinistro per copiare il messaggio
+chat-player-hover = Clic sinistro per iniziare un messaggio privato
+chat-social-name-label = Nome social
+chat-social-account-label = Account della piattaforma
+chat-social-bound-player-label = Giocatore collegato
+chat-social-unbound = Non collegato a un giocatore Minecraft
 chat-settings-menu-title = Impostazioni della chat
 chat-delay-cancel-command-description = Annulla i messaggi ritardati in sospeso
 chat-delay-section = Invio ritardato
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = Scollegando verrà rimossa l’associazione tra q
 social-binding-unlinked = Scollegato dal giocatore Minecraft { $arg0 }.
 social-binding-not-bound = Questa identità della piattaforma non è collegata.
 social-binding-help =
-    Esegui /bind qq in Minecraft.
+    Esegui /bind { $arg0 } in Minecraft.
     Copia il comando completo generato.
     Invia qui il comando.
     Usa /profilo per verificare il collegamento.
@@ -970,7 +975,7 @@ social-binding-unavailable = Il collegamento dell’identità non è temporaneam
 social-binding-status-unbound = Questa identità non è collegata. Usa /collega con un codice di verifica.
 social-binding-linked = Collegato al giocatore Minecraft { $arg0 }.
 social-binding-already-linked = Questa identità è già collegata al giocatore Minecraft { $arg0 }.
-social-binding-code-invalid = Il codice di verifica non è valido o è scaduto. Generane uno nuovo con /bind qq in Minecraft.
+social-binding-code-invalid = Il codice di verifica non è valido o è scaduto. Generane uno nuovo con /bind { $arg0 } in Minecraft.
 social-binding-platform-mismatch = Questo codice di verifica è stato emesso per un’altra piattaforma.
 social-binding-external-in-use = Questa identità è già collegata a un altro giocatore Minecraft.
 social-binding-player-scope-in-use = Quel giocatore Minecraft ha già un’altra identità collegata in questa conversazione.

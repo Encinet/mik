@@ -13,15 +13,45 @@ final class ChatRepeatActionStore {
     private final Map<UUID, RepeatAction> actions = new ConcurrentHashMap<>();
 
     public String createPublic(String message) {
-        return create(message, ChatChannel.PUBLIC, null, null);
+        PendingAction pending = preparePublic(message);
+        commit(pending);
+        return pending.token();
     }
 
     public String createStaff(String message) {
-        return create(message, ChatChannel.STAFF, null, null);
+        PendingAction pending = prepareStaff(message);
+        commit(pending);
+        return pending.token();
     }
 
     public String createPrivate(String message, UUID senderId, UUID targetId) {
-        return create(message, ChatChannel.PRIVATE, senderId, targetId);
+        PendingAction pending = preparePrivate(message, senderId, targetId);
+        commit(pending);
+        return pending.token();
+    }
+
+    public PendingAction preparePublic(String message) {
+        return prepare(message, ChatChannel.PUBLIC, null, null);
+    }
+
+    public PendingAction prepareStaff(String message) {
+        return prepare(message, ChatChannel.STAFF, null, null);
+    }
+
+    public PendingAction preparePrivate(
+            String message,
+            UUID senderId,
+            UUID targetId
+    ) {
+        return prepare(message, ChatChannel.PRIVATE, senderId, targetId);
+    }
+
+    public void commit(PendingAction pending) {
+        PendingAction checked = java.util.Objects.requireNonNull(pending, "pending");
+        long now = System.currentTimeMillis();
+        actions.entrySet().removeIf(entry ->
+                entry.getValue().expiredAtMillis() <= now);
+        actions.put(checked.id(), checked.action());
     }
 
     public Optional<RepeatAction> resolve(String token) {
@@ -47,13 +77,28 @@ final class ChatRepeatActionStore {
         actions.entrySet().removeIf(entry -> entry.getValue().includesPrivateParticipant(playerId));
     }
 
-    private String create(String message, ChatChannel channel, UUID senderId, UUID targetId) {
+    private PendingAction prepare(
+            String message,
+            ChatChannel channel,
+            UUID senderId,
+            UUID targetId
+    ) {
         long now = System.currentTimeMillis();
-        actions.entrySet().removeIf(entry -> entry.getValue().expiredAtMillis() <= now);
-
         UUID actionId = UUID.randomUUID();
-        actions.put(actionId, new RepeatAction(message, channel, senderId, targetId, now + ACTION_LIFETIME_MILLIS));
-        return actionId.toString();
+        return new PendingAction(actionId, new RepeatAction(
+                message, channel, senderId, targetId,
+                now + ACTION_LIFETIME_MILLIS));
+    }
+
+    record PendingAction(UUID id, RepeatAction action) {
+        PendingAction {
+            java.util.Objects.requireNonNull(id, "id");
+            java.util.Objects.requireNonNull(action, "action");
+        }
+
+        String token() {
+            return id.toString();
+        }
     }
 
     record RepeatAction(String message, ChatChannel channel, UUID senderId, UUID targetId, long expiredAtMillis) {

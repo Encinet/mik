@@ -2,6 +2,14 @@ package org.encinet.mik.module.social.runtime;
 
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.identity.IdentityPlatform;
+import org.encinet.mik.module.chat.model.ChatContent;
+import org.encinet.mik.module.chat.model.ChatMessage;
+import org.encinet.mik.module.chat.model.ChatSubmission;
+import org.encinet.mik.module.chat.model.ChatNode;
+import org.encinet.mik.module.chat.model.ChatStyle;
+import org.encinet.mik.module.identity.ExternalIdentity;
+import org.encinet.mik.module.identity.ExternalIdentityKey;
+import org.encinet.mik.module.identity.IdentityBinding;
 import org.encinet.mik.module.social.api.SocialConversation;
 import org.encinet.mik.module.social.api.SocialEventSink;
 import org.encinet.mik.module.social.api.SocialInboundMessage;
@@ -18,8 +26,14 @@ import org.encinet.mik.module.social.command.SocialCommandDispatcher;
 import org.encinet.mik.module.social.command.SocialCommandInput;
 import org.encinet.mik.module.social.command.SocialCommandSpec;
 import org.encinet.mik.module.social.command.SocialCommandSyntax;
+import org.encinet.mik.module.social.chat.SocialChatPlatformSession;
+import org.encinet.mik.module.social.chat.SocialChatOutboundPolicy;
+import org.encinet.mik.module.social.chat.SocialChatRoute;
+import org.encinet.mik.module.social.chat.SocialChatMentionRequest;
+import org.encinet.mik.module.social.chat.SocialChatMentionResolution;
 import org.encinet.mik.module.social.document.SocialDocument;
 import org.encinet.mik.module.social.safety.SocialContentSafetyFilter;
+import org.encinet.mik.test.ChatTestMessages;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -30,6 +44,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
+import java.util.UUID;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -58,7 +74,7 @@ class SocialPlatformHostTest {
             assertEquals("Second:two", secondReply.documents.getFirst().title());
             assertEquals(SocialEventSink.Acceptance.IGNORED,
                     first.emit("same-event", "!echo duplicate", new Capture()));
-            assertEquals(SocialEventSink.Acceptance.IGNORED,
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED,
                     first.emit("wrong-prefix", "/echo ignored", new Capture()));
         }
     }
@@ -230,6 +246,213 @@ class SocialPlatformHostTest {
         }
     }
 
+    @Test
+    void sharedChatBoundaryDeduplicatesInboundAndPublishesOutbound() throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("bridge", "!", 4);
+        adapter.chatRoutes = List.of(
+                new SocialChatRoute(new SocialConversation(
+                        "always", SocialConversation.Type.GROUP),
+                        SocialChatOutboundPolicy.always()),
+                new SocialChatRoute(new SocialConversation(
+                        "prefix", SocialConversation.Type.GROUP),
+                        SocialChatOutboundPolicy.prefixed("#", true)));
+        List<ChatSubmission> incoming = new CopyOnWriteArrayList<>();
+        CountDownLatch delivered = new CountDownLatch(1);
+        SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(argument -> argument)),
+                SocialIdentityLeaseManager.unavailable(), guard(),
+                (platform, message) -> {
+                    assertEquals("bridge", platform.id());
+                    incoming.add(message);
+                    delivered.countDown();
+                    return CompletableFuture.completedFuture(null);
+                }, Logger.getAnonymousLogger());
+        try (host) {
+            host.start();
+            assertEquals(SocialEventSink.Acceptance.UNHANDLED,
+                    adapter.emit("plain", "hello", new Capture()));
+
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED,
+                    adapter.emit("chat-event", "always", "Alice",
+                            "hello Minecraft", new Capture()));
+            assertTrue(delivered.await(2, TimeUnit.SECONDS));
+            assertEquals(List.of("hello Minecraft"), incoming.stream()
+                    .map(ChatSubmission::sourceText).toList());
+            assertEquals(List.of("Alice"), incoming.stream()
+                    .map(message -> message.sender().displayName()).toList());
+            assertEquals(SocialEventSink.Acceptance.IGNORED,
+                    adapter.emit("chat-event", "always", "Alice",
+                            "hello Minecraft", new Capture()));
+
+            host.publish(ChatTestMessages.minecraft("Steve", "#hello Matrix"));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (adapter.outgoingChat.isEmpty()
+                    && System.nanoTime() < deadline) {
+                Thread.sleep(10);
+            }
+            assertEquals(List.of("#hello Matrix", "hello Matrix"),
+                    adapter.outgoingChat.stream()
+                            .map(message -> message.submission().sourceText()).toList());
+        }
+    }
+
+    @Test
+    void inboundSocialChatBypassesOutboundKeywordFiltering() throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("bridge", "!", 4);
+        adapter.contentSafetyEnabled = true;
+        List<ChatSubmission> incoming = new CopyOnWriteArrayList<>();
+        CountDownLatch delivered = new CountDownLatch(1);
+        SocialContentGuard directionalGuard = SocialContentGuard.available(
+                SocialContentSafetyFilter.compile(List.of("js"), "test.txt"),
+                SocialDocument.of("Blocked", SocialDocument.Tone.WARNING));
+        SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(argument -> argument)),
+                SocialIdentityLeaseManager.unavailable(), directionalGuard,
+                (platform, message) -> {
+                    incoming.add(message);
+                    delivered.countDown();
+                    return CompletableFuture.completedFuture(null);
+                }, Logger.getAnonymousLogger());
+        try (host) {
+            host.start();
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED,
+                    adapter.emit("js-event", "room", "Alice", "js",
+                            new Capture()));
+            assertTrue(delivered.await(2, TimeUnit.SECONDS));
+            assertEquals(List.of("js"), incoming.stream()
+                    .map(ChatSubmission::sourceText).toList());
+
+            host.publish(ChatTestMessages.minecraft("Steve", "js"));
+            host.publish(ChatTestMessages.minecraft("Steve", "safe source",
+                    ChatContent.plain("expanded js")));
+            host.publish(ChatTestMessages.minecraft("Steve", "safe"));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (adapter.outgoingChat.isEmpty()
+                    && System.nanoTime() < deadline) {
+                Thread.sleep(10);
+            }
+            assertEquals(List.of("safe"), adapter.outgoingChat.stream()
+                    .map(message -> message.submission().sourceText()).toList());
+        }
+    }
+
+    @Test
+    void strippedRoutePrefixDoesNotParticipateInOutboundFiltering()
+            throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("bridge", "!", 4);
+        adapter.contentSafetyEnabled = true;
+        adapter.chatRoutes = List.of(new SocialChatRoute(
+                new SocialConversation("prefix", SocialConversation.Type.GROUP),
+                SocialChatOutboundPolicy.prefixed("trigger", true)));
+        SocialContentGuard directionalGuard = SocialContentGuard.available(
+                SocialContentSafetyFilter.compile(List.of("trigger"), "test.txt"),
+                SocialDocument.of("Blocked", SocialDocument.Tone.WARNING));
+        try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(argument -> argument)),
+                SocialIdentityLeaseManager.unavailable(), directionalGuard,
+                Logger.getAnonymousLogger())) {
+            host.start();
+            host.publish(ChatTestMessages.minecraft("Steve", "trigger safe"));
+
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (adapter.outgoingChat.isEmpty()
+                    && System.nanoTime() < deadline) {
+                Thread.sleep(10);
+            }
+            assertEquals(List.of("safe"), adapter.outgoingChat.stream()
+                    .map(message -> message.submission().sourceText()).toList());
+        }
+    }
+
+    @Test
+    void forwardedSocialOriginIsNotSentBackToItsSourcePlatform()
+            throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("matrix", "!", 4);
+        try (SocialPlatformHost host = host(
+                List.of(adapter), echoCommand(argument -> argument))) {
+            host.start();
+            org.encinet.mik.module.chat.model.ChatSubmission submission =
+                    new org.encinet.mik.module.chat.model.ChatSubmission(
+                            org.encinet.mik.module.chat.model.ChatMessageId.external(
+                                    "matrix", "$event"),
+                            new org.encinet.mik.module.chat.model.ChatOrigin.Social(
+                                    "matrix", "$event"),
+                            new org.encinet.mik.module.chat.model.ChatSender(
+                                    "Alice", Optional.empty(), Optional.empty(),
+                                    "", "", ""),
+                            new org.encinet.mik.module.chat.model.ChatConversation(
+                                    org.encinet.mik.module.chat.model.ChatConversation.Kind.SOCIAL,
+                                    "matrix:room"),
+                            "hello", org.encinet.mik.module.chat.model.ChatReferences.empty(),
+                            java.time.Instant.EPOCH,
+                            org.encinet.mik.module.chat.model.ChatProcessingContext.external());
+
+            host.publish(new ChatMessage(
+                    submission, ChatContent.plain("hello"), java.util.Set.of()));
+            Thread.sleep(50);
+
+            assertTrue(adapter.outgoingChat.isEmpty());
+        }
+    }
+
+    @Test
+    void outboundMentionsAreResolvedSeparatelyForEveryRoute() throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("matrix", "!", 4);
+        adapter.chatRoutes = List.of(
+                new SocialChatRoute(new SocialConversation(
+                        "joined", SocialConversation.Type.GROUP),
+                        SocialChatOutboundPolicy.always()),
+                new SocialChatRoute(new SocialConversation(
+                        "absent", SocialConversation.Type.GROUP),
+                        SocialChatOutboundPolicy.always()));
+        UUID target = UUID.randomUUID();
+        IdentityBinding matrixBinding = new IdentityBinding(target, "Alex",
+                new ExternalIdentityKey("matrix", "example.org", "",
+                        "@alex:example.org"), "Alex Matrix",
+                java.time.Instant.EPOCH, java.time.Instant.EPOCH);
+        IdentityBinding otherPlatform = new IdentityBinding(target, "Alex",
+                new ExternalIdentityKey("qq", "app", "group", "qq-alex"),
+                "Alex QQ", java.time.Instant.EPOCH, java.time.Instant.EPOCH);
+        adapter.mentionResolver = (conversation, requests) -> {
+            if (!conversation.id().equals("joined")) {
+                return SocialChatMentionResolution.empty();
+            }
+            SocialChatMentionRequest request = requests.getFirst();
+            return new SocialChatMentionResolution(Map.of(
+                    request.playerId(), request.candidates()));
+        };
+        SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(argument -> argument)),
+                SocialIdentityLeaseManager.unavailable(), guard(),
+                (platform, message) -> CompletableFuture.completedFuture(null),
+                playerId -> playerId.equals(target)
+                        ? List.of(matrixBinding, otherPlatform) : List.of(),
+                Logger.getAnonymousLogger());
+        try (host) {
+            host.start();
+            host.publish(ChatTestMessages.minecraft("Steve", "Alex@",
+                    new ChatContent(List.of(new ChatNode.PlayerMention(
+                            target, "Alex", ChatStyle.EMPTY)))));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (adapter.outgoingMentionResolutions.size() < 2
+                    && System.nanoTime() < deadline) {
+                Thread.sleep(10);
+            }
+
+            assertEquals(2, adapter.outgoingMentionRequests.size());
+            assertEquals(List.of("@alex:example.org"),
+                    adapter.outgoingMentionRequests.getFirst().getFirst()
+                            .candidates().stream()
+                            .map(identity -> identity.key().subject()).toList());
+            assertEquals(List.of("@alex:example.org"),
+                    adapter.outgoingMentionResolutions.getFirst()
+                            .targetsFor(target).stream()
+                            .map(identity -> identity.key().subject()).toList());
+            assertTrue(adapter.outgoingMentionResolutions.get(1)
+                    .targetsFor(target).isEmpty());
+        }
+    }
+
     private static SocialCommand<String, String> echoCommand(
             java.util.function.UnaryOperator<String> handler
     ) {
@@ -314,6 +537,21 @@ class SocialPlatformHostTest {
         private volatile SocialPlatformRuntimeContext context;
         private volatile boolean enabled = true;
         private volatile boolean failPrepare;
+        private volatile boolean contentSafetyEnabled;
+        private final List<ChatMessage> outgoingChat =
+                new CopyOnWriteArrayList<>();
+        private final List<List<SocialChatMentionRequest>> outgoingMentionRequests =
+                new CopyOnWriteArrayList<>();
+        private final List<SocialChatMentionResolution> outgoingMentionResolutions =
+                new CopyOnWriteArrayList<>();
+        private volatile java.util.function.BiFunction<SocialConversation,
+                List<SocialChatMentionRequest>, SocialChatMentionResolution>
+                mentionResolver = (conversation, requests) ->
+                SocialChatMentionResolution.empty();
+        private volatile List<SocialChatRoute> chatRoutes = List.of(
+                new SocialChatRoute(new SocialConversation(
+                        "room", SocialConversation.Type.GROUP),
+                        SocialChatOutboundPolicy.always()));
 
         private MemoryAdapter(String id, String prefix, int concurrency) {
             this(id, prefix, concurrency, null);
@@ -342,7 +580,7 @@ class SocialPlatformHostTest {
                 return Optional.empty();
             }
             SocialRuntimePolicy policy = new SocialRuntimePolicy(concurrency,
-                    new SocialOutputPolicy(false, 1_000));
+                    new SocialOutputPolicy(contentSafetyEnabled, 1_000));
             return Optional.of(new SocialPlatformPlan() {
                 @Override
                 public SocialRuntimePolicy runtimePolicy() {
@@ -359,8 +597,47 @@ class SocialPlatformHostTest {
                     context = openedContext;
                     openedContext.status().update(SocialSessionStatus.ready(
                             "memory://" + descriptor.id()));
-                    return () -> openedContext.status().update(
-                            SocialSessionStatus.stopped("memory://" + descriptor.id()));
+                    return new SocialChatPlatformSession() {
+                        @Override
+                        public List<SocialChatRoute> chatRoutes() {
+                            return chatRoutes;
+                        }
+
+                        @Override
+                        public java.util.concurrent.CompletionStage<Void> sendChat(
+                                SocialConversation conversation,
+                                ChatMessage message
+                        ) {
+                            outgoingChat.add(message);
+                            return CompletableFuture.completedFuture(null);
+                        }
+
+                        @Override
+                        public SocialChatMentionResolution resolveMentions(
+                                SocialConversation conversation,
+                                List<SocialChatMentionRequest> requests
+                        ) {
+                            outgoingMentionRequests.add(List.copyOf(requests));
+                            return mentionResolver.apply(conversation, requests);
+                        }
+
+                        @Override
+                        public java.util.concurrent.CompletionStage<Void> sendChat(
+                                SocialConversation conversation,
+                                ChatMessage message,
+                                SocialChatMentionResolution mentions
+                        ) {
+                            outgoingChat.add(message);
+                            outgoingMentionResolutions.add(mentions);
+                            return CompletableFuture.completedFuture(null);
+                        }
+
+                        @Override
+                        public void close() {
+                            openedContext.status().update(SocialSessionStatus.stopped(
+                                    "memory://" + descriptor.id()));
+                        }
+                    };
                 }
             });
         }
@@ -370,9 +647,23 @@ class SocialPlatformHostTest {
                 String body,
                 SocialReplyChannel reply
         ) {
+            return emit(eventId, "room", "social-user", body, reply);
+        }
+
+        private SocialEventSink.Acceptance emit(
+                String eventId,
+                String conversationId,
+                String senderDisplayName,
+                String body,
+                SocialReplyChannel reply
+        ) {
             return context.events().accept(new SocialInboundMessage(eventId,
-                    new SocialConversation("room", SocialConversation.Type.GROUP),
-                    Optional.empty(), body, false, reply));
+                    new SocialConversation(conversationId,
+                            SocialConversation.Type.GROUP),
+                    Optional.empty(), senderDisplayName,
+                    new SocialInboundMessage.Text(body), false,
+                    org.encinet.mik.module.social.api.SocialMessageReferences.empty(),
+                    reply));
         }
 
         private void status(SocialSessionStatus status) {

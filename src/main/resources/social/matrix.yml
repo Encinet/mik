@@ -1,0 +1,39 @@
+# Matrix Client-Server API bot adapter. Encrypted rooms are not supported.
+enabled: false
+homeserver-url: "https://matrix-client.matrix.org"
+access-token: ""
+default-language: "zh_cn"
+
+sync:
+  timeout-millis: 30000
+  max-response-bytes: 2097152
+  reconnect-base-delay-millis: 1000
+  reconnect-max-delay-millis: 30000
+  max-reconnect-attempts: 10
+
+worker:
+  max-concurrent-tasks: 64
+
+# Empty accepts every unencrypted room joined by the bot.
+allowed-room-ids: []
+
+# Empty disables chat interoperability. Each room chooses its own Minecraft
+# outbound policy; Matrix-to-Minecraft text is enabled for every listed room.
+chat-bridge:
+  routes: []
+  # Full interoperability example:
+  # - room-id: "!public:example.org"
+  #   outbound:
+  #     mode: "always"
+  # Prefix-triggered example: "#hello" is sent as "hello".
+  # - room-id: "!relay:example.org"
+  #   outbound:
+  #     mode: "prefix"
+  #     prefix: "#"
+  #     strip-prefix: true
+
+content-safety:
+  enabled: false
+
+reply:
+  max-message-length: 4000

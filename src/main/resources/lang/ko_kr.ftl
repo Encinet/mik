@@ -563,6 +563,11 @@ chat-item-empty-hover = 주로 사용하는 손에 아이템 없음
 chat-mention-all-hover = 이 채널에서 메시지를 볼 수 있는 모든 플레이어에게 알림
 chat-bilibili-hover = Bilibili 동영상 링크 감지
 chat-copy-hover = 좌클릭하여 메시지 복사
+chat-player-hover = 좌클릭하여 개인 메시지 시작
+chat-social-name-label = 소셜 이름
+chat-social-account-label = 플랫폼 계정
+chat-social-bound-player-label = 연결된 플레이어
+chat-social-unbound = Minecraft 플레이어와 연결되지 않음
 chat-settings-menu-title = 채팅 설정
 chat-delay-cancel-command-description = 전송 대기 중인 메시지 취소
 chat-delay-section = 지연 전송
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = 연결을 해제하면 이 플랫폼 식별 정�
 social-binding-unlinked = Minecraft 플레이어 { $arg0 }과(와)의 연결을 해제했습니다.
 social-binding-not-bound = 이 플랫폼 식별 정보는 연결되어 있지 않습니다.
 social-binding-help =
-    Minecraft에서 /bind qq를 실행합니다.
+    Minecraft에서 /bind { $arg0 }를 실행합니다.
     생성된 전체 명령어를 복사합니다.
     해당 명령어를 여기에 보냅니다.
     /프로필로 연결을 확인합니다.
@@ -970,7 +975,7 @@ social-binding-unavailable = 현재 식별 정보 연결을 사용할 수 없습
 social-binding-status-unbound = 이 식별 정보는 연결되어 있지 않습니다. 인증 코드와 함께 /연결을 사용하세요.
 social-binding-linked = Minecraft 플레이어 { $arg0 }과(와) 연결했습니다.
 social-binding-already-linked = 이 식별 정보는 이미 Minecraft 플레이어 { $arg0 }과(와) 연결되어 있습니다.
-social-binding-code-invalid = 인증 코드가 잘못되었거나 만료되었습니다. Minecraft에서 /bind qq로 새 코드를 생성하세요.
+social-binding-code-invalid = 인증 코드가 잘못되었거나 만료되었습니다. Minecraft에서 /bind { $arg0 }로 새 코드를 생성하세요.
 social-binding-platform-mismatch = 이 인증 코드는 다른 플랫폼용으로 발급되었습니다.
 social-binding-external-in-use = 이 식별 정보는 이미 다른 Minecraft 플레이어와 연결되어 있습니다.
 social-binding-player-scope-in-use = 해당 Minecraft 플레이어는 이 대화에서 이미 다른 식별 정보와 연결되어 있습니다.

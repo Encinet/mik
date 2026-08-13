@@ -1,7 +1,11 @@
 package org.encinet.mik.module.chat.modifier;
 
 import com.google.common.net.InternetDomainName;
+import org.encinet.mik.module.chat.model.ChatCapability;
+import org.encinet.mik.module.chat.model.ChatNode;
+import org.encinet.mik.module.chat.model.ChatProcessingContext;
 
+import java.net.URI;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -74,7 +78,19 @@ public final class UrlModifier implements ChatModifier {
     );
 
     @Override
-    public ChatReplacement find(String text, int fromIndex, ChatModifierContext context) {
+    public int priority() {
+        return 1_000;
+    }
+
+    @Override
+    public Set<ChatCapability> requiredCapabilities() {
+        return Set.of(ChatCapability.URL);
+    }
+
+    @Override
+    public ChatReplacement find(
+            String text, int fromIndex, ChatProcessingContext context
+    ) {
         Matcher matcher = MATCHER_CACHE.get();
         matcher.reset(text);
         int searchIndex = fromIndex;
@@ -88,25 +104,25 @@ public final class UrlModifier implements ChatModifier {
                 continue;
             }
             String cleanedLink = stripTrackingParams(link);
-            String url = normalizedUrl(cleanedLink);
+            String url = ChatUrlSupport.normalizedHttpUrl(cleanedLink);
             return new ChatReplacement(
                     matcher.start(), matcher.start() + linkLength,
-                    ChatRenderUtil.link(ChatRenderUtil.compactLinkLabel(cleanedLink), url)
+                    new ChatNode.Link(compactLinkLabel(cleanedLink),
+                            URI.create(url), ChatSemanticStyles.LINK)
             );
         }
         return null;
     }
 
-    private String normalizedUrl(String token) {
-        if (hasHttpScheme(token)) {
-            return token;
-        }
-        return "https://" + token;
+    private String compactLinkLabel(String url) {
+        int maximumLength = 36;
+        String label = url.length() <= maximumLength
+                ? url : url.substring(0, maximumLength - 4) + "....";
+        return "[" + label + "]";
     }
 
     private boolean hasHttpScheme(String token) {
-        return token.regionMatches(true, 0, "http://", 0, 7)
-                || token.regionMatches(true, 0, "https://", 0, 8);
+        return ChatUrlSupport.hasHttpScheme(token);
     }
 
     private boolean hasRegistrableDomain(String token) {
@@ -131,52 +147,7 @@ public final class UrlModifier implements ChatModifier {
     }
 
     private int urlEnd(String token) {
-        int end = token.length();
-        while (end > 0) {
-            int cp = token.codePointBefore(end);
-            if (!isTrailingPunctuation(cp) && !isUnmatchedClosing(token, end, cp)) {
-                break;
-            }
-            end -= Character.charCount(cp);
-        }
-        return Math.max(end, 1);
-    }
-
-    private boolean isTrailingPunctuation(int cp) {
-        return switch (cp) {
-            case '.', ',', '!', '?', ':', ';', '\'', '"',
-                    '。', '，', '！', '？', '；', '：', '、', '…' -> true;
-            default -> false;
-        };
-    }
-
-    private boolean isUnmatchedClosing(String token, int end, int closing) {
-        int opening = switch (closing) {
-            case ')' -> '(';
-            case ']' -> '[';
-            case '}' -> '{';
-            case '）' -> '（';
-            case '】' -> '【';
-            case '》' -> '《';
-            case '」' -> '「';
-            case '』' -> '『';
-            default -> -1;
-        };
-        if (opening < 0) {
-            return false;
-        }
-
-        int balance = 0;
-        for (int i = 0; i < end; ) {
-            int cp = token.codePointAt(i);
-            if (cp == opening) {
-                balance++;
-            } else if (cp == closing) {
-                balance--;
-            }
-            i += Character.charCount(cp);
-        }
-        return balance < 0;
+        return ChatUrlSupport.visibleUrlEnd(token);
     }
 
     private String stripTrackingParams(String url) {

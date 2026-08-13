@@ -563,6 +563,11 @@ chat-item-empty-hover = Aucun objet en main principale
 chat-mention-all-hover = Avertissez tous les joueurs visibles sur cette chaîne
 chat-bilibili-hover = Lien vidéo Bilibili détecté
 chat-copy-hover = Clic gauche pour copier le message
+chat-player-hover = Clic gauche pour démarrer un message privé
+chat-social-name-label = Nom social
+chat-social-account-label = Compte de la plateforme
+chat-social-bound-player-label = Joueur lié
+chat-social-unbound = Non lié à un joueur Minecraft
 chat-settings-menu-title = Paramètres de discussion
 chat-delay-cancel-command-description = Annuler les messages retardés en attente
 chat-delay-section = Envoi retardé
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = La dissociation supprime le lien entre cette iden
 social-binding-unlinked = Dissocié du joueur Minecraft { $arg0 }.
 social-binding-not-bound = Cette identité de plateforme n’est pas liée.
 social-binding-help =
-    Exécutez /bind qq dans Minecraft.
+    Exécutez /bind { $arg0 } dans Minecraft.
     Copiez la commande complète générée.
     Envoyez la commande ici.
     Utilisez /monprofil pour vérifier la liaison.
@@ -970,7 +975,7 @@ social-binding-unavailable = La liaison d’identité est temporairement indispo
 social-binding-status-unbound = Cette identité n’est pas liée. Utilisez /lier avec un code de vérification.
 social-binding-linked = Lié au joueur Minecraft { $arg0 }.
 social-binding-already-linked = Cette identité est déjà liée au joueur Minecraft { $arg0 }.
-social-binding-code-invalid = Le code de vérification est invalide ou expiré. Générez-en un nouveau avec /bind qq dans Minecraft.
+social-binding-code-invalid = Le code de vérification est invalide ou expiré. Générez-en un nouveau avec /bind { $arg0 } dans Minecraft.
 social-binding-platform-mismatch = Ce code de vérification a été émis pour une autre plateforme.
 social-binding-external-in-use = Cette identité est déjà liée à un autre joueur Minecraft.
 social-binding-player-scope-in-use = Ce joueur Minecraft possède déjà une autre identité liée dans cette conversation.

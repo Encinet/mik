@@ -563,6 +563,11 @@ chat-item-empty-hover = 主手没有物品
 chat-mention-all-hover = 提醒当前频道内所有可见玩家
 chat-bilibili-hover = 识别到 B 站视频链接
 chat-copy-hover = 左键点击复制消息
+chat-player-hover = 左键点击发起私聊
+chat-social-name-label = 社交昵称
+chat-social-account-label = 平台账号
+chat-social-bound-player-label = 绑定玩家
+chat-social-unbound = 未绑定 Minecraft 玩家
 chat-settings-menu-title = 聊天设置
 chat-delay-cancel-command-description = 取消待发送的延迟消息
 chat-delay-section = 延迟发送
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = 解绑会移除当前平台身份与 Minecraft �
 social-binding-unlinked = 已解除与 Minecraft 玩家 { $arg0 } 的绑定。
 social-binding-not-bound = 当前平台身份尚未绑定 Minecraft 玩家。
 social-binding-help =
-    在 Minecraft 内执行 /bind qq。
+    在 Minecraft 内执行 /bind { $arg0 }。
     复制生成的完整指令。
     在此发送该指令。
     使用 /我的 验证绑定。
@@ -970,7 +975,7 @@ social-binding-unavailable = 身份绑定暂时不可用，请联系服务器管
 social-binding-status-unbound = 当前平台身份尚未绑定。请使用游戏内生成的验证码执行 /绑定。
 social-binding-linked = 已绑定 Minecraft 玩家 { $arg0 }。
 social-binding-already-linked = 当前平台身份已绑定 Minecraft 玩家 { $arg0 }。
-social-binding-code-invalid = 验证码无效或已过期。请在 Minecraft 内重新执行 /bind qq。
+social-binding-code-invalid = 验证码无效或已过期。请在 Minecraft 内重新执行 /bind { $arg0 }。
 social-binding-platform-mismatch = 该验证码是为其他平台生成的。
 social-binding-external-in-use = 当前平台身份已绑定其他 Minecraft 玩家。
 social-binding-player-scope-in-use = 该 Minecraft 玩家已在当前会话绑定其他平台身份。

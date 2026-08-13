@@ -563,6 +563,11 @@ chat-item-empty-hover = 主手無物
 chat-mention-all-hover = 告此議域中諸可見戲者
 chat-bilibili-hover = 見 B 站影像之鏈
 chat-copy-hover = 擊左鍵以鈔其訊
+chat-player-hover = 擊左鍵以私語
+chat-social-name-label = 臺上之名
+chat-social-account-label = 臺帳
+chat-social-bound-player-label = 所繫遊者
+chat-social-unbound = 未繫 Minecraft 遊者
 chat-settings-menu-title = 論議置設
 chat-delay-cancel-command-description = 罷待發之訊
 chat-delay-section = 緩發
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = 解繫將去此臺身分與 Minecraft 之關聯�
 social-binding-unlinked = 已解與 Minecraft 遊者 { $arg0 } 之繫。
 social-binding-not-bound = 此臺身分未繫 Minecraft 遊者。
 social-binding-help =
-    於 Minecraft 行 /bind qq。
+    於 Minecraft 行 /bind { $arg0 }。
     錄所得完整之令。
     發於此。
     以 /吾 驗之。
@@ -970,7 +975,7 @@ social-binding-unavailable = 身分之繫暫不可用。
 social-binding-status-unbound = 此臺身分未繫。請用遊戲中所得驗碼行 /繫。
 social-binding-linked = 已繫 Minecraft 遊者 { $arg0 }。
 social-binding-already-linked = 此臺身分已繫 Minecraft 遊者 { $arg0 }。
-social-binding-code-invalid = 驗碼無效或已過期。請於 Minecraft 復行 /bind qq。
+social-binding-code-invalid = 驗碼無效或已過期。請於 Minecraft 復行 /bind { $arg0 }。
 social-binding-platform-mismatch = 此驗碼乃為他臺所發。
 social-binding-external-in-use = 此臺身分已繫他 Minecraft 遊者。
 social-binding-player-scope-in-use = 此 Minecraft 遊者於本談已有他身分之繫。

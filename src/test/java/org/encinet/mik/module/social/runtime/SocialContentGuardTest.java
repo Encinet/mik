@@ -8,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SocialContentGuardTest {
 
@@ -50,6 +52,17 @@ class SocialContentGuardTest {
 
         assertEquals(Language.JA_JP, result.language());
         assertEquals("JA_JP", result.title());
+    }
+
+    @Test
+    void outboundChatBodiesUseTheSameSharedSafetyAutomaton() {
+        SocialContentGuard guard = guard(
+                SocialDocument.of("Hidden", SocialDocument.Tone.WARNING));
+
+        assertTrue(guard.allowsOutboundText("ordinary chat", ENABLED));
+        assertFalse(guard.allowsOutboundText("a BLOCKED---phrase", ENABLED));
+        assertTrue(guard.allowsOutboundText("blocked phrase",
+                new SocialOutputPolicy(false, 1_000)));
     }
 
     private static SocialContentGuard guard(SocialDocument blocked) {

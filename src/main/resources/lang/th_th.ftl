@@ -563,6 +563,11 @@ chat-item-empty-hover = ไม่มีไอเทมในมือหลั�
 chat-mention-all-hover = แจ้งผู้เล่นทุกคนที่มองเห็นได้ในช่องนี้
 chat-bilibili-hover = ตรวจพบลิงก์วิดีโอ Bilibili
 chat-copy-hover = คลิกซ้ายเพื่อคัดลอกข้อความ
+chat-player-hover = คลิกซ้ายเพื่อเริ่มข้อความส่วนตัว
+chat-social-name-label = ชื่อบนแพลตฟอร์ม
+chat-social-account-label = บัญชีแพลตฟอร์ม
+chat-social-bound-player-label = ผู้เล่นที่เชื่อมโยง
+chat-social-unbound = ยังไม่ได้เชื่อมโยงกับผู้เล่น Minecraft
 chat-settings-menu-title = การตั้งค่าการแชท
 chat-delay-cancel-command-description = ยกเลิกข้อความที่รอส่ง
 chat-delay-section = หน่วงเวลาส่ง
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = การยกเลิกผูกจะลบ�
 social-binding-unlinked = ยกเลิกการผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
 social-binding-not-bound = ตัวตนบนแพลตฟอร์มนี้ยังไม่ได้ผูก
 social-binding-help =
-    ใช้ /bind qq ใน Minecraft
+    ใช้ /bind { $arg0 } ใน Minecraft
     คัดลอกคำสั่งเต็มที่สร้างขึ้น
     ส่งคำสั่งนั้นที่นี่
     ใช้ /โปรไฟล์ เพื่อตรวจสอบการผูก
@@ -970,7 +975,7 @@ social-binding-unavailable = ระบบผูกตัวตนไม่พร
 social-binding-status-unbound = ตัวตนนี้ยังไม่ได้ผูก ใช้ /ผูก พร้อมรหัสยืนยัน
 social-binding-linked = ผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
 social-binding-already-linked = ตัวตนนี้ผูกกับผู้เล่น Minecraft { $arg0 } อยู่แล้ว
-social-binding-code-invalid = รหัสยืนยันไม่ถูกต้องหรือหมดอายุ สร้างรหัสใหม่ด้วย /bind qq ใน Minecraft
+social-binding-code-invalid = รหัสยืนยันไม่ถูกต้องหรือหมดอายุ สร้างรหัสใหม่ด้วย /bind { $arg0 } ใน Minecraft
 social-binding-platform-mismatch = รหัสยืนยันนี้ออกให้สำหรับแพลตฟอร์มอื่น
 social-binding-external-in-use = ตัวตนนี้ผูกกับผู้เล่น Minecraft คนอื่นอยู่แล้ว
 social-binding-player-scope-in-use = ผู้เล่น Minecraft คนนั้นมีตัวตนอื่นที่ผูกไว้ในการสนทนานี้แล้ว

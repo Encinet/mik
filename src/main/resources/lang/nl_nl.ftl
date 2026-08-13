@@ -563,6 +563,11 @@ chat-item-empty-hover = Geen voorwerp in je hoofdhand
 chat-mention-all-hover = Breng elke zichtbare speler in dit kanaal op de hoogte
 chat-bilibili-hover = Bilibili-videolink gedetecteerd
 chat-copy-hover = Linksklik om bericht te kopiëren
+chat-player-hover = Linksklik om een privébericht te starten
+chat-social-name-label = Sociale naam
+chat-social-account-label = Platformaccount
+chat-social-bound-player-label = Gekoppelde speler
+chat-social-unbound = Niet gekoppeld aan een Minecraft-speler
 chat-settings-menu-title = Chatinstellingen
 chat-delay-cancel-command-description = Annuleer wachtende vertraagde berichten
 chat-delay-section = Vertraagd verzenden
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = Ontkoppelen verwijdert de relatie tussen deze pla
 social-binding-unlinked = Ontkoppeld van Minecraft-speler { $arg0 }.
 social-binding-not-bound = Deze platformidentiteit is niet gekoppeld.
 social-binding-help =
-    Voer in Minecraft /bind qq uit.
+    Voer in Minecraft /bind { $arg0 } uit.
     Kopieer de volledige gegenereerde opdracht.
     Stuur de opdracht hier.
     Gebruik /profiel om de koppeling te controleren.
@@ -970,7 +975,7 @@ social-binding-unavailable = Identiteitskoppeling is tijdelijk niet beschikbaar.
 social-binding-status-unbound = Deze identiteit is niet gekoppeld. Gebruik /koppelen met een verificatiecode.
 social-binding-linked = Gekoppeld aan Minecraft-speler { $arg0 }.
 social-binding-already-linked = Deze identiteit is al gekoppeld aan Minecraft-speler { $arg0 }.
-social-binding-code-invalid = De verificatiecode is ongeldig of verlopen. Genereer in Minecraft een nieuwe met /bind qq.
+social-binding-code-invalid = De verificatiecode is ongeldig of verlopen. Genereer in Minecraft een nieuwe met /bind { $arg0 }.
 social-binding-platform-mismatch = Deze verificatiecode is voor een ander platform uitgegeven.
 social-binding-external-in-use = Deze identiteit is al gekoppeld aan een andere Minecraft-speler.
 social-binding-player-scope-in-use = Die Minecraft-speler heeft in dit gesprek al een andere gekoppelde identiteit.

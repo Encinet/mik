@@ -18,7 +18,7 @@ class SocialPackageArchitectureTest {
     @Test
     void sharedKernelAndFeaturesDoNotDependOnQq() throws IOException {
         for (String directory : List.of(
-                "api", "command", "document", "game", "runtime", "safety")) {
+                "api", "chat", "command", "document", "game", "runtime", "safety")) {
             try (Stream<Path> paths = Files.walk(SOCIAL.resolve(directory))) {
                 for (Path path : paths.filter(value -> value.toString().endsWith(".java")).toList()) {
                     String source = Files.readString(path);

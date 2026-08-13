@@ -1,8 +1,13 @@
 package org.encinet.mik.module.chat.modifier;
 
+import org.encinet.mik.module.chat.model.ChatCapability;
+import org.encinet.mik.module.chat.model.ChatNode;
+import org.encinet.mik.module.chat.model.ChatProcessingContext;
+
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,7 +22,19 @@ public final class MinecraftWikiModifier implements ChatModifier {
     );
 
     @Override
-    public ChatReplacement find(String text, int fromIndex, ChatModifierContext context) {
+    public int priority() {
+        return 20;
+    }
+
+    @Override
+    public Set<ChatCapability> requiredCapabilities() {
+        return Set.of(ChatCapability.URL);
+    }
+
+    @Override
+    public ChatReplacement find(
+            String text, int fromIndex, ChatProcessingContext context
+    ) {
         Matcher matcher = URL_PATTERN.matcher(text);
         if (!matcher.find(fromIndex)) {
             return null;
@@ -29,7 +46,9 @@ public final class MinecraftWikiModifier implements ChatModifier {
         return new ChatReplacement(
                 matcher.start(),
                 matcher.start() + linkLength,
-                ChatRenderUtil.link(labelFor(link), normalizedUrl(link))
+                new ChatNode.Link(labelFor(link), URI.create(
+                        ChatUrlSupport.normalizedHttpUrl(link)),
+                        ChatSemanticStyles.LINK)
         );
     }
 
@@ -112,60 +131,7 @@ public final class MinecraftWikiModifier implements ChatModifier {
         return secondIndex < 0 ? firstIndex : Math.min(firstIndex, secondIndex);
     }
 
-    private String normalizedUrl(String link) {
-        String lowerCaseLink = link.toLowerCase(Locale.ROOT);
-        if (lowerCaseLink.startsWith("http://") || lowerCaseLink.startsWith("https://")) {
-            return link;
-        }
-        return "https://" + link;
-    }
-
     private int urlEnd(String token) {
-        int end = token.length();
-        while (end > 0) {
-            int codePoint = token.codePointBefore(end);
-            if (!isTrailingPunctuation(codePoint) && !isUnmatchedClosing(token, end, codePoint)) {
-                break;
-            }
-            end -= Character.charCount(codePoint);
-        }
-        return Math.max(end, 1);
-    }
-
-    private boolean isTrailingPunctuation(int codePoint) {
-        return switch (codePoint) {
-            case '.', ',', '!', '?', ':', ';', '\'', '"',
-                    '。', '，', '！', '？', '：', '；', '、', '…' -> true;
-            default -> false;
-        };
-    }
-
-    private boolean isUnmatchedClosing(String token, int end, int closing) {
-        int opening = switch (closing) {
-            case ')' -> '(';
-            case ']' -> '[';
-            case '}' -> '{';
-            case '）' -> '（';
-            case '】' -> '【';
-            case '》' -> '《';
-            case '」' -> '「';
-            case '』' -> '『';
-            default -> -1;
-        };
-        if (opening < 0) {
-            return false;
-        }
-
-        int balance = 0;
-        for (int i = 0; i < end; ) {
-            int codePoint = token.codePointAt(i);
-            if (codePoint == opening) {
-                balance++;
-            } else if (codePoint == closing) {
-                balance--;
-            }
-            i += Character.charCount(codePoint);
-        }
-        return balance < 0;
+        return ChatUrlSupport.visibleUrlEnd(token);
     }
 }

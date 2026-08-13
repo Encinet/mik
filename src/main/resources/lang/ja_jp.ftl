@@ -563,6 +563,11 @@ chat-item-empty-hover = 利き手にアイテムを持っていません
 chat-mention-all-hover = このチャンネルで表示中の全プレイヤーに通知
 chat-bilibili-hover = Bilibiliの動画リンクを検出しました
 chat-copy-hover = 左クリックしてメッセージをコピー
+chat-player-hover = 左クリックしてプライベートメッセージを開始
+chat-social-name-label = ソーシャル名
+chat-social-account-label = プラットフォームアカウント
+chat-social-bound-player-label = 連携プレイヤー
+chat-social-unbound = Minecraftプレイヤーと未連携
 chat-settings-menu-title = チャット設定
 chat-delay-cancel-command-description = 送信待ちの遅延メッセージをキャンセル
 chat-delay-section = 遅延送信
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = 解除すると、このプラットフォーム�
 social-binding-unlinked = Minecraft プレイヤー { $arg0 } との連携を解除しました。
 social-binding-not-bound = このプラットフォーム識別情報は連携されていません。
 social-binding-help =
-    Minecraft で /bind qq を実行します。
+    Minecraft で /bind { $arg0 } を実行します。
     生成された完全なコマンドをコピーします。
     そのコマンドをここに送信します。
     /プロフィール で連携を確認します。
@@ -970,7 +975,7 @@ social-binding-unavailable = 現在、識別情報の連携を利用できませ
 social-binding-status-unbound = この識別情報は連携されていません。確認コードを付けて /バインド を実行してください。
 social-binding-linked = Minecraft プレイヤー { $arg0 } と連携しました。
 social-binding-already-linked = この識別情報はすでに Minecraft プレイヤー { $arg0 } と連携されています。
-social-binding-code-invalid = 確認コードが無効または期限切れです。Minecraft で /bind qq を実行して新しいコードを生成してください。
+social-binding-code-invalid = 確認コードが無効または期限切れです。Minecraft で /bind { $arg0 } を実行して新しいコードを生成してください。
 social-binding-platform-mismatch = この確認コードは別のプラットフォーム用です。
 social-binding-external-in-use = この識別情報はすでに別の Minecraft プレイヤーと連携されています。
 social-binding-player-scope-in-use = その Minecraft プレイヤーは、この会話ですでに別の識別情報と連携されています。

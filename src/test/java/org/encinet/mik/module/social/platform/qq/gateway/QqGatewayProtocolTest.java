@@ -174,13 +174,18 @@ class QqGatewayProtocolTest {
                 .toInboundMessage("qq", "app-id", ignored ->
                         java.util.concurrent.CompletableFuture.completedFuture(null));
 
-        assertEquals("/我的", ((SocialInboundMessage.Text) inbound.content()).body());
+        assertEquals("/我的 @Target",
+                ((SocialInboundMessage.Text) inbound.content()).body());
         assertEquals(1, inbound.references().mentions().size());
         assertEquals("target-member", inbound.references().mentions().getFirst()
                 .key().subject());
         assertEquals("target-member", inbound.references().repliedAuthor().orElseThrow()
                 .key().subject());
         assertEquals(1, inbound.references().targetIdentities().size());
+        assertEquals(1, inbound.references().mentionSpans().size());
+        assertEquals("@Target", ((SocialInboundMessage.Text) inbound.content()).body()
+                .substring(inbound.references().mentionSpans().getFirst().start(),
+                        inbound.references().mentionSpans().getFirst().end()));
     }
 
     @Test

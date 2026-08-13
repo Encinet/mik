@@ -5,7 +5,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.Plugin;
 
 import java.lang.reflect.Method;
@@ -40,7 +40,7 @@ public final class NameMetaRenderer {
     private NameMetaRenderer() {
     }
 
-    public static Component deserialize(Player player, String raw) {
+    public static Component deserialize(OfflinePlayer player, String raw) {
         return deserialize(applyPlayerPlaceholders(player, raw));
     }
 
@@ -48,7 +48,7 @@ public final class NameMetaRenderer {
         return MINI_MESSAGE.deserialize(stripVisibleNewlineTags(raw));
     }
 
-    public static Component fallback(Player player, String raw) {
+    public static Component fallback(OfflinePlayer player, String raw) {
         return fallback(applyPlayerPlaceholders(player, raw));
     }
 
@@ -67,7 +67,7 @@ public final class NameMetaRenderer {
         return null;
     }
 
-    public static String applyPlayerPlaceholders(Player player, String raw) {
+    public static String applyPlayerPlaceholders(OfflinePlayer player, String raw) {
         Plugin placeholderApi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");
         if (placeholderApi == null || !placeholderApi.isEnabled()) {
             return raw;
@@ -76,7 +76,8 @@ public final class NameMetaRenderer {
             MaskedPlaceholders masked = maskUnsupportedPlaceholders(raw);
             Class<?> placeholderApiClass = placeholderApi.getClass().getClassLoader()
                     .loadClass("me.clip.placeholderapi.PlaceholderAPI");
-            Method setPlaceholders = placeholderApiClass.getMethod("setPlaceholders", Player.class, String.class);
+            Method setPlaceholders = placeholderApiClass.getMethod(
+                    "setPlaceholders", OfflinePlayer.class, String.class);
             Object parsed = setPlaceholders.invoke(null, player, masked.text());
             return parsed instanceof String value ? masked.restore(value) : raw;
         } catch (ReflectiveOperationException | RuntimeException e) {

@@ -43,7 +43,6 @@ record QqPlatformPlan(
         QqGatewaySession gateway = new QqGatewaySession(
                 httpClient, config, tokenProvider, inbound::accept,
                 context.status()::update, logger);
-        gateway.start();
         return new QqPlatformSession(gateway, httpClient);
     }
 }

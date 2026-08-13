@@ -1,5 +1,15 @@
 package org.encinet.mik.module.social.runtime;
 
+import org.encinet.mik.module.chat.model.ChatConversation;
+import org.encinet.mik.module.chat.model.ChatMessage;
+import org.encinet.mik.module.chat.model.ChatMessageId;
+import org.encinet.mik.module.chat.model.ChatOrigin;
+import org.encinet.mik.module.chat.model.ChatProcessingContext;
+import org.encinet.mik.module.chat.model.ChatReferences;
+import org.encinet.mik.module.chat.model.ChatSender;
+import org.encinet.mik.module.chat.model.ChatSubmission;
+import org.encinet.mik.module.identity.ExternalIdentity;
+import org.encinet.mik.module.identity.IdentityBinding;
 import org.encinet.mik.module.social.api.SocialEventSink;
 import org.encinet.mik.module.social.api.SocialInboundMessage;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
@@ -7,11 +17,26 @@ import org.encinet.mik.module.social.api.SocialPlatformPlan;
 import org.encinet.mik.module.social.api.SocialPlatformRuntimeContext;
 import org.encinet.mik.module.social.api.SocialPlatformSession;
 import org.encinet.mik.module.social.api.SocialSessionStatus;
+import org.encinet.mik.module.social.chat.SocialChatGateway;
+import org.encinet.mik.module.social.chat.SocialChatPlatformSession;
+import org.encinet.mik.module.social.chat.SocialChatMentionRequest;
+import org.encinet.mik.module.social.chat.SocialChatMentionResolution;
+import org.encinet.mik.module.social.chat.SocialMentionBindingDirectory;
+import org.encinet.mik.module.social.chat.SocialChatRoute;
+import org.encinet.mik.module.social.chat.SocialChatPublishReport;
 import org.encinet.mik.module.social.command.SocialCommandDispatcher;
 
+import java.util.ArrayList;
+import java.time.Instant;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
 
 /** Owns every mutable resource belonging to exactly one platform generation. */
@@ -24,9 +49,16 @@ final class SocialPlatformGeneration implements AutoCloseable {
     private final SocialCommandDispatcher commands;
     private final SocialIdentityLeaseManager identityLeases;
     private final SocialContentGuard contentGuard;
+    private final SocialChatGateway chatGateway;
+    private final SocialMentionBindingDirectory mentionBindings;
     private final SocialCommandProcessor processor;
     private final Logger logger;
     private final LinkedHashSet<String> conversations = new LinkedHashSet<>();
+    private final LongAdder inboundAccepted = new LongAdder();
+    private final LongAdder inboundBackpressured = new LongAdder();
+    private final LongAdder outboundAccepted = new LongAdder();
+    private final LongAdder outboundBackpressured = new LongAdder();
+    private final LongAdder deliveryFailures = new LongAdder();
 
     private SocialPlatformState state = SocialPlatformState.STOPPED;
     private String endpoint = "";
@@ -44,6 +76,8 @@ final class SocialPlatformGeneration implements AutoCloseable {
             SocialCommandDispatcher commands,
             SocialIdentityLeaseManager identityLeases,
             SocialContentGuard contentGuard,
+            SocialChatGateway chatGateway,
+            SocialMentionBindingDirectory mentionBindings,
             Logger logger
     ) {
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
@@ -51,6 +85,9 @@ final class SocialPlatformGeneration implements AutoCloseable {
         this.commands = Objects.requireNonNull(commands, "commands");
         this.identityLeases = Objects.requireNonNull(identityLeases, "identityLeases");
         this.contentGuard = Objects.requireNonNull(contentGuard, "contentGuard");
+        this.chatGateway = Objects.requireNonNull(chatGateway, "chatGateway");
+        this.mentionBindings = Objects.requireNonNull(
+                mentionBindings, "mentionBindings");
         this.processor = new SocialCommandProcessor(contentGuard, logger);
         this.logger = Objects.requireNonNull(logger, "logger");
     }
@@ -79,10 +116,15 @@ final class SocialPlatformGeneration implements AutoCloseable {
         }
         try {
             opened = Objects.requireNonNull(checkedPlan.open(
-                            new SocialPlatformRuntimeContext(this::accept, this::updateStatus)),
+                            new SocialPlatformRuntimeContext(
+                                    this::accept, this::updateStatus)),
                     "Social platform plan returned a null session");
         } catch (RuntimeException error) {
-            fail(error);
+            synchronized (lock) {
+                state = SocialPlatformState.FAILED;
+                lastError = SocialCommandProcessor.rootMessage(error);
+            }
+            closeRuntime(true);
             throw error;
         }
         boolean closeImmediately;
@@ -92,6 +134,13 @@ final class SocialPlatformGeneration implements AutoCloseable {
         }
         if (closeImmediately) {
             closeSession(opened);
+            return;
+        }
+        try {
+            opened.start();
+        } catch (RuntimeException error) {
+            fail(error);
+            throw error;
         }
     }
 
@@ -109,7 +158,10 @@ final class SocialPlatformGeneration implements AutoCloseable {
     SocialPlatformSnapshot snapshot() {
         synchronized (lock) {
             return new SocialPlatformSnapshot(descriptor, number, state,
-                    endpoint, lastError, conversations.size());
+                    endpoint, lastError, conversations.size(),
+                    inboundAccepted.sum(), inboundBackpressured.sum(),
+                    outboundAccepted.sum(), outboundBackpressured.sum(),
+                    deliveryFailures.sum());
         }
     }
 
@@ -122,6 +174,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
     private SocialEventSink.Acceptance accept(SocialInboundMessage message) {
         Objects.requireNonNull(message, "message");
         final SocialCommandDispatcher.PreparedInvocation invocation;
+        final ChatSubmission chat;
         final String deduplicationKey;
         synchronized (lock) {
             if (closed) {
@@ -135,29 +188,199 @@ final class SocialPlatformGeneration implements AutoCloseable {
             }
             rememberConversation(message.conversation().id());
             invocation = commands.resolve(plan.commandSyntax(), message).orElse(null);
-            if (invocation == null) {
-                return SocialEventSink.Acceptance.IGNORED;
+            chat = invocation == null ? chatSubmission(message) : null;
+            if (invocation == null && chat == null) {
+                return SocialEventSink.Acceptance.UNHANDLED;
             }
-            deduplicationKey = descriptor.id() + '\u0000'
-                    + message.conversation().id() + '\u0000' + message.eventId();
+            deduplicationKey = deduplicationKey(
+                    message.conversation().id(), message.eventId());
             if (!deduplicator.accept(deduplicationKey)) {
                 return SocialEventSink.Acceptance.IGNORED;
             }
             boolean submitted;
             try {
-                submitted = executor.submit(() -> processor.execute(
-                        descriptor, message, invocation, plan.runtimePolicy().output(),
-                        this::resultIsCurrent));
+                submitted = invocation == null
+                        ? executor.submitOrdered(
+                        "inbound-chat\u0000" + message.conversation().id(),
+                        () -> deliverChat(chat))
+                        : executor.submit(() -> processor.execute(
+                        descriptor, message, invocation,
+                        plan.runtimePolicy().output(), this::resultIsCurrent));
             } catch (RuntimeException error) {
                 deduplicator.forget(deduplicationKey);
                 throw error;
             }
             if (!submitted) {
                 deduplicator.forget(deduplicationKey);
+                inboundBackpressured.increment();
                 return SocialEventSink.Acceptance.RETRY_LATER;
             }
+            inboundAccepted.increment();
         }
         return SocialEventSink.Acceptance.ACCEPTED;
+    }
+
+    SocialChatPublishReport.Admission publishChat(ChatMessage message) {
+        Objects.requireNonNull(message, "message");
+        synchronized (lock) {
+            if (closed || state != SocialPlatformState.READY
+                    || !(session instanceof SocialChatPlatformSession chatSession)) {
+                return SocialChatPublishReport.Admission.UNAVAILABLE;
+            }
+            boolean admitted = executor.submitOrdered(
+                    "outbound\u0000" + message.submission().conversation().id(),
+                    () -> sendChat(chatSession, message));
+            if (admitted) {
+                outboundAccepted.increment();
+                return SocialChatPublishReport.Admission.ACCEPTED;
+            }
+            outboundBackpressured.increment();
+            return SocialChatPublishReport.Admission.BACKPRESSURED;
+        }
+    }
+
+    private void deliverChat(ChatSubmission message) {
+        try {
+            Objects.requireNonNull(chatGateway.deliver(descriptor, message),
+                    "Social chat gateway returned null").toCompletableFuture().join();
+        } catch (RuntimeException error) {
+            deliveryFailures.increment();
+            if (resultIsCurrent()) {
+                logger.warning("Could not deliver " + descriptor.displayName()
+                        + " chat to Minecraft: "
+                        + SocialCommandProcessor.rootMessage(error));
+            }
+        }
+    }
+
+    private void sendChat(
+            SocialChatPlatformSession chatSession,
+            ChatMessage message
+    ) {
+        if (!chatSessionIsCurrent(chatSession)) {
+            return;
+        }
+        try {
+            List<CompletableFuture<Void>> sends = new ArrayList<>();
+            for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
+                if (message.submission().origin().visitedPlatforms()
+                        .contains(descriptor.id())) {
+                    continue;
+                }
+                route.outbound().select(message.submission().sourceText()).ifPresent(body -> {
+                    var richBody = route.outbound().mode()
+                            == org.encinet.mik.module.social.chat.SocialChatOutboundPolicy.Mode.PREFIX
+                            && route.outbound().stripPrefix()
+                            ? message.content().withoutLeadingTrigger(
+                            route.outbound().prefix())
+                            : message.content();
+                    if (!contentGuard.allowsOutboundText(
+                            body, plan.runtimePolicy().output())
+                            || !contentGuard.allowsOutboundText(
+                            richBody.plainText(),
+                            plan.runtimePolicy().output())) {
+                        return;
+                    }
+                    ChatSubmission original = message.submission();
+                    ChatSubmission routed = new ChatSubmission(
+                            original.id(), original.origin(), original.sender(),
+                            original.conversation(), body, original.references(),
+                            original.receivedAt(), original.processingContext());
+                    ChatMessage selected = new ChatMessage(
+                            routed, richBody, message.effects());
+                    List<SocialChatMentionRequest> requests = mentionRequests(selected);
+                    SocialChatMentionResolution mentions = Objects.requireNonNull(
+                            chatSession.resolveMentions(
+                                    route.conversation(), requests),
+                            "Social chat session returned null mention resolution");
+                    sends.add(Objects.requireNonNull(
+                            chatSession.sendChat(
+                                    route.conversation(), selected, mentions),
+                            "Social chat session returned null").toCompletableFuture());
+                });
+            }
+            CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
+        } catch (RuntimeException error) {
+            deliveryFailures.increment();
+            if (chatSessionIsCurrent(chatSession)) {
+                logger.warning("Could not deliver Minecraft chat to "
+                        + descriptor.displayName() + ": "
+                        + SocialCommandProcessor.rootMessage(error));
+            }
+        }
+    }
+
+    private List<SocialChatMentionRequest> mentionRequests(ChatMessage message) {
+        LinkedHashMap<UUID, SocialChatMentionRequest> requests =
+                new LinkedHashMap<>();
+        message.content().nodes().stream()
+                .filter(org.encinet.mik.module.chat.model.ChatNode.PlayerMention.class::isInstance)
+                .map(org.encinet.mik.module.chat.model.ChatNode.PlayerMention.class::cast)
+                .forEach(mention -> requests.computeIfAbsent(
+                        mention.playerId(), playerId -> {
+                            List<ExternalIdentity> candidates = mentionBindings
+                                    .findByPlayer(playerId).stream()
+                                    .filter(binding -> binding.externalKey().platform()
+                                            .equals(descriptor.id()))
+                                    .map(binding -> new ExternalIdentity(
+                                            binding.externalKey(),
+                                            binding.externalDisplayName()))
+                                    .toList();
+                            return new SocialChatMentionRequest(playerId,
+                                    mention.playerName(), candidates);
+                        }));
+        return List.copyOf(requests.values());
+    }
+
+    private ChatSubmission chatSubmission(SocialInboundMessage message) {
+        if (!(message.content() instanceof SocialInboundMessage.Text text)
+                || text.body().isBlank()
+                || !(session instanceof SocialChatPlatformSession chatSession)
+                || chatSession.chatRoutes().stream().noneMatch(route ->
+                route.conversation().id().equals(message.conversation().id()))) {
+            return null;
+        }
+        Optional<ExternalIdentity> identity = message.authenticatedIdentity();
+        ChatSender sender = new ChatSender(
+                message.senderDisplayName(), Optional.empty(), identity,
+                "", "", "");
+        return new ChatSubmission(
+                ChatMessageId.external(descriptor.id(), message.eventId()),
+                new ChatOrigin.Social(descriptor.id(), message.eventId()),
+                sender,
+                new ChatConversation(ChatConversation.Kind.SOCIAL,
+                        descriptor.id() + ':' + message.conversation().id()),
+                text.body(), references(message), Instant.now(),
+                ChatProcessingContext.external());
+    }
+
+    private ChatReferences references(SocialInboundMessage message) {
+        Optional<ChatReferences.Reference> reply = message.references()
+                .repliedAuthor().map(this::reference);
+        List<ChatReferences.Mention> mentions = message.references()
+                .mentionSpans().stream()
+                .map(span -> new ChatReferences.Mention(
+                        span.start(), span.end(), span.identity()))
+                .toList();
+        return new ChatReferences(reply, Optional.empty(), mentions);
+    }
+
+    private ChatReferences.Reference reference(ExternalIdentity identity) {
+        String displayName = identity.displayName().isBlank()
+                ? identity.key().subject() : identity.displayName();
+        return new ChatReferences.Reference(
+                identity.key().subject(), displayName);
+    }
+
+    private boolean chatSessionIsCurrent(SocialChatPlatformSession candidate) {
+        synchronized (lock) {
+            return !closed && state == SocialPlatformState.READY
+                    && session == candidate;
+        }
+    }
+
+    private String deduplicationKey(String conversationId, String eventId) {
+        return descriptor.id() + '\u0000' + conversationId + '\u0000' + eventId;
     }
 
     private void updateStatus(SocialSessionStatus status) {

@@ -6,7 +6,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.entity.Player;
 import org.encinet.mik.Mik;
-import org.encinet.mik.util.PlayerDisplay;
 
 public final class ChatDisplayRenderer {
 
@@ -14,7 +13,9 @@ public final class ChatDisplayRenderer {
     }
 
     public static Component playerName(Player player) {
-        return clickablePlayerName(PlayerDisplay.name(player, usernameColor(player)), player.getName());
+        return clickablePlayerName(
+                player.displayName().colorIfAbsent(usernameColor(player)),
+                player.getName());
     }
 
     public static Component clickablePlayerName(Component name, String username) {

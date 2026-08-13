@@ -23,6 +23,7 @@ public class MikLoader implements PluginLoader {
                 "https://dl.cloudsmith.io/public/quickwrite-net/fluent4j/maven/"
         ).build());
         resolver.addDependency(new Dependency(new DefaultArtifact("com.google.code.gson:gson:2.14.0"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("org.jsoup:jsoup:1.22.2"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.quickwrite:fluent-builder:1.0.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.raphimc:NoteBlockLib:3.3.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.53.2.1"), null));

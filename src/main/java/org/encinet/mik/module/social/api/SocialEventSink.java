@@ -7,6 +7,8 @@ public interface SocialEventSink {
 
     enum Acceptance {
         ACCEPTED,
+        /** The transport may offer this non-command text to another shared feature. */
+        UNHANDLED,
         IGNORED,
         RETRY_LATER
     }

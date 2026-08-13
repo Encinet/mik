@@ -563,6 +563,11 @@ chat-item-empty-hover = No item in main hand
 chat-mention-all-hover = Notify every visible player in this channel
 chat-bilibili-hover = Detected Bilibili video link
 chat-copy-hover = Left-click to copy message
+chat-player-hover = Left-click to start a private message
+chat-social-name-label = Social name
+chat-social-account-label = Platform account
+chat-social-bound-player-label = Linked player
+chat-social-unbound = Not linked to a Minecraft player
 chat-settings-menu-title = Chat Settings
 chat-delay-cancel-command-description = Cancel pending delayed messages
 chat-delay-section = Delayed Sending
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = Unlinking removes this social identity from Minec
 social-binding-unlinked = Unlinked from Minecraft player { $arg0 }.
 social-binding-not-bound = This social identity is not linked.
 social-binding-help =
-    Run /bind qq in Minecraft.
+    Run /bind { $arg0 } in Minecraft.
     Copy the complete generated command.
     Send the command here.
     Use /profile to verify the link.
@@ -970,7 +975,7 @@ social-binding-unavailable = Identity binding is temporarily unavailable.
 social-binding-status-unbound = This social identity is not linked. Use /bind with a verification code.
 social-binding-linked = Linked to Minecraft player { $arg0 }.
 social-binding-already-linked = This platform identity is already linked to Minecraft player { $arg0 }.
-social-binding-code-invalid = The verification code is invalid or expired. Generate a new one with /bind qq in Minecraft.
+social-binding-code-invalid = The verification code is invalid or expired. Generate a new one with /bind { $arg0 } in Minecraft.
 social-binding-platform-mismatch = This verification code was issued for another platform.
 social-binding-external-in-use = This social identity is already linked to another Minecraft player.
 social-binding-player-scope-in-use = That Minecraft player already has a different identity linked in this conversation.

@@ -1,36 +1,26 @@
 package org.encinet.mik.module.chat.mention;
 
-import io.papermc.paper.event.player.AsyncChatEvent;
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.chat.ChatSettingsStore;
+import org.encinet.mik.module.chat.model.ChatEffect;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.regex.Pattern;
+import java.util.function.Supplier;
 
-public final class MentionService implements Listener {
-
-    private static final Pattern AT_ALL_PATTERN = Pattern.compile("(?iu)(?<![\\p{Alnum}_])@all(?![\\p{Alnum}_])");
+public final class MentionService {
 
     private final JavaPlugin plugin;
     private final AfkService afkService;
@@ -48,7 +38,7 @@ public final class MentionService implements Listener {
     }
 
     public void enable() {
-        plugin.getServer().getPluginManager().registerEvents(this, plugin);
+        // Lifecycle is owned by ChatModule. Kept for compatibility with startup wiring.
     }
 
     public String summary(Player player) {
@@ -70,36 +60,52 @@ public final class MentionService implements Listener {
                 : modes;
     }
 
-    public void notifyPrivateMessage(Player sender, String message, Player target) {
-        notifyMentions(sender, message, Set.of(target));
-    }
-
-    public void notifyMessage(Player sender, String message, Set<Player> recipients) {
-        notifyMentions(sender, message, recipients);
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onChatMention(AsyncChatEvent event) {
-        String message = PlainTextComponentSerializer.plainText().serialize(event.originalMessage());
-        notifyMentions(event.getPlayer(), message, playersIn(event.viewers()));
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        settingsStore.forget(event.getPlayer().getUniqueId());
-    }
-
-    private void notifyMentions(Player sender, String message, Set<Player> recipients) {
+    public void notifyEffects(
+            Player sender,
+            Set<ChatEffect> effects,
+            Set<Player> recipients
+    ) {
         if (recipients.isEmpty()) {
             return;
         }
         UUID senderId = sender.getUniqueId();
+        notifyEffects(Optional.of(senderId),
+                () -> senderDisplayRenderer.apply(sender), sender.getName(),
+                effects, recipients);
+    }
+
+    public void notifyEffects(
+            Optional<UUID> senderId,
+            Component senderDisplay,
+            String senderName,
+            Set<ChatEffect> effects,
+            Set<Player> recipients
+    ) {
+        notifyEffects(senderId, () -> senderDisplay, senderName,
+                effects, recipients);
+    }
+
+    private void notifyEffects(
+            Optional<UUID> senderId,
+            Supplier<Component> senderDisplay,
+            String senderName,
+            Set<ChatEffect> effects,
+            Set<Player> recipients
+    ) {
+        if (recipients.isEmpty()) {
+            return;
+        }
+        ChatEffect.Mentions mentions = effects.stream()
+                .filter(ChatEffect.Mentions.class::isInstance)
+                .map(ChatEffect.Mentions.class::cast)
+                .findFirst().orElse(null);
+        if (mentions == null) {
+            return;
+        }
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            boolean allMention = sender.hasPermission("group." + Mik.GROUP_MANAGER)
-                    && AT_ALL_PATTERN.matcher(message).find();
-            Component senderDisplay = senderDisplayRenderer.apply(sender);
+            Component display = senderDisplay.get();
             for (Player player : recipients) {
-                if (player.getUniqueId().equals(senderId)) {
+                if (senderId.filter(player.getUniqueId()::equals).isPresent()) {
                     continue;
                 }
                 ChatSettingsStore.ChatSettings settings = settingsStore.get(player.getUniqueId());
@@ -109,7 +115,8 @@ public final class MentionService implements Listener {
                 if (settings.mentionMuteWhileAfk() && afkService.isAfk(player.getUniqueId())) {
                     continue;
                 }
-                if (!allMention && !mentionsPlayer(player, message)) {
+                if (!mentions.broadcast()
+                        && !mentions.playerIds().contains(player.getUniqueId())) {
                     continue;
                 }
                 if (settings.mentionSound()) {
@@ -117,23 +124,9 @@ public final class MentionService implements Listener {
                 }
                 if (settings.mentionActionBar()) {
                     player.sendActionBar(languageService.rich(player, Message.MENTION_ACTION_BAR_TEXT, NamedTextColor.AQUA,
-                            RichArg.component("sender", senderDisplay, sender.getName())));
+                            RichArg.component("sender", display, senderName)));
                 }
             }
         });
-    }
-
-    private boolean mentionsPlayer(Player target, String message) {
-        return message.toLowerCase(Locale.ROOT).contains(target.getName().toLowerCase(Locale.ROOT));
-    }
-
-    private Set<Player> playersIn(Set<Audience> viewers) {
-        Set<Player> players = new HashSet<>();
-        for (Audience viewer : viewers) {
-            if (viewer instanceof Player player) {
-                players.add(player);
-            }
-        }
-        return players;
     }
 }

@@ -32,6 +32,7 @@ public record QqGatewayGroupMessage(
             "<@!?([^>\\s]+)>|<qqbot-at-user\\s+id=\"([^\"]+)\"\\s*/>");
 
     public QqGatewayGroupMessage {
+        content = java.util.Objects.requireNonNullElse(content, "");
         mentions = List.copyOf(mentions);
         repliedAuthor = repliedAuthor == null ? Optional.empty() : repliedAuthor;
     }
@@ -56,7 +57,7 @@ public record QqGatewayGroupMessage(
         String stableEventId = eventId == null || eventId.isBlank() ? messageId : eventId;
         return Optional.of(new QqGatewayGroupMessage(stableEventId, messageId,
                 groupOpenId, cleanSingleLine(authorName, 64), memberOpenId, authorIsBot,
-                cleanMessage(stripMentionTokens(string(data, "content"), mentions)),
+                boundedContent(string(data, "content")),
                 mentions, repliedAuthor));
     }
 
@@ -79,6 +80,8 @@ public record QqGatewayGroupMessage(
                 .filter(reference -> !reference.bot() && !reference.isYou())
                 .map(reference -> identity(platformId, issuer, reference))
                 .flatMap(Optional::stream).toList();
+        NormalizedContent normalized = normalizedContent(
+                platformId, issuer, content);
         Optional<ExternalIdentity> repliedIdentity = repliedAuthor
                 .filter(reference -> !reference.bot() && !reference.isYou())
                 .filter(reference -> mentions.stream().noneMatch(mention ->
@@ -87,8 +90,10 @@ public record QqGatewayGroupMessage(
                 .flatMap(reference -> identity(platformId, issuer, reference));
         return new SocialInboundMessage(eventId,
                 new SocialConversation(groupOpenId, SocialConversation.Type.GROUP),
-                identity, new SocialInboundMessage.Text(content), authorIsBot,
-                new SocialMessageReferences(mentionedIdentities, repliedIdentity),
+                identity, authorName.isBlank() ? memberOpenId : authorName,
+                new SocialInboundMessage.Text(normalized.body()), authorIsBot,
+                new SocialMessageReferences(mentionedIdentities, repliedIdentity,
+                        normalized.mentions()),
                 replyChannel);
     }
 
@@ -153,24 +158,56 @@ public record QqGatewayGroupMessage(
         return Optional.empty();
     }
 
-    private static String stripMentionTokens(
-            String content,
-            List<MemberReference> mentions
+    private NormalizedContent normalizedContent(
+            String platformId,
+            String issuer,
+            String source
     ) {
-        if (content == null || content.isEmpty() || mentions.isEmpty()) {
-            return content;
-        }
-        java.util.Set<String> ids = mentions.stream().map(MemberReference::tokenId)
-                .filter(id -> !id.isBlank()).collect(java.util.stream.Collectors.toSet());
-        Matcher matcher = MENTION_TOKEN.matcher(content);
-        StringBuilder result = new StringBuilder(content.length());
+        java.util.Map<String, MemberReference> byToken = new java.util.LinkedHashMap<>();
+        mentions.stream().filter(reference -> !reference.tokenId().isBlank())
+                .forEach(reference -> byToken.putIfAbsent(
+                        reference.tokenId(), reference));
+        Matcher matcher = MENTION_TOKEN.matcher(source);
+        NormalizedBuilder result = new NormalizedBuilder();
+        List<SocialMessageReferences.MentionSpan> spans = new ArrayList<>();
+        int previous = 0;
         while (matcher.find()) {
+            result.append(source.substring(previous, matcher.start()));
             String id = matcher.group(1) == null ? matcher.group(2) : matcher.group(1);
-            matcher.appendReplacement(result, ids.contains(id) ? " "
-                    : Matcher.quoteReplacement(matcher.group()));
+            MemberReference reference = byToken.get(id);
+            if (reference == null) {
+                result.append(matcher.group());
+            } else if (!reference.bot() && !reference.isYou()) {
+                String label = reference.username().isBlank()
+                        ? (reference.memberOpenId().isBlank()
+                        ? reference.tokenId() : reference.memberOpenId())
+                        : reference.username();
+                int start = result.lengthAfterPendingWhitespace();
+                result.append("@" + label);
+                int end = result.length();
+                if (end > start) {
+                    identity(platformId, issuer, reference).ifPresent(identity ->
+                            spans.add(new SocialMessageReferences.MentionSpan(
+                                    start, end, identity)));
+                }
+            } else {
+                result.whitespace();
+            }
+            previous = matcher.end();
         }
-        matcher.appendTail(result);
-        return result.toString();
+        result.append(source.substring(previous));
+        return new NormalizedContent(result.body(), spans);
+    }
+
+    private static String boundedContent(String value) {
+        if (value == null || value.length() <= 8_000) {
+            return value == null ? "" : value;
+        }
+        int end = 8_000;
+        if (Character.isHighSurrogate(value.charAt(end - 1))) {
+            end--;
+        }
+        return value.substring(0, end);
     }
 
     private static String cleanMessage(String value) {
@@ -243,6 +280,64 @@ public record QqGatewayGroupMessage(
     private static JsonArray array(JsonObject object, String name) {
         JsonElement value = object.get(name);
         return value != null && value.isJsonArray() ? value.getAsJsonArray() : null;
+    }
+
+    private record NormalizedContent(
+            String body,
+            List<SocialMessageReferences.MentionSpan> mentions
+    ) {
+    }
+
+    private static final class NormalizedBuilder {
+        private final StringBuilder value = new StringBuilder();
+        private boolean pendingWhitespace;
+
+        void append(String text) {
+            if (text == null) {
+                return;
+            }
+            for (int index = 0; index < text.length() && value.length() < 2_000;
+                 index++) {
+                char character = text.charAt(index);
+                if (Character.isISOControl(character)
+                        || Character.isWhitespace(character)) {
+                    pendingWhitespace = !value.isEmpty();
+                } else {
+                    flushWhitespace();
+                    if (value.length() < 2_000) {
+                        value.append(character);
+                    }
+                }
+            }
+        }
+
+        void whitespace() {
+            pendingWhitespace = !value.isEmpty();
+        }
+
+        int lengthAfterPendingWhitespace() {
+            flushWhitespace();
+            return value.length();
+        }
+
+        int length() {
+            return value.length();
+        }
+
+        String body() {
+            if (!value.isEmpty()
+                    && Character.isHighSurrogate(value.charAt(value.length() - 1))) {
+                value.setLength(value.length() - 1);
+            }
+            return value.toString();
+        }
+
+        private void flushWhitespace() {
+            if (pendingWhitespace && !value.isEmpty() && value.length() < 2_000) {
+                value.append(' ');
+            }
+            pendingWhitespace = false;
+        }
     }
 
     public record MemberReference(

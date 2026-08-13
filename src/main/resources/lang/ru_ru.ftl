@@ -563,6 +563,11 @@ chat-item-empty-hover = В ведущей руке нет предмета
 chat-mention-all-hover = Оповестить всех видимых игроков в этом канале
 chat-bilibili-hover = Обнаружена ссылка на видео Bilibili
 chat-copy-hover = ЛКМ: скопировать сообщение
+chat-player-hover = ЛКМ: начать личное сообщение
+chat-social-name-label = Имя в соцсети
+chat-social-account-label = Аккаунт платформы
+chat-social-bound-player-label = Привязанный игрок
+chat-social-unbound = Не привязано к игроку Minecraft
 chat-settings-menu-title = Настройки чата
 chat-delay-cancel-command-description = Отменить отложенные сообщения
 chat-delay-section = Отложенная отправка
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = Отвязка удалит связь этой �
 social-binding-unlinked = Привязка к игроку Minecraft { $arg0 } удалена.
 social-binding-not-bound = Эта платформенная личность не привязана.
 social-binding-help =
-    Выполните /bind qq в Minecraft.
+    Выполните /bind { $arg0 } в Minecraft.
     Скопируйте созданную полную команду.
     Отправьте эту команду сюда.
     Проверьте привязку командой /профиль.
@@ -970,7 +975,7 @@ social-binding-unavailable = Привязка личности временно 
 social-binding-status-unbound = Эта личность не привязана. Используйте /привязать с кодом подтверждения.
 social-binding-linked = Выполнена привязка к игроку Minecraft { $arg0 }.
 social-binding-already-linked = Эта личность уже привязана к игроку Minecraft { $arg0 }.
-social-binding-code-invalid = Код подтверждения неверен или истёк. Создайте новый командой /bind qq в Minecraft.
+social-binding-code-invalid = Код подтверждения неверен или истёк. Создайте новый командой /bind { $arg0 } в Minecraft.
 social-binding-platform-mismatch = Этот код подтверждения выдан для другой платформы.
 social-binding-external-in-use = Эта личность уже привязана к другому игроку Minecraft.
 social-binding-player-scope-in-use = У этого игрока Minecraft в данном диалоге уже привязана другая личность.

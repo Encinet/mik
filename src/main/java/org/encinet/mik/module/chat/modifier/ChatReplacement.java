@@ -1,13 +1,33 @@
 package org.encinet.mik.module.chat.modifier;
 
-import net.kyori.adventure.text.Component;
+import org.encinet.mik.module.chat.model.ChatNode;
 
-public record ChatReplacement(int start, int end, Component component, ChatReplacementSpacing spacing) {
-    public ChatReplacement(int start, int end, Component component) {
-        this(start, end, component, ChatReplacementSpacing.PRESERVE);
+import java.util.List;
+import java.util.Objects;
+
+public record ChatReplacement(
+        int start,
+        int end,
+        List<ChatNode> nodes,
+        ChatReplacementSpacing spacing
+) {
+    public ChatReplacement {
+        if (start < 0 || end <= start) {
+            throw new IllegalArgumentException("chat replacement range is invalid");
+        }
+        nodes = List.copyOf(Objects.requireNonNull(nodes, "nodes"));
+        if (nodes.isEmpty()) {
+            throw new IllegalArgumentException("chat replacement nodes are empty");
+        }
+        spacing = Objects.requireNonNull(spacing, "spacing");
     }
 
-    public static ChatReplacement padded(int start, int end, Component component) {
-        return new ChatReplacement(start, end, component, ChatReplacementSpacing.PAD_WHEN_JOINED);
+    public ChatReplacement(int start, int end, ChatNode node) {
+        this(start, end, List.of(node), ChatReplacementSpacing.PRESERVE);
+    }
+
+    public static ChatReplacement padded(int start, int end, ChatNode node) {
+        return new ChatReplacement(start, end, List.of(node),
+                ChatReplacementSpacing.PAD_WHEN_JOINED);
     }
 }

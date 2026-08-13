@@ -11,6 +11,23 @@ final class ChatRepeatTracker {
     private final Map<SharedChannel, LastMessage> sharedMessages = new EnumMap<>(SharedChannel.class);
     private final Map<PrivateConversation, LastMessage> privateMessages = new HashMap<>();
 
+    public synchronized boolean wouldRepeatPublic(UUID senderId, String message) {
+        return wouldRepeat(sharedMessages, SharedChannel.PUBLIC, senderId, message);
+    }
+
+    public synchronized boolean wouldRepeatStaff(UUID senderId, String message) {
+        return wouldRepeat(sharedMessages, SharedChannel.STAFF, senderId, message);
+    }
+
+    public synchronized boolean wouldRepeatPrivate(
+            UUID senderId,
+            UUID targetId,
+            String message
+    ) {
+        return wouldRepeat(privateMessages,
+                PrivateConversation.of(senderId, targetId), senderId, message);
+    }
+
     public synchronized boolean recordPublic(UUID senderId, String message) {
         return record(sharedMessages, SharedChannel.PUBLIC, senderId, message);
     }
@@ -32,7 +49,20 @@ final class ChatRepeatTracker {
         Objects.requireNonNull(senderId, "senderId");
         Objects.requireNonNull(message, "message");
 
-        LastMessage previous = messages.put(channel, new LastMessage(senderId, message));
+        boolean repeated = wouldRepeat(messages, channel, senderId, message);
+        messages.put(channel, new LastMessage(senderId, message));
+        return repeated;
+    }
+
+    private <K> boolean wouldRepeat(
+            Map<K, LastMessage> messages,
+            K channel,
+            UUID senderId,
+            String message
+    ) {
+        Objects.requireNonNull(senderId, "senderId");
+        Objects.requireNonNull(message, "message");
+        LastMessage previous = messages.get(channel);
         return previous != null
                 && !previous.senderId().equals(senderId)
                 && previous.message().equals(message);

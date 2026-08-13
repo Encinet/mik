@@ -1,5 +1,11 @@
 package org.encinet.mik.module.chat.modifier;
 
+import org.encinet.mik.module.chat.model.ChatCapability;
+import org.encinet.mik.module.chat.model.ChatNode;
+import org.encinet.mik.module.chat.model.ChatProcessingContext;
+
+import java.net.URI;
+import java.util.Set;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,7 +27,19 @@ public final class MojiraModifier implements ChatModifier {
     );
 
     @Override
-    public ChatReplacement find(String text, int fromIndex, ChatModifierContext context) {
+    public int priority() {
+        return 40;
+    }
+
+    @Override
+    public Set<ChatCapability> requiredCapabilities() {
+        return Set.of(ChatCapability.URL);
+    }
+
+    @Override
+    public ChatReplacement find(
+            String text, int fromIndex, ChatProcessingContext context
+    ) {
         ChatReplacement url = findUrl(text, fromIndex);
         ChatReplacement issueKey = findIssueKey(text, fromIndex);
         if (url == null) {
@@ -56,7 +74,8 @@ public final class MojiraModifier implements ChatModifier {
 
     private ChatReplacement replacement(int start, int end, String issueKey) {
         String url = CANONICAL_BASE_URL + issueKey;
-        return new ChatReplacement(start, end, ChatRenderUtil.link(issueKey, url));
+        return new ChatReplacement(start, end, new ChatNode.Link(
+                issueKey, URI.create(url), ChatSemanticStyles.LINK));
     }
 
     private String normalizedIssueKey(String issueKey) {
@@ -64,18 +83,6 @@ public final class MojiraModifier implements ChatModifier {
     }
 
     private int urlEnd(String token) {
-        int end = token.length();
-        while (end > 0 && isTrailingPunctuation(token.codePointBefore(end))) {
-            end -= Character.charCount(token.codePointBefore(end));
-        }
-        return Math.max(end, 1);
-    }
-
-    private boolean isTrailingPunctuation(int codePoint) {
-        return switch (codePoint) {
-            case '.', ',', '!', '?', ':', ';', '\'', '"', ')', ']', '}',
-                    '。', '，', '！', '？', '：', '；', '、', '…', '）', '】', '》', '』' -> true;
-            default -> false;
-        };
+        return ChatUrlSupport.visibleUrlEnd(token);
     }
 }

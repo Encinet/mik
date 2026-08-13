@@ -2,6 +2,7 @@ package org.encinet.mik.module.identity;
 
 import org.encinet.mik.module.identity.IdentityBindingRepository.PendingIdentityLink;
 import org.encinet.mik.module.identity.IdentityBindingRepository.RepositoryLinkResult;
+import org.encinet.mik.module.identity.IdentityBindingRepository.RepositoryLinkStatus;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -12,6 +13,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -30,11 +32,14 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
     private static final char[] CODE_ALPHABET =
             "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
     private static final int MAX_ATTEMPT_STATES = 4_096;
-
     private final IdentityBindingRepository repository;
     private final Clock clock;
     private final SecureRandom random;
     private final Map<ExternalIdentityKey, AttemptState> attempts = new HashMap<>();
+    private List<IdentityBinding> bindings = List.of();
+    private Map<ExternalIdentityKey, IdentityBinding> bindingsByExternal = Map.of();
+    private Map<UUID, List<IdentityBinding>> bindingsByPlayer = Map.of();
+    private Map<String, List<IdentityBinding>> bindingsByPlayerName = Map.of();
 
     IdentityBindingService(IdentityBindingRepository repository) {
         this(repository, Clock.systemUTC(), new SecureRandom());
@@ -54,6 +59,7 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         try {
             repository.open();
             repository.deleteExpiredCodes(clock.instant());
+            reloadBindings();
         } catch (SQLException error) {
             throw storageFailure("Could not open identity database", error);
         }
@@ -101,6 +107,10 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         final RepositoryLinkResult result;
         try {
             result = repository.redeem(hashCode(normalizedCode), identity, now);
+            if (result.status() == RepositoryLinkStatus.LINKED
+                    || result.status() == RepositoryLinkStatus.ALREADY_LINKED) {
+                reloadBindings();
+            }
         } catch (SQLException error) {
             throw storageFailure("Could not redeem an identity link code", error);
         }
@@ -121,27 +131,23 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
 
     @Override
     public synchronized Optional<IdentityBinding> find(ExternalIdentityKey key) {
-        try {
-            return repository.findByExternal(key);
-        } catch (SQLException error) {
-            throw storageFailure("Could not query an external identity", error);
-        }
+        return Optional.ofNullable(bindingsByExternal.get(
+                Objects.requireNonNull(key, "key")));
+    }
+
+    synchronized List<IdentityBinding> bindings() {
+        return bindings;
     }
 
     synchronized List<IdentityBinding> findByPlayer(UUID playerId) {
-        try {
-            return repository.findByPlayer(playerId);
-        } catch (SQLException error) {
-            throw storageFailure("Could not query player identity bindings", error);
-        }
+        return bindingsByPlayer.getOrDefault(
+                Objects.requireNonNull(playerId, "playerId"), List.of());
     }
 
     synchronized List<IdentityBinding> findByPlayerName(String playerName) {
-        try {
-            return repository.findByPlayerName(playerName);
-        } catch (SQLException error) {
-            throw storageFailure("Could not query identity bindings by player name", error);
-        }
+        String key = Objects.requireNonNull(playerName, "playerName")
+                .toLowerCase(java.util.Locale.ROOT);
+        return bindingsByPlayerName.getOrDefault(key, List.of());
     }
 
     @Override
@@ -149,6 +155,9 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         try {
             Optional<IdentityBinding> removed = repository.unlinkExternal(key);
             attempts.remove(key);
+            if (removed.isPresent()) {
+                reloadBindings();
+            }
             return removed;
         } catch (SQLException error) {
             throw storageFailure("Could not unlink an external identity", error);
@@ -164,6 +173,9 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
                     Objects.requireNonNull(playerId, "playerId"),
                     ExternalIdentityKey.normalizePlatform(platform));
             removed.forEach(binding -> attempts.remove(binding.externalKey()));
+            if (!removed.isEmpty()) {
+                reloadBindings();
+            }
             return removed;
         } catch (SQLException error) {
             throw storageFailure("Could not unlink player identities for a platform", error);
@@ -173,6 +185,7 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
     synchronized void updatePlayerName(UUID playerId, String playerName) {
         try {
             repository.updatePlayerName(playerId, playerName);
+            reloadBindings();
         } catch (SQLException error) {
             throw storageFailure("Could not update a bound player name", error);
         }
@@ -227,6 +240,27 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
     ) {
         attempts.remove(key);
         return new IdentityLinkResult(status, binding, null);
+    }
+
+    private void reloadBindings() throws SQLException {
+        List<IdentityBinding> loaded = repository.findAll();
+        Map<ExternalIdentityKey, IdentityBinding> external = new LinkedHashMap<>();
+        Map<UUID, List<IdentityBinding>> byPlayer = new LinkedHashMap<>();
+        Map<String, List<IdentityBinding>> byName = new LinkedHashMap<>();
+        for (IdentityBinding binding : loaded) {
+            external.put(binding.externalKey(), binding);
+            byPlayer.computeIfAbsent(binding.playerId(), ignored ->
+                    new java.util.ArrayList<>()).add(binding);
+            byName.computeIfAbsent(binding.playerName().toLowerCase(
+                    java.util.Locale.ROOT), ignored ->
+                    new java.util.ArrayList<>()).add(binding);
+        }
+        byPlayer.replaceAll((ignored, values) -> List.copyOf(values));
+        byName.replaceAll((ignored, values) -> List.copyOf(values));
+        bindings = List.copyOf(loaded);
+        bindingsByExternal = Map.copyOf(external);
+        bindingsByPlayer = Map.copyOf(byPlayer);
+        bindingsByPlayerName = Map.copyOf(byName);
     }
 
     private String generateCode() {
@@ -285,6 +319,10 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
     @Override
     public synchronized void close() {
         attempts.clear();
+        bindings = List.of();
+        bindingsByExternal = Map.of();
+        bindingsByPlayer = Map.of();
+        bindingsByPlayerName = Map.of();
         try {
             repository.close();
         } catch (SQLException error) {
@@ -302,4 +340,5 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
             Instant lastAttemptAt
     ) {
     }
+
 }

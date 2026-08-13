@@ -48,4 +48,12 @@ class ChatRepeatTrackerTest {
         assertFalse(tracker.recordPrivate(ALICE, BOB, "same"));
         assertTrue(tracker.recordPrivate(BOB, ALICE, "same"));
     }
+
+    @Test
+    void previewDoesNotCommitACancelledMessage() {
+        ChatRepeatTracker tracker = new ChatRepeatTracker();
+
+        assertFalse(tracker.wouldRepeatPublic(ALICE, "same"));
+        assertFalse(tracker.recordPublic(BOB, "same"));
+    }
 }

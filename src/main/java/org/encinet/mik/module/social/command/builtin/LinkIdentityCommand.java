@@ -98,11 +98,13 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
             case Result.IdentityMissing ignored -> document(
                     language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_IDENTITY_MISSING);
-            case Result.Linked linked -> link(linked.result(), language);
+            case Result.Linked linked -> link(
+                    linked.result(), language, context.platform().id());
             case Result.Help ignored -> SocialDocument.of(
                             title(language), SocialDocument.Tone.INFO,
                             SocialDocument.orderedList(lines(languages.t(
-                                    language, Message.SOCIAL_BINDING_HELP))))
+                                    language, Message.SOCIAL_BINDING_HELP,
+                                    context.platform().id()))))
                     .localized(language);
             case Result.Unavailable ignored -> document(
                     language, SocialDocument.Tone.ERROR,
@@ -127,7 +129,11 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
                 .message().authenticatedIdentity();
     }
 
-    private SocialDocument link(IdentityLinkResult result, Language language) {
+    private SocialDocument link(
+            IdentityLinkResult result,
+            Language language,
+            String platformId
+    ) {
         return switch (result.status()) {
             case LINKED -> document(language, SocialDocument.Tone.SUCCESS,
                     Message.SOCIAL_BINDING_LINKED, result.binding().playerName())
@@ -136,7 +142,7 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
                     Message.SOCIAL_BINDING_ALREADY_LINKED, result.binding().playerName())
                     .withUntrustedText(result.binding().playerName());
             case INVALID_OR_EXPIRED_CODE -> document(language, SocialDocument.Tone.ERROR,
-                    Message.SOCIAL_BINDING_CODE_INVALID);
+                    Message.SOCIAL_BINDING_CODE_INVALID, platformId);
             case PLATFORM_MISMATCH -> document(language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_PLATFORM_MISMATCH);
             case EXTERNAL_IDENTITY_IN_USE -> document(language, SocialDocument.Tone.ERROR,

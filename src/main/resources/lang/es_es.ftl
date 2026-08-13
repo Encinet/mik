@@ -563,6 +563,11 @@ chat-item-empty-hover = No tienes ningún objeto en la mano principal
 chat-mention-all-hover = Notificar a todos los jugadores visibles en este canal.
 chat-bilibili-hover = Enlace de vídeo de Bilibili detectado
 chat-copy-hover = Haz clic izquierdo para copiar el mensaje
+chat-player-hover = Haz clic izquierdo para iniciar un mensaje privado
+chat-social-name-label = Nombre social
+chat-social-account-label = Cuenta de la plataforma
+chat-social-bound-player-label = Jugador vinculado
+chat-social-unbound = No está vinculado a ningún jugador de Minecraft
 chat-settings-menu-title = Configuración de chat
 chat-delay-cancel-command-description = Cancelar mensajes retrasados pendientes
 chat-delay-section = Envío retrasado
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = Desvincular elimina la relación entre esta ident
 social-binding-unlinked = Se desvinculó del jugador de Minecraft { $arg0 }.
 social-binding-not-bound = Esta identidad de plataforma no está vinculada.
 social-binding-help =
-    Ejecuta /bind qq en Minecraft.
+    Ejecuta /bind { $arg0 } en Minecraft.
     Copia el comando completo generado.
     Envía el comando aquí.
     Usa /perfil para comprobar la vinculación.
@@ -970,7 +975,7 @@ social-binding-unavailable = La vinculación de identidad no está disponible te
 social-binding-status-unbound = Esta identidad no está vinculada. Usa /vincular con un código de verificación.
 social-binding-linked = Vinculada al jugador de Minecraft { $arg0 }.
 social-binding-already-linked = Esta identidad ya está vinculada al jugador de Minecraft { $arg0 }.
-social-binding-code-invalid = El código de verificación no es válido o ha caducado. Genera otro con /bind qq en Minecraft.
+social-binding-code-invalid = El código de verificación no es válido o ha caducado. Genera otro con /bind { $arg0 } en Minecraft.
 social-binding-platform-mismatch = Este código de verificación se emitió para otra plataforma.
 social-binding-external-in-use = Esta identidad ya está vinculada a otro jugador de Minecraft.
 social-binding-player-scope-in-use = Ese jugador de Minecraft ya tiene otra identidad vinculada en esta conversación.

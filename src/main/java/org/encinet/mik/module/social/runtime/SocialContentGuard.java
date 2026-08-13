@@ -67,4 +67,11 @@ public final class SocialContentGuard {
                 : document;
         return safe.truncated(policy.maximumLength());
     }
+
+    /** Applies platform-output safety rules; inbound social chat must not call this. */
+    public boolean allowsOutboundText(String text, SocialOutputPolicy policy) {
+        Objects.requireNonNull(text, "text");
+        validate(policy);
+        return !policy.contentSafetyEnabled() || filter.match(text).isEmpty();
+    }
 }

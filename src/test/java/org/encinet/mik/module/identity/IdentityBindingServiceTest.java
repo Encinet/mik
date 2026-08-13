@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,6 +61,7 @@ class IdentityBindingServiceTest {
 
         assertEquals(IdentityLinkResult.Status.LINKED, linked.status());
         assertEquals(playerId, linked.bindingOptional().orElseThrow().playerId());
+        assertEquals(List.of(linked.binding()), service.bindings());
         assertEquals("AliceQQ", service.find(identity.key()).orElseThrow().externalDisplayName());
         assertEquals(IdentityLinkResult.Status.INVALID_OR_EXPIRED_CODE,
                 service.redeem(issue.code(), identity).status());
@@ -187,6 +189,7 @@ class IdentityBindingServiceTest {
         assertTrue(service.findByPlayer(playerId).isEmpty());
         assertTrue(service.find(first.key()).isEmpty());
         assertTrue(service.find(second.key()).isEmpty());
+        assertTrue(service.bindings().isEmpty());
     }
 
     private IdentityBinding bind(UUID playerId, String playerName, ExternalIdentity identity) {

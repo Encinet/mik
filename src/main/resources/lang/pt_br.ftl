@@ -563,6 +563,11 @@ chat-item-empty-hover = Nenhum item na mão principal
 chat-mention-all-hover = Notificar todos os jogadores visíveis neste canal
 chat-bilibili-hover = Link de vídeo do Bilibili detectado
 chat-copy-hover = Clique esquerdo: copiar mensagem
+chat-player-hover = Clique esquerdo: iniciar mensagem privada
+chat-social-name-label = Nome social
+chat-social-account-label = Conta da plataforma
+chat-social-bound-player-label = Jogador vinculado
+chat-social-unbound = Não vinculado a um jogador do Minecraft
 chat-settings-menu-title = Configurações do chat
 chat-delay-cancel-command-description = Cancelar mensagens pendentes com atraso
 chat-delay-section = Envio com atraso
@@ -962,7 +967,7 @@ social-binding-unlink-prompt = Desassociar remove a relação entre esta identid
 social-binding-unlinked = Desassociado do jogador do Minecraft { $arg0 }.
 social-binding-not-bound = Esta identidade da plataforma não está associada.
 social-binding-help =
-    Execute /bind qq no Minecraft.
+    Execute /bind { $arg0 } no Minecraft.
     Copie o comando completo gerado.
     Envie o comando aqui.
     Use /meuperfil para verificar a associação.
@@ -970,7 +975,7 @@ social-binding-unavailable = A associação de identidade está temporariamente 
 social-binding-status-unbound = Esta identidade não está associada. Use /associar com um código de verificação.
 social-binding-linked = Associado ao jogador do Minecraft { $arg0 }.
 social-binding-already-linked = Esta identidade já está associada ao jogador do Minecraft { $arg0 }.
-social-binding-code-invalid = O código de verificação é inválido ou expirou. Gere outro com /bind qq no Minecraft.
+social-binding-code-invalid = O código de verificação é inválido ou expirou. Gere outro com /bind { $arg0 } no Minecraft.
 social-binding-platform-mismatch = Este código de verificação foi emitido para outra plataforma.
 social-binding-external-in-use = Esta identidade já está associada a outro jogador do Minecraft.
 social-binding-player-scope-in-use = Esse jogador do Minecraft já tem outra identidade associada nesta conversa.

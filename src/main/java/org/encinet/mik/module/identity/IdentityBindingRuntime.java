@@ -115,6 +115,12 @@ final class IdentityBindingRuntime implements IdentityBindingManager {
     }
 
     @Override
+    public List<IdentityBinding> bindings() {
+        ensureAvailable();
+        return service.bindings();
+    }
+
+    @Override
     public List<IdentityBinding> findByPlayer(UUID playerId) {
         ensureAvailable();
         return service.findByPlayer(playerId);

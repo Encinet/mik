@@ -1,8 +1,14 @@
 package org.encinet.mik.module.chat.modifier;
 
+import org.encinet.mik.module.chat.model.ChatCapability;
+import org.encinet.mik.module.chat.model.ChatNode;
+import org.encinet.mik.module.chat.model.ChatProcessingContext;
+
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,7 +21,19 @@ public final class GitHubModifier implements ChatModifier {
     );
 
     @Override
-    public ChatReplacement find(String text, int fromIndex, ChatModifierContext context) {
+    public int priority() {
+        return 10;
+    }
+
+    @Override
+    public Set<ChatCapability> requiredCapabilities() {
+        return Set.of(ChatCapability.URL);
+    }
+
+    @Override
+    public ChatReplacement find(
+            String text, int fromIndex, ChatProcessingContext context
+    ) {
         Matcher matcher = URL_PATTERN.matcher(text);
         if (!matcher.find(fromIndex)) {
             return null;
@@ -24,11 +42,12 @@ public final class GitHubModifier implements ChatModifier {
         String token = matcher.group();
         int linkLength = urlEnd(token);
         String link = token.substring(0, linkLength);
-        String url = normalizedUrl(link);
+        String url = ChatUrlSupport.normalizedHttpUrl(link);
         return new ChatReplacement(
                 matcher.start(),
                 matcher.start() + linkLength,
-                ChatRenderUtil.github(labelFor(link), url)
+                new ChatNode.Link(labelFor(link), URI.create(url),
+                        ChatSemanticStyles.GITHUB)
         );
     }
 
@@ -109,27 +128,7 @@ public final class GitHubModifier implements ChatModifier {
         return commit.length() <= 7 ? commit : commit.substring(0, 7);
     }
 
-    private String normalizedUrl(String link) {
-        if (link.regionMatches(true, 0, "http://", 0, 7)
-                || link.regionMatches(true, 0, "https://", 0, 8)) {
-            return link;
-        }
-        return "https://" + link;
-    }
-
     private int urlEnd(String token) {
-        int end = token.length();
-        while (end > 0 && isTrailingPunctuation(token.codePointBefore(end))) {
-            end -= Character.charCount(token.codePointBefore(end));
-        }
-        return Math.max(end, 1);
-    }
-
-    private boolean isTrailingPunctuation(int codePoint) {
-        return switch (codePoint) {
-            case '.', ',', '!', '?', ':', ';', '\'', '"', ')', ']', '}',
-                    '。', '，', '！', '？', '：', '；', '、', '…', '）', '】', '》', '』' -> true;
-            default -> false;
-        };
+        return ChatUrlSupport.visibleUrlEnd(token);
     }
 }

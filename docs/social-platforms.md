@@ -15,7 +15,19 @@ MIK 通过 Host + Command + Adapter 处理外部社交平台消息：
   -> 事件捕获的 SocialReplyChannel
 ```
 
-平台适配器只实现协议。服务器查询、身份绑定、资料查询、并发、去重、生命周期、内容安全和本地化结果均属于共享层。当前生产适配器只有 QQ；测试使用内存适配器验证多个平台可以同时运行。
+公共聊天互通走同一个 Host，但使用独立、平台无关的 chat capability：
+
+```text
+Minecraft 公共聊天 -> ChatSubmission -> ChatProcessor -> ChatMessage
+  -> ChatContent 语义节点 -> READY generation -> 会话路由
+  -> 绑定账号候选 -> 目标会话成员解析 -> 平台 renderer
+
+外部普通文本 -> adapter -> SocialInboundMessage -> generation 一次分类
+  -> 命令或 ChatSubmission -> 去重/有序背压 -> Bukkit 主线程
+  -> ChatProcessor -> Minecraft renderer -> ChatModule 公共聊天格式链路
+```
+
+平台适配器只实现协议。服务器查询、身份绑定、资料查询、并发、去重、生命周期、内容安全和本地化结果均属于共享层。当前生产适配器有 QQ 和 Matrix；测试使用内存适配器验证多个平台可以同时运行。
 
 ## 平台 SPI
 
@@ -25,14 +37,16 @@ MIK 通过 Host + Command + Adapter 处理外部社交平台消息：
 - `prepare()` 读取并验证配置。配置禁用时返回空 plan；异常只令该平台进入 `FAILED`。
 - `SocialPlatformPlan` 固定本 generation 的运行策略和命令语法，并通过 `open(context)` 创建 session。
 - `SocialPlatformSession` 只暴露 `close()`；transport 通过 generation 专属的 status sink 主动推送 `STARTING`、`READY`、`FAILED` 或 `STOPPED`。
+- 需要聊天互通的平台 session 额外实现 `SocialChatPlatformSession`。共享的 `SocialChatRoute` 与 `SocialChatOutboundPolicy` 支持每个会话独立选择 `ALWAYS` 或 `PREFIX`，以及是否移除触发前缀；adapter 只把平台房间配置转换成这些通用模型。
+- 支持原生提及的平台通过 `resolveMentions(conversation, requests)` 从候选绑定身份中选择确实属于目标会话的账号，再由三参数 `sendChat` 消费会话专属解析结果。解析结果不能跨路由缓存；不支持主动发消息或原生提及的平台可保留默认空实现。
 
-Host 为每个平台独立持有 generation、session、身份平台注册租约、有界虚拟线程执行器、去重集合和已观察会话。并发额度覆盖 handler、内容安全处理以及异步平台回复的完整生命周期，不会在 HTTP 回复仍未完成时提前释放。重载只替换指定平台；旧 generation 的任务和结果不会发送。队列满时 sink 返回 `RETRY_LATER` 并撤销去重记录，使支持重投或断线恢复的平台可以再次提交事件。
+Host 为每个平台独立持有 generation、session、身份平台注册租约、有界虚拟线程执行器、去重集合和已观察会话。并发额度覆盖 handler、内容安全处理以及异步平台回复的完整生命周期，不会在 HTTP 回复仍未完成时提前释放。同一会话的命令、入站聊天和出站聊天保持提交顺序，不同会话仍可并发；队列满时 sink 返回 `RETRY_LATER` 并撤销去重记录，Minecraft 发布端则返回包含 accepted/unavailable/backpressured 计数的 `SocialChatPublishReport`。重载只替换指定平台，旧 generation 的任务和结果不会发送。命令解析和聊天路由由 generation 对同一个 `SocialInboundMessage` 只判定一次；重复事件、机器人消息与生命周期拒绝不会被误判成聊天。
 
 ## 命令与文档
 
 每条共享命令由一个 `SocialCommand<A, R>` 实现类完整拥有稳定 ID、全部文本别名、调用策略、本地化描述键、类型化 decoder、handler、命令专属结果类型，以及生成 `SocialDocument` 的完整回复布局。标题、字段、语气、权限判断和结果分支都写在对应的 `command.builtin` 类内，不再拆到 feature service、result、help catalog 或 presenter。共用层只保留 dispatcher、语言选择、身份仓储、`social.game` 游戏快照边界、文档模型和平台运行时。`/help` 直接遍历实际安装的命令，根据当前语言选择主别名，并结合当前平台前缀自动生成 `命令 — 描述` 清单；内部 fallback 没有描述，因此不会暴露。新增、删除或重命名命令时不再维护第二份帮助菜单。composition root 显式列出这些对象并创建不可变 `SocialCommandDispatcher`；没有反射扫描，也没有 Manager/Registry/Router 或平台私有命令目录。平台 plan 只声明自己的文本前缀与大小写规则。因此两个平台仍可用不同前缀调用同一命令；原生命令则直接按稳定 ID 调用，并保留结构化 options，无需伪造 `/command` 文本。
 
-Handler 返回 `SocialDocument(title, tone, blocks)`。block 支持段落、字段、有序列表、无序列表和远程或内嵌图片；`plainText()` 提供完整的无格式表示。内容安全只扫描命令通过 `withUntrustedText(...)` 显式标记的用户可控片段，不扫描标题、本地化文案、字段标签、TPS、版本等可信内容。平台 renderer 负责最终转义与格式转换。
+Handler 返回 `SocialDocument(title, tone, blocks)`。block 支持段落、字段、有序列表、无序列表和远程或内嵌图片；`plainText()` 提供完整的无格式表示。内容安全扫描命令通过 `withUntrustedText(...)` 显式标记的用户可控片段，以及聊天桥接两端的消息正文；不扫描标题、本地化文案、字段标签、TPS、版本等可信内容。平台 renderer 负责最终转义与格式转换。
 
 共享命令及其回复完整支持简体中文、香港繁体、台湾繁体、文言、英语、德语、西班牙语、法语、意大利语、日语、韩语、荷兰语、巴西葡萄牙语、俄语、泰语和乌克兰语。所有语言的别名始终同时注册，当前回复语言不会过滤可执行的命令；例如中文用户仍可使用 `/profile` 或 `/プロフィール`。命令注册同时保存“别名 → 语言”元数据：已绑定身份优先采用对应 Minecraft 玩家的语言设置；未绑定身份采用本次命中的本地化别名语言；两者都无法确定时才采用平台 plan 在 `SocialCommandSyntax` 中声明的默认语言。QQ 的默认语言为简体中文，共享层不替其他平台决定默认值。原生命令适配器可通过结构化 option `locale` 传入语言标签，例如 `ja-JP` 或 `pt_BR`。结果文档携带已解析语言，因此内容安全替换、长度截断和平台渲染不会丢失语言上下文。玩家资料中的“语言”属于被查询玩家，与整条回复采用的查询者语言相互独立；目标没有保存的语言时显示当前平台的默认语言。
 
@@ -53,8 +67,24 @@ Handler 返回 `SocialDocument(title, tone, blocks)`。block 支持段落、字�
 /social conversations <platform>
 ```
 
-这些管理命令需要 `group.manager` 权限。`/social` 默认显示平台概览；`status`、`reload` 和 `conversations` 的平台参数会动态补全所有已安装适配器。省略 `status` 的平台参数会显示全部状态；省略 `reload` 的平台参数会独立重载全部已安装适配器。旧 `/qqbot`、`/qqbind`、`bindqq` 命令不再注册；游戏内身份验证码统一使用 `/bind qq`。
+这些管理命令需要 `group.manager` 权限。`/social` 默认显示平台概览；`status`、`reload` 和 `conversations` 的平台参数会动态补全所有已安装适配器。省略 `status` 的平台参数会显示全部状态；省略 `reload` 的平台参数会独立重载全部已安装适配器。旧 `/qqbot`、`/qqbind`、`bindqq` 命令不再注册；游戏内身份验证码统一使用 `/bind <platform>`，例如 `/bind qq` 或 `/bind matrix`。
 
 ## 接入新平台
 
 新适配器需要完成平台鉴权，把稳定且可信的身份构造成 `ExternalIdentityKey`，捕获一次入站事件的回复凭证，然后向 sink 提交 `SocialInboundMessage`。adapter 只提供 transport、配置、`SocialCommandSyntax` 与渲染；不要在 adapter 内访问 Bukkit、身份仓储、声明共享别名或实现 server/identity handler。
+
+若平台支持聊天互通，adapter 将普通文本和命令都作为 `SocialInboundMessage` 交给唯一的 `context.events()`，并让 session 实现 `SocialChatPlatformSession`。generation 先解析命令，未命中时只在已配置的 `SocialChatRoute` 中构造通用 `ChatSubmission`。全量互通使用 `SocialChatOutboundPolicy.always()`，触发式互通使用 `prefixed(prefix, stripPrefix)`。Minecraft 线程、消息展示、generation 去重、有序背压与重载失效仍由共享层负责。
+
+入站 bridge 不直接拼 Adventure 组件或自行广播。`BukkitSocialChatGateway` 在社交工作线程解析身份绑定及 LuckPerms 前后缀快照，再切换到主线程交给 `ChatModule`；ChatModule 使用与玩家公共消息相同的安全链接解析和 `ChatMessageFormatter.channelMessage` 路径。平台来源只增加 `[平台]` 身份标记：已绑定身份显示 Minecraft 玩家身份，在线或离线都复用前后缀，未绑定身份才显示平台昵称。只有名称节点悬浮显示平台昵称、平台账号、绑定玩家和 UUID；LuckPerms 前缀、后缀及基岩标记不继承该悬浮。原生 Minecraft 名称则显示本地化玩家资料、UUID 和私聊操作提示。名称之后仍使用相同的金色 `»` 分隔符，正文继续具有本地化发送时间悬浮、点击复制及链接子组件自己的打开动作。社交平台进入游戏的聊天不经过关键词过滤；向其他社交平台继续转发时才执行出站检查。`ChatOrigin.visitedPlatforms` 会阻止消息回送来源平台，因此增加更多支持聊天的 adapter 时不需要平台之间互相硬编码。
+
+## Matrix
+
+Matrix 适配器使用 Client-Server API：启动时通过 `/account/whoami` 验证 access token，首次 `/sync` 只建立 `next_batch` 游标而不回放历史命令，之后长轮询未加密房间中的 `m.room.message`。共享命令使用 `!` 前缀，例如 `!帮助`、`!状态` 和 `!绑定 CODE`。回复使用带 `m.in_reply_to` 的 `m.notice`；线程内命令保留 `m.thread` 关系，玩家头像先上传到 Matrix 媒体仓库再作为带说明文字的 `m.image` 回复。
+
+Matrix 用户 ID 是全局身份：`subject` 保存完整 MXID，`issuer` 保存 MXID 的 server name，`scope` 为空，因此同一用户在不同房间不需要重复绑定。结构化 `m.mentions.user_ids` 必须再与 HTML `matrix.to` 用户链接或明确的纯文本 mention 范围对应，随后才作为带起止位置的可信引用进入共享模型；已观察到的回复事件作者只进入 reply 引用。正文中的伪造 `@user:server` 不算认证提及，回复通知里的用户也不会凭空变成正文 mention。适配器忽略编辑事件、非文本事件、机器人自身消息和 `m.room.encrypted`；它不实现端到端加密。
+
+Matrix 的 `chat-bridge.routes` 按房间启用普通聊天互通，且每个房间可独立选择 `always` 或 `prefix` 出站策略。Matrix 入站普通文本转入 Minecraft；Minecraft 只外发公共频道，staff 和私聊不会进入桥接。Minecraft 出站消息同时携带用于路由与安全检查的原始正文，以及 ChatModifier 处理后的平台中立 `ChatContent` 节点；Matrix 将安全 HTTP(S)、`mailto:` 链接和基础文字样式转换为带纯文本回退的 `org.matrix.custom.html`。邮箱、Matrix ID、`matrix.to` 永久链接及 `matrix:` URI 均由共享 ChatModifier 识别；其中 `matrix:` 会转换为规范的 `matrix.to` URL，以便 Minecraft 与 Matrix 客户端都能打开。Minecraft 的打开链接动作只允许 HTTP(S)，所以邮箱节点在游戏中提供左键复制地址，Matrix 中仍提供 `mailto:`。前缀路由剥离触发器时会同步裁剪语义节点，而不是重新退化为纯文本。
+
+聊天内核的共同模型是 `ChatSubmission -> ChatProcessor -> ChatMessage`。修饰器只产生 `Text`、`Link`、`PlayerMention`、`ExternalMention`、`BroadcastMention`、`Item` 等语义节点，不拼接 Matrix HTML 或 Adventure 组件；Minecraft 与 Matrix renderer 各自降级不支持的能力。平台 adapter 负责把协议认证的 mention 映射为精确正文范围，共享 gateway 再把已绑定身份补成 Minecraft UUID；普通文本修饰器不得覆盖这些可信范围。Minecraft 玩家 mention 的输入语法固定为 `玩家名@`，语义节点的可见形式始终是 `@玩家名`。自然 Paper 聊天先建立待提交事务，只有事件最终未取消才提交重复状态、重复按钮、提醒和社交发布。异步聊天从主线程维护的不可变玩家、绑定玩家与物品快照读取上下文，不同步等待 Bukkit 主线程。
+
+出站 mention 先按 Minecraft UUID 查询绑定快照，再按目标平台过滤候选，最后由 session 按确切目标会话成员关系解析。当前 Matrix session 启动时读取完整 `/joined_members`，并以 `m.room.member` 事件维护快照；只有 `join` 状态的账号会进入结果。一个玩家在目标会话中有多个绑定账号时全部保留。renderer 的通用显示约定是 Minecraft → 社交平台使用 `@游戏名(目标平台昵称)`，社交平台 → Minecraft 使用 `@来源平台昵称(游戏名)`，社交平台 A → B 使用 `@目标平台昵称(游戏名)`。找不到目标身份时保留来源侧可读文本且不发送原生通知；Matrix renderer 只为完整写入消息的 mention 生成链接和 `m.mentions.user_ids`，避免截断消息造成不可见通知。QQ 当前 transport 的回复凭证只能被动回复，尚不具备通用主动出站能力，但入站 Gateway mention 已进入同一精确范围模型。

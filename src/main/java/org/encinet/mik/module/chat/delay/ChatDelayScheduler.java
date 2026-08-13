@@ -78,6 +78,14 @@ public final class ChatDelayScheduler {
         return count;
     }
 
+    public int cancelAll() {
+        int cancelled = 0;
+        for (UUID playerId : List.copyOf(pendingDelayedMessages.keySet())) {
+            cancelled += cancel(playerId);
+        }
+        return cancelled;
+    }
+
     private void remove(UUID playerId, BukkitTask task) {
         List<BukkitTask> tasks = pendingDelayedMessages.get(playerId);
         if (tasks == null) {

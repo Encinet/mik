@@ -8,6 +8,8 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.identity.IdentityBindingManager;
+import org.encinet.mik.module.social.chat.SocialChatGateway;
+import org.encinet.mik.module.social.chat.SocialChatPublisher;
 import org.encinet.mik.module.social.command.SocialCommand;
 import org.encinet.mik.module.social.command.SocialCommandDispatcher;
 import org.encinet.mik.module.social.command.SocialCommandLanguageResolver;
@@ -23,6 +25,7 @@ import org.encinet.mik.module.social.game.BukkitMainThreadGateway;
 import org.encinet.mik.module.social.game.BukkitSocialGameService;
 import org.encinet.mik.module.social.game.SocialGameService;
 import org.encinet.mik.module.social.management.SocialManagementCommandRegistrar;
+import org.encinet.mik.module.social.platform.matrix.MatrixPlatformAdapter;
 import org.encinet.mik.module.social.platform.qq.QqPlatformAdapter;
 import org.encinet.mik.module.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.module.social.runtime.SocialContentGuard;
@@ -46,10 +49,12 @@ public final class SocialModule {
             JavaPlugin plugin,
             IdentityBindingManager identityBindings,
             LanguageService languages,
-            AfkService afkService
+            AfkService afkService,
+            SocialChatGateway chatGateway
     ) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(languages, "languages");
+        Objects.requireNonNull(chatGateway, "chatGateway");
         SocialCommandLanguageResolver languageResolver = new SocialCommandLanguageResolver(
                 identityBindings, languages);
         SocialGameService game = new BukkitSocialGameService(plugin, afkService,
@@ -76,8 +81,10 @@ public final class SocialModule {
                         .localized(language);
         SocialContentGuard contentGuard = loadContentGuard(plugin, blockedDocument);
         host = new SocialPlatformHost(
-                List.of(new QqPlatformAdapter(plugin)), dispatcher,
-                identityBindings::registerPlatform, contentGuard, plugin.getLogger());
+                List.of(new QqPlatformAdapter(plugin), new MatrixPlatformAdapter(plugin)),
+                dispatcher,
+                identityBindings::registerPlatform, contentGuard,
+                chatGateway, identityBindings::findByPlayer, plugin.getLogger());
         managementCommands = new SocialManagementCommandRegistrar(host, languages);
     }
 
@@ -91,6 +98,10 @@ public final class SocialModule {
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
         managementCommands.register(lifecycleManager);
+    }
+
+    public SocialChatPublisher chatPublisher() {
+        return host;
     }
 
     private static SocialContentGuard loadContentGuard(

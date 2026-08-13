@@ -12,5 +12,10 @@ public interface IdentityBindingManager extends ExternalIdentityLinker {
 
     IdentityPlatformRegistration registerPlatform(IdentityPlatform platform);
 
+    /** Immutable in-memory snapshot; this method never performs storage I/O. */
+    default List<IdentityBinding> bindings() {
+        return List.of();
+    }
+
     List<IdentityBinding> findByPlayer(UUID playerId);
 }

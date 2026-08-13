@@ -19,7 +19,10 @@ import org.encinet.mik.module.social.document.SocialDocument;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -73,14 +76,39 @@ class IdentityCommandsTest {
         assertEquals(1, bindings.unlinkCalls);
     }
 
+    @Test
+    void linkInstructionsUseTheCurrentPlatformInsteadOfHardCodingQq() {
+        StubBindings bindings = new StubBindings(binding());
+        StubLanguageService languages = new StubLanguageService();
+        LinkIdentityCommand command = new LinkIdentityCommand(bindings,
+                new SocialCommandLanguageResolver(bindings, languages), languages);
+        SocialCommandContext matrix = context(true, "matrix");
+
+        command.present(matrix, new LinkIdentityCommand.Result.Help(Optional.empty()));
+        command.present(matrix, new LinkIdentityCommand.Result.Linked(
+                new IdentityLinkResult(
+                        IdentityLinkResult.Status.INVALID_OR_EXPIRED_CODE, null, null),
+                Optional.empty()));
+
+        assertEquals(List.of("matrix"),
+                languages.arguments.get(Message.SOCIAL_BINDING_HELP));
+        assertEquals(List.of("matrix"),
+                languages.arguments.get(Message.SOCIAL_BINDING_CODE_INVALID));
+    }
+
     private static SocialCommandContext context(boolean authenticated) {
+        return context(authenticated, "qq");
+    }
+
+    private static SocialCommandContext context(boolean authenticated, String platformId) {
         Optional<ExternalIdentity> identity = authenticated
                 ? Optional.of(new ExternalIdentity(KEY, "QQ member")) : Optional.empty();
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 identity, "/绑定", false,
                 ignored -> CompletableFuture.completedFuture(null));
-        return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ"), message);
+        return new SocialCommandContext(
+                new SocialPlatformDescriptor(platformId, platformId), message);
     }
 
     private static IdentityBinding binding() {
@@ -90,6 +118,8 @@ class IdentityCommandsTest {
     }
 
     private static final class StubLanguageService extends LanguageService {
+        private final Map<Message, List<Object>> arguments = new EnumMap<>(Message.class);
+
         private StubLanguageService() {
             super(null);
         }
@@ -101,6 +131,7 @@ class IdentityCommandsTest {
 
         @Override
         public String t(Language language, Message message, Object... args) {
+            arguments.put(message, Arrays.asList(args));
             return message.name();
         }
     }
