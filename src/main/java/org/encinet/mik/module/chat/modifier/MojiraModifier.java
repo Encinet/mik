@@ -1,7 +1,6 @@
 package org.encinet.mik.module.chat.modifier;
 
 import org.encinet.mik.module.chat.model.ChatCapability;
-import org.encinet.mik.module.chat.model.ChatNode;
 import org.encinet.mik.module.chat.model.ChatProcessingContext;
 
 import java.net.URI;
@@ -74,8 +73,10 @@ public final class MojiraModifier implements ChatModifier {
 
     private ChatReplacement replacement(int start, int end, String issueKey) {
         String url = CANONICAL_BASE_URL + issueKey;
-        return new ChatReplacement(start, end, new ChatNode.Link(
-                issueKey, URI.create(url), ChatSemanticStyles.LINK));
+        return new ChatReplacement(start, end,
+                ChatLinkPresentation.serviceLink(
+                        "Mojira", issueKey, URI.create(url),
+                        ChatLinkPalette.MOJIRA));
     }
 
     private String normalizedIssueKey(String issueKey) {

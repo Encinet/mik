@@ -53,7 +53,7 @@ class SocialChatOutboundPolicyTest {
                 new ChatNode.Text("# ", ChatStyle.EMPTY),
                 new ChatNode.Link("[example]", URI.create(
                         "https://example.com/path"),
-                        new ChatStyle(null, false, false, true, false))));
+                        new ChatStyle(null, null, false, false, true, false))));
 
         ChatContent selected = rich.withoutLeadingTrigger("#");
 

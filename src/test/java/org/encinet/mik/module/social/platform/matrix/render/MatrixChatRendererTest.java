@@ -11,6 +11,7 @@ import org.encinet.mik.module.chat.model.ChatReferences;
 import org.encinet.mik.module.chat.model.ChatSender;
 import org.encinet.mik.module.chat.model.ChatStyle;
 import org.encinet.mik.module.chat.model.ChatSubmission;
+import org.encinet.mik.module.chat.pipeline.ChatProcessor;
 import org.encinet.mik.module.identity.ExternalIdentity;
 import org.encinet.mik.module.identity.ExternalIdentityKey;
 import org.encinet.mik.module.social.chat.SocialChatMentionResolution;
@@ -36,7 +37,8 @@ class MatrixChatRendererTest {
                 new ChatNode.Text("查看 ", ChatStyle.EMPTY),
                 new ChatNode.Link("[Minecraft Wiki: 钻石]", URI.create(
                         "https://zh.minecraft.wiki/w/%E9%92%BB%E7%9F%B3"),
-                        new ChatStyle(0x4EA5FF, true, false, true, false))));
+                        new ChatStyle(0x4EA5FF, null,
+                                true, false, true, false))));
 
         MatrixChatRenderer.RenderedChat rendered =
                 MatrixChatRenderer.render(message("ignored", content), 4_000);
@@ -76,6 +78,56 @@ class MatrixChatRendererTest {
         assertTrue(html.contains("href=\"mailto:admin@example.org\""));
         assertTrue(html.contains(
                 "href=\"https://matrix.to/#/%40alice%3Aexample.org\""));
+    }
+
+    @Test
+    void rendersGradientLinksAsAnUnderlinelessSolidColorFallback() {
+        ChatContent content = new ChatContent(List.of(new ChatNode.Link(
+                "[Example: gradient]", URI.create("https://example.org"),
+                new ChatStyle(0x55D6FF, 0xC084FC,
+                        false, false, false, false))));
+
+        String html = MatrixChatRenderer.render(
+                message("ignored", content), 4_000).html();
+
+        assertTrue(html.contains("<font color=\"#55D6FF\">"));
+        assertTrue(html.contains("href=\"https://example.org\""));
+        assertFalse(html.contains("<u>"));
+    }
+
+    @Test
+    void preservesTheCompleteUrlFromTheGenericModifier() {
+        String token = "abcdef0123456789".repeat(6);
+        String url = "https://example.org/download/archive?utm_source=matrix"
+                + "&token=" + token + "&fbclid=opaque&part=2#checksum";
+        String cleaned = "https://example.org/download/archive?token="
+                + token + "&part=2#checksum";
+        ChatContent content = new ChatProcessor().process(
+                url, ChatProcessingContext.external());
+
+        MatrixChatRenderer.RenderedChat rendered = MatrixChatRenderer.render(
+                message(url, content), 4_000);
+
+        assertEquals("Steve: [" + cleaned + "]", rendered.plainText());
+        assertTrue(rendered.html().contains("href=\""
+                + cleaned.replace("&", "&amp;") + "\""));
+        assertFalse(rendered.html().contains("utm_source"));
+        assertFalse(rendered.html().contains("fbclid"));
+        assertFalse(rendered.html().contains("..."));
+    }
+
+    @Test
+    void aLengthLimitedLinkStillTargetsTheCompleteUrl() {
+        String url = "https://example.org/download?token=" + "a".repeat(160);
+        ChatContent content = new ChatContent(List.of(new ChatNode.Link(
+                "[" + url + "]", URI.create(url), ChatStyle.EMPTY)));
+
+        MatrixChatRenderer.RenderedChat rendered = MatrixChatRenderer.render(
+                message(url, content), 80);
+
+        assertTrue(rendered.plainText().endsWith("…"));
+        assertTrue(rendered.html().contains("href=\"" + url + "\""));
+        assertTrue(rendered.html().endsWith("</a>…"));
     }
 
     @Test

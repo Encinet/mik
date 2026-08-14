@@ -30,7 +30,8 @@ class UrlModifierTest {
 
         assertEquals(0, replacement.start());
         assertEquals(link.length(), replacement.end());
-        assertReplacement(replacement, "[docs.example.co.uk:8443/guide?q=....]", "https://" + link);
+        assertReplacement(replacement,
+                "[docs.example.co.uk:8443/guide?q=chat#links]", "https://" + link);
     }
 
     @Test
@@ -82,7 +83,42 @@ class UrlModifierTest {
 
         String link = "example.com/wiki/Function_(mathematics)";
         assertEquals(link.length(), replacement.end());
-        assertReplacement(replacement, "[example.com/wiki/Function_(mathe....]", "https://" + link);
+        assertReplacement(replacement,
+                "[example.com/wiki/Function_(mathematics)]", "https://" + link);
+    }
+
+    @Test
+    void keepsTheCompleteUnicodeUrlInBothTheLabelAndTarget() {
+        String link = "example.com/" + "路径".repeat(30);
+
+        ChatReplacement replacement = modifier.find(link, 0, null);
+
+        ChatNode.Link node = (ChatNode.Link) replacement.nodes().getFirst();
+        assertEquals("[" + link + "]", node.label());
+        assertEquals("https://" + link, node.target().toString());
+    }
+
+    @Test
+    void removesTrackingParametersButPreservesFunctionalQueryAndFragment() {
+        String link = "https://example.com/download?UTM_Source=chat&id=42"
+                + "&fbclid=opaque&token=essential&spm=feed#checksum";
+        String cleaned = "https://example.com/download?id=42"
+                + "&token=essential#checksum";
+
+        ChatReplacement replacement = modifier.find(link, 0, null);
+
+        assertReplacement(replacement, "[" + cleaned + "]", cleaned);
+    }
+
+    @Test
+    void removesTheQueryDelimiterWhenEveryParameterIsTracking() {
+        String link = "example.com/article?utm_source=chat&fbclid=opaque#comments";
+        String cleaned = "example.com/article#comments";
+
+        ChatReplacement replacement = modifier.find(link, 0, null);
+
+        assertReplacement(replacement, "[" + cleaned + "]",
+                "https://" + cleaned);
     }
 
     private void assertReplacement(ChatReplacement replacement, String label, String url) {

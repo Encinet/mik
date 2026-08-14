@@ -38,7 +38,7 @@ import java.util.UUID;
 /** The single semantic parsing and effect-derivation pipeline for every origin. */
 public final class ChatProcessor {
     private static final ChatStyle TRUSTED_MENTION_STYLE = new ChatStyle(
-            0xFFD166, false, false, false, false);
+            0xFFD166, null, false, false, false, false);
     private static final MiniMessage SAFE_MINI_MESSAGE = MiniMessage.builder()
             .tags(TagResolver.resolver(
                     StandardTags.color(),

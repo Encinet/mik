@@ -1,7 +1,6 @@
 package org.encinet.mik.module.chat.modifier;
 
 import org.encinet.mik.module.chat.model.ChatCapability;
-import org.encinet.mik.module.chat.model.ChatNode;
 import org.encinet.mik.module.chat.model.ChatProcessingContext;
 
 import java.net.URI;
@@ -48,9 +47,9 @@ public final class EmailModifier implements ChatModifier {
         }
         String address = matcher.group(1);
         return new ChatReplacement(matcher.start(), matcher.end(),
-                new ChatNode.Link("[Email: " + address + "]",
-                        mailto(address),
-                        ChatSemanticStyles.EMAIL));
+                ChatLinkPresentation.serviceLink(
+                        "Email", address, mailto(address),
+                        ChatLinkPalette.EMAIL));
     }
 
     private URI mailto(String address) {

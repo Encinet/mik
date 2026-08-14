@@ -11,11 +11,17 @@ import java.util.regex.Pattern;
 
 public final class BilibiliModifier implements ChatModifier {
 
+    private static final String VIDEO_ID = "(?:bv[0-9a-z]{10}|av[0-9]+)";
     private static final Pattern VIDEO_URL_PATTERN = Pattern.compile(
-            "(?i)(https?://)?(?:www\\.|m\\.)?bilibili\\.com/video/(bv[0-9A-Za-z]{10}|av\\d+)[^\\s<]*"
+            "(?i)(?<![a-z0-9_@.-])(?:https?://)?"
+                    + "(?:www\\.|m\\.)?bilibili\\.com"
+                    + "(?![a-z0-9_@.-]|:[0-9])/video/(" + VIDEO_ID + ")"
+                    + "(?![a-z0-9])(?:[/?#][^\\s<>]*)?"
     );
-    private static final Pattern BV_PATTERN = Pattern.compile("(?i)bv[0-9A-Za-z]{10}");
-    private static final Pattern AV_PATTERN = Pattern.compile("(?i)av\\d+");
+    private static final Pattern VIDEO_ID_PATTERN = Pattern.compile(
+            "(?i)(?<![a-z0-9_@./-])" + VIDEO_ID
+                    + "(?![a-z0-9_./-])"
+    );
 
     @Override
     public int priority() {
@@ -31,61 +37,48 @@ public final class BilibiliModifier implements ChatModifier {
     public ChatReplacement find(
             String text, int fromIndex, ChatProcessingContext context
     ) {
-        ChatReplacement url = findVideoUrl(text, fromIndex, context);
-        ChatReplacement bv = findBv(text, fromIndex, context);
-        ChatReplacement av = findAv(text, fromIndex, context);
-        return earliest(url, bv, av);
+        return earliest(
+                findVideoUrl(text, fromIndex),
+                findVideoId(text, fromIndex));
     }
 
     private ChatReplacement findVideoUrl(
-            String text, int fromIndex, ChatProcessingContext context
+            String text, int fromIndex
     ) {
         Matcher matcher = VIDEO_URL_PATTERN.matcher(text);
         if (!matcher.find(fromIndex)) {
             return null;
         }
         String token = matcher.group();
-        int linkLength = urlEnd(token);
-        String link = token.substring(0, linkLength);
-        String label = matcher.group(2);
-        String url = ChatUrlSupport.normalizedHttpUrl(link);
-        int queryIndex = url.indexOf('?');
-        if (queryIndex >= 0) {
-            url = url.substring(0, queryIndex);
-        }
+        int linkLength = ChatUrlSupport.visibleUrlEnd(token);
+        String videoId = normalizedVideoId(matcher.group(1));
         return new ChatReplacement(matcher.start(), matcher.start() + linkLength,
-                link(label, url));
+                videoLink(videoId));
     }
 
-    private ChatReplacement findBv(
-            String text, int fromIndex, ChatProcessingContext context
+    private ChatReplacement findVideoId(
+            String text, int fromIndex
     ) {
-        Matcher matcher = BV_PATTERN.matcher(text);
+        Matcher matcher = VIDEO_ID_PATTERN.matcher(text);
         if (!matcher.find(fromIndex)) {
             return null;
         }
-        String label = matcher.group();
-        String url = "https://www.bilibili.com/video/" + label;
+        String videoId = normalizedVideoId(matcher.group());
         return new ChatReplacement(matcher.start(), matcher.end(),
-                link(label, url));
+                videoLink(videoId));
     }
 
-    private ChatReplacement findAv(
-            String text, int fromIndex, ChatProcessingContext context
-    ) {
-        Matcher matcher = AV_PATTERN.matcher(text);
-        if (!matcher.find(fromIndex)) {
-            return null;
-        }
-        String label = matcher.group();
-        String url = "https://www.bilibili.com/video/" + label;
-        return new ChatReplacement(matcher.start(), matcher.end(),
-                link(label, url));
+    private String normalizedVideoId(String videoId) {
+        String prefix = videoId.regionMatches(true, 0, "bv", 0, 2)
+                ? "BV" : "av";
+        return prefix + videoId.substring(2);
     }
 
-    private ChatNode.Link link(String label, String url) {
-        return new ChatNode.Link(label, URI.create(url),
-                ChatSemanticStyles.BILIBILI);
+    private ChatNode.Link videoLink(String videoId) {
+        return ChatLinkPresentation.serviceLink(
+                "Bilibili", videoId,
+                URI.create("https://www.bilibili.com/video/" + videoId),
+                ChatLinkPalette.BILIBILI);
     }
 
     private ChatReplacement earliest(ChatReplacement... replacements) {
@@ -96,9 +89,5 @@ public final class BilibiliModifier implements ChatModifier {
             }
         }
         return best;
-    }
-
-    private int urlEnd(String token) {
-        return ChatUrlSupport.visibleUrlEnd(token);
     }
 }

@@ -54,11 +54,14 @@ public final class AdventureComponentImporter {
                     && click.payload() instanceof ClickEvent.Payload.Text text
                     ? text.value() : "";
             Integer resolvedColor = style.color();
+            Integer resolvedGradientEndColor = style.gradientEndColor();
             if (componentColor != null) {
                 resolvedColor = componentColor.value();
+                resolvedGradientEndColor = null;
             }
             return new ResolvedStyle(new ChatStyle(
                     resolvedColor,
+                    resolvedGradientEndColor,
                     decoration(component, TextDecoration.BOLD, style.bold()),
                     decoration(component, TextDecoration.ITALIC, style.italic()),
                     decoration(component, TextDecoration.UNDERLINED,

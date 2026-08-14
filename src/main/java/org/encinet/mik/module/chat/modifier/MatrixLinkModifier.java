@@ -1,7 +1,6 @@
 package org.encinet.mik.module.chat.modifier;
 
 import org.encinet.mik.module.chat.model.ChatCapability;
-import org.encinet.mik.module.chat.model.ChatNode;
 import org.encinet.mik.module.chat.model.ChatProcessingContext;
 
 import java.net.URI;
@@ -14,7 +13,6 @@ import java.util.regex.Pattern;
 
 /** Recognizes Matrix identifiers, matrix.to permalinks, and matrix: URIs. */
 public final class MatrixLinkModifier implements ChatModifier {
-    private static final int MAX_LABEL_CODE_POINTS = 64;
     private static final String SERVER_NAME =
             "(?:[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?|"
                     + "\\[[0-9a-f:.]+])(?::[0-9]{1,5})?";
@@ -95,9 +93,10 @@ public final class MatrixLinkModifier implements ChatModifier {
     private ChatReplacement replacement(
             int start, int end, ParsedMatrixLink parsed
     ) {
-        return new ChatReplacement(start, end, new ChatNode.Link(
-                labelFor(parsed), URI.create(parsed.url()),
-                ChatSemanticStyles.MATRIX));
+        return new ChatReplacement(start, end,
+                ChatLinkPresentation.serviceLink(
+                        "Matrix", labelDetail(parsed), URI.create(parsed.url()),
+                        ChatLinkPalette.MATRIX));
     }
 
     private ParsedMatrixLink parseMatrixTo(String token) {
@@ -247,15 +246,9 @@ public final class MatrixLinkModifier implements ChatModifier {
                         || Character.isWhitespace(codePoint));
     }
 
-    private String labelFor(ParsedMatrixLink parsed) {
-        String reference = parsed.event() == null
+    private String labelDetail(ParsedMatrixLink parsed) {
+        return parsed.event() == null
                 ? parsed.identifier() : parsed.identifier() + " / " + parsed.event();
-        String label = "Matrix: " + reference;
-        if (label.codePointCount(0, label.length()) > MAX_LABEL_CODE_POINTS) {
-            int end = label.offsetByCodePoints(0, MAX_LABEL_CODE_POINTS - 3);
-            label = label.substring(0, end) + "...";
-        }
-        return "[" + label + "]";
     }
 
     private String decode(String value) {

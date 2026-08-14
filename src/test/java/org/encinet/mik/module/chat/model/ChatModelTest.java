@@ -54,6 +54,22 @@ class ChatModelTest {
     }
 
     @Test
+    void gradientStylesRequireTwoValidColorsAndSolidOverridesClearThem() {
+        ChatStyle gradient = new ChatStyle(
+                0x55D6FF, 0xC084FC, false, false, false, false);
+
+        assertEquals(0x55D6FF, gradient.color());
+        assertEquals(0xC084FC, gradient.gradientEndColor());
+        assertEquals(new ChatStyle(
+                        0xFFFFFF, null, false, false, false, false),
+                gradient.withColor(0xFFFFFF));
+        assertThrows(IllegalArgumentException.class, () -> new ChatStyle(
+                null, 0xC084FC, false, false, false, false));
+        assertThrows(IllegalArgumentException.class, () -> new ChatStyle(
+                0x55D6FF, 0x1000000, false, false, false, false));
+    }
+
+    @Test
     void itemSnapshotsDefensivelyCopyOpaqueMinecraftData() {
         byte[] source = {1, 2, 3};
         ChatItemSnapshot item = new ChatItemSnapshot(

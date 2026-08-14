@@ -2,10 +2,8 @@ package org.encinet.mik.module.chat.modifier;
 
 import com.google.common.net.InternetDomainName;
 import org.encinet.mik.module.chat.model.ChatCapability;
-import org.encinet.mik.module.chat.model.ChatNode;
 import org.encinet.mik.module.chat.model.ChatProcessingContext;
 
-import java.net.URI;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,20 +61,6 @@ public final class UrlModifier implements ChatModifier {
     private static final ThreadLocal<Matcher> MATCHER_CACHE =
             ThreadLocal.withInitial(() -> URL_PATTERN.matcher(""));
 
-    private static final Set<String> TRACKING_PARAMS = Set.of(
-            "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-            "utm_id", "utm_name", "utm_cid", "utm_reader", "utm_social",
-            "gclid", "gclsrc", "dclid", "wbraid", "gbraid",
-            "fbclid", "igshid", "igsh",
-            "msclkid",
-            "mc_cid", "mc_eid",
-            "ttclid", "twclid", "yclid",
-            "spm", "scm",
-            "_hsenc", "_hsmi", "hsctatracking",
-            "mkt_tok", "vero_id", "vero_conv", "s_cid",
-            "oly_anon_id", "oly_enc_id"
-    );
-
     @Override
     public int priority() {
         return 1_000;
@@ -103,22 +87,15 @@ public final class UrlModifier implements ChatModifier {
                 searchIndex = matcher.start() + 1;
                 continue;
             }
-            String cleanedLink = stripTrackingParams(link);
-            String url = ChatUrlSupport.normalizedHttpUrl(cleanedLink);
+            ChatUrlSupport.CanonicalHttpLink canonical =
+                    ChatUrlSupport.canonicalHttpLink(link);
             return new ChatReplacement(
                     matcher.start(), matcher.start() + linkLength,
-                    new ChatNode.Link(compactLinkLabel(cleanedLink),
-                            URI.create(url), ChatSemanticStyles.LINK)
+                    ChatLinkPresentation.urlLink(canonical,
+                            ChatLinkPalette.GENERIC)
             );
         }
         return null;
-    }
-
-    private String compactLinkLabel(String url) {
-        int maximumLength = 36;
-        String label = url.length() <= maximumLength
-                ? url : url.substring(0, maximumLength - 4) + "....";
-        return "[" + label + "]";
     }
 
     private boolean hasHttpScheme(String token) {
@@ -150,75 +127,4 @@ public final class UrlModifier implements ChatModifier {
         return ChatUrlSupport.visibleUrlEnd(token);
     }
 
-    private String stripTrackingParams(String url) {
-        int queryStart = url.indexOf('?');
-        if (queryStart < 0) return url;
-
-        int hashIdx = url.indexOf('#', queryStart + 1);
-        int queryEnd = hashIdx >= 0 ? hashIdx : url.length();
-        if (queryStart + 1 >= queryEnd) return url;
-
-        String query = url.substring(queryStart + 1, queryEnd);
-        int qLen = query.length();
-
-        StringBuilder filtered = null;
-        boolean removedAny = false;
-        int segStart = 0;
-        int eqPos = -1;
-
-        for (int i = 0; i <= qLen; i++) {
-            char c = i < qLen ? query.charAt(i) : '&';
-            if (c == '=' && eqPos < 0) {
-                eqPos = i;
-            } else if (c == '&') {
-                if (i > segStart) {
-                    int keyEnd = eqPos >= 0 ? eqPos : i;
-                    if (isTrackingParam(query, segStart, keyEnd)) {
-                        removedAny = true;
-                    } else {
-                        if (filtered == null) filtered = new StringBuilder(qLen);
-                        if (!filtered.isEmpty()) filtered.append('&');
-                        filtered.append(query, segStart, i);
-                    }
-                }
-                segStart = i + 1;
-                eqPos = -1;
-            }
-        }
-
-        if (!removedAny) return url;
-
-        StringBuilder result = new StringBuilder(url.length());
-        result.append(url, 0, queryStart);
-        if (filtered != null && !filtered.isEmpty()) {
-            result.append('?').append(filtered);
-        }
-        if (hashIdx >= 0) result.append(url, hashIdx, url.length());
-        return result.toString();
-    }
-
-    private boolean isTrackingParam(String query, int start, int end) {
-        int len = end - start;
-        if (len < 3 || len > 16) return false;
-        char first = Character.toLowerCase(query.charAt(start));
-        return switch (first) {
-            case 'u', 'g', 'f', 'i', 'm', 't', 's', '_', 'w', 'd', 'o', 'v', 'h', 'b' ->
-                    TRACKING_PARAMS.contains(toLowerSubstring(query, start, end));
-            default -> false;
-        };
-    }
-
-    private String toLowerSubstring(String s, int start, int end) {
-        for (int i = start; i < end; i++) {
-            if (Character.isUpperCase(s.charAt(i))) {
-                StringBuilder sb = new StringBuilder(end - start);
-                sb.append(s, start, i);
-                for (int j = i; j < end; j++) {
-                    sb.append(Character.toLowerCase(s.charAt(j)));
-                }
-                return sb.toString();
-            }
-        }
-        return s.substring(start, end);
-    }
 }

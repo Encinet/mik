@@ -38,10 +38,20 @@ class ChatProcessorTest {
                 "https://zh.minecraft.wiki/w/钻石", external());
         ChatContent github = processor.process(
                 "github.com/encinet/mik", external());
+        ChatContent pages = processor.process(
+                "encinet.github.io/mik", external());
+        ChatContent gist = processor.process(
+                "gist.github.com/encinet/0123456789abcdef", external());
+        ChatContent bilibili = processor.process(
+                "https://m.bilibili.com/video/BV1GJ411x7h7?share_source=copy",
+                external());
 
-        assertEquals("MC-4", mojira.plainText());
+        assertEquals("[Mojira: MC-4]", mojira.plainText());
         assertEquals("[Minecraft Wiki: 钻石]", wiki.plainText());
         assertEquals("[GitHub: encinet/mik]", github.plainText());
+        assertEquals("[GitHub Pages: encinet/mik]", pages.plainText());
+        assertEquals("[GitHub Gist: encinet/01234567]", gist.plainText());
+        assertEquals("[Bilibili: BV1GJ411x7h7]", bilibili.plainText());
         assertEquals("https://github.com/encinet/mik",
                 ((ChatNode.Link) github.nodes().getFirst()).target().toString());
     }

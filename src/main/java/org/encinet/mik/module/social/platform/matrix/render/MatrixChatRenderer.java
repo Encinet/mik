@@ -65,7 +65,7 @@ public final class MatrixChatRenderer {
                 html.append(node.html());
                 mentionedUserIds.addAll(node.mentionedUserIds());
             } else {
-                html.append(MatrixHtmlRenderer.escape(text));
+                html.append(node.partialHtml(text));
             }
             remaining -= text.length();
         }
@@ -98,10 +98,10 @@ public final class MatrixChatRenderer {
         String text = node.visibleText();
         String rendered = MatrixHtmlRenderer.escape(text);
         if (node instanceof ChatNode.Link link) {
-            rendered = "<a href=\"" + MatrixHtmlRenderer.escape(
-                    link.target().toString()) + "\">" + rendered + "</a>";
+            rendered = anchor(rendered, link.target().toString());
         }
-        return new RenderedNode(text, applyStyle(rendered, node.style()), Set.of());
+        return new RenderedNode(
+                text, applyStyle(rendered, node.style()), Set.of(), node);
     }
 
     private static RenderedNode renderPlayerMention(
@@ -139,12 +139,17 @@ public final class MatrixChatRenderer {
             html = String.join(", ", htmlMentions);
         }
         return new RenderedNode(plain, applyStyle(html, mention.style()),
-                Set.copyOf(userIds));
+                Set.copyOf(userIds), mention);
     }
 
     private static String matrixLink(ExternalIdentity identity, String label) {
         return "<a href=\"" + matrixUri(identity.key().subject()) + "\">"
                 + MatrixHtmlRenderer.escape(label) + "</a>";
+    }
+
+    private static String anchor(String escapedLabel, String target) {
+        return "<a href=\"" + MatrixHtmlRenderer.escape(target) + "\">"
+                + escapedLabel + "</a>";
     }
 
     private static String matrixUri(String userId) {
@@ -190,8 +195,17 @@ public final class MatrixChatRenderer {
     private record RenderedNode(
             String plain,
             String html,
-            Set<String> mentionedUserIds
+            Set<String> mentionedUserIds,
+            ChatNode source
     ) {
+        private String partialHtml(String partialText) {
+            String rendered = MatrixHtmlRenderer.escape(partialText);
+            if (!(source instanceof ChatNode.Link link)) {
+                return rendered;
+            }
+            return applyStyle(anchor(rendered, link.target().toString()),
+                    link.style());
+        }
     }
 
     public record RenderedChat(

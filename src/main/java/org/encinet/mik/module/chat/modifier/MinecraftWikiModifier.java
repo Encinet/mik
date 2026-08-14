@@ -1,7 +1,6 @@
 package org.encinet.mik.module.chat.modifier;
 
 import org.encinet.mik.module.chat.model.ChatCapability;
-import org.encinet.mik.module.chat.model.ChatNode;
 import org.encinet.mik.module.chat.model.ChatProcessingContext;
 
 import java.net.URI;
@@ -13,7 +12,6 @@ import java.util.regex.Pattern;
 
 public final class MinecraftWikiModifier implements ChatModifier {
 
-    private static final int MAX_LABEL_LENGTH = 48;
     private static final String LABEL_PREFIX = "Minecraft Wiki";
     private static final Pattern URL_PATTERN = Pattern.compile(
             "(?iu)(?<![a-z0-9_@.-])(?:https?://)?"
@@ -46,22 +44,10 @@ public final class MinecraftWikiModifier implements ChatModifier {
         return new ChatReplacement(
                 matcher.start(),
                 matcher.start() + linkLength,
-                new ChatNode.Link(labelFor(link), URI.create(
-                        ChatUrlSupport.normalizedHttpUrl(link)),
-                        ChatSemanticStyles.LINK)
+                ChatLinkPresentation.serviceLink(LABEL_PREFIX, pageTitle(link),
+                        URI.create(ChatUrlSupport.normalizedHttpUrl(link)),
+                        ChatLinkPalette.MINECRAFT_WIKI)
         );
-    }
-
-    private String labelFor(String link) {
-        String pageTitle = pageTitle(link);
-        String label = pageTitle == null || pageTitle.isBlank()
-                ? LABEL_PREFIX
-                : LABEL_PREFIX + ": " + pageTitle;
-        if (label.codePointCount(0, label.length()) > MAX_LABEL_LENGTH) {
-            int end = label.offsetByCodePoints(0, MAX_LABEL_LENGTH - 3);
-            label = label.substring(0, end) + "...";
-        }
-        return "[" + label + "]";
     }
 
     private String pageTitle(String link) {

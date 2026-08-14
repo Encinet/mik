@@ -22,14 +22,14 @@ class MojiraModifierTest {
 
         assertEquals(9, replacement.start());
         assertEquals(message.length() - 1, replacement.end());
-        assertReplacement(replacement, "MC-4", CANONICAL_URL);
+        assertReplacement(replacement, "[Mojira: MC-4]", CANONICAL_URL);
     }
 
     @Test
     void normalizesIssueKeyCase() {
         ChatReplacement replacement = modifier.find("mc-4", 0, null);
 
-        assertReplacement(replacement, "MC-4", CANONICAL_URL);
+        assertReplacement(replacement, "[Mojira: MC-4]", CANONICAL_URL);
     }
 
     @Test
@@ -40,7 +40,7 @@ class MojiraModifierTest {
 
         assertEquals(2, replacement.start());
         assertEquals(6, replacement.end());
-        assertReplacement(replacement, "MC-4", CANONICAL_URL);
+        assertReplacement(replacement, "[Mojira: MC-4]", CANONICAL_URL);
     }
 
     @Test
@@ -58,7 +58,7 @@ class MojiraModifierTest {
 
             assertEquals(0, replacement.start(), url);
             assertEquals(url.length(), replacement.end(), url);
-            assertReplacement(replacement, "MC-4", CANONICAL_URL);
+            assertReplacement(replacement, "[Mojira: MC-4]", CANONICAL_URL);
         }
     }
 
@@ -69,7 +69,7 @@ class MojiraModifierTest {
         ChatReplacement replacement = modifier.find(message, 0, null);
 
         assertEquals(message.length() - 2, replacement.end());
-        assertReplacement(replacement, "MC-4", CANONICAL_URL);
+        assertReplacement(replacement, "[Mojira: MC-4]", CANONICAL_URL);
     }
 
     @Test

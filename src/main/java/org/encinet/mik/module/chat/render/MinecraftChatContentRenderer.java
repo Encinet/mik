@@ -8,6 +8,8 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.inventory.ItemStack;
 import org.encinet.mik.module.chat.ChatDisplayRenderer;
 import org.encinet.mik.module.chat.model.ChatContent;
@@ -17,6 +19,8 @@ import org.encinet.mik.module.chat.model.ChatStyle;
 /** Renders semantic content into Minecraft Adventure interactions. */
 public final class MinecraftChatContentRenderer {
     private static final Key PLAYER_ENTITY_TYPE = Key.key("minecraft", "player");
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+
     public Component render(ChatContent content, Context context) {
         TextComponent.Builder result = Component.text();
         for (ChatNode node : content.nodes()) {
@@ -94,8 +98,16 @@ public final class MinecraftChatContentRenderer {
     }
 
     private Component styled(String text, ChatStyle style) {
-        Component result = Component.text(text);
-        if (style.color() != null) {
+        Component result;
+        if (style.gradientEndColor() != null) {
+            String gradient = "<gradient:#%06X:#%06X><text></gradient>"
+                    .formatted(style.color(), style.gradientEndColor());
+            result = MINI_MESSAGE.deserialize(gradient,
+                    Placeholder.unparsed("text", text));
+        } else {
+            result = Component.text(text);
+        }
+        if (style.color() != null && style.gradientEndColor() == null) {
             result = result.color(TextColor.color(style.color()));
         }
         result = result.decoration(TextDecoration.BOLD, style.bold())
