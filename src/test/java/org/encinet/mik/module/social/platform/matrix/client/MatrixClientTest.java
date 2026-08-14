@@ -63,21 +63,21 @@ class MatrixClientTest {
     }
 
     @Test
-    void noticeReplyPreservesReplyAndThreadRelationships() throws Exception {
+    void textReplyPreservesReplyAndThreadRelationshipsWithoutNoticeStyling() throws Exception {
         List<String> paths = new ArrayList<>();
         List<JsonObject> bodies = new ArrayList<>();
         server = messageServer(paths, bodies);
         HttpClient httpClient = HttpClient.newHttpClient();
         MatrixClient client = new MatrixClient(httpClient, config());
 
-        client.replyNotice("!room:example.org", "$incoming", Optional.of("$root"),
+        client.replyText("!room:example.org", "$incoming", Optional.of("$root"),
                 "Plain reply", "<h3>Reply</h3>").join();
 
         assertEquals(1, bodies.size());
         assertTrue(paths.getFirst().contains(
                 "/rooms/%21room%3Aexample.org/send/m.room.message/"));
         JsonObject body = bodies.getFirst();
-        assertEquals("m.notice", body.get("msgtype").getAsString());
+        assertEquals("m.text", body.get("msgtype").getAsString());
         assertEquals("Plain reply", body.get("body").getAsString());
         assertEquals("<h3>Reply</h3>", body.get("formatted_body").getAsString());
         assertEquals(0, body.getAsJsonObject("m.mentions").size());

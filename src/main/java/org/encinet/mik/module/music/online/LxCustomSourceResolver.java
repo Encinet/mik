@@ -39,6 +39,7 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
     public static final String ACTION_MUSIC_SEARCH = "musicSearch";
     public static final String ACTION_LYRIC = "lyric";
     private static final int MAX_RESULTS = 200;
+    private static final int MAX_PLAYLIST_RESULTS = 1_000;
     private static final int MAX_KEYWORD_LENGTH = 256;
     private static final int MAX_AGGREGATE_CALLS = 128;
     private static final String PREFERRED_QUALITY = "320k";
@@ -255,6 +256,48 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                 }
             }
             return new MusicSearchResult<>(List.copyOf(tracks.values()), total, failures);
+        });
+    }
+
+    CompletableFuture<ImportedPlaylist> importPlaylist(String source, String reference) {
+        String normalizedSource = source == null ? "" : source.strip().toLowerCase(Locale.ROOT);
+        ResolverState current = state;
+        if (!current.enabled()) {
+            return CompletableFuture.failedFuture(
+                    new IOException("LX custom sources are disabled"));
+        }
+        if (!onlineSearch.supports(normalizedSource)) {
+            return CompletableFuture.failedFuture(
+                    new IOException("Unsupported LX playlist source: " + normalizedSource));
+        }
+        Instant now = Instant.now();
+        Channel provider = null;
+        for (Channel channel : current.channels()) {
+            channel.refreshIfNeeded(now, current.retryDelay());
+            if (channel.available(now)
+                    && channel.info().supports(normalizedSource, "musicUrl")) {
+                provider = channel;
+                break;
+            }
+        }
+        if (provider == null) {
+            return CompletableFuture.failedFuture(new IOException(
+                    "No healthy LX custom source can play " + normalizedSource + " playlists"));
+        }
+        String providerId = provider.info().id();
+        return onlineSearch.playlist(normalizedSource, reference).thenApply(result -> {
+            Map<String, MusicTrack> tracks = new LinkedHashMap<>();
+            for (JsonElement element : result.tracks()) {
+                if (tracks.size() >= MAX_PLAYLIST_RESULTS) {
+                    break;
+                }
+                MusicTrack track = trackMapper.parse(element, normalizedSource, providerId);
+                if (track != null) {
+                    tracks.putIfAbsent(track.id(), track);
+                }
+            }
+            return new ImportedPlaylist(result.source(), result.id(), result.name(),
+                    List.copyOf(tracks.values()), result.total());
         });
     }
 
@@ -831,6 +874,14 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
         }
     }
 
+    record ImportedPlaylist(String source, String id, String name,
+                            List<MusicTrack> tracks, int total) {
+        ImportedPlaylist {
+            tracks = tracks == null ? List.of() : List.copyOf(tracks);
+            total = Math.max(tracks.size(), total);
+        }
+    }
+
     private record PendingChannel(String id, Path script, LxCustomSourceRuntime runtime,
                                   String initialError) {
     }
@@ -978,6 +1029,9 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                 if (onlineSearch.supports(source)
                         && declared.stream().noneMatch(ACTION_MUSIC_SEARCH::equalsIgnoreCase)) {
                     declared.add("musicsearch(catalog)");
+                }
+                if (onlineSearch.supports(source)) {
+                    declared.add("playlist(catalog)");
                 }
                 actions.put(source, List.copyOf(declared));
             }

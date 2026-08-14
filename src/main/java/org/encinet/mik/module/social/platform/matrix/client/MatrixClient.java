@@ -100,23 +100,23 @@ public final class MatrixClient {
         return Map.copyOf(result);
     }
 
-    public CompletableFuture<Void> replyNotice(
+    public CompletableFuture<Void> replyText(
             String roomId,
             String repliedEventId,
             Optional<String> threadRootEventId,
             String plainText,
             String html
     ) {
-        requireText(plainText, "Matrix notice body");
-        requireText(html, "Matrix formatted notice body");
+        requireText(plainText, "Matrix reply body");
+        requireText(html, "Matrix formatted reply body");
         JsonObject body = new JsonObject();
-        body.addProperty("msgtype", "m.notice");
+        body.addProperty("msgtype", "m.text");
         body.addProperty("body", plainText);
         body.addProperty("format", "org.matrix.custom.html");
         body.addProperty("formatted_body", html);
         body.add("m.mentions", new JsonObject());
         body.add("m.relates_to", relation(repliedEventId, threadRootEventId));
-        return sendRoomMessage(roomId, body, "Send Matrix notice");
+        return sendRoomMessage(roomId, body, "Send Matrix text reply");
     }
 
     public CompletableFuture<Void> sendText(String roomId, String text) {

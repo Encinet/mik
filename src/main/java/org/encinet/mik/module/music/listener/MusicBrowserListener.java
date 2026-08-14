@@ -178,6 +178,25 @@ public final class MusicBrowserListener implements Listener, MusicBrowserActionH
     }
 
     @Override
+    public void importPlaylist(Player player) {
+        browser.prepareJukeboxSearch(player.getUniqueId());
+        closeMenu(player);
+        Component message = Component.text(languageService.t(player,
+                        Message.MUSIC_PLAYLIST_IMPORT_PROMPT), NamedTextColor.YELLOW)
+                .append(Component.newline())
+                .append(playlistSource(player, "网易云", "wy"))
+                .append(Component.space())
+                .append(playlistSource(player, "QQ", "tx"))
+                .append(Component.space())
+                .append(playlistSource(player, "酷狗", "kg"))
+                .append(Component.space())
+                .append(playlistSource(player, "酷我", "kw"))
+                .append(Component.space())
+                .append(playlistSource(player, "咪咕", "mg"));
+        player.sendMessage(message);
+    }
+
+    @Override
     public void random(Player player, boolean rightClick) {
         Location jukeboxLocation = browser.getJukeboxContext(player.getUniqueId());
         if (jukeboxLocation != null) {
@@ -283,5 +302,15 @@ public final class MusicBrowserListener implements Listener, MusicBrowserActionH
         return languageService.rich(player, message, baseColor,
                 RichArg.component("music", Component.text(track.details().title(), trackColor),
                         track.details().title()));
+    }
+
+    private Component playlistSource(Player player, String name, String source) {
+        String command = "/music playlist import " + source + " ";
+        return Component.text("[" + name + "]", NamedTextColor.AQUA)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.suggestCommand(command))
+                .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
+                        Component.text(languageService.t(player,
+                                Message.MUSIC_PLAYLIST_IMPORT_PROMPT_HOVER),
+                                NamedTextColor.GRAY)));
     }
 }

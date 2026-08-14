@@ -15,10 +15,14 @@ an optional LX-compatible capability. Existing LX scripts that only declare
 For online song search, MIK queries the catalog of each healthy declared
 `kw`, `kg`, `tx`, `wy`, or `mg` channel, then sends the resulting MusicInfo back
 to that script through `musicUrl`. Scripts without MIK search actions therefore
-remain useful, while MIK never obtains a playback URL directly. MIK does not
-provide online song-list discovery or detail loading.
+remain useful, while MIK never obtains a playback URL directly. MIK also reads
+public playlist details from the built-in `kw`, `kg`, `tx`, `wy`, and `mg`
+platform catalogs. Playlist import is a MIK catalog capability rather than a
+custom-source action; imported tracks are still sent to a compatible script's
+`musicUrl` action when played.
 `/music sources` reports this built-in search capability as
-`musicsearch(catalog)` for each eligible channel.
+`musicsearch(catalog)` and playlist import as `playlist(catalog)` for each
+eligible channel.
 
 The runtime provides the LX desktop `lx` surface used by common custom sources:
 HTTP(S) requests, `currentScriptInfo`, buffer conversion, MD5, AES/RSA helpers,

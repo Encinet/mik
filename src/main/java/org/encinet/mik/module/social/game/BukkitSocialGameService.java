@@ -18,6 +18,7 @@ import java.net.URL;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,15 +55,22 @@ public final class BukkitSocialGameService implements SocialGameService {
     public ServerSnapshot serverSnapshot(boolean includePlayerNames) {
         return mainThread.call(() -> {
             Collection<? extends Player> players = Bukkit.getOnlinePlayers();
-            List<String> names = includePlayerNames
-                    ? players.stream().map(Player::getName)
-                    .sorted(String.CASE_INSENSITIVE_ORDER).toList()
+            List<ServerSnapshot.PlayerSummary> playerSummaries = includePlayerNames
+                    ? players.stream()
+                    .map(player -> new ServerSnapshot.PlayerSummary(player.getName(),
+                            afkService.isAfk(player.getUniqueId())))
+                    .sorted(Comparator.comparing(ServerSnapshot.PlayerSummary::name,
+                            String.CASE_INSENSITIVE_ORDER))
+                    .toList()
                     : List.of();
             double[] tps = plugin.getServer().getTPS();
-            int afk = (int) players.stream()
+            int afk = includePlayerNames
+                    ? (int) playerSummaries.stream()
+                    .filter(ServerSnapshot.PlayerSummary::afk).count()
+                    : (int) players.stream()
                     .filter(player -> afkService.isAfk(player.getUniqueId())).count();
             return new ServerSnapshot(players.size(), plugin.getServer().getMaxPlayers(),
-                    names, afk, at(tps, 0), at(tps, 1), at(tps, 2),
+                    playerSummaries, afk, at(tps, 0), at(tps, 1), at(tps, 2),
                     Bukkit.getAverageTickTime(),
                     Duration.ofNanos(Math.max(0, System.nanoTime() - startedAtNanos)),
                     Bukkit.getMinecraftVersion());

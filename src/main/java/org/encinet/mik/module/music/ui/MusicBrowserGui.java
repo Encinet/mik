@@ -21,6 +21,7 @@ import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
 import org.encinet.mik.module.music.online.MusicSearchResult;
+import org.encinet.mik.module.music.online.LxSourceService;
 import org.encinet.mik.module.music.online.OnlineMusicRequestLimiter;
 import org.encinet.mik.module.music.catalog.AudioProperties;
 import org.encinet.mik.module.music.catalog.AudioPropertiesFormatter;
@@ -30,7 +31,6 @@ import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.catalog.TrackDetails;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
-import org.encinet.mik.module.music.online.MusicSearchService;
 import org.encinet.mik.module.music.catalog.TrackTarget;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -50,7 +50,7 @@ public final class MusicBrowserGui {
     private final JavaPlugin plugin;
     private final MusicLibrary musicLibrary;
     private final MusicTrackPool trackPool;
-    private final MusicSearchService onlineSearch;
+    private final LxSourceService onlineSource;
     private final OnlineMusicRequestLimiter requestLimiter;
     private final Predicate<MusicTrack> cachedTrack;
     private final MusicPlaybackStats playbackStats;
@@ -62,7 +62,7 @@ public final class MusicBrowserGui {
 
     public MusicBrowserGui(JavaPlugin plugin, MusicLibrary musicLibrary,
                            MusicTrackPool trackPool,
-                           MusicSearchService onlineSearch,
+                           LxSourceService onlineSource,
                            OnlineMusicRequestLimiter requestLimiter,
                            Predicate<MusicTrack> cachedTrack,
                            MusicPlaybackStats playbackStats,
@@ -71,7 +71,7 @@ public final class MusicBrowserGui {
         this.plugin = plugin;
         this.musicLibrary = musicLibrary;
         this.trackPool = trackPool;
-        this.onlineSearch = onlineSearch;
+        this.onlineSource = onlineSource;
         this.requestLimiter = requestLimiter;
         this.cachedTrack = cachedTrack;
         this.playbackStats = playbackStats;
@@ -120,7 +120,7 @@ public final class MusicBrowserGui {
 
         List<MusicTrack> localMatches = musicLibrary.tracks().stream()
                 .filter(track -> MusicSearchRanker.matches(normalized, track)).toList();
-        onlineSearch.searchMusic(normalized, 1, SEARCH_LIMIT)
+        onlineSource.searchMusic(normalized, 1, SEARCH_LIMIT)
                 .whenComplete((result, error) -> runOnMainThread(() -> {
                     if (!isCurrent(player, state, generation)) {
                         return;
@@ -131,6 +131,45 @@ public final class MusicBrowserGui {
                         return;
                     }
                     showSearchResult(player, state, generation, normalized, localMatches, result);
+                }));
+    }
+
+    public void importPlaylist(Player player, String source, String reference) {
+        OnlineMusicRequestLimiter.Decision decision = requestLimiter.tryAcquire(
+                player.getUniqueId(), OnlineMusicRequestLimiter.Operation.SEARCH);
+        if (!decision.allowed()) {
+            player.sendMessage(languageService.text(player, Message.MUSIC_ONLINE_RATE_LIMITED,
+                    NamedTextColor.YELLOW, decision.retryAfterSeconds()));
+            return;
+        }
+        MusicBrowserSessions.Session state = currentOrNew(player.getUniqueId());
+        sessions.beginPlaylist(player.getUniqueId(), state, source, reference);
+        int generation = state.generation();
+        player.sendMessage(languageService.text(player, Message.MUSIC_PLAYLIST_IMPORTING,
+                NamedTextColor.YELLOW));
+        screen.open(player, state);
+
+        onlineSource.importPlaylist(source, reference)
+                .whenComplete((result, error) -> runOnMainThread(() -> {
+                    if (!isCurrent(player, state, generation)) {
+                        return;
+                    }
+                    if (error != null) {
+                        String message = rootMessage(error);
+                        sessions.completePlaylist(state, generation, state.playlistName(),
+                                List.of(), message, playbackStats);
+                        player.sendMessage(languageService.text(player,
+                                Message.MUSIC_PLAYLIST_IMPORT_FAILED,
+                                NamedTextColor.RED, message));
+                        screen.open(player, state);
+                        return;
+                    }
+                    sessions.completePlaylist(state, generation, result.name(), result.tracks(),
+                            null, playbackStats);
+                    player.sendMessage(languageService.text(player,
+                            Message.MUSIC_PLAYLIST_IMPORT_DONE, NamedTextColor.GREEN,
+                            result.name(), result.tracks().size(), result.total()));
+                    screen.open(player, state);
                 }));
     }
 
@@ -257,6 +296,8 @@ public final class MusicBrowserGui {
                             ? Message.MUSIC_MENU_SEARCH_NBS_TITLE
                             : Message.MUSIC_MENU_SEARCH_TITLE,
                     truncate(state.keyword(), 24), state.page() + 1, totalPages);
+            case PLAYLIST -> languageService.t(player, Message.MUSIC_MENU_PLAYLIST_TITLE,
+                    truncate(state.playlistName(), 24), state.page() + 1, totalPages);
         };
 
         boolean jukeboxContext = sessions.hasJukeboxContext(player.getUniqueId());
@@ -356,6 +397,11 @@ public final class MusicBrowserGui {
                                 NamedTextColor.AQUA))
                 .region("controls")
                 .primary((p, handle) -> actions.search(p));
+        menu.item("import-playlist", Material.WRITABLE_BOOK,
+                        Component.text(languageService.t(player,
+                                Message.MUSIC_PLAYLIST_IMPORT_BUTTON), NamedTextColor.BLUE))
+                .region("controls")
+                .primary((p, handle) -> actions.importPlaylist(p));
         menu.item("sort", Material.HOPPER, sortLabel(player, state.sort()))
                 .region("controls")
                 .primary((p, handle) -> actions.cycleSort(p));
@@ -531,6 +577,7 @@ public final class MusicBrowserGui {
         Message title = switch (state.view()) {
             case LIBRARY -> Message.MUSIC_EMPTY_LIBRARY;
             case ONLINE_SONGS -> Message.MUSIC_EMPTY_SEARCH;
+            case PLAYLIST -> Message.MUSIC_EMPTY_PLAYLIST;
         };
         return Component.text(languageService.t(player, title), NamedTextColor.GRAY)
                 .append(Component.newline())
@@ -541,6 +588,7 @@ public final class MusicBrowserGui {
         Message message = switch (view) {
             case LIBRARY -> Message.MUSIC_EMPTY_LIBRARY_DESCRIPTION;
             case ONLINE_SONGS -> Message.MUSIC_EMPTY_SEARCH_DESCRIPTION;
+            case PLAYLIST -> Message.MUSIC_EMPTY_PLAYLIST_DESCRIPTION;
         };
         return languageService.t(player, message);
     }

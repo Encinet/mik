@@ -25,7 +25,7 @@
 </tip>
 
 <tip topics="afk">
-    暂时离开时，可以用 <command>/afk <status>稍后回来</status></command> 设置头顶状态；再次使用 <command>/afk</command> 会提示你已处于 AFK 状态。
+    暂时离开时，可以用 <command>/afk <status>稍后回来</status></command> 设置头顶状态；AFK 期间可再次输入新状态来修改，或使用不带状态的 <command>/afk</command> 清空自定义状态，内容相同时保持不变。
 </tip>
 
 <tip topics="announcements">

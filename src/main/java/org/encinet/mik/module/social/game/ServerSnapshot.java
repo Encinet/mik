@@ -8,7 +8,7 @@ import java.util.Objects;
 public record ServerSnapshot(
         int onlinePlayers,
         int maxPlayers,
-        List<String> playerNames,
+        List<PlayerSummary> players,
         int afkPlayers,
         double tpsOneMinute,
         double tpsFiveMinutes,
@@ -20,13 +20,20 @@ public record ServerSnapshot(
     public ServerSnapshot {
         onlinePlayers = Math.max(0, onlinePlayers);
         maxPlayers = Math.max(0, maxPlayers);
-        playerNames = List.copyOf(Objects.requireNonNull(playerNames, "playerNames"));
-        afkPlayers = Math.max(0, Math.min(onlinePlayers, afkPlayers));
+        players = List.copyOf(Objects.requireNonNull(players, "players"));
+        afkPlayers = Math.clamp(afkPlayers, 0, onlinePlayers);
         uptime = Objects.requireNonNull(uptime, "uptime");
         version = Objects.requireNonNull(version, "version");
     }
 
     public int activePlayers() {
         return onlinePlayers - afkPlayers;
+    }
+
+    /** One online player captured together with presence used by list commands. */
+    public record PlayerSummary(String name, boolean afk) {
+        public PlayerSummary {
+            name = Objects.requireNonNull(name, "name");
+        }
     }
 }

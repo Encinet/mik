@@ -113,6 +113,36 @@ public final class MusicCommandRegistrar {
                                     .executes(context -> search(context.getSource().getSender(),
                                             context.getSource().getExecutor(),
                                             context.getArgument("keyword", String.class)))))
+                    .then(Commands.literal("playlist")
+                            .executes(context -> {
+                                sendUsage(context.getSource().getSender(),
+                                        "/music playlist import <platform> <playlist-id-or-url>",
+                                        Message.MUSIC_PLAYLIST_IMPORT_USAGE_DESC);
+                                return Command.SINGLE_SUCCESS;
+                            })
+                            .then(Commands.literal("import")
+                                    .executes(context -> {
+                                        sendUsage(context.getSource().getSender(),
+                                                "/music playlist import <platform> <playlist-id-or-url>",
+                                                Message.MUSIC_PLAYLIST_IMPORT_USAGE_DESC);
+                                        return Command.SINGLE_SUCCESS;
+                                    })
+                                    .then(Commands.argument("platform", StringArgumentType.word())
+                                            .suggests((context, builder) -> {
+                                                for (String platform : List.of(
+                                                        "wy", "tx", "kg", "kw", "mg")) {
+                                                    if (platform.startsWith(builder.getRemaining())) {
+                                                        builder.suggest(platform);
+                                                    }
+                                                }
+                                                return builder.buildFuture();
+                                            })
+                                            .then(Commands.argument("playlist", StringArgumentType.greedyString())
+                                                    .executes(context -> importPlaylist(
+                                                            context.getSource().getSender(),
+                                                            context.getSource().getExecutor(),
+                                                            context.getArgument("platform", String.class),
+                                                            context.getArgument("playlist", String.class)))))))
                     .then(Commands.literal("page")
                             .executes(context -> {
                                 sendUsage(context.getSource().getSender(), "/music page <page>",
@@ -179,6 +209,16 @@ public final class MusicCommandRegistrar {
         if (player != null) {
             browser.resumeJukeboxSearch(player.getUniqueId());
             browser.searchMusic(player, keyword);
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int importPlaylist(CommandSender sender, Entity executor,
+                               String platform, String playlist) {
+        Player player = requirePlayer(sender, executor);
+        if (player != null) {
+            browser.resumeJukeboxSearch(player.getUniqueId());
+            browser.importPlaylist(player, platform, playlist);
         }
         return Command.SINGLE_SUCCESS;
     }

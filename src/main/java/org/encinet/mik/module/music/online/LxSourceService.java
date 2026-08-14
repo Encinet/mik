@@ -125,6 +125,17 @@ public final class LxSourceService
         return search.searchMusic(keyword, page, limit);
     }
 
+    /** Imports one public platform playlist into an immutable, playable track snapshot. */
+    public CompletableFuture<PlaylistImport> importPlaylist(String source, String reference) {
+        if (closed.get()) {
+            return CompletableFuture.failedFuture(
+                    new IllegalStateException("LX source service is closed"));
+        }
+        return resolver.importPlaylist(source, reference).thenApply(result ->
+                new PlaylistImport(result.source(), result.id(), result.name(),
+                        result.tracks(), result.total()));
+    }
+
     @Override
     public CompletableFuture<String> resolve(TrackTarget.Lx target) {
         return resolver.resolve(target);
@@ -271,6 +282,14 @@ public final class LxSourceService
     }
 
     public record RefreshResult(int total, int changed, int failed) {
+    }
+
+    public record PlaylistImport(String source, String id, String name,
+                                 List<MusicTrack> tracks, int total) {
+        public PlaylistImport {
+            tracks = tracks == null ? List.of() : List.copyOf(tracks);
+            total = Math.max(tracks.size(), total);
+        }
     }
 
     public record ReloadResult(SubscriptionReload subscriptions, RuntimeReload runtimes) {

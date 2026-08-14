@@ -80,21 +80,27 @@ public final class OnlinePlayersCommand implements SocialCommand<NoArguments, Se
     @Override
     public SocialDocument present(SocialCommandContext context, ServerSnapshot snapshot) {
         Language language = languageResolver.language(context);
+        List<String> playerNames = snapshot.players().stream()
+                .map(ServerSnapshot.PlayerSummary::name)
+                .toList();
+        List<String> displayedPlayerNames = snapshot.players().stream()
+                .map(player -> player.name() + (player.afk() ? " (AFK)" : ""))
+                .toList();
         List<SocialDocument.Field> fields = new ArrayList<>();
         fields.add(new SocialDocument.Field(
                 label(language, Message.SOCIAL_QUERY_ONLINE_LABEL),
                 snapshot.onlinePlayers() + " / " + snapshot.maxPlayers()));
         fields.add(new SocialDocument.Field(
                 label(language, Message.SOCIAL_QUERY_PLAYERS_LABEL),
-                snapshot.playerNames().isEmpty()
+                displayedPlayerNames.isEmpty()
                         ? languages.t(language, Message.SOCIAL_QUERY_NO_PLAYERS)
-                        : String.join(", ", snapshot.playerNames())));
+                        : String.join(", ", displayedPlayerNames)));
         SocialDocument document = new SocialDocument(
                 TITLE_ICON + " " + languages.t(language, TITLE),
                 SocialDocument.Tone.INFO, List.of(new SocialDocument.Fields(fields)))
                 .localized(language);
-        return snapshot.playerNames().isEmpty()
-                ? document : document.withUntrustedText(snapshot.playerNames());
+        return playerNames.isEmpty()
+                ? document : document.withUntrustedText(playerNames);
     }
 
     private String label(Language language, Message message) {

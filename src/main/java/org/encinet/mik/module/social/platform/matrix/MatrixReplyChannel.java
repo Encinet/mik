@@ -34,7 +34,7 @@ final class MatrixReplyChannel implements SocialReplyChannel {
                 .filter(value -> value.source() instanceof SocialDocument.EmbeddedImage)
                 .findFirst();
         if (image.isEmpty()) {
-            return notice(plain, html);
+            return textReply(plain, html);
         }
 
         SocialDocument.Image media = image.orElseThrow();
@@ -44,14 +44,14 @@ final class MatrixReplyChannel implements SocialReplyChannel {
         return client.replyImage(event.roomId(), event.eventId(),
                         event.threadRootEventId(), embedded.mediaType(), data,
                         media.width(), media.height(), media.alternativeText(), plain, html)
-                .exceptionallyCompose(ignored -> notice(plain, html));
+                .exceptionallyCompose(ignored -> textReply(plain, html));
     }
 
-    private java.util.concurrent.CompletableFuture<Void> notice(
+    private java.util.concurrent.CompletableFuture<Void> textReply(
             String plain,
             String html
     ) {
-        return client.replyNotice(event.roomId(), event.eventId(),
+        return client.replyText(event.roomId(), event.eventId(),
                 event.threadRootEventId(), plain, html);
     }
 }

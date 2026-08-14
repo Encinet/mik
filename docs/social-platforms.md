@@ -79,7 +79,7 @@ Handler 返回 `SocialDocument(title, tone, blocks)`。block 支持段落、字�
 
 ## Matrix
 
-Matrix 适配器使用 Client-Server API：启动时通过 `/account/whoami` 验证 access token，首次 `/sync` 只建立 `next_batch` 游标而不回放历史命令，之后长轮询未加密房间中的 `m.room.message`。共享命令使用 `!` 前缀，例如 `!帮助`、`!状态` 和 `!绑定 CODE`。回复使用带 `m.in_reply_to` 的 `m.notice`；线程内命令保留 `m.thread` 关系，玩家头像先上传到 Matrix 媒体仓库再作为带说明文字的 `m.image` 回复。
+Matrix 适配器使用 Client-Server API：启动时通过 `/account/whoami` 验证 access token，首次 `/sync` 只建立 `next_batch` 游标而不回放历史命令，之后长轮询未加密房间中的 `m.room.message`。共享命令使用 `!` 前缀，例如 `!帮助`、`!状态` 和 `!绑定 CODE`。文本回复使用带 `m.in_reply_to` 的 `m.text`，避免客户端把命令结果按 notice 显示为斜体或弱化样式；线程内命令保留 `m.thread` 关系，玩家头像先上传到 Matrix 媒体仓库再作为带说明文字的 `m.image` 回复。
 
 Matrix 用户 ID 是全局身份：`subject` 保存完整 MXID，`issuer` 保存 MXID 的 server name，`scope` 为空，因此同一用户在不同房间不需要重复绑定。结构化 `m.mentions.user_ids` 必须再与 HTML `matrix.to` 用户链接或明确的纯文本 mention 范围对应，随后才作为带起止位置的可信引用进入共享模型；已观察到的回复事件作者只进入 reply 引用。正文中的伪造 `@user:server` 不算认证提及，回复通知里的用户也不会凭空变成正文 mention。适配器忽略编辑事件、非文本事件、机器人自身消息和 `m.room.encrypted`；它不实现端到端加密。
 

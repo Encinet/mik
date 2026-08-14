@@ -68,6 +68,12 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
+    enum AfkStatusChange {
+        MODIFIED,
+        CLEARED,
+        UNCHANGED
+    }
+
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
     private static final long SUSPENDED_TRACKER_RETENTION_MILLIS = 30L * 60L * 1_000L;
@@ -141,9 +147,9 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
             Commands commands = event.registrar();
             commands.register(
                     Commands.literal("afk")
-                            .executes(ctx -> cmdEnter(requirePlayer(ctx.getSource().getSender()), null))
+                            .executes(ctx -> cmdAfk(requirePlayer(ctx.getSource().getSender()), null))
                             .then(Commands.argument("message", StringArgumentType.greedyString())
-                                    .executes(ctx -> cmdEnter(
+                                    .executes(ctx -> cmdAfk(
                                             requirePlayer(ctx.getSource().getSender()),
                                             StringArgumentType.getString(ctx, "message"))))
                             .build(),
@@ -422,13 +428,9 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         }
     }
 
-    private int cmdEnter(Player player, String rawMessage) {
+    private int cmdAfk(Player player, String rawMessage) {
         if (player == null) {
             return 0;
-        }
-        if (isAfk(player.getUniqueId())) {
-            notifyAlreadyAfk(player);
-            return Command.SINGLE_SUCCESS;
         }
 
         String normalizedMessage = rawMessage == null ? null : normalizeMessage(rawMessage);
@@ -438,8 +440,36 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
             return Command.SINGLE_SUCCESS;
         }
         String finalMessage = normalizedMessage == null || normalizedMessage.isEmpty() ? null : normalizedMessage;
+        AfkState current = states.get(player.getUniqueId());
+        if (current != null) {
+            updateManualAfkStatus(player, current, finalMessage);
+            return Command.SINGLE_SUCCESS;
+        }
+
         setAfk(player, finalMessage, AfkSource.MANUAL, true);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private void updateManualAfkStatus(Player player, AfkState current, String message) {
+        AfkStatusChange change = classifyStatusChange(current.message(), message);
+        if (change == AfkStatusChange.UNCHANGED) {
+            notifyAlreadyAfk(player);
+            return;
+        }
+
+        session(player, activityTimeMillis()).cancelAutomaticEntry();
+        AfkState updated = new AfkState(
+                current.playerId(), message, AfkSource.MANUAL, current.sinceMillis());
+        states.put(current.playerId(), updated);
+        displayController.update(player, updated);
+        notifyListeners(player, updated);
+    }
+
+    static AfkStatusChange classifyStatusChange(String current, String requested) {
+        if (Objects.equals(current, requested)) {
+            return AfkStatusChange.UNCHANGED;
+        }
+        return requested == null ? AfkStatusChange.CLEARED : AfkStatusChange.MODIFIED;
     }
 
     private void notifyAlreadyAfk(Player player) {

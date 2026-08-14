@@ -596,6 +596,33 @@ class LxCustomSourceResolverTest {
     }
 
     @Test
+    void importsPlatformPlaylistWithAPlayableOriginatingProvider() throws Exception {
+        Files.writeString(localDirectory().resolve("playback-only.js"),
+                resolvingScript("Playback only", "https://cdn.example/song.mp3"));
+        LxOnlineSearchService onlineSearch = new LxOnlineSearchService(Duration.ofSeconds(10),
+                request -> {
+                    assertEquals("nplserver.kuwo.cn", request.uri().getHost());
+                    return JsonParser.parseString("""
+                            {"result":"ok","title":"Imported List","total":1,"musiclist":[{
+                            "id":"321","name":"Imported Song","artist":"Artist","duration":"90",
+                            "N_MINFO":"level:p,bitrate:320,format:mp3,size:3Mb"}]}
+                            """);
+                });
+        resolver = resolver(Duration.ofSeconds(10), 2, Duration.ofSeconds(10), onlineSearch);
+
+        var playlist = resolver.importPlaylist("kw", "123").get(5, TimeUnit.SECONDS);
+
+        assertEquals("Imported List", playlist.name());
+        assertEquals(List.of("lx:kw:321"),
+                playlist.tracks().stream().map(MusicTrack::id).toList());
+        TrackTarget.Lx target = assertInstanceOf(TrackTarget.Lx.class,
+                playlist.tracks().getFirst().target());
+        assertEquals("local/playback-only.js", target.providerId());
+        assertTrue(resolver.statuses().getFirst().actions().get("kw")
+                .contains("playlist(catalog)"));
+    }
+
+    @Test
     void fallsBackToPlatformCatalogWhenCustomSearchActionFails() throws Exception {
         Files.writeString(localDirectory().resolve("failing-search.js"),
                 searchableScript("Failing search", """

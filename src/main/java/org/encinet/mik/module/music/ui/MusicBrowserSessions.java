@@ -24,6 +24,7 @@ final class MusicBrowserSessions {
         session.view = View.LIBRARY;
         session.page = page;
         session.keyword = null;
+        session.playlistName = null;
         session.sourceTracks = List.copyOf(tracks);
         session.sort = MusicBrowserSort.DEFAULT;
         session.section = sections.getOrDefault(playerId, Section.ALL);
@@ -39,9 +40,28 @@ final class MusicBrowserSessions {
         session.view = View.ONLINE_SONGS;
         session.page = 0;
         session.keyword = keyword;
+        session.playlistName = null;
         session.sourceTracks = List.of();
         session.sort = MusicBrowserSort.DEFAULT;
         session.section = sections.getOrDefault(playerId, Section.ALL);
+        refreshTracks(session, MusicPlaybackStats.EMPTY);
+        session.loading = true;
+        session.requestError = null;
+        session.partialFailures = 0;
+        return session;
+    }
+
+    Session beginPlaylist(UUID playerId, Session session, String source, String reference) {
+        String sourceLabel = source == null ? "" : source.toUpperCase(java.util.Locale.ROOT);
+        String referenceLabel = reference == null ? "" : reference;
+        session.generation++;
+        session.view = View.PLAYLIST;
+        session.page = 0;
+        session.keyword = source;
+        session.playlistName = sourceLabel + " · " + referenceLabel;
+        session.sourceTracks = List.of();
+        session.sort = MusicBrowserSort.DEFAULT;
+        session.section = Section.ALL;
         refreshTracks(session, MusicPlaybackStats.EMPTY);
         session.loading = true;
         session.requestError = null;
@@ -61,6 +81,22 @@ final class MusicBrowserSessions {
         expected.loading = false;
         expected.requestError = requestError;
         expected.partialFailures = partialFailures;
+        return true;
+    }
+
+    boolean completePlaylist(Session expected, int generation, String playlistName,
+                             List<MusicTrack> tracks, String requestError,
+                             MusicPlaybackStats playbackStats) {
+        if (expected.generation != generation) {
+            return false;
+        }
+        expected.playlistName = playlistName == null || playlistName.isBlank()
+                ? expected.playlistName : playlistName;
+        expected.sourceTracks = List.copyOf(tracks);
+        refreshTracks(expected, playbackStats);
+        expected.loading = false;
+        expected.requestError = requestError;
+        expected.partialFailures = 0;
         return true;
     }
 
@@ -157,7 +193,8 @@ final class MusicBrowserSessions {
 
     enum View {
         LIBRARY,
-        ONLINE_SONGS
+        ONLINE_SONGS,
+        PLAYLIST
     }
 
     enum Section {
@@ -187,6 +224,7 @@ final class MusicBrowserSessions {
         private int page;
         private int generation;
         private String keyword;
+        private String playlistName;
         private List<MusicTrack> sourceTracks = List.of();
         private List<MusicTrack> tracks = List.of();
         private MusicBrowserSort sort = MusicBrowserSort.DEFAULT;
@@ -200,6 +238,7 @@ final class MusicBrowserSessions {
         int page() { return page; }
         int generation() { return generation; }
         String keyword() { return keyword; }
+        String playlistName() { return playlistName; }
         List<MusicTrack> tracks() { return tracks; }
         MusicBrowserSort sort() { return sort; }
         Section section() { return section; }

@@ -51,6 +51,7 @@ import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.social.SocialModule;
 import org.encinet.mik.module.social.game.BukkitSocialChatGateway;
+import org.encinet.mik.module.safety.BanItemGuardModule;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
 import org.encinet.mik.module.safety.TrampleProtectionModule;
@@ -99,6 +100,7 @@ public final class Mik extends JavaPlugin {
     private PlayerBoundaryModule playerBoundaryModule;
     private TPSBarModule tpsBarModule;
     private TabListModule tabListModule;
+    private BanItemGuardModule banItemGuardModule;
     private FixBugModule fixBugModule;
     private GrieferModule grieferModule;
     private TrampleProtectionModule trampleProtectionModule;
@@ -320,6 +322,9 @@ public final class Mik extends JavaPlugin {
                 this, afkModule, languageService, playerIdentities);
         tabListModule.enable();
 
+        banItemGuardModule = new BanItemGuardModule(this);
+        banItemGuardModule.enable();
+
         fixBugModule = new FixBugModule(this);
         fixBugModule.enable();
 
@@ -481,6 +486,10 @@ public final class Mik extends JavaPlugin {
 
         if (trampleProtectionModule != null) {
             trampleProtectionModule.disable();
+        }
+
+        if (banItemGuardModule != null) {
+            banItemGuardModule.disable();
         }
 
         if (banModule != null) {

@@ -9,6 +9,8 @@ public interface MusicBrowserActionHandler {
     void nextPage(Player player);
     void library(Player player);
     void search(Player player);
+
+    void importPlaylist(Player player);
     void cycleSort(Player player);
     void cycleSection(Player player);
     void random(Player player, boolean alternate);

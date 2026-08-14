@@ -49,6 +49,25 @@ class MusicBrowserSessionsTest {
     }
 
     @Test
+    void publishesImportedPlaylistNameAndTracksWithoutChangingTheirOrder() {
+        MusicBrowserSessions sessions = new MusicBrowserSessions();
+        UUID playerId = UUID.randomUUID();
+        MusicBrowserSessions.Session state = new MusicBrowserSessions.Session();
+        MusicTrack first = track("first");
+        MusicTrack second = track("second");
+        sessions.beginPlaylist(playerId, state, "wy", "123");
+
+        assertEquals(MusicBrowserSessions.View.PLAYLIST, state.view());
+        assertTrue(state.loading());
+        assertTrue(sessions.completePlaylist(state, state.generation(), "My Playlist",
+                List.of(first, second), null, MusicPlaybackStats.EMPTY));
+
+        assertEquals("My Playlist", state.playlistName());
+        assertEquals(List.of(first, second), state.tracks());
+        assertFalse(state.loading());
+    }
+
+    @Test
     void nbsSectionFiltersEveryViewAndPersistsUntilPlayerRemoval() {
         MusicBrowserSessions sessions = new MusicBrowserSessions();
         UUID playerId = UUID.randomUUID();
