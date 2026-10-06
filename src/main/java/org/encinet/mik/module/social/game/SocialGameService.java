@@ -13,6 +13,6 @@ public interface SocialGameService {
 
     Optional<SocialPlayerProfile> findPlayerProfile(String exactPlayerName);
 
-    /** Full membership includes member, helper, and manager roles. */
+    /** Full membership includes member, moderator, and custodian roles. */
     boolean isFullMember(UUID playerId);
 }

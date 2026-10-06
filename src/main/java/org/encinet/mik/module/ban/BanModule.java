@@ -2,11 +2,13 @@ package org.encinet.mik.module.ban;
 
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import org.bukkit.Bukkit;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.LanguageService;
-import org.encinet.mik.module.player.PlayerAddressLookup;
+import org.encinet.mik.module.player.address.PlayerAddressLookup;
+import org.encinet.mik.util.ShutdownSequence;
 
 import java.io.File;
 import java.time.ZoneId;
@@ -61,13 +63,13 @@ public final class BanModule {
     }
 
     public void disable() {
-        Bukkit.getServicesManager().unregister(BanManager.class, banService);
-        paperSynchronizer.stop();
-        try {
-            banService.close();
-        } catch (BanServiceException e) {
-            plugin.getLogger().severe("Failed to close ban database: " + e.getMessage());
-        }
+        ShutdownSequence shutdown = new ShutdownSequence();
+        shutdown.attempt("ban login listener", () -> HandlerList.unregisterAll(loginListener));
+        shutdown.attempt("ban service registration", () ->
+                Bukkit.getServicesManager().unregister(BanManager.class, banService));
+        shutdown.attempt("Paper ban synchronization", paperSynchronizer::stop);
+        shutdown.attempt("ban database", banService::close);
+        shutdown.finish("ban module");
     }
 
     public BanManager manager() {

@@ -41,6 +41,46 @@ class AfkMovementIntentTest {
                 tracker.check(AfkPolicy.DEFAULT.idleTimeoutMillis()));
     }
 
+    @Test
+    void shortReleasedGesturesPreserveOnlyTheirActualTravel() {
+        AfkActivityTracker tracker = tracker();
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        assertFalse(tracker.recordMovement(WORLD_ID, 7.5D, 0.0D, 0.0D, 1_000L));
+        tracker.recordMovementInput(false, WORLD_ID, 7.5D, 0.0D, 0.0D, 1_500L);
+        assertFalse(tracker.recordMovement(WORLD_ID, 100.0D, 0.0D, 0.0D, 2_000L));
+        tracker.recordMovementInput(true, WORLD_ID, 100.0D, 0.0D, 0.0D, 2_500L);
+
+        assertTrue(tracker.recordMovement(WORLD_ID, 100.5D, 0.0D, 0.0D, 3_000L));
+    }
+
+    @Test
+    void oldSubThresholdTravelCannotBeBankedAcrossAnIdleGap() {
+        AfkActivityTracker tracker = tracker();
+        tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
+        tracker.recordMovement(WORLD_ID, 7.5D, 0.0D, 0.0D, 1_000L);
+        tracker.recordMovementInput(false, WORLD_ID, 7.5D, 0.0D, 0.0D, 1_500L);
+        tracker.recordMovementInput(true, WORLD_ID, 100.0D, 0.0D, 0.0D, 20_000L);
+
+        assertFalse(tracker.recordMovement(WORLD_ID, 100.5D, 0.0D, 0.0D, 20_500L));
+    }
+
+    @Test
+    void repeatedTappingJumpsDoesNotBecomePassiveAfk() {
+        AfkPlayerSession session = new AfkPlayerSession(0L, WORLD_ID, 0.0D, 0.0D, 0.0D);
+        AfkActivityTracker tracker = session.activity();
+        long duration = 30L * 60L * 1_000L;
+        for (long now = 0L; now < duration; now += 1_000L) {
+            tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, now);
+            tracker.recordMovement(WORLD_ID, 0.0D, 0.5D, 0.0D, now + 100L);
+            tracker.recordMovementInput(false, WORLD_ID, 0.0D, 0.5D, 0.0D, now + 200L);
+            assertFalse(session.checkAutomaticAfk(now + 200L, true).shouldEnterAfk());
+        }
+
+        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(duration));
+        assertFalse(tracker.isAutomaticAfkCandidate(duration));
+        assertFalse(tracker.isActivityEligible(duration));
+    }
+
     private static AfkActivityTracker tracker() {
         return new AfkActivityTracker(0L, WORLD_ID, 0.0D, 0.0D, 0.0D);
     }

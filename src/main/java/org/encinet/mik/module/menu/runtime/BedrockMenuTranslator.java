@@ -1,0 +1,186 @@
+package org.encinet.mik.module.menu.runtime;
+
+import org.encinet.mik.module.menu.FloatingMenuAction;
+import org.encinet.mik.module.menu.FloatingMenuDecoration;
+import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuInteraction;
+import org.encinet.mik.module.menu.FloatingMenuNodeRole;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+/** Pure conversion from the client-independent menu definition to a Bedrock form model. */
+final class BedrockMenuTranslator {
+
+    private static final String GROUP_HEADING_SUFFIX = "-group-heading";
+    private static final LegacyComponentSerializer LEGACY =
+            LegacyComponentSerializer.legacySection();
+    private static final PlainTextComponentSerializer PLAIN =
+            PlainTextComponentSerializer.plainText();
+
+    Menu translate(FloatingMenuDefinition definition, ActionLabels labels) {
+        Objects.requireNonNull(definition, "definition");
+        Objects.requireNonNull(labels, "labels");
+
+        String inferredHeadingId = null;
+        String title = definition.titleVisible() && hasText(definition.title())
+                ? serialize(definition.title()) : "";
+        if (title.isEmpty()) {
+            for (FloatingMenuDefinition.Entry entry : definition.entries().values()) {
+                if (entry.role() != FloatingMenuNodeRole.INFORMATION || !isHeading(entry)) continue;
+                title = firstLine(serialize(entry.label()));
+                inferredHeadingId = entry.id();
+                break;
+            }
+        }
+
+        Map<String, String> groupHeadings = new HashMap<>();
+        for (FloatingMenuDefinition.Entry entry : definition.entries().values()) {
+            String region = entry.region();
+            if (entry.role() != FloatingMenuNodeRole.INFORMATION
+                    || !region.endsWith(GROUP_HEADING_SUFFIX)
+                    || !hasText(entry.label())) continue;
+            String group = region.substring(0, region.length() - GROUP_HEADING_SUFFIX.length());
+            if (definition.entries().values().stream().anyMatch(candidate ->
+                    candidate.region().equals(group) && !candidate.triggers().isEmpty())) {
+                groupHeadings.put(group, firstLine(serialize(entry.label())));
+            }
+        }
+
+        List<String> content = new ArrayList<>();
+        for (FloatingMenuDecoration decoration : definition.decorations().values()) {
+            if (decoration.content() instanceof FloatingMenuDecoration.Text text
+                    && hasText(text.text())) {
+                content.add(serialize(text.text()));
+            }
+        }
+
+        List<Option> options = new ArrayList<>();
+        for (FloatingMenuDefinition.Entry entry : definition.entries().values()) {
+            List<FloatingMenuInteraction> interactions = ordered(entry.triggers());
+            if (entry.spatialOnly()) continue;
+            if (interactions.isEmpty()) {
+                String region = entry.region();
+                boolean groupHeading = region.endsWith(GROUP_HEADING_SUFFIX)
+                        && groupHeadings.containsKey(
+                                region.substring(0, region.length() - GROUP_HEADING_SUFFIX.length()));
+                if (!entry.id().equals(inferredHeadingId) && !groupHeading
+                        && hasText(entry.label())) {
+                    content.add(serialize(entry.label()));
+                }
+                continue;
+            }
+            String label = serialize(entry.label());
+            String groupHeading = groupHeadings.get(entry.region());
+            if (groupHeading != null) label = groupHeading + "\n" + label;
+            if (entry.selected()) label = "§a✓ §r" + label;
+            String disabledReason = entry.disabledReason() == null
+                    ? "" : serializeDisabledReason(entry.disabledReason());
+            if (!entry.enabled() && !disabledReason.isEmpty()) {
+                label = label + "\n" + disabledReason;
+            }
+            options.add(new Option(entry.id(), label, interactions,
+                    entry.enabled(), disabledReason));
+        }
+        for (FloatingMenuInteraction interaction : FloatingMenuInteraction.values()) {
+            if (definition.triggers().containsKey(interaction)) {
+                options.add(new Option(null, labels.label(interaction),
+                        List.of(interaction), true, ""));
+            }
+        }
+
+        if (title.isEmpty()) {
+            if (!content.isEmpty()) title = firstLine(content.getFirst());
+            else if (!options.isEmpty()) title = firstLine(options.getFirst().label());
+        }
+        return new Menu(title, String.join("\n\n", content), options);
+    }
+
+    private static boolean isHeading(FloatingMenuDefinition.Entry entry) {
+        String id = entry.id().toLowerCase(java.util.Locale.ROOT);
+        String region = entry.region().toLowerCase(java.util.Locale.ROOT);
+        return id.contains("title") || id.contains("heading")
+                || region.contains("title") || region.contains("heading");
+    }
+
+    private static List<FloatingMenuInteraction> ordered(
+            Map<FloatingMenuInteraction, FloatingMenuAction> triggers) {
+        List<FloatingMenuInteraction> interactions = new ArrayList<>();
+        for (FloatingMenuInteraction interaction : FloatingMenuInteraction.values()) {
+            if (triggers.containsKey(interaction)) interactions.add(interaction);
+        }
+        return List.copyOf(interactions);
+    }
+
+    private static boolean hasText(Component component) {
+        return !PLAIN.serialize(component).isBlank();
+    }
+
+    private static String serialize(Component component) {
+        return LEGACY.serialize(FloatingMenuText.withDefaultWhite(component)).strip();
+    }
+
+    private static String serializeDisabledReason(Component component) {
+        return LEGACY.serialize(component.colorIfAbsent(NamedTextColor.RED)).strip();
+    }
+
+    static String plainLabel(String value) {
+        return serialize(Component.text(Objects.requireNonNull(value, "value")));
+    }
+
+    static String firstLine(String value) {
+        int newline = value.indexOf('\n');
+        return (newline < 0 ? value : value.substring(0, newline)).strip();
+    }
+
+    record Menu(String title, String content, List<Option> options) {
+        Menu {
+            title = Objects.requireNonNull(title, "title");
+            content = Objects.requireNonNull(content, "content");
+            options = List.copyOf(Objects.requireNonNull(options, "options"));
+        }
+    }
+
+    record Option(String elementId, String label,
+                  List<FloatingMenuInteraction> interactions,
+                  boolean enabled, String disabledReason) {
+        Option {
+            label = Objects.requireNonNull(label, "label");
+            interactions = List.copyOf(Objects.requireNonNull(interactions, "interactions"));
+            if (interactions.isEmpty()) {
+                throw new IllegalArgumentException("A native form option requires an interaction");
+            }
+            disabledReason = Objects.requireNonNull(disabledReason, "disabledReason");
+        }
+    }
+
+    static final class ActionLabels {
+        private final Map<FloatingMenuInteraction, String> values;
+
+        ActionLabels(String primary, String secondary, String hotkey,
+                     String scrollUp, String scrollDown) {
+            EnumMap<FloatingMenuInteraction, String> labels =
+                    new EnumMap<>(FloatingMenuInteraction.class);
+            labels.put(FloatingMenuInteraction.PRIMARY, plainLabel(primary));
+            labels.put(FloatingMenuInteraction.SECONDARY, plainLabel(secondary));
+            labels.put(FloatingMenuInteraction.HOTKEY, plainLabel(hotkey));
+            labels.put(FloatingMenuInteraction.SCROLL_UP, plainLabel(scrollUp));
+            labels.put(FloatingMenuInteraction.SCROLL_DOWN, plainLabel(scrollDown));
+            labels.replaceAll((key, value) -> Objects.requireNonNull(value, key.name()));
+            values = Map.copyOf(labels);
+        }
+
+        String label(FloatingMenuInteraction interaction) {
+            return values.get(Objects.requireNonNull(interaction, "interaction"));
+        }
+    }
+}

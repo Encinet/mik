@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -93,9 +94,9 @@ class AnniversaryDrawAlgorithmTest {
 
     @Test
     void releasedStockBacklogRaisesTheBaseProbability() {
-        double noBacklog = FifthAnniversaryEventModule.calculateBaseProbability(
+        double noBacklog = AnniversaryDrawAlgorithm.calculateBaseProbability(
                 snapshot(2, 8.0D));
-        double backlog = FifthAnniversaryEventModule.calculateBaseProbability(
+        double backlog = AnniversaryDrawAlgorithm.calculateBaseProbability(
                 snapshot(8, 8.0D));
 
         assertTrue(backlog > noBacklog);
@@ -103,8 +104,8 @@ class AnniversaryDrawAlgorithmTest {
 
     @Test
     void unavailableReleasedStockDisablesWinning() {
-        double probability = FifthAnniversaryEventModule.calculateBaseProbability(
-                new FifthAnniversaryEventModule.ControllerSnapshot(
+        double probability = AnniversaryDrawAlgorithm.calculateBaseProbability(
+                new AnniversaryDrawAlgorithm.ControllerSnapshot(
                         40, 0, 3, 8.0D, 100.0D, 20));
 
         assertEquals(0.0D, probability, EPSILON);
@@ -130,15 +131,17 @@ class AnniversaryDrawAlgorithmTest {
 
     @Test
     void releasePlansConserveStockAndRemainFrontLoaded() {
+        int slotCount = FifthAnniversaryEventModule.RELEASE_SLOT_COUNT;
+        assertEquals(140, slotCount);
         for (int stock : new int[]{20, 10, 20, 5}) {
             for (long seed = 1L; seed <= 250L; seed++) {
-                int[] slots = FifthAnniversaryEventModule.generateReleaseSlots(stock, seed);
+                int[] slots = AnniversaryDrawAlgorithm.generateReleaseSlots(stock, seed, slotCount);
 
                 assertEquals(stock, slots.length);
                 assertTrue(isSorted(slots));
                 assertTrue(slots[0] >= 0);
-                assertTrue(slots[slots.length - 1] < 144);
-                long firstHalf = Arrays.stream(slots).filter(slot -> slot < 72).count();
+                assertTrue(slots[slots.length - 1] < slotCount);
+                long firstHalf = Arrays.stream(slots).filter(slot -> slot < slotCount / 2).count();
                 assertTrue(firstHalf >= (stock + 1L) / 2L,
                         "release plan was not front-loaded for stock " + stock
                                 + " and seed " + seed);
@@ -147,36 +150,12 @@ class AnniversaryDrawAlgorithmTest {
     }
 
     @Test
-    void allFiftyFivePrizesCanBeTakenWithoutNegativeStock() {
-        int[] remaining = {20, 10, 20, 5};
-        int[] awarded = new int[remaining.length];
-
-        for (int draw = 0; draw < 55; draw++) {
-            int[] available = remaining.clone();
-            int prizeIndex = FifthAnniversaryEventModule.takeAvailablePrize(
-                    remaining, available, draw % Arrays.stream(available).sum());
-            awarded[prizeIndex]++;
-            assertTrue(Arrays.stream(remaining).allMatch(stock -> stock >= 0));
-        }
-
-        assertTrue(Arrays.equals(new int[]{20, 10, 20, 5}, awarded));
-        assertTrue(Arrays.equals(new int[]{0, 0, 0, 0}, remaining));
-        assertThrows(IllegalArgumentException.class,
-                () -> FifthAnniversaryEventModule.takeAvailablePrize(
-                        remaining, remaining.clone(), 0));
-    }
-
-    @Test
-    void unavailablePrizeTypesCannotBeSelectedOrOverdrawn() {
-        int[] remaining = {1, 1, 0, 1};
-        int[] available = {0, 1, 0, 0};
-
-        assertEquals(1, FifthAnniversaryEventModule.takeAvailablePrize(
-                remaining, available, 0));
-        assertTrue(Arrays.equals(new int[]{1, 0, 0, 1}, remaining));
-        assertThrows(IllegalArgumentException.class,
-                () -> FifthAnniversaryEventModule.takeAvailablePrize(
-                        remaining, new int[]{0, 1, 0, 0}, 0));
+    void persistedReleaseSeedKeepsItsOriginalSchedule() {
+        assertArrayEquals(new int[]{
+                        0, 0, 1, 4, 11, 14, 24, 30, 37, 44,
+                        48, 56, 65, 72, 83, 97, 106, 115, 122, 134
+                }, AnniversaryDrawAlgorithm.generateReleaseSlots(
+                        20, 12345L, FifthAnniversaryEventModule.RELEASE_SLOT_COUNT));
     }
 
     @Test
@@ -184,16 +163,16 @@ class AnniversaryDrawAlgorithmTest {
         int[] available = {2, 1, 0, 2};
         int[] before = available.clone();
 
-        assertEquals(0, FifthAnniversaryEventModule.releasedPrizeIndex(available, 0));
-        assertEquals(0, FifthAnniversaryEventModule.releasedPrizeIndex(available, 1));
-        assertEquals(1, FifthAnniversaryEventModule.releasedPrizeIndex(available, 2));
-        assertEquals(3, FifthAnniversaryEventModule.releasedPrizeIndex(available, 3));
-        assertEquals(3, FifthAnniversaryEventModule.releasedPrizeIndex(available, 4));
+        assertEquals(0, AnniversaryDrawAlgorithm.releasedPrizeIndex(available, 0));
+        assertEquals(0, AnniversaryDrawAlgorithm.releasedPrizeIndex(available, 1));
+        assertEquals(1, AnniversaryDrawAlgorithm.releasedPrizeIndex(available, 2));
+        assertEquals(3, AnniversaryDrawAlgorithm.releasedPrizeIndex(available, 3));
+        assertEquals(3, AnniversaryDrawAlgorithm.releasedPrizeIndex(available, 4));
         assertTrue(Arrays.equals(before, available));
         assertThrows(IllegalArgumentException.class,
-                () -> FifthAnniversaryEventModule.releasedPrizeIndex(available, 5));
+                () -> AnniversaryDrawAlgorithm.releasedPrizeIndex(available, 5));
         assertThrows(IllegalArgumentException.class,
-                () -> FifthAnniversaryEventModule.releasedPrizeIndex(new int[]{1, -1}, 0));
+                () -> AnniversaryDrawAlgorithm.releasedPrizeIndex(new int[]{1, -1}, 0));
     }
 
     @Test
@@ -293,9 +272,9 @@ class AnniversaryDrawAlgorithmTest {
 
     @Test
     void oddsLimiterCapsAbruptControllerChanges() {
-        double increased = FifthAnniversaryEventModule.limitOddsChange(
+        double increased = AnniversaryDrawAlgorithm.limitOddsChange(
                 0.20D, 0.58D, 0.80D, 1.20D);
-        double decreased = FifthAnniversaryEventModule.limitOddsChange(
+        double decreased = AnniversaryDrawAlgorithm.limitOddsChange(
                 0.20D, 0.02D, 0.80D, 1.20D);
 
         assertEquals(0.2307692308D, increased, 0.0000001D);
@@ -304,13 +283,13 @@ class AnniversaryDrawAlgorithmTest {
 
     @Test
     void releaseBorrowingNeverExceedsTheCumulativeLimit() {
-        assertEquals(12, FifthAnniversaryEventModule.availableReleasedStock(
+        assertEquals(12, AnniversaryDrawAlgorithm.availableReleasedStock(
                 55, 55, 10, 2));
-        assertEquals(1, FifthAnniversaryEventModule.availableReleasedStock(
+        assertEquals(1, AnniversaryDrawAlgorithm.availableReleasedStock(
                 55, 44, 10, 2));
-        assertEquals(0, FifthAnniversaryEventModule.availableReleasedStock(
+        assertEquals(0, AnniversaryDrawAlgorithm.availableReleasedStock(
                 55, 43, 10, 2));
-        assertEquals(0, FifthAnniversaryEventModule.availableReleasedStock(
+        assertEquals(0, AnniversaryDrawAlgorithm.availableReleasedStock(
                 55, 35, 10, 2));
     }
 
@@ -318,15 +297,15 @@ class AnniversaryDrawAlgorithmTest {
     void personalCalibrationPreservesTheGlobalProbabilityBudget() {
         double base = 0.20D;
         List<Double> weights = List.of(
-                FifthAnniversaryEventModule.personalWeight(0, 2),
-                FifthAnniversaryEventModule.personalWeight(0, 1),
-                FifthAnniversaryEventModule.personalWeight(0, 0),
-                FifthAnniversaryEventModule.personalWeight(1, 0));
-        double offset = FifthAnniversaryEventModule.calibratedPersonalOffset(
+                AnniversaryDrawAlgorithm.personalWeight(0, 2),
+                AnniversaryDrawAlgorithm.personalWeight(0, 1),
+                AnniversaryDrawAlgorithm.personalWeight(0, 0),
+                AnniversaryDrawAlgorithm.personalWeight(1, 0));
+        double offset = AnniversaryDrawAlgorithm.calibratedPersonalOffset(
                 base, weights);
 
         double average = weights.stream()
-                .mapToDouble(weight -> FifthAnniversaryEventModule.personalizedProbability(
+                .mapToDouble(weight -> AnniversaryDrawAlgorithm.personalizedProbability(
                         base, weight, offset))
                 .average()
                 .orElseThrow();
@@ -338,14 +317,14 @@ class AnniversaryDrawAlgorithmTest {
     void calibrationAlsoPreservesTheMinimumGlobalRate() {
         double base = 0.02D;
         List<Double> weights = List.of(
-                FifthAnniversaryEventModule.personalWeight(0, 2),
-                FifthAnniversaryEventModule.personalWeight(0, 0),
-                FifthAnniversaryEventModule.personalWeight(2, 0));
-        double offset = FifthAnniversaryEventModule.calibratedPersonalOffset(
+                AnniversaryDrawAlgorithm.personalWeight(0, 2),
+                AnniversaryDrawAlgorithm.personalWeight(0, 0),
+                AnniversaryDrawAlgorithm.personalWeight(2, 0));
+        double offset = AnniversaryDrawAlgorithm.calibratedPersonalOffset(
                 base, weights);
 
         double average = weights.stream()
-                .mapToDouble(weight -> FifthAnniversaryEventModule.personalizedProbability(
+                .mapToDouble(weight -> AnniversaryDrawAlgorithm.personalizedProbability(
                         base, weight, offset))
                 .average()
                 .orElseThrow();
@@ -354,18 +333,18 @@ class AnniversaryDrawAlgorithmTest {
     }
 
     private double probabilityAtRate(double rate) {
-        return FifthAnniversaryEventModule.calculateBaseProbability(snapshot(4, rate));
+        return AnniversaryDrawAlgorithm.calculateBaseProbability(snapshot(4, rate));
     }
 
-    private FifthAnniversaryEventModule.ControllerSnapshot snapshot(int available, double rate) {
-        return new FifthAnniversaryEventModule.ControllerSnapshot(
+    private AnniversaryDrawAlgorithm.ControllerSnapshot snapshot(int available, double rate) {
+        return new AnniversaryDrawAlgorithm.ControllerSnapshot(
                 40, available, 2, rate, 120.0D, 30);
     }
 
     private double personalized(double base, int wins, int losses) {
-        return FifthAnniversaryEventModule.personalizedProbability(
+        return AnniversaryDrawAlgorithm.personalizedProbability(
                 base,
-                FifthAnniversaryEventModule.personalWeight(wins, losses),
+                AnniversaryDrawAlgorithm.personalWeight(wins, losses),
                 0.0D);
     }
 

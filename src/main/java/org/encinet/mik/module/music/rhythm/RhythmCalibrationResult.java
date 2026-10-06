@@ -61,8 +61,8 @@ record RhythmCalibrationResult(RhythmCalibrationProfiles profiles,
     }
 
     private static boolean validJudgement(int value) {
-        return value >= RhythmLatencyCalibration.MINIMUM_OFFSET_MILLIS
-                && value <= RhythmLatencyCalibration.MAXIMUM_OFFSET_MILLIS;
+        return value >= RhythmLatencyProfile.MINIMUM_JUDGEMENT_OFFSET_MILLIS
+                && value <= RhythmLatencyProfile.MAXIMUM_JUDGEMENT_OFFSET_MILLIS;
     }
 
     private static boolean validAnimation(int value) {

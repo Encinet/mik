@@ -13,6 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 
@@ -25,6 +26,7 @@ public final class FloatingMenuDefinition {
     private final String screenId;
     private final Map<String, Entry> entries;
     private final Map<String, FloatingMenuDecoration> decorations;
+    private final Set<String> framingDecorations;
     private final FloatingMenuAnimation animation;
     private final FloatingMenuLayout layout;
     private final FloatingMenuFeedback feedback;
@@ -32,6 +34,7 @@ public final class FloatingMenuDefinition {
     private final FloatingMenuFraming framing;
     private final FloatingMenuPresentation presentation;
     private final FloatingMenuAnchorMode anchorMode;
+    private final FloatingMenuSpatialFrame spatialFrame;
     private final FloatingMenuViewpoint viewpoint;
     private final FloatingMenuMovementPolicy movementPolicy;
     private final Map<FloatingMenuInteraction, FloatingMenuAction> triggers;
@@ -42,11 +45,13 @@ public final class FloatingMenuDefinition {
     private FloatingMenuDefinition(Component title, boolean titleVisible,
                                    String screenId, Map<String, Entry> entries,
                                    Map<String, FloatingMenuDecoration> decorations,
+                                   Set<String> framingDecorations,
                                    FloatingMenuAnimation animation, FloatingMenuLayout layout,
                                    FloatingMenuFeedback feedback, FloatingMenuAppearance appearance,
                                    FloatingMenuFraming framing,
                                    FloatingMenuPresentation presentation,
                                    FloatingMenuAnchorMode anchorMode,
+                                   FloatingMenuSpatialFrame spatialFrame,
                                    FloatingMenuViewpoint viewpoint,
                                    FloatingMenuMovementPolicy movementPolicy,
                                    Map<FloatingMenuInteraction, FloatingMenuAction> triggers,
@@ -58,6 +63,7 @@ public final class FloatingMenuDefinition {
         this.screenId = screenId;
         this.entries = Collections.unmodifiableMap(new LinkedHashMap<>(entries));
         this.decorations = Collections.unmodifiableMap(new LinkedHashMap<>(decorations));
+        this.framingDecorations = Set.copyOf(framingDecorations);
         this.animation = animation;
         this.layout = layout;
         this.feedback = feedback;
@@ -65,6 +71,7 @@ public final class FloatingMenuDefinition {
         this.framing = framing;
         this.presentation = presentation;
         this.anchorMode = anchorMode;
+        this.spatialFrame = spatialFrame;
         this.viewpoint = viewpoint;
         this.movementPolicy = movementPolicy;
         this.triggers = Map.copyOf(triggers);
@@ -102,6 +109,7 @@ public final class FloatingMenuDefinition {
     public String screenId() { return screenId; }
     public Map<String, Entry> entries() { return entries; }
     public Map<String, FloatingMenuDecoration> decorations() { return decorations; }
+    public Set<String> framingDecorations() { return framingDecorations; }
     public FloatingMenuAnimation animation() { return animation; }
     public FloatingMenuLayout layout() { return layout; }
     public FloatingMenuFeedback feedback() { return feedback; }
@@ -109,6 +117,7 @@ public final class FloatingMenuDefinition {
     public FloatingMenuFraming framing() { return framing; }
     public FloatingMenuPresentation presentation() { return presentation; }
     public FloatingMenuAnchorMode anchorMode() { return anchorMode; }
+    public FloatingMenuSpatialFrame spatialFrame() { return spatialFrame; }
     public FloatingMenuViewpoint viewpoint() { return viewpoint; }
     public FloatingMenuMovementPolicy movementPolicy() { return movementPolicy; }
     public Map<FloatingMenuInteraction, FloatingMenuAction> triggers() { return triggers; }
@@ -122,16 +131,16 @@ public final class FloatingMenuDefinition {
                     + "' does not match owner '" + id + "'");
         }
         if (id.equals(screenId)) return this;
-        return new FloatingMenuDefinition(title, titleVisible, id, entries, decorations,
+        return new FloatingMenuDefinition(title, titleVisible, id, entries, decorations, framingDecorations,
                 animation, layout, feedback, appearance, framing,
-                presentation, anchorMode, viewpoint, movementPolicy,
+                presentation, anchorMode, spatialFrame, viewpoint, movementPolicy,
                 triggers, lifecycle, refresh, frameObserver);
     }
 
     FloatingMenuDefinition withLifecycle(FloatingMenuLifecycle nextLifecycle) {
-        return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations,
+        return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations, framingDecorations,
                 animation, layout, feedback, appearance, framing,
-                presentation, anchorMode, viewpoint, movementPolicy,
+                presentation, anchorMode, spatialFrame, viewpoint, movementPolicy,
                 triggers, FloatingMenuLifecycle.combine(lifecycle,
                         Objects.requireNonNull(nextLifecycle, "nextLifecycle")), refresh,
                 frameObserver);
@@ -144,8 +153,8 @@ public final class FloatingMenuDefinition {
                         Map<FloatingMenuInteraction, FloatingMenuAction> triggers,
                         FloatingMenuFocusAction focusAction, boolean interactive,
                         FloatingMenuDecoration.Alignment alignment,
-                        boolean selected, boolean enabled,
-                        Component disabledReason) {
+                        boolean selected, boolean enabled, boolean keepAccessible,
+                        Component disabledReason, boolean spatialOnly) {
         public Entry {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("Element id must not be blank");
             if (region == null || region.isBlank()) throw new IllegalArgumentException("Region must not be blank");
@@ -198,6 +207,7 @@ public final class FloatingMenuDefinition {
         private String screenId;
         private final Map<String, Entry> entries = new LinkedHashMap<>();
         private final Map<String, FloatingMenuDecoration> decorations = new LinkedHashMap<>();
+        private Set<String> framingDecorations = Set.of();
         private FloatingMenuAnimation animation = FloatingMenuAnimation.DEFAULT;
         private FloatingMenuLayout layout = FloatingMenuLayouts.actions(4);
         private FloatingMenuFeedback feedback = FloatingMenuFeedback.DEFAULT;
@@ -205,6 +215,7 @@ public final class FloatingMenuDefinition {
         private FloatingMenuFraming framing = FloatingMenuFraming.COMFORTABLE;
         private FloatingMenuPresentation presentation = FloatingMenuPresentation.ADAPTIVE;
         private FloatingMenuAnchorMode anchorMode = FloatingMenuAnchorMode.ADAPTIVE;
+        private FloatingMenuSpatialFrame spatialFrame = FloatingMenuSpatialFrame.IN_FRONT;
         private FloatingMenuViewpoint viewpoint = FloatingMenuViewpoint.POSE_AWARE;
         private FloatingMenuMovementPolicy movementPolicy =
                 FloatingMenuMovementPolicy.STANDARD;
@@ -509,6 +520,17 @@ public final class FloatingMenuDefinition {
             return this;
         }
 
+        /** Anchors local positions around the viewer instead of fitting them into a front panel. */
+        public Builder aroundViewer() {
+            this.spatialFrame = FloatingMenuSpatialFrame.AROUND_VIEWER;
+            return this;
+        }
+
+        public Builder frontArc() {
+            this.spatialFrame = FloatingMenuSpatialFrame.FRONT_ARC;
+            return this;
+        }
+
         /** Selects whether this scene follows the player's pose or uses standing eye level. */
         public Builder viewpoint(FloatingMenuViewpoint viewpoint) {
             this.viewpoint = Objects.requireNonNull(viewpoint, "viewpoint");
@@ -587,10 +609,19 @@ public final class FloatingMenuDefinition {
                     (player, menu, interaction) -> down.execute(player, menu));
         }
 
+        public Builder framingDecorations(String... ids) {
+            framingDecorations = Set.of(ids);
+            return this;
+        }
+
         public FloatingMenuDefinition build() {
-            return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations,
+            for (String id : framingDecorations) {
+                if (!decorations.containsKey(id) || decorations.get(id).worldAnchored())
+                    throw new IllegalArgumentException("Framing decoration must be a local scene node: " + id);
+            }
+            return new FloatingMenuDefinition(title, titleVisible, screenId, entries, decorations, framingDecorations,
                     animation, layout, feedback, appearance, framing,
-                    presentation, anchorMode, viewpoint, movementPolicy,
+                    presentation, anchorMode, spatialFrame, viewpoint, movementPolicy,
                     triggers, lifecycle, refresh, frameObserver);
         }
 
@@ -618,6 +649,8 @@ public final class FloatingMenuDefinition {
                 FloatingMenuDecoration.Alignment.CENTER;
         private boolean selected;
         private boolean enabled = true;
+        private boolean keepAccessible;
+        private boolean spatialOnly;
         private Component disabledReason;
 
         private NodeBuilder(Builder parent, String id, ItemStack item,
@@ -702,6 +735,12 @@ public final class FloatingMenuDefinition {
             return commit();
         }
 
+        /** Keeps an essential control readable in a cramped player-centered scene. */
+        public NodeBuilder keepAccessible() {
+            this.keepAccessible = true;
+            return commit();
+        }
+
         /** Keeps an item or block as scene content without hover, hitbox, or input state. */
         public NodeBuilder passive() {
             if (!role.supportsPassivePresentation()) {
@@ -720,10 +759,15 @@ public final class FloatingMenuDefinition {
             return commit();
         }
 
+        public NodeBuilder spatialOnly() {
+            spatialOnly = true;
+            return commit();
+        }
+
         private NodeBuilder commit() {
             parent.entries.put(id, new Entry(id, region, item, label, role, textWidth, triggers,
                     focusAction, interactive, alignment,
-                    selected, enabled, disabledReason));
+                    selected, enabled, keepAccessible, disabledReason, spatialOnly));
             return this;
         }
 

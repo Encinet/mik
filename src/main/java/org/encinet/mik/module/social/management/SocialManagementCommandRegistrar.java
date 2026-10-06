@@ -1,5 +1,7 @@
 package org.encinet.mik.module.social.management;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
@@ -13,7 +15,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -28,7 +29,7 @@ import java.util.Objects;
 
 /** Thin Bukkit adapter for the complete {@code /social} management tree. */
 public final class SocialManagementCommandRegistrar {
-    private static final String ADMIN_PERMISSION = "group." + Mik.GROUP_MANAGER;
+    private static final String ADMIN_PERMISSION = RolePermissions.CUSTODIAN;
     private static final String PLATFORM_ARGUMENT = "platform";
 
     private final SocialPlatformAdmin platforms;

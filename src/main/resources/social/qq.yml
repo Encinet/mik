@@ -1,4 +1,4 @@
-# QQ platform adapter. It only handles authenticated inbound commands and passive replies.
+# QQ platform adapter using Gateway events and OpenAPI messages.
 enabled: false
 app-id: ""
 app-secret: ""
@@ -19,6 +19,21 @@ worker:
   max-concurrent-tasks: 64
 
 allowed-group-openids: []
+
+# Empty disables chat interoperability. Each group chooses its own Minecraft
+# outbound policy; QQ-to-Minecraft text is enabled for every listed group.
+chat-bridge:
+  routes: []
+  # Full interoperability example:
+  # - group-openid: "your-group-openid"
+  #   outbound:
+  #     mode: "always"
+  # Prefix-triggered example: "#hello" is sent as "hello".
+  # - group-openid: "another-group-openid"
+  #   outbound:
+  #     mode: "prefix"
+  #     prefix: "#"
+  #     strip-prefix: true
 
 content-safety:
   enabled: true

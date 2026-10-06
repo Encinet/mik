@@ -7,6 +7,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.LanguageService;
+import org.encinet.mik.util.ShutdownSequence;
 
 import java.io.File;
 import java.util.Objects;
@@ -57,20 +58,20 @@ public final class IdentityBindingModule {
                 error.addSuppressed(closeError);
             }
             plugin.getLogger().log(Level.SEVERE,
-                    "Identity binding database could not be opened; binding is disabled", error);
+                    "Identity binding module could not start", error);
+            throw error;
         }
     }
 
     public void disable() {
-        Bukkit.getServicesManager().unregister(IdentityBindingManager.class, runtime);
-        Bukkit.getServicesManager().unregister(ExternalIdentityLinker.class, runtime);
-        HandlerList.unregisterAll(playerListener);
-        try {
-            runtime.close();
-        } catch (IdentityBindingException error) {
-            plugin.getLogger().warning("Could not close identity binding database: "
-                    + error.getMessage());
-        }
+        ShutdownSequence shutdown = new ShutdownSequence();
+        shutdown.attempt("identity binding manager registration", () ->
+                Bukkit.getServicesManager().unregister(IdentityBindingManager.class, runtime));
+        shutdown.attempt("external identity linker registration", () ->
+                Bukkit.getServicesManager().unregister(ExternalIdentityLinker.class, runtime));
+        shutdown.attempt("identity listener", () -> HandlerList.unregisterAll(playerListener));
+        shutdown.attempt("identity binding database", runtime::close);
+        shutdown.finish("identity binding module");
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {

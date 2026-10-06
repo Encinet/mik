@@ -22,7 +22,7 @@ class GeyserOptionalLinkageTest {
                 () -> Class.forName("org.geysermc.geyser.api.GeyserApi"));
         assertDoesNotThrow(() -> Class.forName(GeyserService.class.getName()));
         assertDoesNotThrow(() -> Class.forName(
-                "org.encinet.mik.module.menu.GeyserFloatingMenuPresenter"));
+                "org.encinet.mik.module.menu.runtime.GeyserFloatingMenuPresenter"));
     }
 
     @Test

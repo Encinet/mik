@@ -4,16 +4,19 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.afk.AfkActivityService;
+import org.encinet.mik.module.menu.runtime.WorldTextDisplayService;
 import org.encinet.mik.module.music.catalog.MusicLibrary;
 import org.encinet.mik.module.music.catalog.MusicPlaybackHistory;
 import org.encinet.mik.module.music.catalog.MusicTrackSelector;
 import org.encinet.mik.module.music.catalog.MusicTrackPool;
 import org.encinet.mik.module.music.command.MusicCommandRegistrar;
+import org.encinet.mik.module.music.command.MusicReloadReport;
 import org.encinet.mik.module.music.command.RandomMusicActions;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
@@ -34,15 +37,15 @@ import org.encinet.mik.module.music.jukebox.JukeboxPlaybackNotifier;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.module.music.jukebox.VanillaRecordSilencer;
 import org.encinet.mik.module.music.ui.JukeboxControlGui;
+import org.encinet.mik.module.music.ui.JukeboxAmbientStatusDisplay;
 import org.encinet.mik.module.music.ui.MusicBrowserGui;
 import org.encinet.mik.module.music.ui.RhythmCalibrationPrompt;
 import org.encinet.mik.module.music.rhythm.RhythmGameService;
 import org.encinet.mik.module.music.rhythm.calibration.PlasmoVoiceCalibrationAudio;
+import org.encinet.mik.util.ShutdownSequence;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 import java.util.Set;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -68,6 +71,7 @@ public final class MusicModule {
     private final RhythmGameService rhythmGameService;
     private final MusicBrowserListener browserListener;
     private final JukeboxControlListener controlListener;
+    private final JukeboxAmbientStatusDisplay ambientStatusDisplay;
     private final MusicJukeboxListener jukeboxListener;
     private final MusicCommandRegistrar commandRegistrar;
     private final AtomicBoolean enabled = new AtomicBoolean();
@@ -76,13 +80,9 @@ public final class MusicModule {
     private BukkitTask remoteSourceUpdateTask;
 
     public MusicModule(JavaPlugin plugin, LanguageService languageService,
-                       PlasmoVoiceServer voiceServer) {
-        this(plugin, languageService, voiceServer, AfkActivityService.NONE);
-    }
-
-    public MusicModule(JavaPlugin plugin, LanguageService languageService,
                        PlasmoVoiceServer voiceServer,
-                       AfkActivityService afkActivityService) {
+                       AfkActivityService afkActivityService,
+                       WorldTextDisplayService worldTextDisplays) {
         this.plugin = plugin;
         this.musicLibrary = new MusicLibrary(
                 plugin.getDataFolder().toPath().resolve("music"), reloadExecutor,
@@ -147,6 +147,9 @@ public final class MusicModule {
                 rhythmGameService,
                 new RhythmCalibrationPrompt(languageService));
         jukeboxControlGui.setActionHandler(controlListener);
+        this.ambientStatusDisplay = new JukeboxAmbientStatusDisplay(
+                plugin, languageService, discResolver, playbackService,
+                settingsStore, worldTextDisplays);
         queueService.setStateChangedListener(jukeboxControlGui::refreshViewers);
         settingsStore.setStateChangedListener(jukeboxControlGui::refreshViewers);
         playbackService.setStateChangedListener(jukeboxControlGui::refreshViewers);
@@ -168,8 +171,10 @@ public final class MusicModule {
         Bukkit.getPluginManager().registerEvents(browserListener, plugin);
         Bukkit.getPluginManager().registerEvents(controlListener, plugin);
         Bukkit.getPluginManager().registerEvents(jukeboxListener, plugin);
+        enableMusicChests();
         recordSilencer.enable();
         playbackService.enable();
+        ambientStatusDisplay.enable();
         rhythmGameService.enable();
         remoteSourceUpdateTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
                 plugin, this::updateRemoteSourcesAutomatically,
@@ -187,10 +192,8 @@ public final class MusicModule {
         });
     }
 
-    /**
-     * Enable music chest locations
-     */
-    public void enableMusicChests() {
+    /** Enable music chest locations. */
+    private void enableMusicChests() {
         World mainWorld = Bukkit.getWorld("world");
         if (mainWorld == null) {
             plugin.getLogger().severe("World 'world' not found!");
@@ -215,7 +218,7 @@ public final class MusicModule {
     }
 
     /** Reloads each independently published music state and reports partial success. */
-    public CompletableFuture<ReloadReport> reloadAsync() {
+    public CompletableFuture<MusicReloadReport> reloadAsync() {
         if (!enabled.get()) {
             return CompletableFuture.failedFuture(
                     new IllegalStateException("Music module is disabled"));
@@ -237,7 +240,7 @@ public final class MusicModule {
             CompletableFuture<MusicLibrary.ReloadResult> library = musicLibrary.reloadAsync()
                     .exceptionally(error -> new MusicLibrary.ReloadResult(
                             false, musicLibrary.tracks().size(), rootMessage(error)));
-            return library.thenCombine(sources, ReloadReport::new)
+            return library.thenCombine(sources, MusicReloadReport::new)
                     .whenComplete((ignored, error) -> reloading.set(false));
         } catch (RuntimeException exception) {
             reloading.set(false);
@@ -247,21 +250,26 @@ public final class MusicModule {
 
     public void disable() {
         enabled.set(false);
-        if (remoteSourceUpdateTask != null) {
-            remoteSourceUpdateTask.cancel();
-            remoteSourceUpdateTask = null;
-        }
-        reloadExecutor.shutdownNow();
-        autoPlayService.stopAll();
-        rhythmGameService.close();
-        playbackService.stopAll();
-        recordSilencer.close();
-        audioCache.close();
-        lyricsService.close();
-        playbackHistory.close();
-        musicLibrary.close();
-        sourceService.close();
-        queueService.clear();
+        BukkitTask updateTask = remoteSourceUpdateTask;
+        remoteSourceUpdateTask = null;
+        ShutdownSequence shutdown = new ShutdownSequence();
+        shutdown.attempt("browser listener", () -> HandlerList.unregisterAll(browserListener));
+        shutdown.attempt("control listener", () -> HandlerList.unregisterAll(controlListener));
+        shutdown.attempt("jukebox listener", () -> HandlerList.unregisterAll(jukeboxListener));
+        shutdown.attempt("ambient display", ambientStatusDisplay::disable);
+        if (updateTask != null) shutdown.attempt("remote update task", updateTask::cancel);
+        shutdown.attempt("reload executor", reloadExecutor::shutdownNow);
+        shutdown.attempt("autoplay", autoPlayService::stopAll);
+        shutdown.attempt("rhythm game", rhythmGameService::close);
+        shutdown.attempt("playback", playbackService::stopAll);
+        shutdown.attempt("record silencer", recordSilencer::close);
+        shutdown.attempt("audio cache", audioCache::close);
+        shutdown.attempt("lyrics", lyricsService::close);
+        shutdown.attempt("playback history", playbackHistory::close);
+        shutdown.attempt("music library", musicLibrary::close);
+        shutdown.attempt("source service", sourceService::close);
+        shutdown.attempt("queue", queueService::clear);
+        shutdown.finish("music module");
     }
 
     private void updateRemoteSourcesAutomatically() {
@@ -291,44 +299,5 @@ public final class MusicModule {
             current = current.getCause();
         }
         return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
-    }
-
-    public record ReloadReport(MusicLibrary.ReloadResult library,
-                               LxSourceService.ReloadResult online) {
-        public ReloadReport {
-            java.util.Objects.requireNonNull(library, "library");
-            java.util.Objects.requireNonNull(online, "online");
-        }
-
-        public boolean successful() {
-            return library.successful() && online.successful();
-        }
-
-        public boolean anySuccessful() {
-            return library.successful() || online.subscriptions().successful()
-                    || online.runtimes().successful();
-        }
-
-        public List<String> errors() {
-            List<String> errors = new ArrayList<>();
-            if (!library.successful()) {
-                errors.add("local library: " + valueOrUnknown(library.error()));
-            }
-            if (!online.subscriptions().successful()) {
-                errors.add("LX subscriptions: "
-                        + valueOrUnknown(online.subscriptions().error()));
-            } else if (online.subscriptions().failed() > 0) {
-                errors.add("LX subscriptions: " + online.subscriptions().failed()
-                        + " update(s) failed");
-            }
-            if (!online.runtimes().successful()) {
-                errors.add("LX runtimes: " + valueOrUnknown(online.runtimes().error()));
-            }
-            return List.copyOf(errors);
-        }
-
-        private static String valueOrUnknown(String value) {
-            return value == null || value.isBlank() ? "unknown error" : value;
-        }
     }
 }

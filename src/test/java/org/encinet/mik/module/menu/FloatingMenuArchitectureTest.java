@@ -35,7 +35,7 @@ class FloatingMenuArchitectureTest {
 
     @Test
     void serviceOwnsPaperInputAndSharedSpatialInfrastructure() throws IOException {
-        String service = Files.readString(MAIN.resolve("module/menu/FloatingMenuService.java"));
+        String service = Files.readString(MAIN.resolve("module/menu/runtime/FloatingMenuService.java"));
 
         assertTrue(service.contains("PlayerUseUnknownEntityEvent"));
         assertTrue(service.contains("PlayerItemHeldEvent"));
@@ -53,11 +53,11 @@ class FloatingMenuArchitectureTest {
         for (String source : List.of(
                 "module/chat/menu/ChatSettingsMenu.java",
                 "module/communication/AnnouncementModule.java",
-                "module/i18n/LanguageService.java",
+                "shell/LanguageMenu.java",
                 "module/music/ui/JukeboxControlGui.java",
                 "module/music/ui/MusicBrowserGui.java",
                 "module/player/HomeModule.java",
-                "module/player/MainMenuModule.java",
+                "shell/MainMenuModule.java",
                 "module/player/TeleportPreferenceModule.java",
                 "module/pvp/PvpMenuController.java")) {
             String value = Files.readString(MAIN.resolve(source));
@@ -69,9 +69,9 @@ class FloatingMenuArchitectureTest {
         }
 
         String translator = Files.readString(MAIN.resolve(
-                "module/menu/BedrockMenuTranslator.java"));
+                "module/menu/runtime/BedrockMenuTranslator.java"));
         String presenter = Files.readString(MAIN.resolve(
-                "module/menu/GeyserFloatingMenuPresenter.java"));
+                "module/menu/runtime/GeyserFloatingMenuPresenter.java"));
         assertTrue(translator.contains(
                 "Menu translate(FloatingMenuDefinition definition"));
         assertTrue(presenter.contains("translator.translate(definition"));
@@ -80,9 +80,9 @@ class FloatingMenuArchitectureTest {
 
     @Test
     void axiomGizmosAreSuppressedBeforeVirtualEntitiesSpawn() throws IOException {
-        String service = Files.readString(MAIN.resolve("module/menu/FloatingMenuService.java"));
+        String service = Files.readString(MAIN.resolve("module/menu/runtime/FloatingMenuService.java"));
         String bridge = Files.readString(MAIN.resolve(
-                "module/presentation/AxiomGizmoService.java"));
+                "integration/axiom/AxiomGizmoService.java"));
         String synchronize =
                 "axiomGizmos.synchronize(player, session.id, session.virtualEntityUuids())";
         String spawn = "virtualEntities.spawn(player, session.titleId";

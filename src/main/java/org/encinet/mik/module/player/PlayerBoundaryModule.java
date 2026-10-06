@@ -11,6 +11,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Vehicle;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTeleportEvent;
@@ -52,6 +53,7 @@ public class PlayerBoundaryModule implements Listener {
     }
 
     public void disable() {
+        HandlerList.unregisterAll(this);
         if (mountCheckTask != null) {
             mountCheckTask.cancel();
             mountCheckTask = null;

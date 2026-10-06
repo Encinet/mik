@@ -4,6 +4,8 @@ package org.encinet.mik.module.menu;
 public enum FloatingMenuTextWidth {
     /** Selects the width appropriate to the node's semantic role. */
     AUTO(0),
+    /** Compact labels on a circle around the viewer. */
+    RING(92),
     /** Keeps short labels visually compact. */
     COMPACT(104),
     /** Gives titles and secondary metadata room to remain readable. */
@@ -17,7 +19,7 @@ public enum FloatingMenuTextWidth {
         this.lineWidthPixels = lineWidthPixels;
     }
 
-    int resolve(int automaticWidth) {
+    public int resolve(int automaticWidth) {
         return this == AUTO ? automaticWidth : lineWidthPixels;
     }
 }

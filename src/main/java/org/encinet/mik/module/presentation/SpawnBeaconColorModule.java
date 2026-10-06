@@ -1,5 +1,7 @@
 package org.encinet.mik.module.presentation;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
@@ -16,7 +18,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -72,7 +73,7 @@ public final class SpawnBeaconColorModule {
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(Commands.literal(COMMAND_NAME)
-                .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_HELPER))
+                .requires(source -> RolePermissions.canModerate(source.getSender()))
                 .executes(ctx -> {
                     cyclingEnabled = !cyclingEnabled;
                     if (cyclingEnabled) {

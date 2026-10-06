@@ -2,9 +2,9 @@ package org.encinet.mik.module.social.platform.qq;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.identity.IdentityPlatform;
-import org.encinet.mik.module.social.api.SocialPlatformAdapter;
+import org.encinet.mik.module.social.runtime.SocialPlatformAdapter;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
-import org.encinet.mik.module.social.api.SocialPlatformPlan;
+import org.encinet.mik.module.social.runtime.SocialPlatformPlan;
 import org.encinet.mik.module.social.runtime.SocialRuntimePolicy;
 import org.encinet.mik.module.social.runtime.SocialOutputPolicy;
 
@@ -14,9 +14,9 @@ import java.util.Optional;
 /** QQ protocol adapter: configuration, Gateway WebSocket, OpenAPI and Markdown only. */
 public final class QqPlatformAdapter implements SocialPlatformAdapter {
     public static final IdentityPlatform IDENTITY_PLATFORM = new IdentityPlatform(
-            "qq", "QQ", "/绑定 {code}", true);
+            QqPlatformConfig.PLATFORM_ID, "QQ", "/绑定 {code}", true);
     static final SocialPlatformDescriptor DESCRIPTOR =
-            new SocialPlatformDescriptor("qq", "QQ", IDENTITY_PLATFORM);
+            new SocialPlatformDescriptor(QqPlatformConfig.PLATFORM_ID, "QQ", IDENTITY_PLATFORM);
 
     private final JavaPlugin plugin;
 

@@ -1,9 +1,8 @@
 package org.encinet.mik.module.menu;
 
 /**
- * Defines how much of the player's view a spatial scene may occupy before it
- * is automatically reduced. Panoramic scenes intentionally invite small head
- * turns instead of forcing a dense wall into the central viewing cone.
+ * Declares a scene's interaction cone. The renderer expands it to include
+ * actual nodes when a dense layout calls for a small head turn.
  */
 public record FloatingMenuFraming(double horizontalHalfAngleDegrees,
                                   double verticalHalfAngleDegrees) {
@@ -11,6 +10,8 @@ public record FloatingMenuFraming(double horizontalHalfAngleDegrees,
             new FloatingMenuFraming(42.0, 32.0);
     public static final FloatingMenuFraming PANORAMIC =
             new FloatingMenuFraming(58.0, 40.0);
+    public static final FloatingMenuFraming WIDE_ARC =
+            new FloatingMenuFraming(82.0, 40.0);
 
     public FloatingMenuFraming {
         if (!validHalfAngle(horizontalHalfAngleDegrees)
@@ -20,11 +21,11 @@ public record FloatingMenuFraming(double horizontalHalfAngleDegrees,
         }
     }
 
-    double horizontalTangent() {
+    public double horizontalTangent() {
         return Math.tan(Math.toRadians(horizontalHalfAngleDegrees));
     }
 
-    double verticalTangent() {
+    public double verticalTangent() {
         return Math.tan(Math.toRadians(verticalHalfAngleDegrees));
     }
 

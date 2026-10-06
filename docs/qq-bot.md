@@ -4,7 +4,7 @@ QQ 是通用 social Host 的协议适配器。它通过 QQ Bot Gateway WebSocket
 
 该适配器不再启动 HTTP 服务，也不实现 Webhook、callback challenge 或 Ed25519 请求验签。服务器只需能够主动访问 QQ 的 HTTPS 与 WSS 服务；不需要公网域名、端口转发、反向代理或 Cloudflare Tunnel。若机器人管理后台仍保存了旧 callback 地址，应将事件接收方式切换为 WebSocket。
 
-明确不支持聊天互通、主动推送、加入/离开通知或脱离入站消息的发送队列。
+QQ 群聊可以通过共享聊天桥与 Minecraft、Matrix 等其他已启用平台双向互通。加入/离开通知仍不在支持范围内。
 
 ## 配置
 
@@ -31,6 +31,9 @@ worker:
 
 allowed-group-openids: []
 
+chat-bridge:
+  routes: []
+
 content-safety:
   enabled: true
 
@@ -52,6 +55,7 @@ QQ 使用 composition root 中显式安装的共享 `SocialCommand` 对象及不
 
 | 命令 | 作用 |
 | --- | --- |
+| `/ai <问题>`、`/问ai <问题>` | 使用与游戏、Matrix 共用的 AI 助手；`/ai clear` 或 `/ai 清空` 清除当前用户在本群的历史 |
 | `/在线`、`/在線`、`/online` | 在线玩家 |
 | `/状态`、`/status` | 完整服务器状态，包含在线人数、TPS、MSPT、运行时间和版本 |
 | `/帮助`、`/help` | 共享帮助 |
@@ -72,3 +76,35 @@ Minecraft 端统一执行 `/bind qq` 生成验证码。
 共享安全规则文件为 `plugins/mik/social/blocked-keywords.txt`。Host 只扫描文档显式标记的用户可控片段（目前是玩家名称），不会扫描固定回复、字段标签、TPS、MSPT、版本或管理状态；命中后用安全提示文档替换结果。旧 `plugins/mik/qq-blocked-keywords.txt` 只触发迁移警告，不会加载。
 
 管理统一使用 `/social status qq`、`/social reload qq` 和 `/social conversations qq`。
+
+## 聊天互通
+
+`chat-bridge.routes` 把指定 QQ 群连接到 Minecraft 公共聊天，并通过共享 Host 继续转发到 Matrix 等其他社交平台。列表为空时不启用聊天互通。若配置了非空的 `allowed-group-openids`，每个桥接群也必须出现在该列表中。
+
+QQ 群中的普通文本会进入 Minecraft 公共聊天；共享命令会优先解析，不会被重复当作聊天转发。从 Minecraft 发出的公共聊天通过 QQ OpenAPI 主动消息发送，staff 与私聊不会外发。消息沿用共享的内容安全、逐会话顺序、背压、去重与 `visitedPlatforms` 防回环机制。
+
+完全互通会转发每条 Minecraft 公共消息：
+
+```yaml
+chat-bridge:
+  routes:
+    - group-openid: "your-group-openid"
+      outbound:
+        mode: "always"
+```
+
+也可以只转发带指定前缀的消息：
+
+```yaml
+chat-bridge:
+  routes:
+    - group-openid: "your-group-openid"
+      outbound:
+        mode: "prefix"
+        prefix: "#"
+        strip-prefix: true
+```
+
+上例会把 Minecraft 的 `#你好` 作为 `你好` 发到 QQ，Minecraft 内仍显示原始内容。QQ 出站使用 Markdown，并保留共享聊天节点中的基础样式、链接及可解析的玩家提及。QQ 身份按 AppID 和群 OpenID 隔离；只有在目标群绑定的账号才会生成 QQ 原生提及。
+
+机器人需要在管理后台获准主动发言，并按需开启“获取群内全部消息”，否则只能收到 @ 机器人的事件，或主动消息被平台拒绝。修改配置后执行 `/social reload qq`。

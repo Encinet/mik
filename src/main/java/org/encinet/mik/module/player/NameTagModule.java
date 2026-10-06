@@ -1,5 +1,7 @@
 package org.encinet.mik.module.player;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -38,7 +40,7 @@ import java.util.function.Predicate;
 /**
  * NameTagModule — 处理 /nametag 命令，允许玩家自定义前缀和后缀。
  *
- * <p>需要权限：{@code group.member}
+ * <p>开放给正式成员、管理和维护者。
  *
  * <p>允许的 MiniMessage 标签：color, decoration, gradient, rainbow, reset,
  * hover, insertion, font, keybind, translatable, score；newline 仅在 hover 文本中生效。
@@ -48,8 +50,6 @@ public class NameTagModule {
 
     private static final int CUSTOM_PRIORITY = 10_000;
     private static final int MAX_LENGTH = 200;
-    private static final String PERM_USE = "group.member";
-
     private static final String URL_EDITOR = "https://webui.advntr.dev/";
     private static final String URL_DOCS = "https://docs.papermc.io/adventure/minimessage/format/";
 
@@ -82,6 +82,10 @@ public class NameTagModule {
         }
         luckPerms = provider.getProvider();
         plugin.getLogger().info("NameTagModule enabled");
+    }
+
+    public void disable() {
+        luckPerms = null;
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -133,12 +137,12 @@ public class NameTagModule {
     }
 
     /**
-     * 校验玩家是否拥有 {@value PERM_USE} 权限。
+     * 校验玩家是否拥有正式成员或更高的角色。
      * 无权限时向玩家发送提示并返回 false。
      */
     private boolean checkPerm(Player player) {
         if (player == null) return false;
-        if (player.hasPermission(PERM_USE)) return true;
+        if (RolePermissions.isMember(player)) return true;
         player.sendMessage(languageService.text(player, Message.NAMETAG_NO_PERMISSION, NamedTextColor.RED));
         return false;
     }

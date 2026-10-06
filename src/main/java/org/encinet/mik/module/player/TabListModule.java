@@ -1,5 +1,7 @@
 package org.encinet.mik.module.player;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;
 import net.kyori.adventure.text.Component;
@@ -8,12 +10,12 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
@@ -110,6 +112,7 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
     }
 
     public void disable() {
+        HandlerList.unregisterAll(this);
         afkService.removeListener(this);
         languageService.removeLanguageChangeListener(this);
         if (refreshTask != null) {
@@ -364,7 +367,7 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
     }
 
     private Component renderPlayerName(Player player) {
-        NamedTextColor color = player.hasPermission("group." + Mik.GROUP_MEMBER)
+        NamedTextColor color = RolePermissions.isMember(player)
                 ? NamedTextColor.WHITE
                 : NamedTextColor.YELLOW;
         return Component.text(player.getName(), color);

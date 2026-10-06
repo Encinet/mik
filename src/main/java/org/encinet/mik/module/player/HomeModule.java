@@ -12,10 +12,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
@@ -25,29 +25,27 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
-import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuDecoration;
+import org.encinet.mik.module.menu.FloatingMenuAppearance;
 import org.encinet.mik.module.menu.FloatingMenuContext;
 import org.encinet.mik.module.menu.FloatingMenuFeedbackKind;
+import org.encinet.mik.module.menu.FloatingMenuFraming;
 import org.encinet.mik.module.menu.FloatingMenuLayouts;
 import org.encinet.mik.module.menu.FloatingMenuPage;
 import org.encinet.mik.module.menu.FloatingMenuScreen;
+import org.encinet.mik.module.menu.MenuDialogs;
+import org.encinet.mik.module.role.RolePermissions;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 /**
  * Manages player homes: /sethome, /home, /delhome
  * <p>
- * Storage format  →  homes.yml
- *   <uuid>:
- *     <homeName>: "world:x,y,z,yaw,pitch"
- *     <homeName><material>: "world:x,y,z,yaw,pitch"
- *     我的家:     "world:128.5,64.0,-200.3,90.0,0.0"
- *     矿洞<DIAMOND_PICKAXE>: "world:128.5,64.0,-200.3,90.0,0.0"
- * <p>
- * Runtime reads   →  100% in-memory HashMap, 零 YAML 查询
+ * HomeStore owns the homes.yml cache and ordered persistence.
  */
 public class HomeModule implements Listener {
 
@@ -78,64 +76,29 @@ public class HomeModule implements Listener {
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private final FloatingMenuScreen<HomeMenuState> homeScreen;
-    private File dataFile;
-    private YamlConfiguration data;
-
-    /** uuid → (homeName → HomeEntry) */
-    private final Map<UUID, Map<String, HomeEntry>> cache = new HashMap<>();
+    private final HomeStore store;
 
     public HomeModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
         this.languageService = languageService;
+        this.store = new HomeStore(plugin.getDataFolder().toPath().resolve("homes.yml"),
+                plugin.getLogger());
         this.homeScreen = new FloatingMenuScreen<>("homes",
                 ignored -> new HomeMenuState(0, null), this::buildHomeMenu);
     }
 
     public void enable() {
-        dataFile = new File(plugin.getDataFolder(), "homes.yml");
-        if (!dataFile.exists()) {
-            try {
-                if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
-                    plugin.getLogger().severe("Failed to create plugin data folder.");
-                }
-                if (!dataFile.createNewFile()) {
-                    plugin.getLogger().warning("homes.yml already exists but was not visible during setup.");
-                }
-            } catch (IOException e) {
-                plugin.getLogger().severe("Failed to create homes.yml: " + e.getMessage());
-            }
-        }
-        data = YamlConfiguration.loadConfiguration(dataFile);
-        loadCache();
+        plugin.getLogger().info("Homes loaded: " + store.load() + " entries.");
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    /** 启动时把 YAML 全量读入 cache，之后不再直接操作 data */
-    private void loadCache() {
-        for (String uuidStr : data.getKeys(false)) {
-            UUID uuid;
-            try {
-                uuid = UUID.fromString(uuidStr);
-            } catch (IllegalArgumentException e) {
-                continue;
-            }
-            var section = data.getConfigurationSection(uuidStr);
-            if (section == null) continue;
-            Map<String, HomeEntry> homes = new HashMap<>();
-            for (String storedName : section.getKeys(false)) {
-                String val = section.getString(storedName);
-                if (val != null) {
-                    ParsedHomeKey parsed = parseHomeKey(storedName);
-                    homes.put(parsed.name(), new HomeEntry(val, parsed.icon()));
-                }
-            }
-            cache.put(uuid, homes);
-        }
-        plugin.getLogger().info("Homes loaded: " + cache.values().stream().mapToInt(Map::size).sum() + " entries.");
+    public void disable() {
+        HandlerList.unregisterAll(this);
+        store.close();
     }
 
     private int getMaxHomes(Player player) {
-        return player.hasPermission("group.member") ? 20 : 2;
+        return RolePermissions.isMember(player) ? 20 : 2;
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -159,18 +122,12 @@ public class HomeModule implements Listener {
                                             return Command.SINGLE_SUCCESS;
                                         }
                                         String name = StringArgumentType.getString(ctx, "name");
-                                        if (!isValidHomeName(name)) {
-                                            sendInvalidHomeName(player);
+                                        HomeWriteResult result = saveHome(player, name,
+                                                player.getLocation(), false);
+                                        if (result != HomeWriteResult.SAVED) {
+                                            sendHomeWriteFailure(player, result);
                                             return Command.SINGLE_SUCCESS;
                                         }
-                                        List<String> existing = getHomeNames(player);
-                                        int max = getMaxHomes(player);
-                                        if (!existing.contains(name) && existing.size() >= max) {
-                                            player.sendMessage(languageService.text(player,
-                                                    Message.HOME_MAX_REACHED, NamedTextColor.RED, max));
-                                            return Command.SINGLE_SUCCESS;
-                                        }
-                                        setHome(player, name);
                                         player.sendMessage(homeMessage(player, Message.HOME_SET_RICH,
                                                 name, NamedTextColor.GREEN));
                                         return Command.SINGLE_SUCCESS;
@@ -219,7 +176,7 @@ public class HomeModule implements Listener {
                                                             return Command.SINGLE_SUCCESS;
                                                         }
                                                         String name = StringArgumentType.getString(ctx, "name");
-                                                        Material material = parseIconMaterial(StringArgumentType.getString(ctx, "material"));
+                                                        Material material = HomeStore.icon(StringArgumentType.getString(ctx, "material"));
                                                         if (material == null) {
                                                             player.sendMessage(languageService.text(player,
                                                                     Message.HOME_INVALID_ICON, NamedTextColor.RED));
@@ -347,6 +304,8 @@ public class HomeModule implements Listener {
                 ? context.state().focusedHome()
                 : visibleHomes.isEmpty() ? null : visibleHomes.getFirst();
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("homes")
+                .appearance(FloatingMenuAppearance.WAYPOINT)
+                .framing(FloatingMenuFraming.PANORAMIC)
                 .layout(FloatingMenuLayouts.horizontalPanels(0.52,
                         FloatingMenuLayouts.panel("browser",
                                 FloatingMenuLayouts.verticalRegions(0.24,
@@ -378,10 +337,7 @@ public class HomeModule implements Listener {
                                     Message.HOME_EMPTY_TITLE), NamedTextColor.GRAY)
                             .append(Component.newline())
                             .append(Component.text(languageService.t(player,
-                                    Message.HOME_EMPTY_DESCRIPTION), NamedTextColor.DARK_GRAY))
-                            .append(Component.newline())
-                            .append(Component.text(languageService.t(player,
-                                    Message.HOME_USAGE_SETHOME), NamedTextColor.YELLOW)))
+                                    Message.HOME_EMPTY_DESCRIPTION), NamedTextColor.GRAY)))
                     .region("empty");
         } else {
             for (int offset = 0; offset < visibleHomes.size(); offset++) {
@@ -411,6 +367,7 @@ public class HomeModule implements Listener {
             menu.item("active-home", detail.material(), detail.label())
                     .region("detail")
                     .passive();
+            addNearbyHomeMarker(player, menu, activeHome, detail.material());
             menu.item("action:teleport", Material.ENDER_PEARL,
                             Component.text(languageService.t(player,
                                     Message.HOME_ACTION_TELEPORT), NamedTextColor.GREEN))
@@ -420,12 +377,18 @@ public class HomeModule implements Listener {
                             Component.text(languageService.t(player,
                                     Message.HOME_ACTION_UPDATE), NamedTextColor.YELLOW))
                     .region("actions")
+                    .primary((p, handle) -> openUpdateConfirmMenu(
+                            context, activeHome, p.getLocation()))
                     .hotkey((p, handle) -> openUpdateConfirmMenu(
                             context, activeHome, p.getLocation()));
             menu.item("action:icon", Material.ITEM_FRAME,
                             Component.text(languageService.t(player,
                                     Message.HOME_ACTION_ICON), NamedTextColor.AQUA))
                     .region("actions")
+                    .primary((p, handle) -> {
+                        setHomeIconFromHand(p, activeHome);
+                        context.redraw();
+                    })
                     .secondary((p, handle) -> {
                         setHomeIconFromHand(p, activeHome);
                         context.redraw();
@@ -434,10 +397,20 @@ public class HomeModule implements Listener {
                             Component.text(languageService.t(player,
                                     Message.HOME_ACTION_DELETE), NamedTextColor.RED))
                     .region("actions")
+                    .primary((p, handle) -> openDeleteConfirmMenu(context, activeHome))
                     .secondary((p, handle) -> openDeleteConfirmMenu(context, activeHome));
         }
         menu.pagination("pagination", page, index ->
                 context.setState(new HomeMenuState(index, null)));
+        var create = menu.item("create", Material.LIME_BED,
+                        Component.text(languageService.t(player,
+                                Message.HOME_ACTION_CREATE), NamedTextColor.GREEN))
+                .region("global-actions")
+                .primary((p, handle) -> openCreateHomeInput(p));
+        if (homes.size() >= getMaxHomes(player)) {
+            create.disabled(Component.text(languageService.t(player,
+                    Message.HOME_MAX_REACHED, getMaxHomes(player)), NamedTextColor.RED));
+        }
         menu.item("help", Material.BOOK,
                         Component.text(languageService.t(player, Message.HOME_USAGE_BOOK),
                                 NamedTextColor.GOLD))
@@ -451,10 +424,48 @@ public class HomeModule implements Listener {
         return menu.build();
     }
 
+    private void addNearbyHomeMarker(Player player, FloatingMenuDefinition.Builder menu,
+                                     String homeName, Material icon) {
+        Location saved = getHome(player, homeName);
+        if (saved == null || !player.getWorld().equals(saved.getWorld())) return;
+        double distanceSquared = player.getLocation().distanceSquared(saved);
+        if (distanceSquared < 2.25 * 2.25 || distanceSquared > 18.0 * 18.0) return;
+        if (!saved.getWorld().isChunkLoaded(saved.getBlockX() >> 4,
+                saved.getBlockZ() >> 4)) return;
+        menu.worldItemDecoration("selected-home-location",
+                saved.clone().add(0.0, 1.35, 0.0),
+                player.getLocation().getYaw() + 180.0, 0.0,
+                new ItemStack(icon), 0.42F, FloatingMenuDecoration.Motion.BOB);
+    }
+
+    private void openCreateHomeInput(Player player) {
+        Location savedPosition = player.getLocation().clone();
+        MenuDialogs.openTextInput(plugin, player,
+                Component.text(languageService.t(player, Message.HOME_ACTION_CREATE)),
+                Component.text(languageService.t(player, Message.HOME_USAGE_NAME_RULE)),
+                "", 48, false,
+                Component.text(languageService.t(player, Message.HOME_ACTION_CREATE)),
+                Component.text(languageService.t(player, Message.HOME_BACK)),
+                (responder, name) -> {
+                    HomeWriteResult result = saveHome(responder, name, savedPosition, true);
+                    if (result != HomeWriteResult.SAVED) {
+                        sendHomeWriteFailure(responder, result);
+                        return;
+                    }
+                    responder.sendMessage(homeMessage(responder, Message.HOME_SET_RICH,
+                            name, NamedTextColor.GREEN));
+                    List<String> sorted = getHomeNames(responder);
+                    sorted.sort(String.CASE_INSENSITIVE_ORDER);
+                    homeScreen.open(responder, new HomeMenuState(
+                            sorted.indexOf(name) / MAX_MENU_HOMES, name));
+                });
+    }
+
     private void openDeleteConfirmMenu(FloatingMenuContext<HomeMenuState> context,
                                        String homeName) {
         Player player = context.player();
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("home-delete")
+                .appearance(FloatingMenuAppearance.CAUTION)
                 .layout(FloatingMenuLayouts.menu(
                         FloatingMenuLayouts.information("warning"),
                         FloatingMenuLayouts.navigation("actions")));
@@ -485,6 +496,7 @@ public class HomeModule implements Listener {
         Player player = context.player();
         Location target = proposedLocation.clone();
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("home-update")
+                .appearance(FloatingMenuAppearance.WAYPOINT)
                 .layout(FloatingMenuLayouts.menu(
                         FloatingMenuLayouts.information("target"),
                         FloatingMenuLayouts.navigation("actions")));
@@ -517,6 +529,7 @@ public class HomeModule implements Listener {
 
     private FloatingMenuDefinition buildHomeHelpMenu(Player player) {
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("home-help")
+                .appearance(FloatingMenuAppearance.ARCHIVE)
                 .layout(FloatingMenuLayouts.menu(
                         FloatingMenuLayouts.heading("header"),
                         FloatingMenuLayouts.information("commands"),
@@ -557,7 +570,7 @@ public class HomeModule implements Listener {
     }
 
     private HomePresentation homePresentation(Player player, String homeName, boolean detailed) {
-        HomeEntry entry = getHomeEntry(player, homeName);
+        HomeStore.Entry entry = getHomeEntry(player, homeName);
         Location location = getHome(player, homeName);
         Material displayMaterial = homeMaterial(homeName, entry, location);
         Component label = Component.text(homeName, NamedTextColor.YELLOW);
@@ -623,8 +636,28 @@ public class HomeModule implements Listener {
                 RichArg.component("home", Component.text(homeName, NamedTextColor.YELLOW), homeName));
     }
 
-    private void setHome(Player player, String name) {
-        setHome(player, name, player.getLocation());
+    private HomeWriteResult saveHome(Player player, String name, Location location,
+                                     boolean createOnly) {
+        if (!isValidHomeName(name)) return HomeWriteResult.INVALID_NAME;
+        List<String> existing = getHomeNames(player);
+        if (existing.contains(name)) {
+            if (createOnly) return HomeWriteResult.ALREADY_EXISTS;
+        } else if (existing.size() >= getMaxHomes(player)) {
+            return HomeWriteResult.MAX_REACHED;
+        }
+        setHome(player, name, location);
+        return HomeWriteResult.SAVED;
+    }
+
+    private void sendHomeWriteFailure(Player player, HomeWriteResult result) {
+        switch (result) {
+            case INVALID_NAME -> sendInvalidHomeName(player);
+            case ALREADY_EXISTS -> player.sendMessage(languageService.text(player,
+                    Message.HOME_ALREADY_EXISTS, NamedTextColor.YELLOW));
+            case MAX_REACHED -> player.sendMessage(languageService.text(player,
+                    Message.HOME_MAX_REACHED, NamedTextColor.RED, getMaxHomes(player)));
+            case SAVED -> throw new IllegalArgumentException("No home write failure to report");
+        }
     }
 
     private void setHome(Player player, String name, Location location) {
@@ -633,51 +666,41 @@ public class HomeModule implements Listener {
         String value = world.getName() + ":"
                 + loc.getX() + "," + loc.getY() + "," + loc.getZ() + ","
                 + loc.getYaw() + "," + loc.getPitch();
-        HomeEntry existing = getHomeEntry(player, name);
+        HomeStore.Entry existing = getHomeEntry(player, name);
         Material icon = existing != null ? existing.icon() : null;
-        cache.computeIfAbsent(player.getUniqueId(), _ -> new HashMap<>()).put(name, new HomeEntry(value, icon));
-        save();
+        store.put(player.getUniqueId(), name, new HomeStore.Entry(value, icon));
     }
 
     private Location getHome(Player player, String name) {
-        HomeEntry entry = getHomeEntry(player, name);
+        HomeStore.Entry entry = getHomeEntry(player, name);
         if (entry == null) return null;
         return parseLocation(entry.locationRaw(), player.getName(), name);
     }
 
-    private HomeEntry getHomeEntry(Player player, String name) {
-        Map<String, HomeEntry> homes = cache.get(player.getUniqueId());
-        if (homes == null) return null;
-        return homes.get(name);
+    private HomeStore.Entry getHomeEntry(Player player, String name) {
+        return store.get(player.getUniqueId(), name);
     }
 
     private boolean deleteHome(Player player, String name) {
-        Map<String, HomeEntry> homes = cache.get(player.getUniqueId());
-        if (homes == null || !homes.containsKey(name)) return false;
-        homes.remove(name);
-        save();
-        return true;
+        return store.remove(player.getUniqueId(), name);
     }
 
     private List<String> getHomeNames(Player player) {
-        Map<String, HomeEntry> homes = cache.get(player.getUniqueId());
-        if (homes == null) return new ArrayList<>();
-        return new ArrayList<>(homes.keySet());
+        return store.names(player.getUniqueId());
     }
 
     private void setHomeIcon(Player player, String name, Material icon) {
-        HomeEntry entry = getHomeEntry(player, name);
+        HomeStore.Entry entry = getHomeEntry(player, name);
         if (entry == null) {
             player.sendMessage(homeMessage(player, Message.HOME_NOT_FOUND_RICH, name, NamedTextColor.RED));
             return;
         }
-        cache.get(player.getUniqueId()).put(name, new HomeEntry(entry.locationRaw(), icon));
-        save();
+        store.put(player.getUniqueId(), name, new HomeStore.Entry(entry.locationRaw(), icon));
         player.sendMessage(homeMessage(player, Message.HOME_ICON_UPDATED_RICH, name, NamedTextColor.GREEN));
     }
 
     private void setHomeIconFromHand(Player player, String name) {
-        Material material = parseIconMaterial(player.getInventory().getItemInMainHand().getType().name());
+        Material material = HomeStore.icon(player.getInventory().getItemInMainHand().getType().name());
         if (material == null) {
             player.sendMessage(languageService.text(player, Message.HOME_ICON_HAND_INVALID, NamedTextColor.RED));
             return;
@@ -691,10 +714,12 @@ public class HomeModule implements Listener {
             player.sendMessage(homeMessage(player, Message.HOME_NOT_FOUND_RICH, name, NamedTextColor.RED));
             return;
         }
-        FloatingMenus.current(player).ifPresent(handle -> handle.close());
-        player.teleportAsync(loc).thenAccept(success -> {
+        homeScreen.flow(player).ifPresent(flow -> flow.close());
+        player.teleportAsync(loc).whenComplete((success, error) -> {
+            if (!plugin.isEnabled()) return;
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                if (success) {
+                if (!player.isOnline()) return;
+                if (error == null && Boolean.TRUE.equals(success)) {
                     player.sendMessage(homeMessage(player, Message.HOME_TELEPORTED_RICH, name, NamedTextColor.GREEN));
                 } else {
                     player.sendMessage(languageService.text(player, Message.HOME_TELEPORT_FAILED, NamedTextColor.RED));
@@ -728,28 +753,6 @@ public class HomeModule implements Listener {
         return null;
     }
 
-    /**
-     * 主线程做快照，异步写盘。
-     * 用 createSection 而非点路径拼接；家名支持中文/点号，< > : 作为格式保留符号。
-     */
-    private void save() {
-        Map<UUID, Map<String, HomeEntry>> snapshot = new HashMap<>();
-        cache.forEach((uuid, homes) -> snapshot.put(uuid, new HashMap<>(homes)));
-
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
-            YamlConfiguration yml = new YamlConfiguration();
-            snapshot.forEach((uuid, homes) -> {
-                var section = yml.createSection(uuid.toString());
-                homes.forEach((name, entry) -> section.set(formatHomeKey(name, entry), entry.locationRaw()));
-            });
-            try {
-                yml.save(dataFile);
-            } catch (IOException e) {
-                plugin.getLogger().severe("Failed to save homes.yml: " + e.getMessage());
-            }
-        });
-    }
-
     private boolean isValidHomeName(String name) {
         return !name.isBlank()
                 && name.indexOf('<') < 0
@@ -761,35 +764,7 @@ public class HomeModule implements Listener {
         player.sendMessage(languageService.text(player, Message.HOME_INVALID_NAME, NamedTextColor.RED));
     }
 
-    private ParsedHomeKey parseHomeKey(String storedName) {
-        int left = storedName.lastIndexOf('<');
-        int right = storedName.endsWith(">") ? storedName.length() - 1 : -1;
-        if (left > 0 && right > left) {
-            String name = storedName.substring(0, left);
-            Material icon = parseIconMaterial(storedName.substring(left + 1, right));
-            if (icon != null) {
-                return new ParsedHomeKey(name, icon);
-            }
-        }
-        return new ParsedHomeKey(storedName, null);
-    }
-
-    private String formatHomeKey(String name, HomeEntry entry) {
-        if (entry.icon() == null) {
-            return name;
-        }
-        return name + "<" + entry.icon().name() + ">";
-    }
-
-    private Material parseIconMaterial(String input) {
-        Material material = Material.matchMaterial(input.toUpperCase(Locale.ROOT));
-        if (material == null || !material.isItem() || material == Material.AIR) {
-            return null;
-        }
-        return material;
-    }
-
-    private Material homeMaterial(String homeName, HomeEntry entry, Location location) {
+    private Material homeMaterial(String homeName, HomeStore.Entry entry, Location location) {
         if (entry != null && entry.icon() != null && entry.icon().isItem() && entry.icon() != Material.AIR) {
             return entry.icon();
         }
@@ -816,9 +791,6 @@ public class HomeModule implements Listener {
                 Math.round(player.getLocation().distance(location)));
     }
 
-    private record HomeEntry(String locationRaw, Material icon) {
-    }
-
     private record HomeMenuState(int pageIndex, String focusedHome) {
         private HomeMenuState {
             if (pageIndex < 0) throw new IllegalArgumentException("Page index must not be negative");
@@ -828,6 +800,11 @@ public class HomeModule implements Listener {
     private record HomePresentation(Material material, Component label) {
     }
 
-    private record ParsedHomeKey(String name, Material icon) {
+    private enum HomeWriteResult {
+        SAVED,
+        INVALID_NAME,
+        ALREADY_EXISTS,
+        MAX_REACHED
     }
+
 }

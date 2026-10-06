@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuAppearance;
 import org.encinet.mik.module.menu.FloatingMenuFraming;
 import org.encinet.mik.module.menu.FloatingMenuLayouts;
 import org.encinet.mik.module.menu.FloatingMenuScreen;
@@ -51,7 +52,8 @@ public final class RhythmCalibrationPrompt {
                         "rhythm-calibration-prompt",
                         languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_PROMPT_TITLE,
-                                NamedTextColor.GOLD))
+                                MusicMenuPalette.RHYTHM))
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .requireSpatialPresentation()
                 .stableAnchor()
                 .framing(FloatingMenuFraming.COMFORTABLE)

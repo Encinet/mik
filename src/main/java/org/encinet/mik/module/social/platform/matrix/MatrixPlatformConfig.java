@@ -34,6 +34,7 @@ public record MatrixPlatformConfig(
         boolean contentSafetyEnabled,
         int maxOutboundLength
 ) {
+    public static final String PLATFORM_ID = "matrix";
     public static final String FILE_NAME = "social/matrix.yml";
     private static final String DEFAULT_HOMESERVER = "https://matrix-client.matrix.org";
 

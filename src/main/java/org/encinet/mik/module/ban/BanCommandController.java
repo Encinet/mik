@@ -21,7 +21,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
+import org.encinet.mik.module.role.RolePermissions;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -40,8 +40,6 @@ import java.util.regex.Pattern;
 
 final class BanCommandController {
 
-    private static final String HELPER_PERMISSION = "group." + Mik.GROUP_HELPER;
-    private static final String MANAGER_PERMISSION = "group." + Mik.GROUP_MANAGER;
     private static final int BANS_PER_PAGE = 10;
     private static final Pattern PLAYER_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_]{3,16}$");
 
@@ -133,7 +131,7 @@ final class BanCommandController {
     }
 
     static boolean canManageBans(CommandSender sender) {
-        return sender.hasPermission(HELPER_PERMISSION) || sender.hasPermission(MANAGER_PERMISSION);
+        return RolePermissions.canModerate(sender);
     }
 
     private int openBanDialog(CommandContext<CommandSourceStack> context) {

@@ -12,6 +12,7 @@ import org.bukkit.entity.TNTPrimed;
 import org.bukkit.entity.Tameable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustByEntityEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -20,6 +21,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 
@@ -39,6 +41,7 @@ final class PvpCombatController implements Listener {
     private final PvpStateResolver stateResolver;
     private final Map<UUID, PendingAttack> pendingAutoEnable = new ConcurrentHashMap<>();
     private final Map<UUID, Long> combatTaggedUntil = new ConcurrentHashMap<>();
+    private BukkitTask cleanupTask;
 
     PvpCombatController(JavaPlugin plugin, LanguageService languageService, PvpSettingsStore settingsStore,
                         PvpStateResolver stateResolver) {
@@ -50,7 +53,18 @@ final class PvpCombatController implements Listener {
 
     void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        Bukkit.getScheduler().runTaskTimer(plugin, this::cleanupExpiredCombatTags, 20L * 60L, 20L * 60L);
+        cleanupTask = Bukkit.getScheduler().runTaskTimer(
+                plugin, this::cleanupExpiredCombatTags, 20L * 60L, 20L * 60L);
+    }
+
+    void disable() {
+        if (cleanupTask != null) {
+            cleanupTask.cancel();
+            cleanupTask = null;
+        }
+        HandlerList.unregisterAll(this);
+        pendingAutoEnable.clear();
+        combatTaggedUntil.clear();
     }
 
     void onPvpStateChanged(UUID playerId) {

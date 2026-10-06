@@ -52,6 +52,13 @@ public final class PlayerNameTagRenderer {
         luckPerms = provider.getProvider();
     }
 
+    public void disable() {
+        luckPerms = null;
+        resolvedTags.clear();
+        reportedLoadFailures.clear();
+        reportedInvalidDecorations.clear();
+    }
+
     public PlayerNameTag current(Player player) {
         Objects.requireNonNull(player, "player");
         if (luckPerms == null) {

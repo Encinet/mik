@@ -266,7 +266,7 @@ final class MatrixPlatformSession implements SocialChatPlatformSession {
                     : request.candidates()) {
                 String userId = candidate.key().subject();
                 if (candidate.key().platform().equals(
-                        MatrixPlatformAdapter.DESCRIPTOR.id())
+                        MatrixPlatformConfig.PLATFORM_ID)
                         && !userId.equals(authenticatedUserId)) {
                     members.joinedMember(conversation.id(), userId)
                             .ifPresent(member -> joined.putIfAbsent(

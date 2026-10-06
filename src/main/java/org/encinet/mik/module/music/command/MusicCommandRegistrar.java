@@ -1,5 +1,7 @@
 package org.encinet.mik.module.music.command;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -12,8 +14,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.encinet.mik.Mik;
-import org.encinet.mik.module.music.MusicModule;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -30,7 +30,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-/** Registers the player and manager command surface for the music application. */
+/** Registers the player and custodian command surface for the music application. */
 public final class MusicCommandRegistrar {
 
     private final LanguageService languageService;
@@ -38,14 +38,14 @@ public final class MusicCommandRegistrar {
     private final RandomMusicActions randomActions;
     private final LxSourceService sourceService;
     private final OnlineAudioCache audioCache;
-    private final Supplier<CompletableFuture<MusicModule.ReloadReport>> reload;
+    private final Supplier<CompletableFuture<MusicReloadReport>> reload;
     private final Runnable restorePlayback;
     private final Consumer<Runnable> runOnMainThread;
 
     public MusicCommandRegistrar(LanguageService languageService, MusicBrowserGui browser,
                                  RandomMusicActions randomActions,
                                  LxSourceService sourceService, OnlineAudioCache audioCache,
-                                 Supplier<CompletableFuture<MusicModule.ReloadReport>> reload,
+                                 Supplier<CompletableFuture<MusicReloadReport>> reload,
                                  Runnable restorePlayback,
                                  Consumer<Runnable> runOnMainThread) {
         this.languageService = languageService;
@@ -65,10 +65,10 @@ public final class MusicCommandRegistrar {
                     .executes(context -> openBrowser(context.getSource().getSender(),
                             context.getSource().getExecutor()))
                     .then(Commands.literal("reload")
-                            .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_MANAGER))
+                            .requires(source -> source.getSender().hasPermission(RolePermissions.CUSTODIAN))
                             .executes(context -> reload(context.getSource().getSender())))
                     .then(Commands.literal("sources")
-                            .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_MANAGER))
+                            .requires(source -> source.getSender().hasPermission(RolePermissions.CUSTODIAN))
                             .executes(context -> {
                                 sendSourceStatuses(context.getSource().getSender());
                                 return Command.SINGLE_SUCCESS;
@@ -94,7 +94,7 @@ public final class MusicCommandRegistrar {
                                     .executes(context -> updateRemoteSources(
                                             context.getSource().getSender()))))
                     .then(Commands.literal("cache")
-                            .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_MANAGER))
+                            .requires(source -> source.getSender().hasPermission(RolePermissions.CUSTODIAN))
                             .executes(context -> {
                                 sendCacheStatus(context.getSource().getSender());
                                 return Command.SINGLE_SUCCESS;

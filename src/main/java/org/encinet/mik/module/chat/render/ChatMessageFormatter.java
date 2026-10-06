@@ -2,15 +2,19 @@ package org.encinet.mik.module.chat.render;
 
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.chat.ChatDisplayRenderer;
+import org.encinet.mik.module.chat.model.ChatSender;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.identity.ExternalIdentity;
 import org.encinet.mik.module.player.identity.PlayerIdentityComponent;
 import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
 import org.encinet.mik.module.player.identity.PlayerNameTag;
@@ -18,6 +22,7 @@ import org.encinet.mik.module.player.identity.PlayerNameTag;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 public final class ChatMessageFormatter {
 
@@ -49,6 +54,77 @@ public final class ChatMessageFormatter {
     ) {
         return externalPublicMessage(platformName, senderIdentity, message, copyText,
                 copyHint(viewer));
+    }
+
+    /** Resolves the linked Minecraft identity and renders its platform details for one viewer. */
+    public Component externalPublicMessage(
+            String platformName,
+            ChatSender sender,
+            Audience viewer,
+            Component message,
+            String copyText
+    ) {
+        return externalPublicMessage(platformName,
+                externalSenderIdentity(platformName, sender, viewer),
+                viewer, message, copyText);
+    }
+
+    private Component externalSenderIdentity(
+            String platformName, ChatSender sender, Audience viewer
+    ) {
+        Player onlinePlayer = sender.minecraftId().map(Bukkit::getPlayer).orElse(null);
+        if (sender.minecraftId().isPresent()) {
+            UUID playerId = sender.minecraftId().orElseThrow();
+            String visiblePlayerName = onlinePlayer == null
+                    ? sender.minecraftName() : onlinePlayer.getName();
+            OfflinePlayer identityPlayer = onlinePlayer == null
+                    ? Bukkit.getOfflinePlayer(playerId) : onlinePlayer;
+            Component baseName = onlinePlayer == null
+                    ? ChatDisplayRenderer.clickablePlayerName(
+                            Component.text(visiblePlayerName, NamedTextColor.WHITE),
+                            visiblePlayerName)
+                    : ChatDisplayRenderer.playerName(onlinePlayer);
+            Component details = externalSenderDetails(platformName, sender,
+                    visiblePlayerName, viewer);
+            return externalPlayerIdentity(identityPlayer, viewer, baseName,
+                    new PlayerNameTag(sender.prefix(), sender.suffix()), details);
+        }
+        return Component.text(sender.displayName(), NamedTextColor.WHITE)
+                .hoverEvent(HoverEvent.showText(
+                        externalSenderDetails(platformName, sender, null, viewer)));
+    }
+
+    private Component externalSenderDetails(
+            String platformName, ChatSender sender,
+            String visiblePlayerName, Audience viewer
+    ) {
+        TextComponent.Builder details = Component.text()
+                .append(Component.text(platformName, NamedTextColor.AQUA))
+                .append(Component.newline())
+                .append(detailLine(viewer, Message.CHAT_SOCIAL_NAME_LABEL,
+                        sender.externalIdentity()
+                                .map(ExternalIdentity::displayName)
+                                .filter(value -> !value.isBlank())
+                                .orElse(sender.displayName()),
+                        NamedTextColor.WHITE));
+        sender.externalIdentity().map(ExternalIdentity::key).ifPresent(key -> details
+                .append(Component.newline())
+                .append(detailLine(viewer, Message.CHAT_SOCIAL_ACCOUNT_LABEL,
+                        key.subject(), NamedTextColor.GRAY)));
+        details.append(Component.newline()).append(Component.newline());
+        if (sender.minecraftId().isPresent()) {
+            details.append(detailLine(viewer,
+                            Message.CHAT_SOCIAL_BOUND_PLAYER_LABEL,
+                            visiblePlayerName, NamedTextColor.WHITE))
+                    .append(Component.newline())
+                    .append(detailLine(viewer, Message.SOCIAL_PROFILE_UUID_LABEL,
+                            sender.minecraftId().orElseThrow().toString(),
+                            NamedTextColor.DARK_GRAY));
+        } else {
+            details.append(Component.text(localized(
+                    viewer, Message.CHAT_SOCIAL_UNBOUND), NamedTextColor.YELLOW));
+        }
+        return details.build();
     }
 
     static Component externalPublicMessage(

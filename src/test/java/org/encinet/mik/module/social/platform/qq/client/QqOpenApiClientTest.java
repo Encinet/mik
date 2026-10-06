@@ -119,6 +119,34 @@ class QqOpenApiClientTest {
     }
 
     @Test
+    void proactiveGroupMarkdownOmitsPassiveReplyFields() throws Exception {
+        List<String> bodies = new ArrayList<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"test-token\",\"expires_in\":\"7200\"}"));
+        server.createContext("/v2/groups/group-id/messages", exchange -> {
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(),
+                    StandardCharsets.UTF_8));
+            respond(exchange, 200, "{\"id\":\"sent-message\"}");
+        });
+        server.start();
+
+        QqPlatformConfig config = config(server.getAddress().getPort());
+        HttpClient httpClient = HttpClient.newHttpClient();
+        QqOpenApiClient api = new QqOpenApiClient(httpClient, config);
+
+        api.sendMarkdown("group-id", "Alex: hello").join();
+
+        JsonObject body = JsonParser.parseString(bodies.getFirst()).getAsJsonObject();
+        assertEquals(2, body.get("msg_type").getAsInt());
+        assertEquals("Alex: hello", body.getAsJsonObject("markdown")
+                .get("content").getAsString());
+        assertFalse(body.has("msg_id"));
+        assertFalse(body.has("msg_seq"));
+        httpClient.shutdownNow();
+    }
+
+    @Test
     void remoteImageIsUploadedThenSentAsNativeMediaWithText() throws Exception {
         List<String> uploadBodies = new ArrayList<>();
         List<String> messageBodies = new ArrayList<>();
@@ -239,6 +267,10 @@ class QqOpenApiClientTest {
                 () -> api.replyMarkdown("group-id", "incoming-id", 6, "## message"));
         assertThrows(IllegalArgumentException.class,
                 () -> api.replyMarkdown("group-id", "incoming-id", 1, " "));
+        assertThrows(IllegalArgumentException.class,
+                () -> api.sendMarkdown("", "message"));
+        assertThrows(IllegalArgumentException.class,
+                () -> api.sendMarkdown("group-id", " "));
         httpClient.shutdownNow();
     }
 

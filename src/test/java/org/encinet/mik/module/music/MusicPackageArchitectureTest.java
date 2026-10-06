@@ -127,9 +127,11 @@ class MusicPackageArchitectureTest {
         assertFalse(sessions.contains("Map<UUID, Session>"));
         assertTrue(gui.contains("FloatingMenuScreen<MusicBrowserSessions.Session>"));
         assertTrue(gui.contains("FloatingMenuLayouts.sidecar("));
-        assertTrue(gui.contains("menu.item(\"selected-track\""));
-        assertTrue(gui.contains("Message.MUSIC_BROWSER_LEFT_ADD_QUEUE"));
-        assertTrue(gui.contains("Message.MUSIC_BROWSER_RIGHT_PLAY_NEARBY"));
+        assertTrue(gui.contains("menu.control(\"track:\""));
+        assertTrue(gui.contains(".secondary((p, handle) -> actions.track(p, track, true))"));
+        assertTrue(gui.contains("menu.information(\"track-details\""));
+        assertTrue(gui.contains("Message.MUSIC_ACTION_ADD_QUEUE"));
+        assertTrue(gui.contains("Message.MUSIC_ACTION_PLAY_NEARBY"));
         assertTrue(sessions.contains("Map<UUID, JukeboxContext>"));
         assertTrue(sessions.contains("focusedTrackOnPage("));
         assertTrue(sessions.contains("completeSearch("));
@@ -243,10 +245,13 @@ class MusicPackageArchitectureTest {
                 "/** Stops and discards the song clock");
         String musicControls = method(gui,
                 "private void addMusicModeControls(",
-                "private void addQueue(");
+                "private void addQueuePanel(");
         String rhythmControls = method(gui,
                 "private void addRhythmModeControls(",
-                "private void addSoundControls(");
+                "private void addPanelButton(");
+        String queueControls = method(gui,
+                "private void addQueuePanel(",
+                "private void addRhythmModeControls(");
 
         assertTrue(settings.contains("readExperienceMode(Jukebox jukebox)"));
         assertTrue(settings.contains("writeExperienceMode(Jukebox jukebox"));
@@ -267,7 +272,9 @@ class MusicPackageArchitectureTest {
         assertTrue(gui.contains("\"experience-mode\""));
         assertTrue(musicControls.contains("\"playback-mode\""));
         assertTrue(musicControls.contains("\"play-next\""));
-        assertTrue(musicControls.contains("\"queue:clear\""));
+        assertTrue(musicControls.contains("\"open-queue\""));
+        assertTrue(queueControls.contains("\"queue:clear\""));
+        assertTrue(queueControls.contains("\"queue:play\""));
         assertFalse(musicControls.contains("\"rhythm-game\""));
         assertFalse(rhythmControls.contains("\"prepare-rhythm-track\""));
         assertTrue(rhythmControls.contains("\"rhythm-game\""));
@@ -457,7 +464,7 @@ class MusicPackageArchitectureTest {
         assertTrue(gui.contains("MusicDiscKeys.isCustomDisc(jukebox.getRecord())"));
         assertTrue(gui.contains("worldItemDecoration(\"disc\""));
         assertTrue(gui.contains("FloatingMenuDecoration.Motion.SPIN"));
-        assertTrue(gui.contains("FloatingMenuAppearance.TRANSPARENT"));
+        assertTrue(gui.contains(".region(\"now-playing\")"));
         assertFalse(gui.contains("MUSIC_JUKEBOX_TITLE"));
         assertFalse(gui.contains("element(\"current\""));
         assertTrue(gui.contains("if (control.jukebox().hasRecord())"));
@@ -470,6 +477,7 @@ class MusicPackageArchitectureTest {
             throws IOException {
         String rhythm = source("rhythm/RhythmGameService.java");
         String calibration = source("rhythm/RhythmLatencyCalibration.java");
+        String calibrationStore = source("rhythm/RhythmCalibrationStore.java");
 
         assertTrue(rhythm.contains(
                 ".movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)"));
@@ -489,19 +497,20 @@ class MusicPackageArchitectureTest {
         assertTrue(rhythm.contains("player.setVelocity(player.getVelocity().zero())"));
         assertTrue(rhythm.contains("game.latency.inputPosition("));
         assertTrue(rhythm.contains("game.latency.missPosition("));
-        assertTrue(rhythm.contains("RhythmLatencyProfile profile = calibrationProfiles(player)"));
+        assertTrue(rhythm.contains("RhythmLatencyProfile profile = calibrationStore.profiles(player)"));
         assertTrue(rhythm.contains(".forChannel(playback.audioChannel())"));
         assertTrue(rhythm.contains("profile.judgementOffsetMillis()"));
         assertTrue(rhythm.contains("profile.animationOffsetMillis()"));
-        assertTrue(rhythm.contains("rhythm_minecraft_judgement_ms"));
-        assertTrue(rhythm.contains("rhythm_minecraft_animation_ms"));
-        assertTrue(rhythm.contains("rhythm_plasmo_judgement_ms"));
-        assertTrue(rhythm.contains("rhythm_plasmo_animation_ms"));
-        assertFalse(rhythm.contains("rhythm_latency_base_calibration_ms"));
-        assertFalse(rhythm.contains("rhythm_animation_calibration_ms"));
-        assertFalse(rhythm.contains("rhythm_latency_calibration_ms"));
-        assertFalse(rhythm.contains("rhythm_latency_nbs_calibration_ms"));
-        assertTrue(rhythm.contains("PersistentDataType.INTEGER"));
+        assertTrue(calibrationStore.contains("rhythm_minecraft_judgement_ms"));
+        assertTrue(calibrationStore.contains("rhythm_minecraft_animation_ms"));
+        assertTrue(calibrationStore.contains("rhythm_plasmo_judgement_ms"));
+        assertTrue(calibrationStore.contains("rhythm_plasmo_animation_ms"));
+        assertFalse(calibrationStore.contains("rhythm_latency_base_calibration_ms"));
+        assertFalse(calibrationStore.contains("rhythm_animation_calibration_ms"));
+        assertFalse(calibrationStore.contains("rhythm_latency_calibration_ms"));
+        assertFalse(calibrationStore.contains("rhythm_latency_nbs_calibration_ms"));
+        assertTrue(calibrationStore.contains("PersistentDataType.INTEGER"));
+        assertFalse(rhythm.contains("PersistentDataType.INTEGER"));
         assertTrue(rhythm.contains(
                 ".currentNetworkRttMillis(player.getPing())"));
         assertTrue(rhythm.contains(
@@ -571,7 +580,7 @@ class MusicPackageArchitectureTest {
         String rhythm = source("rhythm/RhythmGameService.java");
         String module = source("MusicModule.java");
         String controls = method(gui, "private void addRhythmModeControls(",
-                "private void addSoundControls(");
+                "private void addPanelButton(");
 
         assertEquals(1, occurrences(controls, "rhythmControl.disabled("),
                 "only an unavailable rhythm track may disable Start Game");

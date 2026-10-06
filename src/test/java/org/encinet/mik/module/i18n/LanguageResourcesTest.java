@@ -45,6 +45,7 @@ class LanguageResourcesTest {
     private static final Set<String> EXPECTED_KEYS = expectedKeys();
     private static final Set<String> ARGUMENT_MARKERS = Set.of(
             "__MIK_ARG0__", "__MIK_ARG1__", "__MIK_ARG2__", "__MIK_ARG3__", "__MIK_ARG4__",
+            "__MIK_ARG5__", "__MIK_ARG6__", "__MIK_ARG7__",
             "__MIK_COMMAND__", "__MIK_COUNT__", "__MIK_DAYS__", "__MIK_DURATION__",
             "__MIK_HOME__", "__MIK_HOMES__", "__MIK_KEYWORD__", "__MIK_LABEL__",
             "__MIK_LOCATION__", "__MIK_MAX__", "__MIK_MSPT__", "__MIK_MUSIC__",
@@ -70,6 +71,9 @@ class LanguageResourcesTest {
                 .add("arg2", "__MIK_ARG2__")
                 .add("arg3", "__MIK_ARG3__")
                 .add("arg4", "__MIK_ARG4__")
+                .add("arg5", "__MIK_ARG5__")
+                .add("arg6", "__MIK_ARG6__")
+                .add("arg7", "__MIK_ARG7__")
                 .add("command", "__MIK_COMMAND__")
                 .add("count", "__MIK_COUNT__")
                 .add("days", "__MIK_DAYS__")
@@ -131,12 +135,14 @@ class LanguageResourcesTest {
     }
 
     @Test
-    void musicDiscFooterUsesGenericLocalizedNaming() throws IOException {
+    void musicDiscActionsUseGenericLocalizedNaming() throws IOException {
         var arguments = ArgumentListBuilder.builder().build();
         for (Language language : Language.values()) {
-            String footer = resolve(bundle(language), Message.MUSIC_DISC_FOOTER.key(), arguments);
-            assertFalse(footer.toLowerCase(java.util.Locale.ROOT).contains("plasmo voice"),
-                    () -> language.id() + " music disc footer contains implementation branding");
+            for (Message message : Set.of(Message.MUSIC_DISC_LEFT, Message.MUSIC_DISC_RIGHT)) {
+                String action = resolve(bundle(language), message.key(), arguments);
+                assertFalse(action.toLowerCase(java.util.Locale.ROOT).contains("plasmo voice"),
+                        () -> language.id() + " music disc action contains implementation branding");
+            }
         }
     }
 
@@ -192,6 +198,28 @@ class LanguageResourcesTest {
             assertTrue(unchanged <= 8,
                     () -> language.id() + " leaves " + unchanged
                             + " social messages untranslated");
+        }
+    }
+
+    @Test
+    void everyNonEnglishLocaleTranslatesTheGovernanceSurface() throws IOException {
+        var arguments = ArgumentListBuilder.builder()
+                .add("arg0", "A").add("arg1", "B").add("arg2", "C")
+                .add("arg3", "D").add("arg4", "E").add("arg5", "F")
+                .add("arg6", "G").add("arg7", "H").build();
+        FluentBundle english = bundle(Language.EN_US);
+        Set<String> governanceKeys = MESSAGE_KEYS.stream()
+                .filter(key -> key.startsWith("governance-"))
+                .collect(Collectors.toUnmodifiableSet());
+        for (Language language : Language.values()) {
+            if (language == Language.EN_US) continue;
+            FluentBundle localized = bundle(language);
+            long unchanged = governanceKeys.stream().filter(key ->
+                    resolve(english, key, arguments).equals(
+                            resolve(localized, key, arguments))).count();
+            assertTrue(unchanged <= 8,
+                    () -> language.id() + " leaves " + unchanged
+                            + " governance messages untranslated");
         }
     }
 

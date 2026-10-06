@@ -1,5 +1,5 @@
 package org.encinet.mik.module.social.platform.qq;
-import org.encinet.mik.module.social.api.SocialPlatformPlan;
+import org.encinet.mik.module.social.runtime.SocialPlatformPlan;
 import org.encinet.mik.module.social.api.SocialPlatformRuntimeContext;
 import org.encinet.mik.module.social.api.SocialPlatformSession;
 import org.encinet.mik.module.social.command.SocialCommandSyntax;
@@ -43,6 +43,6 @@ record QqPlatformPlan(
         QqGatewaySession gateway = new QqGatewaySession(
                 httpClient, config, tokenProvider, inbound::accept,
                 context.status()::update, logger);
-        return new QqPlatformSession(gateway, httpClient);
+        return new QqPlatformSession(gateway, httpClient, api, config);
     }
 }

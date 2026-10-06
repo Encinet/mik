@@ -3,11 +3,18 @@ package org.encinet.mik.module.social.platform.qq;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.social.api.SocialConversation;
+import org.encinet.mik.module.social.chat.SocialChatOutboundPolicy;
+import org.encinet.mik.module.social.chat.SocialChatRoute;
 
 import java.io.File;
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 public record QqPlatformConfig(
@@ -25,10 +32,12 @@ public record QqPlatformConfig(
         int workerMaxConcurrentTasks,
         Language defaultLanguage,
         Set<String> allowedGroupOpenIds,
+        List<SocialChatRoute> chatRoutes,
         boolean contentSafetyEnabled,
         int maxOutboundLength
 ) {
 
+    public static final String PLATFORM_ID = "qq";
     public static final String FILE_NAME = "social/qq.yml";
     public static final String SAFETY_FILE_NAME = "social/blocked-keywords.txt";
     private static final String LEGACY_FILE_NAME = "qq-bot.yml";
@@ -100,6 +109,7 @@ public record QqPlatformConfig(
                         "default-language is not supported"));
 
         Set<String> allowedGroups = stringSet(yaml, "allowed-group-openids");
+        List<SocialChatRoute> chatRoutes = chatRoutes(yaml, allowedGroups);
         boolean contentSafety = yaml.getBoolean("content-safety.enabled", true);
         int maxLength = (int) clamp(yaml.getInt("reply.max-message-length", 1_500),
                 100, 4_000);
@@ -114,11 +124,17 @@ public record QqPlatformConfig(
                 gatewayMaxReconnectAttempts, gatewayMaxFrameBytes,
                 gatewayHandshakeTimeoutMillis, gatewayDebugEnabled,
                 workerMaxConcurrentTasks, defaultLanguage, allowedGroups,
-                contentSafety, maxLength);
+                chatRoutes, contentSafety, maxLength);
     }
 
     public boolean acceptsGroup(String groupOpenId) {
         return allowedGroupOpenIds.isEmpty() || allowedGroupOpenIds.contains(groupOpenId);
+    }
+
+    public Optional<SocialChatRoute> chatRoute(String groupOpenId) {
+        return chatRoutes.stream()
+                .filter(route -> route.conversation().id().equals(groupOpenId))
+                .findFirst();
     }
 
     public URI apiUri(String path) {
@@ -134,10 +150,82 @@ public record QqPlatformConfig(
         LinkedHashSet<String> values = new LinkedHashSet<>();
         for (String value : yaml.getStringList(path)) {
             if (value != null && !value.isBlank()) {
-                values.add(value.strip());
+                String groupOpenId = value.strip();
+                requireGroupOpenId(groupOpenId, path);
+                values.add(groupOpenId);
+                if (values.size() > 256) {
+                    throw new IllegalArgumentException(
+                            path + " supports at most 256 groups");
+                }
             }
         }
         return Collections.unmodifiableSet(values);
+    }
+
+    private static List<SocialChatRoute> chatRoutes(
+            YamlConfiguration yaml,
+            Set<String> allowedGroups
+    ) {
+        java.util.ArrayList<SocialChatRoute> routes = new java.util.ArrayList<>();
+        LinkedHashSet<String> groupOpenIds = new LinkedHashSet<>();
+        for (Map<?, ?> entry : yaml.getMapList("chat-bridge.routes")) {
+            String groupOpenId = configuredValue(string(entry.get("group-openid")));
+            requireGroupOpenId(groupOpenId, "chat-bridge.routes group-openid");
+            if (!allowedGroups.isEmpty() && !allowedGroups.contains(groupOpenId)) {
+                throw new IllegalArgumentException(
+                        "chat-bridge.routes group-openid must also appear in "
+                                + "allowed-group-openids");
+            }
+            if (!groupOpenIds.add(groupOpenId)) {
+                throw new IllegalArgumentException(
+                        "chat-bridge.routes contains duplicate group-openid "
+                                + groupOpenId);
+            }
+            Map<?, ?> outbound = map(entry.get("outbound"));
+            String modeName = configuredValue(string(outbound.get("mode")));
+            SocialChatOutboundPolicy.Mode mode;
+            try {
+                mode = SocialChatOutboundPolicy.Mode.valueOf(
+                        (modeName.isEmpty() ? "always" : modeName)
+                                .toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException error) {
+                throw new IllegalArgumentException(
+                        "chat-bridge.routes outbound.mode must be always or prefix", error);
+            }
+            SocialChatOutboundPolicy policy = mode == SocialChatOutboundPolicy.Mode.ALWAYS
+                    ? SocialChatOutboundPolicy.always()
+                    : SocialChatOutboundPolicy.prefixed(
+                    string(outbound.get("prefix")),
+                    bool(outbound.get("strip-prefix"), true));
+            routes.add(new SocialChatRoute(
+                    new SocialConversation(groupOpenId, SocialConversation.Type.GROUP),
+                    policy));
+            if (routes.size() > 256) {
+                throw new IllegalArgumentException(
+                        "chat-bridge.routes supports at most 256 groups");
+            }
+        }
+        return List.copyOf(routes);
+    }
+
+    private static void requireGroupOpenId(String value, String field) {
+        if (value.isBlank() || value.length() > 256
+                || value.codePoints().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException(
+                    field + " entries must be non-blank QQ group OpenIDs");
+        }
+    }
+
+    private static Map<?, ?> map(Object value) {
+        return value instanceof Map<?, ?> map ? map : Map.of();
+    }
+
+    private static String string(Object value) {
+        return value instanceof String text ? text : "";
+    }
+
+    private static boolean bool(Object value, boolean fallback) {
+        return value instanceof Boolean result ? result : fallback;
     }
 
     private static URI parseHttpUri(String value, String field) {

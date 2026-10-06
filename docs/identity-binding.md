@@ -33,7 +33,7 @@ MIK 的身份绑定是独立于 QQ 的通用基础设施。Minecraft 账号以 U
 
 验证码由密码学安全随机源生成，共 10 个不易混淆的 Base32 字符，显示为 `XXXXX-XXXXX`。验证码 5 分钟后过期，只能成功兑换一次；同一玩家重新生成同一平台验证码时，旧码立即失效。数据库只保存验证码的 SHA-256 摘要，不保存明文。
 
-拥有 `group.manager` 权限的管理员可以使用：
+拥有 `group.custodian` 权限的管理员可以使用：
 
 ```text
 /bindadmin lookup <玩家或UUID>

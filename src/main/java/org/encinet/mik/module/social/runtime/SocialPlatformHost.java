@@ -1,12 +1,11 @@
 package org.encinet.mik.module.social.runtime;
 
 import org.encinet.mik.module.chat.model.ChatMessage;
-import org.encinet.mik.module.social.api.SocialPlatformAdapter;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
-import org.encinet.mik.module.social.api.SocialPlatformPlan;
 import org.encinet.mik.module.social.chat.SocialChatGateway;
-import org.encinet.mik.module.social.chat.SocialChatPublisher;
-import org.encinet.mik.module.social.chat.SocialChatPublishReport;
+import org.encinet.mik.module.chat.bridge.SocialChatPublisher;
+import org.encinet.mik.module.social.chat.SocialDirectedNotice;
+import org.encinet.mik.module.chat.bridge.SocialChatPublishReport;
 import org.encinet.mik.module.social.chat.SocialMentionBindingDirectory;
 import org.encinet.mik.module.social.command.SocialCommandDispatcher;
 
@@ -159,6 +158,16 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
         SocialChatPublishReport report = SocialChatPublishReport.empty();
         for (SocialPlatformGeneration generation : generations.values()) {
             report = report.plus(generation.publishChat(message));
+        }
+        return report;
+    }
+
+    public synchronized SocialChatPublishReport publishDirectedNotice(SocialDirectedNotice notice) {
+        Objects.requireNonNull(notice, "notice");
+        if (closed) return SocialChatPublishReport.empty();
+        SocialChatPublishReport report = SocialChatPublishReport.empty();
+        for (SocialPlatformGeneration generation : generations.values()) {
+            report = report.plus(generation.publishDirectedNotice(notice));
         }
         return report;
     }

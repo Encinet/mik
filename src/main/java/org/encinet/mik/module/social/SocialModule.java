@@ -4,15 +4,18 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.afk.AfkService;
+import org.encinet.mik.module.ai.api.AiGateway;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.identity.IdentityBindingManager;
 import org.encinet.mik.module.social.chat.SocialChatGateway;
-import org.encinet.mik.module.social.chat.SocialChatPublisher;
+import org.encinet.mik.module.chat.bridge.SocialChatPublisher;
+import org.encinet.mik.module.social.chat.SocialDirectedNotice;
 import org.encinet.mik.module.social.command.SocialCommand;
 import org.encinet.mik.module.social.command.SocialCommandDispatcher;
 import org.encinet.mik.module.social.command.SocialCommandLanguageResolver;
+import org.encinet.mik.module.social.command.builtin.AiSocialCommand;
 import org.encinet.mik.module.social.command.builtin.LinkIdentityCommand;
 import org.encinet.mik.module.social.command.builtin.OnlinePlayersCommand;
 import org.encinet.mik.module.social.command.builtin.PlayerProfileCommand;
@@ -38,6 +41,7 @@ import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.logging.Level;
 
 /** Bukkit composition root for shared social features and platform adapters. */
@@ -50,17 +54,20 @@ public final class SocialModule {
             IdentityBindingManager identityBindings,
             LanguageService languages,
             AfkService afkService,
-            SocialChatGateway chatGateway
+            SocialChatGateway chatGateway,
+            AiGateway ai
     ) {
         Objects.requireNonNull(plugin, "plugin");
         Objects.requireNonNull(languages, "languages");
         Objects.requireNonNull(chatGateway, "chatGateway");
+        Objects.requireNonNull(ai, "ai");
         SocialCommandLanguageResolver languageResolver = new SocialCommandLanguageResolver(
                 identityBindings, languages);
         SocialGameService game = new BukkitSocialGameService(plugin, afkService,
                 new BukkitMainThreadGateway(plugin));
 
         List<SocialCommand<?, ?>> featureCommands = List.of(
+                new AiSocialCommand(ai, languageResolver, languages, plugin.getLogger()),
                 new OnlinePlayersCommand(game, languageResolver, languages),
                 new ServerStatusCommand(game, languageResolver, languages),
                 new LinkIdentityCommand(identityBindings, languageResolver, languages),
@@ -102,6 +109,11 @@ public final class SocialModule {
 
     public SocialChatPublisher chatPublisher() {
         return host;
+    }
+
+    /** Tries a native mention in a configured conversation linked to the player. */
+    public void notifyPlayer(UUID playerId, String playerName, String body) {
+        host.publishDirectedNotice(new SocialDirectedNotice(playerId, playerName, body));
     }
 
     private static SocialContentGuard loadContentGuard(

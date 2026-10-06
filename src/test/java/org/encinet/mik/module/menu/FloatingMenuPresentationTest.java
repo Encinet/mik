@@ -25,6 +25,7 @@ class FloatingMenuPresentationTest {
         FloatingMenuDefinition definition = FloatingMenuDefinition.builder().build();
 
         assertEquals(FloatingMenuViewpoint.POSE_AWARE, definition.viewpoint());
+        assertEquals(FloatingMenuSpatialFrame.IN_FRONT, definition.spatialFrame());
         assertEquals(1.27, definition.viewpoint().eyeHeight(1.27, 1.62));
         assertEquals(1.62,
                 FloatingMenuViewpoint.STANDING.eyeHeight(1.27, 1.62));
@@ -38,6 +39,17 @@ class FloatingMenuPresentationTest {
 
         assertEquals(FloatingMenuViewpoint.STANDING, definition.viewpoint());
         assertEquals(FloatingMenuAnchorMode.ADAPTIVE, definition.anchorMode());
+    }
+
+    @Test
+    void surroundingSceneUsesAnIndependentSpatialFrame() {
+        FloatingMenuDefinition definition = FloatingMenuDefinition.builder()
+                .aroundViewer()
+                .stableAnchor()
+                .build();
+
+        assertEquals(FloatingMenuSpatialFrame.AROUND_VIEWER, definition.spatialFrame());
+        assertEquals(FloatingMenuAnchorMode.FIXED_FOR_SESSION, definition.anchorMode());
     }
 
     @Test

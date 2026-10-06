@@ -6,6 +6,7 @@ import ch.njol.skript.lang.SkriptParser;
 import ch.njol.util.Kleenean;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
+import org.encinet.mik.module.pvp.PvpOverrideRules;
 import org.jetbrains.annotations.Nullable;
 
 final class MikPvpOverrideClearEffect extends Effect {
@@ -49,7 +50,7 @@ final class MikPvpOverrideClearEffect extends Effect {
             return;
         }
         try {
-            overrideId = facade.normalizePvpOverrideId(overrideId);
+            overrideId = PvpOverrideRules.normalizeId(overrideId);
         } catch (IllegalArgumentException e) {
             error(e.getMessage());
             return;

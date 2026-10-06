@@ -8,6 +8,7 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
@@ -16,10 +17,12 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.util.PlayerDisplay;
 import org.encinet.mik.module.ban.BanRecord;
 import org.encinet.mik.module.ban.BanManager;
 import org.encinet.mik.module.ban.BanServiceException;
+import org.encinet.mik.module.role.RolePermissions;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -31,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Module for detecting and auto-banning griefers on the Mik creative server.
  *
- * <p>Only monitors players who do NOT have the {@code group.member} permission.
+ * <p>Only monitors players without a formal member, moderator, or custodian role.
  *
  * <p><b>Detection subsystems:</b>
  * <ul>
@@ -46,9 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Reaching {@link #SCORE_WARN} notifies staff; reaching {@link #SCORE_BAN} triggers an auto-ban.
  */
 public class GrieferModule implements Listener {
-
-    /** Players with this permission are never monitored. */
-    private static final String EXEMPT_PERMISSION = "group.member";
 
     /** Permission node for staff broadcast messages. */
     private static final String STAFF_PERMISSION = "mik.staff";
@@ -106,6 +106,8 @@ public class GrieferModule implements Listener {
     private final JavaPlugin plugin;
     private final BanManager banManager;
     private final Map<UUID, PlayerData> players = new ConcurrentHashMap<>();
+    private BukkitTask decayTask;
+    private BukkitTask cleanupTask;
 
     public GrieferModule(JavaPlugin plugin, BanManager banManager) {
         this.plugin = plugin;
@@ -117,10 +119,32 @@ public class GrieferModule implements Listener {
      * Call this once during plugin enable, after other modules if needed.
      */
     public void enable() {
-        plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        startDecayTask();
-        startCleanupTask();
-        plugin.getLogger().info("GrieferModule enabled (anti-grief detection active)");
+        try {
+            plugin.getServer().getPluginManager().registerEvents(this, plugin);
+            startDecayTask();
+            startCleanupTask();
+            plugin.getLogger().info("GrieferModule enabled (anti-grief detection active)");
+        } catch (RuntimeException | LinkageError error) {
+            try {
+                disable();
+            } catch (RuntimeException | LinkageError cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+            throw error;
+        }
+    }
+
+    public void disable() {
+        if (decayTask != null) {
+            decayTask.cancel();
+            decayTask = null;
+        }
+        if (cleanupTask != null) {
+            cleanupTask.cancel();
+            cleanupTask = null;
+        }
+        HandlerList.unregisterAll(this);
+        players.clear();
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -275,7 +299,7 @@ public class GrieferModule implements Listener {
     }
 
     private void startDecayTask() {
-        new BukkitRunnable() {
+        decayTask = new BukkitRunnable() {
             @Override
             public void run() {
                 for (PlayerData data : players.values()) {
@@ -290,7 +314,7 @@ public class GrieferModule implements Listener {
     }
 
     private void startCleanupTask() {
-        new BukkitRunnable() {
+        cleanupTask = new BukkitRunnable() {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
@@ -304,7 +328,7 @@ public class GrieferModule implements Listener {
     }
 
     private boolean shouldMonitor(Player player) {
-        return !player.hasPermission(EXEMPT_PERMISSION);
+        return !RolePermissions.isMember(player);
     }
 
     private PlayerData getData(Player player) {

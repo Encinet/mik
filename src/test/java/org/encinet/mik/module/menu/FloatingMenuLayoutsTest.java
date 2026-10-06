@@ -158,8 +158,8 @@ class FloatingMenuLayoutsTest {
         FloatingMenuPose title = layout.pose(new FloatingMenuLayout.Context(0, nodes));
         FloatingMenuPose firstAction = layout.pose(new FloatingMenuLayout.Context(1, nodes));
         FloatingMenuPose navigation = layout.pose(new FloatingMenuLayout.Context(3, nodes));
-        assertEquals(0.28, title.up() - 0.2 - (firstAction.up() + 0.4), 0.0001);
-        assertEquals(0.28, firstAction.up() - 0.4 - (navigation.up() + 0.2), 0.0001);
+        assertEquals(0.18, title.up() - 0.2 - (firstAction.up() + 0.4), 0.0001);
+        assertEquals(0.18, firstAction.up() - 0.4 - (navigation.up() + 0.2), 0.0001);
     }
 
     @Test
@@ -195,6 +195,30 @@ class FloatingMenuLayoutsTest {
         }
 
         assertEquals(0.60, inspectorLeft - browserRight, 0.0001);
+    }
+
+    @Test
+    void topAlignedPanelsKeepUnequalColumnsTogetherWithoutChangingMeasuredGaps() {
+        FloatingMenuLayout layout = FloatingMenuLayouts.topAlignedPanels(0.3,
+                FloatingMenuLayouts.panel("current", FloatingMenuLayouts.adaptiveColumn(0.1), "current"),
+                FloatingMenuLayouts.panel("recent", FloatingMenuLayouts.adaptiveColumn(0.1), "recent"));
+        List<FloatingMenuLayout.Node> nodes = List.of(
+                node("current", FloatingMenuNodeRole.INFORMATION, "current", 4, 3),
+                node("recent:first", FloatingMenuNodeRole.INFORMATION, "recent", 3, 0.6),
+                node("recent:second", FloatingMenuNodeRole.INFORMATION, "recent", 3, 0.8));
+        var current = layout.pose(new FloatingMenuLayout.Context(0, nodes));
+        var first = layout.pose(new FloatingMenuLayout.Context(1, nodes));
+        var second = layout.pose(new FloatingMenuLayout.Context(2, nodes));
+
+        assertEquals(current.up() + 1.5, first.up() + 0.3, 0.0001);
+        assertEquals(0.3, first.right() - 1.5 - (current.right() + 2), 0.0001);
+        assertEquals(first.right(), second.right(), 0.0001);
+        assertEquals(0.1, first.up() - 0.3 - (second.up() + 0.4), 0.0001);
+
+        List<FloatingMenuLayout.Node> sparse = List.of(nodes.getFirst());
+        var alone = layout.pose(new FloatingMenuLayout.Context(0, sparse));
+        assertEquals(0, alone.right(), 0.0001);
+        assertEquals(0, alone.up(), 0.0001);
     }
 
     @Test

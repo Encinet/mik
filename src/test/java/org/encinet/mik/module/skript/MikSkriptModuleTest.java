@@ -26,13 +26,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MikSkriptModuleTest {
 
     @Test
+    void normalizesAnOptionalClientVersionCapability() {
+        assertEquals("unknown", MikSkriptModule.clientVersionName(null, null));
+        assertEquals("unknown", MikSkriptModule.clientVersionName(player -> "", null));
+        assertEquals("unknown", MikSkriptModule.clientVersionName(player -> "Unknown", null));
+        assertEquals("1.21.8", MikSkriptModule.clientVersionName(player -> "1.21.8", null));
+    }
+
+    @Test
     void registersAllMikSyntaxes() {
         org.skriptlang.skript.Skript skript = org.skriptlang.skript.Skript.of(
                 MikSkriptModuleTest.class, "TestSkript");
         Function<Player, String> value = player -> "value";
         MikSkriptFacade facade = new MikSkriptFacade(null, value, value, value, null, null);
 
-        MikSkriptModule.register(skript, facade);
+        MikSkriptModule.register(skript, MikSkriptModuleTest.class, facade);
 
         assertNotNull(skript.addon(MikSkriptModule.ADDON_NAME));
         SyntaxInfo.Expression<?, ?> strings = expression(skript, MikPlayerPropertyExpression.class);

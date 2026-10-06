@@ -2,6 +2,9 @@ package org.encinet.mik.module.access;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+import java.util.UUID;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -100,5 +103,53 @@ class RestrictionModuleTest {
     void summonStillRejectsTargetSelectors() {
         assertTrue(RestrictionModule.containsRestrictedSelector(
                 "/summon armor_stand @a"));
+    }
+
+    @Test
+    void summonCannotUseAnotherOnlinePlayersUuidAsOwner() {
+        UUID sender = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        UUID victim = UUID.fromString("12345678-9abc-def0-1234-56789abcdef0");
+        String ownerArray = uuidArray(victim);
+        Set<UUID> online = Set.of(sender, victim);
+
+        assertTrue(RestrictionModule.containsForeignPlayerUuid(
+                "minecraft:ender_pearl ~ ~ ~ {Owner:" + ownerArray + "}",
+                sender, online::contains));
+        assertTrue(RestrictionModule.containsForeignPlayerUuid(
+                "wolf ~ ~ ~ {Owner:\"" + victim + "\"}", sender, online::contains));
+        assertFalse(RestrictionModule.containsForeignPlayerUuid(
+                "minecraft:ender_pearl ~ ~ ~ {Owner:" + uuidArray(sender) + "}",
+                sender, online::contains));
+        assertFalse(RestrictionModule.containsForeignPlayerUuid(
+                "armor_stand ~ ~ ~ {CustomName:'{\"text\":\"Steve\"}'}",
+                sender, online::contains));
+        assertFalse(RestrictionModule.containsForeignPlayerUuid(
+                "wolf ~ ~ ~ {Owner:" + ownerArray + "}", sender,
+                Set.of(sender)::contains));
+    }
+
+    private static String uuidArray(UUID uuid) {
+        return "[I;%d,%d,%d,%d]".formatted(
+                (int) (uuid.getMostSignificantBits() >>> 32),
+                (int) uuid.getMostSignificantBits(),
+                (int) (uuid.getLeastSignificantBits() >>> 32),
+                (int) uuid.getLeastSignificantBits());
+    }
+
+    @Test
+    void oversizedSummonsAndSpawnEggGivesAreBlockedBeforeExecution() {
+        assertTrue(RestrictionModule.containsOversizedEntityData(
+                "/summon minecraft:slime ~ ~ ~ {Size:120000}"));
+        assertTrue(RestrictionModule.containsOversizedEntityData(
+                "/execute as @s run minecraft:summon slime ~ ~ ~ "
+                        + "{attributes:[{id:\"minecraft:scale\",base:120000}]}"));
+        assertTrue(RestrictionModule.containsOversizedEntityData(
+                "/give @s slime_spawn_egg[entity_data={id:\"minecraft:slime\","
+                        + "Size:120000,attributes:[{id:\"minecraft:scale\",base:120000}]}]"));
+        assertTrue(RestrictionModule.containsOversizedEntityData(
+                "/execute as @s run minecraft:give @s slime_spawn_egg[entity_data="
+                        + "{id:\"minecraft:slime\",Size:120000}]"));
+        assertFalse(RestrictionModule.containsOversizedEntityData(
+                "/give @s slime_spawn_egg[entity_data={id:\"minecraft:slime\",Size:4}]"));
     }
 }

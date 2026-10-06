@@ -20,6 +20,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.role.RolePermissions;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -316,7 +317,7 @@ final class BanDialogController {
     }
 
     private void runOnMain(Audience audience, Consumer<Player> action) {
-        if (!(audience instanceof Player player) || !BanCommandController.canManageBans(player)) {
+        if (!(audience instanceof Player player) || !RolePermissions.canModerate(player)) {
             return;
         }
         if (Bukkit.isPrimaryThread()) {

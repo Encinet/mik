@@ -1,5 +1,7 @@
 package org.encinet.mik.module.pvp;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -12,16 +14,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
-import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.List;
@@ -30,9 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-public class PvpModule implements Listener, PvpStateResolver {
-
-    public static final long PERMANENT_OVERRIDE = -1L;
+public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
@@ -54,11 +53,26 @@ public class PvpModule implements Listener, PvpStateResolver {
     }
 
     public void enable() {
-        settingsStore.enable();
-        combatController.enable();
-        menuController.enable();
-        Bukkit.getPluginManager().registerEvents(this, plugin);
-        plugin.getLogger().info("PvpModule enabled");
+        try {
+            settingsStore.enable();
+            combatController.enable();
+            menuController.enable();
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+            plugin.getLogger().info("PvpModule enabled");
+        } catch (RuntimeException | LinkageError error) {
+            try {
+                disable();
+            } catch (RuntimeException | LinkageError cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+            throw error;
+        }
+    }
+
+    public void disable() {
+        HandlerList.unregisterAll(this);
+        menuController.disable();
+        combatController.disable();
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -124,7 +138,7 @@ public class PvpModule implements Listener, PvpStateResolver {
                             return Command.SINGLE_SUCCESS;
                         }))
                 .then(Commands.literal("admin")
-                        .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_HELPER))
+                        .requires(source -> RolePermissions.canModerate(source.getSender()))
                         .executes(ctx -> {
                             Player player = requirePlayer(ctx.getSource().getSender());
                             if (player != null) {
@@ -223,14 +237,17 @@ public class PvpModule implements Listener, PvpStateResolver {
         player.sendMessage(mm(player, enabled ? Message.PVP_TOGGLED_ON_MM : Message.PVP_TOGGLED_OFF_MM));
     }
 
+    @Override
     public boolean isEnabled(Player player) {
         return effectiveEnabled(player.getUniqueId());
     }
 
+    @Override
     public boolean preferenceEnabled(Player player) {
         return settingsStore.get(player.getUniqueId()).enabled();
     }
 
+    @Override
     public void setPreference(Player player, boolean enabled) {
         UUID playerId = player.getUniqueId();
         PvpSettings current = settingsStore.get(playerId);
@@ -238,6 +255,7 @@ public class PvpModule implements Listener, PvpStateResolver {
         combatController.onPvpStateChanged(playerId);
     }
 
+    @Override
     public void setOverride(Player player, String owner, String id,
                             boolean enabled, int priority, long durationMillis) {
         UUID playerId = player.getUniqueId();
@@ -245,6 +263,7 @@ public class PvpModule implements Listener, PvpStateResolver {
         combatController.onPvpStateChanged(playerId);
     }
 
+    @Override
     public boolean clearOverride(Player player, String owner, String id) {
         UUID playerId = player.getUniqueId();
         boolean removed = overrideRegistry.remove(playerId, owner, id);
@@ -254,6 +273,7 @@ public class PvpModule implements Listener, PvpStateResolver {
         return removed;
     }
 
+    @Override
     public void clearOverrides(Player player, String owner) {
         UUID playerId = player.getUniqueId();
         if (overrideRegistry.clear(playerId, owner)) {
@@ -261,26 +281,26 @@ public class PvpModule implements Listener, PvpStateResolver {
         }
     }
 
+    @Override
     public void clearOverridesOwnedBy(String owner) {
         for (UUID playerId : overrideRegistry.clearOwner(owner)) {
             combatController.onPvpStateChanged(playerId);
         }
     }
 
+    @Override
     public Optional<PvpOverrideState> activeOverride(Player player) {
         return overrideRegistry.activeState(player.getUniqueId());
     }
 
+    @Override
     public boolean hasOverride(Player player, String owner, String id) {
         return overrideRegistry.contains(player.getUniqueId(), owner, id);
     }
 
+    @Override
     public Set<String> overrideIds(Player player, String owner) {
         return overrideRegistry.ids(player.getUniqueId(), owner);
-    }
-
-    public static String normalizeOverrideId(String id) {
-        return PvpOverrideRegistry.normalizeId(id);
     }
 
     public String summary(Player player) {
@@ -381,7 +401,7 @@ public class PvpModule implements Listener, PvpStateResolver {
                 .append(mm(sender, Message.PVP_HELP_GUI_MM))
                 .append(Component.newline())
                 .append(mm(sender, Message.PVP_HELP_STATUS_MM));
-        if (sender.hasPermission("group." + Mik.GROUP_HELPER)) {
+        if (RolePermissions.canModerate(sender)) {
             message = message.append(Component.newline())
                     .append(mm(sender, Message.PVP_HELP_ADMIN_MM))
                     .append(Component.newline())
@@ -398,6 +418,7 @@ public class PvpModule implements Listener, PvpStateResolver {
                 .build();
     }
 
+    @Override
     public boolean isCombatTagged(UUID playerId) {
         return combatController.isCombatTagged(playerId);
     }
@@ -417,6 +438,7 @@ public class PvpModule implements Listener, PvpStateResolver {
         return overrideRegistry.hasOverride(playerId);
     }
 
+    @Override
     public long combatTagRemainingSeconds(UUID playerId) {
         return combatController.combatTagRemainingSeconds(playerId);
     }
@@ -445,15 +467,6 @@ public class PvpModule implements Listener, PvpStateResolver {
 
     private Component mm(CommandSender sender, Message message, Object... args) {
         return MINI_MESSAGE.deserialize(t(sender, message, args));
-    }
-
-    private boolean canManageOthers(Player player) {
-        return player.hasPermission("group." + Mik.GROUP_HELPER);
-    }
-
-    private void denyManageOthers(Player player) {
-        FloatingMenus.current(player).ifPresent(handle -> handle.close());
-        player.sendMessage(mm(player, Message.PVP_NO_PERMISSION_MM));
     }
 
 }

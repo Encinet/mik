@@ -26,7 +26,7 @@ class RhythmLatencyProfileTest {
     void clampsBothPersistedClockComponents() {
         RhythmLatencyProfile profile = new RhythmLatencyProfile(5_000, -5_000);
 
-        assertEquals(RhythmLatencyCalibration.MAXIMUM_OFFSET_MILLIS,
+        assertEquals(RhythmLatencyProfile.MAXIMUM_JUDGEMENT_OFFSET_MILLIS,
                 profile.judgementOffsetMillis());
         assertEquals(RhythmLatencyProfile.MINIMUM_ANIMATION_OFFSET_MILLIS,
                 profile.animationOffsetMillis());

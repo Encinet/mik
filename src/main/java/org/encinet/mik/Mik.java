@@ -1,13 +1,17 @@
 package org.encinet.mik;
 
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.module.access.AutoPromoteModule;
+import org.bukkit.event.HandlerList;
+import org.bukkit.event.Listener;
+import org.encinet.mik.module.governance.GovernanceModule;
 import org.encinet.mik.module.ban.BanModule;
 import org.encinet.mik.module.access.MaintenanceModule;
 import org.encinet.mik.module.access.RestrictionModule;
 import org.encinet.mik.module.access.WhitelistModule;
 import org.encinet.mik.module.afk.AfkModule;
+import org.encinet.mik.module.ai.AiModule;
 import org.encinet.mik.module.api.ApiModule;
+import org.encinet.mik.module.api.CommunityBoardView;
 import org.encinet.mik.module.chat.ChatDisplayRenderer;
 import org.encinet.mik.module.chat.ChatModule;
 import org.encinet.mik.module.chat.ChatSettingsStore;
@@ -16,11 +20,13 @@ import org.encinet.mik.module.commands.SimpleFeaturesModule;
 import org.encinet.mik.module.communication.AnnouncementModule;
 import org.encinet.mik.module.communication.TipModule;
 import org.encinet.mik.module.event.FifthAnniversaryEventModule;
+import org.encinet.mik.module.elevator.IronElevatorModule;
+import org.encinet.mik.module.vehicle.VehicleModule;
 import org.encinet.mik.module.geyser.BedrockPlayerBadge;
 import org.encinet.mik.module.geyser.GeyserService;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.identity.IdentityBindingModule;
-import org.encinet.mik.module.menu.FloatingMenuService;
+import org.encinet.mik.module.menu.runtime.FloatingMenuService;
 import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.music.MusicModule;
 import org.encinet.mik.module.performance.NetworkEgressModule;
@@ -34,10 +40,12 @@ import org.encinet.mik.module.player.HomeModule;
 import org.encinet.mik.module.player.InvisibilityNotifyModule;
 import org.encinet.mik.module.player.NameTagModule;
 import org.encinet.mik.module.player.PlayerBoundaryModule;
-import org.encinet.mik.module.player.PlayerAddressModule;
-import org.encinet.mik.module.player.PlayerAssociationNotifier;
+import org.encinet.mik.module.player.address.PlayerAddressModule;
+import org.encinet.mik.module.player.address.PlayerAssociationNotifier;
 import org.encinet.mik.module.player.PlayerPresenceModule;
-import org.encinet.mik.module.player.MainMenuModule;
+import org.encinet.mik.shell.MainMenuModule;
+import org.encinet.mik.shell.LanguageMenu;
+import org.encinet.mik.module.plot.PlotModule;
 import org.encinet.mik.module.player.WelcomeModule;
 import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
 import org.encinet.mik.module.player.identity.PlayerNameTagRenderer;
@@ -45,24 +53,30 @@ import org.encinet.mik.module.pvp.PvpModule;
 import org.encinet.mik.module.player.TabListModule;
 import org.encinet.mik.module.player.TeleportPreferenceModule;
 import org.encinet.mik.module.presentation.BrandingModule;
-import org.encinet.mik.module.presentation.AxiomGizmoService;
+import org.encinet.mik.integration.axiom.AxiomGizmoService;
 import org.encinet.mik.module.presentation.MotdModule;
 import org.encinet.mik.module.presentation.ServerLinksModule;
 import org.encinet.mik.module.presentation.SpawnBeaconColorModule;
 import org.encinet.mik.module.social.SocialModule;
 import org.encinet.mik.module.social.game.BukkitSocialChatGateway;
 import org.encinet.mik.module.safety.BanItemGuardModule;
+import org.encinet.mik.module.safety.EnderPearlGuard;
 import org.encinet.mik.module.safety.FixBugModule;
 import org.encinet.mik.module.safety.GrieferModule;
+import org.encinet.mik.module.safety.OversizedEntityGuard;
 import org.encinet.mik.module.safety.TrampleProtectionModule;
 import org.encinet.mik.module.skript.MikSkriptModule;
 import org.encinet.mik.module.space.NonEuclideanSpaceModule;
 import org.encinet.mik.module.world.regen.AsyncRegenModule;
+import org.encinet.mik.util.ShutdownSequence;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.logging.Level;
 
 @su.plo.voice.api.addon.annotation.Addon(
         id = "mik-music",
@@ -75,61 +89,13 @@ public final class Mik extends JavaPlugin {
 
     private static final String MAINTENANCE_CRASH_MARKER = "maintenance-unclean-shutdown.marker";
 
-    public static final String GROUP_MEMBER = "member";
-    public static final String GROUP_HELPER = "helper";
-    public static final String GROUP_MANAGER = "manager";
+    private record ShutdownAction(String name, Runnable action) {
+    }
+
+    private final Deque<ShutdownAction> shutdownActions = new ArrayDeque<>();
+    private boolean enableCompleted;
 
     private BrandingModule brandingModule;
-    private ServerLinksModule serverLinksModule;
-    private AfkModule afkModule;
-    private PerformanceModule performanceModule;
-    private NetworkEgressModule networkEgressModule;
-    private MusicModule musicModule;
-    private MentionService mentionService;
-    private ChatSettingsStore chatSettingsStore;
-    private ChatModule chatModule;
-    private IdentityBindingModule identityBindingModule;
-    private SocialModule socialModule;
-    private SimpleFeaturesModule commandsModule;
-    private AutoPromoteModule autoPromoteModule;
-    private BanModule banModule;
-    private RestrictionModule restrictionModule;
-    private MaintenanceModule maintenanceModule;
-    private FlightModule flightModule;
-    private GameModeSwitchModule gameModeSwitchModule;
-    private PlayerBoundaryModule playerBoundaryModule;
-    private TPSBarModule tpsBarModule;
-    private TabListModule tabListModule;
-    private BanItemGuardModule banItemGuardModule;
-    private FixBugModule fixBugModule;
-    private GrieferModule grieferModule;
-    private TrampleProtectionModule trampleProtectionModule;
-    private ApiModule apiModule;
-    private WhitelistModule whitelistModule;
-    private MotdModule motdModule;
-    private HomeModule homeModule;
-    private BackModule backModule;
-    private AnnouncementModule announcementModule;
-    private TipModule tipModule;
-    private NameTagModule prefixSuffixModule;
-    private MainMenuModule mainMenuModule;
-    private InvisibilityNotifyModule invisibilityNotifyModule;
-    private TeleportPreferenceModule teleportPreferenceModule;
-    private PvpModule pvpModule;
-    private ClientVersionReminderModule clientVersionReminderModule;
-    private WelcomeModule welcomeModule;
-    private PlayerPresenceModule playerPresenceModule;
-    private FloatingMenuService floatingMenuService;
-    private AxiomGizmoService axiomGizmoService;
-    private GeyserService geyserService;
-    private LanguageService languageService;
-    private PlayerAddressModule playerAddressModule;
-    private PlayerAssociationNotifier playerAssociationNotifier;
-    private SpawnBeaconColorModule spawnBeaconColorModule;
-    private FifthAnniversaryEventModule fifthAnniversaryEventModule;
-    private MikSkriptModule skriptModule;
-    private AsyncRegenModule asyncRegenModule;
-    private NonEuclideanSpaceModule nonEuclideanSpaceModule;
     private Path maintenanceCrashMarker;
 
     @su.plo.voice.api.addon.InjectPlasmoVoice
@@ -143,7 +109,22 @@ public final class Mik extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        brandingModule.enable();
+        try {
+            enableModules();
+            enableCompleted = true;
+        } catch (RuntimeException | LinkageError startupError) {
+            stopManagedModules(startupError);
+            try {
+                getServer().getScheduler().cancelTasks(this);
+            } catch (RuntimeException | LinkageError cleanupError) {
+                startupError.addSuppressed(cleanupError);
+            }
+            throw startupError;
+        }
+    }
+
+    private void enableModules() {
+        startManaged("branding", brandingModule::enable, brandingModule::disable);
 
         maintenanceCrashMarker = getDataFolder().toPath().resolve(MAINTENANCE_CRASH_MARKER);
         boolean resumeFromCrash = false;
@@ -159,343 +140,335 @@ public final class Mik extends JavaPlugin {
             getLogger().warning("Unable to initialize maintenance crash marker: " + e.getMessage());
         }
 
-        axiomGizmoService = new AxiomGizmoService(this);
-        axiomGizmoService.enable();
+        AxiomGizmoService axiomGizmoService = new AxiomGizmoService(this);
+        startManaged("axiom", axiomGizmoService::enable, axiomGizmoService::disable);
 
-        geyserService = GeyserService.create(this);
+        GeyserService geyserService = GeyserService.create(this);
 
-        languageService = new LanguageService(this);
-        languageService.enable();
-        languageService.registerCommands(this.getLifecycleManager());
+        LanguageService languageService = new LanguageService(this);
+        startManaged("language", languageService::enable, languageService::disable);
+
+        AiModule aiModule = new AiModule(this, languageService);
+        startManaged("ai", aiModule::enable, aiModule::disable);
+        aiModule.registerCommands(this.getLifecycleManager());
+
         BedrockPlayerBadge bedrockPlayerBadge =
                 new BedrockPlayerBadge(geyserService, languageService);
         PlayerNameTagRenderer playerNameTags = new PlayerNameTagRenderer(this);
-        playerNameTags.enable();
+        startManaged("player-name-tags", playerNameTags::enable, playerNameTags::disable);
         PlayerIdentityRenderer playerIdentities =
                 new PlayerIdentityRenderer(bedrockPlayerBadge, playerNameTags);
 
-        floatingMenuService = new FloatingMenuService(
+        FloatingMenuService floatingMenuService = new FloatingMenuService(
                 this, axiomGizmoService, geyserService, languageService);
-        floatingMenuService.enable();
-        FloatingMenus.install(floatingMenuService);
+        startManaged("floating-menu", () -> {
+            floatingMenuService.enable();
+            FloatingMenus.install(floatingMenuService);
+        }, () -> {
+            ShutdownSequence shutdown = new ShutdownSequence();
+            shutdown.attempt("floating menu service", floatingMenuService::disable);
+            shutdown.attempt("floating menu registration", FloatingMenus::uninstall);
+            shutdown.finish("floating menu wiring");
+        });
+        LanguageMenu languageMenu = new LanguageMenu(languageService);
+        languageMenu.registerCommands(this.getLifecycleManager());
 
-        asyncRegenModule = new AsyncRegenModule(this, languageService);
-        asyncRegenModule.enable();
+        AsyncRegenModule asyncRegenModule = new AsyncRegenModule(this, languageService);
+        startManaged("async-regen", asyncRegenModule::enable, asyncRegenModule::disable);
         asyncRegenModule.registerCommands(this.getLifecycleManager());
 
-        nonEuclideanSpaceModule = new NonEuclideanSpaceModule(this);
-        nonEuclideanSpaceModule.enable();
+        NonEuclideanSpaceModule nonEuclideanSpaceModule = new NonEuclideanSpaceModule(this);
+        startManaged("non-euclidean-space", nonEuclideanSpaceModule::enable, nonEuclideanSpaceModule::disable);
         nonEuclideanSpaceModule.registerCommands(this.getLifecycleManager());
 
-        playerAddressModule = new PlayerAddressModule(this);
-        playerAddressModule.enable();
+        PlayerAddressModule playerAddressModule = new PlayerAddressModule(this);
+        startManaged("player-address", playerAddressModule::enable, playerAddressModule::disable);
 
-        playerAssociationNotifier = new PlayerAssociationNotifier(this, languageService, playerAddressModule);
-        playerAssociationNotifier.enable();
+        PlayerAssociationNotifier playerAssociationNotifier =
+                new PlayerAssociationNotifier(this, languageService, playerAddressModule);
+        startListener("player-association", playerAssociationNotifier,
+                playerAssociationNotifier::enable);
 
-        banModule = new BanModule(this, languageService, playerAddressModule);
-        banModule.enable();
+        BanModule banModule = new BanModule(this, languageService, playerAddressModule);
+        startManaged("ban", banModule::enable, banModule::disable);
         banModule.registerCommands(this.getLifecycleManager());
 
-        serverLinksModule = new ServerLinksModule(languageService);
-        serverLinksModule.register(this);
+        ServerLinksModule serverLinksModule = new ServerLinksModule(languageService);
+        startListener("server-links", serverLinksModule,
+                () -> serverLinksModule.register(this));
 
-        afkModule = new AfkModule(this, languageService, axiomGizmoService);
-        afkModule.enable();
+        AfkModule afkModule = new AfkModule(this, languageService, axiomGizmoService);
+        startManaged("afk", afkModule::enable, afkModule::disable);
         afkModule.registerCommands(this.getLifecycleManager());
 
-        fifthAnniversaryEventModule = new FifthAnniversaryEventModule(this, afkModule, languageService);
-        fifthAnniversaryEventModule.enable();
+        FifthAnniversaryEventModule fifthAnniversaryEventModule =
+                new FifthAnniversaryEventModule(this, afkModule, languageService);
+        startManaged("fifth-anniversary", fifthAnniversaryEventModule::enable, fifthAnniversaryEventModule::disable);
         fifthAnniversaryEventModule.registerCommands(this.getLifecycleManager());
 
-        performanceModule = new PerformanceModule(this, afkModule);
-        performanceModule.start();
+        PerformanceModule performanceModule = new PerformanceModule(this, afkModule);
+        startManaged("performance", performanceModule::start, performanceModule::stop);
         performanceModule.registerCommands(this.getLifecycleManager());
 
-        pvpModule = new PvpModule(this, languageService);
-        pvpModule.enable();
+        PvpModule pvpModule = new PvpModule(this, languageService);
+        startManaged("pvp", pvpModule::enable, pvpModule::disable);
         pvpModule.registerCommands(this.getLifecycleManager());
 
-        networkEgressModule = new NetworkEgressModule(this);
-        networkEgressModule.enable();
+        NetworkEgressModule networkEgressModule = new NetworkEgressModule(this);
+        startManaged("network-egress", networkEgressModule::enable, networkEgressModule::disable);
         networkEgressModule.registerCommands(this.getLifecycleManager());
 
-        chatSettingsStore = new ChatSettingsStore(this);
-        chatSettingsStore.enable();
+        ChatSettingsStore chatSettingsStore = new ChatSettingsStore(this);
+        startManaged("chat-settings", chatSettingsStore::enable, chatSettingsStore::disable);
 
-        mentionService = new MentionService(this, afkModule, languageService, chatSettingsStore,
+        MentionService mentionService = new MentionService(this, afkModule, languageService, chatSettingsStore,
                 ChatDisplayRenderer::playerName);
-        mentionService.enable();
 
-        identityBindingModule = new IdentityBindingModule(this, languageService);
-        identityBindingModule.enable();
+        IdentityBindingModule identityBindingModule = new IdentityBindingModule(this, languageService);
+        startManaged("identity-binding", identityBindingModule::enable, identityBindingModule::disable);
         identityBindingModule.registerCommands(this.getLifecycleManager());
 
         BukkitSocialChatGateway socialChatGateway =
                 new BukkitSocialChatGateway(
                         this, identityBindingModule.manager(), playerNameTags);
-        socialModule = new SocialModule(
+        SocialModule socialModule = new SocialModule(
                 this, identityBindingModule.manager(), languageService, afkModule,
-                socialChatGateway);
+                socialChatGateway, aiModule);
 
-        chatModule = new ChatModule(
+        ChatModule chatModule = new ChatModule(
                 this, mentionService, languageService, chatSettingsStore, playerIdentities,
                 socialModule.chatPublisher(), identityBindingModule.manager());
         socialChatGateway.bind(chatModule);
-        chatModule.enable();
+        startManaged("chat", chatModule::enable, chatModule::disable);
         chatModule.registerCommands(this.getLifecycleManager());
 
-        socialModule.enable();
+        startManaged("social", socialModule::enable, socialModule::disable);
         socialModule.registerCommands(this.getLifecycleManager());
 
-        teleportPreferenceModule = new TeleportPreferenceModule(this, afkModule, languageService);
-        teleportPreferenceModule.enable();
+        TeleportPreferenceModule teleportPreferenceModule =
+                new TeleportPreferenceModule(this, afkModule, languageService);
+        startListener("teleport-preference", teleportPreferenceModule,
+                teleportPreferenceModule::enable);
         teleportPreferenceModule.registerCommands(this.getLifecycleManager());
 
-        welcomeModule = new WelcomeModule(this, languageService);
-        welcomeModule.enable();
+        WelcomeModule welcomeModule = new WelcomeModule(this, languageService);
+        startListener("welcome", welcomeModule, welcomeModule::enable);
 
-        playerPresenceModule = new PlayerPresenceModule(this, languageService);
-        playerPresenceModule.enable();
+        PlayerPresenceModule playerPresenceModule = new PlayerPresenceModule(this, languageService);
+        startListener("player-presence", playerPresenceModule, playerPresenceModule::enable);
 
+        ClientVersionReminderModule clientVersionReminderModule = null;
         if (getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
             clientVersionReminderModule = new ClientVersionReminderModule(this, languageService);
-            clientVersionReminderModule.enable();
+            startListener("client-version-reminder", clientVersionReminderModule,
+                    clientVersionReminderModule::enable);
         } else {
             getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
         }
 
         if (getServer().getPluginManager().isPluginEnabled("Skript")) {
-            skriptModule = new MikSkriptModule(
-                    this, languageService, clientVersionReminderModule, afkModule, pvpModule,
+            MikSkriptModule skriptModule = new MikSkriptModule(
+                    this, languageService,
+                    clientVersionReminderModule == null ? null
+                            : clientVersionReminderModule::clientVersionName,
+                    afkModule, pvpModule,
                     nonEuclideanSpaceModule);
-            skriptModule.enable();
+            startManaged("skript", skriptModule::enable, skriptModule::disable);
             skriptModule.registerCommands(this.getLifecycleManager());
         } else {
             getLogger().info("Skript not found; MIK Skript expressions are disabled.");
         }
 
-        mainMenuModule = new MainMenuModule(this, afkModule, chatModule, teleportPreferenceModule,
-                pvpModule, languageService, clientVersionReminderModule);
-        mainMenuModule.enable();
+        PlotModule plotModule = new PlotModule(this, languageService, socialModule::notifyPlayer);
+        startManaged("plot", plotModule::enable, plotModule::disable);
+        plotModule.registerCommands(this.getLifecycleManager());
+
+        GovernanceModule governanceModule = new GovernanceModule(
+                this, languageService, afkModule, banModule.manager());
+        startManaged("governance", governanceModule::enable, governanceModule::disable);
+        governanceModule.registerCommands(this.getLifecycleManager());
+
+        MainMenuModule mainMenuModule = new MainMenuModule(this, afkModule, chatModule, teleportPreferenceModule,
+                pvpModule, languageService, languageMenu, clientVersionReminderModule,
+                plotModule, governanceModule);
+        startManaged("main-menu", mainMenuModule::enable, mainMenuModule::disable);
         mainMenuModule.registerCommands(this.getLifecycleManager());
 
-        musicModule = new MusicModule(this, languageService, voiceServer, afkModule);
-        musicModule.enable();
+        MusicModule musicModule = new MusicModule(this, languageService, voiceServer,
+                afkModule, floatingMenuService.worldTextDisplays());
+        startManaged("music", musicModule::enable, musicModule::disable);
         musicModule.registerCommands(this.getLifecycleManager());
-        musicModule.enableMusicChests();
 
-        commandsModule = new SimpleFeaturesModule(this, languageService);
-        commandsModule.enable();
+        SimpleFeaturesModule commandsModule = new SimpleFeaturesModule(this, languageService);
+        startListener("simple-features", commandsModule, commandsModule::enable);
         commandsModule.registerCommands(this.getLifecycleManager());
 
-        autoPromoteModule = new AutoPromoteModule(this, languageService);
-        autoPromoteModule.enable();
-        autoPromoteModule.registerCommands(this.getLifecycleManager());
+        RestrictionModule restrictionModule = new RestrictionModule(this, languageService);
+        startListener("restriction", restrictionModule, restrictionModule::enable);
 
-        restrictionModule = new RestrictionModule(this, languageService);
-        restrictionModule.enable();
-
-        maintenanceModule = new MaintenanceModule(this, languageService);
-        maintenanceModule.enable();
+        MaintenanceModule maintenanceModule = new MaintenanceModule(this, languageService);
+        startListener("maintenance", maintenanceModule, maintenanceModule::enable);
         if (resumeFromCrash) {
             maintenanceModule.setMaintenanceEnabled(true);
             getLogger().warning("Detected unclean shutdown; maintenance mode enabled automatically.");
         }
         maintenanceModule.registerCommands(this.getLifecycleManager());
 
-        gameModeSwitchModule = new GameModeSwitchModule(this);
-        gameModeSwitchModule.enable();
+        GameModeSwitchModule gameModeSwitchModule = new GameModeSwitchModule(this);
+        startManaged("game-mode-switch", gameModeSwitchModule::enable, gameModeSwitchModule::disable);
 
-        flightModule = new FlightModule(this, languageService);
-        flightModule.enable();
+        FlightModule flightModule = new FlightModule(this, languageService);
+        startManaged("flight", flightModule::enable, flightModule::disable);
         flightModule.registerCommands(this.getLifecycleManager());
 
-        playerBoundaryModule = new PlayerBoundaryModule(this, languageService);
-        playerBoundaryModule.enable();
+        PlayerBoundaryModule playerBoundaryModule = new PlayerBoundaryModule(this, languageService);
+        startManaged("player-boundary", playerBoundaryModule::enable, playerBoundaryModule::disable);
 
-        tpsBarModule = new TPSBarModule(this, languageService);
-        tpsBarModule.start();
+        IronElevatorModule ironElevatorModule = new IronElevatorModule(
+                this, languageService, floatingMenuService.worldTextDisplays());
+        startManaged("iron-elevator", ironElevatorModule::enable, ironElevatorModule::disable);
+
+        VehicleModule vehicleModule = new VehicleModule(this, languageService, axiomGizmoService);
+        startManaged("vehicle", vehicleModule::enable, vehicleModule::disable);
+        vehicleModule.registerCommands(this.getLifecycleManager());
+
+        TPSBarModule tpsBarModule = new TPSBarModule(this, languageService);
+        startManaged("tps-bar", tpsBarModule::start, tpsBarModule::stop);
         tpsBarModule.registerCommands(this.getLifecycleManager());
 
-        tabListModule = new TabListModule(
+        TabListModule tabListModule = new TabListModule(
                 this, afkModule, languageService, playerIdentities);
-        tabListModule.enable();
+        startManaged("tab-list", tabListModule::enable, tabListModule::disable);
 
-        banItemGuardModule = new BanItemGuardModule(this);
-        banItemGuardModule.enable();
+        BanItemGuardModule banItemGuardModule = new BanItemGuardModule(this);
+        startManaged("ban-item-guard", banItemGuardModule::enable, banItemGuardModule::disable);
 
-        fixBugModule = new FixBugModule(this);
-        fixBugModule.enable();
+        FixBugModule fixBugModule = new FixBugModule(this);
+        startListener("bug-guard", fixBugModule, fixBugModule::enable);
 
-        trampleProtectionModule = new TrampleProtectionModule(this);
-        trampleProtectionModule.enable();
+        EnderPearlGuard enderPearlGuard = new EnderPearlGuard(this);
+        startListener("ender-pearl-guard", enderPearlGuard, enderPearlGuard::enable);
 
-        grieferModule = new GrieferModule(this, banModule.manager());
-        grieferModule.enable();
+        OversizedEntityGuard oversizedEntityGuard = new OversizedEntityGuard(this);
+        startManaged("oversized-entity-guard", oversizedEntityGuard::enable,
+                oversizedEntityGuard::disable);
 
-        announcementModule = new AnnouncementModule(this);
-        announcementModule.enable();
+        TrampleProtectionModule trampleProtectionModule = new TrampleProtectionModule(this);
+        startManaged("trample-protection", trampleProtectionModule::enable, trampleProtectionModule::disable);
+
+        GrieferModule grieferModule = new GrieferModule(this, banModule.manager());
+        startManaged("griefer", grieferModule::enable, grieferModule::disable);
+
+        AnnouncementModule announcementModule = new AnnouncementModule(this, languageService);
+        startManaged("announcement", announcementModule::enable, announcementModule::disable);
         announcementModule.registerCommands(this.getLifecycleManager());
 
-        tipModule = new TipModule(this, languageService);
-        tipModule.enable();
+        TipModule tipModule = new TipModule(this, languageService);
+        startManaged("tip", tipModule::enable, tipModule::disable);
         tipModule.registerCommands(this.getLifecycleManager());
 
         // Announcement data is exposed by the API module.
-        apiModule = new ApiModule(this, languageService, banModule.manager());
-        apiModule.setAnnouncementModule(announcementModule);
-        apiModule.start(35353);
+        ApiModule apiModule = new ApiModule(this, languageService,
+                banModule.manager()::activeRecords,
+                announcementModule::getAnnouncementsJsonBytes,
+                new CommunityBoardView() {
+                    @Override
+                    public String listJson() throws java.sql.SQLException {
+                        return plotModule.publicBoardListJson();
+                    }
+
+                    @Override
+                    public String detailJson(String id) throws java.sql.SQLException {
+                        return plotModule.publicBoardDetailJson(id);
+                    }
+                });
+        startManaged("http-api", () -> apiModule.start(35353), apiModule::stop);
         apiModule.registerCommands(this.getLifecycleManager());
 
-        whitelistModule = new WhitelistModule(this, languageService);
-        whitelistModule.enable();
+        WhitelistModule whitelistModule = new WhitelistModule(this, languageService);
+        startListener("whitelist", whitelistModule, whitelistModule::enable);
         whitelistModule.registerCommands(this.getLifecycleManager());
 
-        motdModule = new MotdModule(this, afkModule, languageService, playerAddressModule);
-        motdModule.enable();
+        MotdModule motdModule = new MotdModule(this, afkModule, languageService, playerAddressModule);
+        startManaged("motd", motdModule::enable, motdModule::disable);
 
-        homeModule = new HomeModule(this, languageService);
-        homeModule.enable();
+        HomeModule homeModule = new HomeModule(this, languageService);
+        startManaged("home", homeModule::enable, homeModule::disable);
         homeModule.registerCommands(this.getLifecycleManager());
 
-        backModule = new BackModule(this, languageService);
-        backModule.enable();
+        BackModule backModule = new BackModule(this, languageService);
+        startListener("back", backModule, backModule::enable);
         backModule.registerCommands(this.getLifecycleManager());
 
-        prefixSuffixModule = new NameTagModule(this, languageService, playerIdentities);
-        prefixSuffixModule.enable();
+        NameTagModule prefixSuffixModule = new NameTagModule(this, languageService, playerIdentities);
+        startManaged("name-tag", prefixSuffixModule::enable, prefixSuffixModule::disable);
         prefixSuffixModule.registerCommands(this.getLifecycleManager());
 
-        invisibilityNotifyModule = new InvisibilityNotifyModule(this, languageService);
-        invisibilityNotifyModule.enable();
+        InvisibilityNotifyModule invisibilityNotifyModule =
+                new InvisibilityNotifyModule(this, languageService);
+        startManaged("invisibility-notify", invisibilityNotifyModule::enable, invisibilityNotifyModule::disable);
 
-        spawnBeaconColorModule = new SpawnBeaconColorModule(this, languageService);
-        spawnBeaconColorModule.enable();
+        SpawnBeaconColorModule spawnBeaconColorModule =
+                new SpawnBeaconColorModule(this, languageService);
+        startManaged("spawn-beacon-color", spawnBeaconColorModule::enable, spawnBeaconColorModule::disable);
         spawnBeaconColorModule.registerCommands(this.getLifecycleManager());
-
     }
 
     @Override
     public void onDisable() {
-        FloatingMenus.uninstall();
-        if (maintenanceCrashMarker != null) {
+        boolean cleanShutdown = enableCompleted;
+        if (!stopManagedModules(null)) cleanShutdown = false;
+        try {
+            su.plo.voice.api.server.PlasmoVoiceServer.getAddonsLoader().unload(this);
+        } catch (RuntimeException | LinkageError error) {
+            cleanShutdown = false;
+            getLogger().log(Level.SEVERE, "Could not unload Plasmo Voice addon", error);
+        }
+        if (cleanShutdown && maintenanceCrashMarker != null) {
             try {
                 Files.deleteIfExists(maintenanceCrashMarker);
-            } catch (IOException e) {
-                getLogger().warning("Unable to clear maintenance crash marker: " + e.getMessage());
+            } catch (IOException error) {
+                getLogger().warning("Unable to clear maintenance crash marker: " + error.getMessage());
             }
         }
-        if (socialModule != null) {
-            socialModule.disable();
-        }
-        if (chatModule != null) {
-            chatModule.disable();
-        }
-        if (identityBindingModule != null) {
-            identityBindingModule.disable();
-        }
-        if (asyncRegenModule != null) {
-            asyncRegenModule.disable();
-        }
-        if (skriptModule != null) {
-            skriptModule.disable();
-        }
-        if (nonEuclideanSpaceModule != null) {
-            nonEuclideanSpaceModule.disable();
-        }
-        if (floatingMenuService != null) {
-            floatingMenuService.disable();
-        }
+        enableCompleted = false;
+    }
 
-        if (musicModule != null) {
-            musicModule.disable();
+    private boolean stopManagedModules(Throwable startupError) {
+        boolean cleanShutdown = true;
+        while (!shutdownActions.isEmpty()) {
+            ShutdownAction shutdown = shutdownActions.pop();
+            try {
+                shutdown.action().run();
+            } catch (RuntimeException | LinkageError error) {
+                cleanShutdown = false;
+                getLogger().log(Level.SEVERE,
+                        "Could not stop " + shutdown.name(), error);
+                if (startupError != null) startupError.addSuppressed(error);
+            }
         }
+        return cleanShutdown;
+    }
 
-        if (fifthAnniversaryEventModule != null) {
-            fifthAnniversaryEventModule.disable();
+    private void registerShutdown(String name, Runnable action) {
+        shutdownActions.push(new ShutdownAction(name, action));
+    }
+
+    private void startListener(String name, Listener listener, Runnable start) {
+        startManaged(name, start, () -> HandlerList.unregisterAll(listener));
+    }
+
+    private void startManaged(String name, Runnable start, Runnable stop) {
+        try {
+            start.run();
+        } catch (RuntimeException | LinkageError error) {
+            try {
+                stop.run();
+            } catch (RuntimeException | LinkageError cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+            throw error;
         }
-
-        if (performanceModule != null) {
-            performanceModule.stop();
-        }
-
-        if (networkEgressModule != null) {
-            networkEgressModule.disable();
-        }
-
-        if (afkModule != null) {
-            afkModule.disable();
-        }
-
-        if (tpsBarModule != null) {
-            tpsBarModule.stop();
-        }
-
-        if (tabListModule != null) {
-            tabListModule.disable();
-        }
-
-        if (gameModeSwitchModule != null) {
-            gameModeSwitchModule.disable();
-        }
-
-        if (brandingModule != null) {
-            brandingModule.disable();
-        }
-
-        if (apiModule != null) {
-            apiModule.stop();
-        }
-
-        if (motdModule != null) {
-            motdModule.disable();
-        }
-
-        if (tipModule != null) {
-            tipModule.disable();
-        }
-
-        if (announcementModule != null) {
-            announcementModule.disable();
-        }
-
-        if (invisibilityNotifyModule != null) {
-            invisibilityNotifyModule.disable();
-        }
-
-        if (playerAddressModule != null) {
-            playerAddressModule.disable();
-        }
-
-        if (spawnBeaconColorModule != null) {
-            spawnBeaconColorModule.disable();
-        }
-
-        if (axiomGizmoService != null) {
-            axiomGizmoService.disable();
-        }
-
-        if (flightModule != null) {
-            flightModule.disable();
-        }
-
-        if (playerBoundaryModule != null) {
-            playerBoundaryModule.disable();
-        }
-
-        if (trampleProtectionModule != null) {
-            trampleProtectionModule.disable();
-        }
-
-        if (banItemGuardModule != null) {
-            banItemGuardModule.disable();
-        }
-
-        if (banModule != null) {
-            banModule.disable();
-        }
-
-        su.plo.voice.api.server.PlasmoVoiceServer.getAddonsLoader().unload(this);
+        registerShutdown(name, stop);
     }
 }

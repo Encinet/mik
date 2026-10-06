@@ -11,6 +11,7 @@ import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.module.identity.IdentityBinding;
+import org.encinet.mik.module.role.RolePermissions;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -124,9 +125,9 @@ public final class BukkitSocialGameService implements SocialGameService {
                     .loadUser(playerId)
                     .get(PROFILE_UPDATE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             var permissions = user.getCachedData().getPermissionData();
-            return permissions.checkPermission("group.member").asBoolean()
-                    || permissions.checkPermission("group.helper").asBoolean()
-                    || permissions.checkPermission("group.manager").asBoolean();
+            return permissions.checkPermission(RolePermissions.MEMBER).asBoolean()
+                    || permissions.checkPermission(RolePermissions.MODERATOR).asBoolean()
+                    || permissions.checkPermission(RolePermissions.CUSTODIAN).asBoolean();
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             return false;
@@ -167,9 +168,7 @@ public final class BukkitSocialGameService implements SocialGameService {
     }
 
     private static boolean hasFullMemberPermission(Player player) {
-        return player.hasPermission("group.member")
-                || player.hasPermission("group.helper")
-                || player.hasPermission("group.manager");
+        return RolePermissions.isMember(player);
     }
 
     private static Optional<Instant> instant(long epochMillis) {

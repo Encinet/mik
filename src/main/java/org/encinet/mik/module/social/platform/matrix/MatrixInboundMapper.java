@@ -74,7 +74,7 @@ final class MatrixInboundMapper {
         }
         try {
             return Optional.of(new ExternalIdentity(new ExternalIdentityKey(
-                    MatrixPlatformAdapter.DESCRIPTOR.id(),
+                    MatrixPlatformConfig.PLATFORM_ID,
                     userId.substring(separator + 1), "", userId),
                     member.displayName()));
         } catch (IllegalArgumentException ignored) {

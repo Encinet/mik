@@ -2,18 +2,20 @@ package org.encinet.mik.module.social.runtime;
 
 import org.encinet.mik.module.chat.model.ChatConversation;
 import org.encinet.mik.module.chat.model.ChatMessage;
+import org.encinet.mik.module.chat.model.ChatContent;
 import org.encinet.mik.module.chat.model.ChatMessageId;
 import org.encinet.mik.module.chat.model.ChatOrigin;
 import org.encinet.mik.module.chat.model.ChatProcessingContext;
 import org.encinet.mik.module.chat.model.ChatReferences;
 import org.encinet.mik.module.chat.model.ChatSender;
+import org.encinet.mik.module.chat.model.ChatNode;
+import org.encinet.mik.module.chat.model.ChatStyle;
 import org.encinet.mik.module.chat.model.ChatSubmission;
 import org.encinet.mik.module.identity.ExternalIdentity;
 import org.encinet.mik.module.identity.IdentityBinding;
 import org.encinet.mik.module.social.api.SocialEventSink;
 import org.encinet.mik.module.social.api.SocialInboundMessage;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
-import org.encinet.mik.module.social.api.SocialPlatformPlan;
 import org.encinet.mik.module.social.api.SocialPlatformRuntimeContext;
 import org.encinet.mik.module.social.api.SocialPlatformSession;
 import org.encinet.mik.module.social.api.SocialSessionStatus;
@@ -23,7 +25,8 @@ import org.encinet.mik.module.social.chat.SocialChatMentionRequest;
 import org.encinet.mik.module.social.chat.SocialChatMentionResolution;
 import org.encinet.mik.module.social.chat.SocialMentionBindingDirectory;
 import org.encinet.mik.module.social.chat.SocialChatRoute;
-import org.encinet.mik.module.social.chat.SocialChatPublishReport;
+import org.encinet.mik.module.chat.bridge.SocialChatPublishReport;
+import org.encinet.mik.module.social.chat.SocialDirectedNotice;
 import org.encinet.mik.module.social.command.SocialCommandDispatcher;
 
 import java.util.ArrayList;
@@ -236,6 +239,66 @@ final class SocialPlatformGeneration implements AutoCloseable {
             }
             outboundBackpressured.increment();
             return SocialChatPublishReport.Admission.BACKPRESSURED;
+        }
+    }
+
+    SocialChatPublishReport.Admission publishDirectedNotice(SocialDirectedNotice notice) {
+        Objects.requireNonNull(notice, "notice");
+        synchronized (lock) {
+            if (closed || state != SocialPlatformState.READY
+                    || !(session instanceof SocialChatPlatformSession chatSession)) {
+                return SocialChatPublishReport.Admission.UNAVAILABLE;
+            }
+            boolean admitted = executor.submitOrdered("outbound-board-notice",
+                    () -> sendDirectedNotice(chatSession, notice));
+            if (admitted) {
+                outboundAccepted.increment();
+                return SocialChatPublishReport.Admission.ACCEPTED;
+            }
+            outboundBackpressured.increment();
+            return SocialChatPublishReport.Admission.BACKPRESSURED;
+        }
+    }
+
+    private void sendDirectedNotice(SocialChatPlatformSession chatSession,
+                                    SocialDirectedNotice notice) {
+        if (!chatSessionIsCurrent(chatSession)) return;
+        try {
+            if (!contentGuard.allowsOutboundText(notice.body(), plan.runtimePolicy().output()))
+                return;
+            List<ExternalIdentity> candidates = mentionBindings.findByPlayer(notice.playerId())
+                    .stream()
+                    .filter(binding -> binding.externalKey().platform().equals(descriptor.id()))
+                    .map(binding -> new ExternalIdentity(binding.externalKey(),
+                            binding.externalDisplayName()))
+                    .toList();
+            if (candidates.isEmpty()) return;
+            ChatContent content = new ChatContent(List.of(
+                    new ChatNode.PlayerMention(notice.playerId(), notice.playerName(),
+                            ChatStyle.EMPTY),
+                    new ChatNode.Text(" " + notice.body(), ChatStyle.EMPTY)));
+            ChatSubmission submission = new ChatSubmission(
+                    ChatMessageId.random(), new ChatOrigin.Plugin("community-board", Set.of()),
+                    new ChatSender("Mik", Optional.empty(), Optional.empty(), "", "", ""),
+                    ChatConversation.minecraftPublic(), content.plainText(),
+                    ChatReferences.empty(), Instant.now(), ChatProcessingContext.external());
+            ChatMessage message = new ChatMessage(submission, content, Set.of());
+            SocialChatMentionRequest request = new SocialChatMentionRequest(
+                    notice.playerId(), notice.playerName(), candidates);
+            for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
+                SocialChatMentionResolution resolution = chatSession.resolveMentions(
+                        route.conversation(), List.of(request));
+                if (resolution.targetsFor(notice.playerId()).isEmpty()) continue;
+                chatSession.sendChat(route.conversation(), message, resolution)
+                        .toCompletableFuture().join();
+                break;
+            }
+        } catch (RuntimeException error) {
+            deliveryFailures.increment();
+            if (chatSessionIsCurrent(chatSession))
+                logger.warning("Could not deliver a directed community notice to "
+                        + descriptor.displayName() + ": "
+                        + SocialCommandProcessor.rootMessage(error));
         }
     }
 

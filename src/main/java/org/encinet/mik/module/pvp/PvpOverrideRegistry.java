@@ -10,8 +10,6 @@ import java.util.function.LongSupplier;
 
 final class PvpOverrideRegistry {
 
-    static final int MAX_ID_LENGTH = 80;
-
     private static final Comparator<Entry> PRECEDENCE = Comparator
             .comparingInt(Entry::priority)
             .thenComparingLong(Entry::sequence);
@@ -31,13 +29,11 @@ final class PvpOverrideRegistry {
     synchronized void put(UUID playerId, String owner, String rawId,
                           boolean enabled, int priority, long durationMillis) {
         String normalizedOwner = normalizeOwner(owner);
-        String id = normalizeId(rawId);
-        if (durationMillis < PvpModule.PERMANENT_OVERRIDE) {
-            throw new IllegalArgumentException("PVP override duration cannot be less than -1");
-        }
+        String id = PvpOverrideRules.normalizeId(rawId);
+        PvpOverrideRules.requireDuration(durationMillis);
 
         long now = clock.getAsLong();
-        long expiresAt = durationMillis == PvpModule.PERMANENT_OVERRIDE
+        long expiresAt = durationMillis == PvpOverrideRules.PERMANENT
                 ? 0L : saturatedAdd(now, durationMillis);
         overrides.computeIfAbsent(playerId, ignored -> new HashMap<>())
                 .put(new OverrideKey(normalizedOwner, id),
@@ -45,7 +41,7 @@ final class PvpOverrideRegistry {
     }
 
     synchronized boolean remove(UUID playerId, String owner, String rawId) {
-        OverrideKey key = new OverrideKey(normalizeOwner(owner), normalizeId(rawId));
+        OverrideKey key = new OverrideKey(normalizeOwner(owner), PvpOverrideRules.normalizeId(rawId));
         Map<OverrideKey, Entry> playerOverrides = overrides.get(playerId);
         if (playerOverrides == null || playerOverrides.remove(key) == null) {
             return false;
@@ -95,7 +91,7 @@ final class PvpOverrideRegistry {
     }
 
     synchronized boolean contains(UUID playerId, String owner, String rawId) {
-        OverrideKey key = new OverrideKey(normalizeOwner(owner), normalizeId(rawId));
+        OverrideKey key = new OverrideKey(normalizeOwner(owner), PvpOverrideRules.normalizeId(rawId));
         active(playerId);
         Map<OverrideKey, Entry> playerOverrides = overrides.get(playerId);
         return playerOverrides != null && playerOverrides.containsKey(key);
@@ -136,17 +132,6 @@ final class PvpOverrideRegistry {
             return Optional.empty();
         }
         return playerOverrides.values().stream().max(PRECEDENCE);
-    }
-
-    static String normalizeId(String rawId) {
-        String id = rawId == null ? "" : rawId.trim();
-        if (id.isEmpty()) {
-            throw new IllegalArgumentException("PVP override id cannot be empty");
-        }
-        if (id.codePointCount(0, id.length()) > MAX_ID_LENGTH) {
-            throw new IllegalArgumentException("PVP override id cannot exceed " + MAX_ID_LENGTH + " characters");
-        }
-        return id;
     }
 
     private static String normalizeOwner(String owner) {

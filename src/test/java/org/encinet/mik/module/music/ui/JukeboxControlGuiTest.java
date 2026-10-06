@@ -1,6 +1,8 @@
 package org.encinet.mik.module.music.ui;
 
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.encinet.mik.module.menu.FloatingMenuAppearance;
+import org.encinet.mik.module.music.jukebox.JukeboxExperienceMode;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -10,11 +12,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JukeboxControlGuiTest {
 
     @Test
-    void limitsEachSpatialQueuePageToTwelveTracks() {
+    void showsSixteenTracksOnEachQueuePage() {
         assertEquals(1, JukeboxControlGui.pageCount(0));
-        assertEquals(1, JukeboxControlGui.pageCount(8));
-        assertEquals(2, JukeboxControlGui.pageCount(9));
-        assertEquals(4, JukeboxControlGui.pageCount(25));
+        assertEquals(1, JukeboxControlGui.pageCount(16));
+        assertEquals(2, JukeboxControlGui.pageCount(17));
+        assertEquals(2, JukeboxControlGui.pageCount(25));
+        assertEquals(3, JukeboxControlGui.pageCount(33));
+    }
+
+    @Test
+    void musicAndRhythmModesHaveDistinctReadableThemes() {
+        assertEquals(FloatingMenuAppearance.MUSIC,
+                MusicMenuPalette.appearance(JukeboxExperienceMode.MUSIC));
+        assertEquals(FloatingMenuAppearance.RHYTHM,
+                MusicMenuPalette.appearance(JukeboxExperienceMode.RHYTHM));
     }
 
     @Test

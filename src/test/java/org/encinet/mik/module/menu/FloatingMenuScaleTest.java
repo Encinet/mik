@@ -21,29 +21,31 @@ class FloatingMenuScaleTest {
         assertTrue(FloatingMenuScale.SMALL.factor() < FloatingMenuScale.NORMAL.factor());
         assertEquals(1.0, FloatingMenuScale.NORMAL.factor(), 0.0001);
         assertTrue(FloatingMenuScale.LARGE.factor() > FloatingMenuScale.NORMAL.factor());
-        assertEquals(0.75, FloatingMenuScale.SMALL.textFactor(), 0.0001);
-        assertEquals(1.00, FloatingMenuScale.NORMAL.textFactor(), 0.0001);
-        assertEquals(1.40, FloatingMenuScale.LARGE.textFactor(), 0.0001);
-        assertEquals(75, FloatingMenuScale.SMALL.textPercent());
-        assertEquals(100, FloatingMenuScale.NORMAL.textPercent());
-        assertEquals(140, FloatingMenuScale.LARGE.textPercent());
+        assertEquals(7, FloatingMenuScale.values().length);
+        assertEquals(70, FloatingMenuScale.MINIMUM.percent());
+        assertEquals(130, FloatingMenuScale.MAXIMUM.percent());
+        for (FloatingMenuScale option : FloatingMenuScale.values()) {
+            assertEquals(option.percent(), Math.round(option.factor() * 100));
+            if (option != FloatingMenuScale.MAXIMUM) assertTrue(option.factor() < option.step(1).factor());
+        }
     }
 
     @Test
-    void typographyCorrectionProducesTheRequestedEffectiveGlyphSize() {
-        for (FloatingMenuScale option : FloatingMenuScale.values()) {
-            assertEquals(option.textFactor(),
-                    option.factor() * option.typographyFactor(), 0.0001);
+    void typographyIsAnIndependentMultiplierInsteadOfTheInverseMenuSize() {
+        for (FloatingMenuScale layout : FloatingMenuScale.values()) {
+            for (FloatingMenuTextScale text : FloatingMenuTextScale.values()) {
+                var preferences = new FloatingMenuPreferences(layout, text);
+                assertEquals(text.factor(), preferences.typographyFactor(), 0.0001);
+            }
         }
-        assertTrue(FloatingMenuScale.LARGE.textFactor()
-                / FloatingMenuScale.SMALL.textFactor() > 1.8);
     }
 
     @Test
     void wheelStepsAreClampedInsteadOfWrapping() {
         assertEquals(FloatingMenuScale.LARGE, FloatingMenuScale.NORMAL.step(1));
         assertEquals(FloatingMenuScale.SMALL, FloatingMenuScale.NORMAL.step(-1));
-        assertEquals(FloatingMenuScale.LARGE, FloatingMenuScale.LARGE.step(1));
-        assertEquals(FloatingMenuScale.SMALL, FloatingMenuScale.SMALL.step(-1));
+        assertEquals(FloatingMenuScale.MAXIMUM, FloatingMenuScale.MAXIMUM.step(1));
+        assertEquals(FloatingMenuScale.MINIMUM, FloatingMenuScale.MINIMUM.step(-1));
+        assertEquals(FloatingMenuScale.NORMAL, FloatingMenuScale.NORMAL.step(0));
     }
 }

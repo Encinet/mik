@@ -6,6 +6,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -16,8 +17,8 @@ import org.encinet.mik.module.afk.AfkState;
 import org.encinet.mik.module.afk.AfkStateListener;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
-import org.encinet.mik.module.player.PlayerAddressModule;
-import org.encinet.mik.module.player.PlayerAddressModule.AddressPlayer;
+import org.encinet.mik.module.player.address.PlayerAddressIdentityLookup;
+import org.encinet.mik.module.player.address.PlayerAddressIdentityLookup.AddressPlayer;
 import org.encinet.mik.module.presentation.motd.HolidayMotdService;
 import org.encinet.mik.module.presentation.motd.MotdCatalog;
 import org.encinet.mik.module.presentation.motd.MotdProfileSpec;
@@ -84,7 +85,7 @@ public class MotdModule implements Listener, AfkStateListener {
     private final JavaPlugin plugin;
     private final AfkService afkService;
     private final LanguageService languageService;
-    private final PlayerAddressModule playerAddressModule;
+    private final PlayerAddressIdentityLookup addressIdentityLookup;
     private final HolidayMotdService holidayMotdService;
     private final EnumMap<Language, MotdProfile> motdProfiles = new EnumMap<>(Language.class);
 
@@ -99,17 +100,18 @@ public class MotdModule implements Listener, AfkStateListener {
 
     private BukkitTask stateRefreshTask;
     private BukkitTask pendingAfkRefreshTask;
+    private BukkitTask cleanupTask;
 
     // -------------------------------------------------------------------------
     // Constructor
     // -------------------------------------------------------------------------
 
     public MotdModule(JavaPlugin plugin, AfkService afkService, LanguageService languageService,
-                      PlayerAddressModule playerAddressModule) {
+                      PlayerAddressIdentityLookup addressIdentityLookup) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.languageService = languageService;
-        this.playerAddressModule = playerAddressModule;
+        this.addressIdentityLookup = addressIdentityLookup;
         this.holidayMotdService = new HolidayMotdService(plugin);
         this.holidayMotdService.setRefreshListener(this::refreshStateMotds);
     }
@@ -119,22 +121,37 @@ public class MotdModule implements Listener, AfkStateListener {
     // -------------------------------------------------------------------------
 
     public void enable() {
-        String version = Bukkit.getMinecraftVersion();
-        buildProfiles(version);
+        try {
+            String version = Bukkit.getMinecraftVersion();
+            buildProfiles(version);
 
-        ThreadLocalRandom rng = ThreadLocalRandom.current();
-        saltNight = rng.nextLong();
-        saltAmbient = rng.nextLong();
-        saltKnownPlayer = rng.nextLong();
+            ThreadLocalRandom rng = ThreadLocalRandom.current();
+            saltNight = rng.nextLong();
+            saltAmbient = rng.nextLong();
+            saltKnownPlayer = rng.nextLong();
 
-        Bukkit.getPluginManager().registerEvents(this, plugin);
-        afkService.addListener(this);
-        Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, this::cleanup, 1200L, 1200L);
-        holidayMotdService.enable();
-        refreshStateMotds();
+            Bukkit.getPluginManager().registerEvents(this, plugin);
+            afkService.addListener(this);
+            cleanupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
+                    plugin, this::cleanup, 1200L, 1200L);
+            holidayMotdService.enable();
+            refreshStateMotds();
+        } catch (RuntimeException | LinkageError error) {
+            try {
+                disable();
+            } catch (RuntimeException | LinkageError cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+            throw error;
+        }
     }
 
     public void disable() {
+        if (cleanupTask != null) {
+            cleanupTask.cancel();
+            cleanupTask = null;
+        }
+        HandlerList.unregisterAll(this);
         pingTracker.clear();
         afkService.removeListener(this);
         cancelPendingAfkRefresh();
@@ -151,7 +168,7 @@ public class MotdModule implements Listener, AfkStateListener {
         event.setMaxPlayers(2026);
 
         InetAddress address = event.getAddress();
-        Optional<AddressPlayer> inferredPlayer = playerAddressModule.inferPlayerByAddress(address);
+        Optional<AddressPlayer> inferredPlayer = addressIdentityLookup.inferPlayerByAddress(address);
 
         if (inferredPlayer.isPresent()) {
             event.setHidePlayers(false);

@@ -68,7 +68,7 @@ class MusicBrowserSessionsTest {
     }
 
     @Test
-    void nbsSectionFiltersEveryViewAndPersistsUntilPlayerRemoval() {
+    void nbsSectionPersistsForLibraryButSearchStartsAcrossAllSources() {
         MusicBrowserSessions sessions = new MusicBrowserSessions();
         UUID playerId = UUID.randomUUID();
         MusicTrack audio = track("audio");
@@ -88,8 +88,8 @@ class MusicBrowserSessionsTest {
         sessions.beginSearch(playerId, search, "song");
         assertTrue(sessions.completeSearch(search, search.generation(),
                 List.of(audio, nbs), null, 0, MusicPlaybackStats.EMPTY));
-        assertEquals(MusicBrowserSessions.Section.NBS, search.section());
-        assertEquals(List.of(nbs), search.tracks());
+        assertEquals(MusicBrowserSessions.Section.ALL, search.section());
+        assertEquals(List.of(audio, nbs), search.tracks());
 
         MusicBrowserSessions.Session reopened = new MusicBrowserSessions.Session();
         sessions.showLibrary(playerId, reopened, List.of(audio, nbs), 0, MusicPlaybackStats.EMPTY);

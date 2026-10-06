@@ -30,6 +30,7 @@ public record BanRecord(
 
     public enum Origin {
         MIK,
+        GOVERNANCE,
         PAPER_IMPORT,
         GRIEFER,
         EXTERNAL_PLUGIN

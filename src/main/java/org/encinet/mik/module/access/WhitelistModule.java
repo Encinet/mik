@@ -20,25 +20,22 @@ import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
-import org.encinet.mik.module.i18n.RichArg;
+import org.encinet.mik.module.role.RolePermissions;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
 public class WhitelistModule implements Listener {
-    private static final String TEMP_WHITELIST_PERMISSION = "group.member";
     private static final long TEMP_WHITELIST_MILLIS = TimeUnit.HOURS.toMillis(1);
     private static final Pattern PLAYER_NAME_PATTERN = Pattern.compile("^[A-Za-z0-9_]{3,16}$");
 
-    private final List<UUID> unwhitelistedPlayerUUIDs = new ArrayList<>();
-    private final Map<UUID, Long> temporaryWhitelistByUuidExpiresAt = new ConcurrentHashMap<>();
-    private final Map<String, Long> temporaryWhitelistByNameExpiresAt = new ConcurrentHashMap<>();
+    private final ConcurrentMap<UUID, Long> temporaryWhitelistByUuidExpiresAt = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, Long> temporaryWhitelistByNameExpiresAt = new ConcurrentHashMap<>();
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -69,9 +66,6 @@ public class WhitelistModule implements Listener {
             return;
         }
 
-        if (playerUUID != null) {
-            unwhitelistedPlayerUUIDs.add(playerUUID);
-        }
         event.kickMessage(kickMessage());
     }
 
@@ -83,7 +77,7 @@ public class WhitelistModule implements Listener {
             final Commands commands = event.registrar();
 
             commands.register(Commands.literal("tempwhitelist")
-                    .requires(source -> source.getSender().hasPermission(TEMP_WHITELIST_PERMISSION))
+                    .requires(source -> RolePermissions.isMember(source.getSender()))
                     .executes(ctx -> {
                         sendTemporaryWhitelistUsage(ctx.getSource().getSender());
                         return Command.SINGLE_SUCCESS;
@@ -166,34 +160,24 @@ public class WhitelistModule implements Listener {
     }
 
     private boolean consumeTemporaryWhitelistByUuid(UUID playerUUID) {
-        Long expiresAt = temporaryWhitelistByUuidExpiresAt.get(playerUUID);
-        if (expiresAt == null) {
-            return false;
-        }
-
-        if (System.currentTimeMillis() > expiresAt) {
-            temporaryWhitelistByUuidExpiresAt.remove(playerUUID);
-            return false;
-        }
-
-        temporaryWhitelistByUuidExpiresAt.remove(playerUUID);
-        return true;
+        return consumeTemporaryEntry(temporaryWhitelistByUuidExpiresAt,
+                playerUUID, System.currentTimeMillis());
     }
 
     private boolean consumeTemporaryWhitelistByName(String playerName) {
-        String normalizedName = normalizeName(playerName);
-        Long expiresAt = temporaryWhitelistByNameExpiresAt.get(normalizedName);
-        if (expiresAt == null) {
+        return consumeTemporaryEntry(temporaryWhitelistByNameExpiresAt,
+                normalizeName(playerName), System.currentTimeMillis());
+    }
+
+    static <K> boolean consumeTemporaryEntry(ConcurrentMap<K, Long> entries,
+                                              K key, long now) {
+        Long expiresAt = entries.get(key);
+        if (expiresAt == null) return false;
+        if (now > expiresAt) {
+            entries.remove(key, expiresAt);
             return false;
         }
-
-        if (System.currentTimeMillis() > expiresAt) {
-            temporaryWhitelistByNameExpiresAt.remove(normalizedName);
-            return false;
-        }
-
-        temporaryWhitelistByNameExpiresAt.remove(normalizedName);
-        return true;
+        return entries.remove(key, expiresAt);
     }
 
     private void addWhitelistEntry(UUID playerUUID, String playerName) {

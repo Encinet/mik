@@ -6,7 +6,7 @@ import ch.njol.skript.lang.SkriptParser;
 import ch.njol.util.Kleenean;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
-import org.encinet.mik.module.afk.AfkModule;
+import org.encinet.mik.module.afk.AfkState;
 import org.jetbrains.annotations.Nullable;
 
 final class MikAfkSetEffect extends Effect {
@@ -36,8 +36,8 @@ final class MikAfkSetEffect extends Effect {
         if (value == null) {
             return;
         }
-        if (value.codePointCount(0, value.length()) > AfkModule.MAX_STATUS_LENGTH) {
-            error("MIK AFK message cannot exceed " + AfkModule.MAX_STATUS_LENGTH + " characters");
+        if (value.codePointCount(0, value.length()) > AfkState.MAX_MESSAGE_CODE_POINTS) {
+            error("MIK AFK message cannot exceed " + AfkState.MAX_MESSAGE_CODE_POINTS + " characters");
             return;
         }
         for (Player player : players.getArray(event)) {

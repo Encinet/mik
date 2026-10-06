@@ -4,12 +4,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.chat.model.ChatSender;
 import org.encinet.mik.module.chat.model.ChatSubmission;
+import org.encinet.mik.module.chat.bridge.SocialChatGameSink;
 import org.encinet.mik.module.identity.IdentityBindingManager;
 import org.encinet.mik.module.player.identity.PlayerNameTag;
 import org.encinet.mik.module.player.identity.PlayerNameTagRenderer;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.module.social.chat.SocialChatGateway;
-import org.encinet.mik.module.social.chat.SocialChatGameSink;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -76,7 +76,7 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
                     throw new IllegalStateException(
                             "Social chat game sink has not been bound");
                 }
-                sink.display(platform, enriched);
+                sink.display(platform.displayName(), enriched);
                 delivered.complete(null);
             } catch (RuntimeException error) {
                 delivered.completeExceptionally(error);

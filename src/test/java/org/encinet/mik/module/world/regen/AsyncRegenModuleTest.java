@@ -11,7 +11,7 @@ class AsyncRegenModuleTest {
 
     @Test
     void regenCommandUsesTheManagerGroupPermission() {
-        assertEquals("group.manager", AsyncRegenModule.COMMAND_PERMISSION);
+        assertEquals("group.custodian", AsyncRegenModule.COMMAND_PERMISSION);
     }
 
     @Test

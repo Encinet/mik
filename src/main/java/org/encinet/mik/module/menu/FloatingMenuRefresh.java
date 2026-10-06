@@ -47,7 +47,7 @@ public record FloatingMenuRefresh(
         return intervalTicks > 0;
     }
 
-    Object revision(Player player) {
+    public Object revision(Player player) {
         return revision == null ? null : revision.apply(player);
     }
 

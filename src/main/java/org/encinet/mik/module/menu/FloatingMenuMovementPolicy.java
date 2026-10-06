@@ -19,7 +19,7 @@ public record FloatingMenuMovementPolicy(double maximumDrift) {
         }
     }
 
-    boolean exceeded(double distanceSquared) {
+    public boolean exceeded(double distanceSquared) {
         return !Double.isFinite(distanceSquared)
                 || distanceSquared > maximumDrift * maximumDrift;
     }

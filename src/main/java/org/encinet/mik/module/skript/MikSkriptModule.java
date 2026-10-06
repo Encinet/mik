@@ -8,12 +8,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
-import org.encinet.mik.module.afk.AfkModule;
+import org.encinet.mik.module.afk.AfkScripting;
 import org.encinet.mik.module.i18n.LanguageService;
-import org.encinet.mik.module.player.ClientVersionReminderModule;
-import org.encinet.mik.module.player.PlayerRole;
-import org.encinet.mik.module.pvp.PvpModule;
+import org.encinet.mik.module.role.PlayerRole;
+import org.encinet.mik.module.pvp.PvpAccess;
 import org.encinet.mik.module.space.NonEuclideanSpaceService;
 import org.jetbrains.annotations.Nullable;
 import org.skriptlang.skript.addon.SkriptAddon;
@@ -21,6 +19,7 @@ import org.skriptlang.skript.registration.SyntaxInfo;
 import org.skriptlang.skript.registration.SyntaxRegistry;
 
 import java.util.Objects;
+import java.util.function.Function;
 
 /** Registers MIK's server API with Skript when it is installed. */
 public final class MikSkriptModule {
@@ -34,23 +33,23 @@ public final class MikSkriptModule {
     private final ScriptLoader.ScriptUnloadEvent unloadListener;
 
     public MikSkriptModule(JavaPlugin plugin, LanguageService languageService,
-                           ClientVersionReminderModule clientVersionModule,
-                           AfkModule afkModule, PvpModule pvpModule) {
-        this(plugin, languageService, clientVersionModule,
-                afkModule, pvpModule, null);
+                           @Nullable Function<Player, String> clientVersionLookup,
+                           AfkScripting afk, PvpAccess pvp) {
+        this(plugin, languageService, clientVersionLookup,
+                afk, pvp, null);
     }
 
     public MikSkriptModule(JavaPlugin plugin, LanguageService languageService,
-                           ClientVersionReminderModule clientVersionModule,
-                           AfkModule afkModule, PvpModule pvpModule,
+                           @Nullable Function<Player, String> clientVersionLookup,
+                           AfkScripting afk, PvpAccess pvp,
                            @Nullable NonEuclideanSpaceService spaceService) {
         this(plugin, new MikSkriptFacade(
                 plugin,
                 player -> languageService.language(player).id(),
-                player -> clientVersionName(clientVersionModule, player),
+                player -> clientVersionName(clientVersionLookup, player),
                 player -> PlayerRole.resolve(player).id(),
-                afkModule,
-                pvpModule,
+                afk,
+                pvp,
                 spaceService), new SkriptInfoCommand(plugin, languageService));
     }
 
@@ -81,7 +80,7 @@ public final class MikSkriptModule {
             plugin.getLogger().info("Skript not found; MIK Skript expressions are disabled.");
             return;
         }
-        register(Skript.instance(), facade);
+        register(Skript.instance(), plugin.getClass(), facade);
         ScriptLoader.eventRegistry().register(ScriptLoader.ScriptUnloadEvent.class, unloadListener);
         plugin.getLogger().info("Registered MIK server API with Skript.");
     }
@@ -91,8 +90,9 @@ public final class MikSkriptModule {
         facade.clearSpaces();
     }
 
-    static void register(org.skriptlang.skript.Skript skript, MikSkriptFacade facade) {
-        SkriptAddon addon = skript.registerAddon(Mik.class, ADDON_NAME);
+    static void register(org.skriptlang.skript.Skript skript, Class<?> pluginClass,
+                         MikSkriptFacade facade) {
+        SkriptAddon addon = skript.registerAddon(pluginClass, ADDON_NAME);
         SyntaxRegistry registry = addon.syntaxRegistry();
         registry.register(SyntaxRegistry.EXPRESSION,
                 SyntaxInfo.Expression.builder(MikPlayerPropertyExpression.class, String.class)
@@ -235,12 +235,12 @@ public final class MikSkriptModule {
                 .build());
     }
 
-    static String clientVersionName(ClientVersionReminderModule module, Player player) {
-        if (module == null) {
+    static String clientVersionName(@Nullable Function<Player, String> lookup, Player player) {
+        if (lookup == null) {
             return UNKNOWN_CLIENT_VERSION;
         }
 
-        String version = module.clientVersionName(player);
+        String version = lookup.apply(player);
         return version == null || version.isBlank() || version.equalsIgnoreCase(UNKNOWN_CLIENT_VERSION)
                 ? UNKNOWN_CLIENT_VERSION : version;
     }

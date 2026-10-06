@@ -1,0 +1,5 @@
+maximum-active: 16
+maximum-instances: 256
+maximum-per-owner: 16
+activation-distance: 80
+disabled-worlds: []

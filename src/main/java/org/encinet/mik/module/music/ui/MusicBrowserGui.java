@@ -2,13 +2,12 @@ package org.encinet.mik.module.music.ui;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuAppearance;
 import org.encinet.mik.module.menu.FloatingMenuContext;
 import org.encinet.mik.module.menu.FloatingMenuDecoration;
 import org.encinet.mik.module.menu.FloatingMenuFraming;
@@ -16,6 +15,7 @@ import org.encinet.mik.module.menu.FloatingMenuInteraction;
 import org.encinet.mik.module.menu.FloatingMenuLayouts;
 import org.encinet.mik.module.menu.FloatingMenuScreen;
 import org.encinet.mik.module.menu.FloatingMenuTextWidth;
+import org.encinet.mik.module.menu.MenuDialogs;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -42,10 +42,8 @@ import java.util.function.Predicate;
 /** Renders the music browser and publishes asynchronous search results into player sessions. */
 public final class MusicBrowserGui {
 
-    private static final int ITEMS_PER_PAGE = 18;
+    private static final int ITEMS_PER_PAGE = 16;
     private static final int SEARCH_LIMIT = 200;
-    private static final int TRACK_TITLE_DISPLAY_LIMIT = 24;
-    private static final int TRACK_ARTIST_DISPLAY_LIMIT = 32;
 
     private final JavaPlugin plugin;
     private final MusicLibrary musicLibrary;
@@ -86,8 +84,82 @@ public final class MusicBrowserGui {
         showLibrary(player, 0);
     }
 
+    public boolean close(Player player) {
+        var flow = screen.flow(player).orElse(null);
+        if (flow == null) return false;
+        flow.close();
+        return true;
+    }
+
+    public void back(Player player) {
+        screen.flow(player).ifPresent(flow -> flow.back());
+    }
+
+    /** Returns to the browser's parent when it is part of a menu hierarchy. */
+    public boolean backToParent(Player player) {
+        var flow = screen.flow(player).orElse(null);
+        if (flow == null || flow.handle().depth() <= 0) return false;
+        flow.back();
+        return true;
+    }
+
     public void setActionHandler(MusicBrowserActionHandler actionHandler) {
         this.actionHandler = actionHandler;
+    }
+
+    public void promptSearch(Player player) {
+        MenuDialogs.openTextInput(plugin, player,
+                Component.text(languageService.t(player, Message.MUSIC_SEARCH_BUTTON),
+                        NamedTextColor.GOLD),
+                Component.text(languageService.t(player, Message.MUSIC_SEARCH_BUTTON),
+                        NamedTextColor.GRAY),
+                "", 100, false,
+                Component.text(languageService.t(player, Message.MUSIC_SEARCH_BUTTON),
+                        NamedTextColor.GREEN),
+                Component.text(languageService.t(player, Message.MUSIC_BACK),
+                        NamedTextColor.GRAY),
+                this::searchMusic);
+    }
+
+    public void promptPlaylistImport(Player player) {
+        screen.flow(player).ifPresent(flow -> flow.openChild(playlistSourceMenu(player)));
+    }
+
+    private FloatingMenuDefinition playlistSourceMenu(Player player) {
+        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("music-playlist-source")
+                .appearance(FloatingMenuAppearance.MUSIC)
+                .layout(FloatingMenuLayouts.menu(
+                        FloatingMenuLayouts.heading("heading"),
+                        FloatingMenuLayouts.actions("sources", 3),
+                        FloatingMenuLayouts.navigation("navigation")));
+        menu.information("heading", Component.text(languageService.t(player,
+                        Message.MUSIC_PLAYLIST_IMPORT_PROMPT), NamedTextColor.GOLD))
+                .region("heading");
+        addPlaylistSource(player, menu, "wy", "NetEase Cloud Music");
+        addPlaylistSource(player, menu, "tx", "QQ Music");
+        addPlaylistSource(player, menu, "kg", "KuGou Music");
+        addPlaylistSource(player, menu, "kw", "KuWo Music");
+        addPlaylistSource(player, menu, "mg", "Migu Music");
+        menu.back(Component.text(languageService.t(player, Message.MUSIC_BACK),
+                NamedTextColor.GREEN)).region("navigation");
+        return menu.build();
+    }
+
+    private void addPlaylistSource(Player player, FloatingMenuDefinition.Builder menu,
+                                   String source, String name) {
+        menu.item("source:" + source, Material.WRITABLE_BOOK,
+                        Component.text(name, NamedTextColor.AQUA))
+                .region("sources")
+                .primary((p, handle) -> MenuDialogs.openTextInput(plugin, p,
+                        Component.text(name, NamedTextColor.GOLD),
+                        Component.text(languageService.t(p,
+                                Message.MUSIC_PLAYLIST_REFERENCE_PROMPT), NamedTextColor.GRAY),
+                        "", 512, false,
+                        Component.text(languageService.t(p,
+                                Message.MUSIC_PLAYLIST_IMPORT_BUTTON), NamedTextColor.GREEN),
+                        Component.text(languageService.t(p, Message.MUSIC_BACK),
+                                NamedTextColor.GRAY),
+                        (viewer, reference) -> importPlaylist(viewer, source, reference)));
     }
 
     public void showLibrary(Player player, int page) {
@@ -303,41 +375,33 @@ public final class MusicBrowserGui {
         boolean jukeboxContext = sessions.hasJukeboxContext(player.getUniqueId());
         MusicBrowserActionHandler actions = java.util.Objects.requireNonNull(actionHandler,
                 "music browser action handler");
-        FloatingMenuLayouts.Panel browserPanel = FloatingMenuLayouts.panel("browser",
-                FloatingMenuLayouts.verticalRegions(0.28,
-                        FloatingMenuLayouts.region("context",
-                                FloatingMenuLayouts.adaptiveRow(0.0)),
-                        FloatingMenuLayouts.region("results",
-                                FloatingMenuLayouts.adaptiveCurvedList(
-                                        3, 6, 0.38, 0.18, 0.34)),
-                        FloatingMenuLayouts.region("controls",
-                                FloatingMenuLayouts.adaptiveCurvedGrid(
-                                        4, 0.26, 0.18, 0.18))),
-                "context", "results", "controls");
-        FloatingMenuLayouts.Panel detailPanel = FloatingMenuLayouts.panel("track-detail",
-                FloatingMenuLayouts.offset(
-                        FloatingMenuLayouts.orient(
-                                FloatingMenuLayouts.verticalRegions(0.20,
-                                        FloatingMenuLayouts.region("detail-identity",
-                                                FloatingMenuLayouts.adaptiveColumn(0.0)),
-                                        FloatingMenuLayouts.region("detail-metadata",
-                                                FloatingMenuLayouts.adaptiveColumn(0.0)),
-                                        FloatingMenuLayouts.region("detail-actions",
-                                                FloatingMenuLayouts.adaptiveColumn(0.0))),
-                                9.0, -2.0),
-                        0.0, 0.0, 0.16),
-                "detail-identity", "detail-metadata", "detail-actions");
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("music-browser")
+                .appearance(FloatingMenuAppearance.MUSIC)
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .stableAnchor()
-                .layout(FloatingMenuLayouts.sidecar(browserPanel, detailPanel,
-                        FloatingMenuLayouts.Side.RIGHT, 0.52));
+                .layout(FloatingMenuLayouts.sidecar(
+                        FloatingMenuLayouts.panel("music-list",
+                                FloatingMenuLayouts.verticalRegions(0.20,
+                                        FloatingMenuLayouts.information("context"),
+                                        FloatingMenuLayouts.region("results",
+                                                FloatingMenuLayouts.adaptiveCurvedList(
+                                                        2, 8, 0.20, 0.10, 0.10)),
+                                        FloatingMenuLayouts.navigation("pagination")),
+                                "context", "results", "pagination"),
+                        FloatingMenuLayouts.panel("music-details",
+                                FloatingMenuLayouts.verticalRegions(0.20,
+                                        FloatingMenuLayouts.information("details"),
+                                        FloatingMenuLayouts.information("instructions"),
+                                        FloatingMenuLayouts.actions("toolbar", 2),
+                                        FloatingMenuLayouts.navigation("navigation")),
+                                "details", "instructions", "toolbar", "navigation"),
+                        FloatingMenuLayouts.Side.RIGHT, 0.38));
         menu.information("view-context",
                         browserContext(player, state, title, items.size()))
                 .region("context");
         for (int index = start; index < end; index++) {
             MusicTrack track = state.tracks().get(index);
-            menu.control("track:" + track.id(), trackLabel(player, track))
+            menu.control("track:" + track.id(), trackLabel(track, index + 1))
                     .region("results")
                     .textWidth(FloatingMenuTextWidth.WIDE)
                     .alignment(FloatingMenuDecoration.Alignment.LEFT)
@@ -355,75 +419,75 @@ public final class MusicBrowserGui {
             menu.information("state", stateText(player, state))
                     .region("results");
         } else if (selectedTrack != null) {
-            menu.item("selected-track",
-                            discFactory.createDisplayDisc(selectedTrack, false, player),
-                            trackIdentityLabel(selectedTrack))
-                    .region("detail-identity")
-                    .textWidth(FloatingMenuTextWidth.WIDE)
-                    .alignment(FloatingMenuDecoration.Alignment.LEFT)
-                    .selected(true)
-                    .primary((p, handle) -> actions.track(p, selectedTrack, false))
-                    .secondary((p, handle) -> actions.track(p, selectedTrack, true));
-            menu.information("selected-track-metadata",
-                            trackMetadataLabel(player, selectedTrack))
-                    .region("detail-metadata")
-                    .textWidth(FloatingMenuTextWidth.WIDE)
+            menu.information("track-details", trackDetailsLabel(player, selectedTrack))
+                    .region("details")
+                    .textWidth(FloatingMenuTextWidth.EXPANDED)
                     .alignment(FloatingMenuDecoration.Alignment.LEFT);
-            menu.control("selected-track-actions",
-                            trackActionLabel(player, jukeboxContext))
-                    .region("detail-actions")
-                    .textWidth(FloatingMenuTextWidth.WIDE)
-                    .alignment(FloatingMenuDecoration.Alignment.LEFT)
-                    .primary((p, handle) -> actions.track(p, selectedTrack, false))
-                    .secondary((p, handle) -> actions.track(p, selectedTrack, true));
         }
+        menu.information("track-actions", browserActionHints(player, jukeboxContext))
+                .region("instructions")
+                .textWidth(FloatingMenuTextWidth.EXPANDED)
+                .alignment(FloatingMenuDecoration.Alignment.LEFT);
 
         if (state.page() > 0) {
             menu.navigation("previous",
                             Component.text("‹ " + languageService.t(player,
                                     Message.MUSIC_PREV_PAGE), NamedTextColor.YELLOW))
-                    .region("controls")
+                    .region("pagination")
                     .primary((p, handle) -> actions.previousPage(p));
             menu.on(FloatingMenuInteraction.SCROLL_UP,
                     (p, handle, input) -> actions.previousPage(p));
         }
-        menu.item("library", Material.CHEST,
-                        Component.text(languageService.t(player, Message.MUSIC_LIBRARY_BUTTON),
-                                NamedTextColor.GREEN))
-                .region("controls")
-                .primary((p, handle) -> actions.library(p));
-        menu.item("search", Material.COMPASS,
+        if (state.view() != MusicBrowserSessions.View.LIBRARY)
+            menu.control("library",
+                            Component.text(languageService.t(player, Message.MUSIC_LIBRARY_BUTTON),
+                                    NamedTextColor.GREEN))
+                    .region("toolbar")
+                    .textWidth(FloatingMenuTextWidth.COMPACT)
+                    .primary((p, handle) -> actions.library(p));
+        menu.control("search",
                         Component.text(languageService.t(player, Message.MUSIC_SEARCH_BUTTON),
                                 NamedTextColor.AQUA))
-                .region("controls")
+                .region("toolbar")
+                .textWidth(FloatingMenuTextWidth.COMPACT)
                 .primary((p, handle) -> actions.search(p));
-        menu.item("import-playlist", Material.WRITABLE_BOOK,
+        menu.control("import-playlist",
                         Component.text(languageService.t(player,
                                 Message.MUSIC_PLAYLIST_IMPORT_BUTTON), NamedTextColor.BLUE))
-                .region("controls")
+                .region("toolbar")
+                .textWidth(FloatingMenuTextWidth.COMPACT)
                 .primary((p, handle) -> actions.importPlaylist(p));
-        menu.item("sort", Material.HOPPER, sortLabel(player, state.sort()))
-                .region("controls")
+        menu.control("sort", sortLabel(player, state.sort()))
+                .region("toolbar")
+                .textWidth(FloatingMenuTextWidth.COMPACT)
                 .primary((p, handle) -> actions.cycleSort(p));
-        boolean nbsSection = state.section() == MusicBrowserSessions.Section.NBS;
-        menu.item("section", nbsSection ? Material.NOTE_BLOCK : Material.JUKEBOX,
-                        sectionLabel(player, state))
-                .region("controls")
-                .primary((p, handle) -> actions.cycleSection(p));
-        menu.item("random", randomVisual(), randomLabel(player, jukeboxContext))
-                .region("controls")
-                .primary((p, handle) -> actions.random(p, false))
-                .secondary((p, handle) -> actions.random(p, true));
+        if (state.view() == MusicBrowserSessions.View.LIBRARY) {
+            boolean nbsSection = state.section() == MusicBrowserSessions.Section.NBS;
+            menu.control("section", sectionLabel(player, state))
+                    .region("toolbar")
+                    .textWidth(FloatingMenuTextWidth.COMPACT)
+                    .primary((p, handle) -> actions.cycleSection(p));
+            menu.control("random-primary", randomLabel(player, jukeboxContext))
+                    .region("toolbar")
+                    .textWidth(FloatingMenuTextWidth.COMPACT)
+                    .primary((p, handle) -> actions.random(p, false));
+            menu.control("random-play",
+                            Component.text(languageService.t(player, Message.MUSIC_PLAY_RANDOM),
+                                    NamedTextColor.LIGHT_PURPLE))
+                    .region("toolbar")
+                    .textWidth(FloatingMenuTextWidth.COMPACT)
+                    .primary((p, handle) -> actions.random(p, true));
+        }
         menu.navigation("back",
                         Component.text(languageService.t(player, Message.MUSIC_BACK),
                                 NamedTextColor.RED))
-                .region("controls")
+                .region("navigation")
                 .primary((p, handle) -> actions.back(p));
         if (state.page() < totalPages - 1) {
             menu.navigation("next",
                             Component.text(languageService.t(player,
                                     Message.MUSIC_NEXT_PAGE) + " ›", NamedTextColor.YELLOW))
-                    .region("controls")
+                    .region("pagination")
                     .primary((p, handle) -> actions.nextPage(p));
             menu.on(FloatingMenuInteraction.SCROLL_DOWN,
                     (p, handle, input) -> actions.nextPage(p));
@@ -431,25 +495,35 @@ public final class MusicBrowserGui {
         return menu.build();
     }
 
-    private Component trackLabel(Player player, MusicTrack track) {
-        Component label = Component.text(truncate(
-                        track.details().title(), TRACK_TITLE_DISPLAY_LIMIT),
-                NamedTextColor.WHITE);
-        String artist = track.details().artist() != null
-                ? track.details().artist() : track.details().originalAuthor();
-        Component metadata = artist == null || artist.isBlank()
-                ? Component.empty()
-                : Component.text(truncate(artist, TRACK_ARTIST_DISPLAY_LIMIT),
-                        NamedTextColor.DARK_GRAY);
-        if (track.target() instanceof TrackTarget.Lx && cachedTrack.test(track)) {
-            if (!Component.empty().equals(metadata)) {
-                metadata = metadata.append(Component.text(" · ", NamedTextColor.DARK_GRAY));
-            }
-            metadata = metadata.append(Component.text(languageService.t(player,
-                    Message.MUSIC_CACHED), NamedTextColor.GREEN));
-        }
-        return Component.empty().equals(metadata)
-                ? label : label.append(Component.newline()).append(metadata);
+    private Component browserActionHints(Player player, boolean jukeboxContext) {
+        Message primary = jukeboxContext
+                ? Message.MUSIC_ACTION_ADD_QUEUE : Message.MUSIC_ACTION_TAKE_DISC;
+        Message secondary = jukeboxContext
+                ? Message.MUSIC_ACTION_PLAY_NOW : Message.MUSIC_ACTION_PLAY_NEARBY;
+        return Component.text(languageService.t(player,
+                        Message.MUSIC_BROWSER_LEFT_CLICK), NamedTextColor.GREEN)
+                .append(Component.text(" · ", NamedTextColor.GRAY))
+                .append(languageService.text(player, primary, NamedTextColor.WHITE))
+                .append(Component.newline())
+                .append(Component.text(languageService.t(player,
+                        Message.MUSIC_BROWSER_RIGHT_CLICK), NamedTextColor.AQUA))
+                .append(Component.text(" · ", NamedTextColor.GRAY))
+                .append(languageService.text(player, secondary, NamedTextColor.WHITE));
+    }
+
+    private Component trackDetailsLabel(Player player, MusicTrack track) {
+        Component identity = trackIdentityLabel(track);
+        Component metadata = trackMetadataLabel(player, track);
+        return Component.text(languageService.t(player,
+                        Message.MUSIC_TRACK_DETAILS), MusicMenuPalette.MUSIC)
+                .append(Component.newline())
+                .append(identity)
+                .append(metadata.equals(Component.empty())
+                        ? Component.empty() : Component.newline().append(metadata));
+    }
+
+    private Component trackLabel(MusicTrack track, int rank) {
+        return MusicTrackListLabel.render(track, rank);
     }
 
     private Component sortLabel(Player player, MusicBrowserSort sort) {
@@ -474,7 +548,7 @@ public final class MusicBrowserGui {
 
     private Component browserContext(Player player, MusicBrowserSessions.Session state,
                                      String title, int total) {
-        Component label = Component.text(title, NamedTextColor.DARK_PURPLE)
+        Component label = Component.text(title, MusicMenuPalette.MUSIC)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player,
                         Message.MUSIC_PAGE_TOTAL, total), NamedTextColor.GRAY));
@@ -490,8 +564,7 @@ public final class MusicBrowserGui {
 
     private Component trackIdentityLabel(MusicTrack track) {
         TrackDetails details = track.details();
-        Component identity = Component.text(truncate(details.title(), 64), NamedTextColor.WHITE)
-                .decorate(TextDecoration.BOLD);
+        Component identity = Component.text(truncate(details.title(), 64), NamedTextColor.WHITE);
         String artist = details.artist() != null
                 ? details.artist() : details.originalAuthor();
         return artist == null ? identity : identity.append(Component.newline())
@@ -521,16 +594,6 @@ public final class MusicBrowserGui {
         return joinLines(lines);
     }
 
-    private Component trackActionLabel(Player player, boolean jukeboxContext) {
-        return Component.text(languageService.t(player, jukeboxContext
-                        ? Message.MUSIC_BROWSER_LEFT_ADD_QUEUE
-                        : Message.MUSIC_BROWSER_LEFT_TAKE_DISC), NamedTextColor.YELLOW)
-                .append(Component.newline())
-                .append(Component.text(languageService.t(player, jukeboxContext
-                        ? Message.MUSIC_BROWSER_RIGHT_PLAY_NOW
-                        : Message.MUSIC_BROWSER_RIGHT_PLAY_NEARBY), NamedTextColor.AQUA));
-    }
-
     private void addDetailLine(List<Component> lines, Player player,
                                Message message, String value) {
         if (value != null && !value.isBlank()) {
@@ -555,11 +618,7 @@ public final class MusicBrowserGui {
     private Component stateText(Player player, MusicBrowserSessions.Session state) {
         if (state.loading()) {
             return Component.text(languageService.t(player, Message.MUSIC_LOADING_TITLE),
-                            NamedTextColor.YELLOW)
-                    .append(Component.newline())
-                    .append(Component.text(languageService.t(player,
-                            Message.MUSIC_LOADING_DESCRIPTION),
-                            NamedTextColor.GRAY));
+                            NamedTextColor.YELLOW);
         }
         if (state.requestError() != null) {
             return Component.text(languageService.t(player, Message.MUSIC_REQUEST_ERROR,
@@ -595,12 +654,7 @@ public final class MusicBrowserGui {
 
     private Component randomLabel(Player player, boolean jukeboxContext) {
         Message name = jukeboxContext ? Message.MUSIC_RANDOM_ADD : Message.MUSIC_RANDOM_DISC;
-        return Component.text(languageService.t(player, name), NamedTextColor.LIGHT_PURPLE)
-                .decorate(TextDecoration.BOLD);
-    }
-
-    private ItemStack randomVisual() {
-        return new ItemStack(Material.MUSIC_DISC_13);
+        return Component.text(languageService.t(player, name), NamedTextColor.LIGHT_PURPLE);
     }
 
     private boolean isCurrent(Player player, MusicBrowserSessions.Session expectedState,

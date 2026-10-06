@@ -1,5 +1,7 @@
 package org.encinet.mik.module.player;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
@@ -42,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class TeleportPreferenceModule implements Listener {
 
-    private static final String STAFF_TELEPORT_BYPASS_PERMISSION = "group.helper";
     private static final Set<String> TP_COMMANDS = Set.of("tp", "teleport", "minecraft:tp", "minecraft:teleport");
     private static final long REQUEST_TIMEOUT_TICKS = 20L * 60L;
     private static final boolean DEFAULT_BLOCK_TELEPORTS_WHILE_AFK = false;
@@ -122,7 +123,7 @@ public class TeleportPreferenceModule implements Listener {
                 return;
             }
 
-            if (sender.hasPermission(STAFF_TELEPORT_BYPASS_PERMISSION)) {
+            if (RolePermissions.canModerate(sender)) {
                 rememberTeleportInitiator(victim, sender);
                 return;
             }

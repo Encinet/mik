@@ -49,6 +49,17 @@ public final class QqOpenApiClient {
         return sendMarkdown(groupOpenId, content, messageId, messageSequence, false);
     }
 
+    /** Sends one proactive Markdown message to a configured QQ group. */
+    public CompletableFuture<Void> sendMarkdown(String groupOpenId, String content) {
+        if (groupOpenId == null || groupOpenId.isBlank()) {
+            throw new IllegalArgumentException("QQ group OpenID must not be blank");
+        }
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("QQ Markdown content must not be blank");
+        }
+        return sendMarkdown(groupOpenId, content, null, 0, false);
+    }
+
     /** Uploads a remote image without sending it, then attaches it to one passive reply. */
     public CompletableFuture<Void> replyRemoteImage(
             String groupOpenId,
@@ -107,8 +118,10 @@ public final class QqOpenApiClient {
         JsonObject markdown = new JsonObject();
         markdown.addProperty("content", content);
         body.add("markdown", markdown);
-        body.addProperty("msg_id", messageId);
-        body.addProperty("msg_seq", messageSequence);
+        if (messageId != null) {
+            body.addProperty("msg_id", messageId);
+            body.addProperty("msg_seq", messageSequence);
+        }
 
         return tokenProvider.accessToken()
                 .thenCompose(token -> sendAuthorizedMessage(groupOpenId, body, token))

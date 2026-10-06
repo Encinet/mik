@@ -14,7 +14,7 @@ class MenuUsageDisplayArchitectureTest {
 
     @Test
     void menuSessionOwnsTheOverheadStatusLifetime() throws IOException {
-        String service = Files.readString(MENU.resolve("FloatingMenuService.java"));
+        String service = Files.readString(MENU.resolve("runtime/FloatingMenuService.java"));
 
         assertTrue(service.contains(
                 "menuStatusDisplays.update(player, session.definition.screenId())"));
@@ -28,7 +28,7 @@ class MenuUsageDisplayArchitectureTest {
 
     @Test
     void axiomExclusionWrapsTheMenuStatusDisplayLifetime() throws IOException {
-        String source = Files.readString(MENU.resolve("MenuUsageDisplayController.java"));
+        String source = Files.readString(MENU.resolve("runtime/MenuUsageDisplayController.java"));
 
         int synchronize = source.indexOf(
                 "axiomGizmos.synchronize(viewer, display.entityUuid, Set.of(display.entityUuid))");
@@ -44,7 +44,7 @@ class MenuUsageDisplayArchitectureTest {
     @Test
     void activeRhythmGameplayOwnsADistinctLocalizedOverheadStatus()
             throws IOException {
-        String source = Files.readString(MENU.resolve("MenuUsageDisplayController.java"));
+        String source = Files.readString(MENU.resolve("runtime/MenuUsageDisplayController.java"));
 
         assertTrue(source.contains("RHYTHM_GAME_SCREEN_ID = \"jukebox-rhythm\""));
         assertTrue(source.contains("RHYTHM_CALIBRATION_SCREEN_ID"));

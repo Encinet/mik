@@ -7,7 +7,7 @@ import ch.njol.skript.util.Timespan;
 import ch.njol.util.Kleenean;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
-import org.encinet.mik.module.pvp.PvpModule;
+import org.encinet.mik.module.pvp.PvpOverrideRules;
 import org.jetbrains.annotations.Nullable;
 
 final class MikPvpOverrideSetEffect extends Effect {
@@ -55,7 +55,7 @@ final class MikPvpOverrideSetEffect extends Effect {
             return;
         }
         try {
-            overrideId = facade.normalizePvpOverrideId(overrideId);
+            overrideId = PvpOverrideRules.normalizeId(overrideId);
         } catch (IllegalArgumentException e) {
             error(e.getMessage());
             return;
@@ -69,7 +69,7 @@ final class MikPvpOverrideSetEffect extends Effect {
             }
             overridePriority = (int) Math.clamp(number.longValue(), Integer.MIN_VALUE, Integer.MAX_VALUE);
         }
-        long durationMillis = PvpModule.PERMANENT_OVERRIDE;
+        long durationMillis = PvpOverrideRules.PERMANENT;
         if (duration != null) {
             Timespan timespan = duration.getSingle(event);
             if (timespan == null) {

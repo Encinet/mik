@@ -1,6 +1,6 @@
 package org.encinet.mik.module.ban;
 
-import org.encinet.mik.module.player.PlayerAddressLookup;
+import org.encinet.mik.module.player.address.PlayerAddressLookup;
 import org.junit.jupiter.api.Test;
 
 import java.net.InetAddress;

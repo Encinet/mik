@@ -21,8 +21,6 @@ import java.util.Set;
  */
 final class RhythmLatencyCalibration {
     static final int REQUIRED_SAMPLES = 10;
-    static final int MINIMUM_OFFSET_MILLIS = -250;
-    static final int MAXIMUM_OFFSET_MILLIS = 350;
     static final int MAXIMUM_RELIABLE_DEVIATION_MILLIS = 65;
     static final int MAXIMUM_CONFIDENCE_RADIUS_MILLIS = 25;
     static final int MAXIMUM_STABLE_DRIFT_MILLIS = 35;
@@ -219,8 +217,8 @@ final class RhythmLatencyCalibration {
                 estimatedCenter,
                 inlierObservations.stream().anyMatch(Observation::coarseTiming));
         int drift = cycleDrift(inlierCycles);
-        boolean withinRange = estimatedCenter >= MINIMUM_OFFSET_MILLIS
-                && estimatedCenter <= MAXIMUM_OFFSET_MILLIS;
+        boolean withinRange = estimatedCenter >= RhythmLatencyProfile.MINIMUM_JUDGEMENT_OFFSET_MILLIS
+                && estimatedCenter <= RhythmLatencyProfile.MAXIMUM_JUDGEMENT_OFFSET_MILLIS;
         int recentStable = recentStableCycles(inlierCycles);
         Estimate estimate = new Estimate(estimatedCenter, deviation,
                 inlierObservations.size(), acceptedObservationCount,

@@ -56,8 +56,8 @@ final class RhythmLatencyCompensator {
         Arrays.fill(samples, initial);
         smoothedRttMillis = initial;
         this.calibrationOffsetMillis = Math.clamp(calibrationOffsetMillis,
-                RhythmLatencyCalibration.MINIMUM_OFFSET_MILLIS,
-                RhythmLatencyCalibration.MAXIMUM_OFFSET_MILLIS);
+                RhythmLatencyProfile.MINIMUM_JUDGEMENT_OFFSET_MILLIS,
+                RhythmLatencyProfile.MAXIMUM_JUDGEMENT_OFFSET_MILLIS);
         this.animationOffsetMillis = Math.clamp(animationOffsetMillis,
                 RhythmLatencyProfile.MINIMUM_ANIMATION_OFFSET_MILLIS,
                 RhythmLatencyProfile.MAXIMUM_ANIMATION_OFFSET_MILLIS);

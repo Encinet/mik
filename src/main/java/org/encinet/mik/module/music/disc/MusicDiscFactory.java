@@ -125,11 +125,6 @@ public class MusicDiscFactory {
                         .decoration(TextDecoration.ITALIC, false));
             }
 
-            lore.add(Component.text(""));
-            lore.add(Component.text(languageService.t(language, Message.MUSIC_DISC_FOOTER))
-                    .color(NamedTextColor.DARK_PURPLE)
-                    .decoration(TextDecoration.ITALIC, true));
-
             meta.lore(lore);
 
             float modelValue = (float) Math.floorMod(hash, 1000);

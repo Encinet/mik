@@ -8,7 +8,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Input;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
@@ -16,6 +15,7 @@ import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockDamageEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
@@ -36,7 +36,6 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.encinet.mik.module.i18n.LanguageService;
@@ -72,6 +71,7 @@ import org.encinet.mik.module.music.rhythm.calibration.RhythmCalibrationPattern;
 import org.encinet.mik.module.music.rhythm.calibration.CalibrationStage;
 import org.encinet.mik.module.music.rhythm.calibration.RhythmCuePresentation;
 import org.encinet.mik.module.music.rhythm.calibration.RhythmCuePresentationLedger;
+import org.encinet.mik.util.ShutdownSequence;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -116,10 +116,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     private static final double SPATIAL_APPROACH_START_RADIUS = 2.30;
     private static final double SPATIAL_SATELLITE_SCALE = 0.105;
     private static final double SPATIAL_COARSE_AIM_GRACE_DEGREES = 1.0;
-    private static final RhythmCalibrationProfiles UNCALIBRATED_PROFILES =
-            new RhythmCalibrationProfiles(new RhythmLatencyProfile(0, 0),
-                    new RhythmLatencyProfile(0, 0));
-
     private final JavaPlugin plugin;
     private final RhythmPlaybackGateway playbackGateway;
     private final RhythmPlaybackIsolation playbackIsolation;
@@ -127,6 +123,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     private final AfkActivityService afkActivityService;
     private final RhythmInputTimestampSource inputTimestamps =
             new RhythmInputTimestampSource();
+    private final RhythmCalibrationStore calibrationStore;
     private final LanguageService languageService;
     private final Map<UUID, ActiveGame> activeGames = new java.util.HashMap<>();
     private final Map<UUID, ActiveCalibration> activeCalibrations =
@@ -139,11 +136,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     private final FloatingMenuScreen<GameView> gameScreen;
     private final FloatingMenuScreen<ResultView> resultScreen;
     private final FloatingMenuScreen<CalibrationView> calibrationScreen;
-    private final NamespacedKey minecraftJudgementOffsetKey;
-    private final NamespacedKey minecraftAnimationOffsetKey;
-    private final NamespacedKey plasmoJudgementOffsetKey;
-    private final NamespacedKey plasmoAnimationOffsetKey;
-    private final NamespacedKey pointerInputDeltaKey;
     private BukkitTask tickTask;
 
     public RhythmGameService(JavaPlugin plugin, RhythmPlaybackGateway playbackGateway,
@@ -168,16 +160,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         this.languageService = Objects.requireNonNull(languageService, "languageService");
         this.afkActivityService = Objects.requireNonNull(
                 afkActivityService, "afkActivityService");
-        this.minecraftJudgementOffsetKey = new NamespacedKey(plugin,
-                "rhythm_minecraft_judgement_ms");
-        this.minecraftAnimationOffsetKey = new NamespacedKey(plugin,
-                "rhythm_minecraft_animation_ms");
-        this.plasmoJudgementOffsetKey = new NamespacedKey(plugin,
-                "rhythm_plasmo_judgement_ms");
-        this.plasmoAnimationOffsetKey = new NamespacedKey(plugin,
-                "rhythm_plasmo_animation_ms");
-        this.pointerInputDeltaKey = new NamespacedKey(plugin,
-                "rhythm_pointer_input_delta_ms");
+        this.calibrationStore = new RhythmCalibrationStore(plugin);
         this.modeScreen = new FloatingMenuScreen<>("jukebox-rhythm-mode",
                 context -> renderModeSelector(context.player(), context.state()));
         this.selectorScreen = new FloatingMenuScreen<>("jukebox-rhythm-difficulty",
@@ -272,10 +255,10 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         RhythmPlaybackSnapshot playback = joinedPlayback.get();
         RhythmChartView chart = new RhythmChartView(playback.timeline(), difficulty,
                 playback.positionMillis());
-        RhythmLatencyProfile profile = calibrationProfiles(player)
+        RhythmLatencyProfile profile = calibrationStore.profiles(player)
                 .forChannel(playback.audioChannel());
         if (mode.pointerInput()) {
-            profile = profile.withInputDelta(pointerInputDelta(player));
+            profile = profile.withInputDelta(calibrationStore.pointerInputDelta(player));
         }
         long startedAtNanos = System.nanoTime();
         RhythmLatencyCompensator latency = new RhythmLatencyCompensator(
@@ -429,22 +412,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     @Override
     public boolean hasCompletedLatencyCalibration(Player player) {
         Objects.requireNonNull(player, "player");
-        return storedCalibration(player).isPresent();
-    }
-
-    private Optional<RhythmCalibrationResult> storedCalibration(Player player) {
-        var data = player.getPersistentDataContainer();
-        return RhythmCalibrationResult.fromStored(
-                data.get(minecraftJudgementOffsetKey,
-                        PersistentDataType.INTEGER),
-                data.get(minecraftAnimationOffsetKey,
-                        PersistentDataType.INTEGER),
-                data.get(plasmoJudgementOffsetKey,
-                        PersistentDataType.INTEGER),
-                data.get(plasmoAnimationOffsetKey,
-                        PersistentDataType.INTEGER),
-                data.get(pointerInputDeltaKey,
-                        PersistentDataType.INTEGER));
+        return calibrationStore.read(player).isPresent();
     }
 
     private boolean requireCompletedCalibration(Player player) {
@@ -502,49 +470,11 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         return true;
     }
 
-    private RhythmCalibrationProfiles calibrationProfiles(Player player) {
-        return storedCalibration(player)
-                .map(RhythmCalibrationResult::profiles)
-                .orElse(UNCALIBRATED_PROFILES);
-    }
-
-    private int pointerInputDelta(Player player) {
-        return storedCalibration(player)
-                .map(RhythmCalibrationResult::pointerInputDeltaMillis)
-                .orElse(0);
-    }
-
-    private void saveCalibration(Player player, RhythmCalibrationResult result) {
-        var data = player.getPersistentDataContainer();
-        saveProfile(data, minecraftJudgementOffsetKey,
-                minecraftAnimationOffsetKey, result.profiles().minecraft());
-        saveProfile(data, plasmoJudgementOffsetKey,
-                plasmoAnimationOffsetKey, result.profiles().plasmoVoice());
-        data.set(pointerInputDeltaKey,
-                PersistentDataType.INTEGER,
-                result.pointerInputDeltaMillis());
-    }
-
-    private static void saveProfile(
-            org.bukkit.persistence.PersistentDataContainer data,
-            NamespacedKey judgementKey, NamespacedKey animationKey,
-            RhythmLatencyProfile profile) {
-        data.set(judgementKey, PersistentDataType.INTEGER,
-                profile.judgementOffsetMillis());
-        data.set(animationKey, PersistentDataType.INTEGER,
-                profile.animationOffsetMillis());
-    }
-
     public void resetCalibration(Player player) {
         Objects.requireNonNull(player, "player");
         ActiveCalibration active = activeCalibrations.get(player.getUniqueId());
         if (active != null) endCalibration(player, active, true);
-        var data = player.getPersistentDataContainer();
-        data.remove(minecraftJudgementOffsetKey);
-        data.remove(minecraftAnimationOffsetKey);
-        data.remove(plasmoJudgementOffsetKey);
-        data.remove(plasmoAnimationOffsetKey);
-        data.remove(pointerInputDeltaKey);
+        calibrationStore.clear(player);
         player.sendActionBar(languageService.text(player,
                 Message.MUSIC_RHYTHM_CALIBRATION_RESET_DONE,
                 NamedTextColor.GREEN));
@@ -751,7 +681,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                         continue;
                     }
                     calibration.consumeResult().ifPresent(result -> {
-                        saveCalibration(player, result);
+                        calibrationStore.save(player, result);
                         player.sendActionBar(languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_DONE,
                                 NamedTextColor.GREEN));
@@ -789,6 +719,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 player.getUniqueId(), RhythmGameMode.FALLING);
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
                         "jukebox-rhythm-mode")
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .layout(FloatingMenuLayouts.menu(
                         FloatingMenuLayouts.actions("mode", 3),
@@ -837,6 +768,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 player.getUniqueId(), RhythmDifficulty.NORMAL);
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
                         "jukebox-rhythm-difficulty")
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .layout(FloatingMenuLayouts.menu(
                         FloatingMenuLayouts.actions("difficulty", 3),
@@ -888,6 +820,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         long visualNow = now;
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
                         "jukebox-rhythm-calibration")
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .requireSpatialPresentation()
                 .stableAnchor()
@@ -908,7 +841,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 });
 
         Component title = languageService.text(player,
-                Message.MUSIC_RHYTHM_LATENCY_TEST, NamedTextColor.GOLD);
+                Message.MUSIC_RHYTHM_LATENCY_TEST,
+                FloatingMenuAppearance.RHYTHM_ACCENT);
         Component stageLine;
         Component instruction;
         boolean sampling = false;
@@ -1166,6 +1100,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                                            CalibrationView view) {
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
                         "jukebox-rhythm-calibration")
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .requireSpatialPresentation()
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
@@ -1197,6 +1132,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         long now = playback.positionMillis();
         long judgementNow = game.latency.inputPosition(now);
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-rhythm")
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .requireSpatialPresentation()
                 .stableAnchor()
@@ -1249,7 +1185,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     private FloatingMenuDefinition renderResult(Player player, ResultView view) {
         RhythmGameResult result = view.result();
         Component summary = languageService.text(player,
-                        Message.MUSIC_RHYTHM_RESULTS, NamedTextColor.GOLD)
+                        Message.MUSIC_RHYTHM_RESULTS,
+                        FloatingMenuAppearance.RHYTHM_ACCENT)
                 .decoration(TextDecoration.BOLD, true)
                 .append(Component.newline())
                 .append(languageService.text(player, Message.MUSIC_RHYTHM_SCORE,
@@ -1284,6 +1221,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                         timingColor(result.meanTimingErrorMillis())));
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
                         "jukebox-rhythm-result")
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .layout(FloatingMenuLayouts.menu(
                         FloatingMenuLayouts.navigation("navigation")));
@@ -1682,6 +1620,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
     private FloatingMenuDefinition unavailable(Player player, GameView view) {
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-rhythm")
+                .appearance(FloatingMenuAppearance.RHYTHM)
                 .requireSpatialPresentation()
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
@@ -2864,43 +2803,64 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
     @Override
     public void close() {
-        if (tickTask != null) {
-            tickTask.cancel();
-            tickTask = null;
-        }
+        ShutdownSequence shutdown = new ShutdownSequence();
+        shutdown.attempt("rhythm game listeners", () -> HandlerList.unregisterAll(this));
+        BukkitTask task = tickTask;
+        tickTask = null;
+        if (task != null) shutdown.attempt("rhythm game tick task", task::cancel);
         for (UUID playerId : List.copyOf(activeGames.keySet())) {
-            ActiveGame game = activeGames.get(playerId);
-            Player player = Bukkit.getPlayer(playerId);
-            if (game != null && player != null) {
-                removeActiveGame(player, game);
-            } else if (game != null && activeGames.remove(playerId, game)) {
-                releaseGameResources(game);
-            }
-            gameScreen.forget(playerId);
-        }
-        for (UUID playerId : List.copyOf(activeCalibrations.keySet())) {
-            ActiveCalibration calibration = activeCalibrations.get(playerId);
-            Player player = Bukkit.getPlayer(playerId);
-            if (calibration != null) {
-                if (player != null) {
-                    removeCalibration(player, calibration);
-                } else if (activeCalibrations.remove(playerId, calibration)) {
-                    releaseCalibrationResources(calibration);
+            ActiveGame game = activeGames.remove(playerId);
+            if (game != null) {
+                shutdown.attempt("rhythm participation for " + playerId,
+                        game.participation::close);
+                shutdown.attempt("rhythm AFK suppression for " + playerId,
+                        game.afkLease::close);
+                if (game.heldSlotBeforeGame != NO_CAPTURED_HOTBAR_SLOT) {
+                    shutdown.attempt("rhythm hotbar for " + playerId, () -> {
+                        Player player = Bukkit.getPlayer(playerId);
+                        if (player != null) player.getInventory().setHeldItemSlot(
+                                game.heldSlotBeforeGame);
+                    });
                 }
             }
-            calibrationScreen.forget(playerId);
+            shutdown.attempt("rhythm game menu for " + playerId,
+                    () -> gameScreen.forget(playerId));
         }
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            selectorScreen.forget(player);
-            modeScreen.forget(player);
-            resultScreen.forget(player);
+        for (UUID playerId : List.copyOf(activeCalibrations.keySet())) {
+            ActiveCalibration calibration = activeCalibrations.remove(playerId);
+            if (calibration != null) {
+                shutdown.attempt("rhythm calibration audio for " + playerId,
+                        calibration::closeStagePlayback);
+                shutdown.attempt("rhythm calibration silence for " + playerId,
+                        calibration.silenceLease::close);
+                shutdown.attempt("rhythm calibration AFK suppression for " + playerId,
+                        calibration.afkLease::close);
+                shutdown.attempt("rhythm calibration hotbar for " + playerId, () -> {
+                    Player player = Bukkit.getPlayer(playerId);
+                    if (player != null) player.getInventory().setHeldItemSlot(
+                            calibration.heldSlotBeforeCalibration);
+                });
+            }
+            shutdown.attempt("rhythm calibration menu for " + playerId,
+                    () -> calibrationScreen.forget(playerId));
         }
+        shutdown.attempt("remaining rhythm menus", () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                shutdown.attempt("rhythm selector menu for " + player.getUniqueId(),
+                        () -> selectorScreen.forget(player));
+                shutdown.attempt("rhythm mode menu for " + player.getUniqueId(),
+                        () -> modeScreen.forget(player));
+                shutdown.attempt("rhythm result menu for " + player.getUniqueId(),
+                        () -> resultScreen.forget(player));
+            }
+        });
         activeGames.clear();
         activeCalibrations.clear();
         preferredDifficulties.clear();
         preferredModes.clear();
-        calibrationAudioOutput.close();
-        inputTimestamps.close();
+        shutdown.attempt("rhythm calibration output", calibrationAudioOutput::close);
+        shutdown.attempt("rhythm input timestamps", inputTimestamps::close);
+        shutdown.finish("rhythm game service");
     }
 
     private static final class ActiveCalibration {

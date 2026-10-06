@@ -1,5 +1,7 @@
 package org.encinet.mik.module.menu;
 
+import org.encinet.mik.module.menu.runtime.FloatingMenuService;
+
 import org.bukkit.entity.Player;
 
 import java.util.Optional;
@@ -17,10 +19,9 @@ public final class FloatingMenus {
     }
 
     public static void uninstall() {
-        if (service != null) {
-            service.closeAllImmediately();
-            service = null;
-        }
+        FloatingMenuService installed = service;
+        service = null;
+        if (installed != null) installed.closeAllImmediately();
     }
 
     public static FloatingMenuHandle open(Player player, FloatingMenuDefinition definition) {
@@ -44,9 +45,18 @@ public final class FloatingMenus {
         return service == null ? Optional.empty() : service.current(player);
     }
 
+    public static boolean supportsSpatialScenes(Player player) {
+        return service != null && service.supportsSpatialScenes(player);
+    }
+
     public static FloatingMenuScale scale(Player player) {
         if (service == null) throw new IllegalStateException("Floating menu service is not installed");
         return service.scale(player);
+    }
+
+    public static FloatingMenuPreferences preferences(Player player) {
+        if (service == null) throw new IllegalStateException("Floating menu service is not installed");
+        return service.preferences(player);
     }
 
     public static void openSettings(Player player) {
@@ -62,5 +72,9 @@ public final class FloatingMenus {
     public static void setMainMenuOpener(Consumer<Player> opener) {
         if (service == null) throw new IllegalStateException("Floating menu service is not installed");
         service.setMainMenuOpener(opener);
+    }
+
+    public static void clearMainMenuOpener() {
+        if (service != null) service.clearMainMenuOpener();
     }
 }

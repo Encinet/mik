@@ -20,7 +20,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
+import org.encinet.mik.module.role.RolePermissions;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -29,7 +29,6 @@ import java.util.UUID;
 
 public class MaintenanceModule implements Listener {
 
-    private static final String HELPER_PERMISSION = "group." + Mik.GROUP_HELPER;
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -56,7 +55,7 @@ public class MaintenanceModule implements Listener {
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event ->
                 event.registrar().register(
                         Commands.literal("maintenance")
-                                .requires(source -> source.getSender().hasPermission(HELPER_PERMISSION))
+                                .requires(source -> RolePermissions.canModerate(source.getSender()))
                                 .executes(context -> sendMaintenanceStatus(context.getSource().getSender()))
                                 .then(Commands.literal("on")
                                         .executes(context -> setMaintenanceMode(
@@ -138,9 +137,10 @@ public class MaintenanceModule implements Listener {
         }
 
         User user = luckPerms.getUserManager().getUser(playerUuid);
-        return user != null && user.getCachedData().getPermissionData()
-                .checkPermission(HELPER_PERMISSION)
-                .asBoolean();
+        return user != null && (user.getCachedData().getPermissionData()
+                .checkPermission(RolePermissions.MODERATOR).asBoolean()
+                || user.getCachedData().getPermissionData()
+                .checkPermission(RolePermissions.CUSTODIAN).asBoolean());
     }
 
     public boolean isMaintenanceEnabled() {

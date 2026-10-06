@@ -21,7 +21,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
-import org.encinet.mik.module.presentation.AxiomGizmoService;
+import org.encinet.mik.integration.axiom.AxiomGizmoService;
 
 import java.util.ArrayList;
 import java.util.Collection;

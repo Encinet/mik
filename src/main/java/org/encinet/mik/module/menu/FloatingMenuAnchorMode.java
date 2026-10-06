@@ -6,5 +6,7 @@ public enum FloatingMenuAnchorMode {
     ADAPTIVE,
 
     /** Keeps the opening anchor stable while animated content moves inside the scene. */
-    FIXED_FOR_SESSION
+    FIXED_FOR_SESSION,
+
+    FOLLOW_PLAYER_POSITION
 }

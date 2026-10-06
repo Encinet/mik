@@ -16,12 +16,15 @@ allowed-room-ids:
 
 ```text
 !帮助
+!ai Who is online?
 !在线
 !状态
 !绑定 ABCDEFGH
 !我的
 !解绑 确认
 ```
+
+`!ai <问题>` 使用与游戏和 QQ 共用的 AI 助手；`!ai clear` 清除当前 Matrix 用户在本房间的对话历史。AI 提供商、网页搜索、游戏查询、能力包和多语言 prompt 统一由 `plugins/mik/ai.yml` 配置，详见 [AI 助手](ai.md)。
 
 身份验证码也可以先在游戏内用 `/bind matrix` 生成，再到 Matrix 房间发送 `!绑定 <验证码>`。Matrix 身份不按房间隔离，绑定一次后可在所有允许房间使用。
 

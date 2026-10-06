@@ -10,13 +10,18 @@ import java.util.function.Predicate;
 
 /** Reusable spatial layouts. Custom layouts can implement {@link FloatingMenuLayout} directly. */
 public final class FloatingMenuLayouts {
-    private static final double MENU_SECTION_GAP = 0.28;
-    private static final double MENU_COLUMN_GAP = 0.30;
-    private static final double MENU_ROW_GAP = 0.18;
+    private static final double MENU_SECTION_GAP = 0.18;
+    private static final double MENU_COLUMN_GAP = 0.22;
+    private static final double MENU_ROW_GAP = 0.10;
     private static final double MENU_CURVE_DEPTH = 0.18;
     private static final double MENU_NAVIGATION_GAP = 0.22;
 
     private FloatingMenuLayouts() { }
+
+    public static FloatingMenuLayout workbench(double modelWidth, double modelHeight,
+                                               Panel left, Panel upper, Panel right, Panel lower) {
+        return new FloatingMenuWorkbenchLayout(modelWidth, modelHeight, left, upper, right, lower);
+    }
 
     /**
      * Standard top-to-bottom application-menu composition. The semantic region
@@ -55,7 +60,13 @@ public final class FloatingMenuLayouts {
     /** Standard column-major card band for paged item browsers. */
     public static Region cards(String id, int columns, int rowsPerColumn) {
         return region(id, adaptiveCurvedList(columns, rowsPerColumn,
-                0.36, MENU_ROW_GAP, 0.20));
+                MENU_COLUMN_GAP, MENU_ROW_GAP, 0.20));
+    }
+
+    public static Region balancedCards(String id, int maximumColumns, int maximumRows) {
+        if (maximumColumns < 1 || maximumRows < 1) throw new IllegalArgumentException();
+        return region(id, new FloatingMenuBalancedLayout(maximumColumns, maximumRows,
+                MENU_COLUMN_GAP, MENU_ROW_GAP));
     }
 
     /** Uniform center spacing for equally sized visual nodes. Text menus should use adaptiveGrid. */
@@ -486,6 +497,19 @@ public final class FloatingMenuLayouts {
         return stackedPanels(Axis.HORIZONTAL, gap, panels);
     }
 
+    /** Keeps related columns together with a shared measured top edge. */
+    public static FloatingMenuLayout topAlignedPanels(double gap, Panel... panels) {
+        return stackedPanels(Axis.HORIZONTAL, gap, true, panels);
+    }
+
+    public static FloatingMenuLayout panoramicPanels(String centerPanelId, double gap, Panel... panels) {
+        Objects.requireNonNull(centerPanelId, "centerPanelId");
+        FloatingMenuLayout planar = horizontalPanels(gap, panels);
+        Panel center = List.of(panels).stream().filter(panel -> panel.id().equals(centerPanelId))
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("Unknown center panel " + centerPanelId));
+        return new FloatingMenuArcLayout(planar, center.regions());
+    }
+
     /** Places independently composed panels from top to bottom. */
     public static FloatingMenuLayout verticalPanels(double gap, Panel... panels) {
         return stackedPanels(Axis.VERTICAL, gap, panels);
@@ -582,6 +606,11 @@ public final class FloatingMenuLayouts {
     }
 
     private static FloatingMenuLayout stackedPanels(Axis axis, double gap, Panel... panels) {
+        return stackedPanels(axis, gap, false, panels);
+    }
+
+    private static FloatingMenuLayout stackedPanels(Axis axis, double gap,
+                                                    boolean alignTop, Panel... panels) {
         Objects.requireNonNull(axis, "axis");
         if (!nonNegativeFinite(gap)) throw new IllegalArgumentException("Panel gap must be finite");
         List<Panel> declared = List.of(panels.clone());
@@ -621,8 +650,11 @@ public final class FloatingMenuLayouts {
                 if (panel == target) shift = cursor - leading;
                 cursor += axis.extent(panel.bounds()) + gap;
             }
+            double verticalShift = alignTop ? present.stream()
+                    .mapToDouble(panel -> panel.bounds().height()).max().orElse(0.0) * 0.5
+                    - target.bounds().maximumUp() : 0.0;
             return axis == Axis.HORIZONTAL
-                    ? local.offset(shift, 0.0, 0.0)
+                    ? local.offset(shift, verticalShift, 0.0)
                     : local.offset(0.0, -shift, 0.0);
         };
     }

@@ -1,6 +1,6 @@
 package org.encinet.mik.module.social.platform.matrix;
 
-import org.encinet.mik.module.social.api.SocialPlatformPlan;
+import org.encinet.mik.module.social.runtime.SocialPlatformPlan;
 import org.encinet.mik.module.social.api.SocialPlatformRuntimeContext;
 import org.encinet.mik.module.social.api.SocialPlatformSession;
 import org.encinet.mik.module.social.command.SocialCommandSyntax;

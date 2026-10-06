@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id("io.papermc.paperweight.userdev") version "2.0.0-beta.21"
+    id("io.papermc.paperweight.userdev") version "2.0.0-beta.24"
     id("xyz.jpenilla.run-paper") version "3.1.0"
 }
 
@@ -24,6 +24,10 @@ repositories {
     maven { url = uri("https://repo.skriptlang.org/releases") }
     maven { url = uri("https://maven.enginehub.org/repo/") }
     maven { url = uri("https://repo.opencollab.dev/main/") }
+    maven {
+        url = uri("https://nexus.prism-mc.org/repository/maven-releases/")
+        content { includeGroup("org.prism_mc.prism") }
+    }
     exclusiveContent {
         forRepository {
             maven {
@@ -38,12 +42,15 @@ repositories {
 }
 
 dependencies {
-    paperweight.paperDevBundle("26.2.build.111-stable")
+    paperweight.paperDevBundle("26.3.build.134-beta")
     compileOnly("net.raphimc:NoteBlockLib:3.3.0")
     compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
     compileOnly("com.viaversion:viaversion-api:5.11.0")
     compileOnly("com.google.code.gson:gson:2.14.0")
     compileOnly("org.jsoup:jsoup:1.22.2")
+    compileOnly("org.apache.lucene:lucene-core:10.5.1")
+    compileOnly("org.apache.lucene:lucene-analysis-common:10.5.1")
+    compileOnly("org.apache.lucene:lucene-analysis-icu:10.5.1")
     compileOnly('net.luckperms:api:5.5')
     compileOnly("net.quickwrite:fluent-builder:1.0.0")
     compileOnly("su.plo.voice.server:paper:2.1.13")
@@ -53,6 +60,7 @@ dependencies {
     compileOnly("org.graalvm.polyglot:polyglot:25.2.4")
     compileOnly("com.github.SkriptLang:Skript:2.16.1")
     compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.4.4")
+    compileOnly("org.prism_mc.prism:prism-paper-api:4.4")
     compileOnly("maven.modrinth:evkiwA7V:Ow8CJ6pP")
     compileOnly("org.geysermc.geyser:api:2.11.1-SNAPSHOT")
     testRuntimeOnly("org.xerial:sqlite-jdbc:3.53.2.1")
@@ -66,15 +74,26 @@ dependencies {
     testImplementation("net.quickwrite:fluent-builder:1.0.0")
     testImplementation("com.google.code.gson:gson:2.14.0")
     testImplementation("org.jsoup:jsoup:1.22.2")
+    testImplementation("org.apache.lucene:lucene-core:10.5.1")
+    testImplementation("org.apache.lucene:lucene-analysis-common:10.5.1")
+    testImplementation("org.apache.lucene:lucene-analysis-icu:10.5.1")
     testImplementation("net.kyori:adventure-text-minimessage:5.2.0")
     testImplementation("org.graalvm.polyglot:js:25.2.4")
     testImplementation("com.github.SkriptLang:Skript:2.16.1")
     testImplementation("com.sk89q.worldedit:worldedit-bukkit:7.4.4")
+    testImplementation("org.prism_mc.prism:prism-paper-api:4.4")
+    testImplementation("net.luckperms:api:5.5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+def testTempDir = layout.buildDirectory.dir("test-tmp").get().asFile
+
 test {
     useJUnitPlatform()
+    systemProperty("java.io.tmpdir", testTempDir.absolutePath)
+    doFirst {
+        testTempDir.mkdirs()
+    }
     jvmArgs(
             "--enable-native-access=ALL-UNNAMED",
             "--sun-misc-unsafe-memory-access=allow"
@@ -86,7 +105,7 @@ tasks {
         // Configure the Minecraft version for our task.
         // This is the only required configuration besides applying the plugin.
         // Your plugin's jar (or shadowJar if present) will be used automatically.
-        minecraftVersion("26.2")
+        minecraftVersion("26.3")
     }
 }
 

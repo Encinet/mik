@@ -1,5 +1,7 @@
 package org.encinet.mik.module.chat;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
@@ -8,22 +10,19 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.chat.delay.ChatDelayScheduler;
 import org.encinet.mik.module.chat.menu.ChatSettingsMenu;
 import org.encinet.mik.module.chat.mention.MentionService;
@@ -44,14 +43,11 @@ import org.encinet.mik.module.chat.render.MinecraftChatContentRenderer;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
-import org.encinet.mik.module.identity.ExternalIdentity;
 import org.encinet.mik.module.player.identity.PlayerIdentityRenderer;
-import org.encinet.mik.module.player.identity.PlayerNameTag;
-import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
-import org.encinet.mik.module.social.chat.SocialChatGameSink;
-import org.encinet.mik.module.social.chat.SocialChatPublisher;
+import org.encinet.mik.module.chat.bridge.SocialChatGameSink;
+import org.encinet.mik.module.chat.bridge.SocialChatPublisher;
 import org.encinet.mik.module.identity.IdentityBindingManager;
-import org.encinet.mik.module.social.chat.SocialChatPublishReport;
+import org.encinet.mik.module.chat.bridge.SocialChatPublishReport;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -66,7 +62,6 @@ import java.time.Instant;
 
 public class ChatModule implements Listener, SocialChatGameSink {
 
-    private static final String STAFF_PERMISSION = "group." + Mik.GROUP_HELPER;
     private static final String REPEAT_COMMAND = "mikrepeat";
 
     private final JavaPlugin plugin;
@@ -154,6 +149,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
     }
 
     public void disable() {
+        HandlerList.unregisterAll(this);
         contextFactory.close();
         delayScheduler.cancelAll();
         pendingTransactions.clear();
@@ -165,7 +161,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
         lifecycleManager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
             commands.register(Commands.literal("staff")
-                    .requires(source -> source.getSender().hasPermission(STAFF_PERMISSION))
+                    .requires(source -> RolePermissions.canModerate(source.getSender()))
                     .executes(ctx -> {
                         Player player = requirePlayer(ctx.getSource().getSender());
                         if (player != null) {
@@ -332,10 +328,10 @@ public class ChatModule implements Listener, SocialChatGameSink {
 
     @Override
     public void display(
-            SocialPlatformDescriptor platform,
+            String platformName,
             ChatSubmission submission
     ) {
-        java.util.Objects.requireNonNull(platform, "platform");
+        java.util.Objects.requireNonNull(platformName, "platformName");
         java.util.Objects.requireNonNull(submission, "submission");
         if (!Bukkit.isPrimaryThread()) {
             throw new IllegalStateException(
@@ -343,11 +339,11 @@ public class ChatModule implements Listener, SocialChatGameSink {
         }
         ChatMessage message = chatProcessor.process(submission);
         plugin.getServer().getConsoleSender().sendMessage(
-                externalPublicMessage(platform, message,
+                externalPublicMessage(platformName, message,
                         plugin.getServer().getConsoleSender()));
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.sendMessage(externalPublicMessage(
-                    platform, message, player));
+                    platformName, message, player));
         }
         mentionService.notifyEffects(
                 message.submission().sender().minecraftId(),
@@ -359,105 +355,15 @@ public class ChatModule implements Listener, SocialChatGameSink {
     }
 
     private Component externalPublicMessage(
-            SocialPlatformDescriptor platform,
+            String platformName,
             ChatMessage message,
             Audience viewer
     ) {
         Component body = renderContent(message.content(),
                 viewer instanceof Player player ? player : null);
         return formatter.externalPublicMessage(
-                platform.displayName(), externalSenderIdentity(
-                        platform, message.submission().sender(), viewer), viewer,
+                platformName, message.submission().sender(), viewer,
                 body, message.submission().sourceText());
-    }
-
-    private Component externalSenderIdentity(
-            SocialPlatformDescriptor platform,
-            ChatSender sender,
-            Audience viewer
-    ) {
-        Player onlinePlayer = sender.minecraftId()
-                .map(Bukkit::getPlayer).orElse(null);
-        Component visibleIdentity;
-        String visiblePlayerName = null;
-        Component details;
-        if (sender.minecraftId().isPresent()) {
-            UUID playerId = sender.minecraftId().orElseThrow();
-            visiblePlayerName = onlinePlayer == null
-                    ? sender.minecraftName() : onlinePlayer.getName();
-            OfflinePlayer identityPlayer = onlinePlayer == null
-                    ? Bukkit.getOfflinePlayer(playerId) : onlinePlayer;
-            Component baseName = onlinePlayer == null
-                    ? ChatDisplayRenderer.clickablePlayerName(
-                    Component.text(visiblePlayerName, NamedTextColor.WHITE),
-                    visiblePlayerName)
-                    : ChatDisplayRenderer.playerName(onlinePlayer);
-            details = externalSenderDetails(platform, sender,
-                    visiblePlayerName, viewer);
-            visibleIdentity = formatter.externalPlayerIdentity(
-                    identityPlayer, viewer, baseName,
-                    new PlayerNameTag(sender.prefix(), sender.suffix()), details);
-        } else {
-            details = externalSenderDetails(platform, sender, null, viewer);
-            visibleIdentity = Component.text(sender.displayName(),
-                            NamedTextColor.WHITE)
-                    .hoverEvent(HoverEvent.showText(details));
-        }
-        return visibleIdentity;
-    }
-
-    private Component externalSenderDetails(
-            SocialPlatformDescriptor platform,
-            ChatSender sender,
-            String visiblePlayerName,
-            Audience viewer
-    ) {
-        TextComponent.Builder details = Component.text()
-                .append(Component.text(platform.displayName(), NamedTextColor.AQUA))
-                .append(Component.newline())
-                .append(detailLine(viewer, Message.CHAT_SOCIAL_NAME_LABEL,
-                        sender.externalIdentity()
-                                .map(ExternalIdentity::displayName)
-                                .filter(value -> !value.isBlank())
-                                .orElse(sender.displayName()),
-                        NamedTextColor.WHITE));
-        sender.externalIdentity().map(ExternalIdentity::key).ifPresent(key -> details
-                .append(Component.newline())
-                .append(detailLine(viewer, Message.CHAT_SOCIAL_ACCOUNT_LABEL,
-                        key.subject(), NamedTextColor.GRAY)));
-        details.append(Component.newline()).append(Component.newline());
-        if (sender.minecraftId().isPresent()) {
-            details.append(detailLine(viewer,
-                            Message.CHAT_SOCIAL_BOUND_PLAYER_LABEL,
-                            visiblePlayerName, NamedTextColor.WHITE))
-                    .append(Component.newline())
-                    .append(detailLine(viewer, Message.SOCIAL_PROFILE_UUID_LABEL,
-                            sender.minecraftId().orElseThrow().toString(),
-                            NamedTextColor.DARK_GRAY));
-        } else {
-            details.append(Component.text(localized(
-                    viewer, Message.CHAT_SOCIAL_UNBOUND), NamedTextColor.YELLOW));
-        }
-        return details.build();
-    }
-
-    private Component detailLine(
-            Audience viewer,
-            Message label,
-            String value,
-            NamedTextColor valueColor
-    ) {
-        return Component.text()
-                .append(Component.text(localized(viewer, label) + ": ",
-                        NamedTextColor.GRAY))
-                .append(Component.text(value, valueColor))
-                .build();
-    }
-
-    private String localized(Audience viewer, Message message) {
-        return viewer instanceof Player player
-                ? languageService.t(player, message)
-                : languageService.t(Language.DEFAULT, message);
     }
 
     private void routePublic(AsyncChatEvent event, Player sender) {
@@ -477,7 +383,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
     }
 
     private void routeStaff(AsyncChatEvent event, Player sender) {
-        if (!sender.hasPermission(STAFF_PERMISSION)) {
+        if (!RolePermissions.canModerate(sender)) {
             channelStates.put(sender.getUniqueId(), ChatChannelState.publicChannel());
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_STAFF_PERMISSION_MISSING), NamedTextColor.RED));
             routePublic(event, sender);
@@ -655,7 +561,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
     }
 
     private void sendStaffCommand(Player sender, String plainMessage) {
-        if (!sender.hasPermission(STAFF_PERMISSION)) {
+        if (!RolePermissions.canModerate(sender)) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_STAFF_PERMISSION_MISSING), NamedTextColor.RED));
             return;
         }
@@ -667,7 +573,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
     }
 
     private void sendStaffMessage(Player sender, String plainMessage) {
-        if (!sender.hasPermission(STAFF_PERMISSION)) {
+        if (!RolePermissions.canModerate(sender)) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_STAFF_PERMISSION_MISSING), NamedTextColor.RED));
             return;
         }
@@ -754,7 +660,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
     private Set<Player> staffChannelPlayers() {
         Set<Player> players = new HashSet<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (player.hasPermission(STAFF_PERMISSION)) {
+            if (RolePermissions.canModerate(player)) {
                 players.add(player);
             }
         }

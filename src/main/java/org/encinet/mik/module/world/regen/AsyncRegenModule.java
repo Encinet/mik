@@ -1,5 +1,7 @@
 package org.encinet.mik.module.world.regen;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
@@ -23,7 +25,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -42,7 +43,7 @@ import java.util.function.Predicate;
 /** Command-facing integration for WorldEdit selections and the asynchronous regeneration engine. */
 public final class AsyncRegenModule implements AsyncRegenService.Listener {
 
-    static final String COMMAND_PERMISSION = "group." + Mik.GROUP_MANAGER;
+    static final String COMMAND_PERMISSION = RolePermissions.CUSTODIAN;
     private static final int MAX_EMPTY_FILTER_SUGGESTIONS = 200;
     private static final int MAX_FILTER_IDS_IN_LABEL = 6;
     private static final Duration PLAN_CONFIRMATION_TTL = Duration.ofMinutes(2);

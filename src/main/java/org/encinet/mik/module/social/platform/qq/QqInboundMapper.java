@@ -27,7 +27,7 @@ final class QqInboundMapper {
             return SocialEventSink.Acceptance.IGNORED;
         }
         return events.accept(event.toInboundMessage(
-                QqPlatformAdapter.DESCRIPTOR.id(), config.appId(),
+                QqPlatformConfig.PLATFORM_ID, config.appId(),
                 new QqReplyChannel(api, event, config.maxOutboundLength())));
     }
 }

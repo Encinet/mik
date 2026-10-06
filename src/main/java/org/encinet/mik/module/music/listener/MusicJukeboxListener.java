@@ -79,7 +79,8 @@ public final class MusicJukeboxListener implements Listener {
             return;
         }
         Block block = event.getClickedBlock();
-        if (block == null || !(block.getState() instanceof Jukebox jukebox)
+        if (block == null || block.getType() != Material.JUKEBOX
+                || !(block.getState() instanceof Jukebox jukebox)
                 || !MusicDiscKeys.isInternal(jukebox.getRecord())) {
             return;
         }
@@ -94,7 +95,8 @@ public final class MusicJukeboxListener implements Listener {
             return;
         }
         Block block = event.getClickedBlock();
-        if (block == null || !(block.getState() instanceof Jukebox jukebox)) {
+        if (block == null || block.getType() != Material.JUKEBOX
+                || !(block.getState() instanceof Jukebox jukebox)) {
             return;
         }
 
@@ -208,7 +210,7 @@ public final class MusicJukeboxListener implements Listener {
     public void onJukeboxInventoryMove(InventoryMoveItemEvent event) {
         if (event.getSource() instanceof JukeboxInventory source
                 && MusicDiscKeys.isCustomDisc(event.getItem())) {
-            Location sourceLocation = source.getHolder().getLocation();
+            Location sourceLocation = source.getLocation();
             String movedTrackId = MusicDiscKeys.trackId(event.getItem());
             JukeboxPlaybackService.PlaybackHandle playback =
                     playbackService.activePlayback(sourceLocation.getBlock());
@@ -227,7 +229,7 @@ public final class MusicJukeboxListener implements Listener {
 
         event.setCancelled(true);
         scheduleAutomatedInsertion(
-                event.getSource(), destination.getHolder().getLocation(), event.getItem());
+                event.getSource(), destination.getLocation(), event.getItem());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -236,12 +238,13 @@ public final class MusicJukeboxListener implements Listener {
         boolean vanillaRecord = event.getItem().hasData(DataComponentTypes.JUKEBOX_PLAYABLE);
         if ((!customDisc && !vanillaRecord)
                 || MusicDiscKeys.isInternal(event.getItem())
-                || !(event.getBlock().getState() instanceof Container source)
+                || !(event.getBlock().getState(false) instanceof Container source)
                 || !(event.getBlock().getBlockData() instanceof Directional directional)) {
             return;
         }
         Block target = event.getBlock().getRelative(directional.getFacing());
-        if (!(target.getState() instanceof Jukebox jukebox) || jukebox.hasRecord()) {
+        if (target.getType() != Material.JUKEBOX
+                || !(target.getState() instanceof Jukebox jukebox) || jukebox.hasRecord()) {
             return;
         }
 
@@ -258,7 +261,8 @@ public final class MusicJukeboxListener implements Listener {
             return;
         }
         Block block = location.getBlock();
-        String currentTrackId = block.getState() instanceof Jukebox jukebox
+        String currentTrackId = block.getType() == Material.JUKEBOX
+                && block.getState() instanceof Jukebox jukebox
                 ? MusicDiscKeys.trackId(jukebox.getRecord()) : null;
         if (movedTrackId.equals(currentTrackId)) {
             return;
@@ -367,7 +371,8 @@ public final class MusicJukeboxListener implements Listener {
                 return;
             }
             Block block = location.getBlock();
-            if (!(block.getState() instanceof Jukebox jukebox) || jukebox.hasRecord()) {
+            if (block.getType() != Material.JUKEBOX
+                    || !(block.getState() instanceof Jukebox jukebox) || jukebox.hasRecord()) {
                 return;
             }
             Inventory currentSource = currentSourceInventory(source, sourceLocation, sourceType);
@@ -391,7 +396,7 @@ public final class MusicJukeboxListener implements Listener {
             return null;
         }
         return sourceLocation.getBlock().getType() == sourceType
-                && sourceLocation.getBlock().getState() instanceof BlockInventoryHolder holder
+                && sourceLocation.getBlock().getState(false) instanceof BlockInventoryHolder holder
                 && holder.getInventory().getType() == original.getType()
                 ? holder.getInventory() : null;
     }
@@ -422,7 +427,7 @@ public final class MusicJukeboxListener implements Listener {
                 return;
             }
             if (source instanceof JukeboxInventory sourceJukebox) {
-                stopJukebox(sourceJukebox.getHolder().getBlock());
+                stopJukebox(sourceJukebox.getLocation().getBlock());
             }
         } catch (RuntimeException exception) {
             if (customDisc) {

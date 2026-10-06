@@ -2,6 +2,7 @@ package org.encinet.mik.module.music.ui;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -10,22 +11,21 @@ import org.bukkit.World;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.encinet.mik.module.menu.FloatingMenuAppearance;
 import org.encinet.mik.module.menu.FloatingMenuDecoration;
 import org.encinet.mik.module.menu.FloatingMenuDefinition;
+import org.encinet.mik.module.menu.FloatingMenuAppearance;
 import org.encinet.mik.module.menu.FloatingMenuFlow;
+import org.encinet.mik.module.menu.FloatingMenuFraming;
 import org.encinet.mik.module.menu.FloatingMenuInteraction;
 import org.encinet.mik.module.menu.FloatingMenuLayout;
 import org.encinet.mik.module.menu.FloatingMenuLayouts;
-import org.encinet.mik.module.menu.FloatingMenuPoint;
-import org.encinet.mik.module.menu.FloatingMenuPose;
 import org.encinet.mik.module.menu.FloatingMenuScreen;
 import org.encinet.mik.module.menu.FloatingMenuState;
+import org.encinet.mik.module.menu.FloatingMenuTextWidth;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.music.catalog.AudioPropertiesFormatter;
 import org.encinet.mik.module.music.catalog.MusicTrack;
-import org.encinet.mik.module.music.catalog.TrackDetails;
 import org.encinet.mik.module.music.disc.MusicDiscFactory;
 import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
@@ -49,7 +49,7 @@ import java.util.UUID;
 public final class JukeboxControlGui {
     private JukeboxControlActionHandler actionHandler;
 
-    private static final int ITEMS_PER_PAGE = 8;
+    private static final int ITEMS_PER_PAGE = 16;
     private static final int PLAYBACK_PROGRESS_REFRESH_TICKS = 5;
     private static final int PLAYBACK_PROGRESS_SEGMENTS = 12;
 
@@ -81,7 +81,11 @@ public final class JukeboxControlGui {
     }
 
     public void openJukeboxControl(Player player, Jukebox jukebox) {
-        openJukeboxControlPage(player, jukebox, 0);
+        screen.open(player, ViewState.at(jukebox.getLocation()));
+    }
+
+    public void close(Player player) {
+        screen.flow(player).ifPresent(FloatingMenuFlow::close);
     }
 
     /**
@@ -98,20 +102,20 @@ public final class JukeboxControlGui {
             boolean sameTarget = flow.state().target().equals(target);
             if (lifecycle == FloatingMenuState.OPENING
                     || lifecycle == FloatingMenuState.ACTIVE) {
-                if (!sameTarget) flow.setState(new ViewState(target, 0));
+                if (!sameTarget) flow.setState(ViewState.at(jukebox.getLocation()));
                 flow.reanchor();
                 return;
             }
             if (lifecycle == FloatingMenuState.SUSPENDED) {
-                screen.open(player, sameTarget ? flow.state() : new ViewState(target, 0));
+                screen.open(player, sameTarget ? flow.state() : ViewState.at(jukebox.getLocation()));
                 return;
             }
         }
-        screen.open(player, new ViewState(target, 0));
+        screen.open(player, ViewState.at(jukebox.getLocation()));
     }
 
     public void openJukeboxControlPage(Player player, Jukebox jukebox, int page) {
-        screen.open(player, ViewState.at(jukebox.getLocation(), page));
+        screen.open(player, ViewState.queue(jukebox.getLocation(), page));
     }
 
     /** Refreshes every player currently observing this jukebox without changing screen depth. */
@@ -145,21 +149,33 @@ public final class JukeboxControlGui {
             return unavailableMenu(player, actions);
         }
         ControlView control = controlView(jukebox, view.page());
+        ViewState.Panel panel = control.experienceMode() == JukeboxExperienceMode.RHYTHM
+                && view.panel() == ViewState.Panel.QUEUE
+                ? ViewState.Panel.MAIN : view.panel();
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-control")
-                .layout(controlLayout(control.experienceMode()))
+                .appearance(MusicMenuPalette.appearance(control.experienceMode()))
+                .framing(FloatingMenuFraming.PANORAMIC)
+                .layout(controlLayout(panel))
                 .refreshWhenChanged(PLAYBACK_PROGRESS_REFRESH_TICKS,
                         ignored -> playbackRevision(view),
                         (p, handle) -> screen.flow(p)
                                 .ifPresent(FloatingMenuFlow::redraw));
 
         addDiscPresentation(player, menu, control);
-        addExperienceModeControl(player, menu, actions, control);
-        switch (control.experienceMode()) {
-            case MUSIC -> addMusicModeControls(player, menu, actions, control);
-            case RHYTHM -> addRhythmModeControls(player, menu, actions, control);
+        switch (panel) {
+            case MAIN -> {
+                addExperienceModeControl(player, menu, actions, control);
+                if (control.experienceMode() == JukeboxExperienceMode.MUSIC) {
+                    addMusicModeControls(player, menu, actions, control);
+                } else {
+                    addRhythmModeControls(player, menu, actions, control);
+                }
+                addPanelButton(player, menu, control);
+                addCommonNavigation(player, menu, actions, control);
+            }
+            case QUEUE -> addQueuePanel(player, menu, actions, control, view);
+            case SOUND -> addSoundPanel(player, menu, actions, control);
         }
-        addSoundControls(player, menu, actions, control);
-        addCommonNavigation(player, menu, actions, control);
         return menu.build();
     }
 
@@ -182,30 +198,47 @@ public final class JukeboxControlGui {
                 experienceMode, activeExperienceMode, rhythmReadiness);
     }
 
-    private static FloatingMenuLayout controlLayout(JukeboxExperienceMode mode) {
-        FloatingMenuLayout content = mode == JukeboxExperienceMode.MUSIC
-                ? FloatingMenuLayouts.adaptiveCurvedList(2, 4,
-                        0.42, 0.18, 0.26)
-                : FloatingMenuLayouts.adaptiveColumn(0.18);
-        int controlColumns = mode == JukeboxExperienceMode.MUSIC ? 5 : 4;
-        return FloatingMenuLayouts.verticalRegions(0.36,
-                FloatingMenuLayouts.region("content",
-                        FloatingMenuLayouts.offset(content, -0.90, 0.0, 0.0)),
-                FloatingMenuLayouts.region("controls",
-                        FloatingMenuLayouts.adaptiveCurvedGrid(
-                                controlColumns, 0.30, 0.22, 0.18)));
+    private static FloatingMenuLayout controlLayout(ViewState.Panel panel) {
+        return switch (panel) {
+            case MAIN -> FloatingMenuLayouts.menu(
+                    FloatingMenuLayouts.information("now-playing"),
+                    FloatingMenuLayouts.information("content"),
+                    FloatingMenuLayouts.actions("controls", 4));
+            case QUEUE -> FloatingMenuLayouts.sidecar(
+                    FloatingMenuLayouts.panel("queue-list",
+                            FloatingMenuLayouts.verticalRegions(0.20,
+                                    FloatingMenuLayouts.information("now-playing"),
+                                    FloatingMenuLayouts.information("queue-heading"),
+                                    FloatingMenuLayouts.region("queue-items",
+                                            FloatingMenuLayouts.adaptiveCurvedList(
+                                                    2, 8, 0.20, 0.10, 0.10)),
+                                    FloatingMenuLayouts.navigation("pagination")),
+                            "now-playing", "queue-heading", "queue-items", "pagination"),
+                    FloatingMenuLayouts.panel("queue-controls",
+                            FloatingMenuLayouts.verticalRegions(0.20,
+                                    FloatingMenuLayouts.information("selection"),
+                                    FloatingMenuLayouts.actions("queue-actions", 2),
+                                    FloatingMenuLayouts.navigation("navigation")),
+                            "selection", "queue-actions", "navigation"),
+                    FloatingMenuLayouts.Side.RIGHT, 0.38);
+            case SOUND -> FloatingMenuLayouts.menu(
+                    FloatingMenuLayouts.information("now-playing"),
+                    FloatingMenuLayouts.information("volume"),
+                    FloatingMenuLayouts.actions("volume-actions", 2),
+                    FloatingMenuLayouts.information("range"),
+                    FloatingMenuLayouts.actions("range-actions", 2),
+                    FloatingMenuLayouts.navigation("navigation"));
+        };
     }
 
     private void addDiscPresentation(Player player,
                                      FloatingMenuDefinition.Builder menu,
                                      ControlView control) {
-        menu.textDecoration("disc-info",
-                FloatingMenuPose.oriented(new FloatingMenuPoint(2.75, 0.72, 1.25),
-                        20.0, 0.0),
-                currentDiscInfo(player, control.jukebox(), control.currentDisc(),
-                        control.playback(), control.activeExperienceMode()),
-                FloatingMenuAppearance.TRANSPARENT, 3.6F, 3.1F, 0.66F,
-                FloatingMenuDecoration.Alignment.LEFT);
+        menu.information("disc-info", currentDiscInfo(player, control.jukebox(),
+                        control.currentDisc(), control.playback(),
+                        control.activeExperienceMode(), control.readiness()))
+                .region("now-playing")
+                .textWidth(FloatingMenuTextWidth.WIDE);
         if (control.jukebox().hasRecord()) {
             menu.worldItemDecoration("disc",
                     control.location().clone().add(0.5, 1.20, 0.5),
@@ -233,7 +266,12 @@ public final class JukeboxControlGui {
         menu.item("select-music", Material.MUSIC_DISC_WAIT, selectMusicLabel(player))
                 .region("controls")
                 .primary((p, handle) -> actions.selectMusic(p, control.location()));
-        addQueue(player, menu, actions, control);
+        menu.item("open-queue", Material.CHEST,
+                        Component.text(languageService.t(player,
+                                Message.MUSIC_QUEUE_SUMMARY, control.queue().size()),
+                                MusicMenuPalette.MUSIC))
+                .region("controls")
+                .primary((p, handle) -> showPanel(p, ViewState.Panel.QUEUE));
         menu.item("playback-mode", modeVisual(control.data().playbackMode()),
                         modeLabel(player, control.data().playbackMode()))
                 .region("controls")
@@ -242,52 +280,87 @@ public final class JukeboxControlGui {
                         control.data().playbackMode()))
                 .region("controls")
                 .primary((p, handle) -> actions.playNext(p, control.location()));
-        addQueueNavigation(player, menu, actions, control);
-        menu.control("queue:clear",
-                        Component.text(languageService.t(player,
-                                Message.MUSIC_CLEAR_QUEUE), NamedTextColor.RED))
-                .region("controls")
-                .primary((p, handle) -> actions.clearQueue(p, control.location()));
+    }
+
+    private void addQueuePanel(Player player, FloatingMenuDefinition.Builder menu,
+                               JukeboxControlActionHandler actions,
+                               ControlView control, ViewState view) {
         menu.information("queue:summary", queueSummary(player,
                         control.queue().size(), control.currentPage() + 1,
                         control.totalPages()))
-                .region("controls");
-    }
-
-    private void addQueue(Player player, FloatingMenuDefinition.Builder menu,
-                          JukeboxControlActionHandler actions, ControlView control) {
+                .region("queue-heading");
         int start = control.currentPage() * ITEMS_PER_PAGE;
         int end = Math.min(start + ITEMS_PER_PAGE, control.queue().size());
         if (start == end) {
             menu.information("queue:empty",
                             Component.text(languageService.t(player, Message.MUSIC_QUEUE_EMPTY),
-                                    NamedTextColor.GRAY)
-                                    .append(Component.newline())
-                                    .append(Component.text(languageService.t(player,
-                                            Message.MUSIC_QUEUE_EMPTY_DESCRIPTION), NamedTextColor.DARK_GRAY)))
-                    .region("content");
+                                    NamedTextColor.GRAY))
+                    .region("queue-items");
+            menu.item("queue:select-music", Material.MUSIC_DISC_WAIT, selectMusicLabel(player))
+                    .region("queue-actions")
+                    .primary((viewer, handle) -> actions.selectMusic(viewer, control.location()));
         } else {
+            MusicTrack selected = control.queue().subList(start, end).stream()
+                    .filter(track -> track.id().equals(view.selectedTrackId()))
+                    .findFirst().orElse(control.queue().get(start));
             for (int index = start; index < end; index++) {
                 MusicTrack track = control.queue().get(index);
                 menu.control("queue:" + track.id(), queueLabel(track, index + 1))
-                        .region("content")
-                        .primary((p, handle) -> actions.queueTrack(p, control.location(),
-                                track, FloatingMenuInteraction.PRIMARY))
-                        .secondary((p, handle) -> actions.queueTrack(p, control.location(),
-                                track, FloatingMenuInteraction.SECONDARY))
-                        .scrollUp((p, handle) -> actions.queueTrack(p, control.location(),
-                                track, FloatingMenuInteraction.SCROLL_UP))
-                        .scrollDown((p, handle) -> actions.queueTrack(p, control.location(),
-                                track, FloatingMenuInteraction.SCROLL_DOWN));
+                        .region("queue-items")
+                        .textWidth(FloatingMenuTextWidth.WIDE)
+                        .alignment(FloatingMenuDecoration.Alignment.LEFT)
+                        .selected(track.id().equals(selected.id()))
+                        .primary((p, handle) -> selectQueueTrack(p, track.id()));
+            }
+            int selectedIndex = control.queue().indexOf(selected);
+            menu.information("queue:selected", queueSelectionLabel(selected))
+                    .region("selection")
+                    .textWidth(FloatingMenuTextWidth.EXPANDED)
+                    .alignment(FloatingMenuDecoration.Alignment.LEFT);
+            menu.item("queue:play", Material.JUKEBOX,
+                            languageService.text(player, Message.MUSIC_ACTION_PLAY_NOW,
+                                    MusicMenuPalette.MUSIC))
+                    .region("queue-actions")
+                    .primary((p, handle) -> actions.queueTrack(p, control.location(),
+                            selected, FloatingMenuInteraction.PRIMARY));
+            menu.item("queue:remove", Material.BARRIER,
+                            languageService.text(player, Message.MUSIC_QUEUE_REMOVE,
+                                    NamedTextColor.RED))
+                    .region("queue-actions")
+                    .primary((p, handle) -> actions.queueTrack(p, control.location(),
+                            selected, FloatingMenuInteraction.SECONDARY));
+            var moveUp = menu.item("queue:up", Material.ARROW,
+                            languageService.text(player, Message.MUSIC_QUEUE_MOVE_UP,
+                                    NamedTextColor.YELLOW))
+                    .region("queue-actions")
+                    .primary((p, handle) -> actions.queueTrack(p, control.location(),
+                            selected, FloatingMenuInteraction.SCROLL_UP));
+            if (selectedIndex == 0) moveUp.disabled(Component.text("↑", NamedTextColor.GRAY));
+            var moveDown = menu.item("queue:down", Material.ARROW,
+                            languageService.text(player, Message.MUSIC_QUEUE_MOVE_DOWN,
+                                    NamedTextColor.YELLOW))
+                    .region("queue-actions")
+                    .primary((p, handle) -> actions.queueTrack(p, control.location(),
+                            selected, FloatingMenuInteraction.SCROLL_DOWN));
+            if (selectedIndex == control.queue().size() - 1) {
+                moveDown.disabled(Component.text("↓", NamedTextColor.GRAY));
             }
         }
+        addQueueNavigation(player, menu, actions, control);
+        if (!control.queue().isEmpty()) {
+            menu.item("queue:clear", Material.LAVA_BUCKET,
+                            languageService.text(player, Message.MUSIC_CLEAR_QUEUE,
+                                    NamedTextColor.RED))
+                    .region("navigation")
+                    .primary((p, handle) -> actions.clearQueue(p, control.location()));
+        }
+        addBackToMain(player, menu);
     }
 
     private void addRhythmModeControls(Player player,
                                        FloatingMenuDefinition.Builder menu,
                                        JukeboxControlActionHandler actions,
                                        ControlView control) {
-        boolean ready = control.rhythmReady();
         boolean calibrated = calibrationStatus.hasCompletedLatencyCalibration(player);
         boolean rhythmTrackAvailable = control.currentDisc() != null
                 && control.activeExperienceMode() == JukeboxExperienceMode.RHYTHM;
@@ -313,39 +386,74 @@ public final class JukeboxControlGui {
                 .region("controls")
                 .selected(calibrated)
                 .primary((p, handle) -> actions.openLatencyCalibration(
-                        p, control.location()))
-                .secondary((p, handle) -> actions.resetLatencyCalibration(
                         p, control.location()));
+        if (calibrated) {
+            menu.item("reset-calibration", Material.REDSTONE_TORCH,
+                            languageService.text(player,
+                                    Message.MUSIC_RHYTHM_RESET_CALIBRATION,
+                                    NamedTextColor.YELLOW))
+                    .region("controls")
+                    .primary((p, handle) -> {
+                        actions.resetLatencyCalibration(p, control.location());
+                        screen.flow(p).ifPresent(FloatingMenuFlow::redraw);
+                    });
+        }
     }
 
-    private void addSoundControls(Player player,
-                                  FloatingMenuDefinition.Builder menu,
-                                  JukeboxControlActionHandler actions,
-                                  ControlView control) {
-        menu.item("volume", Material.NOTE_BLOCK, settingLabel(player,
+    private void addPanelButton(Player player, FloatingMenuDefinition.Builder menu,
+                                ControlView control) {
+        menu.item("sound-settings", Material.NOTE_BLOCK,
+                        languageService.text(player, Message.MUSIC_SOUND_SETTINGS,
+                                MusicMenuPalette.accent(control.experienceMode())))
+                .region("controls")
+                .primary((p, handle) -> showPanel(p, ViewState.Panel.SOUND));
+    }
+
+    private void addSoundPanel(Player player, FloatingMenuDefinition.Builder menu,
+                               JukeboxControlActionHandler actions,
+                               ControlView control) {
+        TextColor accent = MusicMenuPalette.accent(control.experienceMode());
+        menu.information("volume", settingLabel(player,
                         Message.MUSIC_JUKEBOX_VOLUME, Message.MUSIC_JUKEBOX_VOLUME_VALUE,
-                        control.settings().volumePercent()))
-                .region("controls")
-                .primary((p, handle) -> actions.adjustVolume(p, control.location(),
-                        FloatingMenuInteraction.PRIMARY))
-                .secondary((p, handle) -> actions.adjustVolume(p, control.location(),
-                        FloatingMenuInteraction.SECONDARY))
-                .scrollUp((p, handle) -> actions.adjustVolume(p, control.location(),
-                        FloatingMenuInteraction.SCROLL_UP))
-                .scrollDown((p, handle) -> actions.adjustVolume(p, control.location(),
-                        FloatingMenuInteraction.SCROLL_DOWN));
-        menu.item("range", Material.SPYGLASS, settingLabel(player,
+                        control.settings().volumePercent(), accent))
+                .region("volume");
+        menu.information("range", settingLabel(player,
                         Message.MUSIC_JUKEBOX_RANGE, Message.MUSIC_JUKEBOX_RANGE_VALUE,
-                        control.settings().rangeBlocks()))
-                .region("controls")
+                        control.settings().rangeBlocks(), accent))
+                .region("range");
+        var volumeDown = menu.item("volume:down", Material.NOTE_BLOCK,
+                        Component.text("−10%", accent))
+                .region("volume-actions")
+                .primary((p, handle) -> actions.adjustVolume(p, control.location(),
+                        FloatingMenuInteraction.SECONDARY));
+        if (control.settings().volumePercent() <= JukeboxSoundSettings.MIN_VOLUME_PERCENT) {
+            volumeDown.disabled(Component.text("0%", NamedTextColor.GRAY));
+        }
+        var volumeUp = menu.item("volume:up", Material.NOTE_BLOCK,
+                        Component.text("+10%", accent))
+                .region("volume-actions")
+                .primary((p, handle) -> actions.adjustVolume(p, control.location(),
+                        FloatingMenuInteraction.PRIMARY));
+        if (control.settings().volumePercent() >= JukeboxSoundSettings.MAX_VOLUME_PERCENT) {
+            volumeUp.disabled(Component.text("100%", NamedTextColor.GRAY));
+        }
+        var rangeDown = menu.item("range:down", Material.SPYGLASS,
+                        Component.text("−32", accent))
+                .region("range-actions")
                 .primary((p, handle) -> actions.adjustRange(p, control.location(),
-                        FloatingMenuInteraction.PRIMARY))
-                .secondary((p, handle) -> actions.adjustRange(p, control.location(),
-                        FloatingMenuInteraction.SECONDARY))
-                .scrollUp((p, handle) -> actions.adjustRange(p, control.location(),
-                        FloatingMenuInteraction.SCROLL_UP))
-                .scrollDown((p, handle) -> actions.adjustRange(p, control.location(),
-                        FloatingMenuInteraction.SCROLL_DOWN));
+                        FloatingMenuInteraction.SECONDARY));
+        if (control.settings().rangeBlocks() <= JukeboxSoundSettings.MIN_RANGE_BLOCKS) {
+            rangeDown.disabled(Component.text("8", NamedTextColor.GRAY));
+        }
+        var rangeUp = menu.item("range:up", Material.SPYGLASS,
+                        Component.text("+32", accent))
+                .region("range-actions")
+                .primary((p, handle) -> actions.adjustRange(p, control.location(),
+                        FloatingMenuInteraction.PRIMARY));
+        if (control.settings().rangeBlocks() >= JukeboxSoundSettings.MAX_RANGE_BLOCKS) {
+            rangeUp.disabled(Component.text("256", NamedTextColor.GRAY));
+        }
+        addBackToMain(player, menu);
     }
 
     private void addQueueNavigation(Player player,
@@ -356,7 +464,7 @@ public final class JukeboxControlGui {
             menu.navigation("page:previous",
                             Component.text("‹ " + languageService.t(player,
                                     Message.MUSIC_PREV_PAGE), NamedTextColor.YELLOW))
-                    .region("controls")
+                    .region("pagination")
                     .primary((p, handle) -> actions.openPage(p, control.location(),
                             control.currentPage() - 1));
             menu.on(FloatingMenuInteraction.SCROLL_UP,
@@ -367,13 +475,30 @@ public final class JukeboxControlGui {
             menu.navigation("page:next",
                             Component.text(languageService.t(player,
                                     Message.MUSIC_NEXT_PAGE) + " ›", NamedTextColor.YELLOW))
-                    .region("controls")
+                    .region("pagination")
                     .primary((p, handle) -> actions.openPage(p, control.location(),
                             control.currentPage() + 1));
             menu.on(FloatingMenuInteraction.SCROLL_DOWN,
                     (p, handle, input) -> actions.openPage(p, control.location(),
                             control.currentPage() + 1));
         }
+    }
+
+    private void showPanel(Player player, ViewState.Panel panel) {
+        screen.flow(player).ifPresent(flow -> flow.setState(
+                flow.state().withPanel(panel)));
+    }
+
+    private void selectQueueTrack(Player player, String trackId) {
+        screen.flow(player).ifPresent(flow -> flow.setState(
+                flow.state().withSelection(trackId)));
+    }
+
+    private void addBackToMain(Player player, FloatingMenuDefinition.Builder menu) {
+        menu.navigation("back", languageService.text(player,
+                        Message.MUSIC_BACK, NamedTextColor.GREEN))
+                .region("navigation")
+                .primary((p, handle) -> showPanel(p, ViewState.Panel.MAIN));
     }
 
     private void addCommonNavigation(Player player,
@@ -397,6 +522,7 @@ public final class JukeboxControlGui {
     private FloatingMenuDefinition unavailableMenu(Player player,
                                                     JukeboxControlActionHandler actions) {
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-control")
+                .appearance(FloatingMenuAppearance.MUSIC)
                 .layout(FloatingMenuLayouts.adaptiveColumn(0.24));
         menu.information("unavailable",
                 Component.text(languageService.t(player, Message.MUSIC_JUKEBOX_UNAVAILABLE),
@@ -450,7 +576,8 @@ public final class JukeboxControlGui {
     private Component currentDiscInfo(Player player, Jukebox jukebox,
                                       MusicTrack currentDisc,
                                       JukeboxPlaybackSnapshot playback,
-                                      JukeboxExperienceMode experienceMode) {
+                                      JukeboxExperienceMode experienceMode,
+                                      JukeboxRhythmReadiness readiness) {
         if (!jukebox.hasRecord()) {
             return Component.text(languageService.t(player, Message.MUSIC_NO_DISC),
                     NamedTextColor.GRAY);
@@ -465,51 +592,39 @@ public final class JukeboxControlGui {
 
         Component name = currentDisc == null
                 ? jukebox.getRecord().effectiveName().colorIfAbsent(NamedTextColor.WHITE)
-                : Component.text(truncate(currentDisc.details().title(), 64), NamedTextColor.WHITE);
+                : Component.text(truncate(currentDisc.details().title(), 36), NamedTextColor.WHITE);
         PlaybackStatus status = playback.status();
+        TextColor accent = MusicMenuPalette.accent(experienceMode);
+        boolean noBeats = experienceMode == JukeboxExperienceMode.RHYTHM
+                && readiness == JukeboxRhythmReadiness.NO_BEATS;
+        Message shownStatus = experienceMode == JukeboxExperienceMode.RHYTHM
+                && readiness == JukeboxRhythmReadiness.WAITING_FOR_PLAYER
+                ? Message.MUSIC_RHYTHM_WAITING_FOR_PLAYER
+                : noBeats
+                ? Message.MUSIC_RHYTHM_NO_BEATS : statusMessage(status);
         Component information = name.decoration(TextDecoration.ITALIC, false)
                 .decoration(TextDecoration.BOLD, true)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player, Message.MUSIC_PLAYBACK_STATUS,
-                                languageService.t(player, statusMessage(status))))
-                        .color(statusColor(status))
+                                languageService.t(player, shownStatus)))
+                        .color(noBeats
+                                ? NamedTextColor.RED : status == PlaybackStatus.STOPPED
+                                ? NamedTextColor.YELLOW : accent)
                         .decoration(TextDecoration.ITALIC, false));
-        Message experienceName = experienceMode == JukeboxExperienceMode.MUSIC
-                ? Message.MUSIC_JUKEBOX_MUSIC_MODE
-                : Message.MUSIC_JUKEBOX_RHYTHM_MODE;
-        information = information.append(Component.newline())
-                .append(languageService.text(player,
-                        Message.MUSIC_JUKEBOX_USAGE_MODE, NamedTextColor.GRAY))
-                .append(Component.text(": ", NamedTextColor.DARK_GRAY))
-                .append(languageService.text(player, experienceName,
-                        experienceMode == JukeboxExperienceMode.MUSIC
-                                ? NamedTextColor.AQUA
-                                : NamedTextColor.LIGHT_PURPLE));
         if (status == PlaybackStatus.LOADING
-                && experienceMode == JukeboxExperienceMode.RHYTHM) {
+                && experienceMode == JukeboxExperienceMode.RHYTHM
+                && readiness == JukeboxRhythmReadiness.PREPARING) {
             information = information.append(Component.newline())
                     .append(languageService.text(player,
                             Message.MUSIC_RHYTHM_PREPARING,
-                            NamedTextColor.AQUA));
+                            accent));
         }
         if (currentDisc == null) return information;
 
-        TrackDetails details = currentDisc.details();
-        if (details.artist() != null) {
-            information = information.append(metadataLine(player,
-                    Message.MUSIC_ARTIST, details.artist()));
-        } else if (details.originalAuthor() != null) {
-            information = information.append(metadataLine(player,
-                    Message.MUSIC_ORIGINAL_AUTHOR, details.originalAuthor()));
-        }
-        if (details.album() != null) {
-            information = information.append(metadataLine(player,
-                    Message.MUSIC_ALBUM, details.album()));
-        }
-        Duration trackDuration = details.audio().duration();
+        Duration trackDuration = currentDisc.details().audio().duration();
         if (status == PlaybackStatus.PLAYING) {
             information = information.append(playbackProgress(
-                    playback.positionMillis(), trackDuration));
+                    playback.positionMillis(), trackDuration, accent));
         } else {
             String duration = AudioPropertiesFormatter.duration(trackDuration);
             if (duration == null) return information;
@@ -520,9 +635,14 @@ public final class JukeboxControlGui {
     }
 
     static Component playbackProgress(long positionMillis, Duration duration) {
+        return playbackProgress(positionMillis, duration, MusicMenuPalette.MUSIC);
+    }
+
+    static Component playbackProgress(long positionMillis, Duration duration,
+                                      TextColor accent) {
         String elapsed = playbackTime(positionMillis);
         Component line = Component.newline()
-                .append(Component.text("▶ ", NamedTextColor.AQUA)
+                .append(Component.text("▶ ", accent)
                         .decoration(TextDecoration.BOLD, false)
                         .decoration(TextDecoration.ITALIC, false));
         if (duration == null || duration.isZero() || duration.isNegative()) {
@@ -538,7 +658,7 @@ public final class JukeboxControlGui {
         if (boundedPosition == durationMillis) elapsed = total;
         return line
                 .append(Component.text("[", NamedTextColor.DARK_GRAY))
-                .append(Component.text("=".repeat(completed), NamedTextColor.AQUA))
+                .append(Component.text("=".repeat(completed), accent))
                 .append(Component.text("-".repeat(PLAYBACK_PROGRESS_SEGMENTS - completed),
                         NamedTextColor.DARK_GRAY))
                 .append(Component.text("] " + elapsed + " / " + total,
@@ -578,33 +698,37 @@ public final class JukeboxControlGui {
     }
 
     private Component queueLabel(MusicTrack music, int rank) {
-        Component label = Component.text(rank + " · " + truncate(music.details().title(), 20),
+        return MusicTrackListLabel.render(music, rank);
+    }
+
+    private Component queueSelectionLabel(MusicTrack music) {
+        Component label = Component.text(truncate(music.details().title(), 64),
                 NamedTextColor.WHITE);
         String artist = music.details().artist() != null
                 ? music.details().artist() : music.details().originalAuthor();
         if (artist != null && !artist.isBlank()) {
             label = label.append(Component.newline())
-                    .append(Component.text(truncate(artist, 18), NamedTextColor.DARK_GRAY));
+                    .append(Component.text(truncate(artist, 64), NamedTextColor.GRAY));
         }
         return label;
     }
 
     private Component selectMusicLabel(Player player) {
         return Component.text(languageService.t(player, Message.MUSIC_SELECT_MUSIC),
-                        NamedTextColor.AQUA)
+                        MusicMenuPalette.MUSIC)
                 .decoration(TextDecoration.BOLD, true);
     }
 
     private Component selectRhythmTrackLabel(Player player) {
         return languageService.text(player, Message.MUSIC_RHYTHM_SELECT_TRACK,
-                        NamedTextColor.LIGHT_PURPLE)
+                        MusicMenuPalette.RHYTHM)
                 .decoration(TextDecoration.BOLD, true);
     }
 
     private Component rhythmModeStatusLabel(Player player, ControlView control,
                                             boolean calibrated) {
         return languageService.text(player, Message.MUSIC_JUKEBOX_RHYTHM_MODE,
-                        NamedTextColor.LIGHT_PURPLE)
+                        MusicMenuPalette.RHYTHM)
                 .decoration(TextDecoration.BOLD, true)
                 .append(Component.newline())
                 .append(rhythmStatusLine(player, control))
@@ -685,8 +809,7 @@ public final class JukeboxControlGui {
     private Component experienceModeLabel(Player player, JukeboxExperienceMode mode) {
         Message name = mode == JukeboxExperienceMode.MUSIC
                 ? Message.MUSIC_JUKEBOX_MUSIC_MODE : Message.MUSIC_JUKEBOX_RHYTHM_MODE;
-        NamedTextColor color = mode == JukeboxExperienceMode.MUSIC
-                ? NamedTextColor.AQUA : NamedTextColor.LIGHT_PURPLE;
+        TextColor color = MusicMenuPalette.accent(mode);
         return languageService.text(player, Message.MUSIC_JUKEBOX_USAGE_MODE,
                         NamedTextColor.GRAY)
                 .append(Component.text(" · ", NamedTextColor.DARK_GRAY))
@@ -697,7 +820,7 @@ public final class JukeboxControlGui {
     private Component rhythmGameLabel(Player player, ControlView control,
                                       boolean calibrated) {
         Component label = languageService.text(player, Message.MUSIC_RHYTHM_START_GAME,
-                        NamedTextColor.LIGHT_PURPLE)
+                        MusicMenuPalette.RHYTHM)
                 .decoration(TextDecoration.BOLD, true)
                 .append(Component.newline());
         boolean trackAvailable = control.currentDisc() != null
@@ -739,8 +862,9 @@ public final class JukeboxControlGui {
                 ? Material.JUKEBOX : Material.CALIBRATED_SCULK_SENSOR);
     }
 
-    private Component settingLabel(Player player, Message name, Message valueMessage, int value) {
-        return Component.text(languageService.t(player, name), NamedTextColor.AQUA)
+    private Component settingLabel(Player player, Message name, Message valueMessage,
+                                   int value, TextColor accent) {
+        return Component.text(languageService.t(player, name), accent)
                 .decoration(TextDecoration.BOLD, true)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player, valueMessage, value))
@@ -753,12 +877,12 @@ public final class JukeboxControlGui {
                 || mode == JukeboxPlaybackMode.LIBRARY_SHUFFLE;
         return Component.text(languageService.t(player, shuffle
                         ? Message.MUSIC_PLAY_RANDOM : Message.MUSIC_PLAY_NEXT),
-                NamedTextColor.AQUA);
+                MusicMenuPalette.MUSIC);
     }
 
     private Component queueSummary(Player player, int size, int page, int totalPages) {
         return Component.text(languageService.t(player, Message.MUSIC_QUEUE_SUMMARY, size),
-                        NamedTextColor.GOLD)
+                        MusicMenuPalette.MUSIC)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player,
                         Message.MUSIC_QUEUE_SUMMARY_DESCRIPTION, page, totalPages),
@@ -770,14 +894,6 @@ public final class JukeboxControlGui {
             case STOPPED -> Message.MUSIC_STOPPED;
             case LOADING -> Message.MUSIC_LOADING_TITLE;
             case PLAYING -> Message.MUSIC_PLAYING;
-        };
-    }
-
-    private static NamedTextColor statusColor(PlaybackStatus status) {
-        return switch (status) {
-            case STOPPED -> NamedTextColor.YELLOW;
-            case LOADING -> NamedTextColor.AQUA;
-            case PLAYING -> NamedTextColor.GREEN;
         };
     }
 
@@ -833,14 +949,30 @@ public final class JukeboxControlGui {
                 / ITEMS_PER_PAGE);
     }
 
-    private record ViewState(JukeboxTarget target, int page) {
-        private static ViewState at(Location location, int page) {
-            return new ViewState(JukeboxTarget.at(location), Math.max(0, page));
+    private record ViewState(JukeboxTarget target, Panel panel, int page,
+                             String selectedTrackId) {
+        private enum Panel { MAIN, QUEUE, SOUND }
+
+        private static ViewState at(Location location) {
+            return new ViewState(JukeboxTarget.at(location), Panel.MAIN, 0, null);
+        }
+
+        private static ViewState queue(Location location, int page) {
+            return new ViewState(JukeboxTarget.at(location), Panel.QUEUE,
+                    Math.max(0, page), null);
+        }
+
+        private ViewState withPanel(Panel next) {
+            return new ViewState(target, next, page, selectedTrackId);
+        }
+
+        private ViewState withSelection(String trackId) {
+            return new ViewState(target, panel, page, trackId);
         }
 
         private ViewState withMaximumPage(int maximumPage) {
             int clamped = Math.min(page, Math.max(0, maximumPage));
-            return clamped == page ? this : new ViewState(target, clamped);
+            return clamped == page ? this : new ViewState(target, panel, clamped, null);
         }
     }
 

@@ -1,5 +1,8 @@
 package org.encinet.mik.module.performance;
 
+import org.encinet.mik.module.role.RolePermissions;
+import org.encinet.mik.module.performance.NetworkEgressThrottlePolicy.ThrottleMode;
+
 import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent;
 import com.mojang.brigadier.Command;
 import io.papermc.paper.command.brigadier.Commands;
@@ -21,12 +24,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.encinet.mik.Mik;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -40,20 +38,11 @@ import java.util.UUID;
  */
 public final class NetworkEgressModule implements Listener {
 
-    private static final Path LINUX_ROUTE_TABLE = Path.of("/proc/net/route");
-    private static final Path LINUX_IPV6_ROUTE_TABLE = Path.of("/proc/net/ipv6_route");
-    private static final Path LINUX_NETWORK_DEVICES = Path.of("/sys/class/net");
     private static final long SAMPLE_PERIOD_TICKS = 20L;
     private static final int PROBE_REFRESH_SAMPLES = 60;
     private static final int UNAVAILABLE_RELEASE_SAMPLES = 60;
     private static final int SEND_DISTANCE_RECONCILE_SAMPLES = 5;
     private static final double EWMA_WEIGHT = 0.35D;
-    private static final double SOFT_PRESSURE_RATIO = 0.70D;
-    private static final double HARD_PRESSURE_RATIO = 0.85D;
-    private static final double CRITICAL_PRESSURE_RATIO = 0.95D;
-    private static final double SOFT_RECOVERY_RATIO = 0.60D;
-    private static final double HARD_RECOVERY_RATIO = 0.75D;
-    private static final double CRITICAL_RECOVERY_RATIO = 0.85D;
     private static final double SOFT_DISTANCE_FACTOR = 0.75D;
     private static final double HARD_DISTANCE_FACTOR = 0.50D;
     private static final String NETWORK_INTERFACE = "auto";
@@ -96,7 +85,7 @@ public final class NetworkEgressModule implements Listener {
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
                 Commands.literal("network")
-                        .requires(source -> source.getSender().hasPermission("group." + Mik.GROUP_HELPER))
+                        .requires(source -> RolePermissions.canModerate(source.getSender()))
                         .then(Commands.literal("status")
                                 .executes(context -> sendStatus(context.getSource().getSender())))
                         .executes(context -> sendStatus(context.getSource().getSender()))
@@ -526,218 +515,14 @@ public final class NetworkEgressModule implements Listener {
         if (ratio < 0.0D) {
             return NamedTextColor.GRAY;
         }
-        return modeColor(ThrottlePolicy.modeForPressure(ratio));
-    }
-
-    enum ThrottleMode {
-        OFF,
-        SOFT,
-        HARD,
-        CRITICAL
-    }
-
-    static final class ThrottlePolicy {
-
-        private static final int ESCALATION_CONFIRM_SAMPLES = 2;
-        private static final int RECOVERY_CONFIRM_SAMPLES = 15;
-
-        private ThrottleMode mode = ThrottleMode.OFF;
-        private ThrottleMode pendingEscalation = ThrottleMode.OFF;
-        private int escalationSamples;
-        private int recoverySamples;
-
-        synchronized ThrottleMode update(double pressureRatio) {
-            ThrottleMode desired = modeForPressure(pressureRatio);
-            if (desired.ordinal() > mode.ordinal()) {
-                if (desired != pendingEscalation) {
-                    pendingEscalation = desired;
-                    escalationSamples = 1;
-                } else {
-                    escalationSamples++;
-                }
-                int requiredSamples = desired == ThrottleMode.CRITICAL ? 1 : ESCALATION_CONFIRM_SAMPLES;
-                if (escalationSamples >= requiredSamples) {
-                    mode = desired;
-                    escalationSamples = 0;
-                }
-                recoverySamples = 0;
-                return mode;
-            }
-
-            pendingEscalation = mode;
-            escalationSamples = 0;
-            if (mode == ThrottleMode.OFF || pressureRatio >= recoveryRatio(mode)) {
-                recoverySamples = 0;
-                return mode;
-            }
-
-            recoverySamples++;
-            if (recoverySamples >= RECOVERY_CONFIRM_SAMPLES) {
-                mode = previousMode(mode);
-                recoverySamples = 0;
-            }
-            return mode;
-        }
-
-        synchronized ThrottleMode reset() {
-            mode = ThrottleMode.OFF;
-            pendingEscalation = ThrottleMode.OFF;
-            escalationSamples = 0;
-            recoverySamples = 0;
-            return mode;
-        }
-
-        static ThrottleMode modeForPressure(double pressureRatio) {
-            if (pressureRatio >= CRITICAL_PRESSURE_RATIO) {
-                return ThrottleMode.CRITICAL;
-            }
-            if (pressureRatio >= HARD_PRESSURE_RATIO) {
-                return ThrottleMode.HARD;
-            }
-            if (pressureRatio >= SOFT_PRESSURE_RATIO) {
-                return ThrottleMode.SOFT;
-            }
-            return ThrottleMode.OFF;
-        }
-
-        private static double recoveryRatio(ThrottleMode throttleMode) {
-            return switch (throttleMode) {
-                case OFF -> 0.0D;
-                case SOFT -> SOFT_RECOVERY_RATIO;
-                case HARD -> HARD_RECOVERY_RATIO;
-                case CRITICAL -> CRITICAL_RECOVERY_RATIO;
-            };
-        }
-
-        private static ThrottleMode previousMode(ThrottleMode throttleMode) {
-            return switch (throttleMode) {
-                case OFF, SOFT -> ThrottleMode.OFF;
-                case HARD -> ThrottleMode.SOFT;
-                case CRITICAL -> ThrottleMode.HARD;
-            };
-        }
-    }
-
-    private record NetworkInterfaceProbe(String interfaceName, Path transmitBytesPath) {
-
-        static NetworkInterfaceProbe discover(String configuredInterface) {
-            String requestedInterface = configuredInterface == null ? "" : configuredInterface.trim();
-            if (!requestedInterface.isEmpty() && !"auto".equalsIgnoreCase(requestedInterface)) {
-                return forInterface(requestedInterface);
-            }
-
-            RouteCandidate best = null;
-            if (Files.isReadable(LINUX_ROUTE_TABLE)) {
-                best = discoverIpv4DefaultRoute();
-            }
-            if (best == null) {
-                best = discoverIpv6DefaultRoute();
-            }
-            return best == null ? null : forInterface(best.interfaceName());
-        }
-
-        private static RouteCandidate discoverIpv4DefaultRoute() {
-            RouteCandidate best = null;
-            try (BufferedReader reader = Files.newBufferedReader(LINUX_ROUTE_TABLE)) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    String[] fields = line.trim().split("\\s+");
-                    if (fields.length < 8 || "Iface".equals(fields[0]) || !"00000000".equals(fields[1])) {
-                        continue;
-                    }
-                    try {
-                        long flags = Long.parseUnsignedLong(fields[3], 16);
-                        long metric = Long.parseLong(fields[6]);
-                        if ((flags & 0x1L) == 0L || !validInterfaceName(fields[0])) {
-                            continue;
-                        }
-                        RouteCandidate candidate = new RouteCandidate(fields[0], metric);
-                        if (best == null || candidate.metric() < best.metric()) {
-                            best = candidate;
-                        }
-                    } catch (NumberFormatException ignored) {
-                        // Ignore only the malformed route row.
-                    }
-                }
-            } catch (IOException ignored) {
-                return null;
-            }
-            return best;
-        }
-
-        private static RouteCandidate discoverIpv6DefaultRoute() {
-            if (!Files.isReadable(LINUX_IPV6_ROUTE_TABLE)) {
-                return null;
-            }
-            RouteCandidate best = null;
-            try (BufferedReader reader = Files.newBufferedReader(LINUX_IPV6_ROUTE_TABLE)) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    String[] fields = line.trim().split("\\s+");
-                    if (fields.length < 10 || !isIpv6DefaultRoute(fields)) {
-                        continue;
-                    }
-                    try {
-                        long metric = Long.parseUnsignedLong(fields[5], 16);
-                        long flags = Long.parseUnsignedLong(fields[8], 16);
-                        String interfaceName = fields[9];
-                        if ((flags & 0x1L) == 0L || !validInterfaceName(interfaceName)) {
-                            continue;
-                        }
-                        RouteCandidate candidate = new RouteCandidate(interfaceName, metric);
-                        if (best == null || candidate.metric() < best.metric()) {
-                            best = candidate;
-                        }
-                    } catch (NumberFormatException ignored) {
-                        // Ignore only the malformed route row.
-                    }
-                }
-            } catch (IOException ignored) {
-                return null;
-            }
-            return best;
-        }
-
-        private static boolean isIpv6DefaultRoute(String[] fields) {
-            return "00000000000000000000000000000000".equals(fields[0]) && "00".equals(fields[1]);
-        }
-
-        private static NetworkInterfaceProbe forInterface(String interfaceName) {
-            if (!validInterfaceName(interfaceName)) {
-                return null;
-            }
-            Path transmitBytesPath = LINUX_NETWORK_DEVICES.resolve(interfaceName)
-                    .resolve("statistics/tx_bytes");
-            return Files.isReadable(transmitBytesPath)
-                    ? new NetworkInterfaceProbe(interfaceName, transmitBytesPath)
-                    : null;
-        }
-
-        private static boolean validInterfaceName(String interfaceName) {
-            return !interfaceName.isBlank()
-                    && !"lo".equals(interfaceName)
-                    && !interfaceName.contains("/")
-                    && !interfaceName.contains("\\")
-                    && !interfaceName.contains("..");
-        }
-
-        long readTransmitBytes() {
-            try {
-                return Long.parseLong(Files.readString(transmitBytesPath).trim());
-            } catch (IOException | NumberFormatException ignored) {
-                return -1L;
-            }
-        }
-    }
-
-    private record RouteCandidate(String interfaceName, long metric) {
+        return modeColor(NetworkEgressThrottlePolicy.modeForPressure(ratio));
     }
 
     private static final class SamplingState {
 
         private final String configuredInterface;
         private final double budgetBytesPerSecond;
-        private final ThrottlePolicy policy = new ThrottlePolicy();
+        private final NetworkEgressThrottlePolicy policy = new NetworkEgressThrottlePolicy();
 
         private volatile NetworkInterfaceProbe probe;
         private volatile double smoothedTransmitBytesPerSecond = -1.0D;

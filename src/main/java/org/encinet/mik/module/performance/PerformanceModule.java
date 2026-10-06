@@ -1,5 +1,7 @@
 package org.encinet.mik.module.performance;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent;
 import com.destroystokyo.paper.event.server.ServerTickEndEvent;
 import com.mojang.brigadier.Command;
@@ -18,6 +20,7 @@ import org.bukkit.block.Hopper;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPhysicsEvent;
@@ -32,7 +35,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.afk.AfkService;
 import org.encinet.mik.util.SchedulerUtil;
 
@@ -40,7 +42,7 @@ import java.util.*;
 
 public class PerformanceModule implements Listener {
 
-    private static final String MANAGER_PERMISSION = "group." + Mik.GROUP_MANAGER;
+    private static final String CUSTODIAN_PERMISSION = RolePermissions.CUSTODIAN;
     private static final long CHECK_INTERVAL_TICKS = 40L;
     private static final long INITIAL_DELAY_TICKS = 1200L;
     private static final long WIND_CHARGE_CLEANUP_INTERVAL_TICKS = 100L;
@@ -99,7 +101,7 @@ public class PerformanceModule implements Listener {
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
                 Commands.literal("performance")
-                        .requires(source -> source.getSender().hasPermission(MANAGER_PERMISSION))
+                        .requires(source -> source.getSender().hasPermission(CUSTODIAN_PERMISSION))
                         .then(Commands.literal("viewdistance")
                                 .executes(context -> sendMaximumViewDistance(
                                         context.getSource().getSender()))
@@ -128,6 +130,7 @@ public class PerformanceModule implements Listener {
     }
 
     public void stop() {
+        HandlerList.unregisterAll(this);
         if (guardTask != null) guardTask.cancel();
         guardTask = null;
         if (windChargeCleanupTask != null) windChargeCleanupTask.cancel();
@@ -223,7 +226,7 @@ public class PerformanceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
-        if (!(event.getInitiator().getHolder() instanceof Hopper hopper)) {
+        if (!(event.getInitiator().getHolder(false) instanceof Hopper hopper)) {
             return;
         }
         if (liveFrozen || pressureController.onHopperMove(hopper.getBlock(), shouldApplyChunkGuard())) {
@@ -284,7 +287,7 @@ public class PerformanceModule implements Listener {
     private int kickNonManagers() {
         int kicked = 0;
         for (Player player : new ArrayList<>(Bukkit.getOnlinePlayers())) {
-            if (player.hasPermission(MANAGER_PERMISSION)) {
+            if (player.hasPermission(CUSTODIAN_PERMISSION)) {
                 continue;
             }
             player.kick(kickMessage);

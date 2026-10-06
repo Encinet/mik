@@ -1,5 +1,7 @@
 package org.encinet.mik.module.commands;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -135,7 +137,7 @@ public class SimpleFeaturesModule implements Listener {
                     Commands.literal("tpany")
                             .requires(source -> {
                                 var sender = source.getSender();
-                                return sender instanceof Player && sender.hasPermission("group.helper");
+                                return sender instanceof Player && RolePermissions.canModerate(sender);
                             })
                             .executes(ctx -> {
                                 sendTpanyUsage(ctx.getSource().getSender());

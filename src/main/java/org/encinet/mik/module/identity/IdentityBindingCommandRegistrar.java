@@ -1,5 +1,7 @@
 package org.encinet.mik.module.identity;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.Suggestions;
@@ -11,7 +13,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -25,7 +26,7 @@ import java.util.logging.Level;
 /** Declares and executes the complete Minecraft-side {@code /bind} command tree. */
 final class IdentityBindingCommandRegistrar {
 
-    private static final String ADMIN_PERMISSION = "group." + Mik.GROUP_MANAGER;
+    private static final String ADMIN_PERMISSION = RolePermissions.CUSTODIAN;
 
     private final JavaPlugin plugin;
     private final LanguageService languages;

@@ -31,9 +31,9 @@ class PacketEventsLifecycleTest {
         assertRegistersAndUnregisters("module/safety/BanItemGuardModule.java");
 
         String plugin = source("Mik.java");
-        assertTrue(plugin.contains("gameModeSwitchModule.disable()"));
-        assertTrue(plugin.contains("brandingModule.disable()"));
-        assertTrue(plugin.contains("banItemGuardModule.disable()"));
+        assertTrue(plugin.contains("startManaged(\"game-mode-switch\", gameModeSwitchModule::enable, gameModeSwitchModule::disable)"));
+        assertTrue(plugin.contains("startManaged(\"branding\", brandingModule::enable, brandingModule::disable)"));
+        assertTrue(plugin.contains("startManaged(\"ban-item-guard\", banItemGuardModule::enable, banItemGuardModule::disable)"));
     }
 
     @Test

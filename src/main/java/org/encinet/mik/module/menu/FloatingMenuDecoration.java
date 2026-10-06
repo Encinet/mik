@@ -2,6 +2,7 @@ package org.encinet.mik.module.menu;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Objects;
@@ -163,7 +164,23 @@ public record FloatingMenuDecoration(
                         Transition.TRACKING);
     }
 
-    public sealed interface Content permits Text, Visual {
+    public static FloatingMenuDecoration volume(String id, FloatingMenuPose pose, BlockData block,
+                                                 float width, float height, float depth) {
+        return new FloatingMenuDecoration(id, FloatingMenuPlacement.local(pose),
+                new BlockVolume(block, width, height, depth), Motion.NONE).tracking();
+    }
+
+    public sealed interface Content permits Text, Visual, BlockVolume {
+    }
+
+    public record BlockVolume(BlockData block, float width, float height, float depth) implements Content {
+        public BlockVolume {
+            block = Objects.requireNonNull(block, "block").clone();
+            if (!positiveFinite(width) || !positiveFinite(height) || !positiveFinite(depth))
+                throw new IllegalArgumentException("Volume bounds must be positive and finite");
+        }
+
+        @Override public BlockData block() { return block.clone(); }
     }
 
     public record Text(Component text, int background, float displayWidth,

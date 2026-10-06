@@ -51,7 +51,7 @@ class SkriptInfoCommandTest {
         assertTrue(prompt.contains("# Access: <Public，或允许的 MIK 角色>"));
         assertTrue(prompt.contains("不得创建或使用任何权限节点"));
         assertTrue(prompt.contains("default 表示新成员，member 表示正式成员"));
-        assertTrue(prompt.contains("“正式成员可用”默认允许 member、helper、manager"));
+        assertTrue(prompt.contains("“正式成员可用”默认允许 member、moderator、custodian"));
         assertFalse(prompt.contains("# Permissions:"));
         assertTrue(prompt.contains("文件使用 UTF-8 且不带 BOM"));
         assertTrue(prompt.contains("# --- Configuration ---、# --- Functions ---、"
@@ -87,7 +87,7 @@ class SkriptInfoCommandTest {
         assertTrue(prompt.contains("# Access: <Public, or allowed MIK roles>"));
         assertTrue(prompt.contains("Never create or use permission nodes"));
         assertTrue(prompt.contains("default means a new member, member means a full member"));
-        assertTrue(prompt.contains("“Full members only” allows member, helper, and manager"));
+        assertTrue(prompt.contains("“Full members only” allows member, moderator, and custodian"));
         assertFalse(prompt.contains("# Permissions:"));
         assertTrue(prompt.contains("Encode the file as UTF-8 without a BOM"));
         assertTrue(prompt.contains("# --- Configuration ---, # --- Functions ---, "

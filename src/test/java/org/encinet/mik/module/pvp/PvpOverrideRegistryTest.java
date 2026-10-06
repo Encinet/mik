@@ -26,8 +26,8 @@ class PvpOverrideRegistryTest {
     @Test
     void highestPriorityWinsAndClearingItRestoresTheNextLayer() {
         PvpOverrideRegistry registry = new PvpOverrideRegistry(() -> 1_000L);
-        registry.put(PLAYER_ID, "event.sk", "arena", true, 10, PvpModule.PERMANENT_OVERRIDE);
-        registry.put(PLAYER_ID, "safety.sk", "safe-zone", false, 100, PvpModule.PERMANENT_OVERRIDE);
+        registry.put(PLAYER_ID, "event.sk", "arena", true, 10, PvpOverrideRules.PERMANENT);
+        registry.put(PLAYER_ID, "safety.sk", "safe-zone", false, 100, PvpOverrideRules.PERMANENT);
 
         assertFalse(registry.effectiveEnabled(PLAYER_ID, true));
         assertEquals("safe-zone", registry.activeState(PLAYER_ID).orElseThrow().id());
@@ -43,12 +43,12 @@ class PvpOverrideRegistryTest {
     @Test
     void latestOverrideWinsWhenPrioritiesAreEqual() {
         PvpOverrideRegistry registry = new PvpOverrideRegistry(() -> 1_000L);
-        registry.put(PLAYER_ID, "event.sk", "first", true, 0, PvpModule.PERMANENT_OVERRIDE);
-        registry.put(PLAYER_ID, "event.sk", "second", false, 0, PvpModule.PERMANENT_OVERRIDE);
+        registry.put(PLAYER_ID, "event.sk", "first", true, 0, PvpOverrideRules.PERMANENT);
+        registry.put(PLAYER_ID, "event.sk", "second", false, 0, PvpOverrideRules.PERMANENT);
 
         assertFalse(registry.effectiveEnabled(PLAYER_ID, true));
 
-        registry.put(PLAYER_ID, "event.sk", "first", true, 0, PvpModule.PERMANENT_OVERRIDE);
+        registry.put(PLAYER_ID, "event.sk", "first", true, 0, PvpOverrideRules.PERMANENT);
 
         assertTrue(registry.effectiveEnabled(PLAYER_ID, false));
         assertEquals("first", registry.activeState(PLAYER_ID).orElseThrow().id());
@@ -79,12 +79,12 @@ class PvpOverrideRegistryTest {
     @Test
     void validatesAndNormalizesOverrideIds() {
         PvpOverrideRegistry registry = new PvpOverrideRegistry(() -> 1_000L);
-        registry.put(PLAYER_ID, "event.sk", "  arena:round-1  ", true, 0, PvpModule.PERMANENT_OVERRIDE);
+        registry.put(PLAYER_ID, "event.sk", "  arena:round-1  ", true, 0, PvpOverrideRules.PERMANENT);
 
         assertTrue(registry.contains(PLAYER_ID, "event.sk", "arena:round-1"));
         assertEquals(java.util.Set.of("arena:round-1"), registry.ids(PLAYER_ID, "event.sk"));
         assertThrows(IllegalArgumentException.class,
-                () -> registry.put(PLAYER_ID, "event.sk", "  ", true, 0, PvpModule.PERMANENT_OVERRIDE));
+                () -> registry.put(PLAYER_ID, "event.sk", "  ", true, 0, PvpOverrideRules.PERMANENT));
         assertThrows(IllegalArgumentException.class,
                 () -> registry.put(PLAYER_ID, "event.sk", "event", true, 0, -2L));
     }
@@ -92,8 +92,8 @@ class PvpOverrideRegistryTest {
     @Test
     void sameIdIsIsolatedByScriptAndUnloadClearsOnlyItsOwner() {
         PvpOverrideRegistry registry = new PvpOverrideRegistry(() -> 1_000L);
-        registry.put(PLAYER_ID, "arena-a.sk", "round", true, 10, PvpModule.PERMANENT_OVERRIDE);
-        registry.put(PLAYER_ID, "arena-b.sk", "round", false, 20, PvpModule.PERMANENT_OVERRIDE);
+        registry.put(PLAYER_ID, "arena-a.sk", "round", true, 10, PvpOverrideRules.PERMANENT);
+        registry.put(PLAYER_ID, "arena-b.sk", "round", false, 20, PvpOverrideRules.PERMANENT);
 
         assertTrue(registry.contains(PLAYER_ID, "arena-a.sk", "round"));
         assertTrue(registry.contains(PLAYER_ID, "arena-b.sk", "round"));

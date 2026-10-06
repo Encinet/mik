@@ -62,9 +62,10 @@ class SocialPackageArchitectureTest {
     }
 
     @Test
-    void compositionRootInstallsOnlyTheSixUserFacingSharedCommands() throws IOException {
+    void compositionRootInstallsTheSevenUserFacingSharedCommands() throws IOException {
         String module = Files.readString(SOCIAL.resolve("SocialModule.java"));
         for (String command : List.of(
+                "AiSocialCommand",
                 "OnlinePlayersCommand", "ServerStatusCommand", "SocialHelpCommand",
                 "LinkIdentityCommand", "PlayerProfileCommand", "UnlinkIdentityCommand")) {
             assertTrue(module.contains("new " + command + '('), command);
@@ -83,6 +84,7 @@ class SocialPackageArchitectureTest {
             throws IOException {
         Path builtins = SOCIAL.resolve("command/builtin");
         for (String command : List.of(
+                "AiSocialCommand",
                 "OnlinePlayersCommand", "ServerStatusCommand", "SocialHelpCommand",
                 "LinkIdentityCommand", "PlayerProfileCommand", "UnlinkIdentityCommand")) {
             String source = Files.readString(builtins.resolve(command + ".java"));
@@ -100,6 +102,7 @@ class SocialPackageArchitectureTest {
             throws IOException {
         Path builtins = SOCIAL.resolve("command/builtin");
         for (String command : List.of(
+                "AiSocialCommand",
                 "OnlinePlayersCommand", "ServerStatusCommand", "SocialHelpCommand",
                 "LinkIdentityCommand", "PlayerProfileCommand", "UnlinkIdentityCommand",
                 "UnknownSocialCommand")) {
@@ -128,6 +131,17 @@ class SocialPackageArchitectureTest {
         assertFalse(Files.exists(SOCIAL.resolve("command/SocialCommandHelpCatalog.java")));
         assertFalse(Files.exists(SOCIAL.resolve("presenter")),
                 "social command presentation must not have a separate package");
+    }
+
+    @Test
+    void socialAiDependsOnlyOnThePublicAiGateway() throws IOException {
+        String source = Files.readString(SOCIAL.resolve(
+                "command/builtin/AiSocialCommand.java"));
+        assertTrue(source.contains("module.ai.api.AiGateway"));
+        assertFalse(source.contains("module.ai.config"));
+        assertFalse(source.contains("module.ai.conversation"));
+        assertFalse(source.contains("module.ai.provider"));
+        assertFalse(source.contains("module.ai.tool"));
     }
 
     @Test

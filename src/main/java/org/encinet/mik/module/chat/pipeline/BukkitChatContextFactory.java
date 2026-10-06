@@ -7,12 +7,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.chat.model.ChatCapability;
 import org.encinet.mik.module.chat.model.ChatItemSnapshot;
 import org.encinet.mik.module.chat.model.ChatProcessingContext;
 import org.encinet.mik.module.identity.IdentityBinding;
 import org.encinet.mik.module.identity.IdentityBindingManager;
+import org.encinet.mik.module.role.RolePermissions;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,10 +29,6 @@ import java.util.IdentityHashMap;
 
 /** Maintains primary-thread Bukkit snapshots consumed lock-free by async chat. */
 public final class BukkitChatContextFactory {
-    private static final String MEMBER_PERMISSION = "group." + Mik.GROUP_MEMBER;
-    private static final String MANAGER_PERMISSION = "group." + Mik.GROUP_MANAGER;
-    private static final String STAFF_PERMISSION = "group." + Mik.GROUP_HELPER;
-
     private final JavaPlugin plugin;
     private final IdentityBindingManager identityBindings;
     private volatile Map<Player, CachedPlayer> playersByIdentity = Map.of();
@@ -95,7 +91,7 @@ public final class BukkitChatContextFactory {
         if (Bukkit.isPrimaryThread()) {
             Set<Player> current = Collections.newSetFromMap(new IdentityHashMap<>());
             Bukkit.getOnlinePlayers().stream()
-                    .filter(player -> player.hasPermission(STAFF_PERMISSION))
+                    .filter(player -> RolePermissions.canModerate(player))
                     .forEach(current::add);
             return Set.copyOf(current);
         }
@@ -176,7 +172,7 @@ public final class BukkitChatContextFactory {
             byIdentity.put(player, new CachedPlayer(
                     playerId, reference, snapshotPlayer(player)));
             byId.put(playerId, player);
-            if (player.hasPermission(STAFF_PERMISSION)) {
+            if (RolePermissions.canModerate(player)) {
                 staff.add(player);
             }
         }
@@ -250,10 +246,10 @@ public final class BukkitChatContextFactory {
                 ChatCapability.PLAYER_MENTION,
                 ChatCapability.ITEM,
                 ChatCapability.INVENTORY);
-        if (sender.hasPermission(MEMBER_PERMISSION)) {
+        if (RolePermissions.isMember(sender)) {
             capabilities.add(ChatCapability.MINI_MESSAGE);
         }
-        if (sender.hasPermission(MANAGER_PERMISSION)) {
+        if (RolePermissions.isCustodian(sender)) {
             capabilities.add(ChatCapability.BROADCAST_MENTION);
         }
 

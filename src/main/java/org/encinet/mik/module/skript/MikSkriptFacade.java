@@ -5,10 +5,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.module.afk.AfkModule;
+import org.encinet.mik.module.afk.AfkScripting;
 import org.encinet.mik.module.afk.AfkSource;
 import org.encinet.mik.module.afk.AfkState;
-import org.encinet.mik.module.pvp.PvpModule;
+import org.encinet.mik.module.pvp.PvpAccess;
 import org.encinet.mik.module.pvp.PvpOverrideState;
 import org.encinet.mik.module.space.NonEuclideanSpaceService;
 import org.encinet.mik.module.space.SpaceLinkEntrances;
@@ -25,32 +25,32 @@ final class MikSkriptFacade {
     private final Function<Player, String> language;
     private final Function<Player, String> clientVersion;
     private final Function<Player, String> role;
-    private final AfkModule afkModule;
-    private final PvpModule pvpModule;
+    private final AfkScripting afk;
+    private final PvpAccess pvp;
     private final MikSkriptSpaceRegistry spaces;
 
     MikSkriptFacade(JavaPlugin plugin,
                     Function<Player, String> language,
                     Function<Player, String> clientVersion,
                     Function<Player, String> role,
-                    AfkModule afkModule,
-                    PvpModule pvpModule) {
-        this(plugin, language, clientVersion, role, afkModule, pvpModule, null);
+                    AfkScripting afk,
+                    PvpAccess pvp) {
+        this(plugin, language, clientVersion, role, afk, pvp, null);
     }
 
     MikSkriptFacade(JavaPlugin plugin,
                     Function<Player, String> language,
                     Function<Player, String> clientVersion,
                     Function<Player, String> role,
-                    AfkModule afkModule,
-                    PvpModule pvpModule,
+                    AfkScripting afk,
+                    PvpAccess pvp,
                     @Nullable NonEuclideanSpaceService spaceService) {
         this.plugin = plugin;
         this.language = language;
         this.clientVersion = clientVersion;
         this.role = role;
-        this.afkModule = afkModule;
-        this.pvpModule = pvpModule;
+        this.afk = afk;
+        this.pvp = pvp;
         this.spaces = new MikSkriptSpaceRegistry(spaceService);
     }
 
@@ -67,7 +67,7 @@ final class MikSkriptFacade {
     }
 
     boolean afk(Player player) {
-        return onMainThread(() -> afkModule != null && afkModule.isAfk(player.getUniqueId()));
+        return onMainThread(() -> afk != null && afk.isAfk(player.getUniqueId()));
     }
 
     String afkMessage(Player player) {
@@ -87,23 +87,23 @@ final class MikSkriptFacade {
     }
 
     boolean pvpEnabled(Player player) {
-        return onMainThread(() -> pvpModule != null && pvpModule.isEnabled(player));
+        return onMainThread(() -> pvp != null && pvp.isEnabled(player));
     }
 
     boolean pvpPreference(Player player) {
-        return onMainThread(() -> pvpModule != null && pvpModule.preferenceEnabled(player));
+        return onMainThread(() -> pvp != null && pvp.preferenceEnabled(player));
     }
 
     boolean pvpOverridden(Player player) {
-        return onMainThread(() -> pvpModule != null && pvpModule.activeOverride(player).isPresent());
+        return onMainThread(() -> pvp != null && pvp.activeOverride(player).isPresent());
     }
 
     boolean hasPvpOverride(Player player, String owner, String id) {
-        return onMainThread(() -> pvpModule != null && pvpModule.hasOverride(player, owner, id));
+        return onMainThread(() -> pvp != null && pvp.hasOverride(player, owner, id));
     }
 
     Set<String> pvpOverrideIds(Player player, String owner) {
-        return onMainThread(() -> pvpModule == null ? Set.of() : pvpModule.overrideIds(player, owner));
+        return onMainThread(() -> pvp == null ? Set.of() : pvp.overrideIds(player, owner));
     }
 
     Boolean pvpOverrideValue(Player player) {
@@ -129,47 +129,47 @@ final class MikSkriptFacade {
     }
 
     boolean combatTagged(Player player) {
-        return onMainThread(() -> pvpModule != null && pvpModule.isCombatTagged(player.getUniqueId()));
+        return onMainThread(() -> pvp != null && pvp.isCombatTagged(player.getUniqueId()));
     }
 
     Timespan combatTagRemaining(Player player) {
         return onMainThread(() -> {
-            if (pvpModule == null || !pvpModule.isCombatTagged(player.getUniqueId())) {
+            if (pvp == null || !pvp.isCombatTagged(player.getUniqueId())) {
                 return null;
             }
             return new Timespan(Timespan.TimePeriod.SECOND,
-                    pvpModule.combatTagRemainingSeconds(player.getUniqueId()));
+                    pvp.combatTagRemainingSeconds(player.getUniqueId()));
         });
     }
 
     void setAfk(Player player, String message, boolean broadcast) {
-        onMainThread(() -> afkModule.setAfkFromSkript(player, message, broadcast));
+        onMainThread(() -> afk.setAfkFromSkript(player, message, broadcast));
     }
 
     void clearAfk(Player player, boolean broadcast) {
-        onMainThread(() -> afkModule.clearAfkFromSkript(player, broadcast));
+        onMainThread(() -> afk.clearAfkFromSkript(player, broadcast));
     }
 
     void setPvpPreference(Player player, boolean enabled) {
-        onMainThread(() -> pvpModule.setPreference(player, enabled));
+        onMainThread(() -> pvp.setPreference(player, enabled));
     }
 
     void setPvpOverride(Player player, String owner, String id,
                         boolean enabled, int priority, long durationMillis) {
-        onMainThread(() -> pvpModule.setOverride(
+        onMainThread(() -> pvp.setOverride(
                 player, owner, id, enabled, priority, durationMillis));
     }
 
     void clearPvpOverride(Player player, String owner, String id) {
-        onMainThread(() -> pvpModule.clearOverride(player, owner, id));
+        onMainThread(() -> pvp.clearOverride(player, owner, id));
     }
 
     void clearPvpOverrides(Player player, String owner) {
-        onMainThread(() -> pvpModule.clearOverrides(player, owner));
+        onMainThread(() -> pvp.clearOverrides(player, owner));
     }
 
     void clearPvpOverridesOwnedBy(String owner) {
-        onMainThread(() -> pvpModule.clearOverridesOwnedBy(owner));
+        onMainThread(() -> pvp.clearOverridesOwnedBy(owner));
     }
 
     void registerSpace(
@@ -215,18 +215,14 @@ final class MikSkriptFacade {
         onMainThread(spaces::clear);
     }
 
-    String normalizePvpOverrideId(String id) {
-        return PvpModule.normalizeOverrideId(id);
-    }
-
     private java.util.Optional<AfkState> afkState(Player player) {
-        return afkModule == null
-                ? java.util.Optional.empty() : afkModule.getState(player.getUniqueId());
+        return afk == null
+                ? java.util.Optional.empty() : afk.getState(player.getUniqueId());
     }
 
     private java.util.Optional<PvpOverrideState> pvpOverride(Player player) {
-        return pvpModule == null
-                ? java.util.Optional.empty() : pvpModule.activeOverride(player);
+        return pvp == null
+                ? java.util.Optional.empty() : pvp.activeOverride(player);
     }
 
     private void onMainThread(Runnable action) {

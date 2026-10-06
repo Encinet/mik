@@ -25,14 +25,15 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.menu.FloatingMenuDefinition;
 import org.encinet.mik.module.menu.FloatingMenuLayouts;
+import org.encinet.mik.module.menu.FloatingMenuScreen;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -59,9 +60,18 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.SplittableRandom;
 import java.util.UUID;
 import java.util.logging.Level;
+
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.MAX_BASE_PROBABILITY;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.RELEASE_SLOT_MILLIS;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.calculateBaseProbability;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.calibratedPersonalOffset;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.generateReleaseSlots;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.limitOddsChange;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.personalWeight;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.personalizedProbability;
+import static org.encinet.mik.module.event.AnniversaryDrawAlgorithm.releasedPrizeIndex;
 
 public final class FifthAnniversaryEventModule implements Listener, AfkStateListener {
 
@@ -86,16 +96,10 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private static final String SOLD_OUT_ID = "sold-out";
     private static final int ALGORITHM_VERSION = 2;
     private static final long CONTROL_BUCKET_MILLIS = Duration.ofMinutes(10).toMillis();
-    private static final long RELEASE_SLOT_MILLIS = Duration.ofHours(2).toMillis();
-    private static final double RELEASE_CURVE_EXPONENT = 0.72D;
-    private static final double INITIAL_RELEASE_FRACTION = 0.08D;
+    static final int RELEASE_SLOT_COUNT = (int) Math.ceil(
+            (double) Duration.between(EVENT_START, EVENT_END_EXCLUSIVE).toMillis()
+                    / RELEASE_SLOT_MILLIS);
     private static final int RELEASE_BORROW_LIMIT = 2;
-    private static final double MIN_BASE_PROBABILITY = 0.02D;
-    private static final double MAX_BASE_PROBABILITY = 0.58D;
-    private static final double PERSONAL_ODDS_COEFFICIENT = 0.13D;
-    private static final double PERSONAL_HISTORY_STRENGTH = 0.75D;
-    private static final double MIN_PERSONAL_WEIGHT = 0.78D;
-    private static final double MAX_PERSONAL_WEIGHT = 1.32D;
     private static final double PRIOR_OPPORTUNITIES_PER_HOUR = 1.5D;
     private static final int ADMIN_AUDIT_LIMIT = 10;
     private static final int WINNER_LIST_PAGE_SIZE = 10;
@@ -146,6 +150,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private final Map<UUID, Participant> participants = new HashMap<>();
     private final Map<UUID, Long> lastAccountedAt = new HashMap<>();
     private final Map<UUID, BossBar> bossBars = new HashMap<>();
+    private final FloatingMenuScreen<Participant> bagScreen =
+            new FloatingMenuScreen<>("anniversary-bag",
+                    context -> buildVirtualBag(context.player(), context.state()));
     private final List<AuditEntry> auditEntries = new ArrayList<>();
     private final int[] remainingStocks = new int[INITIAL_STOCKS.length];
     private final int[][] releaseSlots = new int[INITIAL_STOCKS.length][];
@@ -193,6 +200,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     public void disable() {
+        HandlerList.unregisterAll(this);
         if (tickTask != null) {
             tickTask.cancel();
             tickTask = null;
@@ -200,8 +208,8 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         long now = System.currentTimeMillis();
         for (Player player : Bukkit.getOnlinePlayers()) {
             accountTime(player, now, afkService.isActivityEligible(player.getUniqueId()));
-            FloatingMenus.current(player).ifPresent(handle -> handle.close());
             hideBossBar(player);
+            bagScreen.forget(player);
         }
         afkService.removeListener(this);
         saveData();
@@ -302,6 +310,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     @EventHandler(priority = EventPriority.LOWEST)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
+        bagScreen.forget(player);
         long now = System.currentTimeMillis();
         accountTime(player, now, afkService.isActivityEligible(player.getUniqueId()));
         lastAccountedAt.remove(player.getUniqueId());
@@ -378,6 +387,11 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             return 0;
         }
 
+        bagScreen.open(player, participant);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private FloatingMenuDefinition buildVirtualBag(Player player, Participant participant) {
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
                         "anniversary-bag",
                         text(player, Message.ANNIVERSARY_BAG_TITLE, NamedTextColor.GOLD))
@@ -400,8 +414,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         }
         menu.close(text(player, Message.CLOSE, NamedTextColor.RED))
                 .region("controls");
-        FloatingMenus.present(player, menu.build());
-        return Command.SINGLE_SUCCESS;
+        return menu.build();
     }
 
     private int sendGiftUsage(CommandSender sender) {
@@ -504,7 +517,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private void closeVirtualBag(Player player) {
-        FloatingMenus.current(player).ifPresent(handle -> handle.close());
+        bagScreen.flow(player).ifPresent(flow -> flow.close());
     }
 
     private List<PrizeStack> prizeStacks(List<String> virtualBag) {
@@ -852,7 +865,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 - releasedStockAt(nowMillis);
         double remainingHours = Math.max(0.0D,
                 (EVENT_END_EXCLUSIVE.toEpochMilli() - nowMillis) / 3_600_000.0D);
-        double candidate = calculateBaseProbability(new ControllerSnapshot(
+        double candidate = calculateBaseProbability(new AnniversaryDrawAlgorithm.ControllerSnapshot(
                 remainingStock(), available, Math.max(0, releaseInWindow),
                 opportunityRate(nowMillis), remainingHours, knownFutureRegularOpportunities()));
         if (lastBaseProbability > 0.0D && lastBaseProbabilityAt > 0L) {
@@ -1264,27 +1277,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return candidate;
     }
 
-    static double calculateBaseProbability(ControllerSnapshot snapshot) {
-        if (snapshot.remainingStock <= 0) {
-            return 0.0D;
-        }
-        if (snapshot.availableStock <= 0) {
-            return 0.0D;
-        }
-        double expectedWindowOpportunities = Math.max(1.0D,
-                snapshot.opportunitiesPerHour * RELEASE_SLOT_MILLIS / 3_600_000.0D);
-        double desiredWindowWins = snapshot.releaseInWindow + 0.35D * snapshot.availableStock;
-        double speedProbability = desiredWindowWins / expectedWindowOpportunities;
-
-        double predictedRemainingOpportunities = Math.max(
-                snapshot.remainingStock,
-                Math.max(snapshot.knownFutureOpportunities,
-                        snapshot.opportunitiesPerHour * snapshot.remainingHours));
-        double stockProbability = snapshot.remainingStock / predictedRemainingOpportunities;
-        return Math.clamp(0.80D * speedProbability + 0.20D * stockProbability,
-                MIN_BASE_PROBABILITY, MAX_BASE_PROBABILITY);
-    }
-
     private double opportunityRate(long nowMillis) {
         return 0.50D * smoothedRate(nowMillis, Duration.ofMinutes(30).toMillis())
                 + 0.30D * smoothedRate(nowMillis, Duration.ofHours(2).toMillis())
@@ -1331,53 +1323,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             }
         }
         return weights;
-    }
-
-    static double calibratedPersonalOffset(
-            double baseProbability,
-            List<Double> weights
-    ) {
-        if (weights.isEmpty() || baseProbability <= 0.0D || baseProbability >= 1.0D) {
-            return 0.0D;
-        }
-        double baseLogit = logit(baseProbability);
-        double low = -2.0D;
-        double high = 2.0D;
-        for (int iteration = 0; iteration < 24; iteration++) {
-            double middle = (low + high) / 2.0D;
-            double average = weights.stream()
-                    .mapToDouble(weight -> sigmoid(baseLogit
-                            + PERSONAL_HISTORY_STRENGTH * Math.log(weight)
-                            + middle))
-                    .average()
-                    .orElse(baseProbability);
-            if (average > baseProbability) {
-                high = middle;
-            } else {
-                low = middle;
-            }
-        }
-        return (low + high) / 2.0D;
-    }
-
-    static double personalWeight(int wins, int losses) {
-        double score = Math.clamp(losses - 1.25D * wins, -2.0D, 2.0D);
-        return Math.clamp(Math.exp(PERSONAL_ODDS_COEFFICIENT * score),
-                MIN_PERSONAL_WEIGHT, MAX_PERSONAL_WEIGHT);
-    }
-
-    static double personalizedProbability(
-            double baseProbability,
-            double weight,
-            double calibrationOffset
-    ) {
-        if (baseProbability <= 0.0D || baseProbability >= 1.0D) {
-            return baseProbability;
-        }
-        double weightedLogOdds = logit(baseProbability)
-                + PERSONAL_HISTORY_STRENGTH * Math.log(weight)
-                + calibrationOffset;
-        return sigmoid(weightedLogOdds);
     }
 
     private int[] availablePrizeStockForPlayer(
@@ -1513,65 +1458,13 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
-    static int takeAvailablePrize(
-            int[] remaining,
-            int[] available,
-            int selected
-    ) {
-        if (remaining.length != available.length) {
-            throw new IllegalArgumentException("Prize stock and availability lengths differ");
-        }
-        for (int index = 0; index < available.length; index++) {
-            if (remaining[index] < 0
-                    || available[index] < 0
-                    || available[index] > remaining[index]) {
-                throw new IllegalArgumentException("Invalid released prize availability");
-            }
-        }
-        int total = Arrays.stream(available).sum();
-        if (selected < 0 || selected >= total) {
-            throw new IllegalArgumentException("Selected prize offset is out of bounds");
-        }
-        int prizeIndex = releasedPrizeIndex(available, selected);
-        remaining[prizeIndex]--;
-        return prizeIndex;
-    }
-
-    static int releasedPrizeIndex(int[] available, int selected) {
-        if (Arrays.stream(available).anyMatch(value -> value < 0)) {
-            throw new IllegalArgumentException("Released prize availability cannot be negative");
-        }
-        int total = Arrays.stream(available).sum();
-        if (selected < 0 || selected >= total) {
-            throw new IllegalArgumentException("Selected prize offset is out of bounds");
-        }
-        for (int index = 0; index < available.length; index++) {
-            if (selected < available[index]) {
-                return index;
-            }
-            selected -= available[index];
-        }
-        throw new IllegalStateException("Released prize selection was out of bounds");
-    }
-
     private int availableReleasedStock(long nowMillis) {
         if (nowMillis < EVENT_START.toEpochMilli()) {
             return 0;
         }
         int totalStock = Arrays.stream(INITIAL_STOCKS).sum();
-        return availableReleasedStock(
+        return AnniversaryDrawAlgorithm.availableReleasedStock(
                 totalStock, remainingStock(), releasedStockAt(nowMillis), RELEASE_BORROW_LIMIT);
-    }
-
-    static int availableReleasedStock(
-            int totalStock,
-            int remainingStock,
-            int releasedStock,
-            int borrowLimit
-    ) {
-        int awarded = totalStock - remainingStock;
-        int releaseLimit = Math.min(totalStock, releasedStock + borrowLimit);
-        return Math.clamp(releaseLimit - awarded, 0, remainingStock);
     }
 
     private int releasedStockAt(long nowMillis) {
@@ -1625,44 +1518,9 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         // The persisted seed keeps the front-loaded random release plan stable across restarts.
         for (int index = 0; index < INITIAL_STOCKS.length; index++) {
             releaseSlots[index] = generateReleaseSlots(
-                    INITIAL_STOCKS[index], releasePlanSeed + 0x9E3779B97F4A7C15L * (index + 1L));
+                    INITIAL_STOCKS[index], releasePlanSeed + 0x9E3779B97F4A7C15L * (index + 1L),
+                    RELEASE_SLOT_COUNT);
         }
-    }
-
-    static int[] generateReleaseSlots(int stock, long seed) {
-        int slotCount = (int) Math.ceil(
-                (double) Duration.between(EVENT_START, EVENT_END_EXCLUSIVE).toMillis()
-                        / RELEASE_SLOT_MILLIS);
-        SplittableRandom generator = new SplittableRandom(seed);
-        int[] slots = new int[stock];
-        for (int index = 0; index < stock; index++) {
-            double quantile = (index + 0.15D + 0.70D * generator.nextDouble()) / stock;
-            double progress = quantile <= INITIAL_RELEASE_FRACTION
-                    ? 0.0D
-                    : Math.pow((quantile - INITIAL_RELEASE_FRACTION)
-                            / (1.0D - INITIAL_RELEASE_FRACTION), 1.0D / RELEASE_CURVE_EXPONENT);
-            double jitter = generator.nextDouble(-0.75D, 0.75D);
-            slots[index] = (int) Math.clamp(Math.floor(progress * slotCount + jitter),
-                    0.0D, slotCount - 1.0D);
-        }
-        Arrays.sort(slots);
-        return slots;
-    }
-
-    static double limitOddsChange(double previous, double candidate, double minimumFactor, double maximumFactor) {
-        double previousOdds = previous / (1.0D - previous);
-        double candidateOdds = candidate / (1.0D - candidate);
-        double limitedOdds = Math.clamp(candidateOdds,
-                previousOdds * minimumFactor, previousOdds * maximumFactor);
-        return limitedOdds / (1.0D + limitedOdds);
-    }
-
-    private static double logit(double probability) {
-        return Math.log(probability / (1.0D - probability));
-    }
-
-    private static double sigmoid(double value) {
-        return 1.0D / (1.0D + Math.exp(-value));
     }
 
     private void broadcastWinner(String winner, int round, String prizeId) {
@@ -2397,32 +2255,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             this.targetId = targetId;
             this.targetName = targetName;
             this.detail = detail;
-        }
-    }
-
-    static final class ControllerSnapshot {
-
-        private final int remainingStock;
-        private final int availableStock;
-        private final int releaseInWindow;
-        private final double opportunitiesPerHour;
-        private final double remainingHours;
-        private final int knownFutureOpportunities;
-
-        ControllerSnapshot(
-                int remainingStock,
-                int availableStock,
-                int releaseInWindow,
-                double opportunitiesPerHour,
-                double remainingHours,
-                int knownFutureOpportunities
-        ) {
-            this.remainingStock = remainingStock;
-            this.availableStock = availableStock;
-            this.releaseInWindow = releaseInWindow;
-            this.opportunitiesPerHour = opportunitiesPerHour;
-            this.remainingHours = remainingHours;
-            this.knownFutureOpportunities = knownFutureOpportunities;
         }
     }
 

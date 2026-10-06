@@ -106,16 +106,16 @@ class AfkActivityDetectionTest {
     }
 
     @Test
-    void actionThresholdUsesAnOverlappingSlidingWindow() {
+    void creditedActionsCannotBeReusedAcrossBatches() {
         AfkActivityTracker tracker = tracker(0L);
         tracker.recordAction(action(BLOCK, "a"), 60_000L);
         tracker.recordAction(action(BLOCK, "b"), 2 * 60_000L);
         tracker.recordAction(action(BLOCK, "c"), 9 * 60_000L);
         tracker.recordAction(action(BLOCK, "d"), 15 * 60_000L);
-        assertTrue(tracker.recordAction(action(BLOCK, "e"), 18 * 60_000L));
+        assertFalse(tracker.recordAction(action(BLOCK, "e"), 18 * 60_000L));
 
         tracker.recordLightActivity(19 * 60_000L);
-        assertEquals(AfkActivityTracker.CheckResult.ACTIVE, tracker.check(19 * 60_000L));
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE, tracker.check(19 * 60_000L));
     }
 
     @Test

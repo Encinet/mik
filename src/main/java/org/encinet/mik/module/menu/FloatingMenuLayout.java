@@ -9,6 +9,9 @@ import java.util.Set;
 public interface FloatingMenuLayout {
     FloatingMenuPose pose(Context context);
 
+    /** Orbit layouts retain unwrapped pose yaw so repeated turns animate in the requested direction. */
+    default boolean continuousOrbit() { return false; }
+
     /** Compatibility view for callers that only need coordinates. */
     default FloatingMenuPoint position(Context context) {
         return pose(context).point();

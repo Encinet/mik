@@ -10,37 +10,17 @@ import com.github.retrooper.packetevents.event.UserDisconnectEvent;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientEditBook;
-import com.mojang.datafixers.util.Pair;
-import io.papermc.paper.event.player.PlayerPickItemEvent;
-import io.papermc.paper.configuration.GlobalConfiguration;
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.ChannelPromise;
-import net.minecraft.core.RegistryAccess;
+import io.papermc.paper.event.player.PlayerPickItemEvent;
 import net.minecraft.network.HandlerNames;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
-import net.minecraft.network.protocol.game.ClientboundBundlePacket;
-import net.minecraft.network.protocol.game.ClientboundContainerSetContentPacket;
-import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
-import net.minecraft.network.protocol.game.ClientboundMerchantOffersPacket;
-import net.minecraft.network.protocol.game.ClientboundSetCursorItemPacket;
-import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
-import net.minecraft.network.protocol.game.ClientboundSetEquipmentPacket;
-import net.minecraft.network.protocol.game.ClientboundSetPlayerInventoryPacket;
-import net.minecraft.network.syncher.EntityDataSerializers;
-import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.item.trading.MerchantOffer;
-import net.minecraft.world.item.trading.MerchantOffers;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
@@ -67,9 +47,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.module.safety.UnsafeItemPacketSanitizer.NetworkAudit;
+import org.encinet.mik.module.safety.UnsafeItemPolicy.BookPacketCheck;
+import org.encinet.mik.module.safety.UnsafeItemPolicy.CheckResult;
 
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -78,28 +59,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Removes items whose network representation is too large to handle safely.
+ * Removes items with oversized entity data or a network representation too large to handle safely.
  *
  * <p>Encoding failures are treated as unsafe. Audit messages intentionally
  * omit item metadata so malicious book pages, lore, or NBT cannot inflate logs.
  */
 public final class BanItemGuardModule implements Listener {
 
-    private static final long MAX_ITEM_SIZE_KIB = 256L;
-    private static final long MAX_ITEM_SIZE_BYTES = MAX_ITEM_SIZE_KIB * 1024L;
     private static final long SCAN_PERIOD_TICKS = 100L;
     private static final int MAX_DETAILED_LOGS_PER_PURGE = 5;
     private static final int HOTBAR_MIN_SLOT = 0;
     private static final int HOTBAR_MAX_SLOT = 8;
     private static final int BOOK_OFF_HAND_SLOT = 40;
-    private static final int ITEM_BUFFER_MAX_CAPACITY =
-            Math.toIntExact(MAX_ITEM_SIZE_BYTES + 1L);
     private static final String NETWORK_HANDLER_NAME = "mik_ban_item_guard";
     private static final long NETWORK_LOG_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(5L);
-    private static final CheckResult SAFE = new CheckResult(false, 0L, null);
 
     private final JavaPlugin plugin;
-    private final RegistryAccess registryAccess;
+    private final UnsafeItemPolicy itemPolicy;
+    private final UnsafeItemPacketSanitizer packetSanitizer;
     private final NetworkConnectionListener networkConnectionListener =
             new NetworkConnectionListener();
     private final Set<Channel> guardedChannels = ConcurrentHashMap.newKeySet();
@@ -112,7 +89,8 @@ public final class BanItemGuardModule implements Listener {
 
     public BanItemGuardModule(JavaPlugin plugin) {
         this.plugin = plugin;
-        this.registryAccess = MinecraftServer.getServer().registryAccess();
+        this.itemPolicy = new UnsafeItemPolicy(MinecraftServer.getServer().registryAccess());
+        this.packetSanitizer = new UnsafeItemPacketSanitizer(itemPolicy);
     }
 
     public void enable() {
@@ -137,7 +115,7 @@ public final class BanItemGuardModule implements Listener {
         plugin.getLogger().info(String.format(
                 Locale.ROOT,
                 "BanItemGuardModule enabled (networkLimit=%d KiB, scanPeriod=%d ticks)",
-                MAX_ITEM_SIZE_KIB,
+                UnsafeItemPolicy.MAX_ITEM_SIZE_KIB,
                 SCAN_PERIOD_TICKS));
     }
 
@@ -171,10 +149,12 @@ public final class BanItemGuardModule implements Listener {
         Player player = event.getWhoClicked() instanceof Player target ? target : null;
         ItemStack cursor = event.getCursor();
         ItemStack current = event.getCurrentItem();
-        CheckResult cursorResult = check(cursor);
-        CheckResult currentResult = check(current);
+        CheckResult cursorResult = itemPolicy.check(cursor);
+        CheckResult currentResult = itemPolicy.check(current);
         InventorySwapTarget swapTarget = inventorySwapTarget(event, player, current);
-        CheckResult swapResult = swapTarget == null ? SAFE : check(swapTarget.item());
+        CheckResult swapResult = swapTarget == null
+                ? UnsafeItemPolicy.SAFE
+                : itemPolicy.check(swapTarget.item());
 
         if (!cursorResult.blocked()
                 && !currentResult.blocked()
@@ -200,7 +180,7 @@ public final class BanItemGuardModule implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryDrag(InventoryDragEvent event) {
         ItemStack item = event.getOldCursor();
-        CheckResult result = check(item);
+        CheckResult result = itemPolicy.check(item);
         if (!result.blocked()) {
             return;
         }
@@ -220,7 +200,7 @@ public final class BanItemGuardModule implements Listener {
             return;
         }
 
-        CheckResult result = check(candidate);
+        CheckResult result = itemPolicy.check(candidate);
         if (!result.blocked()) {
             return;
         }
@@ -268,7 +248,7 @@ public final class BanItemGuardModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryMoveItem(InventoryMoveItemEvent event) {
-        CheckResult result = check(event.getItem());
+        CheckResult result = itemPolicy.check(event.getItem());
         if (!result.blocked()) {
             return;
         }
@@ -279,13 +259,13 @@ public final class BanItemGuardModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBlockDispense(BlockDispenseEvent event) {
-        CheckResult result = check(event.getItem());
+        CheckResult result = itemPolicy.check(event.getItem());
         if (!result.blocked()) {
             return;
         }
 
         event.setCancelled(true);
-        if (event.getBlock().getState() instanceof InventoryHolder holder) {
+        if (event.getBlock().getState(false) instanceof InventoryHolder holder) {
             purgeAutomationSource(holder.getInventory(), "block-dispense");
         }
     }
@@ -293,7 +273,7 @@ public final class BanItemGuardModule implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onInventoryPickupItem(InventoryPickupItemEvent event) {
         ItemStack item = event.getItem().getItemStack();
-        CheckResult result = check(item);
+        CheckResult result = itemPolicy.check(item);
         if (!result.blocked()) {
             return;
         }
@@ -306,7 +286,7 @@ public final class BanItemGuardModule implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onItemSpawn(ItemSpawnEvent event) {
         ItemStack item = event.getEntity().getItemStack();
-        CheckResult result = check(item);
+        CheckResult result = itemPolicy.check(item);
         if (!result.blocked()) {
             return;
         }
@@ -318,7 +298,7 @@ public final class BanItemGuardModule implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onItemPickup(EntityPickupItemEvent event) {
         ItemStack item = event.getItem().getItemStack();
-        CheckResult result = check(item);
+        CheckResult result = itemPolicy.check(item);
         if (!result.blocked()) {
             return;
         }
@@ -355,7 +335,7 @@ public final class BanItemGuardModule implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerPickItem(PlayerPickItemEvent event) {
         ItemStack item = event.getItem();
-        CheckResult result = check(item);
+        CheckResult result = itemPolicy.check(item);
         if (!result.blocked()) {
             return;
         }
@@ -375,7 +355,7 @@ public final class BanItemGuardModule implements Listener {
             String source,
             Cancellable event
     ) {
-        CheckResult result = check(item);
+        CheckResult result = itemPolicy.check(item);
         if (!result.blocked()) {
             return;
         }
@@ -439,99 +419,11 @@ public final class BanItemGuardModule implements Listener {
         Bukkit.getScheduler().runTask(
                 plugin,
                 () -> {
-                    Player owner = inventory.getHolder() instanceof Player player
+                    Player owner = inventory.getHolder(false) instanceof Player player
                             ? player
                             : null;
                     purgeInventory(inventory, owner, source);
                 });
-    }
-
-    private CheckResult check(ItemStack item) {
-        if (isEmpty(item)) {
-            return SAFE;
-        }
-
-        try {
-            return check(CraftItemStack.unwrap(item));
-        } catch (RuntimeException | StackOverflowError exception) {
-            return new CheckResult(true, -1L, exception.getClass().getSimpleName());
-        }
-    }
-
-    private CheckResult check(net.minecraft.world.item.ItemStack item) {
-        if (item == null || item.isEmpty()) {
-            return SAFE;
-        }
-        // A component-free stack encodes to only count and item type.
-        if (item.getComponentsPatch().isEmpty()) {
-            return SAFE;
-        }
-
-        ByteBuf bytes = PooledByteBufAllocator.DEFAULT.heapBuffer(
-                128,
-                ITEM_BUFFER_MAX_CAPACITY);
-        try {
-            RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(bytes, registryAccess);
-            net.minecraft.world.item.ItemStack.OPTIONAL_STREAM_CODEC.encode(buffer, item);
-            int size = bytes.readableBytes();
-            return size > MAX_ITEM_SIZE_BYTES
-                    ? new CheckResult(true, size, null)
-                    : SAFE;
-        } catch (RuntimeException | StackOverflowError exception) {
-            return new CheckResult(true, -1L, exception.getClass().getSimpleName());
-        } finally {
-            bytes.release();
-        }
-    }
-
-    private BookPacketCheck checkBookPacket(List<String> pages) {
-        if (pages == null) {
-            return new BookPacketCheck(true, -1L, 0L, 0, "missing-pages");
-        }
-
-        var bookSize = GlobalConfiguration.get().itemValidation.bookSize;
-        boolean paperLimitEnabled = bookSize.pageMax.enabled();
-        int pageMax = paperLimitEnabled ? bookSize.pageMax.intValue() : 0;
-        double multiplier = Math.clamp(bookSize.totalMultiplier, 0.3D, 1.0D);
-        long bytes = 0L;
-        long paperAllowed = paperLimitEnabled ? pageMax : Long.MAX_VALUE;
-
-        for (String page : pages) {
-            if (page == null) {
-                return new BookPacketCheck(true, -1L, 0L, pages.size(), "null-page");
-            }
-
-            int byteLength = page.getBytes(StandardCharsets.UTF_8).length;
-            bytes += byteLength;
-            if (!paperLimitEnabled) {
-                continue;
-            }
-
-            int multiByteCharacters = 0;
-            if (byteLength != page.length()) {
-                for (char character : page.toCharArray()) {
-                    if (character > 127) {
-                        multiByteCharacters++;
-                    }
-                }
-            }
-
-            long pageAllowance = (long) (pageMax
-                    * Math.clamp((double) page.length() / 255.0D, 0.1D, 1.0D)
-                    * multiplier);
-            paperAllowed += pageAllowance;
-            if (multiByteCharacters > 1) {
-                paperAllowed -= multiByteCharacters;
-            }
-        }
-
-        long allowed = Math.min(MAX_ITEM_SIZE_BYTES, paperAllowed);
-        return new BookPacketCheck(
-                bytes > allowed,
-                bytes,
-                allowed,
-                pages.size(),
-                null);
     }
 
     private void blockOversizedBookEdit(
@@ -687,227 +579,6 @@ public final class BanItemGuardModule implements Listener {
         }
     }
 
-    private Packet<?> sanitizePacket(Packet<?> packet, NetworkAudit audit) {
-        if (packet instanceof ClientboundContainerSetSlotPacket slotPacket) {
-            CheckResult result = check(slotPacket.getItem());
-            if (!result.blocked()) {
-                return packet;
-            }
-
-            audit.record(result);
-            return new ClientboundContainerSetSlotPacket(
-                    slotPacket.getContainerId(),
-                    slotPacket.getStateId(),
-                    slotPacket.getSlot(),
-                    net.minecraft.world.item.ItemStack.EMPTY);
-        }
-
-        if (packet instanceof ClientboundContainerSetContentPacket contentPacket) {
-            List<net.minecraft.world.item.ItemStack> replacement = null;
-            List<net.minecraft.world.item.ItemStack> items = contentPacket.items();
-
-            for (int slot = 0; slot < items.size(); slot++) {
-                CheckResult result = check(items.get(slot));
-                if (!result.blocked()) {
-                    continue;
-                }
-
-                if (replacement == null) {
-                    replacement = new ArrayList<>(items);
-                }
-                replacement.set(slot, net.minecraft.world.item.ItemStack.EMPTY);
-                audit.record(result);
-            }
-
-            CheckResult cursorResult = check(contentPacket.carriedItem());
-            net.minecraft.world.item.ItemStack carriedItem = contentPacket.carriedItem();
-            if (cursorResult.blocked()) {
-                carriedItem = net.minecraft.world.item.ItemStack.EMPTY;
-                audit.record(cursorResult);
-            }
-
-            if (replacement == null && !cursorResult.blocked()) {
-                return packet;
-            }
-
-            return new ClientboundContainerSetContentPacket(
-                    contentPacket.containerId(),
-                    contentPacket.stateId(),
-                    replacement == null ? items : replacement,
-                    carriedItem);
-        }
-
-        if (packet instanceof ClientboundSetCursorItemPacket cursorPacket) {
-            CheckResult result = check(cursorPacket.contents());
-            if (!result.blocked()) {
-                return packet;
-            }
-
-            audit.record(result);
-            return new ClientboundSetCursorItemPacket(
-                    net.minecraft.world.item.ItemStack.EMPTY);
-        }
-
-        if (packet instanceof ClientboundSetPlayerInventoryPacket inventoryPacket) {
-            CheckResult result = check(inventoryPacket.contents());
-            if (!result.blocked()) {
-                return packet;
-            }
-
-            audit.record(result);
-            return new ClientboundSetPlayerInventoryPacket(
-                    inventoryPacket.slot(),
-                    net.minecraft.world.item.ItemStack.EMPTY);
-        }
-
-        if (packet instanceof ClientboundSetEquipmentPacket equipmentPacket) {
-            List<Pair<net.minecraft.world.entity.EquipmentSlot,
-                    net.minecraft.world.item.ItemStack>> replacement = null;
-            List<Pair<net.minecraft.world.entity.EquipmentSlot,
-                    net.minecraft.world.item.ItemStack>> slots = equipmentPacket.getSlots();
-
-            for (int index = 0; index < slots.size(); index++) {
-                Pair<net.minecraft.world.entity.EquipmentSlot,
-                        net.minecraft.world.item.ItemStack> slot = slots.get(index);
-                CheckResult result = check(slot.getSecond());
-                if (!result.blocked()) {
-                    continue;
-                }
-
-                if (replacement == null) {
-                    replacement = new ArrayList<>(slots);
-                }
-                replacement.set(
-                        index,
-                        Pair.of(slot.getFirst(), net.minecraft.world.item.ItemStack.EMPTY));
-                audit.record(result);
-            }
-
-            return replacement == null
-                    ? packet
-                    : new ClientboundSetEquipmentPacket(
-                            equipmentPacket.getEntity(), replacement, true);
-        }
-
-        if (packet instanceof ClientboundSetEntityDataPacket entityDataPacket) {
-            List<SynchedEntityData.DataValue<?>> replacement = null;
-            List<SynchedEntityData.DataValue<?>> values = entityDataPacket.packedItems();
-
-            for (int index = 0; index < values.size(); index++) {
-                SynchedEntityData.DataValue<?> value = values.get(index);
-                if (value.serializer() != EntityDataSerializers.ITEM_STACK
-                        || !(value.value() instanceof net.minecraft.world.item.ItemStack item)) {
-                    continue;
-                }
-
-                CheckResult result = check(item);
-                if (!result.blocked()) {
-                    continue;
-                }
-
-                if (replacement == null) {
-                    replacement = new ArrayList<>(values);
-                }
-                replacement.set(
-                        index,
-                        new SynchedEntityData.DataValue<>(
-                                value.id(),
-                                EntityDataSerializers.ITEM_STACK,
-                                net.minecraft.world.item.ItemStack.EMPTY));
-                audit.record(result);
-            }
-
-            return replacement == null
-                    ? packet
-                    : new ClientboundSetEntityDataPacket(
-                            entityDataPacket.id(), replacement);
-        }
-
-        if (packet instanceof ClientboundMerchantOffersPacket merchantPacket) {
-            MerchantOffers offers = merchantPacket.getOffers();
-            MerchantOffers replacement = null;
-
-            for (int index = 0; index < offers.size(); index++) {
-                MerchantOffer offer = offers.get(index);
-                boolean blocked = auditIfBlocked(offer.getBaseCostA(), audit);
-                blocked |= auditIfBlocked(offer.getCostB(), audit);
-                blocked |= auditIfBlocked(offer.getResult(), audit);
-
-                if (blocked) {
-                    if (replacement == null) {
-                        replacement = new MerchantOffers();
-                        replacement.addAll(offers.subList(0, index));
-                    }
-                } else if (replacement != null) {
-                    replacement.add(offer);
-                }
-            }
-
-            return replacement == null
-                    ? packet
-                    : new ClientboundMerchantOffersPacket(
-                            merchantPacket.getContainerId(),
-                            replacement,
-                            merchantPacket.getVillagerLevel(),
-                            merchantPacket.getVillagerXp(),
-                            merchantPacket.showProgress(),
-                            merchantPacket.canRestock());
-        }
-
-        if (packet instanceof ClientboundBundlePacket bundlePacket) {
-            return sanitizeBundle(bundlePacket, audit);
-        }
-
-        return packet;
-    }
-
-    private static boolean canContainItem(Packet<?> packet) {
-        // Deliberate allowlist: never apply the item limit to chunks, registry
-        // synchronization, plugin messages, or modded custom payload packets.
-        return packet instanceof ClientboundContainerSetSlotPacket
-                || packet instanceof ClientboundContainerSetContentPacket
-                || packet instanceof ClientboundSetCursorItemPacket
-                || packet instanceof ClientboundSetPlayerInventoryPacket
-                || packet instanceof ClientboundSetEquipmentPacket
-                || packet instanceof ClientboundSetEntityDataPacket
-                || packet instanceof ClientboundMerchantOffersPacket
-                || packet instanceof ClientboundBundlePacket;
-    }
-
-    private boolean auditIfBlocked(
-            net.minecraft.world.item.ItemStack item,
-            NetworkAudit audit
-    ) {
-        CheckResult result = check(item);
-        if (!result.blocked()) {
-            return false;
-        }
-
-        audit.record(result);
-        return true;
-    }
-
-    private Packet<?> sanitizeBundle(
-            ClientboundBundlePacket bundle,
-            NetworkAudit audit
-    ) {
-        List<Packet<? super ClientGamePacketListener>> replacement = new ArrayList<>();
-        boolean changed = false;
-
-        for (Packet<? super ClientGamePacketListener> packet : bundle.subPackets()) {
-            Packet<?> sanitized = sanitizePacket(packet, audit);
-            replacement.add(asGamePacket(sanitized));
-            changed |= sanitized != packet;
-        }
-
-        return changed ? new ClientboundBundlePacket(replacement) : bundle;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Packet<? super ClientGamePacketListener> asGamePacket(Packet<?> packet) {
-        return (Packet<? super ClientGamePacketListener>) packet;
-    }
-
     private void scheduleServerPurge(UUID playerId) {
         if (!enabled || playerId == null || !pendingPurges.add(playerId)) {
             return;
@@ -960,7 +631,7 @@ public final class BanItemGuardModule implements Listener {
 
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             ItemStack item = inventory.getItem(slot);
-            CheckResult result = check(item);
+            CheckResult result = itemPolicy.check(item);
             if (!result.blocked()) {
                 continue;
             }
@@ -983,7 +654,7 @@ public final class BanItemGuardModule implements Listener {
 
     private void purgeCursor(Player player, String source) {
         ItemStack item = player.getItemOnCursor();
-        CheckResult result = check(item);
+        CheckResult result = itemPolicy.check(item);
         if (!result.blocked()) {
             return;
         }
@@ -1015,7 +686,7 @@ public final class BanItemGuardModule implements Listener {
                         + ", source=" + source
                         + ", type=" + item.getType()
                         + ", size=" + sizeInfo
-                        + ", limit=" + MAX_ITEM_SIZE_KIB + " KiB");
+                        + ", limit=" + UnsafeItemPolicy.MAX_ITEM_SIZE_KIB + " KiB");
     }
 
     private void logNetworkRemoval(
@@ -1025,18 +696,18 @@ public final class BanItemGuardModule implements Listener {
             NetworkAudit audit,
             int suppressedPackets
     ) {
-        String sizeInfo = audit.largestBytes >= 0L
-                ? String.format(Locale.ROOT, "%.2f KiB", audit.largestBytes / 1024.0)
-                : "unavailable (encodingError=" + audit.firstError + ")";
+        String sizeInfo = audit.largestBytes() >= 0L
+                ? String.format(Locale.ROOT, "%.2f KiB", audit.largestBytes() / 1024.0)
+                : "unavailable (encodingError=" + audit.firstError() + ")";
         String playerInfo = (playerName == null ? "unknown" : playerName)
                 + "/" + (playerId == null ? "unknown" : playerId);
 
         plugin.getLogger().warning(
                 "Sanitized unsafe outbound item packet: player=" + playerInfo
                         + ", packet=" + packetType
-                        + ", removed=" + audit.removed
+                        + ", removed=" + audit.removed()
                         + ", largestItem=" + sizeInfo
-                        + ", limit=" + MAX_ITEM_SIZE_KIB + " KiB"
+                        + ", limit=" + UnsafeItemPolicy.MAX_ITEM_SIZE_KIB + " KiB"
                         + (suppressedPackets == 0
                                 ? ""
                                 : ", suppressedPacketLogs=" + suppressedPackets));
@@ -1075,7 +746,7 @@ public final class BanItemGuardModule implements Listener {
 
             try {
                 WrapperPlayClientEditBook packet = new WrapperPlayClientEditBook(event);
-                BookPacketCheck result = checkBookPacket(packet.getPages());
+                BookPacketCheck result = itemPolicy.checkBookPages(packet.getPages());
                 if (result.blocked()) {
                     blockOversizedBookEdit(event, packet, result);
                 }
@@ -1119,14 +790,14 @@ public final class BanItemGuardModule implements Listener {
         ) throws Exception {
             if (!enabled
                     || !(message instanceof Packet<?> packet)
-                    || !canContainItem(packet)) {
+                    || !UnsafeItemPacketSanitizer.canContainItem(packet)) {
                 super.write(context, message, promise);
                 return;
             }
 
             NetworkAudit audit = new NetworkAudit();
-            Packet<?> sanitized = sanitizePacket(packet, audit);
-            if (audit.removed > 0) {
+            Packet<?> sanitized = packetSanitizer.sanitizePacket(packet, audit);
+            if (audit.removed() > 0) {
                 UUID playerId = playerId();
                 logNetworkAudit(packet.getClass().getSimpleName(), audit, playerId);
                 scheduleServerPurge(playerId);
@@ -1173,33 +844,7 @@ public final class BanItemGuardModule implements Listener {
         }
     }
 
-    private static final class NetworkAudit {
-
-        private int removed;
-        private long largestBytes = -1L;
-        private String firstError;
-
-        private void record(CheckResult result) {
-            removed++;
-            largestBytes = Math.max(largestBytes, result.bytes());
-            if (firstError == null && result.error() != null) {
-                firstError = result.error();
-            }
-        }
-    }
-
     private record InventorySwapTarget(int slot, ItemStack item, String source) {
     }
 
-    private record CheckResult(boolean blocked, long bytes, String error) {
-    }
-
-    private record BookPacketCheck(
-            boolean blocked,
-            long bytes,
-            long allowed,
-            int pages,
-            String error
-    ) {
-    }
 }

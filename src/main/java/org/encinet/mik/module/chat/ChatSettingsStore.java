@@ -44,6 +44,12 @@ public final class ChatSettingsStore {
         settingsData = YamlConfiguration.loadConfiguration(settingsFile);
     }
 
+    public void disable() {
+        cache.clear();
+        settingsData = null;
+        settingsFile = null;
+    }
+
     public ChatSettings get(UUID playerId) {
         return cache.computeIfAbsent(playerId, this::load);
     }

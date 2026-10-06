@@ -12,7 +12,6 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.i18n.RichArg;
@@ -162,38 +161,12 @@ public final class MusicBrowserListener implements Listener, MusicBrowserActionH
 
     @Override
     public void search(Player player) {
-        browser.prepareJukeboxSearch(player.getUniqueId());
-        closeMenu(player);
-        String command = "/music search ";
-        player.sendMessage(Component.text()
-                .append(Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT),
-                        NamedTextColor.YELLOW))
-                .append(Component.space())
-                .append(Component.text("[" + command.strip() + "]", NamedTextColor.GREEN)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.suggestCommand(command))
-                        .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
-                                Component.text(languageService.t(player, Message.MUSIC_SEARCH_PROMPT_HOVER),
-                                        NamedTextColor.GRAY))))
-                .build());
+        browser.promptSearch(player);
     }
 
     @Override
     public void importPlaylist(Player player) {
-        browser.prepareJukeboxSearch(player.getUniqueId());
-        closeMenu(player);
-        Component message = Component.text(languageService.t(player,
-                        Message.MUSIC_PLAYLIST_IMPORT_PROMPT), NamedTextColor.YELLOW)
-                .append(Component.newline())
-                .append(playlistSource(player, "网易云", "wy"))
-                .append(Component.space())
-                .append(playlistSource(player, "QQ", "tx"))
-                .append(Component.space())
-                .append(playlistSource(player, "酷狗", "kg"))
-                .append(Component.space())
-                .append(playlistSource(player, "酷我", "kw"))
-                .append(Component.space())
-                .append(playlistSource(player, "咪咕", "mg"));
-        player.sendMessage(message);
+        browser.promptPlaylistImport(player);
     }
 
     @Override
@@ -255,20 +228,17 @@ public final class MusicBrowserListener implements Listener, MusicBrowserActionH
     public void back(Player player) {
         Location jukeboxLocation = browser.getJukeboxContext(player.getUniqueId());
         if (jukeboxLocation == null) {
-            FloatingMenus.current(player).ifPresent(handle -> handle.back());
+            browser.back(player);
             return;
         }
         browser.setJukeboxContext(player.getUniqueId(), null);
         Block block = jukeboxLocation.getBlock();
         if (JukeboxAccess.canControl(player, jukeboxLocation)
                 && block.getState() instanceof Jukebox jukebox) {
-            FloatingMenus.current(player).ifPresent(handle -> {
-                if (handle.depth() > 0) handle.back();
-                else {
-                    handle.close();
-                    jukeboxControlGui.openJukeboxControl(player, jukebox);
-                }
-            });
+            if (browser.backToParent(player)) return;
+            if (browser.close(player)) {
+                jukeboxControlGui.openJukeboxControl(player, jukebox);
+            }
         } else {
             sendJukeboxControlError(player, jukeboxLocation);
         }
@@ -293,8 +263,8 @@ public final class MusicBrowserListener implements Listener, MusicBrowserActionH
         }
     }
 
-    private static void closeMenu(Player player) {
-        FloatingMenus.current(player).ifPresent(handle -> handle.close());
+    private void closeMenu(Player player) {
+        browser.close(player);
     }
 
     private Component musicMessage(Player player, Message message, NamedTextColor baseColor,
@@ -304,13 +274,4 @@ public final class MusicBrowserListener implements Listener, MusicBrowserActionH
                         track.details().title()));
     }
 
-    private Component playlistSource(Player player, String name, String source) {
-        String command = "/music playlist import " + source + " ";
-        return Component.text("[" + name + "]", NamedTextColor.AQUA)
-                .clickEvent(net.kyori.adventure.text.event.ClickEvent.suggestCommand(command))
-                .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
-                        Component.text(languageService.t(player,
-                                Message.MUSIC_PLAYLIST_IMPORT_PROMPT_HOVER),
-                                NamedTextColor.GRAY)));
-    }
 }

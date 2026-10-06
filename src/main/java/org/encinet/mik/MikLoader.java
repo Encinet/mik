@@ -24,6 +24,12 @@ public class MikLoader implements PluginLoader {
         ).build());
         resolver.addDependency(new Dependency(new DefaultArtifact("com.google.code.gson:gson:2.14.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("org.jsoup:jsoup:1.22.2"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact(
+                "org.apache.lucene:lucene-core:10.5.1"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact(
+                "org.apache.lucene:lucene-analysis-common:10.5.1"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact(
+                "org.apache.lucene:lucene-analysis-icu:10.5.1"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.quickwrite:fluent-builder:1.0.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.raphimc:NoteBlockLib:3.3.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.53.2.1"), null));

@@ -2,13 +2,15 @@ package org.encinet.mik.module.music.rhythm;
 
 /** Separates end-to-end tap compensation from audio/visual scene alignment. */
 record RhythmLatencyProfile(int judgementOffsetMillis, int animationOffsetMillis) {
+    static final int MINIMUM_JUDGEMENT_OFFSET_MILLIS = -250;
+    static final int MAXIMUM_JUDGEMENT_OFFSET_MILLIS = 350;
     static final int MINIMUM_ANIMATION_OFFSET_MILLIS = -350;
     static final int MAXIMUM_ANIMATION_OFFSET_MILLIS = 350;
 
     RhythmLatencyProfile {
         judgementOffsetMillis = Math.clamp(judgementOffsetMillis,
-                RhythmLatencyCalibration.MINIMUM_OFFSET_MILLIS,
-                RhythmLatencyCalibration.MAXIMUM_OFFSET_MILLIS);
+                MINIMUM_JUDGEMENT_OFFSET_MILLIS,
+                MAXIMUM_JUDGEMENT_OFFSET_MILLIS);
         animationOffsetMillis = Math.clamp(animationOffsetMillis,
                 MINIMUM_ANIMATION_OFFSET_MILLIS,
                 MAXIMUM_ANIMATION_OFFSET_MILLIS);
@@ -43,8 +45,8 @@ record RhythmLatencyProfile(int judgementOffsetMillis, int animationOffsetMillis
     RhythmLatencyProfile withInputDelta(int inputDeltaMillis) {
         long adjusted = (long) judgementOffsetMillis + inputDeltaMillis;
         return new RhythmLatencyProfile((int) Math.clamp(adjusted,
-                RhythmLatencyCalibration.MINIMUM_OFFSET_MILLIS,
-                RhythmLatencyCalibration.MAXIMUM_OFFSET_MILLIS),
+                MINIMUM_JUDGEMENT_OFFSET_MILLIS,
+                MAXIMUM_JUDGEMENT_OFFSET_MILLIS),
                 animationOffsetMillis);
     }
 

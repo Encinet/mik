@@ -42,7 +42,7 @@ MIK API 只接受 Bukkit `Player`，不读取离线玩家。状态访问最终�
 | --- | --- | --- |
 | `mik language of %players%` | `String` | MIK 最终生效的语言 ID，例如 `zh_cn`、`zh_tw`、`en_us`；考虑玩家设置和自动回退 |
 | `mik client version of %players%` | `String` | ViaVersion 提供的可读客户端版本；ViaVersion 不可用或未知时返回 `unknown` |
-| `mik role of %players%` | `String` | 按最高权限返回 `manager`、`helper`、`member`、`default` |
+| `mik role of %players%` | `String` | 按最高权限返回 `custodian`、`moderator`、`member`、`default` |
 | `mik afk state of %players%` | `Boolean` | 当前是否处于 MIK AFK |
 | `mik afk message of %players%` | `String` | 没有自定义消息或不在 AFK 时无值 |
 | `mik afk source of %players%` | `String` | `manual`、`automatic`、`skript`；不在 AFK 时返回 `none` |

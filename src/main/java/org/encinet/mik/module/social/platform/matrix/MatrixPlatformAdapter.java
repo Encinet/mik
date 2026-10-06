@@ -2,9 +2,9 @@ package org.encinet.mik.module.social.platform.matrix;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.identity.IdentityPlatform;
-import org.encinet.mik.module.social.api.SocialPlatformAdapter;
+import org.encinet.mik.module.social.runtime.SocialPlatformAdapter;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
-import org.encinet.mik.module.social.api.SocialPlatformPlan;
+import org.encinet.mik.module.social.runtime.SocialPlatformPlan;
 import org.encinet.mik.module.social.runtime.SocialOutputPolicy;
 import org.encinet.mik.module.social.runtime.SocialRuntimePolicy;
 
@@ -14,9 +14,9 @@ import java.util.Optional;
 /** Matrix Client-Server API adapter. End-to-end encrypted rooms are intentionally unsupported. */
 public final class MatrixPlatformAdapter implements SocialPlatformAdapter {
     public static final IdentityPlatform IDENTITY_PLATFORM = new IdentityPlatform(
-            "matrix", "Matrix", "!绑定 {code}");
+            MatrixPlatformConfig.PLATFORM_ID, "Matrix", "!绑定 {code}");
     static final SocialPlatformDescriptor DESCRIPTOR =
-            new SocialPlatformDescriptor("matrix", "Matrix", IDENTITY_PLATFORM);
+            new SocialPlatformDescriptor(MatrixPlatformConfig.PLATFORM_ID, "Matrix", IDENTITY_PLATFORM);
 
     private final JavaPlugin plugin;
 

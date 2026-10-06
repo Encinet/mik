@@ -2,8 +2,15 @@ name: mik
 version: '1.0'
 main: org.encinet.mik.Mik
 loader: org.encinet.mik.MikLoader
-api-version: '26.2'
+api-version: '26.3'
 authors: [ Noctiro, Aeolic ]
+permissions:
+  mik.vehicle.use:
+    default: true
+    description: Ride and operate accessible vehicles
+  mik.vehicle.admin:
+    default: op
+    description: Capture models, spawn vehicles and manage vehicle definitions
 dependencies:
   bootstrap:
     packetevents:
@@ -31,6 +38,10 @@ dependencies:
       required: false
       join-classpath: true
   server:
+    DreamDisplays:
+      load: BEFORE
+      required: false
+      join-classpath: false
     packetevents:
       load: BEFORE
       required: true
@@ -60,6 +71,14 @@ dependencies:
       required: false
       join-classpath: true
     WorldEdit:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    AxiomPaper:
+      load: BEFORE
+      required: false
+      join-classpath: true
+    prism:
       load: BEFORE
       required: false
       join-classpath: true

@@ -16,12 +16,14 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
+import org.encinet.mik.module.role.RolePermissions;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.safety.EntitySizePolicy;
 
 import java.util.Locale;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,6 +37,12 @@ public class RestrictionModule implements Listener {
     private static final Pattern UUID_PATTERN = Pattern.compile(
             "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
     );
+    private static final Pattern UUID_INT_ARRAY_PATTERN = Pattern.compile(
+            "\\[\\s*[Ii]\\s*;\\s*([+-]?\\d+)\\s*,\\s*([+-]?\\d+)\\s*,\\s*"
+                    + "([+-]?\\d+)\\s*,\\s*([+-]?\\d+)\\s*\\]"
+    );
+    private static final Pattern EXECUTE_ENTITY_COMMAND_PATTERN = Pattern.compile(
+            "\\brun\\s+(?:minecraft:)?(summon|give)\\s+", Pattern.CASE_INSENSITIVE);
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     private final JavaPlugin plugin;
@@ -53,7 +61,7 @@ public class RestrictionModule implements Listener {
     @EventHandler(priority = EventPriority.LOWEST)
     public void onChat(AsyncChatEvent event) {
         Player player = event.getPlayer();
-        if (player.hasPermission("group." + Mik.GROUP_HELPER)) {
+        if (RolePermissions.canModerate(player)) {
             return;
         }
         Component message = event.message();
@@ -126,7 +134,10 @@ public class RestrictionModule implements Listener {
         if (command.name().equals("kill") && command.arguments().equalsIgnoreCase("@e")) {
             return RestrictionViolation.KILL_ALL_ENTITIES;
         }
-        if (player.hasPermission("group." + Mik.GROUP_HELPER)) {
+        if (containsOversizedEntityData(command)) {
+            return RestrictionViolation.OVERSIZED_ENTITY;
+        }
+        if (RolePermissions.canModerate(player)) {
             return RestrictionViolation.NONE;
         }
 
@@ -137,10 +148,44 @@ public class RestrictionModule implements Listener {
         if (policy.checkUuids() && containsForeignUuid(command.arguments(), player)) {
             return RestrictionViolation.FOREIGN_UUID;
         }
+        // /summon deliberately permits arbitrary UUIDs in entity data, but an online
+        // player's UUID must never be usable as a projectile or mob owner.
+        if (containsForeignPlayerUuid(command.arguments(), player.getUniqueId(),
+                uuid -> Bukkit.getPlayer(uuid) != null)) {
+            return RestrictionViolation.FOREIGN_UUID;
+        }
         if (policy.checkPlayerNames() && containsOtherPlayerName(command.arguments(), player)) {
             return RestrictionViolation.OTHER_PLAYER;
         }
         return RestrictionViolation.NONE;
+    }
+
+    static boolean containsOversizedEntityData(String rawCommand) {
+        ParsedCommand command = parseCommand(rawCommand);
+        return command != null && containsOversizedEntityData(command);
+    }
+
+    private static boolean containsOversizedEntityData(ParsedCommand command) {
+        return switch (command.name()) {
+            case "summon" -> EntitySizePolicy.hasOversizedSummonData(command.arguments());
+            case "give" -> EntitySizePolicy.hasOversizedGiveData(command.arguments());
+            case "execute" -> containsOversizedExecutedCommand(command.arguments());
+            default -> false;
+        };
+    }
+
+    private static boolean containsOversizedExecutedCommand(String arguments) {
+        Matcher matcher = EXECUTE_ENTITY_COMMAND_PATTERN.matcher(arguments);
+        while (matcher.find()) {
+            String nestedArguments = arguments.substring(matcher.end());
+            boolean oversized = matcher.group(1).equalsIgnoreCase("summon")
+                    ? EntitySizePolicy.hasOversizedSummonData(nestedArguments)
+                    : EntitySizePolicy.hasOversizedGiveData(nestedArguments);
+            if (oversized) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean containsForeignUuid(String arguments, Player player) {
@@ -164,6 +209,35 @@ public class RestrictionModule implements Listener {
                 continue;
             }
             return true;
+        }
+        return false;
+    }
+
+    static boolean containsForeignPlayerUuid(String arguments, UUID senderId,
+                                             Predicate<UUID> isOnlinePlayer) {
+        Matcher stringMatcher = UUID_PATTERN.matcher(arguments);
+        while (stringMatcher.find()) {
+            UUID uuid = UUID.fromString(stringMatcher.group());
+            if (!uuid.equals(senderId) && isOnlinePlayer.test(uuid)) {
+                return true;
+            }
+        }
+
+        // Minecraft stores entity Owner UUIDs as four signed integers in SNBT.
+        Matcher arrayMatcher = UUID_INT_ARRAY_PATTERN.matcher(arguments);
+        while (arrayMatcher.find()) {
+            try {
+                long most = ((long) Integer.parseInt(arrayMatcher.group(1)) << 32)
+                        | (Integer.parseInt(arrayMatcher.group(2)) & 0xffffffffL);
+                long least = ((long) Integer.parseInt(arrayMatcher.group(3)) << 32)
+                        | (Integer.parseInt(arrayMatcher.group(4)) & 0xffffffffL);
+                UUID uuid = new UUID(most, least);
+                if (!uuid.equals(senderId) && isOnlinePlayer.test(uuid)) {
+                    return true;
+                }
+            } catch (NumberFormatException ignored) {
+                // An invalid integer array cannot be decoded as a Minecraft UUID.
+            }
         }
         return false;
     }
@@ -282,6 +356,7 @@ public class RestrictionModule implements Listener {
         KILL_ALL_ENTITIES(Message.RESTRICTION_NO_KILL_E_MM, "kill-all command"),
         SELECTOR(Message.RESTRICTION_NO_SELECTOR_MM, "selector command"),
         FOREIGN_UUID(Message.RESTRICTION_FOREIGN_UUID_MM, "foreign UUID command"),
+        OVERSIZED_ENTITY(Message.RESTRICTION_ENTITY_TOO_LARGE_MM, "oversized entity command"),
         OTHER_PLAYER(Message.RESTRICTION_OTHER_PLAYER_NAME_MM, "player name command");
 
         private final Message message;

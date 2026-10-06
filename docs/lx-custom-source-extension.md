@@ -39,7 +39,7 @@ health, failures, retry time, and imported subscription status.
 
 ## URL imports
 
-Managers can import a trusted source with:
+Custodians can import a trusted source with:
 
 ```text
 /music sources import https://example.invalid/lx-source.js
@@ -150,7 +150,7 @@ MIK calls healthy scripts in relative-path order, aggregates search results,
 deduplicates stable IDs, and keeps partial results when one script fails.
 Action responses are limited to 2 MiB and 200 accepted items per request.
 
-Use `/music sources` as a manager to inspect source IDs, supported channels,
+Use `/music sources` as a custodian to inspect source IDs, supported channels,
 actions, failure counts, retry time, and the last error. After the fixed
 three-failure threshold, MIK temporarily skips a source. A timeout counts as one
 failure; only repeated timeouts reaching that same threshold close the runtime,

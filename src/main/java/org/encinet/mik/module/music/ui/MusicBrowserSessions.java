@@ -43,7 +43,7 @@ final class MusicBrowserSessions {
         session.playlistName = null;
         session.sourceTracks = List.of();
         session.sort = MusicBrowserSort.DEFAULT;
-        session.section = sections.getOrDefault(playerId, Section.ALL);
+        session.section = Section.ALL;
         refreshTracks(session, MusicPlaybackStats.EMPTY);
         session.loading = true;
         session.requestError = null;

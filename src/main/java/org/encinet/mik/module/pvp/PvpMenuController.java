@@ -1,5 +1,7 @@
 package org.encinet.mik.module.pvp;
 
+import org.encinet.mik.module.role.RolePermissions;
+
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -9,12 +11,12 @@ import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.Mik;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -60,6 +62,10 @@ final class PvpMenuController implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
+    void disable() {
+        HandlerList.unregisterAll(this);
+    }
+
     void openMenu(Player player) {
         openMenu(player, player);
     }
@@ -88,6 +94,11 @@ final class PvpMenuController implements Listener {
                             values[i], key.enabledMaterial(), key.disabledMaterial(),
                             toggleLabel(viewer, key, values[i]))
                     .primary((p, handle) -> {
+                        if (!self && !canManageOthers(p)) {
+                            handle.close();
+                            denyManageOthers(p);
+                            return;
+                        }
                         toggleSetting(p, target, key);
                         openMenu(p, target);
                     });
@@ -315,11 +326,10 @@ final class PvpMenuController implements Listener {
     }
 
     private boolean canManageOthers(Player player) {
-        return player.hasPermission("group." + Mik.GROUP_HELPER);
+        return RolePermissions.canModerate(player);
     }
 
     private void denyManageOthers(Player player) {
-        FloatingMenus.current(player).ifPresent(handle -> handle.close());
         player.sendMessage(mm(player, Message.PVP_NO_PERMISSION_MM));
     }
 }

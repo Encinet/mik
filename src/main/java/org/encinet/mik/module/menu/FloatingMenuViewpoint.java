@@ -12,12 +12,12 @@ public enum FloatingMenuViewpoint {
     /** Always frames the menu from standing eye level, even while crouching. */
     STANDING;
 
-    double eyeHeight(Player player) {
+    public double eyeHeight(Player player) {
         Objects.requireNonNull(player, "player");
         return eyeHeight(player.getEyeHeight(), player.getEyeHeight(true));
     }
 
-    double eyeHeight(double posedEyeHeight, double standingEyeHeight) {
+    public double eyeHeight(double posedEyeHeight, double standingEyeHeight) {
         return this == POSE_AWARE ? posedEyeHeight : standingEyeHeight;
     }
 }

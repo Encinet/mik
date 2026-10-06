@@ -19,6 +19,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -46,8 +47,9 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.module.i18n.Language;
 import org.encinet.mik.module.i18n.LanguageChangeListener;
 import org.encinet.mik.module.i18n.LanguageService;
-import org.encinet.mik.module.presentation.AxiomGizmoService;
+import org.encinet.mik.integration.axiom.AxiomGizmoService;
 import org.encinet.mik.module.i18n.Message;
+import org.encinet.mik.module.afk.viewing.AfkViewingController;
 import org.encinet.mik.util.PlayerDisplay;
 
 import java.util.ArrayList;
@@ -66,7 +68,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
 
-public class AfkModule implements Listener, AfkService, LanguageChangeListener {
+public class AfkModule implements Listener, AfkService, AfkScripting, LanguageChangeListener {
 
     enum AfkStatusChange {
         MODIFIED,
@@ -77,7 +79,6 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private static final long UPDATE_INTERVAL_TICKS = 5L;
     private static final int AUTO_CHECK_TICKS = 4;
     private static final long SUSPENDED_TRACKER_RETENTION_MILLIS = 30L * 60L * 1_000L;
-    public static final int MAX_STATUS_LENGTH = 20;
     private static final String DEFAULT_STATUSES = "afk-default-statuses";
     private static final String DEFAULT_ENTER_TEMPLATES = "afk-enter-default-templates";
     private static final String CUSTOM_ENTER_TEMPLATES = "afk-enter-custom-templates";
@@ -102,6 +103,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     private final Queue<UUID> pendingTrustedActivity = new ConcurrentLinkedQueue<>();
     private final List<AfkStateListener> listeners = new CopyOnWriteArrayList<>();
     private final AfkSuppressionRegistry suppressions = new AfkSuppressionRegistry();
+    private final AfkViewingController viewingController;
     private final AfkDisplayController displayController;
     private final AfkCollisionController collisionController = new AfkCollisionController();
 
@@ -111,6 +113,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     public AfkModule(JavaPlugin plugin, LanguageService languageService,
                      AxiomGizmoService axiomGizmoService) {
         this.plugin = plugin;
+        this.viewingController = new AfkViewingController(plugin);
         this.languageService = languageService;
         this.displayController = new AfkDisplayController(languageService,
                 java.util.Objects.requireNonNull(axiomGizmoService, "axiomGizmoService").scope("afk"));
@@ -118,6 +121,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
     public void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        viewingController.enable();
         languageService.addLanguageChangeListener(this);
         long now = activityTimeMillis();
         Bukkit.getOnlinePlayers().forEach(player -> playerSessions.put(
@@ -127,6 +131,8 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
     }
 
     public void disable() {
+        HandlerList.unregisterAll(this);
+        viewingController.disable();
         if (updateTask != null) {
             updateTask.cancel();
         }
@@ -298,9 +304,6 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         // A move event does not identify its cause: pistons and other server-side
         // physics use the same path as client movement. Only PlayerInputEvent may
         // create a movement gesture or clear AFK.
-        tracker.recordObservation(
-                worldId(observed), observed.getX(), observed.getY(), observed.getZ(), observed.getYaw(),
-                now);
         if (positionChange) {
             tracker.recordMovement(
                     worldId(observed), observed.getX(), observed.getY(), observed.getZ(), now);
@@ -326,6 +329,16 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
                 now);
         if (freshMovementIntent && isAfk(player.getUniqueId())) {
             clearAfk(player, false, true);
+        }
+    }
+
+    /** Accepted teleports rebaseline travel; transport is not an activity outcome. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAcceptedPlayerTeleport(PlayerTeleportEvent event) {
+        Location destination = event.getTo();
+        if (destination != null) {
+            tracker(event.getPlayer(), activityTimeMillis()).rebasePosition(
+                    worldId(destination), destination.getX(), destination.getY(), destination.getZ());
         }
     }
 
@@ -404,7 +417,12 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
             }
             return;
         }
-        if (event.getDamager() instanceof Player player) {
+    }
+
+    /** Only uncancelled, positive final damage contributes accepted combat evidence. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onAcceptedEntityDamageByEntity(EntityDamageByEntityEvent event) {
+        if (event.getFinalDamage() > 0.0D && event.getDamager() instanceof Player player) {
             recordAction(player, new AfkActionEvidence(
                     AfkActionEvidence.Type.COMBAT, event.getEntity().getUniqueId().toString()));
         }
@@ -434,9 +452,9 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         }
 
         String normalizedMessage = rawMessage == null ? null : normalizeMessage(rawMessage);
-        if (normalizedMessage != null && normalizedMessage.codePointCount(0, normalizedMessage.length()) > MAX_STATUS_LENGTH) {
+        if (normalizedMessage != null && normalizedMessage.codePointCount(0, normalizedMessage.length()) > AfkState.MAX_MESSAGE_CODE_POINTS) {
             player.sendMessage(MINI_MESSAGE.deserialize(
-                    languageService.t(player, Message.AFK_STATUS_TOO_LONG_MM, MAX_STATUS_LENGTH)));
+                    languageService.t(player, Message.AFK_STATUS_TOO_LONG_MM, AfkState.MAX_MESSAGE_CODE_POINTS)));
             return Command.SINGLE_SUCCESS;
         }
         String finalMessage = normalizedMessage == null || normalizedMessage.isEmpty() ? null : normalizedMessage;
@@ -487,6 +505,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
     private void tick() {
         flushPendingActivity();
+        sampleMovement();
 
         tickCounter++;
         if (tickCounter < AUTO_CHECK_TICKS) {
@@ -496,6 +515,26 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
         checkAutoAfk();
         displayController.updateTrackedDisplays(states.values());
+    }
+
+    /**
+     * Samples on a fixed scheduler cadence, including inactivity between packets.
+     * Reading position never invents an input gesture or refreshes activity clocks.
+     * Passive transport modes are excluded from movement-only statistical evidence.
+     */
+    private void sampleMovement() {
+        long now = activityTimeMillis();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            if (states.containsKey(player.getUniqueId())) {
+                continue;
+            }
+            Location location = player.getLocation();
+            boolean controlledContext = player.getVehicle() == null
+                    && !player.isGliding() && !player.isRiptiding();
+            tracker(player, now).recordObservation(
+                    worldId(location), location.getX(), location.getY(), location.getZ(),
+                    location.getYaw(), controlledContext, now);
+        }
     }
 
     private void flushPendingActivity() {
@@ -533,11 +572,15 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
     private void checkAutoAfk() {
         long now = activityTimeMillis();
+        viewingController.update(now);
         suspendedSessions.entrySet().removeIf(entry -> entry.getValue().expiresAt() < now);
         List<Player> newlyAfk = new ArrayList<>();
         for (Player player : Bukkit.getOnlinePlayers()) {
             UUID playerId = player.getUniqueId();
             AfkPlayerSession session = session(player, now);
+            if (viewingController.isConfirmedViewing(playerId, now)) {
+                clearAutomaticAfkForViewing(player, now);
+            }
             if (states.containsKey(playerId)) {
                 session.cancelAutomaticEntry();
                 continue;
@@ -546,10 +589,15 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
             AfkPlayerSession.AutomaticCheck check = session.checkAutomaticAfk(
                     now,
                     entrySafety(player).permitsAutomaticAfk(),
-                    suppressions.isSuppressed(playerId));
+                    suppressions.isSuppressed(playerId) || viewingController.suppressesAutomaticAfk(playerId, now));
             if (check.result() == AfkActivityTracker.CheckResult.ACTIVITY_REWARD_LOCKED) {
+                AfkBehaviorAnalyzer.Analysis analysis = session.activity().movementAnalysis(now);
                 plugin.getLogger().info("Excluded " + player.getName()
-                        + " (" + playerId + ") from activity rewards after sustained automated movement patterns");
+                        + " (" + playerId + ") from activity rewards: " + analysis.pattern()
+                        + " without recent accepted gameplay outcomes"
+                        + " (direction entropy=" + analysis.recent().directionEntropy()
+                        + ", conditional entropy=" + analysis.recent().conditionalDirectionEntropy()
+                        + ", periodicity=" + analysis.recent().periodicity() + ")");
             }
             if (check.shouldEnterAfk()) {
                 newlyAfk.add(player);
@@ -600,7 +648,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
 
         Location location = inventory.getLocation();
         String owner;
-        if (inventory.getHolder() instanceof org.bukkit.entity.Entity entity) {
+        if (inventory.getHolder(false) instanceof org.bukkit.entity.Entity entity) {
             owner = entity.getUniqueId().toString();
         } else if (location != null && location.getWorld() != null) {
             owner = location.getWorld().getUID()
@@ -653,10 +701,11 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         return System.nanoTime() / 1_000_000L;
     }
 
+    @Override
     public void setAfkFromSkript(Player player, String customMessage, boolean broadcast) {
         String message = normalizeMessage(customMessage);
-        if (message.codePointCount(0, message.length()) > MAX_STATUS_LENGTH) {
-            throw new IllegalArgumentException("AFK message cannot exceed " + MAX_STATUS_LENGTH + " characters");
+        if (message.codePointCount(0, message.length()) > AfkState.MAX_MESSAGE_CODE_POINTS) {
+            throw new IllegalArgumentException("AFK message cannot exceed " + AfkState.MAX_MESSAGE_CODE_POINTS + " characters");
         }
         AfkState current = states.get(player.getUniqueId());
         if (current != null) {
@@ -672,6 +721,7 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         setAfk(player, message.isEmpty() ? null : message, AfkSource.SKRIPT, broadcast);
     }
 
+    @Override
     public boolean clearAfkFromSkript(Player player, boolean broadcast) {
         return clearAfk(player, false, broadcast);
     }
@@ -734,13 +784,35 @@ public class AfkModule implements Listener, AfkService, LanguageChangeListener {
         session.exitAfk(
                 now, worldId(location), location.getX(), location.getY(), location.getZ());
         syncMovementInput(session.activity(), player, location, now);
-        restoreAfkProtection(player);
-        displayController.remove(playerId);
-        notifyListeners(player, null);
+        finishAfkRemoval(player);
         if (broadcast) {
             broadcastExitMessage(player);
         }
         return true;
+    }
+
+    /**
+     * Only automatic AFK may be silently cleared for confirmed physical viewing.
+     * This intentionally does not call clearAfk/recordTrustedActivity: their normal
+     * recovery semantics refresh or shift activity clocks. Manual/script AFK and
+     * reward eligibility must remain independent of a passive viewing context.
+     */
+    private void clearAutomaticAfkForViewing(Player player, long now) {
+        UUID playerId = player.getUniqueId();
+        AfkState state = states.get(playerId);
+        if (state == null || state.source() != AfkSource.AUTOMATIC) return;
+        states.remove(playerId);
+        Location location = player.getLocation();
+        session(player, now).exitAfkForViewing(
+                worldId(location), location.getX(), location.getY(), location.getZ(),
+                hasMovementInput(player.getCurrentInput()));
+        finishAfkRemoval(player);
+    }
+
+    private void finishAfkRemoval(Player player) {
+        restoreAfkProtection(player);
+        displayController.remove(player.getUniqueId());
+        notifyListeners(player, null);
     }
 
     private void notifyListeners(Player player, AfkState state) {

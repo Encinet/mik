@@ -13,9 +13,7 @@ import org.encinet.mik.module.identity.IdentityBinding;
 import org.encinet.mik.module.social.api.SocialConversation;
 import org.encinet.mik.module.social.api.SocialEventSink;
 import org.encinet.mik.module.social.api.SocialInboundMessage;
-import org.encinet.mik.module.social.api.SocialPlatformAdapter;
 import org.encinet.mik.module.social.api.SocialPlatformDescriptor;
-import org.encinet.mik.module.social.api.SocialPlatformPlan;
 import org.encinet.mik.module.social.api.SocialPlatformRuntimeContext;
 import org.encinet.mik.module.social.api.SocialPlatformSession;
 import org.encinet.mik.module.social.api.SocialReplyChannel;
@@ -31,6 +29,7 @@ import org.encinet.mik.module.social.chat.SocialChatOutboundPolicy;
 import org.encinet.mik.module.social.chat.SocialChatRoute;
 import org.encinet.mik.module.social.chat.SocialChatMentionRequest;
 import org.encinet.mik.module.social.chat.SocialChatMentionResolution;
+import org.encinet.mik.module.social.chat.SocialDirectedNotice;
 import org.encinet.mik.module.social.document.SocialDocument;
 import org.encinet.mik.module.social.safety.SocialContentSafetyFilter;
 import org.encinet.mik.test.ChatTestMessages;
@@ -52,6 +51,42 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SocialPlatformHostTest {
+
+    @Test
+    void directedNoticeMentionsOnlyBoundPlayersInJoinedConversations() throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("matrix", "!", 4);
+        adapter.chatRoutes = List.of(
+                new SocialChatRoute(new SocialConversation("absent", SocialConversation.Type.GROUP),
+                        SocialChatOutboundPolicy.always()),
+                new SocialChatRoute(new SocialConversation("joined", SocialConversation.Type.GROUP),
+                        SocialChatOutboundPolicy.prefixed("#", true)));
+        UUID player = UUID.randomUUID();
+        IdentityBinding binding = new IdentityBinding(player, "Alex",
+                new ExternalIdentityKey("matrix", "example.org", "", "@alex:example.org"),
+                "Alex", java.time.Instant.EPOCH, java.time.Instant.EPOCH);
+        adapter.mentionResolver = (conversation, requests) ->
+                conversation.id().equals("joined")
+                        ? new SocialChatMentionResolution(Map.of(player,
+                        requests.getFirst().candidates()))
+                        : SocialChatMentionResolution.empty();
+        try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(argument -> argument)),
+                SocialIdentityLeaseManager.unavailable(), guard(),
+                (platform, message) -> CompletableFuture.completedFuture(null),
+                id -> id.equals(player) ? List.of(binding) : List.of(),
+                Logger.getAnonymousLogger())) {
+            host.start();
+            host.publishDirectedNotice(new SocialDirectedNotice(player, "Alex", "Read the notice"));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (adapter.outgoingChat.isEmpty() && System.nanoTime() < deadline) Thread.sleep(10);
+            assertEquals(1, adapter.outgoingChat.size());
+            assertTrue(adapter.outgoingChat.getFirst().content().nodes().getFirst()
+                    instanceof ChatNode.PlayerMention);
+            assertEquals(List.of("@alex:example.org"), adapter.outgoingMentionResolutions
+                    .getFirst().targetsFor(player).stream()
+                    .map(identity -> identity.key().subject()).toList());
+        }
+    }
 
     @Test
     void twoPlatformsShareCommandsButKeepPrefixesAndDeduplicationIndependent()

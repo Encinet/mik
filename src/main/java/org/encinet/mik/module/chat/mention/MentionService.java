@@ -37,10 +37,6 @@ public final class MentionService {
         this.senderDisplayRenderer = senderDisplayRenderer;
     }
 
-    public void enable() {
-        // Lifecycle is owned by ChatModule. Kept for compatibility with startup wiring.
-    }
-
     public String summary(Player player) {
         ChatSettingsStore.ChatSettings settings = settingsStore.get(player.getUniqueId());
         if (!settings.mentionAlerts()) {

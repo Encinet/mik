@@ -5,7 +5,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.entity.Player;
-import org.encinet.mik.Mik;
+import org.encinet.mik.module.role.RolePermissions;
 
 public final class ChatDisplayRenderer {
 
@@ -23,6 +23,6 @@ public final class ChatDisplayRenderer {
     }
 
     public static TextColor usernameColor(Player player) {
-        return player.hasPermission("group." + Mik.GROUP_MEMBER) ? NamedTextColor.WHITE : NamedTextColor.YELLOW;
+        return RolePermissions.isMember(player) ? NamedTextColor.WHITE : NamedTextColor.YELLOW;
     }
 }

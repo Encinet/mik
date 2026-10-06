@@ -27,6 +27,35 @@ class AfkMovementEventArchitectureTest {
         assertTrue(inputHandler.contains("event.getInput()"));
     }
 
+    @Test
+    void samplingIsPeriodicAndDoesNotRefreshInputOrActivityClocks() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/org/encinet/mik/module/afk/AfkModule.java"));
+        String sampler = methodSection(source, "private void sampleMovement", "private void flushPendingActivity");
+        String tick = methodSection(source, "private void tick()", "private void sampleMovement");
+
+        assertTrue(tick.contains("sampleMovement();"));
+        assertTrue(tick.indexOf("sampleMovement();") < tick.indexOf("if (tickCounter"));
+        assertTrue(sampler.contains("recordObservation("));
+        assertTrue(sampler.contains("player.getVehicle() == null"));
+        assertFalse(sampler.contains("getCurrentInput()"));
+        assertFalse(sampler.contains("recordMovementInput("));
+        assertFalse(sampler.contains("recordLightActivity("));
+    }
+
+    @Test
+    void combatEvidenceIsSeparatedFromProtectionAndObservedAfterCancellation() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/org/encinet/mik/module/afk/AfkModule.java"));
+        String protection = methodSection(source, "public void onEntityDamageByEntity", "public void onAcceptedEntityDamageByEntity");
+        String evidence = methodSection(source, "public void onAcceptedEntityDamageByEntity", "public void onEntityTargetAfkPlayer");
+
+        assertFalse(protection.contains("recordAction("));
+        assertTrue(protection.contains("EventPriority.MONITOR, ignoreCancelled = true"));
+        assertTrue(evidence.contains("event.getFinalDamage() > 0.0D"));
+        assertTrue(evidence.contains("recordAction("));
+    }
+
     private static String methodSection(String source, String startMarker, String endMarker) {
         int start = source.indexOf(startMarker);
         int end = source.indexOf(endMarker, start);

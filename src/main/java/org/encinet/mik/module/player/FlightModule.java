@@ -17,6 +17,7 @@ import org.bukkit.GameMode;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
@@ -51,6 +52,7 @@ public class FlightModule implements Listener {
     }
 
     public void disable() {
+        HandlerList.unregisterAll(this);
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (grantedFlight.remove(player.getUniqueId())) {
                 removeGrantedFlight(player);

@@ -19,6 +19,23 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FloatingMenuDefinitionTest {
+    @Test
+    void explicitFramingDecorationsAreValidatedAndImmutable() {
+        var builder = FloatingMenuDefinition.screen("wall").framingDecorations("surface");
+        assertThrows(IllegalArgumentException.class, builder::build);
+        builder.textDecoration("surface", FloatingMenuPoint.ORIGIN, Component.text("Surface"));
+        var definition = builder.build();
+        assertTrue(definition.framingDecorations().contains("surface"));
+        assertEquals(definition.framingDecorations(), definition.withLifecycle(FloatingMenuLifecycle.NONE).framingDecorations());
+        assertEquals(definition.framingDecorations(), FloatingMenuDefinition.builder()
+                .textDecoration("surface", FloatingMenuPoint.ORIGIN, Component.text("Surface"))
+                .framingDecorations("surface").build().identifiedBy("owned").framingDecorations());
+        assertThrows(UnsupportedOperationException.class, () -> definition.framingDecorations().add("body"));
+        builder.framingDecorations();
+        assertTrue(builder.build().framingDecorations().isEmpty());
+        assertEquals(1, definition.framingDecorations().size());
+    }
+
 
     @Test
     void buildsDefinitionWithStableDefaults() {
@@ -183,6 +200,20 @@ class FloatingMenuDefinitionTest {
     }
 
     @Test
+    void essentialRingControlsCanRemainAccessibleWhenCardsAreOccluded() {
+        FloatingMenuDefinition.Builder builder = FloatingMenuDefinition.screen("ring")
+                .aroundViewer();
+        builder.information("reader", Component.text("Current notice"))
+                .keepAccessible();
+        builder.control("side-card", Component.text("Another notice"))
+                .primary((player, menu) -> { });
+
+        FloatingMenuDefinition definition = builder.build();
+        assertTrue(definition.entries().get("reader").keepAccessible());
+        assertFalse(definition.entries().get("side-card").keepAccessible());
+    }
+
+    @Test
     void framingAndTextWidthAreDeclarativeScenePolicies() {
         FloatingMenuDefinition.Builder builder = FloatingMenuDefinition.builder()
                 .framing(FloatingMenuFraming.PANORAMIC);
@@ -223,8 +254,9 @@ class FloatingMenuDefinitionTest {
 
         assertFalse(definition.titleVisible());
         assertEquals(Component.empty(), definition.title());
-        assertEquals(FloatingMenuAppearance.TRANSPARENT,
-                definition.appearance().elementBackground(FloatingMenuElementState.NORMAL));
+        assertTrue((definition.appearance().elementBackground(
+                FloatingMenuElementState.NORMAL) >>> 24) >= 0xA0);
+        assertTrue((definition.appearance().titleBackground() >>> 24) >= 0xA0);
         assertNotEquals(FloatingMenuAppearance.TRANSPARENT,
                 definition.appearance().elementBackground(FloatingMenuElementState.HOVERED));
         assertEquals(FloatingMenuAppearance.TRANSPARENT,

@@ -38,9 +38,9 @@ class RhythmCalibrationResultTest {
     @Test
     void exactSupportedPersistenceBoundariesRemainValid() {
         RhythmCalibrationResult result = RhythmCalibrationResult.fromStored(
-                RhythmLatencyCalibration.MINIMUM_OFFSET_MILLIS,
+                RhythmLatencyProfile.MINIMUM_JUDGEMENT_OFFSET_MILLIS,
                 RhythmLatencyProfile.MAXIMUM_ANIMATION_OFFSET_MILLIS,
-                RhythmLatencyCalibration.MAXIMUM_OFFSET_MILLIS,
+                RhythmLatencyProfile.MAXIMUM_JUDGEMENT_OFFSET_MILLIS,
                 RhythmLatencyProfile.MINIMUM_ANIMATION_OFFSET_MILLIS,
                 RhythmCalibrationResult.MINIMUM_POINTER_DELTA_MILLIS)
                 .orElseThrow();

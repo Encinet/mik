@@ -2,8 +2,10 @@ package org.encinet.mik.module.music.listener;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
@@ -11,7 +13,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
-import org.encinet.mik.module.menu.FloatingMenus;
 import org.encinet.mik.module.menu.FloatingMenuInteraction;
 import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.i18n.Message;
@@ -34,6 +35,8 @@ import org.encinet.mik.module.music.rhythm.RhythmGameService;
 
 /** Handles physical jukebox control-panel sessions on the Bukkit main thread. */
 public final class JukeboxControlListener implements Listener, JukeboxControlActionHandler {
+    private static final Particle.DustOptions RANGE_CUE =
+            new Particle.DustOptions(Color.fromRGB(66, 202, 221), 0.8F);
 
     private final JukeboxPlaybackService playbackService;
     private final MusicBrowserGui browser;
@@ -241,6 +244,24 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
         if (!updated.equals(current)) {
             settingsStore.write(jukebox, updated);
             playbackService.updateSettings(jukebox.getBlock(), updated);
+            showSettingCue(player, jukebox.getLocation(), volume);
+        }
+    }
+
+    private static void showSettingCue(Player player, Location location, boolean volume) {
+        double x = location.getBlockX() + 0.5;
+        double y = location.getBlockY() + 1.15;
+        double z = location.getBlockZ() + 0.5;
+        if (volume) {
+            player.spawnParticle(Particle.NOTE, x, y, z,
+                    3, 0.25, 0.16, 0.25, 0.0);
+            return;
+        }
+        for (double[] offset : new double[][] {
+                {0.7, 0.0}, {-0.7, 0.0}, {0.0, 0.7}, {0.0, -0.7}
+        }) {
+            player.spawnParticle(Particle.DUST, x + offset[0], y - 0.45,
+                    z + offset[1], 1, 0.0, 0.0, 0.0, 0.0, RANGE_CUE);
         }
     }
 
@@ -311,8 +332,8 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
         return null;
     }
 
-    private static void closeMenu(Player player) {
-        FloatingMenus.current(player).ifPresent(handle -> handle.close());
+    private void closeMenu(Player player) {
+        controlGui.close(player);
     }
 
     private static Message modeName(JukeboxPlaybackMode mode) {

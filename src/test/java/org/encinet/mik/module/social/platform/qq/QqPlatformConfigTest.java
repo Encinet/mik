@@ -2,6 +2,7 @@ package org.encinet.mik.module.social.platform.qq;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.encinet.mik.module.i18n.Language;
+import org.encinet.mik.module.social.chat.SocialChatOutboundPolicy;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,7 +68,69 @@ class QqPlatformConfigTest {
         assertEquals(1_048_576, config.gatewayMaxFrameBytes());
         assertEquals(30_000, config.gatewayHandshakeTimeoutMillis());
         assertEquals(Language.ZH_CN, config.defaultLanguage());
+        assertTrue(config.chatRoutes().isEmpty());
         assertEquals("social/qq.yml", QqPlatformConfig.FILE_NAME);
+    }
+
+    @Test
+    void chatBridgeRoutesSupportAlwaysAndPrefixPolicies() throws Exception {
+        QqPlatformConfig config = QqPlatformConfig.from(yaml("""
+                enabled: false
+                allowed-group-openids: [group-a, group-b]
+                chat-bridge:
+                  routes:
+                    - group-openid: group-a
+                      outbound:
+                        mode: always
+                    - group-openid: group-b
+                      outbound:
+                        mode: prefix
+                        prefix: "#"
+                        strip-prefix: false
+                """));
+
+        assertEquals(2, config.chatRoutes().size());
+        assertEquals("group-a", config.chatRoutes().get(0).conversation().id());
+        assertEquals(SocialChatOutboundPolicy.Mode.ALWAYS,
+                config.chatRoutes().get(0).outbound().mode());
+        assertEquals("group-b", config.chatRoutes().get(1).conversation().id());
+        assertEquals(SocialChatOutboundPolicy.Mode.PREFIX,
+                config.chatRoutes().get(1).outbound().mode());
+        assertEquals("#", config.chatRoutes().get(1).outbound().prefix());
+        assertFalse(config.chatRoutes().get(1).outbound().stripPrefix());
+        assertTrue(config.chatRoute("group-b").isPresent());
+    }
+
+    @Test
+    void chatBridgeRoutesMustBeAllowedUniqueAndValid() {
+        assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml("""
+                enabled: false
+                allowed-group-openids: [group-a]
+                chat-bridge:
+                  routes:
+                    - group-openid: group-b
+                """)));
+        assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml("""
+                enabled: false
+                chat-bridge:
+                  routes:
+                    - group-openid: group-a
+                    - group-openid: group-a
+                """)));
+        assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml("""
+                enabled: false
+                chat-bridge:
+                  routes:
+                    - group-openid: group-a
+                      outbound:
+                        mode: sometimes
+                """)));
+        assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml("""
+                enabled: false
+                chat-bridge:
+                  routes:
+                    - group-openid: ""
+                """)));
     }
 
     @Test

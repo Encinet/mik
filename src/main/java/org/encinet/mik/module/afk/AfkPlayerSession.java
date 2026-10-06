@@ -72,6 +72,12 @@ final class AfkPlayerSession {
         activity.resumeFromAfk(now, worldId, x, y, z);
     }
 
+    /** A viewing context removes protection without pretending the player provided input. */
+    void exitAfkForViewing(UUID worldId, double x, double y, double z, boolean movementInputActive) {
+        automaticEntry.reset();
+        activity.resumeForViewing(worldId, x, y, z, movementInputActive);
+    }
+
     void suspendForDisconnect(long now) {
         automaticEntry.reset();
         activity.suspendSession(now);
