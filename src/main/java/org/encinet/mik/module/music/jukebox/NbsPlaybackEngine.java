@@ -231,13 +231,22 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 playbackMember.activate();
                 cursor = new NbsPlaybackCursor(song,
                         playbackMember.synchronizedPositionMillis());
-                NbsPlaybackCursor.PollResult initial = cursor.poll(nanoClock.getAsLong());
-                playbackPositionMillis = initial.positionMillis();
+                JukeboxPlaybackGroup.Seek pendingSeek = playbackMember.pendingSeek();
+                if (pendingSeek != null) playbackMember.appliedSeek(pendingSeek);
+                boolean paused = playbackGroup.paused();
+                NbsPlaybackCursor.PollResult initial = paused ? null
+                        : cursor.poll(nanoClock.getAsLong());
+                playbackPositionMillis = paused
+                        ? playbackMember.synchronizedPositionMillis()
+                        : initial.positionMillis();
                 playbackMember.publishPositionMillis(playbackPositionMillis);
                 task = scheduler.scheduleEveryTick(this::tick);
-                status = PlaybackStatus.PLAYING;
-                playNotes(location, initial.notes(), settings, audibleToPlayer,
-                        soundLedger);
+                status = paused
+                        ? PlaybackStatus.PAUSED : PlaybackStatus.PLAYING;
+                if (status == PlaybackStatus.PLAYING) {
+                    playNotes(location, initial.notes(), settings, audibleToPlayer,
+                            soundLedger);
+                }
                 callbacks.started();
             } catch (RuntimeException exception) {
                 fail(exception);
@@ -252,6 +261,8 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 cancel();
                 return;
             }
+            if (status == PlaybackStatus.PAUSED) return;
+            if (playbackMember.pendingSeek() != null) return;
             try {
                 NbsPlaybackCursor.PollResult result = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = result.positionMillis();
@@ -277,6 +288,35 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 return finalPositionMillis;
             }
             return playbackPositionMillis;
+        }
+
+        @Override
+        public boolean canSeek() {
+            return (status() == PlaybackStatus.PLAYING || status() == PlaybackStatus.PAUSED)
+                    && preparedSong != null && !preparedSong.loopEnabled()
+                    && cursor != null;
+        }
+
+        @Override
+        public void setPaused(boolean paused) {
+            if (terminal.get() || cursor == null) return;
+            if (paused && status == PlaybackStatus.PLAYING) {
+                status = PlaybackStatus.PAUSED;
+                stopActiveSounds();
+            } else if (!paused && status == PlaybackStatus.PAUSED) {
+                cursor.resume(nanoClock.getAsLong());
+                status = PlaybackStatus.PLAYING;
+            }
+        }
+
+        @Override
+        public void seekTo(long positionMillis) {
+            JukeboxPlaybackGroup.Seek requested = playbackMember.pendingSeek();
+            if (requested == null || !canSeek()) return;
+            stopActiveSounds();
+            cursor = new NbsPlaybackCursor(preparedSong, positionMillis);
+            playbackPositionMillis = positionMillis;
+            playbackMember.appliedSeek(requested);
         }
 
         @Override

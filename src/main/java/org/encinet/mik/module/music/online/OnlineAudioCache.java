@@ -1,5 +1,7 @@
 package org.encinet.mik.module.music.online;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.encinet.mik.module.music.catalog.MusicTrack;
 import org.encinet.mik.module.music.catalog.MusicPlaybackStats;
 import org.encinet.mik.module.music.catalog.TrackTarget;
@@ -13,6 +15,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -67,6 +70,7 @@ public final class OnlineAudioCache implements AutoCloseable {
     private static final int MAX_TRANSIENT_ATTEMPTS_PER_SOURCE = 2;
     private static final Duration RETRY_BACKOFF = Duration.ofMillis(200);
     private static final String CACHE_SUFFIX = ".audio";
+    private static final String ORIGIN_SUFFIX = ".source.json";
     private static final String PART_SUFFIX = ".part";
 
     private final Path cacheDirectory;
@@ -240,7 +244,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 touch(destination);
                 try {
                     StreamingState state = StreamingState.completed(
-                            destination, Files.size(destination));
+                            destination, Files.size(destination), readOrigin(entryKey));
                     return CompletableFuture.completedFuture(new DownloadAccess(
                             CompletableFuture.completedFuture(destination),
                             CompletableFuture.completedFuture(state), () -> {}));
@@ -296,7 +300,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                  transientAttempt <= MAX_TRANSIENT_ATTEMPTS_PER_SOURCE;
                  transientAttempt++) {
                 try {
-                    Path downloaded = download(entryKey, resolution.url(), destination,
+                    Path downloaded = download(entryKey, resolution, destination,
                             expectedGeneration, owner);
                     reportCandidateSuccess(target, resolution);
                     return downloaded;
@@ -633,7 +637,8 @@ public final class OnlineAudioCache implements AutoCloseable {
         }
     }
 
-    private Path download(String entryKey, String url, Path destination, long expectedGeneration,
+    private Path download(String entryKey, LxTrackResolver.Resolution resolution,
+                          Path destination, long expectedGeneration,
                           DownloadOperation owner) {
         if (closed.get()) {
             throw new java.util.concurrent.CompletionException(
@@ -641,7 +646,7 @@ public final class OnlineAudioCache implements AutoCloseable {
         }
         if (isUsable(entryKey, destination)) {
             try {
-                owner.useCompleted(destination, Files.size(destination));
+                owner.useCompleted(destination, Files.size(destination), readOrigin(entryKey));
             } catch (IOException exception) {
                 throw new java.util.concurrent.CompletionException(exception);
             }
@@ -662,7 +667,7 @@ public final class OnlineAudioCache implements AutoCloseable {
             }
             URI uri;
             try {
-                uri = validateUri(url);
+                uri = validateUri(resolution.url());
             } catch (IOException exception) {
                 throw new RemoteAudioException(exception.getMessage(), exception, false);
             }
@@ -696,7 +701,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                     String contentType = response.headers().firstValue("Content-Type")
                             .map(OnlineAudioCache::baseContentType).orElse(null);
                     StreamingState state = owner.createStreamingState(
-                            target, declaredLength, contentType);
+                            target, declaredLength, contentType, resolution);
                     LimitedFileSubscriber subscriber = new LimitedFileSubscriber(
                             target, maxAudioBytes, declaredLength, state, owner, progress);
                     subscriberRef.set(subscriber);
@@ -735,6 +740,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 evictFor(Files.size(part), destination);
                 owner.publish(destination);
                 cachedEntries.add(entryKey);
+                saveOrigin(entryKey, resolution);
                 touch(destination);
             }
             return destination;
@@ -844,11 +850,13 @@ public final class OnlineAudioCache implements AutoCloseable {
                 return true;
             }
             removeIndex(entryKey, true);
+            deleteOrigin(entryKey);
             if (size == 0 || size > maxAudioBytes) {
                 Files.deleteIfExists(path);
             }
         } catch (IOException exception) {
             removeIndex(entryKey, true);
+            deleteOrigin(entryKey);
             warningLogger.accept("Failed to inspect music cache file " + path.getFileName()
                     + ": " + exception.getMessage());
         }
@@ -886,7 +894,9 @@ public final class OnlineAudioCache implements AutoCloseable {
                 continue;
             }
             Files.deleteIfExists(entry.path());
-            removeIndex(cacheEntryKey(entry.path()), true);
+            String entryKey = cacheEntryKey(entry.path());
+            removeIndex(entryKey, true);
+            deleteOrigin(entryKey);
             usedBytes -= entry.bytes();
         }
         if (usedBytes > available) {
@@ -955,6 +965,16 @@ public final class OnlineAudioCache implements AutoCloseable {
                 }
             }
             trackCatalog.deleteOrphans(audioEntries);
+            try (Stream<Path> paths = Files.list(cacheDirectory)) {
+                for (Path path : paths.filter(value -> Files.isRegularFile(
+                                value, LinkOption.NOFOLLOW_LINKS))
+                        .filter(value -> value.getFileName().toString().endsWith(ORIGIN_SUFFIX))
+                        .toList()) {
+                    String name = path.getFileName().toString();
+                    String entryKey = name.substring(0, name.length() - ORIGIN_SUFFIX.length());
+                    if (!audioEntries.contains(entryKey)) Files.deleteIfExists(path);
+                }
+            }
         } catch (IOException exception) {
             warningLogger.accept("Failed to index music cache: " + exception.getMessage());
         }
@@ -962,6 +982,62 @@ public final class OnlineAudioCache implements AutoCloseable {
 
     private Path cachePath(String entryKey) {
         return cacheDirectory.resolve(entryKey + CACHE_SUFFIX);
+    }
+
+    private Path originPath(String entryKey) {
+        return cacheDirectory.resolve(entryKey + ORIGIN_SUFFIX);
+    }
+
+    private AudioOrigin readOrigin(String entryKey) {
+        Path path = originPath(entryKey);
+        try {
+            if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+                    || Files.size(path) > 8_192L) {
+                return new AudioOrigin(null, null, true);
+            }
+            JsonObject source = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8))
+                    .getAsJsonObject();
+            String id = source.has("id") ? source.get("id").getAsString() : null;
+            String name = source.has("name") ? source.get("name").getAsString() : null;
+            return new AudioOrigin(id, name, true);
+        } catch (IOException | RuntimeException exception) {
+            warningLogger.accept("Failed to read cached music source "
+                    + path.getFileName() + ": " + exception.getMessage());
+            return new AudioOrigin(null, null, true);
+        }
+    }
+
+    private void saveOrigin(String entryKey, LxTrackResolver.Resolution resolution) {
+        if (resolution.providerId() == null && resolution.providerName() == null) return;
+        JsonObject source = new JsonObject();
+        if (resolution.providerId() != null) source.addProperty("id", resolution.providerId());
+        if (resolution.providerName() != null) source.addProperty("name", resolution.providerName());
+        Path part = null;
+        try {
+            part = Files.createTempFile(cacheDirectory, entryKey + "-source-", PART_SUFFIX);
+            Files.writeString(part, source.toString(), StandardCharsets.UTF_8);
+            moveIntoPlace(part, originPath(entryKey));
+        } catch (IOException exception) {
+            warningLogger.accept("Failed to save cached music source " + entryKey
+                    + ": " + exception.getMessage());
+        } finally {
+            if (part != null) {
+                try {
+                    Files.deleteIfExists(part);
+                } catch (IOException ignored) {
+                    // Startup cleanup removes incomplete sidecars.
+                }
+            }
+        }
+    }
+
+    private void deleteOrigin(String entryKey) {
+        try {
+            Files.deleteIfExists(originPath(entryKey));
+        } catch (IOException exception) {
+            warningLogger.accept("Failed to remove cached music source " + entryKey
+                    + ": " + exception.getMessage());
+        }
     }
 
     private Set<Path> activeCachePaths() {
@@ -1001,6 +1077,7 @@ public final class OnlineAudioCache implements AutoCloseable {
         removeIndex(entryKey, false);
         try {
             Files.deleteIfExists(cachePath(entryKey));
+            deleteOrigin(entryKey);
         } catch (IOException exception) {
             warningLogger.accept("Failed to remove " + description + " "
                     + entryKey + ": " + exception.getMessage());
@@ -1196,6 +1273,10 @@ public final class OnlineAudioCache implements AutoCloseable {
             return state.contentType();
         }
 
+        public AudioOrigin origin() {
+            return state.origin();
+        }
+
         public Reader openReader() throws IOException {
             if (closed.get()) {
                 throw new IOException("Streaming audio lease is closed");
@@ -1294,6 +1375,10 @@ public final class OnlineAudioCache implements AutoCloseable {
         }
     }
 
+    /** Source that supplied the audio bytes for this playback lease. */
+    public record AudioOrigin(String providerId, String providerName, boolean cached) {
+    }
+
     private final class EntryReservation implements AutoCloseable {
         private final String entryKey;
         private final AtomicBoolean released = new AtomicBoolean();
@@ -1326,18 +1411,21 @@ public final class OnlineAudioCache implements AutoCloseable {
         private Path path;
         private final long declaredLength;
         private final String contentType;
+        private final AudioOrigin origin;
         private long availableBytes;
         private boolean completed;
         private IOException failure;
 
-        private StreamingState(Path path, long declaredLength, String contentType) {
+        private StreamingState(Path path, long declaredLength, String contentType,
+                               AudioOrigin origin) {
             this.path = path;
             this.declaredLength = declaredLength;
             this.contentType = contentType;
+            this.origin = origin;
         }
 
-        private static StreamingState completed(Path path, long length) {
-            StreamingState state = new StreamingState(path, length, null);
+        private static StreamingState completed(Path path, long length, AudioOrigin origin) {
+            StreamingState state = new StreamingState(path, length, null, origin);
             state.availableBytes = length;
             state.completed = true;
             return state;
@@ -1349,6 +1437,10 @@ public final class OnlineAudioCache implements AutoCloseable {
 
         private synchronized String contentType() {
             return contentType;
+        }
+
+        private AudioOrigin origin() {
+            return origin;
         }
 
         private synchronized StreamingAudio.Reader openReader() throws IOException {
@@ -1466,8 +1558,10 @@ public final class OnlineAudioCache implements AutoCloseable {
         }
 
         private StreamingState createStreamingState(Path path, long declaredLength,
-                                                    String contentType) {
-            StreamingState state = new StreamingState(path, declaredLength, contentType);
+                                                    String contentType,
+                                                    LxTrackResolver.Resolution resolution) {
+            StreamingState state = new StreamingState(path, declaredLength, contentType,
+                    new AudioOrigin(resolution.providerId(), resolution.providerName(), false));
             if (!streamingState.compareAndSet(null, state)) {
                 throw new IllegalStateException("Streaming state is already initialized");
             }
@@ -1477,8 +1571,8 @@ public final class OnlineAudioCache implements AutoCloseable {
             return state;
         }
 
-        private void useCompleted(Path path, long length) {
-            StreamingState state = StreamingState.completed(path, length);
+        private void useCompleted(Path path, long length, AudioOrigin origin) {
+            StreamingState state = StreamingState.completed(path, length, origin);
             if (streamingState.compareAndSet(null, state)) {
                 streaming.complete(state);
             }

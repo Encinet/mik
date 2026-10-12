@@ -44,7 +44,8 @@ final class FloatingMenuSurfaceGeometry {
         }
         double normalizedCenterDistance = square(rightDistance / halfWidth)
                 + square(upDistance / halfHeight);
-        return Optional.of(new Hit(distance, normalizedCenterDistance));
+        double horizontalFraction = Math.clamp(rightDistance / width + 0.5, 0.0, 1.0);
+        return Optional.of(new Hit(distance, normalizedCenterDistance, horizontalFraction));
     }
 
     static Vector facing(float yawDegrees, float pitchDegrees) {
@@ -81,6 +82,7 @@ final class FloatingMenuSurfaceGeometry {
         return value * value;
     }
 
-    record Hit(double distance, double normalizedCenterDistance) {
+    record Hit(double distance, double normalizedCenterDistance,
+               double horizontalFraction) {
     }
 }

@@ -13,6 +13,16 @@ interface PlaybackSession {
 
     long positionMillis();
 
+    default boolean canSeek() {
+        return false;
+    }
+
+    default void seekTo(long positionMillis) {
+    }
+
+    default void setPaused(boolean paused) {
+    }
+
     default void updateSettings(JukeboxSoundSettings settings) {
     }
 

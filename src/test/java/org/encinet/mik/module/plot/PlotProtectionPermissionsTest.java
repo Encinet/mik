@@ -6,7 +6,6 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
-import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -14,8 +13,6 @@ import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -113,20 +110,8 @@ class PlotProtectionPermissionsTest {
         try (PlotRepository store = store()) {
             PlotProtection guard = new PlotProtection(registry(store, Map.of("collaborator.entity_damage", false)), null);
             Entity target = entity(Entity.class);
-            DamageSource source = (DamageSource) Proxy.newProxyInstance(DamageSource.class.getClassLoader(),
-                    new Class<?>[]{DamageSource.class},
-                    (proxy, method, arguments) -> {
-                        if (method.getName().equals("getCausingEntity")) return null;
-                        throw new AssertionError(method.getName());
-                    });
-            EntityDamageByEntityEvent melee = new EntityDamageByEntityEvent(player, target,
-                    EntityDamageEvent.DamageCause.ENTITY_ATTACK, source, 1.0);
-            guard.damage(melee);
-            assertTrue(melee.isCancelled());
-            EntityDamageByEntityEvent arrow = new EntityDamageByEntityEvent(entity(Projectile.class), target,
-                    EntityDamageEvent.DamageCause.PROJECTILE, source, 1.0);
-            guard.damage(arrow);
-            assertTrue(arrow.isCancelled());
+            assertTrue(guard.deniesEntityDamage(target, null, player));
+            assertTrue(guard.deniesEntityDamage(target, null, entity(Projectile.class)));
         }
     }
 

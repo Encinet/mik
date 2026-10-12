@@ -16,6 +16,12 @@ public interface JukeboxControlActionHandler {
 
     void stopAndEject(Player player, Location jukebox);
 
+    void seek(Player player, Location jukebox, String trackId, long positionMillis);
+
+    void togglePause(Player player, Location jukebox, String trackId);
+
+    void replay(Player player, Location jukebox, String trackId);
+
     void adjustVolume(Player player, Location jukebox,
                       FloatingMenuInteraction interaction);
 

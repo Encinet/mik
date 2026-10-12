@@ -24,6 +24,7 @@ import org.encinet.mik.module.music.jukebox.JukeboxPlaybackMode;
 import org.encinet.mik.module.music.jukebox.JukeboxExperienceMode;
 import org.encinet.mik.module.music.jukebox.JukeboxQueueService;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
+import org.encinet.mik.module.music.jukebox.PlaybackStatus;
 import org.encinet.mik.module.music.jukebox.JukeboxSettingsStore;
 import org.encinet.mik.module.music.jukebox.JukeboxSoundSettings;
 import org.encinet.mik.module.music.ui.JukeboxAccess;
@@ -121,6 +122,38 @@ public final class JukeboxControlListener implements Listener, JukeboxControlAct
         if (playbackService.stopAndEject(jukebox.getBlock())) {
             player.sendMessage(languageService.text(player, Message.MUSIC_STOP_EJECT_DONE,
                     NamedTextColor.YELLOW));
+        }
+    }
+
+    @Override
+    public void seek(Player player, Location location, String trackId, long positionMillis) {
+        Jukebox jukebox = resolveJukebox(player, location);
+        if (jukebox == null) return;
+        if (playbackService.seek(jukebox.getBlock(), trackId, positionMillis)) {
+            controlGui.refreshViewers(location);
+        }
+    }
+
+    @Override
+    public void togglePause(Player player, Location location, String trackId) {
+        Jukebox jukebox = resolveJukebox(player, location);
+        if (jukebox == null || !trackId.equals(MusicDiscKeys.trackId(jukebox.getRecord()))) return;
+        boolean paused = playbackService.status(jukebox.getBlock())
+                == PlaybackStatus.PLAYING;
+        if (playbackService.setPaused(jukebox.getBlock(), trackId, paused)) {
+            controlGui.refreshViewers(location);
+        }
+    }
+
+    @Override
+    public void replay(Player player, Location location, String trackId) {
+        Jukebox jukebox = resolveJukebox(player, location);
+        if (jukebox == null || !trackId.equals(MusicDiscKeys.trackId(jukebox.getRecord()))) return;
+        PlaybackStatus status = playbackService.status(jukebox.getBlock());
+        if (status != PlaybackStatus.FINISHED && status != PlaybackStatus.STOPPED) return;
+        autoPlayService.cancelScheduledTask(location);
+        if (playbackService.playInsertedDisc(player, jukebox)) {
+            controlGui.refreshViewers(location);
         }
     }
 

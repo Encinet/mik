@@ -248,11 +248,15 @@ public final class PlotProtection implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void damage(EntityDamageByEntityEvent event) {
-        if (event.getEntity() instanceof Player) return;
-        Player player = actor(event.getDamageSource().getCausingEntity());
-        if (player == null) player = actor(event.getDamager());
-        if (player != null && !allowedEntityEdit(player, event.getEntity(), PlotEntityEditActions.Operation.REMOVE))
+        if (deniesEntityDamage(event.getEntity(), event.getDamageSource().getCausingEntity(), event.getDamager()))
             event.setCancelled(true);
+    }
+
+    public boolean deniesEntityDamage(Entity target, Entity causingEntity, Entity damager) {
+        if (target instanceof Player) return false;
+        Player player = actor(causingEntity);
+        if (player == null) player = actor(damager);
+        return player != null && !allowedEntityEdit(player, target, PlotEntityEditActions.Operation.REMOVE);
     }
 
     private boolean allowedEntityEdit(Player player, Entity entity, PlotEntityEditActions.Operation operation) {

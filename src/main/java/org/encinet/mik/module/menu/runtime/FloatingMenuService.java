@@ -76,6 +76,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -1807,6 +1808,26 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
         @Override public UUID id() { return id; }
         @Override public UUID playerId() { return playerId; }
+
+        @Override
+        public OptionalDouble horizontalFraction() {
+            requirePrimaryThread("horizontalFraction");
+            Session session = sessions.get(playerId);
+            Player player = Bukkit.getPlayer(playerId);
+            if (session == null || !session.id.equals(id) || player == null) {
+                return OptionalDouble.empty();
+            }
+            Button selected = session.button(session.selectedId);
+            if (selected == null) return OptionalDouble.empty();
+            double contentWidth = selected.measurement.text().contentWidth()
+                    * session.typographyScale;
+            double footprintWidth = selected.measurement.footprint().width();
+            return surfaceHit(session, player.getEyeLocation(), selected)
+                    .map(hit -> OptionalDouble.of(Math.clamp(
+                            (hit.horizontalFraction() - 0.5) * footprintWidth
+                                    / contentWidth + 0.5, 0.0, 1.0)))
+                    .orElseGet(OptionalDouble::empty);
+        }
 
         @Override
         public FloatingMenuState state() {

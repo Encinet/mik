@@ -52,6 +52,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     private final OnlineMusicRequestLimiter requestLimiter;
     private final Consumer<MusicTrack> playbackRecorder;
     private final Map<JukeboxKey, Playback> playbacks = new ConcurrentHashMap<>();
+    private final Map<JukeboxKey, FinishedPlayback> finishedPlaybacks = new ConcurrentHashMap<>();
     private final AtomicBoolean enabled = new AtomicBoolean();
     private volatile BiConsumer<Location, MusicTrack> trackFinishedListener;
     private volatile Consumer<Location> stateChangedListener = ignored -> { };
@@ -193,6 +194,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         }
 
         stop(key, false);
+        finishedPlaybacks.remove(key);
         if (replaceRecord) {
             jukebox.setRecord(storedDisc);
         }
@@ -474,6 +476,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         for (JukeboxKey key : List.copyOf(playbacks.keySet())) {
             stop(key, false);
         }
+        finishedPlaybacks.clear();
         nbsEngine.close();
         audioEngine.close();
     }
@@ -488,6 +491,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                 stop(key, false);
             }
         }
+        finishedPlaybacks.keySet().removeIf(key -> worldId.equals(key.world()));
     }
 
     @Override
@@ -501,9 +505,77 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     }
 
     @Override
-    public JukeboxPlaybackSnapshot snapshot(Block block) {
+    public boolean seekable(Block block) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        return playback != null && !playback.stopped.get()
+                && !playback.finishing.get()
+                && playback.experienceMode == JukeboxExperienceMode.MUSIC
+                && playback.session != null && playback.session.canSeek()
+                && playback.music.details().audio().duration() != null
+                && playbacks.values().stream()
+                        .filter(active -> active.playbackGroup == playback.playbackGroup)
+                        .filter(active -> !active.stopped.get() && !active.finishing.get())
+                        .allMatch(active -> active.session != null && active.session.canSeek());
+    }
+
+    /** Moves every active jukebox sharing this song clock to the requested position. */
+    public boolean seek(Block block, String trackId, long positionMillis) {
+        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        if (playback == null || !playback.music.id().equals(trackId)
+                || !seekable(block)) return false;
+        long durationMillis;
+        try {
+            durationMillis = playback.music.details().audio().duration().toMillis();
+        } catch (ArithmeticException exception) {
+            return false;
+        }
+        if (durationMillis <= 0L) return false;
+        List<Playback> group = playbacks.values().stream()
+                .filter(active -> active.playbackGroup == playback.playbackGroup)
+                .filter(active -> !active.stopped.get() && !active.finishing.get())
+                .toList();
+        long target = Math.clamp(positionMillis, 0L, durationMillis - 1L);
+        playback.playbackGroup.seekTo(target);
+        for (Playback active : group) {
+            PlaybackSession session = active.session;
+            if (session != null && session.canSeek()) session.seekTo(target);
+            notifyStateChanged(active.location);
+        }
+        return true;
+    }
+
+    /** Pauses or resumes all jukeboxes sharing this song clock. */
+    public boolean setPaused(Block block, String trackId, boolean paused) {
+        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        if (playback == null || !playback.music.id().equals(trackId)
+                || playback.experienceMode != JukeboxExperienceMode.MUSIC
+                || playback.stopped.get() || playback.finishing.get()) return false;
+        PlaybackSession session = playback.session;
+        if (session == null || session.status() != (paused
+                ? PlaybackStatus.PLAYING : PlaybackStatus.PAUSED)) return false;
+        playback.playbackGroup.setPaused(paused);
+        for (Playback active : playbacks.values()) {
+            if (active.playbackGroup != playback.playbackGroup
+                    || active.stopped.get() || active.finishing.get()) continue;
+            PlaybackSession member = active.session;
+            if (member != null) member.setPaused(paused);
+            notifyStateChanged(active.location);
+        }
+        return true;
+    }
+
+    @Override
+    public JukeboxPlaybackSnapshot snapshot(Block block) {
+        JukeboxKey key = JukeboxKey.of(block.getLocation());
+        Playback playback = playbacks.get(key);
         if (playback == null || playback.stopped.get()) {
+            FinishedPlayback finished = finishedPlaybacks.get(key);
+            if (finished != null && block.getState() instanceof Jukebox jukebox
+                    && finished.trackId().equals(MusicDiscKeys.trackId(jukebox.getRecord()))) {
+                return new JukeboxPlaybackSnapshot(PlaybackStatus.FINISHED,
+                        finished.positionMillis());
+            }
+            finishedPlaybacks.remove(key);
             return new JukeboxPlaybackSnapshot(PlaybackStatus.STOPPED, 0L);
         }
         PlaybackSession session = playback.session;
@@ -552,7 +624,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
         RhythmPlaybackState rhythmState = switch (currentStatus) {
             case LOADING -> RhythmPlaybackState.LOADING;
             case PLAYING -> RhythmPlaybackState.PLAYING;
-            case STOPPED -> RhythmPlaybackState.STOPPED;
+            case PAUSED, FINISHED, STOPPED -> RhythmPlaybackState.STOPPED;
         };
         return Optional.of(new RhythmPlaybackSnapshot(playback.rhythmId,
                 playback.music, playback.music.target() instanceof TrackTarget.NbsFile
@@ -595,6 +667,18 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
                         removeFailedDisc(jukebox);
                     } else {
                         jukebox.update(true, false);
+                        long position = playback.session == null ? 0L
+                                : playback.session.positionMillis();
+                        java.time.Duration duration = playback.music.details().audio().duration();
+                        if (duration != null) {
+                            try {
+                                position = Math.max(position, duration.toMillis());
+                            } catch (ArithmeticException ignored) {
+                                // Keep the backend's final position.
+                            }
+                        }
+                        finishedPlaybacks.put(playback.key,
+                                new FinishedPlayback(playback.music.id(), position));
                     }
                 }
 
@@ -615,6 +699,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
     }
 
     private void stop(JukeboxKey key, boolean removeRecord) {
+        finishedPlaybacks.remove(key);
         Playback playback = playbacks.remove(key);
         Location changedLocation = playback == null ? null : playback.location;
         if (playback != null) {
@@ -646,6 +731,7 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             return;
         }
         recordSilencer.playbackStopped(playback.location);
+        finishedPlaybacks.remove(playback.key);
         playback.stopped.set(true);
         playback.recordPlaybackIfQualified(false, playbackRecorder, plugin);
         cleanup(playback);
@@ -822,6 +908,9 @@ public class JukeboxPlaybackService implements JukeboxPlaybackStatus, JukeboxPla
             return new JukeboxKey(location.getWorld().getUID(), location.getBlockX(),
                     location.getBlockY(), location.getBlockZ());
         }
+    }
+
+    private record FinishedPlayback(String trackId, long positionMillis) {
     }
 
 }

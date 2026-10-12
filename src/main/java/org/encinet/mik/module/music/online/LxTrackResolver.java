@@ -31,11 +31,17 @@ interface LxTrackResolver {
     default void candidateFailed(TrackTarget.Lx target, Resolution resolution, Throwable error) {
     }
 
-    record Resolution(String url, String providerId) {
+    record Resolution(String url, String providerId, String providerName) {
+        Resolution(String url, String providerId) {
+            this(url, providerId, null);
+        }
+
         public Resolution {
             url = requireText(url, "url");
             providerId = providerId == null || providerId.isBlank()
                     ? null : requireText(providerId, "providerId");
+            providerName = providerName == null || providerName.isBlank()
+                    ? null : requireText(providerName, "providerName");
         }
 
         private static String requireText(String value, String name) {

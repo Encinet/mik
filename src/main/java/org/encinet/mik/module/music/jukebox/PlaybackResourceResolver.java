@@ -50,7 +50,7 @@ final class PlaybackResourceResolver {
                 return new Resource(identifier, () -> {
                     streamingSourceManager.unregister(identifier);
                     streaming.close();
-                });
+                }, streaming.origin());
             });
         }
         return CompletableFuture.failedFuture(new IOException(
@@ -95,15 +95,26 @@ final class PlaybackResourceResolver {
     static final class Resource implements AutoCloseable {
         private final String identifier;
         private final Runnable release;
+        private final OnlineAudioCache.AudioOrigin origin;
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private Resource(String identifier, Runnable release) {
+            this(identifier, release, null);
+        }
+
+        private Resource(String identifier, Runnable release,
+                         OnlineAudioCache.AudioOrigin origin) {
             this.identifier = Objects.requireNonNull(identifier, "identifier");
             this.release = Objects.requireNonNull(release, "release");
+            this.origin = origin;
         }
 
         String identifier() {
             return identifier;
+        }
+
+        OnlineAudioCache.AudioOrigin origin() {
+            return origin;
         }
 
         @Override

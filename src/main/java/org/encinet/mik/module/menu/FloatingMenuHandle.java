@@ -2,6 +2,7 @@ package org.encinet.mik.module.menu;
 
 import net.kyori.adventure.text.Component;
 import java.util.UUID;
+import java.util.OptionalDouble;
 
 /** Stable external control surface for one player's menu session. */
 public interface FloatingMenuHandle {
@@ -12,6 +13,11 @@ public interface FloatingMenuHandle {
     FloatingMenuState state();
 
     int depth();
+
+    /** Horizontal aim position, from left (0) to right (1), on the activated node. */
+    default OptionalDouble horizontalFraction() {
+        return OptionalDouble.empty();
+    }
 
     void refresh();
 

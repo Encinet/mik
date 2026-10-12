@@ -18,6 +18,7 @@ import org.encinet.mik.module.i18n.Message;
 import org.encinet.mik.module.menu.runtime.WorldTextDisplayService;
 import org.encinet.mik.module.music.catalog.AudioPropertiesFormatter;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.disc.MusicDiscKeys;
 import org.encinet.mik.module.music.disc.MusicDiscResolver;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.module.music.jukebox.JukeboxPlaybackSnapshot;
@@ -114,7 +115,10 @@ public final class JukeboxAmbientStatusDisplay {
                 for (org.bukkit.block.BlockState state : world.getChunkAt(x, z).getTileEntities(false)) {
                     if (!(state instanceof Jukebox box) || !box.hasRecord()) continue;
                     PlaybackStatus status = playback.status(box.getBlock());
-                    if (status == PlaybackStatus.STOPPED && !box.isPlaying()) continue;
+                    if ((status == PlaybackStatus.STOPPED
+                            || status == PlaybackStatus.FINISHED)
+                            && (MusicDiscKeys.isCustomDisc(box.getRecord())
+                            || !box.isPlaying())) continue;
                     double current = box.getLocation().add(0.5, 0.5, 0.5).distanceSquared(at);
                     if (current <= RADIUS_SQUARED) {
                         candidates.add(new NearbyJukebox(box, current));
@@ -126,6 +130,9 @@ public final class JukeboxAmbientStatusDisplay {
         for (NearbyJukebox candidate : candidates) {
             Location center = candidate.jukebox().getLocation().add(0.5, 0.0, 0.5);
             JukeboxPlaybackSnapshot state = playback.snapshot(candidate.jukebox().getBlock());
+            if ((state.status() == PlaybackStatus.STOPPED
+                    || state.status() == PlaybackStatus.FINISHED)
+                    && MusicDiscKeys.isCustomDisc(candidate.jukebox().getRecord())) continue;
             Presentation presentation = presentation(player, candidate.jukebox(), state);
             Label label = visibleLabel(center, eye, textHeight(presentation.text()));
             if (label != null) return new VisibleJukebox(label, presentation);
@@ -224,7 +231,9 @@ public final class JukeboxAmbientStatusDisplay {
                 : readiness == JukeboxRhythmReadiness.NO_BEATS
                 ? Message.MUSIC_RHYTHM_NO_BEATS
                 : state.status() == PlaybackStatus.LOADING
-                ? Message.MUSIC_LOADING_TITLE : Message.MUSIC_PLAYING;
+                ? Message.MUSIC_LOADING_TITLE
+                : state.status() == PlaybackStatus.PAUSED
+                ? Message.MUSIC_PAUSED : Message.MUSIC_PLAYING;
         TextColor accent = MusicMenuPalette.accent(mode);
         Duration duration = track == null ? null : track.details().audio().duration();
         String modeLabel = language.t(player, mode == JukeboxExperienceMode.RHYTHM
@@ -409,7 +418,8 @@ public final class JukeboxAmbientStatusDisplay {
                                  Duration duration, long animationSecond,
                                  TextColor accent) {
         int completed;
-        if (status == PlaybackStatus.PLAYING && duration != null
+        if ((status == PlaybackStatus.PLAYING || status == PlaybackStatus.PAUSED)
+                && duration != null
                 && !duration.isZero() && !duration.isNegative()) {
             long durationMillis;
             try {

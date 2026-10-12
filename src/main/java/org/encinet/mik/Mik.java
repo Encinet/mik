@@ -62,7 +62,6 @@ import org.encinet.mik.module.social.game.BukkitSocialChatGateway;
 import org.encinet.mik.module.safety.BanItemGuardModule;
 import org.encinet.mik.module.safety.EnderPearlGuard;
 import org.encinet.mik.module.safety.FixBugModule;
-import org.encinet.mik.module.safety.GrieferModule;
 import org.encinet.mik.module.safety.OversizedEntityGuard;
 import org.encinet.mik.module.safety.TrampleProtectionModule;
 import org.encinet.mik.module.skript.MikSkriptModule;
@@ -355,9 +354,6 @@ public final class Mik extends JavaPlugin {
 
         TrampleProtectionModule trampleProtectionModule = new TrampleProtectionModule(this);
         startManaged("trample-protection", trampleProtectionModule::enable, trampleProtectionModule::disable);
-
-        GrieferModule grieferModule = new GrieferModule(this, banModule.manager());
-        startManaged("griefer", grieferModule::enable, grieferModule::disable);
 
         AnnouncementModule announcementModule = new AnnouncementModule(this, languageService);
         startManaged("announcement", announcementModule::enable, announcementModule::disable);

@@ -78,6 +78,10 @@ final class NbsPlaybackCursor {
         return result(notes);
     }
 
+    void resume(long nowNanos) {
+        if (clockAnchored) lastPollNanos = nowNanos;
+    }
+
     private void seek(double positionSeconds) {
         if (positionSeconds <= 0.0) {
             return;
@@ -86,6 +90,11 @@ final class NbsPlaybackCursor {
         double remainingSeconds = positionSeconds;
         List<NbsNote> discarded = new ArrayList<>();
         while (!finished) {
+            if (remainingSeconds <= 1.0e-12) {
+                // A seek to an exact tick boundary should play that tick's notes.
+                started = false;
+                return;
+            }
             discarded.clear();
             appendCurrentTick(discarded);
             double tickSeconds = 1.0 / ticksPerSecond;

@@ -145,6 +145,10 @@ final class FloatingMenuNodeSizing {
             return (float) Math.max(1.0, size.width() / TEXT_SCALE + 0.35);
         }
 
+        double contentWidth() {
+            return renderedWidthPixels * TEXT_PIXEL_SIZE;
+        }
+
         float displayHeight() {
             return (float) Math.max(0.8, size.height() / TEXT_SCALE + 0.25);
         }

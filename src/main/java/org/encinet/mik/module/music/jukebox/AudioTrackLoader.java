@@ -10,6 +10,7 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioReference;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.online.OnlineAudioCache;
 
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -138,6 +139,10 @@ final class AudioTrackLoader implements AutoCloseable {
 
         AudioTrack track() {
             return track;
+        }
+
+        OnlineAudioCache.AudioOrigin origin() {
+            return resource.origin();
         }
 
         @Override

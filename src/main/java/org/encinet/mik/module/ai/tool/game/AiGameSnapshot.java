@@ -1,8 +1,11 @@
 package org.encinet.mik.module.ai.tool.game;
 
 import org.bukkit.Bukkit;
+import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Statistic;
 import org.bukkit.World;
 import org.bukkit.enchantments.Enchantment;
@@ -186,9 +189,10 @@ public record AiGameSnapshot(
     private static WorldInfo world(World world) {
         Map<String, String> rules = new TreeMap<>();
         for (String rule : world.getGameRules()) {
-            Object value = world.getGameRuleValue(rule);
-            if (value != null) {
-                rules.put(rule, String.valueOf(value));
+            NamespacedKey key = NamespacedKey.fromString(rule);
+            GameRule<?> gameRule = key == null ? null : Registry.GAME_RULE.get(key);
+            if (gameRule != null) {
+                rules.put(rule, String.valueOf(world.getGameRuleValue(gameRule)));
             }
         }
         return new WorldInfo(

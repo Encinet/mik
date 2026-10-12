@@ -52,6 +52,7 @@ public final class JukeboxControlGui {
     private static final int ITEMS_PER_PAGE = 16;
     private static final int PLAYBACK_PROGRESS_REFRESH_TICKS = 5;
     private static final int PLAYBACK_PROGRESS_SEGMENTS = 12;
+    private static final long SEEK_SCROLL_MILLIS = 5_000L;
 
     private final JukeboxQueueService queueService;
     private final MusicDiscFactory discFactory;
@@ -152,16 +153,22 @@ public final class JukeboxControlGui {
         ViewState.Panel panel = control.experienceMode() == JukeboxExperienceMode.RHYTHM
                 && view.panel() == ViewState.Panel.QUEUE
                 ? ViewState.Panel.MAIN : view.panel();
+        boolean showSeek = panel == ViewState.Panel.MAIN
+                && control.activeExperienceMode() == JukeboxExperienceMode.MUSIC
+                && control.currentDisc() != null
+                && control.status() != PlaybackStatus.LOADING
+                && progressDurationMillis(control) > 0L;
         FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-control")
                 .appearance(MusicMenuPalette.appearance(control.experienceMode()))
                 .framing(FloatingMenuFraming.PANORAMIC)
-                .layout(controlLayout(panel))
+                .layout(controlLayout(panel, showSeek))
                 .refreshWhenChanged(PLAYBACK_PROGRESS_REFRESH_TICKS,
                         ignored -> playbackRevision(view),
                         (p, handle) -> screen.flow(p)
                                 .ifPresent(FloatingMenuFlow::redraw));
 
-        addDiscPresentation(player, menu, control);
+        addDiscPresentation(player, menu, control, showSeek);
+        if (showSeek) addSeekControl(menu, actions, control);
         switch (panel) {
             case MAIN -> {
                 addExperienceModeControl(player, menu, actions, control);
@@ -198,12 +205,20 @@ public final class JukeboxControlGui {
                 experienceMode, activeExperienceMode, rhythmReadiness);
     }
 
-    private static FloatingMenuLayout controlLayout(ViewState.Panel panel) {
+    private static FloatingMenuLayout controlLayout(ViewState.Panel panel,
+                                                    boolean showSeek) {
         return switch (panel) {
-            case MAIN -> FloatingMenuLayouts.menu(
-                    FloatingMenuLayouts.information("now-playing"),
-                    FloatingMenuLayouts.information("content"),
-                    FloatingMenuLayouts.actions("controls", 4));
+            case MAIN -> showSeek
+                    ? FloatingMenuLayouts.menu(
+                            FloatingMenuLayouts.information("now-playing"),
+                            FloatingMenuLayouts.region("seek",
+                                    FloatingMenuLayouts.adaptiveRow(0.14)),
+                            FloatingMenuLayouts.information("content"),
+                            FloatingMenuLayouts.actions("controls", 4))
+                    : FloatingMenuLayouts.menu(
+                            FloatingMenuLayouts.information("now-playing"),
+                            FloatingMenuLayouts.information("content"),
+                            FloatingMenuLayouts.actions("controls", 4));
             case QUEUE -> FloatingMenuLayouts.sidecar(
                     FloatingMenuLayouts.panel("queue-list",
                             FloatingMenuLayouts.verticalRegions(0.20,
@@ -233,10 +248,10 @@ public final class JukeboxControlGui {
 
     private void addDiscPresentation(Player player,
                                      FloatingMenuDefinition.Builder menu,
-                                     ControlView control) {
+                                     ControlView control, boolean showSeek) {
         menu.information("disc-info", currentDiscInfo(player, control.jukebox(),
                         control.currentDisc(), control.playback(),
-                        control.activeExperienceMode(), control.readiness()))
+                        control.activeExperienceMode(), control.readiness(), showSeek))
                 .region("now-playing")
                 .textWidth(FloatingMenuTextWidth.WIDE);
         if (control.jukebox().hasRecord()) {
@@ -246,6 +261,77 @@ public final class JukeboxControlGui {
                             control.jukebox(), control.currentDisc()),
                     0.78F, discMotion(control.status()));
         }
+    }
+
+    private void addSeekControl(FloatingMenuDefinition.Builder menu,
+                                JukeboxControlActionHandler actions, ControlView control) {
+        MusicTrack track = control.currentDisc();
+        long durationMillis = progressDurationMillis(control);
+        long currentPosition = control.status() == PlaybackStatus.FINISHED
+                ? durationMillis : control.playback().positionMillis();
+        boolean active = control.status() == PlaybackStatus.PLAYING
+                || control.status() == PlaybackStatus.PAUSED;
+        Component progressLabel = seekControlLabel(currentPosition, durationMillis);
+        boolean seekable = active && playbackStatus.seekable(control.jukebox().getBlock());
+        if (active && !seekable) {
+            menu.information("seek-progress", progressLabel).region("seek");
+        } else {
+            var progress = menu.control("seek-progress", progressLabel)
+                    .region("seek")
+                    .primary((p, handle) -> {
+                        if (!active) {
+                            actions.replay(p, control.location(), track.id());
+                            return;
+                        }
+                        var fraction = handle.horizontalFraction();
+                        actions.seek(p, control.location(), track.id(), fraction.isPresent()
+                                ? Math.round(durationMillis * fraction.getAsDouble())
+                                : currentPosition + SEEK_SCROLL_MILLIS);
+                    })
+                    .secondary((p, handle) -> {
+                        if (!active) {
+                            actions.replay(p, control.location(), track.id());
+                            return;
+                        }
+                        var fraction = handle.horizontalFraction();
+                        actions.seek(p, control.location(), track.id(), fraction.isPresent()
+                                ? Math.round(durationMillis * fraction.getAsDouble())
+                                : Math.max(0L, currentPosition - SEEK_SCROLL_MILLIS));
+                    });
+            if (seekable) {
+                progress.scrollUp((p, handle) -> actions.seek(p, control.location(), track.id(),
+                                currentPosition + SEEK_SCROLL_MILLIS))
+                        .scrollDown((p, handle) -> actions.seek(p, control.location(), track.id(),
+                                Math.max(0L, currentPosition - SEEK_SCROLL_MILLIS)));
+            }
+        }
+        String symbol = control.status() == PlaybackStatus.PLAYING ? "⏸"
+                : control.status() == PlaybackStatus.PAUSED ? "▶" : "↻";
+        String total = AudioPropertiesFormatter.duration(track.details().audio().duration());
+        if (total == null) total = playbackTime(durationMillis);
+        menu.control("seek-clock", Component.text(symbol + " "
+                        + playbackTime(currentPosition) + " / " + total,
+                        NamedTextColor.GRAY))
+                .region("seek")
+                .primary((p, handle) -> {
+                    if (active) actions.togglePause(p, control.location(), track.id());
+                    else actions.replay(p, control.location(), track.id());
+                });
+    }
+
+    private static long progressDurationMillis(ControlView control) {
+        long duration = seekDurationMillis(control.currentDisc().details().audio().duration());
+        return duration > 0L ? duration : control.status() == PlaybackStatus.FINISHED
+                ? control.playback().positionMillis() : 0L;
+    }
+
+    private static Component seekControlLabel(long positionMillis, long durationMillis) {
+        int completed = completedProgressSegments(positionMillis, durationMillis);
+        return Component.text("[", NamedTextColor.DARK_GRAY)
+                .append(Component.text("=".repeat(completed), MusicMenuPalette.MUSIC))
+                .append(Component.text("-".repeat(PLAYBACK_PROGRESS_SEGMENTS - completed),
+                        NamedTextColor.DARK_GRAY))
+                .append(Component.text("]", NamedTextColor.DARK_GRAY));
     }
 
     private void addExperienceModeControl(Player player,
@@ -558,6 +644,8 @@ public final class JukeboxControlGui {
         }
         JukeboxPlaybackSnapshot playback = currentPlayback(jukebox);
         long elapsedSeconds = playback.status() == PlaybackStatus.PLAYING
+                || playback.status() == PlaybackStatus.PAUSED
+                || playback.status() == PlaybackStatus.FINISHED
                 ? playback.positionMillis() / 1_000L : 0L;
         JukeboxExperienceMode configured = settingsStore.readExperienceMode(jukebox);
         JukeboxExperienceMode active = playbackStatus
@@ -577,7 +665,8 @@ public final class JukeboxControlGui {
                                       MusicTrack currentDisc,
                                       JukeboxPlaybackSnapshot playback,
                                       JukeboxExperienceMode experienceMode,
-                                      JukeboxRhythmReadiness readiness) {
+                                      JukeboxRhythmReadiness readiness,
+                                      boolean showSeek) {
         if (!jukebox.hasRecord()) {
             return Component.text(languageService.t(player, Message.MUSIC_NO_DISC),
                     NamedTextColor.GRAY);
@@ -593,6 +682,10 @@ public final class JukeboxControlGui {
         Component name = currentDisc == null
                 ? jukebox.getRecord().effectiveName().colorIfAbsent(NamedTextColor.WHITE)
                 : Component.text(truncate(currentDisc.details().title(), 36), NamedTextColor.WHITE);
+        if (showSeek) {
+            return name.decoration(TextDecoration.ITALIC, false)
+                    .decoration(TextDecoration.BOLD, true);
+        }
         PlaybackStatus status = playback.status();
         TextColor accent = MusicMenuPalette.accent(experienceMode);
         boolean noBeats = experienceMode == JukeboxExperienceMode.RHYTHM
@@ -622,9 +715,11 @@ public final class JukeboxControlGui {
         if (currentDisc == null) return information;
 
         Duration trackDuration = currentDisc.details().audio().duration();
-        if (status == PlaybackStatus.PLAYING) {
-            information = information.append(playbackProgress(
-                    playback.positionMillis(), trackDuration, accent));
+        if (status == PlaybackStatus.PLAYING || status == PlaybackStatus.PAUSED) {
+            if (!showSeek) {
+                information = information.append(playbackProgress(
+                        playback.positionMillis(), trackDuration, accent));
+            }
         } else {
             String duration = AudioPropertiesFormatter.duration(trackDuration);
             if (duration == null) return information;
@@ -683,6 +778,15 @@ public final class JukeboxControlGui {
         return (int) Math.floor(ratio * PLAYBACK_PROGRESS_SEGMENTS);
     }
 
+    private static long seekDurationMillis(Duration duration) {
+        if (duration == null || duration.isZero() || duration.isNegative()) return 0L;
+        try {
+            return duration.toMillis();
+        } catch (ArithmeticException exception) {
+            return 0L;
+        }
+    }
+
     private Component metadataLine(Player player, Message message, String value) {
         return Component.newline().append(Component.text(languageService.t(player, message, value),
                         NamedTextColor.GRAY)
@@ -693,7 +797,7 @@ public final class JukeboxControlGui {
         return switch (status) {
             case PLAYING -> FloatingMenuDecoration.Motion.SPIN;
             case LOADING -> FloatingMenuDecoration.Motion.BOB;
-            case STOPPED -> FloatingMenuDecoration.Motion.NONE;
+            case PAUSED, FINISHED, STOPPED -> FloatingMenuDecoration.Motion.NONE;
         };
     }
 
@@ -894,6 +998,8 @@ public final class JukeboxControlGui {
             case STOPPED -> Message.MUSIC_STOPPED;
             case LOADING -> Message.MUSIC_LOADING_TITLE;
             case PLAYING -> Message.MUSIC_PLAYING;
+            case PAUSED -> Message.MUSIC_PAUSED;
+            case FINISHED -> Message.MUSIC_FINISHED;
         };
     }
 

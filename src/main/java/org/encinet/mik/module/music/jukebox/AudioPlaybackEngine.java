@@ -5,13 +5,13 @@ import com.sedmelluq.discord.lavaplayer.player.event.AudioEventAdapter;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
-import com.sedmelluq.discord.lavaplayer.track.AudioTrackState;
 import com.sedmelluq.discord.lavaplayer.track.playback.AudioFrame;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.module.music.catalog.MusicTrack;
+import org.encinet.mik.module.music.catalog.TrackTarget;
 import org.encinet.mik.module.music.online.OnlineAudioCache;
 import org.encinet.mik.module.music.rhythm.analysis.RhythmTimeline;
 import su.plo.slib.api.server.position.ServerPos3d;
@@ -100,6 +100,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
         private final JukeboxExperienceMode experienceMode;
         private final JukeboxPlaybackGroup playbackGroup;
         private final JukeboxPlaybackGroup.Member playbackMember;
+        private final Object frameLock = new Object();
         private final AtomicBoolean preparationStarted = new AtomicBoolean();
         private final AtomicBoolean playbackRequested = new AtomicBoolean();
         private final AtomicBoolean outputStarted = new AtomicBoolean();
@@ -272,6 +273,11 @@ final class AudioPlaybackEngine implements AutoCloseable {
                     plugin.getLogger().warning("Online audio for " + music.id()
                             + " is not seekable; recovery will restart from the beginning");
                 }
+                JukeboxPlaybackGroup.Seek pendingSeek = playbackMember.pendingSeek();
+                if (pendingSeek != null) {
+                    track.setPosition(pendingSeek.positionMillis());
+                    playbackMember.appliedSeek(pendingSeek);
+                }
                 AudioPlayer player = loader.createPlayer();
                 audioPlayer = player;
                 boolean clientPreRoll = JukeboxAudioSynchronizer.requiresClientPreRoll(
@@ -297,6 +303,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                     }
                 });
                 player.playTrack(track);
+                if (playbackGroup.paused()) player.setPaused(true);
 
                 ServerProximitySource<?> proximitySource = source;
                 if (proximitySource == null) {
@@ -316,10 +323,12 @@ final class AudioPlaybackEngine implements AutoCloseable {
                         provider, () -> (short) settings.rangeBlocks());
                 sender = audioSender;
                 audioSender.onStop(() -> complete(expectedAttempt));
-                status = PlaybackStatus.PLAYING;
+                status = playbackGroup.paused()
+                        ? PlaybackStatus.PAUSED : PlaybackStatus.PLAYING;
                 audioSender.start();
                 if (current(expectedAttempt)) {
                     playbackStarted.set(true);
+                    logOnlineStart(loaded);
                     callbacks.started();
                 }
             } catch (RuntimeException exception) {
@@ -327,14 +336,59 @@ final class AudioPlaybackEngine implements AutoCloseable {
             }
         }
 
+        private void logOnlineStart(AudioTrackLoader.LoadedAudio loaded) {
+            if (!(music.target() instanceof TrackTarget.Lx online)) return;
+            OnlineAudioCache.AudioOrigin origin = loaded.origin();
+            String musicSource = origin != null && origin.providerName() != null
+                    ? origin.providerName()
+                    : origin != null && origin.providerId() != null
+                    ? origin.providerId() : "unknown";
+            String message = "Playing online music: source=\"" + logField(musicSource) + "\""
+                    + ", platform=" + logField(online.source())
+                    + ", songId=" + logField(online.songId())
+                    + ", title=\"" + logField(music.details().title()) + "\"";
+            if (origin != null && origin.providerId() != null) {
+                message += ", providerId=\"" + logField(origin.providerId()) + "\"";
+            }
+            if (origin != null && origin.cached()) {
+                message += ", cached=true";
+            }
+            String artist = music.details().artist();
+            if (artist != null) {
+                message += ", artist=\"" + logField(artist) + "\"";
+            }
+            plugin.getLogger().info(message);
+        }
+
+        private static String logField(String value) {
+            String clean = value.replaceAll("\\p{Cntrl}", " ").strip();
+            if (clean.length() > 120) {
+                clean = clean.substring(0, 120) + "…";
+            }
+            return clean.replace("\\", "\\\\").replace("\"", "\\\"");
+        }
+
         private AudioFrameResult provideFrame(long expectedAttempt,
                                               AudioTrack track, AudioPlayer player) {
-            // Lavaplayer may remain INACTIVE briefly after playTrack(), especially when
-            // the track was seeked before startup. Only FINISHED is terminal here.
-            if (!current(expectedAttempt)
-                    || track.getState() == AudioTrackState.FINISHED) {
+            synchronized (frameLock) {
+                return provideFrameLocked(expectedAttempt, track, player);
+            }
+        }
+
+        private AudioFrameResult provideFrameLocked(long expectedAttempt,
+                                                    AudioTrack track, AudioPlayer player) {
+            if (!current(expectedAttempt)) {
                 return AudioFrameResult.Finished.INSTANCE;
             }
+            if (status == PlaybackStatus.PAUSED) {
+                return new AudioFrameResult.Provided(null);
+            }
+            if (playbackMember.pendingSeek() != null) {
+                return player.getPlayingTrack() == track
+                        ? new AudioFrameResult.Provided(null)
+                        : AudioFrameResult.Finished.INSTANCE;
+            }
+            long seekVersion = playbackMember.seekVersion();
             if (clientPreRollFramesRemaining.get() > 0) {
                 try {
                     if (playbackMember.ensureLeadership()) {
@@ -365,7 +419,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 frame = player.provide();
             }
             if (frame == null) {
-                return new AudioFrameResult.Provided(null);
+                return noFrame(track, player);
             }
             if (!firstFrameSynchronized.get() && track.isSeekable()
                     && startupSeekApplied.compareAndSet(false, true)) {
@@ -388,7 +442,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                     }
                     frame = player.provide();
                     if (frame == null) {
-                        return new AudioFrameResult.Provided(null);
+                        return noFrame(track, player);
                     }
                 }
                 long groupPosition = playbackMember.synchronizedPositionMillis();
@@ -403,7 +457,11 @@ final class AudioPlaybackEngine implements AutoCloseable {
             }
             // Publish the frame that is actually leaving the server. Decoder position may
             // be ahead by its buffer and would make later jukeboxes seek too far forward.
-            playbackMember.publishPositionMillis(frame.getTimecode());
+            if (playbackMember.pendingSeek() != null
+                    || seekVersion != playbackMember.seekVersion()) {
+                return new AudioFrameResult.Provided(null);
+            }
+            playbackMember.publishPositionMillis(frame.getTimecode(), seekVersion);
             try {
                 return new AudioFrameResult.Provided(
                         voiceServer.getDefaultEncryption().encrypt(frame.getData()));
@@ -411,6 +469,13 @@ final class AudioPlaybackEngine implements AutoCloseable {
                 markFailure(expectedAttempt, exception);
                 return AudioFrameResult.Finished.INSTANCE;
             }
+        }
+
+        private AudioFrameResult noFrame(AudioTrack track, AudioPlayer player) {
+            // Lavaplayer clears the active track after consuming its final buffered frame.
+            return player.getPlayingTrack() == track
+                    ? new AudioFrameResult.Provided(null)
+                    : AudioFrameResult.Finished.INSTANCE;
         }
 
         private void markFailure(long expectedAttempt, Throwable error) {
@@ -500,9 +565,64 @@ final class AudioPlaybackEngine implements AutoCloseable {
 
         @Override
         public long positionMillis() {
+            if (status == PlaybackStatus.PAUSED) {
+                return playbackMember.synchronizedPositionMillis();
+            }
             AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
             return loaded == null ? finalPositionMillis
                     : Math.max(finalPositionMillis, Math.max(0, loaded.track().getPosition()));
+        }
+
+        @Override
+        public boolean canSeek() {
+            AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
+            AudioPlayer player = audioPlayer;
+            return (status() == PlaybackStatus.PLAYING || status() == PlaybackStatus.PAUSED)
+                    && loaded != null
+                    && player != null && player.getPlayingTrack() == loaded.track()
+                    && loaded.track().isSeekable();
+        }
+
+        @Override
+        public void seekTo(long positionMillis) {
+            synchronized (frameLock) {
+                JukeboxPlaybackGroup.Seek requested = playbackMember.pendingSeek();
+                AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
+                AudioPlayer player = audioPlayer;
+                if (requested == null || !canSeek()
+                        || loaded == null || player == null
+                        || player.getPlayingTrack() != loaded.track()
+                        || !loaded.track().isSeekable()) return;
+                AudioTrack track = loaded.track();
+                long target = CorruptAudioRecovery.resumePositionMillis(
+                        requested.positionMillis(), true, track.getDuration());
+                heldAheadFrame.set(null);
+                clientPreRollFramesRemaining.set(0);
+                firstFrameSynchronized.set(true);
+                startupSeekApplied.set(true);
+                finalPositionMillis = target;
+                track.setPosition(target);
+                playbackMember.appliedSeek(requested);
+            }
+        }
+
+        @Override
+        public void setPaused(boolean paused) {
+            synchronized (frameLock) {
+                AudioPlayer player = audioPlayer;
+                if (player == null || stopped.get() || terminal.get()) return;
+                if (paused && status == PlaybackStatus.PLAYING) {
+                    status = PlaybackStatus.PAUSED;
+                    player.setPaused(true);
+                } else if (!paused && status == PlaybackStatus.PAUSED) {
+                    AudioTrackLoader.LoadedAudio loaded = loadedAudio.get();
+                    if (loaded != null && loaded.track().isSeekable()) {
+                        loaded.track().setPosition(playbackMember.synchronizedPositionMillis());
+                    }
+                    player.setPaused(false);
+                    status = PlaybackStatus.PLAYING;
+                }
+            }
         }
 
         @Override

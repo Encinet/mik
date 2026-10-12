@@ -500,7 +500,8 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                     if (error == null) {
                         attempt.channel().succeeded();
                         return CompletableFuture.completedFuture(new LxTrackResolver.Resolution(
-                                url, attempt.channel().info().id()));
+                                url, attempt.channel().info().id(),
+                                attempt.channel().info().name()));
                     }
                     String message = rootMessage(error);
                     if (isTimeout(error)) {

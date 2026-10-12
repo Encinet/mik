@@ -15,6 +15,11 @@ public interface JukeboxPlaybackStatus {
         return new JukeboxPlaybackSnapshot(status(block), 0L);
     }
 
+    /** Whether the active music playback can move to another position. */
+    default boolean seekable(Block block) {
+        return false;
+    }
+
     /** Returns the mode captured by the active attempt; setting changes affect the next one. */
     default java.util.Optional<JukeboxExperienceMode> activeExperienceMode(Block block) {
         return java.util.Optional.empty();
