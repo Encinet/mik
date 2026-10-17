@@ -13,14 +13,18 @@ import org.skriptlang.skript.registration.SyntaxRegistry;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MikSkriptModuleTest {
@@ -92,6 +96,61 @@ class MikSkriptModuleTest {
                     .map(MikSkriptModuleTest::withoutTypePlaceholders)
                     .forEach(PatternCompiler::compile);
         }
+    }
+
+    @Test
+    void unregistersMikSyntaxFromEveryParserRegistryWithoutRemovingOtherAddons() {
+        var skript = org.skriptlang.skript.Skript.of(MikSkriptModuleTest.class, "TestSkript");
+        Function<Player, String> value = player -> "value";
+        var facade = new MikSkriptFacade(null, value, value, value, null, null);
+        var other = skript.registerAddon(MikSkriptModuleTest.class, "OtherAddon");
+        other.syntaxRegistry().register(SyntaxRegistry.EXPRESSION,
+                SyntaxInfo.Expression.builder(MikPlayerPropertyExpression.class, String.class)
+                        .supplier(() -> new MikPlayerPropertyExpression(facade))
+                        .addPattern("other property of %players%")
+                        .build());
+        var otherSyntax = List.copyOf(skript.syntaxRegistry().elements());
+        var addon = MikSkriptModule.register(skript, MikSkriptModuleTest.class, facade);
+        // Populate the cached parser views before unloading the plugin.
+        assertEquals(6, skript.syntaxRegistry().syntaxes(SyntaxRegistry.EXPRESSION).size());
+        assertEquals(9, skript.syntaxRegistry().syntaxes(SyntaxRegistry.STATEMENT).size());
+        assertEquals(1, skript.syntaxRegistry().syntaxes(SyntaxRegistry.SECTION).size());
+
+        MikSkriptModule.unregister(addon);
+        MikSkriptModule.unregister(addon);
+
+        assertEquals(otherSyntax, List.copyOf(skript.syntaxRegistry().elements()));
+        assertEquals(otherSyntax, List.copyOf(skript.syntaxRegistry().syntaxes(SyntaxRegistry.EXPRESSION)));
+        assertTrue(skript.syntaxRegistry().syntaxes(SyntaxRegistry.EFFECT).isEmpty());
+        assertTrue(skript.syntaxRegistry().syntaxes(SyntaxRegistry.CONDITION).isEmpty());
+        assertTrue(skript.syntaxRegistry().syntaxes(SyntaxRegistry.STATEMENT).isEmpty());
+        assertTrue(skript.syntaxRegistry().syntaxes(SyntaxRegistry.SECTION).isEmpty());
+    }
+
+    @Test
+    void rollsBackPartiallyRegisteredSyntaxWhenRegistrationFails() {
+        var skript = org.skriptlang.skript.Skript.of(MikSkriptModuleTest.class, "TestSkript");
+        SyntaxRegistry registry = skript.syntaxRegistry();
+        AtomicInteger registrations = new AtomicInteger();
+        var failure = new IllegalStateException("Registration failed");
+        SyntaxRegistry failing = (SyntaxRegistry) Proxy.newProxyInstance(
+                SyntaxRegistry.class.getClassLoader(), new Class<?>[]{SyntaxRegistry.class},
+                (proxy, method, arguments) -> {
+                    Object result = method.invoke(registry, arguments);
+                    if (method.getName().equals("register") && registrations.incrementAndGet() == 3) {
+                        throw failure;
+                    }
+                    return result;
+                });
+        skript.storeRegistry(SyntaxRegistry.class, failing);
+        Function<Player, String> value = player -> "value";
+        var facade = new MikSkriptFacade(null, value, value, value, null, null);
+
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> MikSkriptModule.register(skript, MikSkriptModuleTest.class, facade)));
+
+        assertEquals(3, registrations.get());
+        assertTrue(registry.elements().isEmpty());
     }
 
     @Test

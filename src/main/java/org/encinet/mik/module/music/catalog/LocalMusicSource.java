@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.nio.file.FileVisitResult;
 import java.nio.file.SimpleFileVisitor;
@@ -45,6 +46,7 @@ public final class LocalMusicSource {
     }
 
     public List<MusicTrack> load() throws IOException {
+        checkInterrupted();
         Files.createDirectories(root);
         return findSupportedAudioFiles(root).stream()
                 .map(this::parse)
@@ -56,6 +58,7 @@ public final class LocalMusicSource {
     }
 
     private MusicTrack parse(Path path) {
+        checkInterrupted();
         String id = toTrackId(root, path);
         try {
             String extension = getFileExtension(id);
@@ -63,12 +66,16 @@ public final class LocalMusicSource {
                 return parseNbs(path, id);
             }
             TrackDetails details = metadataReader.read(path, extension, displayName(id));
+            checkInterrupted();
             if (details == null) {
                 warningLogger.accept("Skipping unsupported or damaged local music file " + id);
                 return null;
             }
             return new MusicTrack(id, details, new TrackTarget.LocalFile(path, root));
+        } catch (CancellationException cancelled) {
+            throw cancelled;
         } catch (RuntimeException exception) {
+            checkInterrupted();
             warningLogger.accept("Skipping invalid local music file " + id + ": "
                     + exception.getMessage());
             return null;
@@ -78,6 +85,7 @@ public final class LocalMusicSource {
     private MusicTrack parseNbs(Path path, String id) {
         try {
             NbsSong song = nbsParser.parse(path);
+            checkInterrupted();
             String displayName = song.title() == null ? displayName(id)
                     : limit(song.title(), 512);
             return new MusicTrack(id,
@@ -86,7 +94,10 @@ public final class LocalMusicSource {
                             new AudioProperties(fileSize(path), null,
                                     song.duration())),
                     new TrackTarget.NbsFile(path, root));
+        } catch (CancellationException cancelled) {
+            throw cancelled;
         } catch (IOException | RuntimeException exception) {
+            checkInterrupted();
             warningLogger.accept("Skipping invalid NBS file " + id + ": " + exception.getMessage());
             return null;
         }
@@ -106,17 +117,20 @@ public final class LocalMusicSource {
     }
 
     static List<Path> findSupportedAudioFiles(Path root) throws IOException {
+        checkInterrupted();
         Path normalizedRoot = root.toAbsolutePath().normalize();
         List<Path> files = new java.util.ArrayList<>();
         Files.walkFileTree(normalizedRoot, java.util.EnumSet.noneOf(java.nio.file.FileVisitOption.class),
                 Integer.MAX_VALUE, new SimpleFileVisitor<>() {
                     @Override
                     public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
+                        checkInterrupted();
                         return FileVisitResult.CONTINUE;
                     }
 
                     @Override
                     public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
+                        checkInterrupted();
                         if (attributes.isRegularFile() && !Files.isSymbolicLink(file)
                                 && LocalMusicSource.isSupportedAudioFile(file)) {
                             files.add(file);
@@ -126,11 +140,18 @@ public final class LocalMusicSource {
 
                     @Override
                     public FileVisitResult visitFileFailed(Path file, IOException exception) {
+                        checkInterrupted();
                         return file.equals(normalizedRoot)
                                 ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
                     }
                 });
         return List.copyOf(files);
+    }
+
+    private static void checkInterrupted() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new CancellationException("Local music scan interrupted");
+        }
     }
 
     static boolean isSupportedAudioFile(Path path) {

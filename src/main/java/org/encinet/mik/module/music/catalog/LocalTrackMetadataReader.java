@@ -2,6 +2,7 @@ package org.encinet.mik.module.music.catalog;
 
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.concurrent.CancellationException;
 
 /** Owns the ordered metadata-reading chain for ordinary local audio files. */
 final class LocalTrackMetadataReader {
@@ -27,12 +28,16 @@ final class LocalTrackMetadataReader {
     }
 
     TrackDetails read(Path path, String extension, String fallbackTitle) {
+        checkInterrupted();
         LocalTrackMetadata embedded = safeRead(embeddedMetadata, path, extension);
+        checkInterrupted();
         PlaybackProbeResult playback = safeProbe(path, extension);
+        checkInterrupted();
         if (!playback.playable()) {
             return null;
         }
         LocalTrackMetadata technical = safeRead(technicalMetadata, path, extension);
+        checkInterrupted();
         return fallbackPolicy.details(fallbackTitle, extension.toUpperCase(java.util.Locale.ROOT),
                 embedded, playback.metadata(), technical);
     }
@@ -42,6 +47,8 @@ final class LocalTrackMetadataReader {
         try {
             LocalTrackMetadata result = reader.read(path, extension);
             return result == null ? LocalTrackMetadata.EMPTY : result;
+        } catch (CancellationException cancelled) {
+            throw cancelled;
         } catch (RuntimeException ignored) {
             return LocalTrackMetadata.EMPTY;
         }
@@ -51,8 +58,16 @@ final class LocalTrackMetadataReader {
         try {
             PlaybackProbeResult result = playbackProbe.probe(path, extension);
             return result == null ? PlaybackProbeResult.UNSUPPORTED : result;
+        } catch (CancellationException cancelled) {
+            throw cancelled;
         } catch (RuntimeException ignored) {
             return PlaybackProbeResult.UNSUPPORTED;
+        }
+    }
+
+    private static void checkInterrupted() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new CancellationException("Local music metadata load interrupted");
         }
     }
 }

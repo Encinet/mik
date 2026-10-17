@@ -180,6 +180,9 @@ public final class MusicModule {
                 plugin, this::updateRemoteSourcesAutomatically,
                 REMOTE_SOURCE_UPDATE_INTERVAL_TICKS, REMOTE_SOURCE_UPDATE_INTERVAL_TICKS);
         reloadAsync().whenComplete((report, error) -> {
+            if (!enabled.get()) {
+                return;
+            }
             if (error != null) {
                 plugin.getLogger().severe("Initial music load failed: " + rootMessage(error));
                 return;
@@ -258,6 +261,7 @@ public final class MusicModule {
         shutdown.attempt("jukebox listener", () -> HandlerList.unregisterAll(jukeboxListener));
         shutdown.attempt("ambient display", ambientStatusDisplay::disable);
         if (updateTask != null) shutdown.attempt("remote update task", updateTask::cancel);
+        shutdown.attempt("music library", musicLibrary::close);
         shutdown.attempt("reload executor", reloadExecutor::shutdownNow);
         shutdown.attempt("autoplay", autoPlayService::stopAll);
         shutdown.attempt("rhythm game", rhythmGameService::close);
@@ -266,7 +270,6 @@ public final class MusicModule {
         shutdown.attempt("audio cache", audioCache::close);
         shutdown.attempt("lyrics", lyricsService::close);
         shutdown.attempt("playback history", playbackHistory::close);
-        shutdown.attempt("music library", musicLibrary::close);
         shutdown.attempt("source service", sourceService::close);
         shutdown.attempt("queue", queueService::clear);
         shutdown.finish("music module");

@@ -16,6 +16,7 @@ import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -126,6 +127,54 @@ class LocalMusicSourceTest {
         assertEquals(List.of("'.nbs", "_.mp3"), tracks.stream().map(MusicTrack::id).toList());
         assertEquals(List.of("'.nbs", "_.mp3"),
                 tracks.stream().map(track -> track.details().title()).toList());
+    }
+
+    @Test
+    void interruptedScanStopsWithoutWarningAboutDamagedFiles() throws Exception {
+        Files.writeString(musicFolder.resolve("first.mp3"), "audio");
+        Files.writeString(musicFolder.resolve("second.mp3"), "audio");
+        List<String> warnings = new ArrayList<>();
+        var reads = new java.util.concurrent.atomic.AtomicInteger();
+        LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
+                (path, extension) -> {
+                    reads.incrementAndGet();
+                    return LocalTrackMetadata.EMPTY;
+                },
+                (path, extension) -> {
+                    Thread.currentThread().interrupt();
+                    return PlaybackProbeResult.UNSUPPORTED;
+                },
+                (path, extension) -> { throw new AssertionError("Must stop after interruption"); },
+                new MetadataFallbackPolicy());
+        LocalMusicSource source = new LocalMusicSource(musicFolder, reader,
+                new org.encinet.mik.module.music.catalog.nbs.NbsParser(), warnings::add);
+
+        try {
+            assertThrows(java.util.concurrent.CancellationException.class, source::load);
+            assertTrue(Thread.currentThread().isInterrupted());
+            assertEquals(1, reads.get());
+            assertTrue(warnings.isEmpty());
+            assertThrows(java.util.concurrent.CancellationException.class, source::load);
+            assertEquals(1, reads.get());
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void propagatesCancellationWithoutAnInterruptFlag() throws Exception {
+        Files.writeString(musicFolder.resolve("first.mp3"), "audio");
+        List<String> warnings = new ArrayList<>();
+        LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
+                (path, extension) -> { throw new java.util.concurrent.CancellationException("Stopped"); },
+                (path, extension) -> { throw new AssertionError("Must stop after cancellation"); },
+                (path, extension) -> LocalTrackMetadata.EMPTY,
+                new MetadataFallbackPolicy());
+        LocalMusicSource source = new LocalMusicSource(musicFolder, reader,
+                new org.encinet.mik.module.music.catalog.nbs.NbsParser(), warnings::add);
+
+        assertThrows(java.util.concurrent.CancellationException.class, source::load);
+        assertTrue(warnings.isEmpty());
     }
 
     @Test

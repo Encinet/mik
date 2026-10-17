@@ -13,8 +13,10 @@ import org.encinet.mik.module.i18n.LanguageService;
 import org.encinet.mik.module.role.PlayerRole;
 import org.encinet.mik.module.pvp.PvpAccess;
 import org.encinet.mik.module.space.NonEuclideanSpaceService;
+import org.encinet.mik.util.ShutdownSequence;
 import org.jetbrains.annotations.Nullable;
 import org.skriptlang.skript.addon.SkriptAddon;
+import org.skriptlang.skript.docs.Origin;
 import org.skriptlang.skript.registration.SyntaxInfo;
 import org.skriptlang.skript.registration.SyntaxRegistry;
 
@@ -31,6 +33,8 @@ public final class MikSkriptModule {
     private final MikSkriptFacade facade;
     private final SkriptInfoCommand infoCommand;
     private final ScriptLoader.ScriptUnloadEvent unloadListener;
+    private SkriptAddon addon;
+    private boolean unloadListenerRegistered;
 
     public MikSkriptModule(JavaPlugin plugin, LanguageService languageService,
                            @Nullable Function<Player, String> clientVersionLookup,
@@ -80,20 +84,56 @@ public final class MikSkriptModule {
             plugin.getLogger().info("Skript not found; MIK Skript expressions are disabled.");
             return;
         }
-        register(Skript.instance(), plugin.getClass(), facade);
+        addon = register(Skript.instance(), plugin.getClass(), facade);
         ScriptLoader.eventRegistry().register(ScriptLoader.ScriptUnloadEvent.class, unloadListener);
+        unloadListenerRegistered = true;
         plugin.getLogger().info("Registered MIK server API with Skript.");
     }
 
     public void disable() {
-        ScriptLoader.eventRegistry().unregister(unloadListener);
-        facade.clearSpaces();
+        ShutdownSequence shutdown = new ShutdownSequence();
+        if (addon != null) {
+            shutdown.attempt("Skript syntax", () -> unregister(addon));
+            addon = null;
+        }
+        if (unloadListenerRegistered) {
+            shutdown.attempt("script unload listener",
+                    () -> ScriptLoader.eventRegistry().unregister(unloadListener));
+            unloadListenerRegistered = false;
+        }
+        shutdown.attempt("script spaces", facade::clearSpaces);
+        shutdown.finish("Skript module");
     }
 
-    static void register(org.skriptlang.skript.Skript skript, Class<?> pluginClass,
-                         MikSkriptFacade facade) {
+    static SkriptAddon register(org.skriptlang.skript.Skript skript, Class<?> pluginClass,
+                                MikSkriptFacade facade) {
         SkriptAddon addon = skript.registerAddon(pluginClass, ADDON_NAME);
+        try {
+            registerSyntax(addon.syntaxRegistry(), facade);
+        } catch (RuntimeException | LinkageError error) {
+            try {
+                unregister(addon);
+            } catch (RuntimeException | LinkageError cleanupError) {
+                error.addSuppressed(cleanupError);
+            }
+            throw error;
+        }
+        return addon;
+    }
+
+    static void unregister(SkriptAddon addon) {
+        // Addon registries share Skript's global registry; remove only our own entries.
         SyntaxRegistry registry = addon.syntaxRegistry();
+        for (SyntaxInfo<?> info : registry.elements()) {
+            if (info.origin() instanceof Origin.AddonOrigin origin
+                    && origin.addon().source() == addon.source()
+                    && origin.name().equals(addon.name())) {
+                registry.unregister(info);
+            }
+        }
+    }
+
+    private static void registerSyntax(SyntaxRegistry registry, MikSkriptFacade facade) {
         registry.register(SyntaxRegistry.EXPRESSION,
                 SyntaxInfo.Expression.builder(MikPlayerPropertyExpression.class, String.class)
                         .supplier(() -> new MikPlayerPropertyExpression(facade))
