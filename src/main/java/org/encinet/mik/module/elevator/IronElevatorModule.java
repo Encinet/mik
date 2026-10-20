@@ -4,6 +4,12 @@ import com.destroystokyo.paper.event.player.PlayerJumpEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.GameMode;
+import org.bukkit.Input;
+import org.bukkit.entity.Entity;
+import org.bukkit.event.player.PlayerInputEvent;
+import org.bukkit.event.entity.EntityDismountEvent;
+import org.bukkit.event.entity.HorseJumpEvent;
+import com.destroystokyo.paper.event.entity.EntityJumpEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
@@ -53,6 +59,7 @@ public final class IronElevatorModule implements Listener {
     private final IronElevatorFloors floors = new IronElevatorFloors();
     private final IronElevatorWallPanel wallPanel;
     private final IronElevatorPanelInteraction panelInteraction;
+    private final Map<UUID, Input> lastInputs = new HashMap<>();
     private final Map<UUID, BukkitTask> pending = new HashMap<>();
     private final Map<UUID, Long> lastTeleport = new HashMap<>();
     private final Map<UUID, IronElevatorPlatform> platforms = new HashMap<>();
@@ -90,6 +97,7 @@ public final class IronElevatorModule implements Listener {
         HandlerList.unregisterAll(panelInteraction);
         pending.values().forEach(BukkitTask::cancel);
         pending.clear();
+        lastInputs.clear();
         lastTeleport.clear();
         if (hintTask != null) {
             hintTask.cancel();
@@ -148,7 +156,7 @@ public final class IronElevatorModule implements Listener {
 
     private void updateHint(Player player, Location feet, boolean refresh) {
         UUID playerId = player.getUniqueId();
-        Block standing = canUse(player) ? IronElevatorLanding.platformAt(feet) : null;
+        Block standing = canUse(player) ? IronElevatorTravelGroup.platformAt(player, feet) : null;
         if (standing == null) {
             platforms.remove(playerId);
             clearHint(player);
@@ -165,9 +173,9 @@ public final class IronElevatorModule implements Listener {
             return;
         }
         platforms.put(playerId, platform);
-        IronElevatorLanding.Size playerSize = size(player);
-        boolean up = floors.destination(standing, 1, null, feet, playerSize, player::wouldCollideUsing) != null;
-        boolean down = floors.destination(standing, -1, null, feet, playerSize, player::wouldCollideUsing) != null;
+        IronElevatorTravelGroup group = IronElevatorTravelGroup.collect(player, platform);
+        boolean up = group != null && floors.destination(standing, 1, null, group::landing) != null;
+        boolean down = group != null && floors.destination(standing, -1, null, group::landing) != null;
         if (!up && !down) {
             clearHint(player);
             return;
@@ -200,6 +208,52 @@ public final class IronElevatorModule implements Listener {
         if (event.isSneaking()) {
             request(event.getPlayer(), event.getPlayer().getLocation(), -1, () -> !event.isCancelled());
         }
+    }
+
+    @EventHandler
+    public void onMountedInput(PlayerInputEvent event) {
+        Player player = event.getPlayer();
+        Input previous = lastInputs.put(player.getUniqueId(), event.getInput());
+        if (!player.isInsideVehicle()) return;
+        Input input = event.getInput();
+        if (input.isSneak() && (previous == null || !previous.isSneak())) {
+            request(player, player.getLocation(), -1, () -> true);
+        } else if (input.isJump() && (previous == null || !previous.isJump())) {
+            request(player, player.getLocation(), 1, () -> true);
+        }
+        updateHint(player, player.getLocation(), true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onMountedDismount(EntityDismountEvent event) {
+        if (event.isCancellable() && event.getEntity() instanceof Player player) {
+            Input input = lastInputs.get(player.getUniqueId());
+            if (pending.containsKey(player.getUniqueId()) && input != null && input.isSneak()) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onMountJump(EntityJumpEvent event) {
+        if (hasPendingRider(event.getEntity())) event.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onHorseJump(HorseJumpEvent event) {
+        if (hasPendingRider(event.getEntity())) event.setCancelled(true);
+    }
+
+    private boolean hasPendingRider(Entity vehicle) {
+        java.util.ArrayDeque<Entity> remaining = new java.util.ArrayDeque<>(vehicle.getPassengers());
+        Set<UUID> visited = new HashSet<>();
+        while (!remaining.isEmpty() && visited.size() < 64) {
+            Entity rider = remaining.removeFirst();
+            if (!visited.add(rider.getUniqueId())) continue;
+            if (rider instanceof Player && pending.containsKey(rider.getUniqueId())) return true;
+            remaining.addAll(rider.getPassengers());
+        }
+        return false;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -273,6 +327,7 @@ public final class IronElevatorModule implements Listener {
             task.cancel();
         }
         lastTeleport.remove(playerId);
+        lastInputs.remove(playerId);
         platforms.remove(playerId);
         showingHint.remove(playerId);
         wallPanel.clear(event.getPlayer());
@@ -290,8 +345,8 @@ public final class IronElevatorModule implements Listener {
                 || (previousTeleport != null && System.nanoTime() - previousTeleport < COOLDOWN_NANOS)) {
             return false;
         }
-        Block source = IronElevatorLanding.platformAt(origin);
-        if (source == null || destination(player, source, direction, targetY, origin) == null) {
+        Block source = IronElevatorTravelGroup.platformAt(player, origin);
+        if (source == null || destination(player, source, direction, targetY) == null) {
             return false;
         }
         IronElevatorPlatform sourcePlatform = floors.platform(source);
@@ -302,12 +357,14 @@ public final class IronElevatorModule implements Listener {
                 return;
             }
             Location departure = player.getLocation();
-            Block current = IronElevatorLanding.platformAt(departure);
+            Block current = IronElevatorTravelGroup.platformAt(player, departure);
             if (current == null || !sourcePlatform.equals(floors.platform(current))) {
                 return;
             }
-            Location destination = destination(player, current, direction, targetY, departure);
-            if (destination == null || !player.teleport(destination, PlayerTeleportEvent.TeleportCause.PLUGIN)) {
+            IronElevatorTravelGroup group = IronElevatorTravelGroup.collect(player, floors.platform(current));
+            if (group == null) return;
+            Location destination = floors.destination(current, direction, targetY, group::landing);
+            if (destination == null || !group.teleport(destination, plugin.getLogger()::warning)) {
                 return;
             }
             lastTeleport.put(playerId, System.nanoTime());
@@ -322,14 +379,14 @@ public final class IronElevatorModule implements Listener {
     }
 
     private static boolean canUse(Player player) {
-        return player.isOnline() && !player.isDead() && !player.isInsideVehicle()
+        return player.isOnline() && !player.isDead()
                 && !player.isFlying() && !player.isGliding() && !player.isSwimming()
                 && player.getGameMode() != GameMode.SPECTATOR;
     }
 
-    private Location destination(Player player, Block source, int direction, Integer targetY,
-                                        Location origin) {
-        return floors.destination(source, direction, targetY, origin, size(player), player::wouldCollideUsing);
+    private Location destination(Player player, Block source, int direction, Integer targetY) {
+        IronElevatorTravelGroup group = IronElevatorTravelGroup.collect(player, floors.platform(source));
+        return group == null ? null : floors.destination(source, direction, targetY, group::landing);
     }
 
     static IronElevatorLanding.Size size(Player player) {

@@ -28,6 +28,7 @@ final class IronElevatorTestWorld {
     }
 
     private static final Cell AIR = new Cell(Material.AIR, List.of(), Set.of());
+    final java.util.List<org.bukkit.entity.Entity> entities = new java.util.ArrayList<>();
     final UUID worldId = UUID.randomUUID();
     final Map<Position, Integer> terrain = new HashMap<>();
     final Set<String> unloadedChunks = new HashSet<>();
@@ -40,6 +41,8 @@ final class IronElevatorTestWorld {
     final World world = (World) Proxy.newProxyInstance(World.class.getClassLoader(),
             new Class<?>[]{World.class}, (proxy, method, arguments) -> switch (method.getName()) {
                 case "getUID" -> worldId;
+                case "getNearbyEntities" -> entities.stream().filter(entity ->
+                        ((BoundingBox) arguments[0]).overlaps(entity.getBoundingBox())).toList();
                 case "getMinHeight" -> -64;
                 case "getMaxHeight" -> 384;
                 case "getEnvironment" -> environment;

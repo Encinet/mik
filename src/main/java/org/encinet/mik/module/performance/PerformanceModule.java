@@ -429,8 +429,8 @@ public class PerformanceModule implements Listener {
         private static final int PERFORMANCE_SIMULATION_MIN = 4;
         private static final int AFK_RENDER_DISTANCE = 2;
         private static final int AFK_SIMULATION_DISTANCE = 2;
-        private static final int DISTANCE_ADJUST_COOLDOWN_WINDOWS = 15;  // ~30 s
-        private static final int DISTANCE_RECOVERY_CONFIRM_WINDOWS = 5;  // ~10 s
+        private static final long DISTANCE_ADJUST_COOLDOWN_MILLIS = 30_000L;
+        private static final long DISTANCE_RECOVERY_CONFIRM_MILLIS = 10_000L;
 
         private final AfkService afkService;
         private final int originalRenderDistance;
@@ -441,8 +441,8 @@ public class PerformanceModule implements Listener {
         private int maximumRenderDistance;
         private int currentPerformanceRenderDistance;
         private int currentPerformanceSimulationDistance;
-        private int distanceAdjustCooldown = 0;
-        private int recoveryConfirmCount = 0;
+        private DistanceAdjustmentPolicy performanceAdjustment;
+        private final Map<UUID, DistanceAdjustmentPolicy> playerAdjustments = new HashMap<>();
 
         PlayerDistanceController(AfkService afkService, int baseRenderDistance, int baseSimulationDistance) {
             this.afkService = afkService;
@@ -453,6 +453,7 @@ public class PerformanceModule implements Listener {
             this.afkSimulationDistance = Math.clamp(AFK_SIMULATION_DISTANCE, 2, this.baseSimulationDistance);
             this.currentPerformanceRenderDistance = this.maximumRenderDistance;
             this.currentPerformanceSimulationDistance = this.baseSimulationDistance;
+            resetPerformanceAdjustment();
         }
 
         void primeOnlinePlayers() {
@@ -481,6 +482,7 @@ public class PerformanceModule implements Listener {
 
         void untrack(Player player) {
             appliedDistances.remove(player.getUniqueId());
+            playerAdjustments.remove(player.getUniqueId());
         }
 
         void adjust(double effectiveMspt) {
@@ -500,12 +502,12 @@ public class PerformanceModule implements Listener {
             maximumRenderDistance = originalRenderDistance;
             currentPerformanceRenderDistance = originalRenderDistance;
             currentPerformanceSimulationDistance = baseSimulationDistance;
-            distanceAdjustCooldown = 0;
-            recoveryConfirmCount = 0;
+            resetPerformanceAdjustment();
             for (Player player : Bukkit.getOnlinePlayers()) {
                 applyIfChanged(player, originalRenderDistance, baseSimulationDistance);
             }
             appliedDistances.clear();
+            playerAdjustments.clear();
         }
 
         int maximumRenderDistance() {
@@ -516,8 +518,7 @@ public class PerformanceModule implements Listener {
             maximumRenderDistance = Math.clamp(distance, 2, 32);
             currentPerformanceRenderDistance = interpolateMspt(
                     effectiveMspt, maximumRenderDistance, PERFORMANCE_RENDER_MIN);
-            distanceAdjustCooldown = DISTANCE_ADJUST_COOLDOWN_WINDOWS;
-            recoveryConfirmCount = 0;
+            resetPerformanceAdjustment();
             for (Player player : Bukkit.getOnlinePlayers()) {
                 apply(
                         player,
@@ -545,42 +546,30 @@ public class PerformanceModule implements Listener {
                             requestedRender,
                             requestedSimulation,
                             clientViewDistance);
-            applyIfChanged(player, distances.viewDistance(), distances.simulationDistance());
+            DistanceAdjustmentPolicy adjustment = playerAdjustments.computeIfAbsent(
+                    player.getUniqueId(), ignored -> new DistanceAdjustmentPolicy(
+                            player.getViewDistance(), player.getSimulationDistance(), 2_000L, 2_000L, 2));
+            PlayerViewDistancePolicy.EffectiveDistances paced = adjustment.update(
+                    monotonicMillis(), distances.viewDistance(), distances.simulationDistance(), true);
+            applyIfChanged(player, paced.viewDistance(), paced.simulationDistance());
         }
 
         private void updatePerformanceDistances(int targetRender, int targetSimulation) {
-            if (distanceAdjustCooldown > 0) {
-                distanceAdjustCooldown--;
-            }
-
-            boolean lowering = targetRender < currentPerformanceRenderDistance
-                    || targetSimulation < currentPerformanceSimulationDistance;
-            boolean raising = targetRender > currentPerformanceRenderDistance
-                    || targetSimulation > currentPerformanceSimulationDistance;
-            if (!lowering && !raising) {
-                recoveryConfirmCount = 0;
-                return;
-            }
-
-            if (lowering) {
-                recoveryConfirmCount = 0;
-                if (distanceAdjustCooldown == 0 || isMinimumPerformanceDistance(targetRender, targetSimulation)) {
-                    applyPerformanceDistances(targetRender, targetSimulation);
-                }
-                return;
-            }
-
-            recoveryConfirmCount = Math.min(recoveryConfirmCount + 1, DISTANCE_RECOVERY_CONFIRM_WINDOWS);
-            if (distanceAdjustCooldown == 0 && recoveryConfirmCount >= DISTANCE_RECOVERY_CONFIRM_WINDOWS) {
-                applyPerformanceDistances(targetRender, targetSimulation);
-                recoveryConfirmCount = 0;
-            }
+            PlayerViewDistancePolicy.EffectiveDistances distances = performanceAdjustment.update(
+                    monotonicMillis(), targetRender, targetSimulation,
+                    isMinimumPerformanceDistance(targetRender, targetSimulation));
+            currentPerformanceRenderDistance = distances.viewDistance();
+            currentPerformanceSimulationDistance = distances.simulationDistance();
         }
 
-        private void applyPerformanceDistances(int renderDistance, int simulationDistance) {
-            currentPerformanceRenderDistance = renderDistance;
-            currentPerformanceSimulationDistance = simulationDistance;
-            distanceAdjustCooldown = DISTANCE_ADJUST_COOLDOWN_WINDOWS;
+        private void resetPerformanceAdjustment() {
+            performanceAdjustment = new DistanceAdjustmentPolicy(
+                    currentPerformanceRenderDistance, currentPerformanceSimulationDistance,
+                    DISTANCE_ADJUST_COOLDOWN_MILLIS, DISTANCE_RECOVERY_CONFIRM_MILLIS, 1);
+        }
+
+        private static long monotonicMillis() {
+            return System.nanoTime() / 1_000_000L;
         }
 
         private boolean isMinimumPerformanceDistance(int renderDistance, int simulationDistance) {

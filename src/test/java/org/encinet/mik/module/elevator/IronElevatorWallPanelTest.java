@@ -132,6 +132,7 @@ class IronElevatorWallPanelTest {
         eye.setDirection(target.toVector().subtract(eye.toVector()));
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
                 (proxy, method, arguments) -> switch (method.getName()) {
+                    case "isInsideVehicle" -> false;
                     case "getLocation" -> feet.clone();
                     case "getEyeLocation" -> eye.clone();
                     case "getWorld" -> world.world;

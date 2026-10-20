@@ -81,14 +81,14 @@ final class IronElevatorWallPanel {
         int page = Math.clamp(requestedPage, 0, pageCount - 1);
         List<Button> buttons = new ArrayList<>();
         List<String> keys = new ArrayList<>();
+        IronElevatorTravelGroup group = IronElevatorTravelGroup.collect(player, source);
         int start = page * pageSize;
         int pageItems = Math.min(levels.size() - start, pageSize);
         for (int index = start; index < start + pageItems; index++) {
             IronElevatorFloors.Floor floor = levels.get(index);
             int slot = index - start;
             boolean selected = floor.block().getY() == source.height();
-            boolean available = !selected && IronElevatorLanding.on(floor.platform(), player.getLocation(),
-                    IronElevatorModule.size(player), player::wouldCollideUsing) != null;
+            boolean available = !selected && group != null && group.landing(floor.platform()) != null;
             Button button = floorButton(layout, slot, pageItems, floor.block().getY(), available);
             show(player, wall, keys, "floor:" + slot, button.sideways(), button.above(),
                     floorLabel(floor.number(), selected, available));
@@ -157,7 +157,7 @@ final class IronElevatorWallPanel {
 
     static IronElevatorWall.Hit hitAt(Player player, IronElevatorPlatform source, IronElevatorWall wall,
                                     IronElevatorPanelLayout layout) {
-        Block standing = IronElevatorLanding.platformAt(player.getLocation());
+        Block standing = IronElevatorTravelGroup.platformAt(player, player.getLocation());
         if (standing == null || !source.contains(standing)) {
             return null;
         }

@@ -115,16 +115,28 @@ final class IronElevatorFloors {
 
     Location destination(Block source, int direction, Integer targetY, Location origin,
                          IronElevatorLanding.Size size, Predicate<BoundingBox> extraCollision) {
+        return destination(source, direction, targetY, origin, size, extraCollision, target -> true);
+    }
+
+    Location destination(Block source, int direction, Integer targetY, Location origin,
+                         IronElevatorLanding.Size size, Predicate<BoundingBox> extraCollision,
+                         Predicate<IronElevatorPlatform> groupFits) {
+        return destination(source, direction, targetY, target -> groupFits.test(target)
+                ? IronElevatorLanding.on(target, origin, size, extraCollision) : null);
+    }
+
+    Location destination(Block source, int direction, Integer targetY,
+                         java.util.function.Function<IronElevatorPlatform, Location> landingFor) {
         IronElevatorShaft shaft = shaft(source);
         if (targetY != null) {
             IronElevatorPlatform target = targetY == source.getY() ? null : shaft.at(targetY);
-            return target == null ? null : IronElevatorLanding.on(target, origin, size, extraCollision);
+            return target == null ? null : landingFor.apply(target);
         }
         if (direction != -1 && direction != 1) throw new IllegalArgumentException("Direction must be -1 or 1");
         var candidates = shaft.platforms().stream().filter(platform -> direction * (platform.height() - source.getY()) > 0)
                 .sorted(Comparator.comparingInt(platform -> direction * platform.height())).toList();
         for (IronElevatorPlatform target : candidates) {
-            Location landing = IronElevatorLanding.on(target, origin, size, extraCollision);
+            Location landing = landingFor.apply(target);
             if (landing != null) return landing;
         }
         return null;
