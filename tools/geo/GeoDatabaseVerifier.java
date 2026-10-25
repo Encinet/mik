@@ -3,7 +3,7 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import org.encinet.mik.util.GeoUtil;
+import org.encinet.mik.shared.util.GeoUtil;
 
 /** Exhaustively verifies generated range endpoints against the source CSV files. */
 public final class GeoDatabaseVerifier {

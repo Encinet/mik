@@ -92,7 +92,7 @@ dependencies {
 
 def testTempDir = layout.buildDirectory.dir("test-tmp").get().asFile
 
-test {
+tasks.withType(Test).configureEach {
     useJUnitPlatform()
     systemProperty("java.io.tmpdir", testTempDir.absolutePath)
     doFirst {
@@ -102,6 +102,26 @@ test {
             "--enable-native-access=ALL-UNNAMED",
             "--sun-misc-unsafe-memory-access=allow"
     )
+}
+
+test {
+    useJUnitPlatform {
+        excludeTags 'benchmark'
+    }
+}
+
+tasks.register('benchmark', Test) {
+    group = 'verification'
+    description = 'Reports local performance measurements without running the regression suite.'
+    dependsOn tasks.named('testClasses')
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'benchmark'
+    }
+    testLogging {
+        showStandardStreams = true
+    }
 }
 
 tasks {

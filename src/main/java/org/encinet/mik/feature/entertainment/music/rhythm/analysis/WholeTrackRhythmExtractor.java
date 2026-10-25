@@ -1,0 +1,105 @@
+package org.encinet.mik.feature.entertainment.music.rhythm.analysis;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+/**
+ * PCM extractor that deliberately waits for the complete song before emitting beats.
+ *
+ * <p>One shared filter-bank pass feeds two peak policies. A permissive policy
+ * supplies weak-beat candidates while a stricter whole-track policy supplies
+ * trustworthy anchors and a safe fallback. Sharing the expensive PCM feature
+ * pass keeps analysis bounded without changing either policy's evidence. On
+ * flush, {@link RhythmBeatTracker} uses whole-track tempo and phase evidence to
+ * publish the final pulses.</p>
+ */
+public final class WholeTrackRhythmExtractor implements PcmRhythmExtractor {
+    private final RhythmExtractionSink output;
+    private final CollectingSink candidates = new CollectingSink();
+    private final CollectingSink anchors = new CollectingSink();
+    private final RhythmOnsetDetector onsetDetector;
+    private final AtomicBoolean finished = new AtomicBoolean();
+
+    public WholeTrackRhythmExtractor(RhythmExtractionSink output, int sampleRate,
+                                     long initialPositionMillis) {
+        this.output = Objects.requireNonNull(output, "output");
+        onsetDetector = RhythmOnsetDetector.wholeTrack(candidates, anchors,
+                sampleRate, initialPositionMillis);
+    }
+
+    @Override
+    public void accept(float[][] channels, int offset, int length) {
+        if (finished.get()) return;
+        onsetDetector.accept(channels, offset, length);
+    }
+
+    @Override
+    public void seek(long positionMillis) {
+        if (finished.get()) return;
+        candidates.clear();
+        anchors.clear();
+        onsetDetector.seek(positionMillis);
+    }
+
+    @Override
+    public void flush() {
+        if (!finished.compareAndSet(false, true)) return;
+        onsetDetector.flush();
+        long analyzedThrough = Math.max(candidates.analyzedThroughMillis(),
+                anchors.analyzedThroughMillis());
+        List<RhythmPulse> refined = RhythmBeatTracker.refine(
+                candidates.pulses(), anchors.pulses(), analyzedThrough);
+        refined.forEach(output::append);
+        output.advanceAnalyzedThrough(analyzedThrough);
+    }
+
+    private static final class CollectingSink implements RhythmExtractionSink {
+        private final List<RhythmPulse> pulses = new ArrayList<>();
+        private long analyzedThroughMillis;
+        private long nextId = 1L;
+
+        @Override
+        public RhythmBeat append(RhythmPulse pulse) {
+            pulses.add(Objects.requireNonNull(pulse, "pulse"));
+            analyzedThroughMillis = Math.max(analyzedThroughMillis,
+                    pulse.timeMillis());
+            return new RhythmBeat(nextId++, pulse);
+        }
+
+        @Override
+        public void advanceAnalyzedThrough(long timeMillis) {
+            analyzedThroughMillis = Math.max(analyzedThroughMillis,
+                    Math.max(0L, timeMillis));
+        }
+
+        @Override
+        public void publish(RhythmSource source, List<RhythmPulse> replacement,
+                            long durationMillis, long loopStartMillis,
+                            int maximumLoopCount) {
+            pulses.clear();
+            pulses.addAll(replacement);
+            analyzedThroughMillis = Math.max(0L, durationMillis);
+        }
+
+        @Override
+        public void markComplete(long durationMillis) {
+            advanceAnalyzedThrough(durationMillis);
+        }
+
+        private List<RhythmPulse> pulses() {
+            return List.copyOf(pulses);
+        }
+
+        private long analyzedThroughMillis() {
+            return analyzedThroughMillis;
+        }
+
+        private void clear() {
+            pulses.clear();
+            analyzedThroughMillis = 0L;
+            nextId = 1L;
+        }
+    }
+}

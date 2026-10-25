@@ -1,0 +1,37 @@
+package org.encinet.mik.shared.menu;
+
+import net.kyori.adventure.text.Component;
+import java.util.UUID;
+import java.util.OptionalDouble;
+
+/** Stable external control surface for one player's menu session. */
+public interface FloatingMenuHandle {
+    UUID id();
+
+    UUID playerId();
+
+    FloatingMenuState state();
+
+    int depth();
+
+    /** Horizontal aim position, from left (0) to right (1), on the activated node. */
+    default OptionalDouble horizontalFraction() {
+        return OptionalDouble.empty();
+    }
+
+    void refresh();
+
+    /** Repositions this active spatial screen from the player's current view. */
+    void reanchor();
+
+    /** Reconciles a new definition into this screen without reopening its lifecycle. */
+    void update(FloatingMenuDefinition definition);
+
+    FloatingMenuHandle openChild(FloatingMenuDefinition definition);
+
+    void back();
+
+    void close();
+
+    void feedback(Component message, FloatingMenuFeedbackKind kind);
+}

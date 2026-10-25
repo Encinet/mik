@@ -1,14 +1,14 @@
 package org.encinet.mik.test;
 
-import org.encinet.mik.module.chat.model.ChatContent;
-import org.encinet.mik.module.chat.model.ChatConversation;
-import org.encinet.mik.module.chat.model.ChatMessage;
-import org.encinet.mik.module.chat.model.ChatMessageId;
-import org.encinet.mik.module.chat.model.ChatOrigin;
-import org.encinet.mik.module.chat.model.ChatProcessingContext;
-import org.encinet.mik.module.chat.model.ChatReferences;
-import org.encinet.mik.module.chat.model.ChatSender;
-import org.encinet.mik.module.chat.model.ChatSubmission;
+import org.encinet.mik.feature.community.chat.model.ChatContent;
+import org.encinet.mik.feature.community.chat.model.ChatConversation;
+import org.encinet.mik.feature.community.chat.model.ChatMessage;
+import org.encinet.mik.feature.community.chat.model.ChatMessageId;
+import org.encinet.mik.feature.community.chat.model.ChatOrigin;
+import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
+import org.encinet.mik.feature.community.chat.model.ChatReferences;
+import org.encinet.mik.feature.community.chat.model.ChatSender;
+import org.encinet.mik.feature.community.chat.model.ChatSubmission;
 
 import java.time.Instant;
 import java.util.Set;

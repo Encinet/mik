@@ -19,7 +19,7 @@ allowed-room-ids:
 !ai Who is online?
 !在线
 !状态
-!绑定 ABCDEFGH
+!绑定 XXXXX-XXXXX
 !我的
 !解绑 确认
 ```

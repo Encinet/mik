@@ -2,7 +2,7 @@
 
 QQ 是通用 social Host 的协议适配器。它通过 QQ Bot Gateway WebSocket 接收事件，负责 Gateway 鉴权、心跳、断线恢复、Access Token、OpenAPI 被动回复、QQ 身份字段映射和 Markdown 渲染，不包含服务器查询或身份绑定业务。
 
-该适配器不再启动 HTTP 服务，也不实现 Webhook、callback challenge 或 Ed25519 请求验签。服务器只需能够主动访问 QQ 的 HTTPS 与 WSS 服务；不需要公网域名、端口转发、反向代理或 Cloudflare Tunnel。若机器人管理后台仍保存了旧 callback 地址，应将事件接收方式切换为 WebSocket。
+服务器通过出站 HTTPS 与 WSS 连接 QQ，无需公网回调地址或入站端口；机器人后台选择 WebSocket 接收事件。
 
 QQ 群聊可以通过共享聊天桥与 Minecraft、Matrix 等其他已启用平台双向互通。加入/离开通知仍不在支持范围内。
 
@@ -41,7 +41,7 @@ reply:
   max-message-length: 1500
 ```
 
-AppID 与 AppSecret 只从这个文件读取，不读取凭据环境变量。旧 `plugins/mik/qq-bot.yml` 不会自动迁移或加载；发现时日志会明确提示迁移。包含旧 `webhook:` 段的 `social/qq.yml` 会直接校验失败，必须删除该段后再重载。虽然 QQ 在 2026-08-10 的更新日志中宣布统一使用 `api.bot.qq.com`，但该域名的 Gateway discovery 在部分现有机器人上会返回 HTTP 401；当前暂时与 AstrBot 使用的 `qq-botpy 1.2.1` 保持一致，使用 `api.sgroup.qq.com` 与 `bots.qq.com`。配置文件中已写入统一域名的安装也会在运行时回退到这组兼容端点。
+AppID 与 AppSecret 只从此文件读取。使用示例中的 API 端点；配置与凭据错误可通过 `/social status qq` 检查，修改后执行 `/social reload qq`。
 
 启动时适配器先申请 Access Token，再通过 `GET /gateway/bot` 动态发现当前 WSS 地址。Gateway discovery 和 OpenAPI 请求均携带 `Authorization: QQBot <access_token>` 与第三方 SDK 使用的 `X-Union-Appid: <app-id>`。连接收到 `HELLO` 后发送 `IDENTIFY`，订阅群聊与 C2C 事件；`READY` 后 `/social status qq` 显示 `READY`。连接期间按服务端下发的间隔发送心跳，收到重连指令或网络断开时使用 session ID 和最后 sequence 尝试恢复；无效 session 会重新鉴权建立新会话。
 
@@ -51,7 +51,7 @@ AppID 与 AppSecret 只从这个文件读取，不读取凭据环境变量。旧
 
 ## 群内命令
 
-QQ 使用 composition root 中显式安装的共享 `SocialCommand` 对象及不可变 dispatcher，不再维护 QQ 私有命令目录或别名表：
+QQ 使用共享社交命令，常用写法如下：
 
 | 命令 | 作用 |
 | --- | --- |
@@ -73,7 +73,7 @@ Minecraft 端统一执行 `/bind qq` 生成验证码。
 
 每个回复固定携带当前入站消息的 `msg_id` 和 `msg_seq=1`。Gateway 连接与 OpenAPI 回复共用 Access Token 缓存；OpenAPI 返回 401 时会失效缓存并重试一次。平台 renderer 对所有动态字段做 Markdown 转义，并在配置上限内截断。
 
-共享安全规则文件为 `plugins/mik/social/blocked-keywords.txt`。Host 只扫描文档显式标记的用户可控片段（目前是玩家名称），不会扫描固定回复、字段标签、TPS、MSPT、版本或管理状态；命中后用安全提示文档替换结果。旧 `plugins/mik/qq-blocked-keywords.txt` 只触发迁移警告，不会加载。
+共享安全规则文件为 `plugins/mik/social/blocked-keywords.txt`。Host 只扫描文档显式标记的用户可控片段（目前是玩家名称），不会扫描固定回复、字段标签、TPS、MSPT、版本或管理状态；命中后用安全提示文档替换结果。
 
 管理统一使用 `/social status qq`、`/social reload qq` 和 `/social conversations qq`。
 

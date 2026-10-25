@@ -1,0 +1,18 @@
+package org.encinet.mik.feature.entertainment.music.ui;
+
+import org.bukkit.entity.Player;
+import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
+
+public interface MusicBrowserActionHandler {
+    void track(Player player, MusicTrack track, boolean alternate);
+    void previousPage(Player player);
+    void nextPage(Player player);
+    void library(Player player);
+    void search(Player player);
+
+    void importPlaylist(Player player);
+    void cycleSort(Player player);
+    void cycleSection(Player player);
+    void random(Player player, boolean alternate);
+    void back(Player player);
+}

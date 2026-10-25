@@ -1,0 +1,213 @@
+package org.encinet.mik.feature.entertainment.music.rhythm;
+
+import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmPulse;
+import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmTimeline;
+import org.encinet.mik.feature.entertainment.music.rhythm.playback.RhythmAudioChannel;
+
+import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** Deterministic simulations of the complete tap-to-judgement latency path. */
+class RhythmLatencyPipelineTest {
+
+    @Test
+    void musicTapCalibrationProducesZeroErrorAtEveryDifficulty() {
+        int actualRttMillis = 140;
+        int deviceOffsetMillis = 65;
+        RhythmLatencyCalibration calibration = new RhythmLatencyCalibration();
+        recordCycles(calibration, new int[]{actualRttMillis}, deviceOffsetMillis);
+
+        int savedOffset = calibration.estimate().offsetMillis();
+        assertEquals(deviceOffsetMillis, savedOffset);
+        for (RhythmDifficulty difficulty : RhythmDifficulty.values()) {
+            RhythmTimeline timeline = timelineAt(7_000L);
+            RhythmChartView chart = new RhythmChartView(timeline, difficulty);
+            RhythmCue playable = chart.between(7_000L, 7_000L).getFirst();
+            RhythmGameSession session = new RhythmGameSession(
+                    UUID.randomUUID(), 0L, difficulty);
+            RhythmLatencyCompensator gameClock =
+                    new RhythmLatencyCompensator(actualRttMillis, savedOffset);
+            long packetArrival = playable.timeMillis()
+                    + actualRttMillis + deviceOffsetMillis;
+
+            RhythmGameSession.Result result = session.input(playable.input(),
+                    gameClock.inputPosition(packetArrival), chart);
+
+            assertEquals(RhythmJudgement.PERFECT, result.judgement(),
+                    difficulty.name());
+            assertEquals(0L, result.timingErrorMillis(), difficulty.name());
+        }
+    }
+
+    @Test
+    void calibrationRemovesEachChangingTapRttBeforeSavingTheFixedOffset() {
+        int fixedOffsetMillis = 65;
+        int[] changingRttMillis = {40, 260, 75, 190, 110, 300};
+        RhythmLatencyCalibration calibration = new RhythmLatencyCalibration();
+
+        recordCycles(calibration, changingRttMillis, fixedOffsetMillis);
+
+        int savedOffset = calibration.estimate().offsetMillis();
+        assertEquals(fixedOffsetMillis, savedOffset,
+                "no test-time RTT value may leak into the saved profile");
+
+        int currentGameRttMillis = 180;
+        RhythmLatencyCompensator gameClock = new RhythmLatencyCompensator(
+                currentGameRttMillis, savedOffset);
+        assertEquals(currentGameRttMillis + fixedOffsetMillis,
+                gameClock.totalCompensationMillis(),
+                "runtime must add the current session RTT back exactly once");
+        assertEquals(1_000L, gameClock.inputPosition(1_000L
+                + currentGameRttMillis + fixedOffsetMillis));
+    }
+
+    @Test
+    void liveRttChangesWithoutRewritingTheFixedMusicOffset() {
+        int fixedOffsetMillis = 65;
+        int currentRttMillis = 200;
+        RhythmLatencyCompensator clock =
+                new RhythmLatencyCompensator(60, fixedOffsetMillis);
+        for (int sample = 0; sample < 16; sample++) {
+            clock.observe(currentRttMillis);
+        }
+        RhythmTimeline timeline = timelineAt(1_000L);
+        RhythmChartView chart = new RhythmChartView(
+                timeline, RhythmDifficulty.EXPERT);
+        RhythmCue cue = chart.between(1_000L, 1_000L).getFirst();
+        RhythmGameSession session = new RhythmGameSession(
+                UUID.randomUUID(), 0L, RhythmDifficulty.EXPERT);
+        long packetArrival = cue.timeMillis()
+                + currentRttMillis + fixedOffsetMillis;
+
+        RhythmGameSession.Result result = session.input(cue.input(),
+                clock.inputPosition(packetArrival), chart);
+
+        assertEquals(fixedOffsetMillis, clock.calibrationOffsetMillis());
+        assertTrue(clock.networkCompensationMillis() >= 185);
+        assertEquals(RhythmJudgement.PERFECT, result.judgement());
+        assertTrue(Math.abs(result.timingErrorMillis()) <= 15L);
+    }
+
+    @Test
+    void automaticMissWaitsForTheLatestCalibratedPacket() {
+        RhythmDifficulty difficulty = RhythmDifficulty.EXPERT;
+        RhythmTimeline timeline = timelineAt(1_000L);
+        RhythmChartView chart = new RhythmChartView(timeline, difficulty);
+        RhythmCue cue = chart.between(1_000L, 1_000L).getFirst();
+        RhythmLatencyCompensator clock = new RhythmLatencyCompensator(160, 70);
+        long latestLegalPacketArrival = cue.timeMillis()
+                + difficulty.goodWindowMillis()
+                + clock.totalCompensationMillis();
+        RhythmGameSession session = new RhythmGameSession(
+                UUID.randomUUID(), 0L, difficulty);
+
+        int prematureMisses = session.advance(
+                clock.missPosition(latestLegalPacketArrival), chart);
+        RhythmGameSession.Result result = session.input(cue.input(),
+                clock.inputPosition(latestLegalPacketArrival), chart);
+
+        assertEquals(0, prematureMisses);
+        assertEquals(RhythmJudgement.GOOD, result.judgement());
+        assertEquals(difficulty.goodWindowMillis(), result.timingErrorMillis());
+    }
+
+    @Test
+    void recalibrationDoesNotFeedTheOldSavedOffsetBackIntoTheMeasurement() {
+        RhythmLatencyCalibration replacement = new RhythmLatencyCalibration();
+        recordCycles(replacement, new int[]{100}, 35);
+
+        assertEquals(35, replacement.estimate().offsetMillis());
+    }
+
+    @Test
+    void radialGeometryUsesNetworkAndVisualDelayWhileScoringUsesTapDelay() {
+        RhythmLatencyCompensator clock =
+                new RhythmLatencyCompensator(120, 80, 35);
+        long packetArrivalPosition = 2_200L;
+
+        long visualAimPosition = clock.visualNetworkPosition(packetArrivalPosition);
+        long judgementPosition = clock.inputPosition(packetArrivalPosition);
+
+        assertEquals(2_045L, visualAimPosition,
+                "aim reconstruction must match the calibrated scene shown to the player");
+        assertEquals(2_000L, judgementPosition);
+    }
+
+    @Test
+    void fourStageResultAlignsKeyboardAndPointerForBothAudioBackends() {
+        int rttMillis = 120;
+        RhythmCalibrationResult calibration = RhythmCalibrationResult.fromTests(
+                55, 100, 145, 73);
+        RhythmTimeline timeline = timelineAt(4_000L);
+        RhythmChartView chart = new RhythmChartView(
+                timeline, RhythmDifficulty.EXPERT);
+        RhythmCue cue = chart.between(4_000L, 4_000L).getFirst();
+
+        for (RhythmAudioChannel channel : RhythmAudioChannel.values()) {
+            RhythmLatencyProfile keyboardProfile =
+                    calibration.profiles().forChannel(channel);
+            RhythmLatencyProfile pointerProfile = keyboardProfile.withInputDelta(
+                    calibration.pointerInputDeltaMillis());
+            RhythmGameSession keyboardSession = new RhythmGameSession(
+                    UUID.randomUUID(), 0L, RhythmDifficulty.EXPERT);
+            RhythmGameSession pointerSession = new RhythmGameSession(
+                    UUID.randomUUID(), 0L, RhythmDifficulty.EXPERT);
+            RhythmLatencyCompensator keyboardClock = new RhythmLatencyCompensator(
+                    rttMillis, keyboardProfile.judgementOffsetMillis(),
+                    keyboardProfile.animationOffsetMillis());
+            RhythmLatencyCompensator pointerClock = new RhythmLatencyCompensator(
+                    rttMillis, pointerProfile.judgementOffsetMillis(),
+                    pointerProfile.animationOffsetMillis());
+            long keyboardArrival = cue.timeMillis() + rttMillis
+                    + keyboardProfile.judgementOffsetMillis();
+            long pointerArrival = cue.timeMillis() + rttMillis
+                    + pointerProfile.judgementOffsetMillis();
+
+            RhythmGameSession.Result keyboard = keyboardSession.hit(cue,
+                    keyboardClock.inputPosition(keyboardArrival), chart);
+            RhythmGameSession.Result pointer = pointerSession.hit(cue,
+                    pointerClock.inputPosition(pointerArrival), chart);
+
+            assertEquals(RhythmJudgement.PERFECT, keyboard.judgement(),
+                    channel + " keyboard");
+            assertEquals(RhythmJudgement.PERFECT, pointer.judgement(),
+                    channel + " pointer");
+            assertEquals(keyboardProfile.animationOffsetMillis(),
+                    pointerProfile.animationOffsetMillis(),
+                    "pointer calibration must not move the scene clock");
+        }
+    }
+
+    private static RhythmTimeline timelineAt(long timeMillis) {
+        RhythmTimeline timeline = new RhythmTimeline("latency-pipeline");
+        timeline.append(new RhythmPulse(timeMillis, 0.9));
+        timeline.markComplete(timeMillis + 500L);
+        return timeline;
+    }
+
+    private static RhythmCue cue(long id, long timeMillis) {
+        return new RhythmCue(id, timeMillis, RhythmInput.ONE, 0.9);
+    }
+
+    private static void recordCycles(RhythmLatencyCalibration calibration,
+                                     int[] rttMillis,
+                                     int fixedOffsetMillis) {
+        int cuesPerCycle = 6;
+        for (int cycle = 0; cycle < 4; cycle++) {
+            for (int cueIndex = 0; cueIndex < cuesPerCycle; cueIndex++) {
+                int sample = cycle * cuesPerCycle + cueIndex;
+                int tapRttMillis = rttMillis[sample % rttMillis.length];
+                long cueId = (long) cycle * cuesPerCycle + cueIndex + 1L;
+                calibration.record(new RhythmLatencyCalibration.Observation(
+                        cueId, cycle, cueIndex, cuesPerCycle,
+                        tapRttMillis + fixedOffsetMillis,
+                        tapRttMillis, false));
+            }
+            calibration.advanceToCycle(cycle + 1L);
+        }
+    }
+}

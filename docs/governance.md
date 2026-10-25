@@ -1,56 +1,7 @@
-# 成员与治理插件
+# 成员与治理
 
 治理模块把资格输入、选民快照和匿名选票保存在 `plugins/mik/governance.db`。所有规则时间均按
 UTC+8（`Asia/Singapore`）计算。
-
-## 代码架构
-
-此前按 `domain/application/adapter` 全局分层时，一次治理功能修改通常要同时进入三个大目录，
-`GovernanceService`、仓储和命令控制器也持续聚集不相关职责。当前代码先按业务能力组织，再把 Paper
-和 SQLite 放在外围：
-
-```text
-governance/
-├── GovernanceModule.java              # 只负责创建、连接和关闭组件
-├── membership/                        # 成员履历与选民资格
-│   ├── MembershipService.java
-│   ├── MembershipRepository.java
-│   ├── profile/                       # 玩家治理档案
-│   ├── participation/                 # 每日参与记录与窗口汇总
-│   ├── promotion/                     # 晋升资格与晋升暂停
-│   ├── activity/                      # 活跃成员资格
-│   └── tenure/                        # 管理任期规则
-├── voting/                            # 通用提案、选民快照、选票与结算
-│   ├── VotingService.java
-│   ├── VotingRepository.java
-│   └── model/
-├── removal/                           # 罢免联署及其开票条件
-│   ├── RemovalService.java
-│   ├── RemovalRepository.java
-│   └── RemovalPolicy.java
-├── delivery/                          # 结果公告与治理动作 Outbox
-│   ├── DeliveryService.java
-│   └── DeliveryRepository.java
-├── platform/paper/
-│   ├── command/                       # 命令树、分能力 handler 和展示文本
-│   ├── membership/                    # 在线取样、自动晋升、任期检查
-│   ├── delivery/                      # 公告和外部动作执行
-│   └── role/                          # 唯一的 LuckPerms 治理角色网关
-└── persistence/sqlite/
-    ├── SqliteGovernanceRepository.java # 组合并实现四个窄仓储端口
-    ├── SqliteGovernanceSchema*.java    # 结构声明、启动校验
-    ├── SqliteGovernanceRows.java       # 行映射
-    └── Sqlite*Store.java               # membership/voting/delivery 数据操作
-```
-
-能力之间的依赖方向为：`voting → membership` 获取冻结选民，`removal → membership + voting`
-完成联署并原子开票，`delivery → voting.model` 保存待投递的投票结果。`membership` 不依赖其他治理
-能力。`GovernanceAction` 表示外部副作用的可靠投递记录，因此归入 `delivery`，不再伪装成领域实体。
-
-每个能力拥有自己的 Service 和 Repository 端口。业务代码不导入 Bukkit、LuckPerms 或 JDBC；
-`platform` 不访问 SQLite，`persistence` 不访问 Paper。架构测试还限制装配根、命令路由和连接协调器
-的文件规模，防止它们重新聚集业务实现。新增功能时，应先判断它修改的是成员资格、投票、罢免还是
-投递规则，再进入对应能力；只有平台交互和 SQL 实现进入外围目录。
 
 ## LuckPerms 边界
 
@@ -63,8 +14,7 @@ governance/
 
 ## 数据库边界
 
-本插件尚未部署，数据库采用单一、干净的初始结构 v1，不包含升级、回填或旧结构兼容逻辑。首次启动
-直接创建完整结构；若将来需要调整结构，应再单独设计显式迁移，而不是在启动时猜测旧表状态。
+数据保存在 `governance.db`，启动时校验结构和数据完整性。
 
 - 每次连接显式启用 SQLite 外键，并在启动时执行完整性、外键和治理快照一致性检查。
 - UUID、枚举、时间范围、投票生命周期、晋升暂停书面字段等由 `CHECK`、外键和唯一索引共同约束。
@@ -91,11 +41,7 @@ governance/
 
 打开 `/menu` 即可看到进行中的治理投票、本人选票状态和最近两项结果；有选民资格时，赞成、反对、弃权可直接在主菜单选择。多项议题用滚轮切换，读取与提交均走治理模块的单线程存储队列，提交时再次核验冻结选民名单和截止时间。从主菜单进入「治理」，或输入 `/gov`，可查看本人的身份与资格、完整议题详情及投票历史。符合资格的成员可在此报名管理或撤回；管理可辞任。罢免联署可在菜单中支持已有事项，或填写管理名字发起。管理与维护者还可通过「玩家管理」查看档案，并设置或解除新人晋升暂停。上述操作均在游戏内完成。
 
-治理首页沿玩家正面的宽弧分区：个人身份与资格、进行中的议题列表在左侧，当前议题详情及赞成／反对／弃权按钮在正前方，最近结果与报名、联署、玩家管理等操作在右侧。选中的议题保持高亮，刷新与返回留在中央。历史页把列表、详情和操作分开；联署页把每页六项分到左右两列，说明与分页留在中央；玩家档案居中，管理动作在右侧。加载与失败页面也使用同一空间框架，并保留返回或重试入口。
-
-菜单只调用现有治理服务与权限检查；投票仍按冻结的选民 UUID、法定人数和资格规则处理。弧面半径按实际文字与图标尺寸计算，各面板朝向玩家；布局不参与资格计算、存储或投票提交。空间画面使用玩家专属虚拟显示，不生成真实世界实体。
-
-## 命令兼容入口
+## 命令
 
 `/governance`、`/gov` 和 `/governance menu` 打开同一空间菜单；管理者输入 `/governance player` 可直接搜索玩家。以下子命令供控制台或熟悉命令的玩家使用：
 

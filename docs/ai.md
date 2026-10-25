@@ -29,7 +29,7 @@ providers:
 
 `endpoint`、`model`、密钥、认证字段、自定义 header 和 `request-options` 均属于提供商配置，因此 OpenAI、OpenRouter、DeepSeek、兼容网关以及 Ollama、vLLM、LM Studio 一类自托管服务不需要各写一个 Java adapter。环境变量支持 `${NAME}` 和 `${NAME:-fallback}`。`model`、`messages`、`tools`、`tool_choice` 与 `stream` 是协议保留字段，不能被 `request-options` 覆盖。HTTP 重定向不会携带认证信息继续跟随，响应体和等待时间都有上限，密钥不会写入日志。
 
-内置 `ai.yml` 的 OpenAI 示例使用 `gpt-6-luna`，并在 `request-options` 中设置 `reasoning_effort: none` 和 `max_completion_tokens: 1200`。当前客户端使用 Chat Completions 和 function calling；[OpenAI 的 GPT-6 Luna 模型说明](https://developers.openai.com/api/docs/models/gpt-6-luna)指出，在这个接口中调用工具只能使用 `none`。模型也支持 `low`、`medium`、`high`、`xhigh`、`max` 等思考等级，但要在保留 AI 工具能力的同时使用这些等级，需要先将客户端接入 Responses API。直接把当前示例改为其他等级，会使游戏查询、网页搜索和知识工具调用不符合该模型的接口约束。其他兼容提供商的 `request-options` 应按其自身接口填写。
+内置提供商示例见 [ai.yml](../src/main/resources/ai.yml)。更换模型时，应同步调整该提供商支持的 `request-options`。
 
 修改后，管理员执行 `/ai reload`。`/ai status` 显示当前提供商、模型和启用的工具包。普通使用需要 `mik.ai.use`，管理员组也可直接使用：
 
@@ -54,7 +54,7 @@ providers:
 | `utility` | `calculate` | 本地安全表达式解析器 |
 | `knowledge` | `search_knowledge`、`open_knowledge` | 本地公共 Markdown 知识库与 Lucene 索引 |
 
-模型最初只看到轻量的 `tool_search`。它用自然语言关键词或准确包 ID 激活一个或多个能力包，下一轮才看到这些包的完整 JSON Schema；无法匹配时会加载当前配置允许的全部包。这个过程与 skills 的“先发现能力，再载入细节”相同，避免把大量无关 schema 塞进每次请求。模型在同一轮同时调用 `tool_search` 和具体工具时，运行时也会先完成能力激活，再并行执行具体工具。
+模型最初只看到轻量的 `tool_search`。它用自然语言关键词或准确包 ID 激活一个或多个能力包，下一轮才看到这些包的完整 JSON Schema；无法匹配时会加载当前配置允许的全部包。模型在同一轮同时调用 `tool_search` 和具体工具时，运行时也会先完成能力激活，再并行执行具体工具。
 
 网页搜索默认指向本机 `http://127.0.0.1:8080/search`。SearXNG 必须在 `settings.yml` 中允许 JSON 格式。搜索标题和摘要会去除 HTML，只接受 HTTP(S) 结果 URL，并作为不可信工具数据交给模型；网页服务不可用时只令该次工具调用失败，不会影响游戏查询和本地计算。
 
@@ -68,9 +68,9 @@ providers:
 }
 ```
 
-正文中的链接使用 `[文字](<绝对 URL>)`，不再另附重复的编号链接表，减少上下文占用和模型解析步骤。抓取边界由 `tools.web-fetch` 控制，包括超时、原始响应字节数、正文字符数、重定向次数和正文内最多保留的链接数。每次请求及每次重定向都会重新验证目标，只允许公开 HTTP(S) 地址；用户信息 URL、本机名、内网/链路本地/保留地址、HTTPS 降级跳转、循环跳转、压缩响应和二进制内容都会被拒绝。抓取器不会使用系统 HTTP 代理，避免由代理绕过目标地址检查。它不运行 JavaScript，也不读取图片或 PDF；这类页面会返回明确的工具错误，而不是把二进制数据交给模型。
+正文中的链接使用 `[文字](<绝对 URL>)`，不另附编号链接表。抓取边界由 `tools.web-fetch` 控制，包括超时、原始响应字节数、正文字符数、重定向次数和正文内最多保留的链接数。每次请求及每次重定向都会重新验证目标，只允许公开 HTTP(S) 地址；用户信息 URL、本机名、内网/链路本地/保留地址、HTTPS 降级跳转、循环跳转、压缩响应和二进制内容都会被拒绝。抓取器不会使用系统 HTTP 代理，避免由代理绕过目标地址检查。它不运行 JavaScript，也不读取图片或 PDF；这类页面会返回明确的工具错误，而不是把二进制数据交给模型。
 
-转换器覆盖标题与段落、粗体/斜体/删除/高亮、引用、水平线、嵌套与起始编号列表、任务列表、定义列表、`details`、缩写、上下标、ruby 注音、图片懒加载地址、音视频引用，以及带标题、链接、`colspan`、`rowspan` 的表格。行内代码和代码块会根据内容自动选择不会冲突的反引号围栏，并识别常见语言 class/data 属性。相对链接、`<base>`、国际化域名和 Unicode 路径都会生成可直接调用的绝对 ASCII URL；畸形 HTML、过深 DOM 和内容截断也不会留下半条链接、半个 Unicode 字符或未闭合代码围栏。
+HTML 转换保留正文结构、表格、代码块和安全链接；相对链接转为绝对 URL，截断时保持 Unicode 与代码围栏完整。
 
 所有搜索摘要、网页正文和链接仍然是不可信数据。内置多语言 prompt 明确要求模型忽略页面内指令，只把内容当作资料，按需访问链接，并在最终回答中引用实际采用的 URL。
 
@@ -203,33 +203,6 @@ limits:
 
 虚拟线程用于可能阻塞的任务，不替代并发限制。OpenAI-compatible 和网页 HTTP 请求继续使用 `HttpClient.sendAsync`；知识整理的单个定时 daemon 平台线程只触发任务，实际工作转交虚拟线程。Bukkit 世界、玩家和实体读取仍只在服务器主线程生成不可变快照，worker 不直接访问 Bukkit 对象；异步结果发送也会调度回主线程。reload 或 disable 会先停止接收任务、取消等待任务，再关闭知识存储。`/ai status` 对管理员显示 worker 的 running、queued 和 dropped 计数。
 
-## 代码层级
+## 扩展工具
 
-```text
-module/ai/
-├── AiModule.java              # Bukkit composition root、/ai 命令、主线程快照
-├── api/                       # AiGateway、AiRequest、公共失败契约
-├── config/                    # ai.yml 解析、环境变量和完整校验
-├── conversation/              # 模型请求边界、有界历史、并发控制和工具循环
-├── provider/                  # OpenAI-compatible HTTP transport
-├── runtime/                   # 有界虚拟线程 worker、生命周期和 HTTP 响应限额
-├── knowledge/
-│   ├── model/                 # 文档、分块、命中与 scope
-│   ├── application/           # 检索、个人召回、异步学习和整理策略
-│   ├── adapter/
-│   │   ├── markdown/          # frontmatter、路径约束、版本和归档
-│   │   ├── lucene/            # 公共/私有 ICU + BM25 索引
-│   │   └── sqlite/            # 状态与元数据审计
-│   └── tool/                  # 只读公共知识工具包
-└── tool/
-    ├── AiToolCatalog          # 能力包目录
-    ├── AiToolRegistry         # 请求级 tool_search、激活状态与执行轨迹
-    ├── game/                  # server/player/world/minecraft 包
-    ├── utility/               # 无网络本地工具
-    └── web/                   # 搜索、安全抓取、文档清洗、语义渲染与安全截断
-
-module/social/command/builtin/AiSocialCommand.java
-                              # 仅依赖 module.ai.api
-```
-
-`AiModule` 是唯一装配点；公共 `api` 不依赖 Bukkit、社交层或内部实现。`AiConversationService` 只认识 provider 边界和请求级工具目录，具体游戏、网页、计算和知识能力彼此独立。知识模块继续按 model、application、adapter、tool 分层，Markdown adapter 不依赖 Lucene，公共模型与应用层不依赖 Bukkit 或社交平台。历史同时受单会话消息数与全局会话数限制，活跃请求还受全局并发量和单会话互斥保护。新增工具时实现 `AiTool`，归入一个 `AiToolPack`，再在 composition root 注册；不需要修改对话协议或任何平台 adapter。
+实现 `AiTool` 并归入 `AiToolPack`，在 `AiModule` 注册。公共 `api` 保持独立于 Bukkit、社交平台和内部实现；游戏工具读取主线程生成的快照。
