@@ -57,6 +57,8 @@ flowchart TD
 
 `/tpforce` 复用原版 `/tp` 的参数与补全，忽略玩家的传送偏好及挂机限制，例如 `/tpforce 玩家 目标玩家`、`/tpforce 玩家 100 64 100`。命令仅允许拥有 `group.moderator` 或 `group.custodian` 权限的管理员与服主使用；普通 `/tp` 继续检查玩家偏好。
 
+`ForceTeleportCommand` 对外注册普通参数节点，将执行与补全交给独立的原版命令解析器，保留命令来源、命名空间和嵌套调用的位置偏移。原版命令代理只在功能内部解包，避免将受限的 `ShadowBrigNode` 用作公开命令的重定向目标，导致 Paper 初始化 `/help` 时遍历子节点而崩溃。
+
 客户端检测通过 `ClientVersions`、`ClientMods` 暴露只读快照。检测实现维护协议和连接信号；客户端提示、主菜单及 Skript 通过接口查询。推荐清单与文案由 `client/tip/` 维护，检测层不依赖提示或语言服务。
 
 ### 社区：`feature/community/`

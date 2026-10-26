@@ -1,9 +1,6 @@
 package org.encinet.mik.feature.player.teleport;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.tree.CommandNode;
-import com.mojang.brigadier.tree.LiteralCommandNode;
-import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -33,7 +30,6 @@ import org.encinet.mik.shared.i18n.RichArg;
 import org.encinet.mik.shared.menu.FloatingMenuDefinition;
 import org.encinet.mik.shared.menu.FloatingMenuLayouts;
 import org.encinet.mik.shared.menu.FloatingMenus;
-import org.encinet.mik.shared.role.RolePermissions;
 import org.encinet.mik.shared.util.PlayerDisplay;
 
 import java.io.File;
@@ -102,19 +98,12 @@ public class TeleportPreferenceModule implements Listener {
                             .build(),
                     languageService.t(Language.DEFAULT,
                             Message.TELEPORT_DENY_COMMAND_DESCRIPTION));
-            commands.register(forceCommand(Objects.requireNonNull(
+            commands.register(ForceTeleportCommand.create(Objects.requireNonNull(
                             commands.getDispatcher().getRoot().getChild("minecraft:teleport"),
                             "Vanilla teleport command is not registered")),
                     languageService.t(Language.DEFAULT,
                             Message.TELEPORT_FORCE_COMMAND_DESCRIPTION));
         });
-    }
-
-    static LiteralCommandNode<CommandSourceStack> forceCommand(CommandNode<CommandSourceStack> teleport) {
-        return Commands.literal("tpforce")
-                .requires(source -> RolePermissions.canModerate(source.getSender()))
-                .redirect(teleport)
-                .build();
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
