@@ -20,6 +20,8 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.feature.player.guidance.TipScope;
+import org.encinet.mik.feature.player.guidance.TipTriggers;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -29,6 +31,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 public class TPSBarModule implements Listener {
 
@@ -43,6 +46,9 @@ public class TPSBarModule implements Listener {
     public static String commandTPSBarTextColorLow = "<gradient:#ff5555:#aa0000><text></gradient>";
     public static int commandTPSBarTickInterval = 20;
 
+    private static final String USE_PERMISSION = "mik.tpsbar";
+    private static final Pattern TPS_MENTION = Pattern.compile(
+            "(?<![a-z_])(?:tps|mspt)(?![a-z_])", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final double TPS_GOOD = 19.0;
     private static final double TPS_MEDIUM = 15.0;
     private static final double MSPT_GOOD = 40.0;
@@ -60,12 +66,17 @@ public class TPSBarModule implements Listener {
     private double mspt = 0.0;
     private int tick = 0;
 
-    public TPSBarModule(JavaPlugin plugin, LanguageService languageService) {
+    public TPSBarModule(JavaPlugin plugin, LanguageService languageService, TipScope tips) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.settingsStore = new TPSBarSettingsStore(
                 new File(plugin.getDataFolder(), "tpsbar-settings.yml"));
         this.playerBossBars = new ConcurrentHashMap<>();
+        tips.define("tpsbar-status", Message.TPSBAR_TIP_STATUS_MM)
+                .ambient()
+                .on(TipTriggers.chatMentions(TPS_MENTION))
+                .when(player -> player.hasPermission(USE_PERMISSION))
+                .build();
     }
 
     public void start() {
@@ -106,7 +117,7 @@ public class TPSBarModule implements Listener {
             final Commands commands = event.registrar();
 
             commands.register(Commands.literal("tpsbar")
-                    .requires(source -> source.getSender().hasPermission("mik.tpsbar"))
+                    .requires(source -> source.getSender().hasPermission(USE_PERMISSION))
                     .executes(ctx -> {
                         Entity executor = ctx.getSource().getExecutor();
                         if (executor instanceof Player player) {
@@ -150,7 +161,7 @@ public class TPSBarModule implements Listener {
 
     private void restoreTPSBar(Player player) {
         if (settingsStore.isEnabled(player.getUniqueId())
-                && player.hasPermission("mik.tpsbar")) {
+                && player.hasPermission(USE_PERMISSION)) {
             showTPSBar(player);
         }
     }

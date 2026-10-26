@@ -4,8 +4,12 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.player.address.PlayerAddressModule;
 import org.encinet.mik.feature.player.address.PlayerAssociationNotifier;
 import org.encinet.mik.feature.player.afk.AfkModule;
-import org.encinet.mik.feature.player.client.ClientModReminderModule;
-import org.encinet.mik.feature.player.client.ClientVersionReminderModule;
+import org.encinet.mik.feature.player.client.ClientVersions;
+import org.encinet.mik.feature.player.client.detection.ClientModDetector;
+import org.encinet.mik.feature.player.client.detection.ViaClientVersions;
+import org.encinet.mik.feature.player.client.tip.ClientTips;
+import org.encinet.mik.feature.player.effects.EffectCleanupModule;
+import org.encinet.mik.feature.player.guidance.TipModule;
 import org.encinet.mik.feature.player.mode.GameModeSwitchModule;
 import org.encinet.mik.feature.player.movement.FlightModule;
 import org.encinet.mik.feature.player.movement.PlayerBoundaryModule;
@@ -20,6 +24,7 @@ import org.encinet.mik.feature.player.pvp.PvpModule;
 import org.encinet.mik.feature.player.teleport.BackModule;
 import org.encinet.mik.feature.player.teleport.HomeModule;
 import org.encinet.mik.feature.player.teleport.TeleportPreferenceModule;
+import org.encinet.mik.feature.player.trash.TrashModule;
 import org.encinet.mik.feature.player.utility.SimpleFeaturesModule;
 import org.encinet.mik.integration.geyser.BedrockPlayerBadge;
 import su.plo.voice.api.server.PlasmoVoiceServer;
@@ -31,7 +36,8 @@ record PlayerFeatures(
         PlayerIdentityRenderer identities,
         PvpModule pvp,
         TeleportPreferenceModule teleports,
-        ClientVersionReminderModule clientVersion) {
+        ClientVersions clientVersions,
+        TipModule guidance) {
 
     static PlayerFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -59,9 +65,34 @@ record PlayerFeatures(
         lifecycle.startManaged("afk", afkModule::enable, afkModule::disable);
         afkModule.registerCommands(plugin.getLifecycleManager());
 
-        PvpModule pvpModule = new PvpModule(plugin, languageService);
+        ClientVersions clientVersions;
+        if (plugin.getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
+            clientVersions = new ViaClientVersions(plugin);
+        } else {
+            clientVersions = player -> java.util.Optional.empty();
+            plugin.getLogger().warning("ViaVersion not found; client protocol lookup is unavailable.");
+        }
+        ClientModDetector clientMods = new ClientModDetector(player -> {
+            if (voiceServer == null) return false;
+            var voicePlayer = voiceServer.getPlayerManager().getPlayerByInstance(player);
+            return voicePlayer != null && (voicePlayer.getModVersion().isPresent() || voicePlayer.hasVoiceChat());
+        });
+        lifecycle.startManaged("client-mod-detection", clientMods::enable, clientMods::disable);
+
+        TipModule tipModule = new TipModule(plugin, languageService,
+                player -> !afkModule.isAfk(player.getUniqueId()));
+        lifecycle.startManaged("guidance", tipModule::enable, tipModule::disable);
+        ClientTips.register(lifecycle.own("client-tips", tipModule.scope()), languageService,
+                clientVersions, clientMods, geyserService::isBedrockPlayer);
+
+        PvpModule pvpModule = new PvpModule(plugin, languageService,
+                lifecycle.own("pvp-tips", tipModule.scope()));
         lifecycle.startManaged("pvp", pvpModule::enable, pvpModule::disable);
         pvpModule.registerCommands(plugin.getLifecycleManager());
+
+        EffectCleanupModule effectCleanup = new EffectCleanupModule(plugin, languageService,
+                pvpModule::isCombatTagged);
+        lifecycle.startManaged("effect-cleanup", effectCleanup::enable, effectCleanup::disable);
 
         TeleportPreferenceModule teleportPreferenceModule =
                 new TeleportPreferenceModule(plugin, afkModule, languageService);
@@ -75,28 +106,15 @@ record PlayerFeatures(
         PlayerPresenceModule playerPresenceModule = new PlayerPresenceModule(plugin, languageService);
         lifecycle.startListener("player-presence", playerPresenceModule, playerPresenceModule::enable);
 
-        ClientVersionReminderModule clientVersionReminderModule = null;
-        if (plugin.getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
-            clientVersionReminderModule = new ClientVersionReminderModule(
-                    plugin, languageService, geyserService::isBedrockPlayer);
-            lifecycle.startListener("client-version-reminder", clientVersionReminderModule,
-                    clientVersionReminderModule::enable);
-        } else {
-            plugin.getLogger().warning("ViaVersion not found! ClientVersionReminderModule disabled.");
-        }
-
-        ClientModReminderModule clientModReminderModule = new ClientModReminderModule(
-                plugin, languageService, geyserService::isBedrockPlayer, player -> {
-                    if (voiceServer == null) return false;
-                    var voicePlayer = voiceServer.getPlayerManager().getPlayerByInstance(player);
-                    return voicePlayer != null
-                            && (voicePlayer.getModVersion().isPresent() || voicePlayer.hasVoiceChat());
-                });
-        lifecycle.startManaged("client-mod-reminder", clientModReminderModule::enable, clientModReminderModule::disable);
-
-        SimpleFeaturesModule commandsModule = new SimpleFeaturesModule(plugin, languageService);
+        SimpleFeaturesModule commandsModule = new SimpleFeaturesModule(plugin, languageService,
+                lifecycle.own("utility-tips", tipModule.scope()));
         lifecycle.startListener("simple-features", commandsModule, commandsModule::enable);
         commandsModule.registerCommands(plugin.getLifecycleManager());
+
+        TrashModule trashModule = new TrashModule(plugin, languageService,
+                lifecycle.own("trash-tips", tipModule.scope()));
+        lifecycle.startManaged("trash", trashModule::enable, trashModule::disable);
+        trashModule.registerCommands(plugin.getLifecycleManager());
 
         GameModeSwitchModule gameModeSwitchModule = new GameModeSwitchModule(plugin);
         lifecycle.startManaged("game-mode-switch", gameModeSwitchModule::enable, gameModeSwitchModule::disable);
@@ -112,15 +130,16 @@ record PlayerFeatures(
                 plugin, afkModule, languageService, playerIdentities);
         lifecycle.startManaged("tab-list", tabListModule::enable, tabListModule::disable);
 
-        HomeModule homeModule = new HomeModule(plugin, languageService);
+        HomeModule homeModule = new HomeModule(plugin, languageService, lifecycle.own("home-tips", tipModule.scope()));
         lifecycle.startManaged("home", homeModule::enable, homeModule::disable);
         homeModule.registerCommands(plugin.getLifecycleManager());
 
-        BackModule backModule = new BackModule(plugin, languageService);
-        lifecycle.startListener("back", backModule, backModule::enable);
+        BackModule backModule = new BackModule(plugin, languageService, lifecycle.own("back-tips", tipModule.scope()));
+        lifecycle.startManaged("back", backModule::enable, backModule::disable);
         backModule.registerCommands(plugin.getLifecycleManager());
 
-        NameTagModule prefixSuffixModule = new NameTagModule(plugin, languageService, playerIdentities);
+        NameTagModule prefixSuffixModule = new NameTagModule(plugin, languageService, playerIdentities,
+                lifecycle.own("name-tag-tips", tipModule.scope()));
         lifecycle.startManaged("name-tag", prefixSuffixModule::enable, prefixSuffixModule::disable);
         prefixSuffixModule.registerCommands(plugin.getLifecycleManager());
 
@@ -129,6 +148,6 @@ record PlayerFeatures(
         lifecycle.startManaged("invisibility-notify", invisibilityNotifyModule::enable, invisibilityNotifyModule::disable);
 
         return new PlayerFeatures(afkModule, playerAddressModule, playerNameTags, playerIdentities,
-                pvpModule, teleportPreferenceModule, clientVersionReminderModule);
+                pvpModule, teleportPreferenceModule, clientVersions, tipModule);
     }
 }

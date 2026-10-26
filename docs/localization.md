@@ -8,7 +8,7 @@ FTL 文件是维护源文件，可以直接编辑。语法形式由各语言决�
 
 消息键描述功能和用途，数量变化放在消息内部。隐身提醒统一使用 `invisibility-nearby-mm`，返回结果统一使用 `back-success-mm`；Java 传入数量，由 Fluent 选择形式。修改名称时同步枚举、全部语言、调用方与测试，并直接删除旧键。移除功能后删除无调用的消息，不保留旧名别名或兼容转发。
 
-提醒使用明确的语义名称：`client-version-mismatch-mm` 接收 `$clientVersion` 和 `$serverVersion`，`client-mods-undetected-rich` 接收 `$mods`。返回历史使用 `$steps`、`$remaining`、`$max` 表达已消耗数量、剩余数量和上限。
+提醒使用明确的语义名称：`client-version-behind-mm` 接收 `$clientVersion` 和 `$serverVersion`，`client-mods-undetected-rich` 接收 `$mods`。返回历史使用 `$steps`、`$remaining`、`$max` 表达已消耗数量、剩余数量和上限。
 
 `-mm` 标识需要 MiniMessage 解析的文本，`-rich` 标识需要组件参数的消息。二者说明当前渲染要求。可复用的内容使用术语、消息引用或属性；这些引用应服务于当前功能，不用于保留已替换的名字。
 
@@ -84,6 +84,10 @@ removeitems-done-rich = Removed { $countValue ->
 `RichArg.number` 保留原始组件的颜色和事件，以数值副本选择单复数。用户输入通过组件标记替换原样插入，不再作为 Fluent 或 MiniMessage 解析，包含 `{ $name }` 或 `<red>` 的玩家文本也保持字面内容。
 
 已有 `*-mm` 消息由调用方在 Fluent 格式化后交给 MiniMessage。数值条件在 Fluent 阶段处理，例如隐身提醒的玩家数与距离、返回历史的次数。动态用户内容继续使用组件或 MiniMessage 的安全占位符。修改这类消息时同时检查对应调用方，避免遗漏原有占位符、颜色或点击操作。
+
+[场景提示](guidance.md#多语言)的普通文案通过 `define(id, Message)` 声明，消息使用 `-mm`，服务在发送前按接收者语言解析 MiniMessage。未指定颜色时回退为白色，模块可按内容自行选择明亮配色。原版物品可组合 `<lang:翻译键>` 和 `<hover:show_item:'物品ID'>`，显示客户端原生名称与物品悬浮框；同一功能重复使用时可提取为 FTL 术语。提示的长度、颜色和交互遵循[文案与呈现规范](guidance.md#文案与呈现)。
+
+含动态参数时，模块的 `resolve(player, context, language)` 使用传入的 `Language` 调用以上入口，返回本地化的 `TipContent`。服务统一选定语言，使标签和正文保持一致，排队期间的语言切换也能生效；原版翻译组件由客户端按自身语言显示。情况标识与翻译文本独立，避免切换语言重置冷却。
 
 ## 检查与验证
 

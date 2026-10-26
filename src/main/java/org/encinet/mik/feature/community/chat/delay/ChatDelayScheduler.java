@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public final class ChatDelayScheduler {
 
@@ -38,6 +39,10 @@ public final class ChatDelayScheduler {
     }
 
     public boolean queue(Player player, String plainMessage, ChatChannelState state) {
+        return queue(player, plainMessage, state, null);
+    }
+
+    public boolean queue(Player player, String plainMessage, ChatChannelState state, Consumer<Player> onSent) {
         ChatDelayOption option = settingsStore.get(player.getUniqueId()).delay();
         if (option.delaySeconds() <= 0) {
             return false;
@@ -48,8 +53,8 @@ public final class ChatDelayScheduler {
         taskHolder[0] = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             remove(playerId, taskHolder[0]);
             Player onlineSender = Bukkit.getPlayer(playerId);
-            if (onlineSender != null) {
-                sender.sendDelayedMessage(onlineSender, plainMessage, state);
+            if (onlineSender != null && sender.sendDelayedMessage(onlineSender, plainMessage, state) && onSent != null) {
+                onSent.accept(onlineSender);
             }
         }, option.delaySeconds() * 20L);
 
@@ -111,7 +116,7 @@ public final class ChatDelayScheduler {
 
     @FunctionalInterface
     public interface DelayedMessageSender {
-        void sendDelayedMessage(Player sender, String plainMessage, ChatChannelState state);
+        boolean sendDelayedMessage(Player sender, String plainMessage, ChatChannelState state);
     }
 
     @FunctionalInterface

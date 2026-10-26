@@ -25,6 +25,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.guidance.TipScope;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -67,10 +68,14 @@ public class NameTagModule {
     private LuckPerms luckPerms;
 
     public NameTagModule(JavaPlugin plugin, LanguageService languageService,
-                         PlayerIdentityRenderer playerIdentities) {
+                         PlayerIdentityRenderer playerIdentities, TipScope tips) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.playerIdentities = playerIdentities;
+        tips.define("nametag-customize", Message.NAMETAG_TIP_CUSTOMIZE_MM)
+                .ambient()
+                .when(RolePermissions::isMember)
+                .build();
     }
 
     public void enable() {

@@ -6,7 +6,9 @@
 
 - [空间菜单](spatial-menus.md)：操作、界面大小、文字与 FOV。
 - [AFK](afk.md)：挂机判定、活动奖励与观影豁免。
-- [客户端提醒](client-reminders.md)：版本差异与推荐模组检测。
+- [客户端检测与提醒](client-reminders.md)：版本、模组信号查询与自动建议。
+- [场景提示](guidance.md)：自动触发、展示策略与功能接入。
+- [负面效果清除](effect-cleanup.md)：非战斗中的创造与旁观玩家获得负面效果时，一键清除。
 
 ## 社区
 

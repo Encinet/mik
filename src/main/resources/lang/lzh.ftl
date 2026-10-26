@@ -66,8 +66,8 @@ url-dialog-title = 啟 { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = 未見所薦模組：{ $mods }。點其名可得下載；既裝者，請察啟用與版本相容。
-client-version-mismatch-mm = <gray>伺服器之版 <white>{ $serverVersion }</white>，今客端之版 <white>{ $clientVersion }</white>。</gray>
+client-mods-undetected-rich = 薦用模組：{ $mods }，點其名可下載。
+client-version-behind-mm = <white>客端 <yellow>{ $clientVersion }</yellow> 舊於伺服端 <green>{ $serverVersion }</green>，宜更新。</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>近有 <gold>{ $count }</gold> 戲者 <gold>隱身</gold></yellow> <gray>·</gray> <gray>至近約去 { $distance } 方</gray>
 player-bedrock-label = 基岩
@@ -81,6 +81,10 @@ presence-quit-templates =
     .item-3 = { $player } 歸於塵世
 welcome-first-join-mm = <gold><bold>有朋自遠方來，不亦樂乎！</bold></gold><newline><gray>宜先覽 <click:open_url:'https://mcmik.top'><yellow>官網</yellow></click> 與 <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>；亦可行 <yellow>/menu</yellow> 以啟主簿。</gray>
 welcome-return-mm = <gold><bold>歸去來兮！</bold></gold><newline><gray>君去此已 <yellow>{ $arg0 } 日</yellow>。行 <yellow>/menu</yellow> 可覽常用諸事。</gray>
+
+## Player · Guidance
+
+tip-label = 箴
 
 ## Player · AFK
 
@@ -137,6 +141,7 @@ nametag-preview-label = 預覽
 nametag-sample-message = 試文
 nametag-set-error = 設 { $arg0 } 時遇舛，請稍待復試
 nametag-set-success = ✔ { $arg0 } 既設
+nametag-tip-customize-mm = 以 <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> 自訂<light_purple>名前後綴</light_purple>。
 nametag-title = 名籤
 nametag-too-long = { $arg0 } 過長，至多 { $arg1 } 字
 nametag-trailing-label = 名籤之尾綴
@@ -156,6 +161,8 @@ back-pending-mm = <gray>方移形，少待</gray>
 # $steps, $remaining, $max (Number): consumed history, remaining history and limit.
 back-success-mm = <green>既連還 { $steps } 次</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>移形未成，請復試</red>
+back-tip-return-mm = 以 <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> 返上次傳送或身故前之處。
+back-tip-undo-mm = 以 <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> 撤前次 <yellow>/back</yellow>。
 back-undo-empty-mm = <gray>無 <white>/back</white> 可反</gray>
 back-undo-success-mm = <green>既反前次 <white>/back</white></green>
 back-undo-world-missing-mm = <red>所向之生界不可用，弗能反之</red>
@@ -217,6 +224,8 @@ home-summary-count = 既定：{ $arg0 } / { $arg1 }
 home-teleport-command-description = 移形至歸處
 home-teleport-failed = 移形未成，請復試
 home-teleported-rich = 既移形至歸處 { $home }
+home-tip-create-mm = 以 <green><u><click:suggest_command:'/sethome '>/sethome 名</click></u></green> 存此處，再以 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 歸返。
+home-tip-return-mm = 以 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 開家園之目，擇之即可往。
 home-updated-rich = 歸處 { $home } 之位既遷
 home-usage-book = 歸處令式
 home-usage-delhome = /delhome <名>  除歸處
@@ -229,10 +238,11 @@ home-world-end = · 終界
 home-world-nether = · 焱界
 reback-command-description = 反前次 /back
 teleport-accept-command-description = 許待決之移形請求
-teleport-allow = 受常人移形
+teleport-allow = 受他人移形
 teleport-block-afk = 暫離則拒之
-teleport-denied = { $player } 今不納常人移形
+teleport-denied = { $player } 今不納他人移形
 teleport-deny-command-description = 拒待決之移形請求
+teleport-force-command-description = 強移其形，無視所願（惟司事可用）
 teleport-menu-title = 受移形之設
 teleport-moved-here = { $arg0 } 既移君至此
 teleport-policy-always-allow = 恆許之
@@ -248,9 +258,9 @@ teleport-request-received = { $sender } 欲移君：{ $command }
 teleport-request-rejected = 已拒移形請求
 teleport-request-sent = 已告 { $player } 請移之意
 teleport-summary-afk = 恆許之，暫離則拒
-teleport-summary-allow = 恆許常人移形
-teleport-summary-consent = 常人移君，須俟君允
-teleport-summary-deny = 恆拒常人移形
+teleport-summary-allow = 恆許他人移形
+teleport-summary-consent = 他人移君，須俟君允
+teleport-summary-deny = 恆拒他人移形
 tpany-command-description = 移形至戲者所在，不論在綫既去
 tpany-done-offline-rich = 既移形至 { $player } 去服時所在 { $world } { $location }
 tpany-done-online-rich = 既移形至 { $player } 今所在
@@ -306,21 +316,57 @@ pvp-status-player-rich = 戲者：{ $player }
 pvp-status-title-mm = <gold><bold>相搏之狀</bold></gold>
 pvp-summary-disabled = 相搏既閉
 pvp-summary-enabled = 相搏既啟
-pvp-target-disabled-actionbar-mm = <gray>彼未啟相搏</gray>
+pvp-target-disabled-actionbar-mm = <yellow>彼未啟相搏</yellow>
 pvp-target-menu-title = 相搏置設 · { $arg0 }
+pvp-tip-protection-mm = 以 <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> 開關己之對戰；<green>雙方皆啟</green>，乃可相攻。
 pvp-toggled-off-mm = <gray>相搏既閉</gray> <dark_gray>|</dark_gray> <gray>化干戈爲玉帛</gray>
 pvp-toggled-on-mm = <green>相搏既啟</green> <dark_gray>|</dark_gray> <gray>今可與已啟者兵戎相見</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [盡除諸效]
+effect-cleanup-blocked = 須處創造或旁觀之態，且未與人交戰，方可除效。
+effect-cleanup-expired = 此除效之請已失效。
+effect-cleanup-negative = [除負面之效]
+effect-cleanup-prompt-rich = 察君因 { $source } 而獲負面之效，欲除之乎？
+effect-cleanup-result = 已除 { $count } 種效。
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] 滯留藥霧
+        [ARROW] 矢
+        [ATTACK] 遇襲
+        [COMMAND] 指令
+        [FOOD] 食物
+        [PLUGIN] 插件
+        [POTION_DRINK] 飲藥
+        [POTION_SPLASH] 濺藥
+        [WARDEN] 監守者
+        [WITHER_ROSE] 凋靈玫瑰
+       *[OTHER] 不明之因
+    }
+
+## Player · Trash
+
+trash-clear = 盡棄
+trash-clear-hint = 按之即盡棄匣中物；
+    不按則閉匣 { $arg0 } 秒後自動盡棄。
+trash-command-description = 啟棄物之匣
+trash-sort = 整物
+trash-sort-hint = 合同物之疊，依物類排列
+trash-tip-dispose-mm = 以 <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> 啟<yellow>棄物之匣</yellow>，納所棄之物。
+trash-title = 棄物之匣
 
 ## Player · Utilities
 
 hat-command-description = 冠以主手之物
 hat-empty-hand-mm = <red>主手無物</red> <gray>先持一塊抑一物，而後用 /hat</gray>
 hat-success-mm = <green>既冠以主手之物</green> <dark_gray>|</dark_gray> <gray>主手與兜鍪之格既易</gray>
+hat-tip-wear-mm = 以 <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> 戴<yellow>主手之物</yellow>於首。
 removeitems-command-description = 清地上遺物
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = 已於 { $world } { $location } 清 { $count } 件遺物 { $radius }
 removeitems-no-world = 所在之生界未明
 removeitems-radius = 方圓 { $arg0 } 方
+removeitems-tip-usage-mm = 以 <aqua><u><click:suggest_command:'/rmitems '>/rmitems [半徑]</click></u></aqua> 清近旁<yellow>遺物</yellow>。
 self-kick-command-description = 自逐出伺服器
 self-kick-reason-too-long = 逐出之故不可逾 { $arg0 } 字
 # $person: second for the actor; third for other viewers and console.
@@ -341,9 +387,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player } 默然而去。
     .item-3 = { $player } 演自逐之戲。
     .item-4 = { $player } 自行離服矣。
-trash-command-description = 啟棄物之匣
-trash-title = 棄物之匣
-trash-title-hint = 準物而按 F，以盡除其疊
 
 ## Community · Chat and mentions
 
@@ -368,6 +411,7 @@ chat-private-no-reply-target = 無可復語之在綫者
 chat-private-self = 不可與己私語
 chat-private-target-not-found = 在綫戲者 { $arg0 } 無所獲
 chat-private-target-offline = 私語者既去，已還公議
+chat-private-tip-channel-mm = 以 <aqua><u><click:suggest_command:'/msg '>/msg 人</click></u></aqua> 入私語頻道，以 <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> 返公頻。
 chat-public-command-description = 易至公議
 chat-public-enter = 既入公議
 chat-reply-command-description = 復語於近所私語者
@@ -392,7 +436,7 @@ mention-summary-modes-afk = { $arg0 }，暫離則默
 mention-summary-sound = 鳴音
 staffchat-enter = 既入吏議
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = 暫無告示
 announcement-first-page = 已至最新
@@ -410,11 +454,6 @@ announcement-unread-count = 未讀 { $arg0 } 則
 announcement-updated = 告示已新
 announcement-view-all = 覽諸告示
 announcement-view-command-description = 覽伺服器告示
-tip-hover = 伺服器小箴
-tip-label = 箴
-tip-reload-command-description = 復載 tips.txt
-tip-reload-count = { $arg0 } 則
-tip-reload-done = 箴言既復載
 
 ## Community · Identity and social platforms
 
@@ -1192,7 +1231,7 @@ async-regen-awaiting-apply = 有策待施：{ $arg0 } · { $arg1 } · { $arg2 } 
 async-regen-block-preview-progress = 方塊預察 · 已察 { $arg0 }/{ $arg1 } 區塊 · 方塊之變 { $arg2 } · 或損方塊實體 { $arg3 }
 async-regen-block-preview-summary = 預察：合 { $arg2 } 者有方塊之變 { $arg0 }，或覆既有方塊實體 { $arg1 }
 async-regen-cancelled = 再生已止。既施之 { $arg0 } 變仍存於世
-async-regen-command-description = 異步再生 WorldEdit 所選之域
+async-regen-command-description = 異步再生 FastAsyncWorldEdit 所選之域
 async-regen-completed = 再生畢：歷 { $arg1 }，易 { $arg0 } 方塊
 async-regen-failed = 再生因內誤而止。既施之 { $arg0 } 變仍存於世
 async-regen-filter-all = 諸方塊之類
@@ -1206,7 +1245,7 @@ async-regen-preview-started = 預察始：所選 { $arg0 } 方塊，跨 { $arg1 
 async-regen-progress = { $arg0 } · 已籌 { $arg1 }/{ $arg2 } 區塊 · 已施 { $arg3 } 變
 async-regen-safety-note = 所存選域之外必不易；域內之築或覆，原版亦不識玩家所置之常方塊。施前宜察其象，備其世。
 async-regen-scope-blocks = 再生合 { $arg0 } 之方塊
-async-regen-selection-required = 請先完成 WorldEdit 選域
+async-regen-selection-required = 請先完成 FastAsyncWorldEdit 選域
 async-regen-skipped-ungenerated = 未嘗生之目標區塊 { $arg0 } 皆略之，亦未造未易
 async-regen-start-failed = 再生未能始，詳見伺服器誌
 async-regen-state-applying = 正施變更
@@ -1227,13 +1266,16 @@ async-regen-upgrade-scope-terrain = 地勢、營造與生境
 async-regen-usage = 用法：/regen preview blocks [類...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = 選域之象見於 { $arg0 }：青者界，橙者所易方塊之樣，赤者或覆之方塊實體；此粒惟汝可見
 async-regen-visualization-selection = { $arg0 } 中青粒示選域之界，惟汝可見
-async-regen-world-edit-required = 欲讀所選之域，須有 WorldEdit
+async-regen-fawe-required = 欲讀所選之域，須有 FastAsyncWorldEdit
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ 蹲
+iron-elevator-tip-mm = 上下相對置{ -iron-elevator-block }，即可作升降臺。立{ -iron-elevator-block }上，<green>躍則升</green>、<aqua>潛行則降</aqua>；逾二層者，顯<gold>選層之板</gold>。
 iron-elevator-up = ↑ 躍
 spawn-beacon-color-command-description = 易主城烽火臺流彩
 spawn-beacon-color-disabled = 主城烽火臺流彩既閉
 spawn-beacon-color-enabled = 主城烽火臺流彩既啟
 spawn-command-description = 還主城
+spawn-tip-return-mm = 以 <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> 歸<yellow>主城</yellow>。
 spawn-world-missing = 主城所在之生界不可用
 
 ## Entertainment · Music
@@ -1641,6 +1683,7 @@ restriction-other-player-name-mm = <red>君無於令中提及他戲者之名之�
 tpsbar-command-description = 顯隱 TPS 之欄
 tpsbar-hidden = TPS 之欄既隱
 tpsbar-shown = TPS 之欄既顯
+tpsbar-tip-status-mm = 以 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 啟閉<yellow>TPS、MSPT 與延遲</yellow>欄。
 unban-command-description = 赦玩家而留封禁之錄
 whitelist-already-whitelisted = { $arg0 } 已在準簿中
 whitelist-invalid-name = 戲者之名式有誤

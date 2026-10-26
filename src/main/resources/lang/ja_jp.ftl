@@ -66,8 +66,8 @@ url-dialog-title = { $arg0 }を開く
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = 推奨Modが検出されませんでした：{ $mods }。名前をクリックしてダウンロードできます。導入済みの場合は有効化と互換性をご確認ください。
-client-version-mismatch-mm = <gray>サーバーバージョン <white>{ $serverVersion }</white>、現在のクライアントバージョン <white>{ $clientVersion }</white>。</gray>
+client-mods-undetected-rich = おすすめのMOD：{ $mods }。名前をクリックしてダウンロードできます。
+client-version-behind-mm = <white>クライアント <yellow>{ $clientVersion }</yellow> はサーバー <green>{ $serverVersion }</green> より古いバージョンです。更新をおすすめします。</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>近くに<gold>{ $count }人</gold>の<gold>透明化</gold>したプレイヤーがいます</yellow> <gray>·</gray> <gray>最寄りまで約{ $distance }ブロック</gray>
 player-bedrock-label = 統合版
@@ -81,6 +81,10 @@ presence-quit-templates =
     .item-3 = { $player } が現実に呼び戻されました
 welcome-first-join-mm = <gold><bold>MIKへようこそ！</bold></gold><newline><gray>まずは<click:open_url:'https://mcmik.top'><yellow>ウェブサイト</yellow></click>と<click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>をご覧ください。<yellow>/menu</yellow>でメインメニューを開くこともできます。</gray>
 welcome-return-mm = <gold><bold>おかえりなさい！</bold></gold><newline><gray>前回の参加から<yellow>{ $arg0 }日</yellow>経過しています。よく使う機能は<yellow>/menu</yellow>から確認できます。</gray>
+
+## Player · Guidance
+
+tip-label = ヒント
 
 ## Player · AFK
 
@@ -137,6 +141,7 @@ nametag-preview-label = プレビュー
 nametag-sample-message = サンプルメッセージ
 nametag-set-error = { $arg0 }の設定中にエラーが発生しました。しばらくしてからもう一度お試しください
 nametag-set-success = ✔ { $arg0 }を設定しました
+nametag-tip-customize-mm = <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> で<light_purple>名前の接頭辞と接尾辞</light_purple>をカスタマイズできます。
 nametag-title = ネームタグ
 nametag-too-long = { $arg0 }は長すぎます。最大{ $arg1 }文字までです
 nametag-trailing-label = 名前の後
@@ -156,6 +161,8 @@ back-pending-mm = <gray>テレポートしています。しばらくお待ち�
 # $steps, $remaining, $max (Number): consumed history, remaining history and limit.
 back-success-mm = <green>{ $steps }回前の場所へ戻りました</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>テレポートに失敗しました。もう一度お試しください</red>
+back-tip-return-mm = <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> で前回のテレポートや死亡の前にいた場所へ戻れます。
+back-tip-undo-mm = <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> で直前の <yellow>/back</yellow> を取り消せます。
 back-undo-empty-mm = <gray>取り消せる<white>/back</white>がありません</gray>
 back-undo-success-mm = <green>直前の<white>/back</white>を取り消しました</green>
 back-undo-world-missing-mm = <red>移動先のワールドを利用できないため、取り消せません</red>
@@ -217,6 +224,8 @@ home-summary-count = 設定数: { $arg0 } / { $arg1 }
 home-teleport-command-description = ホームへテレポート
 home-teleport-failed = テレポートに失敗しました。もう一度お試しください
 home-teleported-rich = ホーム「{ $home }」へテレポートしました
+home-tip-create-mm = <green><u><click:suggest_command:'/sethome '>/sethome 名前</click></u></green> で現在地を保存し、<aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> で戻れます。
+home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> でホームメニューを開き、行き先を選ぶとテレポートできます。
 home-updated-rich = ホーム「{ $home }」の位置を更新しました
 home-usage-book = コマンドヘルプ
 home-usage-delhome = /delhome <name>  ホームを削除
@@ -231,8 +240,9 @@ reback-command-description = 直前の/backを取り消す
 teleport-accept-command-description = 保留中のテレポート申請を承認
 teleport-allow = 他のプレイヤーによるテレポート
 teleport-block-afk = AFK中は拒否
-teleport-denied = { $player }は現在、一般プレイヤーからのテレポートを拒否しています
+teleport-denied = { $player }は現在、他のプレイヤーによるテレポートを拒否しています
 teleport-deny-command-description = 保留中のテレポート申請を拒否
+teleport-force-command-description = プレイヤーの設定を無視して強制テレポート（管理者専用）
 teleport-menu-title = テレポート設定
 teleport-moved-here = { $arg0 }によってここへテレポートされました
 teleport-policy-always-allow = 常に許可
@@ -248,9 +258,9 @@ teleport-request-received = { $sender }があなたをテレポートしよう�
 teleport-request-rejected = テレポート申請を拒否しました
 teleport-request-sent = { $player }にテレポート申請を送信しました
 teleport-summary-afk = 常に許可、AFK中のみ拒否
-teleport-summary-allow = 一般プレイヤーからのテレポートを常に許可
-teleport-summary-consent = 一般プレイヤーからのテレポートには自分の承認が必要
-teleport-summary-deny = 一般プレイヤーからのテレポートを常に拒否
+teleport-summary-allow = 他のプレイヤーによるテレポートを常に許可
+teleport-summary-consent = 他のプレイヤーによるテレポートには自分の承認が必要
+teleport-summary-deny = 他のプレイヤーによるテレポートを常に拒否
 tpany-command-description = オンラインまたはオフラインのプレイヤーの場所へテレポート
 tpany-done-offline-rich = { $player }の最終確認地点へテレポートしました { $world } { $location }
 tpany-done-online-rich = { $player }の現在地へテレポートしました
@@ -306,21 +316,57 @@ pvp-status-player-rich = プレイヤー: { $player }
 pvp-status-title-mm = <gold><bold>PvPステータス</bold></gold>
 pvp-summary-disabled = PvP: オフ
 pvp-summary-enabled = PvP: オン
-pvp-target-disabled-actionbar-mm = <gray>そのプレイヤーはPvPを有効にしていません</gray>
+pvp-target-disabled-actionbar-mm = <yellow>そのプレイヤーはPvPを有効にしていません</yellow>
 pvp-target-menu-title = PvP設定 - { $arg0 }
+pvp-tip-protection-mm = <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> で自分のPVPを切り替えられます。互いに攻撃するには<green>双方で有効にしてください</green>。
 pvp-toggled-off-mm = <gray>PvPを無効にしました</gray> <dark_gray>|</dark_gray> <gray>他のプレイヤーから攻撃されません</gray>
 pvp-toggled-on-mm = <green>PvPを有効にしました</green> <dark_gray>|</dark_gray> <gray>PvPが有効なプレイヤーと戦闘できます</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [すべての効果を解除]
+effect-cleanup-blocked = PVP 戦闘中でないクリエイティブまたはスペクテイターモードでのみ解除できます。
+effect-cleanup-expired = この解除リクエストは期限切れです。
+effect-cleanup-negative = [マイナス効果を解除]
+effect-cleanup-prompt-rich = { $source } によりマイナス効果が付与されました。解除しますか？
+effect-cleanup-result = { $count } 種類の効果を解除しました。
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] 残留ポーションの雲
+        [ARROW] 矢
+        [ATTACK] 攻撃
+        [COMMAND] コマンド
+        [FOOD] 食べ物
+        [PLUGIN] プラグイン
+        [POTION_DRINK] ポーションの使用
+        [POTION_SPLASH] スプラッシュポーション
+        [WARDEN] ウォーデン
+        [WITHER_ROSE] ウィザーローズ
+       *[OTHER] 不明な原因
+    }
+
+## Player · Trash
+
+trash-clear = 空にする
+trash-clear-hint = クリックすると中のアイテムをすべて削除します。
+    クリックしなくても、閉じてから { $arg0 } 秒後に自動削除されます。
+trash-command-description = ゴミ箱を開く
+trash-sort = 整理
+trash-sort-hint = 同じアイテムをまとめて種類順に並べる
+trash-tip-dispose-mm = <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> で<yellow>ゴミ箱</yellow>を開き、不要なアイテムを入れられます。
+trash-title = ゴミ箱
 
 ## Player · Utilities
 
 hat-command-description = 利き手に持っているアイテムを頭に装備
 hat-empty-hand-mm = <red>利き手にアイテムを持っていません</red> <gray>ブロックまたはアイテムを持ってから/hatを使用してください</gray>
 hat-success-mm = <green>利き手のアイテムを頭に装備しました</green> <dark_gray>|</dark_gray> <gray>利き手と頭の装備スロットを入れ替えました</gray>
+hat-tip-wear-mm = <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> で<yellow>メインハンドのアイテム</yellow>を頭にかぶれます。
 removeitems-command-description = ドロップアイテムを削除
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = ワールド{ $world }の{ $count }個のドロップアイテムを削除しました { $location } { $radius }
 removeitems-no-world = ワールドを特定できませんでした
 removeitems-radius = 半径{ $arg0 }ブロック
+removeitems-tip-usage-mm = <aqua><u><click:suggest_command:'/rmitems '>/rmitems [半径]</click></u></aqua> で近くの<yellow>ドロップアイテム</yellow>を削除できます。
 self-kick-command-description = 自分をサーバーからキックする
 self-kick-reason-too-long = キック理由は{ $arg0 }文字以内にしてください
 # $person: second for the actor; third for other viewers and console.
@@ -341,9 +387,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player } は何も言わずにサーバーを去りました。
     .item-3 = { $player } は見事なセルフキックを披露しました。
     .item-4 = { $player } は自らサーバー退出ボタンを押しました。
-trash-command-description = ゴミ箱を開く
-trash-title = ゴミ箱
-trash-title-hint = アイテムに照準を合わせて F キーを押すとスタックを削除
 
 ## Community · Chat and mentions
 
@@ -368,6 +411,7 @@ chat-private-no-reply-target = 直前のプライベートチャット相手は�
 chat-private-self = 自分とはプライベートチャットを開始できません
 chat-private-target-not-found = オンラインのプレイヤーが見つかりません: { $arg0 }
 chat-private-target-offline = プライベートチャット相手がオフラインになったため、パブリックチャットに戻りました
+chat-private-tip-channel-mm = <aqua><u><click:suggest_command:'/msg '>/msg プレイヤー</click></u></aqua> で個人チャットに切り替え、<yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> で公開チャットに戻れます。
 chat-public-command-description = パブリックチャットに切り替え
 chat-public-enter = パブリックチャットに切り替えました
 chat-reply-command-description = 直前のプライベートチャット相手に返信
@@ -392,7 +436,7 @@ mention-summary-modes-afk = { $arg0 }、AFK中はミュート
 mention-summary-sound = 通知音
 staffchat-enter = スタッフチャットに参加しました
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = お知らせはありません
 announcement-first-page = 最新のお知らせです
@@ -410,11 +454,6 @@ announcement-unread-count = 未読 { $arg0 } 件
 announcement-updated = お知らせを更新しました
 announcement-view-all = すべてのお知らせを見る
 announcement-view-command-description = サーバーのお知らせを見る
-tip-hover = サーバーのヒント
-tip-label = ヒント
-tip-reload-command-description = tips.txtを再読み込み
-tip-reload-count = { $arg0 }件
-tip-reload-done = ヒントを再読み込みしました
 
 ## Community · Identity and social platforms
 
@@ -1192,7 +1231,7 @@ async-regen-awaiting-apply = 適用待ちプラン：{ $arg0 } · { $arg1 } · �
 async-regen-block-preview-progress = ブロックプレビュー · { $arg0 }/{ $arg1 } チャンク確認済み · ブロック変更 { $arg2 } · 危険なブロックエンティティ { $arg3 }
 async-regen-block-preview-summary = プレビュー：{ $arg2 } に一致するブロック変更 { $arg0 } 件、上書きされる可能性のある既存ブロックエンティティ { $arg1 } 件
 async-regen-cancelled = 再生成を中止しました。すでに適用された { $arg0 } 件の変更はワールドに残ります
-async-regen-command-description = WorldEdit の選択範囲を非同期で再生成する
+async-regen-command-description = FastAsyncWorldEdit の選択範囲を非同期で再生成する
 async-regen-completed = 再生成が完了しました：{ $arg1 } で { $arg0 } ブロックを変更
 async-regen-failed = 内部エラーにより再生成を停止しました。すでに適用された { $arg0 } 件の変更はワールドに残ります
 async-regen-filter-all = すべてのブロック種類
@@ -1206,7 +1245,7 @@ async-regen-preview-started = プレビュー開始：選択 { $arg0 } ブロッ
 async-regen-progress = { $arg0 } · 計画済み { $arg1 }/{ $arg2 } チャンク · { $arg3 } 件を適用
 async-regen-safety-note = 保存された選択範囲の外は変更されません。範囲内の建築物は上書きされる可能性があり、バニラはプレイヤー設置ブロックを識別できません。適用前に可視化を確認し、バックアップしてください。
 async-regen-scope-blocks = { $arg0 } に一致するブロックを再生成
-async-regen-selection-required = 先に WorldEdit の選択範囲を完成させてください
+async-regen-selection-required = 先に FastAsyncWorldEdit の選択範囲を完成させてください
 async-regen-skipped-ungenerated = 未生成の対象チャンク { $arg0 } 個をスキップしました。新規生成も変更もしていません
 async-regen-start-failed = 再生成を開始できませんでした。詳細はサーバーログを確認してください
 async-regen-state-applying = 変更を適用中
@@ -1227,13 +1266,16 @@ async-regen-upgrade-scope-terrain = 地形・構造物・バイオーム
 async-regen-usage = 使用法：/regen preview blocks [種類...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = { $arg0 } の可視化：水色 = 選択範囲、オレンジ = 変更ブロックのサンプル、赤 = 上書きの危険があるブロックエンティティ。このパーティクルは自分にだけ見えます。
 async-regen-visualization-selection = { $arg0 } の水色パーティクルが選択範囲の境界を示します。自分にだけ見えます。
-async-regen-world-edit-required = 選択範囲の取得には WorldEdit が必要です
+async-regen-fawe-required = 選択範囲の取得には FastAsyncWorldEdit が必要です
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ スニーク
+iron-elevator-tip-mm = { -iron-elevator-block }を上下にそろえて置くとエレベーターになります。{ -iron-elevator-block }の上で<green>ジャンプすると上へ</green>、<aqua>スニークすると下へ</aqua>。3階以上では<gold>階数パネル</gold>が表示されます。
 iron-elevator-up = ↑ ジャンプ
 spawn-beacon-color-command-description = スポーンビーコンの色の切り替えを設定
 spawn-beacon-color-disabled = スポーンビーコンの色の切り替えを無効にしました
 spawn-beacon-color-enabled = スポーンビーコンの色の切り替えを有効にしました
 spawn-command-description = スポーンへ戻る
+spawn-tip-return-mm = <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> で<yellow>サーバーの初期スポーン地点</yellow>に戻れます。
 spawn-world-missing = スポーンのワールドを利用できません
 
 ## Entertainment · Music
@@ -1641,6 +1683,7 @@ restriction-other-player-name-mm = <red>コマンドに他のプレイヤー名�
 tpsbar-command-description = TPSバーの表示を切り替え
 tpsbar-hidden = TPSバーを非表示にしました
 tpsbar-shown = TPSバーを表示しました
+tpsbar-tip-status-mm = <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> で<yellow>TPS・MSPT・Ping</yellow>バーの表示を切り替えられます。
 unban-command-description = BANを解除して履歴を保持
 whitelist-already-whitelisted = { $arg0 }はすでにホワイトリストに登録されています
 whitelist-invalid-name = プレイヤー名の形式が正しくありません

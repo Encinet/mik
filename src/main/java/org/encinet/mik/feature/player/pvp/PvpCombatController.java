@@ -3,6 +3,7 @@ package org.encinet.mik.feature.player.pvp;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.entity.AreaEffectCloud;
 import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.Entity;
@@ -22,12 +23,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.feature.player.guidance.Tip;
+import org.encinet.mik.feature.player.guidance.TipScope;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 final class PvpCombatController implements Listener {
 
@@ -39,16 +43,21 @@ final class PvpCombatController implements Listener {
     private final LanguageService languageService;
     private final PvpSettingsStore settingsStore;
     private final PvpStateResolver stateResolver;
+    private final Tip<UUID> protectionTip;
     private final Map<UUID, PendingAttack> pendingAutoEnable = new ConcurrentHashMap<>();
     private final Map<UUID, Long> combatTaggedUntil = new ConcurrentHashMap<>();
     private BukkitTask cleanupTask;
 
     PvpCombatController(JavaPlugin plugin, LanguageService languageService, PvpSettingsStore settingsStore,
-                        PvpStateResolver stateResolver) {
+                        PvpStateResolver stateResolver, TipScope tips, Function<UUID, Player> players) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.settingsStore = settingsStore;
         this.stateResolver = stateResolver;
+        this.protectionTip = tips.<UUID>define("pvp-protection", Message.PVP_TIP_PROTECTION_MM)
+                .priority(80)
+                .when((player, targetId) -> needsProtectionTip(player, players.apply(targetId)))
+                .build();
     }
 
     void enable() {
@@ -182,9 +191,12 @@ final class PvpCombatController implements Listener {
             return;
         }
 
-        PvpSettings attackerSettings = settingsStore.get(attacker.playerId());
         if (!stateResolver.effectiveEnabled(victim.getUniqueId())) {
             event.setCancelled(true);
+            if (needsProtectionTip(attacker.player(), victim)) {
+                // This denied attack is the scenario; cancelled events do not use the generic event transport.
+                protectionTip.offer(attacker.player(), victim.getUniqueId());
+            }
             sendActionBar(attacker, Message.PVP_TARGET_DISABLED_ACTIONBAR_MM);
             return;
         }
@@ -206,7 +218,7 @@ final class PvpCombatController implements Listener {
         PendingAttack pending = pendingAutoEnable.get(attacker.playerId());
         long now = System.currentTimeMillis();
         if (pending != null && pending.targetId().equals(victim.getUniqueId()) && pending.expiresAt() >= now) {
-            settingsStore.save(attacker.playerId(), attackerSettings.withEnabled(true));
+            settingsStore.save(attacker.playerId(), settingsStore.get(attacker.playerId()).withEnabled(true));
             pendingAutoEnable.remove(attacker.playerId());
             sendActionBar(attacker, Message.PVP_AUTO_ENABLED_ACTIONBAR_MM);
             return;
@@ -215,6 +227,20 @@ final class PvpCombatController implements Listener {
         pendingAutoEnable.put(attacker.playerId(), new PendingAttack(victim.getUniqueId(), now + AUTO_ENABLE_WINDOW_MILLIS));
         event.setCancelled(true);
         sendActionBar(attacker, Message.PVP_AUTO_ENABLE_WARNING_ACTIONBAR_MM);
+    }
+
+    private boolean needsProtectionTip(Player attacker, Player victim) {
+        return attacker != null && victim != null && victim.isOnline()
+                && survivalOrAdventure(attacker) && survivalOrAdventure(victim)
+                && !stateResolver.effectiveEnabled(attacker.getUniqueId())
+                && !stateResolver.effectiveEnabled(victim.getUniqueId())
+                && !stateResolver.hasOverride(attacker.getUniqueId())
+                && !stateResolver.hasOverride(victim.getUniqueId());
+    }
+
+    private static boolean survivalOrAdventure(Player player) {
+        GameMode mode = player.getGameMode();
+        return mode == GameMode.SURVIVAL || mode == GameMode.ADVENTURE;
     }
 
     private boolean isProtectedMob(AttackSource attacker, Entity target) {

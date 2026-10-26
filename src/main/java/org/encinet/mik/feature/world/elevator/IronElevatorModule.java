@@ -32,6 +32,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.feature.player.guidance.TipScope;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.runtime.WorldTextDisplayService;
@@ -59,7 +60,7 @@ public final class IronElevatorModule implements Listener {
     private boolean enabled;
 
     public IronElevatorModule(JavaPlugin plugin, LanguageService languageService,
-                              WorldTextDisplayService labels) {
+                              WorldTextDisplayService labels, TipScope tips) {
         this.plugin = plugin;
         this.wallPanel = new IronElevatorWallPanel(labels,
                 (player, height) -> selectFloor(player, height));
@@ -100,6 +101,7 @@ public final class IronElevatorModule implements Listener {
             }
         }, task -> plugin.getServer().getScheduler().runTask(plugin, task),
                 id -> plugin.getServer().getPlayer(id), plugin.getLogger()::warning);
+        tips.define("iron-elevator", Message.IRON_ELEVATOR_TIP_MM).ambient().build();
     }
 
     private void selectFloor(Player player, int height) {

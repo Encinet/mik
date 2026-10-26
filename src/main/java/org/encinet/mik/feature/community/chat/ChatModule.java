@@ -44,6 +44,7 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.player.profile.PlayerIdentityRenderer;
+import org.encinet.mik.feature.player.guidance.TipScope;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatGameSink;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublisher;
 import org.encinet.mik.feature.community.identity.IdentityBindingManager;
@@ -59,6 +60,7 @@ import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.time.Instant;
+import java.util.function.Consumer;
 
 public class ChatModule implements Listener, SocialChatGameSink {
 
@@ -80,53 +82,20 @@ public class ChatModule implements Listener, SocialChatGameSink {
     private final ChatRepeatTracker repeatTracker = new ChatRepeatTracker();
     private final ChatRepeatActionStore repeatActionStore = new ChatRepeatActionStore();
     private final SocialChatPublisher socialChat;
+    private final Consumer<Player> privateCommandSent;
     private final Map<AsyncChatEvent, PendingChatTransaction> pendingTransactions =
             Collections.synchronizedMap(new WeakHashMap<>());
     private final Map<UUID, ChatChannelState> channelStates =
             new ConcurrentHashMap<>();
     private final Map<UUID, UUID> lastPrivatePartner = new ConcurrentHashMap<>();
 
-    public ChatModule(JavaPlugin plugin, MentionService mentionService, LanguageService languageService,
-                      ChatSettingsStore settingsStore,
-                      PlayerIdentityRenderer playerIdentities) {
-        this(plugin, mentionService, languageService, settingsStore, playerIdentities,
-                ignored -> SocialChatPublishReport.empty());
-    }
-
-    public ChatModule(JavaPlugin plugin, MentionService mentionService, LanguageService languageService,
-                      ChatSettingsStore settingsStore,
-                      PlayerIdentityRenderer playerIdentities,
-                      SocialChatPublisher socialChat) {
-        this(plugin, mentionService, languageService, settingsStore,
-                new ChatMessageFormatter(languageService, playerIdentities), socialChat, null);
-    }
-
     public ChatModule(JavaPlugin plugin, MentionService mentionService,
                       LanguageService languageService,
                       ChatSettingsStore settingsStore,
                       PlayerIdentityRenderer playerIdentities,
                       SocialChatPublisher socialChat,
-                      IdentityBindingManager identityBindings) {
-        this(plugin, mentionService, languageService, settingsStore,
-                new ChatMessageFormatter(languageService, playerIdentities), socialChat,
-                identityBindings);
-    }
-
-    public ChatModule(JavaPlugin plugin, MentionService mentionService,
-                      LanguageService languageService,
-                      ChatSettingsStore settingsStore,
-                      ChatMessageFormatter formatter,
-                      SocialChatPublisher socialChat) {
-        this(plugin, mentionService, languageService, settingsStore,
-                formatter, socialChat, null);
-    }
-
-    public ChatModule(JavaPlugin plugin, MentionService mentionService,
-                      LanguageService languageService,
-                      ChatSettingsStore settingsStore,
-                      ChatMessageFormatter formatter,
-                      SocialChatPublisher socialChat,
-                      IdentityBindingManager identityBindings) {
+                      IdentityBindingManager identityBindings,
+                      TipScope tips) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.mentionService = mentionService;
@@ -134,9 +103,10 @@ public class ChatModule implements Listener, SocialChatGameSink {
         this.contextFactory = new BukkitChatContextFactory(plugin, identityBindings);
         this.socialChat = java.util.Objects.requireNonNull(socialChat, "socialChat");
         this.settingsMenu = new ChatSettingsMenu(languageService, mentionService, settingsStore);
-        this.formatter = java.util.Objects.requireNonNull(formatter, "formatter");
+        this.formatter = new ChatMessageFormatter(languageService, playerIdentities);
         this.delayScheduler = new ChatDelayScheduler(plugin, languageService, settingsStore,
                 this::sendDelayedMessage, this::sendDelayedPreview);
+        privateCommandSent = ChatTips.privateChannel(plugin, tips, this::isPublicChannel);
     }
 
     public void enable() {
@@ -177,7 +147,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
                                 }
                                 return Command.SINGLE_SUCCESS;
                             }))
-                    .build(), languageService.t(Language.DEFAULT, Message.CHAT_STAFF_COMMAND_DESCRIPTION), List.of("staffchat"));
+                    .build(), languageService.t(Language.DEFAULT, Message.CHAT_STAFF_COMMAND_DESCRIPTION));
 
             commands.register(Commands.literal("public")
                     .executes(ctx -> {
@@ -528,11 +498,19 @@ public class ChatModule implements Listener, SocialChatGameSink {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_SELF), NamedTextColor.RED));
             return;
         }
-        if (delayScheduler.queue(sender, plainMessage, ChatChannelState.privateChannel(target.getUniqueId(), target.getName()))) {
+        boolean fromPublic = isPublicChannel(sender);
+        if (delayScheduler.queue(sender, plainMessage, ChatChannelState.privateChannel(target.getUniqueId(), target.getName()),
+                fromPublic ? privateCommandSent : null)) {
             touchPrivatePartners(sender, target);
             return;
         }
         sendPrivateMessage(sender, target, plainMessage);
+        if (fromPublic) privateCommandSent.accept(sender);
+    }
+
+    private boolean isPublicChannel(Player player) {
+        ChatChannelState state = channelStates.get(player.getUniqueId());
+        return state == null || state.channel() == ChatChannel.PUBLIC;
     }
 
     private void sendTemporaryPublicCommand(Player sender, String plainMessage) {
@@ -572,10 +550,10 @@ public class ChatModule implements Listener, SocialChatGameSink {
         sendStaffMessage(sender, plainMessage);
     }
 
-    private void sendStaffMessage(Player sender, String plainMessage) {
+    private boolean sendStaffMessage(Player sender, String plainMessage) {
         if (!RolePermissions.canModerate(sender)) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_STAFF_PERMISSION_MISSING), NamedTextColor.RED));
-            return;
+            return false;
         }
 
         Set<Player> channelPlayers = staffChannelPlayers();
@@ -590,6 +568,7 @@ public class ChatModule implements Listener, SocialChatGameSink {
             player.sendMessage(formatter.staffMessage(sender, player, message, plainMessage, repeatCommand));
         }
         mentionService.notifyEffects(sender, processed.effects(), channelPlayers);
+        return true;
     }
 
     private void switchReply(Player sender) {
@@ -728,19 +707,23 @@ public class ChatModule implements Listener, SocialChatGameSink {
         return formatter.privatePreview(sender, targetName, message, copyText);
     }
 
-    private void sendDelayedMessage(Player sender, String plainMessage, ChatChannelState state) {
-        switch (state.channel()) {
-            case PUBLIC -> sendPublicMessage(sender, plainMessage);
+    private boolean sendDelayedMessage(Player sender, String plainMessage, ChatChannelState state) {
+        return switch (state.channel()) {
+            case PUBLIC -> {
+                sendPublicMessage(sender, plainMessage);
+                yield true;
+            }
             case STAFF -> sendStaffMessage(sender, plainMessage);
             case PRIVATE -> {
                 Player target = Bukkit.getPlayer(state.targetId());
                 if (target == null) {
                     sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_TARGET_OFFLINE), NamedTextColor.RED));
-                    return;
+                    yield false;
                 }
                 sendPrivateMessage(sender, target, plainMessage);
+                yield true;
             }
-        }
+        };
     }
 
     private void sendPublicMessage(Player sender, String plainMessage) {

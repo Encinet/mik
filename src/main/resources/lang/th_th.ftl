@@ -66,8 +66,8 @@ url-dialog-title = เปิด { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = ไม่พบม็อดที่แนะนำ: { $mods } คลิกชื่อเพื่อดาวน์โหลด หากติดตั้งแล้ว ให้ตรวจสอบว่าเปิดใช้งานและเป็นเวอร์ชันที่เข้ากันได้
-client-version-mismatch-mm = <gray>เวอร์ชันเซิร์ฟเวอร์ <white>{ $serverVersion }</white> เวอร์ชันไคลเอนต์ปัจจุบัน <white>{ $clientVersion }</white></gray>
+client-mods-undetected-rich = ม็อดแนะนำ: { $mods } คลิกชื่อเพื่อดาวน์โหลด
+client-version-behind-mm = <white>ไคลเอนต์ <yellow>{ $clientVersion }</yellow> เก่ากว่าเซิร์ฟเวอร์ <green>{ $serverVersion }</green> แนะนำให้อัปเดต</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>ผู้เล่น <gold>ล่องหน</gold> ใกล้คุณจำนวน <gold>{ $count }</gold> คน</yellow> <gray>·</gray> <gray>คนที่ใกล้ที่สุดห่างประมาณ { $distance } บล็อก</gray>
 player-bedrock-label = Bedrock
@@ -81,6 +81,10 @@ presence-quit-templates =
     .item-3 = โลกจริงเรียก { $player } กลับไปแล้ว
 welcome-first-join-mm = <gold><bold>ยินดีต้อนรับสู่ MIK!</bold></gold><newline><gray>เริ่มต้นที่ <click:open_url:'https://mcmik.top'><yellow>เว็บไซต์</yellow></click> และ <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click> หรือใช้ <yellow>/menu</yellow> เพื่อเปิดเมนูหลัก</gray>
 welcome-return-mm = <gold><bold>ยินดีต้อนรับกลับมา!</bold></gold><newline><gray>คุณเข้าเซิร์ฟเวอร์ครั้งล่าสุดเมื่อ <yellow>{ $arg0 } วันที่ผ่านมา</yellow> ใช้ <yellow>/menu</yellow> เพื่อเปิดฟังก์ชันที่ใช้บ่อย</gray>
+
+## Player · Guidance
+
+tip-label = คำแนะนำ
 
 ## Player · AFK
 
@@ -137,6 +141,7 @@ nametag-preview-label = ดูตัวอย่าง
 nametag-sample-message = ข้อความตัวอย่าง
 nametag-set-error = ตั้งค่า { $arg0 } ไม่สำเร็จ โปรดลองอีกครั้งภายหลัง
 nametag-set-success = ✔ ตั้งค่า { $arg0 } แล้ว
+nametag-tip-customize-mm = ใช้ <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> เพื่อปรับแต่ง<light_purple>คำนำหน้าและคำต่อท้ายชื่อ</light_purple>ของคุณ
 nametag-title = ป้ายชื่อ
 nametag-too-long = { $arg0 } ยาวเกินไป กำหนดได้สูงสุด { $arg1 } ตัวอักษร
 nametag-trailing-label = คำต่อท้ายชื่อ
@@ -156,6 +161,8 @@ back-pending-mm = <gray>กำลังเทเลพอร์ต โปรด�
 # $steps, $remaining, $max (Number): consumed history, remaining history and limit.
 back-success-mm = <green>ย้อนกลับ { $steps } ครั้งแล้ว</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>เทเลพอร์ตไม่สำเร็จ โปรดลองอีกครั้ง</red>
+back-tip-return-mm = ใช้ <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> เพื่อกลับไปยังตำแหน่งก่อนวาร์ปหรือเสียชีวิตครั้งล่าสุด
+back-tip-undo-mm = ใช้ <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> เพื่อยกเลิก <yellow>/back</yellow> ครั้งล่าสุด
 back-undo-empty-mm = <gray>ไม่มี <white>/back</white> ให้ย้อนคืน</gray>
 back-undo-success-mm = <green>ย้อนคืน <white>/back</white> ครั้งล่าสุดแล้ว</green>
 back-undo-world-missing-mm = <red>โลกเป้าหมายไม่พร้อมใช้งาน จึงย้อนคืนไม่ได้</red>
@@ -217,6 +224,8 @@ home-summary-count = ตั้งแล้ว: { $arg0 } / { $arg1 }
 home-teleport-command-description = เทเลพอร์ตไปยังบ้าน
 home-teleport-failed = เทเลพอร์ตไม่สำเร็จ โปรดลองอีกครั้ง
 home-teleported-rich = เทเลพอร์ตไปยังบ้าน { $home } แล้ว
+home-tip-create-mm = บันทึกตำแหน่งด้วย <green><u><click:suggest_command:'/sethome '>/sethome ชื่อ</click></u></green> แล้วกลับมาด้วย <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>
+home-tip-return-mm = เปิด <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> แล้วเลือกบ้านเพื่อวาร์ป
 home-updated-rich = อัปเดตตำแหน่งบ้าน { $home } แล้ว
 home-usage-book = วิธีใช้คำสั่ง
 home-usage-delhome = /delhome <name>  ลบบ้าน
@@ -231,8 +240,9 @@ reback-command-description = ย้อนคืนการใช้ /back ค�
 teleport-accept-command-description = ยอมรับคำขอเทเลพอร์ตที่รอดำเนินการ
 teleport-allow = การเทเลพอร์ตโดยผู้เล่นอื่น
 teleport-block-afk = ป้องกันขณะ AFK
-teleport-denied = ขณะนี้ { $player } ไม่อนุญาตให้ผู้เล่นทั่วไปเทเลพอร์ตมาหา
+teleport-denied = ขณะนี้ { $player } ปฏิเสธการถูกเทเลพอร์ตโดยผู้เล่นอื่น
 teleport-deny-command-description = ปฏิเสธคำขอเทเลพอร์ตที่รอดำเนินการ
+teleport-force-command-description = บังคับเทเลพอร์ตโดยไม่สนใจการตั้งค่าของผู้เล่น (เฉพาะผู้ดูแล)
 teleport-menu-title = ความเป็นส่วนตัวของการเทเลพอร์ต
 teleport-moved-here = { $arg0 } เทเลพอร์ตคุณมาที่นี่
 teleport-policy-always-allow = อนุญาตเสมอ
@@ -248,9 +258,9 @@ teleport-request-received = { $sender } ต้องการเทเลพอ�
 teleport-request-rejected = ปฏิเสธคำขอเทเลพอร์ตแล้ว
 teleport-request-sent = ส่งคำขอเทเลพอร์ตไปยัง { $player } แล้ว
 teleport-summary-afk = อนุญาตเสมอ ยกเว้นขณะ AFK
-teleport-summary-allow = อนุญาตการเทเลพอร์ตจากผู้เล่นทั่วไปเสมอ
-teleport-summary-consent = การเทเลพอร์ตจากผู้เล่นทั่วไปต้องได้รับอนุญาตจากฉัน
-teleport-summary-deny = ปฏิเสธการเทเลพอร์ตจากผู้เล่นทั่วไปเสมอ
+teleport-summary-allow = อนุญาตการเทเลพอร์ตโดยผู้เล่นอื่นเสมอ
+teleport-summary-consent = การเทเลพอร์ตโดยผู้เล่นอื่นต้องได้รับอนุญาตจากฉัน
+teleport-summary-deny = ปฏิเสธการเทเลพอร์ตโดยผู้เล่นอื่นเสมอ
 tpany-command-description = เทเลพอร์ตไปยังตำแหน่งของผู้เล่น ออนไลน์หรือออฟไลน์
 tpany-done-offline-rich = เทเลพอร์ตไปยังตำแหน่งล่าสุดของ { $player } ใน { $world } { $location } แล้ว
 tpany-done-online-rich = เทเลพอร์ตไปยังตำแหน่งปัจจุบันของ { $player } แล้ว
@@ -306,21 +316,57 @@ pvp-status-player-rich = ผู้เล่น: { $player }
 pvp-status-title-mm = <gold><bold>สถานะ PVP</bold></gold>
 pvp-summary-disabled = ปิด PVP แล้ว
 pvp-summary-enabled = เปิด PVP แล้ว
-pvp-target-disabled-actionbar-mm = <gray>ผู้เล่นนี้ยังไม่เปิด PVP</gray>
+pvp-target-disabled-actionbar-mm = <yellow>ผู้เล่นนี้ยังไม่เปิด PVP</yellow>
 pvp-target-menu-title = การตั้งค่า PVP - { $arg0 }
+pvp-tip-protection-mm = ใช้ <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> เพื่อเปิดหรือปิด PVP ของตนเอง <green>ทั้งสองฝ่ายต้องเปิด</green>จึงจะต่อสู้กันได้
 pvp-toggled-off-mm = <gray>ปิด PVP แล้ว</gray> <dark_gray>|</dark_gray> <gray>ผู้เล่นอื่นจะโจมตีคุณไม่ได้</gray>
 pvp-toggled-on-mm = <green>เปิด PVP แล้ว</green> <dark_gray>|</dark_gray> <gray>คุณต่อสู้กับผู้เล่นอื่นที่เปิด PVP ได้แล้ว</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [ล้างเอฟเฟกต์ทั้งหมด]
+effect-cleanup-blocked = ล้างเอฟเฟกต์ได้เฉพาะโหมดสร้างสรรค์หรือผู้ชม ขณะที่ไม่ได้อยู่ในการต่อสู้ PVP
+effect-cleanup-expired = คำขอล้างเอฟเฟกต์นี้หมดอายุแล้ว
+effect-cleanup-negative = [ล้างเอฟเฟกต์ด้านลบ]
+effect-cleanup-prompt-rich = ตรวจพบว่าคุณได้รับเอฟเฟกต์ด้านลบจาก { $source } ต้องการล้างหรือไม่?
+effect-cleanup-result = ล้างเอฟเฟกต์แล้ว { $count } ชนิด
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] กลุ่มควันยาคงค้าง
+        [ARROW] ลูกธนู
+        [ATTACK] การโจมตี
+        [COMMAND] คำสั่ง
+        [FOOD] อาหาร
+        [PLUGIN] ปลั๊กอิน
+        [POTION_DRINK] การดื่มยา
+        [POTION_SPLASH] ยาแบบขว้าง
+        [WARDEN] วอร์เดน
+        [WITHER_ROSE] กุหลาบวิทเธอร์
+       *[OTHER] แหล่งที่ไม่ทราบสาเหตุ
+    }
+
+## Player · Trash
+
+trash-clear = ล้างถังขยะ
+trash-clear-hint = คลิกเพื่อลบไอเทมทั้งหมดทันที
+    หากไม่คลิก ไอเทมจะถูกลบอัตโนมัติ { $arg0 } วินาทีหลังปิดเมนู
+trash-command-description = เปิดถังขยะ
+trash-sort = จัดเรียง
+trash-sort-hint = รวมกองไอเทมที่เหมือนกันและเรียงตามประเภท
+trash-tip-dispose-mm = ใช้ <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> เพื่อเปิด<yellow>ถังขยะ</yellow>แล้วใส่ไอเทมที่ไม่ต้องการลงไป
+trash-title = ถังขยะ
 
 ## Player · Utilities
 
 hat-command-description = สวมไอเทมในมือหลักเป็นหมวก
 hat-empty-hand-mm = <red>ไม่มีไอเทมในมือหลัก</red> <gray>ถือบล็อกหรือไอเทม แล้วใช้ /hat</gray>
 hat-success-mm = <green>สวมไอเทมจากมือหลักแล้ว</green> <dark_gray>|</dark_gray> <gray>สลับไอเทมในมือกับช่องหมวกแล้ว</gray>
+hat-tip-wear-mm = ใช้ <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> เพื่อสวมไอเทมใน<yellow>มือหลัก</yellow>ไว้บนหัว
 removeitems-command-description = ลบไอเทมที่ตกอยู่บนพื้น
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = ลบไอเทมบนพื้น { $count } ชิ้น ในโลก { $world } { $location } { $radius } แล้ว
 removeitems-no-world = ไม่สามารถระบุโลกได้
 removeitems-radius = รัศมี { $arg0 } บล็อก
+removeitems-tip-usage-mm = ใช้ <aqua><u><click:suggest_command:'/rmitems '>/rmitems [รัศมี]</click></u></aqua> เพื่อลบ<yellow>ไอเทมที่ตกอยู่</yellow>บริเวณใกล้เคียง
 self-kick-command-description = เตะตัวเองออกจากเซิร์ฟเวอร์
 self-kick-reason-too-long = เหตุผลการเตะต้องมีไม่เกิน { $arg0 } ตัวอักษร
 # $person: second for the actor; third for other viewers and console.
@@ -341,9 +387,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player } ออกจากเซิร์ฟเวอร์ไปโดยไม่พูดอะไรเลย
     .item-3 = { $player } แสดงการเตะตัวเองได้อย่างไร้ที่ติ
     .item-4 = { $player } กดปุ่มออกจากเซิร์ฟเวอร์ด้วยตัวเอง
-trash-command-description = เปิดถังขยะ
-trash-title = ถังขยะ
-trash-title-hint = เล็งที่ไอเทมแล้วกด F เพื่อลบทั้งกอง
 
 ## Community · Chat and mentions
 
@@ -368,6 +411,7 @@ chat-private-no-reply-target = ไม่มีคู่สนทนาส่ว�
 chat-private-self = คุณไม่สามารถเริ่มแชทส่วนตัวกับตัวเองได้
 chat-private-target-not-found = ไม่พบผู้เล่นออนไลน์: { $arg0 }
 chat-private-target-offline = คู่สนทนาส่วนตัวออฟไลน์แล้ว จึงกลับไปยังแชทสาธารณะ
+chat-private-tip-channel-mm = ใช้ <aqua><u><click:suggest_command:'/msg '>/msg ผู้เล่น</click></u></aqua> เพื่อเข้าสู่แชตส่วนตัว และ <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> เพื่อกลับสู่แชตสาธารณะ
 chat-public-command-description = สลับช่องแชทสาธารณะ
 chat-public-enter = เปลี่ยนเป็นแชทสาธารณะแล้ว
 chat-reply-command-description = ตอบกลับคู่สนทนาส่วนตัวล่าสุด
@@ -392,7 +436,7 @@ mention-summary-modes-afk = { $arg0 }, ปิดเสียงขณะ AFK
 mention-summary-sound = เสียง
 staffchat-enter = เข้าร่วมแชททีมงานแล้ว
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = ไม่มีประกาศ
 announcement-first-page = ถึงประกาศล่าสุดแล้ว
@@ -410,11 +454,6 @@ announcement-unread-count = ยังไม่อ่าน { $arg0 } ราย�
 announcement-updated = อัปเดตประกาศแล้ว
 announcement-view-all = ดูประกาศทั้งหมด
 announcement-view-command-description = ดูประกาศของเซิร์ฟเวอร์
-tip-hover = คำแนะนำจากเซิร์ฟเวอร์
-tip-label = คำแนะนำ
-tip-reload-command-description = โหลด tips.txt ใหม่
-tip-reload-count = { $arg0 } รายการ
-tip-reload-done = โหลดคำแนะนำใหม่แล้ว
 
 ## Community · Identity and social platforms
 
@@ -1192,7 +1231,7 @@ async-regen-awaiting-apply = แผนรอการใช้: { $arg0 } · { $
 async-regen-block-preview-progress = ตรวจสอบบล็อก · { $arg0 }/{ $arg1 } ชังก์ · เปลี่ยนบล็อก { $arg2 } · บล็อกเอนทิตีที่เสี่ยง { $arg3 }
 async-regen-block-preview-summary = ผลตรวจสอบ: เปลี่ยนบล็อกที่ตรงกับ { $arg2 } จำนวน { $arg0 } รายการ และอาจเขียนทับบล็อกเอนทิตีเดิม { $arg1 } รายการ
 async-regen-cancelled = ยกเลิกการสร้างใหม่แล้ว การเปลี่ยนแปลง { $arg0 } รายการที่ใช้ไปแล้วจะยังอยู่ในโลก
-async-regen-command-description = สร้างพื้นที่ที่เลือกด้วย WorldEdit ใหม่แบบอะซิงโครนัส
+async-regen-command-description = สร้างพื้นที่ที่เลือกด้วย FastAsyncWorldEdit ใหม่แบบอะซิงโครนัส
 async-regen-completed = สร้างใหม่เสร็จแล้ว: เปลี่ยน { $arg0 } บล็อกใน { $arg1 }
 async-regen-failed = หยุดการสร้างใหม่เพราะข้อผิดพลาดภายใน การเปลี่ยนแปลง { $arg0 } รายการที่ใช้ไปแล้วจะยังอยู่ในโลก
 async-regen-filter-all = บล็อกทุกชนิด
@@ -1206,7 +1245,7 @@ async-regen-preview-started = เริ่มตรวจสอบแล้ว: 
 async-regen-progress = { $arg0 } · วางแผน { $arg1 }/{ $arg2 } ชังก์ · ใช้แล้ว { $arg3 } การเปลี่ยนแปลง
 async-regen-safety-note = พื้นที่นอกส่วนที่บันทึกไว้จะไม่เปลี่ยนแปลง สิ่งปลูกสร้างภายในอาจถูกเขียนทับ และเกมปกติไม่แยกบล็อกที่ผู้เล่นวาง โปรดตรวจภาพแสดงและสำรองโลกก่อนใช้
 async-regen-scope-blocks = สร้างบล็อกที่ตรงกับ { $arg0 } ใหม่
-async-regen-selection-required = โปรดเลือกพื้นที่ด้วย WorldEdit ให้เสร็จก่อน
+async-regen-selection-required = โปรดเลือกพื้นที่ด้วย FastAsyncWorldEdit ให้เสร็จก่อน
 async-regen-skipped-ungenerated = ข้ามชังก์เป้าหมายที่ยังไม่เคยสร้าง { $arg0 } ชังก์ โดยไม่ได้สร้างหรือแก้ไขชังก์เหล่านั้น
 async-regen-start-failed = ไม่สามารถเริ่มการสร้างใหม่ได้ โปรดดูรายละเอียดในบันทึกเซิร์ฟเวอร์
 async-regen-state-applying = กำลังใช้การเปลี่ยนแปลง
@@ -1227,13 +1266,16 @@ async-regen-upgrade-scope-terrain = ภูมิประเทศ โครง�
 async-regen-usage = วิธีใช้: /regen preview blocks [ชนิด...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = ภาพแสดงใน { $arg0 }: สีฟ้า = ขอบเขตที่เลือก สีส้ม = ตัวอย่างบล็อกที่จะเปลี่ยน สีแดง = บล็อกเอนทิตีที่เสี่ยง มีเพียงคุณที่เห็นอนุภาคนี้
 async-regen-visualization-selection = อนุภาคสีฟ้าใน { $arg0 } แสดงขอบเขตที่เลือกและมีเพียงคุณที่เห็น
-async-regen-world-edit-required = ต้องมี WorldEdit เพื่ออ่านพื้นที่ที่เลือก
+async-regen-fawe-required = ต้องมี FastAsyncWorldEdit เพื่ออ่านพื้นที่ที่เลือก
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ ย่อตัว
+iron-elevator-tip-mm = วาง { -iron-elevator-block } ให้ตรงกันในแนวดิ่งเพื่อสร้างลิฟต์ ยืนบนบล็อกแล้ว<green>กระโดดเพื่อขึ้น</green>หรือ<aqua>ย่อตัวเพื่อลง</aqua> ลิฟต์ที่มีมากกว่าสองชั้นจะแสดง<gold>แผงเลือกชั้น</gold>
 iron-elevator-up = ↑ กระโดด
 spawn-beacon-color-command-description = สลับการเปลี่ยนสีบีคอนที่จุดเกิด
 spawn-beacon-color-disabled = ปิดการเปลี่ยนสีบีคอนที่จุดเกิดแล้ว
 spawn-beacon-color-enabled = เปิดการเปลี่ยนสีบีคอนที่จุดเกิดแล้ว
 spawn-command-description = กลับไปยังจุดเกิด
+spawn-tip-return-mm = ใช้ <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> เพื่อกลับไปยัง<yellow>จุดเกิดของเซิร์ฟเวอร์</yellow>
 spawn-world-missing = โลกของจุดเกิดไม่พร้อมใช้งาน
 
 ## Entertainment · Music
@@ -1641,6 +1683,7 @@ restriction-other-player-name-mm = <red>คุณไม่มีสิทธิ�
 tpsbar-command-description = แสดงหรือซ่อนแถบ TPS
 tpsbar-hidden = ซ่อนแถบ TPS แล้ว
 tpsbar-shown = แสดงแถบ TPS แล้ว
+tpsbar-tip-status-mm = ใช้ <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> เพื่อเปิดหรือปิดแถบ <yellow>TPS, MSPT และค่า ping</yellow>
 unban-command-description = ปลดแบนผู้เล่นโดยเก็บประวัติ
 whitelist-already-whitelisted = { $arg0 } อยู่ในบัญชีขาวแล้ว
 whitelist-invalid-name = รูปแบบชื่อผู้เล่นไม่ถูกต้อง

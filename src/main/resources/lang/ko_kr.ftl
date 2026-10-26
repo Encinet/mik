@@ -66,8 +66,8 @@ url-dialog-title = { $arg0 } 열기
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = 권장 모드가 감지되지 않았습니다: { $mods }. 이름을 클릭하여 다운로드하세요. 이미 설치했다면 활성화 여부와 호환성을 확인하세요.
-client-version-mismatch-mm = <gray>서버 버전 <white>{ $serverVersion }</white>, 현재 클라이언트 버전 <white>{ $clientVersion }</white>.</gray>
+client-mods-undetected-rich = 추천 모드: { $mods }. 이름을 클릭해 다운로드하세요.
+client-version-behind-mm = <white>클라이언트 <yellow>{ $clientVersion }</yellow>은 서버 <green>{ $serverVersion }</green>보다 오래된 버전입니다. 업데이트를 권장합니다.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>근처 플레이어 <gold>{ $count }</gold>명이 <gold>투명 상태</gold>입니다</yellow> <gray>·</gray> <gray>가장 가까운 플레이어 약 { $distance }블록</gray>
 player-bedrock-label = 베드락
@@ -81,6 +81,10 @@ presence-quit-templates =
     .item-3 = { $player } 님이 현실의 호출을 받았습니다
 welcome-first-join-mm = <gold><bold>MIK에 오신 것을 환영합니다!</bold></gold><newline><gray>먼저 <click:open_url:'https://mcmik.top'><yellow>웹사이트</yellow></click>와 <click:open_url:'https://mcmik.top/wiki'><yellow>위키</yellow></click>를 확인해 보세요. <yellow>/menu</yellow> 명령어로 메인 메뉴를 열 수도 있습니다.</gray>
 welcome-return-mm = <gold><bold>다시 오신 것을 환영합니다!</bold></gold><newline><gray>마지막 접속은 <yellow>{ $arg0 }일 전</yellow>입니다. <yellow>/menu</yellow> 명령어로 자주 쓰는 기능을 빠르게 찾아보세요.</gray>
+
+## Player · Guidance
+
+tip-label = 팁
 
 ## Player · AFK
 
@@ -137,6 +141,7 @@ nametag-preview-label = 미리 보기
 nametag-sample-message = 예시 메시지
 nametag-set-error = { $arg0 } 설정 중 오류가 발생했습니다. 나중에 다시 시도해 주세요
 nametag-set-success = ✔ { $arg0 } 설정 완료
+nametag-tip-customize-mm = <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> 명령어로 <light_purple>이름 접두사와 접미사</light_purple>를 꾸며 보세요.
 nametag-title = 이름표
 nametag-too-long = 입력값이 너무 깁니다: { $arg0 }. 최대 { $arg1 }자까지 입력할 수 있습니다.
 nametag-trailing-label = 이름 뒷부분
@@ -156,6 +161,8 @@ back-pending-mm = <gray>순간이동 중입니다. 잠시 기다려 주세요</g
 # $steps, $remaining, $max (Number): consumed history, remaining history and limit.
 back-success-mm = <green>{ $steps }번 이전 위치로 돌아왔습니다</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>순간이동에 실패했습니다. 다시 시도해 주세요</red>
+back-tip-return-mm = <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow>으로 마지막 순간이동이나 사망 전 위치로 돌아갈 수 있습니다.
+back-tip-undo-mm = <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple>으로 마지막 <yellow>/back</yellow>을 취소할 수 있습니다.
 back-undo-empty-mm = <gray>취소할 <white>/back</white> 실행 기록이 없습니다</gray>
 back-undo-success-mm = <green>마지막 <white>/back</white> 실행을 취소했습니다</green>
 back-undo-world-missing-mm = <red>대상 세계를 사용할 수 없어 취소할 수 없습니다</red>
@@ -217,6 +224,8 @@ home-summary-count = 설정됨: { $arg0 } / { $arg1 }
 home-teleport-command-description = 홈으로 순간이동
 home-teleport-failed = 순간이동에 실패했습니다. 다시 시도해 주세요
 home-teleported-rich = 홈으로 순간이동했습니다: { $home }
+home-tip-create-mm = <green><u><click:suggest_command:'/sethome '>/sethome 이름</click></u></green>으로 현재 위치를 저장하고 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>으로 돌아오세요.
+home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>으로 집 메뉴를 열고 이동할 집을 선택하세요.
 home-updated-rich = 홈 { $home }의 위치를 변경했습니다
 home-usage-book = 명령어 도움말
 home-usage-delhome = /delhome <name>  홈 삭제
@@ -231,8 +240,9 @@ reback-command-description = 마지막 /back 실행 취소
 teleport-accept-command-description = 대기 중인 순간이동 요청 수락
 teleport-allow = 다른 플레이어의 순간이동
 teleport-block-afk = AFK 중 차단
-teleport-denied = { $player }님은 현재 일반 플레이어의 순간이동을 거부하고 있습니다
+teleport-denied = { $player }님은 현재 다른 플레이어의 순간이동을 거부하고 있습니다
 teleport-deny-command-description = 대기 중인 순간이동 요청 거부
+teleport-force-command-description = 플레이어 설정을 무시하고 강제 순간이동 (관리자 전용)
 teleport-menu-title = 순간이동 허용 설정
 teleport-moved-here = { $arg0 }님이 나를 이곳으로 순간이동시켰습니다
 teleport-policy-always-allow = 항상 허용
@@ -248,9 +258,9 @@ teleport-request-received = { $sender }님이 나를 순간이동시키려 합�
 teleport-request-rejected = 순간이동 요청을 거부했습니다
 teleport-request-sent = { $player }님에게 순간이동 요청을 보냈습니다
 teleport-summary-afk = 항상 허용, AFK 중에는 거부
-teleport-summary-allow = 일반 플레이어의 순간이동을 항상 허용
-teleport-summary-consent = 일반 플레이어의 순간이동에는 내 승인이 필요
-teleport-summary-deny = 일반 플레이어의 순간이동을 항상 거부
+teleport-summary-allow = 다른 플레이어의 순간이동을 항상 허용
+teleport-summary-consent = 다른 플레이어의 순간이동에는 내 승인이 필요
+teleport-summary-deny = 다른 플레이어의 순간이동을 항상 거부
 tpany-command-description = 온라인 또는 오프라인 플레이어의 위치로 순간이동
 tpany-done-offline-rich = { $player }님의 마지막 확인 위치로 순간이동했습니다 { $world } { $location }
 tpany-done-online-rich = { $player }님의 현재 위치로 순간이동했습니다
@@ -306,21 +316,57 @@ pvp-status-player-rich = 플레이어: { $player }
 pvp-status-title-mm = <gold><bold>PvP 상태</bold></gold>
 pvp-summary-disabled = PvP 꺼짐
 pvp-summary-enabled = PvP 켜짐
-pvp-target-disabled-actionbar-mm = <gray>해당 플레이어는 PvP를 켜지 않았습니다</gray>
+pvp-target-disabled-actionbar-mm = <yellow>해당 플레이어는 PvP를 켜지 않았습니다</yellow>
 pvp-target-menu-title = PvP 설정 - { $arg0 }
+pvp-tip-protection-mm = <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple>로 자신의 PVP를 켜거나 끌 수 있습니다. 서로 공격하려면 <green>양쪽 모두 켜야 합니다</green>.
 pvp-toggled-off-mm = <gray>PvP를 껐습니다</gray> <dark_gray>|</dark_gray> <gray>다른 플레이어가 나를 공격할 수 없습니다</gray>
 pvp-toggled-on-mm = <green>PvP를 켰습니다</green> <dark_gray>|</dark_gray> <gray>이제 PvP를 켠 다른 플레이어와 싸울 수 있습니다</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [모든 효과 제거]
+effect-cleanup-blocked = PVP 전투 중이 아닌 크리에이티브 또는 관전자 모드에서만 효과를 제거할 수 있습니다.
+effect-cleanup-expired = 효과 제거 요청이 만료되었습니다.
+effect-cleanup-negative = [부정적 효과 제거]
+effect-cleanup-prompt-rich = 부정적 효과가 감지되었습니다. 원인: { $source }. 제거할까요?
+effect-cleanup-result = 효과 { $count }종을 제거했습니다.
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] 잔류형 물약 구름
+        [ARROW] 화살
+        [ATTACK] 공격
+        [COMMAND] 명령어
+        [FOOD] 음식
+        [PLUGIN] 플러그인
+        [POTION_DRINK] 물약 마시기
+        [POTION_SPLASH] 투척용 물약
+        [WARDEN] 워든
+        [WITHER_ROSE] 위더 장미
+       *[OTHER] 알 수 없는 원인
+    }
+
+## Player · Trash
+
+trash-clear = 비우기
+trash-clear-hint = 클릭하면 안의 모든 아이템을 즉시 삭제합니다.
+    클릭하지 않아도 메뉴를 닫은 후 { $arg0 }초 뒤에 자동 삭제됩니다.
+trash-command-description = 휴지통 열기
+trash-sort = 정리
+trash-sort-hint = 같은 아이템 묶음을 합치고 종류별로 정렬
+trash-tip-dispose-mm = <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua>로 <yellow>휴지통</yellow>을 열어 필요 없는 아이템을 넣으세요.
+trash-title = 휴지통
 
 ## Player · Utilities
 
 hat-command-description = 주로 사용하는 손의 아이템을 머리에 쓰기
 hat-empty-hand-mm = <red>주로 사용하는 손에 아이템이 없습니다</red> <gray>블록이나 아이템을 든 다음 /hat 명령어를 사용하세요</gray>
 hat-success-mm = <green>주로 사용하는 손의 아이템을 착용했습니다</green> <dark_gray>|</dark_gray> <gray>손과 투구 슬롯의 아이템을 맞바꿨습니다</gray>
+hat-tip-wear-mm = <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> 명령어로 <yellow>주 손의 아이템</yellow>을 머리에 쓰세요.
 removeitems-command-description = 떨어진 아이템 제거
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = 월드 { $world }에서 { $count }개의 떨어진 아이템 제거 완료 { $location } { $radius }
 removeitems-no-world = 세계를 확인할 수 없습니다
 removeitems-radius = 반경 { $arg0 }블록
+removeitems-tip-usage-mm = <aqua><u><click:suggest_command:'/rmitems '>/rmitems [반경]</click></u></aqua> 명령어로 근처에 <yellow>떨어진 아이템</yellow>을 제거하세요.
 self-kick-command-description = 자신을 서버에서 추방합니다
 self-kick-reason-too-long = 추방 이유는 { $arg0 }자를 초과할 수 없습니다
 # $person: second for the actor; third for other viewers and console.
@@ -341,9 +387,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player }님이 아무 말 없이 서버를 떠났습니다.
     .item-3 = { $player }님이 완벽한 셀프 킥을 선보였습니다.
     .item-4 = { $player }님이 직접 서버 나가기 버튼을 눌렀습니다.
-trash-command-description = 휴지통 열기
-trash-title = 휴지통
-trash-title-hint = 아이템을 가리킨 상태에서 F를 눌러 해당 묶음 삭제
 
 ## Community · Chat and mentions
 
@@ -368,6 +411,7 @@ chat-private-no-reply-target = 최근 개인 채팅 상대가 접속 중이 아�
 chat-private-self = 자신과 개인 채팅을 시작할 수 없습니다
 chat-private-target-not-found = 접속 중인 플레이어를 찾을 수 없습니다: { $arg0 }
 chat-private-target-offline = 개인 채팅 상대가 오프라인 상태여서 공개 채팅으로 돌아왔습니다
+chat-private-tip-channel-mm = <aqua><u><click:suggest_command:'/msg '>/msg 플레이어</click></u></aqua>로 귓속말 채널에 들어가고, <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow>으로 공개 채팅으로 돌아오세요.
 chat-public-command-description = 공개 채팅 채널 전환
 chat-public-enter = 공개 채팅으로 전환했습니다
 chat-reply-command-description = 가장 최근 개인 채팅 상대에게 답장
@@ -392,7 +436,7 @@ mention-summary-modes-afk = { $arg0 }, AFK 중 음소거
 mention-summary-sound = 소리
 staffchat-enter = 스태프 채팅에 들어갔습니다
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = 공지 없음
 announcement-first-page = 가장 최근 공지입니다
@@ -410,11 +454,6 @@ announcement-unread-count = 읽지 않은 공지 { $arg0 }개
 announcement-updated = 공지사항이 업데이트되었습니다
 announcement-view-all = 모든 공지 보기
 announcement-view-command-description = 서버 공지 보기
-tip-hover = 서버 팁
-tip-label = 팁
-tip-reload-command-description = tips.txt 다시 불러오기
-tip-reload-count = { $arg0 }개 항목
-tip-reload-done = 팁을 다시 불러왔습니다
 
 ## Community · Identity and social platforms
 
@@ -1192,7 +1231,7 @@ async-regen-awaiting-apply = 적용 대기 계획: { $arg0 } · { $arg1 } · { $
 async-regen-block-preview-progress = 블록 미리보기 · { $arg0 }/{ $arg1 }청크 확인 · 블록 변경 { $arg2 } · 위험한 블록 엔티티 { $arg3 }
 async-regen-block-preview-summary = 미리보기: { $arg2 }에 맞는 블록 변경 { $arg0 }개, 덮어쓸 수 있는 기존 블록 엔티티 { $arg1 }개
 async-regen-cancelled = 재생성을 취소했습니다. 이미 적용된 { $arg0 }개 변경은 월드에 남습니다
-async-regen-command-description = WorldEdit 선택 영역을 비동기로 재생성합니다
+async-regen-command-description = FastAsyncWorldEdit 선택 영역을 비동기로 재생성합니다
 async-regen-completed = 재생성 완료: { $arg1 } 동안 { $arg0 }블록 변경
 async-regen-failed = 내부 오류로 재생성을 중지했습니다. 이미 적용된 { $arg0 }개 변경은 월드에 남습니다
 async-regen-filter-all = 모든 블록 종류
@@ -1206,7 +1245,7 @@ async-regen-preview-started = 미리보기 시작: 선택 영역 { $arg0 }블록
 async-regen-progress = { $arg0 } · 계획 { $arg1 }/{ $arg2 }청크 · { $arg3 }개 변경 적용
 async-regen-safety-note = 저장된 선택 영역 밖은 변경되지 않습니다. 영역 안의 건축물은 덮어쓸 수 있고 바닐라는 플레이어가 설치한 블록을 구분하지 못합니다. 적용 전에 시각화를 확인하고 백업하세요.
 async-regen-scope-blocks = { $arg0 }에 맞는 블록 재생성
-async-regen-selection-required = 먼저 WorldEdit 선택 영역을 완성하세요
+async-regen-selection-required = 먼저 FastAsyncWorldEdit 선택 영역을 완성하세요
 async-regen-skipped-ungenerated = 한 번도 생성되지 않은 대상 청크 { $arg0 }개를 건너뛰었으며 새로 만들거나 변경하지 않았습니다
 async-regen-start-failed = 재생성을 시작하지 못했습니다. 자세한 내용은 서버 로그를 확인하세요
 async-regen-state-applying = 변경 적용 중
@@ -1227,13 +1266,16 @@ async-regen-upgrade-scope-terrain = 지형, 구조물 및 생물군계
 async-regen-usage = 사용법: /regen preview blocks [종류...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = { $arg0 } 시각화: 청록색 = 선택 경계, 주황색 = 변경 블록 표본, 빨간색 = 위험한 블록 엔티티. 이 입자는 본인에게만 보입니다.
 async-regen-visualization-selection = { $arg0 }의 청록색 입자가 선택 경계를 표시하며 본인에게만 보입니다.
-async-regen-world-edit-required = 선택 영역을 읽으려면 WorldEdit이 필요합니다
+async-regen-fawe-required = 선택 영역을 읽으려면 FastAsyncWorldEdit이 필요합니다
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ 웅크리기
+iron-elevator-tip-mm = { -iron-elevator-block }을 수직으로 맞춰 놓으면 엘리베이터가 됩니다. { -iron-elevator-block } 위에서 <green>점프하면 올라가고</green> <aqua>웅크리면 내려갑니다</aqua>. 3층 이상이면 <gold>층 선택 패널</gold>이 표시됩니다.
 iron-elevator-up = ↑ 점프
 spawn-beacon-color-command-description = 스폰 신호기 색상 순환 전환
 spawn-beacon-color-disabled = 스폰 신호기 색상 순환을 껐습니다
 spawn-beacon-color-enabled = 스폰 신호기 색상 순환을 켰습니다
 spawn-command-description = 스폰으로 돌아가기
+spawn-tip-return-mm = <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua>으로 <yellow>서버 스폰 지점</yellow>에 돌아갈 수 있습니다.
 spawn-world-missing = 스폰 세계를 사용할 수 없습니다
 
 ## Entertainment · Music
@@ -1641,6 +1683,7 @@ restriction-other-player-name-mm = <red>명령어에 다른 플레이어의 이�
 tpsbar-command-description = TPS 바 표시 또는 숨기기
 tpsbar-hidden = TPS 바를 숨겼습니다
 tpsbar-shown = TPS 바를 표시했습니다
+tpsbar-tip-status-mm = <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 명령어로 <yellow>TPS, MSPT, 핑</yellow> 표시줄을 켜거나 끄세요.
 unban-command-description = 기록을 보존하며 플레이어 차단 해제
 whitelist-already-whitelisted = 이미 화이트리스트에 등록된 플레이어: { $arg0 }
 whitelist-invalid-name = 플레이어 이름 형식이 올바르지 않습니다

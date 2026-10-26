@@ -7,7 +7,6 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -21,6 +20,9 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.guidance.Tip;
+import org.encinet.mik.feature.player.guidance.TipScope;
+import org.encinet.mik.feature.player.guidance.TipTriggers;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -37,10 +39,12 @@ import org.encinet.mik.shared.menu.FloatingMenuScreen;
 import org.encinet.mik.shared.menu.MenuDialogs;
 import org.encinet.mik.shared.role.RolePermissions;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 /**
  * Manages player homes: /sethome, /home, /delhome
@@ -50,6 +54,10 @@ import java.util.Objects;
 public class HomeModule implements Listener {
 
     private static final int MAX_MENU_HOMES = 4;
+    private static final Pattern HOME_MENTION = Pattern.compile(
+            "/(?:sethome|home)(?![a-z0-9_])|(?<![\\p{L}\\p{N}_])(?:sethome|homes?)(?![\\p{L}\\p{N}_])"
+                    + "|家园|家園|设(?:置)?家|設(?:置)?家|回家|我家|我的家",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Material[] DEFAULT_HOME_ICONS = {
             Material.RED_BED,
             Material.BLUE_BED,
@@ -77,14 +85,29 @@ public class HomeModule implements Listener {
     private final LanguageService languageService;
     private final FloatingMenuScreen<HomeMenuState> homeScreen;
     private final HomeStore store;
+    private final Tip<String> returnTip;
 
-    public HomeModule(JavaPlugin plugin, LanguageService languageService) {
+    public HomeModule(JavaPlugin plugin, LanguageService languageService, TipScope tips) {
+        this(plugin, languageService, tips, new HomeStore(plugin.getDataFolder().toPath().resolve("homes.yml"),
+                plugin.getLogger()));
+    }
+
+    HomeModule(JavaPlugin plugin, LanguageService languageService, TipScope tips, HomeStore store) {
         this.plugin = plugin;
         this.languageService = languageService;
-        this.store = new HomeStore(plugin.getDataFolder().toPath().resolve("homes.yml"),
-                plugin.getLogger());
+        this.store = store;
         this.homeScreen = new FloatingMenuScreen<>("homes",
                 ignored -> new HomeMenuState(0, null), this::buildHomeMenu);
+        tips.define("home-create", Message.HOME_TIP_CREATE_MM)
+                .group("home").priority(90)
+                .when(player -> getHomeNames(player).isEmpty() && homeScreen.flow(player).isEmpty())
+                .on(TipTriggers.chatMentions(HOME_MENTION))
+                .on(TipTriggers.teleport(0.1))
+                .suggestCommand("/sethome ").build();
+        this.returnTip = tips.<String>define("home-return", Message.HOME_TIP_RETURN_MM)
+                .group("home").priority(80).interval(Duration.ofDays(30))
+                .when((player, name) -> homeScreen.flow(player).isEmpty() && getHome(player, name) != null)
+                .suggestCommand("/home").build();
     }
 
     public void enable() {
@@ -158,7 +181,7 @@ public class HomeModule implements Listener {
                                     .then(Commands.argument("material", StringArgumentType.word())
                                             .suggests((ctx, builder) -> {
                                                 Arrays.stream(Material.values())
-                                                        .filter(Material::isItem)
+                                                        .filter(HomeStore::isValidIcon)
                                                         .map(material -> material.name().toLowerCase(Locale.ROOT))
                                                         .forEach(builder::suggest);
                                                 return builder.buildFuture();
@@ -646,6 +669,7 @@ public class HomeModule implements Listener {
             return HomeWriteResult.MAX_REACHED;
         }
         setHome(player, name, location);
+        if (existing.isEmpty()) returnTip.offer(player, name);
         return HomeWriteResult.SAVED;
     }
 
@@ -765,7 +789,7 @@ public class HomeModule implements Listener {
     }
 
     private Material homeMaterial(String homeName, HomeStore.Entry entry, Location location) {
-        if (entry != null && entry.icon() != null && entry.icon().isItem() && entry.icon() != Material.AIR) {
+        if (entry != null && HomeStore.isValidIcon(entry.icon())) {
             return entry.icon();
         }
         if (location == null) {

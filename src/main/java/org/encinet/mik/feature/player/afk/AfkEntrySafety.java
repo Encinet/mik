@@ -1,9 +1,8 @@
 package org.encinet.mik.feature.player.afk;
 
 /**
- * Physical conditions required before AFK protection can be applied safely.
- * Stable flight and stationary vehicles are allowed; active movement modes are
- * deferred until they settle.
+ * Physical stability used to defer passive AFK while inputs are still observed.
+ * Idle AFK can enter during movement after the full input-inactivity timeout.
  */
 record AfkEntrySafety(
         boolean gliding,
@@ -16,7 +15,7 @@ record AfkEntrySafety(
     private static final float MAX_FALL_DISTANCE = 0.01F;
     private static final double MAX_VELOCITY_SQUARED = 0.01D;
 
-    boolean permitsAutomaticAfk() {
+    boolean isPhysicallyStable() {
         return !gliding
                 && !riptiding
                 && Float.isFinite(fallDistance)

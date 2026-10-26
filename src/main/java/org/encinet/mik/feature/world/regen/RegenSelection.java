@@ -4,7 +4,7 @@ import org.bukkit.World;
 
 import java.util.List;
 
-/** Immutable view of a WorldEdit selection used by the regeneration pipeline. */
+/** Immutable view of a FastAsyncWorldEdit selection used by the regeneration pipeline. */
 public interface RegenSelection {
 
     World world();

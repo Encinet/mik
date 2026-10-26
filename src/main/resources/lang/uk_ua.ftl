@@ -80,8 +80,8 @@ url-dialog-title = Відкрити { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = Рекомендовані моди не виявлено: { $mods }. Натисніть назву для завантаження; якщо вже встановлено, перевірте їх увімкнення та сумісність.
-client-version-mismatch-mm = <gray>Версія сервера <white>{ $serverVersion }</white>, поточна версія клієнта <white>{ $clientVersion }</white>.</gray>
+client-mods-undetected-rich = Рекомендовані моди: { $mods }. Натисніть назву, щоб завантажити.
+client-version-behind-mm = <white>Ваш клієнт <yellow>{ $clientVersion }</yellow> старіший за сервер <green>{ $serverVersion }</green>. Рекомендовано оновлення.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>Поблизу: { $count ->
         [one] <gold>{ $count }</gold> <gold>невидимий гравець</gold>
@@ -110,6 +110,10 @@ welcome-return-mm = <gold><bold>З поверненням!</bold></gold><newline
         [many] { $arg0 } днів
        *[other] { $arg0 } дня
     } тому</yellow>. Скористайтеся <yellow>/menu</yellow>, щоб швидко знайти основні функції.</gray>
+
+## Player · Guidance
+
+tip-label = ПІДКАЗКА
 
 ## Player · AFK
 
@@ -202,6 +206,7 @@ nametag-preview-label = Попередній перегляд
 nametag-sample-message = приклад повідомлення
 nametag-set-error = Не вдалося задати { $arg0 }. Спробуйте пізніше
 nametag-set-success = ✔ Задано: { $arg0 }
+nametag-tip-customize-mm = Налаштуй <light_purple>префікс і суфікс імені</light_purple> командою <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold>.
 nametag-title = Теги імені
 nametag-too-long = Значення { $arg0 } задовге. Максимальна довжина: { $arg1 ->
         [one] { $arg1 } символ
@@ -231,6 +236,8 @@ back-success-mm = <green>Повернення на { $steps ->
        *[other] { $steps } кроку
     } назад</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>Не вдалося телепортуватися. Спробуйте ще раз</red>
+back-tip-return-mm = Команда <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> поверне вас на місце перед останньою телепортацією або смертю.
+back-tip-undo-mm = Команда <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> скасовує останній <yellow>/back</yellow>.
 back-undo-empty-mm = <gray>Немає команди <white>/back</white> для скасування</gray>
 back-undo-success-mm = <green>Останню команду <white>/back</white> скасовано</green>
 back-undo-world-missing-mm = <red>Цільовий світ недоступний. Скасування неможливе</red>
@@ -292,6 +299,8 @@ home-summary-count = Створено: { $arg0 } / { $arg1 }
 home-teleport-command-description = Телепортуватися до домівки
 home-teleport-failed = Не вдалося телепортуватися. Спробуйте ще раз
 home-teleported-rich = Ви телепортувалися до домівки { $home }
+home-tip-create-mm = Збережіть місце командою <green><u><click:suggest_command:'/sethome '>/sethome назва</click></u></green>, потім поверніться через <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>.
+home-tip-return-mm = Відкрийте <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> і виберіть дім для телепортації.
 home-updated-rich = Розташування домівки { $home } оновлено
 home-usage-book = Довідка команд
 home-usage-delhome = /delhome <name>  Видалити домівку
@@ -306,8 +315,9 @@ reback-command-description = Скасувати останню команду /b
 teleport-accept-command-description = Прийняти запит на телепортацію, що очікує відповіді
 teleport-allow = Телепортації іншими гравцями
 teleport-block-afk = Забороняти під час AFK
-teleport-denied = { $player } забороняє телепортувати себе звичайним гравцям
+teleport-denied = { $player } забороняє телепортувати себе іншим гравцям
 teleport-deny-command-description = Відхилити запит на телепортацію, що очікує відповіді
+teleport-force-command-description = Примусова телепортація без урахування налаштувань гравця (лише для адміністраторів)
 teleport-menu-title = Дозволи на телепортацію
 teleport-moved-here = Гравець { $arg0 } телепортував вас сюди
 teleport-policy-always-allow = Завжди дозволяти
@@ -323,9 +333,9 @@ teleport-request-received = Гравець { $sender } хоче телепорт
 teleport-request-rejected = Запит на телепортацію відхилено
 teleport-request-sent = Запит на телепортацію надіслано гравцю { $player }
 teleport-summary-afk = Завжди дозволено, крім статусу AFK
-teleport-summary-allow = Телепортації звичайними гравцями завжди дозволено
-teleport-summary-consent = Телепортації звичайними гравцями вимагають моєї згоди
-teleport-summary-deny = Телепортації звичайними гравцями завжди заборонено
+teleport-summary-allow = Телепортації іншими гравцями завжди дозволено
+teleport-summary-consent = Телепортації іншими гравцями вимагають моєї згоди
+teleport-summary-deny = Телепортації іншими гравцями завжди заборонено
 tpany-command-description = Телепортуватися до гравця в мережі або поза нею
 tpany-done-offline-rich = Ви телепортувалися до останнього відомого розташування гравця { $player }: { $world } { $location }
 tpany-done-online-rich = Ви телепортувалися до поточного розташування гравця { $player }
@@ -386,16 +396,56 @@ pvp-status-player-rich = Гравець: { $player }
 pvp-status-title-mm = <gold><bold>Стан PvP</bold></gold>
 pvp-summary-disabled = PvP вимкнено
 pvp-summary-enabled = PvP увімкнено
-pvp-target-disabled-actionbar-mm = <gray>У цього гравця PvP вимкнено</gray>
+pvp-target-disabled-actionbar-mm = <yellow>У цього гравця PvP вимкнено</yellow>
 pvp-target-menu-title = Налаштування PvP - { $arg0 }
+pvp-tip-protection-mm = Вмикайте й вимикайте свій PVP командою <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple>. Для бою його мають <green>увімкнути обидва гравці</green>.
 pvp-toggled-off-mm = <gray>PvP вимкнено</gray> <dark_gray>|</dark_gray> <gray>Інші гравці не можуть вас атакувати</gray>
 pvp-toggled-on-mm = <green>PvP увімкнено</green> <dark_gray>|</dark_gray> <gray>Тепер ви можете битися з іншими гравцями з увімкненим PvP</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [Прибрати всі ефекти]
+effect-cleanup-blocked = Прибрати ефекти можна лише у творчому режимі або режимі спостерігача поза PVP-боєм.
+effect-cleanup-expired = Термін дії цього запиту минув.
+effect-cleanup-negative = [Прибрати негативні ефекти]
+effect-cleanup-prompt-rich = Виявлено негативні ефекти. Причина: { $source }. Прибрати їх?
+effect-cleanup-result = { $count ->
+        [one] Прибрано { $count } ефект.
+        [few] Прибрано { $count } ефекти.
+        [many] Прибрано { $count } ефектів.
+       *[other] Прибрано { $count } ефекту.
+    }
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] хмара туманного зілля
+        [ARROW] стріла
+        [ATTACK] атака
+        [COMMAND] команда
+        [FOOD] їжа
+        [PLUGIN] плагін
+        [POTION_DRINK] випите зілля
+        [POTION_SPLASH] вибухове зілля
+        [WARDEN] вартовий
+        [WITHER_ROSE] троянда візера
+       *[OTHER] невідоме джерело
+    }
+
+## Player · Trash
+
+trash-clear = Очистити
+trash-clear-hint = Натисніть, щоб одразу видалити всі предмети;
+    інакше вони видаляться автоматично через { $arg0 } секунд після закриття.
+trash-command-description = Відкрити смітник
+trash-sort = Упорядкувати
+trash-sort-hint = Об’єднати однакові стопки та впорядкувати предмети за типом
+trash-tip-dispose-mm = Відкрийте <yellow>смітник</yellow> командою <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> та покладіть туди непотрібні предмети.
+trash-title = Смітник
 
 ## Player · Utilities
 
 hat-command-description = Надіти предмет з основної руки
 hat-empty-hand-mm = <red>В основній руці немає предмета</red> <gray>Візьміть блок або предмет і введіть /hat</gray>
 hat-success-mm = <green>Предмет з основної руки надіто</green> <dark_gray>|</dark_gray> <gray>Предмети в руці та комірці шолома поміняно місцями</gray>
+hat-tip-wear-mm = Одягни предмет з <yellow>основної руки</yellow> на голову командою <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple>.
 removeitems-command-description = Видалити викинуті предмети
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = Видалено: { $countValue ->
@@ -406,6 +456,7 @@ removeitems-done-rich = Видалено: { $countValue ->
     } · світ { $world } { $location } { $radius }
 removeitems-no-world = Не вдалося визначити світ
 removeitems-radius = радіус: { $arg0 } бл.
+removeitems-tip-usage-mm = Видали <yellow>предмети на землі</yellow> поблизу командою <aqua><u><click:suggest_command:'/rmitems '>/rmitems [радіус]</click></u></aqua>.
 self-kick-command-description = Кікнути себе із сервера
 self-kick-reason-too-long = Причина кіка не може перевищувати { $arg0 ->
         [one] { $arg0 } символ
@@ -431,9 +482,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player }: вихід без зайвих слів.
     .item-3 = { $player }: бездоганний самокік.
     .item-4 = { $player }: вихід за власним бажанням.
-trash-command-description = Відкрити смітник
-trash-title = Смітник
-trash-title-hint = Наведіться на предмет і натисніть F, щоб видалити всю стопку
 
 ## Community · Chat and mentions
 
@@ -458,6 +506,7 @@ chat-private-no-reply-target = Жоден із недавніх співрозм
 chat-private-self = Не можна почати приватний чат із собою
 chat-private-target-not-found = Гравця немає в мережі: { $arg0 }
 chat-private-target-offline = Співрозмовник вийшов із мережі. Увімкнено загальний чат
+chat-private-tip-channel-mm = Команда <aqua><u><click:suggest_command:'/msg '>/msg гравець</click></u></aqua> перемикає в особистий чат, а <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> повертає до загального.
 chat-public-command-description = Перейти до загального чату
 chat-public-enter = Увімкнено загальний чат
 chat-reply-command-description = Відповісти останньому співрозмовнику приватного чату
@@ -482,7 +531,7 @@ mention-summary-modes-afk = { $arg0 }, вимкнено під час AFK
 mention-summary-sound = звук
 staffchat-enter = Ви приєдналися до чату персоналу
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = Оголошень немає
 announcement-first-page = Найновіші оголошення
@@ -500,16 +549,6 @@ announcement-unread-count = Непрочитаних: { $arg0 }
 announcement-updated = Оголошення оновлено
 announcement-view-all = Усі оголошення
 announcement-view-command-description = Переглянути оголошення сервера
-tip-hover = Підказка сервера
-tip-label = ПІДКАЗКА
-tip-reload-command-description = Перезавантажити tips.txt
-tip-reload-count = { $arg0 ->
-        [one] { $arg0 } запис
-        [few] { $arg0 } записи
-        [many] { $arg0 } записів
-       *[other] { $arg0 } запису
-    }
-tip-reload-done = Підказки перезавантажено
 
 ## Community · Identity and social platforms
 
@@ -1419,7 +1458,7 @@ async-regen-block-preview-summary = Попередній перегляд: { $ar
        *[other] { $arg1 } наявної блок-сутності
     }
 async-regen-cancelled = Відновлення скасовано. Уже застосовані зміни ({ $arg0 }) залишаться у світі
-async-regen-command-description = Асинхронно відновити виділення WorldEdit
+async-regen-command-description = Асинхронно відновити виділення FastAsyncWorldEdit
 async-regen-completed = Відновлення завершено: змінено блоків: { $arg0 }; час: { $arg1 }
 async-regen-failed = Відновлення зупинено через внутрішню помилку. Уже застосовані зміни ({ $arg0 }) залишаться у світі
 async-regen-filter-all = усі типи блоків
@@ -1443,7 +1482,7 @@ async-regen-preview-started = Перегляд розпочато: виділе�
 async-regen-progress = { $arg0 } · заплановано чанків: { $arg1 }/{ $arg2 } · застосовано змін: { $arg3 }
 async-regen-safety-note = Поза збереженим виділенням нічого не зміниться. Будівлі всередині можуть бути перезаписані, а Vanilla не розрізняє блоки гравців. Перевірте візуалізацію та зробіть резервну копію перед застосуванням.
 async-regen-scope-blocks = перегенерувати блоки, що відповідають { $arg0 }
-async-regen-selection-required = Спочатку завершіть виділення WorldEdit
+async-regen-selection-required = Спочатку завершіть виділення FastAsyncWorldEdit
 async-regen-skipped-ungenerated = Пропущено ще не створені цільові чанки: { $arg0 ->
         [one] { $arg0 } чанк
         [few] { $arg0 } чанки
@@ -1489,13 +1528,16 @@ async-regen-upgrade-scope-terrain = рельєф, структури та біо
 async-regen-usage = Використання: /regen preview blocks [типи...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = Візуалізація у { $arg0 }: блакитний — межа виділення, помаранчевий — вибірка змінюваних блоків, червоний — блок-сутність під ризиком. Ці частинки бачите лише ви.
 async-regen-visualization-selection = Виділення у { $arg0 }: блакитні частинки позначають межу й видимі лише вам.
-async-regen-world-edit-required = Для читання виділення потрібен WorldEdit
+async-regen-fawe-required = Для читання виділення потрібен FastAsyncWorldEdit
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Присісти
+iron-elevator-tip-mm = Розташуйте блоки { -iron-elevator-block } точно один над одним, щоб створити ліфт. Станьте на блок: <green>стрибок — угору</green>, <aqua>присідання — униз</aqua>. Якщо поверхів більше двох, з’явиться <gold>панель вибору поверху</gold>.
 iron-elevator-up = ↑ Стрибок
 spawn-beacon-color-command-description = Перемкнути зміну кольору маяка точки відродження
 spawn-beacon-color-disabled = Зміну кольору маяка точки відродження вимкнено
 spawn-beacon-color-enabled = Зміну кольору маяка точки відродження ввімкнено
 spawn-command-description = Повернутися до точки відродження
+spawn-tip-return-mm = Команда <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> поверне вас на <yellow>спавн сервера</yellow>.
 spawn-world-missing = Світ точки відродження недоступний
 
 ## Entertainment · Music
@@ -1993,6 +2035,7 @@ restriction-other-player-name-mm = <red>Ви не маєте дозволу зг
 tpsbar-command-description = Показати або приховати панель TPS
 tpsbar-hidden = Панель TPS прихована
 tpsbar-shown = Панель TPS показана
+tpsbar-tip-status-mm = Покажи або приховай панель <yellow>TPS, MSPT і пінгу</yellow> командою <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Зняти блокування зі збереженням історії
 whitelist-already-whitelisted = { $arg0 } уже в білому списку
 whitelist-invalid-name = Неприпустимий формат імені гравця

@@ -51,7 +51,7 @@ class LanguageResourcesTest {
             "__MIK_HOME__", "__MIK_HOMES__", "__MIK_KEYWORD__", "__MIK_LABEL__",
             "__MIK_LOCATION__", "__MIK_MAX__", "__MIK_MSPT__", "__MIK_MUSIC__",
             "__MIK_MODS__", "__MIK_ONLINE__", "__MIK_PING__", "__MIK_PLAYER__", "__MIK_RADIUS__", "__MIK_REMAINING__",
-            "__MIK_SENDER__", "__MIK_SERVER_VERSION__", "__MIK_SITE__", "__MIK_STATE__", "__MIK_STEPS__", "__MIK_SUPPORTED__",
+            "__MIK_SENDER__", "__MIK_SERVER_VERSION__", "__MIK_SITE__", "__MIK_SOURCE__", "__MIK_STATE__", "__MIK_STEPS__", "__MIK_SUPPORTED__",
             "__MIK_TPS__", "__MIK_UNSUPPORTED__", "__MIK_WORLD__"
     );
 
@@ -76,6 +76,7 @@ class LanguageResourcesTest {
                 .add("arg6", "__MIK_ARG6__")
                 .add("arg7", "__MIK_ARG7__")
                 .add("clientVersion", "__MIK_CLIENT_VERSION__")
+                .add("cause", "OTHER")
                 .add("command", "__MIK_COMMAND__")
                 .add("count", "__MIK_COUNT__")
                 .add("days", "__MIK_DAYS__")
@@ -98,6 +99,7 @@ class LanguageResourcesTest {
                 .add("sender", "__MIK_SENDER__")
                 .add("serverVersion", "__MIK_SERVER_VERSION__")
                 .add("site", "__MIK_SITE__")
+                .add("source", "__MIK_SOURCE__")
                 .add("state", "__MIK_STATE__")
                 .add("steps", "__MIK_STEPS__")
                 .add("supported", "__MIK_SUPPORTED__")

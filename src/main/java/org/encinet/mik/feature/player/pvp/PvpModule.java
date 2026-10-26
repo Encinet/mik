@@ -19,6 +19,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.guidance.TipScope;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -42,12 +43,13 @@ public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
     private final PvpCombatController combatController;
     private final PvpMenuController menuController;
 
-    public PvpModule(JavaPlugin plugin, LanguageService languageService) {
+    public PvpModule(JavaPlugin plugin, LanguageService languageService, TipScope tips) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.settingsStore = new PvpSettingsStore(plugin);
         this.overrideRegistry = new PvpOverrideRegistry();
-        this.combatController = new PvpCombatController(plugin, languageService, settingsStore, this);
+        this.combatController = new PvpCombatController(plugin, languageService, settingsStore, this, tips,
+                Bukkit::getPlayer);
         this.menuController = new PvpMenuController(
                 plugin, languageService, settingsStore, combatController, this);
     }

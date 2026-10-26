@@ -155,8 +155,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
                                             requirePlayer(ctx.getSource().getSender()),
                                             StringArgumentType.getString(ctx, "message"))))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.AFK_COMMAND_DESCRIPTION),
-                    List.of("away")
+                    languageService.t(Language.DEFAULT, Message.AFK_COMMAND_DESCRIPTION)
             );
         });
     }
@@ -235,8 +234,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         if (reconnectAfk != null) {
             setAfk(player, reconnectAfk.message(), reconnectAfk.source(), false);
         } else if (reconnectAutomaticCandidate
-                && session.isAutomaticAfkCandidate(now)
-                && entrySafety(player).permitsAutomaticAfk()) {
+                && session.canRestoreAutomaticAfk(now, entrySafety(player).isPhysicallyStable())) {
             setAfk(player, null, AfkSource.AUTOMATIC, false);
         }
         Bukkit.getScheduler().runTask(plugin, () -> collisionController.syncViewer(event.getPlayer()));
@@ -584,7 +582,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
 
             AfkPlayerSession.AutomaticCheck check = session.checkAutomaticAfk(
                     now,
-                    entrySafety(player).permitsAutomaticAfk(),
+                    entrySafety(player).isPhysicallyStable(),
                     suppressions.isSuppressed(playerId) || viewingController.suppressesAutomaticAfk(playerId, now));
             if (check.result() == AfkActivityTracker.CheckResult.ACTIVITY_REWARD_LOCKED) {
                 AfkBehaviorAnalyzer.Analysis analysis = session.activity().movementAnalysis(now);
@@ -880,7 +878,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         if (namespaceIndex >= 0) {
             firstToken = firstToken.substring(namespaceIndex + 1);
         }
-        return firstToken.equals("afk") || firstToken.equals("away");
+        return firstToken.equals("afk");
     }
 
     private String normalizeMessage(String rawMessage) {

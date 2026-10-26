@@ -16,7 +16,7 @@ public record RegenBlockFilter(Set<Material> materials) {
 
     public RegenBlockFilter {
         materials = Set.copyOf(materials);
-        if (materials.stream().anyMatch(material -> !material.isBlock())) {
+        if (materials.stream().anyMatch(material -> !isCurrentBlock(material))) {
             throw new IllegalArgumentException("Regeneration filters may only contain blocks");
         }
     }
@@ -35,7 +35,7 @@ public record RegenBlockFilter(Set<Material> materials) {
                 .filter(token -> !token.isBlank())
                 .filter(token -> {
                     Material material = Material.matchMaterial(token.toLowerCase(Locale.ROOT));
-                    if (material == null || !material.isBlock()) {
+                    if (!isCurrentBlock(material)) {
                         return true;
                     }
                     parsed.add(material);
@@ -50,6 +50,11 @@ public record RegenBlockFilter(Set<Material> materials) {
             throw new UnknownBlocksException(List.of(input.trim()));
         }
         return new RegenBlockFilter(parsed);
+    }
+
+    private static boolean isCurrentBlock(Material material) {
+        // isBlock() also converts legacy materials; reject them before querying the registry.
+        return material != null && !material.isLegacy() && material.isBlock();
     }
 
     public boolean replacesAll() {

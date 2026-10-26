@@ -14,16 +14,20 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.guidance.TipScope;
+import org.encinet.mik.feature.player.guidance.TipTriggers;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.TextArg;
+import org.encinet.mik.shared.util.LocationUtil;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -44,15 +48,33 @@ public class BackModule implements Listener {
     private final Map<UUID, Deque<Location>> backHistory = new HashMap<>();
     private final Map<UUID, Deque<BackMove>> undoHistory = new HashMap<>();
     private final Map<UUID, PendingBackTeleport> pendingBackTeleports = new HashMap<>();
+    private volatile boolean running;
 
-    public BackModule(JavaPlugin plugin, LanguageService languageService) {
+    public BackModule(JavaPlugin plugin, LanguageService languageService, TipScope tips) {
         this.plugin = plugin;
         this.languageService = languageService;
+        tips.define("back-return", Message.BACK_TIP_RETURN_MM)
+                .group("back").priority(60).on(TipTriggers.teleport(0.1))
+                .when(player -> !pendingBackTeleports.containsKey(player.getUniqueId()) && hasReturnLocation(player))
+                .suggestCommand("/back").build();
+        tips.define("back-undo", Message.BACK_TIP_UNDO_MM)
+                .group("back").priority(50).on(TipTriggers.teleport(0.1))
+                .when(this::hasNavigationHistory)
+                .suggestCommand("/reback").build();
     }
 
     public void enable() {
+        running = true;
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         plugin.getLogger().info("BackModule enabled");
+    }
+
+    public void disable() {
+        running = false;
+        HandlerList.unregisterAll(this);
+        backHistory.clear();
+        undoHistory.clear();
+        pendingBackTeleports.clear();
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -117,6 +139,7 @@ public class BackModule implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
+        if (event.getTo() == null) return;
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
         PendingBackTeleport pendingBackTeleport = pendingBackTeleports.get(playerId);
@@ -125,7 +148,7 @@ public class BackModule implements Listener {
         }
         Location from = event.getFrom();
         Location to = event.getTo();
-        if (isSameBlockPosition(from, to)) {
+        if (LocationUtil.sameBlock(from, to)) {
             return;
         }
         pushBackLocation(playerId, from);
@@ -222,7 +245,9 @@ public class BackModule implements Listener {
     private void teleportBack(Player player, Location target, Component successMessage, Runnable onSuccess, Runnable onFailure) {
         UUID playerId = player.getUniqueId();
         player.teleportAsync(target).whenComplete((success, error) -> {
+            if (!running || !plugin.isEnabled()) return;
             Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!running) return;
                 finishPendingBackTeleport(playerId);
                 if (!player.isOnline()) {
                     return;
@@ -240,6 +265,19 @@ public class BackModule implements Listener {
 
     private Component message(Player player, Message message) {
         return MINI_MESSAGE.deserialize(languageService.t(player, message));
+    }
+
+    private boolean hasNavigationHistory(Player player) {
+        UUID id = player.getUniqueId();
+        Deque<BackMove> undo = undoHistory.get(id);
+        return !pendingBackTeleports.containsKey(id)
+                && (hasReturnLocation(player) || undo != null && !undo.isEmpty());
+    }
+
+    private boolean hasReturnLocation(Player player) {
+        Deque<Location> history = backHistory.get(player.getUniqueId());
+        Location target = history == null ? null : history.peekFirst();
+        return target != null && target.getWorld() != null && !LocationUtil.sameBlock(target, player.getLocation());
     }
 
     private void pushBackLocation(UUID playerId, Location location) {
@@ -269,21 +307,13 @@ public class BackModule implements Listener {
     }
 
     private void pushLocation(Deque<Location> history, Location location) {
-        if (!history.isEmpty() && isSameBlockPosition(history.peekFirst(), location)) {
+        if (!history.isEmpty() && LocationUtil.sameBlock(history.peekFirst(), location)) {
             return;
         }
         history.addFirst(location.clone());
         while (history.size() > MAX_BACK_HISTORY) {
             history.removeLast();
         }
-    }
-
-    private boolean isSameBlockPosition(Location a, Location b) {
-        if (a == null || b == null) return false;
-        if (!Objects.equals(a.getWorld(), b.getWorld())) return false;
-        return a.getBlockX() == b.getBlockX()
-                && a.getBlockY() == b.getBlockY()
-                && a.getBlockZ() == b.getBlockZ();
     }
 
     private boolean isSamePrecisePosition(Location a, Location b) {

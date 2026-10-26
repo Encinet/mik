@@ -36,22 +36,35 @@ final class AfkPlayerSession {
         return activity;
     }
 
-    AutomaticCheck checkAutomaticAfk(long now, boolean safeToEnter) {
-        return checkAutomaticAfk(now, safeToEnter, false);
+    AutomaticCheck checkAutomaticAfk(long now, boolean physicallyStable) {
+        return checkAutomaticAfk(now, physicallyStable, false);
     }
 
     AutomaticCheck checkAutomaticAfk(
             long now,
-            boolean safeToEnter,
+            boolean physicallyStable,
             boolean automaticAfkSuppressed
     ) {
         AfkActivityTracker.CheckResult result = activity.check(now);
         boolean shouldEnter = automaticEntry.shouldEnter(
                 now, !automaticAfkSuppressed
-                        && safeToEnter
-                        && result.automaticAfkCandidate());
+                        && permitsAutomaticEntry(result, physicallyStable));
         return new AutomaticCheck(
-                result, safeToEnter, automaticAfkSuppressed, shouldEnter);
+                result, physicallyStable, automaticAfkSuppressed, shouldEnter);
+    }
+
+    boolean canRestoreAutomaticAfk(long now, boolean physicallyStable) {
+        return permitsAutomaticEntry(activity.check(now), physicallyStable);
+    }
+
+    private static boolean permitsAutomaticEntry(
+            AfkActivityTracker.CheckResult result,
+            boolean physicallyStable
+    ) {
+        // Sustained absence of input is enough even during passive transport.
+        // Physical stability only defers passive AFK while inputs are still observed.
+        return result == AfkActivityTracker.CheckResult.AFK_IDLE
+                || (physicallyStable && result.automaticAfkCandidate());
     }
 
     boolean isActivityEligible(long now) {
@@ -94,7 +107,7 @@ final class AfkPlayerSession {
 
     record AutomaticCheck(
             AfkActivityTracker.CheckResult result,
-            boolean safeToEnter,
+            boolean physicallyStable,
             boolean automaticAfkSuppressed,
             boolean shouldEnterAfk
     ) {

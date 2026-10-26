@@ -66,8 +66,8 @@ url-dialog-title = Open { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = Recommended mods not detected: { $mods }. Click a name for downloads; if installed, check that the mod is enabled and compatible.
-client-version-mismatch-mm = <gray>Server version <white>{ $serverVersion }</white>, current client version <white>{ $clientVersion }</white>.</gray>
+client-mods-undetected-rich = Recommended mods: { $mods }. Click a name to download.
+client-version-behind-mm = <white>Your client <yellow>{ $clientVersion }</yellow> is older than the server <green>{ $serverVersion }</green>. Consider updating.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>{ $count ->
         [one] <gold>{ $count }</gold> nearby player is <gold>invisible</gold>
@@ -90,6 +90,10 @@ welcome-return-mm = <gold><bold>Welcome back!</bold></gold><newline><gray>Your l
         [one] { $arg0 } day
        *[other] { $arg0 } days
     } ago</yellow>. Use <yellow>/menu</yellow> to quickly find common features.</gray>
+
+## Player · Guidance
+
+tip-label = TIP
 
 ## Player · AFK
 
@@ -167,6 +171,7 @@ nametag-preview-label = Preview
 nametag-sample-message = sample message
 nametag-set-error = Error while setting { $arg0 }. Please try again later
 nametag-set-success = ✔ { $arg0 } set
+nametag-tip-customize-mm = Use <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> to customize your <light_purple>name prefix and suffix</light_purple>.
 nametag-title = Name Tags
 nametag-too-long = { $arg0 } is too long. Maximum length is { $arg1 ->
         [one] { $arg1 } character
@@ -192,6 +197,8 @@ back-success-mm = <green>Went back { $steps ->
        *[other] { $steps } steps
     }</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>Teleport failed. Please try again</red>
+back-tip-return-mm = Use <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> to return to your location before the last teleport or death.
+back-tip-undo-mm = Use <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> to undo your last <yellow>/back</yellow>.
 back-undo-empty-mm = <gray>No <white>/back</white> to undo</gray>
 back-undo-success-mm = <green>Undid the last <white>/back</white></green>
 back-undo-world-missing-mm = <red>Target world is unavailable. Cannot undo</red>
@@ -256,6 +263,8 @@ home-summary-count = Set: { $arg0 } / { $arg1 }
 home-teleport-command-description = Teleport to a home
 home-teleport-failed = Teleport failed. Please try again
 home-teleported-rich = Teleported to home { $home }
+home-tip-create-mm = Save your location with <green><u><click:suggest_command:'/sethome '>/sethome name</click></u></green>, then return with <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>.
+home-tip-return-mm = Open <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> and select a home to teleport.
 home-updated-rich = Home { $home } location has been updated
 home-usage-book = Command Help
 home-usage-delhome = /delhome <name>  Delete a home
@@ -270,8 +279,9 @@ reback-command-description = Undo the last /back
 teleport-accept-command-description = Accept the pending teleport request
 teleport-allow = Teleports by other players
 teleport-block-afk = Block while AFK
-teleport-denied = { $player } currently rejects normal player teleports
+teleport-denied = { $player } currently rejects teleports by other players
 teleport-deny-command-description = Deny the pending teleport request
+teleport-force-command-description = Force teleport, ignoring player preferences (staff only)
 teleport-menu-title = Teleport Privacy
 teleport-moved-here = You were teleported here by { $arg0 }
 teleport-policy-always-allow = Always allow
@@ -287,9 +297,9 @@ teleport-request-received = { $sender } wants to teleport you: { $command }
 teleport-request-rejected = Teleport request denied
 teleport-request-sent = Teleport request sent to { $player }
 teleport-summary-afk = Always allowed, denied while AFK
-teleport-summary-allow = Always allowing normal player teleports
-teleport-summary-consent = Normal player teleports require my approval
-teleport-summary-deny = Always denying normal player teleports
+teleport-summary-allow = Always allowing teleports by other players
+teleport-summary-consent = Teleports by other players require my approval
+teleport-summary-deny = Always denying teleports by other players
 tpany-command-description = Teleport to a player location, online or offline
 tpany-done-offline-rich = Teleported to { $player }'s last known location { $world } { $location }
 tpany-done-online-rich = Teleported to { $player }'s current location
@@ -348,16 +358,54 @@ pvp-status-player-rich = Player: { $player }
 pvp-status-title-mm = <gold><bold>PVP Status</bold></gold>
 pvp-summary-disabled = PVP disabled
 pvp-summary-enabled = PVP enabled
-pvp-target-disabled-actionbar-mm = <gray>That player does not have PVP enabled</gray>
+pvp-target-disabled-actionbar-mm = <yellow>That player does not have PVP enabled</yellow>
 pvp-target-menu-title = PVP Settings - { $arg0 }
+pvp-tip-protection-mm = Toggle your PVP with <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple>. <green>Both players must enable it</green> to fight.
 pvp-toggled-off-mm = <gray>PVP disabled</gray> <dark_gray>|</dark_gray> <gray>Other players cannot attack you</gray>
 pvp-toggled-on-mm = <green>PVP enabled</green> <dark_gray>|</dark_gray> <gray>You can now fight other PVP-enabled players</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [Clear all effects]
+effect-cleanup-blocked = Effects can only be cleared in Creative or Spectator mode outside PVP combat.
+effect-cleanup-expired = This cleanup request has expired.
+effect-cleanup-negative = [Clear negative effects]
+effect-cleanup-prompt-rich = You gained negative effects from { $source }. Clear them?
+effect-cleanup-result = { $count ->
+        [one] Cleared { $count } effect.
+       *[other] Cleared { $count } effects.
+    }
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] a lingering potion cloud
+        [ARROW] an arrow
+        [ATTACK] an attack
+        [COMMAND] a command
+        [FOOD] food
+        [PLUGIN] a plugin
+        [POTION_DRINK] drinking a potion
+        [POTION_SPLASH] a splash potion
+        [WARDEN] a warden
+        [WITHER_ROSE] a wither rose
+       *[OTHER] an unknown source
+    }
+
+## Player · Trash
+
+trash-clear = Clear
+trash-clear-hint = Click to clear all items now;
+    otherwise, they are cleared automatically { $arg0 } seconds after closing.
+trash-command-description = Open trash
+trash-sort = Sort
+trash-sort-hint = Merge matching stacks and sort items by type
+trash-tip-dispose-mm = Use <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> to open the <yellow>trash</yellow> and put unwanted items inside.
+trash-title = Trash
 
 ## Player · Utilities
 
 hat-command-description = Wear the item in your main hand
 hat-empty-hand-mm = <red>No item in your main hand</red> <gray>Hold a block or item, then use /hat</gray>
 hat-success-mm = <green>Wearing the item from your main hand</green> <dark_gray>|</dark_gray> <gray>Your hand and helmet slot were swapped</gray>
+hat-tip-wear-mm = Use <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> to wear the item in your <yellow>main hand</yellow> on your head.
 removeitems-command-description = Remove dropped items
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = Removed { $countValue ->
@@ -369,6 +417,7 @@ removeitems-radius = radius { $arg0 ->
         [one] { $arg0 } block
        *[other] { $arg0 } blocks
     }
+removeitems-tip-usage-mm = Use <aqua><u><click:suggest_command:'/rmitems '>/rmitems [radius]</click></u></aqua> to clear nearby <yellow>dropped items</yellow>.
 self-kick-command-description = Kick yourself from the server
 self-kick-reason-too-long = The kick reason cannot exceed { $arg0 ->
         [one] { $arg0 } character
@@ -392,9 +441,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player } left the server without saying a word.
     .item-3 = { $player } performed a flawless self-kick.
     .item-4 = { $player } pressed the leave-server button themselves.
-trash-command-description = Open trash
-trash-title = Trash
-trash-title-hint = Aim at an item and press F to delete that stack
 
 ## Community · Chat and mentions
 
@@ -419,6 +465,7 @@ chat-private-no-reply-target = No recent private chat target is online
 chat-private-self = You cannot start a private chat with yourself
 chat-private-target-not-found = Online player not found: { $arg0 }
 chat-private-target-offline = Private chat target is offline; returned to public chat
+chat-private-tip-channel-mm = Use <aqua><u><click:suggest_command:'/msg '>/msg player</click></u></aqua> to enter private chat; <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> returns to public chat.
 chat-public-command-description = Switch public chat channel
 chat-public-enter = Switched to public chat
 chat-reply-command-description = Reply to your latest private chat target
@@ -443,7 +490,7 @@ mention-summary-modes-afk = { $arg0 }, muted while AFK
 mention-summary-sound = sound
 staffchat-enter = Joined staff chat
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = No announcements
 announcement-first-page = At the newest notices
@@ -461,14 +508,6 @@ announcement-unread-count = { $arg0 } unread
 announcement-updated = Announcements updated
 announcement-view-all = View all announcements
 announcement-view-command-description = View server announcements
-tip-hover = Server tip
-tip-label = TIP
-tip-reload-command-description = Reload tips.txt
-tip-reload-count = { $arg0 ->
-        [one] { $arg0 } entry
-       *[other] { $arg0 } entries
-    }
-tip-reload-done = Tips reloaded
 
 ## Community · Identity and social platforms
 
@@ -1345,7 +1384,7 @@ async-regen-cancelled = Regeneration cancelled. The { $arg0 ->
         [one] { $arg0 } change
        *[other] { $arg0 } changes
     } already applied remain in the world
-async-regen-command-description = Regenerate a WorldEdit selection asynchronously
+async-regen-command-description = Regenerate a FastAsyncWorldEdit selection asynchronously
 async-regen-completed = Regeneration completed: { $arg0 ->
         [one] { $arg0 } block
        *[other] { $arg0 } blocks
@@ -1377,7 +1416,7 @@ async-regen-progress = { $arg0 } · { $arg1 }/{ $arg2 ->
     } applied
 async-regen-safety-note = Nothing outside the stored selection will change. Buildings inside it may be overwritten, and vanilla does not identify player-placed blocks. Inspect the visualization and make a backup before applying.
 async-regen-scope-blocks = regenerate blocks matching { $arg0 }
-async-regen-selection-required = Make a complete WorldEdit selection first
+async-regen-selection-required = Make a complete FastAsyncWorldEdit selection first
 async-regen-skipped-ungenerated = Skipped ungenerated target chunks: { $arg0 ->
         [one] { $arg0 } chunk
        *[other] { $arg0 } chunks
@@ -1455,13 +1494,16 @@ async-regen-upgrade-scope-terrain = terrain, structures, and biomes
 async-regen-usage = Usage: /regen preview blocks [types...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = Visualization in { $arg0 }: cyan = selection boundary; orange = changed-block sample; red = block entity at risk. Only you can see these particles.
 async-regen-visualization-selection = Selection in { $arg0 }: cyan particles mark its boundary. Only you can see them.
-async-regen-world-edit-required = WorldEdit is required to read the selection
+async-regen-fawe-required = FastAsyncWorldEdit is required to read the selection
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Sneak
+iron-elevator-tip-mm = Align { -iron-elevator-block } vertically to create an elevator. Stand on { -iron-elevator-block }: <green>jump to go up</green>, <aqua>sneak to go down</aqua>. Elevators with more than two floors show a <gold>floor panel</gold>.
 iron-elevator-up = ↑ Jump
 spawn-beacon-color-command-description = Toggle spawn beacon color cycling
 spawn-beacon-color-disabled = Spawn beacon color cycling disabled
 spawn-beacon-color-enabled = Spawn beacon color cycling enabled
 spawn-command-description = Return to spawn
+spawn-tip-return-mm = Use <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> to return to the <yellow>server spawn</yellow>.
 spawn-world-missing = Spawn world is unavailable
 
 ## Entertainment · Music
@@ -1935,6 +1977,7 @@ restriction-other-player-name-mm = <red>You do not have permission to mention ot
 tpsbar-command-description = Show or hide the TPS bar
 tpsbar-hidden = TPS bar hidden
 tpsbar-shown = TPS bar shown
+tpsbar-tip-status-mm = Use <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> to toggle the <yellow>TPS, MSPT and ping</yellow> bar.
 unban-command-description = Pardon a player and keep the ban history
 whitelist-already-whitelisted = { $arg0 } is already whitelisted
 whitelist-invalid-name = Invalid player name format

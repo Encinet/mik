@@ -42,6 +42,21 @@ final class ModuleLifecycle {
         startManaged(name, start, () -> HandlerList.unregisterAll(listener));
     }
 
+    <T extends AutoCloseable> T own(String name, T resource) {
+        Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(resource, "resource");
+        shutdownActions.push(new ShutdownAction(name, () -> {
+            try {
+                resource.close();
+            } catch (RuntimeException error) {
+                throw error;
+            } catch (Exception error) {
+                throw new IllegalStateException("Could not close " + name, error);
+            }
+        }));
+        return resource;
+    }
+
     boolean stopAll(Throwable startupError) {
         boolean cleanShutdown = true;
         while (!shutdownActions.isEmpty()) {

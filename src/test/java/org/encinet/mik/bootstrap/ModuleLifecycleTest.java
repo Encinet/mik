@@ -72,6 +72,31 @@ class ModuleLifecycleTest {
         assertTrue(lifecycle.stopAll(failure));
     }
 
+    @Test
+    void ownedScopesCloseAfterTheirFeatureAndBeforeEarlierDependencies() {
+        var lifecycle = lifecycle();
+        var calls = new ArrayList<String>();
+        lifecycle.startManaged("guidance", () -> {}, () -> calls.add("guidance"));
+        AutoCloseable scope = () -> calls.add("scope");
+        assertSame(scope, lifecycle.own("tips", scope));
+        lifecycle.startManaged("feature", () -> {}, () -> calls.add("feature"));
+
+        assertTrue(lifecycle.stopAll(null));
+        assertTrue(lifecycle.stopAll(null));
+        assertEquals(List.of("feature", "scope", "guidance"), calls);
+    }
+
+    @Test
+    void resourcesAreAlreadyOwnedWhenConstructionAfterTheirAllocationFails() {
+        var lifecycle = lifecycle();
+        var calls = new ArrayList<String>();
+        var failure = new IllegalStateException("constructor failed");
+        lifecycle.own("tips", (AutoCloseable) () -> calls.add("scope"));
+
+        assertTrue(lifecycle.stopAll(failure));
+        assertEquals(List.of("scope"), calls);
+    }
+
     private static ModuleLifecycle lifecycle() {
         Logger logger = Logger.getAnonymousLogger();
         logger.setLevel(Level.OFF);

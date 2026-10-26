@@ -1,20 +1,44 @@
 package org.encinet.mik.feature.player.teleport;
 
+import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HomeStoreTest {
     @TempDir Path directory;
+
+    @Test
+    void legacyIconsAreRejectedBeforeAnyServerConversion() {
+        var legacyMaterials = Arrays.stream(Material.values()).filter(Material::isLegacy).toList();
+        assertFalse(legacyMaterials.isEmpty());
+
+        // No Bukkit server is installed: any attempt to convert a legacy material fails.
+        for (Material material : legacyMaterials) {
+            assertFalse(HomeStore.isValidIcon(material), material.name());
+            assertNull(HomeStore.icon(material.name().toLowerCase(Locale.ROOT)), material.name());
+        }
+    }
+
+    @Test
+    void missingUnknownAndAirIconsAreRejected() {
+        assertFalse(HomeStore.isValidIcon(null));
+        assertFalse(HomeStore.isValidIcon(Material.AIR));
+        assertNull(HomeStore.icon("not_a_material"));
+        assertNull(HomeStore.icon("air"));
+    }
 
     @Test
     void closeFlushesTheLastSnapshotAfterConsecutiveChanges() {

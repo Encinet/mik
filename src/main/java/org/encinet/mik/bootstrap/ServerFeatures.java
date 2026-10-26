@@ -48,7 +48,8 @@ record ServerFeatures(BanModule bans) {
         }
         maintenanceModule.registerCommands(plugin.getLifecycleManager());
 
-        TPSBarModule tpsBarModule = new TPSBarModule(plugin, languageService);
+        TPSBarModule tpsBarModule = new TPSBarModule(plugin, languageService,
+                lifecycle.own("tps-bar-tips", players.guidance().scope()));
         lifecycle.startManaged("tps-bar", tpsBarModule::start, tpsBarModule::stop);
         tpsBarModule.registerCommands(plugin.getLifecycleManager());
 

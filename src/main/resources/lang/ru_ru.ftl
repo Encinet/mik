@@ -80,8 +80,8 @@ url-dialog-title = Открыть { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = Рекомендуемые моды не обнаружены: { $mods }. Нажмите на название для скачивания; если моды установлены, проверьте их включение и совместимость.
-client-version-mismatch-mm = <gray>Версия сервера <white>{ $serverVersion }</white>, текущая версия клиента <white>{ $clientVersion }</white>.</gray>
+client-mods-undetected-rich = Рекомендуемые моды: { $mods }. Нажмите на название для скачивания.
+client-version-behind-mm = <white>Ваш клиент <yellow>{ $clientVersion }</yellow> старее сервера <green>{ $serverVersion }</green>. Рекомендуется обновление.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>Рядом: { $count ->
         [one] <gold>{ $count }</gold> <gold>невидимый игрок</gold>
@@ -110,6 +110,10 @@ welcome-return-mm = <gold><bold>С возвращением!</bold></gold><newli
         [many] { $arg0 } дней
        *[other] { $arg0 } дня
     } назад</yellow>. Основные возможности можно быстро найти через <yellow>/menu</yellow>.</gray>
+
+## Player · Guidance
+
+tip-label = ПОДСКАЗКА
 
 ## Player · AFK
 
@@ -201,6 +205,7 @@ nametag-preview-label = Предпросмотр
 nametag-sample-message = пример сообщения
 nametag-set-error = Не удалось задать { $arg0 }. Попробуйте позже
 nametag-set-success = ✔ { $arg0 } задан
+nametag-tip-customize-mm = Настрой <light_purple>префикс и суффикс имени</light_purple> командой <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold>.
 nametag-title = Оформление имени
 nametag-too-long = Значение { $arg0 } слишком длинное. Не более { $arg1 ->
         [one] { $arg1 } символа
@@ -230,6 +235,8 @@ back-success-mm = <green>Возврат на { $steps ->
        *[other] { $steps } шага
     } назад</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>Не удалось телепортироваться. Попробуйте ещё раз</red>
+back-tip-return-mm = Команда <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> вернёт вас на место перед последней телепортацией или смертью.
+back-tip-undo-mm = Команда <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> отменяет последний <yellow>/back</yellow>.
 back-undo-empty-mm = <gray>Нет команды <white>/back</white>, которую можно отменить</gray>
 back-undo-success-mm = <green>Последняя команда <white>/back</white> отменена</green>
 back-undo-world-missing-mm = <red>Целевой мир недоступен. Отменить возврат нельзя</red>
@@ -296,6 +303,8 @@ home-summary-count = Установлено: { $arg0 } / { $arg1 }
 home-teleport-command-description = Телепортироваться к точке дома
 home-teleport-failed = Не удалось телепортироваться. Попробуйте ещё раз
 home-teleported-rich = Вы телепортированы к точке дома { $home }
+home-tip-create-mm = Сохраните место командой <green><u><click:suggest_command:'/sethome '>/sethome название</click></u></green>, затем вернитесь через <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>.
+home-tip-return-mm = Откройте <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> и выберите дом для телепортации.
 home-updated-rich = Позиция точки дома { $home } обновлена
 home-usage-book = Справка по командам
 home-usage-delhome = /delhome <name>  Удалить точку дома
@@ -310,8 +319,9 @@ reback-command-description = Отменить последнюю команду 
 teleport-accept-command-description = Принять ожидающий запрос на телепортацию
 teleport-allow = Телепортации другими игроками
 teleport-block-afk = Запрещать в AFK
-teleport-denied = Игрок { $player } запретил обычную телепортацию к себе
+teleport-denied = Игрок { $player } не разрешает другим игрокам телепортировать себя
 teleport-deny-command-description = Отклонить ожидающий запрос на телепортацию
+teleport-force-command-description = Принудительная телепортация без учёта настроек игрока (только для администраторов)
 teleport-menu-title = Приватность телепортации
 teleport-moved-here = Игрок { $arg0 } телепортировал вас сюда
 teleport-policy-always-allow = Всегда разрешать
@@ -327,9 +337,9 @@ teleport-request-received = Игрок { $sender } хочет телепорти
 teleport-request-rejected = Запрос на телепортацию отклонён
 teleport-request-sent = Запрос на телепортацию отправлен игроку { $player }
 teleport-summary-afk = Всегда разрешены, но запрещены в AFK
-teleport-summary-allow = Телепортации обычными игроками всегда разрешены
-teleport-summary-consent = Телепортации обычными игроками требуют моего согласия
-teleport-summary-deny = Телепортации обычными игроками всегда запрещены
+teleport-summary-allow = Телепортации другими игроками всегда разрешены
+teleport-summary-consent = Телепортации другими игроками требуют моего согласия
+teleport-summary-deny = Телепортации другими игроками всегда запрещены
 tpany-command-description = Телепортироваться к игроку в сети или не в сети
 tpany-done-offline-rich = Вы телепортированы к последнему известному расположению игрока { $player }: { $world } { $location }
 tpany-done-online-rich = Вы телепортированы к текущему расположению игрока { $player }
@@ -390,16 +400,56 @@ pvp-status-player-rich = Игрок: { $player }
 pvp-status-title-mm = <gold><bold>Статус PvP</bold></gold>
 pvp-summary-disabled = PvP выключен
 pvp-summary-enabled = PvP включён
-pvp-target-disabled-actionbar-mm = <gray>У этого игрока выключен PvP</gray>
+pvp-target-disabled-actionbar-mm = <yellow>У этого игрока выключен PvP</yellow>
 pvp-target-menu-title = Настройки PvP · { $arg0 }
+pvp-tip-protection-mm = Включайте и выключайте свой PVP командой <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple>. Для боя его должны <green>включить оба игрока</green>.
 pvp-toggled-off-mm = <gray>PvP выключен</gray> <dark_gray>|</dark_gray> <gray>Другие игроки не могут вас атаковать</gray>
 pvp-toggled-on-mm = <green>PvP включён</green> <dark_gray>|</dark_gray> <gray>Теперь вы можете сражаться с другими игроками с включённым PvP</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [Убрать все эффекты]
+effect-cleanup-blocked = Убрать эффекты можно только в творческом режиме или режиме наблюдателя вне PVP-боя.
+effect-cleanup-expired = Срок действия этого запроса истёк.
+effect-cleanup-negative = [Убрать отрицательные эффекты]
+effect-cleanup-prompt-rich = Обнаружены отрицательные эффекты. Причина: { $source }. Убрать их?
+effect-cleanup-result = { $count ->
+        [one] Убран { $count } эффект.
+        [few] Убрано { $count } эффекта.
+        [many] Убрано { $count } эффектов.
+       *[other] Убрано { $count } эффекта.
+    }
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] облако туманного зелья
+        [ARROW] стрела
+        [ATTACK] атака
+        [COMMAND] команда
+        [FOOD] еда
+        [PLUGIN] плагин
+        [POTION_DRINK] выпитое зелье
+        [POTION_SPLASH] взрывное зелье
+        [WARDEN] хранитель
+        [WITHER_ROSE] роза визера
+       *[OTHER] неизвестный источник
+    }
+
+## Player · Trash
+
+trash-clear = Очистить
+trash-clear-hint = Нажмите, чтобы сразу удалить все предметы;
+    иначе они удалятся автоматически через { $arg0 } секунд после закрытия.
+trash-command-description = Открыть корзину
+trash-sort = Сортировать
+trash-sort-hint = Объединить одинаковые стопки и рассортировать предметы по типу
+trash-tip-dispose-mm = Откройте <yellow>корзину</yellow> командой <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> и положите туда ненужные предметы.
+trash-title = Корзина
 
 ## Player · Utilities
 
 hat-command-description = Надеть предмет из ведущей руки
 hat-empty-hand-mm = <red>В ведущей руке нет предмета</red> <gray>Возьмите блок или предмет и используйте /hat</gray>
 hat-success-mm = <green>Предмет из ведущей руки надет</green> <dark_gray>|</dark_gray> <gray>Предметы в руке и слоте шлема поменялись местами</gray>
+hat-tip-wear-mm = Надень предмет из <yellow>основной руки</yellow> на голову командой <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple>.
 removeitems-command-description = Удалить выброшенные предметы
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = Удалено: { $countValue ->
@@ -415,6 +465,7 @@ removeitems-radius = радиус { $arg0 ->
         [many] { $arg0 } блоков
        *[other] { $arg0 } блока
     }
+removeitems-tip-usage-mm = Удали <yellow>выпавшие предметы</yellow> поблизости командой <aqua><u><click:suggest_command:'/rmitems '>/rmitems [радиус]</click></u></aqua>.
 self-kick-command-description = Кикнуть себя с сервера
 self-kick-reason-too-long = Причина кика не может превышать { $arg0 ->
         [one] { $arg0 } символ
@@ -440,9 +491,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player }: выход без лишних слов.
     .item-3 = { $player }: безупречный самокик.
     .item-4 = { $player }: выход по собственной кнопке.
-trash-command-description = Открыть корзину
-trash-title = Корзина
-trash-title-hint = Наведитесь на предмет и нажмите F, чтобы удалить всю стопку
 
 ## Community · Chat and mentions
 
@@ -467,6 +515,7 @@ chat-private-no-reply-target = Среди недавних собеседник�
 chat-private-self = Нельзя начать личный чат с собой
 chat-private-target-not-found = Игрок не в сети или не найден: { $arg0 }
 chat-private-target-offline = Собеседник вышел из сети. Вы вернулись в общий чат
+chat-private-tip-channel-mm = Команда <aqua><u><click:suggest_command:'/msg '>/msg игрок</click></u></aqua> переключает в личный чат, а <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> возвращает в общий.
 chat-public-command-description = Переключиться в общий чат
 chat-public-enter = Вы перешли в общий чат
 chat-reply-command-description = Ответить последнему собеседнику в личном чате
@@ -491,7 +540,7 @@ mention-summary-modes-afk = { $arg0 }, отключаются в AFK
 mention-summary-sound = звук
 staffchat-enter = Вы вошли в чат персонала
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = Объявлений нет
 announcement-first-page = Самые новые объявления
@@ -509,16 +558,6 @@ announcement-unread-count = Непрочитанных: { $arg0 }
 announcement-updated = Объявления обновлены
 announcement-view-all = Все объявления
 announcement-view-command-description = Просмотреть объявления сервера
-tip-hover = Подсказка сервера
-tip-label = ПОДСКАЗКА
-tip-reload-command-description = Перезагрузить tips.txt
-tip-reload-count = { $arg0 ->
-        [one] { $arg0 } запись
-        [few] { $arg0 } записи
-        [many] { $arg0 } записей
-       *[other] { $arg0 } записи
-    }
-tip-reload-done = Подсказки перезагружены
 
 ## Community · Identity and social platforms
 
@@ -1428,7 +1467,7 @@ async-regen-block-preview-summary = Предпросмотр: { $arg0 ->
        *[other] { $arg1 } существующей блок-сущности
     }
 async-regen-cancelled = Восстановление отменено. Уже применённые изменения ({ $arg0 }) останутся в мире
-async-regen-command-description = Асинхронно восстановить выделение WorldEdit
+async-regen-command-description = Асинхронно восстановить выделение FastAsyncWorldEdit
 async-regen-completed = Восстановление завершено: изменено блоков: { $arg0 }; время: { $arg1 }
 async-regen-failed = Восстановление остановлено из-за внутренней ошибки. Уже применённые изменения ({ $arg0 }) останутся в мире
 async-regen-filter-all = все типы блоков
@@ -1452,7 +1491,7 @@ async-regen-preview-started = Предпросмотр начат: выделе�
 async-regen-progress = { $arg0 } · запланировано чанков: { $arg1 }/{ $arg2 } · применено изменений: { $arg3 }
 async-regen-safety-note = Вне сохранённого выделения ничего не изменится. Постройки внутри могут быть перезаписаны, а Vanilla не различает блоки игроков. Проверьте визуализацию и сделайте резервную копию перед применением.
 async-regen-scope-blocks = перегенерировать блоки, соответствующие { $arg0 }
-async-regen-selection-required = Сначала завершите выделение WorldEdit
+async-regen-selection-required = Сначала завершите выделение FastAsyncWorldEdit
 async-regen-skipped-ungenerated = Пропущены ещё не созданные целевые чанки: { $arg0 ->
         [one] { $arg0 } чанк
         [few] { $arg0 } чанка
@@ -1498,13 +1537,16 @@ async-regen-upgrade-scope-terrain = рельеф, структуры и биом
 async-regen-usage = Использование: /regen preview blocks [типы...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = Визуализация в { $arg0 }: голубой — граница выделения, оранжевый — выборка изменяемых блоков, красный — блок-сущность под риском. Эти частицы видны только вам.
 async-regen-visualization-selection = Выделение в { $arg0 }: голубые частицы отмечают границу и видны только вам.
-async-regen-world-edit-required = Для чтения выделения требуется WorldEdit
+async-regen-fawe-required = Для чтения выделения требуется FastAsyncWorldEdit
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Присесть
+iron-elevator-tip-mm = Поставьте блоки { -iron-elevator-block } строго друг над другом, чтобы создать лифт. Встаньте на блок: <green>прыжок — вверх</green>, <aqua>приседание — вниз</aqua>. Если этажей больше двух, появится <gold>панель выбора этажа</gold>.
 iron-elevator-up = ↑ Прыжок
 spawn-beacon-color-command-description = Переключить смену цвета маяка на спауне
 spawn-beacon-color-disabled = Смена цвета маяка на спауне выключена
 spawn-beacon-color-enabled = Смена цвета маяка на спауне включена
 spawn-command-description = Вернуться на спаун
+spawn-tip-return-mm = Команда <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> вернёт вас на <yellow>спавн сервера</yellow>.
 spawn-world-missing = Мир спауна недоступен
 
 ## Entertainment · Music
@@ -2002,6 +2044,7 @@ restriction-other-player-name-mm = <red>У вас нет прав упомина
 tpsbar-command-description = Показать или скрыть строку TPS
 tpsbar-hidden = Строка TPS скрыта
 tpsbar-shown = Строка TPS показана
+tpsbar-tip-status-mm = Покажи или скрой панель <yellow>TPS, MSPT и пинга</yellow> командой <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Снять блокировку с сохранением истории
 whitelist-already-whitelisted = { $arg0 } уже в белом списке
 whitelist-invalid-name = Недопустимое имя игрока

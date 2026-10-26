@@ -11,7 +11,6 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -30,49 +29,69 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.guidance.TipScope;
+import org.encinet.mik.feature.player.guidance.TipTriggers;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
 import org.encinet.mik.shared.i18n.TextArg;
-import org.encinet.mik.shared.menu.FloatingMenuContext;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuFeedbackKind;
-import org.encinet.mik.shared.menu.FloatingMenuLayouts;
-import org.encinet.mik.shared.menu.FloatingMenuPage;
-import org.encinet.mik.shared.menu.FloatingMenuScreen;
 import org.encinet.mik.shared.util.PlayerDisplay;
 
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 public class SimpleFeaturesModule implements Listener {
 
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
     private static final String SPAWN_WORLD = "world";
+    private static final Pattern SPAWN_MENTION = Pattern.compile(
+            "出生[点點]|主城|回城|大[厅廳]|/(?:spawn|lobby)(?![a-z0-9_])"
+                    + "|(?<![\\p{L}\\p{N}_])(?:spawn|lobby)(?![\\p{L}\\p{N}_])",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern HAT_MENTION = Pattern.compile(
+            "帽子|戴帽|[头頭][饰飾]|(?:戴|穿|放)(?:到|在)?[头頭]上|/hat(?![a-z0-9_])"
+                    + "|(?<![\\p{L}\\p{N}_])(?:hats?|headwear)(?![\\p{L}\\p{N}_])",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final String REMOVE_ITEMS_PERMISSION = "mik.command.removeitems";
+    private static final Pattern REMOVE_ITEMS_MENTION = Pattern.compile(
+            "掉落物|(?:地上|地面上?)(?:的)?物品|/(?:rmitems|removeitems)(?![a-z0-9_])"
+                    + "|(?<![\\p{L}\\p{N}_])(?:dropped\\s+items?|item\\s+drops?|rmitems|removeitems)(?![\\p{L}\\p{N}_])",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final double SPAWN_X = 33.5;
     private static final double SPAWN_Y = 65.5;
     private static final double SPAWN_Z = 82.5;
     private static final float SPAWN_YAW = -90.0f;
     private static final float SPAWN_PITCH = 0.0f;
     private static final int MAX_SELF_KICK_REASON_LENGTH = 200;
-    private static final int TRASH_ITEMS_PER_PAGE = 9;
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private final SelfKickMessageService selfKickMessages;
     private final Map<UUID, SelfKickMessageService.Request> pendingSelfKicks = new HashMap<>();
-    private final FloatingMenuScreen<Integer> trashScreen;
 
-    public SimpleFeaturesModule(JavaPlugin plugin, LanguageService languageService) {
+    public SimpleFeaturesModule(JavaPlugin plugin, LanguageService languageService, TipScope tips) {
         this.plugin = plugin;
         this.languageService = languageService;
         this.selfKickMessages = new SelfKickMessageService(languageService);
-        this.trashScreen = new FloatingMenuScreen<>("trash", ignored -> 0, this::buildTrashMenu);
+        tips.define("spawn-return", Message.SPAWN_TIP_RETURN_MM)
+                .ambient()
+                .on(TipTriggers.chatMentions(SPAWN_MENTION))
+                .when(player -> Bukkit.getWorld(SPAWN_WORLD) != null)
+                .build();
+        tips.define("hat-wear", Message.HAT_TIP_WEAR_MM)
+                .ambient()
+                .on(TipTriggers.chatMentions(HAT_MENTION))
+                .build();
+        tips.define("remove-items", Message.REMOVEITEMS_TIP_USAGE_MM)
+                .ambient()
+                .on(TipTriggers.chatMentions(REMOVE_ITEMS_MENTION))
+                .when(player -> player.hasPermission(REMOVE_ITEMS_PERMISSION))
+                .build();
     }
 
     public void enable() {
@@ -130,7 +149,7 @@ public class SimpleFeaturesModule implements Listener {
                         }
                         sender.sendMessage(playerOnlyMessage());
                         return 0;
-                    }).build(), languageService.t(Language.DEFAULT, Message.HAT_COMMAND_DESCRIPTION), List.of("head"));
+                    }).build(), languageService.t(Language.DEFAULT, Message.HAT_COMMAND_DESCRIPTION));
 
             // Register /tpany command
             commands.register(
@@ -178,23 +197,9 @@ public class SimpleFeaturesModule implements Listener {
                     languageService.t(Language.DEFAULT, Message.TPANY_COMMAND_DESCRIPTION)
             );
 
-            // Register /trash command
-            commands.register(Commands.literal("trash")
-                    .executes(ctx -> {
-                        Entity executor = ctx.getSource().getExecutor();
-                        if (executor instanceof Player player) {
-                            trashScreen.open(player, 0);
-                            return Command.SINGLE_SUCCESS;
-                        }
-                        ctx.getSource().getSender().sendMessage(
-                                playerOnlyMessage()
-                        );
-                        return 0;
-                    }).build(), languageService.t(Language.DEFAULT, Message.TRASH_COMMAND_DESCRIPTION), List.of("trashcan", "garbage"));
-
             // Register /removeitems command
             commands.register(Commands.literal("removeitems")
-                    .requires(source -> source.getSender().hasPermission("mik.command.removeitems"))
+                    .requires(source -> source.getSender().hasPermission(REMOVE_ITEMS_PERMISSION))
                     // 带半径参数的分支
                     .then(Commands.argument("radius", IntegerArgumentType.integer(1, 300))
                             .executes(ctx -> {
@@ -207,85 +212,10 @@ public class SimpleFeaturesModule implements Listener {
         });
     }
 
-    private FloatingMenuDefinition buildTrashMenu(FloatingMenuContext<Integer> context) {
-        Player player = context.player();
-        List<TrashEntry> carried = carriedItems(player);
-        FloatingMenuPage page = new FloatingMenuPage(context.state(), carried.size(),
-                TRASH_ITEMS_PER_PAGE);
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
-                        "trash",
-                        Component.text(languageService.t(player, Message.TRASH_TITLE),
-                                NamedTextColor.RED, TextDecoration.BOLD))
-                .layout(FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.cards("items", 3, 3),
-                        FloatingMenuLayouts.navigation("controls")));
-
-        if (carried.isEmpty()) {
-            menu.information("empty", Component.text("0", NamedTextColor.GRAY)
-                            .append(Component.newline())
-                            .append(Component.text(languageService.t(player,
-                                    Message.TRASH_TITLE_HINT), NamedTextColor.DARK_GRAY)))
-                    .region("items");
-        } else {
-            for (TrashEntry entry : page.slice(carried)) {
-                ItemStack snapshot = entry.item().clone();
-                menu.item("inventory:" + entry.slot(), snapshot, snapshot.effectiveName())
-                        .region("items")
-                        .primary((p, handle) -> handle.feedback(
-                                Component.text(languageService.t(p, Message.TRASH_TITLE_HINT),
-                                        NamedTextColor.YELLOW), FloatingMenuFeedbackKind.INFO))
-                        .hotkey((p, handle) -> deleteCarriedItem(
-                                context, entry.slot(), snapshot));
-            }
-        }
-
-        menu.pagination("controls", page, context::setState);
-        menu.dismiss(
-                        Component.text(languageService.t(player, Message.CLOSE), NamedTextColor.RED))
-                .region("controls");
-        return menu.build();
-    }
-
-    private void deleteCarriedItem(FloatingMenuContext<Integer> context, int slot,
-                                   ItemStack expected) {
-        Player player = context.player();
-        ItemStack current = player.getInventory().getItem(slot);
-        if (current == null || current.getType().isAir() || !current.isSimilar(expected)
-                || current.getAmount() != expected.getAmount()) {
-            context.feedback(Component.text(languageService.t(player, Message.TRASH_TITLE_HINT),
-                    NamedTextColor.RED), FloatingMenuFeedbackKind.ERROR);
-            context.redraw();
-            return;
-        }
-        Component itemName = expected.effectiveName();
-        int amount = expected.getAmount();
-        player.getInventory().setItem(slot, null);
-        context.feedback(Component.text("× ", NamedTextColor.RED)
-                        .append(itemName)
-                        .append(Component.text(" ×" + amount, NamedTextColor.GRAY)),
-                FloatingMenuFeedbackKind.SUCCESS);
-        context.redraw();
-    }
-
-    private static List<TrashEntry> carriedItems(Player player) {
-        List<TrashEntry> result = new ArrayList<>();
-        ItemStack[] contents = player.getInventory().getContents();
-        for (int slot = 0; slot < contents.length; slot++) {
-            ItemStack item = contents[slot];
-            if (item != null && !item.getType().isAir()) {
-                result.add(new TrashEntry(slot, item.clone()));
-            }
-        }
-        return List.copyOf(result);
-    }
-
-    private record TrashEntry(int slot, ItemStack item) { }
-
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
         pendingSelfKicks.remove(playerId);
-        trashScreen.forget(playerId);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)

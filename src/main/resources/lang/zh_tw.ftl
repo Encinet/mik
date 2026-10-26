@@ -66,8 +66,8 @@ url-dialog-title = 開啟 { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = 未偵測到建議模組：{ $mods }。點擊名稱查看下載；若已安裝，請檢查是否啟用及版本相容性。
-client-version-mismatch-mm = <gray>伺服器版本 <white>{ $serverVersion }</white>，目前用戶端版本 <white>{ $clientVersion }</white>。</gray>
+client-mods-undetected-rich = 推薦模組：{ $mods }，點擊名稱下載。
+client-version-behind-mm = <white>用戶端 <yellow>{ $clientVersion }</yellow> 早於伺服器 <green>{ $serverVersion }</green>，建議更新。</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>附近有 <gold>{ $count }</gold> 名玩家處於 <gold>隱身</gold> 狀態</yellow> <gray>·</gray> <gray>最近約 { $distance } 格</gray>
 player-bedrock-label = 基岩版
@@ -81,6 +81,10 @@ presence-quit-templates =
     .item-3 = { $player } 回到了現實世界
 welcome-first-join-mm = <gold><bold>歡迎來到 MIK！</bold></gold><newline><gray>建議先看看 <click:open_url:'https://mcmik.top'><yellow>官網</yellow></click> 和 <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>；輸入 <yellow>/menu</yellow> 也能開啟主選單。</gray>
 welcome-return-mm = <gold><bold>歡迎回來！</bold></gold><newline><gray>你上次進服是 <yellow>{ $arg0 } 天前</yellow>。輸入 <yellow>/menu</yellow> 可以快速檢視常用功能。</gray>
+
+## Player · Guidance
+
+tip-label = 提示
 
 ## Player · AFK
 
@@ -137,6 +141,7 @@ nametag-preview-label = 預覽
 nametag-sample-message = 範例訊息
 nametag-set-error = 設定 { $arg0 } 時發生錯誤，請稍後重試
 nametag-set-success = ✔ { $arg0 } 已設定
+nametag-tip-customize-mm = 用 <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> 自訂<light_purple>名稱前綴和後綴</light_purple>。
 nametag-title = 名稱標籤
 nametag-too-long = { $arg0 } 過長，最多 { $arg1 } 個字元
 nametag-trailing-label = 名稱字尾
@@ -156,6 +161,8 @@ back-pending-mm = <gray>正在傳送，請稍等</gray>
 # $steps, $remaining, $max (Number): consumed history, remaining history and limit.
 back-success-mm = <green>已連續返回 { $steps } 次</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>傳送失敗，請重試</red>
+back-tip-return-mm = 用 <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> 返回上次傳送或死亡前的位置。
+back-tip-undo-mm = 用 <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> 撤銷上一次 <yellow>/back</yellow>。
 back-undo-empty-mm = <gray>沒有可撤銷的 <white>/back</white></gray>
 back-undo-success-mm = <green>已撤銷上一次 <white>/back</white></green>
 back-undo-world-missing-mm = <red>目標世界不可用，無法撤銷</red>
@@ -217,6 +224,8 @@ home-summary-count = 已設定: { $arg0 } / { $arg1 }
 home-teleport-command-description = 傳送至指定傳送點
 home-teleport-failed = 傳送失敗，請重試
 home-teleported-rich = 已傳送至 { $home }
+home-tip-create-mm = 用 <green><u><click:suggest_command:'/sethome '>/sethome 名稱</click></u></green> 儲存目前位置，再用 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 返回。
+home-tip-return-mm = 用 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 開啟家園選單，選擇家園即可傳送。
 home-updated-rich = 傳送點 { $home } 的位置已更新
 home-usage-book = 指令幫助
 home-usage-delhome = /delhome <名稱>  刪除傳送點
@@ -229,10 +238,11 @@ home-world-end = · 終界
 home-world-nether = · 地獄
 reback-command-description = 撤銷上一次 /back
 teleport-accept-command-description = 同意待處理的傳送請求
-teleport-allow = 被普通玩家傳送
+teleport-allow = 被其他玩家傳送
 teleport-block-afk = 暫離時拒絕傳送
-teleport-denied = { $player } 目前拒絕被普通玩家傳送
+teleport-denied = { $player } 目前拒絕被其他玩家傳送
 teleport-deny-command-description = 拒絕待處理的傳送請求
+teleport-force-command-description = 強制傳送，忽略玩家傳送偏好（僅管理員）
 teleport-menu-title = 被傳送設定
 teleport-moved-here = 你已被 { $arg0 } 傳送到這裡
 teleport-policy-always-allow = 永遠允許
@@ -248,9 +258,9 @@ teleport-request-received = { $sender } 想要傳送你：{ $command }
 teleport-request-rejected = 已拒絕傳送請求
 teleport-request-sent = 已向 { $player } 傳送傳送請求
 teleport-summary-afk = 永遠允許，暫離時拒絕
-teleport-summary-allow = 永遠允許普通玩家傳送
-teleport-summary-consent = 普通玩家傳送須經過我允許
-teleport-summary-deny = 永遠拒絕普通玩家傳送
+teleport-summary-allow = 永遠允許其他玩家傳送
+teleport-summary-consent = 其他玩家傳送須經過我允許
+teleport-summary-deny = 永遠拒絕其他玩家傳送
 tpany-command-description = 傳送到玩家位置（線上/離線均可）
 tpany-done-offline-rich = 已傳送至 { $player } 離線前的位置 { $world } { $location }
 tpany-done-online-rich = 已傳送到 { $player } 目前位置
@@ -306,21 +316,57 @@ pvp-status-player-rich = 玩家: { $player }
 pvp-status-title-mm = <gold><bold>玩家對戰狀態</bold></gold>
 pvp-summary-disabled = 玩家對戰已關閉
 pvp-summary-enabled = 玩家對戰已開啟
-pvp-target-disabled-actionbar-mm = <gray>對方未開啟玩家對戰</gray>
+pvp-target-disabled-actionbar-mm = <yellow>對方未開啟玩家對戰</yellow>
 pvp-target-menu-title = 玩家對戰設定 - { $arg0 }
+pvp-tip-protection-mm = 用 <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> 開關自己的玩家對戰；<green>雙方開啟</green>後才能互相攻擊。
 pvp-toggled-off-mm = <gray>玩家對戰已關閉</gray> <dark_gray>|</dark_gray> <gray>其他玩家不能主動攻擊你</gray>
 pvp-toggled-on-mm = <green>玩家對戰已開啟</green> <dark_gray>|</dark_gray> <gray>你現在可以攻擊其他已開啟玩家對戰的玩家</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [清除全部效果]
+effect-cleanup-blocked = 僅可在未處於 PVP 戰鬥的創造或旁觀模式下清除效果。
+effect-cleanup-expired = 這項清除請求已失效。
+effect-cleanup-negative = [清除負面效果]
+effect-cleanup-prompt-rich = 偵測到你因 { $source } 獲得了一些負面效果，是否清除？
+effect-cleanup-result = 已清除 { $count } 種效果。
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] 滯留藥水雲
+        [ARROW] 箭矢
+        [ATTACK] 受到攻擊
+        [COMMAND] 指令
+        [FOOD] 食用物品
+        [PLUGIN] 插件
+        [POTION_DRINK] 飲用藥水
+        [POTION_SPLASH] 飛濺藥水
+        [WARDEN] 伏守者
+        [WITHER_ROSE] 凋零玫瑰
+       *[OTHER] 未知來源
+    }
+
+## Player · Trash
+
+trash-clear = 清空
+trash-clear-hint = 點擊立即清空箱內物品；
+    不點擊則在關閉選單 { $arg0 } 秒後自動清空。
+trash-command-description = 開啟垃圾桶
+trash-sort = 整理
+trash-sort-hint = 合併同類堆疊並依物品類型排列
+trash-tip-dispose-mm = 用 <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> 開啟<yellow>垃圾桶</yellow>，放入不需要的物品。
+trash-title = 垃圾桶
 
 ## Player · Utilities
 
 hat-command-description = 把主手物品戴到頭上
 hat-empty-hand-mm = <red>主手沒有物品</red> <gray>先拿起一個方塊或物品再使用 /hat</gray>
 hat-success-mm = <green>已把主手物品戴到頭上</green> <dark_gray>|</dark_gray> <gray>主手與頭盔欄已交換</gray>
+hat-tip-wear-mm = 用 <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> 把<yellow>主手物品</yellow>戴到頭上。
 removeitems-command-description = 清除掉落物
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = 已在世界 { $world } { $location } 清除{ $count }個掉落物品 { $radius }
 removeitems-no-world = 無法確定世界
 removeitems-radius = 半徑 { $arg0 } 格
+removeitems-tip-usage-mm = 用 <aqua><u><click:suggest_command:'/rmitems '>/rmitems [半徑]</click></u></aqua> 清理附近的<yellow>掉落物</yellow>。
 self-kick-command-description = 把自己踢出伺服器
 self-kick-reason-too-long = 踢出原因不可超過 { $arg0 } 個字元
 # $person: second for the actor; third for other viewers and console.
@@ -341,9 +387,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player } 一言不發地離開了伺服器。
     .item-3 = { $player } 表演了一次自我踢出。
     .item-4 = { $player } 按下了主動離開伺服器的按鈕。
-trash-command-description = 開啟垃圾桶
-trash-title = 垃圾桶
-trash-title-hint = 準星指向物品後按 F 刪除該疊物品
 
 ## Community · Chat and mentions
 
@@ -368,6 +411,7 @@ chat-private-no-reply-target = 沒有可回覆的線上私人聊天對象
 chat-private-self = 無法與自己開始私人聊天
 chat-private-target-not-found = 找不到線上玩家 { $arg0 }
 chat-private-target-offline = 私人聊天對象已離線，已返回公共聊天頻道
+chat-private-tip-channel-mm = 用 <aqua><u><click:suggest_command:'/msg '>/msg 玩家</click></u></aqua> 進入私聊頻道，用 <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> 返回公共頻道。
 chat-public-command-description = 切換公共聊天頻道
 chat-public-enter = 已切換到公共聊天頻道
 chat-reply-command-description = 回覆最近的私人聊天對象
@@ -392,7 +436,7 @@ mention-summary-modes-afk = { $arg0 }，暫離時靜音
 mention-summary-sound = 聲音
 staffchat-enter = 已進入員工聊天頻道
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = 暫無公告
 announcement-first-page = 已到最新公告
@@ -410,11 +454,6 @@ announcement-unread-count = { $arg0 } 則未讀
 announcement-updated = 伺服器公告已更新
 announcement-view-all = 查看所有公告
 announcement-view-command-description = 查看伺服器公告
-tip-hover = 伺服器小提示
-tip-label = TIP
-tip-reload-command-description = 重新載入 tips.txt
-tip-reload-count = { $arg0 }筆
-tip-reload-done = Tips 已重新載入
 
 ## Community · Identity and social platforms
 
@@ -1189,7 +1228,7 @@ async-regen-awaiting-apply = 有計畫等待套用：{ $arg0 } · { $arg1 } · {
 async-regen-block-preview-progress = 方塊預檢 · 已掃描 { $arg0 }/{ $arg1 } 個區塊 · { $arg2 } 個方塊變更 · { $arg3 } 個方塊實體有風險
 async-regen-block-preview-summary = 預檢結果：符合{ $arg2 }的方塊將有 { $arg0 } 項變更，可能覆蓋 { $arg1 } 個現有方塊實體
 async-regen-cancelled = 已取消重新生成。已套用的 { $arg0 } 項變更會保留在世界中
-async-regen-command-description = 非同步重新生成 WorldEdit 選區
+async-regen-command-description = 非同步重新生成 FastAsyncWorldEdit 選區
 async-regen-completed = 重新生成完成：在 { $arg1 } 內修改了 { $arg0 } 個方塊
 async-regen-failed = 重新生成因內部錯誤而停止。已套用的 { $arg0 } 項變更會保留在世界中
 async-regen-filter-all = 所有方塊類型
@@ -1203,7 +1242,7 @@ async-regen-preview-started = 已開始預檢：選區共 { $arg0 } 個方塊、
 async-regen-progress = { $arg0 } · 已規劃 { $arg1 }/{ $arg2 } 個區塊 · 已套用 { $arg3 } 項變更
 async-regen-safety-note = 已儲存的選區外不會改動；選區內建築仍可能被覆蓋，原版也無法識別玩家放置的普通方塊。套用前請檢查視覺化並備份世界。
 async-regen-scope-blocks = 重新生成符合{ $arg0 }的方塊
-async-regen-selection-required = 請先完成一個 WorldEdit 選區
+async-regen-selection-required = 請先完成一個 FastAsyncWorldEdit 選區
 async-regen-skipped-ungenerated = 已略過 { $arg0 } 個從未生成的目標區塊，沒有建立或修改這些區塊
 async-regen-start-failed = 無法啟動重新生成，請查看伺服器紀錄以瞭解詳情
 async-regen-state-applying = 正在套用變更
@@ -1224,13 +1263,16 @@ async-regen-upgrade-scope-terrain = 地形、結構與生物群系
 async-regen-usage = 用法：/regen preview blocks [方塊類型...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = 選區視覺化位於 { $arg0 }：青色 = 選區邊界，橙色 = 將變更方塊抽樣，紅色 = 可能被覆蓋的方塊實體；粒子只有你可見
 async-regen-visualization-selection = { $arg0 } 中的青色粒子表示選區邊界，只有你可見
-async-regen-world-edit-required = 需要安裝 WorldEdit 才能讀取選區
+async-regen-fawe-required = 需要安裝 FastAsyncWorldEdit 才能讀取選區
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ 蹲
+iron-elevator-tip-mm = 放置上下對齊的{ -iron-elevator-block }就能建立電梯：站在{ -iron-elevator-block }上，<green>跳躍向上</green>、<aqua>潛行向下</aqua>；兩層以上的電梯會顯示<gold>樓層面板</gold>。
 iron-elevator-up = ↑ 跳
 spawn-beacon-color-command-description = 開關主城信標顏色切換
 spawn-beacon-color-disabled = 已停用主城信標顏色切換
 spawn-beacon-color-enabled = 已啟用主城信標顏色切換
 spawn-command-description = 返回主城
+spawn-tip-return-mm = 用 <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> 返回<yellow>主城</yellow>。
 spawn-world-missing = 主城世界不可用
 
 ## Entertainment · Music
@@ -1638,6 +1680,7 @@ restriction-other-player-name-mm = <red>你沒有權限在指令中提及其他�
 tpsbar-command-description = 顯示/隱藏 TPS 資訊欄
 tpsbar-hidden = 已隱藏 TPS 資訊欄
 tpsbar-shown = 已顯示 TPS 資訊欄
+tpsbar-tip-status-mm = 用 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 開關<yellow>TPS、MSPT 和延遲</yellow>資訊列。
 unban-command-description = 解除玩家封禁並保留封禁記錄
 whitelist-already-whitelisted = { $arg0 } 已經在白名單中
 whitelist-invalid-name = 玩家名格式不正確

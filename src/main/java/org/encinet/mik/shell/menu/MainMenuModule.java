@@ -30,7 +30,7 @@ import org.encinet.mik.shared.menu.FloatingMenuPreferences;
 import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.FloatingMenus;
 import org.encinet.mik.shared.menu.MenuDialogs;
-import org.encinet.mik.feature.player.client.ClientVersionReminderModule;
+import org.encinet.mik.feature.player.client.ClientVersions;
 import org.encinet.mik.feature.player.teleport.TeleportPreferenceModule;
 import org.encinet.mik.feature.player.pvp.PvpModule;
 import org.encinet.mik.feature.world.plot.PlotModule;
@@ -67,7 +67,7 @@ public class MainMenuModule {
     private final PvpModule pvpModule;
     private final LanguageService languageService;
     private final LanguageMenu languageMenu;
-    private final ClientVersionReminderModule clientVersionReminderModule;
+    private final ClientVersions clientVersions;
     private final PlotModule plotModule;
     private final GovernanceModule governanceModule;
     private final GovernanceText governanceText;
@@ -75,7 +75,7 @@ public class MainMenuModule {
     public MainMenuModule(JavaPlugin plugin, AfkService afkService, ChatModule chatModule,
                           TeleportPreferenceModule teleportPreferenceModule, PvpModule pvpModule,
                           LanguageService languageService, LanguageMenu languageMenu,
-                          ClientVersionReminderModule clientVersionReminderModule,
+                          ClientVersions clientVersions,
                           PlotModule plotModule, GovernanceModule governanceModule) {
         this.plugin = plugin;
         this.afkService = afkService;
@@ -84,7 +84,7 @@ public class MainMenuModule {
         this.pvpModule = pvpModule;
         this.languageService = languageService;
         this.languageMenu = languageMenu;
-        this.clientVersionReminderModule = clientVersionReminderModule;
+        this.clientVersions = clientVersions;
         this.plotModule = plotModule;
         this.governanceModule = governanceModule;
         this.governanceText = new GovernanceText(languageService);
@@ -578,11 +578,10 @@ public class MainMenuModule {
     }
 
     private Component clientVersionLine(Player player) {
-        String versionName = clientVersionReminderModule != null
-                ? clientVersionReminderModule.clientVersionName(player)
-                : languageService.t(player, Message.UNKNOWN);
-        boolean olderClient = clientVersionReminderModule != null
-                && clientVersionReminderModule.isClientOlderThanServer(player);
+        var version = clientVersions.version(player);
+        String versionName = version.map(ClientVersions.Version::name)
+                .orElseGet(() -> languageService.t(player, Message.UNKNOWN));
+        boolean olderClient = version.map(ClientVersions.Version::outdated).orElse(false);
         Component value = Component.text(versionName, olderClient ? NamedTextColor.YELLOW : NamedTextColor.GREEN);
         if (olderClient) {
             value = Component.text()

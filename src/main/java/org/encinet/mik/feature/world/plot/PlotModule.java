@@ -37,7 +37,7 @@ import org.encinet.mik.shared.role.RolePermissions;
 import org.encinet.mik.feature.world.plot.board.PlotCommunityBoard;
 import org.encinet.mik.feature.world.plot.board.PlotBoardNotifications;
 import org.encinet.mik.feature.world.plot.integration.PlotAxiomHook;
-import org.encinet.mik.feature.world.plot.integration.PlotWorldEditHook;
+import org.encinet.mik.feature.world.plot.integration.PlotFaweHook;
 import org.encinet.mik.feature.world.plot.protection.PlotCommandGuard;
 import org.encinet.mik.feature.world.plot.protection.PlotProtection;
 import org.encinet.mik.shared.util.ShutdownSequence;
@@ -79,7 +79,7 @@ public final class PlotModule implements Listener {
     private final PlotMiniaturePreview miniature = new PlotMiniaturePreview(previewCache);
     private final PlotSelectionController selectionController;
     private final Map<UUID, String> playerNames = new HashMap<>();
-    private PlotWorldEditHook worldEdit;
+    private PlotFaweHook fawe;
     private PlotAxiomHook axiom;
     private final Map<UUID, PlotOwner> creationOwners = new HashMap<>();
 
@@ -116,9 +116,9 @@ public final class PlotModule implements Listener {
             miniature.enable(plugin);
             Bukkit.getPluginManager().registerEvents(protection, plugin);
             Bukkit.getPluginManager().registerEvents(commandGuard, plugin);
-            if (Bukkit.getPluginManager().isPluginEnabled("WorldEdit")) {
-                worldEdit = new PlotWorldEditHook(registry);
-                worldEdit.enable();
+            if (Bukkit.getPluginManager().isPluginEnabled("FastAsyncWorldEdit")) {
+                fawe = new PlotFaweHook(registry);
+                fawe.enable();
             }
             if (Bukkit.getPluginManager().isPluginEnabled("AxiomPaper")) {
                 axiom = new PlotAxiomHook(plugin, registry);
@@ -152,9 +152,9 @@ public final class PlotModule implements Listener {
         shutdown.attempt("plot preview worker", previewCache::close);
         playerNames.clear();
         creationOwners.clear();
-        if (worldEdit != null) {
-            shutdown.attempt("WorldEdit plot hook", worldEdit::disable);
-            worldEdit = null;
+        if (fawe != null) {
+            shutdown.attempt("FastAsyncWorldEdit plot hook", fawe::disable);
+            fawe = null;
         }
         if (axiom != null) {
             shutdown.attempt("Axiom plot hook", axiom::disable);

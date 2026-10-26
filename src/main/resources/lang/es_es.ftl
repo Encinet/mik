@@ -66,8 +66,8 @@ url-dialog-title = Abrir { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = Mods recomendados no detectados: { $mods }. Pulsa un nombre para descargarlos; si ya están instalados, comprueba que estén activados y sean compatibles.
-client-version-mismatch-mm = <gray>Versión del servidor <white>{ $serverVersion }</white>, versión actual del cliente <white>{ $clientVersion }</white>.</gray>
+client-mods-undetected-rich = Mods recomendados: { $mods }. Haz clic en un nombre para descargar.
+client-version-behind-mm = <white>Tu cliente <yellow>{ $clientVersion }</yellow> es anterior al servidor <green>{ $serverVersion }</green>. Se recomienda actualizar.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>Hay { $count ->
         [one] <gold>{ $count }</gold> jugador <gold>invisible</gold> cerca
@@ -90,6 +90,10 @@ welcome-return-mm = <gold><bold>¡Qué alegría verte de nuevo!</bold></gold><ne
         [one] { $arg0 } día
        *[other] { $arg0 } días
     }</yellow>. Usa <yellow>/menu</yellow> para acceder rápidamente a las funciones habituales.</gray>
+
+## Player · Guidance
+
+tip-label = CONSEJO
 
 ## Player · AFK
 
@@ -167,6 +171,7 @@ nametag-preview-label = Vista previa
 nametag-sample-message = mensaje de muestra
 nametag-set-error = Error al establecer { $arg0 }. Inténtalo de nuevo más tarde
 nametag-set-success = ✔ { $arg0 } establecido
+nametag-tip-customize-mm = Usa <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> para personalizar el <light_purple>prefijo y sufijo de tu nombre</light_purple>.
 nametag-title = Etiquetas de nombre
 nametag-too-long = { $arg0 } es demasiado largo. La longitud máxima es de { $arg1 ->
         [one] { $arg1 } carácter
@@ -192,6 +197,8 @@ back-success-mm = <green>Has retrocedido { $steps ->
        *[other] { $steps } pasos
     }</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>No se ha podido teletransportar. Inténtalo de nuevo</red>
+back-tip-return-mm = Usa <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> para volver a tu ubicación anterior al último teletransporte o muerte.
+back-tip-undo-mm = Usa <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> para deshacer tu último <yellow>/back</yellow>.
 back-undo-empty-mm = <gray>No hay ningún <white>/back</white> que deshacer</gray>
 back-undo-success-mm = <green>Has deshecho el último <white>/back</white></green>
 back-undo-world-missing-mm = <red>El mundo de destino no está disponible. No puedes deshacerlo</red>
@@ -256,6 +263,8 @@ home-summary-count = Establecidos: { $arg0 } / { $arg1 }
 home-teleport-command-description = Teletranspórtate a un hogar
 home-teleport-failed = No se ha podido teletransportar. Inténtalo de nuevo
 home-teleported-rich = Te has teletransportado al hogar { $home }
+home-tip-create-mm = Guarda tu ubicación con <green><u><click:suggest_command:'/sethome '>/sethome nombre</click></u></green> y vuelve con <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>.
+home-tip-return-mm = Abre <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> y elige un hogar para teletransportarte.
 home-updated-rich = Ubicación del hogar { $home } actualizada
 home-usage-book = Ayuda de comando
 home-usage-delhome = /delhome <name>  Eliminar un hogar
@@ -270,8 +279,9 @@ reback-command-description = Deshacer el último /back
 teleport-accept-command-description = Aceptar la solicitud de teletransporte pendiente
 teleport-allow = Teletransportes de otros jugadores
 teleport-block-afk = Bloquear mientras AFK
-teleport-denied = { $player } no permite que los jugadores normales le teletransporten
+teleport-denied = { $player } no permite que otros jugadores le teletransporten
 teleport-deny-command-description = Rechazar la solicitud de teletransporte pendiente
+teleport-force-command-description = Forzar teletransporte ignorando las preferencias del jugador (solo administradores)
 teleport-menu-title = Privacidad del teletransporte
 teleport-moved-here = { $arg0 } te ha teletransportado hasta aquí
 teleport-policy-always-allow = Permitir siempre
@@ -287,9 +297,9 @@ teleport-request-received = { $sender } quiere teletransportarte: { $command }
 teleport-request-rejected = Solicitud de teletransporte rechazada
 teleport-request-sent = Solicitud de teletransporte enviada a { $player }
 teleport-summary-afk = Siempre permitidos, salvo mientras estás AFK
-teleport-summary-allow = Teletransportes de jugadores normales siempre permitidos
-teleport-summary-consent = Los teletransportes de jugadores normales requieren mi aprobación
-teleport-summary-deny = Teletransportes de jugadores normales siempre rechazados
+teleport-summary-allow = Teletransportes de otros jugadores siempre permitidos
+teleport-summary-consent = Los teletransportes de otros jugadores requieren mi aprobación
+teleport-summary-deny = Teletransportes de otros jugadores siempre rechazados
 tpany-command-description = Teletransportarse a la ubicación de un jugador, en línea o sin conexión
 tpany-done-offline-rich = Te has teletransportado a la última ubicación conocida de { $player } { $world } { $location }
 tpany-done-online-rich = Te has teletransportado a la ubicación actual de { $player }
@@ -348,16 +358,54 @@ pvp-status-player-rich = Jugador: { $player }
 pvp-status-title-mm = <gold><bold>Estado JcJ</bold></gold>
 pvp-summary-disabled = JcJ desactivado
 pvp-summary-enabled = JcJ activado
-pvp-target-disabled-actionbar-mm = <gray>Ese jugador no tiene el JcJ activado.</gray>
+pvp-target-disabled-actionbar-mm = <yellow>Ese jugador no tiene el JcJ activado.</yellow>
 pvp-target-menu-title = Configuración JcJ - { $arg0 }
+pvp-tip-protection-mm = Activa o desactiva tu PVP con <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple>. <green>Ambos jugadores deben activarlo</green> para combatir.
 pvp-toggled-off-mm = <gray>JcJ desactivado</gray> <dark_gray>|</dark_gray> <gray>Los demás jugadores no pueden atacarte.</gray>
 pvp-toggled-on-mm = <green>JcJ activado</green> <dark_gray>|</dark_gray> <gray>Ya puedes luchar contra otros jugadores con JcJ activado.</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [Eliminar todos los efectos]
+effect-cleanup-blocked = Solo puedes eliminar efectos en modo Creativo o Espectador y fuera de un combate PVP.
+effect-cleanup-expired = Esta solicitud de eliminación ha caducado.
+effect-cleanup-negative = [Eliminar efectos negativos]
+effect-cleanup-prompt-rich = Has recibido efectos negativos por { $source }. ¿Quieres eliminarlos?
+effect-cleanup-result = { $count ->
+        [one] Se ha eliminado { $count } efecto.
+       *[other] Se han eliminado { $count } efectos.
+    }
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] una nube de poción persistente
+        [ARROW] una flecha
+        [ATTACK] un ataque
+        [COMMAND] un comando
+        [FOOD] comida
+        [PLUGIN] un complemento
+        [POTION_DRINK] beber una poción
+        [POTION_SPLASH] una poción arrojadiza
+        [WARDEN] un warden
+        [WITHER_ROSE] una rosa del Wither
+       *[OTHER] una causa desconocida
+    }
+
+## Player · Trash
+
+trash-clear = Vaciar
+trash-clear-hint = Haz clic para eliminar todos los objetos ahora;
+    si no, se eliminan automáticamente { $arg0 } segundos después de cerrar.
+trash-command-description = Abrir la papelera
+trash-sort = Ordenar
+trash-sort-hint = Combinar pilas iguales y ordenar por tipo de objeto
+trash-tip-dispose-mm = Usa <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> para abrir la <yellow>papelera</yellow> y poner dentro los objetos que no quieras.
+trash-title = Papelera
 
 ## Player · Utilities
 
 hat-command-description = Ponte el objeto de tu mano principal
 hat-empty-hand-mm = <red>No tienes ningún objeto en la mano principal.</red> <gray>Sujeta un bloque u objeto y usa /hat</gray>
 hat-success-mm = <green>Te has puesto el objeto de la mano principal</green> <dark_gray>|</dark_gray> <gray>Se han intercambiado el objeto de tu mano y el de la ranura del casco.</gray>
+hat-tip-wear-mm = Usa <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> para ponerte en la cabeza el objeto de tu <yellow>mano principal</yellow>.
 removeitems-command-description = Eliminar objetos tirados
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = Eliminado: { $countValue ->
@@ -369,6 +417,7 @@ removeitems-radius = radio { $arg0 ->
         [one] { $arg0 } bloque
        *[other] { $arg0 } bloques
     }
+removeitems-tip-usage-mm = Usa <aqua><u><click:suggest_command:'/rmitems '>/rmitems [radio]</click></u></aqua> para eliminar los <yellow>objetos tirados</yellow> cercanos.
 self-kick-command-description = Expulsarte del servidor
 self-kick-reason-too-long = El motivo de expulsión no puede superar { $arg0 ->
         [one] { $arg0 } carácter
@@ -392,9 +441,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player } abandonó el servidor sin decir una palabra.
     .item-3 = { $player } ejecutó una autoexpulsión impecable.
     .item-4 = { $player } pulsó personalmente el botón para salir del servidor.
-trash-command-description = Abrir la papelera
-trash-title = Papelera
-trash-title-hint = Apunta a un objeto y pulsa F para borrar la pila
 
 ## Community · Chat and mentions
 
@@ -419,6 +465,7 @@ chat-private-no-reply-target = Ningún destinatario reciente del chat privado es
 chat-private-self = No puedes iniciar un chat privado contigo mismo
 chat-private-target-not-found = Jugador en línea no encontrado: { $arg0 }
 chat-private-target-offline = El destinatario del chat privado está desconectado; has vuelto al chat público
+chat-private-tip-channel-mm = Usa <aqua><u><click:suggest_command:'/msg '>/msg jugador</click></u></aqua> para entrar al chat privado y <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> para volver al chat público.
 chat-public-command-description = Cambiar canal de chat público
 chat-public-enter = Cambiado al chat público
 chat-reply-command-description = Responde a tu último objetivo de chat privado
@@ -443,7 +490,7 @@ mention-summary-modes-afk = { $arg0 }, silenciado mientras AFK
 mention-summary-sound = sonido
 staffchat-enter = Te has unido al chat del equipo
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = No hay anuncios
 announcement-first-page = Avisos más recientes
@@ -461,14 +508,6 @@ announcement-unread-count = { $arg0 } sin leer
 announcement-updated = Anuncios actualizados
 announcement-view-all = Ver todos los anuncios
 announcement-view-command-description = Ver anuncios del servidor
-tip-hover = consejo del servidor
-tip-label = CONSEJO
-tip-reload-command-description = Recargar consejos.txt
-tip-reload-count = { $arg0 ->
-        [one] { $arg0 } entrada
-       *[other] { $arg0 } entradas
-    }
-tip-reload-done = Consejos recargados
 
 ## Community · Identity and social platforms
 
@@ -1357,7 +1396,7 @@ async-regen-cancelled = Regeneración cancelada. Los { $arg0 ->
         [one] { $arg0 } cambio
        *[other] { $arg0 } cambios
     } ya aplicados permanecen en el mundo
-async-regen-command-description = Regenerar de forma asíncrona una selección de WorldEdit
+async-regen-command-description = Regenerar de forma asíncrona una selección de FastAsyncWorldEdit
 async-regen-completed = Regeneración completada: { $arg0 ->
         [one] { $arg0 } bloque
        *[other] { $arg0 } bloques
@@ -1389,7 +1428,7 @@ async-regen-progress = { $arg0 } · { $arg1 }/{ $arg2 ->
     } aplicados
 async-regen-safety-note = No cambiará nada fuera de la selección guardada. Las construcciones dentro pueden sobrescribirse y Vanilla no identifica los bloques colocados por jugadores. Revisa la visualización y haz una copia antes de aplicar.
 async-regen-scope-blocks = regenerar bloques que coincidan con { $arg0 }
-async-regen-selection-required = Completa primero una selección de WorldEdit
+async-regen-selection-required = Completa primero una selección de FastAsyncWorldEdit
 async-regen-skipped-ungenerated = Chunks de destino nunca generados omitidos: { $arg0 ->
         [one] { $arg0 } chunk
        *[other] { $arg0 } chunks
@@ -1455,13 +1494,16 @@ async-regen-upgrade-scope-terrain = terreno, estructuras y biomas
 async-regen-usage = Uso: /regen preview blocks [tipos...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = Visualización en { $arg0 }: cian = límite de selección, naranja = muestra de bloques que cambiarán, rojo = entidad de bloque en riesgo. Solo tú ves estas partículas.
 async-regen-visualization-selection = Selección en { $arg0 }: las partículas cian marcan el límite. Solo tú las ves.
-async-regen-world-edit-required = Se necesita WorldEdit para leer la selección
+async-regen-fawe-required = Se necesita FastAsyncWorldEdit para leer la selección
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Agacharse
+iron-elevator-tip-mm = Alinea { -iron-elevator-block } en vertical para crear un ascensor. Ponte encima: <green>salta para subir</green> y <aqua>agáchate para bajar</aqua>. Con más de dos plantas aparece un <gold>panel de plantas</gold>.
 iron-elevator-up = ↑ Saltar
 spawn-beacon-color-command-description = Cambiar el ciclo de color del faro del punto de aparición
 spawn-beacon-color-disabled = Ciclo de color del faro del punto de aparición desactivado
 spawn-beacon-color-enabled = Ciclo de color del faro del punto de aparición activado
 spawn-command-description = Volver al punto de aparición
+spawn-tip-return-mm = Usa <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> para volver al <yellow>punto de aparición del servidor</yellow>.
 spawn-world-missing = El mundo del punto de aparición no está disponible
 
 ## Entertainment · Music
@@ -1932,6 +1974,7 @@ restriction-other-player-name-mm = <red>No tienes permiso para mencionar los nom
 tpsbar-command-description = Mostrar u ocultar la barra TPS
 tpsbar-hidden = Barra TPS oculta
 tpsbar-shown = Se muestra la barra TPS
+tpsbar-tip-status-mm = Usa <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> para mostrar u ocultar la barra de <yellow>TPS, MSPT y ping</yellow>.
 unban-command-description = Indultar a un jugador y conservar su historial
 whitelist-already-whitelisted = { $arg0 } ya está en la lista blanca
 whitelist-invalid-name = Formato de nombre de jugador no válido

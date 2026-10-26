@@ -14,7 +14,7 @@ record WorldFeatures(
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
-            CommunityFeatures community) {
+            PlayerFeatures players, CommunityFeatures community) {
         var languageService = shared.language();
         var axiomGizmoService = shared.axiom();
         var floatingMenuService = shared.menus();
@@ -33,7 +33,8 @@ record WorldFeatures(
         plotModule.registerCommands(plugin.getLifecycleManager());
 
         IronElevatorModule ironElevatorModule = new IronElevatorModule(
-                plugin, languageService, floatingMenuService.worldTextDisplays());
+                plugin, languageService, floatingMenuService.worldTextDisplays(),
+                lifecycle.own("iron-elevator-tips", players.guidance().scope()));
         lifecycle.startManaged("iron-elevator", ironElevatorModule::enable, ironElevatorModule::disable);
 
         VehicleModule vehicleModule = new VehicleModule(plugin, languageService, axiomGizmoService);

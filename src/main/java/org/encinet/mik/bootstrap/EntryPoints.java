@@ -17,7 +17,7 @@ final class EntryPoints {
         var afkModule = players.afk();
         var pvpModule = players.pvp();
         var teleportPreferenceModule = players.teleports();
-        var clientVersionReminderModule = players.clientVersion();
+        var clientVersions = players.clientVersions();
         var chatModule = community.chat();
         var governanceModule = community.governance();
         var announcementModule = community.announcements();
@@ -31,8 +31,7 @@ final class EntryPoints {
         if (plugin.getServer().getPluginManager().isPluginEnabled("Skript")) {
             MikSkriptModule skriptModule = new MikSkriptModule(
                     plugin, languageService,
-                    clientVersionReminderModule == null ? null
-                            : clientVersionReminderModule::clientVersionName,
+                    player -> clientVersions.version(player).map(version -> version.name()).orElse("unknown"),
                     afkModule, pvpModule,
                     nonEuclideanSpaceModule);
             lifecycle.startManaged("skript", skriptModule::enable, skriptModule::disable);
@@ -42,7 +41,7 @@ final class EntryPoints {
         }
 
         MainMenuModule mainMenuModule = new MainMenuModule(plugin, afkModule, chatModule, teleportPreferenceModule,
-                pvpModule, languageService, languageMenu, clientVersionReminderModule,
+                pvpModule, languageService, languageMenu, clientVersions,
                 plotModule, governanceModule);
         lifecycle.startManaged("main-menu", mainMenuModule::enable, mainMenuModule::disable);
         mainMenuModule.registerCommands(plugin.getLifecycleManager());

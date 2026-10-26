@@ -94,8 +94,13 @@ final class HomeStore implements AutoCloseable {
 
     static Material icon(String input) {
         Material material = Material.matchMaterial(input.toUpperCase(Locale.ROOT));
-        return material == null || !material.isItem() || material == Material.AIR
-                ? null : material;
+        return isValidIcon(material) ? material : null;
+    }
+
+    static boolean isValidIcon(Material material) {
+        // isItem() converts legacy materials, initializing Paper's expensive legacy support.
+        return material != null && !material.isLegacy() && material != Material.AIR
+                && material.isItem();
     }
 
     private void saveAsync() {

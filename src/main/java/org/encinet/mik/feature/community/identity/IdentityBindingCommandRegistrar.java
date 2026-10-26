@@ -77,8 +77,7 @@ final class IdentityBindingCommandRegistrar {
                                             context.getSource().getSender(),
                                             StringArgumentType.getString(context, "platform"))))
                             .build(),
-                    languages.t(Language.DEFAULT, Message.IDENTITY_COMMAND_DESCRIPTION),
-                    List.of("link", "accountlink"));
+                    languages.t(Language.DEFAULT, Message.IDENTITY_COMMAND_DESCRIPTION));
 
             commands.register(Commands.literal("bindadmin")
                             .requires(source -> source.getSender().hasPermission(ADMIN_PERMISSION))

@@ -75,8 +75,7 @@ public class FlightModule implements Listener {
                                     .executes(ctx -> showStatus(ctx.getSource())))
                             .then(speedCommand("speed"))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.FLY_COMMAND_DESCRIPTION),
-                    List.of("flight"));
+                    languageService.t(Language.DEFAULT, Message.FLY_COMMAND_DESCRIPTION));
 
             commands.register(Commands.literal("flyspeed")
                             .executes(ctx -> showSpeed(ctx.getSource()))
@@ -84,8 +83,7 @@ public class FlightModule implements Listener {
                             .then(Commands.literal("reset")
                                     .executes(ctx -> resetSpeed(ctx.getSource())))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.FLYSPEED_COMMAND_DESCRIPTION),
-                    List.of("flightspeed"));
+                    languageService.t(Language.DEFAULT, Message.FLYSPEED_COMMAND_DESCRIPTION));
         });
     }
 

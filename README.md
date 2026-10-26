@@ -10,6 +10,8 @@ Paper 服务器插件，提供玩家工具、地段保护、载具、音乐与�
 2. 启动服务器，检查 MIK 是否正常启用。配置与存档位于 `plugins/mik/`。
 3. 游戏内执行 `/menu`，进入功能与个人设置。
 
+地段批量编辑保护与 `/regen` 选区读取使用可选插件 **[FastAsyncWorldEdit 2.16.1](https://github.com/IntellectualSites/FastAsyncWorldEdit/releases/tag/2.16.1)**；安装时用它替换 WorldEdit。
+
 AI、QQ、Matrix 默认关闭，启用前需填写各自配置；操作与重载方式见对应手册。
 
 ## 常用入口

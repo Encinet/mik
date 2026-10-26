@@ -107,7 +107,7 @@ final class BanCommandController {
                                                             .executes(this::editReason)))))
                             .then(Commands.literal("sync").executes(this::syncPaperBans))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.BAN_COMMAND_DESCRIPTION), List.of("bb"));
+                    languageService.t(Language.DEFAULT, Message.BAN_COMMAND_DESCRIPTION));
 
             event.registrar().register(Commands.literal("pardon")
                             .requires(source -> canManageBans(source.getSender()))
@@ -116,7 +116,7 @@ final class BanCommandController {
                                     .then(Commands.argument("reason", StringArgumentType.greedyString())
                                             .executes(this::executePardon)))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.UNBAN_COMMAND_DESCRIPTION), List.of("unban"));
+                    languageService.t(Language.DEFAULT, Message.UNBAN_COMMAND_DESCRIPTION));
 
             event.registrar().register(Commands.literal("banlist")
                             .requires(source -> canManageBans(source.getSender()))
@@ -126,7 +126,7 @@ final class BanCommandController {
                                             context.getSource().getSender(),
                                             IntegerArgumentType.getInteger(context, "page"))))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.BANLIST_COMMAND_DESCRIPTION), List.of("bblist"));
+                    languageService.t(Language.DEFAULT, Message.BANLIST_COMMAND_DESCRIPTION));
         });
     }
 

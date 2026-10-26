@@ -64,14 +64,15 @@ class AfkPlayerSessionTest {
     }
 
     @Test
-    void unsafePhysicsDefersTheTransitionWithoutLosingTheInactivityDecision() {
+    void unsafePhysicsDefersPassiveAfkWhileInputIsStillObserved() {
         AfkPlayerSession session = session();
-        long idleAt = AfkPolicy.DEFAULT.idleTimeoutMillis();
-        long safeAt = idleAt + 30_000L;
+        long passiveAt = AfkPolicy.DEFAULT.passiveTimeoutMillis();
+        long safeAt = passiveAt + 30_000L;
+        session.activity().recordLightActivity(passiveAt);
 
-        AfkPlayerSession.AutomaticCheck deferred = session.checkAutomaticAfk(idleAt, false);
-        assertEquals(AfkActivityTracker.CheckResult.AFK_IDLE, deferred.result());
-        assertFalse(deferred.safeToEnter());
+        AfkPlayerSession.AutomaticCheck deferred = session.checkAutomaticAfk(passiveAt, false);
+        assertEquals(AfkActivityTracker.CheckResult.AFK_PASSIVE, deferred.result());
+        assertFalse(deferred.physicallyStable());
         assertFalse(deferred.shouldEnterAfk());
 
         assertFalse(session.checkAutomaticAfk(safeAt, true).shouldEnterAfk());
@@ -85,19 +86,19 @@ class AfkPlayerSessionTest {
         long thirtyMinutes = 30L * 60L * 1_000L;
 
         AfkPlayerSession.AutomaticCheck suppressed = session.checkAutomaticAfk(
-                thirtyMinutes, true, true);
+                thirtyMinutes, false, true);
         assertEquals(AfkActivityTracker.CheckResult.AFK_IDLE, suppressed.result());
         assertTrue(suppressed.automaticAfkSuppressed());
         assertFalse(suppressed.shouldEnterAfk());
         assertFalse(session.isActivityEligible(thirtyMinutes));
         assertFalse(session.checkAutomaticAfk(
-                thirtyMinutes + 60_000L, true, true).shouldEnterAfk());
+                thirtyMinutes + 60_000L, false, true).shouldEnterAfk());
 
         long releasedAt = thirtyMinutes + 60_001L;
-        assertFalse(session.checkAutomaticAfk(releasedAt, true, false).shouldEnterAfk());
+        assertFalse(session.checkAutomaticAfk(releasedAt, false, false).shouldEnterAfk());
         assertTrue(session.checkAutomaticAfk(
                 releasedAt + AfkPolicy.DEFAULT.automaticEntryGraceMillis(),
-                true,
+                false,
                 false).shouldEnterAfk());
     }
 

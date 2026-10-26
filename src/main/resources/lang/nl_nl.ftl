@@ -66,8 +66,8 @@ url-dialog-title = Openen: { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = Aanbevolen mods niet gedetecteerd: { $mods }. Klik op een naam om te downloaden; controleer bij geïnstalleerde mods of ze actief en compatibel zijn.
-client-version-mismatch-mm = <gray>Serverversie <white>{ $serverVersion }</white>, huidige clientversie <white>{ $clientVersion }</white>.</gray>
+client-mods-undetected-rich = Aanbevolen mods: { $mods }. Klik op een naam om te downloaden.
+client-version-behind-mm = <white>Je client <yellow>{ $clientVersion }</yellow> is ouder dan de server <green>{ $serverVersion }</green>. Een update wordt aangeraden.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>{ $count ->
         [one] <gold>{ $count }</gold> speler in de buurt is <gold>onzichtbaar</gold>
@@ -90,6 +90,10 @@ welcome-return-mm = <gold><bold>Welkom terug!</bold></gold><newline><gray>Je laa
         [one] { $arg0 } dag
        *[other] { $arg0 } dagen
     } geleden</yellow>. Gebruik <yellow>/menu</yellow> om veelgebruikte functies snel te vinden.</gray>
+
+## Player · Guidance
+
+tip-label = TIP
 
 ## Player · AFK
 
@@ -167,6 +171,7 @@ nametag-preview-label = Voorbeeld
 nametag-sample-message = voorbeeldbericht
 nametag-set-error = Fout bij instellen van { $arg0 }. Probeer het later opnieuw
 nametag-set-success = ✔ { $arg0 } ingesteld
+nametag-tip-customize-mm = Pas met <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> het <light_purple>voor- en achtervoegsel van je naam</light_purple> aan.
 nametag-title = Naamlabels
 nametag-too-long = { $arg0 } is te lang. Maximale lengte: { $arg1 ->
         [one] { $arg1 } teken
@@ -192,6 +197,8 @@ back-success-mm = <green>{ $steps ->
        *[other] { $steps } stappen
     } teruggegaan</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>Teleportatie mislukt. Probeer het opnieuw</red>
+back-tip-return-mm = Gebruik <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> om terug te keren naar je locatie vóór de laatste teleportatie of dood.
+back-tip-undo-mm = Gebruik <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> om je laatste <yellow>/back</yellow> ongedaan te maken.
 back-undo-empty-mm = <gray>Geen <white>/back</white> om ongedaan te maken</gray>
 back-undo-success-mm = <green>Laatste <white>/back</white> ongedaan gemaakt</green>
 back-undo-world-missing-mm = <red>Doelwereld is niet beschikbaar. Kan niet ongedaan maken</red>
@@ -256,6 +263,8 @@ home-summary-count = Ingesteld: { $arg0 } / { $arg1 }
 home-teleport-command-description = Teleporteer naar een thuislocatie
 home-teleport-failed = Teleportatie mislukt. Probeer het opnieuw
 home-teleported-rich = Geteleporteerd naar thuislocatie { $home }
+home-tip-create-mm = Sla je locatie op met <green><u><click:suggest_command:'/sethome '>/sethome naam</click></u></green> en keer terug met <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>.
+home-tip-return-mm = Open <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> en kies een thuis om te teleporteren.
 home-updated-rich = Locatie van thuislocatie { $home } is bijgewerkt
 home-usage-book = Commandohulp
 home-usage-delhome = /delhome <name>  Verwijder een thuislocatie
@@ -270,8 +279,9 @@ reback-command-description = Maak de laatste /back ongedaan
 teleport-accept-command-description = Het openstaande teleportatieverzoek accepteren
 teleport-allow = Teleportaties door andere spelers
 teleport-block-afk = Blokkeren tijdens AFK
-teleport-denied = { $player } weigert momenteel teleportaties door gewone spelers
+teleport-denied = { $player } weigert momenteel teleportaties door andere spelers
 teleport-deny-command-description = Het openstaande teleportatieverzoek weigeren
+teleport-force-command-description = Teleportatie forceren zonder rekening te houden met spelervoorkeuren (alleen beheerders)
 teleport-menu-title = Teleportatieprivacy
 teleport-moved-here = Je bent hierheen geteleporteerd door { $arg0 }
 teleport-policy-always-allow = Altijd toestaan
@@ -287,9 +297,9 @@ teleport-request-received = { $sender } wil je teleporteren: { $command }
 teleport-request-rejected = Teleportatieverzoek geweigerd
 teleport-request-sent = Teleportatieverzoek naar { $player } verzonden
 teleport-summary-afk = Altijd toegestaan, geweigerd tijdens AFK
-teleport-summary-allow = Teleportaties door gewone spelers altijd toegestaan
-teleport-summary-consent = Teleportaties door gewone spelers vereisen mijn toestemming
-teleport-summary-deny = Teleportaties door gewone spelers altijd geweigerd
+teleport-summary-allow = Teleportaties door andere spelers altijd toegestaan
+teleport-summary-consent = Teleportaties door andere spelers vereisen mijn toestemming
+teleport-summary-deny = Teleportaties door andere spelers altijd geweigerd
 tpany-command-description = Teleporteer naar de locatie van een speler, online of offline
 tpany-done-offline-rich = Geteleporteerd naar de laatst bekende locatie van { $player }: { $world } { $location }
 tpany-done-online-rich = Geteleporteerd naar de huidige locatie van { $player }
@@ -348,16 +358,54 @@ pvp-status-player-rich = Speler: { $player }
 pvp-status-title-mm = <gold><bold>PvP-status</bold></gold>
 pvp-summary-disabled = PvP uitgeschakeld
 pvp-summary-enabled = PvP ingeschakeld
-pvp-target-disabled-actionbar-mm = <gray>Deze speler heeft PvP niet ingeschakeld</gray>
+pvp-target-disabled-actionbar-mm = <yellow>Deze speler heeft PvP niet ingeschakeld</yellow>
 pvp-target-menu-title = PvP-instellingen - { $arg0 }
+pvp-tip-protection-mm = Schakel je PVP in of uit met <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple>. <green>Beide spelers moeten het inschakelen</green> om te vechten.
 pvp-toggled-off-mm = <gray>PvP uitgeschakeld</gray> <dark_gray>|</dark_gray> <gray>Andere spelers kunnen je niet aanvallen</gray>
 pvp-toggled-on-mm = <green>PvP ingeschakeld</green> <dark_gray>|</dark_gray> <gray>Je kunt nu vechten met andere spelers met PvP ingeschakeld</gray>
+
+## Player · Effects
+
+effect-cleanup-all = [Alle effecten verwijderen]
+effect-cleanup-blocked = Je kunt effecten alleen verwijderen in Creatieve of Toeschouwermodus buiten een PVP-gevecht.
+effect-cleanup-expired = Dit verwijderverzoek is verlopen.
+effect-cleanup-negative = [Negatieve effecten verwijderen]
+effect-cleanup-prompt-rich = Je hebt negatieve effecten gekregen door { $source }. Verwijderen?
+effect-cleanup-result = { $count ->
+        [one] { $count } effect verwijderd.
+       *[other] { $count } effecten verwijderd.
+    }
+effect-cleanup-source = { $cause ->
+        [AREA_EFFECT_CLOUD] een aanhoudende drankwolk
+        [ARROW] een pijl
+        [ATTACK] een aanval
+        [COMMAND] een commando
+        [FOOD] voedsel
+        [PLUGIN] een plug-in
+        [POTION_DRINK] het drinken van een drank
+        [POTION_SPLASH] een werpdrank
+        [WARDEN] een warden
+        [WITHER_ROSE] een witherroos
+       *[OTHER] een onbekende oorzaak
+    }
+
+## Player · Trash
+
+trash-clear = Legen
+trash-clear-hint = Klik om alle voorwerpen direct te verwijderen;
+    anders worden ze { $arg0 } seconden na het sluiten automatisch verwijderd.
+trash-command-description = Open de prullenbak
+trash-sort = Sorteren
+trash-sort-hint = Gelijke stapels samenvoegen en voorwerpen op type sorteren
+trash-tip-dispose-mm = Open de <yellow>prullenbak</yellow> met <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> en stop er ongewenste voorwerpen in.
+trash-title = Prullenbak
 
 ## Player · Utilities
 
 hat-command-description = Draag het voorwerp in je hoofdhand
 hat-empty-hand-mm = <red>Geen voorwerp in je hoofdhand</red> <gray>Houd een blok of voorwerp vast en gebruik /hat</gray>
 hat-success-mm = <green>Je draagt nu het voorwerp uit je hoofdhand</green> <dark_gray>|</dark_gray> <gray>Je hoofdhand en helmvak zijn verwisseld</gray>
+hat-tip-wear-mm = Draag het voorwerp in je <yellow>hoofdhand</yellow> op je hoofd met <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple>.
 removeitems-command-description = Verwijder gedropte voorwerpen
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = Verwijderd: { $countValue ->
@@ -369,6 +417,7 @@ removeitems-radius = straal: { $arg0 ->
         [one] { $arg0 } blok
        *[other] { $arg0 } blokken
     }
+removeitems-tip-usage-mm = Verwijder met <aqua><u><click:suggest_command:'/rmitems '>/rmitems [straal]</click></u></aqua> <yellow>voorwerpen op de grond</yellow> in de buurt.
 self-kick-command-description = Jezelf van de server kicken
 self-kick-reason-too-long = De reden mag niet langer zijn dan { $arg0 ->
         [one] { $arg0 } teken
@@ -392,9 +441,6 @@ self-kick-without-reason = { $person ->
     .item-2 = { $player } heeft de server zonder een woord verlaten.
     .item-3 = { $player } voerde een vlekkeloze zelf-kick uit.
     .item-4 = { $player } drukte eigenhandig op de knop om de server te verlaten.
-trash-command-description = Open de prullenbak
-trash-title = Prullenbak
-trash-title-hint = Richt op een voorwerp en druk op F om die stapel te verwijderen
 
 ## Community · Chat and mentions
 
@@ -419,6 +465,7 @@ chat-private-no-reply-target = Geen recente privéchatpartner is online
 chat-private-self = Je kunt geen privéchat met jezelf starten
 chat-private-target-not-found = Online speler niet gevonden: { $arg0 }
 chat-private-target-offline = Privéchatpartner is offline; teruggeschakeld naar openbare chat
+chat-private-tip-channel-mm = Gebruik <aqua><u><click:suggest_command:'/msg '>/msg speler</click></u></aqua> om naar privéchat te schakelen en <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> om terug te keren naar de openbare chat.
 chat-public-command-description = Schakel naar de openbare chat
 chat-public-enter = Overgeschakeld naar openbare chat
 chat-reply-command-description = Beantwoord je laatste privéchatpartner
@@ -443,7 +490,7 @@ mention-summary-modes-afk = { $arg0 }, gedempt tijdens AFK
 mention-summary-sound = geluid
 staffchat-enter = Teamchat betreden
 
-## Community · Announcements and tips
+## Community · Announcements
 
 announcement-empty = Geen aankondigingen
 announcement-first-page = Nieuwste berichten bereikt
@@ -461,14 +508,6 @@ announcement-unread-count = { $arg0 } ongelezen
 announcement-updated = Aankondigingen bijgewerkt
 announcement-view-all = Alle aankondigingen bekijken
 announcement-view-command-description = Serveraankondigingen bekijken
-tip-hover = Servertip
-tip-label = TIP
-tip-reload-command-description = tips.txt opnieuw laden
-tip-reload-count = { $arg0 ->
-        [one] { $arg0 } vermelding
-       *[other] { $arg0 } vermeldingen
-    }
-tip-reload-done = Tips opnieuw geladen
 
 ## Community · Identity and social platforms
 
@@ -1336,7 +1375,7 @@ async-regen-block-preview-summary = Voorbeeld: { $arg0 ->
        *[other] { $arg1 } bestaande blokentiteiten
     }
 async-regen-cancelled = Regeneratie geannuleerd. De { $arg0 } al toegepaste wijzigingen blijven in de wereld
-async-regen-command-description = Een WorldEdit-selectie asynchroon regenereren
+async-regen-command-description = Een FastAsyncWorldEdit-selectie asynchroon regenereren
 async-regen-completed = Regeneratie voltooid: { $arg0 ->
         [one] { $arg0 } blok
        *[other] { $arg0 } blokken
@@ -1365,7 +1404,7 @@ async-regen-progress = { $arg0 } · { $arg1 }/{ $arg2 ->
     } toegepast
 async-regen-safety-note = Buiten de opgeslagen selectie verandert niets. Bouwwerken erin kunnen worden overschreven en Vanilla herkent geen door spelers geplaatste blokken. Controleer de visualisatie en maak een back-up voordat je toepast.
 async-regen-scope-blocks = blokken regenereren die overeenkomen met { $arg0 }
-async-regen-selection-required = Maak eerst een volledige WorldEdit-selectie
+async-regen-selection-required = Maak eerst een volledige FastAsyncWorldEdit-selectie
 async-regen-skipped-ungenerated = Niet-gegenereerde doelchunks overgeslagen: { $arg0 ->
         [one] { $arg0 } chunk
        *[other] { $arg0 } chunks
@@ -1443,13 +1482,16 @@ async-regen-upgrade-scope-terrain = terrein, structuren en biomen
 async-regen-usage = Gebruik: /regen preview blocks [typen...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
 async-regen-visualization-legend = Visualisatie in { $arg0 }: cyaan = selectiegrens, oranje = steekproef van gewijzigde blokken, rood = bedreigde blokentiteit. Alleen jij ziet deze deeltjes.
 async-regen-visualization-selection = Selectie in { $arg0 }: cyaan deeltjes markeren de grens. Alleen jij ziet ze.
-async-regen-world-edit-required = WorldEdit is vereist om de selectie te lezen
+async-regen-fawe-required = FastAsyncWorldEdit is vereist om de selectie te lezen
+-iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Sluipen
+iron-elevator-tip-mm = Zet { -iron-elevator-block } recht boven elkaar voor een lift. Ga erop staan: <green>spring om omhoog te gaan</green>, <aqua>sluip om omlaag te gaan</aqua>. Bij meer dan twee verdiepingen verschijnt een <gold>verdiepingenpaneel</gold>.
 iron-elevator-up = ↑ Springen
 spawn-beacon-color-command-description = Schakel de kleurcyclus van het spawnbaken in of uit
 spawn-beacon-color-disabled = Kleurcyclus van het spawnbaken uitgeschakeld
 spawn-beacon-color-enabled = Kleurcyclus van het spawnbaken ingeschakeld
 spawn-command-description = Terug naar de spawn
+spawn-tip-return-mm = Gebruik <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> om terug te keren naar het <yellow>spawnpunt van de server</yellow>.
 spawn-world-missing = Spawnwereld is niet beschikbaar
 
 ## Entertainment · Music
@@ -1920,6 +1962,7 @@ restriction-other-player-name-mm = <red>Je hebt geen toestemming om namen van an
 tpsbar-command-description = Toon of verberg de TPS-balk
 tpsbar-hidden = TPS-balk verborgen
 tpsbar-shown = TPS-balk getoond
+tpsbar-tip-status-mm = Toon of verberg de balk met <yellow>TPS, MSPT en ping</yellow> via <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Speler deblokkeren en de geschiedenis bewaren
 whitelist-already-whitelisted = { $arg0 } staat al op de witte lijst
 whitelist-invalid-name = Ongeldige spelersnaam

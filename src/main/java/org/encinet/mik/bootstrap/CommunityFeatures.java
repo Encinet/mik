@@ -7,7 +7,6 @@ import org.encinet.mik.feature.community.chat.ChatModule;
 import org.encinet.mik.feature.community.chat.ChatSettingsStore;
 import org.encinet.mik.feature.community.chat.mention.MentionService;
 import org.encinet.mik.feature.community.communication.AnnouncementModule;
-import org.encinet.mik.feature.community.communication.TipModule;
 import org.encinet.mik.feature.community.governance.GovernanceModule;
 import org.encinet.mik.feature.community.identity.IdentityBindingModule;
 import org.encinet.mik.feature.community.social.SocialModule;
@@ -51,7 +50,8 @@ record CommunityFeatures(
 
         ChatModule chatModule = new ChatModule(
                 plugin, mentionService, languageService, chatSettingsStore, playerIdentities,
-                socialModule.chatPublisher(), identityBindingModule.manager());
+                socialModule.chatPublisher(), identityBindingModule.manager(),
+                lifecycle.own("chat-tips", players.guidance().scope()));
         socialChatGateway.bind(chatModule);
         lifecycle.startManaged("chat", chatModule::enable, chatModule::disable);
         chatModule.registerCommands(plugin.getLifecycleManager());
@@ -67,10 +67,6 @@ record CommunityFeatures(
         AnnouncementModule announcementModule = new AnnouncementModule(plugin, languageService);
         lifecycle.startManaged("announcement", announcementModule::enable, announcementModule::disable);
         announcementModule.registerCommands(plugin.getLifecycleManager());
-
-        TipModule tipModule = new TipModule(plugin, languageService);
-        lifecycle.startManaged("tip", tipModule::enable, tipModule::disable);
-        tipModule.registerCommands(plugin.getLifecycleManager());
 
         return new CommunityFeatures(chatModule, socialModule, governanceModule, announcementModule);
     }

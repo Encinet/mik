@@ -40,7 +40,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-/** Command-facing integration for WorldEdit selections and the asynchronous regeneration engine. */
+/** Command-facing integration for FastAsyncWorldEdit selections and the asynchronous regeneration engine. */
 public final class AsyncRegenModule implements AsyncRegenService.Listener {
 
     static final String COMMAND_PERMISSION = RolePermissions.CUSTODIAN;
@@ -100,18 +100,18 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
     }
 
     public void enable() {
-        if (Bukkit.getPluginManager().isPluginEnabled("WorldEdit")) {
+        if (Bukkit.getPluginManager().isPluginEnabled("FastAsyncWorldEdit")) {
             try {
-                selectionProvider = new WorldEditSelectionProvider();
-                plugin.getLogger().info("Async regeneration enabled with WorldEdit selection support");
+                selectionProvider = new FaweSelectionProvider();
+                plugin.getLogger().info("Async regeneration enabled with FastAsyncWorldEdit selection support");
             } catch (LinkageError error) {
                 selectionProvider = null;
                 plugin.getLogger().log(java.util.logging.Level.SEVERE,
-                        "WorldEdit is present but its API is incompatible; /regen is unavailable", error);
+                        "FastAsyncWorldEdit is present but its API is incompatible; /regen is unavailable", error);
             }
         } else {
             selectionProvider = null;
-            plugin.getLogger().warning("WorldEdit not found; /regen will remain unavailable");
+            plugin.getLogger().warning("FastAsyncWorldEdit not found; /regen will remain unavailable");
         }
         service.start();
         visualizer.start();
@@ -261,7 +261,7 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
     private RegenSelection readSelection(Player player) {
         if (selectionProvider == null) {
             player.sendMessage(languageService.text(
-                    player, Message.ASYNC_REGEN_WORLD_EDIT_REQUIRED, NamedTextColor.RED));
+                    player, Message.ASYNC_REGEN_FAWE_REQUIRED, NamedTextColor.RED));
             return null;
         }
         try {
@@ -272,7 +272,7 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
             return null;
         } catch (RuntimeException error) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE,
-                    "Could not read WorldEdit selection for " + player.getUniqueId(), error);
+                    "Could not read FastAsyncWorldEdit selection for " + player.getUniqueId(), error);
             player.sendMessage(languageService.text(
                     player, Message.ASYNC_REGEN_START_FAILED, NamedTextColor.RED));
             return null;
