@@ -2,13 +2,7 @@ package org.encinet.mik.feature.server.performance;
 
 import org.encinet.mik.shared.role.RolePermissions;
 
-import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent;
 import com.destroystokyo.paper.event.server.ServerTickEndEvent;
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import io.papermc.paper.command.brigadier.Commands;
-import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -17,7 +11,6 @@ import org.bukkit.ServerTickManager;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Hopper;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -30,12 +23,8 @@ import org.bukkit.event.block.BlockRedstoneEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.encinet.mik.feature.player.afk.AfkService;
 import org.encinet.mik.shared.util.SchedulerUtil;
 
 import java.util.*;
@@ -57,7 +46,6 @@ public class PerformanceModule implements Listener {
     private final MsptSampler sampler;
     private final EmergencyTickPausePolicy tickPausePolicy;
     private final RandomTickAdjuster tickAdjuster;
-    private final PlayerDistanceController distanceController;
     private final ChunkPressureController pressureController;
 
     private BukkitTask guardTask;
@@ -65,7 +53,7 @@ public class PerformanceModule implements Listener {
     private volatile double lastEffectiveMspt = 20.0;
     private volatile boolean liveFrozen;
 
-    public PerformanceModule(JavaPlugin plugin, AfkService afkService) {
+    public PerformanceModule(JavaPlugin plugin) {
         this.plugin = plugin;
         this.tickManager = plugin.getServer().getServerTickManager();
         this.kickMessage = Component.text("═══════════════════════════════")
@@ -79,16 +67,11 @@ public class PerformanceModule implements Listener {
         this.sampler = new MsptSampler();
         this.tickPausePolicy = new EmergencyTickPausePolicy();
         this.tickAdjuster = new RandomTickAdjuster(Bukkit.getWorlds());
-        this.distanceController = new PlayerDistanceController(
-                afkService,
-                plugin.getServer().getViewDistance(),
-                plugin.getServer().getSimulationDistance());
         this.pressureController = new ChunkPressureController();
     }
 
     public void start() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        distanceController.primeOnlinePlayers();
         guardTask = Bukkit.getScheduler().runTaskTimerAsynchronously(
                 plugin, this::tick, INITIAL_DELAY_TICKS, CHECK_INTERVAL_TICKS);
         windChargeCleanupTask = Bukkit.getScheduler().runTaskTimer(
@@ -96,37 +79,6 @@ public class PerformanceModule implements Listener {
                 () -> WindChargeCleaner.run(Bukkit.getWorlds()),
                 WIND_CHARGE_CLEANUP_INTERVAL_TICKS,
                 WIND_CHARGE_CLEANUP_INTERVAL_TICKS);
-    }
-
-    public void registerCommands(LifecycleEventManager<Plugin> manager) {
-        manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> event.registrar().register(
-                Commands.literal("performance")
-                        .requires(source -> source.getSender().hasPermission(CUSTODIAN_PERMISSION))
-                        .then(Commands.literal("viewdistance")
-                                .executes(context -> sendMaximumViewDistance(
-                                        context.getSource().getSender()))
-                                .then(Commands.argument("chunks", IntegerArgumentType.integer(2, 32))
-                                        .executes(context -> setMaximumViewDistance(
-                                                context.getSource().getSender(),
-                                                IntegerArgumentType.getInteger(context, "chunks")))))
-                        .executes(context -> sendMaximumViewDistance(context.getSource().getSender()))
-                        .build(),
-                "Performance controls"));
-    }
-
-    private int sendMaximumViewDistance(CommandSender sender) {
-        sender.sendMessage(Component.text("当前最大视距上限：", NamedTextColor.GRAY)
-                .append(Component.text(distanceController.maximumRenderDistance(), NamedTextColor.AQUA))
-                .append(Component.text(" 区块", NamedTextColor.GRAY)));
-        return Command.SINGLE_SUCCESS;
-    }
-
-    private int setMaximumViewDistance(CommandSender sender, int distance) {
-        distanceController.setMaximumRenderDistance(distance, lastEffectiveMspt);
-        sender.sendMessage(Component.text("最大视距上限已设置为 ", NamedTextColor.GREEN)
-                .append(Component.text(distance, NamedTextColor.AQUA))
-                .append(Component.text(" 区块", NamedTextColor.GREEN)));
-        return Command.SINGLE_SUCCESS;
     }
 
     public void stop() {
@@ -139,7 +91,6 @@ public class PerformanceModule implements Listener {
         liveFrozen = false;
         tickPausePolicy.reset();
         tickAdjuster.reset();
-        distanceController.resetAll();
         pressureController.reset();
     }
 
@@ -158,7 +109,6 @@ public class PerformanceModule implements Listener {
                 pressureController.disarm();
             }
             tickAdjuster.adjust(effectiveMspt);
-            distanceController.adjust(effectiveMspt);
         });
     }
 
@@ -184,23 +134,6 @@ public class PerformanceModule implements Listener {
             case HOLD -> {
             }
         }
-    }
-
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        distanceController.track(event.getPlayer());
-    }
-
-    @EventHandler
-    public void onPlayerClientOptionsChange(PlayerClientOptionsChangeEvent event) {
-        if (event.hasViewDistanceChanged()) {
-            distanceController.clientViewDistanceChanged(event.getPlayer(), event.getViewDistance());
-        }
-    }
-
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        distanceController.untrack(event.getPlayer());
     }
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
@@ -413,206 +346,6 @@ public class PerformanceModule implements Listener {
             if (mspt >= MSPT_ZERO) return 0;
             double ratio = (MSPT_ZERO - mspt) / (MSPT_ZERO - MSPT_FULL);
             return (int) Math.round(max * ratio);
-        }
-    }
-
-    /**
-     * Dynamically limits per-player render/simulation distance from current MSPT.
-     * Players that stay AFK long enough are clamped to fixed distances until they become active again.
-     */
-    private static class PlayerDistanceController {
-
-        private static final double MSPT_FULL_DISTANCE = 20.0;
-        private static final double MSPT_MIN_DISTANCE = 50.0;
-
-        private static final int PERFORMANCE_RENDER_MIN = 5;
-        private static final int PERFORMANCE_SIMULATION_MIN = 4;
-        private static final int AFK_RENDER_DISTANCE = 2;
-        private static final int AFK_SIMULATION_DISTANCE = 2;
-        private static final long DISTANCE_ADJUST_COOLDOWN_MILLIS = 30_000L;
-        private static final long DISTANCE_RECOVERY_CONFIRM_MILLIS = 10_000L;
-
-        private final AfkService afkService;
-        private final int originalRenderDistance;
-        private final int baseSimulationDistance;
-        private final int afkRenderDistance;
-        private final int afkSimulationDistance;
-        private final Map<UUID, AppliedDistances> appliedDistances = new HashMap<>();
-        private int maximumRenderDistance;
-        private int currentPerformanceRenderDistance;
-        private int currentPerformanceSimulationDistance;
-        private DistanceAdjustmentPolicy performanceAdjustment;
-        private final Map<UUID, DistanceAdjustmentPolicy> playerAdjustments = new HashMap<>();
-
-        PlayerDistanceController(AfkService afkService, int baseRenderDistance, int baseSimulationDistance) {
-            this.afkService = afkService;
-            this.originalRenderDistance = Math.clamp(baseRenderDistance, 2, 32);
-            this.maximumRenderDistance = this.originalRenderDistance;
-            this.baseSimulationDistance = Math.max(2, baseSimulationDistance);
-            this.afkRenderDistance = Math.clamp(AFK_RENDER_DISTANCE, 2, this.originalRenderDistance);
-            this.afkSimulationDistance = Math.clamp(AFK_SIMULATION_DISTANCE, 2, this.baseSimulationDistance);
-            this.currentPerformanceRenderDistance = this.maximumRenderDistance;
-            this.currentPerformanceSimulationDistance = this.baseSimulationDistance;
-            resetPerformanceAdjustment();
-        }
-
-        void primeOnlinePlayers() {
-            Bukkit.getOnlinePlayers().forEach(player -> apply(
-                    player,
-                    maximumRenderDistance,
-                    baseSimulationDistance,
-                    player.getClientViewDistance()));
-        }
-
-        void track(Player player) {
-            apply(
-                    player,
-                    currentPerformanceRenderDistance,
-                    currentPerformanceSimulationDistance,
-                    player.getClientViewDistance());
-        }
-
-        void clientViewDistanceChanged(Player player, int clientViewDistance) {
-            apply(
-                    player,
-                    currentPerformanceRenderDistance,
-                    currentPerformanceSimulationDistance,
-                    clientViewDistance);
-        }
-
-        void untrack(Player player) {
-            appliedDistances.remove(player.getUniqueId());
-            playerAdjustments.remove(player.getUniqueId());
-        }
-
-        void adjust(double effectiveMspt) {
-            int performanceRender = interpolateMspt(effectiveMspt, maximumRenderDistance, PERFORMANCE_RENDER_MIN);
-            int performanceSimulation = interpolateMspt(effectiveMspt, baseSimulationDistance, PERFORMANCE_SIMULATION_MIN);
-            updatePerformanceDistances(performanceRender, performanceSimulation);
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                apply(
-                        player,
-                        currentPerformanceRenderDistance,
-                        currentPerformanceSimulationDistance,
-                        player.getClientViewDistance());
-            }
-        }
-
-        void resetAll() {
-            maximumRenderDistance = originalRenderDistance;
-            currentPerformanceRenderDistance = originalRenderDistance;
-            currentPerformanceSimulationDistance = baseSimulationDistance;
-            resetPerformanceAdjustment();
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                applyIfChanged(player, originalRenderDistance, baseSimulationDistance);
-            }
-            appliedDistances.clear();
-            playerAdjustments.clear();
-        }
-
-        int maximumRenderDistance() {
-            return maximumRenderDistance;
-        }
-
-        void setMaximumRenderDistance(int distance, double effectiveMspt) {
-            maximumRenderDistance = Math.clamp(distance, 2, 32);
-            currentPerformanceRenderDistance = interpolateMspt(
-                    effectiveMspt, maximumRenderDistance, PERFORMANCE_RENDER_MIN);
-            resetPerformanceAdjustment();
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                apply(
-                        player,
-                        currentPerformanceRenderDistance,
-                        currentPerformanceSimulationDistance,
-                        player.getClientViewDistance());
-            }
-        }
-
-        private void apply(
-                Player player,
-                int performanceRender,
-                int performanceSimulation,
-                int clientViewDistance
-        ) {
-            int requestedRender = performanceRender;
-            int requestedSimulation = performanceSimulation;
-            if (afkService.isAfk(player.getUniqueId())) {
-                requestedRender = afkRenderDistance;
-                requestedSimulation = afkSimulationDistance;
-            }
-
-            PlayerViewDistancePolicy.EffectiveDistances distances =
-                    PlayerViewDistancePolicy.performanceDistances(
-                            requestedRender,
-                            requestedSimulation,
-                            clientViewDistance);
-            DistanceAdjustmentPolicy adjustment = playerAdjustments.computeIfAbsent(
-                    player.getUniqueId(), ignored -> new DistanceAdjustmentPolicy(
-                            player.getViewDistance(), player.getSimulationDistance(), 2_000L, 2_000L, 2));
-            PlayerViewDistancePolicy.EffectiveDistances paced = adjustment.update(
-                    monotonicMillis(), distances.viewDistance(), distances.simulationDistance(), true);
-            applyIfChanged(player, paced.viewDistance(), paced.simulationDistance());
-        }
-
-        private void updatePerformanceDistances(int targetRender, int targetSimulation) {
-            PlayerViewDistancePolicy.EffectiveDistances distances = performanceAdjustment.update(
-                    monotonicMillis(), targetRender, targetSimulation,
-                    isMinimumPerformanceDistance(targetRender, targetSimulation));
-            currentPerformanceRenderDistance = distances.viewDistance();
-            currentPerformanceSimulationDistance = distances.simulationDistance();
-        }
-
-        private void resetPerformanceAdjustment() {
-            performanceAdjustment = new DistanceAdjustmentPolicy(
-                    currentPerformanceRenderDistance, currentPerformanceSimulationDistance,
-                    DISTANCE_ADJUST_COOLDOWN_MILLIS, DISTANCE_RECOVERY_CONFIRM_MILLIS, 1);
-        }
-
-        private static long monotonicMillis() {
-            return System.nanoTime() / 1_000_000L;
-        }
-
-        private boolean isMinimumPerformanceDistance(int renderDistance, int simulationDistance) {
-            return renderDistance <= Math.clamp(PERFORMANCE_RENDER_MIN, 2, maximumRenderDistance)
-                    && simulationDistance <= Math.clamp(PERFORMANCE_SIMULATION_MIN, 2, baseSimulationDistance);
-        }
-
-        private void applyIfChanged(Player player, int renderDistance, int simulationDistance) {
-            UUID playerId = player.getUniqueId();
-            AppliedDistances current = appliedDistances.get(playerId);
-            int currentRenderDistance = current == null
-                    ? player.getViewDistance()
-                    : current.renderDistance;
-            int currentSimulationDistance = current == null
-                    ? player.getSimulationDistance()
-                    : current.simulationDistance;
-            PlayerViewDistancePolicy.DistanceChanges changes = PlayerViewDistancePolicy.changes(
-                    currentRenderDistance,
-                    currentSimulationDistance,
-                    renderDistance,
-                    simulationDistance);
-
-            if (changes.viewDistanceChanged()) {
-                player.setViewDistance(renderDistance);
-            }
-            if (changes.simulationDistanceChanged()) {
-                player.setSimulationDistance(simulationDistance);
-            }
-
-            appliedDistances.put(playerId, new AppliedDistances(renderDistance, simulationDistance));
-        }
-
-        private int interpolateMspt(double mspt, int baseDistance, int minDistance) {
-            int floor = Math.clamp(minDistance, 2, baseDistance);
-            if (baseDistance <= floor) return baseDistance;
-            if (mspt <= MSPT_FULL_DISTANCE) return baseDistance;
-            if (mspt >= MSPT_MIN_DISTANCE) return floor;
-
-            double ratio = (MSPT_MIN_DISTANCE - mspt) / (MSPT_MIN_DISTANCE - MSPT_FULL_DISTANCE);
-            return floor + (int) Math.round((baseDistance - floor) * ratio);
-        }
-
-        private record AppliedDistances(int renderDistance, int simulationDistance) {
         }
     }
 

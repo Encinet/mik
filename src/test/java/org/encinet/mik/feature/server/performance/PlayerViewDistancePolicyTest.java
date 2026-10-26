@@ -18,33 +18,6 @@ class PlayerViewDistancePolicyTest {
     }
 
     @Test
-    void limitsPerformanceDistancesToWhatTheClientCanUse() {
-        PlayerViewDistancePolicy.EffectiveDistances distances =
-                PlayerViewDistancePolicy.performanceDistances(20, 12, 8);
-
-        assertEquals(9, distances.viewDistance());
-        assertEquals(9, distances.simulationDistance());
-    }
-
-    @Test
-    void keepsLowerPerformanceLimitsUnchanged() {
-        PlayerViewDistancePolicy.EffectiveDistances distances =
-                PlayerViewDistancePolicy.performanceDistances(6, 4, 16);
-
-        assertEquals(6, distances.viewDistance());
-        assertEquals(4, distances.simulationDistance());
-    }
-
-    @Test
-    void changesEachPerformanceDistanceIndependently() {
-        PlayerViewDistancePolicy.DistanceChanges changes =
-                PlayerViewDistancePolicy.changes(8, 6, 8, 4);
-
-        assertFalse(changes.viewDistanceChanged());
-        assertTrue(changes.simulationDistanceChanged());
-    }
-
-    @Test
     void clientBoundSendDistanceDoesNotInstallARedundantOverride() {
         int targetDistance = PlayerViewDistancePolicy.sendDistance(12, 8);
         NetworkEgressModule.SendDistanceUpdate update = NetworkEgressModule.sendDistanceUpdate(

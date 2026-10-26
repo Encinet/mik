@@ -29,11 +29,10 @@ record ServerFeatures(BanModule bans) {
         lifecycle.startManaged("ban", banModule::enable, banModule::disable);
         banModule.registerCommands(plugin.getLifecycleManager());
 
-        PerformanceModule performanceModule = new PerformanceModule(plugin, afkModule);
+        PerformanceModule performanceModule = new PerformanceModule(plugin);
         lifecycle.startManaged("performance", performanceModule::start, performanceModule::stop);
-        performanceModule.registerCommands(plugin.getLifecycleManager());
 
-        NetworkEgressModule networkEgressModule = new NetworkEgressModule(plugin);
+        NetworkEgressModule networkEgressModule = new NetworkEgressModule(plugin, afkModule);
         lifecycle.startManaged("network-egress", networkEgressModule::enable, networkEgressModule::disable);
         networkEgressModule.registerCommands(plugin.getLifecycleManager());
 

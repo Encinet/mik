@@ -1,6 +1,9 @@
 package org.encinet.mik.feature.server.performance;
 
 import org.encinet.mik.shared.role.RolePermissions;
+import org.encinet.mik.feature.player.afk.AfkService;
+import org.encinet.mik.feature.player.afk.AfkState;
+import org.encinet.mik.feature.player.afk.AfkStateListener;
 import org.encinet.mik.feature.server.performance.NetworkEgressThrottlePolicy.ThrottleMode;
 
 import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent;
@@ -36,7 +39,7 @@ import java.util.UUID;
  * <p>The controller deliberately does not cancel protocol packets. Paper remains responsible for
  * chunk and entity state consistency while this module only changes how much world data is sent.</p>
  */
-public final class NetworkEgressModule implements Listener {
+public final class NetworkEgressModule implements Listener, AfkStateListener {
 
     private static final long SAMPLE_PERIOD_TICKS = 20L;
     private static final int PROBE_REFRESH_SAMPLES = 60;
@@ -50,20 +53,25 @@ public final class NetworkEgressModule implements Listener {
     private static final double OUTBOUND_BUDGET_BYTES_PER_SECOND =
             OUTBOUND_BUDGET_MEGABITS * 1_000_000.0D / 8.0D;
     private static final int MINIMUM_SEND_DISTANCE = 3;
+    private static final int AFK_SEND_DISTANCE = 2;
+    private static final ThrottleState UNTHROTTLED = new ThrottleState(ThrottleMode.OFF, false);
 
     private final JavaPlugin plugin;
+    private final AfkService afkService;
     private final Map<UUID, SendDistanceOverride> sendDistanceOverrides = new HashMap<>();
 
     private BukkitTask sampleTask;
     private volatile SamplingState samplingState;
-    private volatile ThrottleMode mode = ThrottleMode.OFF;
+    private volatile ThrottleState throttle = UNTHROTTLED;
 
-    public NetworkEgressModule(JavaPlugin plugin) {
+    public NetworkEgressModule(JavaPlugin plugin, AfkService afkService) {
         this.plugin = plugin;
+        this.afkService = afkService;
     }
 
     public synchronized void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        afkService.addListener(this);
         SamplingState state = new SamplingState(NETWORK_INTERFACE, OUTBOUND_BUDGET_BYTES_PER_SECOND);
         samplingState = state;
         scheduleNextSample(state, 1L);
@@ -78,7 +86,8 @@ public final class NetworkEgressModule implements Listener {
             sampleTask = null;
         }
         HandlerList.unregisterAll(this);
-        mode = ThrottleMode.OFF;
+        afkService.removeListener(this);
+        throttle = UNTHROTTLED;
         restoreSendDistances();
     }
 
@@ -95,16 +104,12 @@ public final class NetworkEgressModule implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        if (mode != ThrottleMode.OFF) {
-            applyCurrentMode(event.getPlayer());
-        }
+        applyCurrentMode(event.getPlayer());
     }
 
     @EventHandler
     public void onPlayerChangedWorld(PlayerChangedWorldEvent event) {
-        if (mode != ThrottleMode.OFF) {
-            applyCurrentMode(event.getPlayer());
-        }
+        applyCurrentMode(event.getPlayer());
     }
 
     @EventHandler
@@ -115,7 +120,7 @@ public final class NetworkEgressModule implements Listener {
 
         Player player = event.getPlayer();
         Bukkit.getScheduler().runTask(plugin, () -> {
-            if (mode != ThrottleMode.OFF && player.isOnline()) {
+            if (player.isOnline()) {
                 applyCurrentMode(player);
             }
         });
@@ -124,6 +129,11 @@ public final class NetworkEgressModule implements Listener {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         sendDistanceOverrides.remove(event.getPlayer().getUniqueId());
+    }
+
+    @Override
+    public void onAfkStateChanged(Player player, AfkState state) {
+        applyCurrentMode(player);
     }
 
     private synchronized void scheduleNextSample(SamplingState state, long delayTicks) {
@@ -173,9 +183,7 @@ public final class NetworkEgressModule implements Listener {
             return;
         }
         if (transmitBytes < state.lastTransmitBytes) {
-            ThrottleMode resetMode = state.policy.reset();
-            state.desiredMode = resetMode;
-            requestTransition(resetMode, state);
+            requestTransition(state.resetThrottle(), state);
             state.resetSample();
             state.lastTransmitBytes = transmitBytes;
             state.lastSampleNanos = now;
@@ -191,16 +199,15 @@ public final class NetworkEgressModule implements Listener {
         state.lastTransmitBytes = transmitBytes;
         state.lastSampleNanos = now;
 
-        ThrottleMode nextMode = state.policy.update(
+        ThrottleState nextThrottle = state.updateThrottle(
                 smoothedTransmitBytesPerSecond / state.budgetBytesPerSecond);
-        state.desiredMode = nextMode;
-        if (nextMode != mode) {
+        if (!nextThrottle.equals(throttle)) {
             state.sendDistanceReconcileSamples = 0;
-            requestTransition(nextMode, state);
-        } else if (nextMode != ThrottleMode.OFF
+            requestTransition(nextThrottle, state);
+        } else if (nextThrottle.throttled()
                 && ++state.sendDistanceReconcileSamples >= SEND_DISTANCE_RECONCILE_SAMPLES) {
             state.sendDistanceReconcileSamples = 0;
-            requestReconcile(nextMode, state);
+            requestReconcile(nextThrottle, state);
         }
     }
 
@@ -208,64 +215,63 @@ public final class NetworkEgressModule implements Listener {
         return samplingState == state;
     }
 
-    private void requestTransition(ThrottleMode nextMode, SamplingState state) {
+    private void requestTransition(ThrottleState nextThrottle, SamplingState state) {
         synchronized (this) {
             if (!isActive(state)) {
                 return;
             }
             Bukkit.getScheduler().runTask(plugin, () -> {
-                if (isActive(state) && state.desiredMode == nextMode) {
-                    transitionTo(nextMode);
+                if (isActive(state) && state.desiredThrottle.equals(nextThrottle)) {
+                    transitionTo(nextThrottle);
                 }
             });
         }
     }
 
-    private void requestReconcile(ThrottleMode expectedMode, SamplingState state) {
+    private void requestReconcile(ThrottleState expectedThrottle, SamplingState state) {
         synchronized (this) {
             if (!isActive(state)) {
                 return;
             }
             Bukkit.getScheduler().runTask(plugin, () -> {
-                if (isActive(state) && state.desiredMode == expectedMode && mode == expectedMode) {
-                    for (Player player : Bukkit.getOnlinePlayers()) {
-                        applyCurrentMode(player);
-                    }
+                if (isActive(state) && state.desiredThrottle.equals(expectedThrottle)
+                        && throttle.equals(expectedThrottle)) {
+                    applyThrottle(expectedThrottle);
                 }
             });
         }
     }
 
-    private void transitionTo(ThrottleMode nextMode) {
-        if (nextMode == mode) {
+    private void transitionTo(ThrottleState nextThrottle) {
+        if (nextThrottle.equals(throttle)) {
             return;
         }
-        ThrottleMode previousMode = mode;
-        mode = nextMode;
-        if (nextMode == ThrottleMode.OFF) {
-            restoreSendDistances();
-        } else {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                applyCurrentMode(player);
-            }
-        }
+        ThrottleState previousThrottle = throttle;
+        applyThrottle(nextThrottle);
         plugin.getLogger().info(String.format(Locale.ROOT,
                 "Network egress %s -> %s, tx=%s, budget=%s, send-distance=%s",
-                previousMode,
-                nextMode,
+                previousThrottle,
+                nextThrottle,
                 formatThroughput(smoothedTransmitBytesPerSecond()),
                 formatThroughput(OUTBOUND_BUDGET_BYTES_PER_SECOND),
                 sendDistanceSummary()));
     }
 
+    void applyThrottle(ThrottleState nextThrottle) {
+        throttle = nextThrottle;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            applyCurrentMode(player);
+        }
+    }
+
     private void applyCurrentMode(Player player) {
-        if (mode == ThrottleMode.OFF) {
+        UUID playerId = player.getUniqueId();
+        if (!throttle.throttled() && !sendDistanceOverrides.containsKey(playerId)) {
             return;
         }
-        UUID playerId = player.getUniqueId();
         int defaultDistance = baseSendDistance(player.getWorld());
         int targetDistance = PlayerViewDistancePolicy.sendDistance(
-                targetSendDistance(defaultDistance, MINIMUM_SEND_DISTANCE, mode),
+                targetSendDistance(defaultDistance, MINIMUM_SEND_DISTANCE, throttle, afkService.isAfk(playerId)),
                 player.getClientViewDistance());
         sendDistanceOverrides.compute(playerId, (ignored, currentOverride) -> {
             int currentDistance = player.getSendViewDistance();
@@ -369,8 +375,8 @@ public final class NetworkEgressModule implements Listener {
         sendDistanceOverrides.clear();
     }
 
-    private int targetSendDistance(World world, ThrottleMode throttleMode) {
-        return targetSendDistance(baseSendDistance(world), MINIMUM_SEND_DISTANCE, throttleMode);
+    private int targetSendDistance(World world, ThrottleState throttleState, boolean afk) {
+        return targetSendDistance(baseSendDistance(world), MINIMUM_SEND_DISTANCE, throttleState, afk);
     }
 
     private int baseSendDistance(World world) {
@@ -381,10 +387,13 @@ public final class NetworkEgressModule implements Listener {
         return Math.clamp(baseDistance, 2, 32);
     }
 
-    static int targetSendDistance(int baseDistance, int minimumDistance, ThrottleMode throttleMode) {
+    static int targetSendDistance(int baseDistance, int minimumDistance, ThrottleState throttleState, boolean afk) {
         int normalizedBase = Math.clamp(baseDistance, 2, 32);
+        if (afk && throttleState.afkThrottled()) {
+            return AFK_SEND_DISTANCE;
+        }
         int floor = Math.clamp(minimumDistance, 2, normalizedBase);
-        return switch (throttleMode) {
+        return switch (throttleState.mode()) {
             case OFF -> normalizedBase;
             case SOFT -> Math.max(floor, (int) Math.ceil(normalizedBase * SOFT_DISTANCE_FACTOR));
             case HARD -> Math.max(floor, (int) Math.ceil(normalizedBase * HARD_DISTANCE_FACTOR));
@@ -406,10 +415,9 @@ public final class NetworkEgressModule implements Listener {
         state.smoothedTransmitBytesPerSecond = -1.0D;
         state.unavailableSamples++;
         if (state.unavailableSamples == UNAVAILABLE_RELEASE_SAMPLES) {
-            ThrottleMode releasedMode = state.policy.reset();
-            state.desiredMode = releasedMode;
-            if (mode != ThrottleMode.OFF) {
-                requestTransition(releasedMode, state);
+            ThrottleState releasedThrottle = state.resetThrottle();
+            if (throttle.throttled()) {
+                requestTransition(releasedThrottle, state);
             }
         }
     }
@@ -439,8 +447,11 @@ public final class NetworkEgressModule implements Listener {
                 ? -1.0D
                 : transmitBytesPerSecond / OUTBOUND_BUDGET_BYTES_PER_SECOND;
         return Component.text("Network egress", NamedTextColor.AQUA)
-                .append(metricLine("mode", Component.text(mode.name(), modeColor(mode)),
+                .append(metricLine("mode", Component.text(throttle.mode().name(), modeColor(throttle.mode())),
                         "Chunk send distance is reduced only while host egress stays under pressure."))
+                .append(metricLine("AFK protection", Component.text(throttle.afkThrottled() ? "ON" : "OFF",
+                                throttle.afkThrottled() ? NamedTextColor.YELLOW : NamedTextColor.GREEN),
+                        "AFK players drop to 2 chunks as soon as bandwidth risk is detected."))
                 .append(metricLine("interface", Component.text(interfaceName(), NamedTextColor.GRAY),
                         "Linux interface selected from the active default route."))
                 .append(metricLine("outbound", Component.text(formatThroughput(transmitBytesPerSecond),
@@ -452,7 +463,7 @@ public final class NetworkEgressModule implements Listener {
                 .append(metricLine("pressure", Component.text(formatPressure(pressureRatio), pressureColor(pressureRatio)),
                         "Outbound throughput divided by the configured budget."))
                 .append(metricLine("send distance", Component.text(sendDistanceSummary(), NamedTextColor.GRAY),
-                        "Paper chunk send distance. View and simulation distance remain owned by PerformanceModule."));
+                        "Paper chunk send distance. View and simulation distance keep their configured values."));
     }
 
     private Component metricLine(String label, Component value, String hover) {
@@ -474,13 +485,19 @@ public final class NetworkEgressModule implements Listener {
     }
 
     private String sendDistanceSummary() {
-        if (mode == ThrottleMode.OFF) {
+        if (!throttle.throttled()) {
             return "world default";
         }
+        String activeDistance = throttle.mode() == ThrottleMode.OFF
+                ? "world default" : sendDistanceRange(false);
+        return "active: " + activeDistance + ", AFK: " + sendDistanceRange(true);
+    }
+
+    private String sendDistanceRange(boolean afk) {
         int minimum = Integer.MAX_VALUE;
         int maximum = Integer.MIN_VALUE;
         for (World world : Bukkit.getWorlds()) {
-            int distance = targetSendDistance(world, mode);
+            int distance = targetSendDistance(world, throttle, afk);
             minimum = Math.min(minimum, distance);
             maximum = Math.max(maximum, distance);
         }
@@ -518,24 +535,38 @@ public final class NetworkEgressModule implements Listener {
         return modeColor(NetworkEgressThrottlePolicy.modeForPressure(ratio));
     }
 
-    private static final class SamplingState {
+    static final class SamplingState {
 
         private final String configuredInterface;
         private final double budgetBytesPerSecond;
         private final NetworkEgressThrottlePolicy policy = new NetworkEgressThrottlePolicy();
+        private final NetworkEgressThrottlePolicy afkPolicy = new NetworkEgressThrottlePolicy(1);
 
         private volatile NetworkInterfaceProbe probe;
         private volatile double smoothedTransmitBytesPerSecond = -1.0D;
-        private volatile ThrottleMode desiredMode = ThrottleMode.OFF;
+        private volatile ThrottleState desiredThrottle = UNTHROTTLED;
         private long lastTransmitBytes = -1L;
         private long lastSampleNanos;
         private int samplesUntilProbeRefresh;
         private int unavailableSamples;
         private int sendDistanceReconcileSamples;
 
-        private SamplingState(String configuredInterface, double budgetBytesPerSecond) {
+        SamplingState(String configuredInterface, double budgetBytesPerSecond) {
             this.configuredInterface = configuredInterface;
             this.budgetBytesPerSecond = budgetBytesPerSecond;
+        }
+
+        ThrottleState updateThrottle(double pressureRatio) {
+            desiredThrottle = new ThrottleState(policy.update(pressureRatio),
+                    afkPolicy.update(pressureRatio) != ThrottleMode.OFF);
+            return desiredThrottle;
+        }
+
+        ThrottleState resetThrottle() {
+            policy.reset();
+            afkPolicy.reset();
+            desiredThrottle = UNTHROTTLED;
+            return desiredThrottle;
         }
 
         private void resetSample() {
@@ -544,6 +575,12 @@ public final class NetworkEgressModule implements Listener {
             smoothedTransmitBytesPerSecond = -1.0D;
             unavailableSamples = 0;
             sendDistanceReconcileSamples = 0;
+        }
+    }
+
+    record ThrottleState(ThrottleMode mode, boolean afkThrottled) {
+        boolean throttled() {
+            return mode != ThrottleMode.OFF || afkThrottled;
         }
     }
 

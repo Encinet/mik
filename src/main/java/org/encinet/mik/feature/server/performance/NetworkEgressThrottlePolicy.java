@@ -11,10 +11,19 @@ final class NetworkEgressThrottlePolicy {
     private static final int ESCALATION_CONFIRM_SAMPLES = 2;
     private static final int RECOVERY_CONFIRM_SAMPLES = 15;
 
+    private final int escalationConfirmSamples;
     private ThrottleMode mode = ThrottleMode.OFF;
     private ThrottleMode pendingEscalation = ThrottleMode.OFF;
     private int escalationSamples;
     private int recoverySamples;
+
+    NetworkEgressThrottlePolicy() {
+        this(ESCALATION_CONFIRM_SAMPLES);
+    }
+
+    NetworkEgressThrottlePolicy(int escalationConfirmSamples) {
+        this.escalationConfirmSamples = escalationConfirmSamples;
+    }
 
     synchronized ThrottleMode update(double pressureRatio) {
         ThrottleMode desired = modeForPressure(pressureRatio);
@@ -26,7 +35,7 @@ final class NetworkEgressThrottlePolicy {
                 escalationSamples++;
             }
             int requiredSamples = desired == ThrottleMode.CRITICAL
-                    ? 1 : ESCALATION_CONFIRM_SAMPLES;
+                    ? 1 : escalationConfirmSamples;
             if (escalationSamples >= requiredSamples) {
                 mode = desired;
                 escalationSamples = 0;
