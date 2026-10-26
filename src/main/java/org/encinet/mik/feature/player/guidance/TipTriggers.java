@@ -5,6 +5,7 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.encinet.mik.shared.util.LocationUtil;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
@@ -14,10 +15,10 @@ public final class TipTriggers {
 
     private TipTriggers() {}
 
-    /** Match feature-owned keywords in visible chat text, excluding links, on the chat event's thread. */
+    /** Match visible chat keywords, excluding links, and offer without an intentional delay. */
     public static TipTrigger<AsyncChatEvent> chatMentions(Pattern keywords) {
         Objects.requireNonNull(keywords, "keywords");
-        return TipTrigger.event(AsyncChatEvent.class).adaptiveChance().filter(event -> {
+        return TipTrigger.event(AsyncChatEvent.class).adaptiveChance().delay(Duration.ZERO).filter(event -> {
             String text = PlainTextComponentSerializer.plainText().serialize(event.message());
             return keywords.matcher(CHAT_LINK.matcher(text).replaceAll(" ")).find();
         });

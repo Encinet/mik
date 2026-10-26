@@ -74,14 +74,14 @@ class TipStoreTest {
     void aFreshSchedulerUsesTheStoredDensityAndStillRecoversAfterAQuietPeriod() {
         long now = 1_800_000_000_000L;
         var rule = new Tip.Policy("chat", "chat", 0, Duration.ofDays(1), Duration.ZERO, Duration.ofSeconds(20));
-        TipScheduler first = new TipScheduler(error -> fail(error), () -> 0);
+        TipScheduler first = new TipScheduler(error -> fail(error), () -> 0, ignored -> TipAudience.MEMBER);
         var id = java.util.UUID.randomUUID();
-        first.offer(this, id, rule, now, 1, true, 20,
+        first.offer(this, id, rule, now, 1, true, 20, rule.delay(),
                 language -> java.util.Optional.of(new TipContent("chat", net.kyori.adventure.text.Component.empty())));
         first.delivered(id, first.collect(id, now, 45_000, true, org.encinet.mik.shared.i18n.Language.EN_US), now);
         store.save(player, first.snapshot(id));
 
-        TipScheduler restarted = new TipScheduler(error -> fail(error), () -> 0.5);
+        TipScheduler restarted = new TipScheduler(error -> fail(error), () -> 0.5, ignored -> TipAudience.MEMBER);
         restarted.restore(id, store.load(player, now + 60_000));
         var stamp = restarted.snapshot(id).history().get("chat");
         assertTrue(stamp.probability(now + 60_000, 1) < 0.001);

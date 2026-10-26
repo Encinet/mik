@@ -20,7 +20,42 @@ class TipAmbientTest {
     private static final UUID PLAYER = UUID.randomUUID();
     private static final Object OWNER = new Object();
     private final AtomicReference<Double> random = new AtomicReference<>(0.0);
-    private final TipScheduler scheduler = new TipScheduler(error -> fail(error), random::get);
+    private final TipScheduler scheduler = new TipScheduler(error -> fail(error), random::get,
+            ignored -> TipAudience.MEMBER);
+
+    @Test
+    void newcomerAmbientOpportunitiesUseHalfTheWaitAcrossTheRandomRange() {
+        for (double fraction : new double[]{0, 0.5, 0.999}) {
+            UUID newcomer = UUID.randomUUID();
+            TipScheduler boosted = new TipScheduler(error -> fail(error), () -> fraction,
+                    player -> player.equals(newcomer) ? TipAudience.NEWCOMER : TipAudience.MEMBER);
+            boosted.register(OWNER, scene("ambient"), (player, language) -> content("ambient"));
+            assertTrue(boosted.collect(PLAYER, 0, 45_000, true, Language.EN_US).isEmpty());
+            assertTrue(boosted.collect(newcomer, 0, 45_000, true, Language.EN_US).isEmpty());
+
+            long regularWait = INTERVAL + (long) (fraction * INTERVAL);
+            long newcomerWait = regularWait / 2;
+            assertTrue(boosted.collect(newcomer, newcomerWait - 1, 45_000, true, Language.EN_US).isEmpty());
+            assertEquals(1, boosted.collect(newcomer, newcomerWait, 45_000, true, Language.EN_US).size());
+            assertTrue(boosted.collect(PLAYER, newcomerWait, 45_000, true, Language.EN_US).isEmpty());
+            assertEquals(1, boosted.collect(PLAYER, regularWait, 45_000, true, Language.EN_US).size());
+        }
+    }
+
+    @Test
+    void changingMembershipRecomputesAnAlreadyScheduledAmbientWait() {
+        AtomicReference<TipAudience> audience = new AtomicReference<>(TipAudience.MEMBER);
+        TipScheduler boosted = new TipScheduler(error -> fail(error), () -> 0, ignored -> audience.get());
+        boosted.register(OWNER, scene("ambient"), (player, language) -> content("ambient"));
+        assertTrue(boosted.collect(PLAYER, 0, 45_000, true, Language.EN_US).isEmpty());
+        assertTrue(boosted.collect(PLAYER, INTERVAL / 2, 45_000, true, Language.EN_US).isEmpty());
+        audience.set(TipAudience.NEWCOMER);
+        assertEquals(1, boosted.collect(PLAYER, INTERVAL / 2, 45_000, true, Language.EN_US).size());
+
+        audience.set(TipAudience.MEMBER);
+        assertTrue(boosted.collect(PLAYER, INTERVAL, 45_000, true, Language.EN_US).isEmpty());
+        assertEquals(1, boosted.collect(PLAYER, INTERVAL * 3 / 2, 45_000, true, Language.EN_US).size());
+    }
 
     @Test
     void eachPlayerHasAnIndependentRandomQuietInterval() {
@@ -118,7 +153,7 @@ class TipAmbientTest {
     @Test
     void closingOneOwnerAndFailingCallbacksDoNotBlockAnotherModule() {
         List<RuntimeException> failures = new ArrayList<>();
-        TipScheduler isolated = new TipScheduler(failures::add, () -> 0);
+        TipScheduler isolated = new TipScheduler(failures::add, () -> 0, ignored -> TipAudience.MEMBER);
         Object closed = new Object();
         isolated.register(closed, scene("closed"), (player, language) -> {
             fail("closed module was queried");

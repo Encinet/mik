@@ -13,6 +13,7 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Queue;
 import java.util.Map;
@@ -45,7 +46,8 @@ public final class TipTestScope implements TipScope, Tip.Binding {
 
     public TipTestScope(DoubleSupplier random, LanguageService languages) {
         this.languages = languages;
-        scheduler = new TipScheduler(error -> { throw new AssertionError(error); }, random);
+        scheduler = new TipScheduler(error -> { throw new AssertionError(error); }, random,
+                id -> TipAudience.forPlayer(players.get(id)));
         events = new TipEvents(handlers, action -> {
             mainTasks.add(action);
             return () -> mainTasks.remove(action);
@@ -74,10 +76,12 @@ public final class TipTestScope implements TipScope, Tip.Binding {
     }
 
     @Override
-    public <C> void offer(Tip<C> tip, Player player, C context, double chance, boolean adaptive, int occurrences) {
+    public <C> void offer(Tip<C> tip, Player player, C context, double chance, boolean adaptive, int occurrences,
+                          Duration delay) {
         if (closed) return;
         if (adaptive && !tip.applicable(player, context)) return;
-        scheduler.offer(this, player.getUniqueId(), tip.policy(), now, chance, adaptive, occurrences,
+        players.put(player.getUniqueId(), player);
+        scheduler.offer(this, player.getUniqueId(), tip.policy(), now, chance, adaptive, occurrences, delay,
                 language -> tip.resolve(player, context, language));
     }
 

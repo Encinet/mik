@@ -45,7 +45,7 @@ public final class ClientTips {
                                 Predicate<UUID> bedrockPlayer) {
         tips.<Void>define("client-version")
                 .group("client-setup").priority(60).interval(Duration.ofDays(7))
-                .delay(Duration.ofSeconds(10)).lifetime(Duration.ofSeconds(45))
+                .lifetime(Duration.ofSeconds(45))
                 .on(TipTrigger.event(PlayerJoinEvent.class))
                 .when(player -> !bedrockPlayer.test(player.getUniqueId()))
                 .resolve((player, ignored, language) -> versions.version(player).filter(ClientVersions.Version::outdated)
@@ -53,7 +53,7 @@ public final class ClientTips {
                 .build();
         tips.<Void>define("client-mods")
                 .group("client-setup").priority(30).interval(Duration.ofDays(7))
-                .delay(Duration.ofSeconds(10)).lifetime(Duration.ofSeconds(45))
+                .lifetime(Duration.ofSeconds(45))
                 .on(TipTrigger.event(PlayerJoinEvent.class))
                 .when(player -> !bedrockPlayer.test(player.getUniqueId()))
                 .resolve((player, ignored, language) -> mods.detected(player)

@@ -89,6 +89,17 @@ class ClientModSignalsTest {
         assertTrue(ClientModSignals.fromPayload("minecraft:register", oversized).isEmpty());
     }
 
+    @Test
+    void invalidUtf8CannotProducePartialDetectionsFromEitherRegistrationFormat() {
+        byte[] standard = text("axiom:hello\0other:test");
+        standard[standard.length - 1] = (byte) 0x80;
+        assertTrue(ClientModSignals.fromPayload("minecraft:register", standard).isEmpty());
+
+        byte[] common = commonRegistration(1, "play", List.of("axiom:hello", "other:test"));
+        common[common.length - 1] = (byte) 0x80;
+        assertTrue(ClientModSignals.fromPayload("c:register", common).isEmpty());
+    }
+
     private static byte[] commonRegistration(int version, String phase, List<String> channels) {
         var bytes = new ByteArrayOutputStream();
         writeVarInt(bytes, version);

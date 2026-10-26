@@ -88,7 +88,7 @@ class ClientModDetectorTest {
         events.callEvent(new UserDisconnectEvent(original));
         assertEquals(Set.of(ClientMod.XAERO_MINIMAP), detector.detected(player).orElseThrow());
         events.callEvent(new UserDisconnectEvent(replacement));
-        assertTrue(detector.detected(player).orElseThrow().isEmpty());
+        assertTrue(detector.detected(player).isEmpty());
     }
 
     @Test
@@ -104,6 +104,55 @@ class ClientModDetectorTest {
         detector.observe(connection.get(), "xaeroworldmap:main", new byte[0]);
         assertFalse(snapshot.contains(ClientMod.XAERO_WORLD_MAP));
         assertTrue(detector.detected(player).orElseThrow().contains(ClientMod.XAERO_WORLD_MAP));
+    }
+
+    @Test
+    void positiveBukkitAndVoiceSignalsRemainKnownForTheConnection() {
+        detector.enable();
+        channels.set(Set.of("xaerominimap:main", "xaeroworldmap:main"));
+        voice.set(true);
+        Set<ClientMod> observed = detector.detected(player).orElseThrow();
+        channels.set(Set.of());
+        voice.set(false);
+
+        assertEquals(Set.of(ClientMod.XAERO_MINIMAP, ClientMod.XAERO_WORLD_MAP, ClientMod.PLASMO_VOICE), observed);
+        assertEquals(observed, detector.detected(player).orElseThrow());
+        connection.set(user());
+        assertTrue(detector.detected(player).orElseThrow().isEmpty());
+    }
+
+    @Test
+    void latePacketsCannotReviveADisconnectedConnectionsEvidence() {
+        detector.enable();
+        User original = connection.get();
+        detector.observe(original, "axiom:hello", new byte[0]);
+        events.callEvent(new UserDisconnectEvent(original));
+        detector.observe(original, "xaerominimap:main", new byte[0]);
+
+        assertTrue(detector.detected(player).isEmpty());
+        connection.set(user());
+        assertTrue(detector.detected(player).orElseThrow().isEmpty());
+    }
+
+    @Test
+    void snapshotsCannotMixSignalsAcrossDetectorRestarts() {
+        AtomicBoolean restartDuringQuery = new AtomicBoolean(true);
+        AtomicReference<ClientModDetector> holder = new AtomicReference<>();
+        ClientModDetector restarting = new ClientModDetector(events, ignored -> connection.get(), ignored -> {
+            if (!restartDuringQuery.getAndSet(false)) return false;
+            holder.get().disable();
+            holder.get().enable();
+            return true;
+        });
+        holder.set(restarting);
+        try {
+            restarting.enable();
+            restarting.observe(connection.get(), "axiom:hello", new byte[0]);
+            assertTrue(restarting.detected(player).isEmpty());
+            assertTrue(restarting.detected(player).orElseThrow().isEmpty());
+        } finally {
+            restarting.disable();
+        }
     }
 
     @Test

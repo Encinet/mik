@@ -18,37 +18,33 @@ class TipSchedulerTest {
     private static final UUID PLAYER = UUID.randomUUID();
     private static final Object SOURCE = new Object();
     private static final long NOW = 1_800_000_000_000L;
-    private final TipScheduler scheduler = new TipScheduler(error -> fail(error));
+    private final TipScheduler scheduler = new TipScheduler(error -> fail(error), ignored -> TipAudience.MEMBER);
 
     @Test
-    void waitsForDetectionWindowAndMergesNearbyClientRecommendations() {
-        var version = definition("client-version", "client", 60, Duration.ofSeconds(10), Duration.ofSeconds(30));
-        var mods = definition("client-mods", "client", 30, Duration.ofSeconds(10), Duration.ofSeconds(30));
+    void readyAdviceDoesNotWaitForAFutureSourceInTheSameGroup() {
+        var version = definition("client-version", "client", 60);
+        var mods = definition("client-mods", "client", 30, Duration.ofMillis(500), Duration.ofSeconds(30));
         scheduler.offer(SOURCE, PLAYER, version, NOW,
                 language -> content("target-version"));
-        scheduler.offer(SOURCE, PLAYER, mods, NOW + 5,
+        scheduler.offer(SOURCE, PLAYER, mods, NOW,
                 language -> content("voice,map"));
 
-        assertTrue(collect(NOW + 9_999).isEmpty());
-        assertTrue(collect(NOW + 10_000).isEmpty(), "wait for the other source's slightly later deadline");
-        var batch = collect(NOW + 11_000);
-        assertEquals(List.of(version, mods), batch.stream().map(TipScheduler.Delivery::definition).toList());
-        assertTrue(collect(NOW + 12_000).isEmpty());
+        assertEquals(List.of(version), collect(NOW).stream().map(TipScheduler.Delivery::definition).toList());
+        assertEquals(List.of(mods), collect(NOW + 500).stream().map(TipScheduler.Delivery::definition).toList());
     }
 
     @Test
     void irrelevantHigherPriorityOfferCannotSplitAClientGroup() {
         scheduler.offer(SOURCE, PLAYER, definition("stale-home", "home", 90, Duration.ZERO, Duration.ofSeconds(30)), NOW,
                 language -> Optional.empty());
-        var version = definition("client-version", "client", 60, Duration.ofSeconds(10), Duration.ofSeconds(30));
-        var mods = definition("client-mods", "client", 30, Duration.ofSeconds(10), Duration.ofSeconds(30));
+        var version = definition("client-version", "client", 60);
+        var mods = definition("client-mods", "client", 30);
         scheduler.offer(SOURCE, PLAYER, version, NOW,
                 language -> content("target-version"));
         scheduler.offer(SOURCE, PLAYER, mods, NOW + 5,
                 language -> content("recommended-mods"));
 
-        assertTrue(collect(NOW + 10_000).isEmpty());
-        assertEquals(List.of(version, mods), collect(NOW + 11_000).stream()
+        assertEquals(List.of(version, mods), collect(NOW + 5).stream()
                 .map(TipScheduler.Delivery::definition).toList());
     }
 
@@ -67,7 +63,7 @@ class TipSchedulerTest {
     @Test
     void invalidSourceResultDoesNotPreventAnotherSourceFromDelivering() {
         List<RuntimeException> failures = new java.util.ArrayList<>();
-        TipScheduler isolated = new TipScheduler(failures::add);
+        TipScheduler isolated = new TipScheduler(failures::add, ignored -> TipAudience.MEMBER);
         isolated.offer(SOURCE, PLAYER, definition("invalid-source", "invalid", 90), NOW,
                 language -> null);
         var valid = definition("valid-source", "valid", 50);
@@ -81,7 +77,7 @@ class TipSchedulerTest {
     @Test
     void failedEvaluationAndLocalizationDoNotChooseTheGroupOrConsumeCooldown() {
         List<RuntimeException> failures = new java.util.ArrayList<>();
-        TipScheduler isolated = new TipScheduler(failures::add);
+        TipScheduler isolated = new TipScheduler(failures::add, ignored -> TipAudience.MEMBER);
         isolated.offer(SOURCE, PLAYER, definition("throws", "broken", 100), NOW,
                 language -> { throw new IllegalStateException("Failed to localize " + language); });
         isolated.offer(SOURCE, PLAYER, definition("null", "broken", 90), NOW,
@@ -181,7 +177,7 @@ class TipSchedulerTest {
     }
 
     @Test
-    void candidatesExpireWhilePlayerIsUnavailableAndNeverRunTheirCallbacks() {
+    void unavailablePlayersDiscardReadyAdviceWithoutWaitingToResume() {
         AtomicInteger evaluations = new AtomicInteger();
         var tip = definition("context", "context", 50);
         scheduler.offer(SOURCE, PLAYER, tip, NOW,
@@ -190,8 +186,7 @@ class TipSchedulerTest {
             return content("current");
         });
         assertTrue(scheduler.collect(PLAYER, NOW + 1000, 45_000, false, Language.EN_US).isEmpty());
-        assertTrue(scheduler.collect(PLAYER, NOW + 20_000, 45_000, false, Language.EN_US).isEmpty());
-        assertTrue(collect(NOW + 21_000).isEmpty());
+        assertTrue(collect(NOW + 1001).isEmpty());
         assertEquals(0, evaluations.get());
         assertTrue(scheduler.pendingPlayers().isEmpty());
     }
@@ -300,21 +295,21 @@ class TipSchedulerTest {
 
     @Test
     void adaptiveSamplingStartsCertainCountsMissesAndRecoversWithTime() {
-        TipScheduler adaptive = new TipScheduler(error -> fail(error), () -> 0.9);
+        TipScheduler adaptive = new TipScheduler(error -> fail(error), () -> 0.9, ignored -> TipAudience.MEMBER);
         var rule = definition("chat", "chat", 0);
         Function<Language, Optional<TipContent>> text = language -> content("chat");
-        adaptive.offer(SOURCE, PLAYER, rule, NOW, 1, true, 1, text);
+        adaptive.offer(SOURCE, PLAYER, rule, NOW, 1, true, 1, Duration.ZERO, text);
         var first = adaptive.collect(PLAYER, NOW, 45_000, true, Language.EN_US);
         assertEquals(1, first.size(), "the first eligible match has no probability penalty");
         adaptive.delivered(PLAYER, first, NOW);
-        adaptive.offer(SOURCE, PLAYER, rule, NOW + 60_000, 1, true, 10, text);
+        adaptive.offer(SOURCE, PLAYER, rule, NOW + 60_000, 1, true, 10, Duration.ZERO, text);
         assertTrue(adaptive.collect(PLAYER, NOW + 60_000, 45_000, true, Language.EN_US).isEmpty());
         var afterMiss = adaptive.snapshot(PLAYER).history().get("chat");
         assertTrue(afterMiss.pressure() > 10, "a missed dense burst must still contribute all matches");
         assertEquals(1, afterMiss.presentations(), "a miss must not advance reminder spacing");
 
         long later = NOW + Duration.ofHours(8).toMillis();
-        adaptive.offer(SOURCE, PLAYER, rule, later, 1, true, 1, text);
+        adaptive.offer(SOURCE, PLAYER, rule, later, 1, true, 1, Duration.ZERO, text);
         assertEquals(1, adaptive.collect(PLAYER, later, 45_000, true, Language.EN_US).size(),
                 "a fresh chat request recovers without waiting for the background reminder interval");
     }

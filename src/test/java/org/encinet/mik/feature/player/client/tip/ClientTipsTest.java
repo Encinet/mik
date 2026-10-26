@@ -55,6 +55,7 @@ class ClientTipsTest {
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
             new Class<?>[]{Player.class}, (proxy, method, args) -> {
                 if (method.getName().equals("getUniqueId")) return id;
+                if (method.getName().equals("hasPermission")) return true;
                 throw new AssertionError(method.getName());
             });
 
@@ -74,7 +75,7 @@ class ClientTipsTest {
         mods.set(Optional.of(Set.of(ClientMod.AXIOM, ClientMod.PLASMO_VOICE)));
         tips.join(player);
         assertEquals(0, queries.get(), "detection remains independent and is read at delivery");
-        var batch = tips.collect(player, 10_000, Language.FR_FR);
+        var batch = tips.collect(player, 0, Language.FR_FR);
         assertEquals(2, batch.size());
         String text = plain(batch.getFirst());
         assertTrue(text.contains("fr_fr:"));
@@ -114,7 +115,18 @@ class ClientTipsTest {
     @Test
     void unknownDetectionProducesNoAdvice() {
         tips.join(player);
-        assertTrue(tips.collect(player, 10_000).isEmpty());
+        assertTrue(tips.collect(player, 0).isEmpty());
+    }
+
+    @Test
+    void knownVersionAdviceDoesNotWaitForUnknownModDetection() {
+        version.set(Optional.of(new ClientVersions.Version("older", "current", true)));
+        tips.join(player);
+
+        var batch = tips.collect(player, 0);
+        assertEquals(1, batch.size());
+        assertTrue(plain(batch.getFirst()).contains("older"));
+        assertTrue(links(batch.getFirst()).isEmpty());
     }
 
     @Test

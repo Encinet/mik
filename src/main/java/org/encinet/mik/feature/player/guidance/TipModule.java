@@ -33,6 +33,7 @@ public final class TipModule implements Listener {
     private final Predicate<Player> available;
     private final TipScheduler scheduler;
     private final TipEvents events;
+    private final TipDeliveryQueue deliveries;
     private final TipStore store;
     private BukkitTask task;
     private boolean running;
@@ -41,17 +42,23 @@ public final class TipModule implements Listener {
         this.plugin = plugin;
         this.language = language;
         this.available = available;
-        this.scheduler = new TipScheduler(error -> plugin.getLogger().log(Level.WARNING, "Tip source failed", error));
+        this.scheduler = new TipScheduler(error -> plugin.getLogger().log(Level.WARNING, "Tip source failed", error),
+                id -> {
+                    Player player = Bukkit.getPlayer(id);
+                    return player == null ? TipAudience.MEMBER : TipAudience.forPlayer(player);
+                });
         this.events = new TipEvents((type, handler) -> {
             Listener listener = new Listener() {};
             Bukkit.getPluginManager().registerEvent(type, listener, EventPriority.MONITOR,
                     (ignored, event) -> handler.accept(event), plugin, true);
             return () -> HandlerList.unregisterAll(listener);
-        }, action -> {
-            BukkitTask dispatch = Bukkit.getScheduler().runTask(plugin, action);
-            return dispatch::cancel;
-        }, player -> player.isOnline() && Bukkit.getPlayer(player.getUniqueId()) == player,
+        }, this::scheduleOnMain, player -> player.isOnline() && Bukkit.getPlayer(player.getUniqueId()) == player,
                 error -> plugin.getLogger().log(Level.WARNING, "Tip trigger failed", error));
+        this.deliveries = new TipDeliveryQueue(this::scheduleOnMain, player -> {
+            if (!running || !player.isOnline() || Bukkit.getPlayer(player.getUniqueId()) != player) return;
+            load(player);
+            deliver(player, System.currentTimeMillis(), false);
+        }, error -> plugin.getLogger().log(Level.WARNING, "Tip delivery failed", error));
         this.store = new TipStore(new NamespacedKey(plugin, "tip_history"));
     }
 
@@ -66,6 +73,7 @@ public final class TipModule implements Listener {
         running = false;
         HandlerList.unregisterAll(this);
         events.close();
+        deliveries.close();
         if (task != null) task.cancel();
         RuntimeException failure = null;
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -90,6 +98,7 @@ public final class TipModule implements Listener {
         try { save(player); }
         finally {
             events.forget(player);
+            deliveries.forget(player);
             scheduler.forget(player.getUniqueId());
         }
     }
@@ -111,22 +120,32 @@ public final class TipModule implements Listener {
         for (Player player : List.copyOf(Bukkit.getOnlinePlayers())) {
             if (!player.isOnline()) continue;
             load(player);
-            UUID id = player.getUniqueId();
-            Language recipientLanguage = language.language(player);
-            var batch = scheduler.collect(id, now, GLOBAL_COOLDOWN_MILLIS,
-                    !player.isDead() && available.test(player), recipientLanguage);
-            if (!batch.isEmpty()) {
-                Component message = Component.text(language.t(recipientLanguage, Message.TIP_LABEL), NamedTextColor.AQUA)
-                        .append(Component.text(" | ", NamedTextColor.WHITE));
-                for (int i = 0; i < batch.size(); i++) {
-                    if (i > 0) message = message.append(Component.newline());
-                    message = message.append(batch.get(i).message());
-                }
-                player.sendMessage(message);
-                scheduler.delivered(id, batch, now);
-            }
+            if (!deliveries.pending(player)) deliver(player, now, true);
             save(player);
         }
+    }
+
+    private void deliver(Player player, long now, boolean includeAmbient) {
+        UUID id = player.getUniqueId();
+        Language recipientLanguage = language.language(player);
+        boolean canDisplay = !player.isDead() && available.test(player);
+        var batch = includeAmbient
+                ? scheduler.collect(id, now, GLOBAL_COOLDOWN_MILLIS, canDisplay, recipientLanguage)
+                : scheduler.collectPending(id, now, GLOBAL_COOLDOWN_MILLIS, canDisplay, recipientLanguage);
+        if (batch.isEmpty()) return;
+        Component message = Component.text(language.t(recipientLanguage, Message.TIP_LABEL), NamedTextColor.AQUA)
+                .append(Component.text(" | ", NamedTextColor.WHITE));
+        for (int i = 0; i < batch.size(); i++) {
+            if (i > 0) message = message.append(Component.newline());
+            message = message.append(batch.get(i).message());
+        }
+        player.sendMessage(message);
+        scheduler.delivered(id, batch, now);
+    }
+
+    private Runnable scheduleOnMain(Runnable action) {
+        BukkitTask scheduled = Bukkit.getScheduler().runTask(plugin, action);
+        return scheduled::cancel;
     }
 
     private final class Scope implements TipScope, Tip.Binding {
@@ -158,19 +177,21 @@ public final class TipModule implements Listener {
         }
 
         @Override
-        public <C> void offer(Tip<C> tip, Player player, C context, double chance, boolean adaptive, int occurrences) {
+        public <C> void offer(Tip<C> tip, Player player, C context, double chance, boolean adaptive, int occurrences,
+                              Duration delay) {
             requireMainThread();
             if (closed || !running) return;
             if (adaptive && !tip.applicable(player, context)) return;
             load(player);
             UUID id = player.getUniqueId();
             int entityId = player.getEntityId();
-            scheduler.offer(this, id, tip.policy(), System.currentTimeMillis(), chance, adaptive, occurrences,
+            boolean accepted = scheduler.offer(this, id, tip.policy(), System.currentTimeMillis(), chance, adaptive, occurrences, delay,
                     recipientLanguage -> {
                         Player current = Bukkit.getPlayer(id);
                         return current != null && current.isOnline() && current.getEntityId() == entityId
                                 ? tip.resolve(current, context, recipientLanguage) : Optional.empty();
                     });
+            if (accepted) deliveries.request(player);
         }
 
         @Override

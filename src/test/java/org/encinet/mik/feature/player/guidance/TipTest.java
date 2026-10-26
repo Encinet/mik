@@ -3,6 +3,7 @@ package org.encinet.mik.feature.player.guidance;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.Message;
 import org.junit.jupiter.api.Test;
@@ -14,10 +15,66 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class TipTest {
+    @Test
+    void chatKeywordsAreReadyImmediatelyEvenWhenTheScenarioExplicitlyRequestsADelay() {
+        try (TipTestScope tips = new TipTestScope()) {
+            Tip<?> tip = tips.define("mixed", Message.HOME_TIP_CREATE_MM)
+                    .delay(Duration.ofSeconds(2))
+                    .on(TipTriggers.chatMentions(Pattern.compile("home"))
+                            .verify(event -> !event.isCancelled()).chance(1).adaptiveChance())
+                    .on(TipTrigger.event(PlayerJoinEvent.class))
+                    .build();
+            Player chatting = player();
+            Player joining = player();
+            Player manual = player();
+            tips.chat(chatting, "how do I set a home?");
+            tips.join(joining);
+            tip.offer(manual);
+
+            assertEquals("home-tip-create-mm", plain(tips.collect(chatting, 0).getFirst()));
+            assertTrue(tips.collect(joining, 1999).isEmpty());
+            assertTrue(tips.collect(manual, 1999).isEmpty());
+            assertEquals(1, tips.collect(joining, 2000).size());
+            assertEquals(1, tips.collect(manual, 2000).size());
+        }
+    }
+
+    @Test
+    void chatKeywordAdvancesAnAlreadyWaitingCandidate() {
+        try (TipTestScope tips = new TipTestScope()) {
+            Tip<?> tip = tips.define("mixed", Message.HOME_TIP_CREATE_MM)
+                    .delay(Duration.ofSeconds(2))
+                    .on(TipTriggers.chatMentions(Pattern.compile("home")))
+                    .build();
+            Player player = player();
+            tip.offer(player);
+            assertTrue(tips.collect(player, 500).isEmpty());
+
+            tips.chat(player, "home");
+            assertEquals("home-tip-create-mm", plain(tips.collect(player, 500).getFirst()));
+        }
+    }
+
+    @Test
+    void eventAndManualOffersAreReadyWithoutAnyDefaultWait() {
+        try (TipTestScope tips = new TipTestScope()) {
+            Tip<?> tip = tips.define("immediate", Message.HOME_TIP_CREATE_MM)
+                    .on(TipTrigger.event(PlayerJoinEvent.class)).build();
+            Player joining = player();
+            Player manual = player();
+            tips.join(joining);
+            tip.offer(manual);
+
+            assertEquals(1, tips.collect(joining, 0).size());
+            assertEquals(1, tips.collect(manual, 0).size());
+        }
+    }
+
     @Test
     void ambientDefinitionsNeedNoEventAndManualDefinitionsRemainManual() {
         try (TipTestScope tips = new TipTestScope()) {
@@ -49,15 +106,15 @@ class TipTest {
         homes.offer(first, "west-home");
         homes.offer(second, "east-home");
 
-        assertTrue(binding.collect(first, 1000).isEmpty());
-        assertEquals("west-home", plain(binding.collect(first, 2000).getFirst()));
-        assertEquals("east-home", plain(binding.collect(second, 2000).getFirst()));
+        assertEquals("west-home", plain(binding.collect(first, 0).getFirst()));
+        assertEquals("east-home", plain(binding.collect(second, 0).getFirst()));
     }
 
     @Test
     void resolverReceivesDeliveryLanguageTogetherWithTheOriginalContext() {
         TipTestScope binding = new TipTestScope();
         Tip<String> scene = binding.<String>define("localized")
+                .delay(Duration.ofSeconds(2))
                 .resolve((player, name, language) -> Optional.of(
                         new TipContent("v1", Component.text(language.id() + ":" + name))))
                 .build();
@@ -93,6 +150,10 @@ class TipTest {
         assertThrows(IllegalArgumentException.class, () -> binding.<Void>define("controls")
                 .delay(Duration.ofSeconds(20)).lifetime(Duration.ofSeconds(20))
                 .resolve((player, ignored, language) -> Optional.empty()).build());
+        assertThrows(IllegalArgumentException.class, () -> binding.define("controls", Message.HOME_TIP_CREATE_MM)
+                .on(TipTriggers.chatMentions(Pattern.compile("home")).delay(Duration.ofSeconds(20))).build());
+        assertThrows(IllegalArgumentException.class, () ->
+                TipTriggers.chatMentions(Pattern.compile("home")).delay(Duration.ofSeconds(-1)));
         assertThrows(NullPointerException.class, () -> binding.<Void>define("controls").build());
         assertDoesNotThrow(() -> binding.<Void>define("controls")
                 .resolve((player, ignored, language) -> Optional.empty()).build());
@@ -108,6 +169,7 @@ class TipTest {
             return roll.get();
         });
         Tip<String> scene = scope.<String>define("random-context")
+                .delay(Duration.ofSeconds(2))
                 .resolve((player, context, language) -> {
                     evaluations.incrementAndGet();
                     return Optional.of(new TipContent("v1", Component.text(context)));
@@ -167,6 +229,7 @@ class TipTest {
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
                 (proxy, method, args) -> {
                     if (method.getName().equals("getUniqueId")) return id;
+                    if (method.getName().equals("hasPermission")) return true;
                     throw new UnsupportedOperationException(method.getName());
                 });
     }

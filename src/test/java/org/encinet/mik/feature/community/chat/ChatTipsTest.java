@@ -73,6 +73,7 @@ class ChatTipsTest {
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
                 (proxy, method, args) -> switch (method.getName()) {
                     case "getUniqueId" -> id;
+                    case "hasPermission" -> true;
                     case "getPersistentDataContainer" -> data;
                     default -> throw new UnsupportedOperationException(method.getName());
                 });

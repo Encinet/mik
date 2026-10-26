@@ -34,6 +34,7 @@ class HomeModuleTest {
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
             new Class<?>[]{Player.class}, (proxy, method, args) -> {
                 if (method.getName().equals("getUniqueId")) return id;
+                if (method.getName().equals("hasPermission")) return true;
                 if (method.getName().equals("getLocation")) return position.get().clone();
                 throw new AssertionError(method.getName());
             });

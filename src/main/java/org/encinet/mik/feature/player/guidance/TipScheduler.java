@@ -32,18 +32,20 @@ final class TipScheduler {
     private final Map<UUID, Map<String, Pending>> pending = new HashMap<>();
     private final Map<String, Object> registrations = new HashMap<>();
     private final Map<String, Ambient> ambient = new LinkedHashMap<>();
-    private final Map<UUID, Long> nextAmbientAt = new HashMap<>();
+    private final Map<UUID, AmbientWait> ambientWaits = new HashMap<>();
     private final Consumer<RuntimeException> errors;
     private final DoubleSupplier random;
+    private final Function<UUID, TipAudience> audience;
     private long sequence;
 
-    TipScheduler(Consumer<RuntimeException> errors) {
-        this(errors, () -> ThreadLocalRandom.current().nextDouble());
+    TipScheduler(Consumer<RuntimeException> errors, Function<UUID, TipAudience> audience) {
+        this(errors, () -> ThreadLocalRandom.current().nextDouble(), audience);
     }
 
-    TipScheduler(Consumer<RuntimeException> errors, DoubleSupplier random) {
+    TipScheduler(Consumer<RuntimeException> errors, DoubleSupplier random, Function<UUID, TipAudience> audience) {
         this.errors = errors;
         this.random = Objects.requireNonNull(random, "random");
+        this.audience = Objects.requireNonNull(audience, "audience");
     }
 
     void register(Object owner, Tip.Policy definition) {
@@ -78,11 +80,11 @@ final class TipScheduler {
 
     void offer(Object owner, UUID player, Tip.Policy definition, long now, double chance,
                Function<Language, Optional<TipContent>> content) {
-        offer(owner, player, definition, now, chance, false, 1, content);
+        offer(owner, player, definition, now, chance, false, 1, definition.delay(), content);
     }
 
-    void offer(Object owner, UUID player, Tip.Policy definition, long now, double chance,
-               boolean adaptive, int occurrences, Function<Language, Optional<TipContent>> content) {
+    boolean offer(Object owner, UUID player, Tip.Policy definition, long now, double chance,
+               boolean adaptive, int occurrences, Duration delay, Function<Language, Optional<TipContent>> content) {
         if (adaptive && chance > 0) {
             TipState state = states.computeIfAbsent(player, ignored -> new TipState());
             TipState.Entry history = state.history.getOrDefault(definition.id(), TipState.Entry.empty());
@@ -90,22 +92,24 @@ final class TipScheduler {
             state.history.put(definition.id(), history.matched(now, occurrences));
             dirty.add(player);
         }
-        if (chance == 0 || chance < 1 && random.getAsDouble() >= chance) return;
+        chance = audience.apply(player).chance(chance);
+        if (chance == 0 || chance < 1 && random.getAsDouble() >= chance) return false;
         Map<String, Pending> offers = pending.computeIfAbsent(player, ignored -> new LinkedHashMap<>());
         offers.values().removeIf(it -> now >= it.expiresAt);
         Pending previous = offers.get(definition.id());
         if (previous != null && previous.owner != owner) {
             throw new IllegalArgumentException("Tip id owned by another publisher: " + definition.id());
         }
-        // Repeated observations refresh the predicate without postponing delivery or extending expiry.
+        // A faster source can advance delivery; repeats never postpone it or extend expiry.
         offers.put(definition.id(), new Pending(owner, definition,
-                previous == null ? now + definition.delay().toMillis() : previous.readyAt,
+                previous == null ? now + delay.toMillis() : Math.min(previous.readyAt, now + delay.toMillis()),
                 previous == null ? now + definition.lifetime().toMillis() : previous.expiresAt,
                 previous == null ? sequence++ : previous.sequence, adaptive, content));
         if (offers.size() > MAX_PENDING) {
             Pending discarded = offers.values().stream().max(ORDER).orElseThrow();
             offers.remove(discarded.definition.id());
         }
+        return offers.containsKey(definition.id());
     }
 
     List<Delivery> collect(UUID player, long now, long globalCooldown, boolean available, Language language) {
@@ -113,14 +117,18 @@ final class TipScheduler {
         return batch.isEmpty() ? collectAmbient(player, now, globalCooldown, available, language) : batch;
     }
 
-    private List<Delivery> collectPending(UUID player, long now, long globalCooldown,
+    List<Delivery> collectPending(UUID player, long now, long globalCooldown,
                                           boolean available, Language language) {
         Map<String, Pending> offers = pending.get(player);
         if (offers == null) return List.of();
         offers.values().removeIf(it -> now >= it.expiresAt);
         List<Pending> ready = offers.values().stream().filter(it -> now >= it.readyAt).sorted(ORDER).toList();
         if (offers.isEmpty()) pending.remove(player);
-        if (!available || ready.isEmpty()) return List.of();
+        if (ready.isEmpty()) return List.of();
+        if (!available) {
+            discardReady(player, offers, ready);
+            return List.of();
+        }
 
         TipState state = states.get(player);
         if (state != null && recent(state.lastSentAt, now, globalCooldown)) {
@@ -143,10 +151,6 @@ final class TipScheduler {
             return List.of();
         }
         String group = candidates.getFirst().offer.definition.group();
-        // Pick the group from valid candidates before waiting for its slightly later join sources.
-        if (offers.values().stream().anyMatch(it -> it.definition.group().equals(group)
-                && it.readyAt > now && it.readyAt - now <= 1000)) return List.of();
-
         discardReady(player, offers, ready);
         return candidates.stream().filter(it -> it.offer.definition.group().equals(group)).limit(MAX_BATCH)
                 .map(Evaluated::delivery).toList();
@@ -155,13 +159,13 @@ final class TipScheduler {
     private List<Delivery> collectAmbient(UUID player, long now, long globalCooldown,
                                          boolean available, Language language) {
         if (ambient.isEmpty()) return List.of();
-        Long due = nextAmbientAt.get(player);
+        AmbientWait wait = ambientWaits.get(player);
         // Start each connection with a quiet interval; reset it if the wall clock moves backwards.
-        if (due == null || due > now && due - now > AMBIENT_MAX_INTERVAL) {
+        if (wait == null || now < wait.startedAt) {
             scheduleAmbient(player, now);
             return List.of();
         }
-        if (now < due) return List.of();
+        if (now - wait.startedAt < audience.apply(player).ambientDelay(wait.intervalMillis)) return List.of();
         // An unavailable opportunity is skipped, never queued for a burst on return from AFK.
         scheduleAmbient(player, now);
         TipState state = states.get(player);
@@ -185,8 +189,8 @@ final class TipScheduler {
     }
 
     private void scheduleAmbient(UUID player, long now) {
-        nextAmbientAt.put(player, now + AMBIENT_MIN_INTERVAL
-                + (long) (random.getAsDouble() * (AMBIENT_MAX_INTERVAL - AMBIENT_MIN_INTERVAL)));
+        ambientWaits.put(player, new AmbientWait(now, AMBIENT_MIN_INTERVAL
+                + (long) (random.getAsDouble() * (AMBIENT_MAX_INTERVAL - AMBIENT_MIN_INTERVAL))));
     }
 
     private Optional<Delivery> resolve(UUID player, Tip.Policy definition, long now, Language language,
@@ -237,12 +241,12 @@ final class TipScheduler {
         pending.values().removeIf(Map::isEmpty);
         registrations.values().removeIf(registered -> registered == owner);
         ambient.values().removeIf(it -> it.owner == owner);
-        if (ambient.isEmpty()) nextAmbientAt.clear();
+        if (ambient.isEmpty()) ambientWaits.clear();
     }
 
     void forget(UUID player) {
         pending.remove(player);
-        nextAmbientAt.remove(player);
+        ambientWaits.remove(player);
         states.remove(player);
         dirty.remove(player);
     }
@@ -251,7 +255,7 @@ final class TipScheduler {
         pending.clear();
         registrations.clear();
         ambient.clear();
-        nextAmbientAt.clear();
+        ambientWaits.clear();
         states.clear();
         dirty.clear();
     }
@@ -271,4 +275,5 @@ final class TipScheduler {
                            long sequence, boolean adaptive, Function<Language, Optional<TipContent>> content) {}
     private record Ambient(Object owner, Tip.Policy definition,
                            BiFunction<UUID, Language, Optional<TipContent>> content) {}
+    private record AmbientWait(long startedAt, long intervalMillis) {}
 }

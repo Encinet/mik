@@ -35,6 +35,7 @@ public final class Tip<C> {
         condition = builder.condition;
         action = builder.action;
         triggers = List.copyOf(builder.triggers);
+        triggers.forEach(source -> checkTiming(source.trigger().delayOr(policy.delay()), policy.lifetime()));
         ambient = builder.ambient;
     }
 
@@ -50,13 +51,14 @@ public final class Tip<C> {
     /** The chance belongs to this trigger; relevance, expiry and interval still apply after selection. */
     public void offerRandomly(Player player, C context, double chance) {
         checkChance(chance);
-        binding.offer(this, Objects.requireNonNull(player, "player"), context, chance, false, 1);
+        binding.offer(this, Objects.requireNonNull(player, "player"), context, chance, false, 1, policy.delay());
     }
 
     public void offerRandomly(Player player, double chance) { offerRandomly(player, null, chance); }
 
     void observe(Player player, C context, TipTrigger<?> trigger, int occurrences) {
-        binding.offer(this, player, context, trigger.chance(), trigger.adaptive(), occurrences);
+        binding.offer(this, player, context, trigger.chance(), trigger.adaptive(), occurrences,
+                trigger.delayOr(policy.delay()));
     }
 
     public void cancel(UUID playerId) {
@@ -86,7 +88,7 @@ public final class Tip<C> {
         private String group;
         private int priority;
         private Duration interval = Duration.ofDays(1);
-        private Duration delay = Duration.ofSeconds(2);
+        private Duration delay = Duration.ZERO;
         private Duration lifetime = Duration.ofSeconds(20);
         private Resolver<C> resolver;
         private BiPredicate<Player, C> condition = (player, context) -> true;
@@ -154,7 +156,8 @@ public final class Tip<C> {
     interface Binding {
         void register(Tip<?> tip);
         Component text(Language language, Message message);
-        <C> void offer(Tip<C> tip, Player player, C context, double chance, boolean adaptive, int occurrences);
+        <C> void offer(Tip<C> tip, Player player, C context, double chance, boolean adaptive, int occurrences,
+                       Duration delay);
         void cancel(Policy policy, UUID playerId);
     }
 

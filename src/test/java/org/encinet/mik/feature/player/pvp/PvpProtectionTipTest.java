@@ -101,21 +101,20 @@ class PvpProtectionTipTest {
     }
 
     @Test
-    void repeatedAttacksShareTheCentralDailyCooldownWithoutLearningState() {
+    void repeatedAttacksDeliverImmediatelyAndStillShareTheCentralDailyCooldown() {
         try (Fixture fixture = new Fixture()) {
             fixture.attack();
             fixture.attack();
-            assertTrue(fixture.tips.collect(fixture.attacker.player, 1999).isEmpty());
-            assertEquals(1, fixture.tips.deliver(fixture.attacker.player, 2000).size());
+            assertEquals(1, fixture.tips.deliver(fixture.attacker.player, 0).size());
 
             fixture.tips.collect(fixture.attacker.player, 60_000);
             fixture.attack();
-            assertTrue(fixture.tips.deliver(fixture.attacker.player, 62_000).isEmpty());
+            assertTrue(fixture.tips.deliver(fixture.attacker.player, 60_000).isEmpty());
 
-            long later = Duration.ofDays(1).toMillis() + 2000;
+            long later = Duration.ofDays(1).toMillis();
             fixture.tips.collect(fixture.attacker.player, later);
             fixture.attack();
-            assertEquals(1, fixture.tips.deliver(fixture.attacker.player, later + 2000).size());
+            assertEquals(1, fixture.tips.deliver(fixture.attacker.player, later).size());
         }
     }
 
@@ -222,6 +221,7 @@ class PvpProtectionTipTest {
         final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
                 new Class<?>[]{Player.class}, (proxy, method, args) -> switch (method.getName()) {
                     case "getUniqueId" -> id;
+                    case "hasPermission" -> true;
                     case "getGameMode" -> mode;
                     case "isOnline" -> online;
                     case "sendActionBar" -> null;

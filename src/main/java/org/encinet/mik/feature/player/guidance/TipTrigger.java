@@ -4,6 +4,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.player.PlayerEvent;
 
+import java.time.Duration;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -16,15 +17,17 @@ public final class TipTrigger<E extends Event> {
     private final Predicate<E> verification;
     private final double chance;
     private final boolean adaptive;
+    private final Duration delay;
 
     private TipTrigger(Class<E> eventType, Function<? super E, ? extends Player> recipient,
-                       Predicate<E> filter, Predicate<E> verification, double chance, boolean adaptive) {
+                       Predicate<E> filter, Predicate<E> verification, double chance, boolean adaptive, Duration delay) {
         this.eventType = eventType;
         this.recipient = recipient;
         this.filter = filter;
         this.verification = verification;
         this.chance = chance;
         this.adaptive = adaptive;
+        this.delay = delay;
     }
 
     public static <E extends PlayerEvent> TipTrigger<E> event(Class<E> type) {
@@ -35,29 +38,36 @@ public final class TipTrigger<E extends Event> {
     public static <E extends Event> TipTrigger<E> event(Class<E> type,
                                                        Function<? super E, ? extends Player> recipient) {
         return new TipTrigger<>(Objects.requireNonNull(type, "eventType"),
-                Objects.requireNonNull(recipient, "recipient"), event -> true, event -> true, 1, false);
+                Objects.requireNonNull(recipient, "recipient"), event -> true, event -> true, 1, false, null);
     }
 
     /** Runs on the event thread. For async events, inspect event data rather than live Bukkit state. */
     public TipTrigger<E> filter(Predicate<? super E> predicate) {
         Objects.requireNonNull(predicate, "filter");
-        return new TipTrigger<>(eventType, recipient, filter.and(predicate), verification, chance, adaptive);
+        return new TipTrigger<>(eventType, recipient, filter.and(predicate), verification, chance, adaptive, delay);
     }
 
     /** Runs on the next main-thread dispatch, e.g. to confirm the player actually reached a teleport target. */
     public TipTrigger<E> verify(Predicate<? super E> predicate) {
         Objects.requireNonNull(predicate, "verification");
-        return new TipTrigger<>(eventType, recipient, filter, verification.and(predicate), chance, adaptive);
+        return new TipTrigger<>(eventType, recipient, filter, verification.and(predicate), chance, adaptive, delay);
     }
 
     public TipTrigger<E> chance(double value) {
         Tip.checkChance(value);
-        return new TipTrigger<>(eventType, recipient, filter, verification, value, adaptive);
+        return new TipTrigger<>(eventType, recipient, filter, verification, value, adaptive, delay);
     }
 
     /** Reduce repeated opportunities using their recent density and the last actual display time. */
     public TipTrigger<E> adaptiveChance() {
-        return new TipTrigger<>(eventType, recipient, filter, verification, chance, true);
+        return new TipTrigger<>(eventType, recipient, filter, verification, chance, true, delay);
+    }
+
+    /** Override the scenario's delay for this source; other sources keep their own timing. */
+    public TipTrigger<E> delay(Duration value) {
+        Objects.requireNonNull(value, "delay");
+        if (value.isNegative()) throw new IllegalArgumentException("Trigger delay must not be negative");
+        return new TipTrigger<>(eventType, recipient, filter, verification, chance, adaptive, value);
     }
 
     Class<E> eventType() { return eventType; }
@@ -66,4 +76,5 @@ public final class TipTrigger<E extends Event> {
     boolean verify(E event) { return verification.test(event); }
     double chance() { return chance; }
     boolean adaptive() { return adaptive; }
+    Duration delayOr(Duration fallback) { return delay == null ? fallback : delay; }
 }

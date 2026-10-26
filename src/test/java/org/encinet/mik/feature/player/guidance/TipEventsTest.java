@@ -360,6 +360,7 @@ class TipEventsTest {
                     assertSame(mainThread, Thread.currentThread(), "Bukkit player state must stay on the main thread");
                     return switch (method.getName()) {
                         case "getUniqueId" -> id;
+                        case "hasPermission" -> true;
                         case "getLocation" -> position.get().clone();
                         default -> throw new AssertionError(method.getName());
                     };

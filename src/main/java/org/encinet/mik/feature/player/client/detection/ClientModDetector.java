@@ -15,10 +15,10 @@ import org.encinet.mik.feature.player.client.ClientMod;
 import org.encinet.mik.feature.player.client.ClientMods;
 
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -27,10 +27,8 @@ public final class ClientModDetector implements ClientMods {
     private final EventManager eventManager;
     private final Function<Player, User> connection;
     private final Predicate<Player> voiceClientPresent;
-    // User identity preserves configuration-stage signals without leaking them into a reconnect.
-    private final Map<User, Set<ClientMod>> detected = new HashMap<>();
     private final PacketListener packetListener = new PacketListener();
-    private volatile boolean running;
+    private volatile Observations observations;
 
     public ClientModDetector(Predicate<Player> voiceClientPresent) {
         this(PacketEvents.getAPI().getEventManager(),
@@ -45,42 +43,51 @@ public final class ClientModDetector implements ClientMods {
     }
 
     public void enable() {
-        if (running) return;
-        running = true;
+        if (observations != null) return;
+        observations = new Observations();
         eventManager.registerListener(packetListener);
     }
 
     public void disable() {
-        synchronized (detected) {
-            running = false;
-            detected.clear();
+        Observations previous = observations;
+        observations = null;
+        if (previous != null) {
+            synchronized (previous) { previous.connections.clear(); }
         }
         eventManager.unregisterListener(packetListener);
     }
 
     @Override
     public Optional<Set<ClientMod>> detected(Player player) {
-        if (!running) return Optional.empty();
+        Observations currentObservations = observations;
+        if (currentObservations == null) return Optional.empty();
         User current = connection.apply(player);
         if (current == null) return Optional.empty();
         Set<ClientMod> present = EnumSet.noneOf(ClientMod.class);
-        synchronized (detected) {
-            if (!running) return Optional.empty();
-            present.addAll(detected.getOrDefault(current, Set.of()));
-        }
         for (String channel : player.getListeningPluginChannels()) {
             ClientModSignals.fromChannel(channel).ifPresent(present::add);
         }
         if (voiceClientPresent.test(player)) present.add(ClientMod.PLASMO_VOICE);
-        return Optional.of(Set.copyOf(present));
+        synchronized (currentObservations) {
+            if (observations != currentObservations) return Optional.empty();
+            Evidence evidence = currentObservations.connections.computeIfAbsent(current, ignored -> new Evidence());
+            if (evidence.closed) return Optional.empty();
+            return Optional.of(evidence.merge(present));
+        }
     }
 
     void observe(User user, String channel, byte[] data) {
-        if (!running) return;
+        observe(observations, user, channel, data);
+    }
+
+    private void observe(Observations currentObservations, User user, String channel, byte[] data) {
+        if (currentObservations == null || observations != currentObservations) return;
         Set<ClientMod> signals = ClientModSignals.fromPayload(channel, data);
         if (signals.isEmpty()) return;
-        synchronized (detected) {
-            if (running) detected.computeIfAbsent(user, ignored -> EnumSet.noneOf(ClientMod.class)).addAll(signals);
+        synchronized (currentObservations) {
+            if (observations != currentObservations) return;
+            Evidence evidence = currentObservations.connections.computeIfAbsent(user, ignored -> new Evidence());
+            if (!evidence.closed) evidence.merge(signals);
         }
     }
 
@@ -89,19 +96,47 @@ public final class ClientModDetector implements ClientMods {
 
         @Override
         public void onPacketReceive(PacketReceiveEvent event) {
-            if (!running || event.isCancelled()) return;
+            Observations currentObservations = observations;
+            if (currentObservations == null || event.isCancelled()) return;
             if (event.getPacketType() == PacketType.Configuration.Client.PLUGIN_MESSAGE) {
                 var packet = new WrapperConfigClientPluginMessage(event);
-                observe(event.getUser(), packet.getChannelName(), packet.getData());
+                observe(currentObservations, event.getUser(), packet.getChannelName(), packet.getData());
             } else if (event.getPacketType() == PacketType.Play.Client.PLUGIN_MESSAGE) {
                 var packet = new WrapperPlayClientPluginMessage(event);
-                observe(event.getUser(), packet.getChannelName(), packet.getData());
+                observe(currentObservations, event.getUser(), packet.getChannelName(), packet.getData());
             }
         }
 
         @Override
         public void onUserDisconnect(UserDisconnectEvent event) {
-            synchronized (detected) { detected.remove(event.getUser()); }
+            Observations currentObservations = observations;
+            if (currentObservations == null) return;
+            synchronized (currentObservations) {
+                if (observations != currentObservations) return;
+                currentObservations.connections.computeIfAbsent(event.getUser(), ignored -> new Evidence()).close();
+            }
+        }
+    }
+
+    private static final class Observations {
+        // Weak keys keep disconnect tombstones available for late packets without retaining old users.
+        private final Map<User, Evidence> connections = new WeakHashMap<>();
+    }
+
+    private static final class Evidence {
+        private final Set<ClientMod> mods = EnumSet.noneOf(ClientMod.class);
+        private Set<ClientMod> snapshot = Set.of();
+        private boolean closed;
+
+        private Set<ClientMod> merge(Set<ClientMod> signals) {
+            if (mods.addAll(signals)) snapshot = Set.copyOf(mods);
+            return snapshot;
+        }
+
+        private void close() {
+            closed = true;
+            mods.clear();
+            snapshot = Set.of();
         }
     }
 }

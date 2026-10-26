@@ -36,6 +36,7 @@ class BackModuleTest {
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
             new Class<?>[]{Player.class}, (proxy, method, args) -> switch (method.getName()) {
                 case "getUniqueId" -> id;
+                case "hasPermission" -> true;
                 case "getLocation" -> position.get().clone();
                 default -> throw new AssertionError(method.getName());
             });
