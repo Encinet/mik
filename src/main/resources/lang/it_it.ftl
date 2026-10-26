@@ -269,6 +269,7 @@ home-world-nether = · Nether
 reback-command-description = Annulla l'ultimo /back
 teleport-accept-command-description = Accetta la richiesta di teletrasporto in sospeso
 teleport-allow = Teletrasporti da altri giocatori
+teleport-bare-entity-selector = Per evitare teletrasporti accidentali, @e richiede parentesi quadre. Usa un selettore esplicito come @e[type=…].
 teleport-block-afk = Blocca mentre AFK
 teleport-denied = { $player } attualmente rifiuta i teletrasporti da altri giocatori
 teleport-deny-command-description = Rifiuta la richiesta di teletrasporto in sospeso

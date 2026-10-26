@@ -278,6 +278,7 @@ home-world-nether = · Nether
 reback-command-description = Undo the last /back
 teleport-accept-command-description = Accept the pending teleport request
 teleport-allow = Teleports by other players
+teleport-bare-entity-selector = To prevent accidental teleports, @e requires brackets. Use an explicit selector such as @e[type=…].
 teleport-block-afk = Block while AFK
 teleport-denied = { $player } currently rejects teleports by other players
 teleport-deny-command-description = Deny the pending teleport request

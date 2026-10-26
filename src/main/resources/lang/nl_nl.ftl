@@ -278,6 +278,7 @@ home-world-nether = · Nether
 reback-command-description = Maak de laatste /back ongedaan
 teleport-accept-command-description = Het openstaande teleportatieverzoek accepteren
 teleport-allow = Teleportaties door andere spelers
+teleport-bare-entity-selector = Om onbedoelde teleportaties te voorkomen, vereist @e vierkante haken. Gebruik een expliciete selector zoals @e[type=…].
 teleport-block-afk = Blokkeren tijdens AFK
 teleport-denied = { $player } weigert momenteel teleportaties door andere spelers
 teleport-deny-command-description = Het openstaande teleportatieverzoek weigeren

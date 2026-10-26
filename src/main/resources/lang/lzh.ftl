@@ -239,6 +239,7 @@ home-world-nether = · 焱界
 reback-command-description = 反前次 /back
 teleport-accept-command-description = 許待決之移形請求
 teleport-allow = 受他人移形
+teleport-bare-entity-selector = 恐誤移，@e 須加方括號。請明書如 @e[type=…]。
 teleport-block-afk = 暫離則拒之
 teleport-denied = { $player } 今不納他人移形
 teleport-deny-command-description = 拒待決之移形請求

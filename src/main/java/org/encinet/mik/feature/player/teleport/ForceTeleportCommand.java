@@ -12,6 +12,7 @@ import com.mojang.brigadier.tree.LiteralCommandNode;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.ShadowBrigNode;
+import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.role.RolePermissions;
 
 import java.util.concurrent.CompletableFuture;
@@ -20,16 +21,28 @@ import java.util.concurrent.CompletableFuture;
 final class ForceTeleportCommand {
     private ForceTeleportCommand() {}
 
-    static LiteralCommandNode<CommandSourceStack> create(CommandNode<CommandSourceStack> teleport) {
+    static LiteralCommandNode<CommandSourceStack> create(CommandNode<CommandSourceStack> teleport,
+                                                        LanguageService languageService) {
         CommandNode<CommandSourceStack> nativeTeleport = nativeTarget(teleport);
         return Commands.literal("tpforce")
                 .requires(source -> RolePermissions.canModerate(source.getSender()))
-                .executes(context -> invocation(nativeTeleport, context).execute())
+                .executes(context -> execute(nativeTeleport, context, languageService))
                 .then(Commands.argument("arguments", StringArgumentType.greedyString())
                         .suggests((context, builder) -> invocation(nativeTeleport, context)
                                 .suggestions(builder.getInput().length()))
-                        .executes(context -> invocation(nativeTeleport, context).execute()))
+                        .executes(context -> execute(nativeTeleport, context, languageService)))
                 .build();
+    }
+
+    private static int execute(CommandNode<CommandSourceStack> teleport,
+                               CommandContext<CommandSourceStack> context,
+                               LanguageService languageService) throws CommandSyntaxException {
+        var nodes = context.getNodes();
+        if (nodes.size() > 1 && !TeleportCommandSafety.allow(
+                nodes.getLast().getRange().get(context.getInput()), context.getSource().getSender(), languageService)) {
+            return 0;
+        }
+        return invocation(teleport, context).execute();
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

@@ -314,6 +314,7 @@ home-world-nether = · Незер
 reback-command-description = Скасувати останню команду /back
 teleport-accept-command-description = Прийняти запит на телепортацію, що очікує відповіді
 teleport-allow = Телепортації іншими гравцями
+teleport-bare-entity-selector = Щоб уникнути випадкової телепортації, для @e потрібні квадратні дужки. Укажіть селектор явно, наприклад @e[type=…].
 teleport-block-afk = Забороняти під час AFK
 teleport-denied = { $player } забороняє телепортувати себе іншим гравцям
 teleport-deny-command-description = Відхилити запит на телепортацію, що очікує відповіді

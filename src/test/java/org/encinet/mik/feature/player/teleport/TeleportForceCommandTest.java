@@ -6,7 +6,12 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.ShadowBrigNode;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
+import org.encinet.mik.shared.i18n.Language;
+import org.encinet.mik.shared.i18n.LanguageService;
+import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.PlayerRole;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,9 +25,17 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class TeleportForceCommandTest {
+    private static final LanguageService LANGUAGES = new LanguageService(null) {
+        @Override
+        public String t(Language language, Message message, Object... args) {
+            return message.key();
+        }
+    };
+
     private record Invocation(String arguments, CommandSourceStack source) {}
 
     private final List<Invocation> invocations = new ArrayList<>();
+    private final List<Component> warnings = new ArrayList<>();
     private final CommandDispatcher<CommandSourceStack> dispatcher = dispatcher();
 
     @ParameterizedTest
@@ -41,11 +54,33 @@ class TeleportForceCommandTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"Target Sender", "Target ~ ~1 ~", "@a 100 64 100",
+            "@p Sender", "@r Sender", "@n Sender", "@s ~ ~ ~", "@e[type=minecraft:zombie] Sender",
+            "@e[] Sender", "@e[name=\"look @e\"] Sender", "@s[tag='look @e'] Sender",
+            "@s[nbt={Tags:[\"look @e\"]}] Sender", "Target @e[limit=1]", "@example Sender",
             "Target Sender facing entity Sender eyes"})
     void nativeParsingPreservesArgumentsSourceAndResult(String arguments) throws Exception {
         CommandSourceStack source = source(PlayerRole.MODERATOR);
         assertEquals(7, dispatcher.execute("tpforce " + arguments, source));
         assertEquals(List.of(new Invocation(arguments, source)), invocations);
+        assertTrue(warnings.isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"@e", "@e Sender", "@e 100 64 100", "Target @e", "@e\t~ ~ ~",
+            "Target ~ ~ ~ facing entity @e eyes", "@s[name=\"look @e\"] @e"})
+    void bareEntitySelectorNeverReachesNativeExecution(String arguments) throws Exception {
+        assertEquals(0, dispatcher.execute("tpforce " + arguments, source(PlayerRole.MODERATOR)));
+        assertTrue(invocations.isEmpty());
+        assertEquals(List.of(Component.text(Message.TELEPORT_BARE_ENTITY_SELECTOR.key(), NamedTextColor.RED)),
+                warnings);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PlayerRole.class, names = {"MODERATOR", "CUSTODIAN"})
+    void everyStaffRoleMustPassSafetyChecks(PlayerRole role) throws Exception {
+        assertEquals(0, dispatcher.execute("tpforce @e Sender", source(role)));
+        assertTrue(invocations.isEmpty());
+        assertEquals(1, warnings.size());
     }
 
     @Test
@@ -65,7 +100,7 @@ class TeleportForceCommandTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"mik:tpforce", "run tpforce", "run mik:tpforce"})
+    @ValueSource(strings = {"tpforce", "mik:tpforce", "run tpforce", "run mik:tpforce"})
     void namespacedAndNestedInvocationsPreserveArgumentsAndCompletionOffsets(String prefix) throws Exception {
         var force = dispatcher.getRoot().getChild("tpforce");
         var namespaced = Commands.literal("mik:tpforce").requires(force.getRequirement());
@@ -75,6 +110,9 @@ class TeleportForceCommandTest {
         dispatcher.register(Commands.literal("run").redirect(dispatcher.getRoot()));
         CommandSourceStack source = source(PlayerRole.CUSTODIAN);
 
+        assertEquals(0, dispatcher.execute(prefix + " @e Sender", source));
+        assertTrue(invocations.isEmpty());
+        assertEquals(1, warnings.size());
         assertEquals(7, dispatcher.execute(prefix + " Target Sender", source));
         assertEquals(List.of(new Invocation("Target Sender", source)), invocations);
         String incomplete = prefix + " T";
@@ -88,7 +126,7 @@ class TeleportForceCommandTest {
     void helpUsageDoesNotTraverseTheRestrictedVanillaProxy() throws Exception {
         var nativeTeleport = dispatcher.getRoot().getChild("minecraft:teleport");
         var shadow = new ShadowBrigNode((com.mojang.brigadier.tree.CommandNode) nativeTeleport);
-        var force = ForceTeleportCommand.create(shadow);
+        var force = ForceTeleportCommand.create(shadow, LANGUAGES);
         var usageRoot = force.getRedirect() == null ? force : force.getRedirect();
 
         assertDoesNotThrow(() -> dispatcher.getSmartUsage(usageRoot, source(PlayerRole.CUSTODIAN)));
@@ -109,20 +147,24 @@ class TeleportForceCommandTest {
                                     context.getSource()));
                             return 7;
                         })));
-        result.getRoot().addChild(ForceTeleportCommand.create(teleport));
+        result.getRoot().addChild(ForceTeleportCommand.create(teleport, LANGUAGES));
         return result;
     }
 
-    private static CommandSourceStack source(PlayerRole role) {
+    private CommandSourceStack source(PlayerRole role) {
         return source(role, true);
     }
 
-    private static CommandSourceStack source(PlayerRole role, boolean vanillaPermission) {
+    private CommandSourceStack source(PlayerRole role, boolean vanillaPermission) {
         var sender = (CommandSender) Proxy.newProxyInstance(CommandSender.class.getClassLoader(),
                 new Class<?>[]{CommandSender.class}, (proxy, method, args) -> {
                     if (method.getName().equals("hasPermission")) {
                         return role.permission().equals(args[0])
                                 || vanillaPermission && "minecraft.command.teleport".equals(args[0]);
+                    }
+                    if (method.getName().equals("sendMessage")) {
+                        warnings.add((Component) args[0]);
+                        return null;
                     }
                     throw new AssertionError(method.getName());
                 });

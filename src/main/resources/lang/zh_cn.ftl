@@ -239,6 +239,7 @@ home-world-nether = · 下界
 reback-command-description = 撤销上一次 /back
 teleport-accept-command-description = 同意待处理的传送请求
 teleport-allow = 被其他玩家传送
+teleport-bare-entity-selector = 为防止误传，禁止使用未加方括号的 @e。请使用 @e[type=…] 等明确写法。
 teleport-block-afk = 挂机时拒绝传送
 teleport-denied = { $player } 当前拒绝被其他玩家传送
 teleport-deny-command-description = 拒绝待处理的传送请求

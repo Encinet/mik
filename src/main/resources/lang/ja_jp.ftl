@@ -239,6 +239,7 @@ home-world-nether = · ネザー
 reback-command-description = 直前の/backを取り消す
 teleport-accept-command-description = 保留中のテレポート申請を承認
 teleport-allow = 他のプレイヤーによるテレポート
+teleport-bare-entity-selector = 誤ったテレポートを防ぐため、角括弧のない @e は使用できません。@e[type=…] のように明示してください。
 teleport-block-afk = AFK中は拒否
 teleport-denied = { $player }は現在、他のプレイヤーによるテレポートを拒否しています
 teleport-deny-command-description = 保留中のテレポート申請を拒否

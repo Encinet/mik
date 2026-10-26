@@ -239,6 +239,7 @@ home-world-nether = · เนเธอร์
 reback-command-description = ย้อนคืนการใช้ /back ครั้งล่าสุด
 teleport-accept-command-description = ยอมรับคำขอเทเลพอร์ตที่รอดำเนินการ
 teleport-allow = การเทเลพอร์ตโดยผู้เล่นอื่น
+teleport-bare-entity-selector = เพื่อป้องกันการเทเลพอร์ตโดยไม่ตั้งใจ @e ต้องมีวงเล็บเหลี่ยม โปรดระบุตัวเลือกเป้าหมายให้ชัดเจน เช่น @e[type=…]
 teleport-block-afk = ป้องกันขณะ AFK
 teleport-denied = ขณะนี้ { $player } ปฏิเสธการถูกเทเลพอร์ตโดยผู้เล่นอื่น
 teleport-deny-command-description = ปฏิเสธคำขอเทเลพอร์ตที่รอดำเนินการ

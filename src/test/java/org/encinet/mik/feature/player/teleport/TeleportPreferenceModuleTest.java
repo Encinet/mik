@@ -18,6 +18,7 @@ import org.encinet.mik.shared.i18n.RichArg;
 import org.encinet.mik.shared.role.PlayerRole;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
@@ -94,6 +95,43 @@ class TeleportPreferenceModuleTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(value = PlayerRole.class, names = {"MEMBER", "MODERATOR", "CUSTODIAN"})
+    void bareEntitySelectorIsBlockedBeforeConsentOrRoleExemptions(PlayerRole role) throws Exception {
+        try (Fixture fixture = new Fixture(role, TeleportPolicy.REQUIRE_CONSENT, false, false)) {
+            for (String alias : List.of("tp", "teleport", "minecraft:tp", "minecraft:teleport")) {
+                for (String arguments : List.of("@e Sender", "Target @e", "@e",
+                        "Target ~ ~ ~ facing entity @e eyes", "@e\t0 64 0")) {
+                    assertTrue(fixture.rawCommand("/" + alias + " " + arguments).isCancelled());
+                }
+            }
+            assertEquals(20, fixture.sender.messages.size());
+            assertTrue(fixture.sender.messages.stream().allMatch(Message.TELEPORT_BARE_ENTITY_SELECTOR.key()::equals));
+            assertTrue(fixture.target.messages.isEmpty());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"@a 0 64 0", "@r Sender", "@p Sender", "@n Sender", "@s 0 64 0",
+            "@e[type=minecraft:zombie] Sender", "@e[] Sender", "@e[name=\"look @e\"] Sender"})
+    void otherSelectorsAndExplicitBracketsPassTeleportSafety(String arguments) throws Exception {
+        try (Fixture fixture = new Fixture(PlayerRole.MODERATOR, TeleportPolicy.ALWAYS_ALLOW, false, false)) {
+            for (String alias : List.of("tp", "teleport", "minecraft:tp", "minecraft:teleport")) {
+                assertFalse(fixture.rawCommand("/" + alias + " " + arguments).isCancelled());
+            }
+            assertTrue(fixture.sender.messages.isEmpty());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/msg Sender @e", "/public @e", "/give @e stone"})
+    void teleportSafetyDoesNotInterceptOtherCommands(String command) throws Exception {
+        try (Fixture fixture = new Fixture(PlayerRole.MODERATOR, TeleportPolicy.ALWAYS_ALLOW, false, false)) {
+            assertFalse(fixture.rawCommand(command).isCancelled());
+            assertTrue(fixture.sender.messages.isEmpty());
+        }
+    }
+
     private static final class Fixture implements AutoCloseable {
         private final Field serverField;
         private final Server previousServer;
@@ -135,7 +173,11 @@ class TeleportPreferenceModuleTest {
         }
 
         PlayerCommandPreprocessEvent command(String alias) {
-            var event = new PlayerCommandPreprocessEvent(sender.player, "/" + alias + " Target Sender", Set.of());
+            return rawCommand("/" + alias + " Target Sender");
+        }
+
+        PlayerCommandPreprocessEvent rawCommand(String command) {
+            var event = new PlayerCommandPreprocessEvent(sender.player, command, Set.of());
             module.onPlayerCommand(event);
             return event;
         }

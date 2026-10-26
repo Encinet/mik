@@ -100,7 +100,7 @@ public class TeleportPreferenceModule implements Listener {
                             Message.TELEPORT_DENY_COMMAND_DESCRIPTION));
             commands.register(ForceTeleportCommand.create(Objects.requireNonNull(
                             commands.getDispatcher().getRoot().getChild("minecraft:teleport"),
-                            "Vanilla teleport command is not registered")),
+                            "Vanilla teleport command is not registered"), languageService),
                     languageService.t(Language.DEFAULT,
                             Message.TELEPORT_FORCE_COMMAND_DESCRIPTION));
         });
@@ -108,16 +108,21 @@ public class TeleportPreferenceModule implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
-        String[] args = event.getMessage().substring(1).trim().split("\\s+");
-        if (args.length < 3) return;
-
-        String cmd = args[0].toLowerCase(Locale.ROOT);
-        if (!TP_COMMANDS.contains(cmd)) return;
-
-        String victimArg = args[1];
-        if (victimArg.startsWith("@")) return;
+        String[] command = event.getMessage().substring(1).trim().split("\\s+", 2);
+        if (!TP_COMMANDS.contains(command[0].toLowerCase(Locale.ROOT)) || command.length < 2) return;
 
         Player sender = event.getPlayer();
+        if (!TeleportCommandSafety.allow(command[1], sender, languageService)) {
+            event.setCancelled(true);
+            return;
+        }
+
+        String[] args = command[1].split("\\s+");
+        if (args.length < 2) return;
+
+        String victimArg = args[0];
+        if (victimArg.startsWith("@")) return;
+
         Player victim = Bukkit.getPlayerExact(victimArg);
         if (victim != null && !victim.equals(sender)) {
             TeleportAuthorization authorization = new TeleportAuthorization(

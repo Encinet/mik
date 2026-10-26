@@ -239,6 +239,7 @@ home-world-nether = · 네더
 reback-command-description = 마지막 /back 실행 취소
 teleport-accept-command-description = 대기 중인 순간이동 요청 수락
 teleport-allow = 다른 플레이어의 순간이동
+teleport-bare-entity-selector = 실수로 순간이동하는 것을 방지하기 위해 @e에는 대괄호가 필요합니다. @e[type=…]처럼 명시적으로 입력하세요.
 teleport-block-afk = AFK 중 차단
 teleport-denied = { $player }님은 현재 다른 플레이어의 순간이동을 거부하고 있습니다
 teleport-deny-command-description = 대기 중인 순간이동 요청 거부
