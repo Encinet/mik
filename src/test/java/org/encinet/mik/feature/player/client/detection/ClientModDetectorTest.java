@@ -122,6 +122,21 @@ class ClientModDetectorTest {
     }
 
     @Test
+    void voxyEvidenceFromRegisteredReceiversAndReadyPayloadsBelongsToTheCurrentConnection() {
+        detector.enable();
+        channels.set(Set.of("voxyserver:lod_preserialized"));
+        assertEquals(Set.of(ClientMod.VOXY), detector.detected(player).orElseThrow());
+        channels.set(Set.of());
+        assertEquals(Set.of(ClientMod.VOXY), detector.detected(player).orElseThrow());
+
+        events.callEvent(new UserDisconnectEvent(connection.get()));
+        connection.set(user());
+        assertTrue(detector.detected(player).orElseThrow().isEmpty());
+        detector.observe(connection.get(), "voxyserver:lod_ready", new byte[0]);
+        assertEquals(Set.of(ClientMod.VOXY), detector.detected(player).orElseThrow());
+    }
+
+    @Test
     void latePacketsCannotReviveADisconnectedConnectionsEvidence() {
         detector.enable();
         User original = connection.get();

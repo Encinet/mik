@@ -84,6 +84,12 @@ final class ClientModSignals {
         if (colon <= 0 || colon == channel.length() - 1) return Optional.empty();
         ClientMod candidate = switch (channel.substring(0, colon)) {
             case "axiom" -> ClientMod.AXIOM;
+            // Voxy itself is silent; these VoxyServer channels advertise the compatible LOD client.
+            case "voxyserver" -> switch (channel) {
+                case "voxyserver:lod_ready", "voxyserver:lod_preferences", "voxyserver:lod_server_settings",
+                        "voxyserver:lod_preserialized", "voxyserver:lod_clear" -> ClientMod.VOXY;
+                default -> null;
+            };
             case "xaerominimap" -> ClientMod.XAERO_MINIMAP;
             case "xaeroworldmap" -> ClientMod.XAERO_WORLD_MAP;
             case "plasmo" -> channel.equals("plasmo:voice") || channel.startsWith("plasmo:voice/")

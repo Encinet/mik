@@ -155,7 +155,7 @@ class TipDeliveryQueueTest {
     }
 
     private void offer(Player player, String id, double chance, Function<Language, Optional<TipContent>> source) {
-        var policy = new Tip.Policy(id, "group", 0, Duration.ofDays(1), Duration.ZERO, Duration.ofSeconds(20));
+        var policy = new Tip.Policy(id, "group", 0, Duration.ofDays(1), Duration.ZERO, Duration.ofSeconds(20), true);
         if (scheduler.offer(this, player.getUniqueId(), policy, NOW, chance, false, 1, Duration.ZERO, source)) {
             queue.request(player);
         }

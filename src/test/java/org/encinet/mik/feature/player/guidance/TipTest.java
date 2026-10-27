@@ -160,6 +160,16 @@ class TipTest {
     }
 
     @Test
+    void historylessScenariosRejectTriggersThatNeedAdaptiveHistory() {
+        try (TipTestScope tips = new TipTestScope()) {
+            assertThrows(IllegalArgumentException.class, () -> tips.define("connection", Message.HOME_TIP_CREATE_MM)
+                    .withoutHistory().on(TipTriggers.chatMentions(Pattern.compile("home"))).build());
+            assertDoesNotThrow(() -> tips.define("connection", Message.HOME_TIP_CREATE_MM)
+                    .withoutHistory().on(TipTrigger.event(PlayerJoinEvent.class)).build());
+        }
+    }
+
+    @Test
     void randomTriggersSampleOnceAndOnlyAcceptedEventsReachTheResolver() {
         AtomicReference<Double> roll = new AtomicReference<>(0.1);
         AtomicInteger draws = new AtomicInteger();

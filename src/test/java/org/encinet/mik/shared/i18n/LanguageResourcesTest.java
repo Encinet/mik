@@ -50,7 +50,7 @@ class LanguageResourcesTest {
             "__MIK_CLIENT_VERSION__", "__MIK_COMMAND__", "__MIK_COUNT__", "__MIK_DAYS__", "__MIK_DISTANCE__", "__MIK_DURATION__",
             "__MIK_HOME__", "__MIK_HOMES__", "__MIK_KEYWORD__", "__MIK_LABEL__",
             "__MIK_LOCATION__", "__MIK_MAX__", "__MIK_MSPT__", "__MIK_MUSIC__",
-            "__MIK_MODS__", "__MIK_ONLINE__", "__MIK_PING__", "__MIK_PLAYER__", "__MIK_RADIUS__", "__MIK_REMAINING__",
+            "__MIK_MOD__", "__MIK_MODS__", "__MIK_ONLINE__", "__MIK_PING__", "__MIK_PLAYER__", "__MIK_RADIUS__", "__MIK_REMAINING__",
             "__MIK_SENDER__", "__MIK_SERVER_VERSION__", "__MIK_SITE__", "__MIK_SOURCE__", "__MIK_STATE__", "__MIK_STEPS__", "__MIK_SUPPORTED__",
             "__MIK_TPS__", "__MIK_UNSUPPORTED__", "__MIK_WORLD__"
     );
@@ -90,6 +90,7 @@ class LanguageResourcesTest {
                 .add("max", "__MIK_MAX__")
                 .add("mspt", "__MIK_MSPT__")
                 .add("music", "__MIK_MUSIC__")
+                .add("mod", "__MIK_MOD__")
                 .add("mods", "__MIK_MODS__")
                 .add("online", "__MIK_ONLINE__")
                 .add("ping", "__MIK_PING__")

@@ -67,6 +67,9 @@ url-dialog-title = Ouvrir { $arg0 }
 ## Player · Client and presence
 
 client-mods-undetected-rich = Mods recommandés : { $mods }. Cliquez sur un nom pour télécharger.
+client-tip-axiom-flight-speed-mm = <white>Maintenez <yellow>Alt gauche</yellow> pour ouvrir le menu d’<aqua>Axiom</aqua>, puis faites glisser le curseur vertical à droite pour régler la vitesse de vol. Vous pouvez aussi utiliser <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click>.</white>
+client-tip-axiom-intro-rich = { $mod } est un mod de construction permettant de copier-coller des plans, de modifier le terrain et les entités d’affichage, de placer des blocs sans mises à jour, de traverser les murs et d’enregistrer plusieurs barres d’accès rapide. Cliquez sur son nom pour le télécharger.
+client-tip-voxy-intro-rich = { $mod } affiche des paysages plus lointains en consommant peu de ressources. À essayer sur les PC modestes comme puissants. Cliquez sur son nom pour le télécharger.
 client-version-behind-mm = <white>Votre client <yellow>{ $clientVersion }</yellow> est plus ancien que le serveur <green>{ $serverVersion }</green>. Une mise à jour est conseillée.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>{ $count ->

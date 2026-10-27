@@ -30,7 +30,7 @@ class TipStoreTest {
         assertTrue(store.load(player, 0).history().isEmpty());
         var snapshot = new TipState.Snapshot(Map.of(
                 "home-return", new TipState.Entry("home-return", 2000, 3, 1.25, 1000),
-                "client-version", new TipState.Entry("target-a", 1500, 1, 0, 0),
+                "dynamic", new TipState.Entry("target-a", 1500, 1, 0, 0),
                 "hat-wear", TipState.Entry.empty().matched(2500, 5)));
         store.save(player, snapshot);
 
@@ -40,7 +40,7 @@ class TipStoreTest {
         assertArrayEquals(new long[]{1000, 320, 2000, 3},
                 root.get(key("home-return"), PersistentDataType.LONG_ARRAY));
         assertFalse(root.has(key("home-return_situation")), "static text needs no redundant situation string");
-        assertEquals("target-a", root.get(key("client-version_situation"), PersistentDataType.STRING));
+        assertEquals("target-a", root.get(key("dynamic_situation"), PersistentDataType.STRING));
     }
 
     @Test
@@ -73,7 +73,7 @@ class TipStoreTest {
     @Test
     void aFreshSchedulerUsesTheStoredDensityAndStillRecoversAfterAQuietPeriod() {
         long now = 1_800_000_000_000L;
-        var rule = new Tip.Policy("chat", "chat", 0, Duration.ofDays(1), Duration.ZERO, Duration.ofSeconds(20));
+        var rule = new Tip.Policy("chat", "chat", 0, Duration.ofDays(1), Duration.ZERO, Duration.ofSeconds(20), true);
         TipScheduler first = new TipScheduler(error -> fail(error), () -> 0, ignored -> TipAudience.MEMBER);
         var id = java.util.UUID.randomUUID();
         first.offer(this, id, rule, now, 1, true, 20, rule.delay(),

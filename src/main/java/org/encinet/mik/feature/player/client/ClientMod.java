@@ -4,6 +4,7 @@ package org.encinet.mik.feature.player.client;
 public enum ClientMod {
     AXIOM,
     PLASMO_VOICE,
+    VOXY,
     XAERO_MINIMAP,
     XAERO_WORLD_MAP
 }

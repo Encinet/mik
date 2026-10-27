@@ -2,6 +2,7 @@ package org.encinet.mik.feature.player.guidance;
 
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.i18n.Language;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -18,7 +19,7 @@ class TipSchedulerTest {
     private static final UUID PLAYER = UUID.randomUUID();
     private static final Object SOURCE = new Object();
     private static final long NOW = 1_800_000_000_000L;
-    private final TipScheduler scheduler = new TipScheduler(error -> fail(error), ignored -> TipAudience.MEMBER);
+    private final TipScheduler scheduler = new TipScheduler(Assertions::fail, ignored -> TipAudience.MEMBER);
 
     @Test
     void readyAdviceDoesNotWaitForAFutureSourceInTheSameGroup() {
@@ -214,6 +215,73 @@ class TipSchedulerTest {
     }
 
     @Test
+    void historylessAdviceUsesOnlyTheCurrentSessionsGlobalCooldown() {
+        var tip = new Tip.Policy("connection-check", "connection", 30, Duration.ofDays(7),
+                Duration.ZERO, Duration.ofSeconds(20), false);
+        scheduler.register(SOURCE, tip);
+        offer(tip, "same", NOW);
+        scheduler.delivered(PLAYER, collect(NOW), NOW);
+        assertTrue(scheduler.snapshot(PLAYER).history().isEmpty());
+        assertFalse(scheduler.changed(PLAYER), "a connection check alone needs no PDC write");
+
+        offer(tip, "same", NOW + 1000);
+        assertTrue(collect(NOW + 1000).isEmpty());
+        offer(tip, "same", NOW + 45_000);
+        var repeated = collect(NOW + 45_000);
+        assertEquals(1, repeated.size(), "the scenario interval does not apply without history");
+        scheduler.delivered(PLAYER, repeated, NOW + 45_000);
+
+        var saved = scheduler.snapshot(PLAYER);
+        scheduler.forget(PLAYER);
+        scheduler.restore(PLAYER, saved);
+        offer(tip, "same", NOW + 45_001);
+        assertEquals(1, collect(NOW + 45_001).size(), "the previous connection check cannot suppress a new session");
+    }
+
+    @Test
+    void historylessRegistrationDiscardsOldRecordsRegardlessOfLoadingOrder() {
+        var version = new Tip.Policy("connection-version", "connection", 60, Duration.ofDays(7),
+                Duration.ZERO, Duration.ofSeconds(20), false);
+        var mods = new Tip.Policy("connection-mods", "connection", 30, Duration.ofDays(7),
+                Duration.ZERO, Duration.ofSeconds(20), false);
+        var retained = new TipState.Entry("other", NOW - 100_000, 2, 1, NOW - 100_000);
+        var snapshot = new TipState.Snapshot(java.util.Map.of(
+                version.id(), new TipState.Entry("old-version", NOW, 6, 0, 0),
+                mods.id(), new TipState.Entry("old-list", NOW - 1000, 6, 0, 0),
+                "other", retained));
+        for (boolean restoreFirst : new boolean[]{true, false}) {
+            TipScheduler restarted = new TipScheduler(error -> fail(error), ignored -> TipAudience.MEMBER);
+            if (restoreFirst) restarted.restore(PLAYER, snapshot);
+            restarted.register(SOURCE, version);
+            restarted.register(SOURCE, mods);
+            if (!restoreFirst) restarted.restore(PLAYER, snapshot);
+
+            assertEquals(java.util.Map.of("other", retained), restarted.snapshot(PLAYER).history());
+            assertTrue(restarted.changed(PLAYER), "old records must be removed on the next PDC save");
+            restarted.offer(SOURCE, PLAYER, version, NOW, language -> content("same"));
+            restarted.offer(SOURCE, PLAYER, mods, NOW, language -> content("same"));
+            var batch = restarted.collect(PLAYER, NOW, 45_000, true, Language.EN_US);
+            assertEquals(2, batch.size(), "discarded history must not impose a stale global cooldown");
+            restarted.delivered(PLAYER, batch, NOW);
+            assertEquals(java.util.Map.of("other", retained), restarted.snapshot(PLAYER).history());
+        }
+    }
+
+    @Test
+    void mixedBatchOnlyPersistsTheScenariosThatRememberHistory() {
+        var remembered = definition("remembered", "group", 60);
+        var transientTip = new Tip.Policy("transient", "group", 30, Duration.ofDays(1),
+                Duration.ZERO, Duration.ofSeconds(20), false);
+        offer(remembered, "same", NOW);
+        offer(transientTip, "same", NOW);
+        var batch = collect(NOW);
+        assertEquals(2, batch.size());
+        scheduler.delivered(PLAYER, batch, NOW);
+        assertEquals(java.util.Set.of("remembered"), scheduler.snapshot(PLAYER).history().keySet());
+        assertTrue(scheduler.changed(PLAYER));
+    }
+
+    @Test
     void collectionWithoutActualDeliveryDoesNotConsumeCooldown() {
         var tip = definition("retry", "group", 20);
         offer(tip, "v1", NOW);
@@ -365,6 +433,6 @@ class TipSchedulerTest {
 
     private static Tip.Policy definition(String id, String group, int priority,
                                          Duration delay, Duration lifetime) {
-        return new Tip.Policy(id, group, priority, Duration.ofDays(7), delay, lifetime);
+        return new Tip.Policy(id, group, priority, Duration.ofDays(7), delay, lifetime, true);
     }
 }

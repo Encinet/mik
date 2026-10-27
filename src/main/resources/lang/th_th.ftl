@@ -67,6 +67,9 @@ url-dialog-title = เปิด { $arg0 }
 ## Player · Client and presence
 
 client-mods-undetected-rich = ม็อดแนะนำ: { $mods } คลิกชื่อเพื่อดาวน์โหลด
+client-tip-axiom-flight-speed-mm = <white>กด <yellow>Alt ซ้าย</yellow> ค้างไว้เพื่อเปิดเมนู <aqua>Axiom</aqua> แล้วลากแถบเลื่อนแนวตั้งด้านขวาเพื่อปรับความเร็วในการบิน หรือใช้ <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click></white>
+client-tip-axiom-intro-rich = { $mod } เป็นม็อดช่วยก่อสร้าง รองรับการคัดลอกและวางพิมพ์เขียว แก้ไขภูมิประเทศและเอนทิตีแสดงผล วางบล็อกโดยไม่อัปเดตบล็อกรอบข้าง บินทะลุกำแพง และบันทึกแถบไอเทมหลายชุด คลิกชื่อเพื่อดาวน์โหลด
+client-tip-voxy-intro-rich = { $mod } แสดงทิวทัศน์ได้ไกลขึ้นโดยใช้ทรัพยากรน้อย คุ้มค่าที่จะลองทั้งบนเครื่องสเปกต่ำและสูง คลิกชื่อเพื่อดาวน์โหลด
 client-version-behind-mm = <white>ไคลเอนต์ <yellow>{ $clientVersion }</yellow> เก่ากว่าเซิร์ฟเวอร์ <green>{ $serverVersion }</green> แนะนำให้อัปเดต</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>ผู้เล่น <gold>ล่องหน</gold> ใกล้คุณจำนวน <gold>{ $count }</gold> คน</yellow> <gray>·</gray> <gray>คนที่ใกล้ที่สุดห่างประมาณ { $distance } บล็อก</gray>

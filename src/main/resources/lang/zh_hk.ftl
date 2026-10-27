@@ -67,6 +67,9 @@ url-dialog-title = 開啟 { $arg0 }
 ## Player · Client and presence
 
 client-mods-undetected-rich = 推薦模組：{ $mods }，點擊名稱下載。
+client-tip-axiom-flight-speed-mm = <white>按住 <yellow>左 Alt</yellow> 開啟 <aqua>Axiom</aqua> 選單，拖動右側垂直滑桿調整飛行速度；亦可用 <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click>。</white>
+client-tip-axiom-intro-rich = { $mod } 是建築輔助模組，支援藍圖複製貼上、地形與展示實體編輯，以及無更新放置、穿牆和多組快捷欄。點擊名稱下載。
+client-tip-voxy-intro-rich = { $mod } 以較低開銷呈現更遠的風景，低配、高配都值得一試。點擊名稱下載。
 client-version-behind-mm = <white>客戶端 <yellow>{ $clientVersion }</yellow> 早於伺服器 <green>{ $serverVersion }</green>，建議更新。</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>附近有 <gold>{ $count }</gold> 名玩家處於 <gold>隱身</gold> 狀態</yellow> <gray>·</gray> <gray>最近約 { $distance } 格</gray>

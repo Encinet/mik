@@ -105,7 +105,7 @@ class TipAmbientTest {
         });
         assertTrue(collect(PLAYER, 0).isEmpty());
         var context = new Tip.Policy("context", "context", 90, Duration.ofDays(1),
-                Duration.ofSeconds(2), Duration.ofSeconds(20));
+                Duration.ofSeconds(2), Duration.ofSeconds(20), true);
         scheduler.offer(OWNER, PLAYER, context, INTERVAL, language -> content("context"));
 
         assertTrue(collect(PLAYER, INTERVAL).isEmpty());
@@ -208,7 +208,7 @@ class TipAmbientTest {
     }
 
     private static Tip.Policy scene(String id) {
-        return new Tip.Policy(id, id, 0, Duration.ofDays(1), Duration.ZERO, Duration.ofSeconds(20));
+        return new Tip.Policy(id, id, 0, Duration.ofDays(1), Duration.ZERO, Duration.ofSeconds(20), true);
     }
 
     private static Optional<TipContent> content(String situation) {

@@ -30,7 +30,7 @@ final class TipScheduler {
     private final Map<UUID, TipState> states = new HashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
     private final Map<UUID, Map<String, Pending>> pending = new HashMap<>();
-    private final Map<String, Object> registrations = new HashMap<>();
+    private final Map<String, Registration> registrations = new HashMap<>();
     private final Map<String, Ambient> ambient = new LinkedHashMap<>();
     private final Map<UUID, AmbientWait> ambientWaits = new HashMap<>();
     private final Consumer<RuntimeException> errors;
@@ -54,15 +54,26 @@ final class TipScheduler {
 
     void register(Object owner, Tip.Policy definition,
                   BiFunction<UUID, Language, Optional<TipContent>> ambientContent) {
-        if (registrations.putIfAbsent(definition.id(), owner) != null) {
+        if (registrations.putIfAbsent(definition.id(), new Registration(owner, definition)) != null) {
             throw new IllegalArgumentException("Tip id is already registered: " + definition.id());
+        }
+        if (!definition.remembersHistory()) {
+            states.forEach((player, state) -> {
+                if (state.discardHistory(definition.id())) dirty.add(player);
+            });
         }
         if (ambientContent != null) ambient.put(definition.id(), new Ambient(owner, definition, ambientContent));
     }
 
     void restore(UUID player, TipState.Snapshot snapshot) {
-        states.put(player, new TipState(snapshot));
+        TipState state = new TipState(snapshot);
+        states.put(player, state);
         dirty.remove(player);
+        registrations.values().forEach(registration -> {
+            if (!registration.definition.remembersHistory() && state.discardHistory(registration.definition.id())) {
+                dirty.add(player);
+            }
+        });
     }
 
     boolean loaded(UUID player) { return states.containsKey(player); }
@@ -198,11 +209,13 @@ final class TipScheduler {
         try {
             var content = Objects.requireNonNull(source.apply(language), "Tip source must return Optional");
             if (content.isEmpty()) return Optional.empty();
-            TipState state = states.get(player);
             TipContent tip = content.get();
-            TipState.Entry history = state == null ? null : state.history.get(definition.id());
-            if (!adaptive && history != null && !history.due(tip.situationKey(), now, definition.interval())) {
-                return Optional.empty();
+            if (definition.remembersHistory() && !adaptive) {
+                TipState state = states.get(player);
+                TipState.Entry history = state == null ? null : state.history.get(definition.id());
+                if (history != null && !history.due(tip.situationKey(), now, definition.interval())) {
+                    return Optional.empty();
+                }
             }
             return Optional.of(new Delivery(definition, tip.situationKey(), tip.message()));
         } catch (RuntimeException error) {
@@ -224,9 +237,12 @@ final class TipScheduler {
     void delivered(UUID player, List<Delivery> batch, long now) {
         TipState state = states.computeIfAbsent(player, ignored -> new TipState());
         state.lastSentAt = now;
-        batch.forEach(it -> state.history.compute(it.definition.id(), (id, previous) ->
-                (previous == null ? TipState.Entry.empty() : previous).delivered(it.situationKey, now)));
-        dirty.add(player);
+        for (Delivery delivery : batch) {
+            if (!delivery.definition.remembersHistory()) continue;
+            state.history.compute(delivery.definition.id(), (id, previous) ->
+                    (previous == null ? TipState.Entry.empty() : previous).delivered(delivery.situationKey, now));
+            dirty.add(player);
+        }
     }
 
     void cancel(UUID player, Tip.Policy definition) {
@@ -239,7 +255,7 @@ final class TipScheduler {
     void close(Object owner) {
         pending.values().forEach(offers -> offers.values().removeIf(it -> it.owner == owner));
         pending.values().removeIf(Map::isEmpty);
-        registrations.values().removeIf(registered -> registered == owner);
+        registrations.values().removeIf(registered -> registered.owner == owner);
         ambient.values().removeIf(it -> it.owner == owner);
         if (ambient.isEmpty()) ambientWaits.clear();
     }
@@ -270,6 +286,7 @@ final class TipScheduler {
             .comparingInt((Pending it) -> it.definition.priority()).reversed().thenComparingLong(it -> it.sequence);
 
     record Delivery(Tip.Policy definition, String situationKey, Component message) {}
+    private record Registration(Object owner, Tip.Policy definition) {}
     private record Evaluated(Pending offer, Delivery delivery) {}
     private record Pending(Object owner, Tip.Policy definition, long readyAt, long expiresAt,
                            long sequence, boolean adaptive, Function<Language, Optional<TipContent>> content) {}

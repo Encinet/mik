@@ -38,7 +38,8 @@ import java.util.UUID;
 
 public final class TrashModule implements Listener {
     static final int RETENTION_SECONDS = 10;
-    private static final int DROP_THRESHOLD = 8;
+    private static final int DROP_THRESHOLD = 3;
+    private static final int DROP_ITEM_THRESHOLD = 8;
     private static final long DROP_WINDOW_NANOS = Duration.ofSeconds(10).toNanos();
 
     private final JavaPlugin plugin;
@@ -147,7 +148,7 @@ public final class TrashModule implements Listener {
 
     private boolean frequentDrops(PlayerDropItemEvent event) {
         return recentDrops.computeIfAbsent(event.getPlayer().getUniqueId(), ignored -> new DropWindow())
-                .record(System.nanoTime());
+                .record(System.nanoTime(), event.getItemDrop().getItemStack().getAmount());
     }
 
     private Session session(HumanEntity player, Inventory inventory) {
@@ -173,22 +174,24 @@ public final class TrashModule implements Listener {
 
     private static final class DropWindow {
         private final long[] timestamps = new long[DROP_THRESHOLD];
+        private final int[] amounts = new int[DROP_THRESHOLD];
         private int next;
         private int count;
-        private boolean offered;
-        private long lastOfferedAt;
 
-        boolean record(long now) {
-            if (offered && now - lastOfferedAt < DROP_WINDOW_NANOS) return false;
+        boolean record(long now, int amount) {
             timestamps[next] = now;
+            amounts[next] = Math.min(amount, DROP_ITEM_THRESHOLD);
             next = (next + 1) % DROP_THRESHOLD;
             if (count < DROP_THRESHOLD) count++;
-            if (count < DROP_THRESHOLD || now - timestamps[next] > DROP_WINDOW_NANOS) return false;
-            // A new offer requires another full burst; history and delivery cooldown stay in guidance.
-            count = 0;
-            offered = true;
-            lastOfferedAt = now;
-            return true;
+            int recentCount = 0;
+            int recentAmount = 0;
+            for (int i = 0; i < count; i++) {
+                if (now - timestamps[i] > DROP_WINDOW_NANOS) continue;
+                recentCount++;
+                recentAmount += amounts[i];
+            }
+            // Keep offering while disposal continues; guidance owns delivery cooldown and history.
+            return recentCount >= DROP_THRESHOLD || recentAmount >= DROP_ITEM_THRESHOLD;
         }
     }
 

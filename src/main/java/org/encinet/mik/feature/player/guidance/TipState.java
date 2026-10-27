@@ -22,7 +22,18 @@ final class TipState {
 
     TipState(Snapshot snapshot) {
         history = new HashMap<>(snapshot.history());
-        lastSentAt = history.values().stream().filter(entry -> entry.presentations() > 0)
+        lastSentAt = latestSentAt();
+    }
+
+    boolean discardHistory(String id) {
+        Entry removed = history.remove(id);
+        if (removed == null) return false;
+        if (lastSentAt != null && lastSentAt == removed.sentAt()) lastSentAt = latestSentAt();
+        return true;
+    }
+
+    private Long latestSentAt() {
+        return history.values().stream().filter(entry -> entry.presentations() > 0)
                 .map(Entry::sentAt).max(Long::compare).orElse(null);
     }
 

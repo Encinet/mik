@@ -30,12 +30,15 @@ public final class Tip<C> {
     private Tip(Builder<C> builder) {
         binding = builder.binding;
         policy = new Policy(builder.id, builder.group, builder.priority, builder.interval,
-                builder.delay, builder.lifetime);
+                builder.delay, builder.lifetime, builder.remembersHistory);
         resolver = Objects.requireNonNull(builder.resolver, "Tip resolver is required");
         condition = builder.condition;
         action = builder.action;
         triggers = List.copyOf(builder.triggers);
         triggers.forEach(source -> checkTiming(source.trigger().delayOr(policy.delay()), policy.lifetime()));
+        if (!policy.remembersHistory() && triggers.stream().anyMatch(source -> source.trigger().adaptive())) {
+            throw new IllegalArgumentException("Adaptive tip triggers require history");
+        }
         ambient = builder.ambient;
     }
 
@@ -95,6 +98,7 @@ public final class Tip<C> {
         private ClickEvent action;
         private final List<EventBinding<?, C>> triggers = new ArrayList<>();
         private boolean ambient;
+        private boolean remembersHistory = true;
 
         Builder(Binding binding, String id) {
             this.binding = binding;
@@ -108,6 +112,9 @@ public final class Tip<C> {
         public Builder<C> delay(Duration value) { delay = value; return this; }
         public Builder<C> lifetime(Duration value) { lifetime = value; return this; }
         public Builder<C> resolve(Resolver<C> value) { resolver = value; return this; }
+
+        /** Evaluate each trigger without scenario history or repeat intervals; the shared cooldown still applies. */
+        public Builder<C> withoutHistory() { remembersHistory = false; return this; }
 
         /** Join the shared everyday random pool; delivery uses current player state and null context. */
         public Builder<C> ambient() { ambient = true; return this; }
@@ -170,7 +177,7 @@ public final class Tip<C> {
     }
 
     record Policy(String id, String group, int priority, Duration interval,
-                  Duration delay, Duration lifetime) {
+                  Duration delay, Duration lifetime, boolean remembersHistory) {
         Policy {
             if (id == null || !id.matches("[a-z][a-z0-9-]{0,63}")) {
                 throw new IllegalArgumentException("Invalid tip id: " + id);

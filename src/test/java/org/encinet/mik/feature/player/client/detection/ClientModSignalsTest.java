@@ -17,7 +17,7 @@ class ClientModSignalsTest {
     @Test
     void clientAnnouncementsDetectEachModWithoutDependingOnTheLoader() {
         byte[] registration = text("fabric:registry/sync\0axiom:enable\0plasmo:voice/v2/installed\0"
-                + "xaerominimap:main\0xaeroworldmap:main\0");
+                + "xaerominimap:main\0xaeroworldmap:main\0voxyserver:lod_preserialized\0");
         assertEquals(EnumSet.allOf(ClientMod.class),
                 ClientModSignals.fromPayload("minecraft:register", registration));
     }
@@ -47,6 +47,31 @@ class ClientModSignalsTest {
         assertEquals(Set.of(ClientMod.XAERO_WORLD_MAP),
                 ClientModSignals.fromPayload("xaeroworldmap:main", new byte[0]));
         assertTrue(ClientModSignals.fromPayload("xaerolib:main", new byte[0]).isEmpty());
+    }
+
+    @Test
+    void voxyServerReadinessAndRegisteredLodChannelsArePositiveEvidence() {
+        assertEquals(Set.of(ClientMod.VOXY),
+                ClientModSignals.fromPayload("voxyserver:lod_ready", new byte[0]));
+        for (String channel : List.of("voxyserver:lod_ready", "voxyserver:lod_preferences",
+                "voxyserver:lod_server_settings", "voxyserver:lod_preserialized", "voxyserver:lod_clear")) {
+            assertEquals(Set.of(ClientMod.VOXY),
+                    ClientModSignals.fromPayload("minecraft:register", text(channel)));
+            for (String phase : List.of("play", "configuration")) {
+                assertEquals(Set.of(ClientMod.VOXY), ClientModSignals.fromPayload("c:register",
+                        commonRegistration(1, phase, List.of(channel))));
+            }
+        }
+    }
+
+    @Test
+    void voxyNamesAndUnrelatedAddonChannelsDoNotProveLodSupport() {
+        for (String channel : List.of("voxy:enabled", "voxy:render_distance", "voxyserver:other",
+                "voxyserver:lod_ready_extra", "voxyserver_extra:lod_ready", "other:voxy", "VOXYSERVER:lod_ready")) {
+            assertTrue(ClientModSignals.fromPayload(channel, new byte[0]).isEmpty(), channel);
+            assertTrue(ClientModSignals.fromPayload("minecraft:register", text(channel)).isEmpty(), channel);
+        }
+        assertTrue(ClientModSignals.fromPayload("minecraft:brand", text("voxy")).isEmpty());
     }
 
     @Test
