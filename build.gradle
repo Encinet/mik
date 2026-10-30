@@ -42,6 +42,8 @@ repositories {
 }
 
 dependencies {
+    compileOnly("org.bouncycastle:bcprov-jdk18on:1.85.2")
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.85.2")
     paperweight.paperDevBundle("26.3.build.206-stable")
     compileOnly("net.raphimc:NoteBlockLib:3.3.0")
     compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")

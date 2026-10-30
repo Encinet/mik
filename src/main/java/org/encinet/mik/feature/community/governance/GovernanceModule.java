@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.security.PasswordAccess;
 import org.encinet.mik.feature.player.afk.AfkService;
 import org.encinet.mik.feature.server.ban.BanManager;
 import org.encinet.mik.feature.community.governance.delivery.DeliveryService;
@@ -39,6 +40,7 @@ public final class GovernanceModule {
     private final LanguageService languages;
     private final AfkService afkService;
     private final BanManager banManager;
+    private final PasswordAccess passwords;
     private final SqliteGovernanceRepository database;
     private final MembershipRoleSnapshot membershipRoles;
     private final MembershipService membership;
@@ -56,12 +58,13 @@ public final class GovernanceModule {
             JavaPlugin plugin,
             LanguageService languages,
             AfkService afkService,
-            BanManager banManager
+            BanManager banManager, PasswordAccess passwords
     ) {
         this.plugin = plugin;
         this.languages = languages;
         this.afkService = afkService;
         this.banManager = banManager;
+        this.passwords = passwords;
         this.database = new SqliteGovernanceRepository(
                 new File(plugin.getDataFolder(), "governance.db"));
         this.membershipRoles = new MembershipRoleSnapshot(plugin);
@@ -69,7 +72,7 @@ public final class GovernanceModule {
                 database,
                 (playerId, playerName) -> banManager.active(playerId, playerName).isPresent(),
                 membershipRoles);
-        this.voting = new VotingService(database, membership);
+        this.voting = new VotingService(database, membership, passwords);
         this.removal = new RemovalService(database, database, membership);
         this.delivery = new DeliveryService(database);
         this.storageExecutor = Executors.newSingleThreadExecutor(runnable -> {
@@ -88,7 +91,7 @@ public final class GovernanceModule {
         }
 
         membershipRoles.start(luckPerms);
-        LuckPermsGovernanceRoles roleManager = new LuckPermsGovernanceRoles(luckPerms);
+        LuckPermsGovernanceRoles roleManager = new LuckPermsGovernanceRoles(luckPerms, passwords::roleChanged);
         GovernanceText text = new GovernanceText(languages);
         GovernanceDeliveryCoordinator coordinator = new GovernanceDeliveryCoordinator(
                 plugin, membership, voting, delivery, roleManager, banManager,
@@ -105,7 +108,7 @@ public final class GovernanceModule {
                 plugin, roleManager, voting, coordinator, this::submitStorage, text);
         commands = new GovernanceCommandController(
                 plugin, languages, membership, voting, removal, roleManager,
-                coordinator, this::submitStorage);
+                coordinator, this::submitStorage, passwords);
 
         playtime.start();
         moderatorTenure.start();
@@ -119,6 +122,10 @@ public final class GovernanceModule {
             throw new IllegalStateException("GovernanceModule must be enabled first");
         }
         commands.registerCommands(manager);
+    }
+
+    public boolean requiresPassword(java.util.UUID id) throws GovernanceRepositoryException {
+        return database.requiresPassword(id);
     }
 
     public void openMenu(Player player) {

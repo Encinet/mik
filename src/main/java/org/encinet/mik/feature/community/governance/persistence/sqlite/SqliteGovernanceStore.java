@@ -214,6 +214,23 @@ final class SqliteGovernanceStore implements AutoCloseable {
         return votingStore.openVote(kind, subjectId);
     }
 
+    synchronized boolean requiresPassword(UUID id) throws SQLException {
+        ensureOpen();
+        try (var statement = connection.prepareStatement("""
+                SELECT EXISTS(
+                    SELECT 1 FROM governance_votes v
+                    WHERE v.subject_uuid=? AND v.kind='APPOINTMENT' AND
+                        (v.status='OPEN' OR EXISTS(
+                            SELECT 1 FROM governance_actions a WHERE a.source_vote_id=v.id
+                            AND a.action_type=? AND a.applied_at IS NULL))
+                )
+                """)) {
+            statement.setString(1, id.toString());
+            statement.setString(2, org.encinet.mik.feature.community.governance.delivery.GovernanceActionType.APPOINT_MODERATOR.storageId());
+            try (var rows = statement.executeQuery()) { return rows.next() && rows.getBoolean(1); }
+        }
+    }
+
     synchronized Optional<Instant> lastFailedAt(VoteKind kind, UUID subjectId)
             throws SQLException {
         ensureOpen();

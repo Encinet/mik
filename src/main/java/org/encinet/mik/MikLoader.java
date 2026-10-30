@@ -33,6 +33,7 @@ public class MikLoader implements PluginLoader {
         resolver.addDependency(new Dependency(new DefaultArtifact("net.quickwrite:fluent-builder:1.0.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.raphimc:NoteBlockLib:3.3.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.53.2.1"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("org.bouncycastle:bcprov-jdk18on:1.85.2"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("dev.arbjerg:lavaplayer:2.2.7"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.jthink:jaudiotagger:3.0.1"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("org.graalvm.polyglot:polyglot:25.2.4"), null));

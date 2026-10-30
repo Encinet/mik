@@ -9,6 +9,7 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
+import org.encinet.mik.feature.player.security.PasswordAccess;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceTaskExecutor;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceText;
@@ -40,7 +41,7 @@ public final class GovernanceCommandController {
             RemovalService removalService,
             LuckPermsGovernanceRoles roleManager,
             GovernanceDeliveryCoordinator coordinator,
-            GovernanceTaskExecutor executor
+            GovernanceTaskExecutor executor, PasswordAccess passwords
     ) {
         this.languages = languages;
         GovernanceText text = new GovernanceText(languages);
@@ -53,7 +54,7 @@ public final class GovernanceCommandController {
                 plugin, membershipService, votingService, removalService, roleManager,
                 coordinator, executor, context, text);
         GovernancePlayerMenu players = new GovernancePlayerMenu(
-                plugin, membershipService, roleManager, context, text, membership);
+                plugin, membershipService, roleManager, context, text, membership, passwords);
         this.menus = new GovernanceMenuController(plugin, membershipService, votingService,
                 removalService, coordinator, context, text, voting, removal, players);
     }

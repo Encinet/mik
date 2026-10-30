@@ -21,7 +21,7 @@ AI、QQ、Matrix 默认关闭，启用前需填写各自配置；操作与重载
 | 菜单与个人设置 | `/menu`；[界面、文字与 FOV](docs/spatial-menus.md) |
 | 地段与建造 | `/plot`；[地段操作](docs/plot-board.md)、[权限](docs/plot-permissions.md)、[选区与子地段](docs/plot-subplots.md) |
 | 音乐与音游 | `/music`；[曲库、唱片机与玩法](docs/music.md) |
-| 社交与账号 | `/bind <平台>`；[身份绑定](docs/identity-binding.md)、[QQ](docs/qq-bot.md)、[Matrix](docs/matrix-bot.md) |
+| 社交与账号 | `/password`、`/bind <平台>`；[账号安全](docs/account-security.md)、[身份绑定](docs/identity-binding.md)、[QQ](docs/qq-bot.md)、[Matrix](docs/matrix-bot.md) |
 | AI 与治理 | `/ai`、`/gov`；[AI 配置](docs/ai.md)、[社区治理](docs/governance.md) |
 
 载具、电梯、空间连接、世界更新及其他功能见[完整文档](docs/README.md)。

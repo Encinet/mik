@@ -60,7 +60,8 @@ final class EntryPoints {
                     public String detailJson(String id) throws java.sql.SQLException {
                         return plotModule.publicBoardDetailJson(id);
                     }
-                });
+                }, players.security()::authentication);
+        players.security().onCredentialsChanged(apiModule::invalidatePlayerAuthentication);
         lifecycle.startManaged("http-api", () -> apiModule.start(35353), apiModule::stop);
         apiModule.registerCommands(plugin.getLifecycleManager());
     }

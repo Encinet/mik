@@ -4,6 +4,7 @@
 
 ## 玩家与界面
 
+- [账号安全](account-security.md)：可选密码、管理账号强制保护、登录验证与管理员重置。
 - [空间菜单](spatial-menus.md)：操作、界面大小、文字与 FOV。
 - [AFK](afk.md)：挂机判定、活动奖励与观影豁免。
 - [客户端检测与提醒](client-reminders.md)：版本、模组信号查询与自动建议。

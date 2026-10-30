@@ -7,6 +7,7 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.security.PasswordAccess;
 import org.encinet.mik.feature.community.governance.GovernanceException;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
 import org.encinet.mik.feature.community.governance.membership.activity.ActiveMemberEligibility;
@@ -36,17 +37,19 @@ final class GovernancePlayerMenu {
     private final GovernanceCommandContext context;
     private final GovernanceText text;
     private final MembershipCommandHandler commands;
+    private final PasswordAccess passwords;
 
     GovernancePlayerMenu(JavaPlugin plugin, MembershipService membership,
                          LuckPermsGovernanceRoles roles,
                          GovernanceCommandContext context, GovernanceText text,
-                         MembershipCommandHandler commands) {
+                         MembershipCommandHandler commands, PasswordAccess passwords) {
         this.plugin = plugin;
         this.membership = membership;
         this.roles = roles;
         this.context = context;
         this.text = text;
         this.commands = commands;
+        this.passwords = passwords;
     }
 
     void search(Player staff) {
@@ -137,6 +140,8 @@ final class GovernancePlayerMenu {
                         .primary((viewer, handle) -> resumeInput(viewer, targetId));
             }
         }
+        menu.control("password-security", label(language, Message.PASSWORD_TITLE, NamedTextColor.YELLOW))
+                .region("actions").primary((viewer, handle) -> passwords.manage(viewer, targetId, () -> openPlayer(viewer, targetId)));
         menu.item("find", Material.SPYGLASS,
                         label(language, Message.GOVERNANCE_MENU_FIND_PLAYER, NamedTextColor.AQUA))
                 .region("actions").primary((viewer, handle) -> search(viewer));

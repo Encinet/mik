@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.community.governance.voting;
 
+import org.encinet.mik.feature.player.security.PasswordAccounts;
 import org.encinet.mik.feature.community.governance.GovernanceException;
 import org.encinet.mik.feature.community.governance.GovernanceRepositoryException;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
@@ -28,23 +29,35 @@ public final class VotingService {
     private final MembershipService membership;
     private final Clock clock;
 
-    public VotingService(VotingRepository repository, MembershipService membership) {
-        this(repository, membership, Clock.systemUTC());
+    private final PasswordAccounts passwords;
+
+    public VotingService(VotingRepository repository, MembershipService membership, PasswordAccounts passwords) {
+        this(repository, membership, Clock.systemUTC(), passwords);
     }
 
     public VotingService(
             VotingRepository repository,
             MembershipService membership,
-            Clock clock
+            Clock clock, PasswordAccounts passwords
     ) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.membership = Objects.requireNonNull(membership, "membership");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.passwords = Objects.requireNonNull(passwords, "passwords");
     }
 
     /** Starts a proposal that does not require a separate co-sponsor workflow. */
     public GovernanceVote startVote(VoteProposal proposal) throws GovernanceException {
         Objects.requireNonNull(proposal, "proposal");
+        return passwords.coordinate(() -> {
+            if (proposal.kind() == VoteKind.APPOINTMENT && !passwords.hasPassword(proposal.subjectId())) {
+                throw new GovernanceException(GovernanceException.Code.PASSWORD_REQUIRED);
+            }
+            return startProtectedVote(proposal);
+        });
+    }
+
+    private GovernanceVote startProtectedVote(VoteProposal proposal) throws GovernanceException {
         List<PlayerProfile> electorate = membership.activeMembers();
         if (electorate.size() <= 1) {
             throw new GovernanceException(GovernanceException.Code.VOTERS_TOO_FEW);

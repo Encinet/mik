@@ -1,25 +1,32 @@
 package org.encinet.mik.shared.role;
 
 import org.bukkit.entity.Player;
+import org.encinet.mik.shared.i18n.Message;
 
 import java.util.Objects;
 import java.util.function.Predicate;
 
 /** Ordered MIK player roles exposed to external integrations. */
 public enum PlayerRole {
-    CUSTODIAN("custodian"),
-    MODERATOR("moderator"),
-    MEMBER("member"),
-    DEFAULT("default");
+    CUSTODIAN("custodian", Message.ROLE_CUSTODIAN),
+    MODERATOR("moderator", Message.ROLE_MODERATOR),
+    MEMBER("member", Message.ROLE_MEMBER),
+    DEFAULT("default", Message.ROLE_NEW_PLAYER);
 
     private final String id;
+    private final Message label;
 
-    PlayerRole(String id) {
+    PlayerRole(String id, Message label) {
         this.id = id;
+        this.label = label;
     }
 
     public String id() {
         return id;
+    }
+
+    public Message label() {
+        return label;
     }
 
     public String permission() {

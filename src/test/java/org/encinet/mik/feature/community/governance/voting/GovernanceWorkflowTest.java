@@ -350,7 +350,7 @@ class GovernanceWorkflowTest {
         database.open();
         MembershipService membership = new MembershipService(
                 database, clock, (uuid, name) -> false, (uuid, name) -> true);
-        VotingService voting = new VotingService(database, membership, clock);
+        VotingService voting = new VotingService(database, membership, clock, new org.encinet.mik.feature.player.security.EstablishedPasswordAccounts());
         RemovalService removal = new RemovalService(database, database, membership, clock);
         DeliveryService delivery = new DeliveryService(database);
         return new TestContext(database, membership, voting, removal, delivery);

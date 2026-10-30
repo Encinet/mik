@@ -1,6 +1,8 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.security.PasswordModule;
+import org.encinet.mik.feature.player.security.PasswordTips;
 import org.encinet.mik.feature.player.address.PlayerAddressModule;
 import org.encinet.mik.feature.player.address.PlayerAssociationNotifier;
 import org.encinet.mik.feature.player.afk.AfkModule;
@@ -30,6 +32,7 @@ import org.encinet.mik.integration.geyser.BedrockPlayerBadge;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 record PlayerFeatures(
+        PasswordModule security,
         AfkModule afk,
         PlayerAddressModule addresses,
         PlayerNameTagRenderer nameTags,
@@ -45,6 +48,10 @@ record PlayerFeatures(
         var languageService = shared.language();
         var axiomGizmoService = shared.axiom();
         var geyserService = shared.geyser();
+
+        PasswordModule passwords = new PasswordModule(plugin, languageService);
+        lifecycle.startManaged("account-security", passwords::enable, passwords::disable);
+        passwords.registerCommands(plugin.getLifecycleManager());
 
         BedrockPlayerBadge bedrockPlayerBadge =
                 new BedrockPlayerBadge(geyserService, languageService);
@@ -82,6 +89,7 @@ record PlayerFeatures(
         TipModule tipModule = new TipModule(plugin, languageService,
                 player -> !afkModule.isAfk(player.getUniqueId()));
         lifecycle.startManaged("guidance", tipModule::enable, tipModule::disable);
+        PasswordTips.register(lifecycle.own("password-tips", tipModule.scope()), passwords);
         ClientTips.register(lifecycle.own("client-tips", tipModule.scope()), languageService,
                 clientVersions, clientMods, geyserService::isBedrockPlayer);
 
@@ -147,7 +155,7 @@ record PlayerFeatures(
                 new InvisibilityNotifyModule(plugin, languageService);
         lifecycle.startManaged("invisibility-notify", invisibilityNotifyModule::enable, invisibilityNotifyModule::disable);
 
-        return new PlayerFeatures(afkModule, playerAddressModule, playerNameTags, playerIdentities,
+        return new PlayerFeatures(passwords, afkModule, playerAddressModule, playerNameTags, playerIdentities,
                 pvpModule, teleportPreferenceModule, clientVersions, tipModule);
     }
 }

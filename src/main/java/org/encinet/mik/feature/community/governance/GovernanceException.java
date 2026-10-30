@@ -2,6 +2,7 @@ package org.encinet.mik.feature.community.governance;
 
 public final class GovernanceException extends Exception {
     public enum Code {
+        PASSWORD_REQUIRED("申请管理前请先设置密码"),
         PLAYER_UNKNOWN("该玩家尚无治理记录"),
         PAUSE_END_INVALID("晋升暂停期限必须晚于当前时间"),
         PAUSE_ALREADY_ACTIVE("该玩家已有生效中的晋升暂停"),

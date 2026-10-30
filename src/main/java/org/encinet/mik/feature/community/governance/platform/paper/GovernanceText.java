@@ -139,6 +139,7 @@ public final class GovernanceText {
 
     public Message error(GovernanceException.Code code) {
         return switch (code) {
+            case PASSWORD_REQUIRED -> Message.PASSWORD_NOMINATION_REQUIRED;
             case PLAYER_UNKNOWN -> Message.GOVERNANCE_ERROR_PLAYER_UNKNOWN;
             case PAUSE_END_INVALID -> Message.GOVERNANCE_ERROR_PAUSE_END_INVALID;
             case PAUSE_ALREADY_ACTIVE -> Message.GOVERNANCE_ERROR_PAUSE_ALREADY_ACTIVE;

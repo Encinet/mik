@@ -60,9 +60,10 @@ record CommunityFeatures(
         socialModule.registerCommands(plugin.getLifecycleManager());
 
         GovernanceModule governanceModule = new GovernanceModule(
-                plugin, languageService, afkModule, banModule.manager());
+                plugin, languageService, afkModule, banModule.manager(), players.security());
         lifecycle.startManaged("governance", governanceModule::enable, governanceModule::disable);
         governanceModule.registerCommands(plugin.getLifecycleManager());
+        players.security().retention(governanceModule::requiresPassword);
 
         AnnouncementModule announcementModule = new AnnouncementModule(plugin, languageService);
         lifecycle.startManaged("announcement", announcementModule::enable, announcementModule::disable);

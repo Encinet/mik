@@ -59,7 +59,7 @@ class LocalApiServerTest {
         players.load();
         players.bootstrap(List.of(), Instant.parse("2026-09-27T00:00:00Z"));
         WebLoginChallengeStore challenges = new WebLoginChallengeStore();
-        challenges.confirm("123456", UUID.randomUUID(), "Player", "member");
+        challenges.confirm("123456", UUID.randomUUID(), "Player", "member", () -> true);
         CommunityBoardView board = new CommunityBoardView() {
             @Override public String listJson() { return "{\"notices\":[]}"; }
             @Override public String detailJson(String id) { return null; }

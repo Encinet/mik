@@ -40,12 +40,15 @@ public final class ApiModule implements Listener {
     private final ApiPlayerSnapshot players;
     private final WebLoginChallengeStore webLoginChallenges;
     private final LocalApiServer http;
+    private final java.util.function.Function<Player, java.util.function.BooleanSupplier> authentication;
 
     public ApiModule(JavaPlugin plugin, LanguageService languageService,
                      Supplier<List<BanRecord>> activeBans,
-                     Supplier<byte[]> announcementsJson, CommunityBoardView communityBoard) {
+                     Supplier<byte[]> announcementsJson, CommunityBoardView communityBoard,
+                     java.util.function.Function<Player, java.util.function.BooleanSupplier> authentication) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.languageService = Objects.requireNonNull(languageService, "languageService");
+        this.authentication = Objects.requireNonNull(authentication, "authentication");
         this.players = new ApiPlayerSnapshot(plugin.getDataFolder().toPath(), plugin.getLogger());
         this.webLoginChallenges = new WebLoginChallengeStore();
         this.http = new LocalApiServer(plugin, players, webLoginChallenges,
@@ -81,6 +84,10 @@ public final class ApiModule implements Listener {
         shutdown.attempt("API player snapshot", players::clear);
         shutdown.attempt("web login challenges", webLoginChallenges::clear);
         shutdown.finish("API module");
+    }
+
+    public void invalidatePlayerAuthentication(java.util.UUID playerId) {
+        webLoginChallenges.invalidate(playerId);
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
@@ -129,6 +136,13 @@ public final class ApiModule implements Listener {
             return;
         }
 
+        java.util.function.BooleanSupplier valid = authentication.apply(player);
+        if (!valid.getAsBoolean()) {
+            player.sendMessage(Component.text(languageService.t(player,
+                    Message.PASSWORD_CONFLICT), NamedTextColor.RED));
+            return;
+        }
+
         String code = rawCode == null ? "" : rawCode.trim();
         if (!WebLoginChallengeStore.validCode(code)) {
             player.sendMessage(Component.text(languageService.t(player,
@@ -137,7 +151,7 @@ public final class ApiModule implements Listener {
         }
 
         webLoginChallenges.confirm(code, player.getUniqueId(), player.getName(),
-                PlayerRole.resolve(player).id());
+                PlayerRole.resolve(player).id(), valid);
         player.sendMessage(Component.text(languageService.t(player,
                 Message.WEBLOGIN_CONFIRMED), NamedTextColor.GREEN));
     }

@@ -17,17 +17,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WebLoginChallengeStoreTest {
     @Test
+    void revokedAuthenticationCannotBeConsumedBeforeTheCleanupCallbackRuns() {
+        var valid = new AtomicBoolean(true);
+        var store = new WebLoginChallengeStore();
+        store.confirm("123456", UUID.randomUUID(), "Player", "moderator", valid::get);
+        valid.set(false);
+        assertNull(store.consume("123456"));
+        assertNull(store.find("123456"));
+    }
+
+    @Test
+    void changingCredentialsRevokesOnlyTheTargetsPendingWebConfirmations() {
+        var store = new WebLoginChallengeStore();
+        UUID changed = UUID.randomUUID();
+        UUID other = UUID.randomUUID();
+        store.confirm("123456", changed, "Changed", "moderator", () -> true);
+        store.confirm("234567", changed, "Changed", "moderator", () -> true);
+        store.confirm("345678", other, "Other", "member", () -> true);
+        store.invalidate(changed);
+        assertNull(store.find("123456"));
+        assertNull(store.consume("234567"));
+        assertEquals(other, store.consume("345678").playerUuid());
+    }
+
+    @Test
     void confirmationExpiresAndReconfirmationReplacesConsumedState() {
         AtomicLong time = new AtomicLong(1_000L);
         WebLoginChallengeStore store = new WebLoginChallengeStore(time::get);
         UUID firstPlayer = UUID.randomUUID();
         UUID secondPlayer = UUID.randomUUID();
 
-        store.confirm("123456", firstPlayer, "First", "member");
+        store.confirm("123456", firstPlayer, "First", "member", () -> true);
         assertEquals(firstPlayer, store.consume("123456").playerUuid());
         assertTrue(store.find("123456").consumed());
 
-        store.confirm("123456", secondPlayer, "Second", "custodian");
+        store.confirm("123456", secondPlayer, "Second", "custodian", () -> true);
         assertEquals(secondPlayer, store.find("123456").playerUuid());
         assertFalse(store.find("123456").consumed());
 
@@ -39,7 +63,7 @@ class WebLoginChallengeStoreTest {
     @Test
     void concurrentConsumptionConfirmsExactlyOneRequest() throws Exception {
         WebLoginChallengeStore store = new WebLoginChallengeStore();
-        store.confirm("123456", UUID.randomUUID(), "Player", "member");
+        store.confirm("123456", UUID.randomUUID(), "Player", "member", () -> true);
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
 
@@ -87,14 +111,14 @@ class WebLoginChallengeStoreTest {
             }
             return time.get();
         });
-        store.confirm("123456", UUID.randomUUID(), "Old", "member");
+        store.confirm("123456", UUID.randomUUID(), "Old", "member", () -> true);
 
         try (var executor = Executors.newSingleThreadExecutor()) {
             pauseNextRead.set(true);
             var staleRead = executor.submit(() -> store.find("123456"));
             assertTrue(oldConfirmationRead.await(5, TimeUnit.SECONDS));
             time.set(TimeUnit.MINUTES.toMillis(5));
-            store.confirm("123456", UUID.randomUUID(), "New", "member");
+            store.confirm("123456", UUID.randomUUID(), "New", "member", () -> true);
             replacementStored.countDown();
 
             assertNull(staleRead.get(5, TimeUnit.SECONDS));

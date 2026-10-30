@@ -190,6 +190,10 @@ public final class SqliteGovernanceRepository implements GovernanceDatabase,
         return query(() -> store.openVote(kind, subjectId));
     }
 
+    public boolean requiresPassword(UUID id) throws GovernanceRepositoryException {
+        return query(() -> store.requiresPassword(id));
+    }
+
     @Override
     public Optional<Instant> lastFailedAt(VoteKind kind, UUID subjectId)
             throws GovernanceRepositoryException {
