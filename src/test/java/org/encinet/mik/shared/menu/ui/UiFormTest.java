@@ -49,7 +49,7 @@ class UiFormTest {
     @Test void reflowKeepsFieldIdentityAndMixedControlsRemainUsable() {
         var calls = new java.util.ArrayList<String>();
         var content = Ui.form()
-                .field("name", Component.text("Name"), Ui.textField(Component.text("Draft"))
+                .field("name", Component.text("Name"), Ui.textField("Draft")
                         .primary((_, _) -> calls.add("edit")).build())
                 .field("visibility", Component.text("Visibility"), Ui.button(Component.text("Public")).key("public")
                         .primary((_, _) -> calls.add("toggle")).build()).build();
@@ -79,7 +79,7 @@ class UiFormTest {
     }
 
     @Test void nestedControlMinimaCanTriggerStackingWithoutChangingTheDeclaredTree() {
-        var control = Ui.column().child(Ui.textField(Component.text("Draft")).sizing(UiSizing.atLeast(new UiSize(250, 0))).build()).build();
+        var control = Ui.column().child(Ui.textField("Draft").sizing(UiSizing.atLeast(new UiSize(250, 0))).build()).build();
         var content = Ui.form().field("name", Component.text("Playlist name"), control).build();
         var frame = SceneGeometryTestSupport.measure(scene(content, 300), 1);
         var label = element(frame, "label");
@@ -97,8 +97,8 @@ class UiFormTest {
         var feedback = Ui.layout(UiLayouts.preferredWidth(UiLength.ui(160), UiLayouts.column(UiLength.ZERO)))
                 .child(Ui.text(Component.text("Press T to type in the chat box")).key("hint").build()).build();
         var content = Ui.form()
-                .field("name", Component.text("Playlist name"), Ui.textField(Component.text("Draft")).build())
-                .field("body", Component.text("Description"), Ui.textField(Component.text("First\nSecond"))
+                .field("name", Component.text("Playlist name"), Ui.textField("Draft").build())
+                .field("body", Component.text("Description"), Ui.textField("First\nSecond")
                         .maxLines(4).actions(Ui.button(Component.text("Clear")).build()).build())
                 .feedback(feedback).actions(Ui.button(Component.text("Save")).key("save").build()).build();
         for (double typography : new double[] {.7, 1, 1.4, 1.8}) {
@@ -111,8 +111,8 @@ class UiFormTest {
     }
 
     private UiNode form() {
-        return Ui.form().field("name", Component.text("Playlist name"), Ui.textField(Component.text("Songs")).build())
-                .field("description", Component.text("Description"), Ui.textField(Component.text("A description")).maxLines(4).build())
+        return Ui.form().field("name", Component.text("Playlist name"), Ui.textField("Songs").build())
+                .field("description", Component.text("Description"), Ui.textField("A description").maxLines(4).build())
                 .feedback(Ui.text(Component.text("Press T to type")).key("hint").build())
                 .actions(Ui.layout(UiLayouts.wrap(UiLength.ui(8), UiLength.ui(6)))
                         .child(Ui.button(Component.text("Cancel")).key("cancel").build())

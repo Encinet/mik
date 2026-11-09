@@ -54,18 +54,20 @@ class VehicleSpatialEditorTest {
         }
     }
 
-    @Test void modelEntryStartsAnInteractiveFloatingMiniatureAndReleasesAllDisplays() throws Exception {
+    @Test void modelEntryOpensThePanelAndOnlyEntersWorldEditingWhenRequested() throws Exception {
         try (var h = new VehicleEditorHarness()) {
             h.editor.open(h.player); h.click("model:" + h.definition.id()); h.click("edit");
             var preview = h.editor.preview(h.player);
             assertTrue(preview.scale() < 1);
             assertTrue(preview.origin().getY() > h.feet.get().getY());
-            assertTrue(preview.handles().stream().anyMatch(handle -> handle.key().equals("stage:SAVE")));
+            assertTrue(org.encinet.mik.shared.menu.FloatingMenus.current(h.player).isPresent());
+            assertTrue(preview.handles().stream().noneMatch(handle -> handle.action() instanceof VehicleEditorScene.Tool));
             for (var mesh : h.active()) {
                 verify(mesh.display).setVisibleByDefault(false);
                 verify(mesh.display, atLeastOnce()).setPersistent(false);
                 verify(h.player).showEntity(h.plugin, mesh.display);
             }
+            h.click("spatial");
             h.advance(7); h.aimHandle("section:SEATS"); assertTrue(h.editor.place(h.player));
             h.advance(2); h.aimHandle("SEATS:0"); assertTrue(h.editor.place(h.player));
             h.advance(2); h.aimHandle("adjust:0:1"); assertTrue(h.editor.place(h.player));
@@ -75,15 +77,15 @@ class VehicleSpatialEditorTest {
         }
     }
 
-    @Test void createWizardClosesItsOwnForegroundAndEntersTheOperableMiniature() throws Exception {
+    @Test void createWizardOpensTheEditorPanelAndPreviewToolsKeepTheDraft() throws Exception {
         try (var h = new VehicleEditorHarness()) {
             h.editor.newModel(h.player, VehicleModelEditor.Source.EMPTY); h.click("CAR");
             var values = new MenuInputForm.Values(Map.of("value", "new_car"));
             assertNull(h.form.get().validation().apply(h.player, values));
             h.form.get().onSubmit().accept(h.player, values);
-            assertTrue(org.encinet.mik.shared.menu.FloatingMenus.current(h.player).isEmpty());
+            assertTrue(org.encinet.mik.shared.menu.FloatingMenus.current(h.player).isPresent());
             double originalScale = h.editor.preview(h.player).scale();
-            h.advance(7); h.aimHandle("stage:ZOOM_IN"); h.editor.place(h.player);
+            h.click("section:tools"); h.click("zoom-in");
             assertTrue(h.editor.preview(h.player).scale() > originalScale);
             h.editor.mutate(h.player, draft -> draft.addParts(h.definition.parts()));
             h.editor.save(h.player, true);

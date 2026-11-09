@@ -216,8 +216,7 @@ nametag-copy-hint = 접두사와 접미사 원문을 채팅으로 보내기
 nametag-copy-label = [복사]
 nametag-copy-sent = { $arg0 }의 스타일 원문을 채팅으로 보냈습니다.
 nametag-current = 현재 표시
-nametag-edit = 편집
-nametag-edit-ended = 편집이 종료되었습니다. 계속하려면 편집을 다시 선택하세요.
+nametag-edit-ended = 편집이 종료되었습니다. 계속하려면 입력란을 다시 클릭하세요.
 nametag-edit-prompt = T를 눌러 { $arg0 } 입력 (MiniMessage, 나에게만 표시).
 nametag-finish-field = 먼저 편집 중인 항목을 확인하거나 취소하세요.
 nametag-input-invalid = 잘못된 형식입니다. 한 줄의 MiniMessage를 보내거나 비우기를 선택하세요.
@@ -1146,6 +1145,11 @@ plot-transferred-to-you = { $arg1 } 님이 { $arg0 } 구역을 당신에게 이�
 vehicle-command-description = 표시 엔티티 차량 운전 및 관리
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] 탈것 제어
+        [driving] 운전 및 탑승
+        [maintenance] 정비 및 접근 권한
+        [public-status] 공개 접근
+        [private-status] 비공개 접근
         [home] 차량 작업 공간
         [nearby] 근처 차량
         [fleet] 이용 가능한 모든 차량
@@ -1343,7 +1347,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0은 투명, 255는 불투명입니다.
    *[other] { $arg0 }
     }
-vehicle-model-spatial = 3D 조작
+vehicle-model-spatial = 3D 선택 모드로
 vehicle-model-spatial-hint = 표식을 우클릭하여 선택하거나 조정하세요. 웅크리고 우클릭하면 설정으로 돌아갑니다.스크롤로 조정 간격을 바꿉니다.
 vehicle-model-spawn = 이 모델로 생성
 vehicle-model-add = 구성 요소 추가
@@ -1379,6 +1383,29 @@ vehicle-model-driver = 운전석
 vehicle-model-driver-here = 발 위치에 운전석 추가
 vehicle-model-edit = 초안 편집 / 재개
 vehicle-model-overview = 초안 개요
+vehicle-model-panel = 편집 패널로 돌아가기
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] 아래에서 편집 분류를 고른 뒤 대상과 도구를 선택하세요. 저장과 실행 취소는 하단에 있습니다.
+    [parts] 표시되는 블록, 아이템, 텍스트를 관리합니다. 부품을 선택하여 내용과 변형을 편집하세요.
+    [seats] 좌석을 선택하여 탑승 위치와 하차 위치를 설정하세요. 운전석은 정확히 하나여야 합니다.
+    [colliders] 충돌 상자를 선택하여 중심과 전체 크기를 편집하세요. 추가하거나 모델에 자동으로 맞출 수 있습니다.
+    [supports] 접지점을 선택하여 이동하세요. 지면 지지 또는 선박 부력 계산에 사용됩니다.
+    [parameters] 매개변수 그룹을 선택한 뒤 필드를 눌러 값을 편집하세요.
+    [tools] 미리 보기를 조정하거나 월드에서 대상을 선택하고 초안을 검사하세요. 변경 사항 폐기 시 확인합니다.
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] 블록 내용 설정
+    [item] 주로 쓰는 손의 아이템으로 교체
+    [text] 텍스트 내용 설정
+    }
+vehicle-model-exact-input = 정확한 값 입력
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = 구성 요소 정보
 vehicle-model-selection-unavailable = 대상이 변경되었거나 삭제되었습니다. 돌아가서 다시 선택하세요
 vehicle-model-exit = 하차 위치 / 미세 조정
@@ -1402,20 +1429,20 @@ vehicle-model-pick-hint = 미리보기를 열어 블록 또는 아이템 부품�
 vehicle-model-place-cancelled = 배치를 취소했습니다 (시간 초과, 편집 상태 변경 또는 직접 취소).
 vehicle-model-place-hint = 겨냥해 배치가 30초 동안 활성화됩니다. 블록이나 미리보기를 바라보고 주 손으로 우클릭하면 확정, 웅크린 채 우클릭하면 취소됩니다.
 vehicle-model-position = 위치 / 미세 조정
-vehicle-model-position-hint = 로컬 X/Y/Z · here는 발 위치, look은 겨냥한 표면 사용 · 격자는 조정 간격을 따릅니다.
+vehicle-model-position-hint = 로컬 좌표: +Y는 위쪽, +Z는 앞쪽입니다. 버튼은 설정한 간격만큼 이동하며, 정확한 값 입력은 절대 위치를 설정합니다.
 vehicle-model-preview = 개인 미리보기
 vehicle-model-preview-failed = 미리보기를 사용할 수 없습니다. 초안은 유지됩니다: { $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = 실행 취소한 편집 다시 실행
+vehicle-model-preview-hint = 미리 보기가 표시됩니다. 모델을 직접 선택하고 조정하려면 3D 선택 모드로 들어가세요.
+vehicle-model-redo = 다시 실행
 vehicle-model-remove = 구성 요소 제거
 vehicle-model-remove-warning = 이 구성 요소를 제거할까요? 뒤의 번호가 바뀌며 실행 취소할 수 있습니다.
 vehicle-model-rotate = 구성 요소 회전
 vehicle-model-rotate-hint = 상대 로컬 회전: X는 상하, Y는 좌우, Z는 기울기입니다. 위치는 바뀌지 않습니다.
-vehicle-model-save = 검증 후 저장
+vehicle-model-save = 저장하고 편집 종료
 vehicle-model-save-continue = 저장하고 편집 계속
 vehicle-model-saved = 저장됨
 vehicle-model-scale = 구성 요소 배율 조정
-vehicle-model-scale-all = 모든 축 배율 × { $arg0 }
+vehicle-model-scale-all = 모든 축 배율 { $arg0 } { $arg1 }
 vehicle-model-scale-hint = 로컬 축 길이를 곱하거나 나눕니다. 월드 경계 치수가 아닙니다.
 vehicle-model-seats = 좌석과 하차 위치
 vehicle-model-selected = 선택한 표시 엔티티 가져오기
@@ -1427,9 +1454,9 @@ vehicle-model-step = 조정 간격 변경
 vehicle-model-supports = 지면 지지점
 vehicle-model-text = 텍스트
 vehicle-model-title = 차량 모델 관리
-vehicle-model-tools = 월드 내 편집 도구
+vehicle-model-tools = 미리 보기 및 도구
 vehicle-model-transform-step = 조정 간격 변경
-vehicle-model-undo = 마지막 편집 실행 취소
+vehicle-model-undo = 실행 취소
 vehicle-result = 차량: { $arg0 }
 vehicle-selection-info = 선택: { $arg0 }개 표시 엔티티 · 그룹 { $arg1 } · 원점 { $arg2 }, { $arg3 }, { $arg4 }
 vehicle-status-contact = 충돌 / 장애물
@@ -1839,6 +1866,18 @@ music-space-label =
     { $arg0 ->
         [title] 음악 공간
         [devices] 재생 장치
+        [all-devices] 모든 기기
+        [use-device] 이 기기 사용
+        [current-device] 현재 기기
+        [manage-device] 관리
+        [back-devices] 기기 목록으로
+        [group-with-devices] 다른 기기와 그룹 만들기
+        [pick-world-member] 월드에서 기기 선택
+        [group-world-pick-hint] 빈손으로 웅크린 채 주크박스를 우클릭하면 추가됩니다. /music으로 메뉴에 돌아갑니다.
+        [group-member-standalone] 아직 동기화 그룹에 속하지 않은 주크박스를 선택하세요.
+        [group-selection-help] 아래 주크박스를 선택하거나 월드에서 빈손으로 웅크린 채 다른 기기를 우클릭하세요. 확인 후 그룹이 만들어집니다.
+        [group-source-help] 선택한 기기의 대기열과 재생 위치를 사용합니다. 만들면 기존 재생이 멈추며, 만들고 재생을 누르면 이어서 재생합니다.
+        [device-actions] 작업
         [device-status] 상태
         [sync-group] 동기화 그룹
         [single-device] 주크박스
@@ -1849,7 +1888,6 @@ music-space-label =
         [nearby-device] 주변
         [group-select-members] 주크박스를 두 대 이상 선택하세요
         [group-name-required] 그룹 이름을 입력하세요
-        [all-online] 모두 온라인
         [direction-front] 앞
         [direction-front-right] 오른쪽 앞
         [direction-right] 오른쪽
@@ -2054,6 +2092,7 @@ music-space-error =
 music-space-selected-tracks = { $arg0 }곡 선택됨
 music-space-track-count = { $arg0 }곡
 music-space-device-count = 주크박스 { $arg0 }대
+music-space-playback-target = 재생 기기: { $arg0 }
 music-space-online-count = 온라인: { $arg0 }/{ $arg1 }대
 music-space-device-distance = { $arg0 } · { $arg1 } 칸
 music-space-device-height = { $arg0 ->

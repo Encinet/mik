@@ -77,6 +77,7 @@ public final class MusicWorkspace implements AutoCloseable {
         if (previous != null && (previous.handle().state() == FloatingMenuState.ACTIVE
                 || previous.handle().state() == FloatingMenuState.OPENING)) { previous.redraw(); return; }
         MusicWorkspaceState state = previous == null ? new MusicWorkspaceState() : previous.state();
+        if (state.panel() instanceof GroupEditor editor) editor.draft().pickingInWorld = false;
         closeForm(player.getUniqueId());
         closeSearch(player.getUniqueId());
         if (previous != null) previous.close();
@@ -84,9 +85,37 @@ public final class MusicWorkspace implements AutoCloseable {
     }
 
     public void at(Player player, Jukebox box) {
+        var flow = flows.get(player.getUniqueId());
+        var selection = flow != null && flow.state().panel() instanceof GroupEditor editor && editor.draft().pickingInWorld
+                ? editor.draft() : null;
         registry.discover(box).whenComplete((device, error) -> main(() -> {
             if (!player.isOnline()) return;
             if (error != null) { error(player, error); return; }
+            if (selection != null) {
+                if (!owns(player,flow.state()) || !(flow.state().panel() instanceof GroupEditor editor)
+                        || editor.draft() != selection || !selection.pickingInWorld) return;
+                open(player);
+                safe(player,() -> {
+                    if (device.group() != null) { player.sendActionBar(label(player,"group-member-standalone")); return; }
+                    registry.authorize(player,registry.playbackTarget(device.id()));
+                    var group = selection.group == null ? null : registry.snapshot().groups().get(selection.group);
+                    if (selection.group != null && group == null) throw new MusicProblem(MusicProblem.Code.NOT_FOUND);
+                    int existing = group == null ? 0 : group.members().size();
+                    if (!selection.members.contains(device.id()) && selection.members.size() + existing >= MusicGroupService.MAX_MEMBERS)
+                        throw new MusicProblem(MusicProblem.Code.LIMIT);
+                    selection.pickingInWorld = false;
+                    var record = registry.bound(player.getUniqueId(),device.id()) ? CompletableFuture.completedFuture(null)
+                            : registry.bind(player,device.id(),"");
+                    record.whenComplete((_,failed) -> main(() -> {
+                        if (!owns(player,flow.state()) || !(flow.state().panel() instanceof GroupEditor current) || current.draft() != selection) return;
+                        open(player);
+                        if (failed != null) error(player,failed);
+                        else safe(player,() -> selection.pick(device.id(),existing));
+                        redraw(player);
+                    }));
+                });
+                return;
+            }
             UUID target = device.group() == null ? device.id() : device.group();
             Runnable show = () -> {
                 if (!player.isOnline()) return;
@@ -112,9 +141,7 @@ public final class MusicWorkspace implements AutoCloseable {
     }
     void selectTarget(Player player, UUID id) {
         var state = state(player);
-        if (!Objects.equals(state.target(), id) && (state.panel() instanceof DevicePanel || state.panel() instanceof MemberOutput))
-            closeForm(player.getUniqueId());
-        state.target(id, id != null && registry.snapshot().groups().containsKey(id));
+        state.target(id);
     }
     void redraw(Player player) { var flow = flows.get(player.getUniqueId()); if (flow != null) flow.redraw(); }
 
@@ -194,7 +221,7 @@ public final class MusicWorkspace implements AutoCloseable {
         UiNode windowTools = tools("window-tools")
                 .child(Ui.button(UiIcons.CROSS, label(player, "close")).key("close").primary((_, handle) -> handle.close()).build()).build();
         locator.decorate(player,state,builder);
-        UiNode content = MusicWorkspaceComposition.content(library.navigation(player, state), browser, auxiliary,
+        UiNode content = MusicWorkspaceComposition.content(state.panel() instanceof GroupEditor ? null : library.navigation(player, state), browser, auxiliary,
                 queries.ready() ? this.transport.content(player, state) : info("waiting", label(player, "unavailable")), windowTools);
         if (forms.containsKey(player.getUniqueId()) || searchInputs.containsKey(player.getUniqueId())) {
             boolean[] visible = {false, false};
@@ -288,7 +315,6 @@ public final class MusicWorkspace implements AutoCloseable {
     }
     void showDevices(Player player) {
         var state = state(player);
-        if (state.page == WorkspacePage.DEVICES) return;
         closeForm(player.getUniqueId());
         closeSearch(player.getUniqueId());
         state.devices();
@@ -332,16 +358,6 @@ public final class MusicWorkspace implements AutoCloseable {
         forms.put(player.getUniqueId(), new Input(field, session));
         session.focus(focus);
     }
-    /** The value stays at its source; only this field becomes an editor, leaving adjacent tools available. */
-    UiNode field(Player player, String id, Component label, UiTextField field, Supplier<MenuInputForm> form) {
-        var input = forms.get(player.getUniqueId());
-        if (input != null && id.equals(input.field()))
-            return column(id).child(inputContent(input)).build();
-        return Ui.form().key(id).field("value", label, field.primary((viewer, _) -> safe(viewer, () -> {
-            var declaration = form.get();
-            input(viewer, id, declaration, declaration.fields().getFirst().key());
-        })).build()).build();
-    }
     UiNode field(Player player, String id, String key, String value, int maximum, Consumer<String> apply) {
         return form(player, id, inputForm(player, key, value, maximum, apply));
     }
@@ -349,8 +365,7 @@ public final class MusicWorkspace implements AutoCloseable {
         var input = forms.get(player.getUniqueId());
         if (input != null && id.equals(input.field())) return column(id).child(inputContent(input)).build();
         var fields = Ui.form().key(id);
-        for (var field : form.fields()) fields.field(field.key(), field.label(), Ui.textField(
-                        field.initial().isEmpty() ? Component.empty() : field.preview().apply(field.initial()))
+        for (var field : form.fields()) fields.field(field.key(), field.label(), Ui.textField(field.initial()).preview(field.preview())
                 .key(field.key()).placeholder(language.text(player, Message.MENU_INPUT_EMPTY, NamedTextColor.AQUA))
                 .maxLines(field.multiline() ? 4 : 1)
                 .primary((viewer, _) -> safe(viewer, () -> input(viewer, id, form, field.key()))).build());

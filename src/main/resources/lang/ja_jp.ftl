@@ -216,8 +216,7 @@ nametag-copy-hint = 接頭辞・接尾辞の原文をチャットに送信
 nametag-copy-label = [コピー]
 nametag-copy-sent = { $arg0 } のスタイル原文をチャットに送りました。
 nametag-current = 現在の表示
-nametag-edit = 編集
-nametag-edit-ended = 編集を終了しました。続けるには再度編集を選んでください。
+nametag-edit-ended = 編集を終了しました。続けるには入力欄をもう一度クリックしてください。
 nametag-edit-prompt = T で{ $arg0 }を入力（MiniMessage、自分だけに表示）。
 nametag-finish-field = 先に編集中の項目を確定またはキャンセルしてください。
 nametag-input-invalid = 形式が無効です。1 行の MiniMessage を送信するか、消去を選んでください。
@@ -1146,6 +1145,11 @@ plot-transferred-to-you = { $arg1 } が区画「{ $arg0 }」をあなたに移�
 vehicle-command-description = 表示エンティティの車両を運転・管理
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] 乗り物の操作
+        [driving] 運転と乗車
+        [maintenance] 整備とアクセス
+        [public-status] 公開アクセス
+        [private-status] 非公開アクセス
         [home] 乗り物ワークスペース
         [nearby] 近くの乗り物
         [fleet] 利用可能な乗り物
@@ -1343,7 +1347,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 は透明、255 は不透明です。
    *[other] { $arg0 }
     }
-vehicle-model-spatial = 3D 操作
+vehicle-model-spatial = 3D選択モードへ
 vehicle-model-spatial-hint = マーカーを右クリックして選択・調整します。スニーク＋右クリックで設定に戻ります。スクロールで調整幅を切り替えます。
 vehicle-model-spawn = このモデルで生成
 vehicle-model-add = 部品を追加
@@ -1379,6 +1383,29 @@ vehicle-model-driver = 運転席
 vehicle-model-driver-here = 足元に運転席を追加
 vehicle-model-edit = 下書きを編集 / 再開
 vehicle-model-overview = 下書きの概要
+vehicle-model-panel = 編集パネルに戻る
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] 下から編集項目を選び、対象とツールを選択します。保存と取り消しは下部にあります。
+    [parts] 表示するブロック、アイテム、テキストを管理します。部品を選んで内容や変形を編集します。
+    [seats] 座席を選び、乗車位置と降車位置を設定します。運転席は必ず1つ必要です。
+    [colliders] 衝突ボックスを選び、中心と全寸法を編集します。追加やモデル全体への自動調整もできます。
+    [supports] 接地点を選んで移動します。地面の支持や船の浮力計算に使われます。
+    [parameters] パラメーターのグループを選び、項目をクリックして値を編集します。
+    [tools] プレビューの調整、ワールド内の対象選択、下書きの検証ができます。破棄には確認が必要です。
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] ブロック内容を設定
+    [item] メインハンドのアイテムに置換
+    [text] テキスト内容を設定
+    }
+vehicle-model-exact-input = 正確な値を入力
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = 部品の詳細
 vehicle-model-selection-unavailable = 対象が変更または削除されました。戻って選び直してください
 vehicle-model-exit = 降車位置 / 微調整
@@ -1402,20 +1429,20 @@ vehicle-model-pick-hint = プレビューを開いてブロックまたはアイ
 vehicle-model-place-cancelled = 配置を取り消しました（時間切れ、編集状態の変化、または手動での取り消し）。
 vehicle-model-place-hint = 照準による配置は30秒間有効です。ブロックかプレビューを見て、メインハンドの右クリックで確定、スニーク＋右クリックで取り消します。
 vehicle-model-position = 位置 / 微調整
-vehicle-model-position-hint = ローカルX/Y/Z · hereは足元、lookは照準の当たる面を使用 · グリッドは調整幅に従います。
+vehicle-model-position-hint = ローカル座標：+Yは上、+Zは前です。ボタンはステップ単位で移動し、正確な値の入力は絶対位置を設定します。
 vehicle-model-preview = 自分専用プレビュー
 vehicle-model-preview-failed = プレビューを表示できません。下書きは保持されています：{ $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = 取り消した編集をやり直す
+vehicle-model-preview-hint = プレビューを表示しました。モデルを直接選択・調整するには3D選択モードに入ってください。
+vehicle-model-redo = やり直し
 vehicle-model-remove = 部品を削除
 vehicle-model-remove-warning = この部品を削除しますか？以降の番号がずれます。元に戻すことは可能です。
 vehicle-model-rotate = 部品を回転
 vehicle-model-rotate-hint = 相対的なローカル回転：Xはピッチ、Yはヨー、Zはロール。位置は変わりません。
-vehicle-model-save = 検証して保存
+vehicle-model-save = 保存して編集を終了
 vehicle-model-save-continue = 保存して編集を続ける
 vehicle-model-saved = 保存しました
 vehicle-model-scale = 部品を拡大・縮小
-vehicle-model-scale-all = 全軸の倍率 × { $arg0 }
+vehicle-model-scale-all = 全軸の倍率 { $arg0 } { $arg1 }
 vehicle-model-scale-hint = ローカル軸の長さを乗除します。ワールドでの外接寸法ではありません。
 vehicle-model-seats = 座席と降車位置
 vehicle-model-selected = 選択した表示エンティティを読み込む
@@ -1427,9 +1454,9 @@ vehicle-model-step = 調整幅を切り替える
 vehicle-model-supports = 接地支持点
 vehicle-model-text = テキスト
 vehicle-model-title = 車両モデル管理
-vehicle-model-tools = ワールド内編集ツール
+vehicle-model-tools = プレビューとツール
 vehicle-model-transform-step = 調整幅を変更
-vehicle-model-undo = 直前の編集を元に戻す
+vehicle-model-undo = 取り消し
 vehicle-result = 車両：{ $arg0 }
 vehicle-selection-info = 選択：{ $arg0 }体の表示エンティティ · グループ { $arg1 } · 原点 { $arg2 }, { $arg3 }, { $arg4 }
 vehicle-status-contact = 衝突 / 障害物
@@ -1839,6 +1866,18 @@ music-space-label =
     { $arg0 ->
         [title] 音楽空間
         [devices] 再生デバイス
+        [all-devices] すべてのデバイス
+        [use-device] このデバイスを使う
+        [current-device] 現在のデバイス
+        [manage-device] 管理
+        [back-devices] デバイス一覧へ
+        [group-with-devices] 他のデバイスとグループ化
+        [pick-world-member] ワールドで1台選ぶ
+        [group-world-pick-hint] 空の手でスニークしながらジュークボックスを右クリックして追加。/music でメニューに戻れます。
+        [group-member-standalone] まだ同期グループに入っていないジュークボックスを選んでください。
+        [group-selection-help] 下のジュークボックスを選ぶか、ワールドで空の手でスニークしながら別の機器を右クリックします。確定後にグループ化されます。
+        [group-source-help] 選んだデバイスのキューと再生位置を引き継ぎます。作成すると元の再生は停止し、「作成して再生」で再開します。
+        [device-actions] 操作
         [device-status] 状態
         [sync-group] 同期グループ
         [single-device] ジュークボックス
@@ -1849,7 +1888,6 @@ music-space-label =
         [nearby-device] 近く
         [group-select-members] ジュークボックスを2台以上選択
         [group-name-required] グループ名を入力
-        [all-online] すべてオンライン
         [direction-front] 前方
         [direction-front-right] 右前方
         [direction-right] 右
@@ -2054,6 +2092,7 @@ music-space-error =
 music-space-selected-tracks = { $arg0 } 曲を選択中
 music-space-track-count = { $arg0 } 曲
 music-space-device-count = ジュークボックス { $arg0 } 台
+music-space-playback-target = 出力先：{ $arg0 }
 music-space-online-count = オンライン：{ $arg0 }/{ $arg1 } 台
 music-space-device-distance = { $arg0 } · { $arg1 } ブロック
 music-space-device-height = { $arg0 ->

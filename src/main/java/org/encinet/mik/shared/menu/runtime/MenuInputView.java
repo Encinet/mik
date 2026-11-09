@@ -4,6 +4,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
 import org.encinet.mik.shared.menu.MenuInputForm;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.ui.*;
 
 import java.util.function.IntConsumer;
@@ -36,8 +37,7 @@ final class MenuInputView {
                 continue;
             }
             String value = draft.value(field.key());
-            Component preview = value.isEmpty() ? Component.empty() : field.preview().apply(value);
-            var edit = Ui.textField(preview).key(field.key()).placeholder(labels.empty())
+            var edit = Ui.textField(value).preview(field.preview()).placeholder(labels.empty()).key(field.key())
                     .maxLines(field.multiline() ? 4 : 1).editing(index == draft.selected())
                     .primary((_, _) -> select.accept(fieldIndex));
             if (!value.isEmpty()) edit.actions(Ui.button(UiIcons.CROSS, labels.clear()).key("clear")
@@ -54,7 +54,7 @@ final class MenuInputView {
         if (labels.problem() != null) {
             var feedback = Ui.layout(UiLayouts.preferredWidth(UiLength.ui(160), UiLayouts.column(UiLength.ZERO)))
                     .key("feedback").sizing(UiSizing.atLeast(new UiSize(120, 0)))
-                    .child(UiKey.named("message"), Ui.text(labels.problem()).key("problem").textWidth(4096)
+                    .child(UiKey.named("message"), Ui.text(labels.problem()).key("problem").textWidth(FloatingMenuTextWidth.CONTENT)
                             .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), new LinearSlot(0, LinearSlot.Alignment.START)).build();
             fields.feedback(feedback);
         }

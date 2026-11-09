@@ -2,6 +2,7 @@ package org.encinet.mik.shared.menu.ui;
 
 import net.kyori.adventure.text.Component;
 import java.util.List;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 /** Structural recipes for pages assembled through named content ports. */
 public final class UiTemplates {
@@ -82,13 +83,24 @@ public final class UiTemplates {
     public static UiPort actions(String id, int columns) {
         return Ui.port(id, UiLayouts.adaptiveGrid(columns, UiLength.ui(10), UiLength.ui(8), UiLayouts.GridAlignment.CENTER));
     }
+    /** Content-width action labels with a compact grid fallback after the natural flow grows too tall. */
+    public static UiPort contentActions(String id, int compactColumns, int maximumNaturalRows) {
+        UiLength gap = UiLength.ui(10), rowGap = UiLength.ui(8);
+        UiLayout compact = UiLayouts.adaptiveGrid(compactColumns, gap, rowGap, UiLayouts.GridAlignment.CENTER);
+        return Ui.port(id, UiLayouts.adaptiveWrap(maximumNaturalRows, gap, rowGap, compact))
+                .withItemTextWidth(FloatingMenuTextWidth.CONTENT);
+    }
     public static UiPagedPort pagedActions(String id, int rows, int page, java.util.function.IntConsumer select) {
-        return new UiPagedPort(Ui.port(id, UiLayouts.wrap(UiLength.ui(10), UiLength.ui(8))), rows, page, select);
+        return new UiPagedPort(Ui.port(id, UiLayouts.wrap(UiLength.ui(10), UiLength.ui(8)))
+                .withItemTextWidth(FloatingMenuTextWidth.CONTENT), rows, page, select);
     }
     public static UiPagedLayoutPort pagedActions(String id, UiLayout layout, int page, java.util.function.IntConsumer select) {
         return new UiPagedLayoutPort(Ui.port(id, layout), page, select, false);
     }
-    public static UiPort navigation(String id) { return Ui.port(id, UiLayouts.wrap(UiLength.ui(10), UiLength.ui(8))); }
+    public static UiPort navigation(String id) {
+        return Ui.port(id, UiLayouts.wrap(UiLength.ui(10), UiLength.ui(8)))
+                .withItemTextWidth(FloatingMenuTextWidth.CONTENT);
+    }
     /** Owns the conventional nodes declared by MenuScene.Builder.pagination, including absent edge buttons. */
     public static UiNode pagination(String id) {
         return Ui.port(id, new UiCenteredBarLayout(UiKey.item("page"), UiKey.item("page:previous"), UiKey.item("page:next")));
@@ -96,16 +108,11 @@ public final class UiTemplates {
     public static UiNode actions(int columns) {
         return all(UiLayouts.adaptiveGrid(columns, UiLength.ui(10), UiLength.ui(8), UiLayouts.GridAlignment.CENTER));
     }
-    public static UiNode adaptiveGrid(int columns, UiLength horizontalGap, UiLength verticalGap) {
-        return all(UiLayouts.adaptiveGrid(columns, horizontalGap, verticalGap));
-    }
-    public static UiNode adaptiveRow(UiLength spacing) { return all(UiLayouts.row(spacing)); }
     public static UiNode canvas(UiSize viewport, java.util.Map<String, UiLayout.Position> centers) {
         java.util.Map<UiKey, UiLayout.Position> positions = new java.util.LinkedHashMap<>();
         centers.forEach((key, value) -> positions.put(UiKey.named(key), value));
         return all(UiLayouts.canvas(viewport, positions));
     }
-    public static UiNode adaptiveColumn(UiLength spacing) { return all(UiLayouts.column(spacing)); }
     public static UiPort cards(String id, int columns, int maximumRows) {
         if (columns < 1 || maximumRows < 1) throw new IllegalArgumentException("Invalid card capacity");
         return new UiPort(UiKey.named(id), (scope, constraints) -> {
@@ -113,16 +120,10 @@ public final class UiTemplates {
             return UiLayouts.adaptiveGrid(columns, UiLength.ui(10), UiLength.ui(8)).layout(scope, constraints);
         }, UiStyle.PLAIN, UiSizing.CONTENT);
     }
-    public static UiNode balancedCards(String id, int maximumColumns, int maximumRows) {
-        return new UiPort(UiKey.named(id), (scope, constraints) -> {
-            if (maximumColumns < 1 || maximumRows < 1) throw new IllegalArgumentException("Invalid card capacity");
-            int columns = Math.clamp((scope.count() + maximumRows - 1) / maximumRows, 1, maximumColumns);
-            return UiLayouts.adaptiveGrid(columns, UiLength.ui(10), UiLength.ui(8)).layout(scope, constraints);
-        }, UiStyle.PLAIN, UiSizing.CONTENT);
-    }
     public static UiNode slot(String id, UiNode template) {
         if (!(template instanceof UiPort port)) throw new IllegalArgumentException("A named port needs an independent child layout");
-        return new UiPort(UiKey.named(id), port.layout(), port.style(), port.sizing(), List.of(id), port.textRole(), port.itemSlot(),port.summaryLines());
+        return new UiPort(UiKey.named(id), port.layout(), port.style(), port.sizing(), List.of(id), port.textRole(),
+                port.itemSlot(), port.summaryLines(), port.itemTextWidth());
     }
 
     public static UiSurface panel(String id, UiNode content, String... sources) {
@@ -130,7 +131,7 @@ public final class UiTemplates {
         UiNode child = content;
         if (content instanceof UiPort port && port.sources().contains("*") && sources.length > 0) {
             child = new UiPort(UiKey.named("body"), port.layout(), UiStyle.PLAIN, UiSizing.CONTENT,
-                    List.of(sources), port.textRole(), port.itemSlot(),port.summaryLines());
+                    List.of(sources), port.textRole(), port.itemSlot(), port.summaryLines(), port.itemTextWidth());
         } else if (sources.length > 0) {
             java.util.Set<String> declared = new java.util.LinkedHashSet<>();
             sources(content, declared);

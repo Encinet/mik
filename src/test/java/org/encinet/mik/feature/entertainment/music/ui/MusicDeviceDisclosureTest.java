@@ -26,7 +26,7 @@ class MusicDeviceDisclosureTest {
                             toggle.build(),expanded,() -> {
                                 var fields = new java.util.ArrayList<UiNode>();
                                 for (String key : List.of("name","alias")) fields.add(Ui.form().key("device-" + key).field("value",label.apply(key),
-                                        Ui.textField(Component.text("Long distinguishing name 名称 ".repeat(4))).key("value").maxLines(1).build()).build());
+                                        Ui.textField("Long distinguishing name 名称 ".repeat(4)).key("value").maxLines(1).build()).build());
                                 return MusicDeviceScenes.identityFields(fields);
                             });
                     var sound = Ui.form().key("sound-settings");

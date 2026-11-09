@@ -122,7 +122,8 @@ final class PlotDestinationMenus {
                              java.util.function.Consumer<UiReadingPosition> read) {
         var blocks = new java.util.ArrayList<UiNode>();
         if (!point.description().isBlank()) blocks.add(Ui.text(Component.text(point.description(),NamedTextColor.WHITE))
-                .key("description").tooltip(Component.text(point.description(),NamedTextColor.WHITE)).textWidth(4096).build());
+                .key("description").tooltip(Component.text(point.description(),NamedTextColor.WHITE))
+                .textWidth(FloatingMenuTextWidth.CONTENT).build());
         blocks.add(Ui.text(Component.text(point.blockX() + ", " + point.blockY() + ", " + point.blockZ(),NamedTextColor.AQUA)).key("location").build());
         UiNode reading = Ui.document().key("identity").blocks(blocks).readingBody().position(position,read).build();
         var menu = PlotMenuLayouts.screen("plot-destination:" + point.id(), FloatingMenuAppearance.DEFAULT,

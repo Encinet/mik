@@ -17,6 +17,8 @@ class VehicleMenuTest {
             var instance = instance(h); configure(h, instance);
             var menu = new VehicleMenu(h.plugin, h.language, h.module); menu.open(h.player);
             h.click("vehicle:" + instance.id);
+            assertTrue(h.scene.entries().values().stream().noneMatch(entry -> entry.id().endsWith("/fuel")));
+            h.click("maintenance");
             h.click("fuel"); verify(h.module).service(h.player, instance.id, true);
             h.click("repair"); verify(h.module).service(h.player, instance.id, false);
             var action = UiSceneTestSupport.entry(h.scene, "access").trigger(FloatingMenuInteraction.PRIMARY);
@@ -29,11 +31,11 @@ class VehicleMenuTest {
     @Test void staleCallbacksAndReplacedInstancesCannotServiceAnotherVehicle() throws Exception {
         try (var h = new VehicleEditorHarness()) {
             var instance = instance(h); configure(h, instance);
-            var menu = new VehicleMenu(h.plugin, h.language, h.module); menu.open(h.player); h.click("vehicle:" + instance.id);
+            var menu = new VehicleMenu(h.plugin, h.language, h.module); menu.open(h.player); h.click("vehicle:" + instance.id); h.click("maintenance");
             var action = UiSceneTestSupport.entry(h.scene, "fuel").trigger(FloatingMenuInteraction.PRIMARY);
             menu.open(h.player); action.execute(h.player, null, FloatingMenuInteraction.PRIMARY);
             verify(h.module, never()).service(any(), any(), anyBoolean());
-            h.click("vehicle:" + instance.id);
+            h.click("vehicle:" + instance.id); h.click("maintenance");
             doThrow(new IllegalArgumentException("Vehicle changed")).when(h.module).requireSame(instance);
             h.click("fuel"); verify(h.module, never()).service(any(), any(), anyBoolean());
             menu.close();
@@ -45,8 +47,11 @@ class VehicleMenuTest {
             var menu = new VehicleMenu(h.plugin, h.language, h.module); menu.open(h.player); check(h);
             h.click("vehicle:" + instance.id); check(h);
             h.click("details"); check(h); h.click("back");
+            h.click("maintenance"); check(h);
             assertFalse(UiSceneTestSupport.entry(h.scene, "fuel").enabled());
             assertNotNull(UiSceneTestSupport.entry(h.scene, "fuel").disabledReason());
+            h.click("driving"); check(h);
+            assertNotNull(UiSceneTestSupport.entry(h.scene, "drive"));
             menu.close();
         }
     }

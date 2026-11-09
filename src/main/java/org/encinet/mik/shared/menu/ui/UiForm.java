@@ -2,6 +2,7 @@ package org.encinet.mik.shared.menu.ui;
 
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -56,7 +57,7 @@ public final class UiForm extends Ui.Builder<UiForm> {
             if (!field.label().equals(Component.empty())) {
                 label = cells.size();
                 cells.add(UiChild.linear(UiKey.named("field:" + field.key().value() + ":label"),
-                        Ui.text(field.label()).key("label").textWidth(4096)
+                        Ui.text(field.label()).key("label").textWidth(FloatingMenuTextWidth.CONTENT)
                                 .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), LinearSlot.CONTENT));
             }
             int control = cells.size();

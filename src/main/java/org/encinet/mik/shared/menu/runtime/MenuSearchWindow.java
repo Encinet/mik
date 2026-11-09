@@ -73,7 +73,7 @@ final class MenuSearchWindow<T> {
                 .child(UiTemplates.titleBar(Ui.heading(definition.title()).key("title").build(),
                         Ui.button(labels.back()).key("back").keepAccessible().primary(back).build())).child(query, LinearSlot.fit());
         if (state.total > state.results.size()) header.child(Ui.text(labels.limit().apply(state.results.size(),state.total))
-                .key("limit").textWidth(4096).build(),LinearSlot.fit(LinearSlot.Alignment.CENTER));
+                .key("limit").textWidth(FloatingMenuTextWidth.CONTENT).build(),LinearSlot.fit(LinearSlot.Alignment.CENTER));
         var status = new ArrayList<UiNode>();
         if (state.pending || state.failed || state.results.isEmpty()) status.add(Ui.text(state.pending ? labels.loading()
                 : state.failed ? labels.failed() : labels.empty()).key("status").build());
@@ -83,7 +83,7 @@ final class MenuSearchWindow<T> {
         java.util.function.IntFunction<UiNode> item = index -> {
             T value = results.get(index);
             return Ui.button(definition.label().apply(value)).key(definition.key().apply(value))
-                    .textWidth(4096).singleLine().primary((player,_) -> selected.accept(player,value)).build();
+                    .textWidth(FloatingMenuTextWidth.CONTENT).singleLine().primary((player,_) -> selected.accept(player,value)).build();
         };
         UiNode content;
         for (var notice : status) header.child(notice);
@@ -94,7 +94,8 @@ final class MenuSearchWindow<T> {
             content = Ui.pagedFlow(flow.rows()).key("results").items(items).page(state.page, page)
                     .sizing(UiSizing.width(UiLength.ZERO, flow.maximumWidth())).build();
         } else {
-            var rowTemplate = Ui.button(Component.text("M")).textWidth(4096).singleLine().primary((_, _) -> {}).build();
+            var rowTemplate = Ui.button(Component.text("M")).textWidth(FloatingMenuTextWidth.CONTENT)
+                    .singleLine().primary((_, _) -> {}).build();
             content = Ui.windowedList(results.size(), rowTemplate, item).key("results")
                     .page(state.page, page).build();
         }

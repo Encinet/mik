@@ -57,10 +57,11 @@ class MenuTooltipContentTest {
     }
 
     @Test void widthTruncationUsesTheRenderedCaptionAndKeepsExplicitHelp() {
-        var full = Component.text("A song name that does not fit in this input");
+        String raw = "A song name that does not fit in this input";
+        var full = Component.text(raw);
         var help = Component.text("Use the wheel to adjust.");
         var scene = MenuScene.screen("tip").content(Ui.column()
-                .child(Ui.textField(full).key("name").build())
+                .child(Ui.textField(raw).key("name").build())
                 .child(Ui.button(full).key("volume").singleLine().tooltip(help).build()).build()).build();
         var frame = SceneGeometryTestSupport.measure(scene, 1);
         var preview = element(frame, "preview");

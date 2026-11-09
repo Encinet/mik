@@ -193,22 +193,18 @@ final class NameTagMenu implements Listener, AutoCloseable {
         NameTagEdit edit = workspace.edit;
         boolean editing = edit != null && edit.field() == field;
         String raw = editing ? edit.value(field) : field.value(effective);
-        Component effect = raw.isEmpty() ? label(viewer, Message.NAMETAG_UNSET) : render(viewer, raw);
-        var actions = Ui.layout(UiLayouts.wrap(UiLength.ui(8), UiLength.ui(6))).key("actions");
+        var input = Ui.textField(raw).preview(value -> render(viewer, value)).placeholder(label(viewer, Message.NAMETAG_UNSET))
+                .key("value").editing(editing)
+                .primary((player, _) -> { if (workspace.edit == edit) begin(player, workspace, field, null); });
         Component unavailable = unavailable(viewer, workspace, own, field);
-        if (!editing) {
-            var start = Ui.button(label(viewer, Message.NAMETAG_EDIT)).key("edit")
-                    .primary((player, _) -> { if (workspace.edit == edit) begin(player, workspace, field, null); });
-            if (unavailable != null) start.disabled(unavailable);
-            actions.child(start.build());
-        }
+        if (unavailable != null) input.disabled(unavailable);
         if (editing ? !raw.isEmpty() : own.map(snapshot -> !snapshot.version(field).isEmpty()).orElse(false)) {
             var clear = Ui.button(label(viewer, Message.NAMETAG_CLEAR)).key("clear")
                     .primary((player, _) -> { if (workspace.edit == edit) begin(player, workspace, field, ""); });
             if (unavailable != null) clear.disabled(unavailable);
-            actions.child(clear.build());
+            input.actions(clear.build());
         }
-        return NameTagComposition.field(effect, actions.build());
+        return input.build();
     }
 
     private Component unavailable(Player viewer, Workspace workspace, Optional<NameTagStore.Snapshot> own, NameTagField field) {

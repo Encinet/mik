@@ -15,6 +15,18 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MenuInputViewTest {
+    @Test void emptyRichPreviewsDoNotMislabelNonemptySourceDraftsAsUnset() {
+        for (String raw : new String[]{"", "<red>"}) {
+            var form = form(Component.text("Edit"), MenuInputForm.Field.text("value", Component.text("Value"), raw, 64)
+                    .preview(_ -> Component.empty()));
+            var draft = new MenuInputDraft(form);
+            var scene = scene(form, draft, null);
+            assertEquals(raw.isEmpty() ? "(empty)" : "", plain(entry(scene, "preview").label()));
+            assertEquals(raw.isEmpty(), entry(scene, "clear") == null);
+            assertEquals(raw, draft.value("value"));
+        }
+    }
+
     @Test void hiddenFieldsDoNotRunTheirPreviewRendererAndBrowsingKeepsTheirStoredDrafts() {
         var rendered = new java.util.ArrayList<String>();
         var builder = MenuInputForm.builder(Component.text("Edit"));

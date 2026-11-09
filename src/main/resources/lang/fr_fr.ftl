@@ -249,8 +249,7 @@ nametag-copy-hint = Afficher le code du préfixe et du suffixe dans le chat
 nametag-copy-label = [copie]
 nametag-copy-sent = Le texte source du style de { $arg0 } est dans le chat.
 nametag-current = Résultat actuel
-nametag-edit = Modifier
-nametag-edit-ended = La modification est terminée. Sélectionnez Modifier pour continuer.
+nametag-edit-ended = La modification est terminée. Cliquez à nouveau sur le champ pour continuer.
 nametag-edit-prompt = Appuyez sur T : { $arg0 } en MiniMessage (privé).
 nametag-finish-field = Confirmez ou annulez d’abord le champ en cours de modification.
 nametag-input-invalid = Format invalide. Envoyez du MiniMessage sur une seule ligne ou sélectionnez Effacer.
@@ -1288,6 +1287,11 @@ plot-transferred-to-you = { $arg1 } vous a transféré la parcelle { $arg0 }.
 vehicle-command-description = Conduire et gérer des véhicules composés d’entités d’affichage
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] Commandes du véhicule
+        [driving] Conduire et monter
+        [maintenance] Entretien et accès
+        [public-status] Accès public
+        [private-status] Accès privé
         [home] Véhicules
         [nearby] Véhicules proches
         [fleet] Tous les véhicules accessibles
@@ -1488,7 +1492,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 est transparent ; 255 est opaque.
    *[other] { $arg0 }
     }
-vehicle-model-spatial = Commandes 3D
+vehicle-model-spatial = Passer en sélection 3D
 vehicle-model-spatial-hint = Clic droit sur un repère pour sélectionner ou ajuster. S’accroupir + clic droit revient aux réglages. La molette change le pas de réglage.
 vehicle-model-spawn = Générer ce modèle
 vehicle-model-add = Ajouter un composant
@@ -1528,6 +1532,29 @@ vehicle-model-driver = Siège conducteur
 vehicle-model-driver-here = Ajouter le siège conducteur à mes pieds
 vehicle-model-edit = Modifier / reprendre le brouillon
 vehicle-model-overview = Aperçu du brouillon
+vehicle-model-panel = Revenir au panneau d’édition
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] Choisissez une catégorie ci-dessous, puis un objet et un outil. Enregistrer et Annuler restent en bas.
+    [parts] Gérez les blocs, objets et textes visibles. Sélectionnez une pièce pour modifier son contenu ou sa transformation.
+    [seats] Sélectionnez un siège pour régler sa position et sa sortie. Un seul siège conducteur est obligatoire.
+    [colliders] Sélectionnez une boîte de collision pour modifier son centre et ses dimensions complètes. Ajoutez une boîte ou ajustez-la au modèle.
+    [supports] Sélectionnez un point de contact pour le déplacer. Ces points servent au support au sol ou à la flottabilité.
+    [parameters] Sélectionnez un groupe de paramètres, puis un champ pour modifier sa valeur.
+    [tools] Ajustez l’aperçu, sélectionnez des objets dans le monde ou vérifiez le brouillon. L’abandon demande confirmation.
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] Définir le contenu du bloc
+    [item] Utiliser l’objet en main principale
+    [text] Définir le texte
+    }
+vehicle-model-exact-input = Saisir les valeurs exactes
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = Détails du composant
 vehicle-model-selection-unavailable = Objet modifié ou supprimé ; revenez en arrière et choisissez à nouveau
 vehicle-model-exit = Position de sortie / réglage fin
@@ -1551,16 +1578,16 @@ vehicle-model-pick-hint = Ouvrez un aperçu et regardez une pièce de type bloc 
 vehicle-model-place-cancelled = Placement annulé : délai expiré, état d’édition modifié ou annulation manuelle.
 vehicle-model-place-hint = Placement en visant actif pendant 30 secondes. Visez un bloc ou votre aperçu ; clic droit de la main principale pour confirmer, accroupissement + clic droit pour annuler.
 vehicle-model-position = Position / réglage fin
-vehicle-model-position-hint = X/Y/Z locaux · here utilise vos pieds, look la surface visée · la grille facultative suit le pas de réglage.
+vehicle-model-position-hint = Coordonnées locales : +Y vers le haut, +Z vers l’avant. Les boutons déplacent par pas ; la saisie exacte définit la position absolue.
 vehicle-model-preview = Aperçu privé
 vehicle-model-preview-failed = Aperçu indisponible ; votre brouillon est conservé : { $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = Rétablir la dernière modification
+vehicle-model-preview-hint = Aperçu affiché. Passez en sélection 3D pour sélectionner et ajuster directement le modèle.
+vehicle-model-redo = Rétablir
 vehicle-model-remove = Supprimer le composant
 vehicle-model-remove-warning = Supprimer ce composant ? Les indices suivants seront décalés ; l’action peut être annulée.
 vehicle-model-rotate = Tourner le composant
 vehicle-model-rotate-hint = Rotation locale relative : X tangage, Y lacet, Z roulis. La position reste inchangée.
-vehicle-model-save = Vérifier et enregistrer
+vehicle-model-save = Enregistrer et terminer
 vehicle-model-save-continue = Enregistrer et continuer
 vehicle-model-saved = { -vehicle-model.gender ->
         [masculine] { -vehicle-model } enregistré
@@ -1568,7 +1595,7 @@ vehicle-model-saved = { -vehicle-model.gender ->
        *[other] { -vehicle-model } enregistré
     }
 vehicle-model-scale = Redimensionner le composant
-vehicle-model-scale-all = Redimensionner tous les axes × { $arg0 }
+vehicle-model-scale-all = Redimensionner tous les axes { $arg0 } { $arg1 }
 vehicle-model-scale-hint = Multiplie ou divise les longueurs des axes locaux, pas les dimensions englobantes dans le monde.
 vehicle-model-seats = Sièges et sorties
 vehicle-model-selected = Importer les affichages sélectionnés
@@ -1580,9 +1607,9 @@ vehicle-model-step = Changer le pas de réglage
 vehicle-model-supports = Points d’appui au sol
 vehicle-model-text = Texte
 vehicle-model-title = Gestion des modèles de véhicules
-vehicle-model-tools = Outils dans le monde
+vehicle-model-tools = Aperçu et outils
 vehicle-model-transform-step = Modifier le pas de réglage
-vehicle-model-undo = Annuler la dernière modification
+vehicle-model-undo = Annuler
 vehicle-result = Véhicule : { $arg0 }
 vehicle-selection-info = Sélection : { $arg0 ->
         [one] { $arg0 } entité d’affichage
@@ -2109,6 +2136,18 @@ music-space-label =
     { $arg0 ->
         [title] Espace musical
         [devices] Appareils de lecture
+        [all-devices] Tous les appareils
+        [use-device] Utiliser cet appareil
+        [current-device] Appareil actuel
+        [manage-device] Gérer
+        [back-devices] Retour aux appareils
+        [group-with-devices] Grouper avec d’autres appareils
+        [pick-world-member] Choisir un appareil dans le monde
+        [group-world-pick-hint] Accroupissez-vous et faites un clic droit, main vide, sur un jukebox pour l’ajouter ; /music revient au menu.
+        [group-member-standalone] Choisissez un jukebox qui ne fait pas déjà partie d’un groupe de synchronisation.
+        [group-selection-help] Sélectionnez les jukebox ci-dessous ou faites un clic droit sur un autre en vous accroupissant, main vide. Le groupe est créé à la validation.
+        [group-source-help] Reprendre la file et la position de l’appareil choisi. Créer arrête la lecture ; Créer et lire la reprend.
+        [device-actions] Actions
         [device-status] État
         [sync-group] Groupe synchronisé
         [single-device] Juke-box
@@ -2119,7 +2158,6 @@ music-space-label =
         [nearby-device] À proximité
         [group-select-members] Sélectionnez au moins deux juke-box
         [group-name-required] Saisissez un nom de groupe
-        [all-online] Tous en ligne
         [direction-front] Devant
         [direction-front-right] Devant à droite
         [direction-right] À droite
@@ -2336,6 +2374,7 @@ music-space-device-count =
         [one] { $arg0 } juke-box
        *[other] { $arg0 } juke-box
     }
+music-space-playback-target = Lecture sur : { $arg0 }
 music-space-online-count = En ligne : { $arg0 }/{ $arg1 } juke-box
 music-space-device-distance = { $arg0 } · { $arg1 } m
 music-space-device-height = { $arg0 ->

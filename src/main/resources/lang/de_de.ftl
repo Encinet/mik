@@ -250,8 +250,7 @@ nametag-copy-hint = Präfix- und Suffix-Quelltext im Chat anzeigen
 nametag-copy-label = [kopieren]
 nametag-copy-sent = Der Stil-Quelltext von { $arg0 } steht im Chat.
 nametag-current = Aktuelle Anzeige
-nametag-edit = Bearbeiten
-nametag-edit-ended = Bearbeitung beendet. Wähle erneut Bearbeiten, um fortzufahren.
+nametag-edit-ended = Bearbeitung beendet. Klicke erneut auf das Feld, um fortzufahren.
 nametag-edit-prompt = Drücke T: { $arg0 } mit MiniMessage bearbeiten (privat).
 nametag-finish-field = Bestätige zuerst das bearbeitete Feld oder brich es ab.
 nametag-input-invalid = Ungültiges Format. Sende einzeiliges MiniMessage oder wähle Leeren.
@@ -1267,6 +1266,11 @@ plot-transferred-to-you = { $arg1 } hat Grundstück { $arg0 } an dich übertrage
 vehicle-command-description = Anzeige-Fahrzeuge fahren und verwalten
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] Fahrzeugsteuerung
+        [driving] Fahren und mitfahren
+        [maintenance] Wartung und Zugriff
+        [public-status] Öffentlich zugänglich
+        [private-status] Privater Zugriff
         [home] Fahrzeuge
         [nearby] Fahrzeuge in der Nähe
         [fleet] Alle zugänglichen Fahrzeuge
@@ -1467,7 +1471,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 ist durchsichtig, 255 ist deckend.
    *[other] { $arg0 }
     }
-vehicle-model-spatial = 3D-Steuerung
+vehicle-model-spatial = 3D-Auswahl öffnen
 vehicle-model-spatial-hint = Markierung rechts anklicken, um auszuwählen oder anzupassen. Schleichen + Rechtsklick öffnet die Einstellungen. Mit dem Mausrad änderst du die Schrittweite.
 vehicle-model-spawn = Dieses Modell erzeugen
 vehicle-model-add = Bauteil hinzufügen
@@ -1503,6 +1507,29 @@ vehicle-model-driver = Fahrersitz
 vehicle-model-driver-here = Fahrersitz an meinen Füßen hinzufügen
 vehicle-model-edit = Entwurf bearbeiten / fortsetzen
 vehicle-model-overview = Entwurfsübersicht
+vehicle-model-panel = Zurück zum Bearbeitungsfenster
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] Wähle unten einen Bereich, dann ein Objekt und ein Werkzeug. Speichern und Rückgängig bleiben unten sichtbar.
+    [parts] Verwalte sichtbare Blöcke, Gegenstände und Texte. Wähle ein Teil, um Inhalt oder Transformation zu ändern.
+    [seats] Wähle einen Sitz und lege Sitzposition und Ausstieg fest. Genau ein Fahrersitz ist erforderlich.
+    [colliders] Wähle eine Kollisionsbox und ändere Mittelpunkt und volle Abmessungen. Füge Boxen hinzu oder passe sie automatisch an.
+    [supports] Wähle einen Kontaktpunkt und verschiebe ihn. Diese Punkte dienen der Bodenabstützung oder dem Auftrieb.
+    [parameters] Wähle eine Parametergruppe und dann ein Feld, um seinen Wert zu ändern.
+    [tools] Passe die Vorschau an, wähle Objekte in der Welt oder prüfe den Entwurf. Verwerfen erfordert eine Bestätigung.
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] Blockinhalt festlegen
+    [item] Gegenstand der Haupthand verwenden
+    [text] Textinhalt festlegen
+    }
+vehicle-model-exact-input = Genaue Werte eingeben
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = Komponentendetails
 vehicle-model-selection-unavailable = Objekt geändert oder entfernt; gehe zurück und wähle erneut
 vehicle-model-exit = Ausstiegsposition / Feinanpassung
@@ -1526,20 +1553,20 @@ vehicle-model-pick-hint = Öffne eine Vorschau und visiere ein Block- oder Gegen
 vehicle-model-place-cancelled = Zielplatzierung abgebrochen (abgelaufen, Bearbeitungszustand geändert oder manuell abgebrochen).
 vehicle-model-place-hint = Zielplatzierung 30 Sekunden aktiv. Visiere einen Weltblock oder die Vorschau an; Rechtsklick mit der Haupthand bestätigt, Schleichen + Rechtsklick bricht ab.
 vehicle-model-position = Position / Feinanpassung
-vehicle-model-position-hint = Lokales X/Y/Z · here nutzt deine Füße, look eine getroffene Fläche · das optionale Raster folgt der Schrittweite.
+vehicle-model-position-hint = Lokale Koordinaten: +Y ist oben, +Z ist vorne. Tasten bewegen schrittweise; genaue Eingaben setzen die absolute Position.
 vehicle-model-preview = Private Vorschau
 vehicle-model-preview-failed = Vorschau nicht verfügbar; der Entwurf bleibt erhalten: { $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = Rückgängig gemachte Änderung wiederholen
+vehicle-model-preview-hint = Vorschau angezeigt. Öffne die 3D-Auswahl, um das Modell direkt auszuwählen und anzupassen.
+vehicle-model-redo = Wiederholen
 vehicle-model-remove = Bauteil entfernen
 vehicle-model-remove-warning = Bauteil entfernen? Nachfolgende Indizes verschieben sich; Rückgängigmachen ist möglich.
 vehicle-model-rotate = Bauteil drehen
 vehicle-model-rotate-hint = Relative lokale Drehung: X = Neigung, Y = Gier, Z = Rollen. Die Position bleibt gleich.
-vehicle-model-save = Prüfen und speichern
+vehicle-model-save = Speichern und beenden
 vehicle-model-save-continue = Speichern und weiterbearbeiten
 vehicle-model-saved = Gespeichert
 vehicle-model-scale = Bauteil skalieren
-vehicle-model-scale-all = Alle Achsen skalieren × { $arg0 }
+vehicle-model-scale-all = Alle Achsen skalieren { $arg0 } { $arg1 }
 vehicle-model-scale-hint = Lokale Achsenlängen multiplizieren oder teilen; dies sind keine Welt-Abmessungen.
 vehicle-model-seats = Sitze und Ausstiege
 vehicle-model-selected = Ausgewählte Anzeigen importieren
@@ -1551,9 +1578,9 @@ vehicle-model-step = Schrittweite wechseln
 vehicle-model-supports = Bodenkontaktpunkte
 vehicle-model-text = Text
 vehicle-model-title = Fahrzeugmodelle verwalten
-vehicle-model-tools = Werkzeuge in der Welt
+vehicle-model-tools = Vorschau und Werkzeuge
 vehicle-model-transform-step = Schrittweite ändern
-vehicle-model-undo = Letzte Änderung rückgängig machen
+vehicle-model-undo = Rückgängig
 vehicle-result = Fahrzeug: { $arg0 }
 vehicle-selection-info = Auswahl: { $arg0 ->
         [one] { $arg0 } Anzeige-Entität
@@ -2080,6 +2107,18 @@ music-space-label =
     { $arg0 ->
         [title] Musikraum
         [devices] Wiedergabegeräte
+        [all-devices] Alle Geräte
+        [use-device] Dieses Gerät verwenden
+        [current-device] Aktuelles Gerät
+        [manage-device] Verwalten
+        [back-devices] Zur Geräteliste
+        [group-with-devices] Mit anderen Geräten gruppieren
+        [pick-world-member] Gerät in der Welt auswählen
+        [group-world-pick-hint] Mit leerer Hand schleichend auf einen Plattenautomaten rechtsklicken, um ihn auszuwählen; /music führt zurück.
+        [group-member-standalone] Wähle einen Plattenautomaten, der noch keiner Synchronisationsgruppe angehört.
+        [group-selection-help] Plattenautomaten unten auswählen oder in der Welt mit leerer Hand schleichend rechtsklicken. Die Gruppe entsteht erst beim Bestätigen.
+        [group-source-help] Warteschlange und Position des gewählten Geräts übernehmen. Erstellen stoppt die Wiedergabe; Erstellen und abspielen setzt sie fort.
+        [device-actions] Aktionen
         [device-status] Status
         [sync-group] Synchronisierte Gruppe
         [single-device] Plattenspieler
@@ -2090,7 +2129,6 @@ music-space-label =
         [nearby-device] In der Nähe
         [group-select-members] Mindestens zwei Plattenspieler auswählen
         [group-name-required] Gruppennamen eingeben
-        [all-online] Alle online
         [direction-front] Vorne
         [direction-front-right] Vorne rechts
         [direction-right] Rechts
@@ -2303,6 +2341,7 @@ music-space-device-count =
         [one] { $arg0 } Plattenspieler
        *[other] { $arg0 } Plattenspieler
     }
+music-space-playback-target = Wiedergabe auf: { $arg0 }
 music-space-online-count = Online: { $arg0 }/{ $arg1 } Plattenspieler
 music-space-device-distance = { $arg0 } · { $arg1 } m
 music-space-device-height = { $arg0 ->

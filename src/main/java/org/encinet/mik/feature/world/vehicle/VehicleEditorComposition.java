@@ -12,7 +12,7 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.ui.*;
 
-/** Object/tool selection is above the inspector; value adjustments and task actions remain separate. */
+/** A persistent editing panel keeps the draft, object tools and save/history controls in fixed regions. */
 final class VehicleEditorComposition {
     enum Primary { ITEMS, ACTIONS, SUMMARY }
     private VehicleEditorComposition() { }
@@ -22,24 +22,29 @@ final class VehicleEditorComposition {
     }
 
     static Primary primary(VehicleEditorRoute route) {
-        return route instanceof Model || route == Workspace.INSTANCE || route == Utilities.INSTANCE || route == Facing.INSTANCE
+        return route instanceof Model || route == Utilities.INSTANCE || route == Facing.INSTANCE
                 ? Primary.ACTIONS : Primary.ITEMS;
     }
 
     static UiNode create(VehicleEditorView view, UiNode reading, Primary primary, Consumer<VehicleEditorView> read) {
         VehicleEditorRoute route = view.route();
         UiNode items = route instanceof Position || route instanceof Transform
-                ? UiTemplates.actions("items", 2) : new UiPagedPort(UiTemplates.list("items").withSummaryLines(1),
+                ? UiTemplates.actions("items", 2) : new UiPagedPort(UiTemplates.list("items").withSummaryLines(route == Workspace.INSTANCE ? 3 : 2),
                         3, view.itemPage(), next -> read.accept(view.items(next)))
                         .withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 240)));
         if (reading != null) items = reading;
         UiNode actions = new UiPagedPort(UiTemplates.actions("actions", 3).withSummaryLines(1), 1,
                 view.actionPage(), next -> read.accept(view.actions(next)))
-                .withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 180)));
-        var content = UiTemplates.menu(UiTemplates.title("heading").withSummaryLines(1),
-                UiTemplates.information("summary").withSummaryLines(primary == Primary.SUMMARY ? 2 : 1),
+                .withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 200)));
+        var content = UiTemplates.menu(UiTemplates.information("draft").withSummaryLines(1),
+                UiTemplates.title("heading").withSummaryLines(1),
+                UiTemplates.information("help").withSummaryLines(3),
+                UiTemplates.information("summary").withSummaryLines(2),
+                UiTemplates.actions("precision", 2).withSummaryLines(1),
                 UiTemplates.actions("object-tools", 4).withSummaryLines(1), items);
-        UiNode tools = UiTemplates.menu(UiTemplates.pagination("pages"), UiTemplates.navigation("navigation"));
+        var footer = UiTemplates.navigation("footer");
+        UiNode tools = UiTemplates.menu(UiTemplates.pagination("pages"), new UiPort(footer.key(), footer.layout(), footer.style(), footer.sizing(),
+                List.of("commit", "history", "navigation"), footer.textRole(), footer.itemSlot(), footer.summaryLines(), footer.itemTextWidth()));
         if (primary == Primary.ACTIONS) content = UiTemplates.menu(content, actions);
         else tools = UiTemplates.menu(actions, tools);
         UiKey focus = switch (primary) {
@@ -48,10 +53,11 @@ final class VehicleEditorComposition {
             case SUMMARY -> UiKey.named("summary");
         };
         // The reading target is a direct child, including on action-only and unavailable-object pages.
-        UiNode focused = UiTemplates.focus(content, focus);
+        UiNode focused = UiTemplates.reading(content, focus, UiLength.ui(8));
         UiNode page = UiTemplates.sheet(UiTemplates.window("editor", focused), UiTemplates.toolbar("tools", tools));
         if (!(route instanceof Library || route instanceof Model)) page = UiTemplates.split(
-                UiTemplates.sidebar("sections", UiTemplates.list("sections").withSummaryLines(1)), page);
+                UiTemplates.sidebar("sections", UiTemplates.list("sections").withSummaryLines(1))
+                        .withSizing(UiSizing.width(UiLength.ZERO, UiLength.ui(240))), page);
         return Ui.column().key("route-scope").child(UiKey.item(identity(route)), page).build();
     }
 
@@ -75,11 +81,15 @@ final class VehicleEditorComposition {
         };
     }
 
-    static UiNode axes(List<UiElement> controls, VehicleEditorView view, Consumer<VehicleEditorView> read) {
+    static UiNode axes(List<UiElement> controls, List<Component> values, VehicleEditorView view, Consumer<VehicleEditorView> read) {
         if (controls.size() != 6) throw new IllegalArgumentException("Three axes require a negative and positive control each");
+        if (values.size() != 3) throw new IllegalArgumentException("Three axes require three readings");
         var rows = new ArrayList<UiNode>();
-        for (int axis = 0; axis < 3; axis++) rows.add(Ui.grid(2).key("axis:" + axis)
-                .child(controls.get(axis * 2)).child(controls.get(axis * 2 + 1)).build());
+        for (int axis = 0; axis < 3; axis++) {
+            rows.add(Ui.grid(3).key("axis:" + axis).child(controls.get(axis * 2))
+                    .child(Ui.text(values.get(axis)).key("value:" + axis).singleLine().build())
+                    .child(controls.get(axis * 2 + 1)).build());
+        }
         return Ui.pagedList().key("items").items(rows).page(view.itemPage(), next -> read.accept(view.items(next)))
                 .sizing(new UiSizing(UiSize.ZERO, new UiSize(560, 240))).build();
     }

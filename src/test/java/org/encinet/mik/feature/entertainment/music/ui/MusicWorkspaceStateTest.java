@@ -99,13 +99,13 @@ class MusicWorkspaceStateTest {
     @Test void queueOccurrenceBookmarksBelongToTheirDeviceInspector() {
         var state = new MusicWorkspaceState();
         UUID first = UUID.randomUUID(), second = UUID.randomUUID(), occurrence = UUID.randomUUID();
-        state.target(first,false); state.panel(new DevicePanel(first,DeviceSection.QUEUE));
+        state.target(first); state.panel(new DevicePanel(first,DeviceSection.QUEUE));
         state.queueFocus = occurrence;
         state.panel(new DevicePanel(first,DeviceSection.QUEUE));
         assertEquals(occurrence,state.queueFocus);
         state.panel(new DevicePanel(first,DeviceSection.SETTINGS)); assertNull(state.queueFocus);
         state.panel(new DevicePanel(first,DeviceSection.QUEUE)); state.queueFocus = occurrence;
-        state.target(second,false); assertNull(state.queueFocus);
+        state.target(second); assertEquals(occurrence,state.queueFocus);
         state.queueFocus = occurrence; state.panel(new NoPanel()); assertNull(state.queueFocus);
     }
 
@@ -130,7 +130,7 @@ class MusicWorkspaceStateTest {
         state.browse(Collection.of(Source.RECENT));
         state.browser.query("piano"); state.browser.page = 2;
         state.browser.selecting = true; state.browser.selected.add("song");
-        state.target(target, true);
+        state.target(target);
         state.devices();
         state.rooms(null);
         assertEquals(WorkspacePage.LIBRARY, state.page);
@@ -185,7 +185,7 @@ class MusicWorkspaceStateTest {
                 new Import(null, ImportPage.SOURCE), new Confirmation(new DeletePlaylist(id, 0, "Name"), new NoPanel()),
                 new Confirmation(new ClearRecents(), new NoPanel()))) {
             var state = new MusicWorkspaceState();
-            state.target(id, false);
+            state.target(id);
             state.panel(panel);
             var key = TaskKey.of(Work.IMPORT);
             long ticket = state.begin(key);
@@ -199,7 +199,7 @@ class MusicWorkspaceStateTest {
         }
         for (Panel panel : List.of(new Outputs(null), new DevicePanel(id, DeviceSection.QUEUE), new DevicePanel(id, DeviceSection.SETTINGS), new Room(id))) {
             var state = new MusicWorkspaceState();
-            state.target(id, false);
+            state.target(id);
             state.panel(panel);
             state.browse(Collection.of(Source.OWNED));
             assertSame(panel, state.panel(), "browsing music must retain device controls");
@@ -248,7 +248,7 @@ class MusicWorkspaceStateTest {
     @Test void membershipDraftNeverChangesTheActiveTargetAndCancelDiscardsOnlyTheDraft() {
         var state = new MusicWorkspaceState();
         UUID target = UUID.randomUUID(), member = UUID.randomUUID();
-        state.target(target, false);
+        state.target(target);
         var draft = new GroupDraft(null, null);
         state.panel(new GroupEditor(draft));
         draft.toggle(member);
@@ -270,36 +270,33 @@ class MusicWorkspaceStateTest {
         assertEquals(4, state.browser.page);
         assertTrue(state.browser.selecting);
     }
-    @Test void changingTheSingleTargetRebindsTheQueueWithoutChangingTheLibrary() {
+    @Test void playbackSelectionKeepsTheInspectedDeviceAndItsQueueEdits() {
         var state = new MusicWorkspaceState();
-        UUID a = UUID.randomUUID(), b = UUID.randomUUID();
-        state.target(a, false); state.browser.page = 3;
-        state.panel(new DevicePanel(a, DeviceSection.QUEUE));
-        state.queueSelection.add(UUID.randomUUID());
-        state.target(b, false);
-        assertEquals(b, state.target());
-        assertEquals(new DevicePanel(b, DeviceSection.QUEUE), state.panel());
-        assertTrue(state.queueSelection.isEmpty());
-        assertEquals(3, state.browser.page);
+        UUID first = UUID.randomUUID(), second = UUID.randomUUID(), selected = UUID.randomUUID();
+        state.target(first); state.browser.page = 3;
+        var inspector = new DevicePanel(first, DeviceSection.QUEUE);
+        state.panel(inspector); state.queueSelection.add(selected);
+        var move = new MusicMove(first,0,List.of(selected,UUID.randomUUID()),Set.of(selected));
+        state.startQueueMove(move);
+        state.target(second);
+        assertEquals(second,state.target());
+        assertSame(inspector,state.panel());
+        assertEquals(Set.of(selected),state.queueSelection);
+        assertSame(move,state.queueMove);
+        assertEquals(3,state.browser.page);
+        state.target(null);
+        assertSame(inspector,state.panel());
     }
-    @Test void changingTargetsKeepsTheInspectorSectionAndFallsBackOnlyWhenItDoesNotExist() {
-        UUID a = UUID.randomUUID(), b = UUID.randomUUID();
-        for (var section : DeviceSection.values()) {
+    @Test void switchingPlaybackDoesNotReplaceDeviceSettingsOrMemberOutput() {
+        UUID first = UUID.randomUUID(), second = UUID.randomUUID();
+        for (Panel panel : List.of(new DevicePanel(first,DeviceSection.SETTINGS),new DevicePanel(first,DeviceSection.MEMBERS),
+                new MemberOutput(first,UUID.randomUUID(),MusicSourcePosition.START))) {
             var state = new MusicWorkspaceState();
-            state.target(a, true);
-            state.panel(new DevicePanel(a, section));
-            state.target(b, true);
-            assertEquals(new DevicePanel(b, section), state.panel());
-            state.target(a, false);
-            assertEquals(new DevicePanel(a, section == DeviceSection.MEMBERS ? DeviceSection.QUEUE : section), state.panel());
-            state.target(null, false);
-            assertInstanceOf(NoPanel.class, state.panel());
+            state.target(first); state.panel(panel); state.panelPage = 2;
+            state.target(second);
+            assertSame(panel,state.panel()); assertEquals(2,state.panelPage);
+            state.target(null); assertSame(panel,state.panel());
         }
-        var state = new MusicWorkspaceState();
-        state.target(a, true);
-        state.panel(new MemberOutput(a, UUID.randomUUID(), MusicSourcePosition.START));
-        state.target(b, true);
-        assertEquals(new DevicePanel(b, DeviceSection.MEMBERS), state.panel());
     }
     @Test void quickTargetChangesRetainUnrelatedTasksAndTheirDrafts() {
         UUID a = UUID.randomUUID(), b = UUID.randomUUID();
@@ -309,10 +306,10 @@ class MusicWorkspaceStateTest {
         for (var task : List.of(new GroupEditor(draft), new Import(null, ImportPage.SOURCE),
                 new PlaylistSettings(UUID.randomUUID()), new Track(List.of(track("a"))))) {
             var state = new MusicWorkspaceState();
-            state.target(a, false);
+            state.target(a);
             state.panel(task);
             state.panelPage = 2;
-            state.target(b, true);
+            state.target(b);
             assertSame(task, state.panel());
             assertEquals(2, state.panelPage);
             assertEquals(b, state.target());
@@ -320,32 +317,29 @@ class MusicWorkspaceStateTest {
         assertEquals("Living room", draft.name);
         assertEquals(1, draft.members.size());
     }
-    @Test void revisitingDevicesKeepsTheCurrentInspectorPageAndMembershipDraft() {
-        UUID id = UUID.randomUUID(), selected = UUID.randomUUID();
-        for (var task : List.of(new DevicePanel(id, DeviceSection.SETTINGS), new DevicePanel(id, DeviceSection.MEMBERS),
-                new GroupEditor(new GroupDraft(null, null)), new MemberOutput(id, UUID.randomUUID(), MusicSourcePosition.START))) {
+    @Test void theDevicesNavigationAlwaysRestoresTheDirectoryAndItsFilterWithoutChangingPlayback() {
+        UUID id = UUID.randomUUID();
+        for (var task : List.of(new DevicePanel(id,DeviceSection.SETTINGS),new DevicePanel(id,DeviceSection.MEMBERS),
+                new GroupEditor(new GroupDraft(null,null)),new MemberOutput(id,UUID.randomUUID(),MusicSourcePosition.START))) {
             var state = new MusicWorkspaceState();
-            state.target(id, true);
+            state.target(id); state.devices(); state.panel(task);
+            state.devicePage = 3; state.deviceFilter = DeviceFilter.RECORDED;
             state.devices();
-            state.panel(task);
-            state.panelPage = 3;
-            state.queueSelection.add(selected);
-            state.devices();
-            assertSame(task, state.panel());
-            assertEquals(3, state.panelPage);
-            assertEquals(Set.of(selected), state.queueSelection);
+            assertInstanceOf(NoPanel.class,state.panel()); assertEquals(id,state.target());
+            assertEquals(3,state.devicePage); assertEquals(DeviceFilter.RECORDED,state.deviceFilter);
         }
-        var state = new MusicWorkspaceState();
-        state.target(id, true);
-        var inspector = new DevicePanel(id, DeviceSection.SETTINGS);
-        state.panel(inspector);
-        state.browse(Collection.of(Source.OWNED));
-        state.devices();
-        assertSame(inspector, state.panel());
+    }
+    @Test void pickingAWorldDeviceAddsItOnceAndRespectsTheExistingGroupCapacity() {
+        var draft = new GroupDraft(UUID.randomUUID(),null);
+        UUID first = UUID.randomUUID(), second = UUID.randomUUID();
+        draft.pick(first,14); draft.pick(first,14); draft.pick(second,14);
+        assertEquals(Set.of(first,second),draft.members); assertEquals(first,draft.source);
+        assertEquals(MusicProblem.Code.LIMIT,assertThrows(MusicProblem.class,() -> draft.pick(UUID.randomUUID(),14)).code());
+        assertEquals(Set.of(first,second),draft.members);
     }
     @Test void leavingTheDeviceDirectoryDismissesItsUnsubmittedMembershipDraft() {
         var state = new MusicWorkspaceState();
-        UUID target = UUID.randomUUID(); state.target(target, false); state.devices();
+        UUID target = UUID.randomUUID(); state.target(target); state.devices();
         var draft = new GroupDraft(null, null); draft.toggle(UUID.randomUUID());
         state.panel(new GroupEditor(draft));
         state.browse(state.browser.collection);
@@ -364,7 +358,7 @@ class MusicWorkspaceStateTest {
     @Test void membershipPicksAValidDefaultSourceWithoutChangingThePlaybackTarget() {
         var state = new MusicWorkspaceState();
         UUID active = UUID.randomUUID(), first = UUID.randomUUID(), second = UUID.randomUUID();
-        state.target(active,false);
+        state.target(active);
         var draft = new GroupDraft(null,null);
         draft.toggle(first);
         assertEquals(first,draft.source);
@@ -407,7 +401,7 @@ class MusicWorkspaceStateTest {
         var playlistMove = new MusicMove(list, 0, List.of(a, b), Set.of(a));
         var queueMove = new MusicMove(device, 0, List.of(a, b), Set.of(b));
         state.browsePlaylist(list, Source.OWNED);
-        state.target(device, false);
+        state.target(device);
         state.panel(new DevicePanel(device, DeviceSection.QUEUE));
         state.startPlaylistMove(playlistMove);
         state.startQueueMove(queueMove);
@@ -417,13 +411,14 @@ class MusicWorkspaceStateTest {
         assertNull(state.queueMove);
         state.devices();
         assertNull(state.browser.move);
+        state.panel(new DevicePanel(device, DeviceSection.QUEUE));
         state.startQueueMove(queueMove);
         state.panel(new DevicePanel(device, DeviceSection.SETTINGS));
         assertNull(state.queueMove);
         state.panel(new DevicePanel(device, DeviceSection.QUEUE));
         state.startQueueMove(queueMove);
-        state.target(UUID.randomUUID(), false);
-        assertNull(state.queueMove);
+        state.target(UUID.randomUUID());
+        assertSame(queueMove,state.queueMove);
         state.cancelMoves();
         assertNull(state.browser.move);
     }

@@ -77,9 +77,12 @@ final class MusicDeviceLocator {
                 var device = registry.snapshot().devices().get(id);
                 if (device != null) candidates.put(id,device);
             }
+        else if (state.panel() instanceof MusicWorkspaceState.DevicePanel panel) add(candidates,panel.target());
+        else if (state.panel() instanceof MusicWorkspaceState.MemberOutput member) add(candidates,member.group());
         else add(candidates,state.target());
         var viewer = player.getLocation();
-        var focus = state.panel() instanceof MusicWorkspaceState.MemberOutput member ? member.member() : state.target();
+        var focus = state.panel() instanceof MusicWorkspaceState.MemberOutput member ? member.member()
+                : state.panel() instanceof MusicWorkspaceState.DevicePanel panel ? panel.target() : state.target();
         return candidates.values().stream().filter(device -> device.world().equals(player.getWorld().getUID())
                         && distanceSquared(viewer,device) <= RANGE*RANGE)
                 .map(device -> marker(device,device.id().equals(focus)))

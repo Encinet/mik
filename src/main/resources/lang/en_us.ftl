@@ -249,8 +249,7 @@ nametag-copy-hint = Send prefix and suffix source to chat
 nametag-copy-label = [copy]
 nametag-copy-sent = Sent the style source from { $arg0 } to chat.
 nametag-current = Current effect
-nametag-edit = Edit
-nametag-edit-ended = Editing ended. Select Edit again to continue.
+nametag-edit-ended = Editing ended. Click the field again to continue.
 nametag-edit-prompt = Press T to edit { $arg0 } with MiniMessage (private).
 nametag-finish-field = Confirm or cancel the field you are editing first.
 nametag-input-invalid = Invalid format. Send single-line MiniMessage or select Clear.
@@ -1284,6 +1283,11 @@ plot-transferred-to-you = { $arg1 } transferred plot { $arg0 } to you.
 vehicle-command-description = Drive and manage display-entity vehicles
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] Vehicle controls
+        [driving] Drive and ride
+        [maintenance] Maintenance and access
+        [public-status] Public access
+        [private-status] Private access
         [home] Vehicles
         [nearby] Nearby vehicles
         [fleet] All accessible vehicles
@@ -1484,7 +1488,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 is transparent; 255 is opaque.
    *[other] { $arg0 }
     }
-vehicle-model-spatial = 3D controls
+vehicle-model-spatial = Enter 3D picking mode
 vehicle-model-spatial-hint = Right-click a marker to select or adjust it. Sneak + right-click returns to settings. Scroll to change the adjustment step.
 vehicle-model-spawn = Spawn this model
 vehicle-model-add = Add component
@@ -1520,6 +1524,29 @@ vehicle-model-driver = Driver seat
 vehicle-model-driver-here = Add driver seat at my feet
 vehicle-model-edit = Edit / resume draft
 vehicle-model-overview = Draft overview
+vehicle-model-panel = Return to editor panel
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] Choose what to edit below. Select an object, then choose its tool. Save controls stay at the bottom.
+    [parts] Edit visible blocks, items and text. Select a part to change its content or transform.
+    [seats] Select a seat to set its position and exit. The model must have one driver seat.
+    [colliders] Select a collision box to change its center and full dimensions. Add a box or fit one to the model.
+    [supports] Select a contact point to move it. These points provide ground support or buoyancy.
+    [parameters] Choose a parameter group, then select a field to edit its value.
+    [tools] Adjust the preview, pick objects in the world or check the draft. Discarding requires confirmation.
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] Set block content
+    [item] Use main-hand item
+    [text] Set text content
+    }
+vehicle-model-exact-input = Enter exact values
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = Component details
 vehicle-model-selection-unavailable = Object changed or removed; go back and choose again
 vehicle-model-exit = Exit position / fine adjustment
@@ -1543,20 +1570,20 @@ vehicle-model-pick-hint = Open a preview and look at a block or item part, or se
 vehicle-model-place-cancelled = Aim placement cancelled (expired, editing state changed or explicitly cancelled).
 vehicle-model-place-hint = Aim placement is armed for 30 seconds. Look at a world block or your preview, then right-click with your main hand to confirm; sneak-right-click cancels.
 vehicle-model-position = Position / fine adjustment
-vehicle-model-position-hint = Local X/Y/Z · here uses feet, look uses a hit surface · optional grid follows the adjustment step.
+vehicle-model-position-hint = Local coordinates: +Y is up, +Z is the front. Buttons move by the chosen step; exact input sets an absolute position.
 vehicle-model-preview = Private preview
 vehicle-model-preview-failed = Preview unavailable; your draft is retained: { $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = Redo last undone edit
+vehicle-model-preview-hint = Preview shown. Enter 3D picking mode to select and adjust the model directly.
+vehicle-model-redo = Redo
 vehicle-model-remove = Remove component
 vehicle-model-remove-warning = Remove this component? Following indices shift; undo is available.
 vehicle-model-rotate = Rotate component
 vehicle-model-rotate-hint = Relative local rotation: X pitch, Y yaw, Z roll. Position stays unchanged.
-vehicle-model-save = Validate and save
+vehicle-model-save = Save and finish editing
 vehicle-model-save-continue = Save and continue editing
 vehicle-model-saved = Saved
 vehicle-model-scale = Scale component
-vehicle-model-scale-all = Scale all axes × { $arg0 }
+vehicle-model-scale-all = Scale all axes { $arg0 } { $arg1 }
 vehicle-model-scale-hint = Multiply or divide local axis lengths. Values are not world bounding dimensions.
 vehicle-model-seats = Seats and exits
 vehicle-model-selected = Import selected displays
@@ -1568,9 +1595,9 @@ vehicle-model-step = Cycle adjustment step
 vehicle-model-supports = Ground support points
 vehicle-model-text = Text
 vehicle-model-title = Vehicle model manager
-vehicle-model-tools = In-world editing tools
+vehicle-model-tools = Preview and tools
 vehicle-model-transform-step = Change adjustment step
-vehicle-model-undo = Undo last edit
+vehicle-model-undo = Undo
 vehicle-result = Vehicle: { $arg0 }
 vehicle-selection-info = Selection: { $arg0 ->
         [one] { $arg0 } display entity
@@ -2100,6 +2127,18 @@ music-space-label =
     { $arg0 ->
         [title] Music space
         [devices] Playback devices
+        [all-devices] All devices
+        [use-device] Use this device
+        [current-device] Current device
+        [manage-device] Manage
+        [back-devices] Back to devices
+        [group-with-devices] Group with other devices
+        [pick-world-member] Pick a device in the world
+        [group-world-pick-hint] Sneak-right-click a jukebox with an empty hand to add it; /music returns to the menu.
+        [group-member-standalone] Choose a jukebox that is not already in a sync group.
+        [group-selection-help] Select jukeboxes below, or sneak-right-click another with an empty hand in the world. Grouping takes effect when submitted.
+        [group-source-help] Use the selected device’s queue and position. Creating stops existing playback; Create and play resumes it.
+        [device-actions] Actions
         [device-status] Status
         [sync-group] Sync group
         [single-device] Jukebox
@@ -2110,7 +2149,6 @@ music-space-label =
         [nearby-device] Nearby
         [group-select-members] Select at least two jukeboxes
         [group-name-required] Enter a group name
-        [all-online] All online
         [direction-front] Ahead
         [direction-front-right] Ahead-right
         [direction-right] Right
@@ -2327,6 +2365,7 @@ music-space-device-count =
         [one] { $arg0 } jukebox
        *[other] { $arg0 } jukeboxes
     }
+music-space-playback-target = Playing to: { $arg0 }
 music-space-online-count = Online: { $arg0 }/{ $arg1 } { $arg1 ->
         [one] jukebox
        *[other] jukeboxes

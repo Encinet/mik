@@ -23,6 +23,7 @@ class VehicleEditorWorkflowLayoutTest {
             h.click("object-tool:SCALE"); check(h, language, "part scale");
             h.click("object-tool:inspector"); h.click("option"); check(h, language, "display properties");
             h.click("property:BILLBOARD"); check(h, language, "billboard choices");
+            h.click("section:tools"); check(h, language, "preview tools");
         }
     }
 
@@ -34,6 +35,8 @@ class VehicleEditorWorkflowLayoutTest {
             assertTrue(frame.readingRegion().size().width() > 0);
             assertTrue(frame.readingRegion().size().height() > 0);
             assertNotNull(UiSceneTestSupport.element(frame, "dismiss"));
+            for (String key : new String[]{"apply", "save", "undo", "redo"})
+                assertNotNull(UiSceneTestSupport.element(frame, key), language + " / " + page + " / " + key);
         }
     }
 }

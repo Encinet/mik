@@ -19,7 +19,7 @@ import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.ui.*;
 import org.encinet.mik.feature.entertainment.music.ui.MusicSoundEdits.Parameter;
 
-/** One device or sync group, with a shared directory and one playback inspector. */
+/** Device browsing, playback selection and membership selection have distinct actions. */
 final class MusicDeviceScenes {
     private final MusicWorkspace w;
     private final MusicGroupScenes groups;
@@ -39,7 +39,7 @@ final class MusicDeviceScenes {
             private boolean active = true;
             public MenuScene render() {
                 if (!active) return MenuScene.screen("music-target-picker-closed").content(Ui.column().build()).build();
-                return MenuScene.screen("music-target-picker", w.label(player, "devices")).content(directory(player, state, null, null,
+                return MenuScene.screen("music-target-picker", w.label(player, "choose-targets")).content(directory(player, state, null, null,
                         page,next -> { if (active) page = next; },() -> { if (active) redraw.run(); },true,(id,handle) -> {
                             if (!active) return;
                             handle.closePopover();
@@ -56,7 +56,7 @@ final class MusicDeviceScenes {
         return directory(player,state,pending,draft,state.devicePage,
                 page -> { if (state.page == pageScope && state.panel() == panelScope) state.devicePage = page; },
                 () -> { if (state.page == pageScope && state.panel() == panelScope) w.redraw(player); },false,(id,handle) -> {
-            if (state.page != pageScope || state.panel() != panelScope) return;
+            if (!w.active(player,state) || state.page != pageScope || state.panel() != panelScope) return;
             if (draft != null) {
                 if (state.busy(new TaskKey(Work.DEVICE,draft.group))) throw new MusicProblem(MusicProblem.Code.BUSY);
                 draft.toggle(id); w.redraw(player); return;
@@ -64,18 +64,28 @@ final class MusicDeviceScenes {
             handle.closePopover();
             w.selectTarget(player, id);
             if (pending != null) { w.panel(player, new NoPanel()); w.submit(player, pending.tracks(), pending.placement()); }
-            else if (state.panel() instanceof DevicePanel) w.redraw(player);
-            else w.panel(player, new DevicePanel(id, DeviceSection.QUEUE));
+            else w.redraw(player);
         });
     }
     private UiNode directory(Player player, MusicWorkspaceState state, PendingPlay pending, GroupDraft draft,
                              int page, IntConsumer changePage, Runnable redraw, boolean companion, BiConsumer<UUID, FloatingMenuHandle> choose) {
         var targets = new ArrayList<>(w.registry.targets(player));
+        var owner = state.panel(); var pageScope = state.page;
         if (draft != null) targets.removeIf(target -> w.registry.snapshot().groups().containsKey(target.id()));
-        targets.sort(Comparator.comparing(DeviceTarget::name).thenComparing(DeviceTarget::id));
+        boolean management = !companion && pending == null && draft == null;
+        var filter = state.deviceFilter;
+        if (management) targets.removeIf(target -> switch (filter) {
+            case ALL -> false;
+            case RECORDED -> !w.registry.bound(player.getUniqueId(), target.id());
+            case NEARBY -> w.registry.bound(player.getUniqueId(), target.id());
+            case GROUPS -> !w.registry.snapshot().groups().containsKey(target.id());
+        });
+        targets.sort(Comparator.comparing((DeviceTarget target) -> !target.id().equals(state.target()))
+                .thenComparing(DeviceTarget::name).thenComparing(DeviceTarget::id));
         var actions = new ArrayList<UiNode>();
-        if (draft == null) actions.add(Ui.button(w.label(player, "create-group")).key("create-group").primary((_, handle) -> {
-            handle.closePopover(); w.safe(player, () -> groups.create(player, state, pending));
+        if (draft == null && !companion) actions.add(Ui.button(w.label(player, "create-group")).key("create-group").primary((_, handle) -> {
+            if (!w.active(player,state) || state.panel() != owner || state.page != pageScope) return;
+            handle.closePopover(); w.safe(player, () -> groups.create(player, state, pending, state.target()));
         }).build());
         var title = w.label(player, draft == null ? "devices" : draft.group == null ? "group-select-members" : "choose-members");
         var heading = pending != null ? w.panelHeading(player, title, actions.toArray(UiNode[]::new))
@@ -83,13 +93,29 @@ final class MusicDeviceScenes {
         var body = column("device-directory");
         if (!companion) body.child(heading);
         else if (!actions.isEmpty()) body.child(tools("device-directory-actions").children(actions).build());
+        if (management) {
+            var filters = tools("device-filters");
+            for (var option : DeviceFilter.values()) {
+                String label = switch (option) {
+                    case ALL -> "all-devices";
+                    case RECORDED -> "recorded-device";
+                    case NEARBY -> "nearby-device";
+                    case GROUPS -> "sync-group";
+                };
+                filters.child(w.choice(player, "filter:" + option, w.label(player, label), option == filter, () -> {
+                    if (!w.active(player,state) || state.page != WorkspacePage.DEVICES || state.panel() != owner || state.deviceFilter != filter) return;
+                    state.deviceFilter = option; state.devicePage = 0; w.redraw(player);
+                }));
+            }
+            body.child(filters.build());
+        }
         if (pending != null) body.child(info("pending", w.label(player, MusicPlaybackActions.labelKey(pending.placement()))
                 .append(w.raw(" · ")).append(w.raw(pending.tracks().getFirst().details().title()))).withSummaryLines(1));
         var rows = new ArrayList<MusicDeviceTable.Row>();
         for (var target : targets) {
             boolean group = w.registry.snapshot().groups().containsKey(target.id());
             long online = target.members().stream().filter(w.registry::online).count();
-            var status = !group ? w.label(player,"available") : online == target.members().size() ? w.label(player,"all-online")
+            var status = online == 0 ? w.label(player,"offline") : !group ? w.label(player,"available")
                     : w.language.text(player, Message.MUSIC_SPACE_ONLINE_COUNT, NamedTextColor.AQUA, online, target.members().size());
             MusicProblem.Code restriction = w.registry.controlFailure(player, target.id());
             if (draft != null && draft.group != null && !draft.members.contains(target.id())) {
@@ -108,13 +134,20 @@ final class MusicDeviceScenes {
                     .append(w.label(player,w.registry.bound(player.getUniqueId(),target.id()) ? "recorded-device" : "nearby-device"));
             rows.add(new MusicDeviceTable.Row(target.id(), w.raw(name(player, target.id())), kind,
                     restriction == null ? status : w.problem(player, restriction), song,
-                    (pending != null || draft != null) && restriction != null ? w.problem(player, restriction) : null,
+                    restriction != null ? w.problem(player, restriction) : null,
                     w.locator.position(player,target.id()),w.locator.coordinates(player,target.id()),w.locator.color(target.id())));
         }
-        if (rows.isEmpty()) body.child(info("empty-devices", w.label(player, "no-devices")))
-                .child(info("device-discovery-hint", w.label(player, "device-discovery-hint")));
+        if (rows.isEmpty()) {
+            body.child(info("empty-devices", w.label(player, "no-devices")));
+            if (!management || filter == DeviceFilter.ALL) body.child(info("device-discovery-hint", w.label(player, "device-discovery-hint")));
+        }
         else body.child(MusicDeviceTable.content(rows, state.target(), draft == null ? null : draft.members, key -> w.label(player, key),
-                id -> (_,handle) -> w.safe(player,() -> choose.accept(id,handle)),page,next -> { changePage.accept(next); redraw.run(); }));
+                id -> (_,handle) -> w.safe(player,() -> { if (!management || state.deviceFilter == filter) choose.accept(id,handle); }),
+                page,next -> { if (!management || state.deviceFilter == filter) { changePage.accept(next); redraw.run(); } },
+                management ? id -> (_,_) -> w.safe(player,() -> {
+                    if (w.active(player,state) && state.page == WorkspacePage.DEVICES && state.panel() instanceof NoPanel && state.deviceFilter == filter)
+                        w.panel(player,new DevicePanel(id,DeviceSection.SETTINGS));
+                }) : null));
         return UiTemplates.reading(body.build(),UiKey.named(rows.isEmpty() ? "empty-devices" : "device-list"),UiLength.ui(8));
     }
     UiNode details(Player player, MusicWorkspaceState state, DevicePanel panel) {
@@ -122,6 +155,27 @@ final class MusicDeviceScenes {
         UUID id = target.id();
         var group = w.registry.snapshot().groups().get(target.id());
         var actions = new ArrayList<UiNode>();
+        actions.add(w.button(player,"back-devices",() -> w.showDevices(player)));
+        var use = Ui.button(w.label(player,id.equals(state.target()) ? "current-device" : "use-device")).key("use-device")
+                .selected(id.equals(state.target())).primary((_,_) -> w.safe(player,() -> {
+                    if (w.active(player,state) && state.panel() == panel) { w.selectTarget(player,id); w.redraw(player); }
+                }));
+        var failure = w.registry.controlFailure(player,id);
+        if (failure != null) use.disabled(w.problem(player,failure));
+        actions.add(use.build());
+        if (group == null) {
+            var combine = Ui.button(w.label(player,"group-with-devices")).key("group-with-devices").primary((_,_) -> w.safe(player,() -> {
+                if (w.active(player,state) && state.panel() == panel) groups.create(player,state,null,id);
+            }));
+            if (failure != null) combine.disabled(w.problem(player,failure));
+            actions.add(combine.build());
+        } else if (group.members().size() < MAX_MEMBERS) {
+            var add = Ui.button(w.label(player,"add-members")).key("add-members").primary((_,_) -> w.safe(player,() -> {
+                if (w.active(player,state) && state.panel() == panel) w.showDevices(player,new GroupEditor(new GroupDraft(id,null)));
+            }));
+            if (failure != null) add.disabled(w.problem(player,failure));
+            actions.add(add.build());
+        }
         if (!w.registry.bound(player.getUniqueId(), id) && w.registry.mayBind(player, id)) {
             var record = Ui.button(w.label(player, "record")).key("record")
                     .primary((_, _) -> w.safe(player, () -> w.run(player, key(id), () -> w.registry.bind(player, id, ""), _ -> {})));
@@ -130,6 +184,7 @@ final class MusicDeviceScenes {
         }
         var body = Ui.layout(UiLayouts.contentColumn(UiKey.named("device-section"),UiLength.ui(8))).key("device-inspector").child(w.panelHeading(player, w.targetSummary(player, id), actions.toArray(UiNode[]::new)));
         body.child(w.deviceLocation(player,id));
+        body.child(info("device-status", failure == null ? w.label(player,"available") : w.problem(player,failure)));
         var tabs = tools("device-tabs");
         for (var section : DeviceSection.values()) {
             if (section == DeviceSection.MEMBERS && group == null) continue;

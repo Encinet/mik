@@ -216,8 +216,7 @@ nametag-copy-hint = 发送前后缀原文到聊天
 nametag-copy-label = [复制]
 nametag-copy-sent = 已将 { $arg0 } 的样式原文发送到聊天。
 nametag-current = 当前效果
-nametag-edit = 编辑
-nametag-edit-ended = 编辑已结束，请重新点击编辑以继续。
+nametag-edit-ended = 编辑已结束，请重新点击字段继续。
 nametag-edit-prompt = 按 T 输入{ $arg0 }（MiniMessage，仅自己可见）。
 nametag-finish-field = 请先确定或取消当前字段的编辑
 nametag-input-invalid = 格式无效，请发送单行 MiniMessage，或点击清空
@@ -1146,6 +1145,11 @@ plot-transferred-to-you = { $arg1 } 已将地段「{ $arg0 }」转让给你。
 vehicle-command-description = 驾驶与管理展示实体载具
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] 载具控制
+        [driving] 驾驶与乘坐
+        [maintenance] 维护与权限
+        [public-status] 当前公开
+        [private-status] 当前私有
         [home] 载具工作台
         [nearby] 附近载具
         [fleet] 所有可访问载具
@@ -1343,7 +1347,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 表示透明，255 表示不透明。
    *[other] { $arg0 }
     }
-vehicle-model-spatial = 3D 操作
+vehicle-model-spatial = 进入 3D 点选模式
 vehicle-model-spatial-hint = 右击标记选中对象或调整数值；潜行右击返回设置。滚轮切换调整步长。
 vehicle-model-spawn = 生成此模型的载具
 vehicle-model-add = 添加组件
@@ -1379,6 +1383,29 @@ vehicle-model-driver = 驾驶位
 vehicle-model-driver-here = 在脚下添加驾驶座位
 vehicle-model-edit = 编辑 / 继续草稿
 vehicle-model-overview = 草稿概览
+vehicle-model-panel = 返回编辑面板
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] 先选下方的编辑分类，再选对象和工具；保存与撤销始终位于底栏。
+    [parts] 管理模型可见的方块、物品和文本。选择部件后修改内容、位置、旋转或缩放。
+    [seats] 选择座位，分别设置乘坐位置与下车出口；模型必须保留一个驾驶位。
+    [colliders] 选择碰撞盒，编辑中心与完整尺寸；也可添加盒子或按模型自动包围。
+    [supports] 选择接地点并调整位置，用于地面支撑或船体浮力采样。
+    [parameters] 先选参数分组，再点击字段修改数值。
+    [tools] 调整预览、在场景中点选对象或检查草稿。放弃修改前会确认。
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] 设置方块内容
+    [item] 替换为主手物品
+    [text] 设置文本内容
+    }
+vehicle-model-exact-input = 精确输入数值
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = 部件详情
 vehicle-model-selection-unavailable = 对象已移除或变更，请返回重新选择
 vehicle-model-exit = 出口位置 / 轴向微调
@@ -1402,20 +1429,20 @@ vehicle-model-pick-hint = 请开启预览并看向方块或物品组件，或先
 vehicle-model-place-cancelled = 视线放置已取消（超时、编辑状态变化或主动取消）。
 vehicle-model-place-hint = 视线放置已就绪：30 秒内瞄准世界方块或个人预览表面，主手右击确认；潜行右击取消。
 vehicle-model-position = 位置 / 轴向微调
-vehicle-model-position-hint = 局部 X/Y/Z · here 取脚下、look 取视线表面 · 网格按当前步长吸附（默认关闭）
+vehicle-model-position-hint = 局部坐标：+Y 向上，+Z 朝车头。按钮按步长移动；精确输入设置绝对位置。
 vehicle-model-preview = 个人预览
 vehicle-model-preview-failed = 预览暂不可用，草稿已保留：{ $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = 重做上次撤销的编辑
+vehicle-model-preview-hint = 预览已显示。需要直接点选模型时，请进入 3D 点选模式。
+vehicle-model-redo = 重做
 vehicle-model-remove = 移除组件
 vehicle-model-remove-warning = 移除此组件？后续索引会前移，可通过撤销恢复。
 vehicle-model-rotate = 旋转部件
 vehicle-model-rotate-hint = 相对局部旋转：X 俯仰、Y 偏航、Z 横滚；位置保持不变。
-vehicle-model-save = 校验并保存
+vehicle-model-save = 保存并结束编辑
 vehicle-model-save-continue = 保存并继续编辑
 vehicle-model-saved = 已保存
 vehicle-model-scale = 缩放部件
-vehicle-model-scale-all = 所有轴统一缩放 × { $arg0 }
+vehicle-model-scale-all = 所有轴统一缩放 { $arg0 } { $arg1 }
 vehicle-model-scale-hint = 按比例乘除局部各轴长度；显示值不是世界包围盒尺寸。
 vehicle-model-seats = 座位与出口
 vehicle-model-selected = 导入已选展示实体
@@ -1427,9 +1454,9 @@ vehicle-model-step = 切换微调步长
 vehicle-model-supports = 地面支撑点
 vehicle-model-text = 文本
 vehicle-model-title = 载具模型管理
-vehicle-model-tools = 现场编辑工具
+vehicle-model-tools = 预览与工具
 vehicle-model-transform-step = 切换调整步长
-vehicle-model-undo = 撤销上次编辑
+vehicle-model-undo = 撤销
 vehicle-result = 载具：{ $arg0 }
 vehicle-selection-info = 已选择：{ $arg0 }个显示实体 · 组 { $arg1 } · 原点 { $arg2 }, { $arg3 }, { $arg4 }
 vehicle-status-contact = 接触碰撞 / 受阻
@@ -1839,6 +1866,18 @@ music-space-label =
     { $arg0 ->
         [title] 音乐空间
         [devices] 播放设备
+        [all-devices] 全部设备
+        [use-device] 使用此设备
+        [current-device] 当前设备
+        [manage-device] 管理
+        [back-devices] 返回设备列表
+        [group-with-devices] 与其他设备合为组
+        [pick-world-member] 在游戏中选一台
+        [group-world-pick-hint] 空手潜行右键目标唱片机，加入当前选择；/music 返回。
+        [group-member-standalone] 请选择尚未加入同步组的唱片机。
+        [group-selection-help] 勾选列表中的唱片机，或在游戏中空手潜行右键另一台。提交后才会合为组。
+        [group-source-help] 采用所选设备的队列与进度。创建会停止原播放；「创建并播放」会继续播放。
+        [device-actions] 操作
         [device-status] 状态
         [sync-group] 同步组
         [single-device] 唱片机
@@ -1849,7 +1888,6 @@ music-space-label =
         [nearby-device] 附近
         [group-select-members] 勾选至少两台唱片机
         [group-name-required] 填写同步组名称
-        [all-online] 全部在线
         [direction-front] 前方
         [direction-front-right] 右前方
         [direction-right] 右侧
@@ -2054,6 +2092,7 @@ music-space-error =
 music-space-selected-tracks = 已选 { $arg0 } 首歌曲
 music-space-track-count = { $arg0 } 首
 music-space-device-count = { $arg0 } 台唱片机
+music-space-playback-target = 播放到：{ $arg0 }
 music-space-online-count = 在线：{ $arg0 }/{ $arg1 } 台
 music-space-device-distance = { $arg0 } · { $arg1 } 格
 music-space-device-height = { $arg0 ->

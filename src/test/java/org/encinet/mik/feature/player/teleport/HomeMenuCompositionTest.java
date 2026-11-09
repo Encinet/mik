@@ -44,7 +44,7 @@ class HomeMenuCompositionTest {
             for (int page = 0; page < count; page++) {
                 var snapshot = position.get();
                 var menu = MenuScene.screen("homes").viewport(HomeMenuComposition.VIEWPORT)
-                        .content(HomeMenuComposition.content(Ui.textField(Component.empty()).placeholder(Component.text("Search homes")).build(),
+                        .content(HomeMenuComposition.content(Ui.textField("").placeholder(Component.text("Search homes")).build(),
                                 HomeMenuComposition.homes(names, selected.get(), selected::set, snapshot, position::set), Ui.text(Component.empty()).key("empty").build()));
                 menu.information("summary", Component.text("Homes: 20 / 20")).region("header");
                 var scene = menu.build();
@@ -76,7 +76,7 @@ class HomeMenuCompositionTest {
                     int count = 1;
                     for (int page = 0; page < count; page++) {
                         var menu = MenuScene.screen("homes").viewport(HomeMenuComposition.VIEWPORT)
-                                .content(HomeMenuComposition.content(Ui.textField(Component.empty()).placeholder(Component.text("Search")).build(),
+                                .content(HomeMenuComposition.content(Ui.textField("").placeholder(Component.text("Search")).build(),
                                         HomeMenuComposition.homes(List.of(), null, _ -> {}, position.get(), position::set),
                                         Ui.text(explanation).key(key).build()));
                         menu.information("summary", text.apply(Message.HOME_SUMMARY_COUNT, new Object[]{savedHomes ? 20 : 0,20})).region("header");
@@ -141,7 +141,7 @@ class HomeMenuCompositionTest {
     }
 
     @Test void shortNamesUseTheBrowserRowInsteadOfLeavingTinyButtonsInTheMiddle() {
-        var query = Ui.textField(Component.empty()).placeholder(Component.text("Search homes")).build();
+        var query = Ui.textField("").placeholder(Component.text("Search homes")).build();
         var scene = MenuScene.screen("homes").viewport(HomeMenuComposition.VIEWPORT)
                 .content(HomeMenuComposition.content(query, HomeMenuComposition.homes(List.of("家", "Base"), "家", _ -> {}, UiReadingPosition.START, _ -> {}), Ui.text(Component.empty()).key("empty").build())).build();
         for (double scale : new double[]{.7, 1, 1.8}) {
@@ -278,6 +278,17 @@ class HomeMenuCompositionTest {
         assertTrue(panel(frame, "home-tools").y() >= panel(frame, "detail").y() + panel(frame, "detail").size().height());
         assertNotNull(entry(scene, "action:update"));
         assertNotNull(entry(scene, "action:delete"));
+    }
+
+    @Test void homeActionsKeepTheirNaturalWidthAndWrapAsAGroupInsteadOfWrappingTheirLabels() throws Exception {
+        for (var language : Language.values()) {
+            for (var scale : new double[]{1, 1.8}) {
+                var scene = scene(text(language), new FloatingMenuPage(0, 4, 4), false)
+                        .toBuilder().viewport(new UiSize(960, 2048)).build();
+                assertEquals(1, SceneGeometryTestSupport.textLines(scene, scale, "action:update"),
+                        language + " @ " + scale);
+            }
+        }
     }
 
     @Test void filteredEmptyAndInlineSearchStatesFitEveryLanguageAndTextSize() throws Exception {

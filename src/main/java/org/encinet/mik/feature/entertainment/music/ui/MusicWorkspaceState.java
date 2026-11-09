@@ -64,6 +64,7 @@ public final class MusicWorkspaceState {
     }
 
     enum WorkspacePage { LIBRARY, DEVICES }
+    enum DeviceFilter { ALL, RECORDED, NEARBY, GROUPS }
     record PendingPlay(List<MusicTrack> tracks, PlaybackProgram.Submission placement) {
         PendingPlay { tracks = List.copyOf(tracks); Objects.requireNonNull(placement); }
     }
@@ -84,9 +85,12 @@ public final class MusicWorkspaceState {
         final Set<UUID> members = new LinkedHashSet<>();
         String name = "";
         UUID source;
+        boolean pickingInWorld;
+        Panel returnTo;
         GroupDraft(UUID group, PendingPlay pending) {
             this.group = group;
             this.pending = pending;
+            returnTo = group == null ? new NoPanel() : new DevicePanel(group,DeviceSection.MEMBERS);
         }
         void toggle(UUID device) {
             if (!members.remove(device)) {
@@ -94,6 +98,11 @@ public final class MusicWorkspaceState {
                 members.add(device);
             }
             if (!members.contains(source)) source = members.stream().findFirst().orElse(null);
+        }
+        void pick(UUID device, int existingMembers) {
+            if (members.contains(device)) return;
+            if (members.size() + existingMembers >= MAX_MEMBERS) throw new MusicProblem(MusicProblem.Code.LIMIT);
+            toggle(device);
         }
     }
     record GroupEditor(GroupDraft draft) implements Panel { }
@@ -118,6 +127,7 @@ public final class MusicWorkspaceState {
     private UUID target;
     WorkspacePage page = WorkspacePage.LIBRARY;
     int devicePage;
+    DeviceFilter deviceFilter = DeviceFilter.ALL;
     private Panel panel = new NoPanel();
     UUID panelScope = UUID.randomUUID();
     int panelPage;
@@ -144,7 +154,7 @@ public final class MusicWorkspaceState {
         browser.move = Objects.requireNonNull(move); queueMove = null;
     }
     void startQueueMove(MusicMove move) {
-        if (!move.owner().equals(target) || !(panel instanceof DevicePanel inspector)
+        if (!(panel instanceof DevicePanel inspector)
                 || !inspector.equals(new DevicePanel(move.owner(), DeviceSection.QUEUE)))
             throw new MusicProblem(MusicProblem.Code.CONFLICT);
         queueMove = Objects.requireNonNull(move); browser.move = null;
@@ -166,27 +176,16 @@ public final class MusicWorkspaceState {
             browser.revision++;
         }
     }
-    void target(UUID next, boolean group) {
+    void target(UUID next) {
         if (Objects.equals(target, next)) return;
         target = next;
         lastSubmission = null;
-        queueSelection.clear();
-        queueMove = null;
-        queueFocus = null;
-        DeviceSection section = panel instanceof DevicePanel inspector ? inspector.section()
-                : panel instanceof MemberOutput ? DeviceSection.MEMBERS : null;
-        if (section != null) {
-            if (section == DeviceSection.MEMBERS && !group) section = DeviceSection.QUEUE;
-            panel(next == null ? new NoPanel() : new DevicePanel(next, section));
-        }
     }
     void devices() {
-        if (page == WorkspacePage.DEVICES) return;
-        browser.revision++;
+        if (page != WorkspacePage.DEVICES) browser.revision++;
         page = WorkspacePage.DEVICES;
         browser.move = null;
-        if (!(panel instanceof DevicePanel || panel instanceof MemberOutput))
-            panel(target == null ? new NoPanel() : new DevicePanel(target, DeviceSection.QUEUE));
+        panel(new NoPanel());
     }
     void rooms(UUID current) {
         browser.revision++;

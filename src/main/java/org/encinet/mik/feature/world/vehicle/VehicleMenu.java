@@ -19,7 +19,7 @@ import org.encinet.mik.shared.menu.ui.*;
 
 /** Feature workspace: navigation keeps identity; every mutation rechecks its exact source and permissions. */
 final class VehicleMenu {
-    enum Page { NEARBY, FLEET, VEHICLE, DETAILS, SELECTION, DISPLAYS, DISPLAY }
+    enum Page { NEARBY, FLEET, VEHICLE, MAINTENANCE, DETAILS, SELECTION, DISPLAYS, DISPLAY }
     record State(UUID session, Page page, UUID target, int anchor, int actions) {
         State route(Page page, UUID target) { return new State(session, page, target, 0, 0); }
         State anchor(int value) { return new State(session, page, target, value, actions); }
@@ -61,7 +61,8 @@ final class VehicleMenu {
         var player = context.player(); var state = context.state();
         var menu = MenuScene.screen("vehicle-workspace").stableAnchor();
         var items = new ArrayList<VehicleEditorList.Item>();
-        menu.information("heading", label(player, "home")).region("heading");
+        menu.information("heading", state.page() == Page.DETAILS ? text(player, Message.VEHICLE_DASH_DETAILS)
+                : label(player, state.page() == Page.VEHICLE ? "vehicle" : state.page() == Page.MAINTENANCE ? "maintenance" : "home")).region("heading");
         try {
             requireCurrent(player, state);
             for (Page page : List.of(Page.NEARBY, Page.FLEET)) menu.navigation("section:" + page, label(player, page == Page.NEARBY ? "nearby" : "fleet"))
@@ -71,6 +72,13 @@ final class VehicleMenu {
                         .primary((actor, _) -> run(actor, state, () -> module.openModels(actor)));
                 menu.navigation("selection", label(player, "selection")).region("sections").selected(state.page() == Page.SELECTION || state.page() == Page.DISPLAYS || state.page() == Page.DISPLAY)
                         .primary((actor, _) -> run(actor, state, () -> context.setState(state.route(Page.SELECTION, null))));
+            }
+            if (state.page() == Page.VEHICLE || state.page() == Page.MAINTENANCE) {
+                var selected = module.menuTarget(player, state.target());
+                menu.navigation("driving", label(player, "driving")).region("tabs").selected(state.page() == Page.VEHICLE)
+                        .primary((actor, _) -> run(actor, state, () -> context.setState(state.route(Page.VEHICLE, selected.id))));
+                if (module.manages(player, selected)) menu.navigation("maintenance", label(player, "maintenance")).region("tabs").selected(state.page() == Page.MAINTENANCE)
+                        .primary((actor, _) -> run(actor, state, () -> context.setState(state.route(Page.MAINTENANCE, selected.id))));
             }
             switch (state.page()) {
                 case NEARBY, FLEET -> {
@@ -93,6 +101,7 @@ final class VehicleMenu {
                 }
                 case DETAILS -> details(menu, player, module.menuTarget(player, state.target()));
                 case VEHICLE -> vehicle(menu, context, module.menuTarget(player, state.target()));
+                case MAINTENANCE -> maintenance(menu, context, module.menuTarget(player, state.target()));
                 case SELECTION -> {
                     var selected = module.selected(player);
                     Location origin = module.selectedOrigin(player);
@@ -135,7 +144,8 @@ final class VehicleMenu {
             menu.information("unavailable", text(player, Message.VEHICLE_DASH_UNAVAILABLE)).region("summary");
         }
         if (state.page() != Page.NEARBY && state.page() != Page.FLEET) menu.navigation("back", text(player, Message.BACK)).region("navigation")
-                .primary((actor, _) -> run(actor, state, () -> context.setState(state.route(state.page() == Page.DETAILS ? Page.VEHICLE : state.page() == Page.DISPLAY ? Page.DISPLAYS : state.page() == Page.DISPLAYS ? Page.SELECTION : Page.NEARBY, state.page() == Page.DETAILS ? state.target() : null))));
+                .primary((actor, _) -> run(actor, state, () -> context.setState(state.route(state.page() == Page.DETAILS || state.page() == Page.MAINTENANCE ? Page.VEHICLE : state.page() == Page.DISPLAY ? Page.DISPLAYS : state.page() == Page.DISPLAYS ? Page.SELECTION : Page.NEARBY,
+                        state.page() == Page.DETAILS || state.page() == Page.MAINTENANCE ? state.target() : null))));
         menu.dismiss(text(player, Message.CLOSE)).region("navigation");
         UiNode rows = VehicleEditorList.content(items, text(player, Message.MENU_SEARCH_EMPTY), state.anchor(),
                 next -> run(player, state, () -> context.setState(state.anchor(next))));
@@ -144,7 +154,8 @@ final class VehicleMenu {
                 next -> run(player, state, () -> context.setState(state.actions(next)))).withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 240)));
         if (state.page() == Page.DETAILS) rows = new UiPagedPort(UiTemplates.list("readings").withSummaryLines(2), 3,
                 state.anchor(), next -> run(player, state, () -> context.setState(state.anchor(next)))).withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 240)));
-        UiNode content = UiTemplates.menu(UiTemplates.title("heading"), UiTemplates.information("summary").withSummaryLines(4), (listing || state.page() == Page.DETAILS) ? rows : actions);
+        UiNode content = UiTemplates.menu(UiTemplates.title("heading"), UiTemplates.information("summary").withSummaryLines(4),
+                UiTemplates.navigation("tabs"), (listing || state.page() == Page.DETAILS) ? rows : actions);
         UiNode footer = listing ? UiTemplates.menu(actions, UiTemplates.navigation("navigation")) : UiTemplates.navigation("navigation");
         menu.content(UiTemplates.split(UiTemplates.sidebar("sections", UiTemplates.list("sections").withSummaryLines(1)),
                 UiTemplates.sheet(UiTemplates.window("main", content), UiTemplates.toolbar("footer", footer))));
@@ -156,11 +167,7 @@ final class VehicleMenu {
 
     private void vehicle(MenuScene.Builder menu, FloatingMenuContext<State> context, VehicleInstance instance) {
         var player = context.player(); var state = context.state(); var body = instance.body;
-        int occupied = instance.entities == null ? 0 : instance.entities.passengerCount();
-        menu.information("summary", Component.text(body.definition.id() + " · " + instance.id.toString().substring(0, 8))
-                .append(Component.newline()).append(language.text(player, Message.VEHICLE_DASH_FUEL, NamedTextColor.AQUA, body.fuel, body.definition.fuelCapacity(), Math.round(body.fuel / body.definition.fuelCapacity() * 100)))
-                .append(Component.newline()).append(language.text(player, Message.VEHICLE_DASH_HEALTH, NamedTextColor.AQUA, Math.round(body.health), occupied, body.definition.seats().size()))
-                .append(Component.newline()).append(Component.text(position(body.origin()) + " · " + module.worldName(instance.worldId)))).region("summary");
+        vehicleSummary(menu, player, instance);
         control(menu, player, state, "details", text(player, Message.VEHICLE_DASH_DETAILS), _ -> context.setState(state.route(Page.DETAILS, instance.id)));
         boolean use = player.hasPermission("mik.vehicle.use"); boolean nearby = module.nearby(player, instance);
         if (instance.id.equals(module.mountedVehicle(player))) {
@@ -181,6 +188,23 @@ final class VehicleMenu {
                 Component reason = label(player, use ? "nearby-hint" : "use-required"); drive.disabled(reason); passenger.disabled(reason);
             }
         }
+    }
+
+    private void vehicleSummary(MenuScene.Builder menu, Player player, VehicleInstance instance) {
+        var body = instance.body;
+        int occupied = instance.entities == null ? 0 : instance.entities.passengerCount();
+        menu.information("summary", Component.text(body.definition.id() + " · " + instance.id.toString().substring(0, 8))
+                .append(Component.text(" · ")).append(label(player, instance.publicAccess ? "public-status" : "private-status"))
+                .append(Component.newline()).append(language.text(player, Message.VEHICLE_DASH_FUEL, NamedTextColor.AQUA, body.fuel, body.definition.fuelCapacity(), Math.round(body.fuel / body.definition.fuelCapacity() * 100)))
+                .append(Component.newline()).append(language.text(player, Message.VEHICLE_DASH_HEALTH, NamedTextColor.AQUA, Math.round(body.health), occupied, body.definition.seats().size()))
+                .append(Component.newline()).append(Component.text(position(body.origin()) + " · " + module.worldName(instance.worldId)))).region("summary");
+    }
+
+    private void maintenance(MenuScene.Builder menu, FloatingMenuContext<State> context, VehicleInstance instance) {
+        var player = context.player(); var state = context.state(); var body = instance.body;
+        vehicleSummary(menu, player, instance);
+        boolean nearby = module.nearby(player, instance);
+        int occupied = instance.entities == null ? 0 : instance.entities.passengerCount();
         if (module.manages(player, instance)) {
             for (boolean fuel : List.of(true, false)) {
                 var button = control(menu, player, state, fuel ? "fuel" : "repair", label(player, fuel ? "fuel" : "repair"), actor -> {

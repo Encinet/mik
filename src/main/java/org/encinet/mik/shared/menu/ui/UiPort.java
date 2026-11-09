@@ -2,21 +2,25 @@ package org.encinet.mik.shared.menu.ui;
 
 import java.util.Objects;
 import java.util.List;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 /** A named construction-time content port. It is resolved before the scene becomes immutable. */
 public record UiPort(UiKey key, UiLayout layout, UiStyle style, UiSizing sizing,
-                     List<String> sources, UiRole textRole, LinearSlot itemSlot,int summaryLines) implements UiNode {
+                     List<String> sources, UiRole textRole, LinearSlot itemSlot, int summaryLines,
+                     FloatingMenuTextWidth itemTextWidth) implements UiNode {
     public UiPort {
         key = Objects.requireNonNull(key, "key"); layout = Objects.requireNonNull(layout, "layout");
         style = Objects.requireNonNull(style, "style"); sizing = Objects.requireNonNull(sizing, "sizing");
         sources = List.copyOf(sources); textRole = Objects.requireNonNull(textRole, "textRole");
         itemSlot = Objects.requireNonNull(itemSlot, "itemSlot");
+        itemTextWidth = Objects.requireNonNull(itemTextWidth, "itemTextWidth");
         if (sources.isEmpty()) throw new IllegalArgumentException("Content port must name its source");
         if (summaryLines < 1) throw new IllegalArgumentException("Text ports need a positive line limit");
     }
 
-    public UiPort(UiKey key,UiLayout layout,UiStyle style,UiSizing sizing,List<String> sources,UiRole textRole,LinearSlot itemSlot) {
-        this(key,layout,style,sizing,sources,textRole,itemSlot,Integer.MAX_VALUE);
+    public UiPort(UiKey key, UiLayout layout, UiStyle style, UiSizing sizing, List<String> sources,
+                  UiRole textRole, LinearSlot itemSlot, int summaryLines) {
+        this(key, layout, style, sizing, sources, textRole, itemSlot, summaryLines, FloatingMenuTextWidth.AUTO);
     }
 
     public UiPort(UiKey key, UiLayout layout, UiStyle style, UiSizing sizing) {
@@ -24,11 +28,19 @@ public record UiPort(UiKey key, UiLayout layout, UiStyle style, UiSizing sizing,
     }
 
     public UiPort(UiKey key, UiLayout layout, UiStyle style, UiSizing sizing, List<String> sources, UiRole textRole) {
-        this(key, layout, style, sizing, sources, textRole, LinearSlot.CONTENT);
+        this(key, layout, style, sizing, sources, textRole, LinearSlot.CONTENT, Integer.MAX_VALUE);
     }
 
-    public UiPort withItemSlot(LinearSlot slot) { return new UiPort(key, layout, style, sizing, sources, textRole, slot,summaryLines); }
-    public UiPort withSummaryLines(int lines) { return new UiPort(key,layout,style,sizing,sources,textRole,itemSlot,lines); }
+    public UiPort withItemSlot(LinearSlot slot) {
+        return new UiPort(key, layout, style, sizing, sources, textRole, slot, summaryLines, itemTextWidth);
+    }
+    public UiPort withSummaryLines(int lines) {
+        return new UiPort(key, layout, style, sizing, sources, textRole, itemSlot, lines, itemTextWidth);
+    }
+    /** Supplies the inherited width policy for entries that keep their automatic default. */
+    public UiPort withItemTextWidth(FloatingMenuTextWidth width) {
+        return new UiPort(key, layout, style, sizing, sources, textRole, itemSlot, summaryLines, width);
+    }
     public UiDocumentPort document(UiReadingPosition position,java.util.function.Consumer<UiReadingPosition> read) {
         return new UiDocumentPort(this,position,read,false);
     }

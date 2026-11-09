@@ -69,6 +69,8 @@ class MusicRhythmCompositionTest {
                 assertEquals(before.size().width(), after.size().width(), 1e-6);
                 assertTrue(after.size().height() >= before.size().height());
                 assertDisjoint(after);
+                for (String key : List.of("select-room-track", "start-room", "leave-room", "end-room"))
+                    assertEquals(1, SceneGeometryTestSupport.textLines(controller, scale, key), language + " / " + key);
                 var workspace = MenuScene.screen("music").viewport(MusicWorkspaceComposition.VIEWPORT)
                         .content(MusicWorkspaceComposition.content(Ui.button(label.apply("rhythm")).build(),
                                 Ui.text(Component.text("Library remains available")).build(), room(label, true, 3),

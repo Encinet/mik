@@ -48,7 +48,7 @@ class MusicLibraryNavigationTest {
                 var heading = MusicWorkspace.tools("collection-heading").child(Ui.heading(label.apply("my-playlists")).key("heading").build())
                         .child(MusicLibraryScenes.playlistManagement(Source.OWNED, label, (_, _) -> { }, (_, _) -> { }));
                 var browser = MusicWorkspace.column("collection").child(heading.build())
-                        .child(Ui.form().key("search").field("query", label.apply("search"), Ui.textField(Component.empty())
+                        .child(Ui.form().key("search").field("query", label.apply("search"), Ui.textField("")
                                 .placeholder(Component.text(FluentTestSupport.text(bundle, Message.MENU_INPUT_EMPTY))).build()).build());
                 if (empty) browser.child(Ui.text(label.apply("empty")).key("empty").build());
                 else {
@@ -95,7 +95,7 @@ class MusicLibraryNavigationTest {
             if (change == 3) state.browsePlaylist(UUID.randomUUID(), Source.OWNED);
             if (change >= 4) {
                 UUID target = UUID.randomUUID();
-                state.target(target, false);
+                state.target(target);
                 state.panel(new DevicePanel(target, DeviceSection.QUEUE));
             }
             var opened = new ArrayList<UUID>();
@@ -109,10 +109,9 @@ class MusicLibraryNavigationTest {
                 UUID first = UUID.randomUUID(), last = UUID.randomUUID();
                 state.startPlaylistMove(new MusicMove(state.browser.collection.playlist(), 0, List.of(first, last), Set.of(first)));
             } else {
-                Panel task = state.panel();
                 state.devices();
                 if (change == 5) state.browse(Collection.of(Source.CATALOG));
-                assertSame(task, state.panel(), "the playback inspector stays open across navigation");
+                assertInstanceOf(NoPanel.class,state.panel(), "the devices entry opens the directory");
             }
             finished.accept(saved);
             assertTrue(opened.isEmpty(), "a late completion must leave the newer view alone");

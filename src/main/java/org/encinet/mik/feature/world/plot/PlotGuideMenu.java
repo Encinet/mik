@@ -31,7 +31,8 @@ final class PlotGuideMenu implements AutoCloseable {
 
     static MenuScene.Builder compose(LanguageService language, Language locale, UiReadingPosition position, Consumer<UiReadingPosition> read) {
         var blocks = List.of(Message.PLOT_AREA_HINT, Message.PLOT_MAP_LEGEND, Message.PLOT_SELECTION_SESSION_HINT).stream()
-                .map(message -> Ui.text(language.text(locale, message, NamedTextColor.WHITE)).key(message.key()).textWidth(4096)
+                .map(message -> Ui.text(language.text(locale, message, NamedTextColor.WHITE)).key(message.key())
+                        .textWidth(FloatingMenuTextWidth.CONTENT)
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).keepAccessible().build()).toList();
         var reading = Ui.document().key("instructions").blocks(blocks).position(position, read).readingBody()
                 .sizing(new UiSizing(UiSize.ZERO, new UiSize(600, 260))).build();

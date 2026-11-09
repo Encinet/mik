@@ -5,6 +5,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
 import org.encinet.mik.shared.menu.MenuInputLease;
 import org.encinet.mik.shared.menu.MenuQuerySession;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.ui.*;
 
 import java.util.Objects;
@@ -43,7 +44,7 @@ final class MenuQueryEditor implements MenuQuerySession {
 
     @Override public UiNode content(String value) {
         Objects.requireNonNull(value);
-        var field = Ui.textField(Component.text(value, NamedTextColor.WHITE)).key("query")
+        var field = Ui.textField(value).preview(query -> Component.text(query, NamedTextColor.WHITE)).key("query")
                 .placeholder(input == null ? placeholder : labels.prompt())
                 .editing(input != null).primary((_, _) -> focus());
         if (input != null) field.actions(Ui.button(UiIcons.CROSS, labels.cancel()).key("cancel")
@@ -54,7 +55,7 @@ final class MenuQueryEditor implements MenuQuerySession {
         var content = Ui.column().key("query-input").gap(UiLength.ui(4))
                 .sizing(UiSizing.atLeast(control.sizing().minimum()))
                 .child(control, LinearSlot.stretch());
-        if (problem != null) content.child(Ui.text(problem).key("problem").textWidth(4096)
+        if (problem != null) content.child(Ui.text(problem).key("problem").textWidth(FloatingMenuTextWidth.CONTENT)
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).build(),
                 LinearSlot.fit(LinearSlot.Alignment.START));
         return content.build();

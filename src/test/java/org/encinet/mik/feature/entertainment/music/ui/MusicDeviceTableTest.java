@@ -12,11 +12,33 @@ import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
 
 class MusicDeviceTableTest {
+    @Test void managementKeepsPlaybackAndInspectionSeparateEvenForTheOfflineCurrentDevice() {
+        UUID id = UUID.randomUUID();
+        var reason = Component.text("Chunk not loaded"); var row = row(id,"Living room 客厅");
+        var offline = new MusicDeviceTable.Row(id,row.name(),row.kind(),reason,row.song(),reason,row.location(),row.coordinates(),row.color());
+        for (int width : new int[]{360,1280}) for (double font : new double[]{.7,1.8}) {
+            var used = new ArrayList<UUID>(); var managed = new ArrayList<UUID>();
+            var content = MusicDeviceTable.content(List.of(offline),id,null,Component::text,
+                    target -> (_,_) -> used.add(target),0,_ -> {},target -> (_,_) -> managed.add(target));
+            var scene = MenuScene.screen("management").viewport(new UiSize(width,2048)).content(content).build();
+            var frame = SceneGeometryTestSupport.measure(scene,font);
+            assertDisjoint(frame);
+            var entries = scene.measured(frame).entries();
+            assertFalse(rowElement(frame,id,"target").node().input().interactive());
+            var use = entries.get(rowElement(frame,id,"use").path());
+            assertTrue(use.selected()); assertFalse(use.enabled()); assertEquals(reason,use.disabledReason());
+            var manage = entries.get(rowElement(frame,id,"manage").path());
+            assertTrue(manage.enabled());
+            manage.trigger(FloatingMenuInteraction.PRIMARY).execute(null,null,FloatingMenuInteraction.PRIMARY);
+            assertEquals(List.of(id),managed); assertTrue(used.isEmpty());
+            for (String key : List.of("status","location","song")) assertNotNull(rowElement(frame,id,key));
+        }
+    }
     @Test void longDirectoriesKeepStableTargetsMembershipAndRestrictionsAtReadingExtremes() {
         var first = new UUID(0,1); var blocked = new UUID(0,2); var reason = Component.text("No permission");
         var rows = java.util.stream.IntStream.range(0,300).mapToObj(index -> {
             UUID id = new UUID(0,index + 1); var row = row(id,"Device " + index);
-            return new MusicDeviceTable.Row(id,row.name(),row.kind(),row.status(),row.song(),index < 2 ? reason : null,
+            return new MusicDeviceTable.Row(id,row.name(),row.kind(),row.status(),row.song(),index == 1 ? reason : null,
                     row.location(),row.coordinates(),row.color());
         }).toList();
         var reversed = new ArrayList<>(rows); Collections.reverse(reversed);

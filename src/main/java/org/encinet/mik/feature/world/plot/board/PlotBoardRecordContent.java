@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.ui.*;
 
 /** Written fields keep their complete source and independent reading anchors. */
@@ -24,6 +25,7 @@ final class PlotBoardRecordContent {
     }
 
     private static UiElement text(String key, Component value) {
-        return Ui.text(value).key(key).textWidth(4096).alignment(FloatingMenuDecoration.Alignment.LEFT).keepAccessible().build();
+        return Ui.text(value).key(key).textWidth(FloatingMenuTextWidth.CONTENT)
+                .alignment(FloatingMenuDecoration.Alignment.LEFT).keepAccessible().build();
     }
 }

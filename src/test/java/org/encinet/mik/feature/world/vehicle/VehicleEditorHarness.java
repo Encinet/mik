@@ -105,7 +105,7 @@ final class VehicleEditorHarness implements AutoCloseable {
         }
     }
 
-    void edit() throws Exception { editor.edit(player, definition.id()); editor.open(player); }
+    void edit() throws Exception { editor.edit(player, definition.id()); }
     void aimHandle(String key) {
         var preview = editor.preview(player);
         var handle = preview.handles().stream().filter(value -> value.key().equals(key)).findFirst().orElseThrow();

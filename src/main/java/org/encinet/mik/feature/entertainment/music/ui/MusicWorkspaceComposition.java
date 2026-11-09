@@ -39,9 +39,9 @@ final class MusicWorkspaceComposition {
     static UiNode content(UiNode navigation, UiNode browser, UiNode auxiliary, UiNode transport, UiNode windowTools) {
         UiNode reading = auxiliary == null ? UiTemplates.window("browser",browser)
                 : UiTemplates.window("auxiliary",auxiliary);
-        return UiTemplates.split(UiTemplates.sidebar("collections", navigation),
-                UiTemplates.focus(Ui.layout(UiLayouts.contentColumn(UiKey.named("reading"),UiLength.ui(12))).key("workbench")
+        var workbench = UiTemplates.focus(Ui.layout(UiLayouts.contentColumn(UiKey.named("reading"),UiLength.ui(12))).key("workbench")
                         .child(UiKey.named("reading"), reading)
-                        .child(UiTemplates.toolbar("transport", transport)).child(windowTools).build(), UiKey.named("reading")));
+                        .child(UiTemplates.toolbar("transport", transport)).child(windowTools).build(), UiKey.named("reading"));
+        return navigation == null ? workbench : UiTemplates.split(UiTemplates.sidebar("collections", navigation),workbench);
     }
 }

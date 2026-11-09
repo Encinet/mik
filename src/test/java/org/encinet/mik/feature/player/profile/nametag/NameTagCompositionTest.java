@@ -26,17 +26,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class NameTagCompositionTest {
     private enum State { BROWSING, EDITING }
 
-    @Test void fieldsKeepTheirFullEffectAvailableAfterExpansionOrTruncation() {
-        for (String value : List.of("Short suffix", "Long suffix ".repeat(20))) {
-            var effect = Component.text(value);
-            var scene = MenuScene.screen("field").content(Ui.form().field("suffix", Component.text("Suffix"),
-                    NameTagComposition.field(effect, Ui.button(Component.text("Edit")).build())).build()).build();
-            var preview = entry(scene, "effect");
-            assertEquals(effect, preview.label());
-            assertFullTextAvailable(effect,element(SceneGeometryTestSupport.measure(scene,1),"effect"));
-        }
-    }
-
     @Test void stylesFieldControlsAndAllTranslationsFitAtEveryTextPreference() throws IOException {
         for (Language language : Language.values()) {
             FluentBundle bundle = FluentTestSupport.bundle(language);
@@ -87,7 +76,8 @@ class NameTagCompositionTest {
                         new org.encinet.mik.shared.menu.FloatingMenuFieldOfView(degrees),scale);
                 assertDisjoint(frame);
                 assertTrue(frame.readingRegion().path().contains("/field-editor"));
-                assertEquals(NameTagField.values().length,frame.elements().stream().filter(element -> element.node().key().value().equals("effect")).count());
+                assertEquals(NameTagField.values().length,frame.elements().stream().filter(element ->
+                        element.node().key().value().equals("preview") && element.node().role().supportsActions()).count());
                 assertNotNull(element(frame,"confirm"));
                 assertNotNull(element(frame,"cancel"));
                 assertTrue(entry(scene,"confirm").enabled());
@@ -108,15 +98,21 @@ class NameTagCompositionTest {
     }
 
     private MenuScene scene(FluentBundle bundle, State state) {
-        Component effect = MiniMessage.miniMessage().deserialize("<gradient:red:blue>" + "长名字😀".repeat(40) + "</gradient>");
+        String raw = "<gradient:red:blue>" + "长名字😀".repeat(40) + "</gradient>";
+        Component effect = MiniMessage.miniMessage().deserialize(raw);
         var fields = Ui.form().key("fields");
         for (NameTagField field : NameTagField.values()) {
-            var actions = Ui.layout(UiLayouts.wrap(UiLength.ui(8), UiLength.ui(6))).key("actions");
-            if (state != State.EDITING || field != NameTagField.PREFIX)
-                actions.child(Ui.button(label(bundle, Message.NAMETAG_EDIT)).key("edit").primary((_,_) -> {}).build());
-            actions.child(Ui.button(label(bundle, Message.NAMETAG_CLEAR)).key("clear").primary((_, _) -> { }).build());
+            var input = Ui.textField(raw).preview(_ -> effect).key("value").editing(state == State.EDITING && field == NameTagField.PREFIX)
+                    .primary((_, _) -> { });
+            var clear = Ui.button(label(bundle, Message.NAMETAG_CLEAR)).key("clear").primary((_, _) -> { });
+            if (state == State.EDITING && field == NameTagField.SUFFIX) {
+                var reason = label(bundle, Message.NAMETAG_FINISH_FIELD);
+                input.disabled(reason);
+                clear.disabled(reason);
+            }
             fields.field(field.name().toLowerCase(java.util.Locale.ROOT), label(bundle, field == NameTagField.PREFIX
-                    ? Message.NAMETAG_LEADING_LABEL : Message.NAMETAG_TRAILING_LABEL), NameTagComposition.field(effect, actions.build()));
+                    ? Message.NAMETAG_LEADING_LABEL : Message.NAMETAG_TRAILING_LABEL),
+                    input.actions(clear.build()).build());
         }
         var rows = new ArrayList<NameTagComposition.Row>();
         for (int index = 0; index < 6; index++) rows.add(new NameTagComposition.Row(new UUID(0, index), effect));

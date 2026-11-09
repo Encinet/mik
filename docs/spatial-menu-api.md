@@ -121,7 +121,7 @@ Ui.column()
 
 ## 文字与图文占位
 
-- `.textWidth(pixels)` 指定软换行宽度，`.alignment(...)` 控制行内对齐。
+- `.textWidth(pixels)` 指定软换行宽度，`.alignment(...)` 控制行内对齐。默认 `AUTO` 对交互控件使用父级最终可用宽度作为上限，按实际文字宽度排版；只读文字保留适合阅读的默认行宽。空间不足时再换行，`.singleLine()` 则在最终宽度内缩短并提供完整提示。
 - `.singleLine()` 保持单行，超长或显式换行处省略；实际截断后可查看完整提示。
 - `.noWrap()` 保留显式换行，禁止自动折行和省略，按实际字形建立最小宽度；短读数可搭配 `UiTrack.intrinsic()`。
 - `.summaryLines(n)` 优先完整换行，整页放不下时才允许按实际宽度缩为最多 n 行；`UiElement.withSummaryLines(n)` 与 `UiPort.withSummaryLines(n)` 使用同一规则。截断后保留悬浮全文，已有操作说明接在全文之后。
@@ -174,6 +174,7 @@ UiNode preview = Ui.excerpt(
 | 组合 | 行为 |
 | --- | --- |
 | `UiLayouts.firstFit(...)` | 依次尝试完整布局；仅尺寸溢出触发替代，身份与跨度错误继续报告 |
+| `UiLayouts.adaptiveWrap(maximumRows, gap, rowGap, fallback)` | 先按内容宽度换行；自然行数超过上限或真实溢出时使用完整回退布局 |
 | `UiTemplates.split(navigation, content, preferredAxis)` | 声明优先上下或左右排布；首选方向放不下时整体换向，保持主阅读区和控件身份 |
 | `UiLayouts.headerBody(gap)` | 标题在自身宽度边界内拉齐，正文使用最终剩余高度；空区域无分隔间距 |
 | `UiTemplates.titleBar(title, actions)` | 标题相对整栏居中，操作靠右；放不下时操作整组换行 |
@@ -201,7 +202,7 @@ UiNode paragraphs = Ui.pagedList().key("reading")
 - 两者默认生成分页和滚轮，`.pager(page -> controls)` 可定制；工厂只读取页码快照。总页数由 `page.count()` 取得，越界页码钳制，空集合保留一页。
 - 同一集合各页保留最大实际正文尺寸，单行结果不预留多行。条目在扣除页脚后重新测量，正文高度固定为已打包结果；单项连同必要操作不能高于一页，长文须分段。
 
-`UiTemplates.pagedActions(region, rows, pageIndex, selectPage)` 将既有内容位解析为有界流式分页。功能维护页码和重绘回调；`.withSizing(...)` 限制集合宽度，`.withCompactModels()` 明确允许模型入口在空间不足时使用同键、同动作的两行文字表示，截断后保留完整标签提示。
+`UiTemplates.pagedActions(region, rows, pageIndex, selectPage)` 将既有内容位解析为有界流式分页，按自然宽度排成最多指定行数；它使用流式布局，不读取传入内容位的普通网格布局。功能维护页码和重绘回调；`.withSizing(...)` 限制集合宽度，`.withCompactModels()` 明确允许模型入口在空间不足时使用同键、同动作的两行文字表示，截断后保留完整标签提示。
 
 `UiLayouts.balancedGrid(maximumColumns, targetAspectRatio, bias, columnGap, rowGap)` 是普通的 `UiLayout`，可直接传入 `Ui.layout(...)`。它复用网格轨道、跨度及最终宽度测量，在可用范围内比较各列数的实际宽高比；目标比例按宽／高传入，`GridBias.NONE`、`TALLER`、`WIDER` 在形状同样接近目标时决定方向。均衡网格默认采用 `GridSizing.UNIFORM` 和双轴 `GridAlignment.STRETCH`，入口共享矩形宽高并填满单元格；内容按原字号、原比例呈现。宽度拉齐后重新测量换行高度，选择后恢复对应测量结果；方向偏好不限制可用的排版形状。
 
@@ -339,6 +340,7 @@ menu.back(backLabel).region("navigation");
 | --- | --- |
 | `title(id)`、`heading(id)` | 1.25、1.12 倍字号的只读内容位 |
 | `list(id)`、`actions(id, columns)`、`navigation(id)` | 拉齐列表、居中按钮网格、换行导航 |
+| `contentActions(id, compactColumns, maximumNaturalRows)` | 按完整文案测量动作宽度，先自然换行，超过行数预算再用紧凑网格 |
 | `window(id, content)`、`sidebar(...)`、`toolbar(...)` | 阅读面、侧栏、沿法线前移 4 UI 的工具面 |
 | `sheet(content, tools)` | 正文与下方工具，焦点在正文 |
 | `split(sidebar, content)` | 主从分栏，放不下时纵向排列 |
@@ -347,7 +349,7 @@ menu.back(backLabel).region("navigation");
 | `panoramicPanels(centerKey, spacing, ...)` | 指定中心区域，其他面板并列 |
 | `workbench(modelSize/modelNode, inspector, header, controls, footer)` | 有界模型空间和检查器，空间不足时纵向组合 |
 
-`UiTemplates.focus(container, childKey)` 传播主阅读焦点，空阅读区不接管可见工具的焦点。`UiPort.withItemSlot(...)` 设置解析条目的父级分配。模型的草稿与预览状态仍归功能。
+`UiTemplates.actions(id, columns)` 保留紧凑等列网格语义，沿用标准动作行宽，标签放不下时在格内换行；需要按钮按完整文案自然扩宽时使用 `contentActions(...)`。`navigation(...)` 与流式 `pagedActions(...)` 默认按自然文案宽度换行。自然宽度始终受父级最终约束，明确设置的 `.textWidth(...)` 优先于内容位策略。自定义内容位可通过 `.withItemTextWidth(FloatingMenuTextWidth.CONTENT)` 继承自然宽度策略。内容位可用 `.withSummaryLines(...)` 声明整页确实放不下时的行数预算。`UiTemplates.focus(container, childKey)` 传播主阅读焦点，空阅读区不接管可见工具的焦点。`UiPort.withItemSlot(...)` 设置解析条目的父级分配。模型的草稿与预览状态仍归功能。
 
 ## 表面、透明度与空间层级
 
@@ -482,14 +484,16 @@ handle.closePopover();
 
 ```java
 Ui.form().key("playlist")
-    .field("name", nameLabel, Ui.textField(Component.text(name))
+    .field("name", nameLabel, Ui.textField(name)
         .placeholder(emptyLabel).primary(editName).build())
-    .field("description", descriptionLabel, Ui.textField(description)
+    .field("description", descriptionLabel, Ui.textField(description).preview(renderDescription)
         .maxLines(4).primary(editDescription).build())
     .feedback(status).actions(buttons).build();
 ```
 
-`Ui.form()` 共享标签列，窄处将标签移到控件上方；`field(key, control)` 省略已有标题说明的标签。底栏提示靠左、动作靠右，均可省略。`Ui.textField` 只负责预览、占位、编辑态、帮助与动作，尾部 `actions(node)` 放清空等局部操作；默认阅读宽度 240 UI、最小 160 UI，仍受宿主约束。
+`Ui.form()` 共享标签列，窄处将标签移到控件上方；`field(key, control)` 省略已有标题说明的标签。底栏提示靠左、动作靠右，均可省略。`Ui.textField(String)` 接收原文快照，默认按字面显示；可用 `.preview(Function<String, Component>)` 提供富文本效果。占位只依据原文是否为空，非空原文即使预览没有字形也保留其真实状态；空原文直接使用占位，不调用预览函数。尾部 `actions(node)` 放清空等局部操作；默认宽度 240 UI、最小 160 UI，仍受宿主约束。
+
+`editing(...)` 只呈现宿主提供的编辑态，点击后的输入会话仍由宿主开启和结束，原值、草稿和保存规则也由宿主管理。`disabled(reason)` 禁用值的编辑入口，复制、清空等辅助操作由宿主分别设置可用性。
 
 较长表单可用 `.viewedField(fieldKey, chooseField)` 声明字段视口，由宿主保存当前浏览的字段键。`.navigationAxis(UiLayouts.Axis.VERTICAL)` 让字段目录优先放在当前控件上方；默认 `HORIZONTAL` 优先并排，两者复用 `split` 的完整换向规则。导航方向不决定选项集合如何排版：长文字设置使用 `Ui.pagedList()`，短数值可使用 `Ui.pagedFlow(rows)`；`rows` 是最多占用的行数，流式集合会利用横向空间。多字段目录必须提供可见标签。目录按实际行高有界分页，只发布当前目录窗口与一个完整控件；当前控件、标签、字段目录和表单级提示／操作共同使用宿主分配的有限空间。控件优先使用类型化内容；旧声明位只为当前字段提供数据。字段键消失时宿主须重新选择有效键，组件不会将旧控件动作换绑到相邻字段。
 

@@ -24,7 +24,8 @@ final class HomeMenuComposition {
                         .child(reading, LinearSlot.stretch()).build(), reading.key()));
         var inspector = Ui.layout(UiLayouts.contentColumn(UiKey.named("detail"),UiLength.ui(12))).key("inspector")
                 .child(UiTemplates.window("detail", UiTemplates.information("detail").withSummaryLines(2)), LinearSlot.stretch())
-                .child(UiTemplates.toolbar("home-tools", UiTemplates.menu(UiTemplates.actions("actions", 3).withSummaryLines(1),
+                .child(UiTemplates.toolbar("home-tools", UiTemplates.menu(UiTemplates.contentActions("actions", 3, 2)
+                        .withSummaryLines(1),
                         UiTemplates.navigation("global-actions").withSummaryLines(1))), LinearSlot.stretch()).build();
         return UiTemplates.focus(new UiContainer(UiKey.named("homes"),
                 UiLayouts.firstFit(UiLayouts.row(UiLength.ui(16)), UiLayouts.contentColumn(UiKey.named("browser"),UiLength.ui(12))),

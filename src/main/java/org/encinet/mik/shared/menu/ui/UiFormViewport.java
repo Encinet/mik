@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 /** A bounded field directory and one complete control. Values and navigation remain owned by the form's host. */
 final class UiFormViewport {
@@ -17,7 +18,7 @@ final class UiFormViewport {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown viewed form field: " + viewed.value()));
         var main = Ui.layout(UiLayouts.contentColumn(UiKey.named("field:" + viewed.value() + ":control"),UiLength.ui(6))).key("current-field");
         if (!selected.label().equals(Component.empty())) main.child(UiKey.named("field:" + viewed.value() + ":label"),
-                Ui.text(selected.label()).key("label").summaryLines(1).textWidth(4096)
+                Ui.text(selected.label()).key("label").summaryLines(1).textWidth(FloatingMenuTextWidth.CONTENT)
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), LinearSlot.stretch());
         UiKey control = UiKey.named("field:" + viewed.value() + ":control");
         main.child(control, selected.control(), LinearSlot.stretch());

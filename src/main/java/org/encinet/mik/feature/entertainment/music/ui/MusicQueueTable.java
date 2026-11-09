@@ -6,6 +6,7 @@ import net.kyori.adventure.text.Component;
 import org.encinet.mik.feature.entertainment.music.playback.QueueEntry;
 import org.encinet.mik.feature.entertainment.music.storage.StoredTrack;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.ui.*;
 
 /** A queue row is one occurrence, even when several rows refer to the same song. */
@@ -30,7 +31,8 @@ final class MusicQueueTable {
                 UiTrack.content(UiLength.ZERO, UiLength.ui(360)), row -> {
                     var title = Component.text(row.track() == null ? "—" : row.track().title());
                     var cell = selection == null ? Ui.text(title) : selection.control(row, title);
-                    return cell.key("title").singleLine().textWidth(1024).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
+                    return cell.key("title").singleLine().textWidth(FloatingMenuTextWidth.CONTENT)
+                            .alignment(FloatingMenuDecoration.Alignment.LEFT).build();
                 }))
                 .column(new UiTable.Column<>(UiKey.named("artist"), heading(label.apply("artist")),
                         UiTrack.content(UiLength.ZERO, UiLength.ui(160)), row -> text("artist", row.track() == null ? null : row.track().artist())))
@@ -69,6 +71,6 @@ final class MusicQueueTable {
     private static UiNode heading(Component value) { return Ui.heading(value).singleLine().alignment(FloatingMenuDecoration.Alignment.LEFT).build(); }
     private static UiNode text(String key, String value) {
         return Ui.text(Component.text(value == null ? "—" : value)).key(key).singleLine()
-                .textWidth(1024).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
+                .textWidth(FloatingMenuTextWidth.CONTENT).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
     }
 }

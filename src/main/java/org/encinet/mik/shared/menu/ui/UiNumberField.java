@@ -4,6 +4,7 @@ import java.util.Objects;
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.FloatingMenuCommand;
 import org.encinet.mik.shared.menu.FloatingMenuInteraction;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 /** A bounded adjustment and its precise value share one model; editing and persistence belong to the host. */
 public final class UiNumberField extends Ui.Builder<UiNumberField> {
@@ -27,7 +28,8 @@ public final class UiNumberField extends Ui.Builder<UiNumberField> {
         // The value is already visible beside the track. Endpoint labels would repeat it.
         var trackRange = new UiRange(range.minimum(), range.maximum(), range.value(), range.step(), range.formatter(), false);
         var track = Ui.slider(label, trackRange, change).key("track");
-        var value = Ui.rangeValue(range).key(key).style(UiTheme.INPUT.withBackgroundAlpha(.18)).textWidth(4096);
+        var value = Ui.rangeValue(range).key(key).style(UiTheme.INPUT.withBackgroundAlpha(.18))
+                .textWidth(FloatingMenuTextWidth.CONTENT);
         if (edit != null) value.primary(edit);
         var trackInput = track.build().input();
         for (var direction : java.util.List.of(FloatingMenuInteraction.SCROLL_UP, FloatingMenuInteraction.SCROLL_DOWN))

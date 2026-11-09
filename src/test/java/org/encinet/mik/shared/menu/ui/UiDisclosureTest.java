@@ -36,7 +36,7 @@ class UiDisclosureTest {
         var toggle = Ui.button(UiIcons.CHEVRON_UP,Component.text("Collapse")).key("toggle").selected(true)
                 .disabled(disabled).primary((_,_) -> fail("Layout cannot collapse")).build();
         var group = UiTemplates.disclosure(UiKey.named("identity"),Ui.text(Component.text("Name and alias")).key("summary").build(),
-                toggle,true,() -> Ui.textField(Component.text("Unsaved draft")).key("edit").build());
+                toggle,true,() -> Ui.textField("Unsaved draft").key("edit").build());
         var scene = MenuScene.screen("settings").content(group).build();
         var frame = UiCompiler.compile(scene.content(),UiConstraints.bounded(300,300),MEASURE);
         assertDisjoint(frame);

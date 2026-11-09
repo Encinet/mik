@@ -114,8 +114,13 @@ final class MusicRhythmComposition {
                         UiLayouts.contentColumn(UiKey.named("roster"),UiLength.ui(8))))
                         .child(UiKey.named("roster"),roster,new LinearSlot(0,LinearSlot.Alignment.START))
                         .child(UiKey.named("preparation"),preparation,new LinearSlot(0,LinearSlot.Alignment.START)).build(), LinearSlot.stretch());
-        if (!actions.isEmpty()) body.child(Ui.layout(UiLayouts.adaptiveGrid(2,UiLength.ui(8),UiLength.ui(8))).key("room-actions")
-                .children(actions.stream().map(action -> action.withSummaryLines(1)).toList()).build(),LinearSlot.fit());
+        if (!actions.isEmpty()) {
+            UiLength gap = UiLength.ui(8), rowGap = UiLength.ui(8);
+            UiLayout compact = UiLayouts.adaptiveGrid(2, gap, rowGap);
+            body.child(Ui.layout(UiLayouts.adaptiveWrap(2, gap, rowGap, compact)).key("room-actions")
+                    .children(actions.stream().map(action -> action.withSummaryLines(1)).toList())
+                    .build(), LinearSlot.fit());
+        }
         return body.build();
     }
 

@@ -98,7 +98,7 @@ class MusicTaskEntriesTest {
         var task = MusicWorkspace.column("import-task").child(MusicWorkspaceComposition.panelHeading(label.apply("import"),
                         Ui.button(UiIcons.CROSS,label.apply("close-panel")).key("close-panel").build()))
                 .child(Ui.form().key("import-name").field("value",label.apply("name"),
-                        Ui.textField(Component.text("My imported playlist 名称")).key("value").maxLines(1).build()).build())
+                        Ui.textField("My imported playlist 名称").key("value").maxLines(1).build()).build())
                 .child(Ui.text(label.apply("partial-import")).key("partial").build())
                 .child(content).child(MusicWorkspace.tools("task-actions").child(Ui.button(label.apply("import-new"))
                         .key("import-new").build()).child(Ui.button(label.apply("import-merge")).key("import-view").build())

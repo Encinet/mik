@@ -34,7 +34,7 @@ final class GovernancePlayerScenes {
         UUID targetId = source.target();
         var promotion = source.data().eligibility() instanceof GovernancePlayerReport.Eligibility.Promotion value ? value.value() : null;
         var blocks = reports.blocks(language,source.data(),true).stream().map(block -> Ui.text(block.text()).key(block.key())
-                .textWidth(4096).alignment(FloatingMenuDecoration.Alignment.LEFT).keepAccessible().build()).toList();
+                .textWidth(FloatingMenuTextWidth.CONTENT).alignment(FloatingMenuDecoration.Alignment.LEFT).keepAccessible().build()).toList();
         var reading = Ui.document().key("report").blocks(blocks).gap(UiLength.ui(4)).readingBody().position(source.position(),read).build();
         MenuScene.Builder menu = MenuScene.screen("governance-player")
                 .appearance(FloatingMenuAppearance.DEFAULT)

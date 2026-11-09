@@ -52,7 +52,7 @@ final class MusicQueueScenes {
         MusicTableSelection<MusicQueueTable.Row> interaction = move != null
                 ? MusicTableSelection.moving(row -> move.selected().contains(row.entry().id()), row -> place.apply(EntryEdits.before(row.entry().id())))
                 : editable ? MusicTableSelection.selecting(row -> chosen.contains(row.entry().id()), row -> (_, _) -> {
-                    if (state.queueMove != null || state.panel() != scope || !Objects.equals(state.target(),id)
+                    if (state.queueMove != null || state.panel() != scope
                             || w.devices.program(id).version() != program.version()) return;
                     UUID entry = row.entry().id();
                     if (!state.queueSelection.remove(entry)) state.queueSelection.add(entry);
@@ -61,7 +61,7 @@ final class MusicQueueScenes {
         var table = rows.stream().map(row -> new MusicQueueTable.Row(row.entry(),snapshot.tracks().get(row.entry().trackId()),row.section())).toList();
         if (!table.isEmpty()) body.child(MusicQueueTable.content(table,interaction,label -> w.label(player,label),state.panelPage,
                 page -> {
-                    if (state.panel() != scope || !Objects.equals(state.target(),id) || w.devices.program(id).version() != program.version()) return;
+                    if (state.panel() != scope || w.devices.program(id).version() != program.version()) return;
                     state.panelPage = page; state.queueFocus = null; w.redraw(player);
                 },state.queueFocus,program.mode() == PlaybackProgram.Mode.SHUFFLE));
         if (move != null) {
@@ -121,13 +121,13 @@ final class MusicQueueScenes {
         if (state.busy(new TaskKey(Work.QUEUE, move.owner()))) cancel.disabled(w.label(player, "saving"));
         return tools("placement-controls")
                 .child(info("selected", w.language.text(player, Message.MUSIC_SPACE_SELECTED_TRACKS, NamedTextColor.AQUA, move.selected().size())))
-                .child(info("placement", failure != null ? w.problem(player, failure) : move.current(state.target(), program.version()) ? w.label(player, "move-hint") : w.problem(player, MusicProblem.Code.CONFLICT)))
+                .child(info("placement", failure != null ? w.problem(player, failure) : move.current(programTarget(state), program.version()) ? w.label(player, "move-hint") : w.problem(player, MusicProblem.Code.CONFLICT)))
                 .child(cancel.build()).build();
     }
     private Function<EntryEdits.Destination, FloatingMenuCommand> placements(Player player, MusicWorkspaceState state,
             PlaybackProgram program, MusicMove move, boolean editable) {
         var key = new TaskKey(Work.QUEUE, move.owner());
-        if (!move.current(state.target(), program.version()) || !editable || state.busy(key)) return _ -> null;
+        if (!move.current(programTarget(state), program.version()) || !editable || state.busy(key)) return _ -> null;
         var candidates = program.movableEntries(move.selected());
         if (candidates.isEmpty()) return _ -> null;
         var partition = candidates.stream().map(QueueEntry::id).collect(Collectors.toSet());
@@ -147,5 +147,8 @@ final class MusicQueueScenes {
                 });
             });
         };
+    }
+    private static UUID programTarget(MusicWorkspaceState state) {
+        return state.panel() instanceof DevicePanel panel && panel.section() == DeviceSection.QUEUE ? panel.target() : null;
     }
 }

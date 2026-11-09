@@ -10,6 +10,7 @@ import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.shared.menu.FloatingMenuCommand;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.ui.*;
 
 /** Content-sized song controls; narrow windows move secondary information below the title. */
@@ -74,7 +75,7 @@ final class MusicTrackTable {
                         UiTrack.intrinsic(), track -> {
                     var name = title(track,selection,inspect,label)
                             .singleLine().key("details")
-                            .textWidth(1024).alignment(FloatingMenuDecoration.Alignment.LEFT);
+                            .textWidth(FloatingMenuTextWidth.CONTENT).alignment(FloatingMenuDecoration.Alignment.LEFT);
                     return name.build();
                 }))
                 .column(new UiTable.Column<>(UiKey.named("artist"), heading(label.apply("artist")),
@@ -108,11 +109,11 @@ final class MusicTrackTable {
                 .sizing(new UiSizing(UiSize.ZERO,new UiSize(UiSizing.CONTENT.maximum().width(),260)))
                 .column(new UiTable.Column<>(UiKey.named("card"),heading(label.apply("song-title")),UiTrack.fraction(1),track -> {
                     var name = title(track,selection,inspect,label).key("details").singleLine()
-                            .textWidth(1024).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
+                            .textWidth(FloatingMenuTextWidth.CONTENT).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
                     UiNode title = selection == null ? name : Ui.row().gap(UiLength.ui(4))
                             .child(selection.marker(track,label)).child(name).build();
                     var metadata = Ui.text(artist(track)).key("metadata").singleLine().tooltip(metadata(track,label))
-                            .textWidth(1024).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
+                            .textWidth(FloatingMenuTextWidth.CONTENT).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
                     var footer = Ui.row().gap(UiLength.ui(6)).child(metadata,LinearSlot.grow(1))
                             .child(Ui.text(Component.text(duration(track))).key("duration").noWrap().build());
                     var actions = Ui.row().gap(UiLength.ui(4));
@@ -144,7 +145,7 @@ final class MusicTrackTable {
     }
 
     private static UiNode text(String key, Component value) {
-        return Ui.text(value).singleLine().key(key).textWidth(1024)
+        return Ui.text(value).singleLine().key(key).textWidth(FloatingMenuTextWidth.CONTENT)
                 .alignment(FloatingMenuDecoration.Alignment.LEFT).build();
     }
 

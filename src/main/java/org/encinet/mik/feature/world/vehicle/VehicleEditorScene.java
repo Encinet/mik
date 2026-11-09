@@ -154,7 +154,7 @@ record VehicleEditorScene(List<Handle> handles, List<Line> lines) {
         row = 0;
         for (Tool tool : Tool.values()) {
             if (tool == Tool.UNDO && !draft.canUndo() || tool == Tool.REDO && !draft.canRedo()) continue;
-            Message label = switch (tool) { case MENU -> Message.VEHICLE_MODEL_TOOLS; case SAVE -> Message.VEHICLE_MODEL_SAVE;
+            Message label = switch (tool) { case MENU -> Message.VEHICLE_MODEL_PANEL; case SAVE -> Message.VEHICLE_MODEL_SAVE_CONTINUE;
                 case UNDO -> Message.VEHICLE_MODEL_UNDO; case REDO -> Message.VEHICLE_MODEL_REDO;
                 default -> Message.VEHICLE_MENU_LABEL; };
             handles.add(new Handle("stage:" + tool, center.add(panelOffset(draft, new VehicleVector(2.0 / scale, (1.1 - row++ * 0.4) / scale, 0))), label,

@@ -136,6 +136,44 @@ public final class UiLayouts {
         };
     }
 
+    /** Natural-width rows while they stay compact, then a caller-selected arrangement. */
+    public static UiLayout adaptiveWrap(int maximumRows, UiLength gap, UiLength rowGap, UiLayout fallback) {
+        if (maximumRows < 1) throw new IllegalArgumentException("Invalid maximum wrapped rows");
+        java.util.Objects.requireNonNull(gap, "gap");
+        java.util.Objects.requireNonNull(rowGap, "rowGap");
+        java.util.Objects.requireNonNull(fallback, "fallback");
+        UiLayout flow = wrap(gap, rowGap);
+        return (scope, limits) -> {
+            try {
+                UiLayout.Result result = flow.layout(scope, limits);
+                if (rowCount(result, scope) <= maximumRows) return result;
+            } catch (UiOverflowException ignored) {
+                // A compact fallback may preserve access to controls when the natural flow is too tall.
+            }
+            return fallback.layout(scope, limits);
+        };
+    }
+
+    private static int rowCount(UiLayout.Result layout, UiLayout.MeasureScope scope) {
+        var order = new ArrayList<Integer>();
+        for (int index = 0; index < scope.count(); index++)
+            if (!scope.measuredSize(index).equals(UiSize.ZERO)) order.add(index);
+        order.sort(java.util.Comparator.comparingDouble(index -> layout.positions().get(index).y()));
+        int rows = 0;
+        double rowBottom = Double.NEGATIVE_INFINITY;
+        for (int index : order) {
+            UiLayout.Position position = layout.positions().get(index);
+            double bottom = position.y() + scope.measuredSize(index).height();
+            if (rows == 0 || position.y() >= rowBottom - 1e-6) {
+                rows++;
+                rowBottom = bottom;
+            } else {
+                rowBottom = Math.max(rowBottom, bottom);
+            }
+        }
+        return rows;
+    }
+
     private static void centerWrappedRow(List<UiLayout.Position> positions, List<UiSize> sizes, int start, double height) {
         for (int i = start; i < positions.size(); i++) {
             var position = positions.get(i);

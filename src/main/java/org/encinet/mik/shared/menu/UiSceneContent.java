@@ -60,7 +60,7 @@ public final class UiSceneContent {
             for (MenuScene.Entry entry : declarations.values()) {
                 if (!port.sources().contains("*") && !port.sources().contains(entry.region())) continue;
                 if (!used.add(entry.id())) throw new IllegalArgumentException("Content has multiple owners: " + entry.id());
-                UiElement element = element(entry);
+                UiElement element = element(entry, port.itemTextWidth());
                 if (element.content() instanceof UiContent.Text && port.summaryLines() < Integer.MAX_VALUE)
                     element = element.withSummaryLines(port.summaryLines());
                 if (element.role() == UiRole.TEXT && port.textRole() == UiRole.HEADING) element = element.withRole(UiRole.HEADING);
@@ -138,15 +138,17 @@ public final class UiSceneContent {
         }).toList();
     }
 
-    private static UiElement element(MenuScene.Entry entry) {
+    private static UiElement element(MenuScene.Entry entry, FloatingMenuTextWidth inheritedTextWidth) {
         UiContent content = entry.item() == null ? new UiContent.Text(entry.label())
                 : new UiContent.Item(entry.item(), entry.label(), entry.style() == FloatingMenuElementStyle.BLOCK);
         UiRole role = entry.role();
+        FloatingMenuTextWidth textWidth = entry.textWidth() == FloatingMenuTextWidth.AUTO
+                ? inheritedTextWidth : entry.textWidth();
         return new UiElement(UiKey.item(entry.id()), content, role,
                 new UiInput(entry.interactive(), entry.triggers(), Optional.ofNullable(entry.focusAction()), entry.selected(),
                         Optional.ofNullable(entry.disabledReason()), Optional.ofNullable(entry.tooltip())),
                 entry.interactive() ? UiStyle.CONTROL : UiStyle.PLAIN, UiSizing.CONTENT,
-                entry.textWidth().resolve(entry.interactive() ? 128 : 160), entry.alignment(), entry.keepAccessible());
+                textWidth.resolve(entry.interactive() ? 128 : 160), entry.alignment(), entry.keepAccessible());
     }
 
     public static Map<String, UiElement> elements(UiNode root) {

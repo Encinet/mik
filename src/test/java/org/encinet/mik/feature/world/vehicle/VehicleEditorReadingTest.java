@@ -66,7 +66,7 @@ class VehicleEditorReadingTest {
                     for (int axis = 0; axis < 3; axis++) for (int direction : new int[]{-1, 1})
                         axes.add(Ui.button(Component.text("XYZ".charAt(axis) + (direction < 0 ? " − 0.25" : " + 0.25")))
                                 .key("axis:" + axis + ":" + direction).singleLine().primary((_, _) -> edits.incrementAndGet()).build());
-                    var reading = VehicleEditorComposition.axes(axes, view, current::set);
+                    var reading = VehicleEditorComposition.axes(axes, List.of(Component.text("X · 0"), Component.text("Y · 1"), Component.text("Z · 2")), view, current::set);
                     var scene = scene(view, reading, VehicleEditorComposition.Primary.ITEMS, current::set, menu -> {
                         VehicleEditorComposition.tools(menu, route, message -> label(bundle, message), (_, _) -> { });
                         for (var message : List.of(Message.VEHICLE_MODEL_HERE, Message.VEHICLE_MODEL_LOOK, Message.VEHICLE_MODEL_SNAP_ON,
@@ -78,7 +78,9 @@ class VehicleEditorReadingTest {
                         if (frame.elements().stream().noneMatch(item -> item.node().key().value().equals("axis:" + selected + ":-1"))) continue;
                         assertTrue(seen.add(axis));
                         var minus = element(frame, "axis:" + axis + ":-1"); var plus = element(frame, "axis:" + axis + ":1");
+                        var value = element(frame, "value:" + axis);
                         assertEquals(minus.y(), plus.y(), 1e-6); assertTrue(minus.x() < plus.x());
+                        assertTrue(minus.x() < value.x() && value.x() < plus.x());
                         assertTrue(element(frame, "object-tool:position").y() < minus.y());
                     }
                     assertNotNull(element(frame, "back")); assertNotNull(element(frame, "dismiss"));

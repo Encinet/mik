@@ -281,8 +281,7 @@ nametag-copy-hint = Надіслати вихідний текст префік�
 nametag-copy-label = [копіювати]
 nametag-copy-sent = Вихідний текст стилю гравця { $arg0 } надіслано в чат.
 nametag-current = Поточний вигляд
-nametag-edit = Змінити
-nametag-edit-ended = Редагування завершено. Виберіть «Змінити», щоб продовжити.
+nametag-edit-ended = Редагування завершено. Натисніть поле ще раз, щоб продовжити.
 nametag-edit-prompt = Натисніть T: { $arg0 } у MiniMessage (видно лише вам).
 nametag-finish-field = Спочатку підтвердьте або скасуйте редагування поточного поля.
 nametag-input-invalid = Неправильний формат. Надішліть MiniMessage одним рядком або виберіть «Очистити».
@@ -1350,6 +1349,11 @@ plot-transferred-to-you = Ділянку { $arg0 } передано вам. Ві
 vehicle-command-description = Керувати транспортом із сутностей відображення
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] Керування транспортом
+        [driving] Водіння та посадка
+        [maintenance] Обслуговування й доступ
+        [public-status] Відкритий доступ
+        [private-status] Закритий доступ
         [home] Транспорт
         [nearby] Транспорт поруч
         [fleet] Увесь доступний транспорт
@@ -1552,7 +1556,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 — прозоро, 255 — непрозоро.
    *[other] { $arg0 }
     }
-vehicle-model-spatial = Керування в 3D
+vehicle-model-spatial = Перейти до вибору в 3D
 vehicle-model-spatial-hint = Правий клік по мітці вибирає або змінює її. Присідання + правий клік повертає налаштування. Колесо миші змінює крок налаштування.
 vehicle-model-spawn = Створити за цією моделлю
 vehicle-model-add = Додати компонент
@@ -1592,6 +1596,29 @@ vehicle-model-driver = Місце водія
 vehicle-model-driver-here = Додати місце водія біля моїх ніг
 vehicle-model-edit = Змінити / продовжити чернетку
 vehicle-model-overview = Огляд чернетки
+vehicle-model-panel = Повернутися до панелі редагування
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] Виберіть категорію нижче, потім об’єкт та інструмент. Збереження й скасування завжди внизу.
+    [parts] Керуйте видимими блоками, предметами й текстом. Виберіть деталь, щоб змінити вміст або перетворення.
+    [seats] Виберіть сидіння, щоб налаштувати положення та вихід. Потрібне рівно одне місце водія.
+    [colliders] Виберіть об’єм зіткнення, щоб змінити центр і повні розміри. Додайте об’єм або припасуйте його до моделі.
+    [supports] Виберіть точку контакту, щоб перемістити її. Ці точки забезпечують опору на землю або плавучість.
+    [parameters] Виберіть групу параметрів, потім поле для зміни значення.
+    [tools] Налаштуйте попередній перегляд, виберіть об’єкт у світі або перевірте чернетку. Скидання змін потребує підтвердження.
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] Задати вміст блока
+    [item] Використати предмет в основній руці
+    [text] Задати текст
+    }
+vehicle-model-exact-input = Ввести точні значення
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = Властивості компонента
 vehicle-model-selection-unavailable = Об’єкт змінено або видалено; поверніться та виберіть знову
 vehicle-model-exit = Місце виходу / точне налаштування
@@ -1615,16 +1642,16 @@ vehicle-model-pick-hint = Відкрийте попередній перегля
 vehicle-model-place-cancelled = Розміщення скасовано: минув час, змінився стан редактора або виконано скасування.
 vehicle-model-place-hint = Розміщення активне 30 секунд. Наведіться на блок чи перегляд; ПКМ основною рукою — підтвердити, присідання + ПКМ — скасувати.
 vehicle-model-position = Положення / точне налаштування
-vehicle-model-position-hint = Локальні X/Y/Z · here — біля ніг, look — на поверхні під прицілом · сітка використовує крок налаштування.
+vehicle-model-position-hint = Локальні координати: +Y вгору, +Z уперед. Кнопки переміщують на вибраний крок; точне введення задає абсолютну позицію.
 vehicle-model-preview = Особистий попередній перегляд
 vehicle-model-preview-failed = Попередній перегляд недоступний; чернетку збережено: { $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = Повторити скасовану зміну
+vehicle-model-preview-hint = Попередній перегляд показано. Перейдіть до вибору в 3D, щоб вибирати й змінювати модель безпосередньо.
+vehicle-model-redo = Повторити
 vehicle-model-remove = Видалити компонент
 vehicle-model-remove-warning = Видалити компонент? Наступні індекси зсунуться; дію можна скасувати.
 vehicle-model-rotate = Повернути компонент
 vehicle-model-rotate-hint = Відносний поворот: X — тангаж, Y — рискання, Z — крен. Положення не змінюється.
-vehicle-model-save = Перевірити та зберегти
+vehicle-model-save = Зберегти й завершити
 vehicle-model-save-continue = Зберегти та продовжити
 vehicle-model-saved = { -vehicle-model.gender ->
         [masculine] { -vehicle-model } збережений
@@ -1632,7 +1659,7 @@ vehicle-model-saved = { -vehicle-model.gender ->
        *[other] { -vehicle-model } збережене
     }
 vehicle-model-scale = Масштабувати компонент
-vehicle-model-scale-all = Масштаб усіх осей × { $arg0 }
+vehicle-model-scale-all = Масштаб усіх осей { $arg0 } { $arg1 }
 vehicle-model-scale-hint = Множення або ділення довжин локальних осей, а не розмірів габаритів у світі.
 vehicle-model-seats = Сидіння та виходи
 vehicle-model-selected = Імпортувати вибрані елементи
@@ -1644,9 +1671,9 @@ vehicle-model-step = Змінити крок налаштування
 vehicle-model-supports = Точки опори на ґрунт
 vehicle-model-text = Текст
 vehicle-model-title = Керування моделями транспорту
-vehicle-model-tools = Інструменти у світі
+vehicle-model-tools = Перегляд та інструменти
 vehicle-model-transform-step = Змінити крок налаштування
-vehicle-model-undo = Скасувати останню зміну
+vehicle-model-undo = Скасувати
 vehicle-result = Транспорт: { $arg0 }
 vehicle-selection-info = Вибрано: { $arg0 ->
         [one] { $arg0 } сутність відображення
@@ -2131,6 +2158,18 @@ music-space-label =
     { $arg0 ->
         [title] Музичний простір
         [devices] Пристрої
+        [all-devices] Усі пристрої
+        [use-device] Використати пристрій
+        [current-device] Поточний пристрій
+        [manage-device] Керування
+        [back-devices] До списку пристроїв
+        [group-with-devices] Об’єднати з іншими пристроями
+        [pick-world-member] Вибрати пристрій у світі
+        [group-world-pick-hint] Крадучись, натисніть ПКМ на програвачі порожньою рукою, щоб додати його; /music поверне меню.
+        [group-member-standalone] Виберіть програвач, який ще не входить до групи синхронізації.
+        [group-selection-help] Позначте програвачі нижче або натисніть ПКМ на іншому у світі, крадучись із порожньою рукою. Група створиться після підтвердження.
+        [group-source-help] Використовуються черга й позиція вибраного пристрою. Створення зупинить відтворення; «Створити й грати» продовжить його.
+        [device-actions] Дії
         [device-status] Стан
         [sync-group] Група синхронізації
         [single-device] Програвач
@@ -2141,7 +2180,6 @@ music-space-label =
         [nearby-device] Поруч
         [group-select-members] Виберіть щонайменше два програвачі
         [group-name-required] Уведіть назву групи
-        [all-online] Усі в мережі
         [direction-front] Попереду
         [direction-front-right] Праворуч попереду
         [direction-right] Праворуч
@@ -2364,6 +2402,7 @@ music-space-device-count =
         [many] { $arg0 } програвачів
        *[other] { $arg0 } програвача
     }
+music-space-playback-target = Відтворення на: { $arg0 }
 music-space-online-count = У мережі: { $arg0 }/{ $arg1 } { $arg1 ->
         [one] програвач
         [few] програвачі

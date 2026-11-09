@@ -216,8 +216,7 @@ nametag-copy-hint = ส่งต้นฉบับคำนำหน้าแล
 nametag-copy-label = [คัดลอก]
 nametag-copy-sent = ส่งต้นฉบับรูปแบบของ { $arg0 } ไปยังแชตแล้ว
 nametag-current = ผลปัจจุบัน
-nametag-edit = แก้ไข
-nametag-edit-ended = สิ้นสุดการแก้ไขแล้ว เลือกแก้ไขอีกครั้งเพื่อดำเนินการต่อ
+nametag-edit-ended = การแก้ไขสิ้นสุดแล้ว คลิกช่องอีกครั้งเพื่อดำเนินการต่อ
 nametag-edit-prompt = กด T เพื่อแก้ไข { $arg0 } ด้วย MiniMessage (เห็นเฉพาะคุณ)
 nametag-finish-field = โปรดยืนยันหรือยกเลิกช่องที่กำลังแก้ไขก่อน
 nametag-input-invalid = รูปแบบไม่ถูกต้อง ส่ง MiniMessage บรรทัดเดียว หรือเลือกล้าง
@@ -1146,6 +1145,11 @@ plot-transferred-to-you = { $arg1 } โอนแปลง { $arg0 } ให้ค
 vehicle-command-description = ขับและจัดการยานพาหนะจากเอนทิตีแสดงผล
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] การควบคุมยานพาหนะ
+        [driving] ขับและโดยสาร
+        [maintenance] บำรุงรักษาและสิทธิ์
+        [public-status] เข้าถึงแบบสาธารณะ
+        [private-status] เข้าถึงแบบส่วนตัว
         [home] ยานพาหนะ
         [nearby] ยานพาหนะใกล้เคียง
         [fleet] ยานพาหนะที่เข้าถึงได้ทั้งหมด
@@ -1343,7 +1347,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 คือโปร่งใส และ 255 คือทึบ
    *[other] { $arg0 }
     }
-vehicle-model-spatial = ควบคุมแบบ 3D
+vehicle-model-spatial = เข้าสู่โหมดเลือก 3D
 vehicle-model-spatial-hint = คลิกขวาที่เครื่องหมายเพื่อเลือกหรือปรับค่า ย่อตัวแล้วคลิกขวาเพื่อกลับไปการตั้งค่า เลื่อนล้อเมาส์เพื่อเปลี่ยนระยะการปรับ
 vehicle-model-spawn = สร้างจากโมเดลนี้
 vehicle-model-add = เพิ่มส่วนประกอบ
@@ -1379,6 +1383,29 @@ vehicle-model-driver = ที่นั่งคนขับ
 vehicle-model-driver-here = เพิ่มที่นั่งคนขับที่เท้าฉัน
 vehicle-model-edit = แก้ไข / ต่อแบบร่าง
 vehicle-model-overview = ภาพรวมฉบับร่าง
+vehicle-model-panel = กลับไปยังแผงแก้ไข
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] เลือกหมวดด้านล่าง แล้วเลือกวัตถุและเครื่องมือ ปุ่มบันทึกและเลิกทำจะอยู่ด้านล่างเสมอ
+    [parts] จัดการบล็อก ไอเทม และข้อความที่แสดง เลือกชิ้นส่วนเพื่อแก้ไขเนื้อหาหรือการแปลง
+    [seats] เลือกที่นั่งเพื่อกำหนดตำแหน่งนั่งและทางออก โมเดลต้องมีที่นั่งคนขับหนึ่งที่
+    [colliders] เลือกกล่องชนเพื่อแก้ไขจุดศูนย์กลางและขนาดเต็ม เพิ่มกล่องหรือปรับให้ครอบโมเดลได้
+    [supports] เลือกจุดสัมผัสเพื่อย้ายตำแหน่ง จุดเหล่านี้ใช้รองรับพื้นหรือคำนวณแรงลอยตัว
+    [parameters] เลือกกลุ่มพารามิเตอร์ แล้วเลือกช่องเพื่อแก้ไขค่า
+    [tools] ปรับตัวอย่าง เลือกวัตถุในโลก หรือตรวจสอบฉบับร่าง การทิ้งการเปลี่ยนแปลงต้องยืนยัน
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] กำหนดเนื้อหาบล็อก
+    [item] ใช้ไอเทมในมือหลัก
+    [text] กำหนดข้อความ
+    }
+vehicle-model-exact-input = ป้อนค่าที่แน่นอน
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = รายละเอียดส่วนประกอบ
 vehicle-model-selection-unavailable = วัตถุเปลี่ยนแปลงหรือถูกนำออกแล้ว โปรดย้อนกลับและเลือกใหม่
 vehicle-model-exit = จุดลง / ปรับละเอียด
@@ -1402,20 +1429,20 @@ vehicle-model-pick-hint = เปิดตัวอย่างแล้วมอ
 vehicle-model-place-cancelled = ยกเลิกการวางแล้ว เนื่องจากหมดเวลา สถานะการแก้ไขเปลี่ยน หรือยกเลิกเอง
 vehicle-model-place-hint = วางด้วยการเล็งใช้งานได้ 30 วินาที เล็งบล็อกหรือตัวอย่าง คลิกขวาด้วยมือหลักเพื่อยืนยัน ย่อแล้วคลิกขวาเพื่อยกเลิก
 vehicle-model-position = ตำแหน่ง / ปรับละเอียด
-vehicle-model-position-hint = X/Y/Z ภายในโมเดล · here ใช้เท้า look ใช้พื้นผิวที่เล็ง · ตารางเสริมใช้ระยะปรับเดียวกัน
+vehicle-model-position-hint = พิกัดท้องถิ่น: +Y คือด้านบน +Z คือด้านหน้า ปุ่มเลื่อนตามระยะที่เลือก การป้อนค่าที่แน่นอนจะกำหนดตำแหน่งสัมบูรณ์
 vehicle-model-preview = ตัวอย่างส่วนตัว
 vehicle-model-preview-failed = แสดงตัวอย่างไม่ได้ แบบร่างยังอยู่: { $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = ทำซ้ำการแก้ไขที่เลิกทำ
+vehicle-model-preview-hint = แสดงตัวอย่างแล้ว เข้าสู่โหมดเลือก 3D เพื่อเลือกและปรับโมเดลโดยตรง
+vehicle-model-redo = ทำซ้ำ
 vehicle-model-remove = ลบส่วนประกอบ
 vehicle-model-remove-warning = ลบส่วนประกอบนี้หรือไม่? หมายเลขถัดไปจะเลื่อน และเลิกทำได้
 vehicle-model-rotate = หมุนส่วนประกอบ
 vehicle-model-rotate-hint = หมุนเทียบแกนภายใน: X ก้มเงย Y หันซ้ายขวา Z เอียง ตำแหน่งไม่เปลี่ยน
-vehicle-model-save = ตรวจสอบและบันทึก
+vehicle-model-save = บันทึกและจบการแก้ไข
 vehicle-model-save-continue = บันทึกและแก้ไขต่อ
 vehicle-model-saved = บันทึกแล้ว
 vehicle-model-scale = ปรับสัดส่วนส่วนประกอบ
-vehicle-model-scale-all = ปรับทุกแกน × { $arg0 }
+vehicle-model-scale-all = ปรับทุกแกน { $arg0 } { $arg1 }
 vehicle-model-scale-hint = คูณหรือหารความยาวตามแกนภายใน ไม่ใช่ขนาดกรอบครอบในโลก
 vehicle-model-seats = ที่นั่งและจุดลง
 vehicle-model-selected = นำเข้าเอนทิตีแสดงผลที่เลือก
@@ -1427,9 +1454,9 @@ vehicle-model-step = เปลี่ยนระยะปรับ
 vehicle-model-supports = จุดรองรับบนพื้น
 vehicle-model-text = ข้อความ
 vehicle-model-title = จัดการโมเดลยานพาหนะ
-vehicle-model-tools = เครื่องมือแก้ไขในโลก
+vehicle-model-tools = ตัวอย่างและเครื่องมือ
 vehicle-model-transform-step = เปลี่ยนระยะปรับ
-vehicle-model-undo = เลิกทำการแก้ไขล่าสุด
+vehicle-model-undo = เลิกทำ
 vehicle-result = ยานพาหนะ: { $arg0 }
 vehicle-selection-info = เลือก: เอนทิตีแสดงผล { $arg0 } ตัว · กลุ่ม { $arg1 } · จุดกำเนิด { $arg2 }, { $arg3 }, { $arg4 }
 vehicle-status-contact = ชน / สิ่งกีดขวาง
@@ -1839,6 +1866,18 @@ music-space-label =
     { $arg0 ->
         [title] พื้นที่ดนตรี
         [devices] อุปกรณ์เล่นเพลง
+        [all-devices] อุปกรณ์ทั้งหมด
+        [use-device] ใช้อุปกรณ์นี้
+        [current-device] อุปกรณ์ปัจจุบัน
+        [manage-device] จัดการ
+        [back-devices] กลับไปยังอุปกรณ์
+        [group-with-devices] รวมกลุ่มกับอุปกรณ์อื่น
+        [pick-world-member] เลือกอุปกรณ์ในโลก
+        [group-world-pick-hint] ย่อแล้วคลิกขวาที่ตู้เพลงด้วยมือเปล่าเพื่อเพิ่ม ใช้ /music เพื่อกลับไปยังเมนู
+        [group-member-standalone] เลือกตู้เพลงที่ยังไม่ได้อยู่ในกลุ่มซิงค์
+        [group-selection-help] เลือกตู้เพลงด้านล่าง หรือย่อแล้วคลิกขวาที่ตู้อื่นในโลกด้วยมือเปล่า กลุ่มจะถูกสร้างเมื่อยืนยัน
+        [group-source-help] ใช้คิวและตำแหน่งของอุปกรณ์ที่เลือก การสร้างจะหยุดการเล่นเดิม ส่วนสร้างและเล่นจะเล่นต่อ
+        [device-actions] การดำเนินการ
         [device-status] สถานะ
         [sync-group] กลุ่มซิงค์
         [single-device] ตู้เพลง
@@ -1849,7 +1888,6 @@ music-space-label =
         [nearby-device] ใกล้เคียง
         [group-select-members] เลือกตู้เพลงอย่างน้อยสองตู้
         [group-name-required] ระบุชื่อกลุ่ม
-        [all-online] ออนไลน์ทั้งหมด
         [direction-front] ด้านหน้า
         [direction-front-right] ขวาด้านหน้า
         [direction-right] ด้านขวา
@@ -2054,6 +2092,7 @@ music-space-error =
 music-space-selected-tracks = เลือกแล้ว { $arg0 } เพลง
 music-space-track-count = { $arg0 } เพลง
 music-space-device-count = ตู้เพลง { $arg0 } เครื่อง
+music-space-playback-target = กำลังเล่นผ่าน: { $arg0 }
 music-space-online-count = ออนไลน์: { $arg0 }/{ $arg1 } เครื่อง
 music-space-device-distance = { $arg0 } · { $arg1 } ม.
 music-space-device-height = { $arg0 ->

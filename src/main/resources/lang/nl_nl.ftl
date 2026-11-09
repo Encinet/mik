@@ -249,8 +249,7 @@ nametag-copy-hint = Stuur de bron van het voor- en achtervoegsel naar de chat
 nametag-copy-label = [kopie]
 nametag-copy-sent = De stijlbron van { $arg0 } staat in de chat.
 nametag-current = Huidige weergave
-nametag-edit = Bewerken
-nametag-edit-ended = Het bewerken is beëindigd. Kies opnieuw Bewerken om verder te gaan.
+nametag-edit-ended = Het bewerken is beëindigd. Klik opnieuw op het veld om verder te gaan.
 nametag-edit-prompt = Druk op T: { $arg0 } bewerken met MiniMessage (privé).
 nametag-finish-field = Bevestig of annuleer eerst het veld dat je bewerkt.
 nametag-input-invalid = Ongeldige opmaak. Stuur MiniMessage op één regel of kies Wissen.
@@ -1275,6 +1274,11 @@ plot-transferred-to-you = { $arg1 } heeft perceel { $arg0 } aan jou overgedragen
 vehicle-command-description = Voertuigen van weergave-entiteiten besturen en beheren
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] Voertuigbediening
+        [driving] Rijden en meerijden
+        [maintenance] Onderhoud en toegang
+        [public-status] Openbare toegang
+        [private-status] Privétoegang
         [home] Voertuigen
         [nearby] Voertuigen dichtbij
         [fleet] Alle toegankelijke voertuigen
@@ -1475,7 +1479,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 is doorzichtig; 255 is dekkend.
    *[other] { $arg0 }
     }
-vehicle-model-spatial = 3D-bediening
+vehicle-model-spatial = 3D-selectie openen
 vehicle-model-spatial-hint = Klik rechts op een markering om te kiezen of aan te passen. Sluipen + rechtsklik brengt je terug naar instellingen. Met het muiswiel wijzig je de stapgrootte.
 vehicle-model-spawn = Dit model plaatsen
 vehicle-model-add = Onderdeel toevoegen
@@ -1511,6 +1515,29 @@ vehicle-model-driver = Bestuurdersstoel
 vehicle-model-driver-here = Bestuurdersstoel bij mijn voeten toevoegen
 vehicle-model-edit = Concept bewerken / hervatten
 vehicle-model-overview = Conceptoverzicht
+vehicle-model-panel = Terug naar bewerkingspaneel
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] Kies hieronder een categorie, daarna een object en gereedschap. Opslaan en Ongedaan maken blijven onderaan.
+    [parts] Beheer zichtbare blokken, voorwerpen en tekst. Kies een onderdeel om inhoud of transformatie te wijzigen.
+    [seats] Kies een stoel om de zitplaats en uitstapplaats in te stellen. Er moet precies één bestuurdersstoel zijn.
+    [colliders] Kies een botsingsbox om middelpunt en volledige afmetingen te wijzigen. Voeg een box toe of pas deze aan het model aan.
+    [supports] Kies een contactpunt om het te verplaatsen. Deze punten zorgen voor grondsteun of drijfvermogen.
+    [parameters] Kies een parametergroep en daarna een veld om de waarde te wijzigen.
+    [tools] Pas het voorbeeld aan, kies objecten in de wereld of controleer het concept. Verwerpen vereist bevestiging.
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] Blokinhoud instellen
+    [item] Voorwerp in hoofdhand gebruiken
+    [text] Tekstinhoud instellen
+    }
+vehicle-model-exact-input = Exacte waarden invoeren
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = Onderdeeldetails
 vehicle-model-selection-unavailable = Object gewijzigd of verwijderd; ga terug en kies opnieuw
 vehicle-model-exit = Uitstappunt / fijnafstelling
@@ -1534,20 +1561,20 @@ vehicle-model-pick-hint = Open een voorbeeld en kijk naar een blok- of voorwerpo
 vehicle-model-place-cancelled = Plaatsing geannuleerd: verlopen, bewerkingsstatus gewijzigd of handmatig geannuleerd.
 vehicle-model-place-hint = Richtplaatsing is 30 seconden actief. Richt op een wereldblok of je voorbeeld; rechtsklik met de hoofdhand bevestigt, sluipen + rechtsklik annuleert.
 vehicle-model-position = Positie / fijnafstelling
-vehicle-model-position-hint = Lokale X/Y/Z · here gebruikt je voeten, look een geraakt oppervlak · het optionele raster volgt de afstelstap.
+vehicle-model-position-hint = Lokale coördinaten: +Y is omhoog, +Z is de voorkant. Knoppen verplaatsen per stap; exacte invoer stelt de absolute positie in.
 vehicle-model-preview = Privévoorbeeld
 vehicle-model-preview-failed = Voorbeeld niet beschikbaar; je concept blijft behouden: { $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = Laatste ongedaan gemaakte wijziging herstellen
+vehicle-model-preview-hint = Voorbeeld getoond. Open 3D-selectie om het model rechtstreeks te selecteren en aan te passen.
+vehicle-model-redo = Opnieuw uitvoeren
 vehicle-model-remove = Onderdeel verwijderen
 vehicle-model-remove-warning = Dit onderdeel verwijderen? Volgende indexnummers schuiven op; ongedaan maken blijft mogelijk.
 vehicle-model-rotate = Onderdeel draaien
 vehicle-model-rotate-hint = Relatieve lokale rotatie: X kantelen, Y draaien, Z rollen. De positie blijft gelijk.
-vehicle-model-save = Controleren en opslaan
+vehicle-model-save = Opslaan en afsluiten
 vehicle-model-save-continue = Opslaan en verder bewerken
 vehicle-model-saved = Opgeslagen
 vehicle-model-scale = Onderdeel schalen
-vehicle-model-scale-all = Alle assen schalen × { $arg0 }
+vehicle-model-scale-all = Alle assen schalen { $arg0 } { $arg1 }
 vehicle-model-scale-hint = Vermenigvuldig of deel lokale aslengten; dit zijn geen wereldafmetingen.
 vehicle-model-seats = Stoelen en uitstappunten
 vehicle-model-selected = Geselecteerde weergaven importeren
@@ -1559,9 +1586,9 @@ vehicle-model-step = Afstelstap wisselen
 vehicle-model-supports = Steunpunten op de grond
 vehicle-model-text = Tekst
 vehicle-model-title = Voertuigmodellen beheren
-vehicle-model-tools = Bewerken in de wereld
+vehicle-model-tools = Voorbeeld en gereedschap
 vehicle-model-transform-step = Afstelstap wijzigen
-vehicle-model-undo = Laatste wijziging ongedaan maken
+vehicle-model-undo = Ongedaan maken
 vehicle-result = Voertuig: { $arg0 }
 vehicle-selection-info = Selectie: { $arg0 ->
         [one] { $arg0 } weergave-entiteit
@@ -2082,6 +2109,18 @@ music-space-label =
     { $arg0 ->
         [title] Muziekruimte
         [devices] Afspeelapparaten
+        [all-devices] Alle apparaten
+        [use-device] Dit apparaat gebruiken
+        [current-device] Huidig apparaat
+        [manage-device] Beheren
+        [back-devices] Terug naar apparaten
+        [group-with-devices] Met andere apparaten groeperen
+        [pick-world-member] Een apparaat in de wereld kiezen
+        [group-world-pick-hint] Klik met lege hand sluipend met rechts op een jukebox om deze toe te voegen; /music opent het menu weer.
+        [group-member-standalone] Kies een jukebox die nog niet bij een synchronisatiegroep hoort.
+        [group-selection-help] Selecteer hieronder jukeboxen of klik in de wereld met lege hand sluipend met rechts op een andere. De groep ontstaat bij bevestiging.
+        [group-source-help] Gebruik de wachtrij en positie van het gekozen apparaat. Aanmaken stopt het afspelen; Aanmaken en afspelen hervat het.
+        [device-actions] Acties
         [device-status] Status
         [sync-group] Synchronisatiegroep
         [single-device] Jukebox
@@ -2092,7 +2131,6 @@ music-space-label =
         [nearby-device] Dichtbij
         [group-select-members] Selecteer minstens twee jukeboxen
         [group-name-required] Voer een groepsnaam in
-        [all-online] Allemaal online
         [direction-front] Voor je
         [direction-front-right] Rechtsvoor
         [direction-right] Rechts
@@ -2309,6 +2347,7 @@ music-space-device-count =
         [one] { $arg0 } jukebox
        *[other] { $arg0 } jukeboxen
     }
+music-space-playback-target = Afspelen op: { $arg0 }
 music-space-online-count = Online: { $arg0 }/{ $arg1 } { $arg1 ->
         [one] jukebox
        *[other] jukeboxen

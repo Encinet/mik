@@ -14,7 +14,7 @@ public record UiPagedLayoutPort(UiPort content, int pageIndex, IntConsumer selec
     @Override public UiSizing sizing() { return content.sizing(); }
     public UiPagedLayoutPort withSizing(UiSizing sizing) {
         return new UiPagedLayoutPort(new UiPort(content.key(), content.layout(), content.style(), sizing,
-                content.sources(), content.textRole(), content.itemSlot(), content.summaryLines()),
+                content.sources(), content.textRole(), content.itemSlot(), content.summaryLines(), content.itemTextWidth()),
                 pageIndex, selectPage, compactModels);
     }
     public UiPagedLayoutPort withCompactModels() { return new UiPagedLayoutPort(content, pageIndex, selectPage, true); }

@@ -216,8 +216,7 @@ nametag-copy-hint = 傳前後綴原文於私訊
 nametag-copy-label = [鈔]
 nametag-copy-sent = 已傳 { $arg0 } 之式原文於私訊。
 nametag-current = 現貌
-nametag-edit = 編輯
-nametag-edit-ended = 編輯已止，欲續請再按編輯。
+nametag-edit-ended = 編輯既止，欲續請再點其欄。
 nametag-edit-prompt = 按 T 以 MiniMessage 編{ $arg0 }，惟己可見。
 nametag-finish-field = 請先確定或取消此項
 nametag-input-invalid = 格式有誤，請傳單行 MiniMessage，或按清除
@@ -1146,6 +1145,11 @@ plot-transferred-to-you = { $arg1 } 已以地段「{ $arg0 }」讓於汝。
 vehicle-command-description = 駕御及管理顯示實體之車
 vehicle-menu-label =
     { $arg0 ->
+        [vehicle] 御車面板
+        [driving] 駕乘
+        [maintenance] 維護與權限
+        [public-status] 今公開
+        [private-status] 今私有
         [home] 載具工作台
         [nearby] 附近載具
         [fleet] 所有可存取載具
@@ -1343,7 +1347,7 @@ vehicle-model-property-help = { $arg0 ->
     [opacity] 0 為透明，255 為不透明。
    *[other] { $arg0 }
     }
-vehicle-model-spatial = 三維操控
+vehicle-model-spatial = 入三維點選
 vehicle-model-spatial-hint = 右擊標記以選取或調整；潛行右擊則返設定。滾輪可易步長。
 vehicle-model-spawn = 依此模型生載具
 vehicle-model-add = 添部件
@@ -1379,6 +1383,29 @@ vehicle-model-driver = 駕座
 vehicle-model-driver-here = 添駕座於足下
 vehicle-model-edit = 續編草稿
 vehicle-model-overview = 稿之概覽
+vehicle-model-panel = 返編輯面板
+vehicle-model-editor-help = { $arg0 ->
+   *[overview] 先擇類，再擇物與器；存檔、撤銷皆在下欄。
+    [parts] 理方塊、物品與文字。擇部件而改其材、位、轉角與比例。
+    [seats] 擇座而設坐處、離座之處；須留一駕駛座。
+    [colliders] 擇碰撞盒而改其中心、全長寬高；亦可增盒或依模型包圍。
+    [supports] 擇支點而移之，以承車身或測舟之浮力。
+    [parameters] 先擇參數之類，再點欄以改值。
+    [tools] 調預覽、點選場中之物，或驗草稿。棄改須先確認。
+    }
+vehicle-model-section-count = { $arg0 ->
+   *[parts] { vehicle-model-parts } · { $arg1 }
+    [seats] { vehicle-model-seats } · { $arg1 }
+    [colliders] { vehicle-model-colliders } · { $arg1 }
+    [supports] { vehicle-model-supports } · { $arg1 }
+    }
+vehicle-model-content-action = { $arg0 ->
+   *[block] 設方塊之材
+    [item] 易以主手之物
+    [text] 設文字之文
+    }
+vehicle-model-exact-input = 精確輸值
+vehicle-model-axis-value = { $arg0 } · { $arg1 }
 vehicle-model-component-details = 構件之詳
 vehicle-model-selection-unavailable = 此物已除或已變，請返而重選
 vehicle-model-exit = 出口微調
@@ -1402,20 +1429,20 @@ vehicle-model-pick-hint = 先開私覽而視方塊或物品部件，亦可先於
 vehicle-model-place-cancelled = 置物已撤，或逾時、或編輯有變、或手動撤之。
 vehicle-model-place-hint = 瞄準置物限三十秒；視方塊或私覽，以主手右鍵定之，潛行右鍵則撤。
 vehicle-model-position = 位置微調
-vehicle-model-position-hint = 局部 X/Y/Z；here 取足下，look 取所中之面；網格隨步長而定。
+vehicle-model-position-hint = 局部座標：+Y 向上，+Z 向車首。按鍵依步長移之；精確輸值定其絕對位置。
 vehicle-model-preview = 私覽
 vehicle-model-preview-failed = 私覽未成，草稿尚存：{ $arg0 }
-vehicle-model-preview-hint = { vehicle-model-spatial-hint }
-vehicle-model-redo = 重施前改
+vehicle-model-preview-hint = 預覽已現。欲直接點選模型，請入三維點選。
+vehicle-model-redo = 重做
 vehicle-model-remove = 移部件
 vehicle-model-remove-warning = 移此部件乎？後序號將移，尚可撤復。
 vehicle-model-rotate = 轉部件
 vehicle-model-rotate-hint = 局部相對旋轉：X 俯仰、Y 偏航、Z 翻滾；位置不移。
-vehicle-model-save = 驗而存之
+vehicle-model-save = 存之並畢編輯
 vehicle-model-save-continue = 存而續編
 vehicle-model-saved = 既存
 vehicle-model-scale = 縮放部件
-vehicle-model-scale-all = 各軸同縮放 × { $arg0 }
+vehicle-model-scale-all = 各軸同縮放 { $arg0 } { $arg1 }
 vehicle-model-scale-hint = 乘除局部軸長，非世界外框之尺寸。
 vehicle-model-seats = 座位與出口
 vehicle-model-selected = 匯入已選顯示物
@@ -1427,9 +1454,9 @@ vehicle-model-step = 改步長
 vehicle-model-supports = 地面承托點
 vehicle-model-text = 文字
 vehicle-model-title = 車模管理
-vehicle-model-tools = 世中編輯
+vehicle-model-tools = 預覽與工具
 vehicle-model-transform-step = 改調整步長
-vehicle-model-undo = 撤前改
+vehicle-model-undo = 撤銷
 vehicle-result = 車：{ $arg0 }
 vehicle-selection-info = 所選：{ $arg0 } 顯示體 · 組 { $arg1 } · 原點 { $arg2 }, { $arg3 }, { $arg4 }
 vehicle-status-contact = 碰撞／受阻
@@ -1839,6 +1866,18 @@ music-space-label =
     { $arg0 ->
         [title] 音乐空间
         [devices] 播放设备
+        [all-devices] 諸樂器
+        [use-device] 用此器
+        [current-device] 現用之器
+        [manage-device] 理器
+        [back-devices] 返樂器目
+        [group-with-devices] 與他器合奏
+        [pick-world-member] 於世中擇一器
+        [group-world-pick-hint] 空手潛行右擊唱片機以入選；/music 可返。
+        [group-member-standalone] 請擇未入合奏組之唱片機。
+        [group-selection-help] 可勾目中唱片機，亦可空手潛行右擊他器。提交乃合組。
+        [group-source-help] 取所擇器之曲序與進度。建組則止原奏；建而奏之則續奏。
+        [device-actions] 用事
         [device-status] 狀態
         [sync-group] 同步組
         [single-device] 唱片機
@@ -1849,7 +1888,6 @@ music-space-label =
         [nearby-device] 近旁
         [group-select-members] 擇唱片機二具以上
         [group-name-required] 請題同步組名
-        [all-online] 皆在線
         [direction-front] 前
         [direction-front-right] 右前
         [direction-right] 右
@@ -2054,6 +2092,7 @@ music-space-error =
 music-space-selected-tracks = 已擇 { $arg0 } 曲
 music-space-track-count = { $arg0 } 曲
 music-space-device-count = { $arg0 } 臺唱片機
+music-space-playback-target = 奏於：{ $arg0 }
 music-space-online-count = 在線：{ $arg0 }／{ $arg1 } 機
 music-space-device-distance = { $arg0 } · { $arg1 } 格
 music-space-device-height = { $arg0 ->

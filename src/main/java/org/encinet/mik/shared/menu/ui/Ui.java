@@ -9,6 +9,7 @@ import org.encinet.mik.shared.menu.FloatingMenuCommand;
 import org.encinet.mik.shared.menu.FloatingMenuInteraction;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
 import org.encinet.mik.shared.menu.FloatingMenuPage;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -61,7 +62,8 @@ public final class Ui {
     public static ElementBuilder icon(UiIcon icon, Component label) {
         return new ElementBuilder(new UiContent.Icon(icon, label), UiRole.STATUS).tooltip(label);
     }
-    public static UiTextField textField(Component value) { return new UiTextField(value); }
+    /** Source text determines emptiness; a field may render it through an independent rich preview. */
+    public static UiTextField textField(String value) { return new UiTextField(value); }
     /** A slider with a compact value; the host can supply precise editing without owning a second range. */
     public static UiNumberField numberField(Component label, UiRange range, UiRange.Change change) {
         return new UiNumberField(label, range, change);
@@ -237,7 +239,9 @@ public final class Ui {
         private Component disabledReason;
         private UiTooltip tooltip;
         private boolean keepAccessible;
-        private int textWidth = 160;
+        private int explicitTextWidthPixels;
+        private FloatingMenuTextWidth textWidth = FloatingMenuTextWidth.AUTO;
+        private boolean textWidthPixelsExplicit;
         private FloatingMenuDecoration.Alignment alignment = FloatingMenuDecoration.Alignment.CENTER;
 
         private ElementBuilder(UiContent content, UiRole role) {
@@ -283,7 +287,19 @@ public final class Ui {
             content = new UiContent.Text(text.label(), lines);
             return this;
         }
-        public ElementBuilder textWidth(int pixels) { if (pixels < 1) throw new IllegalArgumentException("Invalid text width"); textWidth = pixels; return this; }
+        /** Sets an explicit soft-wrap width measured in text pixels. */
+        public ElementBuilder textWidth(int pixels) {
+            if (pixels < 1) throw new IllegalArgumentException("Invalid text width");
+            explicitTextWidthPixels = pixels;
+            textWidthPixelsExplicit = true;
+            return this;
+        }
+        /** Uses a shared semantic width policy; the parent bounds automatic and content widths. */
+        public ElementBuilder textWidth(FloatingMenuTextWidth width) {
+            textWidth = Objects.requireNonNull(width);
+            textWidthPixelsExplicit = false;
+            return this;
+        }
         public ElementBuilder alignment(FloatingMenuDecoration.Alignment value) { alignment = Objects.requireNonNull(value); return this; }
         public ElementBuilder keepAccessible() { keepAccessible = true; return this; }
         public ElementBuilder on(FloatingMenuInteraction input, FloatingMenuAction action) {
@@ -294,7 +310,8 @@ public final class Ui {
         @Override public UiElement build() {
             boolean target = role.supportsActions();
             return new UiElement(key, content, role, new UiInput(target, actions, Optional.empty(), selected,
-                    Optional.ofNullable(disabledReason), Optional.ofNullable(tooltip)), style, sizing, textWidth,
+                    Optional.ofNullable(disabledReason), Optional.ofNullable(tooltip)), style, sizing,
+                    textWidthPixelsExplicit ? explicitTextWidthPixels : textWidth.resolve(target),
                     alignment, keepAccessible);
         }
     }

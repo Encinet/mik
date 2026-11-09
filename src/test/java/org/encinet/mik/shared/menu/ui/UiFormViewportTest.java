@@ -22,7 +22,7 @@ class UiFormViewportTest {
                 for (int index = 0; index < 18; index++) {
                     int target = index;
                     form.field("field-" + index,Component.text("字段 Long field name " + index),
-                            Ui.textField(Component.text("Value " + index)).key("value").primary((_,_) -> edited.set(target)).build());
+                            Ui.textField("Value " + index).key("value").primary((_,_) -> edited.set(target)).build());
                 }
                 form.viewedField(viewed.get(),viewed::set).actions(Ui.button(Component.text("Save")).key("save").build());
                 var scene = MenuScene.screen("form").content(form.build()).build();

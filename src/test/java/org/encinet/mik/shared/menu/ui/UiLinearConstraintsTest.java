@@ -33,7 +33,7 @@ class UiLinearConstraintsTest {
     }
 
     @Test void aContainedMessageWrapsInsideTheControlWithoutWideningItsParent() {
-        var field = Ui.textField(Component.text("Value")).key("field").build();
+        var field = Ui.textField("Value").key("field").build();
         var hint = Ui.text(Component.text("A long explanation which must wrap within the existing field and must never make its parent wider."))
                 .textWidth(4096).key("hint").build();
         for (var scale : FloatingMenuTextScale.values()) {

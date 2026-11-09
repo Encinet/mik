@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
 import org.encinet.mik.shared.menu.FloatingMenuCommand;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.ui.*;
 
 /** Playlist browsing and destination picking use the same aligned metadata and stable identities. */
@@ -22,7 +23,7 @@ final class MusicPlaylistTable {
                 .column(new UiTable.Column<>(UiKey.named("name"), heading(label.apply("playlist")),
                         UiTrack.content(UiLength.ZERO, UiLength.ui(480)), row -> {
                     var button = Ui.button(Component.text(row.playlist().name())).key("playlist")
-                            .selected(row.selected()).singleLine().textWidth(1024)
+                            .selected(row.selected()).singleLine().textWidth(FloatingMenuTextWidth.CONTENT)
                             .alignment(FloatingMenuDecoration.Alignment.LEFT).primary(choose.apply(row.playlist()));
                     if (row.restriction() != null) button.disabled(row.restriction());
                     return button.build();
@@ -40,6 +41,7 @@ final class MusicPlaylistTable {
         return Ui.heading(value).singleLine().alignment(FloatingMenuDecoration.Alignment.LEFT).build();
     }
     private static UiNode text(String key, Component value) {
-        return Ui.text(value).key(key).singleLine().textWidth(1024).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
+        return Ui.text(value).key(key).singleLine().textWidth(FloatingMenuTextWidth.CONTENT)
+                .alignment(FloatingMenuDecoration.Alignment.LEFT).build();
     }
 }

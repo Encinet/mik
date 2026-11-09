@@ -40,7 +40,7 @@ class VehicleModelEditorLayoutTest {
         var definition = VehicleModelEditor.finishMenu(menu, Component.text("Close"));
         assertEquals(6, definition.entries().values().stream().filter(entry -> entry.id().contains("/items/")).count());
         assertEquals(5, definition.entries().values().stream().filter(entry -> entry.id().contains("/actions/")).count());
-        assertEquals(4, definition.entries().values().stream().filter(entry -> entry.id().contains("/navigation/")).count());
+        for (String key : List.of("undo", "redo", "back", "dismiss")) assertNotNull(UiSceneTestSupport.entry(definition, key));
         assertLayout(definition);
     }
 

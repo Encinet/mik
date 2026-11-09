@@ -21,19 +21,19 @@ final class MusicGroupScenes {
     private final MusicWorkspace w;
     MusicGroupScenes(MusicWorkspace workspace) { w = workspace; }
 
-    void create(Player player, MusicWorkspaceState state, PendingPlay pending) {
+    void create(Player player, MusicWorkspaceState state, PendingPlay pending, UUID seed) {
         var draft = new GroupDraft(null, pending);
-        UUID id = state.target();
-        if (id != null && !w.registry.snapshot().groups().containsKey(id) && w.registry.mayControl(player, id)) draft.toggle(id);
+        draft.name = w.text(player,"sync-group");
+        draft.returnTo = state.panel();
+        if (seed != null && !w.registry.snapshot().groups().containsKey(seed) && w.registry.mayControl(player, seed)) draft.toggle(seed);
         w.showDevices(player,new GroupEditor(draft));
     }
     private record SourceChoice(UUID device, boolean removed) { }
 
     UiNode editor(Player player, MusicWorkspaceState state, GroupDraft draft) {
-        var owner = state.panel(); var position = state.sourcePosition; var scope = state.panelScope;
+        var scope = state.panelScope;
         java.util.function.BooleanSupplier owned = () -> w.active(player,state) && scope.equals(state.panelScope)
                 && state.panel() instanceof GroupEditor editor && editor.draft() == draft;
-        java.util.function.BooleanSupplier active = () -> owned.getAsBoolean() && state.currentReading(owner,position);
         boolean creating = draft.group == null;
         var group = creating ? null : w.registry.snapshot().groups().get(draft.group);
         if (!creating && group == null) return column("missing-group")
@@ -41,21 +41,41 @@ final class MusicGroupScenes {
                 .child(info("missing", w.problem(player, MusicProblem.Code.NOT_FOUND))).build();
         long version = group == null ? 0 : group.version();
         boolean busy = state.busy(new TaskKey(Work.DEVICE,draft.group));
-        var body = column("group-editor").child(w.panelHeading(player, w.label(player, creating ? "create-group" : "add-members")));
+        var body = Ui.layout(UiLayouts.contentColumn(UiKey.named("member-selection"),UiLength.ui(8))).key("group-editor")
+                .child(MusicWorkspaceComposition.panelHeading(w.label(player, creating ? "create-group" : "add-members"),
+                        w.button(player,"cancel",() -> { if (owned.getAsBoolean()) w.panel(player,draft.returnTo); })));
         if (group != null) body.child(info("group", w.targetSummary(player, group.id())).withSummaryLines(1));
-        body.child(info("count", w.language.text(player, Message.MUSIC_SPACE_DEVICE_COUNT, NamedTextColor.AQUA, draft.members.size())));
-        if (creating) body.child(w.field(player, "group-name", "name", draft.name, 64, value -> {
-            if (!owned.getAsBoolean()) return;
-            if (state.busy(new TaskKey(Work.DEVICE,draft.group))) throw new MusicProblem(MusicProblem.Code.BUSY);
-            draft.name = value; w.redraw(player);
-        }));
-        if (draft.members.isEmpty()) body.child(info("choose", w.label(player, "choose-members")));
+        var selectionTools = tools("member-selection-tools")
+                .child(info("count", w.language.text(player, Message.MUSIC_SPACE_DEVICE_COUNT, NamedTextColor.AQUA, draft.members.size())));
+        if (creating) {
+            var name = Ui.button(w.label(player,"name").append(w.raw(" · ")).append(w.raw(draft.name)))
+                .key("group-name").summaryLines(1).textWidth(200).primary((_,_) -> {
+                    if (!owned.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
+                    w.input(player,"name",draft.name,64,value -> {
+                        if (!owned.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
+                        draft.name = value; w.redraw(player);
+                    });
+                });
+            if (busy) name.disabled(w.label(player,"saving"));
+            selectionTools.child(name.build());
+        }
+        var pick = Ui.button(w.label(player,"pick-world-member")).key("pick-world-member")
+                .tooltip(w.label(player,"group-selection-help")).primary((_,handle) -> {
+            if (!owned.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
+            draft.pickingInWorld = true;
+            handle.close();
+            player.sendActionBar(w.label(player,"group-world-pick-hint"));
+        });
+        if (busy) pick.disabled(w.label(player,"saving"));
+        else if (draft.members.size() + (group == null ? 0 : group.members().size()) >= MAX_MEMBERS)
+            pick.disabled(w.problem(player,MusicProblem.Code.LIMIT));
+        body.child(selectionTools.child(pick.build()).build())
+                .child(UiKey.named("member-selection"),w.outputs.directory(player,state,null));
         var missingMembers = draft.members.stream().filter(id -> {
             var device = w.registry.snapshot().devices().get(id);
             return device == null || device.group() != null;
         }).toList();
         boolean choosingSource = creating && draft.members.stream().anyMatch(this::hasContent);
-        if (choosingSource) body.child(Ui.heading(w.label(player,"group-source")).key("source-title").build());
         var rows = new ArrayList<MusicTaskEntries.Row<SourceChoice>>();
         for (UUID id : draft.members) {
             boolean removed = missingMembers.contains(id);
@@ -67,23 +87,42 @@ final class MusicGroupScenes {
                 var target = w.registry.snapshot().devices().get(id);
                 var program = w.devices.program(id);
                 var current = program.current() == null ? null : w.queries.snapshot(player.getUniqueId()).tracks().get(program.current().trackId());
-                Component label = w.locator.name(player,target).append(w.raw(" · ")).append(current == null ? w.label(player,"empty") : w.raw(current.title()));
+                int count = program.base().size() + program.priority().size() + (program.current() == null ? 0 : 1);
+                Component content = current != null ? w.raw(current.title()) : count > 0 ? w.trackCount(player,count) : w.label(player,"empty");
+                Component label = w.locator.name(player,target).append(w.raw(" · ")).append(content);
                 Component help = label.append(Component.newline()).append(w.locator.position(player,id))
                         .append(Component.newline()).append(w.locator.coordinates(player,id));
                 rows.add(new MusicTaskEntries.Row<>(UiKey.item("source:" + id),new SourceChoice(id,false),label,help,id.equals(draft.source),
                         busy ? w.label(player,"saving") : null));
             }
         }
-        if (!rows.isEmpty()) body.child(MusicTaskEntries.content("group-sources",rows,w.label(player,"empty"),position,next -> {
-            if (active.getAsBoolean() && state.readPanel(owner,position,next)) w.redraw(player);
-        },choice -> (_,_) -> w.safe(player,() -> {
-            if (!active.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
-            var current = w.registry.snapshot().devices().get(choice.device());
-            boolean removed = current == null || current.group() != null;
-            if (removed != choice.removed() || !draft.members.contains(choice.device())) { w.redraw(player); return; }
-            if (removed) draft.toggle(choice.device()); else draft.source = choice.device();
-            w.redraw(player);
-        })));
+        if (!rows.isEmpty()) {
+            var source = UiKey.named("group-source");
+            var sourceName = missingMembers.isEmpty() && draft.source != null ? w.raw(w.outputs.name(player,draft.source)) : w.label(player,"removed-targets");
+            var choose = Ui.button(w.label(player,"queue").append(w.raw(" · ")).append(sourceName)).key(source)
+                    .summaryLines(1).textWidth(240).tooltip(w.label(player,"group-source").append(w.raw(" · ")).append(sourceName)
+                            .append(Component.newline()).append(w.label(player,"group-source-help")))
+                    .primary((_,handle) -> handle.openPopover(source,redraw -> new MenuPanel() {
+                        private MusicSourcePosition position = MusicSourcePosition.START;
+                        private boolean active = true;
+                        public MenuScene render() {
+                            return MenuScene.screen("music-group-source",w.label(player,"group-source"))
+                                    .content(MusicTaskEntries.content("group-sources",rows,w.label(player,"empty"),position,next -> {
+                                        if (active && owned.getAsBoolean()) { position = next; redraw.run(); }
+                                    },choice -> (_,popup) -> w.safe(player,() -> {
+                                        if (!active || !owned.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
+                                        var current = w.registry.snapshot().devices().get(choice.device());
+                                        boolean removed = current == null || current.group() != null;
+                                        if (removed != choice.removed() || !draft.members.contains(choice.device())) { popup.closePopover(); w.redraw(player); return; }
+                                        if (removed) draft.toggle(choice.device()); else draft.source = choice.device();
+                                        popup.closePopover(); w.redraw(player);
+                                    }))).build();
+                        }
+                        @Override public void close() { active = false; }
+                    }));
+            if (busy) choose.disabled(w.label(player,"saving"));
+            body.child(choose.build());
+        }
         if (draft.pending != null) body.child(info("pending", w.label(player, MusicPlaybackActions.labelKey(draft.pending.placement()))
                 .append(w.raw(" · ")).append(w.raw(draft.pending.tracks().getFirst().details().title()))).withSummaryLines(1));
         var actions = tools("group-editor-actions");
@@ -103,10 +142,16 @@ final class MusicGroupScenes {
                     .primary((_,_) -> w.safe(player,() -> { if (owned.getAsBoolean()) save(player,state,draft,version,draft.pending != null); }));
             if (missing != null) create.disabled(w.label(player,missing));
             actions.child(create.build());
-        } else if (!creating && !draft.members.isEmpty() && group.members().size() + draft.members.size() <= MAX_MEMBERS) actions.child(w.button(player, "add-members", () -> { if (owned.getAsBoolean()) save(player, state, draft, version, false); }));
-        actions.child(w.button(player, "cancel", () -> { if (owned.getAsBoolean()) w.panel(player,
-                state.target() == null ? new NoPanel() : new DevicePanel(state.target(),
-                        w.registry.snapshot().groups().containsKey(state.target()) ? DeviceSection.MEMBERS : DeviceSection.QUEUE)); }));
+        } else {
+            var add = Ui.button(w.label(player,"add-members")).key("add-members").primary((_,_) -> w.safe(player,() -> {
+                if (owned.getAsBoolean()) save(player,state,draft,version,false);
+            }));
+            if (busy) add.disabled(w.label(player,"saving"));
+            else if (draft.members.isEmpty()) add.disabled(w.label(player,"choose-members"));
+            else if (group.members().size() + draft.members.size() > MAX_MEMBERS) add.disabled(w.problem(player,MusicProblem.Code.LIMIT));
+            else if (!missingMembers.isEmpty()) add.disabled(w.label(player,"removed-targets"));
+            actions.child(add.build());
+        }
         return body.child(actions.build()).children(w.taskStatus(player, state, new TaskKey(Work.DEVICE, draft.group))).build();
     }
     private boolean hasContent(UUID id) {
@@ -120,7 +165,6 @@ final class MusicGroupScenes {
         if (draft.group != null) {
             w.run(player, new TaskKey(Work.DEVICE, draft.group), () -> w.groups.addMembers(player, draft.group, version, members), _ -> {
                 if (state.panel() instanceof GroupEditor current && current.draft() == draft) {
-                    w.selectTarget(player, draft.group);
                     w.panel(player, new DevicePanel(draft.group, DeviceSection.MEMBERS));
                 }
             });
@@ -131,7 +175,7 @@ final class MusicGroupScenes {
         w.run(player, TaskKey.of(Work.DEVICE), () -> w.groups.create(player, members, source, name), id -> {
             if (state.panel() instanceof GroupEditor current && current.draft() == draft) {
                 w.selectTarget(player, id);
-                w.panel(player, new DevicePanel(id, DeviceSection.QUEUE));
+                w.panel(player, new DevicePanel(id, DeviceSection.MEMBERS));
             }
             if (draft.pending != null) w.submit(player, new MusicSubmission(player.getUniqueId(), id, draft.pending.tracks(), draft.pending.placement()));
             else if (play) w.run(player, new TaskKey(Work.PLAYBACK, id), () -> w.devices.control(player, id, MusicPlaybackController.Action.RESUME), _ -> {});
@@ -141,9 +185,6 @@ final class MusicGroupScenes {
         var owner = state.panel(); var position = state.sourcePosition;
         java.util.function.BooleanSupplier active = () -> w.active(player,state) && state.currentReading(owner,position);
         var body = column("group-members");
-        if (group.members().size() < MAX_MEMBERS && w.registry.mayControl(player,group.id())) body.child(w.button(player,"add-members",() -> {
-            if (active.getAsBoolean()) w.showDevices(player,new GroupEditor(new GroupDraft(group.id(),null)));
-        }));
         var members = new ArrayList<UiNode>();
         var devices = w.registry.target(group.id()).members();
         var failures = w.devices.outputFailures(group.id());
