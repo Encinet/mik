@@ -8,12 +8,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
 
 final class MikPvpOverrideIdsExpression extends SimpleExpression<String> {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
+    private MikSkriptInput<Player> players;
     private String owner;
 
     MikPvpOverrideIdsExpression(MikSkriptFacade facade) {
@@ -21,17 +20,16 @@ final class MikPvpOverrideIdsExpression extends SimpleExpression<String> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
+        players = MikSkriptInput.of(expressions[0], Player.class);
         owner = MikSkriptOwner.current(getParser());
         return true;
     }
 
     @Override
     protected String[] get(Event event) {
-        return Arrays.stream(players.getArray(event))
+        return players.values(event).stream()
                 .flatMap(player -> facade.pvpOverrideIds(player, owner).stream())
                 .sorted()
                 .toArray(String[]::new);
@@ -50,6 +48,6 @@ final class MikPvpOverrideIdsExpression extends SimpleExpression<String> {
     @Override
     public String toString(@Nullable Event event, boolean debug) {
         return "MIK PVP override IDs of "
-                + (players == null ? "players" : players.toString(event, debug));
+                + (players == null ? "players" : players.describe(event, debug));
     }
 }

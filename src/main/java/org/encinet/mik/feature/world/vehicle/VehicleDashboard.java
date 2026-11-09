@@ -5,7 +5,7 @@ import org.bukkit.entity.Player;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.FloatingMenuContext;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
+import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.FloatingMenuFeedbackKind;
 import org.encinet.mik.shared.menu.FloatingMenuScreen;
 import org.encinet.mik.shared.menu.FloatingMenuState;
@@ -36,17 +36,18 @@ final class VehicleDashboard {
         catch (RuntimeException exception) { sessions.remove(player.getUniqueId(), session); screen.forget(player); throw exception; }
     }
 
-    private FloatingMenuDefinition render(FloatingMenuContext<State> context) {
+    private MenuScene render(FloatingMenuContext<State> context) {
         Player player = context.player();
         State state = context.state();
         VehicleDashboardMenu.View view;
         try { requireCurrent(player, state); view = module.dashboardView(player, state.vehicle()); }
         catch (IllegalArgumentException exception) {
-            var menu = FloatingMenuDefinition.screen("vehicle-dashboard");
-            menu.information("unavailable", language.text(player, Message.VEHICLE_DASH_UNAVAILABLE, NamedTextColor.RED));
-            return menu.refreshEvery(1, (actor, handle) -> forget(actor.getUniqueId())).build();
+            var menu = MenuScene.screen("vehicle-dashboard")
+                    .content(org.encinet.mik.shared.menu.ui.UiTemplates.information("status"));
+            menu.information("unavailable", language.text(player, Message.VEHICLE_DASH_UNAVAILABLE, NamedTextColor.RED)).region("status");
+            return menu.refreshEvery(1, (actor, _) -> forget(actor.getUniqueId())).build();
         }
-        return VehicleDashboardMenu.create(view, state.page(), (message, arguments) -> language.text(player, message, NamedTextColor.AQUA, arguments),
+        var menu = VehicleDashboardMenu.create(view, state.page(), (message, arguments) -> language.text(player, message, NamedTextColor.AQUA, arguments),
                 (actor, command) -> {
                     try {
                         requireCurrent(actor, state);
@@ -64,13 +65,19 @@ final class VehicleDashboard {
                     try { requireCurrent(player, state); module.dashboardView(player, state.vehicle()); context.setState(new State(state.vehicle(), state.session(), page)); }
                     catch (IllegalArgumentException exception) { forget(player.getUniqueId()); }
                 })
-                .refreshEvery(4, (actor, handle) -> {
+                .refreshEvery(4, (actor, _) -> {
                     try { requireCurrent(actor, state); module.dashboardView(actor, state.vehicle()); context.redraw(); }
                     catch (IllegalArgumentException exception) { forget(actor.getUniqueId()); }
                 })
-                .lifecycle((actor, handle, previous, current, reason) -> {
+                .lifecycle((actor, _, _, current, _) -> {
                     if (current == FloatingMenuState.CLOSED) sessions.remove(actor.getUniqueId(), state.session());
-                }).build();
+                });
+        menu.navigation("workspace", language.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "home")).region("navigation")
+                .primary((actor, _) -> {
+                    try { requireCurrent(actor, state); module.dashboardView(actor, state.vehicle()); module.openMenu(actor); }
+                    catch (IllegalArgumentException exception) { forget(actor.getUniqueId()); }
+                });
+        return menu.build();
     }
 
     private void requireCurrent(Player player, State state) {

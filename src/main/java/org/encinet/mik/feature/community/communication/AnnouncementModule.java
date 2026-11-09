@@ -8,7 +8,9 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
+import org.encinet.mik.feature.community.chat.bridge.ServerChatPublisher;
+import org.encinet.mik.feature.community.chat.model.ChatServerMessage;
+import org.encinet.mik.feature.community.chat.model.ChatContent;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -18,20 +20,11 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuDecoration;
-import org.encinet.mik.shared.menu.FloatingMenuAppearance;
-import org.encinet.mik.shared.menu.FloatingMenuAnimation;
-import org.encinet.mik.shared.menu.FloatingMenuEasing;
-import org.encinet.mik.shared.menu.FloatingMenuFraming;
-import org.encinet.mik.shared.menu.FloatingMenuPlacement;
-import org.encinet.mik.shared.menu.FloatingMenuPoint;
-import org.encinet.mik.shared.menu.FloatingMenuPose;
+import org.encinet.mik.shared.menu.MenuScene;
+import org.encinet.mik.shared.menu.MenuPanel;
 import org.encinet.mik.shared.menu.FloatingMenus;
-import org.encinet.mik.shared.menu.FloatingMenuInteraction;
 import org.encinet.mik.shared.menu.FloatingMenuContext;
 import org.encinet.mik.shared.menu.FloatingMenuScreen;
-import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -39,27 +32,25 @@ import org.encinet.mik.feature.community.communication.AnnouncementCatalog.Annou
 import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.logging.Level;
 
-public class AnnouncementModule implements Listener {
+public final class AnnouncementModule implements Listener, AnnouncementHighlights {
 
-    private static final DateTimeFormatter DISPLAY_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final int JOIN_PUSH_LIMIT = 5;
 
     private final JavaPlugin plugin;
+    private final ServerChatPublisher serverChat;
     private final LanguageService languageService;
     private final AnnouncementSeenStore seenStore;
     private final AnnouncementCatalog catalog;
-    private final FloatingMenuScreen<MenuState> menuScreen;
+    private final FloatingMenuScreen<AnnouncementBrowserState> menuScreen;
     private AnnouncementCatalog.Snapshot boardSnapshot;
     private AnnouncementBoard board = new AnnouncementBoard(List.of());
 
-    public AnnouncementModule(JavaPlugin plugin, LanguageService languageService) {
+    public AnnouncementModule(JavaPlugin plugin, LanguageService languageService, ServerChatPublisher serverChat) {
+        this.serverChat = java.util.Objects.requireNonNull(serverChat, "serverChat");
         this.plugin = plugin;
         this.languageService = Objects.requireNonNull(languageService, "languageService");
         this.seenStore = new AnnouncementSeenStore(
@@ -69,7 +60,7 @@ public class AnnouncementModule implements Listener {
                 plugin.getDataFolder().toPath().resolve("announcements.txt"),
                 plugin.getLogger());
         this.menuScreen = new FloatingMenuScreen<>("announcements",
-                ignored -> new MenuState(0, 0, AnnouncementSlide.rest(0)), this::buildAnnouncementsMenu);
+                _ -> AnnouncementBrowserState.INITIAL, this::buildAnnouncementsMenu);
     }
 
     public void enable() {
@@ -81,6 +72,7 @@ public class AnnouncementModule implements Listener {
     public void disable() {
         ShutdownSequence shutdown = new ShutdownSequence();
         shutdown.attempt("announcement listeners", () -> HandlerList.unregisterAll(this));
+        shutdown.attempt("announcement menus", menuScreen::forgetAll);
         shutdown.attempt("announcement read positions", seenStore::save);
         shutdown.finish("announcement module");
     }
@@ -110,27 +102,12 @@ public class AnnouncementModule implements Listener {
                 .toList();
 
         if (!old.equals(announcements)) {
-            menuScreen.updateWhere(state -> true, state -> settledState(new MenuState(
-                    remapSelectedIndex(old, announcements, state.announcementIndex()),
-                    state.part(), state.slide())));
+            menuScreen.updateWhere(_ -> true, state -> state.remap(old, board()));
         }
         if (broadcastAdded && !added.isEmpty()) {
             broadcastNewAnnouncements(added);
         }
         return true;
-    }
-
-    static int remapSelectedIndex(List<Announcement> previous,
-                                  List<Announcement> current, int requestedIndex) {
-        if (previous.isEmpty() || current.isEmpty()) return 0;
-        Announcement selected = previous.get(Math.clamp(requestedIndex, 0,
-                previous.size() - 1));
-        int exact = current.indexOf(selected);
-        if (exact >= 0) return exact;
-        for (int index = 0; index < current.size(); index++) {
-            if (current.get(index).timestamp() == selected.timestamp()) return index;
-        }
-        return Math.clamp(requestedIndex, 0, current.size() - 1);
     }
 
     //  聊天消息
@@ -139,6 +116,11 @@ public class AnnouncementModule implements Listener {
      * /reloadannouncements 触发后广播给在线玩家
      */
     private void broadcastNewAnnouncements(List<Announcement> added) {
+        for (Announcement announcement : added) {
+            ChatContent preview = ChatContent.plainPreview(announcement.content());
+            if (preview.plainText().isBlank()) continue;
+            serverChat.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(preview), null, true));
+        }
         for (Player player : Bukkit.getOnlinePlayers()) {
             Component header = chatHeader(languageService.t(player, Message.ANNOUNCEMENT_UPDATED),
                     Component.text(languageService.t(player,
@@ -223,9 +205,7 @@ public class AnnouncementModule implements Listener {
      * 单条公告行：  ◆ [日期]  内容
      */
     private Component chatAnnouncementLine(Announcement a) {
-        String dateStr = java.time.Instant.ofEpochSecond(a.timestamp())
-                .atZone(ZoneId.systemDefault())
-                .format(DISPLAY_FMT);
+        String dateStr = AnnouncementReading.date(a.timestamp());
 
         return Component.text()
                 .append(Component.text("  ◆ ", NamedTextColor.GOLD))
@@ -250,9 +230,26 @@ public class AnnouncementModule implements Listener {
     //  GUI 菜单
 
     public void openAnnouncementsMenu(Player player) {
+        openAnnouncementsMenu(player, menuScreen.state(player).orElse(AnnouncementBrowserState.INITIAL).normalize(board()));
+    }
+
+    private void openAnnouncementsMenu(Player player, AnnouncementBrowserState state) {
         markSeenThroughLatest(player.getUniqueId());
         seenStore.save();
-        menuScreen.open(player);
+        menuScreen.open(player, state);
+    }
+
+    @Override public MenuPanel latestPanel(Player player) {
+        return () -> MenuScene.screen("latest-announcement").content(AnnouncementPreview.content(
+                catalog.current().announcements().stream().findFirst().orElse(null),
+                languageService.text(player, Message.ANNOUNCEMENT_LATEST, NamedTextColor.GOLD),
+                languageService.text(player, Message.ANNOUNCEMENT_VIEW_ALL, NamedTextColor.AQUA),
+                (viewer, _) -> openAnnouncementsMenu(viewer,
+                        menuScreen.state(viewer).orElse(AnnouncementBrowserState.INITIAL).latest(board())))).build();
+    }
+
+    @Override public Object revision() {
+        return catalog.current();
     }
 
     private AnnouncementBoard board() {
@@ -264,130 +261,14 @@ public class AnnouncementModule implements Listener {
         return board;
     }
 
-    private FloatingMenuDefinition buildAnnouncementsMenu(FloatingMenuContext<MenuState> context) {
+    private MenuScene buildAnnouncementsMenu(FloatingMenuContext<AnnouncementBrowserState> context) {
         Player player = context.player();
-        AnnouncementBoard board = board();
-        MenuState state = normalizeState(context.state());
-        var position = new AnnouncementBoard.Position(state.announcementIndex(), state.part());
-        boolean spatial = FloatingMenus.supportsSpatialScenes(player);
-        double typography = FloatingMenus.preferences(player).typographyFactor();
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("announcements")
-                .appearance(FloatingMenuAppearance.NO_BACKGROUNDS)
-                .framing(FloatingMenuFraming.COMFORTABLE)
-                .animation(new FloatingMenuAnimation(7, 5, 4, 0.04, 0.06, 0, 0,
-                        FloatingMenuEasing.CUBIC_OUT, FloatingMenuEasing.CUBIC_OUT))
-                .stableAnchor()
-                .layout(AnnouncementBoardLayout.create(typography));
-        if (spatial) {
-            menu.framingDecorations("wall");
-            menu.decoration(FloatingMenuDecoration.volume("wall",
-                    FloatingMenuPose.at(new FloatingMenuPoint(0, 0, -0.04)),
-                    Material.BLACK_CONCRETE.createBlockData(),
-                    (float) (AnnouncementBoardLayout.WIDTH * typography),
-                    (float) (AnnouncementBoardLayout.HEIGHT * typography), 0.025F));
-            menu.refreshEvery(1, (viewer, handle) -> {
-                if (state.slide().startedAt() != 0) {
-                    if (state.slide().moving(System.nanoTime())) context.redraw();
-                    else context.update(this::settledState);
-                } else if (FloatingMenus.preferences(viewer).typographyFactor() != typography) {
-                    context.redraw();
-                }
-            });
-        }
-        Component heading = Component.text(languageService.t(player, Message.MAIN_ANNOUNCEMENTS), NamedTextColor.GOLD);
-        if (spatial && board.size() > 1)
-            heading = heading.append(Component.newline()).append(Component.text(
-                    languageService.t(player, Message.ANNOUNCEMENT_SCROLL_HINT), NamedTextColor.GRAY));
-        menu.information("heading", heading).region("heading").textWidth(FloatingMenuTextWidth.WIDE).keepAccessible();
-        if (board.size() == 0) {
-            menu.information("empty", Component.text(languageService.t(player,
-                            Message.ANNOUNCEMENT_EMPTY), NamedTextColor.GRAY))
-                    .region("body").textWidth(FloatingMenuTextWidth.WIDE).keepAccessible();
-        } else {
-            if (spatial) {
-                for (var fragment : AnnouncementViewport.fragments(board, state.slide().position(System.nanoTime()),
-                        page -> announcementDate(page.announcement()))) {
-                    var page = board.page(fragment.page());
-                    menu.decoration(new FloatingMenuDecoration(
-                            noticeId(page.announcement(), page.announcementIndex()) + ":" + page.part() + ":" + fragment.row(),
-                            FloatingMenuPlacement.local(AnnouncementBoardLayout.fragmentPose(fragment, typography)),
-                            new FloatingMenuDecoration.Text(Component.text(fragment.text(),
-                                    fragment.row() == 0 ? NamedTextColor.AQUA : NamedTextColor.WHITE),
-                                    0, Math.max(0.25F, (fragment.width() + 4) * 0.025F), 0.25F,
-                                    AnnouncementViewport.FONT_SCALE, FloatingMenuDecoration.Alignment.LEFT, false),
-                            FloatingMenuDecoration.Motion.NONE).tracking());
-                }
-            } else {
-                var page = board.page(board.start(position));
-                String date = announcementDate(page.announcement());
-                if (page.parts() > 1) date += " · " + (page.part() + 1) + "/" + page.parts();
-                menu.information("body", Component.text(date, NamedTextColor.AQUA)
-                                .append(Component.text("\n\n"))
-                                .append(Component.text(page.text(), NamedTextColor.WHITE)))
-                        .region("body").alignment(FloatingMenuDecoration.Alignment.LEFT)
-                        .textWidth(FloatingMenuTextWidth.WIDE);
-            }
-            if (board.maximumStart() > 0) {
-                var newer = menu.navigation("newer", Component.text("‹ " + languageService.t(player,
-                                Message.ANNOUNCEMENT_NEWER), NamedTextColor.AQUA))
-                        .region("browse").keepAccessible().primary((viewer, handle) ->
-                                context.update(value -> moveBoard(value, -1, spatial)));
-                if (board.start(position) == 0) newer.disabled(Component.text(languageService.t(player,
-                        Message.ANNOUNCEMENT_FIRST_PAGE), NamedTextColor.GRAY));
-                var older = menu.navigation("older", Component.text(languageService.t(player,
-                                Message.ANNOUNCEMENT_OLDER) + " ›", NamedTextColor.AQUA))
-                        .region("browse").keepAccessible().primary((viewer, handle) ->
-                                context.update(value -> moveBoard(value, 1, spatial)));
-                if (board.start(position) == board.maximumStart()) older.disabled(Component.text(languageService.t(player,
-                        Message.ANNOUNCEMENT_LAST_PAGE), NamedTextColor.GRAY));
-                menu.on(FloatingMenuInteraction.SCROLL_UP, (viewer, handle, input) ->
-                        context.update(value -> moveBoard(value, -1, spatial)));
-                menu.on(FloatingMenuInteraction.SCROLL_DOWN, (viewer, handle, input) ->
-                        context.update(value -> moveBoard(value, 1, spatial)));
-            }
-        }
-        if (player.hasPermission("mik.command.reloadannouncements")) {
-            menu.control("reload", Component.text(languageService.t(player,
-                            Message.ANNOUNCEMENT_RELOAD), NamedTextColor.GREEN))
-                    .region("footer").textWidth(FloatingMenuTextWidth.RING)
-                    .primary((viewer, handle) -> sendReloadResult(viewer, reload()));
-        }
-        menu.dismiss(Component.text(languageService.t(player,
-                        context.canGoBack() ? Message.BACK_TO_MAIN : Message.CLOSE), NamedTextColor.RED))
-                .region("footer").textWidth(FloatingMenuTextWidth.RING).keepAccessible();
-        return menu.build();
+        return AnnouncementMenu.build(board(), context.state(), FloatingMenus.preferences(player).typographyFactor(),
+                player.hasPermission("mik.command.reloadannouncements"), context.canGoBack(),
+                (message, args) -> languageService.t(player, message, args), context::update, () -> {
+                    if (player.hasPermission("mik.command.reloadannouncements")) sendReloadResult(player, reload());
+                });
     }
-
-    private String announcementDate(Announcement announcement) {
-        return Instant.ofEpochSecond(announcement.timestamp())
-                .atZone(ZoneId.systemDefault()).format(DISPLAY_FMT);
-    }
-
-    private static String noticeId(Announcement announcement, int index) {
-        return "notice:" + announcement.timestamp() + ":" + index;
-    }
-
-    private MenuState normalizeState(MenuState requested) {
-        var position = board().normalize(new AnnouncementBoard.Position(requested.announcementIndex(), requested.part()));
-        int target = board().start(position);
-        AnnouncementSlide slide = requested.slide().target() == target ? requested.slide() : AnnouncementSlide.rest(target);
-        return new MenuState(position.announcementIndex(), position.part(), slide);
-    }
-
-    private MenuState settledState(MenuState requested) {
-        MenuState state = normalizeState(requested);
-        return new MenuState(state.announcementIndex(), state.part(), AnnouncementSlide.rest(state.slide().target()));
-    }
-
-    private MenuState moveBoard(MenuState requested, int direction, boolean spatial) {
-        MenuState state = normalizeState(requested);
-        var position = board().move(new AnnouncementBoard.Position(state.announcementIndex(), state.part()), direction);
-        int target = board().start(position);
-        AnnouncementSlide slide = spatial ? state.slide().move(target, System.nanoTime()) : AnnouncementSlide.rest(target);
-        return new MenuState(position.announcementIndex(), position.part(), slide);
-    }
-
-    private record MenuState(int announcementIndex, int part, AnnouncementSlide slide) { }
 
     private long latestAnnouncementTimestamp() {
         return catalog.current().announcements().stream()

@@ -33,6 +33,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -63,7 +64,7 @@ class AiSocialCommandTest {
         assertEquals("Alice", request.requesterName());
         assertEquals("ja_jp", request.language());
         assertEquals(Optional.of(playerId), request.playerId());
-        assertEquals(List.of("model answer"), document.untrustedText());
+        assertEquals(REQUIRED, document.moderation());
         assertEquals(Language.JA_JP, document.language());
     }
 
@@ -129,7 +130,7 @@ class AiSocialCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 eventId, new SocialConversation("shared-room", SocialConversation.Type.GROUP),
                 Optional.of(identity), "/ai " + argument, false,
-                ignored -> CompletableFuture.completedFuture(null));
+                _ -> CompletableFuture.completedFuture(null));
         SocialCommandInput input = new SocialCommandInput(
                 "ai", argument, SocialCommandInput.InvocationType.EXPLICIT_TEXT,
                 Map.of(), Optional.of(language));

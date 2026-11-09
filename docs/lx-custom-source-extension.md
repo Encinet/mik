@@ -1,7 +1,7 @@
 # MIK LX custom-source extension
 
 MIK accepts trusted LX Music custom-source JavaScript files from
-`plugins/mik/lxmusic/local`. Local scripts are loaded recursively in
+`plugins/mik/music/sources/local`. Local scripts are loaded recursively in
 relative-path order; numeric filename prefixes can define fallback priority.
 The official LX `musicUrl` action remains the minimum playback capability.
 MIK also supports these optional actions:
@@ -33,9 +33,10 @@ request/response sizes; each script can have at most 16 concurrent HTTP requests
 Three consecutive failures open the circuit for 60 seconds.
 Install only sources you trust because a source can make outbound HTTP requests.
 
-There is no user-editable music-specific configuration file. Run `/music reload`
-after changing local scripts and `/music sources` to inspect capabilities,
-health, failures, retry time, and imported subscription status.
+Music startup settings live in `plugins/mik/music/settings.yml`; see
+[Music files and configuration](music-storage.md). Run `/music reload` after
+changing local scripts and `/music sources` to inspect capabilities, health,
+failures, retry time, and imported subscription status.
 
 ## URL imports
 
@@ -51,30 +52,32 @@ it. The script is copied into a managed snapshot; a `file://` source is never
 executed directly from its original location.
 
 ```text
-plugins/mik/lxmusic/
+plugins/mik/music/sources/
 ├── local/
 │   └── administrator-managed.js
-└── remote/
-    ├── sources.json
-    └── remote-<URL SHA-256 prefix>.js
+├── managed/
+│   └── remote-<URL SHA-256 prefix>.js
+└── subscriptions.json
 ```
 
-`remote/sources.json` is an internal subscription registry, not a music
-configuration file. MIK owns it and the hash-named files in `remote`. Scripts
-placed in the `lxmusic` root or manually copied into `remote` are not loaded.
+`subscriptions.json` is an internal subscription registry. MIK owns it and the
+hash-named files in `managed`. Keep both when backing up music sources: managed
+scripts are retained working snapshots. Scripts placed in the `sources` root or
+unregistered files manually copied into `managed` are not loaded.
 
 Imported HTTP(S) and `file://` sources are checked at startup, by `/music reload`,
-by `/music sources update`, and automatically every six hours. HTTP(S) updates
+by `/music sources update`, and periodically according to
+`settings.yml` (`sources.refresh-interval-minutes`, six hours by default;
+`0` disables periodic checks). HTTP(S) updates
 use `If-None-Match` and `If-Modified-Since` where available. Downloads are limited
 to 2 MiB and 20 seconds. A changed script is validated before an atomic snapshot
 replacement, and LX runtimes are reloaded only when content changes. Failed
 downloads and invalid updates retain the last working snapshot and expose the
 error through `/music sources`.
 
-Use `/music sources remove <remote-id>` to remove a managed subscription and its
-snapshot. This command cannot remove files from `local` or the original target
-of a `file://` URL. Install or import only trusted sources because source scripts
-can make outbound requests.
+Install or import only trusted sources because source scripts can make outbound
+requests. A managed snapshot is independent of the original `file://` target;
+updates replace only the managed copy.
 
 Declare supported actions on each music source:
 

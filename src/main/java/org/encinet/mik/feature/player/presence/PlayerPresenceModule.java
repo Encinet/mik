@@ -90,7 +90,7 @@ public final class PlayerPresenceModule implements Listener {
 
             Language language = languageService.language(recipient);
             Optional<Component> message = localizedMessages.computeIfAbsent(language,
-                    ignored -> randomEasterEgg(subject, language, templates));
+                    _ -> randomEasterEgg(subject, language, templates));
             message.ifPresentOrElse(recipient::sendMessage, () -> {
                 if (original != null) {
                     recipient.sendMessage(original);
@@ -100,7 +100,7 @@ public final class PlayerPresenceModule implements Listener {
 
         Optional<Component> consoleMessage = localizedMessages.computeIfAbsent(
                 Language.DEFAULT,
-                ignored -> randomEasterEgg(subject, Language.DEFAULT, templates));
+                _ -> randomEasterEgg(subject, Language.DEFAULT, templates));
         consoleMessage.ifPresentOrElse(Bukkit.getConsoleSender()::sendMessage, () -> {
             if (original != null) {
                 Bukkit.getConsoleSender().sendMessage(original);

@@ -14,52 +14,11 @@
 
 back = 뒤로
 back-to-main = 메인 메뉴로
+cancel = 취소
 click-open = 클릭하여 열기
 close = 닫기
 current-off = 현재: 꺼짐
 current-on = 현재: 켜짐
-password-already-connected = 이미 접속 중인 계정입니다.
-password-already-set = 이미 비밀번호가 설정되어 있습니다. /password change로 변경하세요.
-password-busy = 시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.
-password-change = 비밀번호 변경
-password-change-done = 비밀번호를 변경했습니다.
-password-checking = 계정 보안 확인 중…
-password-command-description = 계정 비밀번호 보호 관리
-password-confirm = 새 비밀번호 확인
-password-conflict = 계정 보안 상태가 변경되었습니다. 작업을 다시 시도하세요.
-password-cooldown = 계정 인증이 일시적으로 제한되었습니다. { $arg0 }초 후에 다시 시도하세요.
-password-current = 현재 비밀번호
-password-denied = 이 계정의 비밀번호를 초기화할 권한이 없습니다.
-password-disabled = 비밀번호: 미설정
-password-enabled = 비밀번호: 설정됨
-password-invalid = 비밀번호가 틀렸습니다. 다시 시도하세요.
-password-keep-role = 관리자와 유지관리자는 비밀번호를 제거할 수 없습니다.
-password-login = 로그인
-password-login-expired = 로그인 인증이 만료되었습니다. 서버에 다시 접속하세요.
-password-login-hint = 이 서버의 비밀번호를 입력하세요. 잊었다면 관리자에게 초기화를 요청하세요.
-password-mismatch = 새 비밀번호가 일치하지 않습니다.
-password-new = 새 비밀번호
-password-nomination-required = 관리자 신청 전에 계정 비밀번호를 설정하세요: /password set
-password-not-set = 비밀번호가 설정되지 않았습니다. /password set으로 설정하세요.
-password-remove = 비밀번호 제거
-password-remove-done = 비밀번호를 제거했습니다.
-password-remove-question = 제거하면 로그인 시 비밀번호를 확인하지 않습니다. 현재 비밀번호를 입력해 확인하세요.
-password-required-application = 관리자 신청 또는 임명이 진행 중일 때는 비밀번호를 제거할 수 없습니다.
-password-required-role = 관리자와 유지관리자 계정에는 비밀번호가 필요합니다. 권한이 있는 담당자에게 초기화를 요청한 뒤 로그인하세요.
-password-reset = 비밀번호 초기화
-password-reset-console = { $arg0 } 계정의 비밀번호를 초기화했습니다: { $arg1 }. 본인 확인 후 신뢰할 수 있는 경로로 전달하세요.
-password-reset-done = { $arg0 } 계정의 비밀번호를 초기화했습니다. 지금 복사하고 본인 확인 후 전달하세요. 다시 볼 수 없습니다.
-password-reset-question = { $arg0 } 계정의 비밀번호를 초기화할까요? 이전 비밀번호는 무효가 되고 접속이 종료됩니다. 본인의 비밀번호로 확인하세요.
-password-retry = 다시 시도
-password-rules = { $arg0 }~{ $arg1 }자로 입력하세요. 플레이어 이름과 흔한 비밀번호는 사용할 수 없습니다.
-password-set = 비밀번호 설정
-password-set-done = 비밀번호를 설정했습니다.
-password-set-first = 비밀번호 설정 후 신청
-password-storage = 계정 보안 서비스를 사용할 수 없습니다. 나중에 다시 시도하거나 서버 소유자에게 문의하세요.
-password-timeout = 비밀번호 인증이 취소되었거나 시간이 초과되었습니다. 다시 접속하세요.
-password-tip-set-mm = <gold><u>/password</u></gold>로 <yellow>로그인 비밀번호</yellow>를 설정해 계정을 보호하세요.
-password-title = 계정 보안
-
 player-only = 이 명령어는 플레이어만 사용할 수 있습니다
 unknown = 알 수 없음
 usage = 사용법
@@ -79,27 +38,61 @@ time-minutes = { $arg0 }분
 
 ## Shared · Menu presentation
 
-bedrock-menu-back = 뒤로
-bedrock-menu-hotkey = 단축 동작 (F)
-bedrock-menu-primary = 기본 동작
-bedrock-menu-scroll-down = 아래로
-bedrock-menu-scroll-up = 위로
-bedrock-menu-secondary = 보조 동작
 interface-fov-apply = FOV 적용
-interface-fov-custom = 정확한 값 입력
-interface-fov-description = 클라이언트 FOV에 맞추세요. 메뉴 위치만 변경합니다. 기본값: 70°.
+interface-fov-custom = 직접 설정
+interface-fov-description = 게임 설정의 FOV를 입력해 메뉴 위치를 맞춥니다.
 interface-fov-input = 클라이언트 FOV: 30~110 정수
 interface-fov-invalid = 30~110 사이의 정수를 입력하세요.
-interface-fov-title = 시야 맞춤 (FOV)
-interface-scale-current = 현재: { $arg0 }
-interface-scale-description = 글자 크기는 메뉴 크기에 곱해집니다. 두 그룹 모두 휠로 조절 가능.
+interface-fov-title = 시야각 (FOV)
+interface-reduced-motion = 동작 줄이기
+interface-reduced-motion-hint = 메뉴의 이동과 흔들림을 줄입니다.
+interface-scale-adjust-hint = 비율 항목을 가리키고 휠로 조절하세요.
 interface-scale-layout-title = 메뉴 크기
 interface-scale-menu-title = 메뉴와 글자
-interface-scale-native-hint = 이 설정은 Java 공간 메뉴에 적용됩니다. 기본 폼의 글자 크기는 클라이언트 설정을 따릅니다.
-interface-scale-preview = 글자 미리보기 Aa 123
-interface-scale-reset = 둘 다 100%로 초기화
+interface-scale-preview = 예시 Aa 123
+interface-scale-reset = 100%로 초기화
 interface-scale-text-title = 글자 크기
+interface-theme-apply = 색상 저장
+interface-theme-charcoal = 차콜
+interface-theme-color = 색상 (#RRGGBB)
+interface-theme-custom = 사용자 지정
+interface-theme-custom-hint = 현재 테마의 모든 값을 독립적인 사용자 테마로 복사합니다.
+interface-theme-edit = 색상 편집
+interface-theme-forest = 숲
+interface-theme-hint = 내 메뉴에만 즉시 적용됩니다.
+interface-theme-invalid = #RRGGBB 색상과 0~100의 불투명도를 입력하세요.
+interface-theme-opacity = 불투명도 (0~100%)
+interface-theme-role-accent = 강조 색상
+interface-theme-role-button = 버튼 배경
+interface-theme-role-button-disabled = 비활성 버튼
+interface-theme-role-button-hovered = 가리킨 버튼
+interface-theme-role-button-pressed = 누른 버튼
+interface-theme-role-button-selected = 선택한 버튼
+interface-theme-role-input = 입력란 배경
+interface-theme-role-sidebar = 사이드바 배경
+interface-theme-role-toolbar = 도구 모음 배경
+interface-theme-role-tooltip = 도움말 배경
+interface-theme-role-window = 창 배경
+interface-theme-title = 메뉴 테마
+interface-theme-warm = 웜
+menu-collapse = 접기
+menu-expand = 펼치기
+menu-finish-editing = 먼저 편집을 완료하세요.
+menu-input-clear = 비우기
+menu-input-done = 완료
+menu-input-empty = (비어 있음)
+menu-input-single-line = 이 필드는 한 줄만 입력할 수 있습니다.
+menu-input-too-long = 길이: { $arg0 } / { $arg1 }. 내용을 줄인 뒤 확인하세요.
+menu-query-cancel = 입력 취소
+menu-query-hint-rich = { $chatKey } 키로 입력…
+menu-query-single-line = 한 줄만 입력할 수 있습니다. 입력란을 눌러 다시 시도하세요.
+menu-query-too-long = 길이 { $arg0 } / { $arg1 }. 입력란을 눌러 다시 시도하세요.
 menu-rhythm-game-display = 리듬 게임 중
+menu-search-empty = 검색 결과 없음
+menu-search-failed = 검색 실패
+menu-search-limit = { $arg0 } / { $arg1 } 표시 중. 검색 범위를 좁혀 주세요.
+menu-search-loading = 검색 중…
+menu-search-retry = 다시 시도
 menu-usage-display-mm = <aqua><bold>메뉴 사용 중</bold></aqua>
 url-dialog-confirm = 열기
 url-dialog-hint = 클라이언트에서 링크 열기를 한 번 더 확인해야 합니다.
@@ -110,20 +103,21 @@ url-dialog-title = { $arg0 } 열기
 
 client-mods-undetected-rich = 추천 모드: { $mods }. 이름을 클릭해 다운로드하세요.
 client-tip-axiom-flight-speed-mm = <white><yellow>왼쪽 Alt</yellow>를 길게 눌러 <aqua>Axiom</aqua> 메뉴를 열고 오른쪽 세로 슬라이더를 드래그해 비행 속도를 조절하세요. <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click> 명령어로도 조절할 수 있습니다.</white>
-client-tip-axiom-intro-rich = { $mod }은 건축 보조 모드로, 설계도 복사·붙여넣기, 지형과 디스플레이 엔티티 편집, 블록 업데이트 없는 배치, 벽 통과, 여러 단축바 저장을 지원합니다. 이름을 클릭해 다운로드하세요.
-client-tip-voxy-intro-rich = { $mod }는 적은 자원으로 더 먼 풍경을 보여줍니다. 저사양부터 고사양 PC까지 사용해 볼 만합니다. 이름을 클릭해 다운로드하세요.
+client-tip-axiom-intro-rich = { $mod }으로 건축물을 복사해 붙여넣고, 지형과 디스플레이 엔티티를 편집할 수 있습니다. 이름을 클릭하면 다운로드할 수 있습니다.
 client-version-behind-mm = <white>클라이언트 <yellow>{ $clientVersion }</yellow>은 서버 <green>{ $serverVersion }</green>보다 오래된 버전입니다. 업데이트를 권장합니다.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>근처 플레이어 <gold>{ $count }</gold>명이 <gold>투명 상태</gold>입니다</yellow> <gray>·</gray> <gray>가장 가까운 플레이어 약 { $distance }블록</gray>
 player-bedrock-label = 베드락
+player-web-label = 웹
 presence-join-templates =
-    .item-1 = { $player } 님이 뒷문으로 몰래 들어왔습니다
-    .item-2 = { $player } 님이 비밀 통로를 찾아냈습니다
-    .item-3 = { $player } 님이 풀숲에서 나타났습니다
+    .item-1 = 딩동! { $player } 님이 접속했어요!
+    .item-2 = 와, { $player } 님이다!
+    .item-3 = 어서 와요, { $player } 님!
+# Broadcast to remaining players; the departing player does not receive this message.
 presence-quit-templates =
-    .item-1 = { $player } 님이 조용히 사라졌습니다
-    .item-2 = { $player } 님이 저장하러 갔습니다
-    .item-3 = { $player } 님이 현실의 호출을 받았습니다
+    .item-1 = { $player } 님이 접속을 종료했어요~
+    .item-2 = 딩동! { $player } 님이 오프라인이에요
+    .item-3 = 접속 인원 -1. { $player } 님이 접속을 종료했어요
 welcome-first-join-mm = <gold><bold>MIK에 오신 것을 환영합니다!</bold></gold><newline><gray>먼저 <click:open_url:'https://mcmik.top'><yellow>웹사이트</yellow></click>와 <click:open_url:'https://mcmik.top/wiki'><yellow>위키</yellow></click>를 확인해 보세요. <yellow>/menu</yellow> 명령어로 메인 메뉴를 열 수도 있습니다.</gray>
 welcome-return-mm = <gold><bold>다시 오신 것을 환영합니다!</bold></gold><newline><gray>마지막 접속은 <yellow>{ $arg0 }일 전</yellow>입니다. <yellow>/menu</yellow> 명령어로 자주 쓰는 기능을 빠르게 찾아보세요.</gray>
 
@@ -166,26 +160,83 @@ player-association-time-occurrences = { $arg0 }({ $arg1 }건)
 player-association-time-separator = ,
 player-association-time-today = 오늘
 
+
+## Player · Account security
+password-already-connected = 이미 접속 중인 계정입니다.
+password-already-set = 이미 비밀번호가 설정되어 있습니다. /password change로 변경하세요.
+password-busy = 시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.
+password-change = 비밀번호 변경
+password-change-done = 비밀번호를 변경했습니다.
+password-checking = 계정 보안 확인 중…
+password-command-description = 계정 비밀번호 보호 관리
+password-confirm = 새 비밀번호 확인
+password-conflict = 계정 보안 상태가 변경되었습니다. 작업을 다시 시도하세요.
+password-cooldown = 계정 인증이 일시적으로 제한되었습니다. { $arg0 }초 후에 다시 시도하세요.
+password-current = 현재 비밀번호
+password-denied = 이 계정의 비밀번호를 초기화할 권한이 없습니다.
+password-disabled = 비밀번호: 미설정
+password-enabled = 비밀번호: 설정됨
+password-invalid = 비밀번호가 틀렸습니다. 다시 시도하세요.
+password-keep-role = 관리자와 유지관리자는 비밀번호를 제거할 수 없습니다.
+password-login = 로그인
+password-login-expired = 로그인 인증이 만료되었습니다. 서버에 다시 접속하세요.
+password-login-hint = 이 서버의 비밀번호를 입력하세요. 잊었다면 관리자에게 초기화를 요청하세요.
+password-mismatch = 새 비밀번호가 일치하지 않습니다.
+password-new = 새 비밀번호
+password-nomination-required = 관리자 신청 전에 계정 비밀번호를 설정하세요: /password set
+password-not-set = 비밀번호가 설정되지 않았습니다. /password set으로 설정하세요.
+password-remove = 비밀번호 제거
+password-remove-done = 비밀번호를 제거했습니다.
+password-remove-question = 제거하면 로그인 시 비밀번호를 확인하지 않습니다. 현재 비밀번호를 입력해 확인하세요.
+password-required-application = 관리자 신청 또는 임명이 진행 중일 때는 비밀번호를 제거할 수 없습니다.
+password-required-role = 관리자와 유지관리자 계정에는 비밀번호가 필요합니다. 권한이 있는 담당자에게 초기화를 요청한 뒤 로그인하세요.
+password-reset = 비밀번호 초기화
+password-reset-console = { $arg0 } 계정의 비밀번호를 초기화했습니다: { $arg1 }. 본인 확인 후 신뢰할 수 있는 경로로 전달하세요.
+password-reset-done = { $arg0 } 계정의 비밀번호를 초기화했습니다. 지금 복사하고 본인 확인 후 전달하세요. 다시 볼 수 없습니다.
+password-reset-question = { $arg0 } 계정의 비밀번호를 초기화할까요? 이전 비밀번호는 무효가 되고 접속이 종료됩니다. 본인의 비밀번호로 확인하세요.
+password-retry = 다시 시도
+password-rules = { $arg0 }~{ $arg1 }자로 입력하세요. 플레이어 이름과 흔한 비밀번호는 사용할 수 없습니다.
+password-set = 비밀번호 설정
+password-set-done = 비밀번호를 설정했습니다.
+password-set-first = 비밀번호 설정 후 신청
+password-storage = 계정 보안 서비스를 사용할 수 없습니다. 나중에 다시 시도하거나 서버 소유자에게 문의하세요.
+password-timeout = 비밀번호 인증이 취소되었거나 시간이 초과되었습니다. 다시 접속하세요.
+password-tip-set-mm = <gold><u>/password</u></gold>로 <yellow>로그인 비밀번호</yellow>를 설정해 계정을 보호하세요.
+password-title = 계정 보안
+
 ## Player · Profile and tab list
 
-nametag-clear-all-error = 이름표를 모두 초기화하지 못했습니다. 나중에 다시 시도해 주세요
-nametag-clear-all-success = ✔ 이름표를 모두 초기화했습니다
-nametag-clear-error = { $arg0 } 초기화 중 오류가 발생했습니다
-nametag-clear-success = ✔ { $arg0 } 초기화 완료
-nametag-click-fill-command = 클릭하여 명령어 입력
+nametag-cancel = 취소
+nametag-clear = 비우기
+nametag-clear-hint = 사용자 지정 값만 삭제하며 상속된 장식은 남을 수 있습니다.
 nametag-command-description = 이름표 꾸미기
-nametag-copy-hover = MiniMessage 원본을 클립보드에 복사
+nametag-confirm = 확인
+nametag-conflict = 현재 값이 변경되었습니다. 현재 표시를 비교한 뒤 바꾸려면 다시 확인하세요.
+nametag-copy-hint = 접두사와 접미사 원문을 채팅으로 보내기
 nametag-copy-label = [복사]
-nametag-effect-label = 결과
-nametag-empty-content-rich = 내용을 비워 둘 수 없습니다. 초기화 명령: { $command }
-nametag-format-docs = 서식 문서
+nametag-copy-sent = { $arg0 }의 스타일 원문을 채팅으로 보냈습니다.
+nametag-current = 현재 표시
+nametag-edit = 편집
+nametag-edit-ended = 편집이 종료되었습니다. 계속하려면 편집을 다시 선택하세요.
+nametag-edit-prompt = T를 눌러 { $arg0 } 입력 (MiniMessage, 나에게만 표시).
+nametag-finish-field = 먼저 편집 중인 항목을 확인하거나 취소하세요.
+nametag-input-invalid = 잘못된 형식입니다. 한 줄의 MiniMessage를 보내거나 비우기를 선택하세요.
 nametag-leading-label = 이름 앞부분
-nametag-no-permission = 이 명령어를 사용할 권한이 없습니다
-nametag-online-editor = 온라인 편집기
+nametag-mine = 내 이름표
+nametag-next = 다음
+nametag-no-changes = 변경 사항 없음
+nametag-no-permission = 정식 멤버 이상이 이름표를 편집할 수 있습니다. 스타일 확인은 계속 가능합니다.
+nametag-no-players = 이름표 스타일을 설정한 플레이어가 없습니다
+nametag-page = { $arg0 } / { $arg1 } 페이지
+nametag-players = 플레이어 스타일
 nametag-preview-label = 미리 보기
-nametag-sample-message = 예시 메시지
-nametag-set-error = { $arg0 } 설정 중 오류가 발생했습니다. 나중에 다시 시도해 주세요
+nametag-previous = 이전
+nametag-refresh = 새로고침
+nametag-saving = 저장 중…
+nametag-set-error = 저장하지 못했습니다: { $arg0 }. 다시 시도하세요. 현재 표시는 위에서 확인할 수 있습니다.
 nametag-set-success = ✔ { $arg0 } 설정 완료
+nametag-styles-failed = 스타일을 불러오지 못했습니다. 새로고침하여 다시 시도하세요.
+nametag-styles-loading = 플레이어 스타일 불러오는 중…
 nametag-tip-customize-mm = <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> 명령어로 <light_purple>이름 접두사와 접미사</light_purple>를 꾸며 보세요.
 nametag-title = 이름표
 nametag-too-long = 입력값이 너무 깁니다: { $arg0 }. 최대 { $arg1 }자까지 입력할 수 있습니다.
@@ -220,6 +271,7 @@ fly-enabled = 비행을 켰습니다
 fly-native-mode = /fly 권한을 껐습니다. 현재 게임 모드에서는 계속 비행할 수 있습니다.
 fly-speed-click = 비행 속도를 { $arg0 }x로 설정
 fly-speed-current = 비행 속도: { $arg0 }x
+fly-speed-limited = 탐험 부하로 비행 속도가 일시적으로 { $arg0 }x로 제한됩니다. 설정한 속도는 { $arg1 }x로 유지됩니다.
 fly-speed-presets = 빠른 설정
 fly-speed-reset = 비행 속도를 1x로 초기화했습니다
 fly-speed-reset-action = 초기화
@@ -228,10 +280,8 @@ fly-speed-set = 비행 속도를 { $arg0 }x로 설정했습니다
 fly-state-disabled = 꺼짐
 fly-state-enabled = 켜짐
 fly-status = 비행: { $arg0 } | 속도: { $arg1 }x
-flyspeed-command-description = 개인 비행 속도 확인 또는 설정
 home-action-create = 집 만들기
 home-action-delete = 집 삭제
-home-action-icon = 손에 든 아이템을 아이콘으로
 home-action-teleport = 순간이동
 home-action-update = 위치 업데이트
 home-already-exists = 같은 이름의 집이 이미 있습니다
@@ -249,11 +299,6 @@ home-distance-blocks = { $arg0 }블록
 home-distance-other-world = 다른 세계
 home-empty-description = 홈으로 저장할 위치에 서세요
 home-empty-title = 설정한 홈 없음
-home-icon = 아이콘: { $arg0 }{ $arg1 }
-home-icon-default-note = · 기본
-home-icon-hand-invalid = 주로 사용하는 손의 아이템은 홈 아이콘으로 사용할 수 없습니다
-home-icon-updated-rich = 홈 { $home }의 아이콘을 변경했습니다
-home-invalid-icon = 이 재료는 홈 아이콘으로 사용할 수 없습니다
 home-invalid-name = 홈 이름에는 < > : 문자를 사용할 수 없습니다
 home-list-rich = 홈: { $homes }
 home-location = 위치: { $arg0 }, { $arg1 }, { $arg2 }
@@ -262,20 +307,20 @@ home-max-reached = 홈은 최대 { $arg0 }개까지 설정할 수 있습니다
 home-menu-title = 홈
 home-no-homes = 설정한 홈이 없습니다
 home-not-found-rich = 해당 홈을 찾을 수 없습니다: { $home }
+home-search-placeholder = 집 이름 검색…
+home-search-empty = 일치하는 홈 없음
 home-set-command-description = 현재 위치에 홈 설정
 home-set-rich = 홈 설정 완료: { $home }
 home-set-usage-desc = 현재 위치에 홈 설정
 home-summary-count = 설정됨: { $arg0 } / { $arg1 }
-home-teleport-command-description = 홈으로 순간이동
 home-teleport-failed = 순간이동에 실패했습니다. 다시 시도해 주세요
 home-teleported-rich = 홈으로 순간이동했습니다: { $home }
 home-tip-create-mm = <green><u><click:suggest_command:'/sethome '>/sethome 이름</click></u></green>으로 현재 위치를 저장하고 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>으로 돌아오세요.
-home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>으로 집 메뉴를 열고 이동할 집을 선택하세요.
+home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>으로 집 메뉴를 열고 집을 선택한 다음 ‘{ home-action-teleport }’를 누르세요.
 home-updated-rich = 홈 { $home }의 위치를 변경했습니다
 home-usage-book = 명령어 도움말
 home-usage-delhome = /delhome <name>  홈 삭제
-home-usage-home = /home tp <name>  바로 순간이동
-home-usage-icon = /home icon <material> <name>  아이콘 설정
+home-usage-home = /home <name>  바로 순간이동
 home-usage-name-rule = 홈 이름에 사용할 수 없는 문자: < > :
 home-usage-sethome = /sethome <name>  현재 위치 저장
 home-world = 세계: { $arg0 }
@@ -303,10 +348,6 @@ teleport-request-none = 대기 중인 순간이동 요청이 없습니다
 teleport-request-received = { $sender }님이 나를 순간이동시키려 합니다: { $command }
 teleport-request-rejected = 순간이동 요청을 거부했습니다
 teleport-request-sent = { $player }님에게 순간이동 요청을 보냈습니다
-teleport-summary-afk = 항상 허용, AFK 중에는 거부
-teleport-summary-allow = 다른 플레이어의 순간이동을 항상 허용
-teleport-summary-consent = 다른 플레이어의 순간이동에는 내 승인이 필요
-teleport-summary-deny = 다른 플레이어의 순간이동을 항상 거부
 tpany-command-description = 온라인 또는 오프라인 플레이어의 위치로 순간이동
 tpany-done-offline-rich = { $player }님의 마지막 확인 위치로 순간이동했습니다 { $world } { $location }
 tpany-done-online-rich = { $player }님의 현재 위치로 순간이동했습니다
@@ -317,14 +358,13 @@ tpany-usage-desc = 오프라인 위치 기록을 포함한 플레이어 위치�
 
 ## Player · PVP
 
-pvp-admin-menu-title = PvP 관리 - { $arg0 }/{ $arg1 }페이지
+pvp-admin-menu-title = PvP 관리
 pvp-allow-mounted-damage = 탑승 중인 몹 공격 허용
 pvp-allow-mounted-damage-desc = 두 플레이어 모두 PvP를 켰을 때 다른 플레이어가 내가 타고 있는 몹을 공격할 수 있음
 pvp-auto-enable-desc = PvP를 켠 플레이어를 두 번 연속 공격
 pvp-auto-enable-label = 자동 활성화
 pvp-auto-enable-warning-actionbar-mm = <yellow>한 번 더 공격하면 PvP가 자동으로 켜집니다</yellow>
 pvp-auto-enabled-actionbar-mm = <green>PvP가 자동으로 켜졌습니다</green>
-pvp-back-admin = PvP 관리로 돌아가기
 pvp-combat-locked-mm = <red>전투 중에는 PvP를 끌 수 없습니다</red> <dark_gray>|</dark_gray> <gray>남은 시간: <yellow>{ $arg0 }</yellow>초</gray>
 pvp-combat-tag-label = 전투 대기 시간
 pvp-combat-tag-value = { $arg0 }초
@@ -345,12 +385,12 @@ pvp-menu-title = PvP 설정
 pvp-mob-protected-actionbar-mm = <yellow>이 몹은 PvP 피해로부터 보호됩니다</yellow>
 pvp-mob-protection-label = 몹 보호
 pvp-mounted-damage-label = 탑승 중인 몹 피해
-pvp-next-page = 다음 페이지
 pvp-no-permission-mm = <red>다른 플레이어의 PvP 상태를 관리할 권한이 없습니다</red>
 pvp-player-not-found-mm = <red>접속 중인 플레이어를 찾을 수 없습니다</red>
-pvp-prev-page = 이전 페이지
 pvp-protect-mobs = 내 몹 보호
 pvp-protect-mobs-desc = 길들였거나 타고 있는 몹 보호
+pvp-quick-combat-cooldown = 전투 대기 시간: { $arg0 }초 남음
+pvp-quick-override = 임시 규칙이 PvP를 제어합니다. 개인 설정은 설정 화면에서 변경할 수 있습니다.
 pvp-set-by-staff-mm = <aqua>스태프가 내 PvP 상태를 다음으로 설정했습니다:</aqua> <yellow>{ $arg0 }</yellow>
 pvp-set-other = { $arg0 } 님의 PvP 설정 변경 완료: { $arg1 }
 pvp-set-other-rich = { $player } 님의 PvP 설정 변경 완료: { $state }
@@ -406,7 +446,7 @@ trash-title = 휴지통
 hat-command-description = 주로 사용하는 손의 아이템을 머리에 쓰기
 hat-empty-hand-mm = <red>주로 사용하는 손에 아이템이 없습니다</red> <gray>블록이나 아이템을 든 다음 /hat 명령어를 사용하세요</gray>
 hat-success-mm = <green>주로 사용하는 손의 아이템을 착용했습니다</green> <dark_gray>|</dark_gray> <gray>손과 투구 슬롯의 아이템을 맞바꿨습니다</gray>
-hat-tip-wear-mm = <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> 명령어로 <yellow>주 손의 아이템</yellow>을 머리에 쓰세요.
+hat-tip-wear-mm = <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> 명령어로 <yellow>주 손에 든 아이템</yellow>을 머리에 쓰세요.
 removeitems-command-description = 떨어진 아이템 제거
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = 월드 { $world }에서 { $count }개의 떨어진 아이템 제거 완료 { $location } { $radius }
@@ -418,21 +458,21 @@ self-kick-reason-too-long = 추방 이유는 { $arg0 }자를 초과할 수 없�
 # $person: second for the actor; third for other viewers and console.
 self-kick-with-reason = { $person ->
         [second] 직접 요청하여 서버에서 나갔습니다. 이유: { $reason }
-       *[third] { $player }님이 다음 이유로 자신을 서버에서 추방했습니다: { $reason }
+       *[third] { $player } 님이 직접 요청하여 서버에서 나갔습니다. 이유: { $reason }
     }
-    .item-1 = { $player }님이 자신을 추방했습니다. 놀랍게도 이유는: { $reason }
-    .item-2 = { $player }님이 { $reason } 때문에 정말로 자신을 추방했습니다!
-    .item-3 = { $player }님이 자진해서 서버를 떠나며 이렇게 남겼습니다: { $reason }
-    .item-4 = { $player }님이 셀프 킥을 선택했습니다: { $reason }
+    .item-1 = { $player } 님이 직접 요청하여 서버에서 나갔습니다. 이유: { $reason }
+    .item-2 = { $player } 님이 접속을 종료했습니다. 메시지: { $reason }
+    .item-3 = { $player } 님이 서버에서 나갔습니다. 메시지: { $reason }
+    .item-4 = { $player } 님이 나가며 메모를 남겼습니다: { $reason }
 # $person: second for the actor; third for other viewers and console.
 self-kick-without-reason = { $person ->
         [second] 직접 요청하여 서버에서 나갔습니다.
-       *[third] { $player }님이 자신을 서버에서 추방했습니다.
+       *[third] { $player } 님이 직접 요청하여 서버에서 나갔습니다.
     }
-    .item-1 = { $player }님이 정말로 자신을 추방해 버렸습니다!
-    .item-2 = { $player }님이 아무 말 없이 서버를 떠났습니다.
-    .item-3 = { $player }님이 완벽한 셀프 킥을 선보였습니다.
-    .item-4 = { $player }님이 직접 서버 나가기 버튼을 눌렀습니다.
+    .item-1 = { $player } 님이 직접 요청하여 서버에서 나갔습니다.
+    .item-2 = { $player } 님이 접속을 종료했어요~
+    .item-3 = 딩동! { $player } 님이 오프라인이에요
+    .item-4 = 접속 인원 -1. { $player } 님이 접속을 종료했어요
 
 ## Community · Chat and mentions
 
@@ -456,7 +496,7 @@ chat-private-label = MSG
 chat-private-no-reply-target = 최근 개인 채팅 상대가 접속 중이 아닙니다
 chat-private-self = 자신과 개인 채팅을 시작할 수 없습니다
 chat-private-target-not-found = 접속 중인 플레이어를 찾을 수 없습니다: { $arg0 }
-chat-private-target-offline = 개인 채팅 상대가 오프라인 상태여서 공개 채팅으로 돌아왔습니다
+chat-private-target-offline = 상대방이 오프라인입니다. 접속을 기다리거나 다른 채널을 선택하세요
 chat-private-tip-channel-mm = <aqua><u><click:suggest_command:'/msg '>/msg 플레이어</click></u></aqua>로 귓속말 채널에 들어가고, <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow>으로 공개 채팅으로 돌아오세요.
 chat-public-command-description = 공개 채팅 채널 전환
 chat-public-enter = 공개 채팅으로 전환했습니다
@@ -467,6 +507,7 @@ chat-social-bound-player-label = 연결된 플레이어
 chat-social-name-label = 소셜 이름
 chat-social-unbound = Minecraft 플레이어와 연결되지 않음
 chat-staff-command-description = 스태프 채팅 채널 전환
+chat-staff-label = 스태프
 chat-staff-permission-missing = 스태프 채팅 권한이 없어 공개 채팅으로 돌아왔습니다
 mention-action-bar = 액션바 알림
 mention-action-bar-text = { $sender }님이 나를 멘션했습니다
@@ -474,28 +515,28 @@ mention-alerts = 멘션 알림
 mention-menu-title = 멘션 알림
 mention-mute-afk = AFK 중 음소거
 mention-sound = 알림음
-mention-summary-action-bar = 액션바
-mention-summary-disabled = 알림 꺼짐
-mention-summary-enabled = 알림 켜짐
-mention-summary-enabled-afk = 알림 켜짐, AFK 중 음소거
-mention-summary-modes-afk = { $arg0 }, AFK 중 음소거
-mention-summary-sound = 소리
 staffchat-enter = 스태프 채팅에 들어갔습니다
 
 ## Community · Announcements
 
+announcement-count = 공지 { $arg0 }개
 announcement-empty = 공지 없음
 announcement-first-page = 가장 최근 공지입니다
 announcement-last-page = 가장 오래된 공지입니다
+announcement-latest = 최신 공지
+announcement-list-newer = 새 공지 목록
+announcement-list-older = 이전 공지 목록
 announcement-more-count = 표시되지 않은 공지 { $arg0 }개
 announcement-new-count = 새 공지 { $arg0 }개
 announcement-newer = 새로운 공지
+announcement-next-page = 다음 페이지
 announcement-older = 이전 공지
+announcement-page = { $arg0 } / { $arg1 }쪽
+announcement-previous-page = 이전 페이지
 announcement-reload = 공지 다시 불러오기
 announcement-reload-command-description = 공지 파일 다시 불러오기
 announcement-reload-failed = 공지를 다시 불러오지 못했습니다. 이전 공지는 유지됩니다
 announcement-reloaded = 공지를 다시 불러왔습니다
-announcement-scroll-hint = 휠로 좌우 탐색
 announcement-unread-count = 읽지 않은 공지 { $arg0 }개
 announcement-updated = 공지사항이 업데이트되었습니다
 announcement-view-all = 모든 공지 보기
@@ -663,7 +704,41 @@ governance-active-header = ─── 활동 회원 자격 ───
 governance-active-member = 현재 회원임
 governance-active-member-age = 회원이 된 지 30일 이상
 governance-active-playtime = 최근 60일 유효 플레이 6시간 이상 (현재 { $arg0 })
+governance-activity-action = { $arg0 ->
+    [confirm] 동의 확정
+    [vote] 내용 확인 후 투표
+    *[details] 자세히 보기
+    }
+governance-activity-all = 모두 보기 ({ $arg0 })
+governance-activity-closed = 종료
+governance-activity-confirm-petition = 이 청원에 동의할까요? 필요한 인원이 모이면 해임 투표가 시작됩니다.
+governance-activity-needed = { $arg0 }명 더 필요
+governance-activity-proposal = { $arg0 ->
+    [appointment] { $arg1 } 님을 관리자로 임명
+    [removal] { $arg1 } 님의 관리자 직위 해임
+    [petition] { $arg1 } 님의 해임 청원
+    *[ban] { $arg1 } 님의 차단 투표
+    }
+governance-activity-remaining = { $arg1 ->
+    [days] 남은 시간: { governance-days }
+    [hours] 남은 시간: { governance-hours }
+    *[minutes] 남은 시간: { governance-minutes }
+    }
+governance-activity-status = { $arg0 ->
+    [available] 투표 가능
+    [voted] 투표 완료
+    [join] 동의 가능
+    [joined] 동의 완료
+    [closed] 종료
+    *[view] 보기만 가능
+    }
 governance-already-moderator = 이미 관리자입니다.
+governance-application-status = { $arg0 ->
+    [open] 임명 투표 진행 중
+    [pending] 승인됨 · 임명 대기 중
+    [blocked] 신청 조건 미충족
+   *[ready] 관리자 신청 가능
+    }
 governance-ballot-recorded = 익명 투표 기록 완료: { $arg0 }. 마감 전까지 변경할 수 있습니다.
 governance-ban-details = 제안자 { $arg0 } · 기간 { $arg1 } · 사유: { $arg2 }
 governance-ban-suffix = · 기간 { $arg0 } · 사유: { $arg1 }
@@ -673,7 +748,6 @@ governance-choice-yes = 찬성
 governance-command-description = 운영 자격과 투표 보기
 governance-custodian-no-nomination = 유지관리자는 관리자 선임과 해임에 참여하지 않습니다.
 governance-custodian-no-resign = 유지관리자에게는 관리자 사임 절차가 적용되지 않습니다.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-days = { $arg0 }일
 governance-error-ban-already-active = 이 플레이어에게 적용 중인 차단이 있습니다.
 governance-error-ban-proposer-ineligible = 활동 회원만 차단 투표를 제안할 수 있습니다.
@@ -685,10 +759,12 @@ governance-error-pause-already-active = 이 플레이어의 승급이 이미 보
 governance-error-pause-already-member = 이 플레이어는 이미 회원이므로 승급을 보류할 필요가 없습니다.
 governance-error-pause-end-invalid = 승급 보류 종료 시각은 현재보다 늦어야 합니다.
 governance-error-player-unknown = 이 플레이어의 운영 기록이 아직 없습니다.
+governance-error-removal-petition-closed = 이 청원은 종료되었거나 새 청원으로 대체되었습니다.
 governance-error-removal-requires-petition = 해임 투표에는 충분한 공동 발의자가 필요합니다.
 governance-error-removal-self = 자신의 해임을 공동 발의할 수 없습니다.
 governance-error-removal-sponsor-ineligible = 활동 회원만 해임을 공동 발의할 수 있습니다.
 governance-error-removal-sponsors-too-few = 대상자 외 활동 회원이 두 명 이상 필요합니다.
+governance-error-removal-target-not-moderator = 이 플레이어는 더 이상 해임 대상 관리자가 아닙니다.
 governance-error-removal-vote-open = 이 관리자의 해임 투표가 이미 진행 중입니다.
 governance-error-termination-reason-invalid = 이 종료 사유는 해당 투표에 적용되지 않습니다.
 governance-error-vote-already-open = 이 플레이어에 대한 같은 종류의 투표가 진행 중입니다.
@@ -705,7 +781,6 @@ governance-failure-quorum = 정족수 미달
 governance-failure-two-thirds = 찬성표가 기권을 제외한 표의 3분의 2에 미달
 governance-history-header = ─── 최근 투표 결과 ───
 governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
-# $arg0 (Number): duration; locale decides the unit form.
 governance-hours = { $arg0 }시간
 governance-inactive-removal = { $arg0 } 님이 180일 동안 로그인하지 않아 관리자에서 자동 해임되었습니다.
 governance-invalid-choice = yes, no 또는 abstain을 선택하세요.
@@ -714,40 +789,50 @@ governance-kind-appointment = 선임
 governance-kind-ban = 차단
 governance-kind-removal = 해임
 governance-legacy-ban-kick = 이전 운영 투표가 통과되었습니다. { $arg0 } 동안 차단됩니다. 사유: { $arg1 }
-governance-menu-actions = 작업
+governance-menu-already-sponsored = 이미 서명함
+governance-menu-application = 신청 상태
 governance-menu-back = 뒤로
 governance-menu-cancel = 취소
+governance-menu-completed = 종료됨
 governance-menu-confirm = 확인
-governance-menu-confirm-nominate = 본인의 관리자 임명 투표를 시작할까요?
+governance-menu-confirm-nominate = 신청하면 관리자 임명 투표가 시작됩니다.
 governance-menu-confirm-resign = 관리자 직책에서 사임할까요?
 governance-menu-confirm-sponsor = 이 해임 청원을 지지할까요?
 governance-menu-confirm-withdraw = 관리자 신청을 철회할까요?
-governance-menu-find-player = 다른 플레이어 찾기
-governance-menu-history = 투표 기록
+governance-menu-custodian-duties = 서버 유지보수 및 관리.
+governance-menu-identity = 신분
+governance-menu-identity-hint = 승급 조건과 활동 기록.
+governance-menu-join-petition = 해임 청원 지지
 governance-menu-loading = 운영 상태를 불러오는 중…
-governance-menu-new-petition = 해임 청원 시작
+governance-menu-matters = 운영 안건
+governance-menu-moderator-duties = 규칙 위반 처리 및 플레이어 지원.
 governance-menu-nominate = 관리자 신청
-governance-menu-nomination-open = 임명 투표 진행 중
+governance-menu-offline = 오프라인
+governance-menu-ongoing = 진행 중
+governance-menu-online = 온라인
 governance-menu-pause = 신규 회원 승격 일시 중지
 governance-menu-pause-appeal = 이의 신청 경로
 governance-menu-pause-duration = 기간 (예: 2d)
 governance-menu-pause-reason = 사유
+governance-menu-pause-until = 종료 시각
+governance-menu-pending-application = 가결 · 적용 대기
 governance-menu-petition-row = { $arg0 } · 지지 { $arg1 }/{ $arg2 }명
 governance-menu-petitions = 해임 청원
 governance-menu-player-name = 플레이어 이름
 governance-menu-players = 플레이어 관리
-governance-menu-recent-results = 최근 투표 결과
 governance-menu-refresh = 새로고침
+governance-menu-related = 최근 관련 기록
+governance-menu-related-matters = 관련 안건 보기
 governance-menu-resign = 관리자 사임
 governance-menu-resume = 승격 중지 해제
 governance-menu-resume-reason = 해제 사유
 governance-menu-staff-only = 관리자와 운영자만 플레이어를 관리할 수 있습니다.
-governance-menu-status = 내 상태
-governance-menu-target = 관리자 이름
+governance-menu-staff-search = 관리자 검색
+governance-menu-subject-filter = { $arg0 } · 필터 해제 ×
+governance-menu-team = 공개 관리 명단
+governance-menu-team-empty = 일치하는 관리자가 없습니다
 governance-menu-title = 커뮤니티 운영
-governance-menu-votes = 진행 중인 투표
 governance-menu-withdraw = 신청 철회
-# $arg0 (Number): duration; locale decides the unit form.
 governance-minutes = { $arg0 }분
 governance-no-active-ban = 적용 중인 차단 없음
 governance-no-active-pause = 적용 중인 승급 보류 없음
@@ -760,7 +845,6 @@ governance-own-choice-closed = 내 선택: { $arg0 }
 governance-own-choice-open = 내 선택: { $arg0 }. 마감 전에는 변경할 수 있습니다.
 governance-own-not-voted = 유권자였지만 투표하지 않았습니다.
 governance-own-not-voted-hint = 아직 투표하지 않았습니다. 운영 메뉴에서 이 투표를 선택하세요.
-governance-own-not-voted-open = 아직 투표하지 않았습니다.
 governance-own-not-voter = 이번 유권자 명단에 없습니다.
 governance-own-voted = 투표함
 governance-pause-cleared = { $arg0 } 님의 승급 보류를 해제했습니다.
@@ -794,10 +878,8 @@ governance-result-terminated = 종료 ({ $arg0 })
 governance-resume-notice = 승급 보류가 해제되었습니다. 사유: { $arg0 }
 governance-resume-reason-required = 보류 해제 사유를 입력하세요.
 governance-role-lookup-error = 관리자 자격을 확인할 수 없습니다. 유지관리자에게 문의하세요.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-seconds = { $arg0 }초
 governance-storage-error = 운영 데이터 작업에 실패했습니다. 유지관리자에게 문의하세요.
-governance-target-not-moderator = { $arg0 } 님은 현재 관리자가 아닙니다.
 governance-termination-inactive = 장기 미접속으로 관리자 자동 해임
 governance-termination-ineligible = 후보자가 활동 회원 자격을 잃음
 governance-termination-resigned = 관리자가 사임함
@@ -820,13 +902,10 @@ plot-admin-created = { $arg1 }의 구역 { $arg0 } 등록 완료 · { $arg2 }
 plot-allowed = 켜짐
 plot-area-changed = 확인 중 경계가 바뀌었습니다. 새로고침 후 다시 확인하세요.
 plot-area-confirm = 「{ $arg0 }」 경계를 선택 영역({ $arg1 }칸)으로 바꿀까요? 건물은 삭제하지 않습니다.
-plot-area-hint = //pos1 → //pos2 → 저장. 나무 도끼 좌우 클릭으로도 지점 선택; 여러 영역은 추가/차감.
+plot-area-hint = 나무 도끼의 좌우 클릭이나 //pos1, //pos2로 모서리를 선택하고 돌아와 저장하세요.
 plot-area-replace-save = 경계 교체 및 저장
 plot-area-save = 경계 저장
 plot-area-saved = 「{ $arg0 }」 경계를 저장했습니다.
-plot-arrival-removed = 도착 지점을 제거했습니다.
-plot-arrival-set = 도착 지점을 저장했습니다.
-plot-arrival-text-saved = 도착 제목을 저장했습니다.
 plot-atmosphere-saved = 환경 설정을 저장했습니다.
 plot-back = 뒤로
 plot-board-auto-notify-result = 플레이어 { $arg0 }명에게 알림을 예약했습니다.
@@ -837,6 +916,7 @@ plot-board-header = 커뮤니티 공지와 의견 (최근 { $arg0 }건; 자세�
 plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
 plot-board-kind-notice = 공지
 plot-board-kind-objection = 이의
+plot-board-loading = 공시 기록을 불러오는 중…
 plot-board-menu = 커뮤니티 게시판
 plot-board-notice-alert = { $arg0 } 님이 공시를 게시했습니다: { $arg1 } · { $arg2 }
 plot-board-objection-alert = { $arg0 } 님이 이의를 제기했습니다: { $arg1 } · { $arg2 }
@@ -855,20 +935,14 @@ plot-board-unavailable = 게시판을 불러오지 못했습니다. 나중에 �
 plot-board-withdrawal-alert = { $arg0 } 님이 이의를 철회했습니다: { $arg1 } · { $arg2 }
 plot-board-write-failed = 게시판을 업데이트하지 못했습니다. 나중에 다시 시도하세요.
 plot-command-blocked = 구역 보호가 명령을 차단했습니다. 본인 구역 안에서 /fill 또는 /setblock을 직접 사용하세요. 복잡한 /execute 명령은 운영진의 검토가 필요합니다.
-plot-command-description = 건축 구역 및 공공 프로젝트 관리
+plot-command-description = 건축 구역 관리
 plot-created = 구역 { $arg0 } 생성됨 · { $arg1 }
 plot-created-for-you = { $arg1 } 님이 새 구역을 등록해 주었습니다: { $arg0 }
 plot-deleted = 구역이 해제되었습니다. 건물은 그대로 남습니다.
 plot-denied = 꺼짐
-plot-empty-summary = 현재 위치에 토지가 없습니다.
 plot-error-admin-owner-only = 관리 능력이 있는 구성원을 변경하려면 구성원 관리와 권한 관리가 모두 필요합니다.
 plot-error-area-disconnected = 토지는 하나로 연결된 영역이어야 합니다.
 plot-error-args = 인수가 잘못되었거나 누락되었습니다. /plot help를 사용하세요.
-plot-error-arrival-location = 프로젝트의 건설된 구역 안에서 안전한 바닥 위에 서 주세요.
-plot-error-arrival-missing = 도착 지점이 설정되지 않았습니다.
-plot-error-arrival-private = 이 비공개 프로젝트에는 방문할 수 없습니다.
-plot-error-arrival-text = 제목이 올바르지 않습니다. 한 줄만 입력하고 표시 글자 수는 제목 32자, 부제목 64자 이하여야 합니다.
-plot-error-arrival-unsafe = 도착 지점을 사용할 수 없거나 더 이상 안전하지 않습니다.
 plot-error-busy = 구역 데이터를 저장 중입니다. 이번 작업은 제출되지 않았으니 나중에 다시 시도하세요.
 plot-error-flag = 지원하지 않는 권한입니다. 권한 목록에서 작업을 선택하세요.
 plot-error-id = 구역 ID를 찾지 못했거나 여러 구역과 일치합니다. /plot list를 사용하세요.
@@ -888,12 +962,10 @@ plot-error-selection = //pos1과 //pos2로 두 모서리를 지정하세요.
 plot-error-selection-changed = 선택 영역이 변경되었습니다. 다시 확인하세요.
 plot-error-staff-only = 모더레이터 또는 관리 책임자만 다른 플레이어의 구역을 관리하거나 등록할 수 있습니다.
 plot-error-storage = 구역 작업에 실패했습니다. 나중에 다시 시도하거나 운영진에게 문의하세요.
-plot-error-subplot-arrival = 먼저 상위 구역의 방문 지점을 선택 범위 밖으로 옮기세요.
 plot-error-subplot-children = 상위 구역을 해제하기 전에 하위 구역을 해제하세요.
 plot-error-subplot-depth = 하위 구역은 한 단계만 만들 수 있습니다.
 plot-error-subplot-disconnected = 선택한 건축 셀이 연결되지 않았습니다. 각 부분을 따로 나누세요.
 plot-error-subplot-overlap = 선택 범위가 다른 하위 구역과 겹칩니다.
-plot-error-subplot-own-arrival = 하위 구역의 방문 지점을 새 범위 안에 남기거나 먼저 옮기세요.
 plot-error-subplot-owner = 이 하위 구역 작업에 필요한 권한이 없습니다.
 plot-error-subplot-parent = 두 지점을 상위 구역의 기존 건축 셀 안에 지정하세요.
 plot-error-subplot-supervisor-member = 상위 구역 소유자는 이미 감독 권한이 있어 구성원으로 추가할 필요가 없습니다.
@@ -914,16 +986,10 @@ plot-member-draft-submit = 미리 확인 및 확정
 plot-member-draft-title = 구성원 초안 · { $arg0 }
 plot-member-permissions = 권한
 plot-member-removed = 프로젝트 구성원을 제거했습니다.
-plot-menu-access = 권한과 구성원
-plot-menu-access-by-settings = 접근 설정에 따름
-plot-menu-admin = 구역 관리자 추가
-plot-menu-arrival = 도착 지점
-plot-menu-arrival-subtitle = 부제목(MiniMessage, 선택 사항)
-plot-menu-arrival-text = 도착 제목
-plot-menu-arrival-title = 제목(MiniMessage, 비우면 프로젝트 이름)
+plot-menu-access = 구성원과 권한
+plot-menu-add-member = 구성원 추가
 plot-menu-atmosphere = 환경
 plot-menu-clear = 맑음
-plot-menu-collaborator = 공동 작업자 추가
 plot-menu-confirm-delete = { $arg0 }의 등록을 삭제할까요? 보호, 구성원 권한과 설정이 삭제되며 취소할 수 없습니다. 건물은 그대로 남습니다.
 plot-menu-confirm-subplot-transfer = 하위 구역을 양도할까요? 구역: { $arg0 } · 새 소유자: { $arg1 }. 상위 구역 소유자의 감독 권한은 유지됩니다.
 plot-menu-confirm-transfer = { $arg0 } 구역의 관리권을 { $arg1 } 님에게 이전할까요? 접근 권한을 잃으며 기존 작품의 저작자 표시는 유지됩니다.
@@ -944,27 +1010,22 @@ plot-menu-group-collaborator = 협력자
 plot-menu-group-member = 정식 구성원 기본 권한
 plot-menu-group-newcomer = 신규 플레이어 기본 권한
 plot-menu-group-owner = 구역 소유자
+plot-menu-here = 현재 위치
 plot-menu-manage = 회원 구역 관리
 plot-menu-managed-empty = 이 플레이어는 아직 구역이 없습니다.
 plot-menu-managed-title = { $arg0 }의 구역
 plot-menu-members = 구성원 ({ $arg0 }명)
-plot-menu-my-access = 내 권한: { $arg0 } · { $arg1 }
 plot-menu-name = 프로젝트 이름
 plot-menu-owner = 소유자: { $arg0 }
 plot-menu-parent-supervisor = 상위 구역 소유자: { $arg0 } · 감독 권한
 plot-menu-player = 플레이어 이름 또는 UUID
-plot-menu-project-kind = 프로젝트 유형
-plot-menu-public-destinations = 공개 방문지
-plot-menu-public-destinations-empty = 도착 지점이 있는 공개 프로젝트가 아직 없습니다.
 plot-menu-rain = 비/눈
-plot-menu-record-id = 기록 ID. 오래된 기록은 전체 ID를 입력하세요
+plot-menu-record-search = 기록 ID 또는 제목
 plot-menu-related-notice = 관련 공지 보기
-plot-menu-remove-arrival = 도착 지점 제거
 plot-menu-remove-member = 구성원 제거
 plot-menu-rename = 프로젝트 이름 변경
 plot-menu-rule = 판정 기록
 plot-menu-ruling = 판정 이유 입력 (8~1000자)
-plot-menu-set-arrival = 현재 위치를 도착 지점으로 설정
 plot-menu-set-role = 역할 변경: { $arg0 }
 plot-menu-settings = 프로젝트 설정
 plot-menu-submit = 적용
@@ -975,28 +1036,8 @@ plot-menu-subplots = 하위 구역 ({ $arg0 })
 plot-menu-time = 시간
 plot-menu-time-input = 시간 (HH:mm)
 plot-menu-transfer = 구역 소유권 이전
-plot-menu-visit = 프로젝트 방문
 plot-menu-weather = 날씨
 plot-menu-withdraw = 의견 철회
-plot-model-fit = 모든 경계 보기
-plot-model-focus = 내 주변 보기
-plot-model-layer-down = 단면 높이 1블록 내리기
-plot-model-layer-up = 단면 높이 1블록 올리기
-plot-model-legend = 청록: 저장됨 · 초록/금색: 모서리 1/2 · 보라: 저장할 경계 · 흰색/빨강: 나/방향
-plot-model-level = 단면 Y ≤ { $arg0 } (미리보기만)
-plot-model-limited = 모델 표본이나 세부 묘사가 줄었습니다. 가까운 곳이나 사각형에 집중하면 더 자세히 볼 수 있습니다. 경계만 표시하면 가장자리를 확인할 수 있습니다.
-plot-model-north-up = 평면 보기에서는 북쪽이 위입니다. 회전하려면 3D 보기로 전환하세요.
-plot-model-perspective = 3D 보기
-plot-model-preparing = 백그라운드에서 경계를 계산하고 영역을 검증하는 중… 완료되면 자동으로 갱신됩니다.
-plot-model-progress = 모델 읽는 중: { $arg0 }%…
-plot-model-rotate-left = ↶ 왼쪽 회전
-plot-model-rotate-right = ↷ 오른쪽 회전
-plot-model-show-all = 전체 높이 표시
-plot-model-slice = 현재 층 위 자르기
-plot-model-terrain = 건축물과 지형 표시
-plot-model-top = 평면 보기
-plot-model-unknown = 미로딩 샘플 { $arg0 }개(회색). 청크를 강제로 로딩하지 않습니다.
-plot-model-wireframe = 경계만 표시
 plot-no-here = 이 위치에는 보호된 구역이 없습니다.
 plot-notice-board = 구역 게시판
 plot-notice-cleared = 게시판을 삭제했습니다
@@ -1038,7 +1079,6 @@ plot-permission-manage-area = 범위 수정
 plot-permission-manage-members = 구성원 관리
 plot-permission-manage-permissions = 권한 관리
 plot-permission-manage-settings = 구역 설정 변경
-plot-permission-management = 구역 설정 및 소유권
 plot-permission-modify = 블록 변경 및 비료 사용
 plot-permission-operation = 작업
 plot-permission-personal = 개인 권한
@@ -1061,16 +1101,15 @@ plot-permission-transfer = 소유권 이전
 plot-permission-workstation = 시설과 작업대 사용
 plot-pos1 = 첫 번째 지점
 plot-pos2 = 두 번째 지점
-plot-private = 개인 프로젝트
-plot-public = 공공 프로젝트
-plot-public-set = 프로젝트 유형: { $arg0 }.
+plot-private = 비공개
+plot-public = 공개
 plot-region-adjust = 이 직사각형 조정
 plot-region-apply = 직사각형 조정 완료
 plot-region-cancel = 직사각형 조정 취소
 plot-region-changed = 선택 영역이 변경되었습니다. 직사각형을 다시 선택하세요.
 plot-region-delete = 이 직사각형 삭제
 plot-region-delete-confirm = 초안에서 직사각형 #{ $arg0 }을 삭제할까요? 건물은 그대로이며, 구역을 저장해야 경계가 변경됩니다. 실행 취소할 수 있습니다.
-plot-region-edit-hint = //pos1과 //pos2로 이 직사각형의 두 모서리를 조정하세요. 다른 직사각형은 유지됩니다. 조정을 완료한 뒤 구역을 저장하세요.
+plot-region-edit-hint = //pos1, //pos2로 현재 사각형을 조정한 뒤 저장하세요.
 plot-region-finish-first = 현재 직사각형 조정을 먼저 완료하거나 취소하세요.
 plot-region-open = 직사각형 관리 ({ $arg0 })
 plot-region-select-hint = 번호가 있는 직사각형을 선택하면 확대하고 강조합니다. 회색 선은 현재 페이지를 나타내며, 합치면 번호가 바뀔 수 있습니다.
@@ -1084,13 +1123,8 @@ plot-role-server-staff = 서버 관리자
 plot-selection-add = 현재 상자 추가
 plot-selection-clear = 두 지점 다시 선택
 plot-selection-empty = //pos1과 //pos2로 두 모서리를 지정하세요.
-plot-selection-exit = 지구 편집 / 미리보기 종료
 plot-selection-fit = 저장된 경계 복원
 plot-selection-incomplete = 한 점을 지정했습니다. 다른 점도 지정하세요. 제출 전에는 지구가 변경되지 않습니다.
-plot-selection-mode = 현장에서 지점 선택
-plot-selection-no-redo = 다시 실행할 선택 변경이 없습니다.
-plot-selection-no-undo = 취소할 이전 선택 변경이 없습니다.
-plot-selection-open = 경계 편집
 plot-selection-redo = 이전 단계 다시 실행
 plot-selection-replace = 현재 상자로 교체
 plot-selection-session-hint = 웅크리기+F 또는 /plot edit로 돌아가기. 20분 동안 조작이 없으면 종료.
@@ -1109,12 +1143,46 @@ plot-transferred-to-you = { $arg1 } 님이 { $arg0 } 구역을 당신에게 이�
 
 ## World · Vehicles
 
-vehicle-admin-help = /vehicle — { vehicle-model-title }
-    모델: model | model help
-    캡처: origin | select <uuid>/radius <radius>/group [uuid]/info/clear | capture <id> car/boat/plane
-    차량: spawn <model> [x y z] | reload
 vehicle-command-description = 표시 엔티티 차량 운전 및 관리
-vehicle-controls = { $arg0 }: W/S와 A/D로 조작, 휠로 변속 또는 가속 조절, 손 바꾸기로 모드 전환, 웅크리기로 하차합니다. /vehicle help · /vehicle dashboard로 제어 패널을 엽니다.
+vehicle-menu-label =
+    { $arg0 ->
+        [home] 차량 작업 공간
+        [nearby] 근처 차량
+        [fleet] 이용 가능한 모든 차량
+        [selection] 모델 선택 영역
+        [origin] 발밑을 원점으로 설정
+        [group] 표시 그룹 선택
+        [radius] 선택 반경 (0–16 m)
+        [displays] 근처 표시 탐색
+        [clear] 선택 및 원점 초기화
+        [capture] 선택으로 모델 생성
+        [toggle-selection] 선택 전환
+        [public] 공개로 설정
+        [private] 비공개로 설정
+        [reload] 파일에서 모델 다시 읽기
+        [leave] 하차
+        [passenger] 승객 좌석
+        [fuel] 주유 · 석탄/목탄 들기
+        [repair] 수리 · 철괴 들기
+        [access] 접근 권한
+        [remove] 차량 삭제
+        [hud] 운전 HUD 표시
+        [hide-preview] 3D 미리보기 숨기기
+        [service-hint] 가까이에서 정차하고 엔진을 끈 뒤 필요한 재료를 드세요.
+        [nearby-hint] 32블록 이내로 접근하고 현재 좌석에서 내리세요.
+        [use-required] mik.vehicle.use 권한이 필요합니다.
+        [remove-hint] 정차 후 모두 내리세요.
+        [reload-hint] 모든 차량이 비어 있고 엔진이 꺼져 있어야 합니다. 초안은 유지되며 변경된 모델은 다시 여세요.
+        [pick-hint] 표시를 겨냥한 뒤 우클릭으로 그룹 선택. 웅크리고 우클릭하면 취소되며 30초 후 만료됩니다.
+        [spawn-hint] 월드 좌표이며 기본값은 앞쪽 4블록입니다. 생성 시 수평 시선 방향을 향합니다.
+        [zoom-in] 확대
+        [zoom-out] 축소
+        [frame] 눈앞에 다시 배치
+        [offset] 상대 이동
+       *[other] { vehicle-command-description }
+    }
+
+vehicle-controls = { $arg0 }: W/S와 A/D로 조작, 휠로 변속 또는 가속 조절, 손 바꾸기로 모드 전환, 웅크리기로 하차합니다. /vehicle
 vehicle-dash-assisted = 안정성 보조
 vehicle-dash-automatic = 자동
 vehicle-dash-contact = 지면 / 수면 지지: { $arg0 }
@@ -1151,18 +1219,136 @@ vehicle-group-invalid = 지원하지 않거나 관리 중이거나 누락되었�
 vehicle-group-limit = 표시 엔티티는 최대 128개, 전체 그룹 구성원은 최대 256개까지 가져올 수 있습니다.
 vehicle-group-not-found = 표시 그룹을 찾지 못했습니다. 그룹을 선택하거나 블록·아이템 표시 엔티티를 겨냥하거나 엔티티 UUID를 지정하세요.
 vehicle-group-selected = 선택한 그룹: { $arg0 }개 표시 엔티티 · 루트 { $arg1 }
-vehicle-help = /vehicle — 차량 조작
-    탑승: list | ride [uuid] | passenger [uuid] | leave | inspect [uuid]
-    운전: engine | mode [automatic/manual/assisted] | gear P/R/N/D/up/down/number | throttle up/down
-    표시: hud [on/off] | dashboard [drive/gearbox/details/off]
-    정비: fuel | repair | access public/private | remove [uuid]
 vehicle-hud-boat = { $arg0 } kn · 추진력 { $arg1 }% · 방향 { $arg2 }°
 vehicle-hud-car = { $arg0 } km/h  ·  { $arg1 }  ·  { $arg2 } RPM · { $arg3 }
 vehicle-hud-plane = { $arg0 } km/h · 고도 { $arg1 } m · 수직 속도 { $arg2 } m/s · 가속 { $arg3 }% · { $arg4 }
 vehicle-hud-status = 연료 { $arg0 }% · 상태 { $arg1 }% · { $arg2 }
+vehicle-model-center = 무게중심
+vehicle-model-choice = { $arg0 ->
+    [CAR] 자동차
+    [BOAT] 동력선
+    [PLANE] 고정익 항공기
+    [BODY] 차체
+    [FRONT_WHEEL] 조향 바퀴
+    [WHEEL] 바퀴
+    [PROPELLER] 프로펠러
+    [RUDDER] 방향타
+    [FIXED] 고정
+    [VERTICAL] 수직 유지
+    [HORIZONTAL] 수평으로 시점 추적
+    [CENTER] 항상 시점 향하기
+    [NONE] 기본 자세
+    [THIRDPERSON_LEFTHAND] 3인칭 · 왼손
+    [THIRDPERSON_RIGHTHAND] 3인칭 · 오른손
+    [FIRSTPERSON_LEFTHAND] 1인칭 · 왼손
+    [FIRSTPERSON_RIGHTHAND] 1인칭 · 오른손
+    [HEAD] 머리
+    [GUI] 인벤토리
+    [GROUND] 바닥
+    [LEFT] 왼쪽 정렬
+    [RIGHT] 오른쪽 정렬
+    [false] 끄기
+    [true] 켜기
+    [TEXT_CENTER] 가운데 정렬
+   *[other] { $arg0 }
+    }
+vehicle-model-field = { $arg0 ->
+    [kind] 탈것 종류
+    [mass] 질량
+    [maximum-speed] 최고 속도 (km/h)
+    [support-length] 접지 탐색 길이 (m)
+    [grip] 접지력
+    [center-of-mass] 무게중심
+    [inertia] 축별 회전 관성
+    [engine-torque] 최대 토크
+    [engine-idle-rpm] 공회전 (RPM)
+    [engine-redline-rpm] 회전수 제한 (RPM)
+    [engine-inertia] 엔진 관성
+    [engine-wheel-radius] 바퀴 반지름 (m)
+    [engine-final-drive] 종감속비
+    [engine-reverse-ratio] 후진 기어비
+    [engine-ratios] 전진 기어비
+    [engine-shift-seconds] 변속 시간 (초)
+    [fuel-capacity] 연료 용량
+    [fuel-consumption] 연료 소비 (단위/초)
+    [buoyancy] 부력
+    [wing-area] 날개 면적 (m²)
+    [lift] 양력 계수
+    [animation] 애니메이션 역할
+    [billboard] 시점 따라가기
+    [item-transform] 아이템 자세
+    [alignment] 글자 정렬
+    [block-light] 블록 밝기
+    [sky-light] 하늘 밝기
+    [background] 배경색 (ARGB)
+    [line-width] 글줄 너비
+    [opacity] 불투명도 (0–255)
+    [shadow] 글자 그림자
+    [see-through] 글자 투과 표시
+    [x] X
+    [y] Y
+    [z] Z
+    [size-x] 전체 너비 X (m)
+    [size-y] 전체 높이 Y (m)
+    [size-z] 전체 길이 Z (m)
+   *[other] { $arg0 }
+    }
+vehicle-model-field-range = 입력 범위: 0 < 값 ≤ { $arg0 }
+vehicle-model-front = 앞쪽 방향 (+Z)
+vehicle-model-front-choice = { $arg0 ->
+    [negative-x] 현재 −X 쪽
+    [back] 현재 뒤쪽 (−Z)
+    [positive-x] 현재 +X 쪽
+    [look] 수평 시선 방향 사용 (90° 단위)
+   *[other] 이쪽을 앞쪽으로 설정
+    }
+vehicle-model-front-hint = 3D 화살표로 앞쪽을 선택하세요. 차체는 제자리에 있고 좌석, 출구, 물리 지점 좌표를 함께 변환합니다. 90° 단위로 바꾸며 실행 취소할 수 있습니다.
+vehicle-model-handle = { $arg0 ->
+    [ROTATE] { $arg1 } { $arg2 } { $arg3 }°
+   *[other] { $arg1 } { $arg2 } { $arg3 }
+    }
+vehicle-model-marker = { $arg0 ->
+    [driver] 운전석 #{ $arg1 }
+    [passenger] 승객석 #{ $arg1 }
+    [exit] 출구 #{ $arg1 }
+    [colliders] 충돌 상자 #{ $arg1 }
+    [supports] 접지점 #{ $arg1 }
+    [center] 무게중심
+    [parts] 표시 부품 #{ $arg1 }
+   *[other] { $arg1 }
+    }
+vehicle-model-parameter-group = { $arg0 ->
+    [body] 차체와 접지
+    [engine] 엔진과 변속기
+    [fuel] 연료
+    [boat] 선박 부력
+    [plane] 항공기 양력
+    [power] 엔진 출력
+   *[other] { $arg0 }
+    }
+vehicle-model-parameter-help = { $arg0 ->
+    [body] 질량, 속도, 접지를 조정합니다. 무게중심은 3D에서도 조정할 수 있습니다. 저장 전에는 초안만 바뀝니다.
+    [engine] 회전수, 토크, 바퀴와 기어비를 조정합니다. 전진 기어비는 내림차순이며 제한 회전수는 공회전의 1.5배를 넘어야 합니다.
+    [fuel] 용량은 게임 연료 단위이며 소비량은 초당 값입니다.
+    [boat] 부력은 선박에 적용됩니다. 다른 종류의 설정도 보존됩니다.
+    [plane] 날개 면적과 양력은 항공기에 적용됩니다. 다른 종류의 설정도 보존됩니다.
+    [power] 현재 종류의 회전수와 토크를 조정합니다. 자동차용 변속기 설정도 보존됩니다.
+   *[other] { $arg0 }
+    }
+vehicle-model-property-help = { $arg0 ->
+    [block-light] −1은 세계 밝기입니다. 덮어쓰려면 두 값을 모두 0–15로 설정하세요.
+    [sky-light] −1은 세계 밝기입니다. 덮어쓰려면 두 값을 모두 0–15로 설정하세요.
+    [background] 부호 있는 ARGB 정수입니다. 예: −16777216은 불투명한 검정입니다.
+    [line-width] 글줄 너비는 1–2048 픽셀입니다.
+    [opacity] 0은 투명, 255는 불투명입니다.
+   *[other] { $arg0 }
+    }
+vehicle-model-spatial = 3D 조작
+vehicle-model-spatial-hint = 표식을 우클릭하여 선택하거나 조정하세요. 웅크리고 우클릭하면 설정으로 돌아갑니다.스크롤로 조정 간격을 바꿉니다.
+vehicle-model-spawn = 이 모델로 생성
 vehicle-model-add = 구성 요소 추가
 vehicle-model-add-here = 발 위치에 지지점 추가
-vehicle-model-anchor = 미리보기 원점을 현재 위치와 바라보는 방향으로 설정
+vehicle-model-anchor = 눈앞에 다시 배치
 vehicle-model-animation = 애니메이션
 vehicle-model-apply = 적용 / 확인
 vehicle-model-auto = 충돌 범위 다시 계산
@@ -1177,8 +1363,8 @@ vehicle-model-copy = 복제 후 편집 (복제한 좌석은 동승석)
 vehicle-model-corner-cancel = 작성 중인 충돌 상자 취소
 vehicle-model-corner-first = 발 위치를 상자의 첫 모서리로 지정
 vehicle-model-corner-first-look = 겨냥한 표면을 첫 모서리로 지정
-vehicle-model-corner-hint = 첫 모서리를 지정했습니다. 높이까지 고려해 반대 모서리로 이동한 뒤 /vehicle model collider corner2를 입력하세요. 상자는 모델 축을 따릅니다.
-vehicle-model-corner-required = 먼저 /vehicle model collider corner1로 첫 모서리를 지정하세요.
+vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
+vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = 발 위치를 반대 모서리로 삼아 상자 추가
 vehicle-model-corner-second-look = 겨냥한 표면을 반대 모서리로 지정
 vehicle-model-create = 모델 만들기
@@ -1192,20 +1378,16 @@ vehicle-model-draft = 저장되지 않은 초안
 vehicle-model-driver = 운전석
 vehicle-model-driver-here = 발 위치에 운전석 추가
 vehicle-model-edit = 초안 편집 / 재개
+vehicle-model-overview = 초안 개요
+vehicle-model-component-details = 구성 요소 정보
+vehicle-model-selection-unavailable = 대상이 변경되었거나 삭제되었습니다. 돌아가서 다시 선택하세요
 vehicle-model-exit = 하차 위치 / 미세 조정
-vehicle-model-group = Axiom 표시 그룹 추가
-vehicle-model-help = /vehicle model — { vehicle-model-title }
-    모델: menu | list | info [id] | create <id> car/boat/plane | import <id> car/boat/plane [uuid] | edit <id> | clone <id> <new-id> | delete <id>
-    편집: set <field> <value...> | part/seat/collider/support — Tab으로 작업과 인수 확인
-    초안: preview [off] | undo | redo | save | cancel
-    월드 내: anchor | pick | here | look | snap [on/off] | move <index> <dx dy dz>
-    { vehicle-model-position-hint }
-    seat position/exit | part position | support add/set | collider position: here / look
-    collider corner1/corner2 [look] | collider cancel — { vehicle-model-corner-hint }
-    기타 작업: check | apply — { vehicle-model-save-continue }
+vehicle-model-group = 주 손의 Axiom 표시 그룹 추가
+vehicle-model-hand-invalid = Axiom 표시 아이템이 잘못되었거나 지원하지 않는 개체 또는 표시 데이터가 포함되어 있습니다.
+vehicle-model-hand-required = Axiom 표시 개체 아이템을 주 손에 들고 다시 가져오세요.
 vehicle-model-here = 현재 발 위치 사용
 vehicle-model-history-empty = 해당 방향의 편집 기록이 없습니다.
-vehicle-model-import = Axiom 표시 그룹 가져오기
+vehicle-model-import = 주 손의 Axiom 표시 그룹 가져오기
 vehicle-model-item = 아이템
 vehicle-model-library = 저장된 모델 · 초안은 저장 전까지 메모리에만 유지됩니다
 vehicle-model-look = 겨냥해 배치 (메뉴 닫힘, 우클릭으로 확정)
@@ -1223,7 +1405,7 @@ vehicle-model-position = 위치 / 미세 조정
 vehicle-model-position-hint = 로컬 X/Y/Z · here는 발 위치, look은 겨냥한 표면 사용 · 격자는 조정 간격을 따릅니다.
 vehicle-model-preview = 개인 미리보기
 vehicle-model-preview-failed = 미리보기를 사용할 수 없습니다. 초안은 유지됩니다: { $arg0 }
-vehicle-model-preview-hint = 개인 미리보기 시작. 편집하지 않으면 5분 후 삭제; /vehicle model preview off로 종료.
+vehicle-model-preview-hint = { vehicle-model-spatial-hint }
 vehicle-model-redo = 실행 취소한 편집 다시 실행
 vehicle-model-remove = 구성 요소 제거
 vehicle-model-remove-warning = 이 구성 요소를 제거할까요? 뒤의 번호가 바뀌며 실행 취소할 수 있습니다.
@@ -1313,9 +1495,16 @@ async-regen-usage = 사용법: /regen preview blocks [종류...] | /regen previe
 async-regen-visualization-legend = { $arg0 } 시각화: 청록색 = 선택 경계, 주황색 = 변경 블록 표본, 빨간색 = 위험한 블록 엔티티. 이 입자는 본인에게만 보입니다.
 async-regen-visualization-selection = { $arg0 }의 청록색 입자가 선택 경계를 표시하며 본인에게만 보입니다.
 async-regen-fawe-required = 선택 영역을 읽으려면 FastAsyncWorldEdit이 필요합니다
+building-map-layer = 건축물 모음
+building-map-open = 건축물 보기
+building-map-builders = 건축자: { $arg0 }
+building-map-original-author = 원작자: { $arg0 }
+building-map-type-original = 창작
+building-map-type-derivative = 파생 작품
+building-map-type-replica = 재현
 -iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ 웅크리기
-iron-elevator-tip-mm = { -iron-elevator-block }을 수직으로 맞춰 놓으면 엘리베이터가 됩니다. { -iron-elevator-block } 위에서 <green>점프하면 올라가고</green> <aqua>웅크리면 내려갑니다</aqua>. 3층 이상이면 <gold>층 선택 패널</gold>이 표시됩니다.
+iron-elevator-tip-mm = { -iron-elevator-block }을 수직으로 맞춰 놓으면 엘리베이터가 됩니다. 블록 위에서 <green>점프하면 올라가고</green> <aqua>웅크리면 내려갑니다</aqua>. 2층 이상이면 <gold>층 선택 패널</gold>이 표시됩니다.
 iron-elevator-up = ↑ 점프
 spawn-beacon-color-command-description = 스폰 신호기 색상 순환 전환
 spawn-beacon-color-disabled = 스폰 신호기 색상 순환을 껐습니다
@@ -1326,132 +1515,27 @@ spawn-world-missing = 스폰 세계를 사용할 수 없습니다
 
 ## Entertainment · Music
 
-music-action-add-queue = 대기열에 추가
-music-action-play-nearby = 가장 가까운 주크박스에서 재생
-music-action-play-now = 이 주크박스에서 즉시 재생
-music-action-take-disc = 음반 받기
-music-added-to-queue-rich = 대기열에 추가했습니다: { $music }
 music-album = 앨범: { $arg0 }
-music-all-in-queue = 모든 곡이 이미 대기열에 있습니다
 music-artist = 아티스트: { $arg0 }
 music-back = 뒤로
-music-browser-left-click = 왼쪽 클릭
-music-browser-right-click = 오른쪽 클릭
-music-cache-clear-done = 온라인 음악 캐시를 비웠습니다
-music-cache-clear-started = 온라인 음악 캐시를 비우는 중...
-music-cache-operation-failed = 음악 캐시 작업에 실패했습니다: { $arg0 }
-music-cache-status = 온라인 음악 캐시: 파일 { $arg0 }개, { $arg1 } / { $arg2 }
-music-cached = 캐시됨 - 바로 재생 가능
-music-clear-queue = 대기열 비우기
-music-clear-queue-done = 대기열을 비웠습니다 ({ $arg0 }곡)
 music-command-description = 주크박스용 로컬, 온라인 및 NBS 음악
 music-disc-left = 좌클릭: 음반 받기
 music-disc-right = 우클릭: 가장 가까운 주크박스에서 재생
-music-duplicate-in-queue = 이미 대기열에 있는 곡입니다
 music-duration = 재생 시간: { $arg0 }
-music-empty-library = 음악 라이브러리가 비어 있습니다
-music-empty-library-description = 사용 가능한 로컬 오디오 또는 NBS 곡이 없습니다
-music-empty-nbs = NBS 곡이 없습니다
-music-empty-nbs-description = 모든 음악으로 전환하거나 NBS 파일을 추가하세요
-music-empty-playlist = 이 재생목록에 사용할 수 있는 곡이 없습니다
-music-empty-playlist-description = 재생목록이 공개 상태이고 올바른 플랫폼을 선택했는지 확인하세요
-music-empty-search = 일치하는 곡이 없습니다
-music-empty-search-description = 다른 검색어를 사용하거나 사용자 지정 음원 상태를 확인하세요
-music-finished = 재생 완료
 music-format = 형식: { $arg0 }
-music-inventory-full = 보관함이 가득 차서 음반을 받을 수 없습니다
 music-jukebox-audible-field-conflict = 다른 주크박스가 겹치는 명확한 청취 범위에서 다른 곡을 재생 중입니다
-music-jukebox-music-mode = 음악 모드
-music-jukebox-play-order = 재생 순서
-music-jukebox-range = 재생 범위
-music-jukebox-range-value = 현재: { $arg0 } 블록
-music-jukebox-rhythm-mode = 리듬 모드
-music-jukebox-too-far = 주크박스에서 너무 멀리 떨어져 있습니다 (최대 { $arg0 }블록)
 music-jukebox-tp-hover = 클릭하여 주크박스로 순간이동
 music-jukebox-unavailable = 주크박스가 제거되었거나 해당 청크를 사용할 수 없습니다
-music-jukebox-usage-mode = 주크박스 용도
-music-jukebox-volume = 주크박스 음량
-music-jukebox-volume-value = 현재: { $arg0 }%
-music-library-button = 음악 라이브러리
-music-library-random-mode = 음악 라이브러리 무작위 재생
-music-library-random-mode-desc = 전체 음악 라이브러리에서 무작위로 재생하며 같은 곡의 연속 재생을 피합니다
-music-loading-title = 불러오는 중
-music-menu-nbs-title = NBS 음악 - { $arg0 }/{ $arg1 }페이지
-music-menu-playlist-title = 재생 목록: { $arg0 } · { $arg1 }/{ $arg2 }
-music-menu-search-nbs-title = NBS 검색: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-title = 검색: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-title = 음반 - { $arg0 }/{ $arg1 }페이지
-music-mode-switched = 재생 모드 변경 완료: { $arg0 }
-music-nearest-jukebox-missing = { $arg0 }블록 안에 주크박스가 없습니다
-music-next-page = 다음 페이지
-music-no-disc = 음반 없음
-music-no-files = 사용 가능한 음악 파일이 없습니다
-music-no-search-results-rich = 검색어와 일치하는 곡이 없습니다: 「{ $keyword }」
 music-now-playing-rich = 재생 중: { $music } · 주크박스 { $location }
-music-online-partial-failure = 사용자 지정 음원 요청 { $arg0 }개가 실패하여 사용 가능한 결과만 표시합니다
 music-online-rate-limited = 음악 요청이 너무 많습니다. { $arg0 }초 후 다시 시도하세요.
-music-online-searching = 로컬 및 온라인 음원 검색 중: 「{ $arg0 }」…
 music-original-author = 원작자: { $arg0 }
-music-page-out-of-range = 페이지가 범위를 벗어났습니다. 마지막 페이지는 { $arg0 }입니다
-music-page-total = 총 { $arg0 }곡
-music-page-usage-desc = 페이지로 이동
-music-partial-results = 일부 결과만 표시합니다. 음원 요청 { $arg0 }개가 실패했습니다
-music-paused = 일시정지
 music-plasmo-voice-unavailable = 곡은 재생되었지만 Plasmo Voice가 설치, 연결 또는 활성화되어 있지 않아 들을 수 없습니다
-music-play-next = 다음 곡 재생
-music-play-random = 무작위 재생
 music-playback-failed = 재생하지 못했습니다: 「{ $arg0 }」. 음원이나 음악 파일을 확인한 뒤 다시 시도하세요.
-music-playback-status = 재생 상태: { $arg0 }
-music-playing = 재생 중
-music-playing-now-rich = 재생 중: { $music }
-music-playlist-import-button = 재생목록 가져오기
-music-playlist-import-done = “{ $arg0 }” 가져오기 완료: { $arg1 }/{ $arg2 }곡
-music-playlist-import-failed = 재생목록 가져오기 실패: { $arg0 }
-music-playlist-import-prompt = 플랫폼을 선택한 다음 공개 재생목록 ID 또는 링크를 붙여 넣으세요:
-music-playlist-import-usage-desc = 다른 음악 플랫폼에서 공개 재생목록 가져오기
-music-playlist-importing = 재생목록을 가져오는 중...
-music-playlist-reference-prompt = 공개 재생목록 ID 또는 링크를 붙여넣으세요
-music-prev-page = 이전 페이지
-music-queue-empty = 대기열이 비어 있습니다
-music-queue-move-down = 아래로 이동
-music-queue-move-up = 위로 이동
-music-queue-remove = 곡 제거
-music-queue-summary = 대기열: { $arg0 }곡
-music-queue-summary-description = { $arg0 }/{ $arg1 } 페이지
-music-random-add = 무작위 곡 추가
-music-random-added-to-queue-rich = 무작위 곡을 대기열에 추가했습니다: { $music }
-music-random-disc = 무작위 음반
-music-random-disc-got-rich = 무작위 음반을 받았습니다: { $music }
-music-random-mode = 목록 무작위 재생
-music-random-mode-desc = 재생 목록에서 무작위로 재생하며 같은 곡의 연속 재생을 피합니다
-music-rank-down = 아래로 이동했습니다
-music-rank-up = 위로 이동했습니다
-music-reload-done = 다시 불러오기 완료: 로컬 음악 { $arg0 }개, LX 음원 { $arg1 }/{ $arg2 }개 사용 가능, 구독 { $arg3 }개 확인 및 { $arg4 }개 갱신
 music-reload-failed = 음악을 다시 불러오지 못했습니다: { $arg0 }
-music-reload-issues = 다시 불러오기 문제: { $arg0 }
-music-reload-partial = 일부는 이전 상태를 유지한 채 다시 불러왔습니다: 로컬 음악 { $arg0 }개, LX 음원 { $arg1 }/{ $arg2 }개 사용 가능, 구독 { $arg3 }개 확인 및 { $arg4 }개 갱신
 music-reload-started = 음악 파일과 사용자 지정 음원을 다시 불러오는 중...
-music-remote-source-error = 업데이트 오류: { $arg0 }
-music-remote-source-import-done = LX 음원 구독을 가져왔습니다: { $arg0 }
-music-remote-source-import-failed = LX 음원 가져오기에 실패했습니다: { $arg0 }
-music-remote-source-import-started = LX 음원 구독을 가져오는 중...
-music-remote-source-remove-done = LX 음원 구독을 제거했습니다: { $arg0 }
-music-remote-source-remove-failed = LX 음원 구독을 제거할 수 없습니다: { $arg0 }
-music-remote-source-remove-not-found = LX 음원 구독을 찾을 수 없습니다: { $arg0 }
-music-remote-source-update-done = 구독 { $arg0 }개 확인: { $arg1 }개 업데이트, { $arg2 }개 실패
-music-remote-source-update-failed = LX 음원 업데이트에 실패했습니다: { $arg0 }
-music-remote-source-update-started = 가져온 LX 음원 구독을 확인하는 중...
-music-remote-source-updated-at = 업데이트됨: { $arg0 }
-music-remote-sources-title = 가져온 LX 음원 구독: { $arg0 }
-music-removed-from-queue-rich = 대기열에서 제거했습니다: { $music }
-music-repeat-one-mode = 한 곡 반복
-music-repeat-one-mode-desc = 수동으로 넘길 때까지 현재 곡을 반복합니다
-music-request-error = 요청 실패: { $arg0 }
 music-rhythm-animation-offset = 애니메이션 오프셋 { $arg0 } ms
-music-rhythm-calibration = 지연 보정
 music-rhythm-calibration-accumulating = 안정적인 타이밍 확인 중…계속 따라 치세요
 music-rhythm-calibration-adapting = 리듬에 맞추는 중…계속 따라 치세요
-music-rhythm-calibration-complete = 지연 테스트 완료 · 리듬 게임 준비됨
 music-rhythm-calibration-done = 지연 테스트 완료 · 설정 저장됨
 music-rhythm-calibration-failed = 지연 테스트 오디오가 중단되었습니다. 테스트를 안전하게 종료했으니 다시 시작해 주세요
 music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → 키보드 시각 → 마우스 시각
@@ -1462,11 +1546,6 @@ music-rhythm-calibration-out-of-range = 측정된 지연이 지원 범위를 벗
 music-rhythm-calibration-plasmo-instruction = 이제 따라 치세요: 방금 들은 Plasmo Voice 리듬의 각 드럼에서 1–4를 누르세요
 music-rhythm-calibration-plasmo-ready = Minecraft Note Block 테스트 완료. 먼저 같은 리듬을 Plasmo Voice로 들어보세요
 music-rhythm-calibration-pointer-instruction = 노트가 히트 라인을 지날 때 왼쪽 또는 오른쪽 클릭하세요
-music-rhythm-calibration-prompt-confirm = 전체 테스트 시작
-music-rhythm-calibration-prompt-confirm-hint = 완료 후 자동으로 돌아갑니다.
-music-rhythm-calibration-prompt-later = 나중에
-music-rhythm-calibration-prompt-reason = 게임 시작 전 지연 테스트를 진행하세요.
-music-rhythm-calibration-prompt-title = 플레이 전에 지연 테스트가 필요합니다
 music-rhythm-calibration-realigning = 오디오가 중단되었습니다. 시범을 다시 재생하며 완료된 측정은 유지됩니다
 music-rhythm-calibration-required = 리듬 게임을 시작하기 전에 전체 지연 테스트를 완료하세요
 music-rhythm-calibration-reset-done = 지연 보정이 초기화되었습니다
@@ -1485,7 +1564,6 @@ music-rhythm-difficulty-expert = 전문가
 music-rhythm-difficulty-hard = 어려움
 music-rhythm-difficulty-normal = 보통
 music-rhythm-exit = 리듬 게임 종료
-music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
 music-rhythm-get-ready = 준비
 music-rhythm-go = 시작!
 music-rhythm-good = 굿
@@ -1500,49 +1578,15 @@ music-rhythm-network-too-high = 공정한 판정을 하기에는 네트워크 �
 music-rhythm-network-warning = 네트워크 지연이 불안정합니다({ $arg0 } ms). { $arg1 } ms를 계속 넘으면 세션을 안전하게 종료합니다
 music-rhythm-no-beats = 이 곡에서 플레이 가능한 박자를 찾지 못했습니다
 music-rhythm-perfect = 퍼펙트
-music-rhythm-preparing = 곡 전체의 캐시와 리듬 분석이 끝날 때까지 기다려 주세요
-music-rhythm-ready = 전체 채보 준비 완료 — 첫 박자부터 시작할 수 있습니다
 music-rhythm-requires-playback = 먼저 이 주크박스에서 곡을 재생하세요
-music-rhythm-reset-calibration = 지연 보정 초기화
 music-rhythm-results = 결과
 music-rhythm-score = 점수: { $arg0 }
-music-rhythm-select-track = 리듬 게임 곡 선택
 music-rhythm-spatial-no-room = 공간 조준을 플레이할 공간이 부족합니다. 더 넓은 곳으로 이동하세요.
 music-rhythm-spatial-slider-hint = 움직이는 별을 따라 각 체크포인트를 클릭 · 길게 누르지 않음
-music-rhythm-start-game = 게임 시작
-music-rhythm-waiting-for-player = 리듬 게임을 시작할 플레이어를 기다리는 중
+music-rhythm-start = 게임 시작
 music-sample-rate = 샘플 레이트: { $arg0 }
-music-search-button = 곡 검색
-music-search-keyword-required = 검색어를 입력해야 합니다
-music-search-keyword-too-long = 검색어가 너무 깁니다. 한도: { $arg0 }자.
-music-search-usage-desc = 곡 검색
-music-section-all = 모든 음악
-music-section-nbs = NBS 음악
-music-select-music = 음악 선택
-music-sequential-mode = 목록 반복
-music-sequential-mode-desc = 재생 목록을 순서대로 재생하고 끝에서 처음으로 돌아갑니다
 music-size = 크기: { $arg0 }
-music-sort-button = 정렬
-music-sort-current = 현재: { $arg0 }
-music-sort-default = 기본 순서
-music-sort-most-played = 최다 재생
-music-sort-recently-played = 최근 재생
-music-sound-settings = 소리 설정
-music-source-actions = 지원 작업: { $arg0 }
-music-source-available = 사용 가능
-music-source-capabilities = 지원 품질: { $arg0 }
-music-source-error = 오류: { $arg0 }
-music-source-failures = 연속 실패: { $arg0 }
-music-source-retry = { $arg0 }초 후 재시도
-music-source-unavailable = 사용 불가
-music-sources-empty = LX 사용자 지정 음원 스크립트를 찾을 수 없습니다
-music-sources-title = LX 사용자 지정 음원: { $arg0 }개
-music-stop-eject = 중지하고 꺼내기
-music-stop-eject-done = 재생을 중지하고 음반을 꺼냈습니다
-music-stopped = 중지됨
-music-track-details = 곡 정보
 music-unavailable-disc = 사용할 수 없는 음반
-music-unavailable-disc-description = 이 MIK 음반은 현재 카탈로그에 없지만 중지하고 꺼낼 수 있습니다
 
 ## Entertainment · Anniversary
 
@@ -1661,20 +1705,16 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [차단 공지]
 ban-command-description = 고정된 심각도로 플레이어 차단
 ban-database-error = 차단 데이터베이스 작업에 실패했습니다. 서버 로그를 확인하세요.
-ban-dialog-back = 뒤로
-ban-dialog-cancel = 취소
-ban-dialog-confirm-action = 플레이어 차단
-ban-dialog-confirm-severity = 심각도
-ban-dialog-confirm-title = 차단 확인
-ban-dialog-never-joined-confirm-action = 그래도 차단
-ban-dialog-never-joined-title = 서버에 접속한 적이 없는 플레이어
-ban-dialog-never-joined-warning = { $arg0 } 님은 이 서버에 접속한 적이 없습니다. 다른 플레이어를 잘못 차단하지 않도록 이름을 확인하세요.
-ban-dialog-next = 다음
-ban-dialog-player-input = 플레이어 이름 직접 입력
-ban-dialog-player-manual = 직접 입력
-ban-dialog-player-online = 현재 접속 중인 플레이어
-ban-dialog-select-title = 플레이어 선택
-ban-dialog-severity-title = 차단 심각도 선택
+ban-menu-back = 뒤로
+ban-menu-confirm-action = 플레이어 차단
+ban-menu-confirm-severity = 심각도
+ban-menu-confirm-title = 차단 확인
+ban-menu-never-joined-confirm-action = 그래도 차단
+ban-menu-never-joined-title = 서버에 접속한 적이 없는 플레이어
+ban-menu-never-joined-warning = { $arg0 } 님은 이 서버에 접속한 적이 없습니다. 다른 플레이어를 잘못 차단하지 않도록 이름을 확인하세요.
+ban-menu-player-input = 플레이어 이름 직접 입력
+ban-menu-select-title = 플레이어 선택
+ban-menu-severity-title = 차단 심각도 선택
 ban-history-empty = { $arg0 } 님의 차단 기록이 없습니다.
 ban-history-title = 차단 기록: { $arg0 }
 ban-invalid-player = 잘못된 플레이어 이름입니다
@@ -1714,11 +1754,14 @@ banlist-reason = 사유
 banlist-source = { role-moderator }
 banlist-title = 차단 목록
 maintenance-command-description = 유지보수 모드 전환 또는 상태 확인
+maintenance-kick = 서버 점검 중입니다
 maintenance-set = 유지보수 모드를 { $arg0 } 상태로 설정했습니다
 maintenance-state-disabled = 비활성화
 maintenance-state-enabled = 활성화
 maintenance-status = 유지보수 모드: { $arg0 }
 maintenance-unchanged = 유지보수 모드는 이미 { $arg0 } 상태입니다
+performance-kick-title = 서버에 심각한 지연이 발생했습니다
+performance-kick-reason = 서버 복구를 위해 연결이 일시적으로 끊어졌습니다
 restriction-entity-too-large-mm = <red>엔티티 크기가 서버 안전 제한을 초과했습니다</red>
 restriction-foreign-uuid-mm = <red>직접 길들인 몹의 UUID만 사용할 수 있습니다</red>
 restriction-no-kill-e-mm = <red><white>/kill @e</white> 명령어는 사용할 수 없습니다</red>
@@ -1744,9 +1787,16 @@ whitelist-temp-usage-desc = 1시간짜리 임시 화이트리스트 추가
 
 ## Shell · Menus, server information and scripting
 
-main-afk-current-afk = 현재 AFK 상태
-main-afk-current-online = 현재 접속 중
-main-afk-status = AFK 상태
+main-afk-status =
+    { $arg0 ->
+        [afk] AFK: 자리 비움
+       *[online] AFK: 접속 중
+    }
+main-pvp-status =
+    { $arg0 ->
+        [on] PVP: 켜짐
+       *[off] PVP: 꺼짐
+    }
 main-announcements = 공지 사항
 main-home = 홈
 main-language = 언어
@@ -1756,8 +1806,6 @@ main-map = 웹 지도
 main-menu-title = 메인 메뉴
 main-music = 음악
 main-name-tag = 이름표
-main-profile = 프로필
-main-pvp = PvP
 main-settings = 설정
 main-website = 웹사이트
 main-wiki = 위키
@@ -1774,9 +1822,348 @@ stat-client-version = 클라이언트 버전
 stat-first-joined = 최초 접속
 stat-location = 위치
 stat-ping = 지연 시간
+stat-ping-value = { $arg0 } 밀리초
 stat-play-time = 플레이 시간
 stat-role = 등급
 stat-world = 세계
-weblogin-command-description = Mik Web 로그인 코드 확인
-weblogin-confirmed = Mik Web 로그인을 확인했습니다. 계속하려면 브라우저로 돌아가세요
-weblogin-invalid-code = Mik Web 로그인 코드가 올바르지 않습니다
+web-account-title = 웹 계정 및 패스키
+web-account-confirm = 확인
+weblogin-question = 이 웹 본인 확인을 승인할까요? mcmik.top에서 직접 시작한 작업만 승인하세요. 다른 사람을 위해 코드를 입력하지 마세요.
+weblogin-command-description = Mik 웹 본인 확인 코드 승인
+weblogin-confirmed = 웹 본인 확인이 완료되었습니다. 브라우저로 돌아가 계속하세요.
+weblogin-invalid-code = 유효하지 않은 웹 본인 확인 코드입니다
+
+
+# Music workspace
+music-space-label =
+    { $arg0 ->
+        [title] 음악 공간
+        [devices] 재생 장치
+        [device-status] 상태
+        [sync-group] 동기화 그룹
+        [single-device] 주크박스
+        [device-location] 위치
+        [visit-device] 옆으로 순간이동
+        [teleporting] 순간이동 중…
+        [recorded-device] 등록됨
+        [nearby-device] 주변
+        [group-select-members] 주크박스를 두 대 이상 선택하세요
+        [group-name-required] 그룹 이름을 입력하세요
+        [all-online] 모두 온라인
+        [direction-front] 앞
+        [direction-front-right] 오른쪽 앞
+        [direction-right] 오른쪽
+        [direction-back-right] 오른쪽 뒤
+        [direction-back] 뒤
+        [direction-back-left] 왼쪽 뒤
+        [direction-left] 왼쪽
+        [direction-front-left] 왼쪽 앞
+        [direction-here] 바로 옆
+        [direction-above] 위
+        [direction-below] 아래
+        [no-devices] 기기 없음
+        [choose-members] 그룹 기기 선택
+        [create-group] 동기화 그룹 만들기
+        [add-members] 기기 추가
+        [create-play] 만들고 재생
+        [create-and-append] 만들고 곡을 대기열 끝에 추가
+        [device-queue] 대기열
+        [device-members] 구성원
+        [available] 사용 가능
+        [play] 재생
+        [retry-outputs] 출력 다시 시도
+        [dissolve-group] 그룹 해체
+        [remove-member] 그룹에서 제거
+        [removed-stopped] 제거된 기기는 재생을 멈추고 선택한 내용을 유지합니다.
+        [restore-previous] 그룹 참여 전 내용 복원
+        [keep-group-content] 그룹 내용 유지
+        [queue] 재생 대기열
+        [back] { ban-menu-back }
+        [close] { close }
+        [unavailable] Music storage is unavailable
+        [saving] 저장 중…
+        [saved] 저장됨
+        [apply] { plot-menu-submit }
+        [cancel] { cancel }
+        [select-page] Select this page
+        [select-all] Select all results
+        [clear-tracks] Clear song selection
+        [add-playlist] 목록에 추가
+        [description] { plot-menu-description }
+        [make-private] Make private
+        [publish] Make public
+        [delete] Delete playlist
+        [favorite] Toggle favorite
+        [copy] Copy playlist
+        [share] Share playlist command
+        [recent] 최근 재생
+        [favorites] Favorite playlists
+        [public] 공개
+        [private] 비공개
+        [new-playlist] 재생목록 만들기
+        [name] 이름
+        [song-title] 곡명
+        [track-count] 곡 수
+        [visibility] 공개 범위
+        [no-playlists] 재생목록 없음
+        [fetching-playlist] 재생목록 불러오는 중…
+        [artist] 아티스트
+        [duration] 재생 시간
+        [track-type] 유형
+        [type-online] 온라인
+        [undo] { vehicle-model-undo }
+        [remove] Remove selected entries
+        [clear-recents] Clear my play history
+        [clear-entries] Clear entry selection
+        [search-tracks] 곡, 아티스트 검색…
+        [search-playlists] 재생목록 검색…
+        [public-playlists] Public playlists
+        [searching] Searching…
+        [insert] 끼워 넣고 바로 재생
+        [append] 대기열에 추가
+        [choose-targets] 출력 선택
+        [group-source] 대기열과 재생 위치를 가져올 기기
+        [removed-targets] 일부 대상이 삭제되었습니다. 다시 선택하세요
+        [offline] 오프라인
+        [device-discovery-hint] 빈손으로 웅크린 채 주크박스를 우클릭하면 열립니다.
+        [empty] 곡 없음
+        [queue-empty] 대기 중인 곡 없음
+        [queue-current] 디지털 대기열의 현재 곡
+        [pause] Pause
+        [resume] Resume
+        [stop] Stop; keep playback list
+        [previous] Previous song / restart
+        [clear] Clear pending; stop after current song
+        [seek] 재생 위치
+        [more] 더 보기
+        [volume-control] 음량
+        [group-volume] 그룹 음량
+        [timeline-help] 스크롤 ±5초 · 우클릭으로 시간 입력
+        [timeline-read-only] 재생 위치를 변경할 수 없음
+        [seek-format] m:ss, h:mm:ss 또는 초 단위로 입력
+        [record] 원격 제어용으로 저장
+        [forget] 내 장치 등록 해제
+        [alias] 개인 장치 별칭
+        [sound] 소리 설정
+        [rhythm] 리듬 게임 방
+        [room-players] 플레이어
+        [room-player-status] 상태
+        [room-preparation] 내 준비
+        [room-ready] 준비
+        [room-cancel-ready] 준비 취소
+        [room-playing] 게임 중
+        [room-score-ready] 채보 준비 완료
+        [room-select-one] 곡 목록에서 다중 선택을 켜고 한 곡을 선택하세요.
+        [room-end-confirmation] 모든 참가자의 리듬 게임 방이 종료됩니다.
+        [create-room] 방 만들기
+        [no-rhythm-devices] 근처에 주크박스가 없습니다. 먼저 빈손으로 웅크린 채 주크박스를 우클릭하세요.
+        [calibration] 지연 보정
+        [volume] Volume (0–100)
+        [range] Range (8–256 blocks)
+        [mode] 재생 모드
+        [save-queue] 대기열을 재생 목록으로 저장
+        [sequential] Sequential
+        [repeat-all] 목록 반복
+        [repeat-one] Repeat song
+        [shuffle] Shuffle without repeats
+        [import] 재생목록 가져오기
+        [link] 재생목록 링크
+        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
+        [import-preview] Preview fetched metadata; no audio was downloaded
+        [import-new] 만들고 열기
+        [import-merge] 목록에 합치기
+        [stopped] 중지됨
+        [loading] Preparing audio
+        [cancel-loading] 준비 취소
+        [playing] 재생 중
+        [paused] 일시정지
+        [finished] 재생 완료
+        [retry-failed] 재생 다시 시도
+        [select-song] 선택한 곡을 함께 재생하거나 재생목록에 추가합니다.
+        [select-toggle] 이 항목 선택
+        [deselect] 이 항목 선택 해제
+        [selected] 선택됨
+        [place-before] 선택한 항목을 이 항목 앞으로 이동
+        [eject] Eject physical record
+        [make-disc] Create signed music disc
+        [gain] Group volume (0–100)
+        [retry-import] Fetch playlist again
+        [join-room] 방 참가
+        [ready] 준비 완료
+        [waiting] Waiting
+        [room-mode] 게임 모드
+        [room-difficulty] 난이도
+        [late-join] Join the running game
+        [leave-room] Leave room
+        [select-room-track] 선택한 곡 사용
+        [start-room] 게임 시작
+        [end-room] 방 종료
+        [base-queue] Base playback list
+        [priority-queue] One-time requests
+        [falling] Falling lanes
+        [radial] Radial approach
+        [spatial-aim] Spatial aim
+        [easy] Easy
+        [normal] Normal
+        [hard] Hard
+        [expert] Expert
+        [waiting-for-player] Waiting for preparation
+        [preparing] Preparing audio and chart
+        [no-beats] No playable beats
+        [catalog] 음악 목록
+        [my-playlists] 내 재생목록
+        [playlist] 재생목록
+        [output] 출력 장치
+        [close-panel] 패널 닫기
+        [playlist-settings] 재생목록 설정
+        [multi-select] 다중 선택
+        [move] 이동
+        [move-hint] 대상 곡을 선택하면 그 앞으로 이동합니다
+        [cancel-move] 이동 취소
+        [move-end] 맨 끝으로 이동
+        [cancel-selection] 선택 취소
+        [track-details] 곡 정보
+        [skip-next] 다음 곡으로
+        [device-settings] 장치 설정
+        [already-added] 이미 추가됨
+        [current-track] 현재 곡
+        [shuffle-candidates] 무작위 후보 곡
+        [import-by-id] ID로 가져오기
+        [playlist-id] 재생목록 ID
+       *[unknown] 음악 공간
+    }
+
+music-space-error =
+    { $arg0 ->
+        [UNAVAILABLE] Music is unavailable; reopen later
+        [INTERNAL] 음악 기능에 내부 오류가 발생했습니다. 관리자에게 서버 로그 확인을 요청하세요
+        [NOT_FOUND] The selected item no longer exists
+        [FORBIDDEN] Control or edit permission is required
+        [CONFLICT] Content changed; refresh and select again
+        [LIMIT] The music resource limit was reached
+        [INVALID] Check the name, selection or numeric range
+        [OFFLINE] Device unavailable: load its chunk or eject its physical record
+        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
+        [UNSUPPORTED] This media does not support that action
+        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NO_SAFE_DESTINATION] 주크박스 옆에 안전한 착지 지점이 없습니다
+        [TELEPORT_FAILED] 순간이동에 실패했거나 차단되었습니다
+       *[UNKNOWN] Operation failed
+    }
+
+music-space-selected-tracks = { $arg0 }곡 선택됨
+music-space-track-count = { $arg0 }곡
+music-space-device-count = 주크박스 { $arg0 }대
+music-space-online-count = 온라인: { $arg0 }/{ $arg1 }대
+music-space-device-distance = { $arg0 } · { $arg1 } 칸
+music-space-device-height = { $arg0 ->
+    [above] { $arg1 }칸 위
+   *[below] { $arg1 }칸 아래
+    }
+music-space-device-coordinates = { $arg0 } · X { $arg1 } · Y { $arg2 } · Z { $arg3 }
+music-space-sound-value = { $arg0 ->
+        [volume] { $arg1 ->
+           *[other] { $arg1 }%
+        }
+       *[range] { $arg1 ->
+           *[other] { $arg1 } 블록
+        }
+    }
+plot-permission-music-control = 음악 장치 제어
+
+music-partial-results = 일부 결과만 표시합니다. 음원 요청 { $arg0 }개가 실패했습니다
+
+webchat-tab-label = { $arg0 ->
+    [1] { player-web-label }
+   *[other] { player-web-label } ×{ $arg0 }
+    }
+webchat-joined = { $arg0 } 님이 웹 채팅에 참여했습니다
+webchat-left = { $arg0 } 님이 웹 채팅에서 나갔습니다
+chat-rate-limited = 메시지를 너무 빨리 보내고 있습니다. 잠시 기다려 주세요.
+
+plot-map-corner-a = 모서리 A
+plot-map-corner-b = 모서리 B
+plot-map-corner-hint = 클릭하면 이 모서리로 이동합니다. 우클릭: 좌표 입력, 휠: 높이 ±4.
+plot-map-coordinates = 좌표 x,y,z
+plot-map-zoom-in = 확대
+plot-map-zoom-out = 축소
+plot-map-fit = 전체 범위
+plot-map-near = 내 주변
+plot-map-layer = 높이 Y { $arg0 }…{ $arg1 }
+plot-map-layer-hint = 휠로 표시 층 변경, 클릭으로 현재 층 이동. 지형은 항상 지표면입니다.
+plot-map-north = 북쪽
+plot-map-west = 서쪽
+plot-map-east = 동쪽
+plot-map-south = 남쪽
+plot-map-scale = 1픽셀 = { $arg0 } × { $arg0 } 블록
+plot-map-progress = 지도 읽는 중 { $arg0 }%…
+plot-map-unknown = 불러오지 않은 지표면 표본: { $arg0 }
+plot-map-legend = 청록: 유지 · 보라: 추가 · 주황: 제거 · 초록: 직육면체 · A/B: 모서리 · 화살표: 나
+plot-selection-validating = 백그라운드에서 경계를 계산하고 영역을 검증하는 중… 완료되면 자동으로 갱신됩니다.
+
+plot-map-open = Minecraft 지도 보기
+
+plot-map-handheld-hint = 보조 손에 지도를 표시하고 나무 도끼로 선택합니다. 웅크리기 + F로 패널에 돌아갑니다.
+
+plot-map-readonly-hint = 지도 미리보기만 가능합니다. 모서리를 바꾸려면 패널로 돌아가 직육면체 조정을 선택하세요.
+
+plot-destinations = 순간이동 지점
+plot-destination-add = 현재 위치 추가
+plot-destination-confirm-delete = 순간이동 지점 ‘{ $arg0 }’ 삭제?
+plot-destination-delete = 지점 삭제
+plot-destination-deleted = 순간이동 지점을 삭제했습니다.
+plot-destination-description = 소개 (선택)
+plot-destination-edit = 이름과 소개 편집
+plot-destination-empty = 사용 가능한 지점이 없습니다.
+plot-destination-error-changed = 지점이 변경되었습니다. 다시 열어 주세요.
+plot-destination-error-description = 소개는 최대 512자이며 제어 문자는 사용할 수 없습니다.
+plot-destination-error-location = 이 구역 안의 안전한 땅 위에 서 주세요.
+plot-destination-error-missing = 이 지점은 더 이상 존재하지 않습니다.
+plot-destination-error-name = 이름은 한 줄로 1~48자여야 합니다.
+plot-destination-error-private = 비공개 지점으로 구역 구성원만 사용할 수 있습니다.
+plot-destination-error-unsafe = 이 지점을 사용할 수 없거나 도착 위치가 안전하지 않습니다.
+plot-destination-loading = 순간이동 지점 불러오는 중…
+plot-destination-move = 현재 위치로 변경
+plot-destination-name = 이름
+plot-destination-public-empty = 아직 공개 지점이 없습니다.
+plot-destination-public-off = 공개: 꺼짐
+plot-destination-public-on = 공개: 켜짐
+plot-destination-saved = 순간이동 지점을 저장했습니다.
+plot-destination-teleport = 순간이동
+plot-error-subplot-destination = 선택 영역 안에 있는 상위 구역의 지점을 먼저 옮기거나 삭제해 주세요.
+plot-error-subplot-own-destination = 지점을 새 영역 안에 유지하거나 먼저 옮기거나 삭제해 주세요.
+
+plot-destination-manage = 관리
+plot-directory-owned = 소유 · { $arg0 }
+plot-directory-participating = 참여 · { $arg0 }
+plot-directory-search = 구역 검색
+plot-directory-search-value = 검색: { $arg0 }
+plot-directory-search-field = 구역 이름 또는 ID
+plot-directory-clear-search = 검색 지우기
+plot-directory-empty = 이 분류에는 아직 구역이 없습니다.
+plot-directory-no-match = 일치하는 구역이 없습니다. 검색을 바꾸거나 지워 주세요.
+plot-workspace-area = 범위 편집
+plot-workspace-area-hint = 이 구역의 보호 범위 조정
+plot-workspace-subplots = 하위 구역
+plot-workspace-subplots-hint = 내부 구역 조회, 생성 및 관리
+plot-workspace-access-hint = 구성원, 역할 및 작업 권한 관리
+plot-workspace-settings-hint = 이름, 공지, 환경 및 소유권
+plot-workspace-destinations-hint = 이 구역의 순간이동 지점 조회 및 이동
+plot-workspace-role = 현재 역할: { $arg0 }
+plot-workspace-ownership = 소유권 및 삭제
+plot-workspace-id = 구역 ID: { $arg0 }
+plot-workspace-groups = 권한 그룹
+plot-workspace-permissions = 작업 권한
+plot-workspace-other-world = 먼저 이 구역이 있는 세계로 이동해 주세요.
+
+plot-destination-titles = 도착 제목
+plot-destination-title = 제목
+plot-destination-subtitle = 부제목
+plot-destination-title-hint = 순간이동에 성공하면 표시됩니다. MiniMessage 색상, 스타일, 그라데이션을 지원합니다. 비워 두면 숨겨지며 미리보기는 저장하지 않습니다.
+plot-destination-title-preview = 전체 화면 미리보기
+plot-destination-title-unset = 설정 안 됨
+plot-destination-title-save = 제목 저장
+plot-destination-title-unchanged = 저장하지 않은 변경 사항이 없습니다.
+plot-destination-title-apply = 초안에 적용
+plot-destination-error-title = 제목은 한 줄이어야 하며 표시 문자 32자, MiniMessage 원문 512자까지 가능합니다.
+plot-destination-error-subtitle = 부제목은 한 줄이어야 하며 표시 문자 64자, MiniMessage 원문 512자까지 가능합니다.

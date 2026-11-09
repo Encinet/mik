@@ -70,7 +70,7 @@ class PasswordGovernanceTest {
         Fixture() throws Exception {
             database.open(); passwords.open(); passwords.retention(database::requiresPassword);
             Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-            var membership = new MembershipService(database, clock, (id, name) -> false, (id, name) -> true);
+            var membership = new MembershipService(database, clock, (_, _) -> false, (_, _) -> true);
             for (UUID id : new UUID[] {candidate, other}) {
                 membership.observeLogin(id, id.equals(candidate) ? "Alex" : "Steve", NOW.minus(Duration.ofDays(100)), true);
                 for (int day = 0; day < 6; day++) {
@@ -82,6 +82,6 @@ class PasswordGovernanceTest {
         }
         VoteProposal proposal() { return new VoteProposal.Appointment(candidate, "Alex"); }
         void setPassword() { passwords.set(candidate, "Alex", passwords.credential(candidate), PASSWORD, PASSWORD, () -> PlayerRole.MEMBER, null); }
-        @Override public void close() throws Exception { passwords.close(); database.close(); }
+        @Override public void close() throws org.encinet.mik.feature.community.governance.GovernanceRepositoryException { passwords.close(); database.close(); }
     }
 }

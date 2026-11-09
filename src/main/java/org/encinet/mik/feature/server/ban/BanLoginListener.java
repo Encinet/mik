@@ -12,7 +12,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
 import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 
 import java.net.InetAddress;

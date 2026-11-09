@@ -5,25 +5,29 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Source and forwarding trace used to prevent bridge loops. */
-public sealed interface ChatOrigin permits ChatOrigin.Minecraft,
+public sealed interface ChatOrigin permits ChatOrigin.Player,
         ChatOrigin.Social, ChatOrigin.Plugin {
 
     Set<String> visitedPlatforms();
 
-    record Minecraft(UUID playerId) implements ChatOrigin {
-        public Minecraft {
-            playerId = Objects.requireNonNull(playerId, "playerId");
-        }
-
-        @Override
-        public Set<String> visitedPlatforms() {
-            return Set.of();
-        }
+    sealed interface Player extends ChatOrigin permits Minecraft, Web {
+        UUID playerId();
+        @Override default Set<String> visitedPlatforms() { return Set.of(); }
     }
 
-    record Social(String platformId, String eventId) implements ChatOrigin {
+    record Minecraft(UUID playerId) implements Player {
+        public Minecraft { playerId = Objects.requireNonNull(playerId, "playerId"); }
+    }
+
+    record Web(UUID playerId) implements Player {
+        public Web { playerId = Objects.requireNonNull(playerId, "playerId"); }
+    }
+
+    record Social(String platformId, String platformName, String conversationId, String eventId) implements ChatOrigin {
         public Social {
             platformId = requireId(platformId, "platformId");
+            platformName = requireId(platformName, "platformName");
+            conversationId = requireId(conversationId, "conversationId");
             eventId = requireId(eventId, "eventId");
         }
 

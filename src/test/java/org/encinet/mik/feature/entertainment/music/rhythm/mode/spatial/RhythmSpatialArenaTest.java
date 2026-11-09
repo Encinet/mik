@@ -19,7 +19,7 @@ class RhythmSpatialArenaTest {
                 RhythmDifficulty.NORMAL);
         RhythmSpatialArena arena = new RhythmSpatialArena(
                 new Location(null, 0.0, 65.6, 0.0), profile,
-                (direction, distance, radius) -> true);
+                (_, _, _) -> true);
 
         assertTrue(arena.playable());
         RhythmSpatialArena.Target target = arena.resolve(
@@ -34,7 +34,7 @@ class RhythmSpatialArenaTest {
                 RhythmDifficulty.NORMAL);
         RhythmSpatialArena narrow = new RhythmSpatialArena(
                 new Location(null, 0.0, 65.6, 0.0), profile,
-                (direction, distance, radius) -> distance <= 2.4);
+                (_, distance, _) -> distance <= 2.4);
 
         assertFalse(narrow.playable());
         assertEquals(2.4, narrow.resolve(
@@ -49,7 +49,7 @@ class RhythmSpatialArenaTest {
         Vector requested = RhythmSpatialPath.direction(0.0, 0.0);
         RhythmSpatialArena arena = new RhythmSpatialArena(
                 new Location(null, 0.0, 65.6, 0.0), profile,
-                (direction, distance, radius) ->
+                (direction, _, _) ->
                         RhythmSpatialPath.angularDistance(0.0, 0.0,
                                 yaw(direction), pitch(direction)) >= 8.0);
 
@@ -69,7 +69,7 @@ class RhythmSpatialArenaTest {
         AtomicBoolean clear = new AtomicBoolean(true);
         RhythmSpatialArena arena = new RhythmSpatialArena(
                 new Location(null, 0.0, 65.6, 0.0), profile,
-                (direction, distance, radius) -> clear.get());
+                (_, _, _) -> clear.get());
         Location target = new Location(null, 0.0, 65.6, 3.5);
 
         assertTrue(arena.visible(target, profile.worldHitRadius(3.5)));

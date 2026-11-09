@@ -188,7 +188,7 @@ Matrix: !ai Who is online?
 
 所有 16 种语言都有文本别名，稳定原生命令 ID 为 `ai.ask`。参数为 `clear`、`reset`、`清空` 等本地化清理词时会清除当前会话历史。
 
-社交对话按“平台 + 房间/群 + 已认证平台用户”隔离。同一用户在同一房间可以连续追问，不同用户不会共享历史；没有可信平台身份的事件不会持久复用历史。已绑定用户会把 Minecraft UUID 传给只读游戏工具，未绑定用户仍可查询服务器、世界、版本、网页和计算数据。模型答案通过 `SocialDocument.withUntrustedText` 进入共享内容安全检查，再由 QQ 或 Matrix renderer 转义和截断。
+社交对话按“平台 + 房间/群 + 已认证平台用户”隔离。同一用户在同一房间可以连续追问，不同用户不会共享历史；没有可信平台身份的事件不会持久复用历史。已绑定用户会把 Minecraft UUID 传给只读游戏工具，未绑定用户仍可查询服务器、世界、版本、网页和计算数据。模型答案在创建 `SocialDocument` 时显式声明 `Moderation.REQUIRED`，按出站长度限制后的完整回复进入共享 [Qwen3Guard 内容安全检查](social-platforms.md#内容安全)，再由 QQ 或 Matrix renderer 转义和截断。
 
 ## Worker 与线程边界
 

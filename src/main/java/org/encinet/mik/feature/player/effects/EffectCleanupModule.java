@@ -52,7 +52,7 @@ public final class EffectCleanupModule implements Listener {
     private final LanguageService languages;
     private final Predicate<UUID> inCombat;
     private final Function<Runnable, BukkitTask> scheduler;
-    private final BiFunction<Player, Consumer<Player>, ClickEvent> buttons;
+    private final BiFunction<Player, Consumer<Player>, ClickEvent<?>> buttons;
     private final LongSupplier clock;
     private final Map<UUID, Pending> pending = new HashMap<>();
     private final Map<UUID, Request> requests = new HashMap<>();
@@ -68,7 +68,7 @@ public final class EffectCleanupModule implements Listener {
 
     EffectCleanupModule(JavaPlugin plugin, LanguageService languages, Predicate<UUID> inCombat,
                         Function<Runnable, BukkitTask> scheduler,
-                        BiFunction<Player, Consumer<Player>, ClickEvent> buttons, LongSupplier clock) {
+                        BiFunction<Player, Consumer<Player>, ClickEvent<?>> buttons, LongSupplier clock) {
         this.plugin = plugin;
         this.languages = languages;
         this.inCombat = inCombat;

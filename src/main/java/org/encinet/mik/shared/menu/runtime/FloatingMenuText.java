@@ -3,7 +3,8 @@ package org.encinet.mik.shared.menu.runtime;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextColor;
+import org.encinet.mik.shared.menu.ui.UiPalette;
+import org.encinet.mik.shared.menu.ui.UiColorRole;
 
 import java.util.Objects;
 
@@ -27,22 +28,22 @@ final class FloatingMenuText {
 
     private static Component brighten(Component component) {
         Component result = component;
-        if (NamedTextColor.DARK_GRAY.equals(result.color())) {
-            result = result.color(NamedTextColor.GRAY);
+        if (NamedTextColor.DARK_GRAY.equals(result.color()) || NamedTextColor.GRAY.equals(result.color())) {
+            result = result.color(NamedTextColor.WHITE);
         } else if (NamedTextColor.DARK_PURPLE.equals(result.color())) {
             result = result.color(NamedTextColor.LIGHT_PURPLE);
         } else if (NamedTextColor.RED.equals(result.color())) {
-            result = result.color(TextColor.color(0xFFAAAA));
+            result = result.color(UiPalette.DEFAULT.color(UiColorRole.DANGER));
         } else if (NamedTextColor.BLUE.equals(result.color())) {
-            result = result.color(TextColor.color(0xBBBBFF));
+            result = result.color(UiPalette.DEFAULT.color(UiColorRole.INFO));
         } else if (NamedTextColor.DARK_AQUA.equals(result.color())) {
-            result = result.color(TextColor.color(0x77DDDD));
+            result = result.color(UiPalette.DEFAULT.color(UiColorRole.MUSIC_ACCENT));
         } else if (NamedTextColor.DARK_GREEN.equals(result.color())) {
-            result = result.color(TextColor.color(0x88DD88));
+            result = result.color(UiPalette.DEFAULT.color(UiColorRole.SUCCESS));
         } else if (NamedTextColor.DARK_BLUE.equals(result.color())) {
-            result = result.color(TextColor.color(0xBBBBFF));
+            result = result.color(UiPalette.DEFAULT.color(UiColorRole.INFO));
         } else if (NamedTextColor.DARK_RED.equals(result.color())) {
-            result = result.color(TextColor.color(0xFFAAAA));
+            result = result.color(UiPalette.DEFAULT.color(UiColorRole.DANGER));
         }
         if (!result.children().isEmpty()) {
             result = result.children(result.children().stream()

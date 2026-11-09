@@ -21,7 +21,9 @@ final class FloatingMenuViewProjection {
         double factor = fieldOfView.projectionFactor() * interfaceScale;
         if (Math.abs(factor - 1) < 1.0E-12) return pose;
         double yaw = Math.toRadians(pose.yawDegrees());
-        return FloatingMenuPose.oriented(new FloatingMenuPoint(pose.right(), pose.up(), pose.forward() / factor),
-                Math.toDegrees(Math.atan2(Math.sin(yaw) * factor, Math.cos(yaw))), pose.pitchDegrees());
+        double projectedYaw = Math.toDegrees(Math.atan2(Math.sin(yaw) * factor, Math.cos(yaw)));
+        projectedYaw = pose.yawDegrees() + Math.IEEEremainder(projectedYaw - pose.yawDegrees(), 360);
+        return new FloatingMenuPose(new FloatingMenuPoint(pose.right(), pose.up(), pose.forward() / factor),
+                projectedYaw, pose.pitchDegrees(), pose.rollDegrees(), pose.scale());
     }
 }

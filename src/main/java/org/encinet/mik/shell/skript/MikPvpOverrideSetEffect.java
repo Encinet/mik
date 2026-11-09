@@ -13,11 +13,11 @@ import org.jetbrains.annotations.Nullable;
 final class MikPvpOverrideSetEffect extends Effect {
 
     private final MikSkriptFacade facade;
-    private Expression<String> id;
-    private Expression<Player> players;
-    private @Nullable Expression<Boolean> enabled;
-    private @Nullable Expression<Number> priority;
-    private @Nullable Expression<Timespan> duration;
+    private MikSkriptInput<String> id;
+    private MikSkriptInput<Player> players;
+    private @Nullable MikSkriptInput<Boolean> enabled;
+    private @Nullable MikSkriptInput<Number> priority;
+    private @Nullable MikSkriptInput<Timespan> duration;
     private @Nullable Boolean literalEnabled;
     private String owner;
 
@@ -26,21 +26,20 @@ final class MikPvpOverrideSetEffect extends Effect {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
         owner = MikSkriptOwner.current(getParser());
         if (matchedPattern == 0) {
-            id = (Expression<String>) expressions[0];
-            players = (Expression<Player>) expressions[1];
-            enabled = (Expression<Boolean>) expressions[2];
-            priority = (Expression<Number>) expressions[3];
-            duration = (Expression<Timespan>) expressions[4];
+            id = MikSkriptInput.of(expressions[0], String.class);
+            players = MikSkriptInput.of(expressions[1], Player.class);
+            enabled = MikSkriptInput.of(expressions[2], Boolean.class);
+            priority = MikSkriptInput.of(expressions[3], Number.class);
+            duration = MikSkriptInput.of(expressions[4], Timespan.class);
         } else {
-            players = (Expression<Player>) expressions[0];
-            id = (Expression<String>) expressions[1];
-            priority = (Expression<Number>) expressions[2];
-            duration = (Expression<Timespan>) expressions[3];
+            players = MikSkriptInput.of(expressions[0], Player.class);
+            id = MikSkriptInput.of(expressions[1], String.class);
+            priority = MikSkriptInput.of(expressions[2], Number.class);
+            duration = MikSkriptInput.of(expressions[3], Timespan.class);
             literalEnabled = parseResult.hasTag("on");
         }
         return true;
@@ -48,9 +47,9 @@ final class MikPvpOverrideSetEffect extends Effect {
 
     @Override
     protected void execute(Event event) {
-        String overrideId = id.getSingle(event);
+        String overrideId = id.single(event);
         Boolean value = literalEnabled != null
-                ? literalEnabled : enabled == null ? null : enabled.getSingle(event);
+                ? literalEnabled : enabled == null ? null : enabled.single(event);
         if (overrideId == null || value == null) {
             return;
         }
@@ -63,22 +62,22 @@ final class MikPvpOverrideSetEffect extends Effect {
 
         int overridePriority = 0;
         if (priority != null) {
-            Number number = priority.getSingle(event);
+            Number number = priority.single(event);
             if (number == null) {
                 return;
             }
-            overridePriority = (int) Math.clamp(number.longValue(), Integer.MIN_VALUE, Integer.MAX_VALUE);
+            overridePriority = Math.clamp(number.longValue(), Integer.MIN_VALUE, Integer.MAX_VALUE);
         }
         long durationMillis = PvpOverrideRules.PERMANENT;
         if (duration != null) {
-            Timespan timespan = duration.getSingle(event);
+            Timespan timespan = duration.single(event);
             if (timespan == null) {
                 return;
             }
             durationMillis = timespan.getAs(Timespan.TimePeriod.MILLISECOND);
         }
 
-        for (Player player : players.getArray(event)) {
+        for (Player player : players.values(event)) {
             facade.setPvpOverride(
                     player, owner, overrideId, value, overridePriority, durationMillis);
         }
@@ -86,7 +85,7 @@ final class MikPvpOverrideSetEffect extends Effect {
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return "set MIK PVP override " + id.toString(event, debug) + " of "
-                + players.toString(event, debug);
+        return "set MIK PVP override " + id.describe(event, debug) + " of "
+                + players.describe(event, debug);
     }
 }

@@ -52,13 +52,14 @@ class IdentityBindingRepositorySchemaTest {
             statement.execute("CREATE TABLE identity_bindings (binding_id INTEGER PRIMARY KEY)");
         }
 
-        IdentityBindingRepository repository = new IdentityBindingRepository(database.toFile());
-        SQLException error = assertThrows(SQLException.class, repository::open);
+        try (IdentityBindingRepository repository = new IdentityBindingRepository(database.toFile())) {
+            SQLException error = assertThrows(SQLException.class, repository::open);
 
-        assertTrue(error.getMessage().contains("Unsupported identity database format"));
-        try (Connection connection = open(database);
-             Statement statement = connection.createStatement()) {
-            assertEquals(Set.of("binding_id"), columns(statement, "identity_bindings"));
+            assertTrue(error.getMessage().contains("Unsupported identity database format"));
+            try (Connection connection = open(database);
+                 Statement statement = connection.createStatement()) {
+                assertEquals(Set.of("binding_id"), columns(statement, "identity_bindings"));
+            }
         }
     }
 

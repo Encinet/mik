@@ -1,4 +1,5 @@
 package org.encinet.mik.feature.player.security;
+
 import io.papermc.paper.connection.PlayerCommonConnection;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.connection.PlayerGameConnection;
@@ -18,6 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;

@@ -62,7 +62,7 @@ class RegenBiomeBoundaryTest {
             int worldMaxHeight
     ) {
         return selection(minX, minY, minZ, maxX, maxY, maxZ, worldMinHeight, worldMaxHeight,
-                ignored -> true);
+                _ -> true);
     }
 
     private static RegenSelection selection(

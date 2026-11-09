@@ -19,16 +19,16 @@ class TipSchedulerTest {
     private static final UUID PLAYER = UUID.randomUUID();
     private static final Object SOURCE = new Object();
     private static final long NOW = 1_800_000_000_000L;
-    private final TipScheduler scheduler = new TipScheduler(Assertions::fail, ignored -> TipAudience.MEMBER);
+    private final TipScheduler scheduler = new TipScheduler(Assertions::fail, _ -> TipAudience.MEMBER);
 
     @Test
     void readyAdviceDoesNotWaitForAFutureSourceInTheSameGroup() {
         var version = definition("client-version", "client", 60);
         var mods = definition("client-mods", "client", 30, Duration.ofMillis(500), Duration.ofSeconds(30));
         scheduler.offer(SOURCE, PLAYER, version, NOW,
-                language -> content("target-version"));
+                _ -> content("target-version"));
         scheduler.offer(SOURCE, PLAYER, mods, NOW,
-                language -> content("voice,map"));
+                _ -> content("voice,map"));
 
         assertEquals(List.of(version), collect(NOW).stream().map(TipScheduler.Delivery::definition).toList());
         assertEquals(List.of(mods), collect(NOW + 500).stream().map(TipScheduler.Delivery::definition).toList());
@@ -37,13 +37,13 @@ class TipSchedulerTest {
     @Test
     void irrelevantHigherPriorityOfferCannotSplitAClientGroup() {
         scheduler.offer(SOURCE, PLAYER, definition("stale-home", "home", 90, Duration.ZERO, Duration.ofSeconds(30)), NOW,
-                language -> Optional.empty());
+                _ -> Optional.empty());
         var version = definition("client-version", "client", 60);
         var mods = definition("client-mods", "client", 30);
         scheduler.offer(SOURCE, PLAYER, version, NOW,
-                language -> content("target-version"));
+                _ -> content("target-version"));
         scheduler.offer(SOURCE, PLAYER, mods, NOW + 5,
-                language -> content("recommended-mods"));
+                _ -> content("recommended-mods"));
 
         assertEquals(List.of(version, mods), collect(NOW + 5).stream()
                 .map(TipScheduler.Delivery::definition).toList());
@@ -53,9 +53,9 @@ class TipSchedulerTest {
     void newObservationAfterExpiryStartsANewDeliveryWindow() {
         var tip = definition("controls", "controls", 50, Duration.ofSeconds(2), Duration.ofSeconds(5));
         scheduler.offer(SOURCE, PLAYER, tip, NOW,
-                language -> content("old"));
+                _ -> content("old"));
         scheduler.offer(SOURCE, PLAYER, tip, NOW + 6000,
-                language -> content("new"));
+                _ -> content("new"));
 
         assertTrue(collect(NOW + 6000).isEmpty());
         assertEquals("new", collect(NOW + 8000).getFirst().situationKey());
@@ -64,12 +64,12 @@ class TipSchedulerTest {
     @Test
     void invalidSourceResultDoesNotPreventAnotherSourceFromDelivering() {
         List<RuntimeException> failures = new java.util.ArrayList<>();
-        TipScheduler isolated = new TipScheduler(failures::add, ignored -> TipAudience.MEMBER);
+        TipScheduler isolated = new TipScheduler(failures::add, _ -> TipAudience.MEMBER);
         isolated.offer(SOURCE, PLAYER, definition("invalid-source", "invalid", 90), NOW,
-                language -> null);
+                _ -> null);
         var valid = definition("valid-source", "valid", 50);
         isolated.offer(new Object(), PLAYER, valid, NOW,
-                language -> content("v1"));
+                _ -> content("v1"));
 
         assertEquals(valid, isolated.collect(PLAYER, NOW, 45_000, true, Language.EN_US).getFirst().definition());
         assertEquals(1, failures.size());
@@ -78,13 +78,13 @@ class TipSchedulerTest {
     @Test
     void failedEvaluationAndLocalizationDoNotChooseTheGroupOrConsumeCooldown() {
         List<RuntimeException> failures = new java.util.ArrayList<>();
-        TipScheduler isolated = new TipScheduler(failures::add, ignored -> TipAudience.MEMBER);
+        TipScheduler isolated = new TipScheduler(failures::add, _ -> TipAudience.MEMBER);
         isolated.offer(SOURCE, PLAYER, definition("throws", "broken", 100), NOW,
                 language -> { throw new IllegalStateException("Failed to localize " + language); });
         isolated.offer(SOURCE, PLAYER, definition("null", "broken", 90), NOW,
-                language -> Optional.of(new TipContent("v1", null)));
+                _ -> Optional.of(new TipContent("v1", null)));
         var valid = definition("valid", "useful", 50);
-        isolated.offer(SOURCE, PLAYER, valid, NOW, language -> content("v1"));
+        isolated.offer(SOURCE, PLAYER, valid, NOW, _ -> content("v1"));
 
         var batch = isolated.collect(PLAYER, NOW, 45_000, true, Language.FR_FR);
         assertEquals(List.of(valid), batch.stream().map(TipScheduler.Delivery::definition).toList());
@@ -97,7 +97,7 @@ class TipSchedulerTest {
     @Test
     void sourceClosedDuringEvaluationCannotDeliverItsReturnedContent() {
         scheduler.offer(SOURCE, PLAYER, definition("closed", "group", 90), NOW,
-                language -> {
+                _ -> {
                     scheduler.close(SOURCE);
                     return content("stale");
                 });
@@ -112,7 +112,7 @@ class TipSchedulerTest {
         var kept = definition("kept", "group", 80);
         offer(cancelled, "v1", NOW);
         scheduler.offer(new Object(), PLAYER, kept, NOW,
-                language -> {
+                _ -> {
             scheduler.close(SOURCE);
             return content("v1");
         });
@@ -159,7 +159,7 @@ class TipSchedulerTest {
     void latePositiveInstallationEvidenceCancelsRecommendationBeforeSending() {
         AtomicBoolean installed = new AtomicBoolean();
         scheduler.offer(SOURCE, PLAYER, definition("voice", "client", 30, Duration.ofSeconds(10), Duration.ofSeconds(30)), NOW,
-                language -> installed.get() ? Optional.empty() : content("voice-undetected"));
+                _ -> installed.get() ? Optional.empty() : content("voice-undetected"));
         installed.set(true);
 
         assertTrue(collect(NOW + 10_000).isEmpty());
@@ -170,9 +170,9 @@ class TipSchedulerTest {
     void repeatedObservationsRefreshContentWithoutRestartingTheDelay() {
         var tip = definition("controls", "controls", 50, Duration.ofSeconds(2), Duration.ofSeconds(20));
         scheduler.offer(SOURCE, PLAYER, tip, NOW,
-                language -> content("old"));
+                _ -> content("old"));
         scheduler.offer(SOURCE, PLAYER, tip, NOW + 1000,
-                language -> content("current"));
+                _ -> content("current"));
 
         assertEquals("current", collect(NOW + 2000).getFirst().situationKey());
     }
@@ -182,7 +182,7 @@ class TipSchedulerTest {
         AtomicInteger evaluations = new AtomicInteger();
         var tip = definition("context", "context", 50);
         scheduler.offer(SOURCE, PLAYER, tip, NOW,
-                language -> {
+                _ -> {
             evaluations.incrementAndGet();
             return content("current");
         });
@@ -250,7 +250,7 @@ class TipSchedulerTest {
                 mods.id(), new TipState.Entry("old-list", NOW - 1000, 6, 0, 0),
                 "other", retained));
         for (boolean restoreFirst : new boolean[]{true, false}) {
-            TipScheduler restarted = new TipScheduler(error -> fail(error), ignored -> TipAudience.MEMBER);
+            TipScheduler restarted = new TipScheduler(error -> fail(error), _ -> TipAudience.MEMBER);
             if (restoreFirst) restarted.restore(PLAYER, snapshot);
             restarted.register(SOURCE, version);
             restarted.register(SOURCE, mods);
@@ -258,8 +258,8 @@ class TipSchedulerTest {
 
             assertEquals(java.util.Map.of("other", retained), restarted.snapshot(PLAYER).history());
             assertTrue(restarted.changed(PLAYER), "old records must be removed on the next PDC save");
-            restarted.offer(SOURCE, PLAYER, version, NOW, language -> content("same"));
-            restarted.offer(SOURCE, PLAYER, mods, NOW, language -> content("same"));
+            restarted.offer(SOURCE, PLAYER, version, NOW, _ -> content("same"));
+            restarted.offer(SOURCE, PLAYER, mods, NOW, _ -> content("same"));
             var batch = restarted.collect(PLAYER, NOW, 45_000, true, Language.EN_US);
             assertEquals(2, batch.size(), "discarded history must not impose a stale global cooldown");
             restarted.delivered(PLAYER, batch, NOW);
@@ -296,10 +296,10 @@ class TipSchedulerTest {
         Object anotherSource = new Object();
         var cancelled = definition("closed", "group", 90);
         scheduler.offer(SOURCE, PLAYER, cancelled, NOW,
-                language -> { fail("closed feature was queried"); return Optional.empty(); });
+                _ -> { fail("closed feature was queried"); return Optional.empty(); });
         var kept = definition("kept", "group", 20);
         scheduler.offer(anotherSource, PLAYER, kept, NOW,
-                language -> content("v1"));
+                _ -> content("v1"));
         scheduler.close(SOURCE);
 
         assertEquals(kept, collect(NOW).getFirst().definition());
@@ -333,7 +333,7 @@ class TipSchedulerTest {
                 Duration.ofSeconds(5), Duration.ofSeconds(5)));
         offer(tip, "v1", NOW);
         assertThrows(IllegalArgumentException.class, () -> scheduler.offer(new Object(), PLAYER, tip, NOW,
-                language -> content("v1")));
+                _ -> content("v1")));
     }
 
     @Test
@@ -357,15 +357,15 @@ class TipSchedulerTest {
         scheduler.restore(PLAYER, snapshot);
         UUID another = UUID.randomUUID();
         scheduler.offer(SOURCE, another, tip, NOW,
-                language -> content("v1"));
+                _ -> content("v1"));
         assertEquals(1, scheduler.collect(another, NOW, 45_000, true, Language.EN_US).size());
     }
 
     @Test
     void adaptiveSamplingStartsCertainCountsMissesAndRecoversWithTime() {
-        TipScheduler adaptive = new TipScheduler(error -> fail(error), () -> 0.9, ignored -> TipAudience.MEMBER);
+        TipScheduler adaptive = new TipScheduler(error -> fail(error), () -> 0.9, _ -> TipAudience.MEMBER);
         var rule = definition("chat", "chat", 0);
-        Function<Language, Optional<TipContent>> text = language -> content("chat");
+        Function<Language, Optional<TipContent>> text = _ -> content("chat");
         adaptive.offer(SOURCE, PLAYER, rule, NOW, 1, true, 1, Duration.ZERO, text);
         var first = adaptive.collect(PLAYER, NOW, 45_000, true, Language.EN_US);
         assertEquals(1, first.size(), "the first eligible match has no probability penalty");
@@ -416,7 +416,7 @@ class TipSchedulerTest {
 
     private void offer(Tip.Policy tip, String situation, long now) {
         scheduler.offer(SOURCE, PLAYER, tip, now,
-                language -> content(situation));
+                _ -> content(situation));
     }
 
     private List<TipScheduler.Delivery> collect(long now) {

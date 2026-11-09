@@ -1,6 +1,5 @@
 package org.encinet.mik.feature.player.teleport;
 
-import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -13,7 +12,6 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -80,7 +78,7 @@ final class HomeStore implements AutoCloseable {
 
     void put(UUID playerId, String name, Entry entry) {
         requireOpen();
-        homes.computeIfAbsent(playerId, ignored -> new HashMap<>()).put(name, entry);
+        homes.computeIfAbsent(playerId, _ -> new HashMap<>()).put(name, entry);
         saveAsync();
     }
 
@@ -90,17 +88,6 @@ final class HomeStore implements AutoCloseable {
         if (playerHomes == null || playerHomes.remove(name) == null) return false;
         saveAsync();
         return true;
-    }
-
-    static Material icon(String input) {
-        Material material = Material.matchMaterial(input.toUpperCase(Locale.ROOT));
-        return isValidIcon(material) ? material : null;
-    }
-
-    static boolean isValidIcon(Material material) {
-        // isItem() converts legacy materials, initializing Paper's expensive legacy support.
-        return material != null && !material.isLegacy() && material != Material.AIR
-                && material.isItem();
     }
 
     private void saveAsync() {
@@ -116,7 +103,7 @@ final class HomeStore implements AutoCloseable {
         snapshot.forEach((playerId, playerHomes) -> {
             var section = data.createSection(playerId.toString());
             playerHomes.forEach((name, entry) ->
-                    section.set(formatKey(name, entry), entry.locationRaw()));
+                    section.set(name, entry.locationRaw()));
         });
         Path temporary = null;
         try {
@@ -151,24 +138,9 @@ final class HomeStore implements AutoCloseable {
                 // Older saves split names containing '.' into nested YAML sections.
                 readEntries(nested, prefix + key + ".", playerHomes);
             } else if (value instanceof String rawLocation) {
-                ParsedKey parsed = parseKey(prefix + key);
-                playerHomes.put(parsed.name(), new Entry(rawLocation, parsed.icon()));
+                playerHomes.put(prefix + key, new Entry(rawLocation));
             }
         }
-    }
-
-    private static ParsedKey parseKey(String storedName) {
-        int left = storedName.lastIndexOf('<');
-        int right = storedName.endsWith(">") ? storedName.length() - 1 : -1;
-        if (left > 0 && right > left) {
-            Material material = icon(storedName.substring(left + 1, right));
-            if (material != null) return new ParsedKey(storedName.substring(0, left), material);
-        }
-        return new ParsedKey(storedName, null);
-    }
-
-    private static String formatKey(String name, Entry entry) {
-        return entry.icon() == null ? name : name + "<" + entry.icon().name() + ">";
     }
 
     private void requireOpen() {
@@ -191,11 +163,9 @@ final class HomeStore implements AutoCloseable {
         if (lastWriteFailure != null) throw lastWriteFailure;
     }
 
-    record Entry(String locationRaw, Material icon) {
+    record Entry(String locationRaw) {
         Entry {
             Objects.requireNonNull(locationRaw, "locationRaw");
         }
     }
-
-    private record ParsedKey(String name, Material icon) { }
 }

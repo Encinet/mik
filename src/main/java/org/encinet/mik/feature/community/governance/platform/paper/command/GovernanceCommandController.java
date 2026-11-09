@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.governance.platform.paper.command;
 
+import org.encinet.mik.feature.player.security.PasswordAccess;
+
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
@@ -9,7 +11,6 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.entity.Player;
-import org.encinet.mik.feature.player.security.PasswordAccess;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceTaskExecutor;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceText;
@@ -17,21 +18,28 @@ import org.encinet.mik.feature.community.governance.platform.paper.delivery.Gove
 import org.encinet.mik.feature.community.governance.platform.paper.role.LuckPermsGovernanceRoles;
 import org.encinet.mik.feature.community.governance.removal.RemovalService;
 import org.encinet.mik.feature.community.governance.voting.VotingService;
+import org.encinet.mik.feature.community.governance.delivery.DeliveryService;
+import org.encinet.mik.feature.community.governance.roster.StaffDirectory;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.RolePermissions;
+import org.encinet.mik.shared.menu.MenuPanel;
 
 import java.util.List;
 
 /** Declares the Paper command tree and delegates each branch to a focused handler. */
-public final class GovernanceCommandController {
+public final class GovernanceCommandController implements AutoCloseable {
     private final LanguageService languages;
     private final GovernanceCommandContext context;
     private final MembershipCommandHandler membership;
     private final VotingCommandHandler voting;
     private final RemovalCommandHandler removal;
-    private final GovernanceMenuController menus;
+    private final MembershipService membershipService;
+    private final GovernanceText text;
+    private final GovernanceWorkspace workspace;
+    private final GovernancePlayerMenu players;
+    private final GovernanceActivity activity;
 
     public GovernanceCommandController(
             JavaPlugin plugin,
@@ -41,10 +49,12 @@ public final class GovernanceCommandController {
             RemovalService removalService,
             LuckPermsGovernanceRoles roleManager,
             GovernanceDeliveryCoordinator coordinator,
-            GovernanceTaskExecutor executor, PasswordAccess passwords
+            GovernanceTaskExecutor executor, PasswordAccess passwords,
+            StaffDirectory staff, DeliveryService delivery
     ) {
         this.languages = languages;
-        GovernanceText text = new GovernanceText(languages);
+        this.membershipService = membershipService;
+        this.text = new GovernanceText(languages);
         this.context = new GovernanceCommandContext(plugin, membershipService, executor, text);
         this.membership = new MembershipCommandHandler(
                 membershipService, roleManager, context, text);
@@ -52,15 +62,31 @@ public final class GovernanceCommandController {
                 membershipService, votingService, coordinator, context, text);
         this.removal = new RemovalCommandHandler(
                 plugin, membershipService, votingService, removalService, roleManager,
-                coordinator, executor, context, text);
-        GovernancePlayerMenu players = new GovernancePlayerMenu(
+                coordinator, context, text);
+        this.players = new GovernancePlayerMenu(
                 plugin, membershipService, roleManager, context, text, membership, passwords);
-        this.menus = new GovernanceMenuController(plugin, membershipService, votingService,
-                removalService, coordinator, context, text, voting, removal, players);
+        var query = new GovernanceWorkspaceQuery(membershipService, votingService, removalService, delivery);
+        this.workspace = new GovernanceWorkspace(plugin, context, text, staff, query,
+                voting, removal, passwords, this::identityPanel, players::search);
+        this.activity = new GovernanceActivity(plugin, context, query, text, votingService, removal, workspace::openMatters);
     }
 
     public void openMenu(Player player) {
-        menus.openMenu(player);
+        workspace.open(player);
+    }
+
+    public MenuPanel identityPanel(Player player, Runnable redraw) {
+        return new GovernanceIdentityPanel(player, membershipService, context, text, redraw);
+    }
+
+    public MenuPanel activityPanel(Player player, Runnable redraw) { return activity.panel(player, redraw); }
+
+    @Override public void close() {
+        var cleanup = new org.encinet.mik.shared.util.ShutdownSequence();
+        cleanup.attempt("governance activity",activity::close);
+        cleanup.attempt("governance workspace",workspace::close);
+        cleanup.attempt("governance player reader",players::close);
+        cleanup.finish("governance menus");
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -81,11 +107,11 @@ public final class GovernanceCommandController {
                         .requires(source -> RolePermissions.canModerate(source.getSender()))
                         .executes(ctx -> {
                             Player player = context.requirePlayer(ctx.getSource().getSender());
-                            if (player != null) menus.openPlayerSearch(player);
+                            if (player != null) players.search(player);
                             return com.mojang.brigadier.Command.SINGLE_SUCCESS;
                         })
                         .then(Commands.argument("player", StringArgumentType.word())
-                                .suggests((ctx, builder) -> context.suggestPlayers(builder))
+                                .suggests((_, builder) -> context.suggestPlayers(builder))
                                 .executes(ctx -> membership.inspectPlayer(
                                         ctx.getSource().getSender(),
                                         StringArgumentType.getString(ctx, "player")))
@@ -112,7 +138,7 @@ public final class GovernanceCommandController {
                 .then(Commands.literal("vote")
                         .then(Commands.argument("id", LongArgumentType.longArg(1))
                                 .then(Commands.argument("choice", StringArgumentType.word())
-                                        .suggests((ctx, builder) -> {
+                                        .suggests((_, builder) -> {
                                             builder.suggest("yes").suggest("no").suggest("abstain");
                                             return builder.buildFuture();
                                         })
@@ -133,7 +159,7 @@ public final class GovernanceCommandController {
                         .executes(ctx -> removal.listPetitions(ctx.getSource().getSender())))
                 .then(Commands.literal("remove")
                         .then(Commands.argument("moderator", StringArgumentType.word())
-                                .suggests((ctx, builder) -> context.suggestPlayers(builder))
+                                .suggests((_, builder) -> context.suggestPlayers(builder))
                                 .executes(ctx -> removal.sponsorRemoval(
                                         ctx.getSource().getSender(),
                                         StringArgumentType.getString(ctx, "moderator")))))
@@ -147,7 +173,7 @@ public final class GovernanceCommandController {
 
     private int openOrList(org.bukkit.command.CommandSender sender) {
         if (sender instanceof Player player) {
-            menus.openMenu(player);
+            workspace.open(player);
             return com.mojang.brigadier.Command.SINGLE_SUCCESS;
         }
         return voting.listVotes(sender);

@@ -38,9 +38,9 @@ class VehicleDisplayGroupTest {
         child.attach(nested);
         Location eye = root.location.clone().add(3.25, 0.25, 0);
         Display picked = VehicleDisplayPicker.pick(eye, new Vector(0, 0, 1),
-                List.of(root.entity, child.entity, nested.entity), entity -> false);
+                List.of(root.entity, child.entity, nested.entity), _ -> false);
         assertSame(child.entity, picked);
-        var group = VehicleDisplayGroup.inspect(picked, eye, entity -> false);
+        var group = VehicleDisplayGroup.inspect(picked, eye, _ -> false);
         assertEquals(root.id, group.root());
         assertEquals(List.of(root.entity, child.entity, nested.entity), group.displays());
         Matrix4f expectedRoot = new Matrix4f().translate(-2, 0, 4).rotate(root.transformation.getLeftRotation())
@@ -71,7 +71,7 @@ class VehicleDisplayGroupTest {
         var neighbor = VehicleGroupFixtures.block(world);
         root.attach(child);
         child.attach(nested);
-        var group = VehicleDisplayGroup.inspect(nested.entity, root.location, entity -> false);
+        var group = VehicleDisplayGroup.inspect(nested.entity, root.location, _ -> false);
         assertEquals(root.id, group.root());
         assertEquals(List.of(root.entity, child.entity, nested.entity), group.displays());
         assertEquals(root.id, group.parents().get(child.id));
@@ -88,11 +88,11 @@ class VehicleDisplayGroupTest {
         var block = VehicleGroupFixtures.block(world);
         root.attach(stand);
         stand.attach(block);
-        var group = VehicleDisplayGroup.inspect(block.entity, root.location, entity -> false);
+        var group = VehicleDisplayGroup.inspect(block.entity, root.location, _ -> false);
         assertEquals(3, group.parents().size());
         assertEquals(List.of(block.entity), group.displays());
         stand.visible = true;
-        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(block.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(block.entity, root.location, _ -> false));
     }
 
     @Test void liveVehiclesPreviewsPlayersInvalidWorldsAndDistantMembersRejectTheWholeGroup() {
@@ -102,15 +102,15 @@ class VehicleDisplayGroupTest {
         root.attach(child);
         assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> entity.getUniqueId().equals(child.id)));
         child.valid = false;
-        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false));
         child.valid = true;
         child.location = new Location(VehicleGroupFixtures.world(), 0, 0, 0);
-        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false));
         child.location = new Location(world, 33, 0, 0);
-        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false));
         child.location = root.location.clone();
         root.attach(new VehicleGroupFixtures.Node(Player.class, world));
-        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false));
     }
 
     @Test void cycleAndDuplicateReferencesAreRejectedRatherThanPartiallyCaptured() {
@@ -119,33 +119,33 @@ class VehicleDisplayGroupTest {
         var child = VehicleGroupFixtures.block(world);
         root.attach(child);
         root.children.add(child);
-        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false));
         root.children.removeLast();
         root.parent = child;
         child.children.add(root);
-        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_INVALID, () -> VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false));
     }
 
     @Test void displayAndTotalMemberLimitsAreEnforcedBeforeImport() {
         var world = VehicleGroupFixtures.world();
         var root = VehicleGroupFixtures.block(world);
         for (int index = 1; index < 128; index++) root.attach(VehicleGroupFixtures.block(world));
-        assertEquals(128, VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false).displays().size());
+        assertEquals(128, VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false).displays().size());
         root.attach(VehicleGroupFixtures.block(world));
-        assertCode(Message.VEHICLE_GROUP_LIMIT, () -> VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_LIMIT, () -> VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false));
         var carrier = new VehicleGroupFixtures.Node(Marker.class, world);
         carrier.attach(VehicleGroupFixtures.block(world));
         for (int index = 2; index < 256; index++) carrier.attach(new VehicleGroupFixtures.Node(Marker.class, world));
-        assertEquals(256, VehicleDisplayGroup.inspect(carrier.entity, carrier.location, entity -> false).parents().size());
+        assertEquals(256, VehicleDisplayGroup.inspect(carrier.entity, carrier.location, _ -> false).parents().size());
         carrier.attach(new VehicleGroupFixtures.Node(Marker.class, world));
-        assertCode(Message.VEHICLE_GROUP_LIMIT, () -> VehicleDisplayGroup.inspect(carrier.entity, carrier.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_LIMIT, () -> VehicleDisplayGroup.inspect(carrier.entity, carrier.location, _ -> false));
     }
 
     @Test void emptyAndMissingTreesHaveExplicitFeedback() {
         var world = VehicleGroupFixtures.world();
         var carrier = new VehicleGroupFixtures.Node(Marker.class, world);
-        assertCode(Message.VEHICLE_GROUP_NOT_FOUND, () -> VehicleDisplayGroup.inspect(null, carrier.location, entity -> false));
-        assertCode(Message.VEHICLE_GROUP_NOT_FOUND, () -> VehicleDisplayGroup.inspect(carrier.entity, carrier.location, entity -> false));
+        assertCode(Message.VEHICLE_GROUP_NOT_FOUND, () -> VehicleDisplayGroup.inspect(null, carrier.location, _ -> false));
+        assertCode(Message.VEHICLE_GROUP_NOT_FOUND, () -> VehicleDisplayGroup.inspect(carrier.entity, carrier.location, _ -> false));
     }
 
     @Test void selectedStructureMustStillMatchBeforeCaptureAndManualModeDropsItsBinding() {
@@ -155,12 +155,12 @@ class VehicleDisplayGroupTest {
         var nested = VehicleGroupFixtures.block(world);
         root.attach(child);
         root.attach(nested);
-        var group = VehicleDisplayGroup.inspect(child.entity, root.location, entity -> false);
+        var group = VehicleDisplayGroup.inspect(child.entity, root.location, _ -> false);
         var selection = VehicleSelection.group(group);
         assertEquals(Set.of(root.id, child.id, nested.id), selection.ids());
         assertDoesNotThrow(() -> selection.requireUnchanged(group));
         child.attach(nested);
-        var changed = VehicleDisplayGroup.inspect(root.entity, root.location, entity -> false);
+        var changed = VehicleDisplayGroup.inspect(root.entity, root.location, _ -> false);
         assertEquals(selection.ids(), VehicleSelection.group(changed).ids());
         assertCode(Message.VEHICLE_GROUP_CHANGED, () -> selection.requireUnchanged(changed));
         var manual = VehicleSelection.manual(selection.ids());
@@ -180,7 +180,7 @@ class VehicleDisplayGroupTest {
         root.transformation = new Transformation(new Vector3f(0.2f, 0, 0), new Quaternionf().rotateZ(0.1f), new Vector3f(2, 1, 1), new Quaternionf());
         child.transformation = new Transformation(new Vector3f(0.1f, 0.2f, 0), new Quaternionf().rotateX(0.3f), new Vector3f(1, 0.5f, 2), new Quaternionf().rotateY(0.2f));
         root.attach(child);
-        var group = VehicleDisplayGroup.inspect(child.entity, root.location, entity -> false);
+        var group = VehicleDisplayGroup.inspect(child.entity, root.location, _ -> false);
         var parts = VehicleModel.captureParts(group.origin(), group.displays());
         Matrix4f expected = new Matrix4f().rotateY((float) Math.toRadians(65)).translate(1.5f, 0.5f, 2)
                 .rotateY((float) -Math.toRadians(15)).translate(child.transformation.getTranslation())
@@ -198,7 +198,7 @@ class VehicleDisplayGroupTest {
         var root = VehicleGroupFixtures.block(world);
         var text = new VehicleGroupFixtures.Node(TextDisplay.class, world);
         root.attach(text);
-        var group = VehicleDisplayGroup.inspect(text.entity, root.location, entity -> false);
+        var group = VehicleDisplayGroup.inspect(text.entity, root.location, _ -> false);
         var parts = VehicleModel.captureParts(group.origin(), group.displays());
         assertEquals(VehicleDefinition.PartKind.TEXT, parts.get(1).kind());
         assertEquals("RIGHT", parts.get(1).alignment());

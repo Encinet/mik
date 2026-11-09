@@ -258,7 +258,7 @@ final class RhythmLatencyCalibration {
                 .sorted(Comparator.comparingLong(Observation::cycleIndex)
                         .thenComparingInt(Observation::cueIndex))
                 .forEach(value -> grouped.computeIfAbsent(value.cycleIndex(),
-                        ignored -> new ArrayList<>()).add(value));
+                        _ -> new ArrayList<>()).add(value));
         List<CycleSample> result = new ArrayList<>(grouped.size());
         grouped.forEach((cycleIndex, samples) -> {
             int cueCount = samples.stream().mapToInt(Observation::cuesPerCycle)
@@ -507,7 +507,7 @@ final class RhythmLatencyCalibration {
 
         int errorMillis() {
             long fixed = (long) rawErrorMillis - networkRttMillis;
-            return (int) Math.clamp(fixed,
+            return Math.clamp(fixed,
                     Integer.MIN_VALUE, Integer.MAX_VALUE);
         }
     }

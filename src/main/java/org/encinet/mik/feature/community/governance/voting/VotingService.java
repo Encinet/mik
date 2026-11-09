@@ -1,7 +1,7 @@
 package org.encinet.mik.feature.community.governance.voting;
 
-import org.encinet.mik.feature.player.security.PasswordAccounts;
 import org.encinet.mik.feature.community.governance.GovernanceException;
+import org.encinet.mik.feature.player.security.PasswordAccounts;
 import org.encinet.mik.feature.community.governance.GovernanceRepositoryException;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
 import org.encinet.mik.feature.community.governance.membership.profile.PlayerProfile;
@@ -28,7 +28,6 @@ public final class VotingService {
     private final VotingRepository repository;
     private final MembershipService membership;
     private final Clock clock;
-
     private final PasswordAccounts passwords;
 
     public VotingService(VotingRepository repository, MembershipService membership, PasswordAccounts passwords) {
@@ -192,6 +191,16 @@ public final class VotingService {
         }
     }
 
+    public VoteHistory history(UUID subjectId, int limit, int offset) throws GovernanceException {
+        if (limit < 1 || limit > 100 || offset < 0 || offset % limit != 0)
+            throw new IllegalArgumentException("Invalid history page");
+        try {
+            return repository.voteHistory(subjectId, limit, offset);
+        } catch (GovernanceRepositoryException | RuntimeException error) {
+            throw storageFailure("Could not load governance history", error);
+        }
+    }
+
     public List<GovernanceVote> finalizeDueVotes() throws GovernanceException {
         Instant now = clock.instant();
         try {
@@ -224,7 +233,7 @@ public final class VotingService {
                 yield new VoteProposal.Appointment(
                         subject.playerId(), subject.playerName());
             }
-            case VoteProposal.Removal ignored -> throw new GovernanceException(
+            case VoteProposal.Removal _ -> throw new GovernanceException(
                     GovernanceException.Code.REMOVAL_REQUIRES_PETITION);
             case VoteProposal.Ban ban -> {
                 if (ban.proposerId().equals(ban.subjectId())) {

@@ -29,7 +29,7 @@ class RolePermissionsTest {
         Set<String> granted = Set.of(nodes);
         return (Permissible) Proxy.newProxyInstance(
                 Permissible.class.getClassLoader(), new Class<?>[] {Permissible.class},
-                (proxy, method, args) -> {
+                (_, method, args) -> {
                     if (method.getName().equals("hasPermission"))
                         return granted.contains(args[0]);
                     throw new UnsupportedOperationException(method.getName());

@@ -10,7 +10,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
 import org.encinet.mik.feature.community.governance.membership.profile.PlayerProfile;
-import org.encinet.mik.feature.community.governance.platform.paper.GovernanceTaskExecutor;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceText;
 import org.encinet.mik.feature.community.governance.platform.paper.delivery.GovernanceDeliveryCoordinator;
 import org.encinet.mik.feature.community.governance.platform.paper.role.LuckPermsGovernanceRoles;
@@ -18,7 +17,6 @@ import org.encinet.mik.feature.community.governance.removal.RemovalPetition;
 import org.encinet.mik.feature.community.governance.removal.RemovalService;
 import org.encinet.mik.feature.community.governance.removal.RemovalSponsorship;
 import org.encinet.mik.feature.community.governance.voting.VotingService;
-import org.encinet.mik.feature.community.governance.voting.model.GovernanceVote;
 import org.encinet.mik.feature.community.governance.voting.model.VoteKind;
 import org.encinet.mik.feature.community.governance.voting.model.VoteTerminationReason;
 import org.encinet.mik.shared.i18n.Language;
@@ -26,6 +24,8 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.RolePermissions;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.encinet.mik.feature.community.governance.GovernanceException;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -38,7 +38,6 @@ final class RemovalCommandHandler {
     private final RemovalService removal;
     private final LuckPermsGovernanceRoles roleManager;
     private final GovernanceDeliveryCoordinator coordinator;
-    private final GovernanceTaskExecutor executor;
     private final GovernanceCommandContext context;
     private final GovernanceText text;
 
@@ -46,7 +45,6 @@ final class RemovalCommandHandler {
                           VotingService voting, RemovalService removal,
                           LuckPermsGovernanceRoles roleManager,
                           GovernanceDeliveryCoordinator coordinator,
-                          GovernanceTaskExecutor executor,
                           GovernanceCommandContext context, GovernanceText text) {
         this.plugin = plugin;
         this.membership = membership;
@@ -54,7 +52,6 @@ final class RemovalCommandHandler {
         this.removal = removal;
         this.roleManager = roleManager;
         this.coordinator = coordinator;
-        this.executor = executor;
         this.context = context;
         this.text = text;
     }
@@ -83,10 +80,15 @@ final class RemovalCommandHandler {
     }
 
     int resign(CommandSender sender) {
+        return resign(sender, () -> {});
+    }
+
+    int resign(CommandSender sender, Runnable completed) {
         Player player = context.requirePlayer(sender);
-        if (player == null) return 0;
+        if (player == null) { completed.run(); return 0; }
         if (RolePermissions.isCustodian(player)) {
             text.send(sender, Message.GOVERNANCE_CUSTODIAN_NO_RESIGN, NamedTextColor.RED);
+            completed.run();
             return 0;
         }
         UUID playerId = player.getUniqueId();
@@ -97,10 +99,12 @@ final class RemovalCommandHandler {
                 plugin.getLogger().log(Level.SEVERE,
                         "Could not inspect moderator role for resignation", lookupError);
                 text.send(sender, Message.GOVERNANCE_ROLE_LOOKUP_ERROR, NamedTextColor.RED);
+                completed.run();
                 return;
             }
             if (!moderator) {
                 text.send(sender, Message.GOVERNANCE_NOT_MODERATOR, NamedTextColor.RED);
+                completed.run();
                 return;
             }
             removeModeratorRole(playerId, error -> {
@@ -108,14 +112,16 @@ final class RemovalCommandHandler {
                     plugin.getLogger().log(Level.SEVERE,
                             "Could not resign moderator " + playerName, error);
                     text.send(sender, Message.GOVERNANCE_RESIGN_FAILED, NamedTextColor.RED);
+                    completed.run();
                     return;
                 }
                 text.broadcast(Message.GOVERNANCE_RESIGNED, NamedTextColor.YELLOW, playerName);
-                executor.submit(() -> {
+                context.submit(sender, () -> {
                     voting.terminateOpenVote(VoteKind.REMOVAL, playerId,
                             VoteTerminationReason.MODERATOR_RESIGNED);
                     coordinator.reviewOpenVotes();
-                });
+                    context.onMain(completed);
+                }, completed);
             });
         }));
         return Command.SINGLE_SUCCESS;
@@ -142,66 +148,55 @@ final class RemovalCommandHandler {
 
     private int sponsorRemoval(CommandSender sender, OfflinePlayer target, Runnable completion) {
         Player sponsor = context.requirePlayer(sender);
-        if (sponsor == null) return 0;
-        GovernanceCommandContext.KnownPlayer known = context.snapshot(target);
-        UUID sponsorId = sponsor.getUniqueId();
-        roleManager.isModerator(known.playerId()).whenComplete((moderator, error) -> {
-            Throwable cause = GovernanceCommandContext.unwrap(error);
-            if (cause != null) {
-                plugin.getLogger().log(Level.SEVERE,
-                        "Could not inspect moderator role", cause);
-                context.onMain(() -> text.send(sender,
-                        Message.GOVERNANCE_ROLE_LOOKUP_ERROR, NamedTextColor.RED));
-                context.onMain(completion);
-                return;
-            }
-            if (!moderator) {
-                context.onMain(() -> text.send(sender,
-                        Message.GOVERNANCE_TARGET_NOT_MODERATOR,
-                        NamedTextColor.RED, known.playerName()));
-                context.onMain(completion);
-                return;
-            }
-            context.submit(sender, () -> {
-                try {
-                    coordinator.reviewOpenVotes();
-                    context.ensureKnown(known);
-                    PlayerProfile subject = membership.player(known.playerId()).orElseThrow();
-                    RemovalSponsorship result = removal.sponsorRemoval(subject, sponsorId);
-                    if (result.startedVote() == null) {
-                        if (result.newlyAdded()) {
-                            context.onMain(() -> text.broadcast(language -> text.t(language,
-                                    Message.GOVERNANCE_PETITION_STARTED,
-                                    result.petition().subjectName(),
-                                    result.petition().sponsorCount(),
-                                    result.petition().sponsorsRequired(),
-                                    text.time(language, result.petition().expiresAt())),
-                                    NamedTextColor.YELLOW));
-                        } else {
-                            context.onMain(() -> text.send(sender,
-                                    Message.GOVERNANCE_PETITION_ALREADY_SPONSORED,
-                                    NamedTextColor.YELLOW,
-                                    result.petition().sponsorCount(),
-                                    result.petition().sponsorsRequired()));
-                        }
-                        return;
-                    }
-                    GovernanceVote vote = result.startedVote();
-                    context.onMain(() -> text.broadcast(language -> text.t(language,
-                            Message.GOVERNANCE_VOTE_STARTED, vote.id(),
-                            text.kind(language, vote.kind()), vote.subjectName(),
-                            vote.eligibleVoters(), vote.quorumRequired(),
-                            text.time(language, vote.closesAt())), NamedTextColor.GOLD));
-                } finally {
-                    context.onMain(completion);
-                }
-            });
-        });
+        if (sponsor == null) { completion.run(); return 0; }
+        sponsor(context.snapshot(target), sponsor.getUniqueId(), null).whenComplete((result, error) -> context.onMain(() -> {
+            if (error != null) context.reportFailure(sender, error);
+            else if (!result.newlyAdded() && result.startedVote() == null)
+                text.send(sender, Message.GOVERNANCE_PETITION_ALREADY_SPONSORED, NamedTextColor.YELLOW,
+                        result.petition().sponsorCount(), result.petition().sponsorsRequired());
+            completion.run();
+        }));
         return Command.SINGLE_SUCCESS;
     }
 
+    CompletableFuture<RemovalSponsorship> joinPetition(Player sponsor, RemovalPetition petition) {
+        return sponsor(context.snapshot(Bukkit.getOfflinePlayer(petition.subjectId())), sponsor.getUniqueId(), petition.id());
+    }
+
+    private CompletableFuture<RemovalSponsorship> sponsor(
+            GovernanceCommandContext.KnownPlayer known, UUID sponsorId, Long expectedPetition) {
+        return roleManager.isModerator(known.playerId()).thenCompose(moderator -> {
+            if (!moderator) return CompletableFuture.failedFuture(
+                    new GovernanceException(
+                            GovernanceException.Code.REMOVAL_TARGET_NOT_MODERATOR));
+            return context.query(() -> {
+                coordinator.reviewOpenVotes();
+                context.ensureKnown(known);
+                PlayerProfile subject = membership.player(known.playerId()).orElseThrow();
+                return expectedPetition == null ? removal.sponsorRemoval(subject, sponsorId)
+                        : removal.joinPetition(subject, sponsorId, expectedPetition);
+            });
+        }).thenApply(result -> {
+            context.onMain(() -> announce(result));
+            return result;
+        });
+    }
+
+    private void announce(RemovalSponsorship result) {
+        if (result.startedVote() != null) {
+            var vote = result.startedVote();
+            text.broadcast(language -> text.t(language, Message.GOVERNANCE_VOTE_STARTED, vote.id(),
+                    text.kind(language, vote.kind()), vote.subjectName(), vote.eligibleVoters(),
+                    vote.quorumRequired(), text.time(language, vote.closesAt())), NamedTextColor.GOLD);
+        } else if (result.newlyAdded()) {
+            text.broadcast(language -> text.t(language, Message.GOVERNANCE_PETITION_STARTED,
+                    result.petition().subjectName(), result.petition().sponsorCount(),
+                    result.petition().sponsorsRequired(), text.time(language, result.petition().expiresAt())), NamedTextColor.YELLOW);
+        }
+    }
+
     private void removeModeratorRole(UUID playerId, Consumer<Throwable> completion) {
-        roleManager.removeModerator(playerId).whenComplete((ignored, error) -> context.onMain(
+        roleManager.removeModerator(playerId).whenComplete((_, error) -> context.onMain(
                 () -> completion.accept(GovernanceCommandContext.unwrap(error))));
     }
 }

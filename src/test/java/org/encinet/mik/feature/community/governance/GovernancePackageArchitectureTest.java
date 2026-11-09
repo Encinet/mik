@@ -16,7 +16,7 @@ class GovernancePackageArchitectureTest {
 
     @Test
     void capabilityCoresAreIndependentOfPaperAndSqlite() throws IOException {
-        for (String capability : List.of("membership", "voting", "removal", "delivery")) {
+        for (String capability : List.of("membership", "voting", "removal", "delivery", "roster")) {
             assertSourcesDoNotContain(GOVERNANCE.resolve(capability),
                     "org.bukkit", "net.luckperms", "java.sql",
                     "feature.community.governance.platform", "feature.community.governance.persistence.sqlite");

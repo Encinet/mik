@@ -42,7 +42,7 @@ final class VehicleGroupFixtures {
         Node(Class<? extends Entity> type, World world) {
             location = new Location(world, 0, 0, 0);
             var block = (BlockData) Proxy.newProxyInstance(BlockData.class.getClassLoader(), new Class<?>[]{BlockData.class},
-                    (proxy, method, arguments) -> method.getName().equals("getAsString") ? "minecraft:stone" : null);
+                    (_, method, _) -> method.getName().equals("getAsString") ? "minecraft:stone" : null);
             entity = (Entity) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, (proxy, method, arguments) -> switch (method.getName()) {
                 case "getUniqueId" -> id;
                 case "isValid" -> valid;

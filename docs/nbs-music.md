@@ -4,7 +4,7 @@ NBS trumpet sounds require a Minecraft/Paper version that provides the four
 `block.note_block.trumpet*` sound events. The server API target is declared in
 [paper-plugin.yml](../src/main/resources/paper-plugin.yml).
 
-Place Open Note Block Studio `.nbs` files anywhere below `plugins/mik/music`.
+Place Open Note Block Studio `.nbs` files anywhere below `plugins/mik/music/library`.
 The directory is scanned recursively. Run `/music reload` after adding or
 replacing files.
 

@@ -14,55 +14,11 @@
 
 back = Terug
 back-to-main = Terug naar hoofdmenu
+cancel = Annuleren
 click-open = Klik om te openen
 close = Sluiten
 current-off = Huidig: uit
 current-on = Huidig: aan
-password-already-connected = Dit account is al verbonden.
-password-already-set = Er is al een wachtwoord ingesteld. Wijzig het met /password change.
-password-busy = Te veel pogingen. Wacht even en probeer het opnieuw.
-password-change = Wachtwoord wijzigen
-password-change-done = Wachtwoord gewijzigd.
-password-checking = Accountbeveiliging controleren…
-password-command-description = Wachtwoordbeveiliging van je account beheren
-password-confirm = Nieuw wachtwoord bevestigen
-password-conflict = De accountbeveiliging is gewijzigd. Herhaal de handeling.
-password-cooldown = Accountverificatie is tijdelijk beperkt. Probeer het over { $arg0 ->
-        [one] { $arg0 } seconde
-       *[other] { $arg0 } seconden
-    } opnieuw.
-password-current = Huidig wachtwoord
-password-denied = Je mag het wachtwoord van dit account niet opnieuw instellen.
-password-disabled = Wachtwoord: niet ingesteld
-password-enabled = Wachtwoord: ingesteld
-password-invalid = Onjuist wachtwoord. Probeer opnieuw.
-password-keep-role = Moderators en beheerders kunnen hun wachtwoord niet verwijderen.
-password-login = Aanmelden
-password-login-expired = Je inlogverificatie is verlopen. Verbind opnieuw met de server.
-password-login-hint = Voer het serverwachtwoord in. Vergeten? Vraag het team om het opnieuw in te stellen.
-password-mismatch = De nieuwe wachtwoorden komen niet overeen.
-password-new = Nieuw wachtwoord
-password-nomination-required = Stel een wachtwoord in voordat je solliciteert als moderator: /password set
-password-not-set = Er is geen wachtwoord ingesteld. Stel er een in met /password set.
-password-remove = Wachtwoord verwijderen
-password-remove-done = Wachtwoord verwijderd.
-password-remove-question = Na het verwijderen wordt bij het inloggen geen wachtwoord meer gecontroleerd. Voer je huidige wachtwoord in om te bevestigen.
-password-required-application = Je kunt je wachtwoord niet verwijderen tijdens een lopende teamkandidatuur of benoeming.
-password-required-role = Teamaccounts vereisen een wachtwoord. Vraag een bevoegd teamlid om het opnieuw in te stellen voordat je aanmeldt.
-password-reset = Wachtwoord opnieuw instellen
-password-reset-console = Wachtwoord van { $arg0 } opnieuw ingesteld: { $arg1 }. Geef het na identiteitscontrole via een vertrouwd kanaal door.
-password-reset-done = Wachtwoord van { $arg0 } opnieuw ingesteld. Kopieer het nu en geef het na identiteitscontrole door; opnieuw bekijken is niet mogelijk.
-password-reset-question = Wachtwoord van { $arg0 } opnieuw instellen? Het oude vervalt en verbindingen worden gesloten. Bevestig met je eigen wachtwoord.
-password-retry = Opnieuw proberen
-password-rules = Gebruik { $arg0 }–{ $arg1 } tekens. Spelersnamen en veelgebruikte wachtwoorden zijn niet toegestaan.
-password-set = Wachtwoord instellen
-password-set-done = Wachtwoord ingesteld.
-password-set-first = Wachtwoord instellen vóór sollicitatie
-password-storage = Accountbeveiliging is niet beschikbaar. Probeer later opnieuw of neem contact op met de eigenaar.
-password-timeout = De wachtwoordcontrole is geannuleerd of verlopen. Verbind opnieuw om het te proberen.
-password-tip-set-mm = Stel met <gold><u>/password</u></gold> een <yellow>inlogwachtwoord</yellow> in om je account te beschermen.
-password-title = Accountbeveiliging
-
 player-only = Dit commando kan alleen door spelers worden gebruikt
 unknown = Onbekend
 usage = Gebruik
@@ -82,27 +38,61 @@ time-minutes = { $arg0 }m
 
 ## Shared · Menu presentation
 
-bedrock-menu-back = Terug
-bedrock-menu-hotkey = Snelactie (F)
-bedrock-menu-primary = Primaire actie
-bedrock-menu-scroll-down = Omlaag
-bedrock-menu-scroll-up = Omhoog
-bedrock-menu-secondary = Secundaire actie
 interface-fov-apply = FOV toepassen
-interface-fov-custom = Exacte waarde invoeren
-interface-fov-description = Gebruik de FOV van je client; alleen de menupositie verandert. Standaard: 70°.
+interface-fov-custom = Aangepast
+interface-fov-description = Vul de FOV uit je spelinstellingen in voor de menupositie.
 interface-fov-input = Client-FOV: geheel getal van 30 tot 110
 interface-fov-invalid = Voer een geheel getal van 30 tot 110 in.
-interface-fov-title = Beeldveld aanpassen (FOV)
-interface-scale-current = Huidig: { $arg0 }
-interface-scale-description = Tekstgrootte vermenigvuldigt de menugrootte; stel beide groepen in met het muiswiel.
+interface-fov-title = Beeldveld (FOV)
+interface-reduced-motion = Beweging verminderen
+interface-reduced-motion-hint = Vermindert beweging en schommeling van het menu.
+interface-scale-adjust-hint = Scroll boven een percentage om het aan te passen.
 interface-scale-layout-title = Menugrootte
 interface-scale-menu-title = Interface en tekst
-interface-scale-native-hint = Deze instellingen gelden voor ruimtelijke Java-menu’s. Tekst in native formulieren volgt je clientinstellingen.
-interface-scale-preview = Tekstvoorbeeld Aa 123
-interface-scale-reset = Beide terugzetten naar 100%
+interface-scale-preview = Voorbeeld Aa 123
+interface-scale-reset = Terug naar 100%
 interface-scale-text-title = Tekstgrootte
+interface-theme-apply = Kleuren opslaan
+interface-theme-charcoal = Houtskool
+interface-theme-color = Kleur (#RRGGBB)
+interface-theme-custom = Aangepast
+interface-theme-custom-hint = Kopieer alle huidige waarden naar een zelfstandig aangepast thema.
+interface-theme-edit = Kleuren bewerken
+interface-theme-forest = Bos
+interface-theme-hint = Wordt direct alleen op jouw menu’s toegepast.
+interface-theme-invalid = Voer een #RRGGBB-kleur en een dekking van 0 tot 100 in.
+interface-theme-opacity = Dekking (0–100%)
+interface-theme-role-accent = Accentkleur
+interface-theme-role-button = Knopachtergrond
+interface-theme-role-button-disabled = Uitgeschakelde knop
+interface-theme-role-button-hovered = Aangewezen knop
+interface-theme-role-button-pressed = Ingedrukte knop
+interface-theme-role-button-selected = Geselecteerde knop
+interface-theme-role-input = Invoerachtergrond
+interface-theme-role-sidebar = Zijbalkachtergrond
+interface-theme-role-toolbar = Werkbalkachtergrond
+interface-theme-role-tooltip = Hintachtergrond
+interface-theme-role-window = Vensterachtergrond
+interface-theme-title = Menuthema
+interface-theme-warm = Warm
+menu-collapse = Inklappen
+menu-expand = Uitklappen
+menu-finish-editing = Rond eerst het bewerken af.
+menu-input-clear = Leegmaken
+menu-input-done = Gereed
+menu-input-empty = (leeg)
+menu-input-single-line = Dit veld staat slechts één regel toe.
+menu-input-too-long = Lengte: { $arg0 } / { $arg1 }. Kort de tekst in voordat je bevestigt.
+menu-query-cancel = Annuleren
+menu-query-hint-rich = Druk op { $chatKey } om te typen…
+menu-query-single-line = Slechts één regel toegestaan. Klik op het veld om opnieuw te proberen.
+menu-query-too-long = Lengte: { $arg0 } / { $arg1 }. Klik op het veld om opnieuw te proberen.
 menu-rhythm-game-display = Speelt ritmespel
+menu-search-empty = Geen resultaten
+menu-search-failed = Zoeken mislukt
+menu-search-limit = Getoond: { $arg0 } / { $arg1 }. Verfijn de zoekopdracht.
+menu-search-loading = Zoeken…
+menu-search-retry = Opnieuw proberen
 menu-usage-display-mm = <aqua><bold>In menu</bold></aqua>
 url-dialog-confirm = Openen
 url-dialog-hint = De client vraagt nogmaals om bevestiging om de link te openen.
@@ -112,10 +102,9 @@ url-dialog-title = Openen: { $arg0 }
 ## Player · Client and presence
 
 client-mods-undetected-rich = Aanbevolen mods: { $mods }. Klik op een naam om te downloaden.
-client-tip-axiom-flight-speed-mm = <white>Houd <yellow>linker Alt</yellow> ingedrukt om het <aqua>Axiom</aqua>-menu te openen en sleep de verticale schuifregelaar rechts om je vliegsnelheid aan te passen. Je kunt ook <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click> gebruiken.</white>
-client-tip-axiom-intro-rich = { $mod } is een bouwmod waarmee je blauwdrukken kopieert en plakt, terrein en weergave-entiteiten bewerkt, blokken zonder updates plaatst, door muren beweegt en meerdere snelbalken opslaat. Klik op de naam om te downloaden.
-client-tip-voxy-intro-rich = { $mod } toont verder gelegen landschappen met weinig belasting. Het proberen waard op zowel bescheiden als krachtige pc’s. Klik op de naam om te downloaden.
-client-version-behind-mm = <white>Je client <yellow>{ $clientVersion }</yellow> is ouder dan de server <green>{ $serverVersion }</green>. Een update wordt aangeraden.</white>
+client-tip-axiom-flight-speed-mm = <white>Houd de <yellow>linker Alt-toets</yellow> ingedrukt om het <aqua>Axiom</aqua>-menu te openen en sleep de verticale schuifregelaar rechts om je vliegsnelheid aan te passen. Je kunt ook <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click> gebruiken.</white>
+client-tip-axiom-intro-rich = Met { $mod } kun je bouwwerken kopiëren en plakken, terrein vormgeven en weergave-entiteiten bewerken. Klik op de naam om de mod te downloaden.
+client-version-behind-mm = <white>Je clientversie <yellow>{ $clientVersion }</yellow> is ouder dan de serverversie <green>{ $serverVersion }</green>. Een update wordt aangeraden.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>{ $count ->
         [one] <gold>{ $count }</gold> speler in de buurt is <gold>onzichtbaar</gold>
@@ -125,14 +114,16 @@ invisibility-nearby-mm = <yellow>{ $count ->
        *[other] { $distance } blokken
     } afstand</gray>
 player-bedrock-label = Bedrock
+player-web-label = Web
 presence-join-templates =
-    .item-1 = { $player } is via de achterdeur binnen geslopen
-    .item-2 = { $player } heeft de geheime route gevonden
-    .item-3 = { $player } is uit de struiken verschenen
+    .item-1 = Dingdong! { $player } is online!
+    .item-2 = Hoera, daar is { $player }!
+    .item-3 = Hoi hoi, { $player }!
+# Broadcast to remaining players; the departing player does not receive this message.
 presence-quit-templates =
-    .item-1 = { $player } is stilletjes verdwenen
-    .item-2 = { $player } is even gaan opslaan
-    .item-3 = { $player } is door de realiteit teruggeroepen
+    .item-1 = { $player } is uitgelogd.
+    .item-2 = Dingdong! { $player } is offline
+    .item-3 = Online -1. { $player } is uitgelogd
 welcome-first-join-mm = <gold><bold>Welkom bij MIK!</bold></gold><newline><gray>Begin op de <click:open_url:'https://mcmik.top'><yellow>website</yellow></click> en de <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>. Gebruik ook <yellow>/menu</yellow> om het hoofdmenu te openen.</gray>
 welcome-return-mm = <gold><bold>Welkom terug!</bold></gold><newline><gray>Je laatste bezoek was <yellow>{ $arg0 ->
         [one] { $arg0 } dag
@@ -199,26 +190,86 @@ player-association-time-occurrences = { $arg0 } ({ $arg1 ->
 player-association-time-separator = ,
 player-association-time-today = vandaag
 
+
+## Player · Account security
+password-already-connected = Dit account is al verbonden.
+password-already-set = Er is al een wachtwoord ingesteld. Wijzig het met /password change.
+password-busy = Te veel pogingen. Wacht even en probeer het opnieuw.
+password-change = Wachtwoord wijzigen
+password-change-done = Wachtwoord gewijzigd.
+password-checking = Accountbeveiliging controleren…
+password-command-description = Wachtwoordbeveiliging van je account beheren
+password-confirm = Nieuw wachtwoord bevestigen
+password-conflict = De accountbeveiliging is gewijzigd. Herhaal de handeling.
+password-cooldown = Accountverificatie is tijdelijk beperkt. Probeer het over { $arg0 ->
+        [one] { $arg0 } seconde
+       *[other] { $arg0 } seconden
+    } opnieuw.
+password-current = Huidig wachtwoord
+password-denied = Je mag het wachtwoord van dit account niet opnieuw instellen.
+password-disabled = Wachtwoord: niet ingesteld
+password-enabled = Wachtwoord: ingesteld
+password-invalid = Onjuist wachtwoord. Probeer opnieuw.
+password-keep-role = Moderators en beheerders kunnen hun wachtwoord niet verwijderen.
+password-login = Aanmelden
+password-login-expired = Je inlogverificatie is verlopen. Verbind opnieuw met de server.
+password-login-hint = Voer het serverwachtwoord in. Vergeten? Vraag het team om het opnieuw in te stellen.
+password-mismatch = De nieuwe wachtwoorden komen niet overeen.
+password-new = Nieuw wachtwoord
+password-nomination-required = Stel een wachtwoord in voordat je solliciteert als moderator: /password set
+password-not-set = Er is geen wachtwoord ingesteld. Stel er een in met /password set.
+password-remove = Wachtwoord verwijderen
+password-remove-done = Wachtwoord verwijderd.
+password-remove-question = Na het verwijderen wordt bij het inloggen geen wachtwoord meer gecontroleerd. Voer je huidige wachtwoord in om te bevestigen.
+password-required-application = Je kunt je wachtwoord niet verwijderen tijdens een lopende teamkandidatuur of benoeming.
+password-required-role = Teamaccounts vereisen een wachtwoord. Vraag een bevoegd teamlid om het opnieuw in te stellen voordat je aanmeldt.
+password-reset = Wachtwoord opnieuw instellen
+password-reset-console = Wachtwoord van { $arg0 } opnieuw ingesteld: { $arg1 }. Geef het na identiteitscontrole via een vertrouwd kanaal door.
+password-reset-done = Wachtwoord van { $arg0 } opnieuw ingesteld. Kopieer het nu en geef het na identiteitscontrole door; opnieuw bekijken is niet mogelijk.
+password-reset-question = Wachtwoord van { $arg0 } opnieuw instellen? Het oude vervalt en verbindingen worden gesloten. Bevestig met je eigen wachtwoord.
+password-retry = Opnieuw proberen
+password-rules = Gebruik { $arg0 }–{ $arg1 } tekens. Spelersnamen en veelgebruikte wachtwoorden zijn niet toegestaan.
+password-set = Wachtwoord instellen
+password-set-done = Wachtwoord ingesteld.
+password-set-first = Wachtwoord instellen vóór sollicitatie
+password-storage = Accountbeveiliging is niet beschikbaar. Probeer later opnieuw of neem contact op met de eigenaar.
+password-timeout = De wachtwoordcontrole is geannuleerd of verlopen. Verbind opnieuw om het te proberen.
+password-tip-set-mm = Stel met <gold><u>/password</u></gold> een <yellow>inlogwachtwoord</yellow> in om je account te beschermen.
+password-title = Accountbeveiliging
+
 ## Player · Profile and tab list
 
-nametag-clear-all-error = Fout bij wissen van naamlabels. Probeer het later opnieuw
-nametag-clear-all-success = ✔ Alle naamlabels gewist
-nametag-clear-error = Fout bij wissen van { $arg0 }
-nametag-clear-success = ✔ Je { $arg0 } is gewist
-nametag-click-fill-command = Klik om het commando in te vullen
+nametag-cancel = Annuleren
+nametag-clear = Wissen
+nametag-clear-hint = Verwijdert eigen waarden; overgenomen stijlen kunnen blijven.
 nametag-command-description = Pas naamlabels aan
-nametag-copy-hover = Kopieer de MiniMessage-bron naar het klembord
+nametag-confirm = Bevestigen
+nametag-conflict = De huidige waarde is gewijzigd. Vergelijk de huidige weergave en bevestig opnieuw om deze te vervangen.
+nametag-copy-hint = Stuur de bron van het voor- en achtervoegsel naar de chat
 nametag-copy-label = [kopie]
-nametag-effect-label = Resultaat
-nametag-empty-content-rich = Inhoud mag niet leeg zijn. Gebruik { $command } om die te wissen
-nametag-format-docs = Opmaakdocumentatie
+nametag-copy-sent = De stijlbron van { $arg0 } staat in de chat.
+nametag-current = Huidige weergave
+nametag-edit = Bewerken
+nametag-edit-ended = Het bewerken is beëindigd. Kies opnieuw Bewerken om verder te gaan.
+nametag-edit-prompt = Druk op T: { $arg0 } bewerken met MiniMessage (privé).
+nametag-finish-field = Bevestig of annuleer eerst het veld dat je bewerkt.
+nametag-input-invalid = Ongeldige opmaak. Stuur MiniMessage op één regel of kies Wissen.
 nametag-leading-label = Naamvoorvoegsel
-nametag-no-permission = Je hebt geen toestemming om dit commando te gebruiken
-nametag-online-editor = Online editor
+nametag-mine = Mijn naamlabel
+nametag-next = Volgende
+nametag-no-changes = Geen wijzigingen
+nametag-no-permission = Leden en beheerders kunnen naamlabels bewerken. Stijlen bekijken blijft mogelijk.
+nametag-no-players = Geen spelers hebben een naamstijl ingesteld
+nametag-page = Pagina { $arg0 } / { $arg1 }
+nametag-players = Spelerstijlen
 nametag-preview-label = Voorbeeld
-nametag-sample-message = voorbeeldbericht
-nametag-set-error = Fout bij instellen van { $arg0 }. Probeer het later opnieuw
+nametag-previous = Vorige
+nametag-refresh = Vernieuwen
+nametag-saving = Opslaan…
+nametag-set-error = Opslaan mislukt: { $arg0 }. Probeer opnieuw; de huidige weergave staat hierboven.
 nametag-set-success = ✔ { $arg0 } ingesteld
+nametag-styles-failed = Spelerstijlen konden niet worden geladen. Vernieuw om opnieuw te proberen.
+nametag-styles-loading = Spelerstijlen laden…
 nametag-tip-customize-mm = Pas met <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> het <light_purple>voor- en achtervoegsel van je naam</light_purple> aan.
 nametag-title = Naamlabels
 nametag-too-long = { $arg0 } is te lang. Maximale lengte: { $arg1 ->
@@ -259,6 +310,7 @@ fly-enabled = Vliegen ingeschakeld
 fly-native-mode = Je /fly-toegang is uitgeschakeld. Deze spelmodus staat vliegen nog steeds toe.
 fly-speed-click = Vliegsnelheid instellen op { $arg0 }x
 fly-speed-current = Vliegsnelheid: { $arg0 }x
+fly-speed-limited = Door de verkenningsbelasting is vliegen tijdelijk beperkt tot { $arg0 }x; je instelling blijft { $arg1 }x.
 fly-speed-presets = Voorinstellingen
 fly-speed-reset = Vliegsnelheid hersteld naar 1x
 fly-speed-reset-action = Herstellen
@@ -267,10 +319,8 @@ fly-speed-set = Vliegsnelheid ingesteld op { $arg0 }x
 fly-state-disabled = Uitgeschakeld
 fly-state-enabled = Ingeschakeld
 fly-status = Vliegen: { $arg0 } | Snelheid: { $arg1 }x
-flyspeed-command-description = Persoonlijke vliegsnelheid bekijken of instellen
 home-action-create = Thuislocatie maken
 home-action-delete = Thuislocatie verwijderen
-home-action-icon = Icoon uit hand instellen
 home-action-teleport = Teleporteren
 home-action-update = Locatie bijwerken
 home-already-exists = Er bestaat al een thuislocatie met deze naam
@@ -291,11 +341,6 @@ home-distance-blocks = { $arg0 ->
 home-distance-other-world = andere wereld
 home-empty-description = Ga staan waar je een thuislocatie wilt opslaan
 home-empty-title = Nog geen thuislocaties
-home-icon = Pictogram: { $arg0 }{ $arg1 }
-home-icon-default-note = · standaard
-home-icon-hand-invalid = Het voorwerp in je hoofdhand kan niet als pictogram voor een thuislocatie worden gebruikt
-home-icon-updated-rich = Pictogram van thuislocatie { $home } bijgewerkt
-home-invalid-icon = Dit materiaal kan niet als pictogram voor een thuislocatie worden gebruikt
 home-invalid-name = Namen van thuislocaties mogen geen < > : bevatten
 home-list-rich = Thuislocaties: { $homes }
 home-location = Locatie: { $arg0 }, { $arg1 }, { $arg2 }
@@ -304,20 +349,20 @@ home-max-reached = Je kunt maximaal { $arg0 } thuislocaties instellen
 home-menu-title = Thuislocaties
 home-no-homes = Je hebt nog geen thuislocaties ingesteld
 home-not-found-rich = Thuislocatie { $home } bestaat niet
+home-search-placeholder = Zoek huisnamen…
+home-search-empty = Geen overeenkomende thuislocaties
 home-set-command-description = Stel een thuislocatie in op je huidige locatie
 home-set-rich = Thuislocatie { $home } is ingesteld
 home-set-usage-desc = Stel een thuislocatie in op je huidige locatie
 home-summary-count = Ingesteld: { $arg0 } / { $arg1 }
-home-teleport-command-description = Teleporteer naar een thuislocatie
 home-teleport-failed = Teleportatie mislukt. Probeer het opnieuw
 home-teleported-rich = Geteleporteerd naar thuislocatie { $home }
 home-tip-create-mm = Sla je locatie op met <green><u><click:suggest_command:'/sethome '>/sethome naam</click></u></green> en keer terug met <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>.
-home-tip-return-mm = Open <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> en kies een thuis om te teleporteren.
+home-tip-return-mm = Open <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>, selecteer een thuis en kies ‘{ home-action-teleport }’.
 home-updated-rich = Locatie van thuislocatie { $home } is bijgewerkt
 home-usage-book = Commandohulp
 home-usage-delhome = /delhome <name>  Verwijder een thuislocatie
-home-usage-home = /home tp <name>  Teleporteer direct
-home-usage-icon = /home icon <material> <name>  Stel een pictogram in
+home-usage-home = /home <name>  Teleporteer direct
 home-usage-name-rule = Namen van thuislocaties mogen geen < > : bevatten
 home-usage-sethome = /sethome <name>  Sla je huidige locatie op
 home-world = Wereld: { $arg0 }
@@ -345,10 +390,6 @@ teleport-request-none = Je hebt geen openstaand teleportatieverzoek
 teleport-request-received = { $sender } wil je teleporteren: { $command }
 teleport-request-rejected = Teleportatieverzoek geweigerd
 teleport-request-sent = Teleportatieverzoek naar { $player } verzonden
-teleport-summary-afk = Altijd toegestaan, geweigerd tijdens AFK
-teleport-summary-allow = Teleportaties door andere spelers altijd toegestaan
-teleport-summary-consent = Teleportaties door andere spelers vereisen mijn toestemming
-teleport-summary-deny = Teleportaties door andere spelers altijd geweigerd
 tpany-command-description = Teleporteer naar de locatie van een speler, online of offline
 tpany-done-offline-rich = Geteleporteerd naar de laatst bekende locatie van { $player }: { $world } { $location }
 tpany-done-online-rich = Geteleporteerd naar de huidige locatie van { $player }
@@ -359,14 +400,13 @@ tpany-usage-desc = Teleporteer naar de locatie van een speler, inclusief offline
 
 ## Player · PVP
 
-pvp-admin-menu-title = PvP-beheer - pagina { $arg0 }/{ $arg1 }
+pvp-admin-menu-title = PvP-beheer
 pvp-allow-mounted-damage = Bereden wezens kunnen worden aangevallen
 pvp-allow-mounted-damage-desc = Als dit is ingeschakeld, kunnen andere spelers een wezen aanvallen waarop je rijdt als jullie allebei PvP hebben ingeschakeld
 pvp-auto-enable-desc = Val een speler met PvP ingeschakeld twee keer achter elkaar aan
 pvp-auto-enable-label = Automatisch inschakelen
 pvp-auto-enable-warning-actionbar-mm = <yellow>Val nog een keer aan om PvP automatisch in te schakelen</yellow>
 pvp-auto-enabled-actionbar-mm = <green>PvP automatisch ingeschakeld</green>
-pvp-back-admin = Terug naar PvP-beheer
 pvp-combat-locked-mm = <red>Je kunt PvP niet uitschakelen tijdens een gevecht</red> <dark_gray>|</dark_gray> <gray>Resterend: { $arg0 ->
         [one] <yellow>{ $arg0 }</yellow> seconde
        *[other] <yellow>{ $arg0 }</yellow> seconden
@@ -390,12 +430,15 @@ pvp-menu-title = PvP-instellingen
 pvp-mob-protected-actionbar-mm = <yellow>Dit wezen is beschermd tegen PvP-schade</yellow>
 pvp-mob-protection-label = Bescherming van wezens
 pvp-mounted-damage-label = Schade aan bereden wezens
-pvp-next-page = Volgende pagina
 pvp-no-permission-mm = <red>Je hebt geen toestemming om de PvP-status van een andere speler te beheren</red>
 pvp-player-not-found-mm = <red>Online speler niet gevonden</red>
-pvp-prev-page = Vorige pagina
 pvp-protect-mobs = Bescherm je wezens
 pvp-protect-mobs-desc = Bescherm wezens die je hebt getemd of waarop je rijdt
+pvp-quick-combat-cooldown = Gevechtsblokkering: nog { $arg0 ->
+        [one] { $arg0 } seconde
+       *[other] { $arg0 } seconden
+    }
+pvp-quick-override = Een tijdelijke regel bepaalt PvP. Je kunt je voorkeuren in de instellingen aanpassen.
 pvp-set-by-staff-mm = <aqua>Een teamlid heeft je PvP-status ingesteld op</aqua> <yellow>{ $arg0 }</yellow>
 pvp-set-other = PvP-status van { $arg0 } ingesteld op { $arg1 }
 pvp-set-other-rich = PvP-status van { $player } ingesteld op { $state }
@@ -475,21 +518,21 @@ self-kick-reason-too-long = De reden mag niet langer zijn dan { $arg0 ->
 # $person: second for the actor; third for other viewers and console.
 self-kick-with-reason = { $person ->
         [second] Je hebt de server op eigen verzoek verlaten. Reden: { $reason }
-       *[third] { $player } heeft zichzelf om deze reden van de server gekickt: { $reason }
+       *[third] { $player } heeft de server op eigen verzoek verlaten. Reden: { $reason }
     }
-    .item-1 = { $player } heeft zichzelf eruit gegooid en de reden was zowaar: { $reason }
-    .item-2 = { $player } heeft zichzelf echt vanwege { $reason } van de server gekickt!
-    .item-3 = { $player } heeft de server vrijwillig verlaten met deze uitleg: { $reason }
-    .item-4 = { $player } koos voor een zelf-kick: { $reason }
+    .item-1 = { $player } heeft de server op eigen verzoek verlaten. Reden: { $reason }
+    .item-2 = { $player } is uitgelogd met een bericht: { $reason }
+    .item-3 = { $player } heeft de server verlaten met een bericht: { $reason }
+    .item-4 = { $player } neemt afscheid met een berichtje: { $reason }
 # $person: second for the actor; third for other viewers and console.
 self-kick-without-reason = { $person ->
         [second] Je hebt de server op eigen verzoek verlaten.
-       *[third] { $player } heeft zichzelf van de server gekickt.
+       *[third] { $player } heeft de server op eigen verzoek verlaten.
     }
-    .item-1 = { $player } heeft het voor elkaar gekregen zichzelf eruit te gooien!
-    .item-2 = { $player } heeft de server zonder een woord verlaten.
-    .item-3 = { $player } voerde een vlekkeloze zelf-kick uit.
-    .item-4 = { $player } drukte eigenhandig op de knop om de server te verlaten.
+    .item-1 = { $player } heeft de server op eigen verzoek verlaten.
+    .item-2 = { $player } is uitgelogd.
+    .item-3 = Dingdong! { $player } is offline
+    .item-4 = Online -1. { $player } is uitgelogd
 
 ## Community · Chat and mentions
 
@@ -513,7 +556,7 @@ chat-private-label = MSG
 chat-private-no-reply-target = Geen recente privéchatpartner is online
 chat-private-self = Je kunt geen privéchat met jezelf starten
 chat-private-target-not-found = Online speler niet gevonden: { $arg0 }
-chat-private-target-offline = Privéchatpartner is offline; teruggeschakeld naar openbare chat
+chat-private-target-offline = Je gesprekspartner is offline; wacht of kies een ander kanaal
 chat-private-tip-channel-mm = Gebruik <aqua><u><click:suggest_command:'/msg '>/msg speler</click></u></aqua> om naar privéchat te schakelen en <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> om terug te keren naar de openbare chat.
 chat-public-command-description = Schakel naar de openbare chat
 chat-public-enter = Overgeschakeld naar openbare chat
@@ -524,6 +567,7 @@ chat-social-bound-player-label = Gekoppelde speler
 chat-social-name-label = Sociale naam
 chat-social-unbound = Niet gekoppeld aan een Minecraft-speler
 chat-staff-command-description = Schakel naar de teamchat
+chat-staff-label = Team
 chat-staff-permission-missing = Geen toestemming voor teamchat; teruggeschakeld naar openbare chat
 mention-action-bar = Werkbalktitel
 mention-action-bar-text = { $sender } heeft je vermeld
@@ -531,28 +575,31 @@ mention-alerts = Vermeldingsmeldingen
 mention-menu-title = Vermeldingsmeldingen
 mention-mute-afk = Dempen tijdens AFK
 mention-sound = Meldingsgeluid
-mention-summary-action-bar = werkbalktitel
-mention-summary-disabled = Meldingen uitgeschakeld
-mention-summary-enabled = Meldingen ingeschakeld
-mention-summary-enabled-afk = Meldingen ingeschakeld, gedempt tijdens AFK
-mention-summary-modes-afk = { $arg0 }, gedempt tijdens AFK
-mention-summary-sound = geluid
 staffchat-enter = Teamchat betreden
 
 ## Community · Announcements
 
+announcement-count = { $arg0 ->
+        [one] { $arg0 } aankondiging
+       *[other] { $arg0 } aankondigingen
+    }
 announcement-empty = Geen aankondigingen
 announcement-first-page = Nieuwste berichten bereikt
 announcement-last-page = Oudste berichten bereikt
+announcement-latest = Nieuwste bericht
+announcement-list-newer = Nieuwere groep
+announcement-list-older = Oudere groep
 announcement-more-count = { $arg0 } meer niet getoond
 announcement-new-count = { $arg0 } nieuw
 announcement-newer = Nieuwere berichten
+announcement-next-page = Volgende pagina
 announcement-older = Oudere berichten
+announcement-page = Pagina { $arg0 } / { $arg1 }
+announcement-previous-page = Vorige pagina
 announcement-reload = Aankondigingen herladen
 announcement-reload-command-description = Aankondigingsbestand herladen
 announcement-reload-failed = Kon aankondigingen niet herladen; de vorige blijven beschikbaar
 announcement-reloaded = Aankondigingen herladen
-announcement-scroll-hint = Scroll om horizontaal te bladeren
 announcement-unread-count = { $arg0 } ongelezen
 announcement-updated = Aankondigingen bijgewerkt
 announcement-view-all = Alle aankondigingen bekijken
@@ -759,7 +806,44 @@ governance-active-header = ─── Voorwaarden voor actief lid ───
 governance-active-member = Momenteel lid
 governance-active-member-age = Minstens 30 dagen lid
 governance-active-playtime = Minstens 6 uur effectieve speeltijd in 60 dagen (nu { $arg0 })
+governance-activity-action = { $arg0 ->
+    [confirm] Steun bevestigen
+    [vote] Lezen en stemmen
+    *[details] Details bekijken
+    }
+governance-activity-all = Alles bekijken ({ $arg0 })
+governance-activity-closed = Afgelopen
+governance-activity-confirm-petition = Deze petitie steunen? Bij voldoende steun begint een afzettingsstemming.
+governance-activity-needed = { $arg0 ->
+    [one] Nog { $arg0 } medestander nodig
+    *[other] Nog { $arg0 } medestanders nodig
+    }
+governance-activity-proposal = { $arg0 ->
+    [appointment] { $arg1 } tot moderator benoemen
+    [removal] { $arg1 } als moderator afzetten
+    [petition] Petitie om { $arg1 } af te zetten
+    *[ban] Stemming om { $arg1 } te verbannen
+    }
+governance-activity-remaining = { $arg1 ->
+    [days] Resterend: { governance-days }
+    [hours] Resterend: { governance-hours }
+    *[minutes] Resterend: { governance-minutes }
+    }
+governance-activity-status = { $arg0 ->
+    [available] Stemmen mogelijk
+    [voted] Gestemd
+    [join] Steunen mogelijk
+    [joined] Gesteund
+    [closed] Afgelopen
+    *[view] Alleen bekijken
+    }
 governance-already-moderator = Je bent al moderator.
+governance-application-status = { $arg0 ->
+    [open] Er loopt een benoemingsstemming
+    [pending] Goedgekeurd · benoeming in afwachting
+    [blocked] Vereisten nog niet vervuld
+   *[ready] Je kunt solliciteren
+    }
 governance-ballot-recorded = Je anonieme stem is vastgelegd als { $arg0 }. Tot de deadline kun je die wijzigen.
 governance-ban-details = Voorgesteld door { $arg0 } · Duur { $arg1 } · Reden: { $arg2 }
 governance-ban-suffix = · Duur { $arg0 } · Reden: { $arg1 }
@@ -769,7 +853,6 @@ governance-choice-yes = Ja
 governance-command-description = Bestuursstatus en stemmingen bekijken
 governance-custodian-no-nomination = Beheerders doen niet mee aan moderatorverkiezingen.
 governance-custodian-no-resign = De ontslagprocedure voor moderators geldt niet voor beheerders.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-days = { $arg0 ->
         [one] { $arg0 } dag
        *[other] { $arg0 } dagen
@@ -784,10 +867,12 @@ governance-error-pause-already-active = De promotie van deze speler is al opgesc
 governance-error-pause-already-member = Deze speler is al lid; een promotiepauze is niet nodig.
 governance-error-pause-end-invalid = De promotiepauze moet in de toekomst eindigen.
 governance-error-player-unknown = Deze speler heeft nog geen bestuursdossier.
+governance-error-removal-petition-closed = Deze petitie is afgelopen of vervangen.
 governance-error-removal-requires-petition = Een afzettingsstemming vereist voldoende steun.
 governance-error-removal-self = Je kunt je eigen afzetting niet steunen.
 governance-error-removal-sponsor-ineligible = Alleen actieve leden mogen een afzetting steunen.
 governance-error-removal-sponsors-too-few = Er zijn minstens twee andere actieve leden nodig.
+governance-error-removal-target-not-moderator = Deze speler is geen afzetbare moderator meer.
 governance-error-removal-vote-open = Er loopt al een afzettingsstemming voor deze moderator.
 governance-error-termination-reason-invalid = Deze beëindigingsreden past niet bij deze stemming.
 governance-error-vote-already-open = Er loopt al een stemming van dit type voor deze speler.
@@ -804,7 +889,6 @@ governance-failure-quorum = Vereiste opkomst niet gehaald
 governance-failure-two-thirds = Ja-stemmen haalden geen twee derde van de niet-onthoudingen
 governance-history-header = ─── Recente uitslagen ───
 governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
-# $arg0 (Number): duration; locale decides the unit form.
 governance-hours = { $arg0 } uur
 governance-inactive-removal = { $arg0 } is na 180 dagen zonder inloggen automatisch gestopt als moderator.
 governance-invalid-choice = Kies yes, no of abstain.
@@ -813,40 +897,50 @@ governance-kind-appointment = Benoeming
 governance-kind-ban = Ban
 governance-kind-removal = Afzetting
 governance-legacy-ban-kick = Een eerdere bestuursstemming is aangenomen. Je hebt een ban voor { $arg0 }. Reden: { $arg1 }
-governance-menu-actions = Acties
+governance-menu-already-sponsored = Al gesteund
+governance-menu-application = Sollicitatiestatus
 governance-menu-back = Terug
 governance-menu-cancel = Annuleren
+governance-menu-completed = Afgerond
 governance-menu-confirm = Bevestigen
-governance-menu-confirm-nominate = Een stemming over je benoeming als moderator starten?
+governance-menu-confirm-nominate = Je sollicitatie start een stemming over je benoeming als moderator.
 governance-menu-confirm-resign = Aftreden als moderator?
 governance-menu-confirm-sponsor = Dit afzettingsverzoek steunen?
 governance-menu-confirm-withdraw = Je aanmelding als moderator intrekken?
-governance-menu-find-player = Andere speler zoeken
-governance-menu-history = Stemgeschiedenis
+governance-menu-custodian-duties = Serveronderhoud en beheer.
+governance-menu-identity = Rol
+governance-menu-identity-hint = Promotievoorwaarden en activiteitsgeschiedenis.
+governance-menu-join-petition = Steun afzettingsverzoek
 governance-menu-loading = Bestuursstatus laden…
-governance-menu-new-petition = Afzettingsverzoek starten
+governance-menu-matters = Gemeenschapszaken
+governance-menu-moderator-duties = Moderatie en spelershulp.
 governance-menu-nominate = Aanmelden als moderator
-governance-menu-nomination-open = Je benoemingsstemming loopt
+governance-menu-offline = Niet verbonden
+governance-menu-ongoing = Lopend
+governance-menu-online = Verbonden
 governance-menu-pause = Promotie van nieuwkomer pauzeren
 governance-menu-pause-appeal = Beroepsroute
 governance-menu-pause-duration = Duur (bijv. 2d)
 governance-menu-pause-reason = Reden
+governance-menu-pause-until = Eindigt op
+governance-menu-pending-application = Aangenomen · uitvoering wacht
 governance-menu-petition-row = { $arg0 } · { $arg1 }/{ $arg2 } steunbetuigingen
 governance-menu-petitions = Afzettingsverzoeken
 governance-menu-player-name = Spelernaam
 governance-menu-players = Spelerbeheer
-governance-menu-recent-results = Recente stemuitslagen
 governance-menu-refresh = Vernieuwen
+governance-menu-related = Recente bijbehorende dossiers
+governance-menu-related-matters = Bekijk bijbehorende zaken
 governance-menu-resign = Aftreden als moderator
 governance-menu-resume = Promotiepauze opheffen
 governance-menu-resume-reason = Reden voor opheffing
 governance-menu-staff-only = Alleen moderators en beheerders kunnen spelers beheren.
-governance-menu-status = Jouw status
-governance-menu-target = Moderatornaam
+governance-menu-staff-search = Team zoeken
+governance-menu-subject-filter = { $arg0 } · Filter wissen ×
+governance-menu-team = Openbaar team
+governance-menu-team-empty = Geen overeenkomende teamleden
 governance-menu-title = Gemeenschapsbestuur
-governance-menu-votes = Lopende stemmingen
 governance-menu-withdraw = Aanmelding intrekken
-# $arg0 (Number): duration; locale decides the unit form.
 governance-minutes = { $arg0 ->
         [one] { $arg0 } minuut
        *[other] { $arg0 } minuten
@@ -862,7 +956,6 @@ governance-own-choice-closed = Jouw keuze: { $arg0 }
 governance-own-choice-open = Jouw keuze: { $arg0 }; je kunt die voor de deadline wijzigen.
 governance-own-not-voted = Je mocht stemmen, maar hebt niet gestemd.
 governance-own-not-voted-hint = Je hebt nog niet gestemd. Open Bestuur en kies deze stemming.
-governance-own-not-voted-open = Je hebt nog niet gestemd.
 governance-own-not-voter = Je staat niet op de kiezerslijst voor deze stemming.
 governance-own-voted = Je hebt gestemd
 governance-pause-cleared = Promotiepauze voor { $arg0 } opgeheven.
@@ -896,13 +989,11 @@ governance-result-terminated = Beëindigd ({ $arg0 })
 governance-resume-notice = Je promotiepauze is opgeheven. Reden: { $arg0 }
 governance-resume-reason-required = Geef een reden voor het opheffen.
 governance-role-lookup-error = Moderatorstatus kon niet worden gecontroleerd. Neem contact op met een beheerder.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-seconds = { $arg0 ->
         [one] { $arg0 } seconde
        *[other] { $arg0 } seconden
     }
 governance-storage-error = Bestuursgegevens konden niet worden verwerkt. Neem contact op met een beheerder.
-governance-target-not-moderator = { $arg0 } is momenteel geen moderator.
 governance-termination-inactive = Moderator vertrokken na lange afwezigheid
 governance-termination-ineligible = Kandidaat verloor de status van actief lid
 governance-termination-resigned = Moderator trad af
@@ -928,13 +1019,10 @@ plot-area-confirm = Grenzen van ‘{ $arg0 }’ vervangen door de selectie ({ $a
         [one] { $arg1 } bouwcel
        *[other] { $arg1 } bouwcellen
     })? Bouwwerken blijven staan.
-plot-area-hint = //pos1 → //pos2 → opslaan. Selecteer hoeken ook met de houten bijl; toevoegen/aftrekken voor meerdere gebieden.
+plot-area-hint = Kies hoeken met links/rechts klikken van de houten bijl of //pos1 en //pos2; keer terug om op te slaan.
 plot-area-replace-save = Grenzen vervangen en opslaan
 plot-area-save = Grenzen opslaan
 plot-area-saved = Grenzen van “{ $arg0 }” opgeslagen.
-plot-arrival-removed = Aankomstpunt verwijderd.
-plot-arrival-set = Aankomstpunt opgeslagen.
-plot-arrival-text-saved = Aankomsttitel opgeslagen.
 plot-atmosphere-saved = Omgeving opgeslagen.
 plot-back = Terug
 plot-board-auto-notify-result = Meldingen voor { $arg0 ->
@@ -948,6 +1036,7 @@ plot-board-header = Berichten en reacties van de gemeenschap (laatste { $arg0 };
 plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
 plot-board-kind-notice = Mededeling
 plot-board-kind-objection = Bezwaar
+plot-board-loading = Bericht wordt geladen…
 plot-board-menu = Gemeenschapsbord
 plot-board-notice-alert = { $arg0 } heeft een kennisgeving geplaatst: { $arg1 } · { $arg2 }
 plot-board-objection-alert = { $arg0 } heeft bezwaar gemaakt: { $arg1 } · { $arg2 }
@@ -966,20 +1055,14 @@ plot-board-unavailable = Berichten zijn nog niet geladen. Probeer later opnieuw 
 plot-board-withdrawal-alert = { $arg0 } heeft een bezwaar ingetrokken: { $arg1 } · { $arg2 }
 plot-board-write-failed = Het bord kon niet worden bijgewerkt. Probeer het later opnieuw.
 plot-command-blocked = Perceelbeveiliging blokkeerde dit commando. Gebruik /fill of /setblock rechtstreeks in je eigen perceel; laat ingewikkelde /execute-commando’s door het serverteam beoordelen.
-plot-command-description = Bouwpercelen en openbare projecten beheren
+plot-command-description = Bouwpercelen beheren
 plot-created = Perceel { $arg0 } aangemaakt · { $arg1 }
 plot-created-for-you = { $arg1 } heeft perceel { $arg0 } voor je geregistreerd.
 plot-deleted = Perceel vrijgegeven; het bouwwerk blijft staan.
 plot-denied = uitgeschakeld
-plot-empty-summary = Hier is geen perceel.
 plot-error-admin-owner-only = Leden met beheermogelijkheden wijzigen vereist leden- en rechtenbeheer.
 plot-error-area-disconnected = Het perceel moet één aaneengesloten gebied zijn.
 plot-error-args = Ongeldige of ontbrekende argumenten. Gebruik /plot help.
-plot-error-arrival-location = Ga op een veilige vloer binnen het bebouwde deel van dit project staan.
-plot-error-arrival-missing = Geen aankomstpunt ingesteld.
-plot-error-arrival-private = Je kunt dit privéproject niet bezoeken.
-plot-error-arrival-text = Ongeldige titel. Gebruik één regel; maximaal 32 zichtbare tekens voor de titel en 64 voor de ondertitel.
-plot-error-arrival-unsafe = Dit aankomstpunt is niet beschikbaar of niet meer veilig.
 plot-error-busy = Perceelgegevens worden opgeslagen. Probeer het later opnieuw; deze actie is niet ingediend.
 plot-error-flag = Onbekend recht. Kies een actie uit de rechtenlijst.
 plot-error-id = Perceel-ID ontbreekt of is dubbelzinnig. Gebruik /plot list.
@@ -1002,12 +1085,10 @@ plot-error-selection = Markeer twee hoeken met //pos1 en //pos2.
 plot-error-selection-changed = De selectie is gewijzigd. Bevestig opnieuw.
 plot-error-staff-only = Alleen moderators of beheerders kunnen percelen van andere spelers beheren of registreren.
 plot-error-storage = Perceelactie mislukt. Probeer het later opnieuw of neem contact op met het serverteam.
-plot-error-subplot-arrival = Verplaats eerst het aankomstpunt van het hoofdperceel buiten de selectie.
 plot-error-subplot-children = Geef deelpercelen vrij voordat je het hoofdperceel vrijgeeft.
 plot-error-subplot-depth = Deelpercelen kunnen maar één niveau diep zijn.
 plot-error-subplot-disconnected = De geselecteerde bouwcellen zijn niet verbonden. Verdeel elk deel apart.
 plot-error-subplot-overlap = De selectie overlapt een ander deelperceel.
-plot-error-subplot-own-arrival = Houd het aankomstpunt binnen het nieuwe gebied of verplaats het eerst.
 plot-error-subplot-owner = Je hebt geen toestemming voor deze deelperceelbewerking.
 plot-error-subplot-parent = Markeer beide hoeken binnen bestaande bouwcellen van het hoofdperceel.
 plot-error-subplot-supervisor-member = De eigenaar van het hoofdperceel heeft hier al toezicht en heeft geen ledenrol nodig.
@@ -1031,16 +1112,10 @@ plot-member-draft-submit = Bekijken en bevestigen
 plot-member-draft-title = Ledenconcept · { $arg0 }
 plot-member-permissions = Rechten
 plot-member-removed = Projectlid verwijderd.
-plot-menu-access = Toegang en leden
-plot-menu-access-by-settings = volgens toegangsinstellingen
-plot-menu-admin = Perceelbeheerder toevoegen
-plot-menu-arrival = Aankomstpunt
-plot-menu-arrival-subtitle = Ondertitel (MiniMessage; optioneel)
-plot-menu-arrival-text = Aankomsttitel
-plot-menu-arrival-title = Titel (MiniMessage; leeg = projectnaam)
+plot-menu-access = Leden en rechten
+plot-menu-add-member = Lid toevoegen
 plot-menu-atmosphere = Omgeving
 plot-menu-clear = Helder
-plot-menu-collaborator = Medewerker toevoegen
 plot-menu-confirm-delete = De registratie van { $arg0 } verwijderen? Bescherming, ledenrechten en instellingen worden onherroepelijk verwijderd. Bouwwerken blijven staan.
 plot-menu-confirm-subplot-transfer = { $arg0 } overdragen aan { $arg1 }? De eigenaar van het hoofdperceel houdt toezicht.
 plot-menu-confirm-transfer = Het beheer van { $arg0 } overdragen aan { $arg1 }? Je verliest toegang; bestaand auteurschap blijft ongewijzigd.
@@ -1061,27 +1136,22 @@ plot-menu-group-collaborator = Medewerkers
 plot-menu-group-member = Standaard voor leden
 plot-menu-group-newcomer = Standaard voor nieuwkomers
 plot-menu-group-owner = perceeleigenaar
+plot-menu-here = Huidige locatie
 plot-menu-manage = Percelen van spelers beheren
 plot-menu-managed-empty = Deze speler heeft nog geen percelen.
 plot-menu-managed-title = Percelen van { $arg0 }
 plot-menu-members = Leden ({ $arg0 })
-plot-menu-my-access = Jouw toegang: { $arg0 } · { $arg1 }
 plot-menu-name = Projectnaam
 plot-menu-owner = Eigenaar: { $arg0 }
 plot-menu-parent-supervisor = Eigenaar hoofdperceel: { $arg0 } · toezicht
 plot-menu-player = Spelersnaam of UUID
-plot-menu-project-kind = Projecttype
-plot-menu-public-destinations = Openbare bestemmingen
-plot-menu-public-destinations-empty = Er zijn nog geen openbare projecten met een aankomstpunt.
 plot-menu-rain = Neerslag
-plot-menu-record-id = Bericht-ID; gebruik de volledige ID voor oudere berichten
+plot-menu-record-search = Nummer of titel
 plot-menu-related-notice = Bijbehorend bericht bekijken
-plot-menu-remove-arrival = Aankomstpunt verwijderen
 plot-menu-remove-member = Lid verwijderen
 plot-menu-rename = Project hernoemen
 plot-menu-rule = Besluit vastleggen
 plot-menu-ruling = Licht het besluit toe (8–1000 tekens)
-plot-menu-set-arrival = Aankomstpunt hier instellen
 plot-menu-set-role = Instellen als { $arg0 }
 plot-menu-settings = Projectinstellingen
 plot-menu-submit = Toepassen
@@ -1092,31 +1162,8 @@ plot-menu-subplots = Deelpercelen ({ $arg0 })
 plot-menu-time = Tijd
 plot-menu-time-input = Tijd (HH:mm)
 plot-menu-transfer = Perceel overdragen
-plot-menu-visit = Project bezoeken
 plot-menu-weather = Weer
 plot-menu-withdraw = Reactie intrekken
-plot-model-fit = Alle grenzen inpassen
-plot-model-focus = Mijn omgeving tonen
-plot-model-layer-down = Doorsnede 1 blok verlagen
-plot-model-layer-up = Doorsnede 1 blok verhogen
-plot-model-legend = Cyaan: opgeslagen · Groen/goud: hoeken 1/2 · Paars: op te slaan grenzen · Wit/rood: jij/richting
-plot-model-level = Doorsnede Y ≤ { $arg0 } (alleen voorbeeld)
-plot-model-limited = Bemonstering of detail verminderd. Richt op de omgeving of een rechthoek voor meer detail; gebruik alleen grenzen om randen te bekijken.
-plot-model-north-up = Bovenaanzicht toont het noorden boven. Schakel terug naar 3D om te draaien.
-plot-model-perspective = 3D-weergave
-plot-model-preparing = Grenzen berekenen en gebied controleren op de achtergrond… Wordt automatisch bijgewerkt zodra het klaar is.
-plot-model-progress = Model lezen: { $arg0 }%…
-plot-model-rotate-left = ↶ Links draaien
-plot-model-rotate-right = ↷ Rechts draaien
-plot-model-show-all = Volledige hoogte tonen
-plot-model-slice = Boven mijn niveau afsnijden
-plot-model-terrain = Bouwwerken en terrein tonen
-plot-model-top = Bovenaanzicht
-plot-model-unknown = { $arg0 ->
-        [one] { $arg0 } ongeladen monster
-       *[other] { $arg0 } ongeladen monsters
-    } (grijs). Chunks worden niet geforceerd geladen.
-plot-model-wireframe = Alleen grenzen
 plot-no-here = Hier is geen beschermd perceel.
 plot-notice-board = Perceelbord
 plot-notice-cleared = Perceelbord gewist
@@ -1161,7 +1208,6 @@ plot-permission-manage-area = Grenzen wijzigen
 plot-permission-manage-members = Leden beheren
 plot-permission-manage-permissions = Rechten beheren
 plot-permission-manage-settings = Perceelinstellingen wijzigen
-plot-permission-management = Perceelinstellingen en eigendom
 plot-permission-modify = Blokken wijzigen en bemesten
 plot-permission-operation = Actie
 plot-permission-personal = Individuele rechten
@@ -1184,16 +1230,15 @@ plot-permission-transfer = Eigendom overdragen
 plot-permission-workstation = Faciliteiten en werkstations gebruiken
 plot-pos1 = Eerste punt
 plot-pos2 = Tweede punt
-plot-private = Privéproject
-plot-public = Openbaar project
-plot-public-set = Projecttype: { $arg0 }.
+plot-private = Privé
+plot-public = Openbaar
 plot-region-adjust = Deze rechthoek aanpassen
 plot-region-apply = Aanpassing van rechthoek afronden
 plot-region-cancel = Aanpassing van rechthoek annuleren
 plot-region-changed = De selectie is gewijzigd. Selecteer de rechthoek opnieuw.
 plot-region-delete = Deze rechthoek verwijderen
 plot-region-delete-confirm = Rechthoek #{ $arg0 } uit het concept verwijderen? Gebouwen blijven staan. Grenzen veranderen pas na opslaan; je kunt dit ongedaan maken.
-plot-region-edit-hint = Pas deze rechthoek aan met //pos1 en //pos2. Andere rechthoeken blijven gelijk. Rond de aanpassing af en sla daarna het perceel op.
+plot-region-edit-hint = Pas deze rechthoek aan met //pos1 en //pos2 en sla op.
 plot-region-finish-first = Rond eerst de huidige rechthoekaanpassing af of annuleer deze.
 plot-region-open = Rechthoeken beheren ({ $arg0 })
 plot-region-select-hint = Selecteer een genummerde rechthoek om erop te focussen en deze te markeren. Grijze lijnen tonen deze pagina; samenvoegen kan de nummers veranderen.
@@ -1207,13 +1252,8 @@ plot-role-server-staff = serverbeheer
 plot-selection-add = Huidige doos toevoegen
 plot-selection-clear = Beide punten opnieuw kiezen
 plot-selection-empty = Markeer twee hoeken met //pos1 en //pos2.
-plot-selection-exit = Bewerken / voorbeeld afsluiten
 plot-selection-fit = Opgeslagen grenzen herstellen
 plot-selection-incomplete = Eén punt is gemarkeerd. Markeer het andere; vóór verzenden verandert niets.
-plot-selection-mode = Punten in de wereld kiezen
-plot-selection-no-redo = Geen selectiewijziging om opnieuw uit te voeren.
-plot-selection-no-undo = Geen eerdere selectiewijziging om ongedaan te maken.
-plot-selection-open = Grenzen bewerken
 plot-selection-redo = Laatste stap opnieuw uitvoeren
 plot-selection-replace = Vervangen door huidige doos
 plot-selection-session-hint = Sluipen+F of /plot edit om terug te keren. Stopt na 20 minuten inactiviteit.
@@ -1232,12 +1272,46 @@ plot-transferred-to-you = { $arg1 } heeft perceel { $arg0 } aan jou overgedragen
 
 ## World · Vehicles
 
-vehicle-admin-help = /vehicle — { vehicle-model-title }
-    Modellen: model | model help
-    Vastleggen: origin | select <uuid>/radius <radius>/group [uuid]/info/clear | capture <id> car/boat/plane
-    Voertuigen: spawn <model> [x y z] | reload
 vehicle-command-description = Voertuigen van weergave-entiteiten besturen en beheren
-vehicle-controls = { $arg0 }: W/S en A/D besturen; scrollen schakelt of wijzigt gas; handwissel verandert modus; sluipen stapt uit. /vehicle help · /vehicle dashboard opent de bediening.
+vehicle-menu-label =
+    { $arg0 ->
+        [home] Voertuigen
+        [nearby] Voertuigen dichtbij
+        [fleet] Alle toegankelijke voertuigen
+        [selection] Modelselectie
+        [origin] Oorsprong bij mijn voeten
+        [group] Weergavegroep selecteren
+        [radius] Selectiestraal (0–16 m)
+        [displays] Weergaven dichtbij bekijken
+        [clear] Selectie en oorsprong wissen
+        [capture] Model uit selectie maken
+        [toggle-selection] Selectie wisselen
+        [public] Openbaar maken
+        [private] Privé maken
+        [reload] Modellen uit bestanden herladen
+        [leave] Uitstappen
+        [passenger] Passagiersstoel
+        [fuel] Tanken · houd kolen/houtskool
+        [repair] Repareren · houd ijzerstaaf
+        [access] Toegang
+        [remove] Voertuig verwijderen
+        [hud] Rij-HUD tonen
+        [hide-preview] 3D-voorbeeld verbergen
+        [service-hint] Kom dichtbij, stop de motor en houd het juiste materiaal vast.
+        [nearby-hint] Kom binnen 32 blokken en verlaat je huidige stoel.
+        [use-required] Vereist mik.vehicle.use.
+        [remove-hint] Stop het voertuig en laat iedereen uitstappen.
+        [reload-hint] Alle voertuigen moeten leeg en uitgeschakeld zijn. Concepten blijven; open gewijzigde modellen opnieuw.
+        [pick-hint] Richt op een weergave en rechtsklik. Sluip-rechtsklik annuleert; verloopt na 30 seconden.
+        [spawn-hint] Wereldcoördinaten; standaard vier blokken vooruit. Richting volgens je horizontale blik bij aanmaken.
+        [zoom-in] Vergroten
+        [zoom-out] Verkleinen
+        [frame] Opnieuw voor mij plaatsen
+        [offset] Relatief verplaatsen
+       *[other] { vehicle-command-description }
+    }
+
+vehicle-controls = { $arg0 }: W/S en A/D besturen; scrollen schakelt of wijzigt gas; handwissel verandert modus; sluipen stapt uit. /vehicle
 vehicle-dash-assisted = Stabiliteitshulp
 vehicle-dash-automatic = Automatisch
 vehicle-dash-contact = Steun op grond / water: { $arg0 }
@@ -1277,18 +1351,136 @@ vehicle-group-selected = Geselecteerde groep: { $arg0 ->
         [one] { $arg0 } weergave-entiteit
        *[other] { $arg0 } weergave-entiteiten
     } · hoofd { $arg1 }
-vehicle-help = /vehicle — Voertuigbediening
-    Instappen: list | ride [uuid] | passenger [uuid] | leave | inspect [uuid]
-    Rijden: engine | mode [automatic/manual/assisted] | gear P/R/N/D/up/down/number | throttle up/down
-    Weergave: hud [on/off] | dashboard [drive/gearbox/details/off]
-    Onderhoud: fuel | repair | access public/private | remove [uuid]
 vehicle-hud-boat = { $arg0 } kn · stuwkracht { $arg1 }% · koers { $arg2 }°
 vehicle-hud-car = { $arg0 } km/h  ·  { $arg1 }  ·  { $arg2 } RPM · { $arg3 }
 vehicle-hud-plane = { $arg0 } km/h · hoogte { $arg1 } m · stijgsnelheid { $arg2 } m/s · gas { $arg3 }% · { $arg4 }
 vehicle-hud-status = Brandstof { $arg0 }% · conditie { $arg1 }% · { $arg2 }
+vehicle-model-center = Massamiddelpunt
+vehicle-model-choice = { $arg0 ->
+    [CAR] Auto
+    [BOAT] Motorboot
+    [PLANE] Vliegtuig
+    [BODY] Carrosserie
+    [FRONT_WHEEL] Gestuurd wiel
+    [WHEEL] Wiel
+    [PROPELLER] Propeller
+    [RUDDER] Roer
+    [FIXED] Vast
+    [VERTICAL] Rechtop blijven
+    [HORIZONTAL] Horizontaal blijven
+    [CENTER] Naar de camera
+    [NONE] Oorspronkelijke houding
+    [THIRDPERSON_LEFTHAND] Derde persoon · links
+    [THIRDPERSON_RIGHTHAND] Derde persoon · rechts
+    [FIRSTPERSON_LEFTHAND] Eerste persoon · links
+    [FIRSTPERSON_RIGHTHAND] Eerste persoon · rechts
+    [HEAD] Hoofd
+    [GUI] Inventaris
+    [GROUND] Grond
+    [LEFT] Links
+    [RIGHT] Rechts
+    [false] Uit
+    [true] Aan
+    [TEXT_CENTER] Gecentreerd
+   *[other] { $arg0 }
+    }
+vehicle-model-field = { $arg0 ->
+    [kind] Voertuigtype
+    [mass] Massa
+    [maximum-speed] Topsnelheid (km/h)
+    [support-length] Steunweg (m)
+    [grip] Grip
+    [center-of-mass] Massamiddelpunt
+    [inertia] Traagheidsmomenten X/Y/Z
+    [engine-torque] Piekkoppel
+    [engine-idle-rpm] Stationair toerental (RPM)
+    [engine-redline-rpm] Toerentalgrens (RPM)
+    [engine-inertia] Motortraagheid
+    [engine-wheel-radius] Wielstraal (m)
+    [engine-final-drive] Eindoverbrenging
+    [engine-reverse-ratio] Achteruitverhouding
+    [engine-ratios] Vooruitverhoudingen
+    [engine-shift-seconds] Schakeltijd (s)
+    [fuel-capacity] Brandstofcapaciteit
+    [fuel-consumption] Verbruik (/s)
+    [buoyancy] Drijfvermogen
+    [wing-area] Vleugeloppervlak (m²)
+    [lift] Liftcoëfficiënt
+    [animation] Animatierol
+    [billboard] Naar de camera richten
+    [item-transform] Voorwerphouding
+    [alignment] Tekstuitlijning
+    [block-light] Bloklicht
+    [sky-light] Hemellicht
+    [background] Achtergrond (ARGB)
+    [line-width] Tekstbreedte
+    [opacity] Dekking (0–255)
+    [shadow] Tekstschaduw
+    [see-through] Tekst door objecten
+    [x] X
+    [y] Y
+    [z] Z
+    [size-x] Volledige breedte X (m)
+    [size-y] Volledige hoogte Y (m)
+    [size-z] Volledige lengte Z (m)
+   *[other] { $arg0 }
+    }
+vehicle-model-field-range = Toegestaan bereik: 0 < waarde ≤ { $arg0 }
+vehicle-model-front = Voorkant (+Z)
+vehicle-model-front-choice = { $arg0 ->
+    [negative-x] Huidige −X-kant
+    [back] Huidige achterkant (−Z)
+    [positive-x] Huidige +X-kant
+    [look] Mijn horizontale kijkrichting gebruiken (op 90° afgerond)
+   *[other] Deze kant als voorkant instellen
+    }
+vehicle-model-front-hint = Kies de pijl in 3D. De carrosserie blijft staan; stoelen, uitstappen en fysicapunten krijgen samen nieuwe assen. Stappen van 90° kun je ongedaan maken.
+vehicle-model-handle = { $arg0 ->
+    [ROTATE] { $arg1 } { $arg2 } { $arg3 }°
+   *[other] { $arg1 } { $arg2 } { $arg3 }
+    }
+vehicle-model-marker = { $arg0 ->
+    [driver] Bestuurdersstoel #{ $arg1 }
+    [passenger] Passagiersstoel #{ $arg1 }
+    [exit] Uitstap #{ $arg1 }
+    [colliders] Botsingsvak #{ $arg1 }
+    [supports] Steunpunt #{ $arg1 }
+    [center] Massamiddelpunt
+    [parts] Weergavedeel #{ $arg1 }
+   *[other] { $arg1 }
+    }
+vehicle-model-parameter-group = { $arg0 ->
+    [body] Carrosserie en bodemcontact
+    [engine] Motor en transmissie
+    [fuel] Brandstof
+    [boat] Drijfvermogen van boten
+    [plane] Lift van vliegtuigen
+    [power] Motorvermogen
+   *[other] { $arg0 }
+    }
+vehicle-model-parameter-help = { $arg0 ->
+    [body] Massa, snelheid en bodemcontact instellen. Het massamiddelpunt is in 3D instelbaar. Alleen het concept verandert tot je opslaat.
+    [engine] Toerental, koppel, wielen en verhoudingen. Vooruitverhoudingen moeten afnemen; de grens moet hoger zijn dan 1,5 × stationair.
+    [fuel] Capaciteit gebruikt brandstofeenheden uit het spel; verbruik is per seconde.
+    [boat] Drijfvermogen geldt voor boten. Waarden voor andere typen blijven bewaard.
+    [plane] Vleugeloppervlak en lift gelden voor vliegtuigen. Andere waarden blijven bewaard.
+    [power] Toerental en koppel voor dit voertuigtype. Transmissiewaarden voor auto’s blijven bewaard.
+   *[other] { $arg0 }
+    }
+vehicle-model-property-help = { $arg0 ->
+    [block-light] −1 gebruikt wereldlicht. Om dit te vervangen moeten beide lichtwaarden op 0–15 staan.
+    [sky-light] −1 gebruikt wereldlicht. Om dit te vervangen moeten beide lichtwaarden op 0–15 staan.
+    [background] ARGB-geheel getal met teken, bijvoorbeeld −16777216 voor dekkend zwart.
+    [line-width] Regelbreedte: 1–2048 pixels.
+    [opacity] 0 is doorzichtig; 255 is dekkend.
+   *[other] { $arg0 }
+    }
+vehicle-model-spatial = 3D-bediening
+vehicle-model-spatial-hint = Klik rechts op een markering om te kiezen of aan te passen. Sluipen + rechtsklik brengt je terug naar instellingen. Met het muiswiel wijzig je de stapgrootte.
+vehicle-model-spawn = Dit model plaatsen
 vehicle-model-add = Onderdeel toevoegen
 vehicle-model-add-here = Steunpunt bij mijn voeten toevoegen
-vehicle-model-anchor = Voorbeeldoorsprong hier plaatsen, in mijn kijkrichting
+vehicle-model-anchor = Opnieuw voor mij plaatsen
 vehicle-model-animation = Animatie
 vehicle-model-apply = Toepassen / bevestigen
 vehicle-model-auto = Botsingsgrenzen opnieuw berekenen
@@ -1303,8 +1495,8 @@ vehicle-model-copy = Kopiëren en bewerken (gekopieerde stoelen zijn passagierss
 vehicle-model-corner-cancel = Lopend botsingsvak annuleren
 vehicle-model-corner-first = Eerste hoek bij mijn voeten markeren
 vehicle-model-corner-first-look = Eerste hoek op het gerichte oppervlak markeren
-vehicle-model-corner-hint = Eerste hoek gemarkeerd. Ga naar de tegenoverliggende hoek, ook qua hoogte, en gebruik /vehicle model collider corner2. Het vak volgt de modelassen.
-vehicle-model-corner-required = Markeer eerst de eerste hoek met /vehicle model collider corner1.
+vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
+vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Mijn voeten als tegenoverliggende hoek gebruiken en vak toevoegen
 vehicle-model-corner-second-look = Gericht oppervlak als tegenoverliggende hoek gebruiken
 vehicle-model-create = Model maken
@@ -1318,20 +1510,16 @@ vehicle-model-draft = Niet-opgeslagen concept
 vehicle-model-driver = Bestuurdersstoel
 vehicle-model-driver-here = Bestuurdersstoel bij mijn voeten toevoegen
 vehicle-model-edit = Concept bewerken / hervatten
+vehicle-model-overview = Conceptoverzicht
+vehicle-model-component-details = Onderdeeldetails
+vehicle-model-selection-unavailable = Object gewijzigd of verwijderd; ga terug en kies opnieuw
 vehicle-model-exit = Uitstappunt / fijnafstelling
-vehicle-model-group = Axiom-weergavegroep toevoegen
-vehicle-model-help = /vehicle model — { vehicle-model-title }
-    Modellen: menu | list | info [id] | create <id> car/boat/plane | import <id> car/boat/plane [uuid] | edit <id> | clone <id> <new-id> | delete <id>
-    Bewerken: set <field> <value...> | part/seat/collider/support — Tab toont bewerkingen en argumenten
-    Concept: preview [off] | undo | redo | save | cancel
-    In de wereld: anchor | pick | here | look | snap [on/off] | move <index> <dx dy dz>
-    { vehicle-model-position-hint }
-    seat position/exit | part position | support add/set | collider position: here / look
-    collider corner1/corner2 [look] | collider cancel — { vehicle-model-corner-hint }
-    Meer acties: check | apply — { vehicle-model-save-continue }
+vehicle-model-group = Axiom-groep uit hoofdhand toevoegen
+vehicle-model-hand-invalid = Het Axiom-weergavevoorwerp is ongeldig of bevat niet-ondersteunde entiteiten of weergavegegevens.
+vehicle-model-hand-required = Houd een Axiom-weergavevoorwerp in je hoofdhand en importeer opnieuw.
 vehicle-model-here = Mijn huidige voetpositie gebruiken
 vehicle-model-history-empty = Geen wijziging beschikbaar in deze richting van de geschiedenis.
-vehicle-model-import = Axiom-weergavegroep importeren
+vehicle-model-import = Axiom-groep uit hoofdhand importeren
 vehicle-model-item = Voorwerp
 vehicle-model-library = Opgeslagen modellen · concepten blijven in het geheugen tot je ze opslaat
 vehicle-model-look = Plaatsen door te richten (menu sluit; rechtsklik bevestigt)
@@ -1349,7 +1537,7 @@ vehicle-model-position = Positie / fijnafstelling
 vehicle-model-position-hint = Lokale X/Y/Z · here gebruikt je voeten, look een geraakt oppervlak · het optionele raster volgt de afstelstap.
 vehicle-model-preview = Privévoorbeeld
 vehicle-model-preview-failed = Voorbeeld niet beschikbaar; je concept blijft behouden: { $arg0 }
-vehicle-model-preview-hint = Privévoorbeeld aan. Verdwijnt na vijf minuten zonder bewerken; /vehicle model preview off om te sluiten.
+vehicle-model-preview-hint = { vehicle-model-spatial-hint }
 vehicle-model-redo = Laatste ongedaan gemaakte wijziging herstellen
 vehicle-model-remove = Onderdeel verwijderen
 vehicle-model-remove-warning = Dit onderdeel verwijderen? Volgende indexnummers schuiven op; ongedaan maken blijft mogelijk.
@@ -1532,9 +1720,16 @@ async-regen-usage = Gebruik: /regen preview blocks [typen...] | /regen preview u
 async-regen-visualization-legend = Visualisatie in { $arg0 }: cyaan = selectiegrens, oranje = steekproef van gewijzigde blokken, rood = bedreigde blokentiteit. Alleen jij ziet deze deeltjes.
 async-regen-visualization-selection = Selectie in { $arg0 }: cyaan deeltjes markeren de grens. Alleen jij ziet ze.
 async-regen-fawe-required = FastAsyncWorldEdit is vereist om de selectie te lezen
+building-map-layer = Bouwwerken
+building-map-open = Bouwwerk bekijken
+building-map-builders = Gebouwd door { $arg0 }
+building-map-original-author = Oorspronkelijke maker: { $arg0 }
+building-map-type-original = Eigen creatie
+building-map-type-derivative = Afgeleid werk
+building-map-type-replica = Replica
 -iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Sluipen
-iron-elevator-tip-mm = Zet { -iron-elevator-block } recht boven elkaar voor een lift. Ga erop staan: <green>spring om omhoog te gaan</green>, <aqua>sluip om omlaag te gaan</aqua>. Bij meer dan twee verdiepingen verschijnt een <gold>verdiepingenpaneel</gold>.
+iron-elevator-tip-mm = Zet { -iron-elevator-block } recht boven elkaar voor een lift. Ga erop staan: <green>spring om omhoog te gaan</green>, <aqua>sluip om omlaag te gaan</aqua>. Vanaf twee verdiepingen verschijnt een <gold>verdiepingenpaneel</gold>.
 iron-elevator-up = ↑ Springen
 spawn-beacon-color-command-description = Schakel de kleurcyclus van het spawnbaken in of uit
 spawn-beacon-color-disabled = Kleurcyclus van het spawnbaken uitgeschakeld
@@ -1545,174 +1740,30 @@ spawn-world-missing = Spawnwereld is niet beschikbaar
 
 ## Entertainment · Music
 
-music-action-add-queue = Aan wachtrij toevoegen
-music-action-play-nearby = Afspelen op de dichtstbijzijnde jukebox
-music-action-play-now = Nu op deze jukebox afspelen
-music-action-take-disc = Muziekplaat pakken
-music-added-to-queue-rich = Toegevoegd aan wachtrij: { $music }
 music-album = Album: { $arg0 }
-music-all-in-queue = Alle nummers staan al in de wachtrij
 music-artist = Artiest: { $arg0 }
 music-back = Terug
-music-browser-left-click = Linksklik
-music-browser-right-click = Rechtsklik
-music-cache-clear-done = Online muziekcache gewist
-music-cache-clear-started = Online muziekcache wissen...
-music-cache-operation-failed = Muziekcachebewerking mislukt: { $arg0 }
-music-cache-status = Online muziekcache: { $arg0 ->
-        [one] { $arg0 } bestand
-       *[other] { $arg0 } bestanden
-    }, { $arg1 } / { $arg2 }
-music-cached = Gecachet - direct afspeelbaar
-music-clear-queue = Wachtrij wissen
-music-clear-queue-done = Wachtrij geleegd ({ $arg0 ->
-        [one] { $arg0 } nummer
-       *[other] { $arg0 } nummers
-    })
 music-command-description = Lokale, online en NBS-muziek voor platenspelers
 music-disc-left = Linksklik: pak de muziekplaat
 music-disc-right = Rechtsklik: speel af op de dichtstbijzijnde platenspeler
-music-duplicate-in-queue = Dit nummer staat al in de wachtrij
 music-duration = Duur: { $arg0 }
-music-empty-library = Muziekbibliotheek is leeg
-music-empty-library-description = Geen lokale audiobestanden of NBS-nummers beschikbaar
-music-empty-nbs = Geen NBS-nummers gevonden
-music-empty-nbs-description = Schakel naar alle muziek of voeg een NBS-bestand toe
-music-empty-playlist = Deze afspeellijst bevat geen beschikbare nummers
-music-empty-playlist-description = Controleer of de afspeellijst openbaar is en het juiste platform is geselecteerd
-music-empty-search = Geen overeenkomende nummers
-music-empty-search-description = Probeer een ander trefwoord of controleer de status van aangepaste bronnen
-music-finished = Afgelopen
 music-format = Formaat: { $arg0 }
-music-inventory-full = Inventaris is vol. Muziekplaat kon niet worden gegeven
 music-jukebox-audible-field-conflict = Een andere platenspeler speelt een ander nummer in een overlappend duidelijk hoorbaar gebied
-music-jukebox-music-mode = Muziekmodus
-music-jukebox-play-order = Afspeelvolgorde
-music-jukebox-range = Afspeelbereik
-music-jukebox-range-value = Huidig: { $arg0 ->
-        [one] { $arg0 } blok
-       *[other] { $arg0 } blokken
-    }
-music-jukebox-rhythm-mode = Ritmemodus
-music-jukebox-too-far = Je bent te ver van de platenspeler verwijderd (maximaal { $arg0 ->
-        [one] { $arg0 } blok
-       *[other] { $arg0 } blokken
-    })
 music-jukebox-tp-hover = Klik om naar de platenspeler te teleporteren
 music-jukebox-unavailable = De platenspeler is verwijderd of de chunk ervan is niet beschikbaar
-music-jukebox-usage-mode = Jukeboxgebruik
-music-jukebox-volume = Volume van jukebox
-music-jukebox-volume-value = Huidig: { $arg0 }%
-music-library-button = Muziekbibliotheek
-music-library-random-mode = Bibliotheek willekeurig
-music-library-random-mode-desc = Speel willekeurig uit de volledige muziekbibliotheek zonder hetzelfde nummer direct te herhalen
-music-loading-title = Laden
-music-menu-nbs-title = NBS-muziek - pagina { $arg0 }/{ $arg1 }
-music-menu-playlist-title = Afspeellijst: { $arg0 } · { $arg1 }/{ $arg2 }
-music-menu-search-nbs-title = NBS zoeken: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-title = Zoeken: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-title = Muziekplaten - pagina { $arg0 }/{ $arg1 }
-music-mode-switched = Gewisseld naar { $arg0 }
-music-nearest-jukebox-missing = Geen platenspeler gevonden binnen { $arg0 ->
-        [one] { $arg0 } blok
-       *[other] { $arg0 } blokken
-    }
-music-next-page = Volgende pagina
-music-no-disc = Geen muziekplaat
-music-no-files = Geen muziekbestanden beschikbaar
-music-no-search-results-rich = Geen nummers met "{ $keyword }" gevonden
 music-now-playing-rich = Wordt nu afgespeeld: { $music } bij platenspeler { $location }
-music-online-partial-failure = Mislukte bronaanvragen: { $arg0 ->
-        [one] { $arg0 } aanvraag
-       *[other] { $arg0 } aanvragen
-    }; beschikbare resultaten worden getoond
 music-online-rate-limited = Te veel muziekaanvragen. Probeer het over { $arg0 ->
         [one] { $arg0 } seconde
        *[other] { $arg0 } seconden
     } opnieuw.
-music-online-searching = Lokale en online bronnen doorzoeken naar "{ $arg0 }"...
 music-original-author = Oorspronkelijke auteur: { $arg0 }
-music-page-out-of-range = Pagina buiten bereik. Hoogste pagina: { $arg0 }
-music-page-total = { $arg0 ->
-        [one] { $arg0 } nummer
-       *[other] { $arg0 } nummers
-    } in totaal
-music-page-usage-desc = Ga naar een pagina
-music-partial-results = Mislukte bronaanvragen: { $arg0 ->
-        [one] { $arg0 } aanvraag
-       *[other] { $arg0 } aanvragen
-    }; beschikbare resultaten worden getoond
-music-paused = Gepauzeerd
 music-plasmo-voice-unavailable = Het nummer is gestart, maar je kunt het niet horen omdat Plasmo Voice niet is geïnstalleerd, verbonden of ingeschakeld
-music-play-next = Volgende afspelen
-music-play-random = Willekeurig afspelen
 music-playback-failed = "{ $arg0 }" kon niet worden afgespeeld. Controleer de bron of het muziekbestand en probeer het opnieuw.
-music-playback-status = Afspeelstatus: { $arg0 }
-music-playing = Wordt afgespeeld
-music-playing-now-rich = Wordt nu afgespeeld: { $music }
-music-playlist-import-button = Afspeellijst importeren
-music-playlist-import-done = ‘{ $arg0 }’ geïmporteerd: { $arg1 } van { $arg2 ->
-        [one] { $arg2 } nummer
-       *[other] { $arg2 } nummers
-    }.
-music-playlist-import-failed = Importeren van afspeellijst mislukt: { $arg0 }
-music-playlist-import-prompt = Kies een platform en plak daarna een openbare afspeellijst-ID of link:
-music-playlist-import-usage-desc = Een openbare afspeellijst van een ander muziekplatform importeren
-music-playlist-importing = Afspeellijst importeren...
-music-playlist-reference-prompt = Plak de ID of link van een openbare afspeellijst
-music-prev-page = Vorige pagina
-music-queue-empty = Wachtrij is leeg
-music-queue-move-down = Omlaag verplaatsen
-music-queue-move-up = Omhoog verplaatsen
-music-queue-remove = Nummer verwijderen
-music-queue-summary = Wachtrij: { $arg0 ->
-        [one] { $arg0 } nummer
-       *[other] { $arg0 } nummers
-    }
-music-queue-summary-description = Pagina { $arg0 }/{ $arg1 }
-music-random-add = Willekeurig nummer toevoegen
-music-random-added-to-queue-rich = Willekeurig aan wachtrij toegevoegd: { $music }
-music-random-disc = Willekeurige muziekplaat
-music-random-disc-got-rich = Willekeurige muziekplaat ontvangen: { $music }
-music-random-mode = Lijst willekeurig
-music-random-mode-desc = Speel de lijst willekeurig af zonder hetzelfde nummer direct te herhalen
-music-rank-down = Omlaag verplaatst
-music-rank-up = Omhoog verplaatst
-music-reload-done = Opnieuw laden voltooid: { $arg0 ->
-        [one] { $arg0 } lokaal nummer
-       *[other] { $arg0 } lokale nummers
-    }; LX-bronnen beschikbaar { $arg1 }/{ $arg2 }; abonnementen gecontroleerd { $arg3 }, bijgewerkt { $arg4 }
 music-reload-failed = Muziek opnieuw laden mislukt: { $arg0 }
-music-reload-issues = Problemen bij opnieuw laden: { $arg0 }
-music-reload-partial = Opnieuw laden voltooid met behoud van eerdere gegevens: { $arg0 ->
-        [one] { $arg0 } lokaal nummer
-       *[other] { $arg0 } lokale nummers
-    }; LX-bronnen beschikbaar { $arg1 }/{ $arg2 }; abonnementen gecontroleerd { $arg3 }, bijgewerkt { $arg4 }
 music-reload-started = Muziekbestanden en aangepaste bronnen opnieuw laden...
-music-remote-source-error = updatefout: { $arg0 }
-music-remote-source-import-done = LX-bronabonnement geïmporteerd: { $arg0 }
-music-remote-source-import-failed = Importeren van LX-bron mislukt: { $arg0 }
-music-remote-source-import-started = LX-bronabonnement importeren...
-music-remote-source-remove-done = LX-bronabonnement verwijderd: { $arg0 }
-music-remote-source-remove-failed = LX-bronabonnement kon niet worden verwijderd: { $arg0 }
-music-remote-source-remove-not-found = LX-bronabonnement niet gevonden: { $arg0 }
-music-remote-source-update-done = Gecontroleerd: { $arg0 ->
-        [one] { $arg0 } abonnement
-       *[other] { $arg0 } abonnementen
-    }; bijgewerkt: { $arg1 }; mislukt: { $arg2 }.
-music-remote-source-update-failed = Bijwerken van LX-bron mislukt: { $arg0 }
-music-remote-source-update-started = Geïmporteerde LX-bronabonnementen controleren...
-music-remote-source-updated-at = bijgewerkt: { $arg0 }
-music-remote-sources-title = Geïmporteerde LX-bronabonnementen: { $arg0 }
-music-removed-from-queue-rich = Uit wachtrij verwijderd: { $music }
-music-repeat-one-mode = Eén nummer herhalen
-music-repeat-one-mode-desc = Herhaal het huidige nummer tot je handmatig doorgaat
-music-request-error = Aanvraag mislukt: { $arg0 }
 music-rhythm-animation-offset = Animatieverschuiving { $arg0 } ms
-music-rhythm-calibration = Latentiekalibratie
 music-rhythm-calibration-accumulating = Stabiele timing wordt bevestigd… blijf meespelen
 music-rhythm-calibration-adapting = Ritme wordt afgestemd… blijf meespelen
-music-rhythm-calibration-complete = Latentietest voltooid · ritmespel gereed
 music-rhythm-calibration-done = Latentietest voltooid · instellingen opgeslagen
 music-rhythm-calibration-failed = De audio van de test stopte onverwacht. De test is veilig gesloten; start hem opnieuw
 music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Toetsenbord visueel → Muis visueel
@@ -1723,11 +1774,6 @@ music-rhythm-calibration-out-of-range = De gemeten vertraging valt buiten het on
 music-rhythm-calibration-plasmo-instruction = Nu meedoen: herhaal het Plasmo Voice-ritme en druk 1–4 bij elke slag
 music-rhythm-calibration-plasmo-ready = Minecraft-test voltooid; luister eerst via Plasmo Voice naar hetzelfde ritme
 music-rhythm-calibration-pointer-instruction = Klik links of rechts wanneer de noot de lijn passeert.
-music-rhythm-calibration-prompt-confirm = Volledige test starten
-music-rhythm-calibration-prompt-confirm-hint = Keert automatisch terug na afloop.
-music-rhythm-calibration-prompt-later = Niet nu
-music-rhythm-calibration-prompt-reason = Voer eerst een latentie-test uit.
-music-rhythm-calibration-prompt-title = Latentietest vereist vóór het spelen
 music-rhythm-calibration-realigning = De audiostream werd onderbroken. De demonstratie wordt herhaald en voltooide metingen blijven behouden
 music-rhythm-calibration-required = Voltooi de volledige latentietest voordat je het ritmespel start
 music-rhythm-calibration-reset-done = Latentiekalibratie is gereset
@@ -1746,7 +1792,6 @@ music-rhythm-difficulty-expert = Expert
 music-rhythm-difficulty-hard = Moeilijk
 music-rhythm-difficulty-normal = Normaal
 music-rhythm-exit = Ritmespel verlaten
-music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
 music-rhythm-get-ready = Maak je klaar
 music-rhythm-go = START!
 music-rhythm-good = Goed
@@ -1761,55 +1806,15 @@ music-rhythm-network-too-high = De netwerklatentie is te hoog voor een eerlijke 
 music-rhythm-network-warning = De netwerklatentie is instabiel ({ $arg0 } ms). De sessie stopt als dit boven { $arg1 } ms blijft
 music-rhythm-no-beats = In dit nummer zijn geen speelbare beats gevonden
 music-rhythm-perfect = Perfect
-music-rhythm-preparing = Wacht tot het nummer volledig is gecachet en ritmisch is geanalyseerd
-music-rhythm-ready = Volledige beatmap gereed — start op de eerste tel
 music-rhythm-requires-playback = Speel eerst een nummer af op deze platenspeler
-music-rhythm-reset-calibration = Latentiekalibratie resetten
 music-rhythm-results = Resultaten
 music-rhythm-score = Score: { $arg0 }
-music-rhythm-select-track = Ritmenummer kiezen
 music-rhythm-spatial-no-room = Er is niet genoeg vrije ruimte. Ga naar een opener gebied.
 music-rhythm-spatial-slider-hint = Volg de bewegende ster en klik elk controlepunt · niet vasthouden
-music-rhythm-start-game = Spel starten
-music-rhythm-waiting-for-player = Wachten tot een speler het ritmespel start
+music-rhythm-start = Spel starten
 music-sample-rate = Bemonsteringsfrequentie: { $arg0 }
-music-search-button = Nummers zoeken
-music-search-keyword-required = De zoekterm mag niet leeg zijn
-music-search-keyword-too-long = Zoekterm te lang. Limiet: { $arg0 ->
-        [one] { $arg0 } teken
-       *[other] { $arg0 } tekens
-    }.
-music-search-usage-desc = Zoek nummers
-music-section-all = Alle muziek
-music-section-nbs = NBS-muziek
-music-select-music = Muziek selecteren
-music-sequential-mode = Lijst herhalen
-music-sequential-mode-desc = Speel de lijst op volgorde af en begin daarna opnieuw
 music-size = Grootte: { $arg0 }
-music-sort-button = Sorteren
-music-sort-current = Huidig: { $arg0 }
-music-sort-default = Standaardvolgorde
-music-sort-most-played = Meest afgespeeld
-music-sort-recently-played = Recent afgespeeld
-music-sound-settings = Geluidsinstellingen
-music-source-actions = acties: { $arg0 }
-music-source-available = beschikbaar
-music-source-capabilities = mogelijkheden: { $arg0 }
-music-source-error = fout: { $arg0 }
-music-source-failures = fouten: { $arg0 }
-music-source-retry = opnieuw over { $arg0 ->
-        [one] { $arg0 } seconde
-       *[other] { $arg0 } seconden
-    }
-music-source-unavailable = niet beschikbaar
-music-sources-empty = Geen aangepaste LX-muziekbronnen gevonden
-music-sources-title = Aangepaste LX-muziekbronnen: { $arg0 }
-music-stop-eject = Stoppen en uitwerpen
-music-stop-eject-done = Afspelen gestopt en muziekplaat uitgeworpen
-music-stopped = Gestopt
-music-track-details = Nummerdetails
 music-unavailable-disc = Niet-beschikbare muziekplaat
-music-unavailable-disc-description = Deze MIK-muziekplaat staat niet in de huidige catalogus; hij kan nog steeds worden gestopt en uitgeworpen
 
 ## Entertainment · Anniversary
 
@@ -1937,20 +1942,16 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Banbericht]
 ban-command-description = Verban een speler met een vast ernstniveau
 ban-database-error = Actie op de blokkeringsdatabase mislukt. Bekijk het serverlogboek.
-ban-dialog-back = Terug
-ban-dialog-cancel = Annuleren
-ban-dialog-confirm-action = Speler verbannen
-ban-dialog-confirm-severity = Ernst
-ban-dialog-confirm-title = Verbanning bevestigen
-ban-dialog-never-joined-confirm-action = Toch verbannen
-ban-dialog-never-joined-title = Speler is nooit toegetreden
-ban-dialog-never-joined-warning = { $arg0 } is nooit op deze server geweest. Controleer de spelersnaam om te voorkomen dat je de verkeerde speler verbant.
-ban-dialog-next = Volgende
-ban-dialog-player-input = Spelersnaam handmatig invoeren
-ban-dialog-player-manual = Handmatige invoer
-ban-dialog-player-online = Spelers die nu online zijn
-ban-dialog-select-title = Speler selecteren
-ban-dialog-severity-title = Ernst selecteren
+ban-menu-back = Terug
+ban-menu-confirm-action = Speler verbannen
+ban-menu-confirm-severity = Ernst
+ban-menu-confirm-title = Verbanning bevestigen
+ban-menu-never-joined-confirm-action = Toch verbannen
+ban-menu-never-joined-title = Speler is nooit toegetreden
+ban-menu-never-joined-warning = { $arg0 } is nooit op deze server geweest. Controleer de spelersnaam om te voorkomen dat je de verkeerde speler verbant.
+ban-menu-player-input = Spelersnaam handmatig invoeren
+ban-menu-select-title = Speler selecteren
+ban-menu-severity-title = Ernst selecteren
 ban-history-empty = Geen blokkeringsgeschiedenis voor { $arg0 }.
 ban-history-title = Blokkeringsgeschiedenis: { $arg0 }
 ban-invalid-player = Ongeldige spelersnaam
@@ -1996,11 +1997,14 @@ banlist-reason = Reden
 banlist-source = { role-moderator }
 banlist-title = Banlijst
 maintenance-command-description = Schakel de onderhoudsmodus om of bekijk de status
+maintenance-kick = De server is in onderhoud
 maintenance-set = Onderhoudsmodus { $arg0 }
 maintenance-state-disabled = uitgeschakeld
 maintenance-state-enabled = ingeschakeld
 maintenance-status = Onderhoudsmodus: { $arg0 }
 maintenance-unchanged = De onderhoudsmodus is al { $arg0 }
+performance-kick-title = De server is ernstig vertraagd
+performance-kick-reason = Je verbinding is tijdelijk verbroken om de server te laten herstellen
 restriction-entity-too-large-mm = <red>De entiteitsgrootte overschrijdt de veiligheidslimiet van de server</red>
 restriction-foreign-uuid-mm = <red>Je kunt UUID's alleen gebruiken voor wezens die je hebt getemd</red>
 restriction-no-kill-e-mm = <red>Het commando <white>/kill @e</white> is niet toegestaan</red>
@@ -2026,9 +2030,16 @@ whitelist-temp-usage-desc = Voeg een tijdelijke vermelding van 1 uur aan de witt
 
 ## Shell · Menus, server information and scripting
 
-main-afk-current-afk = Momenteel AFK
-main-afk-current-online = Momenteel online
-main-afk-status = AFK-status
+main-afk-status =
+    { $arg0 ->
+        [afk] AFK: Afwezig
+       *[online] AFK: Online
+    }
+main-pvp-status =
+    { $arg0 ->
+        [on] PVP: Aan
+       *[off] PVP: Uit
+    }
 main-announcements = Aankondigingen
 main-home = Thuislocaties
 main-language = Taal
@@ -2038,8 +2049,6 @@ main-map = Webkaart
 main-menu-title = Hoofdmenu
 main-music = Muziek
 main-name-tag = Naamlabels
-main-profile = Profiel
-main-pvp = PvP
 main-settings = Instellingen
 main-website = Website
 main-wiki = Wiki
@@ -2056,9 +2065,367 @@ stat-client-version = Clientversie
 stat-first-joined = Eerste keer online
 stat-location = Locatie
 stat-ping = Vertraging
+stat-ping-value = { $arg0 } ms
 stat-play-time = Speeltijd
 stat-role = Rol
 stat-world = Wereld
-weblogin-command-description = Bevestig een Mik Web-inlogcode
-weblogin-confirmed = Mik Web-login bevestigd. Ga terug naar je browser om door te gaan.
-weblogin-invalid-code = Ongeldige Mik Web-inlogcode
+web-account-title = Webaccount en toegangssleutels
+web-account-confirm = Bevestigen
+weblogin-question = Deze identiteitsverificatie voor de website bevestigen? Bevestig alleen acties die je zelf op mcmik.top hebt gestart. Voer nooit een code voor iemand anders in.
+weblogin-command-description = Een Mik-verificatiecode voor je webidentiteit bevestigen
+weblogin-confirmed = Webidentiteit geverifieerd. Ga terug naar je browser om verder te gaan.
+weblogin-invalid-code = Ongeldige verificatiecode voor je webidentiteit
+
+
+# Music workspace
+music-space-label =
+    { $arg0 ->
+        [title] Muziekruimte
+        [devices] Afspeelapparaten
+        [device-status] Status
+        [sync-group] Synchronisatiegroep
+        [single-device] Jukebox
+        [device-location] Locatie
+        [visit-device] Ernaast teleporteren
+        [teleporting] Bezig met teleporteren…
+        [recorded-device] Onthouden
+        [nearby-device] Dichtbij
+        [group-select-members] Selecteer minstens twee jukeboxen
+        [group-name-required] Voer een groepsnaam in
+        [all-online] Allemaal online
+        [direction-front] Voor je
+        [direction-front-right] Rechtsvoor
+        [direction-right] Rechts
+        [direction-back-right] Rechtsachter
+        [direction-back] Achter je
+        [direction-back-left] Linksachter
+        [direction-left] Links
+        [direction-front-left] Linksvoor
+        [direction-here] Hier
+        [direction-above] Boven
+        [direction-below] Onder
+        [no-devices] Geen apparaten
+        [choose-members] Groepsapparaten kiezen
+        [create-group] Synchronisatiegroep maken
+        [add-members] Apparaten toevoegen
+        [create-play] Maken en afspelen
+        [create-and-append] Maken en nummers achteraan toevoegen
+        [device-queue] Wachtrij
+        [device-members] Leden
+        [available] Beschikbaar
+        [play] Afspelen
+        [retry-outputs] Uitvoer opnieuw proberen
+        [dissolve-group] Groep opheffen
+        [remove-member] Uit groep verwijderen
+        [removed-stopped] Verwijderde apparaten stoppen en behouden de gekozen inhoud.
+        [restore-previous] Inhoud van vóór de groep herstellen
+        [keep-group-content] Groepsinhoud behouden
+        [queue] Wachtrij
+        [back] { ban-menu-back }
+        [close] { close }
+        [unavailable] Music storage is unavailable
+        [saving] Opslaan…
+        [saved] Opgeslagen
+        [apply] { plot-menu-submit }
+        [cancel] { cancel }
+        [select-page] Select this page
+        [select-all] Select all results
+        [clear-tracks] Clear song selection
+        [add-playlist] Toevoegen
+        [description] { plot-menu-description }
+        [make-private] Make private
+        [publish] Make public
+        [delete] Delete playlist
+        [favorite] Toggle favorite
+        [copy] Copy playlist
+        [share] Share playlist command
+        [recent] Recent afgespeeld
+        [favorites] Favorite playlists
+        [public] Openbaar
+        [private] Privé
+        [new-playlist] Afspeellijst maken
+        [name] Naam
+        [song-title] Nummer
+        [track-count] Nummers
+        [visibility] Zichtbaarheid
+        [no-playlists] Geen afspeellijsten
+        [fetching-playlist] Afspeellijst laden…
+        [artist] Artiest
+        [duration] Duur
+        [track-type] Type
+        [type-online] Online
+        [undo] { vehicle-model-undo }
+        [remove] Remove selected entries
+        [clear-recents] Clear my play history
+        [clear-entries] Clear entry selection
+        [search-tracks] Zoek nummers, artiesten…
+        [search-playlists] Zoek afspeellijsten…
+        [public-playlists] Public playlists
+        [searching] Searching…
+        [insert] Invoegen en nu afspelen
+        [append] Toevoegen aan wachtrij
+        [choose-targets] Uitvoer kiezen
+        [group-source] Wachtrij en voortgang overnemen van
+        [removed-targets] Sommige doelen zijn verwijderd; selecteer ze opnieuw
+        [offline] Niet verbonden
+        [device-discovery-hint] Sluip en rechtsklik met een lege hand op een jukebox om deze te openen.
+        [empty] Geen nummers
+        [queue-empty] Geen nummers in de wachtrij
+        [queue-current] Huidig nummer in de digitale wachtrij
+        [pause] Pause
+        [resume] Resume
+        [stop] Stop; keep playback list
+        [previous] Previous song / restart
+        [clear] Clear pending; stop after current song
+        [seek] Positie
+        [more] Meer
+        [volume-control] Volume
+        [group-volume] Groepsvolume
+        [timeline-help] Scrollen ±5 s · Rechtsklik om tijd in te voeren
+        [timeline-read-only] Positie wijzigen niet beschikbaar
+        [seek-format] Voer m:ss, h:mm:ss of seconden in
+        [record] Opslaan voor bediening op afstand
+        [forget] Mijn opgeslagen apparaten vergeten
+        [alias] Persoonlijke apparaatnaam
+        [sound] Geluidsinstellingen
+        [rhythm] Ritmekamers
+        [room-players] Spelers
+        [room-player-status] Status
+        [room-preparation] Mijn voorbereiding
+        [room-ready] Klaar
+        [room-cancel-ready] Gereedheid annuleren
+        [room-playing] In het spel
+        [room-score-ready] Noten klaar
+        [room-select-one] Selecteer één nummer met meervoudige selectie in de bibliotheek.
+        [room-end-confirmation] Dit beëindigt de kamer voor alle deelnemers.
+        [create-room] Kamer maken
+        [no-rhythm-devices] Geen jukebox in de buurt. Sluip eerst en klik met een lege hand rechts op een jukebox.
+        [calibration] Latentiekalibratie
+        [volume] Volume (0–100)
+        [range] Range (8–256 blocks)
+        [mode] Afspeelmodus
+        [save-queue] Wachtrij als afspeellijst opslaan
+        [sequential] Sequential
+        [repeat-all] Lijst herhalen
+        [repeat-one] Repeat song
+        [shuffle] Shuffle without repeats
+        [import] Afspeellijst importeren
+        [link] Afspeellijstlink
+        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
+        [import-preview] Preview fetched metadata; no audio was downloaded
+        [import-new] Maken en openen
+        [import-merge] Samenvoegen
+        [stopped] Gestopt
+        [loading] Preparing audio
+        [cancel-loading] Voorbereiding annuleren
+        [playing] Wordt afgespeeld
+        [paused] Gepauzeerd
+        [finished] Afgelopen
+        [retry-failed] Afspelen opnieuw proberen
+        [select-song] Speel gekozen nummers samen af of voeg ze toe aan een afspeellijst.
+        [select-toggle] Dit item selecteren
+        [deselect] Dit item deselecteren
+        [selected] Geselecteerd
+        [place-before] Selectie vóór dit item plaatsen
+        [eject] Eject physical record
+        [make-disc] Create signed music disc
+        [gain] Group volume (0–100)
+        [retry-import] Fetch playlist again
+        [join-room] Deelnemen aan kamer
+        [ready] Klaar
+        [waiting] Waiting
+        [room-mode] Spelmodus
+        [room-difficulty] Moeilijkheid
+        [late-join] Join the running game
+        [leave-room] Leave room
+        [select-room-track] Geselecteerd nummer gebruiken
+        [start-room] Spel starten
+        [end-room] Kamer beëindigen
+        [base-queue] Base playback list
+        [priority-queue] One-time requests
+        [falling] Falling lanes
+        [radial] Radial approach
+        [spatial-aim] Spatial aim
+        [easy] Easy
+        [normal] Normal
+        [hard] Hard
+        [expert] Expert
+        [waiting-for-player] Waiting for preparation
+        [preparing] Preparing audio and chart
+        [no-beats] No playable beats
+        [catalog] Catalogus
+        [my-playlists] Mijn afspeellijsten
+        [playlist] Afspeellijst
+        [output] Uitvoer
+        [close-panel] Paneel sluiten
+        [playlist-settings] Lijstinstellingen
+        [multi-select] Selecteren
+        [move] Verplaatsen
+        [move-hint] Kies een nummer om de selectie ervoor te plaatsen
+        [cancel-move] Verplaatsen annuleren
+        [move-end] Aan einde plaatsen
+        [cancel-selection] Selectie annuleren
+        [track-details] Nummerdetails
+        [skip-next] Naar volgend nummer
+        [device-settings] Apparaatinstellingen
+        [already-added] Al toegevoegd
+        [current-track] Huidig nummer
+        [shuffle-candidates] Willekeurige kandidaten
+        [import-by-id] Via ID importeren
+        [playlist-id] Afspeellijst-ID
+       *[unknown] Muziekruimte
+    }
+
+music-space-error =
+    { $arg0 ->
+        [UNAVAILABLE] Music is unavailable; reopen later
+        [INTERNAL] Interne muziekfout; vraag een beheerder het serverlogboek te bekijken
+        [NOT_FOUND] The selected item no longer exists
+        [FORBIDDEN] Control or edit permission is required
+        [CONFLICT] Content changed; refresh and select again
+        [LIMIT] The music resource limit was reached
+        [INVALID] Check the name, selection or numeric range
+        [OFFLINE] Device unavailable: load its chunk or eject its physical record
+        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
+        [UNSUPPORTED] This media does not support that action
+        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NO_SAFE_DESTINATION] Geen veilige plek naast deze jukebox gevonden
+        [TELEPORT_FAILED] Teleportatie is mislukt of geblokkeerd
+       *[UNKNOWN] Operation failed
+    }
+
+music-space-selected-tracks =
+    { $arg0 ->
+        [one] { $arg0 } nummer geselecteerd
+       *[other] { $arg0 } nummers geselecteerd
+    }
+music-space-track-count =
+    { $arg0 ->
+        [one] { $arg0 } nummer
+        *[other] { $arg0 } nummers
+    }
+music-space-device-count =
+    { $arg0 ->
+        [one] { $arg0 } jukebox
+       *[other] { $arg0 } jukeboxen
+    }
+music-space-online-count = Online: { $arg0 }/{ $arg1 } { $arg1 ->
+        [one] jukebox
+       *[other] jukeboxen
+    }
+music-space-device-distance = { $arg0 } · { $arg1 } m
+music-space-device-height = { $arg0 ->
+    [above] { $arg1 } m hoger
+   *[below] { $arg1 } m lager
+    }
+music-space-device-coordinates = { $arg0 } · X { $arg1 } · Y { $arg2 } · Z { $arg3 }
+music-space-sound-value = { $arg0 ->
+        [volume] { $arg1 ->
+           *[other] { $arg1 }%
+        }
+       *[range] { $arg1 ->
+            [one] { $arg1 } blok
+           *[other] { $arg1 } blokken
+        }
+    }
+plot-permission-music-control = Muziekapparaten bedienen
+
+music-partial-results = Mislukte bronaanvragen: { $arg0 ->
+        [one] { $arg0 } aanvraag
+       *[other] { $arg0 } aanvragen
+    }; beschikbare resultaten worden getoond
+
+webchat-tab-label = { $arg0 ->
+    [1] { player-web-label }
+   *[other] { player-web-label } ×{ $arg0 }
+    }
+webchat-joined = { $arg0 } neemt deel aan de webchat
+webchat-left = { $arg0 } heeft de webchat verlaten
+chat-rate-limited = Je verstuurt te snel. Wacht even.
+
+plot-map-corner-a = Hoek A
+plot-map-corner-b = Hoek B
+plot-map-corner-hint = Klik om deze hoek te centreren. Rechtsklik: coördinaten; muiswiel: Y ±4.
+plot-map-coordinates = Coördinaten x,y,z
+plot-map-zoom-in = Inzoomen
+plot-map-zoom-out = Uitzoomen
+plot-map-fit = Hele gebied
+plot-map-near = Bij mij
+plot-map-layer = Laag Y { $arg0 }…{ $arg1 }
+plot-map-layer-hint = Muiswiel: andere laag; klik: jouw laag. Terrein toont altijd het oppervlak.
+plot-map-north = Noord
+plot-map-west = West
+plot-map-east = Oost
+plot-map-south = Zuid
+plot-map-scale = 1 pixel = { $arg0 } × { $arg0 } blokken
+plot-map-progress = Kaart lezen { $arg0 }%…
+plot-map-unknown = Ongeladen oppervlaktemonsters: { $arg0 }
+plot-map-legend = Cyaan: behouden · Paars: toegevoegd · Oranje: verwijderd · Groen: blokvorm · A/B: hoeken · Pijl: jij
+plot-selection-validating = Grenzen berekenen en gebied controleren op de achtergrond… Wordt automatisch bijgewerkt zodra het klaar is.
+
+plot-map-open = Minecraft-kaart bekijken
+
+plot-map-handheld-hint = Kaart in de tweede hand; selecteer met een houten bijl. Sluipen + F opent het paneel.
+
+plot-map-readonly-hint = Alleen kaartweergave. Ga terug naar het paneel en kies Blokvorm aanpassen om hoeken te wijzigen.
+
+plot-destinations = Teleportpunten
+plot-destination-add = Huidige locatie toevoegen
+plot-destination-confirm-delete = Teleportpunt ‘{ $arg0 }’ verwijderen?
+plot-destination-delete = Teleportpunt verwijderen
+plot-destination-deleted = Teleportpunt verwijderd.
+plot-destination-description = Beschrijving (optioneel)
+plot-destination-edit = Naam en beschrijving bewerken
+plot-destination-empty = Geen teleportpunten beschikbaar.
+plot-destination-error-changed = Dit teleportpunt is gewijzigd. Open het opnieuw.
+plot-destination-error-description = De beschrijving mag maximaal 512 tekens bevatten, zonder besturingstekens.
+plot-destination-error-location = Ga op veilige grond binnen dit perceel staan.
+plot-destination-error-missing = Dit teleportpunt bestaat niet meer.
+plot-destination-error-name = Gebruik een naam van 1–48 tekens op één regel.
+plot-destination-error-private = Dit teleportpunt is privé en alleen beschikbaar voor perceelleden.
+plot-destination-error-unsafe = Dit teleportpunt is niet beschikbaar of onveilig.
+plot-destination-loading = Teleportpunt laden…
+plot-destination-move = Huidige locatie gebruiken
+plot-destination-name = Naam
+plot-destination-public-empty = Er zijn nog geen openbare teleportpunten.
+plot-destination-public-off = Openbaar: uit
+plot-destination-public-on = Openbaar: aan
+plot-destination-saved = Teleportpunt opgeslagen.
+plot-destination-teleport = Teleporteren
+plot-error-subplot-destination = Verplaats of verwijder eerst de teleportpunten van het bovenliggende perceel in het geselecteerde gebied.
+plot-error-subplot-own-destination = Houd teleportpunten binnen het nieuwe gebied of verplaats of verwijder ze eerst.
+
+plot-destination-manage = Beheren
+plot-directory-owned = In bezit · { $arg0 }
+plot-directory-participating = Deelname · { $arg0 }
+plot-directory-search = Percelen zoeken
+plot-directory-search-value = Zoeken: { $arg0 }
+plot-directory-search-field = Perceelnaam of ID
+plot-directory-clear-search = Zoekopdracht wissen
+plot-directory-empty = Nog geen percelen in deze categorie.
+plot-directory-no-match = Geen overeenkomende percelen. Wijzig of wis de zoekopdracht.
+plot-workspace-area = Gebied bewerken
+plot-workspace-area-hint = Het beschermde gebied van dit perceel aanpassen
+plot-workspace-subplots = Subpercelen
+plot-workspace-subplots-hint = Onderverdelingen bekijken, maken en beheren
+plot-workspace-access-hint = Leden, rollen en actierechten beheren
+plot-workspace-settings-hint = Naam, bericht, omgeving en eigendom
+plot-workspace-destinations-hint = Teleportpunten van dit perceel bekijken en gebruiken
+plot-workspace-role = Jouw rol: { $arg0 }
+plot-workspace-ownership = Eigendom en verwijdering
+plot-workspace-id = Perceel-ID: { $arg0 }
+plot-workspace-groups = Rechtengroepen
+plot-workspace-permissions = Actierechten
+plot-workspace-other-world = Ga eerst naar de wereld van dit perceel.
+
+plot-destination-titles = Aankomsttitels
+plot-destination-title = Titel
+plot-destination-subtitle = Ondertitel
+plot-destination-title-hint = Zichtbaar na een geslaagde teleportatie. Ondersteunt MiniMessage-kleuren, stijlen en verlopen. Laat leeg om te verbergen; een voorbeeld slaat niets op.
+plot-destination-title-preview = Voorbeeld op volledig scherm
+plot-destination-title-unset = Niet ingesteld
+plot-destination-title-save = Titels opslaan
+plot-destination-title-unchanged = Geen niet-opgeslagen wijzigingen.
+plot-destination-title-apply = Op concept toepassen
+plot-destination-error-title = De titel moet één regel zijn: maximaal 32 zichtbare tekens en 512 tekens MiniMessage-brontekst.
+plot-destination-error-subtitle = De ondertitel moet één regel zijn: maximaal 64 zichtbare tekens en 512 tekens MiniMessage-brontekst.

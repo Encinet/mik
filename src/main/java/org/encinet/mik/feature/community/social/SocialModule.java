@@ -30,19 +30,17 @@ import org.encinet.mik.feature.community.social.game.SocialGameService;
 import org.encinet.mik.feature.community.social.management.SocialManagementCommandRegistrar;
 import org.encinet.mik.feature.community.social.platform.matrix.MatrixPlatformAdapter;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformAdapter;
-import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.runtime.SocialContentGuard;
 import org.encinet.mik.feature.community.social.runtime.SocialPlatformHost;
-import org.encinet.mik.feature.community.social.safety.SocialContentSafetyFilter;
+import org.encinet.mik.feature.community.social.safety.QwenGuardClient;
+import org.encinet.mik.feature.community.social.safety.SocialContentSafetyConfig;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.logging.Level;
+
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 
 /** Bukkit composition root for shared social features and platform adapters. */
 public final class SocialModule {
@@ -80,13 +78,15 @@ public final class SocialModule {
         SocialCommandDispatcher dispatcher = new SocialCommandDispatcher(commands);
 
         java.util.function.Function<Language, SocialDocument> blockedDocument = language ->
-                SocialDocument.of("🛡 " + languages.t(
+                SocialDocument.of(TRUSTED, "🛡 " + languages.t(
                                 language, Message.SOCIAL_TITLE_CONTENT_HIDDEN),
                         SocialDocument.Tone.WARNING,
                                 SocialDocument.paragraph(languages.t(
                                         language, Message.SOCIAL_REPLY_HIDDEN)))
                         .localized(language);
-        SocialContentGuard contentGuard = loadContentGuard(plugin, blockedDocument);
+        SocialContentGuard contentGuard = SocialContentGuard.reloadable(
+                () -> new QwenGuardClient(SocialContentSafetyConfig.load(plugin)),
+                blockedDocument);
         host = new SocialPlatformHost(
                 List.of(new QqPlatformAdapter(plugin), new MatrixPlatformAdapter(plugin)),
                 dispatcher,
@@ -116,31 +116,4 @@ public final class SocialModule {
         host.publishDirectedNotice(new SocialDirectedNotice(playerId, playerName, body));
     }
 
-    private static SocialContentGuard loadContentGuard(
-            JavaPlugin plugin,
-            java.util.function.Function<Language, SocialDocument> blockedDocument
-    ) {
-        Path legacy = plugin.getDataFolder().toPath().resolve("qq-blocked-keywords.txt");
-        if (Files.isRegularFile(legacy)) {
-            plugin.getLogger().warning("Legacy qq-blocked-keywords.txt is ignored; migrate it to "
-                    + QqPlatformConfig.SAFETY_FILE_NAME);
-        }
-        Path source = plugin.getDataFolder().toPath()
-                .resolve(QqPlatformConfig.SAFETY_FILE_NAME);
-        try {
-            if (!Files.isRegularFile(source)) {
-                plugin.saveResource(QqPlatformConfig.SAFETY_FILE_NAME, false);
-            }
-            SocialContentSafetyFilter filter = SocialContentSafetyFilter.compile(source);
-            plugin.getLogger().info("Compiled " + filter.ruleCount()
-                    + " shared social safety rules into " + filter.stateCount() + " states");
-            return SocialContentGuard.available(filter, blockedDocument);
-        } catch (IOException | RuntimeException error) {
-            plugin.getLogger().log(Level.SEVERE,
-                    "Could not load shared social content safety rules", error);
-            RuntimeException failure = error instanceof RuntimeException runtime
-                    ? runtime : new IllegalStateException(error);
-            return SocialContentGuard.unavailable(failure, blockedDocument);
-        }
-    }
 }

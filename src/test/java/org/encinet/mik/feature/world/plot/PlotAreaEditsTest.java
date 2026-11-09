@@ -9,7 +9,6 @@ import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -64,7 +63,7 @@ class PlotAreaEditsTest {
     }
 
     @Test
-    void resizingPreservesIdentityPermissionsArrivalAndSettingsAcrossReload() throws Exception {
+    void resizingPreservesIdentityPermissionsDestinationAndSettingsAcrossReload() throws Exception {
         try (PlotRepository store = new PlotRepository(directory.resolve("resize.db"))) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
@@ -74,8 +73,8 @@ class PlotAreaEditsTest {
             edits.invite(original, owner, false, collaborator, Plot.Role.COLLABORATOR);
             Plot before = registry.byId(original.id());
             registry.setNoticeBoard(before.id(), "Welcome");
-            PlotArrival arrival = new PlotArrival(0.5, 65, 0.5, 90, 10, "Home", "Welcome");
-            registry.setArrival(before.id(), arrival);
+            PlotDestination destination = new PlotDestination(before.id(), before.id(), "Home", "Welcome", false, 0.5, 65, 0.5, 90, 10, "", "");
+            registry.saveDestination(destination);
             registry.setAtmosphere(before.id(), new PlotAtmosphere(6000, PlotAtmosphere.Weather.CLEAR));
             edits.resize(before, owner, false, shape(new Cell(0, 16, 0), new Cell(1, 16, 0)));
             registry.load();
@@ -86,14 +85,14 @@ class PlotAreaEditsTest {
             assertEquals(before.members(), after.members());
             assertEquals(before.flags(), after.flags());
             assertEquals(2, after.cells().size());
-            assertEquals(arrival, registry.arrival(after.id()));
+            assertEquals(destination, registry.destination(after.id()));
             assertEquals("Welcome", registry.noticeBoard(after.id()));
             assertEquals(6000, registry.atmosphere(after.id()).timeTicks());
         }
     }
 
     @Test
-    void shrinkingCannotDiscardChildrenOrTheArrivalPoint() throws Exception {
+    void shrinkingCannotDiscardChildrenOrTheDestinationPoint() throws Exception {
         try (PlotRepository store = new PlotRepository(directory.resolve("shrink.db"))) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
@@ -102,8 +101,8 @@ class PlotAreaEditsTest {
             registry.createSubPlot(parent.id(), UUID.randomUUID(), "Room", shape(new Cell(1, 16, 0)));
             assertEquals(Message.PLOT_ERROR_SUBPLOT_PARENT, assertThrows(PlotProblem.class,
                     () -> edits.resize(parent, owner, false, shape(new Cell(0, 16, 0)))).message());
-            registry.setArrival(parent.id(), new PlotArrival(0.5, 65, 0.5, 0, 0, "", ""));
-            assertEquals(Message.PLOT_ERROR_SUBPLOT_OWN_ARRIVAL, assertThrows(PlotProblem.class,
+            registry.saveDestination(new PlotDestination(parent.id(), parent.id(), "Entrance", "", false, 0.5, 65, 0.5, 0, 0, "", ""));
+            assertEquals(Message.PLOT_ERROR_SUBPLOT_OWN_DESTINATION, assertThrows(PlotProblem.class,
                     () -> edits.resize(parent, owner, false, shape(new Cell(1, 16, 0)))).message());
             assertEquals(parent.cells(), registry.byId(parent.id()).cells());
         }
@@ -158,7 +157,6 @@ class PlotAreaEditsTest {
             Plot created = edits.create(owner, "Large building", world, initial);
             assertEquals(4624, created.cells().size());
             assertTrue(PlotGeometry.horizontalArea(created.cells()) > 4096);
-            assertFalse(created.publicProject());
 
             PlotSelectionShape enlarged = PlotSelectionShape.of(new PlotPosition(world, 0, 64, 0),
                     new PlotPosition(world, 71, 131, 71));
@@ -166,7 +164,6 @@ class PlotAreaEditsTest {
             assertEquals(5508, registry.byId(created.id()).cells().size());
             registry.load();
             assertEquals(enlarged.alignedCells(), registry.byId(created.id()).cells());
-            assertFalse(registry.byId(created.id()).publicProject());
         }
     }
 
@@ -230,7 +227,7 @@ class PlotAreaEditsTest {
                 Set<String> tables = new HashSet<>();
                 while (rows.next()) tables.add(rows.getString(1));
                 assertEquals(Set.of("plots", "plot_cells", "plot_members", "plot_flags",
-                        "plot_arrivals", "plot_notice_boards", "plot_atmospheres", "plot_children"), tables);
+                        "plot_destinations", "plot_notice_boards", "plot_atmospheres", "plot_children"), tables);
             }
         }
     }

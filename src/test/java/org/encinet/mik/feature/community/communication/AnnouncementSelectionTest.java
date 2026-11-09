@@ -14,13 +14,13 @@ class AnnouncementSelectionTest {
         Announcement selected = new Announcement(200, "Reading this");
         Announcement oldest = new Announcement(100, "Oldest");
 
-        assertEquals(2, AnnouncementModule.remapSelectedIndex(
-                List.of(newest, selected, oldest),
-                List.of(new Announcement(400, "New"), newest, selected, oldest), 1));
-        assertEquals(1, AnnouncementModule.remapSelectedIndex(
-                List.of(newest, selected, oldest),
-                List.of(newest, new Announcement(200, "Edited"), oldest), 1));
-        assertEquals(1, AnnouncementModule.remapSelectedIndex(
-                List.of(newest, selected, oldest), List.of(newest, oldest), 1));
+        var previous = List.of(newest, selected, oldest);
+        var state = AnnouncementBrowserState.INITIAL.select(new AnnouncementBoard(previous), 1);
+        assertEquals(2, state.remap(previous, new AnnouncementBoard(
+                List.of(new Announcement(400, "New"), newest, selected, oldest))).position().announcementIndex());
+        assertEquals(1, state.remap(previous, new AnnouncementBoard(
+                List.of(newest, new Announcement(200, "Edited"), oldest))).position().announcementIndex());
+        assertEquals(1, state.remap(previous, new AnnouncementBoard(
+                List.of(newest, oldest))).position().announcementIndex());
     }
 }

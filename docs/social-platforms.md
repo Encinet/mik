@@ -12,7 +12,7 @@ Minecraft 公共聊天 → ChatSubmission → ChatProcessor → ChatMessage
   → ChatContent → 会话路由 → 目标成员解析 → 平台 renderer
 
 外部普通文本 → 同一入站入口 → 命令分类与路由 → Bukkit 主线程
-  → ChatProcessor → Minecraft renderer
+  → ChatService → ChatProcessor → 游戏 / 网页 / 其他 Social 输出
 ```
 
 命令优先解析，未命中时才进入已配置的聊天路由；同一事件只分类一次。公共聊天可桥接，staff 与私聊不外发。`ChatOrigin.visitedPlatforms` 防止消息返回来源平台。
@@ -38,11 +38,58 @@ Host 为每个平台独立维护运行代次（generation）、会话、身份�
 
 每条 `SocialCommand<A, R>` 维护稳定 ID、文本别名、调用策略、描述、参数解析、业务处理、结果类型与回复布局。装配时显式创建不可变 dispatcher，帮助由已安装命令及当前平台前缀生成。平台 plan 只指定前缀和大小写规则；原生命令按稳定 ID 与结构化 options 调用。
 
-`SocialDocument(title, tone, blocks)` 支持段落、字段、列表和远程或内嵌图片，`plainText()` 提供纯文本回退。renderer 负责转义、格式转换和长度限制。
+`SocialDocument.of(moderation, title, tone, blocks...)` 支持段落、字段、列表和远程或内嵌图片，`plainText()` 提供纯文本回退。renderer 负责转义、格式转换和长度限制。
 
 回复语言依次取绑定玩家的 Minecraft 偏好、命中的本地化别名、平台默认语言。所有语言别名同时有效；原生命令可用 `locale` option 指定标签。内容安全替换和截断保留已解析语言。
 
-命令通过 `withUntrustedText(...)` 标记用户可控片段供安全检查；聊天执行平台出站检查。社交入站到 Minecraft 的正文不经过关键词过滤。固定标签、版本、TPS 等可信字段不参与关键词扫描。
+每份回复在创建时必须显式传入 `SocialDocument.Moderation`，构造器和工厂都没有默认策略，也没有创建后修改策略的接口；未声明策略的调用无法编译。回复辅助方法同样传递必填策略。
+
+```java
+SocialDocument.of(TRUSTED, "帮助", Tone.INFO, paragraph("固定命令说明"));
+SocialDocument.of(REQUIRED, "AI", Tone.INFO, paragraph(answer));
+```
+
+`TRUSTED` 用于本地模板和可信统计，直接发送；`REQUIRED` 用于含用户输入、玩家名称或 AI 生成文本的回复，在平台开启内容安全时送审。检查覆盖截断后的完整文档，保留标题、字段与正文语境。语言转换和截断始终保留原策略。
+
+| 回复内容 | 策略 |
+| --- | --- |
+| help、status、未知命令及固定说明、确认、错误提示 | `TRUSTED` |
+| online | 有玩家名称时为 `REQUIRED`，空列表为 `TRUSTED` |
+| profile 查询成功、含玩家名称的绑定或解绑结果 | `REQUIRED` |
+| AI 实际回答 | `REQUIRED`；清空、繁忙、失败等固定提示为 `TRUSTED` |
+
+聊天与社区公示提醒显式使用 `REQUIRED`，在路由选择和提及解析后检查出站语义文本，包含发送者、展开的可见提及和链接目标。同次发布的多个会话若产生相同文本，复用本次判定。社交入站到 Minecraft 的正文不执行出站审核。
+
+## 内容安全
+
+QQ、Matrix 共用 Qwen3Guard 审核池，各平台的 `content-safety.enabled` 决定是否检查本平台出站内容。共享配置首次启动生成于 `plugins/mik/social/content-safety.yml`：
+
+```yaml
+api-key: ""
+edenai-api-key: ""
+connect-timeout-millis: 5000
+request-timeout-millis: 10000
+```
+
+| 入口 | 模型 | 凭据 |
+| --- | --- | --- |
+| OVHcloud 直连 | [Qwen3Guard-Gen-0.6B](https://www.ovhcloud.com/en-gb/public-cloud/ai-endpoints/catalog/qwen-guard-gen-06b/) | `api-key`，留空或省略时匿名调用 |
+| OVHcloud 直连 | [Qwen3Guard-Gen-8B](https://www.ovhcloud.com/en-gb/public-cloud/ai-endpoints/catalog/qwen-guard-gen-8b/) | 同上 |
+| Eden AI | [OVHcloud Qwen3Guard-Gen-8B](https://www.edenai.co/expert-models/ovhcloud-qwen3guard-gen-8b) | `edenai-api-key`，留空或省略时不加入池 |
+
+健康入口等权轮询：未启用 Eden 时为 1:1，启用后为 1:1:1。OVH 端点为 `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions`；Eden 使用 `https://api.edenai.run/v3/universal-ai`，模型标识为 `text/moderation/ovhcloud/Qwen3Guard-Gen-8B`。两家凭据独立，匿名 OVH 请求省略 `Authorization`，有密钥的入口发送各自的 `Bearer` 鉴权；禁止自动跟随重定向。
+
+配置损坏时记录警告，平台继续启动，help、status 等可信回复仍可发送；审核客户端的可用性只在处理 `REQUIRED` 内容时检查，审核不可用时拒绝该次外发。修复配置后执行 `/social reload`，或重载对应平台。密钥和远端错误正文不写入日志。
+
+[OVHcloud 官方限流说明](https://www.ovhcloud.com/en-gb/public-cloud/ai-endpoints/catalog/qwen-guard-gen-06b/)：匿名调用按 IP 和模型限制为每分钟 2 次；使用 API 密钥时按 Public Cloud 项目和模型限制为每分钟 400 次。超出额度返回 HTTP 429，并触发下述故障切换。Eden 的额度与鉴权由 Eden 账号管理，不能用 OVH 密钥代替。
+
+OVH 按模型官方的文本审核用法，将待发送内容原样放入单条 `user` 消息，以 `temperature: 0`、非流式方式请求分类；Eden 按其 [Universal AI 文本审核协议](https://www.edenai.co/docs/v3/expert-models/features/text/moderation)将同一文本放入 `input.text`。不添加通用聊天助手的系统提示，也不附带入站命令、历史、验证码或传输凭据。命令审核包含准备向平台展示的文本资料；聊天使用去掉路由触发前缀并经 ChatModifier 展开的内容。图片只审核文字说明及文档中的远程链接，不上传图片二进制，也不检查图片像素。
+
+OVH 仅完整的 `Safety: Safe` 且 `Categories: None` 结果放行，`Controversial` 和 `Unsafe` 均拦截。Eden 返回归一化风险结果，仅 `status: success`、提供方及任务正确、总风险与返回的每个分类的 likelihood 均为最低等级 `1` 时放行；`items` 按协议可省略，总风险及分数为必填项，数值必须类型及范围有效，缺失必填字段和未知格式不放行。明确的风险判定不向另一模型重审。命令回复被拦截时显示原语言的隐藏提示；聊天和社区提醒被拦截时取消本次外发。超过模型输入预算的内容直接拦截，不裁掉尾部后送审。
+
+连接失败、超时、响应过大、结果无法解析、HTTP 408/425/429/5xx 会切换到尚未尝试的可用入口，每个入口每次最多尝试一次。429 默认冷却 60 秒，其余临时错误默认冷却 5 秒；HTTP 返回的有效 `Retry-After`（秒数或 HTTP 日期）优先使用，上限一天。冷却期间跳过该入口。401/402/403/404 将该入口停用到重载，并尝试其他入口；其他 HTTP 错误直接中止；无效结果对应的入口冷却 5 秒并继续尝试其他入口。所有入口不可用、重试耗尽或总超时后停止本次外发并记录错误。
+
+请求在有界 Social worker 中执行，`request-timeout-millis` 是包含故障切换和完整响应体的总预算；每次尝试按剩余入口数分配剩余时间，确保卡住的响应也能切换。执行 `/social reload` 或 `/social reload <platform>` 会重新读取共享配置、清除入口故障状态并关闭旧审核客户端，正在等待旧客户端的审核可能取消；指定平台的重载仍只重建该平台会话。停用 Social 时关闭共享客户端并取消请求。旧词库不再读取，可删除服务器上遗留的词库文件。
 
 ## 身份、提及与游戏数据
 
@@ -52,7 +99,9 @@ Host 为每个平台独立维护运行代次（generation）、会话、身份�
 
 共享 handler 运行于有界 worker，Bukkit 数据由 `SocialGameService` 经主线程网关捕获为不可变快照。查询自己只需绑定；查询他人还须具有 `member`、`moderator` 或 `custodian` 角色。资料包含 UUID、在线状态、游玩时间、首次加入、最近在线和皮肤头像，不暴露平台身份字段。
 
-入站聊天经共享 gateway 补充绑定及 LuckPerms 身份，再交给游戏公共聊天链路。已绑定身份使用游戏名字与前后缀，未绑定时使用平台昵称。提及输入语法为 `玩家名@`，显示为 `@玩家名`。自然聊天只在 Paper 事件最终未取消后提交提醒、重复状态及社交发布。
+入站聊天经共享 gateway 补充绑定及 LuckPerms 身份，再交给共享聊天服务，统一投递游戏、网页和其他 Social 平台的公共会话。作者没有 Minecraft 绑定或绑定玩家游戏离线时仍可在网页显示。已绑定身份使用游戏名字与前后缀，未绑定时使用平台昵称。Minecraft 内提及输入语法为 `@玩家名` 或 `@ 玩家名`，统一显示为 `@玩家名`；中日韩正文无需用空格隔开，例如 `你好@Alex在吗`，`@all` 使用相同边界。自然聊天只在 Paper 事件最终未取消后提交提醒、重复状态及社交发布。
+
+玩家提及使用不可变的名字哈希索引；在线玩家与绑定玩家分别维护，名字与候选集合不变时跨消息复用。每条消息只捕获频道可见的在线 UUID 并排除发送者，公共聊天额外查询无重名歧义的绑定玩家。解析按实际名字长度和完整边界查询，选择最长匹配；同名时优先使用当前频道内的在线身份。索引和玩家快照一起发布，异步聊天不读取 Bukkit 状态。
 
 ## 社区公示提醒
 

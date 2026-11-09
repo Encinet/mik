@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.community.governance.persistence.sqlite;
 
+import org.encinet.mik.feature.community.governance.voting.VoteHistory;
 import org.encinet.mik.feature.community.governance.GovernanceRepositoryException;
 import org.encinet.mik.feature.community.governance.delivery.DeliveryRepository;
 import org.encinet.mik.feature.community.governance.delivery.GovernanceAction;
@@ -170,6 +171,12 @@ public final class SqliteGovernanceRepository implements GovernanceDatabase,
     public List<GovernanceVote> recentVotes(int limit)
             throws GovernanceRepositoryException {
         return query(() -> store.recentVotes(limit));
+    }
+
+    @Override
+    public VoteHistory voteHistory(UUID subjectId, int limit, int offset)
+            throws GovernanceRepositoryException {
+        return query(() -> store.voteHistory(subjectId, limit, offset));
     }
 
     @Override

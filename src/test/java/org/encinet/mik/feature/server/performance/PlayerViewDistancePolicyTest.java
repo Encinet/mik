@@ -54,7 +54,7 @@ class PlayerViewDistancePolicyTest {
 
         NetworkEgressModule.SendDistanceUpdate update = NetworkEgressModule.sendDistanceUpdate(
                 7,
-                16,
+                7,
                 7,
                 currentOverride);
 
@@ -70,12 +70,30 @@ class PlayerViewDistancePolicyTest {
 
         NetworkEgressModule.SendDistanceUpdate update = NetworkEgressModule.sendDistanceUpdate(
                 7,
-                16,
+                7,
                 8,
                 currentOverride);
 
         assertFalse(update.apply());
         assertEquals(7, update.distance());
         assertEquals(currentOverride, update.override());
+    }
+
+    @Test
+    void recoveryRespectsAVisibleExternalLowerLimit() {
+        var update = NetworkEgressModule.sendDistanceUpdate(4, 16, 12,
+                new NetworkEgressModule.SendDistanceOverride(-1, 8));
+        assertFalse(update.apply());
+        assertEquals(4, update.distance());
+        assertNull(update.override());
+    }
+
+    @Test
+    void releasingAHiddenOwnedOverrideRestoresInheritance() {
+        var update = NetworkEgressModule.sendDistanceUpdate(4, 4, 32,
+                new NetworkEgressModule.SendDistanceOverride(-1, 8));
+        assertTrue(update.apply());
+        assertEquals(-1, update.distance());
+        assertNull(update.override());
     }
 }

@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlotHotPathCorrectnessTest {
+    @SuppressWarnings("resource") // Deferred plans never open connections or worker threads.
     private static PlotRegistry registry() {
         return new PlotRegistry(new PlotRepository(Path.of("unused-hot-path.db")).plan());
     }
@@ -57,7 +58,7 @@ class PlotHotPathCorrectnessTest {
         assertThrows(UnsupportedOperationException.class, () -> all.clear());
         assertThrows(UnsupportedOperationException.class, () -> children.clear());
         registry.setNoticeBoard(parent.id(), "Notice");
-        registry.setArrival(parent.id(), new PlotArrival(-8, 65, -8, 0, 0, "", ""));
+        registry.saveDestination(new PlotDestination(parent.id(), parent.id(), "Entrance", "", false, -8, 65, -8, 0, 0, "", ""));
         registry.setAtmosphere(parent.id(), new PlotAtmosphere(6000, null));
         assertSame(all, registry.all());
         assertSame(children, registry.childrenOf(parent.id()));
@@ -88,7 +89,7 @@ class PlotHotPathCorrectnessTest {
         edits.rename(parent, parent.owner(), false, "Renamed");
         edits.invite(parent, owner, false, UUID.randomUUID(), Plot.Role.COLLABORATOR);
         registry.setNoticeBoard(parent.id(), "Notice");
-        registry.setArrival(parent.id(), new PlotArrival(8, 65, 8, 0, 0, "", ""));
+        registry.saveDestination(new PlotDestination(parent.id(), parent.id(), "Entrance", "", false, 8, 65, 8, 0, 0, "", ""));
         assertEquals(version, registry.atmosphereRevision());
         PlotAtmosphere inherited = new PlotAtmosphere(6000, PlotAtmosphere.Weather.RAIN);
         registry.setAtmosphere(parent.id(), inherited);
@@ -115,15 +116,15 @@ class PlotHotPathCorrectnessTest {
         UUID owner = UUID.randomUUID();
         UUID visitor = UUID.randomUUID();
         UUID outsider = UUID.randomUUID();
-        Plot parent = new Plot(UUID.randomUUID(), world, owner, "Parent", false, 0,
+        Plot parent = new Plot(UUID.randomUUID(), world, owner, "Parent", 0,
                 Set.of(new Cell(-1, 16, -1), new Cell(0, 16, 0), new Cell(0, 17, 0), new Cell(1, 16, 0)),
                 Map.of(visitor, Plot.Role.COLLABORATOR), Map.of("member.place", true, "collaborator.container", true), null);
         registry.put(parent);
-        Plot child = new Plot(UUID.randomUUID(), world, outsider, "Child", false, 0,
+        Plot child = new Plot(UUID.randomUUID(), world, outsider, "Child", 0,
                 Set.of(new Cell(0, 16, 0)), Map.of(visitor, Plot.Role.COLLABORATOR),
                 Map.of("collaborator.place", false, "member.container", true), parent.id());
         registry.put(child);
-        Plot overlap = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Other protection", false, 0,
+        Plot overlap = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Other protection", 0,
                 Set.of(new Cell(0, 16, 0), new Cell(1, 16, 0)), Map.of(), Map.of("member.place", true), null);
         registry.put(overlap);
         for (UUID dimension : List.of(world, elsewhere)) {

@@ -3,6 +3,7 @@ package org.encinet.mik.bootstrap;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.player.security.PasswordModule;
 import org.encinet.mik.feature.player.security.PasswordTips;
+import org.encinet.mik.feature.player.profile.PlayerNameRenderer;
 import org.encinet.mik.feature.player.address.PlayerAddressModule;
 import org.encinet.mik.feature.player.address.PlayerAssociationNotifier;
 import org.encinet.mik.feature.player.afk.AfkModule;
@@ -14,12 +15,12 @@ import org.encinet.mik.feature.player.effects.EffectCleanupModule;
 import org.encinet.mik.feature.player.guidance.TipModule;
 import org.encinet.mik.feature.player.mode.GameModeSwitchModule;
 import org.encinet.mik.feature.player.movement.FlightModule;
+import org.encinet.mik.feature.player.movement.FlightSpeedControl;
 import org.encinet.mik.feature.player.movement.PlayerBoundaryModule;
 import org.encinet.mik.feature.player.presence.InvisibilityNotifyModule;
 import org.encinet.mik.feature.player.presence.PlayerPresenceModule;
 import org.encinet.mik.feature.player.presence.WelcomeModule;
-import org.encinet.mik.feature.player.profile.NameTagModule;
-import org.encinet.mik.feature.player.profile.PlayerIdentityRenderer;
+import org.encinet.mik.feature.player.profile.nametag.NameTagModule;
 import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.feature.player.profile.TabListModule;
 import org.encinet.mik.feature.player.pvp.PvpModule;
@@ -28,7 +29,7 @@ import org.encinet.mik.feature.player.teleport.HomeModule;
 import org.encinet.mik.feature.player.teleport.TeleportPreferenceModule;
 import org.encinet.mik.feature.player.trash.TrashModule;
 import org.encinet.mik.feature.player.utility.SimpleFeaturesModule;
-import org.encinet.mik.integration.geyser.BedrockPlayerBadge;
+import org.encinet.mik.feature.player.profile.PlayerSourceRenderer;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 record PlayerFeatures(
@@ -36,11 +37,14 @@ record PlayerFeatures(
         AfkModule afk,
         PlayerAddressModule addresses,
         PlayerNameTagRenderer nameTags,
-        PlayerIdentityRenderer identities,
+        NameTagModule customNameTags,
+        PlayerSourceRenderer sources,
         PvpModule pvp,
         TeleportPreferenceModule teleports,
         ClientVersions clientVersions,
-        TipModule guidance) {
+        TipModule guidance,
+        TabListModule tabList,
+        FlightSpeedControl flightSpeeds) {
 
     static PlayerFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -53,12 +57,9 @@ record PlayerFeatures(
         lifecycle.startManaged("account-security", passwords::enable, passwords::disable);
         passwords.registerCommands(plugin.getLifecycleManager());
 
-        BedrockPlayerBadge bedrockPlayerBadge =
-                new BedrockPlayerBadge(geyserService, languageService);
+        PlayerSourceRenderer playerSources = new PlayerSourceRenderer(geyserService, languageService);
         PlayerNameTagRenderer playerNameTags = new PlayerNameTagRenderer(plugin);
         lifecycle.startManaged("player-name-tags", playerNameTags::enable, playerNameTags::disable);
-        PlayerIdentityRenderer playerIdentities =
-                new PlayerIdentityRenderer(bedrockPlayerBadge, playerNameTags);
 
         PlayerAddressModule playerAddressModule = new PlayerAddressModule(plugin);
         lifecycle.startManaged("player-address", playerAddressModule::enable, playerAddressModule::disable);
@@ -76,7 +77,7 @@ record PlayerFeatures(
         if (plugin.getServer().getPluginManager().isPluginEnabled("ViaVersion")) {
             clientVersions = new ViaClientVersions(plugin);
         } else {
-            clientVersions = player -> java.util.Optional.empty();
+            clientVersions = _ -> java.util.Optional.empty();
             plugin.getLogger().warning("ViaVersion not found; client protocol lookup is unavailable.");
         }
         ClientModDetector clientMods = new ClientModDetector(player -> {
@@ -135,7 +136,7 @@ record PlayerFeatures(
         lifecycle.startManaged("player-boundary", playerBoundaryModule::enable, playerBoundaryModule::disable);
 
         TabListModule tabListModule = new TabListModule(
-                plugin, afkModule, languageService, playerIdentities);
+                plugin, afkModule, languageService, playerNameTags, playerSources);
         lifecycle.startManaged("tab-list", tabListModule::enable, tabListModule::disable);
 
         HomeModule homeModule = new HomeModule(plugin, languageService, lifecycle.own("home-tips", tipModule.scope()));
@@ -146,16 +147,19 @@ record PlayerFeatures(
         lifecycle.startManaged("back", backModule::enable, backModule::disable);
         backModule.registerCommands(plugin.getLifecycleManager());
 
-        NameTagModule prefixSuffixModule = new NameTagModule(plugin, languageService, playerIdentities,
+        NameTagModule nameTagModule = new NameTagModule(plugin, languageService, playerNameTags, playerId -> {
+            playerNameTags.invalidate(playerId);
+            tabListModule.refreshPlayerName(playerId);
+        }, PlayerNameRenderer::playerName,
                 lifecycle.own("name-tag-tips", tipModule.scope()));
-        lifecycle.startManaged("name-tag", prefixSuffixModule::enable, prefixSuffixModule::disable);
-        prefixSuffixModule.registerCommands(plugin.getLifecycleManager());
+        lifecycle.startManaged("name-tag", nameTagModule::enable, nameTagModule::disable);
+        nameTagModule.registerCommands(plugin.getLifecycleManager());
 
         InvisibilityNotifyModule invisibilityNotifyModule =
                 new InvisibilityNotifyModule(plugin, languageService);
         lifecycle.startManaged("invisibility-notify", invisibilityNotifyModule::enable, invisibilityNotifyModule::disable);
 
-        return new PlayerFeatures(passwords, afkModule, playerAddressModule, playerNameTags, playerIdentities,
-                pvpModule, teleportPreferenceModule, clientVersions, tipModule);
+        return new PlayerFeatures(passwords, afkModule, playerAddressModule, playerNameTags, nameTagModule, playerSources,
+                pvpModule, teleportPreferenceModule, clientVersions, tipModule, tabListModule, flightModule);
     }
 }

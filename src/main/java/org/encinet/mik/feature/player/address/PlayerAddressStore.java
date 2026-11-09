@@ -43,7 +43,7 @@ final class PlayerAddressStore {
     }
 
     PlayerAddressRecord recordLogin(String address, UUID playerId, Instant now) {
-        AddressHistory history = historiesByAddress.computeIfAbsent(address, ignored -> new AddressHistory());
+        AddressHistory history = historiesByAddress.computeIfAbsent(address, _ -> new AddressHistory());
         PlayerAddressRecord updated = history.record(address, playerId, now);
         indexByPlayer(updated);
         return updated;
@@ -51,7 +51,7 @@ final class PlayerAddressStore {
 
     void put(PlayerAddressRecord record) {
         historiesByAddress
-                .computeIfAbsent(record.address(), ignored -> new AddressHistory())
+                .computeIfAbsent(record.address(), _ -> new AddressHistory())
                 .put(record);
         indexByPlayer(record);
     }
@@ -90,7 +90,7 @@ final class PlayerAddressStore {
                 if (candidate.playerId().equals(subjectId)) {
                     continue;
                 }
-                candidates.computeIfAbsent(candidate.playerId(), ignored -> new AssociationAccumulator())
+                candidates.computeIfAbsent(candidate.playerId(), _ -> new AssociationAccumulator())
                         .add(candidate.lastSeenAt(), rarity);
             }
         }
@@ -112,7 +112,7 @@ final class PlayerAddressStore {
 
     private void indexByPlayer(PlayerAddressRecord record) {
         historiesByPlayer
-                .computeIfAbsent(record.playerId(), ignored -> new ConcurrentHashMap<>())
+                .computeIfAbsent(record.playerId(), _ -> new ConcurrentHashMap<>())
                 .put(record.address(), record);
     }
 
@@ -153,7 +153,7 @@ final class PlayerAddressStore {
         private volatile PlayerAddressRecord latest;
 
         PlayerAddressRecord record(String address, UUID playerId, Instant now) {
-            PlayerAddressRecord updated = records.compute(playerId, (ignored, current) -> new PlayerAddressRecord(
+            PlayerAddressRecord updated = records.compute(playerId, (_, current) -> new PlayerAddressRecord(
                     address,
                     playerId,
                     current == null ? 1 : current.count() + 1,

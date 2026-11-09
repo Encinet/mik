@@ -4,7 +4,7 @@ package org.encinet.mik.shared.menu;
 public enum FloatingMenuState {
     OPENING,
     ACTIVE,
-    /** Screen is preserved below a child screen and can still receive state updates. */
+    /** Content is preserved below a child screen or while its world host is paused; updates remain allowed. */
     SUSPENDED,
     CLOSING,
     CLOSED

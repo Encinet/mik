@@ -9,6 +9,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FloatingMenuSurfaceGeometryTest {
 
+    @Test void rolledSurfacePickingAndTheVanillaCatcherAgreeWithTheVisiblePlane() {
+        float yaw = 40, pitch = 65, roll = 60;
+        Vector normal = FloatingMenuSurfaceGeometry.facing(yaw, pitch);
+        Vector up = FloatingMenuSurfaceGeometry.panelUp(yaw, pitch, roll);
+        Vector right = up.clone().crossProduct(normal);
+        Vector center = new Vector(1, 2, 3);
+        var catcher = FloatingMenuSurfaceGeometry.catcher(yaw, pitch, roll, 2, .4);
+        for (int x : new int[]{-1, 1}) for (int y : new int[]{-1, 1}) {
+            Vector corner = right.clone().multiply(x).add(up.clone().multiply(.2 * y));
+            assertTrue(Math.abs(corner.getX()) <= catcher.width() / 2 + 1e-8);
+            assertTrue(Math.abs(corner.getZ()) <= catcher.width() / 2 + 1e-8);
+            assertTrue(Math.abs(corner.getY()) <= catcher.height() / 2 + 1e-8);
+        }
+        Vector at = center.clone().add(right.clone().multiply(.5));
+        var hit = FloatingMenuSurfaceGeometry.intersect(at.clone().subtract(normal.clone().multiply(3)), normal,
+                center, yaw, pitch, roll, 2, .4, 0).orElseThrow();
+        assertEquals(.75, hit.horizontalFraction(), 1e-8);
+        assertTrue(FloatingMenuSurfaceGeometry.intersect(center.clone().add(up.clone().multiply(.3)).subtract(normal.clone().multiply(3)),
+                normal, center, yaw, pitch, roll, 2, .4, 0).isEmpty());
+    }
+
     @Test
     void intersectsTheVisibleCenterOfAFlatSurface() {
         FloatingMenuSurfaceGeometry.Hit hit = FloatingMenuSurfaceGeometry.intersect(

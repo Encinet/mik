@@ -262,7 +262,7 @@ class AfkBehaviorAnalyzerTest {
     private static Trajectory randomWalk(long seed) {
         Random random = new Random(seed);
         double[] position = new double[2];
-        return index -> {
+        return _ -> {
             step(position, random.nextInt(4));
             position[0] = Math.max(-4.0D, Math.min(4.0D, position[0]));
             position[1] = Math.max(-4.0D, Math.min(4.0D, position[1]));

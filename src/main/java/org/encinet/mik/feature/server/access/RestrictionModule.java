@@ -83,7 +83,7 @@ public class RestrictionModule implements Listener {
 
     private boolean containsIllegalRunCommand(Component component) {
         for (Component child : component.iterable(ComponentIteratorType.DEPTH_FIRST)) {
-            ClickEvent clickEvent = child.clickEvent();
+            ClickEvent<?> clickEvent = child.clickEvent();
 
             if (clickEvent == null
                     || clickEvent.action() != ClickEvent.Action.RUN_COMMAND) {
@@ -273,7 +273,6 @@ public class RestrictionModule implements Listener {
             case "r", "reply" -> CommandPolicy.REPLY;
             case "tp", "teleport", "give" -> CommandPolicy.PLAYER_TARGET;
             case "summon" -> CommandPolicy.SUMMON;
-            case "mikrepeat" -> CommandPolicy.UUID_EXEMPT;
             default -> CommandPolicy.DEFAULT;
         };
     }
@@ -347,8 +346,6 @@ public class RestrictionModule implements Listener {
                 new CommandPolicy(SelectorScope.ALL_ARGUMENTS, true, false);
         private static final CommandPolicy SUMMON =
                 new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false, false);
-        private static final CommandPolicy UUID_EXEMPT =
-                new CommandPolicy(SelectorScope.ALL_ARGUMENTS, false, true);
     }
 
     private enum RestrictionViolation {

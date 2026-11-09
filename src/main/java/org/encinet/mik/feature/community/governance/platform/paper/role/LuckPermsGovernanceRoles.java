@@ -17,7 +17,7 @@ public final class LuckPermsGovernanceRoles {
     private final java.util.function.Consumer<UUID> changed;
 
     public LuckPermsGovernanceRoles(LuckPerms luckPerms) {
-        this(luckPerms, id -> { });
+        this(luckPerms, _ -> { });
     }
 
     public LuckPermsGovernanceRoles(LuckPerms luckPerms, java.util.function.Consumer<UUID> changed) {
@@ -31,7 +31,7 @@ public final class LuckPermsGovernanceRoles {
             if (!hasModeratorRole(user) && !hasCustodianRole(user)) {
                 user.setPrimaryGroup(PlayerRole.MEMBER.id());
             }
-        }).thenApply(ignored -> { changed.accept(playerId); return null; });
+        }).thenApply(_ -> { changed.accept(playerId); return null; });
     }
 
     public CompletableFuture<Void> appointModerator(UUID playerId) {
@@ -39,13 +39,13 @@ public final class LuckPermsGovernanceRoles {
             if (hasCustodianRole(user)) return;
             user.data().add(InheritanceNode.builder(PlayerRole.MODERATOR.id()).build());
             user.setPrimaryGroup(PlayerRole.MODERATOR.id());
-        }).thenApply(ignored -> { changed.accept(playerId); return null; });
+        }).thenApply(_ -> { changed.accept(playerId); return null; });
     }
 
     public CompletableFuture<Void> removeModerator(UUID playerId) {
         return luckPerms.getUserManager().modifyUser(playerId,
                 LuckPermsGovernanceRoles::removeModeratorRole)
-                .thenApply(ignored -> { changed.accept(playerId); return null; });
+                .thenApply(_ -> { changed.accept(playerId); return null; });
     }
 
     public CompletableFuture<Boolean> isModerator(UUID playerId) {
@@ -64,7 +64,7 @@ public final class LuckPermsGovernanceRoles {
                     .map(luckPerms.getUserManager()::loadUser)
                     .toList();
             return CompletableFuture.allOf(loads.toArray(CompletableFuture[]::new))
-                    .thenApply(ignored -> loads.stream()
+                    .thenApply(_ -> loads.stream()
                             .map(CompletableFuture::join)
                             .filter(LuckPermsGovernanceRoles::isGovernedModerator)
                             .map(User::getUniqueId)

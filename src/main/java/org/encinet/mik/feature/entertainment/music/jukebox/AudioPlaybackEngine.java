@@ -44,6 +44,8 @@ final class AudioPlaybackEngine implements AutoCloseable {
     private final OfflineRhythmAnalyzer rhythmAnalyzer;
     private final ServerSourceLine sourceLine;
     private final Predicate<UUID> audibleToPlayer;
+    private volatile java.util.function.BiPredicate<Location, UUID> outputAudience = (_, _) -> true;
+    void setOutputAudience(java.util.function.BiPredicate<Location, UUID> filter) { outputAudience = filter; }
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<byte[]> stereoSilenceOpus = new AtomicReference<>();
@@ -163,7 +165,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
             }
             if (experienceMode.waitsForRhythmAnalysis()) {
                 rhythmAnalysis = rhythmAnalyzer.analyze(music, rhythmTimeline);
-                rhythmAnalysis.completion().whenComplete((ignored, error) ->
+                rhythmAnalysis.completion().whenComplete((_, error) ->
                         completeRhythmPreparationOnMainThread(expectedAttempt, error));
                 return;
             }
@@ -315,7 +317,7 @@ final class AudioPlaybackEngine implements AutoCloseable {
                     source = proximitySource;
                     proximitySource.setName(sourceName);
                     proximitySource.<VoicePlayer>addFilter(voicePlayer ->
-                            audibleToPlayer.test(voicePlayer.getInstance().getUuid()));
+                            audibleToPlayer.test(voicePlayer.getInstance().getUuid()) && outputAudience.test(location, voicePlayer.getInstance().getUuid()));
                 }
                 AudioFrameProvider provider = () -> provideFrame(
                         expectedAttempt, track, player);

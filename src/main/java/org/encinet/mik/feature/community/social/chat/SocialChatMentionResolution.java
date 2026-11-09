@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.community.social.chat;
 
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
+import org.encinet.mik.feature.community.chat.model.ChatNode;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,5 +38,17 @@ public record SocialChatMentionResolution(
 
     public List<ExternalIdentity> targetsFor(UUID playerId) {
         return targets.getOrDefault(playerId, List.of());
+    }
+
+    /** Shared visible wording for moderation and both platform renderers. */
+    public static String playerMentionText(ChatNode.PlayerMention mention,
+                                           List<ExternalIdentity> identities) {
+        if (identities.isEmpty()) return mention.visibleText();
+        List<String> names = identities.stream().map(identity -> identity.displayName().isBlank()
+                ? identity.key().subject() : identity.displayName()).toList();
+        return mention.sourceIdentity().isEmpty()
+                ? "@" + mention.playerName() + "(" + String.join(", ", names) + ")"
+                : String.join(", ", names.stream()
+                .map(name -> "@" + name + "(" + mention.playerName() + ")").toList());
     }
 }

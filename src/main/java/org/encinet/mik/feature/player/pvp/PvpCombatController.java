@@ -262,7 +262,6 @@ final class PvpCombatController implements Listener {
                 continue;
             }
             PvpSettings riderSettings = settingsStore.get(rider.getUniqueId());
-            PvpSettings attackerSettings = settingsStore.get(attacker.playerId());
             boolean mountedDamageAllowed = stateResolver.effectiveEnabled(rider.getUniqueId())
                     && stateResolver.effectiveEnabled(attacker.playerId())
                     && riderSettings.allowMountedMobDamage();

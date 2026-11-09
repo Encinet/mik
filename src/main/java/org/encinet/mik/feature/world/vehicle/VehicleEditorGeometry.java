@@ -7,6 +7,15 @@ import java.util.List;
 import java.util.Locale;
 
 final class VehicleEditorGeometry {
+    static Location oriented(Location base, int turns) {
+        Location origin = base.clone();
+        origin.setYaw(origin.getYaw() + turns * 90);
+        origin.setPitch(0);
+        return origin;
+    }
+
+    static Location anchored(Location desired, int turns) { return oriented(desired, -turns); }
+
     static VehicleVector local(Location origin, Location position) {
         if (origin.getWorld() == null || !origin.getWorld().equals(position.getWorld()))
             throw new IllegalArgumentException("Position must be in the editor's world");

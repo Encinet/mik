@@ -305,6 +305,9 @@ final class PaperBanSynchronizer implements BanMirror {
     }
 
     private static final class ReconciliationRuntimeException extends RuntimeException {
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
         private ReconciliationRuntimeException(BanServiceException cause) {
             super(cause);
         }

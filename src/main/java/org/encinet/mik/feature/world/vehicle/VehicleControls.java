@@ -3,68 +3,69 @@ package org.encinet.mik.feature.world.vehicle;
 import java.util.Locale;
 
 final class VehicleControls {
-    static String apply(VehicleBody body, String input) {
-        String[] args = input.strip().split("\\s+");
-        return switch (args[0].toLowerCase(Locale.ROOT)) {
-            case "engine" -> {
-                exact(args, 1);
+    sealed interface Action permits Toggle, Mode, Select, Gear, StepGear, Throttle { }
+    enum Toggle implements Action { ENGINE, MODE }
+    record Mode(boolean automatic) implements Action { }
+    record Select(VehicleTransmission.Selector selector) implements Action { }
+    record Gear(int value) implements Action { }
+    record StepGear(int direction) implements Action { }
+    record Throttle(int direction) implements Action { }
+
+    static String apply(VehicleBody body, Action action) {
+        return switch (action) {
+            case Toggle toggle -> {
+                if (toggle == Toggle.MODE) {
+                    if (body.definition.kind() == VehicleDefinition.Kind.CAR) body.transmission.toggle();
+                    else body.assisted = !body.assisted;
+                    yield body.definition.kind() == VehicleDefinition.Kind.CAR ? body.transmission.mode.name() : body.assisted ? "ASSIST" : "MANUAL";
+                }
                 if (!body.engineRunning && (body.fuel <= 0 || body.health <= 0))
                     throw new IllegalArgumentException(body.health <= 0 ? "DISABLED" : "NO_FUEL");
                 body.engineRunning = !body.engineRunning;
                 yield body.engineRunning ? "ENGINE_ON" : "ENGINE_OFF";
             }
-            case "mode" -> {
-                if (args.length > 2) throw new IllegalArgumentException("mode [automatic|manual|assisted]");
-                if (body.definition.kind() == VehicleDefinition.Kind.CAR) {
-                    if (args.length == 1) body.transmission.toggle();
-                    else body.transmission.setMode(switch (args[1].toLowerCase(Locale.ROOT)) {
-                        case "automatic", "auto" -> VehicleTransmission.Mode.AUTOMATIC;
-                        case "manual" -> VehicleTransmission.Mode.MANUAL;
-                        default -> throw new IllegalArgumentException("mode automatic|manual");
-                    });
-                    yield body.transmission.mode.name();
-                }
-                if (args.length == 1) body.assisted = !body.assisted;
-                else body.assisted = switch (args[1].toLowerCase(Locale.ROOT)) {
-                    case "assisted", "auto" -> true;
-                    case "manual" -> false;
-                    default -> throw new IllegalArgumentException("mode assisted|manual");
-                };
-                yield body.assisted ? "ASSIST" : "MANUAL";
+            case Mode mode -> {
+                if (body.definition.kind() == VehicleDefinition.Kind.CAR)
+                    body.transmission.setMode(mode.automatic() ? VehicleTransmission.Mode.AUTOMATIC : VehicleTransmission.Mode.MANUAL);
+                else body.assisted = mode.automatic();
+                yield body.definition.kind() == VehicleDefinition.Kind.CAR ? body.transmission.mode.name() : body.assisted ? "ASSIST" : "MANUAL";
             }
-            case "gear" -> {
-                exact(args, 2);
-                if (body.definition.kind() != VehicleDefinition.Kind.CAR) throw new IllegalArgumentException("Cars only");
-                VehicleTransmission transmission = body.transmission;
-                String next = args[1].toUpperCase(Locale.ROOT);
-                double speed = body.localVelocity().coordinateZ();
-                if (next.equals("UP") || next.equals("DOWN")) stepGear(body, next.equals("UP") ? 1 : -1);
-                else if (next.matches("-?\\d+")) {
-                    if (transmission.mode != VehicleTransmission.Mode.MANUAL) throw new IllegalArgumentException("MANUAL_ONLY");
-                    int gear = Integer.parseInt(next);
-                    if (!blockedDirection(body, gear) && transmission.request(gear, speed, body.definition.engine()))
-                        transmission.selector = transmission.targetGear < 0 ? VehicleTransmission.Selector.R
-                                : transmission.targetGear == 0 ? VehicleTransmission.Selector.N : VehicleTransmission.Selector.D;
-                } else {
-                    VehicleTransmission.Selector selector = VehicleTransmission.Selector.valueOf(next);
-                    if ((selector == VehicleTransmission.Selector.P || selector == VehicleTransmission.Selector.R
-                            || transmission.selector == VehicleTransmission.Selector.R && selector == VehicleTransmission.Selector.D)
-                            && body.velocity.length() > 0.5) transmission.warning = "STOP_FIRST";
-                    else transmission.select(selector, speed, body.definition.engine());
-                }
-                if (!transmission.warning.isEmpty()) throw new IllegalArgumentException(transmission.warning);
-                yield transmission.label();
+            case Select select -> {
+                requireCar(body);
+                var transmission = body.transmission;
+                var selector = select.selector();
+                if ((selector == VehicleTransmission.Selector.P || selector == VehicleTransmission.Selector.R
+                        || transmission.selector == VehicleTransmission.Selector.R && selector == VehicleTransmission.Selector.D)
+                        && body.velocity.length() > 0.5) transmission.warning = "STOP_FIRST";
+                else transmission.select(selector, body.localVelocity().coordinateZ(), body.definition.engine());
+                yield gearResult(body);
             }
-            case "throttle" -> {
-                exact(args, 2);
+            case Gear gear -> {
+                requireCar(body);
+                var transmission = body.transmission;
+                if (transmission.mode != VehicleTransmission.Mode.MANUAL) throw new IllegalArgumentException("MANUAL_ONLY");
+                if (!blockedDirection(body, gear.value()) && transmission.request(gear.value(), body.localVelocity().coordinateZ(), body.definition.engine()))
+                    transmission.selector = transmission.targetGear < 0 ? VehicleTransmission.Selector.R
+                            : transmission.targetGear == 0 ? VehicleTransmission.Selector.N : VehicleTransmission.Selector.D;
+                yield gearResult(body);
+            }
+            case StepGear step -> { requireCar(body); stepGear(body, step.direction()); yield gearResult(body); }
+            case Throttle throttle -> {
                 if (body.definition.kind() == VehicleDefinition.Kind.CAR) throw new IllegalArgumentException("Use W/S for car pedals");
-                int direction = switch (args[1].toLowerCase(Locale.ROOT)) { case "up" -> 1; case "down" -> -1; default -> throw new IllegalArgumentException("throttle up|down"); };
-                body.throttle = Math.clamp(body.throttle + direction * 0.05,
+                body.throttle = Math.clamp(body.throttle + Integer.signum(throttle.direction()) * 0.05,
                         body.definition.kind() == VehicleDefinition.Kind.BOAT ? -0.5 : 0, 1);
                 yield String.format(Locale.ROOT, "%.0f%%", body.throttle * 100);
             }
-            default -> throw new IllegalArgumentException("Unknown driving control");
         };
+    }
+
+    private static void requireCar(VehicleBody body) {
+        if (body.definition.kind() != VehicleDefinition.Kind.CAR) throw new IllegalArgumentException("Cars only");
+    }
+
+    private static String gearResult(VehicleBody body) {
+        if (!body.transmission.warning.isEmpty()) throw new IllegalArgumentException(body.transmission.warning);
+        return body.transmission.label();
     }
 
     static boolean stepGear(VehicleBody body, int direction) {
@@ -83,7 +84,4 @@ final class VehicleControls {
         return false;
     }
 
-    private static void exact(String[] args, int length) {
-        if (args.length != length) throw new IllegalArgumentException("Invalid driving control arguments");
-    }
 }

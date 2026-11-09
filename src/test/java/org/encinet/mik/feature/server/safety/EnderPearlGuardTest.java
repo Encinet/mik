@@ -70,7 +70,7 @@ class EnderPearlGuardTest {
                                     AtomicReference<UUID> owner, AtomicBoolean removed) {
         return (EnderPearl) Proxy.newProxyInstance(
                 EnderPearl.class.getClassLoader(), new Class<?>[]{EnderPearl.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getEntitySpawnReason" -> reason;
                     case "getOwnerUniqueId" -> owner.get();
                     case "remove" -> {

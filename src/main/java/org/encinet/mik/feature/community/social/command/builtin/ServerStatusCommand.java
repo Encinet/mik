@@ -18,6 +18,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
 
 /** Shows the complete server status and owns its complete response layout. */
@@ -80,7 +81,7 @@ public final class ServerStatusCommand implements SocialCommand<NoArguments, Ser
     @Override
     public SocialDocument present(SocialCommandContext context, ServerSnapshot snapshot) {
         Language language = languageResolver.language(context);
-        return SocialDocument.of(
+        return SocialDocument.of(TRUSTED,
                 TITLE_ICON + " " + languages.t(language, TITLE),
                 SocialDocument.Tone.INFO,
                 SocialDocument.fields(

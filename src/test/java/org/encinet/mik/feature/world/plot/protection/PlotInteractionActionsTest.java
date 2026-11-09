@@ -27,6 +27,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlotInteractionActionsTest {
     @Test
+    void explicitActionsSeparateWorldChangesFromInertBlockClicks() {
+        for (Material material : List.of(Material.REPEATER, Material.COMPARATOR, Material.DAYLIGHT_DETECTOR))
+            assertEquals(PlotPermission.SWITCH, block(material));
+        for (Material material : List.of(Material.DRAGON_EGG, Material.CANDLE, Material.RED_CANDLE))
+            assertEquals(PlotPermission.MODIFY, block(material));
+        for (Material material : List.of(Material.STONE, Material.OAK_STAIRS, Material.PISTON_HEAD))
+            assertNull(block(material));
+    }
+
+    @Test
     void doorsSwitchesContainersSignsAndHarvestingHaveSeparateActions() {
         assertEquals(PlotPermission.DOOR, block(Material.OAK_DOOR));
         assertEquals(PlotPermission.DOOR, block(Material.COPPER_TRAPDOOR));
@@ -199,14 +209,18 @@ class PlotInteractionActionsTest {
     private static Entity entity(Class<? extends Entity> type, boolean vehicle) {
         PersistentDataContainer data = (PersistentDataContainer) Proxy.newProxyInstance(
                 PersistentDataContainer.class.getClassLoader(), new Class<?>[]{PersistentDataContainer.class},
-                (proxy, method, arguments) -> {
+                (_, method, _) -> {
                     if (method.getName().equals("has")) return vehicle;
                     throw new AssertionError(method.getName());
                 });
         return (Entity) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, arguments) -> {
+                (_, method, _) -> {
                     if (method.getName().equals("getPersistentDataContainer")) return data;
                     throw new AssertionError(method.getName());
                 });
+    }
+    @Test void jukeboxUsesMusicControlBeforeGenericInventoryClassification() {
+        assertEquals(PlotPermission.MUSIC_CONTROL, PlotInteractionActions.block(Material.JUKEBOX,true,false));
+        assertEquals(PlotPermission.MUSIC_CONTROL, PlotInteractionActions.block(Material.JUKEBOX,false,false));
     }
 }

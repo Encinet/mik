@@ -99,7 +99,7 @@ class MinecraftChatContentRendererTest {
     }
 
     private Component findClickAction(
-            Component component, ClickEvent.Action action
+            Component component, ClickEvent.Action<?> action
     ) {
         if (component.clickEvent() != null
                 && component.clickEvent().action() == action) {

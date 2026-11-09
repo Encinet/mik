@@ -90,7 +90,7 @@ public final class MembershipRoleSnapshot implements CurrentMemberLookup {
                     .map(active.getUserManager()::loadUser)
                     .toList();
             return CompletableFuture.allOf(loads.toArray(CompletableFuture[]::new))
-                    .thenApply(ignored -> loads.stream()
+                    .thenApply(_ -> loads.stream()
                             .map(CompletableFuture::join)
                             .filter(MembershipRoleSnapshot::hasFormalMemberGroup)
                             .map(User::getUniqueId)

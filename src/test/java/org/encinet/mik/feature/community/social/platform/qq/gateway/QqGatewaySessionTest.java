@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -24,7 +23,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QqGatewaySessionTest {
@@ -82,7 +80,7 @@ class QqGatewaySessionTest {
     void reconnectRequestResumesWithTheLastSessionAndSequence() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
         Connection first = connector.only();
         first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
@@ -110,7 +108,7 @@ class QqGatewaySessionTest {
     void expiredConnectionCloseCodeResumesTheSession() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
         Connection first = connector.only();
         first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
@@ -135,7 +133,7 @@ class QqGatewaySessionTest {
     void invalidSequenceCloseCodeStartsANewIdentify() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
         Connection first = connector.only();
         first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
@@ -157,7 +155,7 @@ class QqGatewaySessionTest {
     void invalidSessionReconnectsWithAReplacementIdentify() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
         Connection first = connector.only();
         first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
@@ -178,7 +176,7 @@ class QqGatewaySessionTest {
     void queueBackpressureResumesBeforeTheRejectedEvent() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.RETRY_LATER);
+                _ -> SocialEventSink.Acceptance.RETRY_LATER);
         session.start();
         Connection first = connector.only();
         first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
@@ -205,7 +203,7 @@ class QqGatewaySessionTest {
     void fatalCloseDoesNotReconnect() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
 
         connector.only().close(4014, "disallowed intent");
@@ -230,7 +228,7 @@ class QqGatewaySessionTest {
                 () -> {
                     invalidations.incrementAndGet();
                     token.set("token-two");
-                }, connector, event -> SocialEventSink.Acceptance.ACCEPTED, statusUpdates,
+                }, connector, _ -> SocialEventSink.Acceptance.ACCEPTED, statusUpdates,
                 Logger.getLogger("QqGatewaySessionTest")));
         session.start();
         Connection first = connector.only();
@@ -257,7 +255,7 @@ class QqGatewaySessionTest {
     void incompleteAuthenticationHandshakeIsReconnected() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3, 1_000), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
 
         session.start();
         await(() -> connector.connections.size() == 2);
@@ -271,7 +269,7 @@ class QqGatewaySessionTest {
     void missingHeartbeatAcknowledgementsForceSessionRecovery() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
         Connection first = connector.only();
         first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":100}}");
@@ -293,7 +291,7 @@ class QqGatewaySessionTest {
                 () -> CompletableFuture.completedFuture(
                         URI.create("wss://gateway.example/socket")),
                 () -> CompletableFuture.completedFuture("access-token"),
-                () -> { }, connector, event -> SocialEventSink.Acceptance.ACCEPTED,
+                () -> { }, connector, _ -> SocialEventSink.Acceptance.ACCEPTED,
                 statusUpdates, Logger.getLogger("QqGatewaySessionTest")));
 
         session.start();
@@ -308,7 +306,7 @@ class QqGatewaySessionTest {
     void oversizedTextFrameIsRejectedAndReconnected() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
 
         connector.only().emit("x".repeat(4_097));
@@ -323,7 +321,7 @@ class QqGatewaySessionTest {
     void closeCancelsAPendingReconnect() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
-                event -> SocialEventSink.Acceptance.ACCEPTED);
+                _ -> SocialEventSink.Acceptance.ACCEPTED);
         session.start();
         connector.only().emit("{\"op\":7,\"d\":null}");
 

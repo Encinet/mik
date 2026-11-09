@@ -29,7 +29,7 @@ final class IronElevatorPlatform {
     private final double centerZ;
     private final int hash;
 
-    IronElevatorPlatform(List<Block> blocks) {
+    private IronElevatorPlatform(List<Block> blocks) {
         if (blocks.isEmpty()) throw new IllegalArgumentException("A platform must contain iron blocks");
         this.blocks = blocks.stream().sorted(ORDER).toList();
         columns = new long[blocks.size()];
@@ -93,12 +93,6 @@ final class IronElevatorPlatform {
         return hash;
     }
 
-    static IronElevatorPlatform resolve(Block source) {
-        Search search = new Search(source);
-        while (!search.step()) { }
-        return search.result();
-    }
-
     /** Each step visits at most one neighbour, including on large platforms. */
     static final class Search {
         private static final int[] DX = {-1, 1, 0, 0};
@@ -111,19 +105,22 @@ final class IronElevatorPlatform {
         private int direction;
         private boolean initialized;
         private boolean done;
+        private boolean unloaded;
         private IronElevatorPlatform result;
 
         Search(Block source) { this.source = source; }
 
         IronElevatorPlatform result() { return result; }
         Set<Column> columns() { return visited; }
+        boolean unloaded() { return unloaded; }
+        private boolean stopAtUnloadedChunk() { unloaded = true; return done = true; }
 
         boolean step() {
             if (done) return true;
             if (!initialized) {
                 initialized = true;
-                if (!source.getWorld().isChunkLoaded(source.getX() >> 4, source.getZ() >> 4)
-                        || source.getType() != Material.IRON_BLOCK) return done = true;
+                if (!source.getWorld().isChunkLoaded(source.getX() >> 4, source.getZ() >> 4)) return stopAtUnloadedChunk();
+                if (source.getType() != Material.IRON_BLOCK) return done = true;
                 found.put(Column.of(source), source);
                 visited.add(Column.of(source));
                 pending.add(source);
@@ -140,7 +137,7 @@ final class IronElevatorPlatform {
             Column neighbor = new Column(current.getX() + DX[direction], current.getZ() + DZ[direction]);
             if (++direction == 4) current = null;
             if (!visited.add(neighbor)) return false;
-            if (!source.getWorld().isChunkLoaded(neighbor.blockX() >> 4, neighbor.blockZ() >> 4)) return done = true;
+            if (!source.getWorld().isChunkLoaded(neighbor.blockX() >> 4, neighbor.blockZ() >> 4)) return stopAtUnloadedChunk();
             Block block = source.getWorld().getBlockAt(neighbor.blockX(), source.getY(), neighbor.blockZ());
             if (block.getType() == Material.IRON_BLOCK) {
                 if (found.size() >= MAX_BLOCKS) return done = true;

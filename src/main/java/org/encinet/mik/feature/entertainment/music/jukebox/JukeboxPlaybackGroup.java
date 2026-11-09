@@ -15,6 +15,8 @@ final class JukeboxPlaybackGroup {
     private final AtomicReference<Progress> progress =
             new AtomicReference<>(new Progress(0L, -1L));
     private final AtomicReference<Seek> seek = new AtomicReference<>(new Seek(0L, 0L));
+    private final AtomicBoolean playbackStatistic = new AtomicBoolean();
+    boolean claimPlaybackStatistic() { return playbackStatistic.compareAndSet(false, true); }
     private final AtomicBoolean startedAnnouncementClaimed = new AtomicBoolean();
     private final AtomicBoolean paused = new AtomicBoolean();
     private final AtomicReference<Member> leader = new AtomicReference<>();

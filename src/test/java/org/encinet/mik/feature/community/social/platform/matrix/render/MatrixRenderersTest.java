@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,7 +14,7 @@ class MatrixRenderersTest {
 
     @Test
     void rendersEscapedStructuredHtmlAndPlainFallback() {
-        SocialDocument document = SocialDocument.of("Title <unsafe>",
+        SocialDocument document = SocialDocument.of(TRUSTED, "Title <unsafe>",
                 SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("First & second\nnext"),
                 SocialDocument.fields(new SocialDocument.Field("Player", "A < B")),
@@ -46,7 +47,7 @@ class MatrixRenderersTest {
 
     @Test
     void plainFallbackRespectsSurrogateSafeLimit() {
-        SocialDocument document = SocialDocument.of("😀 long title",
+        SocialDocument document = SocialDocument.of(TRUSTED, "😀 long title",
                 SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("body"));
 

@@ -47,7 +47,7 @@ class LxOnlinePlaylistServiceTest {
                 default -> throw new AssertionError("Unexpected request: " + request.uri());
             };
             return JsonParser.parseString(response);
-        }, request -> """
+        }, _ -> """
                 <script>
                 var data=[{"audio_id":6,"songname":"Kugou Song","singername":"Kugou Artist",
                 "album_name":"Album","duration":65000,"hash":"kg-hash","filesize":100,

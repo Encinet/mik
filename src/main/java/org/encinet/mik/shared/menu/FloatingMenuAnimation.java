@@ -5,6 +5,7 @@ public record FloatingMenuAnimation(
         int openingTicks,
         int closingTicks,
         int pressTicks,
+        double entryOffset,
         double hoverOffset,
         double pressOffset,
         double idleAmplitude,
@@ -13,19 +14,29 @@ public record FloatingMenuAnimation(
         FloatingMenuEasing closingEasing
 ) {
     public static final FloatingMenuAnimation DEFAULT =
-            new FloatingMenuAnimation(7, 5, 4, 0.075, 0.10, 0.018, 0.10,
-                    FloatingMenuEasing.BACK_OUT, FloatingMenuEasing.CUBIC_OUT);
+            new FloatingMenuAnimation(6, 4, 3, 0.12, 0.045, 0.06, 0, 0,
+                    FloatingMenuEasing.CUBIC_OUT, FloatingMenuEasing.CUBIC_OUT);
+
+    /** Keeps fades and layout transitions while leaving local content on its declared plane. */
+    public static final FloatingMenuAnimation PLANAR =
+            new FloatingMenuAnimation(6, 4, 3, 0, 0, 0, 0, 0,
+                    FloatingMenuEasing.CUBIC_OUT, FloatingMenuEasing.CUBIC_OUT);
 
     public FloatingMenuAnimation {
         if (openingTicks < 1 || closingTicks < 1 || pressTicks < 1) {
             throw new IllegalArgumentException("Animation durations must be positive");
         }
-        if (!Double.isFinite(hoverOffset) || !Double.isFinite(pressOffset)
+        if (!Double.isFinite(entryOffset) || !Double.isFinite(hoverOffset) || !Double.isFinite(pressOffset)
                 || !Double.isFinite(idleAmplitude) || !Double.isFinite(idleSpeed)
-                || hoverOffset < 0 || pressOffset < 0 || idleAmplitude < 0 || idleSpeed < 0) {
+                || entryOffset < 0 || hoverOffset < 0 || pressOffset < 0 || idleAmplitude < 0 || idleSpeed < 0) {
             throw new IllegalArgumentException("Animation distances and speed cannot be negative");
         }
         java.util.Objects.requireNonNull(openingEasing, "openingEasing");
         java.util.Objects.requireNonNull(closingEasing, "closingEasing");
+    }
+
+    public FloatingMenuAnimation reduced() {
+        return new FloatingMenuAnimation(1, 1, 1, 0, 0, 0, 0, 0,
+                FloatingMenuEasing.CUBIC_OUT, FloatingMenuEasing.CUBIC_OUT);
     }
 }

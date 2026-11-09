@@ -9,10 +9,9 @@ final class EntertainmentFeatures {
 
     static void enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
-            PlayerFeatures players, PlasmoVoiceServer voiceServer) {
+            PlayerFeatures players, WorldFeatures world, PlasmoVoiceServer voiceServer) {
         var languageService = shared.language();
         var afkModule = players.afk();
-        var floatingMenuService = shared.menus();
 
         FifthAnniversaryEventModule fifthAnniversaryEventModule =
                 new FifthAnniversaryEventModule(plugin, afkModule, languageService);
@@ -20,7 +19,7 @@ final class EntertainmentFeatures {
         fifthAnniversaryEventModule.registerCommands(plugin.getLifecycleManager());
 
         MusicModule musicModule = new MusicModule(plugin, languageService, voiceServer,
-                afkModule, floatingMenuService.worldTextDisplays());
+                afkModule, world.plots()::mayControlMusic);
         lifecycle.startManaged("music", musicModule::enable, musicModule::disable);
         musicModule.registerCommands(plugin.getLifecycleManager());
     }

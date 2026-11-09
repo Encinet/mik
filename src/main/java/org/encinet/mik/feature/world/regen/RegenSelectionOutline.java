@@ -128,7 +128,6 @@ final class RegenSelectionOutline {
     }
 
     private static int[] axis(int minimum, int maximum, int step) {
-        long length = (long) maximum - minimum;
         int size = Math.toIntExact(axisSize(minimum, maximum, step));
         int[] coordinates = new int[size];
         int index = 0;

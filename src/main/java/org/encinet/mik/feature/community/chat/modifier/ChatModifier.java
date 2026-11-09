@@ -18,6 +18,11 @@ public interface ChatModifier {
         return context.capabilities().containsAll(requiredCapabilities());
     }
 
+    /**
+     * Finds the earliest replacement starting at or after {@code fromIndex},
+     * or {@code null} if none remains. Results depend only on the source and
+     * immutable context and may be reused while the processing cursor advances.
+     */
     ChatReplacement find(
             String text,
             int fromIndex,

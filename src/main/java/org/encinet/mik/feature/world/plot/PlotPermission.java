@@ -16,6 +16,7 @@ public enum PlotPermission {
     HARVEST("harvest", Category.BUILD, Message.PLOT_PERMISSION_HARVEST),
     DOOR("door", Category.INTERACTION, Message.PLOT_PERMISSION_DOOR),
     SWITCH("switch", Category.INTERACTION, Message.PLOT_PERMISSION_SWITCH),
+    MUSIC_CONTROL("music_control", Category.INTERACTION, Message.PLOT_PERMISSION_MUSIC_CONTROL),
     WORKSTATION("workstation", Category.INTERACTION, Message.PLOT_PERMISSION_WORKSTATION),
     SIGN("sign", Category.INTERACTION, Message.PLOT_PERMISSION_SIGN),
     CONTAINER("container", Category.STORAGE, Message.PLOT_MENU_FLAG_CONTAINER),
@@ -53,9 +54,9 @@ public enum PlotPermission {
 
         Category(Message label) { this.label = label; }
 
-        Message label() { return label; }
+        public Message label() { return label; }
 
-        List<PlotPermission> permissions() {
+        public List<PlotPermission> permissions() {
             return BY_CATEGORY.get(this);
         }
     }

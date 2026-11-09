@@ -34,9 +34,9 @@ allowed-room-ids:
 
 `chat-bridge.routes` 把 Matrix 房间连接到 Minecraft 公共聊天。列表为空时不启用聊天互通；每个房间必须同时包含在非空的 `allowed-room-ids` 中。Matrix 身份已绑定时显示 `[Matrix] 游戏内身份 » 内容`，并且玩家离线时仍会复用 LuckPerms 前后缀；未绑定时才显示 `[Matrix] Matrix昵称 » 内容`。只有名称悬浮显示平台昵称、平台账号、绑定玩家和 UUID，前缀、后缀和基岩标记不会继承该悬浮；分隔符、颜色、发送时间悬浮和点击复制都复用游戏公共聊天的渲染链路。命令仍由共享命令系统处理，不会作为聊天重复转发。
 
-Matrix 发往游戏的普通聊天不经过 `blocked-keywords.txt`。Minecraft 发往 Matrix 时仍执行共享内容安全检查，并同时检查原始消息与 ChatModifier 展开的可见文本。HTTP(S) URL、邮箱地址、`matrix.to`/`matrix:` 链接、颜色、粗体、斜体、下划线和删除线会转换为 Matrix 的 `org.matrix.custom.html`，同时保留纯文本 `body` 作为客户端回退；邮箱在 Matrix 中使用安全的 `mailto:`，在只接受 HTTP(S) 打开动作的 Minecraft 客户端中降级为左键复制地址。Matrix URI 会规范化成标准 `https://matrix.to/#/...` 永久链接。不导出游戏内命令、文件打开等 Minecraft 专用点击动作。
+Matrix 发往游戏的普通聊天不执行出站审核。启用 `content-safety.enabled` 后，Minecraft 发往 Matrix 的聊天由共享 Qwen3Guard 检查路由处理及 ChatModifier 展开后的语义正文，配置见[内容安全](social-platforms.md#内容安全)。HTTP(S) URL、邮箱地址、`matrix.to`/`matrix:` 链接、颜色、粗体、斜体、下划线和删除线会转换为 Matrix 的 `org.matrix.custom.html`，同时保留纯文本 `body` 作为客户端回退；邮箱在 Matrix 中使用安全的 `mailto:`，在只接受 HTTP(S) 打开动作的 Minecraft 客户端中降级为左键复制地址。Matrix URI 会规范化成标准 `https://matrix.to/#/...` 永久链接。不导出游戏内命令、文件打开等 Minecraft 专用点击动作。
 
-Minecraft 内提及玩家统一使用后缀输入，例如 `Alex@`，最终在所有界面显示为前缀形式 `@Alex`；裸写 `Alex` 或写成 `@Alex` 都不会触发玩家 mention。公共聊天的候选集合同时包含在线玩家和所有已绑定玩家，因此目标离线但正在 Matrix 房间里时仍能收到提及。Matrix 入站只信任事件的 `m.mentions.user_ids` 以及与之对应的 Matrix HTML 用户链接或明确的纯文本 mention，不会把手写或伪造的 `@用户` 当成认证身份。
+Minecraft 内提及玩家使用 `@Alex` 或 `@ Alex`，最终在所有界面统一显示为 `@Alex`；裸写 `Alex` 或写成 `Alex@` 都不会触发玩家 mention。公共聊天的候选集合同时包含在线玩家和所有已绑定玩家，因此目标离线但正在 Matrix 房间里时仍能收到提及。Matrix 入站只信任事件的 `m.mentions.user_ids` 以及与之对应的 Matrix HTML 用户链接或明确的纯文本 mention，不会把手写或伪造的 `@用户` 当成认证身份。
 
 mention 在每个出站房间分别解析，显示规则如下：
 
@@ -70,4 +70,4 @@ chat-bridge:
         strip-prefix: true
 ```
 
-可以同时配置多个路由，并让不同房间分别使用 `always` 或 `prefix`。`strip-prefix: false` 会保留触发前缀。延迟发送、`/public <消息>` 和公开消息重复发送同样经过这套共享规则；staff 与私聊不会外发。`content-safety.enabled: true` 时，共享关键词规则只检查机器人输出及 Minecraft 发往 Matrix 的聊天，不检查 Matrix 发往游戏的聊天。修改后执行 `/social reload matrix`。
+可以同时配置多个路由，并让不同房间分别使用 `always` 或 `prefix`。`strip-prefix: false` 会保留触发前缀。延迟发送、`/public <消息>` 和公开消息重复发送同样经过这套共享规则；staff 与私聊不会外发。`content-safety.enabled: true` 时，共享 Qwen3Guard 检查含用户可控内容的机器人回复、Minecraft 发往 Matrix 的聊天及社区提醒；共享配置 `social/content-safety.yml` 中的 `api-key` 可留空使用匿名调用，额度见[内容安全](social-platforms.md#内容安全)。修改后执行 `/social reload matrix`。

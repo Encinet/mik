@@ -16,8 +16,8 @@ final class NbsSoundLedger {
     private final Map<Integer, Map<String, Set<UUID>>> soundsByLayer = new HashMap<>();
 
     void record(int layer, String sound, UUID listener) {
-        soundsByLayer.computeIfAbsent(layer, ignored -> new HashMap<>())
-                .computeIfAbsent(sound, ignored -> new HashSet<>())
+        soundsByLayer.computeIfAbsent(layer, _ -> new HashMap<>())
+                .computeIfAbsent(sound, _ -> new HashSet<>())
                 .add(listener);
     }
 

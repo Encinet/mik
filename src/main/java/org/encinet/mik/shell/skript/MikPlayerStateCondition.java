@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 final class MikPlayerStateCondition extends Condition {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
+    private MikSkriptInput<Player> players;
     private State state;
 
     MikPlayerStateCondition(MikSkriptFacade facade) {
@@ -19,10 +19,9 @@ final class MikPlayerStateCondition extends Condition {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
+        players = MikSkriptInput.of(expressions[0], Player.class);
         state = State.values()[matchedPattern / 2];
         setNegated(matchedPattern % 2 == 1);
         return true;
@@ -35,7 +34,7 @@ final class MikPlayerStateCondition extends Condition {
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return players.toString(event, debug) + (isNegated() ? " is not " : " is ") + state.displayName;
+        return players.describe(event, debug) + (isNegated() ? " is not " : " is ") + state.displayName;
     }
 
     private enum State {

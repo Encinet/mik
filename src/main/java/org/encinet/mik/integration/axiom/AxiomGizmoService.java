@@ -114,7 +114,7 @@ public final class AxiomGizmoService implements Listener {
             remove(scope, viewer, ownerId);
             return;
         }
-        ViewerState state = viewers.computeIfAbsent(viewer.getUniqueId(), ignored -> new ViewerState());
+        ViewerState state = viewers.computeIfAbsent(viewer.getUniqueId(), _ -> new ViewerState());
         state.contributions.put(key, contribution);
         publish(viewer, state);
     }

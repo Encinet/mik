@@ -6,6 +6,7 @@
  * components under {@code mode.falling}, {@code mode.radial} and
  * {@code mode.spatial}; mouse-driven modes share timestamp capture and ray
  * selection through {@code input}. Source decoding belongs to {@code analysis},
+ * calibration evidence and stage transitions belong to {@code RhythmCalibrationSession},
  * calibration audio transport belongs to {@code calibration}, and
  * jukebox/song-clock ownership belongs to {@code playback}.</p>
  */

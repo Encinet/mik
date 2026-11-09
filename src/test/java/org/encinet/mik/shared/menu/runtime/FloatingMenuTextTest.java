@@ -3,7 +3,8 @@ package org.encinet.mik.shared.menu.runtime;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextColor;
+import org.encinet.mik.shared.menu.ui.UiPalette;
+import org.encinet.mik.shared.menu.ui.UiColorRole;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,7 +38,7 @@ class FloatingMenuTextTest {
         Component styled = FloatingMenuText.readableOnDark(source);
 
         assertEquals(NamedTextColor.LIGHT_PURPLE, styled.color());
-        assertEquals(NamedTextColor.GRAY, styled.children().getFirst().color());
+        assertEquals(NamedTextColor.WHITE, styled.children().getFirst().color());
         Component inherited = FloatingMenuText.readableOnDark(
                 Component.text("Parent", NamedTextColor.AQUA)
                         .append(Component.text(" child")));
@@ -46,7 +47,7 @@ class FloatingMenuTextTest {
         Component actions = FloatingMenuText.readableOnDark(
                 Component.text("Delete", NamedTextColor.RED)
                         .append(Component.text(" music", NamedTextColor.BLUE)));
-        assertEquals(TextColor.color(0xFFAAAA), actions.color());
-        assertEquals(TextColor.color(0xBBBBFF), actions.children().getFirst().color());
+        assertEquals(UiPalette.DEFAULT.color(UiColorRole.DANGER), actions.color());
+        assertEquals(UiPalette.DEFAULT.color(UiColorRole.INFO), actions.children().getFirst().color());
     }
 }

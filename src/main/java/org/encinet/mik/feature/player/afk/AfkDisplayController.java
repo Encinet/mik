@@ -71,7 +71,7 @@ final class AfkDisplayController {
 
     void update(Player player, AfkState state) {
         VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(),
-                ignored -> new VirtualDisplay(player.getWorld()));
+                _ -> new VirtualDisplay(player.getWorld()));
         boolean metadataChanged = display.state != state;
         display.state = state;
         syncDisplay(player, display, metadataChanged, OnlineView.capture());
@@ -92,7 +92,7 @@ final class AfkDisplayController {
             }
             Player player = subject.player;
             VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(),
-                    ignored -> new VirtualDisplay(player.getWorld()));
+                    _ -> new VirtualDisplay(player.getWorld()));
             boolean metadataChanged = display.state != state;
             display.state = state;
             syncDisplay(player, display, metadataChanged, online);
@@ -319,7 +319,7 @@ final class AfkDisplayController {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 ViewerSnapshot viewer = ViewerSnapshot.capture(player);
                 online.byId.put(player.getUniqueId(), viewer);
-                online.byWorld.computeIfAbsent(viewer.world, ignored -> new ArrayList<>()).add(viewer);
+                online.byWorld.computeIfAbsent(viewer.world, _ -> new ArrayList<>()).add(viewer);
             }
             return online;
         }

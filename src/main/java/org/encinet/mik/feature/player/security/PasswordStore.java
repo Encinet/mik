@@ -1,4 +1,5 @@
 package org.encinet.mik.feature.player.security;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -106,6 +107,13 @@ final class PasswordStore implements AutoCloseable {
             } finally { connection.setAutoCommit(true); }
         } catch (PasswordException error) { throw error; }
         catch (Exception error) { throw new PasswordException(PasswordException.Code.STORAGE, error); }
+    }
+
+    synchronized long updatedAt(UUID id) {
+        try (var statement = connection.prepareStatement("SELECT updated_at FROM credentials WHERE uuid=?")) {
+            statement.setString(1, id.toString());
+            try (var rows = statement.executeQuery()) { return rows.next() ? rows.getLong(1) : 0; }
+        } catch (Exception error) { throw new PasswordException(PasswordException.Code.STORAGE, error); }
     }
 
     @Override public synchronized void close() {

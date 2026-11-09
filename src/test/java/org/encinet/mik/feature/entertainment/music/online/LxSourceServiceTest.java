@@ -105,7 +105,7 @@ class LxSourceServiceTest {
     }
 
     private LxSourceService service() {
-        return new LxSourceService(directory.resolve("lxmusic"), ignored -> {}, ignored -> {});
+        return new LxSourceService(directory.resolve("music/sources"), _ -> {}, _ -> {});
     }
 
     private static TrackTarget.Lx target(String id) {

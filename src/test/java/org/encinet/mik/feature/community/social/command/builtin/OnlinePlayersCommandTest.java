@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class OnlinePlayersCommandTest {
@@ -48,14 +49,14 @@ class OnlinePlayersCommandTest {
         SocialDocument.Fields fields = (SocialDocument.Fields) document.blocks().getFirst();
 
         assertEquals("Alice, Bob (AFK), Carol", fields.fields().get(1).value());
-        assertEquals(List.of("Alice", "Bob", "Carol"), document.untrustedText());
+        assertEquals(REQUIRED, document.moderation());
     }
 
     private static SocialCommandContext context() {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/online", false,
-                ignored -> CompletableFuture.completedFuture(null));
+                _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ"), message);
     }
 

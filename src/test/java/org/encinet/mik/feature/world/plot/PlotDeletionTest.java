@@ -33,7 +33,7 @@ class PlotDeletionTest {
             registry.put(target);
             registry.put(neighbor);
             registry.setNoticeBoard(target.id(), "Welcome");
-            registry.setArrival(target.id(), new PlotArrival(0.5, 65, 0.5, 0, 0, "Workshop", ""));
+            registry.saveDestination(new PlotDestination(target.id(), target.id(), "Workshop", "", false, 0.5, 65, 0.5, 0, 0, "", ""));
             registry.setAtmosphere(target.id(), new PlotAtmosphere(6000, PlotAtmosphere.Weather.CLEAR));
             PlotEdits edits = new PlotEdits(registry);
             edits.delete(edits.releasable(owner, false, target.id().toString()), owner, false);
@@ -119,7 +119,8 @@ class PlotDeletionTest {
 
     @Test
     void failedStorageDeletionDoesNotRemoveTheLivePlotOrSettings() throws Exception {
-        try (PlotRepository store = new PlotRepository(directory.resolve("failed-delete.db"))) {
+        PlotRepository store = new PlotRepository(directory.resolve("failed-delete.db"));
+        try {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             Plot target = plot(UUID.randomUUID(), UUID.randomUUID(), 0);
@@ -132,18 +133,20 @@ class PlotDeletionTest {
             assertEquals(target, registry.byId(target.id()));
             assertEquals("Keep this notice", registry.noticeBoard(target.id()));
             assertEquals(revision, registry.revision());
+        } finally {
+            store.close();
         }
     }
 
     private static void assertRemoved(PlotRegistry registry, UUID id) {
         assertNull(registry.byId(id));
-        assertNull(registry.arrival(id));
+        assertTrue(registry.destinations(id).isEmpty());
         assertEquals("", registry.noticeBoard(id));
         assertTrue(registry.atmosphere(id).followsWorld());
     }
 
     private static Plot plot(UUID world, UUID owner, int blockX) {
-        return new Plot(UUID.randomUUID(), world, owner, "Workshop", false, 0,
+        return new Plot(UUID.randomUUID(), world, owner, "Workshop", 0,
                 Set.of(Cell.at(blockX, 64, 0)), Map.of(), Map.of(), null);
     }
 }

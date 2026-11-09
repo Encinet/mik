@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.player.security;
+
 import org.encinet.mik.shared.role.PlayerRole;
+
 import java.text.Normalizer;
 import java.util.Locale;
 import java.util.Set;

@@ -38,7 +38,6 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
-import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.integration.axiom.AxiomGizmoService;
 import org.encinet.mik.feature.world.vehicle.integration.axiom.AxiomVehicleProtection;
 import org.encinet.mik.shared.i18n.LanguageService;
@@ -71,6 +70,7 @@ public final class VehicleModule implements Listener {
     private final VehicleHud hud;
     private final VehicleModelEditor modelEditor;
     private final VehicleDashboard dashboard;
+    private final VehicleMenu menu;
     private final AxiomGizmoService gizmoService;
     private final AxiomVehicleProtection axiomProtection;
     private final UUID gizmoOwner = UUID.randomUUID();
@@ -105,6 +105,7 @@ public final class VehicleModule implements Listener {
         this.entityKey = new NamespacedKey(plugin, "vehicle_instance");
         this.modelEditor = new VehicleModelEditor(plugin, language, this);
         this.dashboard = new VehicleDashboard(language, this);
+        this.menu = new VehicleMenu(plugin, language, this);
         this.gizmoService = gizmoService;
         this.axiomProtection = new AxiomVehicleProtection(plugin, this::excludedSource);
     }
@@ -139,6 +140,7 @@ public final class VehicleModule implements Listener {
         enabled = true;
         if (gizmoService != null) axiomGizmos = gizmoService.scope("vehicles");
         modelEditor.enable();
+        menu.enable();
         axiomProtection.enable();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
         for (World world : plugin.getServer().getWorlds()) for (Entity entity : world.getEntities()) cleanOrphan(entity);
@@ -146,6 +148,7 @@ public final class VehicleModule implements Listener {
     }
 
     public void disable() {
+        menu.close();
         dashboard.close();
         modelEditor.close();
         boolean save = enabled;
@@ -180,29 +183,46 @@ public final class VehicleModule implements Listener {
         new VehicleCommands(this, language).register(manager);
     }
 
-    void requireCommandAccess(Player player, String permission) {
+    void requireMenuAccess(Player player, String permission) {
         if (!enabled) throw new IllegalStateException("Vehicle module unavailable");
         if (!player.isOnline() || !player.hasPermission(permission)) throw new IllegalArgumentException(permission + " required");
     }
 
-    void modelCommand(Player player, String... arguments) throws IOException {
-        modelEditor.execute(player, arguments);
+    public void openMenu(Player player) {
+        requireMenuAccess(player, player.hasPermission("mik.vehicle.use") ? "mik.vehicle.use" : "mik.vehicle.admin");
+        menu.open(player);
     }
+    void openSelection(Player player) { requireAdmin(player); menu.selection(player); }
+    void openModels(Player player) { requireAdmin(player); modelEditor.library(player); }
+    void createModel(Player player, VehicleModelEditor.Source source) { requireAdmin(player); modelEditor.newModel(player, source); }
+    void leave(Player player) { detach(player); }
+    boolean hudVisible(Player player) { return !hudHidden.contains(player.getUniqueId()); }
+    UUID mountedVehicle(Player player) { var mount = mounts.get(player.getUniqueId()); return mount == null ? null : mount.vehicle(); }
+    boolean manages(Player player, VehicleInstance instance) { return instance.owner.equals(player.getUniqueId()) || player.hasPermission("mik.vehicle.admin"); }
+    boolean driving(Player player, VehicleInstance instance) { return instance.entities != null && instance.entities.driver() == player; }
+    boolean nearby(Player player, VehicleInstance instance) { return instance.worldId.equals(player.getWorld().getUID()) && instance.body.origin().subtract(vector(player.getLocation())).length() <= 32; }
+    String worldName(UUID id) { World world = plugin.getServer().getWorld(id); return world == null ? "—" : world.getName(); }
+    VehicleInstance menuTarget(Player player, UUID id) {
+        VehicleInstance instance = instances.get(java.util.Objects.requireNonNull(id, "Selected vehicle required"));
+        if (instance == null) throw new IllegalArgumentException("Unknown vehicle");
+        requireAccess(player, instance); return instance;
+    }
+    List<VehicleInstance> vehicles(Player player) { return instances.values().stream().filter(instance -> canAccess(player, instance))
+            .sorted(java.util.Comparator.comparingDouble(instance -> instance.worldId.equals(player.getWorld().getUID())
+                    ? instance.body.origin().subtract(vector(player.getLocation())).length() : Double.POSITIVE_INFINITY)).toList(); }
+    VehicleSelection selected(Player player) { requireAdmin(player); return selection(player); }
+    Location selectedOrigin(Player player) { requireAdmin(player); return editorOrigin(player); }
+    Display selectableDisplay(Player player, UUID id) {
+        if (!selectableDisplayIds(player).contains(id)) throw new IllegalArgumentException("Display unavailable");
+        return (Display) plugin.getServer().getEntity(id);
+    }
+    void selectLookGroup(Player player) { selectGroup(player, null); }
+    void requireSame(VehicleInstance expected) { if (instances.get(expected.id) != expected) throw new IllegalArgumentException("Vehicle changed; reopen its controls"); }
 
     void setOrigin(Player player) {
         requireAdmin(player);
         origins.put(player.getUniqueId(), player.getLocation().clone());
         success(player, "Origin set; local +Z follows your horizontal view");
-    }
-
-    void listVehicles(Player player) {
-        success(player, "Models: " + String.join(", ", definitions.keySet()) + " | Vehicles: "
-                + instances.values().stream().filter(instance -> canAccess(player, instance))
-                .map(instance -> instance.id + " (" + instance.body.definition.id() + ")").limit(32).toList());
-    }
-
-    List<UUID> accessibleVehicleIds(Player player) {
-        return instances.values().stream().filter(instance -> canAccess(player, instance)).map(instance -> instance.id).toList();
     }
 
     List<UUID> selectableDisplayIds(Player player) {
@@ -212,16 +232,8 @@ public final class VehicleModule implements Listener {
                 .map(Entity::getUniqueId).toList();
     }
 
-    void inspect(Player player, UUID id) {
-        VehicleInstance instance = target(player, id);
-        requireAccess(player, instance);
-        success(player, instance.id + " " + instance.body.definition.kind() + " | " + instance.body.velocity.length()
-                + " b/s | " + instance.body.transmission.label() + " | " + Math.round(instance.body.transmission.rpm)
-                + " RPM | fuel=" + instance.body.fuel + " health=" + instance.body.health + " active=" + (instance.entities != null));
-    }
-
-    void setAccess(Player player, boolean publicAccess) throws IOException {
-        VehicleInstance instance = target(player, null);
+    void setAccess(Player player, UUID id, boolean publicAccess) throws IOException {
+        VehicleInstance instance = menuTarget(player, id);
         requireOwner(player, instance);
         boolean old = instance.publicAccess;
         instance.publicAccess = publicAccess;
@@ -268,18 +280,10 @@ public final class VehicleModule implements Listener {
     }
 
     void selectGroup(Player player, UUID seed) {
-        VehicleDisplayGroup group = displayGroup(player, seed, false);
+        VehicleDisplayGroup group = displayGroup(player, seed);
         captureOrigin(player, group.origin());
         selections.put(player.getUniqueId(), VehicleSelection.group(group));
         player.sendMessage(language.text(player, Message.VEHICLE_GROUP_SELECTED, NamedTextColor.GREEN, group.displays().size(), group.root().toString()));
-    }
-
-    void selectionInfo(Player player) {
-        requireAdmin(player);
-        VehicleSelection selection = selection(player);
-        Location origin = editorOrigin(player);
-        player.sendMessage(language.text(player, Message.VEHICLE_SELECTION_INFO, NamedTextColor.AQUA, selection.ids().size(),
-                selection.root() == null ? "—" : selection.root().toString(), origin.getX(), origin.getY(), origin.getZ()));
     }
 
     private VehicleSelection selection(Player player) { return selections.getOrDefault(player.getUniqueId(), VehicleSelection.manual(Set.of())); }
@@ -287,13 +291,7 @@ public final class VehicleModule implements Listener {
     private boolean excludedSource(Entity entity) { return vehicleId(entity) != null || modelEditor.isPreview(entity); }
 
     private VehicleDisplayGroup displayGroup(Player player, UUID seed) {
-        return displayGroup(player, seed, true);
-    }
-
-    private VehicleDisplayGroup displayGroup(Player player, UUID seed, boolean preferSelection) {
         requireAdmin(player);
-        VehicleSelection selected = selection(player);
-        if (seed == null && preferSelection && selected.root() != null) return selectedGroup(player, selected);
         Entity entity;
         if (seed != null) entity = plugin.getServer().getEntity(seed);
         else {
@@ -314,6 +312,15 @@ public final class VehicleModule implements Listener {
     }
 
     ModelImport importGroup(Player player, String id, VehicleDefinition.Kind kind, UUID seed) {
+        requireAdmin(player);
+        if (seed == null) {
+            Location origin = captureOrigin(player, player.getLocation());
+            validateCapture(player, origin, List.of());
+            List<VehicleDefinition.Part> parts = VehicleAxiomItem.parts(player.getInventory().getItemInMainHand());
+            VehicleDefinition definition = VehicleDefinition.preset(id, kind, parts, VehicleModel.bounds(parts));
+            validatePayloads(List.of(definition));
+            return new ModelImport(definition, origin);
+        }
         VehicleDisplayGroup group = displayGroup(player, seed);
         Location origin = captureOrigin(player, group.origin());
         validateCapture(player, origin, group.displays());
@@ -322,6 +329,13 @@ public final class VehicleModule implements Listener {
     }
 
     List<VehicleDefinition.Part> groupParts(Player player, UUID seed, Location origin) {
+        requireAdmin(player);
+        if (seed == null) {
+            validateCapture(player, origin, List.of());
+            List<VehicleDefinition.Part> parts = VehicleAxiomItem.parts(player.getInventory().getItemInMainHand());
+            validateParts(parts);
+            return parts;
+        }
         VehicleDisplayGroup group = displayGroup(player, seed);
         validateCapture(player, origin, group.displays());
         recheckGroup(player, group);
@@ -334,15 +348,11 @@ public final class VehicleModule implements Listener {
         VehicleSelection.group(group).requireUnchanged(VehicleDisplayGroup.inspect(root, player.getLocation(), this::excludedSource));
     }
 
-    void capture(Player player, String id, VehicleDefinition.Kind kind) throws IOException {
+    VehicleDefinition captureDraft(Player player, String id, VehicleDefinition.Kind kind) {
         requireAdmin(player);
-        if (definitions.size() >= 256) throw new IllegalArgumentException("Model limit reached");
-        if (definitions.containsKey(id)) throw new IllegalArgumentException("Model already exists; edit it or use a new id");
+        if (definitions.containsKey(id)) throw new IllegalArgumentException("Model already exists");
         CapturedSelection selected = captureSelection(player);
-        VehicleDefinition definition = VehicleModel.capture(id, kind, selected.origin(), selected.displays());
-        store.saveDefinition(definition);
-        definitions.put(definition.id(), definition);
-        success(player, "Captured " + definition.id() + "; original entities retained");
+        return VehicleModel.capture(id, kind, selected.origin(), selected.displays());
     }
 
     void spawn(Player player, String model, Location requestedLocation) throws IOException {
@@ -352,7 +362,7 @@ public final class VehicleModule implements Listener {
         if (instances.size() >= maximumInstances || instances.values().stream().filter(instance -> instance.owner.equals(player.getUniqueId())).count() >= maximumPerOwner)
             throw new IllegalArgumentException("Vehicle quota reached");
         Location location = requestedLocation != null ? requestedLocation.clone()
-                : player.getLocation().add(player.getLocation().getDirection().setY(0).normalize().multiply(4)).add(0, 1, 0);
+                : player.getLocation().add(location(new VehicleVector(0, 0, 4).rotate(VehicleModel.orientation(player.getYaw())), player.getWorld()).toVector()).add(0, 1, 0);
         location.setYaw(player.getYaw());
         location.setPitch(0);
         VehicleVector origin = vector(location);
@@ -372,6 +382,8 @@ public final class VehicleModule implements Listener {
     }
 
     void enter(Player player, VehicleInstance instance, boolean drive) {
+        requireSame(instance);
+        requireMenuAccess(player, "mik.vehicle.use");
         requireAccess(player, instance);
         if (mounts.containsKey(player.getUniqueId()) || player.isInsideVehicle() || player.isDead()) throw new IllegalArgumentException("Already riding or unavailable");
         if (!player.getWorld().getUID().equals(instance.worldId) || vector(player.getLocation()).subtract(instance.body.origin()).length() > 32)
@@ -400,12 +412,12 @@ public final class VehicleModule implements Listener {
     }
 
     private void toggleMode(Player player) {
-        success(player, drivingControl(player, null, "mode"));
+        success(player, drivingControl(player, null, VehicleControls.Toggle.MODE));
     }
 
-    String drivingControl(Player player, UUID expectedVehicle, String input) {
+    String drivingControl(Player player, UUID expectedVehicle, VehicleControls.Action action) {
         VehicleInstance instance = dashboardInstance(player, expectedVehicle);
-        return VehicleControls.apply(instance.body, input);
+        return VehicleControls.apply(instance.body, action);
     }
 
     private VehicleInstance dashboardInstance(Player player, UUID expectedVehicle) {
@@ -433,8 +445,6 @@ public final class VehicleModule implements Listener {
             dashboard.open(player, mount.vehicle(), VehicleDashboardMenu.Page.DRIVE);
     }
 
-    void closeDashboard(Player player) { dashboard.forget(player.getUniqueId()); }
-
     void openDashboard(Player player, VehicleDashboardMenu.Page page) {
         VehicleInstance instance = dashboardInstance(player, null);
         if (page == VehicleDashboardMenu.Page.GEARBOX && instance.body.definition.kind() != VehicleDefinition.Kind.CAR)
@@ -443,9 +453,10 @@ public final class VehicleModule implements Listener {
         dashboard.open(player, instance.id, page);
     }
 
-    void service(Player player, boolean fuel) throws IOException {
-        VehicleInstance instance = target(player, null);
+    void service(Player player, UUID id, boolean fuel) throws IOException {
+        VehicleInstance instance = menuTarget(player, id);
         requireOwner(player, instance);
+        if (!nearby(player, instance)) throw new IllegalArgumentException("Vehicle is too far away");
         if (instance.body.velocity.length() > 0.5 || instance.body.engineRunning) throw new IllegalArgumentException("Stop vehicle and engine first");
         requireAllowed(player, instance.id, location(instance), VehicleUseEvent.Action.SERVICE);
         ItemStack item = player.getInventory().getItemInMainHand();
@@ -464,6 +475,7 @@ public final class VehicleModule implements Listener {
     }
 
     void remove(Player player, VehicleInstance instance) throws IOException {
+        requireSame(instance);
         requireOwner(player, instance);
         if (instance.entities != null && instance.entities.occupied() || instance.body.velocity.length() > 0.5)
             throw new IllegalArgumentException("Stop and empty vehicle before removal");
@@ -505,6 +517,7 @@ public final class VehicleModule implements Listener {
     private void tick() {
         tick++;
         modelEditor.tick();
+        menu.tick();
         if (tick % 20 == 0) refreshGizmos();
         for (UUID playerId : List.copyOf(mounts.keySet())) {
             Player player = plugin.getServer().getPlayer(playerId);
@@ -572,7 +585,7 @@ public final class VehicleModule implements Listener {
                 instance.body.velocity = VehicleVector.ZERO;
                 instance.body.angularVelocity = VehicleVector.ZERO;
                 try { deactivate(instance); } catch (RuntimeException cleanup) { exception.addSuppressed(cleanup); }
-                plugin.getLogger().log(Level.SEVERE, "Vehicle " + instance.id + " suspended; use /vehicle reload after correcting its definition", exception);
+                plugin.getLogger().log(Level.SEVERE, "Vehicle " + instance.id + " suspended; reload through the vehicle workspace after correcting its definition", exception);
             }
         }
         if (tick % 600 == 0) {
@@ -620,7 +633,7 @@ public final class VehicleModule implements Listener {
         if (!enabled || axiomGizmos == null) return;
         Map<UUID, Set<UUID>> byWorld = new HashMap<>();
         for (VehicleInstance instance : instances.values()) if (instance.entities != null)
-            byWorld.computeIfAbsent(instance.worldId, ignored -> new LinkedHashSet<>()).addAll(instance.entities.entityIds());
+            byWorld.computeIfAbsent(instance.worldId, _ -> new LinkedHashSet<>()).addAll(instance.entities.entityIds());
         for (Player viewer : plugin.getServer().getOnlinePlayers()) {
             Set<UUID> ignored = new LinkedHashSet<>(byWorld.getOrDefault(viewer.getWorld().getUID(), Set.of()));
             ignored.addAll(modelEditor.previewIds(viewer.getUniqueId()));
@@ -643,24 +656,6 @@ public final class VehicleModule implements Listener {
         return new VehicleWorld(world, obstacles);
     }
 
-    VehicleInstance target(Player player, UUID id) {
-        if (id != null) {
-            VehicleInstance instance = instances.get(id);
-            if (instance == null) throw new IllegalArgumentException("Unknown vehicle");
-            return instance;
-        }
-        Mount mount = mounts.get(player.getUniqueId());
-        if (mount != null && instances.containsKey(mount.vehicle())) return instances.get(mount.vehicle());
-        VehicleInstance nearest = null;
-        double distance = 32;
-        for (VehicleInstance instance : instances.values()) if (instance.worldId.equals(player.getWorld().getUID()) && canAccess(player, instance)) {
-            double candidate = instance.body.origin().subtract(vector(player.getLocation())).length();
-            if (candidate < distance) { nearest = instance; distance = candidate; }
-        }
-        if (nearest == null) throw new IllegalArgumentException("No accessible vehicle within 32 blocks");
-        return nearest;
-    }
-
     private VehicleInstance controlled(Player player) {
         Mount mount = mounts.get(player.getUniqueId());
         VehicleInstance instance = mount == null ? null : instances.get(mount.vehicle());
@@ -671,7 +666,7 @@ public final class VehicleModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInteract(PlayerInteractEntityEvent event) {
-        if (event.getHand() == EquipmentSlot.HAND && modelEditor.place(event.getPlayer())) {
+        if (event.getHand() == EquipmentSlot.HAND && (modelEditor.place(event.getPlayer()) || menu.place(event.getPlayer()))) {
             event.setCancelled(true);
             return;
         }
@@ -688,7 +683,7 @@ public final class VehicleModule implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     public void onEditorPoint(PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND || event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        if (modelEditor.place(event.getPlayer())) event.setCancelled(true);
+        if ((modelEditor.place(event.getPlayer()) || menu.place(event.getPlayer()))) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -727,13 +722,14 @@ public final class VehicleModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHeld(PlayerItemHeldEvent event) {
+        int difference = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
+        int direction = difference <= 4 ? -1 : 1;
+        if (modelEditor.scroll(event.getPlayer(), direction)) { event.setCancelled(true); return; }
         Mount mount = mounts.get(event.getPlayer().getUniqueId());
         if (mount == null) return;
         VehicleInstance instance = instances.get(mount.vehicle());
         if (instance == null || !instance.body.definition.seats().get(mount.seat()).driver()) return;
         event.setCancelled(true);
-        int difference = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
-        int direction = difference <= 4 ? -1 : 1;
         if (instance.body.definition.kind() == VehicleDefinition.Kind.CAR)
             VehicleControls.stepGear(instance.body, direction);
         else instance.body.throttle = Math.clamp(instance.body.throttle + direction * 0.05,
@@ -754,10 +750,10 @@ public final class VehicleModule implements Listener {
     public void onDamage(EntityDamageEvent event) {
         if (vehicleId(event.getEntity()) != null) event.setCancelled(true);
     }
-    @EventHandler public void onQuit(PlayerQuitEvent event) { modelEditor.forget(event.getPlayer()); detach(event.getPlayer()); selections.remove(event.getPlayer().getUniqueId()); origins.remove(event.getPlayer().getUniqueId()); hudHidden.remove(event.getPlayer().getUniqueId()); if (axiomGizmos != null) axiomGizmos.forgetViewer(event.getPlayer().getUniqueId()); }
+    @EventHandler public void onQuit(PlayerQuitEvent event) { menu.forget(event.getPlayer().getUniqueId()); modelEditor.forget(event.getPlayer()); detach(event.getPlayer()); selections.remove(event.getPlayer().getUniqueId()); origins.remove(event.getPlayer().getUniqueId()); hudHidden.remove(event.getPlayer().getUniqueId()); if (axiomGizmos != null) axiomGizmos.forgetViewer(event.getPlayer().getUniqueId()); }
     @EventHandler public void onDeath(PlayerDeathEvent event) { detach(event.getEntity()); }
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onTeleport(PlayerTeleportEvent event) { modelEditor.clearPreview(event.getPlayer().getUniqueId()); if (mounts.containsKey(event.getPlayer().getUniqueId())) detach(event.getPlayer()); }
+    public void onTeleport(PlayerTeleportEvent event) { menu.cancelPick(event.getPlayer().getUniqueId()); modelEditor.clearPreview(event.getPlayer().getUniqueId()); if (mounts.containsKey(event.getPlayer().getUniqueId())) detach(event.getPlayer()); }
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onChunkUnload(ChunkUnloadEvent event) {
         modelEditor.unload(event.getWorld(), event.getChunk().getX(), event.getChunk().getZ());
@@ -832,7 +828,11 @@ public final class VehicleModule implements Listener {
         return settings.getInt(key);
     }
     private void validatePayloads(Iterable<VehicleDefinition> loaded) {
-        for (VehicleDefinition definition : loaded) for (VehicleDefinition.Part part : definition.parts()) {
+        for (VehicleDefinition definition : loaded) validateParts(definition.parts());
+    }
+
+    private void validateParts(List<VehicleDefinition.Part> parts) {
+        for (VehicleDefinition.Part part : parts) {
             switch (part.kind()) {
                 case BLOCK -> plugin.getServer().createBlockData(part.payload());
                 case ITEM -> ItemStack.deserializeBytes(Base64.getDecoder().decode(part.payload()));

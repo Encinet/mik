@@ -12,7 +12,6 @@ class GeyserOptionalLinkageTest {
         assertThrows(ClassNotFoundException.class,
                 () -> Class.forName("org.geysermc.geyser.api.GeyserApi"));
         assertDoesNotThrow(() -> Class.forName(GeyserService.class.getName()));
-        assertDoesNotThrow(() -> Class.forName(
-                "org.encinet.mik.shared.menu.runtime.GeyserFloatingMenuPresenter"));
+        assertDoesNotThrow(() -> Class.forName(BedrockPlayerDetector.class.getName()));
     }
 }

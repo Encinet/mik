@@ -37,12 +37,17 @@ final class IronElevatorTestWorld {
     int terrainHeight = 64;
     int blockReads;
     int terrainReads;
+    int nearbyQueries;
+    java.util.function.Consumer<Position> blockRead = _ -> { };
     RayTraceResult obstruction;
     final World world = (World) Proxy.newProxyInstance(World.class.getClassLoader(),
             new Class<?>[]{World.class}, (proxy, method, arguments) -> switch (method.getName()) {
                 case "getUID" -> worldId;
-                case "getNearbyEntities" -> entities.stream().filter(entity ->
-                        ((BoundingBox) arguments[0]).overlaps(entity.getBoundingBox())).toList();
+                case "getNearbyEntities" -> {
+                    nearbyQueries++;
+                    yield entities.stream().filter(entity ->
+                            ((BoundingBox) arguments[0]).overlaps(entity.getBoundingBox())).toList();
+                }
                 case "getMinHeight" -> -64;
                 case "getMaxHeight" -> 384;
                 case "getEnvironment" -> environment;
@@ -53,6 +58,7 @@ final class IronElevatorTestWorld {
                 }
                 case "getBlockAt" -> {
                     blockReads++;
+                    blockRead.accept(new Position((int) arguments[0], (int) arguments[1], (int) arguments[2]));
                     if (unloadedChunks.contains(((int) arguments[0] >> 4) + "," + ((int) arguments[2] >> 4)))
                         throw new AssertionError("Read from an unloaded chunk");
                     yield block((int) arguments[0], (int) arguments[1], (int) arguments[2]);
@@ -105,12 +111,12 @@ final class IronElevatorTestWorld {
             }
         };
         BlockData data = (BlockData) Proxy.newProxyInstance(BlockData.class.getClassLoader(),
-                new Class<?>[]{BlockData.class}, (proxy, method, arguments) -> switch (method.getName()) {
+                new Class<?>[]{BlockData.class}, (_, method, arguments) -> switch (method.getName()) {
                     case "isFaceSturdy" -> cell(position).sturdyFaces().contains(arguments[0]);
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
         return (Block) Proxy.newProxyInstance(Block.class.getClassLoader(), new Class<?>[]{Block.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, arguments) -> switch (method.getName()) {
                     case "getX" -> blockX;
                     case "getY" -> blockY;
                     case "getZ" -> blockZ;

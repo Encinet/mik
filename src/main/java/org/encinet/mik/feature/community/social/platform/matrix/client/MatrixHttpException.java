@@ -2,6 +2,9 @@ package org.encinet.mik.feature.community.social.platform.matrix.client;
 
 /** Matrix standard error response with its HTTP status and retry hint retained. */
 public final class MatrixHttpException extends RuntimeException {
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
+
     private final int statusCode;
     private final String errorCode;
     private final long retryAfterMillis;

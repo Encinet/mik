@@ -146,7 +146,7 @@ class RhythmSpatialGameplayTest {
                 RhythmDifficulty.NORMAL);
         Location eye = new Location(null, 0.0, 65.6, 0.0);
         RhythmSpatialArena arena = new RhythmSpatialArena(
-                eye, profile, (direction, distance, radius) -> clear.get());
+                eye, profile, (_, _, _) -> clear.get());
         RhythmSpatialGameplay gameplay = new RhythmSpatialGameplay(
                 seed, 0.0, eye, chart, session, profile, arena,
                 900L, nowNanos::get);

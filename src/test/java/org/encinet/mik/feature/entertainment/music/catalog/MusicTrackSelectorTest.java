@@ -14,7 +14,7 @@ class MusicTrackSelectorTest {
     void selectsOnlyFromEligibleTracksWithoutRetryLimit() {
         List<MusicTrack> tracks = List.of(
                 track("queued-1"), track("queued-2"), track("available"));
-        MusicTrackSelector selector = new MusicTrackSelector(bound -> 0);
+        MusicTrackSelector selector = new MusicTrackSelector(_ -> 0);
 
         MusicTrack selected = selector.select(tracks,
                 track -> track.id().equals("available"));
@@ -24,9 +24,9 @@ class MusicTrackSelectorTest {
 
     @Test
     void returnsNullWhenNoCandidateExists() {
-        MusicTrackSelector selector = new MusicTrackSelector(bound -> 0);
+        MusicTrackSelector selector = new MusicTrackSelector(_ -> 0);
 
-        assertNull(selector.select(List.of(track("queued")), ignored -> false));
+        assertNull(selector.select(List.of(track("queued")), _ -> false));
         assertNull(selector.select(List.of()));
     }
 

@@ -1,4 +1,5 @@
 package org.encinet.mik.feature.player.security;
+
 import org.encinet.mik.feature.player.guidance.TipScope;
 import org.encinet.mik.shared.i18n.Message;
 

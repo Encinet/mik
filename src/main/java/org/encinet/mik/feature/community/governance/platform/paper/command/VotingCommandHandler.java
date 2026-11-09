@@ -43,14 +43,20 @@ final class VotingCommandHandler {
     }
 
     int nominate(CommandSender sender) {
+        return nominate(sender, () -> {});
+    }
+
+    int nominate(CommandSender sender, Runnable completed) {
         Player player = context.requirePlayer(sender);
-        if (player == null) return 0;
+        if (player == null) { completed.run(); return 0; }
         if (RolePermissions.isCustodian(player)) {
             text.send(sender, Message.GOVERNANCE_CUSTODIAN_NO_NOMINATION, NamedTextColor.YELLOW);
+            completed.run();
             return 0;
         }
         if (RolePermissions.canModerate(player)) {
             text.send(sender, Message.GOVERNANCE_ALREADY_MODERATOR, NamedTextColor.YELLOW);
+            completed.run();
             return 0;
         }
         UUID playerId = player.getUniqueId();
@@ -65,13 +71,18 @@ final class VotingCommandHandler {
                     text.kind(language, started.kind()), started.subjectName(),
                     started.eligibleVoters(), started.quorumRequired(),
                     text.time(language, started.closesAt())), NamedTextColor.GOLD));
-        });
+            context.onMain(completed);
+        }, completed);
         return Command.SINGLE_SUCCESS;
     }
 
     int withdraw(CommandSender sender) {
+        return withdraw(sender, () -> {});
+    }
+
+    int withdraw(CommandSender sender, Runnable completed) {
         Player player = context.requirePlayer(sender);
-        if (player == null) return 0;
+        if (player == null) { completed.run(); return 0; }
         UUID playerId = player.getUniqueId();
         context.submit(sender, () -> {
             coordinator.reviewOpenVotes();
@@ -84,16 +95,22 @@ final class VotingCommandHandler {
             voting.terminateVote(ownVote.id(), VoteTerminationReason.CANDIDATE_WITHDREW);
             context.onMain(() -> text.send(sender, Message.GOVERNANCE_NOMINATION_WITHDRAWN,
                     NamedTextColor.GREEN));
-        });
+            context.onMain(completed);
+        }, completed);
         return Command.SINGLE_SUCCESS;
     }
 
     int vote(CommandSender sender, long voteId, String choiceText) {
+        return vote(sender, voteId, choiceText, () -> {});
+    }
+
+    int vote(CommandSender sender, long voteId, String choiceText, Runnable completed) {
         Player player = context.requirePlayer(sender);
-        if (player == null) return 0;
+        if (player == null) { completed.run(); return 0; }
         VoteChoice choice = VoteChoice.parse(choiceText).orElse(null);
         if (choice == null) {
             text.send(sender, Message.GOVERNANCE_INVALID_CHOICE, NamedTextColor.RED);
+            completed.run();
             return 0;
         }
         UUID playerId = player.getUniqueId();
@@ -102,7 +119,8 @@ final class VotingCommandHandler {
             voting.castBallot(voteId, playerId, choice);
             context.onMain(() -> text.send(sender, Message.GOVERNANCE_BALLOT_RECORDED,
                     NamedTextColor.GREEN, text.choice(language, choice)));
-        });
+            context.onMain(completed);
+        }, completed);
         return Command.SINGLE_SUCCESS;
     }
 

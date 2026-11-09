@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.player.security;
+
 import org.encinet.mik.shared.role.PlayerRole;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
@@ -21,7 +23,7 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
         private Session(PasswordService owner, UUID account) { this.owner = owner; this.account = account; }
         @Override public void close() {
             active = false;
-            owner.accounts.computeIfPresent(account, (id, state) ->
+            owner.accounts.computeIfPresent(account, (_, state) ->
                     state.credential() == PasswordCredential.NONE && state.session() == this ? null : state);
         }
     }
@@ -39,7 +41,7 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
     private final Map<UUID, Account> accounts = new ConcurrentHashMap<>();
     private volatile boolean ready;
     private volatile Runnable storageFailure = () -> { };
-    private volatile Retention retention = id -> { throw new IllegalStateException("Governance not connected"); };
+    private volatile Retention retention = _ -> { throw new IllegalStateException("Governance not connected"); };
 
     public PasswordService(Path path) { store = new PasswordStore(path); }
 
@@ -72,6 +74,8 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
     @Override public <T, E extends Exception> T coordinate(Work<T, E> work) throws E {
         synchronized (coordination) { ensureReady(); return work.run(); }
     }
+
+    long updatedAt(UUID id) { return coordinate(() -> store.updatedAt(id)); }
 
     boolean retained(UUID id) {
         try { return retention.required(id); }

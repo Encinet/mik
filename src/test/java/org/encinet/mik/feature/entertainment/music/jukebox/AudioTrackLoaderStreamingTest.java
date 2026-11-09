@@ -72,13 +72,13 @@ class AudioTrackLoaderStreamingTest {
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stream.wav";
         cache = OnlineAudioCacheTestSupport.create(directory,
-                ignored -> CompletableFuture.completedFuture(url));
+                _ -> CompletableFuture.completedFuture(url));
         loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
         MusicTrack track = onlineTrack();
 
         CompletableFuture<AudioTrackLoader.LoadedAudio> loading = loader.load(track);
         assertTrue(initialChunkSent.await(5, TimeUnit.SECONDS));
-        try (AudioTrackLoader.LoadedAudio loaded = loading.get(2, TimeUnit.SECONDS)) {
+        try (AudioTrackLoader.LoadedAudio _ = loading.get(2, TimeUnit.SECONDS)) {
             assertFalse(cache.isCached((TrackTarget.Lx) track.target()));
         } finally {
             releaseRemainingAudio.countDown();
@@ -115,7 +115,7 @@ class AudioTrackLoaderStreamingTest {
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stream.wav";
         cache = OnlineAudioCacheTestSupport.create(directory,
-                ignored -> CompletableFuture.completedFuture(url));
+                _ -> CompletableFuture.completedFuture(url));
         loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
         MusicTrack track = onlineTrack();
 
@@ -128,7 +128,7 @@ class AudioTrackLoaderStreamingTest {
             releaseRemainingAudio.countDown();
         }
 
-        try (AudioTrackLoader.LoadedAudio ignored = loading.get(5, TimeUnit.SECONDS)) {
+        try (AudioTrackLoader.LoadedAudio _ = loading.get(5, TimeUnit.SECONDS)) {
             assertTrue(cache.isCached((TrackTarget.Lx) track.target()));
         }
     }

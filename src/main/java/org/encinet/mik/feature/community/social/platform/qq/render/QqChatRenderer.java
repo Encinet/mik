@@ -86,33 +86,26 @@ public final class QqChatRenderer {
             ChatNode.PlayerMention mention,
             List<ExternalIdentity> targets
     ) {
-        List<String> names = targets.stream()
-                .map(QqChatRenderer::externalName).toList();
         List<String> tokens = targets.stream()
                 .map(target -> "<@!" + target.key().subject() + ">")
                 .toList();
-        String plain;
         String markdown;
         if (mention.sourceIdentity().isEmpty()) {
-            plain = "@" + mention.playerName() + "(" + String.join(", ", names) + ")";
             markdown = QqMarkdownRenderer.escape(
                     "@" + mention.playerName() + "(")
                     + String.join(", ", tokens)
                     + QqMarkdownRenderer.escape(")");
         } else {
-            List<String> plainMentions = new ArrayList<>();
             List<String> markdownMentions = new ArrayList<>();
             for (int index = 0; index < targets.size(); index++) {
-                plainMentions.add("@" + names.get(index)
-                        + "(" + mention.playerName() + ")");
                 markdownMentions.add(tokens.get(index)
                         + QqMarkdownRenderer.escape(
                         "(" + mention.playerName() + ")"));
             }
-            plain = String.join(", ", plainMentions);
             markdown = String.join(", ", markdownMentions);
         }
-        return new RenderedNode(plain, applyStyle(markdown, mention.style()));
+        return new RenderedNode(SocialChatMentionResolution.playerMentionText(mention, targets),
+                applyStyle(markdown, mention.style()));
     }
 
     private static boolean hasSafeMentionToken(ExternalIdentity identity) {
@@ -121,11 +114,6 @@ public final class QqChatRenderer {
                 && subject.codePoints().noneMatch(character ->
                 Character.isWhitespace(character) || Character.isISOControl(character)
                         || character == '<' || character == '>');
-    }
-
-    private static String externalName(ExternalIdentity identity) {
-        return identity.displayName().isBlank()
-                ? identity.key().subject() : identity.displayName();
     }
 
     private static String markdownLinkTarget(String target) {

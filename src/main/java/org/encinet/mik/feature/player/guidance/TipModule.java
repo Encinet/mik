@@ -50,7 +50,7 @@ public final class TipModule implements Listener {
         this.events = new TipEvents((type, handler) -> {
             Listener listener = new Listener() {};
             Bukkit.getPluginManager().registerEvent(type, listener, EventPriority.MONITOR,
-                    (ignored, event) -> handler.accept(event), plugin, true);
+                    (_, event) -> handler.accept(event), plugin, true);
             return () -> HandlerList.unregisterAll(listener);
         }, this::scheduleOnMain, player -> player.isOnline() && Bukkit.getPlayer(player.getUniqueId()) == player,
                 error -> plugin.getLogger().log(Level.WARNING, "Tip trigger failed", error));

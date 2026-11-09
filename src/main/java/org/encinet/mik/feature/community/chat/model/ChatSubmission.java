@@ -3,7 +3,7 @@ package org.encinet.mik.feature.community.chat.model;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Immutable raw input accepted from Minecraft, a social adapter or another plugin. */
+/** Immutable raw input with an authenticated source identity and server-selected capabilities. */
 public record ChatSubmission(
         ChatMessageId id,
         ChatOrigin origin,
@@ -20,6 +20,9 @@ public record ChatSubmission(
         id = Objects.requireNonNull(id, "id");
         origin = Objects.requireNonNull(origin, "origin");
         sender = Objects.requireNonNull(sender, "sender");
+        if (origin instanceof ChatOrigin.Player player && !player.playerId().equals(sender.minecraftId().orElse(null))) {
+            throw new IllegalArgumentException("player origin and sender identity must match");
+        }
         conversation = Objects.requireNonNull(conversation, "conversation");
         sourceText = normalize(sourceText);
         references = Objects.requireNonNullElseGet(references, ChatReferences::empty);

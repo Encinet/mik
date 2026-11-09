@@ -14,52 +14,11 @@
 
 back = 戻る
 back-to-main = メインメニューに戻る
+cancel = キャンセル
 click-open = クリックして開く
 close = 閉じる
 current-off = 現在: オフ
 current-on = 現在: オン
-password-already-connected = このアカウントは接続済みです。
-password-already-set = パスワードは設定済みです。変更には /password change を使用してください。
-password-busy = 試行回数が多すぎます。しばらくしてから再試行してください。
-password-change = パスワードを変更
-password-change-done = パスワードを変更しました。
-password-checking = アカウント保護を確認中…
-password-command-description = アカウントのパスワード保護を管理
-password-confirm = 新しいパスワードの確認
-password-conflict = アカウントのセキュリティ状態が変更されました。操作をやり直してください。
-password-cooldown = アカウント認証は一時的に制限されています。{ $arg0 } 秒後に再試行してください。
-password-current = 現在のパスワード
-password-denied = このアカウントのパスワードをリセットする権限がありません。
-password-disabled = パスワード：未設定
-password-enabled = パスワード：設定済み
-password-invalid = パスワードが違います。再試行してください。
-password-keep-role = 管理・保守担当者はパスワードを削除できません。
-password-login = ログイン
-password-login-expired = ログイン認証が無効になりました。再接続してください。
-password-login-hint = 本サーバーのパスワードを入力してください。忘れた場合は管理者にリセットを依頼してください。
-password-mismatch = 新しいパスワードが一致しません。
-password-new = 新しいパスワード
-password-nomination-required = 管理者への立候補前にパスワードを設定してください：/password set
-password-not-set = パスワードが未設定です。/password set で設定できます。
-password-remove = パスワードを削除
-password-remove-done = パスワードを削除しました。
-password-remove-question = 削除後はログイン時にパスワードを確認しなくなります。現在のパスワードを入力して確定してください。
-password-required-application = 管理者への立候補または任命が処理中のため、パスワードを削除できません。
-password-required-role = 管理・保守担当者のアカウントにはパスワードが必要です。権限のある担当者にリセットを依頼してからログインしてください。
-password-reset = パスワードをリセット
-password-reset-console = { $arg0 } のパスワードをリセットしました：{ $arg1 }。本人確認後、信頼できる経路で渡してください。
-password-reset-done = { $arg0 } のパスワードをリセットしました。今すぐコピーし、本人確認後に渡してください。再表示はできません。
-password-reset-question = { $arg0 } のパスワードをリセットしますか？古いパスワードは無効になり、接続は切断されます。自分のパスワードで確認してください。
-password-retry = 再試行
-password-rules = { $arg0 }～{ $arg1 } 文字で入力してください。プレイヤー名や一般的なパスワードは使用できません。
-password-set = パスワードを設定
-password-set-done = パスワードを設定しました。
-password-set-first = パスワードを設定してから立候補
-password-storage = アカウント保護を利用できません。後で再試行するかサーバー所有者に連絡してください。
-password-timeout = パスワード認証がキャンセルされたか時間切れになりました。再接続してください。
-password-tip-set-mm = <gold><u>/password</u></gold> で<yellow>ログインパスワード</yellow>を設定し、アカウントを保護しましょう。
-password-title = アカウント保護
-
 player-only = このコマンドはプレイヤーのみ使用できます
 unknown = 不明
 usage = 使用法
@@ -79,27 +38,61 @@ time-minutes = { $arg0 }分
 
 ## Shared · Menu presentation
 
-bedrock-menu-back = 戻る
-bedrock-menu-hotkey = ショートカット操作（F）
-bedrock-menu-primary = 主操作
-bedrock-menu-scroll-down = 下へ
-bedrock-menu-scroll-up = 上へ
-bedrock-menu-secondary = 副操作
 interface-fov-apply = FOVを適用
-interface-fov-custom = 正確な値を入力
-interface-fov-description = クライアントのFOVに合わせます。メニュー位置のみ変更。初期値は70°。
+interface-fov-custom = カスタム
+interface-fov-description = ゲーム設定の FOV を入力し、メニューの位置を合わせます。
 interface-fov-input = クライアントFOV：30～110の整数
 interface-fov-invalid = 30～110の整数を入力してください。
-interface-fov-title = 視野への適応（FOV）
-interface-scale-current = 現在: { $arg0 }
-interface-scale-description = 文字サイズはメニューサイズに乗算。どちらもホイールで調整可能。
+interface-fov-title = 視野（FOV）
+interface-reduced-motion = 動きを減らす
+interface-reduced-motion-hint = メニューの移動と揺れを減らします。
+interface-scale-adjust-hint = 割合の項目に合わせてスクロールすると調整できます。
 interface-scale-layout-title = メニューサイズ
 interface-scale-menu-title = メニューと文字
-interface-scale-native-hint = この設定はJava版の空間メニュー用です。ネイティブフォームの文字サイズはクライアント設定に従います。
-interface-scale-preview = 文字プレビュー Aa 123
-interface-scale-reset = 両方を100%に戻す
+interface-scale-preview = 例 Aa 123
+interface-scale-reset = 100%に戻す
 interface-scale-text-title = 文字サイズ
+interface-theme-apply = 配色を保存
+interface-theme-charcoal = チャコール
+interface-theme-color = 色（#RRGGBB）
+interface-theme-custom = カスタム
+interface-theme-custom-hint = 現在のテーマの全設定を独立したカスタムテーマにコピーします。
+interface-theme-edit = 配色を編集
+interface-theme-forest = フォレスト
+interface-theme-hint = 自分のメニューにすぐ反映されます。
+interface-theme-invalid = #RRGGBB 形式の色と 0～100 の不透明度を入力してください。
+interface-theme-opacity = 不透明度（0～100%）
+interface-theme-role-accent = アクセント色
+interface-theme-role-button = ボタン背景
+interface-theme-role-button-disabled = 無効なボタン
+interface-theme-role-button-hovered = 指しているボタン
+interface-theme-role-button-pressed = 押しているボタン
+interface-theme-role-button-selected = 選択中のボタン
+interface-theme-role-input = 入力欄の背景
+interface-theme-role-sidebar = サイドバー背景
+interface-theme-role-toolbar = ツールバー背景
+interface-theme-role-tooltip = ヒント背景
+interface-theme-role-window = ウィンドウ背景
+interface-theme-title = メニューテーマ
+interface-theme-warm = ウォーム
+menu-collapse = 折りたたむ
+menu-expand = 展開
+menu-finish-editing = 先に入力を完了してください。
+menu-input-clear = クリア
+menu-input-done = 完了
+menu-input-empty = （空）
+menu-input-single-line = この欄は一行のみ入力できます。
+menu-input-too-long = 長さ: { $arg0 } / { $arg1 }。短くしてから確定してください。
+menu-query-cancel = 入力を中止
+menu-query-hint-rich = { $chatKey } で入力…
+menu-query-single-line = 1行のみ入力できます。入力欄をクリックして再入力してください。
+menu-query-too-long = 長さ { $arg0 } / { $arg1 }。入力欄をクリックして再入力してください。
 menu-rhythm-game-display = リズムゲーム中
+menu-search-empty = 一致する結果はありません
+menu-search-failed = 検索に失敗しました
+menu-search-limit = { $arg0 } / { $arg1 } を表示。検索条件を絞り込んでください。
+menu-search-loading = 検索中…
+menu-search-retry = 再試行
 menu-usage-display-mm = <aqua><bold>メニュー操作中</bold></aqua>
 url-dialog-confirm = 開く
 url-dialog-hint = この後、クライアントでリンクを開く確認がもう一度表示されます。
@@ -109,21 +102,22 @@ url-dialog-title = { $arg0 }を開く
 ## Player · Client and presence
 
 client-mods-undetected-rich = おすすめのMOD：{ $mods }。名前をクリックしてダウンロードできます。
-client-tip-axiom-flight-speed-mm = <white><yellow>左 Alt</yellow> を押しながら <aqua>Axiom</aqua> メニューを開き、右側の縦スライダーで飛行速度を調整できます。<click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click> も使えます。</white>
-client-tip-axiom-intro-rich = { $mod } は建築支援MODです。設計図のコピーと貼り付け、地形・ディスプレイエンティティの編集、ブロック更新なしの設置、壁のすり抜け、複数のホットバー保存に対応しています。名前をクリックしてダウンロードできます。
-client-tip-voxy-intro-rich = { $mod } は少ない負荷で遠くの景色を描画します。低スペックでも高スペックでも試す価値があります。名前をクリックしてダウンロードできます。
+client-tip-axiom-flight-speed-mm = <white><yellow>左 Alt</yellow> を長押しして <aqua>Axiom</aqua> のメニューを開き、右側の縦スライダーで飛行速度を調整できます。<click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click> も使えます。</white>
+client-tip-axiom-intro-rich = { $mod } で建築のコピー・貼り付けや地形・ディスプレイエンティティの編集ができます。名前をクリックするとダウンロードできます。
 client-version-behind-mm = <white>クライアント <yellow>{ $clientVersion }</yellow> はサーバー <green>{ $serverVersion }</green> より古いバージョンです。更新をおすすめします。</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>近くに<gold>{ $count }人</gold>の<gold>透明化</gold>したプレイヤーがいます</yellow> <gray>·</gray> <gray>最寄りまで約{ $distance }ブロック</gray>
 player-bedrock-label = 統合版
+player-web-label = ウェブ
 presence-join-templates =
-    .item-1 = { $player } が裏口からこっそり入ってきました
-    .item-2 = { $player } が秘密の道を見つけました
-    .item-3 = { $player } が草むらから現れました
+    .item-1 = ピンポーン、{ $player } がログインしたよ！
+    .item-2 = わーい、{ $player } だ！
+    .item-3 = { $player }、いらっしゃい！
+# Broadcast to remaining players; the departing player does not receive this message.
 presence-quit-templates =
-    .item-1 = { $player } がそっとログアウトしました
-    .item-2 = { $player } がセーブしに行きました
-    .item-3 = { $player } が現実に呼び戻されました
+    .item-1 = { $player } がログアウトしたよ～
+    .item-2 = ピンポーン、{ $player } がオフラインになったよ
+    .item-3 = オンライン -1、{ $player } がログアウトしたよ
 welcome-first-join-mm = <gold><bold>MIKへようこそ！</bold></gold><newline><gray>まずは<click:open_url:'https://mcmik.top'><yellow>ウェブサイト</yellow></click>と<click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>をご覧ください。<yellow>/menu</yellow>でメインメニューを開くこともできます。</gray>
 welcome-return-mm = <gold><bold>おかえりなさい！</bold></gold><newline><gray>前回の参加から<yellow>{ $arg0 }日</yellow>経過しています。よく使う機能は<yellow>/menu</yellow>から確認できます。</gray>
 
@@ -166,26 +160,83 @@ player-association-time-occurrences = { $arg0 }（{ $arg1 } 件）
 player-association-time-separator = 、
 player-association-time-today = 今日
 
+
+## Player · Account security
+password-already-connected = このアカウントは接続済みです。
+password-already-set = パスワードは設定済みです。変更には /password change を使用してください。
+password-busy = 試行回数が多すぎます。しばらくしてから再試行してください。
+password-change = パスワードを変更
+password-change-done = パスワードを変更しました。
+password-checking = アカウント保護を確認中…
+password-command-description = アカウントのパスワード保護を管理
+password-confirm = 新しいパスワードの確認
+password-conflict = アカウントのセキュリティ状態が変更されました。操作をやり直してください。
+password-cooldown = アカウント認証は一時的に制限されています。{ $arg0 } 秒後に再試行してください。
+password-current = 現在のパスワード
+password-denied = このアカウントのパスワードをリセットする権限がありません。
+password-disabled = パスワード：未設定
+password-enabled = パスワード：設定済み
+password-invalid = パスワードが違います。再試行してください。
+password-keep-role = 管理・保守担当者はパスワードを削除できません。
+password-login = ログイン
+password-login-expired = ログイン認証が無効になりました。再接続してください。
+password-login-hint = 本サーバーのパスワードを入力してください。忘れた場合は管理者にリセットを依頼してください。
+password-mismatch = 新しいパスワードが一致しません。
+password-new = 新しいパスワード
+password-nomination-required = 管理者への立候補前にパスワードを設定してください：/password set
+password-not-set = パスワードが未設定です。/password set で設定できます。
+password-remove = パスワードを削除
+password-remove-done = パスワードを削除しました。
+password-remove-question = 削除後はログイン時にパスワードを確認しなくなります。現在のパスワードを入力して確定してください。
+password-required-application = 管理者への立候補または任命が処理中のため、パスワードを削除できません。
+password-required-role = 管理・保守担当者のアカウントにはパスワードが必要です。権限のある担当者にリセットを依頼してからログインしてください。
+password-reset = パスワードをリセット
+password-reset-console = { $arg0 } のパスワードをリセットしました：{ $arg1 }。本人確認後、信頼できる経路で渡してください。
+password-reset-done = { $arg0 } のパスワードをリセットしました。今すぐコピーし、本人確認後に渡してください。再表示はできません。
+password-reset-question = { $arg0 } のパスワードをリセットしますか？古いパスワードは無効になり、接続は切断されます。自分のパスワードで確認してください。
+password-retry = 再試行
+password-rules = { $arg0 }～{ $arg1 } 文字で入力してください。プレイヤー名や一般的なパスワードは使用できません。
+password-set = パスワードを設定
+password-set-done = パスワードを設定しました。
+password-set-first = パスワードを設定してから立候補
+password-storage = アカウント保護を利用できません。後で再試行するかサーバー所有者に連絡してください。
+password-timeout = パスワード認証がキャンセルされたか時間切れになりました。再接続してください。
+password-tip-set-mm = <gold><u>/password</u></gold> で<yellow>ログインパスワード</yellow>を設定し、アカウントを保護しましょう。
+password-title = アカウント保護
+
 ## Player · Profile and tab list
 
-nametag-clear-all-error = ネームタグの消去中にエラーが発生しました。しばらくしてからもう一度お試しください
-nametag-clear-all-success = ✔ すべてのネームタグを消去しました
-nametag-clear-error = { $arg0 }の消去中にエラーが発生しました
-nametag-clear-success = ✔ { $arg0 }を消去しました
-nametag-click-fill-command = クリックしてコマンドを入力
+nametag-cancel = キャンセル
+nametag-clear = 消去
+nametag-clear-hint = カスタム設定のみ削除します。継承された装飾は残る場合があります。
 nametag-command-description = ネームタグをカスタマイズ
-nametag-copy-hover = MiniMessageのソースをクリップボードにコピー
+nametag-confirm = 確定
+nametag-conflict = 現在の値が変更されました。現在の表示を確認し、置き換える場合はもう一度確定してください。
+nametag-copy-hint = 接頭辞・接尾辞の原文をチャットに送信
 nametag-copy-label = [コピー]
-nametag-effect-label = 表示結果
-nametag-empty-content-rich = 内容を空にはできません。消去するには{ $command }を使用してください
-nametag-format-docs = 書式設定の説明
+nametag-copy-sent = { $arg0 } のスタイル原文をチャットに送りました。
+nametag-current = 現在の表示
+nametag-edit = 編集
+nametag-edit-ended = 編集を終了しました。続けるには再度編集を選んでください。
+nametag-edit-prompt = T で{ $arg0 }を入力（MiniMessage、自分だけに表示）。
+nametag-finish-field = 先に編集中の項目を確定またはキャンセルしてください。
+nametag-input-invalid = 形式が無効です。1 行の MiniMessage を送信するか、消去を選んでください。
 nametag-leading-label = 名前の前
-nametag-no-permission = このコマンドを使用する権限がありません
-nametag-online-editor = オンラインエディター
+nametag-mine = 自分のネームタグ
+nametag-next = 次へ
+nametag-no-changes = 変更なし
+nametag-no-permission = メンバー以上がネームタグを編集できます。スタイルの確認は引き続き可能です。
+nametag-no-players = ネームタグのスタイルを設定したプレイヤーはいません
+nametag-page = { $arg0 } / { $arg1 } ページ
+nametag-players = プレイヤーのスタイル
 nametag-preview-label = プレビュー
-nametag-sample-message = サンプルメッセージ
-nametag-set-error = { $arg0 }の設定中にエラーが発生しました。しばらくしてからもう一度お試しください
+nametag-previous = 前へ
+nametag-refresh = 更新
+nametag-saving = 保存中…
+nametag-set-error = 保存できませんでした：{ $arg0 }。再試行してください。現在の表示は上にあります。
 nametag-set-success = ✔ { $arg0 }を設定しました
+nametag-styles-failed = スタイルを読み込めませんでした。更新して再試行してください。
+nametag-styles-loading = プレイヤーのスタイルを読み込み中…
 nametag-tip-customize-mm = <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> で<light_purple>名前の接頭辞と接尾辞</light_purple>をカスタマイズできます。
 nametag-title = ネームタグ
 nametag-too-long = { $arg0 }は長すぎます。最大{ $arg1 }文字までです
@@ -220,6 +271,7 @@ fly-enabled = 飛行を有効にしました
 fly-native-mode = /fly の権限を無効にしました。このゲームモードでは引き続き飛行できます。
 fly-speed-click = 飛行速度を { $arg0 }x に設定
 fly-speed-current = 飛行速度: { $arg0 }x
+fly-speed-limited = 探索による負荷のため飛行速度を一時的に { $arg0 }x に制限しています。設定値は { $arg1 }x のままです。
 fly-speed-presets = プリセット
 fly-speed-reset = 飛行速度を 1x に戻しました
 fly-speed-reset-action = リセット
@@ -228,10 +280,8 @@ fly-speed-set = 飛行速度を { $arg0 }x に設定しました
 fly-state-disabled = 無効
 fly-state-enabled = 有効
 fly-status = 飛行: { $arg0 } | 速度: { $arg1 }x
-flyspeed-command-description = 個人飛行速度を表示または設定
 home-action-create = ホームを作成
 home-action-delete = ホームを削除
-home-action-icon = 手持ちのアイテムをアイコンに設定
 home-action-teleport = テレポート
 home-action-update = 場所を更新
 home-already-exists = 同じ名前のホームが既にあります
@@ -249,11 +299,6 @@ home-distance-blocks = { $arg0 }ブロック
 home-distance-other-world = 別のワールド
 home-empty-description = ホームに設定したい場所に立ってください
 home-empty-title = ホームがありません
-home-icon = アイコン: { $arg0 }{ $arg1 }
-home-icon-default-note = · デフォルト
-home-icon-hand-invalid = 利き手に持っているアイテムはホームのアイコンに使用できません
-home-icon-updated-rich = ホーム「{ $home }」のアイコンを更新しました
-home-invalid-icon = このアイテムはホームのアイコンに使用できません
 home-invalid-name = ホーム名には < > : を使用できません
 home-list-rich = ホーム: { $homes }
 home-location = 座標: { $arg0 }, { $arg1 }, { $arg2 }
@@ -262,20 +307,20 @@ home-max-reached = 設定できるホームは最大{ $arg0 }件です
 home-menu-title = ホーム
 home-no-homes = ホームがまだ設定されていません
 home-not-found-rich = ホーム「{ $home }」は存在しません
+home-search-placeholder = 家の名前を検索…
+home-search-empty = 該当するホームがありません
 home-set-command-description = 現在地をホームに設定
 home-set-rich = ホーム「{ $home }」を設定しました
 home-set-usage-desc = 現在地をホームに設定
 home-summary-count = 設定数: { $arg0 } / { $arg1 }
-home-teleport-command-description = ホームへテレポート
 home-teleport-failed = テレポートに失敗しました。もう一度お試しください
 home-teleported-rich = ホーム「{ $home }」へテレポートしました
 home-tip-create-mm = <green><u><click:suggest_command:'/sethome '>/sethome 名前</click></u></green> で現在地を保存し、<aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> で戻れます。
-home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> でホームメニューを開き、行き先を選ぶとテレポートできます。
+home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> でホームメニューを開き、行き先を選んで「{ home-action-teleport }」を押してください。
 home-updated-rich = ホーム「{ $home }」の位置を更新しました
 home-usage-book = コマンドヘルプ
 home-usage-delhome = /delhome <name>  ホームを削除
-home-usage-home = /home tp <name>  ホームへ直接テレポート
-home-usage-icon = /home icon <material> <name>  アイコンを設定
+home-usage-home = /home <name>  ホームへ直接テレポート
 home-usage-name-rule = ホーム名には < > : を使用できません
 home-usage-sethome = /sethome <name>  現在地を保存
 home-world = ワールド: { $arg0 }
@@ -303,10 +348,6 @@ teleport-request-none = 保留中のテレポート申請はありません
 teleport-request-received = { $sender }があなたをテレポートしようとしています：{ $command }
 teleport-request-rejected = テレポート申請を拒否しました
 teleport-request-sent = { $player }にテレポート申請を送信しました
-teleport-summary-afk = 常に許可、AFK中のみ拒否
-teleport-summary-allow = 他のプレイヤーによるテレポートを常に許可
-teleport-summary-consent = 他のプレイヤーによるテレポートには自分の承認が必要
-teleport-summary-deny = 他のプレイヤーによるテレポートを常に拒否
 tpany-command-description = オンラインまたはオフラインのプレイヤーの場所へテレポート
 tpany-done-offline-rich = { $player }の最終確認地点へテレポートしました { $world } { $location }
 tpany-done-online-rich = { $player }の現在地へテレポートしました
@@ -317,14 +358,13 @@ tpany-usage-desc = オフライン時の記録を含むプレイヤーの場所�
 
 ## Player · PVP
 
-pvp-admin-menu-title = PvP管理 - { $arg0 }/{ $arg1 }ページ
+pvp-admin-menu-title = PvP管理
 pvp-allow-mounted-damage = 騎乗中のMobへの攻撃を許可
 pvp-allow-mounted-damage-desc = お互いのPvPが有効な場合、他のプレイヤーが騎乗中のMobを攻撃できます
 pvp-auto-enable-desc = PvPが有効なプレイヤーを2回連続で攻撃すると有効化
 pvp-auto-enable-label = 自動有効化
 pvp-auto-enable-warning-actionbar-mm = <yellow>もう一度攻撃するとPvPが自動で有効になります</yellow>
 pvp-auto-enabled-actionbar-mm = <green>PvPが自動で有効になりました</green>
-pvp-back-admin = PvP管理に戻る
 pvp-combat-locked-mm = <red>戦闘中はPvPを無効にできません</red> <dark_gray>|</dark_gray> <gray>残り時間：<yellow>{ $arg0 }</yellow>秒</gray>
 pvp-combat-tag-label = 戦闘クールダウン
 pvp-combat-tag-value = { $arg0 }秒
@@ -345,12 +385,12 @@ pvp-menu-title = PvP設定
 pvp-mob-protected-actionbar-mm = <yellow>このMobはPvPダメージから保護されています</yellow>
 pvp-mob-protection-label = Mobの保護
 pvp-mounted-damage-label = 騎乗中のMobへのダメージ
-pvp-next-page = 次のページ
 pvp-no-permission-mm = <red>他のプレイヤーのPvP設定を管理する権限がありません</red>
 pvp-player-not-found-mm = <red>オンラインのプレイヤーが見つかりません</red>
-pvp-prev-page = 前のページ
 pvp-protect-mobs = 自分のMobを保護
 pvp-protect-mobs-desc = 自分が手懐けた、または騎乗中のMobを保護
+pvp-quick-combat-cooldown = 戦闘クールダウン：残り{ $arg0 }秒
+pvp-quick-override = 一時的なルールによりPvPが制御されています。個人設定は設定画面で変更できます。
 pvp-set-by-staff-mm = <aqua>スタッフがあなたのPvPを次の状態に設定しました:</aqua> <yellow>{ $arg0 }</yellow>
 pvp-set-other = { $arg0 }のPvPを{ $arg1 }に設定しました
 pvp-set-other-rich = { $player }のPvPを{ $state }に設定しました
@@ -364,7 +404,7 @@ pvp-summary-disabled = PvP: オフ
 pvp-summary-enabled = PvP: オン
 pvp-target-disabled-actionbar-mm = <yellow>そのプレイヤーはPvPを有効にしていません</yellow>
 pvp-target-menu-title = PvP設定 - { $arg0 }
-pvp-tip-protection-mm = <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> で自分のPVPを切り替えられます。互いに攻撃するには<green>双方で有効にしてください</green>。
+pvp-tip-protection-mm = <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> で自分のPVPを切り替えられます。<green>両方のプレイヤーが有効にすると</green>、互いに攻撃できます。
 pvp-toggled-off-mm = <gray>PvPを無効にしました</gray> <dark_gray>|</dark_gray> <gray>他のプレイヤーから攻撃されません</gray>
 pvp-toggled-on-mm = <green>PvPを有効にしました</green> <dark_gray>|</dark_gray> <gray>PvPが有効なプレイヤーと戦闘できます</gray>
 
@@ -418,21 +458,21 @@ self-kick-reason-too-long = キック理由は{ $arg0 }文字以内にしてく�
 # $person: second for the actor; third for other viewers and console.
 self-kick-with-reason = { $person ->
         [second] 自分の操作でサーバーから退出しました。理由：{ $reason }
-       *[third] { $player } は次の理由で自分をサーバーからキックしました：{ $reason }
+       *[third] { $player } が自分の操作でサーバーから退出しました。理由：{ $reason }
     }
-    .item-1 = { $player } は自分をキックしました。なんと理由は：{ $reason }
-    .item-2 = { $player } は { $reason } が理由で本当に自分をキックしました！
-    .item-3 = { $player } は自らサーバーを離れ、こう書き残しました：{ $reason }
-    .item-4 = { $player } はセルフキックを選びました：{ $reason }
+    .item-1 = { $player } が自分の操作でサーバーから退出しました。理由：{ $reason }
+    .item-2 = { $player } がログアウトしました。メッセージ：{ $reason }
+    .item-3 = { $player } がサーバーから退出しました。メッセージ：{ $reason }
+    .item-4 = { $player } が退出時にメモを残しました：{ $reason }
 # $person: second for the actor; third for other viewers and console.
 self-kick-without-reason = { $person ->
         [second] 自分の操作でサーバーから退出しました。
-       *[third] { $player } は自分をサーバーからキックしました。
+       *[third] { $player } が自分の操作でサーバーから退出しました。
     }
-    .item-1 = { $player } は本当に自分をキックしてしまいました！
-    .item-2 = { $player } は何も言わずにサーバーを去りました。
-    .item-3 = { $player } は見事なセルフキックを披露しました。
-    .item-4 = { $player } は自らサーバー退出ボタンを押しました。
+    .item-1 = { $player } が自分の操作でサーバーから退出しました。
+    .item-2 = { $player } がログアウトしたよ～
+    .item-3 = ピンポーン、{ $player } がオフラインになったよ
+    .item-4 = オンライン -1、{ $player } がログアウトしたよ
 
 ## Community · Chat and mentions
 
@@ -456,7 +496,7 @@ chat-private-label = MSG
 chat-private-no-reply-target = 直前のプライベートチャット相手はオンラインではありません
 chat-private-self = 自分とはプライベートチャットを開始できません
 chat-private-target-not-found = オンラインのプレイヤーが見つかりません: { $arg0 }
-chat-private-target-offline = プライベートチャット相手がオフラインになったため、パブリックチャットに戻りました
+chat-private-target-offline = 相手はオフラインです。接続を待つか別のチャンネルを選んでください
 chat-private-tip-channel-mm = <aqua><u><click:suggest_command:'/msg '>/msg プレイヤー</click></u></aqua> で個人チャットに切り替え、<yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> で公開チャットに戻れます。
 chat-public-command-description = パブリックチャットに切り替え
 chat-public-enter = パブリックチャットに切り替えました
@@ -467,6 +507,7 @@ chat-social-bound-player-label = 連携プレイヤー
 chat-social-name-label = ソーシャル名
 chat-social-unbound = Minecraftプレイヤーと未連携
 chat-staff-command-description = スタッフチャットに切り替え
+chat-staff-label = スタッフ
 chat-staff-permission-missing = スタッフチャットの権限がないため、パブリックチャットに戻りました
 mention-action-bar = アクションバー通知
 mention-action-bar-text = { $sender }からメンションされました
@@ -474,28 +515,28 @@ mention-alerts = メンション通知
 mention-menu-title = メンション通知
 mention-mute-afk = AFK中はミュート
 mention-sound = 通知音
-mention-summary-action-bar = アクションバー
-mention-summary-disabled = 通知: オフ
-mention-summary-enabled = 通知: オン
-mention-summary-enabled-afk = 通知: オン、AFK中はミュート
-mention-summary-modes-afk = { $arg0 }、AFK中はミュート
-mention-summary-sound = 通知音
 staffchat-enter = スタッフチャットに参加しました
 
 ## Community · Announcements
 
+announcement-count = 公告 { $arg0 } 件
 announcement-empty = お知らせはありません
 announcement-first-page = 最新のお知らせです
 announcement-last-page = 最も古いお知らせです
+announcement-latest = 最新の公告
+announcement-list-newer = 新しい一覧
+announcement-list-older = 古い一覧
 announcement-more-count = ほか { $arg0 } 件は未表示
 announcement-new-count = 新着 { $arg0 } 件
 announcement-newer = 新しいお知らせ
+announcement-next-page = 次のページ
 announcement-older = 以前のお知らせ
+announcement-page = { $arg0 } / { $arg1 } ページ
+announcement-previous-page = 前のページ
 announcement-reload = お知らせを再読み込み
 announcement-reload-command-description = お知らせファイルを再読み込み
 announcement-reload-failed = お知らせを再読み込みできませんでした。以前のお知らせは保持されています
 announcement-reloaded = お知らせを再読み込みしました
-announcement-scroll-hint = ホイールで左右に閲覧
 announcement-unread-count = 未読 { $arg0 } 件
 announcement-updated = お知らせを更新しました
 announcement-view-all = すべてのお知らせを見る
@@ -663,7 +704,41 @@ governance-active-header = ─── 活動中のメンバー資格 ───
 governance-active-member = 現在メンバーである
 governance-active-member-age = メンバーになってから30日以上
 governance-active-playtime = 過去60日の有効プレイ時間が6時間以上（現在 { $arg0 }）
+governance-activity-action = { $arg0 ->
+    [confirm] 賛同を確定
+    [vote] 内容を読んで投票
+    *[details] 詳細を見る
+    }
+governance-activity-all = すべて表示（{ $arg0 }）
+governance-activity-closed = 終了
+governance-activity-confirm-petition = この請願に賛同しますか？必要人数に達すると解任投票が始まります。
+governance-activity-needed = あと { $arg0 } 人必要
+governance-activity-proposal = { $arg0 ->
+    [appointment] { $arg1 } を管理者に任命
+    [removal] { $arg1 } の管理者職を解任
+    [petition] { $arg1 } の解任請願
+    *[ban] { $arg1 } のBANに関する投票
+    }
+governance-activity-remaining = { $arg1 ->
+    [days] 残り：{ governance-days }
+    [hours] 残り：{ governance-hours }
+    *[minutes] 残り：{ governance-minutes }
+    }
+governance-activity-status = { $arg0 ->
+    [available] 投票可能
+    [voted] 投票済み
+    [join] 賛同可能
+    [joined] 賛同済み
+    [closed] 終了
+    *[view] 閲覧のみ
+    }
 governance-already-moderator = すでに管理者です。
+governance-application-status = { $arg0 ->
+    [open] 任命投票が進行中です
+    [pending] 承認済み・任命待ち
+    [blocked] 申請条件を満たしていません
+   *[ready] 申請できます
+    }
 governance-ballot-recorded = 匿名投票を「{ $arg0 }」として記録しました。締切前なら変更できます。
 governance-ban-details = 提案者 { $arg0 } · 期間 { $arg1 } · 理由：{ $arg2 }
 governance-ban-suffix = · 期間 { $arg0 } · 理由：{ $arg1 }
@@ -673,7 +748,6 @@ governance-choice-yes = 賛成
 governance-command-description = 運営の資格と投票を確認
 governance-custodian-no-nomination = 保守担当者は管理者の任免に参加しません。
 governance-custodian-no-resign = 保守担当者には管理者の辞任手続きは適用されません。
-# $arg0 (Number): duration; locale decides the unit form.
 governance-days = { $arg0 }日
 governance-error-ban-already-active = このプレイヤーには有効なBANがあります。
 governance-error-ban-proposer-ineligible = BAN投票を提案できるのは活動中のメンバーだけです。
@@ -685,10 +759,12 @@ governance-error-pause-already-active = このプレイヤーの昇格はすで�
 governance-error-pause-already-member = このプレイヤーはすでにメンバーです。昇格を停止する必要はありません。
 governance-error-pause-end-invalid = 昇格停止の終了時刻は現在より後にしてください。
 governance-error-player-unknown = このプレイヤーの運営記録はまだありません。
+governance-error-removal-petition-closed = この請願は終了したか、新しい申請に置き換わりました。
 governance-error-removal-requires-petition = 解任投票には必要人数の賛同が必要です。
 governance-error-removal-self = 自分の解任には賛同できません。
 governance-error-removal-sponsor-ineligible = 解任に賛同できるのは活動中のメンバーだけです。
 governance-error-removal-sponsors-too-few = 対象者以外に活動中のメンバーが2人以上必要です。
+governance-error-removal-target-not-moderator = このプレイヤーは解任対象の管理者ではなくなりました。
 governance-error-removal-vote-open = この管理者の解任投票はすでに進行中です。
 governance-error-termination-reason-invalid = この終了理由は投票の種類に適用できません。
 governance-error-vote-already-open = このプレイヤーには同種の進行中の投票があります。
@@ -705,7 +781,6 @@ governance-failure-quorum = 定足数に達しなかった
 governance-failure-two-thirds = 賛成票が棄権を除く票の3分の2に届かなかった
 governance-history-header = ─── 最近の投票結果 ───
 governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
-# $arg0 (Number): duration; locale decides the unit form.
 governance-hours = { $arg0 }時間
 governance-inactive-removal = { $arg0 } は180日間ログインしなかったため、管理者から自動的に退任しました。
 governance-invalid-choice = yes、no、abstain から選んでください。
@@ -714,40 +789,50 @@ governance-kind-appointment = 任命
 governance-kind-ban = BAN
 governance-kind-removal = 解任
 governance-legacy-ban-kick = 以前の運営投票が可決されました。{ $arg0 } のBANです。理由：{ $arg1 }
-governance-menu-actions = 操作
+governance-menu-already-sponsored = 署名済み
+governance-menu-application = 申請状況
 governance-menu-back = 戻る
 governance-menu-cancel = キャンセル
+governance-menu-completed = 終了済み
 governance-menu-confirm = 確認
-governance-menu-confirm-nominate = 自分のモデレーター任命投票を始めますか？
+governance-menu-confirm-nominate = 申請すると、あなたのモデレーター任命投票が始まります。
 governance-menu-confirm-resign = モデレーターを辞任しますか？
 governance-menu-confirm-sponsor = この解任請願を支持しますか？
 governance-menu-confirm-withdraw = モデレーターへの立候補を取り下げますか？
-governance-menu-find-player = 別のプレイヤーを探す
-governance-menu-history = 投票履歴
+governance-menu-custodian-duties = サーバーの保守と管理。
+governance-menu-identity = 身分
+governance-menu-identity-hint = 昇格条件と活動記録。
+governance-menu-join-petition = 解任請願を支持
 governance-menu-loading = 運営状況を読み込み中…
-governance-menu-new-petition = 解任請願を始める
+governance-menu-matters = 運営の議題
+governance-menu-moderator-duties = 違反への対応とプレイヤー支援。
 governance-menu-nominate = モデレーターに立候補
-governance-menu-nomination-open = 任命投票が進行中
+governance-menu-offline = オフライン
+governance-menu-ongoing = 進行中
+governance-menu-online = オンライン
 governance-menu-pause = 新人昇格を一時停止
 governance-menu-pause-appeal = 異議申し立て先
 governance-menu-pause-duration = 期間（例: 2d）
 governance-menu-pause-reason = 理由
+governance-menu-pause-until = 終了日時
+governance-menu-pending-application = 可決・適用待ち
 governance-menu-petition-row = { $arg0 } · 支持 { $arg1 }/{ $arg2 } 人
 governance-menu-petitions = 解任請願
 governance-menu-player-name = プレイヤー名
 governance-menu-players = プレイヤー管理
-governance-menu-recent-results = 最近の投票結果
 governance-menu-refresh = 更新
+governance-menu-related = 最近の関連記録
+governance-menu-related-matters = 関連する議題を見る
 governance-menu-resign = モデレーターを辞任
 governance-menu-resume = 昇格停止を解除
 governance-menu-resume-reason = 解除理由
 governance-menu-staff-only = モデレーターと管理責任者のみ操作できます。
-governance-menu-status = 自分の状態
-governance-menu-target = モデレーター名
+governance-menu-staff-search = 管理者を検索
+governance-menu-subject-filter = { $arg0 } · 絞り込みを解除 ×
+governance-menu-team = 公開管理者一覧
+governance-menu-team-empty = 該当する管理者はいません
 governance-menu-title = コミュニティ運営
-governance-menu-votes = 進行中の投票
 governance-menu-withdraw = 立候補を取り下げる
-# $arg0 (Number): duration; locale decides the unit form.
 governance-minutes = { $arg0 }分
 governance-no-active-ban = 有効なBANがない
 governance-no-active-pause = 有効な昇格停止がない
@@ -760,7 +845,6 @@ governance-own-choice-closed = あなたの選択：{ $arg0 }
 governance-own-choice-open = あなたの選択：{ $arg0 }。締切前なら変更できます。
 governance-own-not-voted = 有権者でしたが投票していません。
 governance-own-not-voted-hint = まだ投票していません。「運営」を開いてこの投票を選んでください。
-governance-own-not-voted-open = まだ投票していません。
 governance-own-not-voter = 今回の有権者名簿に入っていません。
 governance-own-voted = 投票済み
 governance-pause-cleared = { $arg0 } の昇格停止を解除しました。
@@ -794,10 +878,8 @@ governance-result-terminated = 終了（{ $arg0 }）
 governance-resume-notice = 昇格停止が解除されました。理由：{ $arg0 }
 governance-resume-reason-required = 解除理由を入力してください。
 governance-role-lookup-error = 管理者資格を確認できません。保守担当者に連絡してください。
-# $arg0 (Number): duration; locale decides the unit form.
 governance-seconds = { $arg0 }秒
 governance-storage-error = 運営データの操作に失敗しました。保守担当者に連絡してください。
-governance-target-not-moderator = { $arg0 } は現在、管理者ではありません。
 governance-termination-inactive = 長期不在により管理者が退任
 governance-termination-ineligible = 候補者が活動中のメンバー資格を喪失
 governance-termination-resigned = 管理者が辞任
@@ -820,13 +902,10 @@ plot-admin-created = { $arg1 } の区画 { $arg0 } を登録しました · { $a
 plot-allowed = 有効
 plot-area-changed = 確認中に範囲が変更されました。更新して再確認してください。
 plot-area-confirm = 「{ $arg0 }」の範囲を選択範囲（{ $arg1 } セル）に置き換えますか？建物は削除されません。
-plot-area-hint = //pos1 → //pos2 → 保存。木の斧の左右クリックでも選点。複数範囲は追加／減算。
+plot-area-hint = 木の斧の左右クリックか //pos1、//pos2 で角を指定し、戻って保存。
 plot-area-replace-save = 範囲を置き換えて保存
 plot-area-save = 範囲を保存
 plot-area-saved = 「{ $arg0 }」の範囲を保存しました。
-plot-arrival-removed = 到着地点を削除しました。
-plot-arrival-set = 到着地点を保存しました。
-plot-arrival-text-saved = 到着時のタイトルを保存しました。
 plot-atmosphere-saved = 環境設定を保存しました。
 plot-back = 戻る
 plot-board-auto-notify-result = 通知を { $arg0 } 人分設定しました。
@@ -837,6 +916,7 @@ plot-board-header = コミュニティの告知と意見（最新 { $arg0 } 件�
 plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
 plot-board-kind-notice = お知らせ
 plot-board-kind-objection = 異議
+plot-board-loading = 公示記録を読み込み中…
 plot-board-menu = コミュニティ掲示板
 plot-board-notice-alert = { $arg0 } が公示を投稿しました：{ $arg1 } · { $arg2 }
 plot-board-objection-alert = { $arg0 } が異議を提出しました：{ $arg1 } · { $arg2 }
@@ -855,20 +935,14 @@ plot-board-unavailable = 掲示板を読み込めません。後で再試行す�
 plot-board-withdrawal-alert = { $arg0 } が異議を取り下げました：{ $arg1 } · { $arg2 }
 plot-board-write-failed = 掲示板を更新できませんでした。後でもう一度お試しください。
 plot-command-blocked = 区画保護によりこのコマンドをブロックしました。自分の区画内で/fillや/setblockを直接使ってください。複雑な/executeは管理者に確認を依頼してください。
-plot-command-description = 建築区画と公共プロジェクトを管理
+plot-command-description = 建築区画を管理
 plot-created = 区画{ $arg0 }を作成しました · { $arg1 }
 plot-created-for-you = { $arg1 } があなたの区画 { $arg0 } を登録しました。
 plot-deleted = 区画を解放しました。建物は残ります。
 plot-denied = 無効
-plot-empty-summary = 現在地に区画はありません。
 plot-error-admin-owner-only = 管理権限を持つメンバーの変更には、メンバー管理と権限管理の両方が必要です。
 plot-error-area-disconnected = 土地はつながった一つの範囲である必要があります。
 plot-error-args = 引数が無効か不足しています。/plot helpを使ってください。
-plot-error-arrival-location = 建築済みの範囲内にある安全な床の上に立ってください。
-plot-error-arrival-missing = 到着地点は未設定です。
-plot-error-arrival-private = この非公開プロジェクトには訪問できません。
-plot-error-arrival-text = タイトルが無効です。1 行のみ使用でき、表示文字数はタイトル 32 字、サブタイトル 64 字までです。
-plot-error-arrival-unsafe = 到着地点が利用できないか、安全ではありません。
 plot-error-busy = 区画データを保存中です。この操作は送信されていません。後で再試行してください。
 plot-error-flag = 不明な権限です。権限一覧から操作を選んでください。
 plot-error-id = 区画IDが見つからないか、複数に一致します。/plot listを使ってください。
@@ -888,12 +962,10 @@ plot-error-selection = //pos1 と //pos2 で2つの角を指定してくださ�
 plot-error-selection-changed = 選択範囲が変わりました。もう一度確認してください。
 plot-error-staff-only = 他のプレイヤーの区画を管理・登録できるのはモデレーターまたは保守担当者だけです。
 plot-error-storage = 区画の操作に失敗しました。時間をおいて再試行するか、管理者に連絡してください。
-plot-error-subplot-arrival = 先に親区画の訪問地点を選択範囲外へ移してください。
 plot-error-subplot-children = 親区画を解放する前に子区画を解放してください。
 plot-error-subplot-depth = 子区画は一階層のみ作成できます。
 plot-error-subplot-disconnected = 選択した建築セルがつながっていません。部分ごとに分けてください。
 plot-error-subplot-overlap = 選択範囲が別の子区画と重なっています。
-plot-error-subplot-own-arrival = 子区画の訪問地点を新しい範囲内に残すか、先に移してください。
 plot-error-subplot-owner = この子区画操作の権限がありません。
 plot-error-subplot-parent = 両端を親区画の登録済み建築セル内に指定してください。
 plot-error-subplot-supervisor-member = 親区画の所有者はすでに監督権を持つため、メンバー登録は不要です。
@@ -914,16 +986,10 @@ plot-member-draft-submit = プレビューして確定
 plot-member-draft-title = メンバー草案 · { $arg0 }
 plot-member-permissions = 権限
 plot-member-removed = プロジェクトのメンバーを削除しました。
-plot-menu-access = 権限とメンバー
-plot-menu-access-by-settings = アクセス設定に従う
-plot-menu-admin = 区画管理者を追加
-plot-menu-arrival = 到着地点
-plot-menu-arrival-subtitle = サブタイトル（MiniMessage、任意）
-plot-menu-arrival-text = 到着時のタイトル
-plot-menu-arrival-title = タイトル（MiniMessage、空欄ならプロジェクト名）
+plot-menu-access = メンバーと権限
+plot-menu-add-member = メンバーを追加
 plot-menu-atmosphere = 環境
 plot-menu-clear = 晴れ
-plot-menu-collaborator = 共同制作者を追加
 plot-menu-confirm-delete = { $arg0 } の登録を削除しますか？保護、メンバー権限、設定が削除され、元に戻せません。建物は残ります。
 plot-menu-confirm-subplot-transfer = { $arg0 } を { $arg1 } に譲渡しますか？親区画の所有者は管理権を保ちます。
 plot-menu-confirm-transfer = 「{ $arg0 }」の管理権を { $arg1 } に移しますか？あなたはアクセス権を失います。作品の既存の著作者表示は変わりません。
@@ -944,27 +1010,22 @@ plot-menu-group-collaborator = 共同作業者
 plot-menu-group-member = メンバーの初期権限
 plot-menu-group-newcomer = 新人の初期権限
 plot-menu-group-owner = 区画の所有者
+plot-menu-here = 現在地
 plot-menu-manage = メンバーの区画を管理
 plot-menu-managed-empty = このプレイヤーの区画はまだありません。
 plot-menu-managed-title = { $arg0 } の区画
 plot-menu-members = メンバー（{ $arg0 } 人）
-plot-menu-my-access = あなたの権限: { $arg0 } · { $arg1 }
 plot-menu-name = プロジェクト名
 plot-menu-owner = 所有者：{ $arg0 }
 plot-menu-parent-supervisor = 親区画の所有者: { $arg0 } · 監督権
 plot-menu-player = プレイヤー名またはUUID
-plot-menu-project-kind = プロジェクト種別
-plot-menu-public-destinations = 公開の訪問先
-plot-menu-public-destinations-empty = 到着地点が設定された公開プロジェクトはまだありません。
 plot-menu-rain = 降水
-plot-menu-record-id = 記録 ID。古い記録は完全な ID を入力
+plot-menu-record-search = 記録IDまたは件名
 plot-menu-related-notice = 関連する告知を見る
-plot-menu-remove-arrival = 到着地点を削除
 plot-menu-remove-member = メンバーを削除
 plot-menu-rename = プロジェクト名を変更
 plot-menu-rule = 裁定を記録
 plot-menu-ruling = 裁定理由を入力（8～1000 文字）
-plot-menu-set-arrival = ここを到着地点に設定
 plot-menu-set-role = { $arg0 }に変更
 plot-menu-settings = プロジェクト設定
 plot-menu-submit = 適用
@@ -975,28 +1036,8 @@ plot-menu-subplots = 子区画 ({ $arg0 })
 plot-menu-time = 時刻
 plot-menu-time-input = 時刻（HH:mm）
 plot-menu-transfer = 区画の所有権を移転
-plot-menu-visit = プロジェクトを訪問
 plot-menu-weather = 天候
 plot-menu-withdraw = 意見を取り下げる
-plot-model-fit = 全境界を表示
-plot-model-focus = 周辺にフォーカス
-plot-model-layer-down = 断面を1ブロック下げる
-plot-model-layer-up = 断面を1ブロック上げる
-plot-model-legend = 青緑：保存済み · 緑/金：角1/2 · 紫：保存する境界 · 白/赤：自分/向き
-plot-model-level = 断面 Y ≤ { $arg0 }（プレビューのみ）
-plot-model-limited = モデルのサンプリングや詳細を減らしています。近くや特定の矩形に絞ると詳しく表示できます。境界のみの表示で端を確認できます。
-plot-model-north-up = 上面表示は北が上です。回転するには3D表示に戻してください。
-plot-model-perspective = 3D表示
-plot-model-preparing = バックグラウンドで境界の計算と範囲の検証を実行中… 完了すると自動更新されます。
-plot-model-progress = モデル読み込み中：{ $arg0 }%…
-plot-model-rotate-left = ↶ 左に回転
-plot-model-rotate-right = ↷ 右に回転
-plot-model-show-all = 高さをすべて表示
-plot-model-slice = 現在の階で切断
-plot-model-terrain = 建物と地形を表示
-plot-model-top = 上面表示
-plot-model-unknown = 未読込のサンプル：{ $arg0 }（灰色）。チャンクは強制読込しません。
-plot-model-wireframe = 境界のみ
 plot-no-here = ここには保護された区画がありません。
 plot-notice-board = 区画の掲示板
 plot-notice-cleared = 掲示板を消去しました
@@ -1038,7 +1079,6 @@ plot-permission-manage-area = 範囲の変更
 plot-permission-manage-members = メンバーの管理
 plot-permission-manage-permissions = 権限の管理
 plot-permission-manage-settings = 区画設定の変更
-plot-permission-management = 区画設定と所有権
 plot-permission-modify = ブロック変更と施肥
 plot-permission-operation = 操作
 plot-permission-personal = 個人の権限
@@ -1061,16 +1101,15 @@ plot-permission-transfer = 所有権の譲渡
 plot-permission-workstation = 設備と作業台を使う
 plot-pos1 = 始点
 plot-pos2 = 終点
-plot-private = 非公開プロジェクト
-plot-public = 公開プロジェクト
-plot-public-set = プロジェクト種別：{ $arg0 }。
+plot-private = 非公開
+plot-public = 公開
 plot-region-adjust = この矩形を調整
 plot-region-apply = 矩形の調整を完了
 plot-region-cancel = 矩形の調整をキャンセル
 plot-region-changed = 選択範囲が変わりました。矩形を選び直してください。
 plot-region-delete = この矩形を削除
 plot-region-delete-confirm = 矩形 #{ $arg0 } を下書きから削除しますか？建物は残ります。区画を保存するまで境界は変わりません。元に戻すこともできます。
-plot-region-edit-hint = //pos1 と //pos2 でこの矩形の2つの角を調整します。他の矩形は変わりません。調整を完了してから区画を保存してください。
+plot-region-edit-hint = //pos1、//pos2 でこの長方形を調整して保存。
 plot-region-finish-first = 先に現在の矩形調整を完了するかキャンセルしてください。
 plot-region-open = 矩形を管理（{ $arg0 }）
 plot-region-select-hint = 番号付き矩形を選ぶと拡大して強調表示します。灰色の線はこのページの矩形です。結合後に番号が変わる場合があります。
@@ -1084,13 +1123,8 @@ plot-role-server-staff = サーバー管理者
 plot-selection-add = 現在の範囲を追加
 plot-selection-clear = 2点を選び直す
 plot-selection-empty = //pos1 と //pos2 で2つの角を指定してください。
-plot-selection-exit = 地段編集・プレビューを終了
 plot-selection-fit = 保存済みの範囲に戻す
 plot-selection-incomplete = 1点を記録済みです。もう1点を記録してください。送信前に区画は変更されません。
-plot-selection-mode = 現地で点を選ぶ
-plot-selection-no-redo = やり直せる選択範囲の変更はありません。
-plot-selection-no-undo = 元に戻せる選択範囲の変更はありません。
-plot-selection-open = 範囲を編集
 plot-selection-redo = 直前の操作をやり直す
 plot-selection-replace = 現在の範囲で置換
 plot-selection-session-hint = スニーク+F または /plot edit で戻る。20分間操作がないと終了。
@@ -1109,12 +1143,46 @@ plot-transferred-to-you = { $arg1 } が区画「{ $arg0 }」をあなたに移�
 
 ## World · Vehicles
 
-vehicle-admin-help = /vehicle — { vehicle-model-title }
-    モデル: model | model help
-    取得: origin | select <uuid>/radius <radius>/group [uuid]/info/clear | capture <id> car/boat/plane
-    車両: spawn <model> [x y z] | reload
 vehicle-command-description = 表示エンティティの車両を運転・管理
-vehicle-controls = { $arg0 }：W/S・A/Dで操作、ホイールで変速またはスロットル調整、持ち手交換でモード変更、スニークで降車。/vehicle help · /vehicle dashboardで運転パネルを開きます。
+vehicle-menu-label =
+    { $arg0 ->
+        [home] 乗り物ワークスペース
+        [nearby] 近くの乗り物
+        [fleet] 利用可能な乗り物
+        [selection] モデルの選択範囲
+        [origin] 足元を原点にする
+        [group] 表示グループを選択
+        [radius] 選択半径（0–16 m）
+        [displays] 近くの表示を探す
+        [clear] 選択と原点を解除
+        [capture] 選択からモデルを作成
+        [toggle-selection] 選択を切り替え
+        [public] 公開にする
+        [private] 非公開にする
+        [reload] ファイルから再読込
+        [leave] 降りる
+        [passenger] 助手席・客席
+        [fuel] 給油 · 石炭か木炭を持つ
+        [repair] 修理 · 鉄インゴットを持つ
+        [access] アクセス
+        [remove] 乗り物を削除
+        [hud] 運転 HUD を表示
+        [hide-preview] 3D プレビューを隠す
+        [service-hint] 近くで停車してエンジンを切り、必要な材料を持ってください。
+        [nearby-hint] 32 ブロック以内に近づき、今の座席から降りてください。
+        [use-required] mik.vehicle.use 権限が必要です。
+        [remove-hint] 停車して全員降りてください。
+        [reload-hint] 全車両を停車・停止し、全員降りてください。下書きは保持されます。変更されたモデルは開き直してください。
+        [pick-hint] 表示を狙って右クリックでグループ選択。スニーク右クリックで取消、30 秒で終了。
+        [spawn-hint] ワールド座標。初期値は前方 4 ブロック。生成時の水平視線方向を向きます。
+        [zoom-in] 拡大
+        [zoom-out] 縮小
+        [frame] 目の前に再配置
+        [offset] 相対移動
+       *[other] { vehicle-command-description }
+    }
+
+vehicle-controls = { $arg0 }：W/S・A/Dで操作、ホイールで変速またはスロットル調整、持ち手交換でモード変更、スニークで降車。/vehicle
 vehicle-dash-assisted = 安定化アシスト
 vehicle-dash-automatic = オートマチック
 vehicle-dash-contact = 地面 / 水面の支持：{ $arg0 }
@@ -1151,18 +1219,136 @@ vehicle-group-invalid = 非対応・管理対象・不在・範囲外のエン�
 vehicle-group-limit = 読み込み上限は表示エンティティ128体、グループ全体256体です。
 vehicle-group-not-found = 表示グループが見つかりません。グループを選ぶか、ブロック・アイテム表示に照準を合わせるか、エンティティのUUIDを指定してください。
 vehicle-group-selected = 選択グループ：{ $arg0 }体の表示エンティティ · ルート { $arg1 }
-vehicle-help = /vehicle — 車両操作
-    乗降: list | ride [uuid] | passenger [uuid] | leave | inspect [uuid]
-    運転: engine | mode [automatic/manual/assisted] | gear P/R/N/D/up/down/number | throttle up/down
-    表示: hud [on/off] | dashboard [drive/gearbox/details/off]
-    整備: fuel | repair | access public/private | remove [uuid]
 vehicle-hud-boat = { $arg0 } kn · 推力 { $arg1 }% · 方位 { $arg2 }°
 vehicle-hud-car = { $arg0 } km/h  ·  { $arg1 }  ·  { $arg2 } RPM · { $arg3 }
 vehicle-hud-plane = { $arg0 } km/h · 高度 { $arg1 } m · 垂直速度 { $arg2 } m/s · スロットル { $arg3 }% · { $arg4 }
 vehicle-hud-status = 燃料 { $arg0 }% · 状態 { $arg1 }% · { $arg2 }
+vehicle-model-center = 重心
+vehicle-model-choice = { $arg0 ->
+    [CAR] 自動車
+    [BOAT] 動力船
+    [PLANE] 固定翼機
+    [BODY] 車体
+    [FRONT_WHEEL] 操舵輪
+    [WHEEL] 車輪
+    [PROPELLER] プロペラ
+    [RUDDER] 方向舵
+    [FIXED] 固定
+    [VERTICAL] 垂直を維持
+    [HORIZONTAL] 水平に追従
+    [CENTER] 常に視点へ向く
+    [NONE] 元の姿勢
+    [THIRDPERSON_LEFTHAND] 三人称・左手
+    [THIRDPERSON_RIGHTHAND] 三人称・右手
+    [FIRSTPERSON_LEFTHAND] 一人称・左手
+    [FIRSTPERSON_RIGHTHAND] 一人称・右手
+    [HEAD] 頭
+    [GUI] インベントリ
+    [GROUND] 地面
+    [LEFT] 左揃え
+    [RIGHT] 右揃え
+    [false] 無効
+    [true] 有効
+    [TEXT_CENTER] 中央揃え
+   *[other] { $arg0 }
+    }
+vehicle-model-field = { $arg0 ->
+    [kind] 乗り物の種類
+    [mass] 質量
+    [maximum-speed] 最高速度（km/h）
+    [support-length] 接地判定の長さ（m）
+    [grip] グリップ
+    [center-of-mass] 重心
+    [inertia] 各軸の慣性モーメント
+    [engine-torque] 最大トルク
+    [engine-idle-rpm] アイドリング（RPM）
+    [engine-redline-rpm] 上限回転数（RPM）
+    [engine-inertia] エンジン慣性
+    [engine-wheel-radius] 車輪半径（m）
+    [engine-final-drive] 最終減速比
+    [engine-reverse-ratio] 後退ギア比
+    [engine-ratios] 前進ギア比
+    [engine-shift-seconds] 変速時間（秒）
+    [fuel-capacity] 燃料容量
+    [fuel-consumption] 燃料消費（単位/秒）
+    [buoyancy] 浮力
+    [wing-area] 翼面積（m²）
+    [lift] 揚力係数
+    [animation] アニメーションの役割
+    [billboard] 視点への追従
+    [item-transform] アイテムの姿勢
+    [alignment] 文字の配置
+    [block-light] ブロック光
+    [sky-light] 天空光
+    [background] 背景色（ARGB）
+    [line-width] 文字の行幅
+    [opacity] 不透明度（0–255）
+    [shadow] 文字の影
+    [see-through] 文字の透過表示
+    [x] X
+    [y] Y
+    [z] Z
+    [size-x] 全幅 X（m）
+    [size-y] 全高 Y（m）
+    [size-z] 全長 Z（m）
+   *[other] { $arg0 }
+    }
+vehicle-model-field-range = 入力範囲：0 < 値 ≤ { $arg0 }
+vehicle-model-front = 前方（+Z）
+vehicle-model-front-choice = { $arg0 ->
+    [negative-x] 現在の −X 側
+    [back] 現在の後方（−Z）
+    [positive-x] 現在の +X 側
+    [look] 水平の視線方向を使う（90°単位）
+   *[other] この側を前方にする
+    }
+vehicle-model-front-hint = 3D の矢印で前方を選びます。車体はその場に留まり、座席・出口・物理点の座標をまとめて変換します。90°単位で変更でき、元に戻せます。
+vehicle-model-handle = { $arg0 ->
+    [ROTATE] { $arg1 } { $arg2 } { $arg3 }°
+   *[other] { $arg1 } { $arg2 } { $arg3 }
+    }
+vehicle-model-marker = { $arg0 ->
+    [driver] 運転席 #{ $arg1 }
+    [passenger] 助手席 #{ $arg1 }
+    [exit] 出口 #{ $arg1 }
+    [colliders] 衝突ボックス #{ $arg1 }
+    [supports] 接地点 #{ $arg1 }
+    [center] 重心
+    [parts] 表示パーツ #{ $arg1 }
+   *[other] { $arg1 }
+    }
+vehicle-model-parameter-group = { $arg0 ->
+    [body] 車体と接地
+    [engine] エンジンと変速機
+    [fuel] 燃料
+    [boat] 船の浮力
+    [plane] 飛行機の揚力
+    [power] エンジン出力
+   *[other] { $arg0 }
+    }
+vehicle-model-parameter-help = { $arg0 ->
+    [body] 質量・速度・接地を調整します。重心は 3D でも調整できます。保存までは下書きだけを変更します。
+    [engine] 回転数・トルク・車輪・ギア比を調整します。前進ギア比は降順、上限回転数はアイドリングの1.5倍超が必要です。
+    [fuel] 容量はゲーム内の燃料単位、消費量は毎秒の値です。
+    [boat] 浮力は船に適用されます。他の種類の設定も保持します。
+    [plane] 翼面積と揚力は飛行機に適用されます。他の種類の設定も保持します。
+    [power] 現在の種類の回転数とトルクを調整します。自動車用の変速設定も保持します。
+   *[other] { $arg0 }
+    }
+vehicle-model-property-help = { $arg0 ->
+    [block-light] −1 はワールドの明るさです。上書きには両方を 0–15 にします。
+    [sky-light] −1 はワールドの明るさです。上書きには両方を 0–15 にします。
+    [background] 符号付き ARGB 整数。例：−16777216 は不透明な黒です。
+    [line-width] 行幅は 1–2048 ピクセルです。
+    [opacity] 0 は透明、255 は不透明です。
+   *[other] { $arg0 }
+    }
+vehicle-model-spatial = 3D 操作
+vehicle-model-spatial-hint = マーカーを右クリックして選択・調整します。スニーク＋右クリックで設定に戻ります。スクロールで調整幅を切り替えます。
+vehicle-model-spawn = このモデルで生成
 vehicle-model-add = 部品を追加
 vehicle-model-add-here = 足元に支持点を追加
-vehicle-model-anchor = プレビューの原点をここに配置（向いている方向を使用）
+vehicle-model-anchor = 目の前に再配置
 vehicle-model-animation = アニメーション
 vehicle-model-apply = 適用 / 確認
 vehicle-model-auto = 当たり判定を再計算
@@ -1177,8 +1363,8 @@ vehicle-model-copy = 複製して編集（座席の複製は助手席になり�
 vehicle-model-corner-cancel = 未確定の当たり判定を取り消す
 vehicle-model-corner-first = 足元をボックスの最初の角にする
 vehicle-model-corner-first-look = 見ている面を最初の角にする
-vehicle-model-corner-hint = 最初の角を設定しました。高さも含めて対角へ移動し、/vehicle model collider corner2を実行してください。箱はモデルの軸に沿います。
-vehicle-model-corner-required = 先に/vehicle model collider corner1で最初の角を設定してください。
+vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
+vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = 足元を対角にしてボックスを追加
 vehicle-model-corner-second-look = 見ている面を対角にする
 vehicle-model-create = モデルを作成
@@ -1192,20 +1378,16 @@ vehicle-model-draft = 未保存の下書き
 vehicle-model-driver = 運転席
 vehicle-model-driver-here = 足元に運転席を追加
 vehicle-model-edit = 下書きを編集 / 再開
+vehicle-model-overview = 下書きの概要
+vehicle-model-component-details = 部品の詳細
+vehicle-model-selection-unavailable = 対象が変更または削除されました。戻って選び直してください
 vehicle-model-exit = 降車位置 / 微調整
-vehicle-model-group = Axiomの表示グループを追加
-vehicle-model-help = /vehicle model — { vehicle-model-title }
-    モデル: menu | list | info [id] | create <id> car/boat/plane | import <id> car/boat/plane [uuid] | edit <id> | clone <id> <new-id> | delete <id>
-    編集: set <field> <value...> | part/seat/collider/support — Tabで操作と引数を確認
-    下書き: preview [off] | undo | redo | save | cancel
-    ワールド内: anchor | pick | here | look | snap [on/off] | move <index> <dx dy dz>
-    { vehicle-model-position-hint }
-    seat position/exit | part position | support add/set | collider position: here / look
-    collider corner1/corner2 [look] | collider cancel — { vehicle-model-corner-hint }
-    その他: check | apply — { vehicle-model-save-continue }
+vehicle-model-group = メインハンドのAxiom表示グループを追加
+vehicle-model-hand-invalid = Axiom表示アイテムが無効か、未対応のエンティティや表示データが含まれています。
+vehicle-model-hand-required = Axiom表示エンティティのアイテムをメインハンドに持って、再度読み込んでください。
 vehicle-model-here = 現在の足元の位置を使う
 vehicle-model-history-empty = この方向の編集履歴はありません。
-vehicle-model-import = Axiomの表示グループを読み込む
+vehicle-model-import = メインハンドのAxiom表示グループを読み込む
 vehicle-model-item = アイテム
 vehicle-model-library = 保存済みモデル · 下書きは保存するまでメモリー内のみ
 vehicle-model-look = 照準で配置（メニューを閉じ、右クリックで確定）
@@ -1223,7 +1405,7 @@ vehicle-model-position = 位置 / 微調整
 vehicle-model-position-hint = ローカルX/Y/Z · hereは足元、lookは照準の当たる面を使用 · グリッドは調整幅に従います。
 vehicle-model-preview = 自分専用プレビュー
 vehicle-model-preview-failed = プレビューを表示できません。下書きは保持されています：{ $arg0 }
-vehicle-model-preview-hint = 個人プレビューを開始。編集せず5分で消去。/vehicle model preview off で終了。
+vehicle-model-preview-hint = { vehicle-model-spatial-hint }
 vehicle-model-redo = 取り消した編集をやり直す
 vehicle-model-remove = 部品を削除
 vehicle-model-remove-warning = この部品を削除しますか？以降の番号がずれます。元に戻すことは可能です。
@@ -1313,9 +1495,16 @@ async-regen-usage = 使用法：/regen preview blocks [種類...] | /regen previ
 async-regen-visualization-legend = { $arg0 } の可視化：水色 = 選択範囲、オレンジ = 変更ブロックのサンプル、赤 = 上書きの危険があるブロックエンティティ。このパーティクルは自分にだけ見えます。
 async-regen-visualization-selection = { $arg0 } の水色パーティクルが選択範囲の境界を示します。自分にだけ見えます。
 async-regen-fawe-required = 選択範囲の取得には FastAsyncWorldEdit が必要です
+building-map-layer = 建築アーカイブ
+building-map-open = 建築を見る
+building-map-builders = 建築者：{ $arg0 }
+building-map-original-author = 原作者：{ $arg0 }
+building-map-type-original = オリジナル
+building-map-type-derivative = 派生作品
+building-map-type-replica = 再現建築
 -iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ スニーク
-iron-elevator-tip-mm = { -iron-elevator-block }を上下にそろえて置くとエレベーターになります。{ -iron-elevator-block }の上で<green>ジャンプすると上へ</green>、<aqua>スニークすると下へ</aqua>。3階以上では<gold>階数パネル</gold>が表示されます。
+iron-elevator-tip-mm = { -iron-elevator-block }を上下にそろえて置くとエレベーターになります。ブロックの上で<green>ジャンプすると上へ</green>、<aqua>スニークすると下へ</aqua>。2階以上では<gold>階数パネル</gold>が表示されます。
 iron-elevator-up = ↑ ジャンプ
 spawn-beacon-color-command-description = スポーンビーコンの色の切り替えを設定
 spawn-beacon-color-disabled = スポーンビーコンの色の切り替えを無効にしました
@@ -1326,132 +1515,27 @@ spawn-world-missing = スポーンのワールドを利用できません
 
 ## Entertainment · Music
 
-music-action-add-queue = キューに追加
-music-action-play-nearby = 最寄りのジュークボックスで再生
-music-action-play-now = このジュークボックスですぐ再生
-music-action-take-disc = レコードを受け取る
-music-added-to-queue-rich = キューに追加しました: { $music }
 music-album = アルバム: { $arg0 }
-music-all-in-queue = すべての曲がキューに入っています
 music-artist = アーティスト: { $arg0 }
 music-back = 戻る
-music-browser-left-click = 左クリック
-music-browser-right-click = 右クリック
-music-cache-clear-done = オンライン音楽キャッシュを消去しました
-music-cache-clear-started = オンライン音楽キャッシュを消去しています...
-music-cache-operation-failed = 音楽キャッシュの操作に失敗しました: { $arg0 }
-music-cache-status = オンライン音楽キャッシュ: { $arg0 }ファイル、{ $arg1 } / { $arg2 }
-music-cached = キャッシュ済み - すぐに再生できます
-music-clear-queue = キューをクリア
-music-clear-queue-done = キューを空にしました（{ $arg0 }曲）
 music-command-description = ジュークボックス用のローカル、オンライン、NBS音楽
 music-disc-left = 左クリック: レコードを入手
 music-disc-right = 右クリック: 最寄りのジュークボックスで再生
-music-duplicate-in-queue = この曲はすでにキューに入っています
 music-duration = 再生時間: { $arg0 }
-music-empty-library = 音楽ライブラリは空です
-music-empty-library-description = 利用可能なローカル音声またはNBS曲がありません
-music-empty-nbs = NBS曲がありません
-music-empty-nbs-description = すべての音楽に切り替えるか、NBSファイルを追加してください
-music-empty-playlist = このプレイリストには利用可能な曲がありません
-music-empty-playlist-description = プレイリストが公開され、正しいプラットフォームが選択されているか確認してください
-music-empty-search = 一致する曲がありません
-music-empty-search-description = 別のキーワードを試すか、カスタム音源の状態を確認してください
-music-finished = 再生終了
 music-format = 形式: { $arg0 }
-music-inventory-full = インベントリがいっぱいのため、レコードを渡せませんでした
 music-jukebox-audible-field-conflict = はっきり聞こえる範囲が重なる別のジュークボックスで異なる曲が再生されています
-music-jukebox-music-mode = 音楽モード
-music-jukebox-play-order = 再生順序
-music-jukebox-range = 再生範囲
-music-jukebox-range-value = 現在: { $arg0 } ブロック
-music-jukebox-rhythm-mode = リズムモード
-music-jukebox-too-far = ジュークボックスから離れすぎています（最大 { $arg0 } ブロック）
 music-jukebox-tp-hover = クリックしてジュークボックスへテレポート
 music-jukebox-unavailable = ジュークボックスが撤去されたか、そのチャンクを利用できません
-music-jukebox-usage-mode = ジュークボックス用途
-music-jukebox-volume = ジュークボックスの音量
-music-jukebox-volume-value = 現在: { $arg0 }%
-music-library-button = 音楽ライブラリ
-music-library-random-mode = ライブラリをシャッフル
-music-library-random-mode-desc = 音楽ライブラリ全体からランダム再生し、同じ曲の連続再生を避けます
-music-loading-title = 読み込み中
-music-menu-nbs-title = NBS音楽 - { $arg0 }/{ $arg1 }ページ
-music-menu-playlist-title = プレイリスト：{ $arg0 } · { $arg1 }/{ $arg2 }
-music-menu-search-nbs-title = NBS検索: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-title = 検索: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-title = レコード - { $arg0 }/{ $arg1 }ページ
-music-mode-switched = { $arg0 }に切り替えました
-music-nearest-jukebox-missing = { $arg0 }ブロック以内にジュークボックスがありません
-music-next-page = 次のページ
-music-no-disc = レコードなし
-music-no-files = 使用可能な音楽ファイルがありません
-music-no-search-results-rich = 「{ $keyword }」を含む曲は見つかりませんでした
 music-now-playing-rich = 再生中: { $music }（ジュークボックス: { $location }）
-music-online-partial-failure = { $arg0 }件のカスタム音源リクエストに失敗しました。取得できた結果を表示します
 music-online-rate-limited = 音楽のリクエストが多すぎます。{ $arg0 }秒後に再試行してください。
-music-online-searching = ローカルとオンライン音源から「{ $arg0 }」を検索しています...
 music-original-author = 原作者: { $arg0 }
-music-page-out-of-range = ページが範囲外です。最大ページ: { $arg0 }
-music-page-total = 全{ $arg0 }曲
-music-page-usage-desc = 指定したページへ移動
-music-partial-results = 一部の結果を表示します。{ $arg0 }件の音源リクエストに失敗しました
-music-paused = 一時停止中
 music-plasmo-voice-unavailable = 曲は再生されましたが、Plasmo Voice がインストール、接続、または有効化されていないため聴くことができません
-music-play-next = 次の曲を再生
-music-play-random = ランダム再生
 music-playback-failed = 「{ $arg0 }」を再生できませんでした。音源または音楽ファイルを確認して、もう一度お試しください。
-music-playback-status = 再生状態: { $arg0 }
-music-playing = 再生中
-music-playing-now-rich = 再生中: { $music }
-music-playlist-import-button = プレイリストをインポート
-music-playlist-import-done = 「{ $arg0 }」をインポートしました: { $arg1 }/{ $arg2 } 曲
-music-playlist-import-failed = プレイリストのインポートに失敗しました: { $arg0 }
-music-playlist-import-prompt = プラットフォームを選び、公開プレイリストの ID またはリンクを貼り付けてください:
-music-playlist-import-usage-desc = 他の音楽プラットフォームから公開プレイリストをインポート
-music-playlist-importing = プレイリストをインポートしています...
-music-playlist-reference-prompt = 公開プレイリストの ID またはリンクを貼り付け
-music-prev-page = 前のページ
-music-queue-empty = キューは空です
-music-queue-move-down = 下へ移動
-music-queue-move-up = 上へ移動
-music-queue-remove = 曲を削除
-music-queue-summary = キュー：{ $arg0 }曲
-music-queue-summary-description = { $arg0 }/{ $arg1 } ページ
-music-random-add = ランダムに曲を追加
-music-random-added-to-queue-rich = ランダムにキューへ追加しました: { $music }
-music-random-disc = ランダムなレコード
-music-random-disc-got-rich = ランダムなレコードを入手しました: { $music }
-music-random-mode = リストをシャッフル
-music-random-mode-desc = プレイリストをランダム再生し、同じ曲の連続再生を避けます
-music-rank-down = 下へ移動しました
-music-rank-up = 上へ移動しました
-music-reload-done = 再読み込み完了: ローカル { $arg0 } 曲、LX 音源 { $arg1 }/{ $arg2 } 件が利用可能、購読 { $arg3 } 件を確認し { $arg4 } 件を更新
 music-reload-failed = 音楽の再読み込みに失敗しました: { $arg0 }
-music-reload-issues = 再読み込みの問題: { $arg0 }
-music-reload-partial = 一部を旧状態のまま再読み込みしました: ローカル { $arg0 } 曲、LX 音源 { $arg1 }/{ $arg2 } 件が利用可能、購読 { $arg3 } 件を確認し { $arg4 } 件を更新
 music-reload-started = 音楽ファイルとカスタム音源を再読み込みしています...
-music-remote-source-error = 更新エラー: { $arg0 }
-music-remote-source-import-done = LX 音源サブスクリプションをインポートしました: { $arg0 }
-music-remote-source-import-failed = LX 音源のインポートに失敗しました: { $arg0 }
-music-remote-source-import-started = LX 音源サブスクリプションをインポートしています...
-music-remote-source-remove-done = LX 音源サブスクリプションを削除しました: { $arg0 }
-music-remote-source-remove-failed = LX 音源サブスクリプションを削除できませんでした: { $arg0 }
-music-remote-source-remove-not-found = LX 音源サブスクリプションが見つかりません: { $arg0 }
-music-remote-source-update-done = { $arg0 } 件のサブスクリプションを確認: { $arg1 } 件更新、{ $arg2 } 件失敗
-music-remote-source-update-failed = LX 音源の更新に失敗しました: { $arg0 }
-music-remote-source-update-started = インポート済み LX 音源サブスクリプションを確認しています...
-music-remote-source-updated-at = 更新日時: { $arg0 }
-music-remote-sources-title = インポート済み LX 音源サブスクリプション: { $arg0 }
-music-removed-from-queue-rich = キューから削除しました: { $music }
-music-repeat-one-mode = 1曲リピート
-music-repeat-one-mode-desc = 手動で次へ進むまで現在の曲を繰り返します
-music-request-error = リクエストに失敗しました: { $arg0 }
 music-rhythm-animation-offset = アニメーションのずれ { $arg0 } ms
-music-rhythm-calibration = 遅延キャリブレーション
 music-rhythm-calibration-accumulating = 安定したタイミングを確認中…そのまま続けてください
 music-rhythm-calibration-adapting = リズムに合わせています…そのまま続けてください
-music-rhythm-calibration-complete = 遅延テスト完了 · リズムゲームを開始できます
 music-rhythm-calibration-done = 遅延テスト完了・設定を保存しました
 music-rhythm-calibration-failed = 遅延テストの音声が中断されました。テストを安全に終了したため、もう一度開始してください
 music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → キーボード視覚 → マウス視覚
@@ -1462,11 +1546,6 @@ music-rhythm-calibration-out-of-range = 測定した遅延が対応範囲外で�
 music-rhythm-calibration-plasmo-instruction = 今から合わせる：先ほどの Plasmo Voice リズムを繰り返し、各ドラムで1～4を押します
 music-rhythm-calibration-plasmo-ready = Minecraft Note Block テスト完了。まず同じリズムを Plasmo Voice で聴いてください
 music-rhythm-calibration-pointer-instruction = ノートがヒットラインを通過したら左または右クリック
-music-rhythm-calibration-prompt-confirm = 完全テストを開始
-music-rhythm-calibration-prompt-confirm-hint = 完了時に自動で戻ります。
-music-rhythm-calibration-prompt-later = 今はしない
-music-rhythm-calibration-prompt-reason = プレイ前に遅延テストを実施してください。
-music-rhythm-calibration-prompt-title = プレイ前に遅延テストが必要です
 music-rhythm-calibration-realigning = 音声が中断しました。実演を再生し、完了済みの測定は保持します
 music-rhythm-calibration-required = リズムゲームを開始する前に完全な遅延テストを完了してください
 music-rhythm-calibration-reset-done = 遅延キャリブレーションをリセットしました
@@ -1485,7 +1564,6 @@ music-rhythm-difficulty-expert = エキスパート
 music-rhythm-difficulty-hard = ハード
 music-rhythm-difficulty-normal = ノーマル
 music-rhythm-exit = リズムゲームを終了
-music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
 music-rhythm-get-ready = 準備
 music-rhythm-go = スタート！
 music-rhythm-good = グッド
@@ -1500,49 +1578,15 @@ music-rhythm-network-too-high = 公平な判定にはネットワーク遅延が
 music-rhythm-network-warning = ネットワーク遅延が不安定です（{ $arg0 } ms）。{ $arg1 } ms を超え続けるとセッションを安全に終了します
 music-rhythm-no-beats = この曲からプレイ可能なビートを検出できませんでした
 music-rhythm-perfect = パーフェクト
-music-rhythm-preparing = 曲全体のキャッシュとリズム解析が完了するまでお待ちください
-music-rhythm-ready = 完全な譜面の準備完了 — 最初のビートから開始できます
 music-rhythm-requires-playback = 先にこのジュークボックスで曲を再生してください
-music-rhythm-reset-calibration = 遅延調整をリセット
 music-rhythm-results = リザルト
 music-rhythm-score = スコア: { $arg0 }
-music-rhythm-select-track = 音ゲー曲を選択
 music-rhythm-spatial-no-room = 空間エイムに必要な空きがありません。より開けた場所へ移動してください。
 music-rhythm-spatial-slider-hint = 動く星を追い各チェックポイントでクリック · 長押し不要
-music-rhythm-start-game = ゲーム開始
-music-rhythm-waiting-for-player = リズムゲームを開始するプレイヤーを待っています
+music-rhythm-start = ゲームを開始
 music-sample-rate = サンプルレート: { $arg0 }
-music-search-button = 曲を検索
-music-search-keyword-required = 検索キーワードを入力してください
-music-search-keyword-too-long = 検索語が長すぎます。上限は{ $arg0 }文字です。
-music-search-usage-desc = 曲を検索
-music-section-all = すべての音楽
-music-section-nbs = NBS音楽
-music-select-music = 曲を選択
-music-sequential-mode = リストをリピート
-music-sequential-mode-desc = プレイリストを順番に再生し、最後から先頭に戻ります
 music-size = サイズ: { $arg0 }
-music-sort-button = 並べ替え
-music-sort-current = 現在: { $arg0 }
-music-sort-default = デフォルト順
-music-sort-most-played = 再生ランキング
-music-sort-recently-played = 最近の再生
-music-sound-settings = サウンド設定
-music-source-actions = 対応操作: { $arg0 }
-music-source-available = 利用可能
-music-source-capabilities = 対応品質: { $arg0 }
-music-source-error = エラー: { $arg0 }
-music-source-failures = 連続失敗: { $arg0 }
-music-source-retry = { $arg0 }秒後に再試行
-music-source-unavailable = 利用不可
-music-sources-empty = LX カスタム音源スクリプトが見つかりません
-music-sources-title = LX カスタム音源: { $arg0 }
-music-stop-eject = 停止して取り出す
-music-stop-eject-done = 再生を停止してレコードを取り出しました
-music-stopped = 停止中
-music-track-details = 曲の詳細
 music-unavailable-disc = 利用できないレコード
-music-unavailable-disc-description = このMIKレコードは現在のカタログにありませんが、停止して取り出すことはできます
 
 ## Entertainment · Anniversary
 
@@ -1661,20 +1705,16 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [BAN公報]
 ban-command-description = 固定の重大度でプレイヤーをBAN
 ban-database-error = BANデータベースの操作に失敗しました。サーバーログを確認してください。
-ban-dialog-back = 戻る
-ban-dialog-cancel = キャンセル
-ban-dialog-confirm-action = プレイヤーをBAN
-ban-dialog-confirm-severity = 重大度
-ban-dialog-confirm-title = BANの確認
-ban-dialog-never-joined-confirm-action = それでもBANする
-ban-dialog-never-joined-title = このプレイヤーは参加したことがありません
-ban-dialog-never-joined-warning = { $arg0 } はこのサーバーに参加したことがありません。別のプレイヤーを誤ってBANしないよう、名前を確認してください。
-ban-dialog-next = 次へ
-ban-dialog-player-input = プレイヤー名を手動入力
-ban-dialog-player-manual = 手動入力
-ban-dialog-player-online = 現在オンラインのプレイヤー
-ban-dialog-select-title = プレイヤーを選択
-ban-dialog-severity-title = BANの重大度を選択
+ban-menu-back = 戻る
+ban-menu-confirm-action = プレイヤーをBAN
+ban-menu-confirm-severity = 重大度
+ban-menu-confirm-title = BANの確認
+ban-menu-never-joined-confirm-action = それでもBANする
+ban-menu-never-joined-title = このプレイヤーは参加したことがありません
+ban-menu-never-joined-warning = { $arg0 } はこのサーバーに参加したことがありません。別のプレイヤーを誤ってBANしないよう、名前を確認してください。
+ban-menu-player-input = プレイヤー名を手動入力
+ban-menu-select-title = プレイヤーを選択
+ban-menu-severity-title = BANの重大度を選択
 ban-history-empty = { $arg0 }のBAN履歴はありません。
 ban-history-title = BAN履歴：{ $arg0 }
 ban-invalid-player = プレイヤー名が無効です
@@ -1714,11 +1754,14 @@ banlist-reason = 理由
 banlist-source = { role-moderator }
 banlist-title = BAN一覧
 maintenance-command-description = メンテナンスモードの切り替えまたは状態確認
+maintenance-kick = サーバーはメンテナンス中です
 maintenance-set = メンテナンスモードを{ $arg0 }にしました
 maintenance-state-disabled = 無効
 maintenance-state-enabled = 有効
 maintenance-status = メンテナンスモード: { $arg0 }
 maintenance-unchanged = メンテナンスモードはすでに{ $arg0 }です
+performance-kick-title = サーバーに深刻な遅延が発生しています
+performance-kick-reason = サーバーの復旧のため、一時的に接続を切断しました
 restriction-entity-too-large-mm = <red>エンティティの大きさがサーバーの安全上限を超えています</red>
 restriction-foreign-uuid-mm = <red>UUIDは自分が手懐けたMobにのみ使用できます</red>
 restriction-no-kill-e-mm = <red><white>/kill @e</white>コマンドは使用できません</red>
@@ -1744,9 +1787,16 @@ whitelist-temp-usage-desc = 1時間有効な一時ホワイトリストを追加
 
 ## Shell · Menus, server information and scripting
 
-main-afk-current-afk = 現在: AFK
-main-afk-current-online = 現在: オンライン
-main-afk-status = AFKステータス
+main-afk-status =
+    { $arg0 ->
+        [afk] AFK：離席中
+       *[online] AFK：オンライン
+    }
+main-pvp-status =
+    { $arg0 ->
+        [on] PVP：オン
+       *[off] PVP：オフ
+    }
 main-announcements = お知らせ
 main-home = ホーム
 main-language = 言語
@@ -1756,8 +1806,6 @@ main-map = ウェブマップ
 main-menu-title = メインメニュー
 main-music = 音楽
 main-name-tag = ネームタグ
-main-profile = プロフィール
-main-pvp = PvP
 main-settings = 設定
 main-website = ウェブサイト
 main-wiki = Wiki
@@ -1774,9 +1822,348 @@ stat-client-version = クライアントのバージョン
 stat-first-joined = 初回参加日
 stat-location = 座標
 stat-ping = 応答時間
+stat-ping-value = { $arg0 } ミリ秒
 stat-play-time = プレイ時間
 stat-role = ロール
 stat-world = ワールド
-weblogin-command-description = Mik Webのログインコードを確認
-weblogin-confirmed = Mik Webへのログインを確認しました。ブラウザーに戻って続行してください
-weblogin-invalid-code = Mik Webのログインコードが正しくありません
+web-account-title = ウェブアカウントとパスキー
+web-account-confirm = 確認する
+weblogin-question = 今回のウェブ本人確認を承認しますか？mcmik.top で自分が開始した操作だけを承認してください。他人のためにコードを入力しないでください。
+weblogin-command-description = Mik のウェブ本人確認コードを承認
+weblogin-confirmed = ウェブ本人確認が完了しました。ブラウザーに戻って続けてください。
+weblogin-invalid-code = 無効なウェブ本人確認コードです
+
+
+# Music workspace
+music-space-label =
+    { $arg0 ->
+        [title] 音楽空間
+        [devices] 再生デバイス
+        [device-status] 状態
+        [sync-group] 同期グループ
+        [single-device] ジュークボックス
+        [device-location] 場所
+        [visit-device] そばにテレポート
+        [teleporting] テレポート中…
+        [recorded-device] 登録済み
+        [nearby-device] 近く
+        [group-select-members] ジュークボックスを2台以上選択
+        [group-name-required] グループ名を入力
+        [all-online] すべてオンライン
+        [direction-front] 前方
+        [direction-front-right] 右前方
+        [direction-right] 右
+        [direction-back-right] 右後方
+        [direction-back] 後方
+        [direction-back-left] 左後方
+        [direction-left] 左
+        [direction-front-left] 左前方
+        [direction-here] すぐそば
+        [direction-above] 上方
+        [direction-below] 下方
+        [no-devices] デバイスがありません
+        [choose-members] メンバーのデバイスを選択
+        [create-group] 同期グループを作成
+        [add-members] デバイスを追加
+        [create-play] 作成して再生
+        [create-and-append] 作成して曲を末尾に追加
+        [device-queue] キュー
+        [device-members] メンバー
+        [available] 利用可能
+        [play] 再生
+        [retry-outputs] 出力を再試行
+        [dissolve-group] グループを解散
+        [remove-member] グループから外す
+        [removed-stopped] 外したデバイスは再生を停止し、選んだ内容を保持します。
+        [restore-previous] 参加前の内容を復元
+        [keep-group-content] グループの内容を保持
+        [queue] 再生キュー
+        [back] { ban-menu-back }
+        [close] { close }
+        [unavailable] Music storage is unavailable
+        [saving] 保存中…
+        [saved] 保存しました
+        [apply] { plot-menu-submit }
+        [cancel] { cancel }
+        [select-page] Select this page
+        [select-all] Select all results
+        [clear-tracks] Clear song selection
+        [add-playlist] リストに追加
+        [description] { plot-menu-description }
+        [make-private] Make private
+        [publish] Make public
+        [delete] Delete playlist
+        [favorite] Toggle favorite
+        [copy] Copy playlist
+        [share] Share playlist command
+        [recent] 最近の再生
+        [favorites] Favorite playlists
+        [public] 公開
+        [private] 非公開
+        [new-playlist] プレイリストを作成
+        [name] 名前
+        [song-title] 曲名
+        [track-count] 曲数
+        [visibility] 公開範囲
+        [no-playlists] プレイリストがありません
+        [fetching-playlist] プレイリストを読み込み中…
+        [artist] アーティスト
+        [duration] 再生時間
+        [track-type] 種類
+        [type-online] オンライン
+        [undo] { vehicle-model-undo }
+        [remove] Remove selected entries
+        [clear-recents] Clear my play history
+        [clear-entries] Clear entry selection
+        [search-tracks] 曲・アーティストを検索…
+        [search-playlists] プレイリストを検索…
+        [public-playlists] Public playlists
+        [searching] Searching…
+        [insert] 割り込んですぐ再生
+        [append] キューに追加
+        [choose-targets] 出力先を選択
+        [group-source] キューと再生位置の引き継ぎ元
+        [removed-targets] 削除された再生先があります。選び直してください
+        [offline] オフライン
+        [device-discovery-hint] 素手でスニークしながらジュークボックスを右クリックすると開けます。
+        [empty] 曲がありません
+        [queue-empty] 再生待ちの曲はありません
+        [queue-current] デジタルキューの現在の曲
+        [pause] Pause
+        [resume] Resume
+        [stop] Stop; keep playback list
+        [previous] Previous song / restart
+        [clear] Clear pending; stop after current song
+        [seek] 再生位置
+        [more] その他
+        [volume-control] 音量
+        [group-volume] グループ音量
+        [timeline-help] ホイールで ±5 秒・右クリックで時間入力
+        [timeline-read-only] 再生位置を変更できません
+        [seek-format] m:ss、h:mm:ss または秒数を入力
+        [record] 遠隔操作用に登録
+        [forget] 自分の登録を解除
+        [alias] 自分用のデバイス名
+        [sound] サウンド設定
+        [rhythm] 音楽ゲームルーム
+        [room-players] プレイヤー
+        [room-player-status] 状態
+        [room-preparation] 自分の準備
+        [room-ready] 準備する
+        [room-cancel-ready] 準備を取り消す
+        [room-playing] プレイ中
+        [room-score-ready] 譜面の準備完了
+        [room-select-one] 曲庫の複数選択を有効にして、曲を1つ選択してください。
+        [room-end-confirmation] 参加者全員の音楽ゲームルームを終了します。
+        [create-room] ルームを作成
+        [no-rhythm-devices] 近くにジュークボックスがありません。まず空の手でスニークしながらジュークボックスを右クリックしてください。
+        [calibration] 遅延キャリブレーション
+        [volume] Volume (0–100)
+        [range] Range (8–256 blocks)
+        [mode] 再生モード
+        [save-queue] キューをプレイリストに保存
+        [sequential] Sequential
+        [repeat-all] リストをリピート
+        [repeat-one] Repeat song
+        [shuffle] Shuffle without repeats
+        [import] プレイリストをインポート
+        [link] プレイリストのリンク
+        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
+        [import-preview] Preview fetched metadata; no audio was downloaded
+        [import-new] 作成して開く
+        [import-merge] リストに統合
+        [stopped] 停止中
+        [loading] Preparing audio
+        [cancel-loading] 準備をキャンセル
+        [playing] 再生中
+        [paused] 一時停止中
+        [finished] 再生終了
+        [retry-failed] 再生を再試行
+        [select-song] 選択した曲をまとめて再生、またはプレイリストに追加。
+        [select-toggle] この項目を選択
+        [deselect] この項目の選択を解除
+        [selected] 選択済み
+        [place-before] 選択した項目をこの項目の前に移動
+        [eject] Eject physical record
+        [make-disc] Create signed music disc
+        [gain] Group volume (0–100)
+        [retry-import] Fetch playlist again
+        [join-room] ルームに参加
+        [ready] 準備完了
+        [waiting] Waiting
+        [room-mode] ゲームモード
+        [room-difficulty] 難易度
+        [late-join] Join the running game
+        [leave-room] Leave room
+        [select-room-track] 選択した曲を使用
+        [start-room] ゲーム開始
+        [end-room] ルームを終了
+        [base-queue] Base playback list
+        [priority-queue] One-time requests
+        [falling] Falling lanes
+        [radial] Radial approach
+        [spatial-aim] Spatial aim
+        [easy] Easy
+        [normal] Normal
+        [hard] Hard
+        [expert] Expert
+        [waiting-for-player] Waiting for preparation
+        [preparing] Preparing audio and chart
+        [no-beats] No playable beats
+        [catalog] 楽曲一覧
+        [my-playlists] 自分のプレイリスト
+        [playlist] プレイリスト
+        [output] 出力先
+        [close-panel] パネルを閉じる
+        [playlist-settings] リスト設定
+        [multi-select] 複数選択
+        [move] 移動
+        [move-hint] 選んだ曲の前に移動します
+        [cancel-move] 移動をキャンセル
+        [move-end] 末尾に移動
+        [cancel-selection] 複数選択をキャンセル
+        [track-details] 曲の詳細
+        [skip-next] 次の曲へ
+        [device-settings] 機器設定
+        [already-added] 追加済み
+        [current-track] 現在の曲
+        [shuffle-candidates] シャッフル候補
+        [import-by-id] IDでインポート
+        [playlist-id] プレイリストID
+       *[unknown] 音楽空間
+    }
+
+music-space-error =
+    { $arg0 ->
+        [UNAVAILABLE] Music is unavailable; reopen later
+        [INTERNAL] 音楽機能で内部エラーが発生しました。管理者にサーバーログの確認を依頼してください
+        [NOT_FOUND] The selected item no longer exists
+        [FORBIDDEN] Control or edit permission is required
+        [CONFLICT] Content changed; refresh and select again
+        [LIMIT] The music resource limit was reached
+        [INVALID] Check the name, selection or numeric range
+        [OFFLINE] Device unavailable: load its chunk or eject its physical record
+        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
+        [UNSUPPORTED] This media does not support that action
+        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NO_SAFE_DESTINATION] ジュークボックスのそばに安全な移動先がありません
+        [TELEPORT_FAILED] テレポートに失敗したか、移動が拒否されました
+       *[UNKNOWN] Operation failed
+    }
+
+music-space-selected-tracks = { $arg0 } 曲を選択中
+music-space-track-count = { $arg0 } 曲
+music-space-device-count = ジュークボックス { $arg0 } 台
+music-space-online-count = オンライン：{ $arg0 }/{ $arg1 } 台
+music-space-device-distance = { $arg0 } · { $arg1 } ブロック
+music-space-device-height = { $arg0 ->
+    [above] { $arg1 } ブロック上
+   *[below] { $arg1 } ブロック下
+    }
+music-space-device-coordinates = { $arg0 } · X { $arg1 } · Y { $arg2 } · Z { $arg3 }
+music-space-sound-value = { $arg0 ->
+        [volume] { $arg1 ->
+           *[other] { $arg1 }%
+        }
+       *[range] { $arg1 ->
+           *[other] { $arg1 } ブロック
+        }
+    }
+plot-permission-music-control = 音楽デバイスの操作
+
+music-partial-results = 一部の結果を表示します。{ $arg0 }件の音源リクエストに失敗しました
+
+webchat-tab-label = { $arg0 ->
+    [1] { player-web-label }
+   *[other] { player-web-label } ×{ $arg0 }
+    }
+webchat-joined = { $arg0 } がウェブチャットに参加しました
+webchat-left = { $arg0 } がウェブチャットから退出しました
+chat-rate-limited = 送信が速すぎます。少し待ってください。
+
+plot-map-corner-a = 角 A
+plot-map-corner-b = 角 B
+plot-map-corner-hint = クリックでこの角に移動。右クリックで座標入力、ホイールで高さを4変更。
+plot-map-coordinates = 座標 x,y,z
+plot-map-zoom-in = 拡大
+plot-map-zoom-out = 縮小
+plot-map-fit = 範囲全体
+plot-map-near = 現在地付近
+plot-map-layer = 高さ Y { $arg0 }…{ $arg1 }
+plot-map-layer-hint = ホイールで表示階層を変更、クリックで現在の高さへ。地形は常に地表です。
+plot-map-north = 北へ
+plot-map-west = 西へ
+plot-map-east = 東へ
+plot-map-south = 南へ
+plot-map-scale = 1ピクセル = { $arg0 } × { $arg0 } ブロック
+plot-map-progress = 地図読込 { $arg0 }%…
+plot-map-unknown = 未読込の地表サンプル：{ $arg0 }
+plot-map-legend = 水色：維持 · 紫：追加 · 橙：削除 · 緑：直方体 · A/B：角 · 矢印：自分
+plot-selection-validating = バックグラウンドで境界の計算と範囲の検証を実行中… 完了すると自動更新されます。
+
+plot-map-open = Minecraftの地図を見る
+
+plot-map-handheld-hint = オフハンドに地図、木の斧で選択。スニーク＋Fでパネルに戻ります。
+
+plot-map-readonly-hint = 地図の閲覧のみです。角を変更するにはパネルに戻り、直方体の調整を選んでください。
+
+plot-destinations = テレポート地点
+plot-destination-add = 現在地を追加
+plot-destination-confirm-delete = テレポート地点「{ $arg0 }」を削除しますか？
+plot-destination-delete = 地点を削除
+plot-destination-deleted = テレポート地点を削除しました。
+plot-destination-description = 紹介（省略可）
+plot-destination-edit = 名前と紹介を編集
+plot-destination-empty = 利用できる地点はありません。
+plot-destination-error-changed = 地点が変更されました。開き直してください。
+plot-destination-error-description = 紹介は512文字以内で、制御文字は使用できません。
+plot-destination-error-location = この区画内の安全な地面に立ってください。
+plot-destination-error-missing = この地点は削除されています。
+plot-destination-error-name = 名前は1行、1〜48文字で入力してください。
+plot-destination-error-private = この地点は非公開で、区画のメンバーのみ利用できます。
+plot-destination-error-unsafe = この地点は利用できないか、安全ではありません。
+plot-destination-loading = 地点を読み込み中…
+plot-destination-move = 現在地に更新
+plot-destination-name = 名前
+plot-destination-public-empty = 公開されている地点はありません。
+plot-destination-public-off = 公開：オフ
+plot-destination-public-on = 公開：オン
+plot-destination-saved = テレポート地点を保存しました。
+plot-destination-teleport = テレポート
+plot-error-subplot-destination = 選択範囲内にある親区画の地点を先に移動または削除してください。
+plot-error-subplot-own-destination = 地点を新しい範囲内に残すか、先に移動または削除してください。
+
+plot-destination-manage = 管理
+plot-directory-owned = 所有 · { $arg0 }
+plot-directory-participating = 参加 · { $arg0 }
+plot-directory-search = 区画を検索
+plot-directory-search-value = 検索：{ $arg0 }
+plot-directory-search-field = 区画名またはID
+plot-directory-clear-search = 検索をクリア
+plot-directory-empty = この分類にはまだ区画がありません。
+plot-directory-no-match = 一致する区画がありません。検索を変更またはクリアしてください。
+plot-workspace-area = 範囲を編集
+plot-workspace-area-hint = この区画の保護範囲を調整
+plot-workspace-subplots = 子区画
+plot-workspace-subplots-hint = 内部の区分を確認・作成・管理
+plot-workspace-access-hint = メンバー、役割、操作権限を管理
+plot-workspace-settings-hint = 名前、告知、環境、所有権
+plot-workspace-destinations-hint = この区画のテレポート地点を確認して移動
+plot-workspace-role = あなたの役割：{ $arg0 }
+plot-workspace-ownership = 所有権と削除
+plot-workspace-id = 区画ID：{ $arg0 }
+plot-workspace-groups = 権限グループ
+plot-workspace-permissions = 操作権限
+plot-workspace-other-world = 先にこの区画があるワールドへ移動してください。
+
+plot-destination-titles = 到着時のタイトル
+plot-destination-title = タイトル
+plot-destination-subtitle = サブタイトル
+plot-destination-title-hint = テレポート成功後に表示します。MiniMessage の色・装飾・グラデーションに対応。空欄で非表示になり、プレビューでは保存しません。
+plot-destination-title-preview = 全画面プレビュー
+plot-destination-title-unset = 未設定
+plot-destination-title-save = タイトルを保存
+plot-destination-title-unchanged = 未保存の変更はありません。
+plot-destination-title-apply = 下書きに適用
+plot-destination-error-title = タイトルは1行で、表示文字数は32文字、MiniMessage 原文は512文字までです。
+plot-destination-error-subtitle = サブタイトルは1行で、表示文字数は64文字、MiniMessage 原文は512文字までです。

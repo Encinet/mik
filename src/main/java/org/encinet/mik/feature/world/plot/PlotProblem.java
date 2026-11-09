@@ -4,15 +4,18 @@ import org.encinet.mik.shared.i18n.Message;
 
 /** A player-facing plot validation error resolved in the player's language. */
 public final class PlotProblem extends IllegalArgumentException {
-    private final Message message;
-    private final Object[] args;
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
 
-    public PlotProblem(Message message, Object... args) {
+    private final Message message;
+    private final java.io.Serializable[] args;
+
+    public PlotProblem(Message message, java.io.Serializable... args) {
         super(message.key());
         this.message = message;
-        this.args = args;
+        this.args = args.clone();
     }
 
     public Message message() { return message; }
-    public Object[] args() { return args; }
+    public Object[] args() { return args.clone(); }
 }

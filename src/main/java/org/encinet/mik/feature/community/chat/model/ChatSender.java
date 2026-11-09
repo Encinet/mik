@@ -13,7 +13,8 @@ public record ChatSender(
         Optional<ExternalIdentity> externalIdentity,
         String minecraftName,
         String prefix,
-        String suffix
+        String suffix,
+        int usernameColor
 ) {
     public ChatSender {
         displayName = requireLine(displayName, "displayName", 128);
@@ -23,6 +24,9 @@ public record ChatSender(
         minecraftName = safeOptionalLine(minecraftName, "minecraftName", 64);
         prefix = Objects.requireNonNullElse(prefix, "");
         suffix = Objects.requireNonNullElse(suffix, "");
+        if (usernameColor < 0 || usernameColor > 0xFFFFFF) {
+            throw new IllegalArgumentException("usernameColor is outside RGB range");
+        }
         if (prefix.length() > 1_024 || suffix.length() > 1_024
                 || prefix.codePoints().anyMatch(Character::isISOControl)
                 || suffix.codePoints().anyMatch(Character::isISOControl)) {
@@ -36,7 +40,7 @@ public record ChatSender(
 
     public static ChatSender minecraft(UUID playerId, String playerName) {
         return new ChatSender(playerName, Optional.of(playerId), Optional.empty(),
-                playerName, "", "");
+                playerName, "", "", 0xFFFFFF);
     }
 
     private static String safeOptionalLine(

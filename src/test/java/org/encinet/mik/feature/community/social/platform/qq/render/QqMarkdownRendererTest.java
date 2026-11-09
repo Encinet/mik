@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QqMarkdownRendererTest {
     @Test
     void rendersEveryStructuredBlockAndEscapesDynamicText() {
-        SocialDocument document = SocialDocument.of("📊 Minecraft", SocialDocument.Tone.INFO,
+        SocialDocument document = SocialDocument.of(TRUSTED, "📊 Minecraft", SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("server_*[]"),
                 SocialDocument.fields(new SocialDocument.Field("Online", "2 / 20")),
                 SocialDocument.orderedList("Run /bind qq", "Send [code](bad)"),
@@ -33,7 +34,7 @@ class QqMarkdownRendererTest {
 
     @Test
     void rendersFieldsAsOneCompactListWithoutBlankLines() {
-        SocialDocument document = SocialDocument.of("📊 Minecraft", SocialDocument.Tone.INFO,
+        SocialDocument document = SocialDocument.of(TRUSTED, "📊 Minecraft", SocialDocument.Tone.INFO,
                 SocialDocument.fields(
                         new SocialDocument.Field("Online", "2 / 20"),
                         new SocialDocument.Field("TPS", "20.00 / 20.00 / 19.99"),
@@ -50,7 +51,7 @@ class QqMarkdownRendererTest {
 
     @Test
     void honorsLimitWithoutSplittingUnicodeOrAnEscape() {
-        SocialDocument document = SocialDocument.of("Status", SocialDocument.Tone.INFO,
+        SocialDocument document = SocialDocument.of(TRUSTED, "Status", SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("😀_".repeat(100)));
         String markdown = QqMarkdownRenderer.render(document, 100);
 

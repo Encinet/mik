@@ -275,10 +275,11 @@ class SqliteGovernanceRepositorySchemaTest {
             statement.execute("CREATE TABLE governance_partial(id INTEGER PRIMARY KEY)");
         }
 
-        SqliteGovernanceRepository repository = new SqliteGovernanceRepository(database.toFile());
-        GovernanceRepositoryException error = assertThrows(
-                GovernanceRepositoryException.class, repository::open);
-        assertTrue(error.getMessage().contains("automatic schema upgrades"));
+        try (SqliteGovernanceRepository repository = new SqliteGovernanceRepository(database.toFile())) {
+            GovernanceRepositoryException error = assertThrows(
+                    GovernanceRepositoryException.class, repository::open);
+            assertTrue(error.getMessage().contains("automatic schema upgrades"));
+        }
     }
 
     private SqliteGovernanceRepository repository(String fileName)

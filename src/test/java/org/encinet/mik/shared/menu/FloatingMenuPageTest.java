@@ -10,6 +10,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FloatingMenuPageTest {
     @Test
+    void maximumCollectionCountsAndLastSlicesDoNotOverflow() {
+        var page = new FloatingMenuPage(Integer.MAX_VALUE, Integer.MAX_VALUE, 256);
+        assertEquals(8388608, page.count());
+        assertEquals(2147483392, page.fromIndex());
+        assertEquals(Integer.MAX_VALUE, page.toIndex());
+        assertFalse(page.hasNext());
+        assertEquals(1, new FloatingMenuPage(0, 0, Integer.MAX_VALUE).count());
+    }
+
+    @Test
     void clampsNavigationAndSlicesContent() {
         FloatingMenuPage page = new FloatingMenuPage(99, 5, 2);
         assertEquals(2, page.index());

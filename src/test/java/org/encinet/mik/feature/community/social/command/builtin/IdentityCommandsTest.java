@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
@@ -50,7 +51,7 @@ class IdentityCommandsTest {
         SocialDocument document = command.present(context(true), linked);
 
         assertEquals("🔗 SOCIAL_TITLE_IDENTITY_LINKING", document.title());
-        assertEquals(binding.playerName(), document.untrustedPlainText());
+        assertEquals(REQUIRED, document.moderation());
         assertEquals(1, bindings.redeemCalls);
         assertInstanceOf(LinkIdentityCommand.Result.IdentityMissing.class,
                 command.handle(context(false), "ABCDE-ABCDE"));
@@ -72,7 +73,7 @@ class IdentityCommandsTest {
         SocialDocument document = command.present(context(true), unlinked);
 
         assertEquals("🔓 SOCIAL_TITLE_IDENTITY_UNLINKING", document.title());
-        assertEquals(binding.playerName(), document.untrustedPlainText());
+        assertEquals(REQUIRED, document.moderation());
         assertEquals(1, bindings.unlinkCalls);
     }
 
@@ -106,7 +107,7 @@ class IdentityCommandsTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 identity, "/绑定", false,
-                ignored -> CompletableFuture.completedFuture(null));
+                _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(
                 new SocialPlatformDescriptor(platformId, platformId), message);
     }

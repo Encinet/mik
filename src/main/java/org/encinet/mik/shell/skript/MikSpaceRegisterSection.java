@@ -24,13 +24,13 @@ final class MikSpaceRegisterSection extends Section {
 
     private final MikSkriptFacade facade;
     private final EntryValidator entries = createEntryValidator();
-    private Expression<String> id;
-    private Expression<? extends Location> firstCornerA;
-    private Expression<? extends Location> firstCornerB;
+    private MikSkriptInput<String> id;
+    private MikSkriptInput<Location> firstCornerA;
+    private MikSkriptInput<Location> firstCornerB;
     private String firstThrough;
     private @Nullable String firstUp;
-    private Expression<? extends Location> secondCornerA;
-    private Expression<? extends Location> secondCornerB;
+    private MikSkriptInput<Location> secondCornerA;
+    private MikSkriptInput<Location> secondCornerB;
     private String secondThrough;
     private @Nullable String secondUp;
     private SpaceLinkEntrances entrances;
@@ -41,7 +41,6 @@ final class MikSpaceRegisterSection extends Section {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(
             Expression<?>[] expressions,
             int matchedPattern,
@@ -62,16 +61,16 @@ final class MikSpaceRegisterSection extends Section {
             return false;
         }
 
-        Expression<? extends Location> parsedFirstCornerA = location(first, "corner a");
-        Expression<? extends Location> parsedFirstCornerB = location(first, "corner b");
-        Expression<? extends Location> parsedSecondCornerA = location(second, "corner a");
-        Expression<? extends Location> parsedSecondCornerB = location(second, "corner b");
+        MikSkriptInput<Location> parsedFirstCornerA = location(first, "corner a");
+        MikSkriptInput<Location> parsedFirstCornerB = location(first, "corner b");
+        MikSkriptInput<Location> parsedSecondCornerA = location(second, "corner a");
+        MikSkriptInput<Location> parsedSecondCornerB = location(second, "corner b");
         if (parsedFirstCornerA == null || parsedFirstCornerB == null
                 || parsedSecondCornerA == null || parsedSecondCornerB == null) {
             return false;
         }
 
-        id = (Expression<String>) expressions[0];
+        id = MikSkriptInput.of(expressions[0], String.class);
         firstCornerA = parsedFirstCornerA;
         firstCornerB = parsedFirstCornerB;
         firstThrough = first.get("through", String.class, false);
@@ -105,11 +104,11 @@ final class MikSpaceRegisterSection extends Section {
 
     @Override
     protected @Nullable TriggerItem walk(Event event) {
-        String linkId = id.getSingle(event);
-        Location firstA = firstCornerA.getSingle(event);
-        Location firstB = firstCornerB.getSingle(event);
-        Location secondA = secondCornerA.getSingle(event);
-        Location secondB = secondCornerB.getSingle(event);
+        String linkId = id.single(event);
+        Location firstA = firstCornerA.single(event);
+        Location firstB = firstCornerB.single(event);
+        Location secondA = secondCornerA.single(event);
+        Location secondB = secondCornerB.single(event);
         if (linkId == null || firstA == null || firstB == null
                 || secondA == null || secondB == null) {
             return walk(event, false);
@@ -136,7 +135,7 @@ final class MikSpaceRegisterSection extends Section {
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return "register MIK space " + (id == null ? "" : id.toString(event, debug));
+        return "register MIK space " + (id == null ? "" : id.describe(event, debug));
     }
 
     static EntryValidator createEntryValidator() {
@@ -160,10 +159,8 @@ final class MikSpaceRegisterSection extends Section {
                 .build();
     }
 
-    @SuppressWarnings("unchecked")
-    private static @Nullable Expression<? extends Location> location(
+    private static @Nullable MikSkriptInput<Location> location(
             EntryContainer entries, String key) {
-        return (Expression<? extends Location>) entries.getOptional(
-                key, Expression.class, false);
+        return MikSkriptInput.of(entries.getOptional(key, Expression.class, false), Location.class);
     }
 }

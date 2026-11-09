@@ -20,7 +20,7 @@ public final class MusicTrackSelector {
     }
 
     public MusicTrack select(List<MusicTrack> tracks) {
-        return select(tracks, ignored -> true);
+        return select(tracks, _ -> true);
     }
 
     public MusicTrack select(List<MusicTrack> tracks, Predicate<MusicTrack> candidate) {

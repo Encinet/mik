@@ -38,7 +38,7 @@ public final class TipTrigger<E extends Event> {
     public static <E extends Event> TipTrigger<E> event(Class<E> type,
                                                        Function<? super E, ? extends Player> recipient) {
         return new TipTrigger<>(Objects.requireNonNull(type, "eventType"),
-                Objects.requireNonNull(recipient, "recipient"), event -> true, event -> true, 1, false, null);
+                Objects.requireNonNull(recipient, "recipient"), _ -> true, _ -> true, 1, false, null);
     }
 
     /** Runs on the event thread. For async events, inspect event data rather than live Bukkit state. */

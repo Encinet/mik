@@ -35,24 +35,30 @@ import java.util.logging.Level;
 public final class ApiModule implements Listener {
     private static final String COMMAND_PERMISSION = "mik.command.api";
 
+    private org.encinet.mik.feature.community.chat.web.WebChatModule webChat;
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private final ApiPlayerSnapshot players;
     private final WebLoginChallengeStore webLoginChallenges;
     private final LocalApiServer http;
     private final java.util.function.Function<Player, java.util.function.BooleanSupplier> authentication;
+    private final java.util.function.BiConsumer<Player, Runnable> confirmAuthentication;
 
     public ApiModule(JavaPlugin plugin, LanguageService languageService,
                      Supplier<List<BanRecord>> activeBans,
                      Supplier<byte[]> announcementsJson, CommunityBoardView communityBoard,
-                     java.util.function.Function<Player, java.util.function.BooleanSupplier> authentication) {
+                     java.util.function.Function<Player, java.util.function.BooleanSupplier> authentication,
+                     java.util.function.BiConsumer<Player, Runnable> confirmAuthentication,
+                     java.util.function.Function<java.util.UUID, org.encinet.mik.feature.player.security.WebAccountPolicy> accountPolicy,
+                     java.util.function.BiPredicate<java.util.UUID, String> accountAllowed) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.languageService = Objects.requireNonNull(languageService, "languageService");
         this.authentication = Objects.requireNonNull(authentication, "authentication");
+        this.confirmAuthentication = Objects.requireNonNull(confirmAuthentication, "confirmAuthentication");
         this.players = new ApiPlayerSnapshot(plugin.getDataFolder().toPath(), plugin.getLogger());
         this.webLoginChallenges = new WebLoginChallengeStore();
         this.http = new LocalApiServer(plugin, players, webLoginChallenges,
-                activeBans, announcementsJson, communityBoard);
+                activeBans, announcementsJson, communityBoard, accountPolicy, accountAllowed);
     }
 
     public void start(int port) {
@@ -86,7 +92,13 @@ public final class ApiModule implements Listener {
         shutdown.finish("API module");
     }
 
+    public void webChat(org.encinet.mik.feature.community.chat.web.WebChatModule chat) {
+        this.webChat = Objects.requireNonNull(chat);
+        http.webChat(chat);
+    }
+
     public void invalidatePlayerAuthentication(java.util.UUID playerId) {
+        if (webChat != null) webChat.invalidatePlayer(playerId);
         webLoginChallenges.invalidate(playerId);
     }
 
@@ -150,10 +162,14 @@ public final class ApiModule implements Listener {
             return;
         }
 
-        webLoginChallenges.confirm(code, player.getUniqueId(), player.getName(),
-                PlayerRole.resolve(player).id(), valid);
-        player.sendMessage(Component.text(languageService.t(player,
-                Message.WEBLOGIN_CONFIRMED), NamedTextColor.GREEN));
+        confirmAuthentication.accept(player, () -> {
+            if (!valid.getAsBoolean()) return;
+            boolean confirmed = webLoginChallenges.confirm(code, player.getUniqueId(), player.getName(),
+                    PlayerRole.resolve(player).id(), valid);
+            player.sendMessage(Component.text(languageService.t(player,
+                    confirmed ? Message.WEBLOGIN_CONFIRMED : Message.WEBLOGIN_INVALID_CODE),
+                    confirmed ? NamedTextColor.GREEN : NamedTextColor.RED));
+        });
     }
 
     @EventHandler

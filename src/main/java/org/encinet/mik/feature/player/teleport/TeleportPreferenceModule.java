@@ -10,7 +10,6 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -27,8 +26,12 @@ import org.encinet.mik.feature.player.afk.AfkService;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuLayouts;
+import org.encinet.mik.shared.menu.MenuScene;
+import org.encinet.mik.shared.menu.MenuPanel;
+import org.encinet.mik.shared.menu.ui.*;
+import java.util.List;
+import java.util.function.IntConsumer;
+import java.util.function.BooleanSupplier;
 import org.encinet.mik.shared.menu.FloatingMenus;
 import org.encinet.mik.shared.util.PlayerDisplay;
 
@@ -185,25 +188,43 @@ public class TeleportPreferenceModule implements Listener {
                         || authorization.victimId().equals(playerId));
     }
 
-    public void openMenu(Player player) {
-        TeleportSettings settings = getSettings(player.getUniqueId());
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
-                        "teleport-settings",
-                        Component.text(languageService.t(player, Message.TELEPORT_MENU_TITLE),
-                                NamedTextColor.DARK_PURPLE))
-                .layout(FloatingMenuLayouts.actions(3));
-        menu.item("setting:teleport-policy", policyMaterial(settings.policy()),
-                        policyLabel(player, settings.policy()))
-                .primary((p, handle) -> cyclePolicy(p));
-        menu.toggle("setting:block-teleports-while-afk",
-                        settings.blockTeleportsWhileAfk(), Material.SHIELD,
-                        Material.GRAY_DYE, afkToggleLabel(player,
-                                settings.blockTeleportsWhileAfk()))
-                .primary((p, handle) -> toggleAfkBlocking(p));
-        menu.back(
-                        Component.text(languageService.t(player, Message.BACK_TO_MAIN),
-                                NamedTextColor.GREEN));
-        FloatingMenus.present(player, menu.build());
+    public void openMenu(Player player) { openMenu(player, 0); }
+
+    private void openMenu(Player player, int page) {
+        var content = settingsDefinition(player, page, index -> openMenu(player, index), () -> openMenu(player, page), () -> true);
+        FloatingMenus.present(player, content.toBuilder().content(UiTemplates.withBack(content.content(),
+                Component.text(languageService.t(player, Message.BACK), NamedTextColor.GREEN))).build());
+    }
+
+    public MenuPanel settingsPanel(Player player, Runnable redraw) {
+        return new MenuPanel() {
+            private int page;
+            private boolean closed;
+            @Override public MenuScene render() {
+                if (closed) return MenuScene.screen("teleport-settings-closed").content(Ui.column().build()).build();
+                return settingsDefinition(player, page, index -> { if (!closed) { page = index; redraw.run(); } },
+                        () -> { if (!closed) redraw.run(); }, () -> !closed);
+            }
+            @Override public void close() { closed = true; }
+        };
+    }
+
+    private MenuScene settingsDefinition(Player player, int page, IntConsumer browse, Runnable redraw, BooleanSupplier active) {
+        var settings = getSettings(player.getUniqueId());
+        var title = Component.text(languageService.t(player, Message.TELEPORT_MENU_TITLE), NamedTextColor.LIGHT_PURPLE);
+        var policy = policyLabel(player, settings.policy());
+        var afk = afkToggleLabel(player, settings.blockTeleportsWhileAfk());
+        var options = Ui.pagedList().key("settings").items(List.of(
+                Ui.button(policy).key("setting:teleport-policy").summaryLines(2).tooltip(policy).primary((viewer, _) -> {
+                    if (active.getAsBoolean()) { cyclePolicy(viewer); redraw.run(); }
+                }).build(),
+                Ui.button(afk).key("setting:block-teleports-while-afk").summaryLines(2).tooltip(afk)
+                        .selected(settings.blockTeleportsWhileAfk()).primary((viewer, _) -> {
+                            if (active.getAsBoolean()) { toggleAfkBlocking(viewer); redraw.run(); }
+                        }).build()),LinearSlot.stretch()).page(page, browse).build();
+        var body = UiTemplates.reading(options.key(),Ui.heading(title).key("heading").summaryLines(1).build(),options);
+        return MenuScene.screen("teleport-settings", title).stableAnchor().withoutTitle()
+                .content(UiTemplates.window("preferences", body)).build();
     }
 
     private void cyclePolicy(Player player) {
@@ -223,27 +244,6 @@ public class TeleportPreferenceModule implements Listener {
     private void updateSettings(Player player, TeleportSettings next) {
         settingsCache.put(player.getUniqueId(), next);
         saveSettings(player.getUniqueId(), next);
-        openMenu(player);
-    }
-
-    public String summary(Player player) {
-        TeleportSettings settings = getSettings(player.getUniqueId());
-        String summary = switch (settings.policy()) {
-            case ALWAYS_ALLOW -> languageService.t(player,
-                    settings.blockTeleportsWhileAfk()
-                            ? Message.TELEPORT_SUMMARY_AFK
-                            : Message.TELEPORT_SUMMARY_ALLOW);
-            case REQUIRE_CONSENT -> languageService.t(player,
-                    Message.TELEPORT_SUMMARY_CONSENT);
-            case ALWAYS_DENY -> languageService.t(player,
-                    Message.TELEPORT_SUMMARY_DENY);
-        };
-        if (settings.policy() == TeleportPolicy.REQUIRE_CONSENT
-                && settings.blockTeleportsWhileAfk()) {
-            return summary + " · "
-                    + languageService.t(player, Message.TELEPORT_BLOCK_AFK);
-        }
-        return summary;
     }
 
     private Component policyLabel(Player player, TeleportPolicy policy) {
@@ -256,11 +256,11 @@ public class TeleportPreferenceModule implements Listener {
 
     private Component afkToggleLabel(Player player, boolean enabled) {
         return Component.text(languageService.t(player, Message.TELEPORT_BLOCK_AFK),
-                        enabled ? NamedTextColor.GREEN : NamedTextColor.GRAY)
+                        enabled ? NamedTextColor.GREEN : NamedTextColor.WHITE)
                 .append(Component.newline())
                 .append(Component.text(languageService.t(player,
                                 enabled ? Message.CURRENT_ON : Message.CURRENT_OFF),
-                        enabled ? NamedTextColor.GREEN : NamedTextColor.DARK_GRAY));
+                        enabled ? NamedTextColor.GREEN : NamedTextColor.YELLOW));
     }
 
     private Message policyMessage(TeleportPolicy policy) {
@@ -276,14 +276,6 @@ public class TeleportPreferenceModule implements Listener {
             case ALWAYS_ALLOW -> NamedTextColor.GREEN;
             case REQUIRE_CONSENT -> NamedTextColor.GOLD;
             case ALWAYS_DENY -> NamedTextColor.RED;
-        };
-    }
-
-    private Material policyMaterial(TeleportPolicy policy) {
-        return switch (policy) {
-            case ALWAYS_ALLOW -> Material.ENDER_PEARL;
-            case REQUIRE_CONSENT -> Material.WRITABLE_BOOK;
-            case ALWAYS_DENY -> Material.BARRIER;
         };
     }
 
@@ -355,7 +347,7 @@ public class TeleportPreferenceModule implements Listener {
                         RichArg.component("sender",
                                 PlayerDisplay.name(sender, NamedTextColor.AQUA)),
                         RichArg.component("command",
-                                Component.text(command, NamedTextColor.GRAY)))
+                                Component.text(command, NamedTextColor.WHITE)))
                 .append(Component.newline())
                 .append(accept)
                 .append(Component.space())
@@ -369,13 +361,13 @@ public class TeleportPreferenceModule implements Listener {
     private Component requestButton(Player player, Message label,
                                     NamedTextColor color, String command) {
         return Component.text()
-                .append(Component.text("[", NamedTextColor.DARK_GRAY))
+                .append(Component.text("[", NamedTextColor.YELLOW))
                 .append(Component.text(languageService.t(player, label), color,
                         TextDecoration.BOLD))
-                .append(Component.text("]", NamedTextColor.DARK_GRAY))
+                .append(Component.text("]", NamedTextColor.YELLOW))
                 .clickEvent(ClickEvent.runCommand(command))
                 .hoverEvent(HoverEvent.showText(
-                        Component.text(command, NamedTextColor.GRAY)))
+                        Component.text(command, NamedTextColor.WHITE)))
                 .build();
     }
 
@@ -459,7 +451,7 @@ public class TeleportPreferenceModule implements Listener {
         Player player = Bukkit.getPlayer(playerId);
         if (player != null) {
             player.sendMessage(Component.text(languageService.t(player,
-                    Message.TELEPORT_REQUEST_EXPIRED), NamedTextColor.GRAY));
+                    Message.TELEPORT_REQUEST_EXPIRED), NamedTextColor.WHITE));
         }
     }
 

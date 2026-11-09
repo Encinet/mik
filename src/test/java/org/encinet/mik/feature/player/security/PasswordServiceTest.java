@@ -26,8 +26,20 @@ class PasswordServiceTest {
     private PasswordService open() {
         var service = new PasswordService(directory.resolve("passwords.db"));
         service.open();
-        service.retention(id -> false);
+        service.retention(_ -> false);
         return service;
+    }
+
+    @Test void credentialChangeTimesSurviveRestartAndPasswordRemoval() {
+        long changed;
+        try (var service = open()) {
+            assertEquals(0, service.updatedAt(ACCOUNT));
+            service.set(ACCOUNT, "Alex", service.credential(ACCOUNT), ORIGINAL, ORIGINAL, () -> PlayerRole.MEMBER, null);
+            long set = service.updatedAt(ACCOUNT); assertTrue(set > 0);
+            service.remove(ACCOUNT, service.credential(ACCOUNT), ORIGINAL, () -> PlayerRole.MEMBER, null);
+            changed = service.updatedAt(ACCOUNT); assertTrue(changed >= set);
+        }
+        try (var service = open()) { assertFalse(service.hasPassword(ACCOUNT)); assertEquals(changed, service.updatedAt(ACCOUNT)); }
     }
 
     @Test void saltsDifferAndVerificationRejectsWrongPasswordsAndUnboundedParameters() {
@@ -87,11 +99,11 @@ class PasswordServiceTest {
             assertEquals(24, password.length());
             assertSame(service.credential(ACCOUNT), service.verify(ACCOUNT, password));
             failCode(PasswordException.Code.KEEP_ROLE, () -> service.remove(ACCOUNT, service.credential(ACCOUNT), password, () -> PlayerRole.CUSTODIAN, null));
-            service.retention(id -> true);
+            service.retention(_ -> true);
             failCode(PasswordException.Code.REQUIRED_APPLICATION, () -> service.remove(ACCOUNT, service.credential(ACCOUNT), password, () -> PlayerRole.MEMBER, null));
             service.change(ACCOUNT, "Alex", service.credential(ACCOUNT), password, REPLACEMENT, REPLACEMENT, null);
             assertSame(service.credential(ACCOUNT), service.verify(ACCOUNT, REPLACEMENT));
-            service.retention(id -> false);
+            service.retention(_ -> false);
             service.remove(ACCOUNT, service.credential(ACCOUNT), REPLACEMENT, () -> PlayerRole.MEMBER, null);
             assertFalse(service.hasPassword(ACCOUNT));
         }
@@ -144,7 +156,7 @@ class PasswordServiceTest {
             AtomicBoolean failed = new AtomicBoolean();
             // Keep real SQLite transactions, but fail the connection reset after COMMIT has succeeded.
             var unreliable = java.lang.reflect.Proxy.newProxyInstance(java.sql.Connection.class.getClassLoader(),
-                    new Class<?>[] {java.sql.Connection.class}, (proxy, method, args) -> {
+                    new Class<?>[] {java.sql.Connection.class}, (_, method, args) -> {
                         Object value;
                         try { value = method.invoke(real, args); }
                         catch (java.lang.reflect.InvocationTargetException error) { throw error.getCause(); }
@@ -207,7 +219,7 @@ class PasswordServiceTest {
         try (var service = open(); var executor = Executors.newFixedThreadPool(2)) {
             service.set(ACCOUNT, "Alex", service.credential(ACCOUNT), ORIGINAL, ORIGINAL, () -> PlayerRole.MEMBER, null);
             AtomicBoolean application = new AtomicBoolean();
-            service.retention(id -> application.get());
+            service.retention(_ -> application.get());
             CountDownLatch checked = new CountDownLatch(1);
             CountDownLatch create = new CountDownLatch(1);
             var nomination = executor.submit(() -> service.coordinate(() -> {

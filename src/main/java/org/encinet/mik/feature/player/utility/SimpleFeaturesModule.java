@@ -81,7 +81,7 @@ public class SimpleFeaturesModule implements Listener {
         tips.define("spawn-return", Message.SPAWN_TIP_RETURN_MM)
                 .ambient()
                 .on(TipTriggers.chatMentions(SPAWN_MENTION))
-                .when(player -> Bukkit.getWorld(SPAWN_WORLD) != null)
+                .when(_ -> Bukkit.getWorld(SPAWN_WORLD) != null)
                 .build();
         tips.define("hat-wear", Message.HAT_TIP_WEAR_MM)
                 .ambient()
@@ -267,7 +267,7 @@ public class SimpleFeaturesModule implements Listener {
             if (recipient.getUniqueId().equals(kickedPlayer.getUniqueId())) continue;
             Language language = languageService.language(recipient);
             recipient.sendMessage(localizedMessages.computeIfAbsent(language,
-                    ignored -> selfKickMessages.message(language, kickedPlayer, request)));
+                    _ -> selfKickMessages.message(language, kickedPlayer, request)));
         }
 
         Bukkit.getConsoleSender().sendMessage(selfKickMessages.message(

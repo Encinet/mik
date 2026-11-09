@@ -72,7 +72,6 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.MerchantInventory;
 import org.bukkit.block.DoubleChest;
-import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.feature.world.plot.Plot;
 import org.encinet.mik.feature.world.plot.PlotRegistry;
 import org.encinet.mik.feature.world.plot.PlotPermission;
@@ -84,11 +83,9 @@ import java.util.List;
 /** Every ordinary gameplay entry point uses the same plot lookup as editor integrations. */
 public final class PlotProtection implements Listener {
     private final PlotRegistry registry;
-    private final LanguageService language;
 
-    public PlotProtection(PlotRegistry registry, LanguageService language) {
+    public PlotProtection(PlotRegistry registry) {
         this.registry = registry;
-        this.language = language;
     }
 
     boolean allowed(Player player, Block block, String flag) {
@@ -226,7 +223,8 @@ public final class PlotProtection implements Listener {
             if (entity != player && !allowed(player, entity.getLocation(),
                     entity instanceof org.bukkit.entity.AbstractVillager ? PlotPermission.TRADE : PlotPermission.ENTITY_STORAGE))
                 event.setCancelled(true);
-        } else if (holder instanceof BlockState state && !allowed(player, state.getBlock(), "container")) {
+        } else if (holder instanceof BlockState state && !allowed(player, state.getBlock(),
+                state.getType() == Material.JUKEBOX ? "music_control" : "container")) {
             event.setCancelled(true);
         } else if (holder instanceof DoubleChest chest) {
             for (InventoryHolder side : new InventoryHolder[]{chest.getLeftSide(false), chest.getRightSide(false)}) {

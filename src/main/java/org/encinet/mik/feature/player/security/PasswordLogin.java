@@ -1,4 +1,5 @@
 package org.encinet.mik.feature.player.security;
+
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.event.connection.configuration.AsyncPlayerConnectionConfigureEvent;
 import net.kyori.adventure.text.Component;
@@ -14,6 +15,7 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.PlayerRole;
+
 import java.net.SocketAddress;
 import java.util.Map;
 import java.util.UUID;
@@ -162,7 +164,7 @@ final class PasswordLogin implements Listener, AutoCloseable {
     @EventHandler
     public void quit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        sessions.computeIfPresent(player.getUniqueId(), (id, session) -> {
+        sessions.computeIfPresent(player.getUniqueId(), (_, session) -> {
             if (session.player() != player) return session;
             session.authority().close();
             return null;

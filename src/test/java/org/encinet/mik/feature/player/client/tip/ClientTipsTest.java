@@ -59,7 +59,7 @@ class ClientTipsTest {
     private final AtomicInteger queries = new AtomicInteger();
     private final UUID id = UUID.randomUUID();
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, args) -> {
+            new Class<?>[]{Player.class}, (_, method, _) -> {
                 if (method.getName().equals("getUniqueId")) return id;
                 if (method.getName().equals("hasPermission")) return true;
                 throw new AssertionError(method.getName());
@@ -68,8 +68,8 @@ class ClientTipsTest {
     @BeforeEach
     void register() {
         ClientTips.register(tips, LANGUAGES,
-                ignored -> { queries.incrementAndGet(); return version.get(); },
-                ignored -> { queries.incrementAndGet(); return mods.get(); }, ignored -> bedrock.get());
+                _ -> { queries.incrementAndGet(); return version.get(); },
+                _ -> { queries.incrementAndGet(); return mods.get(); }, _ -> bedrock.get());
     }
 
     @AfterEach
@@ -81,14 +81,14 @@ class ClientTipsTest {
         mods.set(Optional.of(Set.of(ClientMod.AXIOM, ClientMod.PLASMO_VOICE)));
         tips.join(player);
         assertEquals(0, queries.get(), "detection remains independent and is read at delivery");
-        var batch = tips.collect(player, 0, Language.FR_FR);
+        var batch = tips.collect(player, 10_000, Language.FR_FR);
         assertEquals(2, batch.size());
         String text = plain(batch.getFirst());
         assertTrue(text.contains("fr_fr:"));
         assertTrue(text.contains("1.21.4"));
         assertTrue(text.contains("1.21.8"));
         assertEquals(Set.of("https://modrinth.com/mod/xaeros-minimap", "https://modrinth.com/mod/xaeros-world-map",
-                        "https://modrinth.com/mod/voxy"),
+                        "https://modrinth.com/plugin/dreamdisplays"),
                 links(batch.getLast()));
     }
 
@@ -107,30 +107,30 @@ class ClientTipsTest {
         version.set(Optional.of(new ClientVersions.Version("older", "current", true)));
         mods.set(Optional.of(Set.of()));
         tips.join(player);
-        var first = tips.deliver(player, 0);
+        var first = tips.deliver(player, 10_000);
         assertEquals(2, first.size());
         assertEquals(5, links(first.getLast()).size());
 
         tips.collect(player, 60_000);
         tips.join(player);
-        var unchanged = tips.deliver(player, 60_000);
+        var unchanged = tips.deliver(player, 70_000);
         assertEquals(2, unchanged.size());
         assertEquals(5, links(unchanged.getLast()).size());
 
         mods.set(Optional.of(Set.of(ClientMod.AXIOM, ClientMod.PLASMO_VOICE)));
         tips.collect(player, 120_000);
         tips.join(player);
-        var partiallyInstalled = tips.deliver(player, 120_000);
+        var partiallyInstalled = tips.deliver(player, 130_000);
         assertEquals(2, partiallyInstalled.size());
         assertEquals(Set.of("https://modrinth.com/mod/xaeros-minimap", "https://modrinth.com/mod/xaeros-world-map",
-                        "https://modrinth.com/mod/voxy"),
+                        "https://modrinth.com/plugin/dreamdisplays"),
                 links(partiallyInstalled.getLast()));
 
         version.set(Optional.of(new ClientVersions.Version("current", "current", false)));
         mods.set(Optional.of(EnumSet.allOf(ClientMod.class)));
         tips.collect(player, 180_000);
         tips.join(player);
-        assertTrue(tips.deliver(player, 180_000).isEmpty());
+        assertTrue(tips.deliver(player, 190_000).isEmpty());
     }
 
     @Test
@@ -172,7 +172,7 @@ class ClientTipsTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"飞行速度怎么调", "飛行速度太慢了", "飛行可以快一點嗎", "飛行何以加速", "快",
-            "/fly speed", "/FLYSPEED", "How can I FLY faster?", "flight speed", "speed太慢了", "quicker",
+            "/fly speed", "/FLY SPEED", "How can I FLY faster?", "flight speed", "speed太慢了", "quicker",
             "Wie ändere ich die Fluggeschwindigkeit?", "Kann ich schneller fliegen?",
             "¿Cómo cambio la velocidad de vuelo?", "Comment régler la vitesse de vol ?", "plus vite",
             "Come cambio la velocità di volo?", "Hoe pas ik mijn vliegsnelheid aan?",
@@ -231,36 +231,51 @@ class ClientTipsTest {
     }
 
     @Test
-    void voxyIntroductionAppearsOnlyWhileUndetectedAndUsesTheCurrentLanguage() {
-        mods.set(Optional.of(Set.of(ClientMod.AXIOM)));
-        assertTrue(tips.collect(player, 0).isEmpty());
-        var introduction = tips.collect(player, 15 * 60_000, Language.FR_FR);
-        assertEquals(1, introduction.size());
-        assertEquals("fr_fr:Voxy", plain(introduction.getFirst()));
-        assertEquals(Set.of("https://modrinth.com/mod/voxy"), links(introduction.getFirst()));
-
-        mods.set(Optional.of(Set.of(ClientMod.AXIOM, ClientMod.VOXY)));
-        assertTrue(tips.collect(player, 30 * 60_000).isEmpty());
-        mods.set(Optional.empty());
-        assertTrue(tips.collect(player, 45 * 60_000).isEmpty());
-        mods.set(Optional.of(Set.of(ClientMod.AXIOM)));
-        assertEquals(1, tips.collect(player, 60 * 60_000).size());
+    void silentVoxyIsNeverRecommendedAsMissingOnJoinOrInAmbientTips() {
+        mods.set(Optional.of(EnumSet.complementOf(EnumSet.of(ClientMod.VOXY))));
+        tips.join(player);
+        assertTrue(tips.collect(player, 10_000).isEmpty());
+        assertTrue(tips.collect(player, 15 * 60_000).isEmpty());
     }
 
     @Test
-    void knownVoxyIsRemovedFromTheJoinRecommendationsAndBedrockGetsNoAmbientAdvice() {
-        mods.set(Optional.of(Set.of(ClientMod.VOXY)));
-        tips.join(player);
-        var recommendations = tips.collect(player, 0);
-        assertEquals(1, recommendations.size());
-        assertFalse(links(recommendations.getFirst()).contains("https://modrinth.com/mod/voxy"));
-        assertEquals(4, links(recommendations.getFirst()).size());
-
+    void bedrockGetsNoAmbientAdvice() {
         bedrock.set(true);
-        queries.set(0);
-        tips.collect(player, 1);
-        assertTrue(tips.collect(player, 15 * 60_000 + 1).isEmpty());
+        mods.set(Optional.of(Set.of()));
+        assertTrue(tips.collect(player, 0).isEmpty());
+        assertTrue(tips.collect(player, 15 * 60_000).isEmpty());
         assertEquals(0, queries.get());
+    }
+
+    @Test
+    void joinAdviceWaitsForHandshakesAndFiltersAxiomAndVoiceThatArriveAfterJoin() {
+        mods.set(Optional.of(Set.of()));
+        tips.join(player);
+        assertTrue(tips.collect(player, 0).isEmpty());
+        assertTrue(tips.collect(player, 9_999).isEmpty());
+
+        mods.set(Optional.of(Set.of(ClientMod.AXIOM, ClientMod.PLASMO_VOICE)));
+        var advice = tips.collect(player, 10_000);
+        assertEquals(1, advice.size());
+        assertEquals(Set.of("https://modrinth.com/mod/xaeros-minimap",
+                "https://modrinth.com/mod/xaeros-world-map", "https://modrinth.com/plugin/dreamdisplays"),
+                links(advice.getFirst()));
+    }
+
+    @Test
+    void dreamDisplaysIsRecommendedOnJoinAndLateHandshakeSuppressesItsQueuedAdvice() {
+        mods.set(Optional.of(EnumSet.complementOf(EnumSet.of(ClientMod.DREAM_DISPLAYS))));
+        tips.join(player);
+        var advice = tips.deliver(player, 10_000);
+        assertEquals(1, advice.size());
+        assertTrue(plain(advice.getFirst()).contains("Dream Displays"));
+        assertEquals(Set.of("https://modrinth.com/plugin/dreamdisplays"), links(advice.getFirst()));
+
+        tips.collect(player, 60_000);
+        tips.join(player);
+        assertTrue(tips.collect(player, 69_999).isEmpty());
+        mods.set(Optional.of(EnumSet.allOf(ClientMod.class)));
+        assertTrue(tips.deliver(player, 70_000).isEmpty());
     }
 
     @Test

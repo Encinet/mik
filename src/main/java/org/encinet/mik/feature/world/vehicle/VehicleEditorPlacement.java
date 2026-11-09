@@ -1,11 +1,10 @@
 package org.encinet.mik.feature.world.vehicle;
 
-import java.util.List;
 
-record VehicleEditorPlacement(VehicleModelDraft draft, long revision, List<String> command, long readyTick, long expires) {
-    VehicleEditorPlacement {
-        command = List.copyOf(command);
-    }
+record VehicleEditorPlacement(VehicleModelDraft draft, long revision, Action action, long readyTick, long expires) {
+    sealed interface Action permits Target, Position { }
+    enum Target implements Action { PICK, FRONT, CENTER, CORNER_FIRST, CORNER_SECOND }
+    record Position(VehicleEditorRoute.Position route) implements Action { }
 
     boolean current(VehicleModelDraft candidate, long now) {
         return candidate == draft && candidate != null && candidate.revision() == revision && now < expires;

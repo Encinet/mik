@@ -59,7 +59,7 @@ class OnlineAudioCacheTest {
         AtomicInteger requests = new AtomicInteger();
         String url = serve("/song", audio, requests);
         AtomicInteger resolutions = new AtomicInteger();
-        LxTrackResolver upstream = track -> {
+        LxTrackResolver upstream = _ -> {
             resolutions.incrementAndGet();
             return CompletableFuture.completedFuture(url);
         };
@@ -80,12 +80,38 @@ class OnlineAudioCacheTest {
                 cache.statsAsync().get(5, TimeUnit.SECONDS));
 
         cache.close();
-        cache = cache(track -> CompletableFuture.failedFuture(
+        cache = cache(_ -> CompletableFuture.failedFuture(
                 new AssertionError("cached playback must not resolve the source URL")), 1024);
 
         assertTrue(cache.isCached(target()));
         assertEquals(firstPath, cache.resolve(target()).get(5, TimeUnit.SECONDS));
         assertEquals(1, requests.get());
+    }
+
+    @Test
+    void appliesConfiguredLimitsBeforeInspectingDiskAndRetainsLargerValidCache() throws Exception {
+        byte[] audio = new byte[64];
+        String url = serve("/retained", audio, new AtomicInteger());
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 128);
+        Path retained = Path.of(cache.resolve(target()).get(5, TimeUnit.SECONDS));
+        cache.close();
+
+        AtomicInteger resolutions = new AtomicInteger();
+        cache = new OnlineAudioCache(directory, _ -> {
+            resolutions.incrementAndGet();
+            return CompletableFuture.failedFuture(new AssertionError("Must reuse retained audio"));
+        }, _ -> {}, 16, Duration.ofSeconds(3));
+        assertTrue(Files.exists(retained));
+        assertThrows(CompletionException.class, () -> cache.resolve(target()).join());
+        assertEquals(0, resolutions.get());
+
+        cache.initialize(128, 256);
+
+        assertTrue(cache.isCached(target()));
+        assertEquals(retained.toString(), cache.resolve(target()).get(5, TimeUnit.SECONDS));
+        assertArrayEquals(audio, Files.readAllBytes(retained));
+        assertEquals(0, resolutions.get());
+        assertThrows(IllegalStateException.class, () -> cache.initialize(16, 256));
     }
 
     @Test
@@ -141,6 +167,7 @@ class OnlineAudioCacheTest {
         };
         cache = new OnlineAudioCache(directory, upstream, warnings::add,
                 1024, Duration.ofSeconds(3));
+        cache.initialize();
 
         Path cached = Path.of(cache.resolve(target()).get(5, TimeUnit.SECONDS));
 
@@ -180,7 +207,7 @@ class OnlineAudioCacheTest {
         });
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/progressive";
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         CompletableFuture<OnlineAudioCache.StreamingAudio> acquiring =
                 cache.acquireStreaming(target());
@@ -235,8 +262,9 @@ class OnlineAudioCacheTest {
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/broken-stream";
         cache = new OnlineAudioCache(directory,
-                ignored -> CompletableFuture.completedFuture(url), ignored -> {},
+                _ -> CompletableFuture.completedFuture(url), _ -> {},
                 1024, Duration.ofMillis(150));
+        cache.initialize();
 
         OnlineAudioCache.StreamingAudio streaming = cache.acquireStreaming(target())
                 .get(5, TimeUnit.SECONDS);
@@ -258,7 +286,7 @@ class OnlineAudioCacheTest {
         byte[] audio = "shared-progressive-audio".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         AtomicInteger requests = new AtomicInteger();
         String url = serve("/shared-progressive", audio, requests);
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         OnlineAudioCache.StreamingAudio first = cache.acquireStreaming(target())
                 .get(5, TimeUnit.SECONDS);
@@ -282,7 +310,7 @@ class OnlineAudioCacheTest {
         byte[] audio = "seekable-progressive-audio"
                 .getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String url = serve("/seekable-progressive", audio, new AtomicInteger());
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         OnlineAudioCache.StreamingAudio streaming = cache.acquireStreaming(target())
                 .get(5, TimeUnit.SECONDS);
@@ -320,7 +348,7 @@ class OnlineAudioCacheTest {
         });
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/reader-cancel";
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         OnlineAudioCache.StreamingAudio streaming = cache.acquireStreaming(target())
                 .get(5, TimeUnit.SECONDS);
@@ -332,7 +360,7 @@ class OnlineAudioCacheTest {
 
             cache.invalidate(target());
 
-            assertFalse(waitingRead.handle((value, error) -> error == null)
+            assertFalse(waitingRead.handle((_, error) -> error == null)
                     .get(1, TimeUnit.SECONDS));
         } finally {
             releaseServer.countDown();
@@ -344,14 +372,14 @@ class OnlineAudioCacheTest {
         byte[] audio = "indexed-cache".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String url = serve("/indexed", audio, new AtomicInteger());
         MusicTrack track = onlineTrack();
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         cache.resolve(target(track)).get(5, TimeUnit.SECONDS);
         assertTrue(cache.indexAsync(track).get(5, TimeUnit.SECONDS));
         assertEquals(List.of(track), cache.cachedTracks());
 
         cache.close();
-        cache = cache(ignored -> CompletableFuture.failedFuture(
+        cache = cache(_ -> CompletableFuture.failedFuture(
                 new AssertionError("cached playback must not resolve the source URL")), 1024);
 
         assertEquals(List.of(track), cache.cachedTracks());
@@ -365,14 +393,14 @@ class OnlineAudioCacheTest {
         byte[] audio = "cached".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String url = serve("/metadata", audio, new AtomicInteger());
         MusicTrack track = onlineTrack();
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         cache.resolve(target(track)).get(5, TimeUnit.SECONDS);
         String key = OnlineAudioCache.cacheKey(target(track));
         Files.writeString(directory.resolve(key + ".track.json"), "{not-json");
 
         cache.close();
-        cache = cache(ignored -> CompletableFuture.failedFuture(
+        cache = cache(_ -> CompletableFuture.failedFuture(
                 new AssertionError("cache startup must not resolve music")), 1024);
 
         assertTrue(cache.isCached(target(track)));
@@ -387,7 +415,7 @@ class OnlineAudioCacheTest {
         MusicTrack track = new MusicTrack("lx:kw:1",
                 new TrackDetails("Bad\nTitle", "Artist", null, "LX/KW", AudioProperties.EMPTY),
                 target());
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         String path = cache.resolve(target()).get(5, TimeUnit.SECONDS);
 
@@ -407,8 +435,9 @@ class OnlineAudioCacheTest {
         server.start();
         String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
         cache = new OnlineAudioCache(directory, target -> CompletableFuture.completedFuture(
-                baseUrl + (target.songId().equals("1") ? "/one" : "/two")), ignored -> {},
+                baseUrl + (target.songId().equals("1") ? "/one" : "/two")), _ -> {},
                 8, 10, Duration.ofSeconds(3));
+        cache.initialize();
         MusicTrack first = onlineTrack("lx:kw:1");
         MusicTrack second = onlineTrack("lx:kw:2");
 
@@ -431,8 +460,9 @@ class OnlineAudioCacheTest {
                 ? new MusicPlaybackStats.TrackStats(100, Instant.now())
                 : MusicPlaybackStats.TrackStats.EMPTY;
         cache = new OnlineAudioCache(directory,
-                ignored -> CompletableFuture.completedFuture(url), ignored -> {},
+                _ -> CompletableFuture.completedFuture(url), _ -> {},
                 4, 8, Duration.ofSeconds(3), stats);
+        cache.initialize();
 
         cache.resolve(target(popular)).get(5, TimeUnit.SECONDS);
         assertTrue(cache.indexAsync(popular).get(5, TimeUnit.SECONDS));
@@ -461,7 +491,7 @@ class OnlineAudioCacheTest {
         });
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/truncated";
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         CompletionException failure = assertThrows(CompletionException.class,
                 () -> cache.resolve(target()).join());
@@ -481,12 +511,12 @@ class OnlineAudioCacheTest {
         AtomicInteger requests = new AtomicInteger();
         String url = serve("/large", audio, requests);
         AtomicInteger resolutions = new AtomicInteger();
-        cache = cache(track -> {
+        cache = cache(_ -> {
             resolutions.incrementAndGet();
             return CompletableFuture.completedFuture(url);
         }, 32);
 
-        assertFalse(cache.resolve(target()).handle((path, error) -> error == null)
+        assertFalse(cache.resolve(target()).handle((_, error) -> error == null)
                 .get(5, TimeUnit.SECONDS));
         assertEquals(new OnlineAudioCache.CacheStats(0, 0),
                 cache.statsAsync().get(5, TimeUnit.SECONDS));
@@ -494,7 +524,7 @@ class OnlineAudioCacheTest {
             assertTrue(files.findAny().isEmpty());
         }
 
-        assertFalse(cache.resolve(target()).handle((path, error) -> error == null)
+        assertFalse(cache.resolve(target()).handle((_, error) -> error == null)
                 .get(5, TimeUnit.SECONDS));
         assertEquals(2, resolutions.get());
         assertEquals(2, requests.get());
@@ -505,7 +535,7 @@ class OnlineAudioCacheTest {
         byte[] audio = "audio".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         AtomicInteger requests = new AtomicInteger();
         String url = serve("/clear", audio, requests);
-        cache = cache(track -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         String firstPath = cache.resolve(target()).get(5, TimeUnit.SECONDS);
         assertTrue(Files.isRegularFile(Path.of(firstPath)));
@@ -540,11 +570,12 @@ class OnlineAudioCacheTest {
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stalled";
         cache = new OnlineAudioCache(directory,
-                ignored -> CompletableFuture.completedFuture(url), ignored -> {},
+                _ -> CompletableFuture.completedFuture(url), _ -> {},
                 1024, 16 * 1024, Duration.ofSeconds(3), Duration.ofMillis(150),
                 MusicPlaybackStats.EMPTY);
+        cache.initialize();
 
-        assertFalse(cache.resolve(target()).handle((path, error) -> error == null)
+        assertFalse(cache.resolve(target()).handle((_, error) -> error == null)
                 .get(5, TimeUnit.SECONDS));
         assertEquals(1, requests.get());
         assertEquals(new OnlineAudioCache.CacheStats(0, 0),
@@ -583,8 +614,9 @@ class OnlineAudioCacheTest {
         server.start();
         String baseUrl = "http://127.0.0.1:" + server.getAddress().getPort();
         cache = new OnlineAudioCache(directory, target -> CompletableFuture.completedFuture(
-                baseUrl + (target.songId().equals("1") ? "/first" : "/second")), ignored -> {},
+                baseUrl + (target.songId().equals("1") ? "/first" : "/second")), _ -> {},
                 8, 10, Duration.ofSeconds(3));
+        cache.initialize();
 
         Path first = Path.of(cache.resolve(target("lx:kw:1"))
                 .get(5, TimeUnit.SECONDS));
@@ -623,7 +655,7 @@ class OnlineAudioCacheTest {
         });
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/invalidate";
-        cache = cache(track -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         MusicTrack track = onlineTrack();
         CompletableFuture<String> stale = cache.resolve(target(track));
@@ -632,7 +664,7 @@ class OnlineAudioCacheTest {
         assertFalse(cache.isCached(target(track)));
         releaseResponse.countDown();
 
-        assertFalse(stale.handle((path, error) -> error == null).get(5, TimeUnit.SECONDS));
+        assertFalse(stale.handle((_, error) -> error == null).get(5, TimeUnit.SECONDS));
         for (int attempt = 0; attempt < 50
                 && !cache.statsAsync().get(5, TimeUnit.SECONDS)
                 .equals(new OnlineAudioCache.CacheStats(0, 0)); attempt++) {
@@ -663,14 +695,14 @@ class OnlineAudioCacheTest {
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort()
                 + "/stalled-invalidate";
-        cache = cache(track -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
         MusicTrack track = onlineTrack();
         CompletableFuture<String> resolving = cache.resolve(target(track));
         assertTrue(bodyStarted.await(5, TimeUnit.SECONDS));
 
         cache.invalidate(target(track));
 
-        assertFalse(resolving.handle((path, error) -> error == null).get(1, TimeUnit.SECONDS));
+        assertFalse(resolving.handle((_, error) -> error == null).get(1, TimeUnit.SECONDS));
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
         while (hasPartFile() && System.nanoTime() < deadline) {
             Thread.sleep(20);
@@ -699,14 +731,14 @@ class OnlineAudioCacheTest {
         });
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stalled-clear";
-        cache = cache(track -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         CompletableFuture<String> resolving = cache.resolve(target());
         assertTrue(bodyStarted.await(5, TimeUnit.SECONDS));
 
         assertEquals(new OnlineAudioCache.CacheStats(0, 0),
                 cache.clearAsync().get(5, TimeUnit.SECONDS));
-        assertFalse(resolving.handle((path, error) -> error == null).get(1, TimeUnit.SECONDS));
+        assertFalse(resolving.handle((_, error) -> error == null).get(1, TimeUnit.SECONDS));
         assertFalse(hasPartFile());
         assertFalse(cache.isCached(target()));
         releaseServer.countDown();
@@ -733,7 +765,7 @@ class OnlineAudioCacheTest {
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort()
                 + "/invalidate-then-clear";
-        cache = cache(track -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
         MusicTrack track = onlineTrack();
 
         CompletableFuture<String> resolving = cache.resolve(target(track));
@@ -742,7 +774,7 @@ class OnlineAudioCacheTest {
 
         assertEquals(new OnlineAudioCache.CacheStats(0, 0),
                 cache.clearAsync().get(5, TimeUnit.SECONDS));
-        assertFalse(resolving.handle((path, error) -> error == null).get(1, TimeUnit.SECONDS));
+        assertFalse(resolving.handle((_, error) -> error == null).get(1, TimeUnit.SECONDS));
         assertFalse(hasPartFile());
         releaseServer.countDown();
     }
@@ -756,14 +788,15 @@ class OnlineAudioCacheTest {
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/audio";
         cache = new OnlineAudioCache(directory,
-                track -> CompletableFuture.completedFuture(url), ignored -> {},
+                _ -> CompletableFuture.completedFuture(url), _ -> {},
                 8, 10, Duration.ofSeconds(3));
+        cache.initialize();
 
         OnlineAudioCache.CachedAudio active = cache.acquire(target("lx:kw:1"))
                 .get(5, TimeUnit.SECONDS);
 
         assertFalse(cache.resolve(target("lx:kw:2"))
-                .handle((path, error) -> error == null).get(5, TimeUnit.SECONDS));
+                .handle((_, error) -> error == null).get(5, TimeUnit.SECONDS));
         assertTrue(Files.exists(Path.of(active.identifier())));
 
         active.close();
@@ -787,7 +820,7 @@ class OnlineAudioCacheTest {
         });
         server.start();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/recover";
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
 
         OnlineAudioCache.CachedAudio active = cache.acquire(target())
                 .get(5, TimeUnit.SECONDS);
@@ -809,7 +842,7 @@ class OnlineAudioCacheTest {
     void clearDefersActiveEntryDeletionUntilLeaseCloses() throws Exception {
         byte[] audio = "leased".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String url = serve("/leased", audio, new AtomicInteger());
-        cache = cache(track -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
         OnlineAudioCache.CachedAudio active = cache.acquire(target())
                 .get(5, TimeUnit.SECONDS);
         Path path = Path.of(active.identifier());
@@ -828,7 +861,7 @@ class OnlineAudioCacheTest {
         byte[] audio = "leased-index".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         String url = serve("/leased-index", audio, new AtomicInteger());
         MusicTrack track = onlineTrack();
-        cache = cache(ignored -> CompletableFuture.completedFuture(url), 1024);
+        cache = cache(_ -> CompletableFuture.completedFuture(url), 1024);
         OnlineAudioCache.CachedAudio active = cache.acquire(target(track))
                 .get(5, TimeUnit.SECONDS);
 
@@ -867,18 +900,20 @@ class OnlineAudioCacheTest {
 
     @Test
     void closeAlwaysCompletesAnOutstandingClearOperation() throws Exception {
-        cache = cache(track -> CompletableFuture.failedFuture(
+        cache = cache(_ -> CompletableFuture.failedFuture(
                 new AssertionError("clear does not resolve music")), 1024);
 
         CompletableFuture<OnlineAudioCache.CacheStats> clearing = cache.clearAsync();
         cache.close();
 
-        assertTrue(clearing.handle((stats, error) -> true).get(5, TimeUnit.SECONDS));
+        assertTrue(clearing.handle((_, _) -> true).get(5, TimeUnit.SECONDS));
     }
 
     private OnlineAudioCache cache(LxTrackResolver upstream, long maximumBytes) {
-        return new OnlineAudioCache(directory, upstream, ignored -> {}, maximumBytes,
+        var created = new OnlineAudioCache(directory, upstream, _ -> {}, maximumBytes,
                 Duration.ofSeconds(3));
+        created.initialize();
+        return created;
     }
 
     private String serve(String path, byte[] body, AtomicInteger requests) throws Exception {

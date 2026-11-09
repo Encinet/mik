@@ -21,7 +21,7 @@ class TipAmbientTest {
     private static final Object OWNER = new Object();
     private final AtomicReference<Double> random = new AtomicReference<>(0.0);
     private final TipScheduler scheduler = new TipScheduler(error -> fail(error), random::get,
-            ignored -> TipAudience.MEMBER);
+            _ -> TipAudience.MEMBER);
 
     @Test
     void newcomerAmbientOpportunitiesUseHalfTheWaitAcrossTheRandomRange() {
@@ -29,7 +29,7 @@ class TipAmbientTest {
             UUID newcomer = UUID.randomUUID();
             TipScheduler boosted = new TipScheduler(error -> fail(error), () -> fraction,
                     player -> player.equals(newcomer) ? TipAudience.NEWCOMER : TipAudience.MEMBER);
-            boosted.register(OWNER, scene("ambient"), (player, language) -> content("ambient"));
+            boosted.register(OWNER, scene("ambient"), (_, _) -> content("ambient"));
             assertTrue(boosted.collect(PLAYER, 0, 45_000, true, Language.EN_US).isEmpty());
             assertTrue(boosted.collect(newcomer, 0, 45_000, true, Language.EN_US).isEmpty());
 
@@ -45,8 +45,8 @@ class TipAmbientTest {
     @Test
     void changingMembershipRecomputesAnAlreadyScheduledAmbientWait() {
         AtomicReference<TipAudience> audience = new AtomicReference<>(TipAudience.MEMBER);
-        TipScheduler boosted = new TipScheduler(error -> fail(error), () -> 0, ignored -> audience.get());
-        boosted.register(OWNER, scene("ambient"), (player, language) -> content("ambient"));
+        TipScheduler boosted = new TipScheduler(error -> fail(error), () -> 0, _ -> audience.get());
+        boosted.register(OWNER, scene("ambient"), (_, _) -> content("ambient"));
         assertTrue(boosted.collect(PLAYER, 0, 45_000, true, Language.EN_US).isEmpty());
         assertTrue(boosted.collect(PLAYER, INTERVAL / 2, 45_000, true, Language.EN_US).isEmpty());
         audience.set(TipAudience.NEWCOMER);
@@ -60,7 +60,7 @@ class TipAmbientTest {
     @Test
     void eachPlayerHasAnIndependentRandomQuietInterval() {
         var elevator = scene("elevator");
-        scheduler.register(OWNER, elevator, (player, language) -> content(language.id()));
+        scheduler.register(OWNER, elevator, (_, language) -> content(language.id()));
         random.set(0.25);
         assertTrue(collect(PLAYER, 0).isEmpty());
         random.set(0.75);
@@ -83,10 +83,10 @@ class TipAmbientTest {
         var second = scene("second");
         var irrelevant = scene("irrelevant");
         var cooling = scene("cooling");
-        scheduler.register(OWNER, first, (player, language) -> content("first"));
-        scheduler.register(OWNER, second, (player, language) -> content("second"));
-        scheduler.register(OWNER, irrelevant, (player, language) -> Optional.empty());
-        scheduler.register(OWNER, cooling, (player, language) -> content("cooling"));
+        scheduler.register(OWNER, first, (_, _) -> content("first"));
+        scheduler.register(OWNER, second, (_, _) -> content("second"));
+        scheduler.register(OWNER, irrelevant, (_, _) -> Optional.empty());
+        scheduler.register(OWNER, cooling, (_, _) -> content("cooling"));
         scheduler.delivered(PLAYER, List.of(new TipScheduler.Delivery(cooling, "cooling", Component.empty())), 0);
 
         // Start at the last registered scene, then work backwards through ineligible entries.
@@ -99,14 +99,14 @@ class TipAmbientTest {
 
     @Test
     void pendingContextualTipsTakePrecedenceEvenBeforeTheirDeliveryTime() {
-        scheduler.register(OWNER, scene("ambient"), (player, language) -> {
+        scheduler.register(OWNER, scene("ambient"), (_, _) -> {
             fail("daily tips must not interrupt pending contextual guidance");
             return Optional.empty();
         });
         assertTrue(collect(PLAYER, 0).isEmpty());
         var context = new Tip.Policy("context", "context", 90, Duration.ofDays(1),
                 Duration.ofSeconds(2), Duration.ofSeconds(20), true);
-        scheduler.offer(OWNER, PLAYER, context, INTERVAL, language -> content("context"));
+        scheduler.offer(OWNER, PLAYER, context, INTERVAL, _ -> content("context"));
 
         assertTrue(collect(PLAYER, INTERVAL).isEmpty());
         assertEquals(context, collect(PLAYER, INTERVAL + 2000).getFirst().definition());
@@ -116,7 +116,7 @@ class TipAmbientTest {
     @Test
     void unavailableAndRecentlyMessagedPlayersSkipTheOpportunityWithoutEvaluatingRules() {
         AtomicInteger evaluations = new AtomicInteger();
-        scheduler.register(OWNER, scene("ambient"), (player, language) -> {
+        scheduler.register(OWNER, scene("ambient"), (_, _) -> {
             evaluations.incrementAndGet();
             return content("ambient");
         });
@@ -138,12 +138,12 @@ class TipAmbientTest {
     @Test
     void ambientAndManualOffersShareFinitePersistedReminderHistory() {
         var daily = scene("daily");
-        scheduler.register(OWNER, daily, (player, language) -> content("v1"));
+        scheduler.register(OWNER, daily, (_, _) -> content("v1"));
         assertTrue(collect(PLAYER, 0).isEmpty());
         var batch = collect(PLAYER, INTERVAL);
         scheduler.delivered(PLAYER, batch, INTERVAL);
         scheduler.restore(PLAYER, scheduler.snapshot(PLAYER));
-        scheduler.offer(OWNER, PLAYER, daily, INTERVAL + MINUTE, language -> content("v1"));
+        scheduler.offer(OWNER, PLAYER, daily, INTERVAL + MINUTE, _ -> content("v1"));
 
         assertTrue(collect(PLAYER, INTERVAL + MINUTE).isEmpty());
         assertTrue(collect(PLAYER, INTERVAL * 2).isEmpty());
@@ -153,17 +153,17 @@ class TipAmbientTest {
     @Test
     void closingOneOwnerAndFailingCallbacksDoNotBlockAnotherModule() {
         List<RuntimeException> failures = new ArrayList<>();
-        TipScheduler isolated = new TipScheduler(failures::add, () -> 0, ignored -> TipAudience.MEMBER);
+        TipScheduler isolated = new TipScheduler(failures::add, () -> 0, _ -> TipAudience.MEMBER);
         Object closed = new Object();
-        isolated.register(closed, scene("closed"), (player, language) -> {
+        isolated.register(closed, scene("closed"), (_, _) -> {
             fail("closed module was queried");
             return Optional.empty();
         });
-        isolated.register(OWNER, scene("broken"), (player, language) -> {
+        isolated.register(OWNER, scene("broken"), (_, _) -> {
             throw new IllegalStateException("localization failed");
         });
         var kept = scene("kept");
-        isolated.register(OWNER, kept, (player, language) -> content("kept"));
+        isolated.register(OWNER, kept, (_, _) -> content("kept"));
         isolated.close(closed);
 
         assertTrue(isolated.collect(PLAYER, 0, 45_000, true, Language.EN_US).isEmpty());
@@ -177,19 +177,19 @@ class TipAmbientTest {
     @Test
     void callbacksCannotDeliverAfterClosingTheirOwnScope() {
         Object selfClosing = new Object();
-        scheduler.register(selfClosing, scene("self-closing"), (player, language) -> {
+        scheduler.register(selfClosing, scene("self-closing"), (_, _) -> {
             scheduler.close(selfClosing);
             return content("stale");
         });
         var kept = scene("kept");
-        scheduler.register(OWNER, kept, (player, language) -> content("kept"));
+        scheduler.register(OWNER, kept, (_, _) -> content("kept"));
         assertTrue(collect(PLAYER, 0).isEmpty());
         assertEquals(kept, collect(PLAYER, INTERVAL).getFirst().definition());
     }
 
     @Test
     void disconnectAndClockRollbackStartFreshQuietIntervals() {
-        scheduler.register(OWNER, scene("ambient"), (player, language) -> content("ambient"));
+        scheduler.register(OWNER, scene("ambient"), (_, _) -> content("ambient"));
         assertTrue(collect(PLAYER, 0).isEmpty());
         scheduler.forget(PLAYER);
         assertTrue(collect(PLAYER, INTERVAL).isEmpty());

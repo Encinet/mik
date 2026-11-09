@@ -8,10 +8,8 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
-import org.encinet.mik.feature.community.governance.membership.activity.ActiveMemberEligibility;
 import org.encinet.mik.feature.community.governance.membership.participation.ParticipationSummary;
 import org.encinet.mik.feature.community.governance.membership.profile.PlayerProfile;
-import org.encinet.mik.feature.community.governance.membership.promotion.PromotionEligibility;
 import org.encinet.mik.feature.community.governance.membership.promotion.PromotionPause;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceText;
 import org.encinet.mik.feature.community.governance.platform.paper.role.LuckPermsGovernanceRoles;
@@ -77,83 +75,12 @@ final class MembershipCommandHandler {
             context.ensureKnown(known);
             PlayerProfile player = membership.player(known.playerId()).orElseThrow();
             ParticipationSummary participation = membership.participation(known.playerId());
-            PromotionEligibility promotion = known.member()
-                    ? null : membership.promotionEligibility(known.playerId());
-            ActiveMemberEligibility active = known.member()
-                    ? membership.activeMemberEligibility(known.playerId()) : null;
-            Component report = report(language, player, participation, promotion, active,
-                    managementView);
+            var snapshot = known.member() ? GovernancePlayerReport.Data.active(player,participation,membership.activeMemberEligibility(known.playerId()))
+                    : GovernancePlayerReport.Data.promoting(player,participation,membership.promotionEligibility(known.playerId()));
+            Component report = new GovernancePlayerReport(text).render(language,snapshot,managementView);
             context.onMain(() -> sender.sendMessage(report));
         });
         return Command.SINGLE_SUCCESS;
-    }
-
-    Component report(
-            Language language,
-            PlayerProfile player,
-            ParticipationSummary participation,
-            PromotionEligibility promotion,
-            ActiveMemberEligibility active,
-            boolean managementView
-    ) {
-        Component report = Component.text(text.t(language, Message.GOVERNANCE_PLAYER_HEADER,
-                player.playerName()), NamedTextColor.GOLD);
-        if (managementView) {
-            report = report.append(Component.newline()).append(Component.text(
-                    text.t(language, Message.GOVERNANCE_PLAYER_ID, player.playerId()), NamedTextColor.GRAY));
-        }
-        report = report.append(Component.newline()).append(Component.text(
-                        text.t(language, Message.GOVERNANCE_PLAYER_FIRST_JOIN,
-                                text.time(language, player.firstJoinedAt())), NamedTextColor.GRAY))
-                .append(Component.newline()).append(Component.text(
-                        text.t(language, Message.GOVERNANCE_PLAYER_LAST_LOGIN,
-                                text.time(language, player.lastSuccessfulLoginAt())), NamedTextColor.GRAY))
-                .append(Component.newline()).append(Component.text(
-                        text.t(language, Message.GOVERNANCE_PLAYER_MEMBER_SINCE,
-                                player.memberSince() == null
-                                        ? text.t(language, Message.GOVERNANCE_NOT_MEMBER)
-                                        : text.time(language, player.memberSince())), NamedTextColor.GRAY));
-        if (promotion != null) {
-            report = report.append(Component.newline()).append(Component.text(
-                        text.t(language, Message.GOVERNANCE_PROMOTION_HEADER), NamedTextColor.GOLD))
-                .append(Component.newline()).append(text.line(language, promotion.accountAgeMet(),
-                        Message.GOVERNANCE_PROMOTION_ACCOUNT_AGE))
-                .append(Component.newline()).append(text.line(language, promotion.playtimeMet(),
-                        Message.GOVERNANCE_PROMOTION_PLAYTIME,
-                        text.hours(language, participation.lifetimeSeconds())))
-                .append(Component.newline()).append(text.line(language, promotion.playDaysMet(),
-                        Message.GOVERNANCE_PROMOTION_PLAY_DAYS,
-                        participation.lifetimePlayDays()))
-                .append(Component.newline()).append(text.line(language, promotion.noActiveBan(),
-                        Message.GOVERNANCE_NO_ACTIVE_BAN))
-                .append(Component.newline()).append(text.line(language, promotion.noActivePause(),
-                        Message.GOVERNANCE_NO_ACTIVE_PAUSE));
-            if (promotion.activePause() != null) {
-                PromotionPause pause = promotion.activePause();
-                report = report.append(Component.newline()).append(Component.text(
-                        text.t(language, Message.GOVERNANCE_PAUSE_DETAILS,
-                                pause.reason(), text.time(language, pause.endsAt()), pause.appealPath()),
-                        NamedTextColor.YELLOW));
-            }
-            return report;
-        }
-        return report.append(Component.newline()).append(Component.text(
-                        text.t(language, Message.GOVERNANCE_ACTIVE_HEADER), NamedTextColor.GOLD))
-                .append(Component.newline()).append(text.line(language, active.currentMember(),
-                        Message.GOVERNANCE_ACTIVE_MEMBER))
-                .append(Component.newline()).append(text.line(language, active.memberAgeMet(),
-                        Message.GOVERNANCE_ACTIVE_MEMBER_AGE))
-                .append(Component.newline()).append(text.line(language, active.playtimeMet(),
-                        Message.GOVERNANCE_ACTIVE_PLAYTIME,
-                        text.hours(language, participation.secondsLast60Days())))
-                .append(Component.newline()).append(text.line(language, active.participationDaysMet(),
-                        Message.GOVERNANCE_ACTIVE_DAYS_60,
-                        participation.participationDaysLast60()))
-                .append(Component.newline()).append(text.line(language, active.recentDaysMet(),
-                        Message.GOVERNANCE_ACTIVE_DAYS_30,
-                        participation.participationDaysLast30()))
-                .append(Component.newline()).append(text.line(language, active.noActiveBan(),
-                        Message.GOVERNANCE_NO_ACTIVE_BAN));
     }
 
     int setPause(CommandSender sender, String targetName, String durationText,

@@ -124,7 +124,7 @@ class TipNewcomerTest {
         TestPlayer(String... granted) {
             permissions = new HashSet<>(Set.of(granted));
             player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
-                    (proxy, method, args) -> switch (method.getName()) {
+                    (_, method, args) -> switch (method.getName()) {
                         case "getUniqueId" -> id;
                         case "hasPermission" -> permissions.contains(args[0]);
                         default -> throw new AssertionError(method.getName());

@@ -1,6 +1,8 @@
 package org.encinet.mik.performance;
 
 import com.sun.management.ThreadMXBean;
+import org.encinet.mik.feature.community.chat.mention.PlayerMentionIndex.Target;
+import org.encinet.mik.feature.community.chat.mention.PlayerMentions;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmPulse;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmSource;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmTimeline;
@@ -18,12 +20,31 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.function.IntFunction;
 
 /** Repeatable microbenchmarks; reports observations without machine-dependent timing assertions. */
 @Tag("benchmark")
 class AlgorithmBenchmark {
     private static volatile Object sink;
+
+    @Test
+    void reportPlayerMentionLookups() {
+        for (int count : new int[]{100, 1_000, 10_000}) {
+            var players = new ArrayList<Target>();
+            for (int index = 0; index < count; index++) {
+                players.add(new Target(new UUID(0, index + 1),
+                        String.format(Locale.ROOT, "Player%05d", index)));
+            }
+            PlayerMentions mentions = PlayerMentions.of(players);
+            String single = "hello @ " + players.getLast().name();
+            String misses = "@Player99999 ".repeat(100);
+            report("mentions/" + count + "-players/single", 20_000,
+                    _ -> mentions.find(single, 0));
+            report("mentions/" + count + "-players/100-misses", 5_000,
+                    _ -> mentions.find(misses, 0));
+        }
+    }
 
     @Test
     void reportWindowQueriesAndSpatialMisses() {
@@ -72,6 +93,7 @@ class AlgorithmBenchmark {
             bytes[round] = allocation == null ? Double.NaN
                     : (allocation.getThreadAllocatedBytes(thread) - beforeBytes) / (double) iterations;
         }
+        java.lang.ref.Reference.reachabilityFence(sink);
         Arrays.sort(times);
         Arrays.sort(bytes);
         System.out.printf(Locale.ROOT, "%s: median %.1f ns/op, %.1f bytes/op%n",

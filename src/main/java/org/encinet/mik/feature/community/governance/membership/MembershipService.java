@@ -173,6 +173,11 @@ public final class MembershipService {
         }
     }
 
+    public List<PlayerProfile> players() throws GovernanceException {
+        try { return List.copyOf(repository.players()); }
+        catch (GovernanceRepositoryException | RuntimeException error) { throw storageFailure("Could not load known players",error); }
+    }
+
     public List<PlayerProfile> activeMembers() throws GovernanceException {
         Instant now = clock.instant();
         LocalDate today = today();

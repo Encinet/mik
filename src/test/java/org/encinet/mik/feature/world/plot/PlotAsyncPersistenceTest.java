@@ -160,7 +160,7 @@ class PlotAsyncPersistenceTest {
                     new PlotPosition(world, 127, 67, 127)));
             var submitted = selections.submission(player, null, world);
             var saved = new PlotEdits(registry).writeAsync(staged -> staged.create(owner, "Fail", world, submitted.shape()));
-            saved.thenAccept(plot -> selections.clearIfMatches(player, null, submitted));
+            saved.thenAccept(_ -> selections.clearIfMatches(player, null, submitted));
             callback().run();
             Plot accepted = saved.join();
             assertTrue(rolledBack.await(5, TimeUnit.SECONDS));
@@ -206,18 +206,18 @@ class PlotAsyncPersistenceTest {
     }
 
     @Test
-    void metadataArrivalMembershipAndDeletionUseTheSameAtomicAsyncPath() throws Exception {
+    void metadataDestinationMembershipAndDeletionUseTheSameAtomicAsyncPath() throws Exception {
         try (var store = open("metadata")) {
             var registry = new PlotRegistry(store);
             Plot original = new PlotEdits(registry).create(owner, "Original", world, shape(0, 15));
             registry.enableAsyncWrites(callbacks::add);
             UUID guest = UUID.randomUUID();
-            var arrival = new PlotArrival(1, 65, 1, 0, 0, "Title", "Subtitle");
+            var destination = new PlotDestination(original.id(), original.id(), "Title", "Subtitle", false, 1, 65, 1, 0, 0, "", "");
             var changed = registry.writeBehind(staged -> {
                 staged.rename(original.id(), "Renamed");
                 staged.setNoticeBoard(original.id(), "Notice");
                 staged.setAtmosphere(original.id(), PlotAtmosphere.WORLD.withTime(6000));
-                staged.setArrival(original.id(), arrival);
+                staged.saveDestination(destination);
                 new PlotEdits(staged).invite(staged.byId(original.id()), owner, false, guest, Plot.Role.COLLABORATOR);
                 return staged.byId(original.id());
             });
@@ -226,19 +226,19 @@ class PlotAsyncPersistenceTest {
             assertEquals("Renamed", changed.join().name());
             assertEquals(Plot.Role.COLLABORATOR, registry.byId(original.id()).members().get(guest));
             assertEquals("Notice", registry.noticeBoard(original.id()));
-            assertEquals(arrival, registry.arrival(original.id()));
+            assertEquals(destination, registry.destination(original.id()));
             assertEquals(6000, registry.atmosphere(original.id()).timeTicks());
             drain(store);
             assertEquals(changed.join(), store.load().getFirst());
             assertEquals("Notice", store.loadNoticeBoards().get(original.id()));
-            assertEquals(arrival, store.loadArrivals().get(original.id()));
+            assertEquals(destination, store.loadDestinations().get(original.id()));
             var removed = registry.writeAsync(staged -> { staged.remove(staged.byId(original.id())); return null; });
             callback().run();
             removed.join();
             assertNull(registry.at(world, 0, 64, 0));
             drain(store);
             assertTrue(store.load().isEmpty());
-            assertTrue(store.loadArrivals().isEmpty());
+            assertTrue(store.loadDestinations().isEmpty());
             assertTrue(store.loadNoticeBoards().isEmpty());
             assertTrue(store.loadAtmospheres().isEmpty());
         }
@@ -257,7 +257,7 @@ class PlotAsyncPersistenceTest {
             selections.initialize(player, world, cells);
             var submitted = selections.submission(player, null, world);
             var saved = new PlotEdits(registry).writeAsync(staged -> staged.create(owner, "Courtyard", world, submitted.shape()));
-            saved.thenAccept(plot -> selections.clearIfMatches(player, null, submitted));
+            saved.thenAccept(_ -> selections.clearIfMatches(player, null, submitted));
             selections.mark(player, true, new PlotPosition(world, 100, 64, 100));
             long current = selections.draft(player, null).revision();
             callback().run();
@@ -295,7 +295,7 @@ class PlotAsyncPersistenceTest {
                 assertTrue(entered.await(5, TimeUnit.SECONDS));
                 registry.stopWrites();
                 assertTrue(saved.isCancelled());
-                assertThrows(PlotProblem.class, () -> registry.writeAsync(staged -> null));
+                assertThrows(PlotProblem.class, () -> registry.writeAsync(_ -> null));
             } finally { release.countDown(); }
         }
         assertTrue(callbacks.isEmpty());
@@ -318,8 +318,8 @@ class PlotAsyncPersistenceTest {
             assertThrows(SQLException.class, () -> registry.remove(plot));
             assertThrows(SQLException.class, () -> registry.setNoticeBoard(plot.id(), "Unsafe"));
             assertThrows(SQLException.class, () -> registry.setAtmosphere(plot.id(), PlotAtmosphere.WORLD));
-            assertThrows(SQLException.class, () -> registry.setArrival(plot.id(), new PlotArrival(1, 65, 1, 0, 0, "", "")));
-            assertThrows(SQLException.class, () -> registry.clearArrival(plot.id()));
+            assertThrows(SQLException.class, () -> registry.saveDestination(new PlotDestination(plot.id(), plot.id(), "Entrance", "", false, 1, 65, 1, 0, 0, "", "")));
+            assertThrows(SQLException.class, () -> registry.deleteDestination(plot.id()));
             assertThrows(SQLException.class, registry::load);
             assertSame(plot, registry.byId(plot.id()));
             assertEquals(plot, store.load().getFirst());
@@ -381,7 +381,7 @@ class PlotAsyncPersistenceTest {
             var registry = async(store);
             AtomicInteger success = new AtomicInteger();
             var saved = new PlotEdits(registry).writeAsync(staged -> staged.create(owner, "Late", world, shape(0, 3)));
-            saved.thenAccept(plot -> success.incrementAndGet());
+            saved.thenAccept(_ -> success.incrementAndGet());
             Runnable publish = callback();
             registry.stopWrites();
             publish.run();
@@ -402,7 +402,7 @@ class PlotAsyncPersistenceTest {
             AtomicInteger maximum = new AtomicInteger();
             AtomicInteger executions = new AtomicInteger();
             Connection tracked = (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
-                    new Class<?>[] {Connection.class}, (proxy, method, arguments) -> {
+                    new Class<?>[] {Connection.class}, (_, method, arguments) -> {
                         if (Set.of("prepareStatement", "setAutoCommit", "commit", "rollback").contains(method.getName()))
                             assertNotSame(caller, Thread.currentThread());
                         Object value;
@@ -632,7 +632,7 @@ class PlotAsyncPersistenceTest {
         field.setAccessible(true);
         Connection original = (Connection) field.get(store);
         Connection tracked = (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
-                new Class<?>[] {Connection.class}, (proxy, method, arguments) -> {
+                new Class<?>[] {Connection.class}, (_, method, arguments) -> {
                     Object value;
                     try { value = method.invoke(original, arguments); }
                     catch (InvocationTargetException error) { throw error.getCause(); }
@@ -648,7 +648,7 @@ class PlotAsyncPersistenceTest {
         AtomicReference<Cell> previous = new AtomicReference<>();
         Comparator<Cell> order = Comparator.comparingInt(Cell::x).thenComparingInt(Cell::y).thenComparingInt(Cell::z);
         return (PreparedStatement) Proxy.newProxyInstance(PreparedStatement.class.getClassLoader(),
-                new Class<?>[] {PreparedStatement.class}, (proxy, method, arguments) -> {
+                new Class<?>[] {PreparedStatement.class}, (_, method, arguments) -> {
                     if (method.getName().equals("setInt")) coordinate[(int) arguments[0] - 2] = (int) arguments[1];
                     if (method.getName().equals("addBatch")) {
                         Cell next = new Cell(coordinate[0], coordinate[1], coordinate[2]);

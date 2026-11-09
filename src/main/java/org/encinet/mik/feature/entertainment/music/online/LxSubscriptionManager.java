@@ -52,13 +52,12 @@ final class LxSubscriptionManager implements AutoCloseable {
     private static final int MAX_SOURCES = 128;
     private static final int REGISTRY_VERSION = 1;
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
-    private static final String REGISTRY_FILE = "sources.json";
     private static final String FILE_PREFIX = "remote-";
     private static final java.util.regex.Pattern SOURCE_ID =
             java.util.regex.Pattern.compile("remote-[0-9a-f]{24}");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
-    private final Path remoteDirectory;
+    private final Path managedDirectory;
     private final Path registryFile;
     private final HttpClient httpClient;
     private final Consumer<String> warningLogger;
@@ -67,15 +66,15 @@ final class LxSubscriptionManager implements AutoCloseable {
     private volatile List<RemoteSourceStatus> statusSnapshot = List.of();
     private final AtomicBoolean closed = new AtomicBoolean();
 
-    LxSubscriptionManager(Path lxDirectory, Consumer<String> warningLogger) {
-        this(lxDirectory, warningLogger, REQUEST_TIMEOUT);
+    LxSubscriptionManager(LxSourcePaths paths, Consumer<String> warningLogger) {
+        this(paths, warningLogger, REQUEST_TIMEOUT);
     }
 
-    LxSubscriptionManager(Path lxDirectory, Consumer<String> warningLogger,
+    LxSubscriptionManager(LxSourcePaths paths, Consumer<String> warningLogger,
                           Duration requestTimeout) {
-        Objects.requireNonNull(lxDirectory, "lxDirectory");
-        this.remoteDirectory = lxDirectory.toAbsolutePath().normalize().resolve("remote");
-        this.registryFile = remoteDirectory.resolve(REGISTRY_FILE);
+        Objects.requireNonNull(paths, "paths");
+        this.managedDirectory = paths.managedDirectory();
+        this.registryFile = paths.subscriptionsFile();
         this.warningLogger = Objects.requireNonNull(warningLogger, "warningLogger");
         this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
         this.httpClient = HttpClient.newBuilder()
@@ -83,7 +82,7 @@ final class LxSubscriptionManager implements AutoCloseable {
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
         try {
-            Files.createDirectories(remoteDirectory);
+            Files.createDirectories(managedDirectory);
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to initialize LX remote sources", exception);
         }
@@ -178,8 +177,8 @@ final class LxSubscriptionManager implements AutoCloseable {
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
-    Path remoteDirectory() {
-        return remoteDirectory;
+    Path managedDirectory() {
+        return managedDirectory;
     }
 
     private UpdateResult refresh(SourceRecord source) throws IOException {
@@ -215,7 +214,7 @@ final class LxSubscriptionManager implements AutoCloseable {
                 return new UpdateResult(false);
             }
 
-            Path candidate = Files.createTempFile(remoteDirectory, source.id() + "-", ".candidate");
+            Path candidate = Files.createTempFile(managedDirectory, source.id() + "-", ".candidate");
             try {
                 Files.write(candidate, script);
                 validate(candidate, source.id());
@@ -419,7 +418,7 @@ final class LxSubscriptionManager implements AutoCloseable {
             throw new IOException("LX remote source registry exceeds "
                     + MAX_REGISTRY_BYTES + " bytes");
         }
-        Path temporary = Files.createTempFile(remoteDirectory, ".sources-", ".json.tmp");
+        Path temporary = Files.createTempFile(registryFile.getParent(), ".subscriptions-", ".json.tmp");
         try {
             Files.write(temporary, bytes);
             moveIntoPlace(temporary, registryFile);
@@ -442,8 +441,8 @@ final class LxSubscriptionManager implements AutoCloseable {
 
     private Path snapshotPath(String id) throws IOException {
         String safeId = requireSourceId(id);
-        Path path = remoteDirectory.resolve(safeId + ".js").normalize();
-        if (!path.getParent().equals(remoteDirectory)) {
+        Path path = managedDirectory.resolve(safeId + ".js").normalize();
+        if (!path.getParent().equals(managedDirectory)) {
             throw new IOException("LX remote source path escapes its directory");
         }
         return path;
@@ -557,7 +556,7 @@ final class LxSubscriptionManager implements AutoCloseable {
         if (!Files.isRegularFile(source, LinkOption.NOFOLLOW_LINKS)) {
             return null;
         }
-        Path backup = Files.createTempFile(remoteDirectory, "." + id + "-", ".backup");
+        Path backup = Files.createTempFile(managedDirectory, "." + id + "-", ".backup");
         try {
             Files.copy(source, backup, StandardCopyOption.REPLACE_EXISTING);
             return backup;

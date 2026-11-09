@@ -1,6 +1,5 @@
 package org.encinet.mik.feature.player.pvp;
 
-import com.google.common.base.Function;
 import org.bukkit.GameMode;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Entity;
@@ -8,7 +7,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
-import org.bukkit.event.entity.EntityDamageEvent.DamageModifier;
 import org.encinet.mik.feature.player.guidance.TipTestScope;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -22,7 +20,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.lang.reflect.Proxy;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -32,6 +29,7 @@ import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class PvpProtectionTipTest {
     private static final LanguageService LANGUAGES = new LanguageService(null) {
@@ -137,7 +135,7 @@ class PvpProtectionTipTest {
     void playerShotProjectilesUseTheSameProtectionScenario() {
         try (Fixture fixture = new Fixture()) {
             Projectile arrow = (Projectile) Proxy.newProxyInstance(Projectile.class.getClassLoader(),
-                    new Class<?>[]{Projectile.class}, (proxy, method, args) -> {
+                    new Class<?>[]{Projectile.class}, (_, method, _) -> {
                         if (method.getName().equals("getShooter")) return fixture.attacker.player;
                         throw new UnsupportedOperationException(method.getName());
                     });
@@ -151,7 +149,7 @@ class PvpProtectionTipTest {
         try (Fixture fixture = new Fixture()) {
             assertFalse(fixture.damage(fixture.attacker.player, fixture.attacker.player).isCancelled());
             Entity mob = (Entity) Proxy.newProxyInstance(Entity.class.getClassLoader(), new Class<?>[]{Entity.class},
-                    (proxy, method, args) -> {
+                    (_, method, _) -> {
                         if (method.getName().equals("getPassengers")) return List.of();
                         throw new UnsupportedOperationException(method.getName());
                     });
@@ -192,21 +190,20 @@ class PvpProtectionTipTest {
 
         EntityDamageByEntityEvent attack() { return damage(attacker.player, victim.player); }
 
-        @SuppressWarnings("removal")
         EntityDamageByEntityEvent damage(Entity source, Entity target) {
             DamageSource damageSource = (DamageSource) Proxy.newProxyInstance(DamageSource.class.getClassLoader(),
-                    new Class<?>[]{DamageSource.class}, (proxy, method, args) -> switch (method.getName()) {
+                    new Class<?>[]{DamageSource.class}, (_, method, _) -> switch (method.getName()) {
                         case "getCausingEntity" -> source instanceof Player ? source : null;
                         case "getDirectEntity" -> source;
                         default -> throw new UnsupportedOperationException(method.getName());
                     });
             DamageCause cause = source instanceof Projectile ? DamageCause.PROJECTILE : DamageCause.ENTITY_ATTACK;
-            Map<DamageModifier, Double> modifiers = new EnumMap<>(DamageModifier.class);
-            modifiers.put(DamageModifier.BASE, 1.0);
-            Map<DamageModifier, Function<? super Double, Double>> functions = new EnumMap<>(DamageModifier.class);
-            functions.put(DamageModifier.BASE, damage -> 0.0);
-            var event = new EntityDamageByEntityEvent(source, target, cause, damageSource,
-                    modifiers, functions, false);
+            var event = mock(EntityDamageByEntityEvent.class, CALLS_REAL_METHODS);
+            doReturn(source).when(event).getDamager();
+            doReturn(target).when(event).getEntity();
+            doReturn(damageSource).when(event).getDamageSource();
+            doReturn(cause).when(event).getCause();
+            doReturn(1.0).when(event).getFinalDamage();
             controller.onEntityDamageByEntity(event);
             return event;
         }
@@ -219,7 +216,7 @@ class PvpProtectionTipTest {
         GameMode mode = GameMode.SURVIVAL;
         boolean online = true;
         final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[]{Player.class}, (proxy, method, args) -> switch (method.getName()) {
+                new Class<?>[]{Player.class}, (_, method, _) -> switch (method.getName()) {
                     case "getUniqueId" -> id;
                     case "hasPermission" -> true;
                     case "getGameMode" -> mode;

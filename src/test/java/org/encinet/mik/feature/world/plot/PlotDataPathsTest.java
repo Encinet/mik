@@ -33,7 +33,7 @@ class PlotDataPathsTest {
         Path rootDatabase = directory.resolve("plots.db");
         Files.writeString(rootDatabase, "root data is not a current database");
         PlotDataPaths paths = PlotDataPaths.in(directory);
-        Plot plot = new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Home", false,
+        Plot plot = new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Home",
                 0, Set.of(new PlotGeometry.Cell(-1, 16, -1)), Map.of(), Map.of(), null);
         try (PlotRepository store = new PlotRepository(paths.plotsDatabase())) {
             store.open();

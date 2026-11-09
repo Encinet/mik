@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
 
 /** Presents the shared inbound command help. */
@@ -87,7 +88,7 @@ public final class SocialHelpCommand implements SocialCommand<NoArguments, NoArg
                             context.syntax().displayPrefix() + alias + " — "
                                     + languages.t(language, description))));
         }
-        return SocialDocument.of(
+        return SocialDocument.of(TRUSTED,
                 TITLE_ICON + " " + languages.t(language, TITLE),
                 SocialDocument.Tone.INFO,
                 SocialDocument.unorderedList(items.toArray(String[]::new)))

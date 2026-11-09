@@ -21,7 +21,7 @@ class PasswordAttemptsTest {
 
     @Test void exponentialBackoffCapsAt48HoursAndNeverPermanentlyLocks() {
         var now = new AtomicLong(100_000);
-        var attempts = new PasswordAttempts(now::get, ignored -> CREDENTIAL);
+        var attempts = new PasswordAttempts(now::get, _ -> CREDENTIAL);
         UUID id = UUID.randomUUID();
         for (int count = 1; count <= 25; count++) {
             PasswordException failure = wrong(attempts, id, "network");
@@ -44,7 +44,7 @@ class PasswordAttemptsTest {
 
     @Test void longCooldownOutlives24HoursAndHistoryExpires24HoursAfterItEnds() {
         var now = new AtomicLong(100_000);
-        var attempts = new PasswordAttempts(now::get, ignored -> CREDENTIAL);
+        var attempts = new PasswordAttempts(now::get, _ -> CREDENTIAL);
         UUID id = UUID.randomUUID();
         for (int count = 1; count <= 17; count++) {
             PasswordException failure = wrong(attempts, id, "network");
@@ -59,7 +59,7 @@ class PasswordAttemptsTest {
     }
 
     @Test void coolingRequestsNeitherExtendCooldownNorSpendGlobalCapacity() {
-        var attempts = new PasswordAttempts(() -> 100_000, ignored -> CREDENTIAL);
+        var attempts = new PasswordAttempts(() -> 100_000, _ -> CREDENTIAL);
         UUID id = UUID.randomUUID();
         for (int i = 0; i < 5; i++) wrong(attempts, id, "network");
         for (int i = 0; i < 500; i++) {
@@ -72,46 +72,49 @@ class PasswordAttemptsTest {
 
     @Test void sourceRateIsIndependentOfAccountFailureAndGlobalBudget() {
         var now = new AtomicLong(100_000);
-        var attempts = new PasswordAttempts(now::get, ignored -> CREDENTIAL);
-        UUID id = UUID.randomUUID();
-        for (int i = 0; i < 20; i++) assertTrue(attempts.submit(DIRECT, id, CREDENTIAL, "shared-network", () -> true).join());
-        for (int i = 0; i < 500; i++) rejected(PasswordException.Code.BUSY,
-                () -> attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "shared-network", () -> true));
-        for (int i = 0; i < 100; i++) assertTrue(attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "source-" + i, () -> true).join());
-        now.addAndGet(2999);
-        rejected(PasswordException.Code.BUSY, () -> attempts.submit(DIRECT, id, CREDENTIAL, "shared-network", () -> true));
-        now.incrementAndGet();
-        assertTrue(attempts.submit(DIRECT, id, CREDENTIAL, "shared-network", () -> true).join());
+        try (var attempts = new PasswordAttempts(now::get, _ -> CREDENTIAL)) {
+            UUID id = UUID.randomUUID();
+            for (int i = 0; i < 20; i++) assertTrue(attempts.submit(DIRECT, id, CREDENTIAL, "shared-network", () -> true).join());
+            for (int i = 0; i < 500; i++) rejected(PasswordException.Code.BUSY,
+                    () -> attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "shared-network", () -> true));
+            for (int i = 0; i < 100; i++) assertTrue(attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "source-" + i, () -> true).join());
+            now.addAndGet(2999);
+            rejected(PasswordException.Code.BUSY, () -> attempts.submit(DIRECT, id, CREDENTIAL, "shared-network", () -> true));
+            now.incrementAndGet();
+            assertTrue(attempts.submit(DIRECT, id, CREDENTIAL, "shared-network", () -> true).join());
+        }
     }
 
     @Test void globalRateRefillsOneAdmissionEachHalfSecond() {
         var now = new AtomicLong(100_000);
-        var attempts = new PasswordAttempts(now::get, ignored -> CREDENTIAL);
-        for (int i = 0; i < 120; i++) assertTrue(attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "source-" + i, () -> true).join());
-        now.addAndGet(499);
-        rejected(PasswordException.Code.BUSY, () -> attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "new", () -> true));
-        now.incrementAndGet();
-        assertTrue(attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "new", () -> true).join());
-        rejected(PasswordException.Code.BUSY, () -> attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "new", () -> true));
+        try (var attempts = new PasswordAttempts(now::get, _ -> CREDENTIAL)) {
+            for (int i = 0; i < 120; i++) assertTrue(attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "source-" + i, () -> true).join());
+            now.addAndGet(499);
+            rejected(PasswordException.Code.BUSY, () -> attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "new", () -> true));
+            now.incrementAndGet();
+            assertTrue(attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "new", () -> true).join());
+            rejected(PasswordException.Code.BUSY, () -> attempts.submit(DIRECT, UUID.randomUUID(), CREDENTIAL, "new", () -> true));
+        }
     }
 
     @Test void reservationPrecedesQueueAndExecutorRejectionReleasesIt() {
-        var attempts = new PasswordAttempts(() -> 100_000, ignored -> CREDENTIAL);
-        UUID id = UUID.randomUUID();
-        Executor unavailable = ignored -> { throw new RejectedExecutionException(); };
-        rejected(PasswordException.Code.BUSY, () -> attempts.submit(unavailable, id, CREDENTIAL, "network", () -> true));
-        var queue = new ArrayList<Runnable>();
-        CompletableFuture<Boolean> pending = attempts.submit(queue::add, id, CREDENTIAL, "network", () -> true);
-        for (int i = 0; i < 200; i++) rejected(PasswordException.Code.BUSY,
-                () -> attempts.submit(DIRECT, id, CREDENTIAL, "network", () -> true));
-        assertFalse(pending.isDone());
-        queue.removeFirst().run();
-        assertTrue(pending.join());
-        assertTrue(attempts.submit(DIRECT, id, CREDENTIAL, "network", () -> true).join());
+        try (var attempts = new PasswordAttempts(() -> 100_000, _ -> CREDENTIAL)) {
+            UUID id = UUID.randomUUID();
+            Executor unavailable = _ -> { throw new RejectedExecutionException(); };
+            rejected(PasswordException.Code.BUSY, () -> attempts.submit(unavailable, id, CREDENTIAL, "network", () -> true));
+            var queue = new ArrayList<Runnable>();
+            CompletableFuture<Boolean> pending = attempts.submit(queue::add, id, CREDENTIAL, "network", () -> true);
+            for (int i = 0; i < 200; i++) rejected(PasswordException.Code.BUSY,
+                    () -> attempts.submit(DIRECT, id, CREDENTIAL, "network", () -> true));
+            assertFalse(pending.isDone());
+            queue.removeFirst().run();
+            assertTrue(pending.join());
+            assertTrue(attempts.submit(DIRECT, id, CREDENTIAL, "network", () -> true).join());
+        }
     }
 
     @Test void cancellingRunningHashRetainsReservationAndCountsWrongPassword() {
-        var attempts = new PasswordAttempts(() -> 100_000, ignored -> CREDENTIAL);
+        var attempts = new PasswordAttempts(() -> 100_000, _ -> CREDENTIAL);
         UUID id = UUID.randomUUID();
         var queue = new ArrayList<Runnable>();
         var pending = new AtomicReference<CompletableFuture<Boolean>>();
@@ -128,21 +131,22 @@ class PasswordAttemptsTest {
 
     @Test void completionCallbacksCanImmediatelySubmitTheNextVerification() {
         for (boolean correct : new boolean[] {false, true}) {
-            var attempts = new PasswordAttempts(() -> 100_000, ignored -> CREDENTIAL);
-            UUID id = UUID.randomUUID();
-            var queue = new ArrayList<Runnable>();
-            var first = attempts.submit(queue::add, id, CREDENTIAL, "network", () -> {
-                if (!correct) throw new PasswordException(PasswordException.Code.INVALID);
-                return true;
-            });
-            var next = first.handle((value, error) -> attempts.submit(DIRECT, id, CREDENTIAL, "network", () -> true).join());
-            queue.removeFirst().run();
-            assertTrue(next.join());
+            try (var attempts = new PasswordAttempts(() -> 100_000, _ -> CREDENTIAL)) {
+                UUID id = UUID.randomUUID();
+                var queue = new ArrayList<Runnable>();
+                var first = attempts.submit(queue::add, id, CREDENTIAL, "network", () -> {
+                    if (!correct) throw new PasswordException(PasswordException.Code.INVALID);
+                    return true;
+                });
+                var next = first.handle((_, _) -> attempts.submit(DIRECT, id, CREDENTIAL, "network", () -> true).join());
+                queue.removeFirst().run();
+                assertTrue(next.join());
+            }
         }
     }
 
     @Test void cancellingQueuedHashSkipsComputationAndDoesNotCountFailure() {
-        var attempts = new PasswordAttempts(() -> 100_000, ignored -> CREDENTIAL);
+        var attempts = new PasswordAttempts(() -> 100_000, _ -> CREDENTIAL);
         UUID id = UUID.randomUUID();
         var queue = new ArrayList<Runnable>();
         var computed = new AtomicBoolean();
@@ -158,7 +162,7 @@ class PasswordAttemptsTest {
 
     @Test void resetInvalidatesOldAttemptWithoutReleasingNewCredentialReservation() {
         var credential = new AtomicReference<>(CREDENTIAL);
-        var attempts = new PasswordAttempts(() -> 100_000, ignored -> credential.get());
+        var attempts = new PasswordAttempts(() -> 100_000, _ -> credential.get());
         UUID id = UUID.randomUUID();
         for (int i = 0; i < 4; i++) wrong(attempts, id, "network");
         var queue = new ArrayList<Runnable>();
@@ -177,7 +181,7 @@ class PasswordAttemptsTest {
 
     @Test void credentialReplacementImmediatelyReleasesCooldown() {
         var credential = new AtomicReference<>(CREDENTIAL);
-        var attempts = new PasswordAttempts(() -> 100_000, ignored -> credential.get());
+        var attempts = new PasswordAttempts(() -> 100_000, _ -> credential.get());
         UUID id = UUID.randomUUID();
         for (int i = 0; i < 5; i++) wrong(attempts, id, "network");
         credential.set(new PasswordCredential(null));
@@ -185,7 +189,7 @@ class PasswordAttemptsTest {
     }
 
     @Test void closingPreventsNewReservationsAndDiscardsLateFailure() {
-        var attempts = new PasswordAttempts(() -> 100_000, ignored -> CREDENTIAL);
+        var attempts = new PasswordAttempts(() -> 100_000, _ -> CREDENTIAL);
         var queue = new ArrayList<Runnable>();
         var pending = attempts.submit(queue::add, UUID.randomUUID(), CREDENTIAL, "network",
                 () -> { throw new PasswordException(PasswordException.Code.INVALID); });

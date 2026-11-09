@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -81,7 +82,7 @@ class SocialCommandDispatcherTest {
         SocialInboundMessage nativeJapanese = SocialInboundMessage.nativeCommand(
                 "event", conversation(), Optional.empty(), "native.options", "",
                 Map.of("locale", "ja-JP"), false,
-                document -> java.util.concurrent.CompletableFuture.completedFuture(null));
+                _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
         assertEquals(Language.JA_JP, dispatcher.resolve(syntax, nativeJapanese)
                 .orElseThrow().input().languageHint().orElseThrow());
     }
@@ -112,7 +113,7 @@ class SocialCommandDispatcherTest {
 
             @Override
             public SocialDocument present(SocialCommandContext context, String result) {
-                return SocialDocument.of(result, SocialDocument.Tone.INFO);
+                return SocialDocument.of(TRUSTED, result, SocialDocument.Tone.INFO);
             }
         };
     }
@@ -128,13 +129,13 @@ class SocialCommandDispatcherTest {
 
     private static SocialInboundMessage text(String body) {
         return new SocialInboundMessage("event", conversation(), Optional.empty(), body,
-                false, document -> java.util.concurrent.CompletableFuture.completedFuture(null));
+                false, _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
     }
 
     private static SocialInboundMessage nativeMessage() {
         return SocialInboundMessage.nativeCommand("event", conversation(), Optional.empty(),
                 "native.options", "raw", Map.of("target", "one"), false,
-                document -> java.util.concurrent.CompletableFuture.completedFuture(null));
+                _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
     }
 
     private static SocialConversation conversation() {

@@ -33,11 +33,24 @@ class PlotBoardStoreTest {
                     board.listAlerts().get(0).getAsJsonObject()).get(neighbor));
             assertTrue(board.isAuthor(noticeId, author));
             assertFalse(board.isAuthor(noticeId, UUID.randomUUID()));
+            assertTrue(board.readFor(noticeId, author).ownership().orElseThrow().disputeAuthor());
+            assertFalse(board.readFor(noticeId, neighbor).ownership().orElseThrow().disputeAuthor());
 
             JsonObject feedback = noticePayload(neighbor, "OldNeighbor");
             feedback.addProperty("kind", "objection");
             feedback.addProperty("relatedNoticeId", noticeId);
             JsonObject objection = board.submit("create", neighbor, "NewNeighbor", false, feedback);
+            String objectionId = objection.get("id").getAsString();
+            var ownFeedback = board.readFor(objectionId, neighbor);
+            var noticeAuthor = board.readFor(objectionId, author);
+            var unrelated = board.readFor(objectionId, UUID.randomUUID());
+            assertTrue(ownFeedback.ownership().orElseThrow().feedbackAuthor());
+            assertTrue(ownFeedback.ownership().orElseThrow().disputeAuthor());
+            assertFalse(noticeAuthor.ownership().orElseThrow().feedbackAuthor());
+            assertTrue(noticeAuthor.ownership().orElseThrow().disputeAuthor());
+            assertFalse(unrelated.ownership().orElseThrow().disputeAuthor());
+            assertFalse(ownFeedback.record().toString().contains(neighbor.toString()));
+            assertFalse(noticeAuthor.record().toString().contains(author.toString()));
             assertNotNull(board.findIdByPrefix(objection.get("id").getAsString().substring(0, 8)));
             JsonObject withdraw = new JsonObject();
             withdraw.addProperty("id", objection.get("id").getAsString());
@@ -238,5 +251,34 @@ class PlotBoardStoreTest {
         }
         payload.add("notifiedPlayers", people);
         return payload;
+    }
+
+    @Test void searchReturnsMatchingRecordsBeyondTheRecentListAndTreatsWildcardsLiterally() throws Exception {
+        Path database = directory.resolve("search.db");
+        try (PlotBoardStore board = new PlotBoardStore(database)) {
+            board.open();
+            var payload = noticePayload(null,null);
+            payload.addProperty("text","Old 100%_ route near the station.");
+            var first = board.submit("create",UUID.randomUUID(),"OldBuilder",false,payload);
+            String id = first.get("id").getAsString();
+            // Establish historical order without depending on millisecond timing or random UUID order.
+            long createdAt = first.get("createdAt").getAsLong() - 60_000;
+            try (var connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + database);
+                 var update = connection.prepareStatement(
+                         "UPDATE board_entries SET created_at=?,public_json=json_set(public_json,'$.createdAt',?) WHERE id=?")) {
+                update.setLong(1, createdAt); update.setLong(2, createdAt); update.setString(3, id);
+                assertEquals(1, update.executeUpdate());
+            }
+            first.addProperty("createdAt", createdAt);
+            for (int index=0; index<310; index++)
+                board.submit("create",UUID.randomUUID(),"Builder",false,noticePayload(null,null));
+            assertEquals(300,board.listPublic().size());
+            assertFalse(board.listPublic().toString().contains(id));
+            assertEquals(java.util.List.of(first),board.searchPublic("%_"));
+            assertEquals(java.util.List.of(first),board.searchPublic("OLD 100"));
+            assertEquals(java.util.List.of(first),board.searchPublic(id.substring(0,12)));
+            assertTrue(board.searchPublic("missing subject").isEmpty());
+            assertFalse(board.searchPublic("%_").getFirst().has("author_uuid"));
+        }
     }
 }

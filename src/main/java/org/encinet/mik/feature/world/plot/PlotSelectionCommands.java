@@ -18,12 +18,15 @@ final class PlotSelectionCommands {
             throw new PlotProblem(Message.PLOT_ERROR_ARGS);
         boolean first = arguments[0].equalsIgnoreCase("//pos1");
         if (arguments.length == 1) return new Mark(first, current);
-        String[] coordinates = arguments[1].split(",", -1);
+        return new Mark(first, parseCoordinates(arguments[1], current.world()));
+    }
+
+    static PlotPosition parseCoordinates(String input, java.util.UUID world) {
+        String[] coordinates = input.split(",", -1);
         if (coordinates.length != 3) throw new PlotProblem(Message.PLOT_ERROR_ARGS);
         try {
-            return new Mark(first, new PlotPosition(current.world(),
-                    Integer.parseInt(coordinates[0]), Integer.parseInt(coordinates[1]),
-                    Integer.parseInt(coordinates[2])));
+            return new PlotPosition(world, Integer.parseInt(coordinates[0]), Integer.parseInt(coordinates[1]),
+                    Integer.parseInt(coordinates[2]));
         } catch (NumberFormatException error) {
             throw new PlotProblem(Message.PLOT_ERROR_ARGS);
         }

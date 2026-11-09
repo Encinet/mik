@@ -1,0 +1,65 @@
+import org.gradle.process.CommandLineArgumentProvider
+
+// javac does not report unused imports, locals or private members. Check both source sets with ECJ.
+configurations {
+    javaQuality {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+dependencies {
+    javaQuality 'org.eclipse.jdt:ecj:3.46.100'
+}
+
+abstract class JavaWarningArguments implements CommandLineArgumentProvider {
+    @Classpath abstract ConfigurableFileCollection getCompileClasspath()
+    @InputFiles @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getSources()
+    @InputFile @PathSensitive(PathSensitivity.RELATIVE)
+    abstract RegularFileProperty getPreferences()
+    @Internal abstract RegularFileProperty getReport()
+    @Input abstract Property<Integer> getJavaVersion()
+
+    @Override Iterable<String> asArguments() {
+        return ["-${javaVersion.get()}", '-encoding', 'UTF-8', '-proc:none', '-d', 'none',
+                '-properties', preferences.get().asFile.absolutePath,
+                '-failOnWarning', '-maxProblems', '10000',
+                '-classpath', compileClasspath.asPath, '-log', report.get().asFile.absolutePath] +
+                sources.files.sort { it.path }.collect { it.absolutePath }
+    }
+}
+
+def checks = sourceSets.collect { sources ->
+    tasks.register("check${sources.name.capitalize()}JavaWarnings", JavaExec) {
+        group = 'verification'
+        description = "Checks ${sources.name} Java sources for compiler and unused-code warnings."
+        dependsOn tasks.named(sources.classesTaskName)
+        classpath = configurations.javaQuality
+        mainClass = 'org.eclipse.jdt.internal.compiler.batch.Main'
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = java.toolchain.languageVersion
+        }
+        maxHeapSize = '1g'
+        def arguments = objects.newInstance(JavaWarningArguments)
+        arguments.compileClasspath.from(sources.compileClasspath)
+        arguments.sources.from(sources.allJava)
+        arguments.preferences.set(layout.projectDirectory.file('.settings/org.eclipse.jdt.core.prefs'))
+        arguments.javaVersion.set(java.toolchain.languageVersion.map { it.asInt() })
+        arguments.report.set(layout.buildDirectory.file("reports/java-warnings/${sources.name}.xml"))
+        argumentProviders.add(arguments)
+        outputs.file(arguments.report)
+        def report = arguments.report
+        doFirst { report.get().asFile.parentFile.mkdirs() }
+    }
+}
+
+tasks.register('checkJavaWarnings') {
+    group = 'verification'
+    description = 'Checks production and test Java sources with the shared editor warning policy.'
+    dependsOn checks
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('checkJavaWarnings')
+}

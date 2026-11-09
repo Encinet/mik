@@ -3,6 +3,7 @@ package org.encinet.mik.feature.player.client.detection;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.event.EventManager;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.UserDisconnectEvent;
 import com.github.retrooper.packetevents.injector.ChannelInjector;
 import com.github.retrooper.packetevents.manager.player.PlayerManager;
@@ -10,6 +11,10 @@ import com.github.retrooper.packetevents.manager.protocol.ProtocolManager;
 import com.github.retrooper.packetevents.manager.server.ServerManager;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.netty.NettyManager;
+import com.github.retrooper.packetevents.netty.buffer.ByteBufHelper;
+import com.github.retrooper.packetevents.netty.buffer.UnpooledByteBufAllocationHelper;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.packettype.PacketTypeCommon;
 import com.github.retrooper.packetevents.protocol.ConnectionState;
 import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
@@ -63,15 +68,44 @@ class ClientModDetectorTest {
     private final AtomicReference<Set<String>> channels = new AtomicReference<>(Set.of());
     private final AtomicBoolean voice = new AtomicBoolean();
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, args) -> {
+            new Class<?>[]{Player.class}, (_, method, _) -> {
                 assertSame(main, Thread.currentThread());
                 if (method.getName().equals("getListeningPluginChannels")) return channels.get();
                 throw new AssertionError(method.getName());
             });
-    private final ClientModDetector detector = new ClientModDetector(events, ignored -> connection.get(), ignored -> voice.get());
+    private final ClientModDetector detector = new ClientModDetector(events, _ -> connection.get(), _ -> voice.get());
 
     @AfterEach
     void close() { detector.disable(); }
+
+    @Test
+    void consumedPluginMessagesStillProveModPresenceInBothProtocolPhases() {
+        detector.enable();
+        for (PacketTypeCommon type : new PacketTypeCommon[]{PacketType.Configuration.Client.PLUGIN_MESSAGE,
+                PacketType.Play.Client.PLUGIN_MESSAGE}) {
+            connection.set(new User(new Object(), type == PacketType.Play.Client.PLUGIN_MESSAGE
+                    ? ConnectionState.PLAY : ConnectionState.CONFIGURATION,
+                    ClientVersion.V_1_21_4, new UserProfile(id, "player")));
+            for (String channel : new String[]{"axiom:hello", "plasmo:voice/v2/installed",
+                    "dreamdisplays:v2"}) {
+                byte[] name = channel.getBytes(StandardCharsets.UTF_8);
+                Object buffer = UnpooledByteBufAllocationHelper.buffer();
+                try {
+                    ByteBufHelper.writeVarInt(buffer, name.length);
+                    ByteBufHelper.writeBytes(buffer, name);
+                    PacketReceiveEvent event = new PacketReceiveEvent(type.getId(ClientVersion.V_1_21_4), type,
+                            ServerVersion.V_1_21_4, new Object(), connection.get(), null, buffer) {};
+                    event.setCancelled(true);
+                    events.callEvent(event);
+                    assertTrue(event.isCancelled(), "observation must not undo another plugin's cancellation");
+                } finally {
+                    ByteBufHelper.release(buffer);
+                }
+            }
+            assertEquals(Set.of(ClientMod.AXIOM, ClientMod.PLASMO_VOICE, ClientMod.DREAM_DISPLAYS),
+                    detector.detected(player).orElseThrow());
+        }
+    }
 
     @Test
     void configurationSignalsRemainAvailableAndReconnectsNeverBorrowTheOldConnectionsEvidence() {
@@ -109,13 +143,14 @@ class ClientModDetectorTest {
     @Test
     void positiveBukkitAndVoiceSignalsRemainKnownForTheConnection() {
         detector.enable();
-        channels.set(Set.of("xaerominimap:main", "xaeroworldmap:main"));
+        channels.set(Set.of("xaerominimap:main", "xaeroworldmap:main", "dreamdisplays:premium"));
         voice.set(true);
         Set<ClientMod> observed = detector.detected(player).orElseThrow();
         channels.set(Set.of());
         voice.set(false);
 
-        assertEquals(Set.of(ClientMod.XAERO_MINIMAP, ClientMod.XAERO_WORLD_MAP, ClientMod.PLASMO_VOICE), observed);
+        assertEquals(Set.of(ClientMod.XAERO_MINIMAP, ClientMod.XAERO_WORLD_MAP, ClientMod.PLASMO_VOICE,
+                ClientMod.DREAM_DISPLAYS), observed);
         assertEquals(observed, detector.detected(player).orElseThrow());
         connection.set(user());
         assertTrue(detector.detected(player).orElseThrow().isEmpty());
@@ -153,7 +188,7 @@ class ClientModDetectorTest {
     void snapshotsCannotMixSignalsAcrossDetectorRestarts() {
         AtomicBoolean restartDuringQuery = new AtomicBoolean(true);
         AtomicReference<ClientModDetector> holder = new AtomicReference<>();
-        ClientModDetector restarting = new ClientModDetector(events, ignored -> connection.get(), ignored -> {
+        ClientModDetector restarting = new ClientModDetector(events, _ -> connection.get(), _ -> {
             if (!restartDuringQuery.getAndSet(false)) return false;
             holder.get().disable();
             holder.get().enable();

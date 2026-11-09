@@ -35,7 +35,7 @@ public final class OnlineMusicRequestLimiter {
         Policy policy = policy(operation);
         long now = nanoTime.getAsLong();
         Bucket bucket = buckets.computeIfAbsent(new BucketKey(playerId, operation),
-                ignored -> new Bucket(policy.burst(), now));
+                _ -> new Bucket(policy.burst(), now));
         return bucket.tryAcquire(now, policy);
     }
 

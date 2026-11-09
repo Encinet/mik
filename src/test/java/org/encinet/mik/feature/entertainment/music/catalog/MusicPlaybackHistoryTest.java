@@ -22,7 +22,7 @@ class MusicPlaybackHistoryTest {
 
     @Test
     void persistsSuccessfulPlaybackCountsAcrossRestarts() {
-        Path file = directory.resolve("state/music-playback.json");
+        Path file = directory.resolve("music/data/playback-statistics.json");
         Instant playedAt = Instant.parse("2026-07-26T04:00:00Z");
         MusicTrack track = localTrack("music/song.mp3");
         MusicPlaybackHistory history = history(file, playedAt, new ArrayList<>());
@@ -39,7 +39,7 @@ class MusicPlaybackHistoryTest {
 
     @Test
     void ignoresMalformedHistoryWithoutPreventingFutureSaves() throws Exception {
-        Path file = directory.resolve("state/music-playback.json");
+        Path file = directory.resolve("music/data/playback-statistics.json");
         Files.createDirectories(file.getParent());
         Files.writeString(file, "{not-json");
         List<String> warnings = new ArrayList<>();

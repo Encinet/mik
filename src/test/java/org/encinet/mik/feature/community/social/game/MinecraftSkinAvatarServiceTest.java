@@ -24,7 +24,7 @@ class MinecraftSkinAvatarServiceTest {
         AtomicLong clock = new AtomicLong();
         CountDownLatch downloadStarted = new CountDownLatch(1);
         CountDownLatch releaseDownload = new CountDownLatch(1);
-        MinecraftSkinAvatarService service = new MinecraftSkinAvatarService(url -> {
+        MinecraftSkinAvatarService service = new MinecraftSkinAvatarService(_ -> {
             downloads.incrementAndGet();
             downloadStarted.countDown();
             try {

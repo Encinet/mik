@@ -2,6 +2,7 @@ package org.encinet.mik.feature.entertainment.music.catalog;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.encinet.mik.feature.entertainment.music.MusicDataPaths;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,6 +47,24 @@ class LocalMusicSourceTest {
                 "collection/assets/nested.mp3",
                 "voice.OpUs"
         ), ids);
+    }
+
+    @Test
+    void musicLayoutScansOnlyTheLibraryAndKeepsRelativeTrackIdentity() throws Exception {
+        var paths = MusicDataPaths.in(musicFolder);
+        Path album = Files.createDirectories(paths.libraryDirectory().resolve("Album"));
+        Files.write(album.resolve("song.nbs"), minimalNbs("Library", "Composer", 0));
+        for (Path sibling : List.of(paths.directory(), paths.audioCacheDirectory(),
+                paths.lyricsCacheDirectory(), paths.sourcesDirectory(), paths.databaseFile().getParent(),
+                paths.discSigningKey().getParent())) {
+            Files.createDirectories(sibling);
+            Files.write(sibling.resolve("outside.nbs"), minimalNbs("Outside", "Composer", 0));
+        }
+
+        List<MusicTrack> tracks = new LocalMusicSource(paths.libraryDirectory()).load();
+
+        assertEquals(List.of("Album/song.nbs"), tracks.stream().map(MusicTrack::id).toList());
+        assertEquals("Library", tracks.getFirst().details().title());
     }
 
     @Test
@@ -115,14 +134,14 @@ class LocalMusicSourceTest {
         Files.write(musicFolder.resolve("'.nbs"), minimalNbs("", "", 0));
 
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
-                (path, extension) -> LocalTrackMetadata.EMPTY,
-                (path, extension) -> new PlaybackProbeResult(true, LocalTrackMetadata.EMPTY),
-                (path, extension) -> new LocalTrackMetadata(null, null, null,
+                (_, _) -> LocalTrackMetadata.EMPTY,
+                (_, _) -> new PlaybackProbeResult(true, LocalTrackMetadata.EMPTY),
+                (path, _) -> new LocalTrackMetadata(null, null, null,
                         new AudioProperties(fileSize(path), null, null)),
                 new MetadataFallbackPolicy());
         List<MusicTrack> tracks = new LocalMusicSource(
                 musicFolder, reader, new org.encinet.mik.feature.entertainment.music.catalog.nbs.NbsParser(),
-                ignored -> {}).load();
+                _ -> {}).load();
 
         assertEquals(List.of("'.nbs", "_.mp3"), tracks.stream().map(MusicTrack::id).toList());
         assertEquals(List.of("'.nbs", "_.mp3"),
@@ -136,15 +155,15 @@ class LocalMusicSourceTest {
         List<String> warnings = new ArrayList<>();
         var reads = new java.util.concurrent.atomic.AtomicInteger();
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
-                (path, extension) -> {
+                (_, _) -> {
                     reads.incrementAndGet();
                     return LocalTrackMetadata.EMPTY;
                 },
-                (path, extension) -> {
+                (_, _) -> {
                     Thread.currentThread().interrupt();
                     return PlaybackProbeResult.UNSUPPORTED;
                 },
-                (path, extension) -> { throw new AssertionError("Must stop after interruption"); },
+                (_, _) -> { throw new AssertionError("Must stop after interruption"); },
                 new MetadataFallbackPolicy());
         LocalMusicSource source = new LocalMusicSource(musicFolder, reader,
                 new org.encinet.mik.feature.entertainment.music.catalog.nbs.NbsParser(), warnings::add);
@@ -166,9 +185,9 @@ class LocalMusicSourceTest {
         Files.writeString(musicFolder.resolve("first.mp3"), "audio");
         List<String> warnings = new ArrayList<>();
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
-                (path, extension) -> { throw new java.util.concurrent.CancellationException("Stopped"); },
-                (path, extension) -> { throw new AssertionError("Must stop after cancellation"); },
-                (path, extension) -> LocalTrackMetadata.EMPTY,
+                (_, _) -> { throw new java.util.concurrent.CancellationException("Stopped"); },
+                (_, _) -> { throw new AssertionError("Must stop after cancellation"); },
+                (_, _) -> LocalTrackMetadata.EMPTY,
                 new MetadataFallbackPolicy());
         LocalMusicSource source = new LocalMusicSource(musicFolder, reader,
                 new org.encinet.mik.feature.entertainment.music.catalog.nbs.NbsParser(), warnings::add);

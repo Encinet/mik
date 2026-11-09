@@ -53,7 +53,7 @@ final class VehicleHud {
     VehicleHud(LanguageService language) { this.language = language; }
 
     void show(Player player, Frame frame, double redline) {
-        Session session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> {
+        Session session = sessions.computeIfAbsent(player.getUniqueId(), _ -> {
             BossBar primary = BossBar.bossBar(Component.empty(), 0, BossBar.Color.BLUE, BossBar.Overlay.NOTCHED_20);
             BossBar secondary = BossBar.bossBar(Component.empty(), 1, BossBar.Color.GREEN, BossBar.Overlay.PROGRESS);
             player.showBossBar(primary);

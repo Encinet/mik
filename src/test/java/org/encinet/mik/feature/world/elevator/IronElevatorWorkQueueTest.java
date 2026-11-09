@@ -29,7 +29,7 @@ class IronElevatorWorkQueueTest {
         queue.submit(IronElevatorWorkQueue.CATALOG, () -> { order.add("catalog"); return true; });
         var input = queue.submit(IronElevatorWorkQueue.HINT, () -> { order.add("input"); return true; });
         queue.submit(IronElevatorWorkQueue.HINT, () -> { order.add("hint"); return true; });
-        input.prioritizeInput();
+        input.priority(IronElevatorWorkQueue.INPUT);
         queue.tick();
         assertEquals(java.util.List.of("input", "hint"), order);
         assertFalse(queue.empty());
@@ -50,5 +50,50 @@ class IronElevatorWorkQueueTest {
         assertEquals(1, failures.size());
         assertEquals(1, ran.get());
         assertTrue(queue.empty());
+    }
+
+    @Test
+    void everyPriorityProgressesEvenWhenTheBudgetAllowsOnlyOneStepPerTick() {
+        var clock = new AtomicLong();
+        var queue = new IronElevatorWorkQueue(() -> clock.getAndAdd(1_000_000), error -> fail(error));
+        var input = new AtomicInteger();
+        var hint = new AtomicInteger();
+        var catalog = new AtomicInteger();
+        queue.submit(IronElevatorWorkQueue.INPUT, () -> { input.incrementAndGet(); return false; });
+        queue.submit(IronElevatorWorkQueue.HINT, () -> { hint.incrementAndGet(); return false; });
+        queue.submit(IronElevatorWorkQueue.CATALOG, () -> { catalog.incrementAndGet(); return false; });
+        for (int tick = 0; tick < 70; tick++) queue.tick();
+        assertEquals(40, input.get());
+        assertEquals(20, hint.get());
+        assertEquals(10, catalog.get());
+    }
+
+    @Test
+    void runningTasksCanReturnToHintPriorityAndClearPreventsTheirRescheduling() {
+        var queue = new IronElevatorWorkQueue(() -> 0, error -> fail(error));
+        var steps = new AtomicInteger();
+        IronElevatorWorkQueue.Task[] task = new IronElevatorWorkQueue.Task[1];
+        task[0] = queue.submit(IronElevatorWorkQueue.INPUT, () -> {
+            task[0].priority(IronElevatorWorkQueue.HINT);
+            steps.incrementAndGet();
+            queue.clear();
+            return false;
+        });
+        queue.tick();
+        assertEquals(1, steps.get());
+        assertTrue(queue.empty());
+    }
+    @Test
+    void backgroundSaturationLeavesAdmissionAndServiceForInput() {
+        var clock = new AtomicLong();
+        var queue = new IronElevatorWorkQueue(() -> clock.getAndAdd(1_000_000),error -> fail(error));
+        int admitted = 0;
+        for (int index = 0; index < 512; index++)
+            if (queue.submit(IronElevatorWorkQueue.CATALOG,() -> false) != null) admitted++;
+        assertTrue(admitted > 0 && admitted < 256);
+        var input = new AtomicInteger();
+        assertNotNull(queue.submit(IronElevatorWorkQueue.INPUT,() -> { input.incrementAndGet(); return true; }));
+        queue.tick();
+        assertEquals(1,input.get());
     }
 }

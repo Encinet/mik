@@ -20,9 +20,9 @@ final class PlotCatalog {
         Map<UUID, List<Plot>> groups = new HashMap<>();
         for (Plot plot : all) {
             if (plot.parentId() != null)
-                groups.computeIfAbsent(plot.parentId(), ignored -> new ArrayList<>()).add(plot);
+                groups.computeIfAbsent(plot.parentId(), _ -> new ArrayList<>()).add(plot);
         }
-        groups.replaceAll((parent, plots) -> {
+        groups.replaceAll((_, plots) -> {
             plots.sort(ORDER);
             return List.copyOf(plots);
         });

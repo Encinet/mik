@@ -143,7 +143,7 @@ public final class AiToolRegistry {
             }
         }
         return CompletableFuture.allOf(discovery.toArray(CompletableFuture[]::new))
-                .thenCompose(ignored -> {
+                .thenCompose(_ -> {
                     List<CompletableFuture<String>> concrete = new ArrayList<>();
                     for (int index = 0; index < requested.size(); index++) {
                         if (results.get(index) == null) {
@@ -154,7 +154,7 @@ public final class AiToolRegistry {
                     }
                     return CompletableFuture.allOf(
                             concrete.toArray(CompletableFuture[]::new));
-                }).thenApply(ignored -> results.stream()
+                }).thenApply(_ -> results.stream()
                         .map(CompletableFuture::join).toList());
     }
 

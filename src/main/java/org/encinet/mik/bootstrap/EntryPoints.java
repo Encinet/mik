@@ -5,6 +5,7 @@ import org.encinet.mik.shell.api.ApiModule;
 import org.encinet.mik.shell.api.CommunityBoardView;
 import org.encinet.mik.shell.menu.LanguageMenu;
 import org.encinet.mik.shell.menu.MainMenuModule;
+import org.encinet.mik.shell.menu.SettingsMenu;
 import org.encinet.mik.shell.skript.MikSkriptModule;
 
 final class EntryPoints {
@@ -40,9 +41,11 @@ final class EntryPoints {
             plugin.getLogger().info("Skript not found; MIK Skript expressions are disabled.");
         }
 
-        MainMenuModule mainMenuModule = new MainMenuModule(plugin, afkModule, chatModule, teleportPreferenceModule,
-                pvpModule, languageService, languageMenu, clientVersions,
-                plotModule, governanceModule);
+        SettingsMenu settingsMenu = new SettingsMenu(languageService, languageMenu, chatModule,
+                teleportPreferenceModule, pvpModule, players.customNameTags(), players.security());
+        MainMenuModule mainMenuModule = new MainMenuModule(plugin, afkModule,
+                pvpModule, languageService, settingsMenu, clientVersions,
+                plotModule, governanceModule, announcementModule, world.vehicles());
         lifecycle.startManaged("main-menu", mainMenuModule::enable, mainMenuModule::disable);
         mainMenuModule.registerCommands(plugin.getLifecycleManager());
 
@@ -60,7 +63,11 @@ final class EntryPoints {
                     public String detailJson(String id) throws java.sql.SQLException {
                         return plotModule.publicBoardDetailJson(id);
                     }
-                }, players.security()::authentication);
+                }, players.security()::authentication,
+                players.security()::confirmWebLogin,
+                players.security()::webAccountPolicy,
+                (id, name) -> banModule.manager().active(id, name).isEmpty());
+        apiModule.webChat(community.webChat());
         players.security().onCredentialsChanged(apiModule::invalidatePlayerAuthentication);
         lifecycle.startManaged("http-api", () -> apiModule.start(35353), apiModule::stop);
         apiModule.registerCommands(plugin.getLifecycleManager());

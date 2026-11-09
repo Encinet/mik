@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class ViaClientVersionsTest {
     private final UUID id = UUID.randomUUID();
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, args) -> {
+            new Class<?>[]{Player.class}, (_, method, _) -> {
                 if (method.getName().equals("getUniqueId")) return id;
                 throw new AssertionError(method.getName());
             });
@@ -21,7 +21,7 @@ class ViaClientVersionsTest {
     @Test
     void reportsCurrentVersionFactsWithoutAnyTipOrLanguageService() {
         AtomicReference<ProtocolVersion> client = new AtomicReference<>(ProtocolVersion.v1_21_4);
-        var versions = new ViaClientVersions("1.21.8", ProtocolVersion.v1_21_7, ignored -> client.get());
+        var versions = new ViaClientVersions("1.21.8", ProtocolVersion.v1_21_7, _ -> client.get());
         var older = versions.version(player).orElseThrow();
         assertEquals("1.21.4", older.name());
         assertEquals("1.21.8", older.serverVersion());
@@ -34,19 +34,19 @@ class ViaClientVersionsTest {
     @Test
     void versionsSharingAProtocolAndNewerClientsAreNotOutdated() {
         var patch = new ViaClientVersions("1.21.8", ProtocolVersion.getClosest("1.21.8"),
-                ignored -> ProtocolVersion.getClosest("1.21.7"));
+                _ -> ProtocolVersion.getClosest("1.21.7"));
         assertFalse(patch.version(player).orElseThrow().outdated());
-        var newer = new ViaClientVersions("1.21.4", ProtocolVersion.v1_21_4, ignored -> ProtocolVersion.v1_21_7);
+        var newer = new ViaClientVersions("1.21.4", ProtocolVersion.v1_21_4, _ -> ProtocolVersion.v1_21_7);
         assertFalse(newer.version(player).orElseThrow().outdated());
     }
 
     @Test
     void unknownClientHasNoVersionAndUnknownServerDoesNotImplyAnOutdatedClient() {
         var clientUnknown = new ViaClientVersions("1.21.8", ProtocolVersion.v1_21_7,
-                ignored -> ProtocolVersion.unknown);
+                _ -> ProtocolVersion.unknown);
         assertTrue(clientUnknown.version(player).isEmpty());
         var serverUnknown = new ViaClientVersions("custom", ProtocolVersion.unknown,
-                ignored -> ProtocolVersion.v1_21_4);
+                _ -> ProtocolVersion.v1_21_4);
         assertEquals("1.21.4", serverUnknown.version(player).orElseThrow().name());
         assertFalse(serverUnknown.version(player).orElseThrow().outdated());
     }

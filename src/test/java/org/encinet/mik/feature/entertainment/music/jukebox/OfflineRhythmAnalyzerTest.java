@@ -56,10 +56,10 @@ class OfflineRhythmAnalyzerTest {
                         new AudioProperties(null, null, Duration.ofSeconds(1))),
                 new TrackTarget.LocalFile(audio));
         cache = OnlineAudioCacheTestSupport.create(directory.resolve("cache"),
-                ignored -> CompletableFuture.failedFuture(
+                _ -> CompletableFuture.failedFuture(
                         new AssertionError("Local audio must not resolve online")));
         loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
-        analyzer = new OfflineRhythmAnalyzer(loader, ignored -> {});
+        analyzer = new OfflineRhythmAnalyzer(loader, _ -> {});
         RhythmTimeline timeline = new RhythmTimeline(track.id());
 
         try (OfflineRhythmAnalyzer.Analysis analysis = analyzer.analyze(track, timeline)) {
@@ -79,7 +79,7 @@ class OfflineRhythmAnalyzerTest {
                         new AudioProperties(null, null, Duration.ofSeconds(4))),
                 new TrackTarget.LocalFile(audio));
         cache = OnlineAudioCacheTestSupport.create(directory.resolve("rhythm-cache"),
-                ignored -> CompletableFuture.failedFuture(
+                _ -> CompletableFuture.failedFuture(
                         new AssertionError("Local audio must not resolve online")));
         loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
         List<String> warnings = new java.util.ArrayList<>();
@@ -129,9 +129,9 @@ class OfflineRhythmAnalyzerTest {
         String url = "http://127.0.0.1:" + server.getAddress().getPort()
                 + "/complete.wav";
         cache = OnlineAudioCacheTestSupport.create(directory.resolve("online-cache"),
-                ignored -> CompletableFuture.completedFuture(url));
+                _ -> CompletableFuture.completedFuture(url));
         loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
-        analyzer = new OfflineRhythmAnalyzer(loader, ignored -> {});
+        analyzer = new OfflineRhythmAnalyzer(loader, _ -> {});
         MusicTrack track = onlineTrack();
         RhythmTimeline timeline = new RhythmTimeline(track.id());
 

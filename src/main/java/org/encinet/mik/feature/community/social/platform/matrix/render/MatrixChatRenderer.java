@@ -114,10 +114,8 @@ public final class MatrixChatRenderer {
             userIds.add(target.key().subject());
             names.add(externalName(target));
         }
-        String plain;
         String html;
         if (mention.sourceIdentity().isEmpty()) {
-            plain = "@" + mention.playerName() + "(" + String.join(", ", names) + ")";
             List<String> linkedNames = new ArrayList<>();
             for (int index = 0; index < targets.size(); index++) {
                 linkedNames.add(matrixLink(targets.get(index), names.get(index)));
@@ -125,20 +123,18 @@ public final class MatrixChatRenderer {
             html = MatrixHtmlRenderer.escape("@" + mention.playerName() + "(")
                     + String.join(", ", linkedNames) + ")";
         } else {
-            List<String> plainMentions = new ArrayList<>();
             List<String> htmlMentions = new ArrayList<>();
             for (int index = 0; index < targets.size(); index++) {
                 String label = "@" + names.get(index)
                         + "(" + mention.playerName() + ")";
-                plainMentions.add(label);
                 htmlMentions.add("<a href=\"" + matrixUri(
                         targets.get(index).key().subject()) + "\">"
                         + MatrixHtmlRenderer.escape(label) + "</a>");
             }
-            plain = String.join(", ", plainMentions);
             html = String.join(", ", htmlMentions);
         }
-        return new RenderedNode(plain, applyStyle(html, mention.style()),
+        return new RenderedNode(SocialChatMentionResolution.playerMentionText(mention, targets),
+                applyStyle(html, mention.style()),
                 Set.copyOf(userIds), mention);
     }
 

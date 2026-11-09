@@ -26,7 +26,7 @@ class PlotRegistryTest {
             for (int blockX : new int[]{Integer.MIN_VALUE, -17, -16, -1, 0, 15, 16, Integer.MAX_VALUE}) {
                 UUID world = UUID.randomUUID();
                 Cell cell = Cell.at(blockX, 64, blockX);
-                Plot plot = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Home", false,
+                Plot plot = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Home",
                         0, Set.of(cell), Map.of(), Map.of(), null);
                 registry.put(plot);
                 int minimum = cell.x() * PlotGeometry.CELL;
@@ -55,7 +55,7 @@ class PlotRegistryTest {
             Map<UUID, Plot.Role> members = new HashMap<>();
             members.put(collaborator, Plot.Role.COLLABORATOR);
             members.put(visitor, Plot.Role.COLLABORATOR);
-            Plot plot = new Plot(UUID.randomUUID(), world, owner, "Hall", false,
+            Plot plot = new Plot(UUID.randomUUID(), world, owner, "Hall",
                     System.currentTimeMillis(), Set.of(Cell.at(0, 64, 0)), members,
                     Map.of("newcomer.door", true, "member.door", true,
                             PlotAccessPolicy.playerKey(visitor, "place"), false,
@@ -79,14 +79,14 @@ class PlotRegistryTest {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             UUID world = UUID.randomUUID();
-            Plot first = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "One", false,
+            Plot first = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "One",
                     0, Set.of(new Cell(0, 16, 0)), Map.of(), Map.of(), null);
             registry.put(first);
-            Plot near = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Two", false,
+            Plot near = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Two",
                     0, Set.of(new Cell(2, 16, 0)), Map.of(), Map.of(), null);
-            Plot far = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Three", false,
+            Plot far = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Three",
                     0, Set.of(new Cell(3, 16, 0)), Map.of(), Map.of(), null);
-            Plot overlapping = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Four", false,
+            Plot overlapping = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Four",
                     0, Set.of(new Cell(0, 16, 0)), Map.of(), Map.of(), null);
             assertTrue(registry.overlapsOther(overlapping));
             assertFalse(registry.overlapsOther(near));
@@ -100,7 +100,7 @@ class PlotRegistryTest {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             UUID world = UUID.randomUUID(), owner = UUID.randomUUID();
-            Plot plot = new Plot(UUID.randomUUID(), world, owner, "Old", false,
+            Plot plot = new Plot(UUID.randomUUID(), world, owner, "Old",
                     0, Set.of(Cell.at(0, 64, 0)), Map.of(), Map.of(), null);
             registry.put(plot);
             UUID visitor = UUID.randomUUID();
@@ -122,10 +122,10 @@ class PlotRegistryTest {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             UUID world = UUID.randomUUID(), owner = UUID.randomUUID();
-            Plot plot = new Plot(UUID.randomUUID(), world, owner, "Home", false,
+            Plot plot = new Plot(UUID.randomUUID(), world, owner, "Home",
                     0, Set.of(Cell.at(0, 64, 0)), Map.of(), Map.of(), null);
             registry.put(plot);
-            registry.setArrival(plot.id(), new PlotArrival(0, 64, 0, 0, 0, "", ""));
+            registry.saveDestination(new PlotDestination(plot.id(), plot.id(), "Entrance", "", false, 0, 64, 0, 0, 0, "", ""));
             registry.setNoticeBoard(plot.id(), "Welcome");
             store.delete(plot.id());
 
@@ -133,7 +133,7 @@ class PlotRegistryTest {
 
             assertTrue(registry.all().isEmpty());
             assertEquals(null, registry.at(world, 0, 64, 0));
-            assertEquals(null, registry.arrival(plot.id()));
+            assertTrue(registry.destinations(plot.id()).isEmpty());
             assertEquals("", registry.noticeBoard(plot.id()));
         }
     }

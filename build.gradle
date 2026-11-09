@@ -7,6 +7,13 @@ plugins {
 group = 'org.encinet'
 version = '1.0'
 
+configurations {
+    mockitoAgent {
+        canBeConsumed = false
+        transitive = false
+    }
+}
+
 repositories {
     mavenCentral()
     maven {
@@ -42,13 +49,15 @@ repositories {
 }
 
 dependencies {
-    compileOnly("org.bouncycastle:bcprov-jdk18on:1.85.2")
-    testImplementation("org.bouncycastle:bcprov-jdk18on:1.85.2")
+    compileOnly("org.bouncycastle:bcprov-jdk18on:1.86")
+    testImplementation("org.bouncycastle:bcprov-jdk18on:1.86")
     paperweight.paperDevBundle("26.3.build.206-stable")
     compileOnly("net.raphimc:NoteBlockLib:3.3.0")
     compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
     compileOnly("com.viaversion:viaversion-api:5.11.0")
     compileOnly("com.google.code.gson:gson:2.14.0")
+    compileOnly("maven.modrinth:34T8oVNY:26.3-557")
+    testImplementation("maven.modrinth:34T8oVNY:26.3-557")
     compileOnly("org.jsoup:jsoup:1.22.2")
     compileOnly("org.apache.lucene:lucene-core:10.5.1")
     compileOnly("org.apache.lucene:lucene-analysis-common:10.5.1")
@@ -73,6 +82,8 @@ dependencies {
     testRuntimeOnly("org.xerial:sqlite-jdbc:3.53.2.1")
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core:5.20.0")
+    mockitoAgent("org.mockito:mockito-core:5.20.0")
     testImplementation("dev.arbjerg:lavaplayer:2.2.7")
     testImplementation("net.jthink:jaudiotagger:3.0.1")
     testImplementation("io.papermc.paper:paper-api:26.3.build.206-stable")
@@ -97,6 +108,11 @@ dependencies {
 
 def testTempDir = layout.buildDirectory.dir("test-tmp").get().asFile
 
+abstract class MockitoAgentArguments implements CommandLineArgumentProvider {
+    @Classpath abstract ConfigurableFileCollection getAgent()
+    @Override Iterable<String> asArguments() { return ["-javaagent:${agent.singleFile.absolutePath}"] }
+}
+
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     systemProperty("java.io.tmpdir", testTempDir.absolutePath)
@@ -110,6 +126,10 @@ tasks.withType(Test).configureEach {
 }
 
 test {
+    def agentArguments = objects.newInstance(MockitoAgentArguments)
+    agentArguments.agent.from(configurations.mockitoAgent)
+    jvmArgumentProviders.add(agentArguments)
+    jvmArgs("-Xshare:off") // Static test instrumentation cannot use the shared class archive.
     useJUnitPlatform {
         excludeTags 'benchmark'
     }
@@ -148,11 +168,16 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    // Dependency bytecode includes legacy JOML class versions and optional Skript annotations.
+    // Source diagnostics stay strict; third-party class-file diagnostics are not actionable here.
+    options.compilerArgs.addAll(['-Xlint:all,-classfile', '-Werror'])
 
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
         options.release.set(targetJavaVersion)
     }
 }
+
+apply from: 'gradle/java-quality.gradle'
 
 processResources {
     includeEmptyDirs = false

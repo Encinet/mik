@@ -20,6 +20,8 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
 
 /** Redeems an identity code and owns every response for the link command. */
@@ -95,19 +97,19 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
     public SocialDocument present(SocialCommandContext context, Result result) {
         Language language = languageResolver.language(result.languageBinding(), context);
         return switch (result) {
-            case Result.IdentityMissing ignored -> document(
-                    language, SocialDocument.Tone.ERROR,
+            case Result.IdentityMissing _ -> document(
+                    TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_IDENTITY_MISSING);
             case Result.Linked linked -> link(
                     linked.result(), language, context.platform().id());
-            case Result.Help ignored -> SocialDocument.of(
+            case Result.Help _ -> SocialDocument.of(TRUSTED,
                             title(language), SocialDocument.Tone.INFO,
                             SocialDocument.orderedList(lines(languages.t(
                                     language, Message.SOCIAL_BINDING_HELP,
                                     context.platform().id()))))
                     .localized(language);
-            case Result.Unavailable ignored -> document(
-                    language, SocialDocument.Tone.ERROR,
+            case Result.Unavailable _ -> document(
+                    TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_UNAVAILABLE);
         };
     }
@@ -135,32 +137,31 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
             String platformId
     ) {
         return switch (result.status()) {
-            case LINKED -> document(language, SocialDocument.Tone.SUCCESS,
-                    Message.SOCIAL_BINDING_LINKED, result.binding().playerName())
-                    .withUntrustedText(result.binding().playerName());
-            case ALREADY_LINKED -> document(language, SocialDocument.Tone.INFO,
-                    Message.SOCIAL_BINDING_ALREADY_LINKED, result.binding().playerName())
-                    .withUntrustedText(result.binding().playerName());
-            case INVALID_OR_EXPIRED_CODE -> document(language, SocialDocument.Tone.ERROR,
+            case LINKED -> document(REQUIRED, language, SocialDocument.Tone.SUCCESS,
+                    Message.SOCIAL_BINDING_LINKED, result.binding().playerName());
+            case ALREADY_LINKED -> document(REQUIRED, language, SocialDocument.Tone.INFO,
+                    Message.SOCIAL_BINDING_ALREADY_LINKED, result.binding().playerName());
+            case INVALID_OR_EXPIRED_CODE -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_CODE_INVALID, platformId);
-            case PLATFORM_MISMATCH -> document(language, SocialDocument.Tone.ERROR,
+            case PLATFORM_MISMATCH -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_PLATFORM_MISMATCH);
-            case EXTERNAL_IDENTITY_IN_USE -> document(language, SocialDocument.Tone.ERROR,
+            case EXTERNAL_IDENTITY_IN_USE -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_EXTERNAL_IN_USE);
-            case PLAYER_SCOPE_IN_USE -> document(language, SocialDocument.Tone.ERROR,
+            case PLAYER_SCOPE_IN_USE -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_PLAYER_SCOPE_IN_USE);
-            case RATE_LIMITED -> document(language, SocialDocument.Tone.WARNING,
+            case RATE_LIMITED -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_BINDING_RATE_LIMITED, retryMinutes(result.retryAt()));
         };
     }
 
     private SocialDocument document(
+            SocialDocument.Moderation moderation,
             Language language,
             SocialDocument.Tone tone,
             Message message,
             Object... arguments
     ) {
-        return SocialDocument.of(title(language), tone,
+        return SocialDocument.of(moderation, title(language), tone,
                         SocialDocument.paragraph(languages.t(
                                 language, message, arguments)))
                 .localized(language);

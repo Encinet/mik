@@ -34,7 +34,7 @@ class BackModuleTest {
     private final AtomicReference<Location> position = new AtomicReference<>(new Location(world, 1, 64, 1));
     private final UUID id = UUID.randomUUID();
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, args) -> switch (method.getName()) {
+            new Class<?>[]{Player.class}, (_, method, _) -> switch (method.getName()) {
                 case "getUniqueId" -> id;
                 case "hasPermission" -> true;
                 case "getLocation" -> position.get().clone();

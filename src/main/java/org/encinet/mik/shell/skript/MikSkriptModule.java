@@ -65,7 +65,7 @@ public final class MikSkriptModule {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.facade = Objects.requireNonNull(facade, "facade");
         this.infoCommand = infoCommand;
-        this.unloadListener = (parser, script) -> {
+        this.unloadListener = (_, script) -> {
             String owner = MikSkriptOwner.of(script);
             facade.clearPvpOverridesOwnedBy(owner);
             facade.clearSpacesOwnedBy(owner);

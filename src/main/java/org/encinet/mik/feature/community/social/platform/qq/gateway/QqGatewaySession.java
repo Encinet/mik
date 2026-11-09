@@ -135,7 +135,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             try {
                 currentSocket.sendClose(WebSocket.NORMAL_CLOSURE, "plugin stopping")
                         .orTimeout(2, TimeUnit.SECONDS)
-                        .exceptionally(error -> {
+                        .exceptionally(_ -> {
                             currentSocket.abort();
                             return null;
                         });
@@ -164,7 +164,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             return connector.connect(discoveredEndpoint,
                     new QqGatewaySocketListener(connectionGeneration,
                             config.gatewayMaxFrameBytes(), socketCallbacks()));
-        }).whenComplete((ignored, error) -> {
+        }).whenComplete((_, error) -> {
             if (error != null && !(unwrap(error) instanceof CancellationException)) {
                 connectionLost(connectionGeneration, error, true);
             }
@@ -392,7 +392,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             return;
         }
         try {
-            currentSocket.sendText(payload, true).whenComplete((ignored, error) -> {
+            currentSocket.sendText(payload, true).whenComplete((_, error) -> {
                 if (error != null) {
                     connectionLost(connectionGeneration, error, true);
                 }

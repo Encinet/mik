@@ -3,15 +3,18 @@ package org.encinet.mik.feature.world.space;
 import java.util.List;
 
 final class SpaceConfigurationException extends Exception {
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
 
-    private final List<String> problems;
+
+    private final String[] problems;
 
     SpaceConfigurationException(List<String> problems) {
         super(String.join("; ", problems));
-        this.problems = List.copyOf(problems);
+        this.problems = problems.toArray(String[]::new);
     }
 
     List<String> problems() {
-        return problems;
+        return List.of(problems);
     }
 }

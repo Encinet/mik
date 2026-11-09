@@ -12,7 +12,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -65,7 +64,7 @@ class PlaybackResourceResolverTest {
         cache = cache();
         PlaybackResourceResolver resolver = new PlaybackResourceResolver(cache);
 
-        assertFalse(resolver.acquire(track).handle((resource, error) -> error == null).join());
+        assertFalse(resolver.acquire(track).handle((_, error) -> error == null).join());
     }
 
     @Test
@@ -76,13 +75,15 @@ class PlaybackResourceResolverTest {
                 new TrackDetails("Song", null, null, "NBS", AudioProperties.EMPTY),
                 new TrackTarget.NbsFile(directory.resolve("song.nbs"), directory));
 
-        assertFalse(resolver.acquire(nbs).handle((resource, error) -> error == null).join());
+        assertFalse(resolver.acquire(nbs).handle((_, error) -> error == null).join());
     }
 
     private OnlineAudioCache cache() {
-        sourceService = new LxSourceService(directory.resolve("lxmusic"), ignored -> {},
-                ignored -> {});
-        return new OnlineAudioCache(directory.resolve("cache"), sourceService, ignored -> {});
+        sourceService = new LxSourceService(directory.resolve("music/sources"), _ -> {},
+                _ -> {});
+        var cache = new OnlineAudioCache(directory.resolve("music/cache/audio"), sourceService, _ -> {});
+        cache.initialize();
+        return cache;
     }
 
     private static MusicTrack localTrack(Path path, Path root) {

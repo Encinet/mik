@@ -5,7 +5,7 @@ import org.bukkit.entity.Player;
 /** Observes the exact server instant at which a decoration teleport is sent. */
 @FunctionalInterface
 public interface FloatingMenuFrameObserver {
-    FloatingMenuFrameObserver NONE = (player, decorationId, sentAtNanos) -> { };
+    FloatingMenuFrameObserver NONE = (_, _, _) -> { };
 
     void presented(Player player, String decorationId, long sentAtNanos);
 }

@@ -54,7 +54,6 @@ class PlotManagementPermissionsTest {
             PlotEdits edits = new PlotEdits(registry);
             edits.flag(plot, plot.owner(), false, "admin.manage_settings", false);
             assertThrows(PlotProblem.class, () -> edits.rename(plot, admin, false, "Denied"));
-            assertThrows(PlotProblem.class, () -> edits.setPublic(plot, admin, false, true));
             assertThrows(PlotProblem.class, () -> edits.setNoticeBoard(plot, admin, false, "Denied"));
             assertThrows(PlotProblem.class, () -> edits.setTime(plot, admin, false, 6000));
             assertThrows(PlotProblem.class, () -> edits.setWeather(plot, admin, false, PlotAtmosphere.Weather.CLEAR));
@@ -63,7 +62,6 @@ class PlotManagementPermissionsTest {
             assertThrows(PlotProblem.class, () -> edits.resetAccess(plot, admin, false,
                     PlotAccessPolicy.Subject.group(PlotAccessPolicy.Group.ADMIN), null));
             assertEquals(plot.name(), registry.byId(plot.id()).name());
-            assertFalse(registry.byId(plot.id()).publicProject());
         }
     }
 
@@ -161,7 +159,6 @@ class PlotManagementPermissionsTest {
     }
 
     private static Plot plot(Map<UUID, Plot.Role> members, Map<String, Boolean> flags) {
-        return new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Management test",
-                false, 0L, Set.of(PlotGeometry.Cell.at(0, 64, 0)), members, flags, null);
+        return new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Management test", 0L, Set.of(PlotGeometry.Cell.at(0, 64, 0)), members, flags, null);
     }
 }

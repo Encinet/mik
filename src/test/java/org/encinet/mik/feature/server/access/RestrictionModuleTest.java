@@ -68,10 +68,8 @@ class RestrictionModuleTest {
                 "/summon wolf ~ ~ ~ {Owner:\"00000000-0000-0000-0000-000000000001\"}"));
         assertFalse(RestrictionModule.checksUuids(
                 "/minecraft:summon wolf ~ ~ ~ {Owner:\"00000000-0000-0000-0000-000000000001\"}"));
-        assertFalse(RestrictionModule.checksUuids(
-                "/mikrepeat 00000000-0000-0000-0000-000000000001"));
-        assertFalse(RestrictionModule.checksUuids(
-                "/mik:mikrepeat 00000000-0000-0000-0000-000000000001"));
+        assertTrue(RestrictionModule.checksUuids(
+                "/unknown 00000000-0000-0000-0000-000000000001"));
         assertFalse(RestrictionModule.checksUuids("/"));
     }
 

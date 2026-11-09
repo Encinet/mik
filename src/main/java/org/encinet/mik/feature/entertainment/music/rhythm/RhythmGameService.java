@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.rhythm;
 
+
 import com.destroystokyo.paper.event.player.PlayerUseUnknownEntityEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -22,8 +23,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
-import org.bukkit.event.player.PlayerAnimationEvent;
-import org.bukkit.event.player.PlayerAnimationType;
+import io.papermc.paper.event.player.PlayerArmSwingEvent;
 import org.bukkit.event.player.PlayerInputEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -43,10 +43,12 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.player.afk.AfkActivityService;
 import org.encinet.mik.shared.menu.FloatingMenuAppearance;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
+import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.FloatingMenuFlow;
 import org.encinet.mik.shared.menu.FloatingMenuFraming;
-import org.encinet.mik.shared.menu.FloatingMenuLayouts;
+import org.encinet.mik.shared.menu.ui.UiTemplates;
+import org.encinet.mik.shared.menu.ui.UiLayout;
+import org.encinet.mik.shared.menu.ui.UiSize;
 import org.encinet.mik.shared.menu.FloatingMenuMovementPolicy;
 import org.encinet.mik.shared.menu.FloatingMenuPoint;
 import org.encinet.mik.shared.menu.FloatingMenuPose;
@@ -67,15 +69,11 @@ import org.encinet.mik.feature.entertainment.music.rhythm.playback.RhythmPlaybac
 import org.encinet.mik.feature.entertainment.music.rhythm.playback.RhythmPlaybackSnapshot;
 import org.encinet.mik.feature.entertainment.music.rhythm.playback.RhythmPlaybackState;
 import org.encinet.mik.feature.entertainment.music.rhythm.calibration.RhythmCalibrationAudioOutput;
-import org.encinet.mik.feature.entertainment.music.rhythm.calibration.RhythmCalibrationPattern;
 import org.encinet.mik.feature.entertainment.music.rhythm.calibration.CalibrationStage;
-import org.encinet.mik.feature.entertainment.music.rhythm.calibration.RhythmCuePresentation;
-import org.encinet.mik.feature.entertainment.music.rhythm.calibration.RhythmCuePresentationLedger;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -83,24 +81,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Level;
 
+import static org.encinet.mik.feature.entertainment.music.rhythm.RhythmCalibrationSession.CAPTURE_WINDOW_MILLIS;
+
 /** Coordinates opt-in movement input, scoring, and selectable rhythm scenes. */
 public final class RhythmGameService implements Listener, AutoCloseable,
         RhythmCalibrationStatus {
     private static final long LOOK_AHEAD_MILLIS = 2_100L;
     private static final long MINIMUM_REACTION_MILLIS = 900L;
     private static final long FLASH_MILLIS = 360L;
-    private static final long CALIBRATION_CAPTURE_WINDOW_MILLIS = 400L;
-    private static final long CALIBRATION_CAPTURE_WINDOW_NANOS =
-            CALIBRATION_CAPTURE_WINDOW_MILLIS * 1_000_000L;
-    private static final long CALIBRATION_INTRO_MILLIS = 2_000L;
-    private static final long CALIBRATION_TRANSITION_MILLIS = 1_500L;
-    private static final long CALIBRATION_BEAT_PREVIEW_MILLIS = 3_200L;
-    private static final long CALIBRATION_RESULT_MILLIS = 3_000L;
-    private static final long CALIBRATION_AUDIO_STALL_NANOS = 600_000_000L;
-    private static final long CALIBRATION_AUDIO_STALL_CONFIRM_NANOS = 1_000_000_000L;
-    private static final int CALIBRATION_AUDIO_STALL_CONSECUTIVE_TICKS = 2;
-    private static final long CALIBRATION_AUDIO_STALL_STATUS_NANOS = 1_800_000_000L;
-    private static final long CALIBRATION_LATE_CUE_MILLIS = 150L;
     private static final long GAME_JOIN_DELAY_MILLIS = 3_000L;
     private static final long GAME_GO_OVERLAY_MILLIS = 700L;
     private static final long GAME_JUDGEMENT_OVERLAY_MILLIS = 720L;
@@ -180,6 +168,20 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     }
 
     /** Opens the per-player mode selector for a live custom playback. */
+    private java.util.function.BiConsumer<UUID, Location> participationEnded = (_, _) -> { };
+    private java.util.function.Consumer<Player> roomReturn = _ -> { };
+    public void setParticipationEnded(java.util.function.BiConsumer<UUID, Location> listener) { participationEnded = listener; }
+    public void setRoomReturn(java.util.function.Consumer<Player> callback) { roomReturn = callback; }
+    public boolean readyToPlay(Player player) { return requireCompletedCalibration(player) && requirePlayableNetwork(player); }
+    public boolean launch(Player player, Location location, RhythmGameMode mode, RhythmDifficulty difficulty) {
+        start(player, JukeboxTarget.at(location), mode, difficulty);
+        return activeGames.containsKey(player.getUniqueId());
+    }
+    public void leaveRoomGame(Player player) {
+        ActiveGame game = activeGames.get(player.getUniqueId());
+        if (game != null) finish(player, game, false);
+    }
+
     public boolean open(Player player, Location jukeboxLocation) {
         Objects.requireNonNull(player, "player");
         JukeboxTarget target = JukeboxTarget.at(jukeboxLocation);
@@ -198,7 +200,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             return false;
         }
 
-        modeScreen.open(player, new ModeSelectorView(target));
+        modeScreen.open(player,new ModeSelectorView(target,0));
         return true;
     }
 
@@ -650,7 +652,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 endCalibration(player, calibration, true);
                 continue;
             }
-            if (calibration.stage.requiresPlasmoVoice()
+            if (calibration.session.stage().requiresPlasmoVoice()
                     && !calibrationAudioOutput.available(player)) {
                 player.sendActionBar(languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_VOICE_REQUIRED,
@@ -670,26 +672,26 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             if (menuState == FloatingMenuState.ACTIVE) {
                 long nowNanos = System.nanoTime();
                 try {
-                    if (calibration.advance(player, nowNanos)
-                            == CalibrationAdvance.START_PLASMO
-                            && !calibration.startPlasmoStage(
-                            player, calibrationAudioOutput)) {
+                    if (calibration.session.advance(nowNanos, cue -> playCalibrationCue(player, cue))
+                            == RhythmCalibrationSession.CalibrationAdvance.START_PLASMO
+                            && !calibration.session.startPlasmoStage(() -> calibrationAudioOutput
+                                    .play(player, calibration.session.pattern()).orElse(null))) {
                         player.sendActionBar(languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_VOICE_REQUIRED,
                                 NamedTextColor.RED));
                         endCalibration(player, calibration, true);
                         continue;
                     }
-                    calibration.consumeResult().ifPresent(result -> {
+                    calibration.session.consumeResult().ifPresent(result -> {
                         calibrationStore.save(player, result);
                         player.sendActionBar(languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_DONE,
                                 NamedTextColor.GREEN));
                         player.playSound(player.getLocation(),
                                 Sound.BLOCK_NOTE_BLOCK_CHIME, 0.42F, 1.65F);
-                        calibration.showResult(nowNanos);
+                        calibration.session.showResult(nowNanos);
                     });
-                    if (calibration.resultExpired(nowNanos)) {
+                    if (calibration.session.resultExpired(nowNanos)) {
                         endCalibration(player, calibration, true);
                         continue;
                     }
@@ -707,7 +709,14 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         }
     }
 
-    private FloatingMenuDefinition renderModeSelector(Player player, ModeSelectorView view) {
+    private static void playCalibrationCue(Player player, RhythmCue cue) {
+        float volume = (float) (0.62 + cue.strength() * 0.22);
+        float pitch = cue.strength() >= 0.9 ? 0.88F : 1.0F;
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASEDRUM,
+                org.bukkit.SoundCategory.RECORDS, volume, pitch);
+    }
+
+    private MenuScene renderModeSelector(Player player, ModeSelectorView view) {
         Optional<RhythmPlaybackSnapshot> current = playback(view.target());
         boolean hasPlayback = current.isPresent()
                 && current.get().status() != RhythmPlaybackState.STOPPED;
@@ -717,31 +726,30 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         boolean available = hasPlayback && !noBeats;
         RhythmGameMode preferred = preferredModes.getOrDefault(
                 player.getUniqueId(), RhythmGameMode.FALLING);
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
+        MenuScene.Builder menu = MenuScene.screen(
                         "jukebox-rhythm-mode")
-                .appearance(FloatingMenuAppearance.RHYTHM)
-                .framing(FloatingMenuFraming.PANORAMIC)
-                .layout(FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.actions("mode", 3),
-                        FloatingMenuLayouts.navigation("navigation")))
-                .refreshEvery(5, (p, handle) -> modeScreen.flow(p)
+                .appearance(FloatingMenuAppearance.DEFAULT)
+                .stableAnchor()
+                .content(RhythmSetupMenu.choices("mode",view.page(),page -> modeScreen.flow(player)
+                        .filter(flow -> flow.state() == view && (flow.handle().state() == FloatingMenuState.ACTIVE
+                                || flow.handle().state() == FloatingMenuState.OPENING))
+                        .ifPresent(flow -> flow.setState(new ModeSelectorView(view.target(),page)))))
+                .refreshEvery(5, (p, _) -> modeScreen.flow(p)
                         .ifPresent(FloatingMenuFlow::redraw));
         Component track = current.<Component>map(playback -> Component.text(
                         truncate(playback.track().details().title(), 48), NamedTextColor.WHITE)
                         .decoration(TextDecoration.BOLD, true))
                 .orElseGet(() -> languageService.text(player,
                         Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.RED));
-        menu.textDecoration("track", new FloatingMenuPoint(0.0, 0.82, 0.18),
-                track, FloatingMenuAppearance.TRANSPARENT, 3.8F, 1.3F, 0.68F,
-                FloatingMenuDecoration.Alignment.CENTER);
+        menu.information("track", track).region("summary");
         for (RhythmGameMode mode : RhythmGameMode.values()) {
             var node = menu.item("mode:" + mode.name(), modeMaterial(mode),
                             modeLabel(player, mode))
                     .region("mode")
                     .selected(mode == preferred)
-                    .primary((p, handle) -> {
+                    .primary((p, _) -> {
                         preferredModes.put(p.getUniqueId(), mode);
-                        selectorScreen.open(p, new SelectorView(view.target(), mode));
+                        selectorScreen.open(p,new SelectorView(view.target(),mode,0));
                     });
             if (!available) {
                 node.disabled(languageService.text(player,
@@ -756,25 +764,13 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         return menu.build();
     }
 
-    private FloatingMenuDefinition renderSelector(Player player, SelectorView view) {
+    private MenuScene renderSelector(Player player, SelectorView view) {
         Optional<RhythmPlaybackSnapshot> current = playback(view.target());
-        boolean hasPlayback = current.isPresent()
-                && current.get().status() != RhythmPlaybackState.STOPPED;
-        boolean noBeats = current.isPresent()
-                && current.get().timeline().complete()
-                && !current.get().timeline().playable();
-        boolean available = hasPlayback && !noBeats;
-        RhythmDifficulty preferred = preferredDifficulties.getOrDefault(
-                player.getUniqueId(), RhythmDifficulty.NORMAL);
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
-                        "jukebox-rhythm-difficulty")
-                .appearance(FloatingMenuAppearance.RHYTHM)
-                .framing(FloatingMenuFraming.PANORAMIC)
-                .layout(FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.actions("difficulty", 3),
-                        FloatingMenuLayouts.navigation("navigation")))
-                .refreshEvery(5, (p, handle) -> selectorScreen.flow(p)
-                        .ifPresent(FloatingMenuFlow::redraw));
+        boolean hasPlayback = current.isPresent() && current.get().status() != RhythmPlaybackState.STOPPED;
+        boolean noBeats = current.isPresent() && current.get().timeline().complete() && !current.get().timeline().playable();
+        Component disabledReason = hasPlayback && !noBeats ? null : languageService.text(player,
+                noBeats ? Message.MUSIC_RHYTHM_NO_BEATS : Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.YELLOW);
+        RhythmDifficulty preferred = preferredDifficulties.getOrDefault(player.getUniqueId(), RhythmDifficulty.NORMAL);
         Component track = current.<Component>map(playback -> Component.text(
                         truncate(playback.track().details().title(), 48), NamedTextColor.WHITE)
                         .decoration(TextDecoration.BOLD, true)
@@ -784,31 +780,21 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 .decoration(TextDecoration.BOLD, false)))
                 .orElseGet(() -> languageService.text(player,
                         Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.RED));
-        menu.textDecoration("track", new FloatingMenuPoint(0.0, 0.82, 0.18),
-                track, FloatingMenuAppearance.TRANSPARENT, 3.8F, 1.3F, 0.68F,
-                FloatingMenuDecoration.Alignment.CENTER);
-        for (RhythmDifficulty difficulty : RhythmDifficulty.values()) {
-            var node = menu.block("difficulty:" + difficulty.name(),
-                            difficultyMaterial(difficulty),
-                            difficultyLabel(player, difficulty))
-                    .region("difficulty")
-                    .selected(difficulty == preferred)
-                    .primary((p, handle) -> start(
-                            p, view.target(), view.mode(), difficulty));
-            if (!available) {
-                node.disabled(languageService.text(player,
-                        noBeats ? Message.MUSIC_RHYTHM_NO_BEATS
-                                : Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK,
-                        NamedTextColor.RED));
-            }
-        }
-        menu.back(languageService.text(player,
-                        Message.MUSIC_BACK, NamedTextColor.RED))
-                .region("navigation");
-        return menu.build();
+        return RhythmSetupMenu.difficulty(track,preferred,view.page(),page -> selectorScreen.flow(player)
+                        .filter(flow -> flow.state() == view && (flow.handle().state() == FloatingMenuState.ACTIVE
+                                || flow.handle().state() == FloatingMenuState.OPENING))
+                        .ifPresent(flow -> flow.setState(new SelectorView(view.target(),view.mode(),page))),
+                difficulty -> difficultyLabel(player,difficulty),disabledReason,
+                (viewer, difficulty) -> {
+                    preferredDifficulties.put(viewer.getUniqueId(), difficulty);
+                    selectorScreen.flow(viewer).ifPresent(FloatingMenuFlow::redraw);
+                }, (viewer, difficulty) -> start(viewer, view.target(), view.mode(), difficulty),
+                languageService.text(player, Message.MUSIC_RHYTHM_START, NamedTextColor.GREEN),
+                languageService.text(player, Message.MUSIC_BACK, NamedTextColor.WHITE))
+                .refreshEvery(5, (viewer, _) -> selectorScreen.flow(viewer).ifPresent(FloatingMenuFlow::redraw)).build();
     }
 
-    private FloatingMenuDefinition renderCalibration(Player player,
+    private MenuScene renderCalibration(Player player,
                                                       CalibrationView view) {
         ActiveCalibration calibration = activeCalibrations.get(view.playerId());
         if (calibration == null || !view.runId().equals(calibration.runId)
@@ -816,25 +802,23 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             return unavailableCalibration(player, view);
         }
         long renderAtNanos = System.nanoTime();
-        long now = calibration.positionMillis(renderAtNanos);
+        long now = calibration.session.positionMillis(renderAtNanos);
         long visualNow = now;
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
+        MenuScene.Builder menu = MenuScene.screen(
                         "jukebox-rhythm-calibration")
-                .appearance(FloatingMenuAppearance.RHYTHM)
+                .appearance(FloatingMenuAppearance.DEFAULT)
                 .framing(FloatingMenuFraming.PANORAMIC)
-                .requireSpatialPresentation()
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
-                .layout(FloatingMenuLayouts.fixedPoses(Map.of(
-                        "exit", FloatingMenuPose.at(
-                                new FloatingMenuPoint(2.08, 0.83, 0.28)))))
+                .content(UiTemplates.canvas(new UiSize(300, 180), Map.of(
+                        "exit", new UiLayout.Position(254, 48.5))))
                 .refreshEvery(1, (p, handle) -> handle.update(
                         renderCalibration(p, view)))
-                .observeFrames((presentedPlayer, decorationId, sentAtNanos) ->
-                        calibration.visualFramePresented(decorationId,
+                .observeFrames((_, decorationId, sentAtNanos) ->
+                        calibration.session.visualFramePresented(decorationId,
                                 sentAtNanos))
-                .lifecycle((closedPlayer, handle, previous, next, reason) -> {
+                .lifecycle((closedPlayer, _, _, next, _) -> {
                     if (next == FloatingMenuState.CLOSED) {
                         removeCalibration(closedPlayer, view.runId());
                     }
@@ -846,33 +830,33 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         Component stageLine;
         Component instruction;
         boolean sampling = false;
-        switch (calibration.stage) {
+        switch (calibration.session.stage()) {
             case INTRO -> {
                 stageLine = languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_MINECRAFT,
                                 NamedTextColor.GOLD)
-                        .append(Component.text("  →  ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("  →  ", NamedTextColor.WHITE))
                         .append(languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_PLASMO,
                                 NamedTextColor.LIGHT_PURPLE))
-                        .append(Component.text("  →  ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("  →  ", NamedTextColor.WHITE))
                         .append(languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_VISUAL,
                                 NamedTextColor.AQUA))
-                        .append(Component.text("  →  ", NamedTextColor.DARK_GRAY))
+                        .append(Component.text("  →  ", NamedTextColor.WHITE))
                         .append(languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_POINTER,
                                 NamedTextColor.GREEN));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_INTRO,
-                        NamedTextColor.GRAY);
+                        NamedTextColor.WHITE);
             }
             case MINECRAFT_AUDIO -> {
                 stageLine = languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_MINECRAFT,
                                 NamedTextColor.GOLD)
                         .append(Component.text("  ·  1/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_MINECRAFT_INSTRUCTION,
                         NamedTextColor.GOLD);
@@ -883,7 +867,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_MINECRAFT,
                                 NamedTextColor.GOLD)
                         .append(Component.text("  ·  1/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_LISTEN,
                         NamedTextColor.YELLOW);
@@ -893,21 +877,21 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_PLASMO,
                                 NamedTextColor.LIGHT_PURPLE)
                         .append(Component.text("  ·  2/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_PLASMO_READY,
                         NamedTextColor.LIGHT_PURPLE)
                         .append(Component.newline())
                         .append(languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_LISTEN,
-                                NamedTextColor.GRAY));
+                                NamedTextColor.WHITE));
             }
             case PLASMO_AUDIO -> {
                 stageLine = languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_PLASMO,
                                 NamedTextColor.LIGHT_PURPLE)
                         .append(Component.text("  ·  2/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_PLASMO_INSTRUCTION,
                         NamedTextColor.LIGHT_PURPLE);
@@ -918,12 +902,12 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_PLASMO,
                                 NamedTextColor.LIGHT_PURPLE)
                         .append(Component.text("  ·  2/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
-                        calibration.plasmoRealigning(renderAtNanos)
+                        calibration.session.plasmoRealigning(renderAtNanos)
                                 ? Message.MUSIC_RHYTHM_CALIBRATION_REALIGNING
                                 : Message.MUSIC_RHYTHM_CALIBRATION_LISTEN,
-                        calibration.plasmoRealigning(renderAtNanos)
+                        calibration.session.plasmoRealigning(renderAtNanos)
                                 ? NamedTextColor.RED : NamedTextColor.YELLOW);
             }
             case TRANSITION_TO_VISUAL -> {
@@ -931,17 +915,17 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_VISUAL,
                                 NamedTextColor.AQUA)
                         .append(Component.text("  ·  3/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_VISUAL_PREVIEW,
-                        NamedTextColor.GRAY);
+                        NamedTextColor.WHITE);
             }
             case VISUAL_LISTEN -> {
                 stageLine = languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_VISUAL,
                                 NamedTextColor.AQUA)
                         .append(Component.text("  ·  3/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_VISUAL_PREVIEW,
                         NamedTextColor.YELLOW);
@@ -951,7 +935,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_VISUAL,
                                 NamedTextColor.AQUA)
                         .append(Component.text("  ·  3/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_VISUAL_INSTRUCTION,
                         NamedTextColor.AQUA);
@@ -962,17 +946,17 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_POINTER,
                                 NamedTextColor.GREEN)
                         .append(Component.text("  ·  4/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_VISUAL_PREVIEW,
-                        NamedTextColor.GRAY);
+                        NamedTextColor.WHITE);
             }
             case POINTER_LISTEN -> {
                 stageLine = languageService.text(player,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_POINTER,
                                 NamedTextColor.GREEN)
                         .append(Component.text("  ·  4/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_VISUAL_PREVIEW,
                         NamedTextColor.YELLOW);
@@ -982,7 +966,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                 Message.MUSIC_RHYTHM_CALIBRATION_STAGE_POINTER,
                                 NamedTextColor.GREEN)
                         .append(Component.text("  ·  4/4",
-                                NamedTextColor.DARK_GRAY));
+                                NamedTextColor.WHITE));
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_POINTER_INSTRUCTION,
                         NamedTextColor.GREEN);
@@ -994,10 +978,10 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                         NamedTextColor.GREEN);
                 instruction = languageService.text(player,
                         Message.MUSIC_RHYTHM_CALIBRATION_RESULT_HOLD,
-                        NamedTextColor.GRAY);
+                        NamedTextColor.WHITE);
             }
             default -> throw new IllegalStateException(
-                    "Unknown calibration stage " + calibration.stage);
+                    "Unknown calibration stage " + calibration.session.stage());
         }
         Component status = title
                 .decoration(TextDecoration.BOLD, true)
@@ -1011,22 +995,22 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                             player, calibration.networkLatency));
         }
         if (sampling) {
-            RhythmLatencyCalibration measurement = calibration.measurement();
-            Component progress = measurement.outOfSupportedRange()
+            RhythmCalibrationSession.Progress progress = calibration.session.progress();
+            Component progressText = progress.outOfSupportedRange()
                     ? languageService.text(player,
                     Message.MUSIC_RHYTHM_CALIBRATION_OUT_OF_RANGE,
                     NamedTextColor.RED)
-                    : calibration.noInputWarning(renderAtNanos)
+                    : calibration.session.noInputWarning(renderAtNanos)
                     ? languageService.text(player,
                     Message.MUSIC_RHYTHM_CALIBRATION_NO_INPUT,
                     NamedTextColor.YELLOW)
-                    : calibrationProgress(player, measurement);
+                    : calibrationProgress(player, progress);
             status = status.append(Component.newline())
-                    .append(progress);
-        } else if (calibration.pauseSecondsRemaining() > 0) {
+                    .append(progressText);
+        } else if (calibration.session.pauseSecondsRemaining(renderAtNanos) > 0) {
             status = status.append(Component.newline())
                     .append(Component.text("⏱ "
-                            + calibration.pauseSecondsRemaining() + " s",
+                            + calibration.session.pauseSecondsRemaining(renderAtNanos) + " s",
                             NamedTextColor.YELLOW));
         }
         menu.textDecoration("calibration-status",
@@ -1039,7 +1023,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         FloatingMenuPoint target = new FloatingMenuPoint(
                 0.0, RhythmFallingLayout.HIT_LINE_UP,
                 RhythmFallingLayout.LANE_FORWARD);
-        if (calibration.stage.presentsVisualCues()) {
+        if (calibration.session.stage().presentsVisualCues()) {
             for (int marker = -4; marker <= 4; marker++) {
                 menu.blockDecoration("calibration-line:" + marker,
                         new FloatingMenuPoint(marker * 0.29,
@@ -1052,21 +1036,21 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                     Material.GLASS, 0.48F, FloatingMenuDecoration.Motion.NONE);
 
             long earliest = Math.max(0L,
-                    visualNow - CALIBRATION_CAPTURE_WINDOW_MILLIS);
-            long cueIndex = calibration.pattern.cueIndexAtOrAfter(earliest);
+                    visualNow - CAPTURE_WINDOW_MILLIS);
+            long cueIndex = calibration.session.pattern().cueIndexAtOrAfter(earliest);
             int rendered = 0;
             for (int scanned = 0; scanned < 10 && rendered < 6; scanned++) {
-                RhythmCue cue = calibration.cue(cueIndex + scanned);
+                RhythmCue cue = calibration.session.cue(cueIndex + scanned);
                 if (cue.timeMillis() > saturatedAdd(visualNow,
                         LOOK_AHEAD_MILLIS)) break;
-                if ((calibration.stage == CalibrationStage.VISUAL
-                        || calibration.stage == CalibrationStage.POINTER_VISUAL)
-                        && calibration.measurement().sampled(cue.id())) continue;
-                calibration.planVisualCue(cue, renderAtNanos);
+                if ((calibration.session.stage() == CalibrationStage.VISUAL
+                        || calibration.session.stage() == CalibrationStage.POINTER_VISUAL)
+                        && calibration.session.sampled(cue.id())) continue;
+                calibration.session.planVisualCue(cue, renderAtNanos);
                 double progress = 1.0 - (cue.timeMillis() - visualNow)
                         / (double) LOOK_AHEAD_MILLIS;
                 menu.decoration(FloatingMenuDecoration.block(
-                        ActiveCalibration.visualDecorationId(cue.id()),
+                        RhythmCalibrationSession.visualDecorationId(cue.id()),
                         FloatingMenuPose.at(RhythmFallingLayout.point(target,
                                 Math.clamp(progress, 0.0, 1.14))),
                         new ItemStack(Material.SEA_LANTERN),
@@ -1075,7 +1059,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 rendered++;
             }
         } else {
-            Material phaseMaterial = switch (calibration.stage) {
+            Material phaseMaterial = switch (calibration.session.stage()) {
                 case INTRO -> Material.CALIBRATED_SCULK_SENSOR;
                 case TRANSITION_TO_PLASMO, TRANSITION_TO_VISUAL,
                      TRANSITION_TO_POINTER -> Material.REPEATER;
@@ -1090,34 +1074,28 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                             new FloatingMenuPoint(0.0, 0.05,
                                     RhythmFallingLayout.LANE_FORWARD)),
                     phaseMaterial,
-                    calibration.stage == CalibrationStage.RESULT ? 0.62F : 0.52F,
+                    calibration.session.stage() == CalibrationStage.RESULT ? 0.62F : 0.52F,
                     FloatingMenuDecoration.Motion.NONE);
         }
         return menu.build();
     }
 
-    private FloatingMenuDefinition unavailableCalibration(Player player,
+    private MenuScene unavailableCalibration(Player player,
                                                            CalibrationView view) {
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
-                        "jukebox-rhythm-calibration")
-                .appearance(FloatingMenuAppearance.RHYTHM)
-                .requireSpatialPresentation()
-                .stableAnchor()
+        MenuScene.Builder menu = RhythmSetupMenu.unavailable("jukebox-rhythm-calibration",
+                        languageService.text(player, Message.MUSIC_JUKEBOX_UNAVAILABLE, NamedTextColor.RED))
                 .viewpoint(FloatingMenuViewpoint.STANDING)
-                .layout(FloatingMenuLayouts.adaptiveColumn(0.25))
-                .lifecycle((closedPlayer, handle, previous, next, reason) -> {
+                .lifecycle((closedPlayer, _, _, next, _) -> {
                     if (next == FloatingMenuState.CLOSED) {
                         removeCalibration(closedPlayer, view.runId());
                     }
                 });
-        menu.information("unavailable", languageService.text(player,
-                Message.MUSIC_JUKEBOX_UNAVAILABLE, NamedTextColor.RED));
         menu.back(languageService.text(player, Message.MUSIC_BACK,
-                NamedTextColor.RED));
+                NamedTextColor.RED)).region("navigation");
         return menu.build();
     }
 
-    private FloatingMenuDefinition render(Player player, GameView view) {
+    private MenuScene render(Player player, GameView view) {
         ActiveGame game = activeGames.get(view.playerId());
         Optional<RhythmPlaybackSnapshot> current = playback(view.target());
         if (game == null || current.isEmpty()
@@ -1131,22 +1109,21 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         // would make notes visibly late on the client.
         long now = playback.positionMillis();
         long judgementNow = game.latency.inputPosition(now);
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-rhythm")
-                .appearance(FloatingMenuAppearance.RHYTHM)
+        MenuScene.Builder menu = MenuScene.screen("jukebox-rhythm")
+                .appearance(FloatingMenuAppearance.DEFAULT)
                 .framing(FloatingMenuFraming.PANORAMIC)
-                .requireSpatialPresentation()
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
-                .layout(FloatingMenuLayouts.fixedPoses(Map.of(
-                        "exit", FloatingMenuPose.at(new FloatingMenuPoint(2.08, 0.83, 0.28)))))
+                .content(UiTemplates.canvas(new UiSize(300, 180), Map.of(
+                        "exit", new UiLayout.Position(254, 48.5))))
                 .refreshEvery(1, (p, handle) -> handle.update(render(p, view)))
-                .observeFrames((presentedPlayer, decorationId, sentAtNanos) -> {
+                .observeFrames((_, decorationId, _) -> {
                     if (game.spatial != null) {
                         game.spatial.framePresented(decorationId);
                     }
                 })
-                .lifecycle((closedPlayer, handle, previous, next, reason) -> {
+                .lifecycle((closedPlayer, _, _, next, _) -> {
                     if (next == FloatingMenuState.CLOSED) {
                         removeActiveGame(closedPlayer, view.playbackId());
                     }
@@ -1182,7 +1159,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         return menu.build();
     }
 
-    private FloatingMenuDefinition renderResult(Player player, ResultView view) {
+    private MenuScene renderResult(Player player, ResultView view) {
         RhythmGameResult result = view.result();
         Component summary = languageService.text(player,
                         Message.MUSIC_RHYTHM_RESULTS,
@@ -1200,37 +1177,36 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 .append(Component.newline())
                 .append(judgementCount(player, Message.MUSIC_RHYTHM_PERFECT,
                         NamedTextColor.AQUA, result.perfectHits()))
-                .append(Component.text("  ·  ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("  ·  ", NamedTextColor.WHITE))
                 .append(judgementCount(player, Message.MUSIC_RHYTHM_GREAT,
                         NamedTextColor.GREEN, result.greatHits()))
-                .append(Component.text("  ·  ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("  ·  ", NamedTextColor.WHITE))
                 .append(judgementCount(player, Message.MUSIC_RHYTHM_GOOD,
                         NamedTextColor.YELLOW, result.goodHits()))
-                .append(Component.text("  ·  ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("  ·  ", NamedTextColor.WHITE))
                 .append(judgementCount(player, Message.MUSIC_RHYTHM_MISS,
                         NamedTextColor.RED, result.misses()))
                 .append(Component.newline())
                 .append(languageService.text(player, modeMessage(view.mode()),
                         modeColor(view.mode())))
-                .append(Component.text("  ·  ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("  ·  ", NamedTextColor.WHITE))
                 .append(languageService.text(player,
                         difficultyMessage(view.difficulty()),
                         NamedTextColor.LIGHT_PURPLE))
                 .append(Component.text("  ·  Δ " + signedMillis(Math.round(
                                 result.meanTimingErrorMillis())) + " ms",
                         timingColor(result.meanTimingErrorMillis())));
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
+        MenuScene.Builder menu = MenuScene.screen(
                         "jukebox-rhythm-result")
-                .appearance(FloatingMenuAppearance.RHYTHM)
-                .framing(FloatingMenuFraming.PANORAMIC)
-                .layout(FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.navigation("navigation")));
-        menu.textDecoration("result", new FloatingMenuPoint(0.0, 0.36, 0.18),
-                summary, 0xD0181B22, 5.8F, 2.5F, 0.74F,
-                FloatingMenuDecoration.Alignment.CENTER);
-        menu.back(languageService.text(player, Message.MUSIC_BACK,
-                        NamedTextColor.RED))
-                .region("navigation");
+                .appearance(FloatingMenuAppearance.DEFAULT)
+                .stableAnchor()
+                .content(UiTemplates.sheet(UiTemplates.window("result", UiTemplates.information("result-summary")),
+                        UiTemplates.toolbar("tools", UiTemplates.navigation("navigation"))));
+        menu.information("result", summary).region("result-summary");
+        menu.control("return-room", languageService.text(player, Message.MUSIC_SPACE_LABEL,
+                        NamedTextColor.WHITE, "rhythm"))
+                .region("navigation").primary((viewer, _) -> roomReturn.accept(viewer));
+        menu.back(languageService.text(player, Message.MUSIC_BACK, NamedTextColor.WHITE)).region("navigation");
         return menu.build();
     }
 
@@ -1252,7 +1228,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 result.accuracy() * 100.0);
     }
 
-    private void renderGameOverlay(FloatingMenuDefinition.Builder menu, Player player,
+    private void renderGameOverlay(MenuScene.Builder menu, Player player,
                                    RhythmPlaybackSnapshot playback, ActiveGame game,
                                    long judgementNow, long renderAtNanos) {
         Component overlay;
@@ -1340,7 +1316,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 0.42F, pitch);
     }
 
-    private void renderFallingScene(FloatingMenuDefinition.Builder menu, Player player,
+    private void renderFallingScene(MenuScene.Builder menu, Player player,
                                     ActiveGame game, long now, long judgementNow,
                                     List<RhythmCue> visible) {
         for (int marker = 0; marker <= 8; marker++) {
@@ -1394,7 +1370,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         }
     }
 
-    private void renderRadialScene(FloatingMenuDefinition.Builder menu, ActiveGame game,
+    private void renderRadialScene(MenuScene.Builder menu, ActiveGame game,
                                    long now, long judgementNow,
                                    List<RhythmCue> visible) {
         int rendered = 0;
@@ -1435,7 +1411,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         }
     }
 
-    private void renderSpatialScene(FloatingMenuDefinition.Builder menu, ActiveGame game,
+    private void renderSpatialScene(MenuScene.Builder menu, ActiveGame game,
                                     long now, long judgementNow,
                                     List<RhythmCue> visible, long renderAtNanos) {
         if (!game.ready) {
@@ -1544,7 +1520,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     }
 
     private static void renderSpatialSlider(
-            FloatingMenuDefinition.Builder menu, ActiveGame game,
+            MenuScene.Builder menu, ActiveGame game,
             RhythmSpatialSlider.Presentation slider, long now) {
         RhythmSpatialSlider.Link link = slider.link();
         double progress = slider.progress(now);
@@ -1576,7 +1552,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 FloatingMenuDecoration.Motion.SPIN).tracking());
     }
 
-    private static void renderSpatialTutorial(FloatingMenuDefinition.Builder menu,
+    private static void renderSpatialTutorial(MenuScene.Builder menu,
                                               ActiveGame game,
                                               long countdownElapsedMillis) {
         Vector direction = RhythmSpatialPath.direction(game.anchor.getYaw(), 0.0);
@@ -1604,7 +1580,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     }
 
     private static void addSpatialSatellitePair(
-            FloatingMenuDefinition.Builder menu, RhythmCue cue, String axisName,
+            MenuScene.Builder menu, RhythmCue cue, String axisName,
             Location center, Vector axis, double radius, double hitRadius) {
         float scale = (float) Math.clamp(hitRadius * 0.24,
                 0.075, SPATIAL_SATELLITE_SCALE);
@@ -1618,21 +1594,16 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         }
     }
 
-    private FloatingMenuDefinition unavailable(Player player, GameView view) {
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("jukebox-rhythm")
-                .appearance(FloatingMenuAppearance.RHYTHM)
-                .requireSpatialPresentation()
-                .stableAnchor()
+    private MenuScene unavailable(Player player, GameView view) {
+        MenuScene.Builder menu = RhythmSetupMenu.unavailable("jukebox-rhythm",
+                        languageService.text(player, Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.RED))
                 .viewpoint(FloatingMenuViewpoint.STANDING)
-                .layout(FloatingMenuLayouts.adaptiveColumn(0.25))
-                .lifecycle((closedPlayer, handle, previous, next, reason) -> {
+                .lifecycle((closedPlayer, _, _, next, _) -> {
                     if (next == FloatingMenuState.CLOSED) {
                         removeActiveGame(closedPlayer, view.playbackId());
                     }
                 });
-        menu.information("unavailable", languageService.text(player,
-                Message.MUSIC_RHYTHM_REQUIRES_PLAYBACK, NamedTextColor.RED));
-        menu.navigation("exit", exitLabel(player))
+        menu.navigation("exit", exitLabel(player)).region("navigation")
                 .primary((p, handle) -> exit(p, handle));
         return menu.build();
     }
@@ -1879,7 +1850,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
     private void releaseCalibrationResources(ActiveCalibration calibration) {
         try {
-            calibration.closeStagePlayback();
+            calibration.session.close();
         } catch (RuntimeException exception) {
             plugin.getLogger().log(Level.WARNING,
                     "Unable to close latency calibration audio", exception);
@@ -1931,6 +1902,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     private boolean removeActiveGame(Player player, ActiveGame expected) {
         if (!activeGames.remove(player.getUniqueId(), expected)) return false;
         releaseGameResources(expected);
+        participationEnded.accept(player.getUniqueId(), expected.target.location());
         if (expected.heldSlotBeforeGame != NO_CAPTURED_HOTBAR_SLOT) {
             player.getInventory().setHeldItemSlot(expected.heldSlotBeforeGame);
         }
@@ -2017,7 +1989,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             event.setCancelled(true);
             selectNeutralHotbarSlot(player);
             RhythmInput.fromHotbarSlot(event.getNewSlot())
-                    .ifPresent(ignored -> calibrationHit(player, calibration,
+                    .ifPresent(_ -> calibrationHit(player, calibration,
                             timedInput, false));
             return;
         }
@@ -2069,8 +2041,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
     /** Left-click air and display attacks arrive as a main-arm animation. */
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void onRadialSwing(PlayerAnimationEvent event) {
-        if (event.getAnimationType() != PlayerAnimationType.ARM_SWING) return;
+    public void onRadialSwing(PlayerArmSwingEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
         ActiveCalibration calibration = activeCalibrations.get(
                 event.getPlayer().getUniqueId());
         if (calibration != null) {
@@ -2293,65 +2265,20 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     private void calibrationHit(Player player, ActiveCalibration calibration,
                                 RhythmInputTimestampSource.TimedInput timedInput,
                                 boolean pointerInput) {
-        if (!calibration.acceptsModality(pointerInput)) return;
-        if (!calibration.claimInput(Bukkit.getCurrentTick())) return;
-        if (!calibration.acceptsInput()) return;
-        int networkRttMillis = RhythmLatencyCompensator
-                .currentNetworkRttMillis(player.getPing());
-        long adjustedInputAtNanos = removeNetworkRtt(
-                timedInput.receivedAtNanos(), networkRttMillis);
-        Optional<RhythmCuePresentation> closest =
-                calibration.closestPresentation(adjustedInputAtNanos);
-        if (closest.isEmpty()) return;
-        long rawErrorNanos = timedInput.receivedAtNanos()
-                - closest.get().presentedAtNanos();
-        int rawErrorMillis = (int) Math.clamp(Math.round(
-                rawErrorNanos / 1_000_000.0), Integer.MIN_VALUE,
-                Integer.MAX_VALUE);
-        RhythmLatencyCalibration.Observation observation =
-                new RhythmLatencyCalibration.Observation(
-                        closest.get().cueId(), closest.get().cycleIndex(),
-                        closest.get().cueIndex(), closest.get().cuesPerCycle(),
-                        rawErrorMillis, networkRttMillis,
-                        timedInput.coarse());
-        if (Math.abs((long) observation.errorMillis())
-                > CALIBRATION_CAPTURE_WINDOW_MILLIS) return;
+        RhythmCalibrationSession session = calibration.session;
+        CalibrationStage previous = session.stage();
+        boolean recorded = session.record(new RhythmCalibrationSession.Tap(
+                Bukkit.getCurrentTick(), pointerInput, timedInput.receivedAtNanos(),
+                RhythmLatencyCompensator.currentNetworkRttMillis(player.getPing()),
+                timedInput.coarse()), System.nanoTime());
+        if (!recorded) return;
         afkActivityService.recordTrustedActivity(player.getUniqueId());
-        calibration.noteInput(timedInput.receivedAtNanos());
-
-        RhythmLatencyCalibration measurement = calibration.measurement();
-        RhythmLatencyCalibration.SampleResult sample =
-                measurement.record(observation);
-        if (sample != RhythmLatencyCalibration.SampleResult.COMPLETE) return;
-
-        RhythmLatencyCalibration.Estimate estimate = measurement.estimate();
-        long nowNanos = System.nanoTime();
-        if (calibration.stage == CalibrationStage.MINECRAFT_AUDIO) {
-            calibration.beginPlasmoTransition(estimate, nowNanos);
+        if (previous == CalibrationStage.MINECRAFT_AUDIO
+                && session.stage() == CalibrationStage.TRANSITION_TO_PLASMO) {
             player.sendActionBar(languageService.text(player,
                     Message.MUSIC_RHYTHM_CALIBRATION_PLASMO_READY,
                     NamedTextColor.LIGHT_PURPLE));
-            return;
         }
-        if (calibration.stage == CalibrationStage.PLASMO_AUDIO) {
-            calibration.beginVisualTransition(estimate, nowNanos);
-            return;
-        }
-        if (calibration.stage == CalibrationStage.VISUAL) {
-            calibration.beginPointerTransition(estimate, nowNanos);
-            return;
-        }
-        if (calibration.stage == CalibrationStage.POINTER_VISUAL) {
-            calibration.finishFromPointerStage(estimate, nowNanos);
-        }
-    }
-
-    private static long removeNetworkRtt(long timestampNanos,
-                                         int networkRttMillis) {
-        long delayNanos = networkRttMillis * 1_000_000L;
-        // System.nanoTime values are modular. Plain subtraction keeps short
-        // elapsed intervals correct even when the signed long wraps.
-        return timestampNanos - delayNanos;
     }
 
     private void judge(Player player, ActiveGame game, List<RhythmInput> pressed,
@@ -2486,13 +2413,13 @@ public final class RhythmGameService implements Listener, AutoCloseable,
     }
 
     private Component calibrationProgress(Player player,
-                                          RhythmLatencyCalibration measurement) {
-        Message status = measurement.adapting()
+                                          RhythmCalibrationSession.Progress progress) {
+        Message status = progress.adapting()
                 ? Message.MUSIC_RHYTHM_CALIBRATION_ADAPTING
                 : Message.MUSIC_RHYTHM_CALIBRATION_ACCUMULATING;
-        NamedTextColor color = measurement.adapting()
+        NamedTextColor color = progress.adapting()
                 ? NamedTextColor.YELLOW : NamedTextColor.GREEN;
-        return Component.text(measurement.adapting() ? "◇ " : "◆ ", color)
+        return Component.text(progress.adapting() ? "◇ " : "◆ ", color)
                 .append(languageService.text(player, status, color));
     }
 
@@ -2740,15 +2667,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         };
     }
 
-    private static Material difficultyMaterial(RhythmDifficulty difficulty) {
-        return switch (difficulty) {
-            case EASY -> Material.LIME_STAINED_GLASS;
-            case NORMAL -> Material.CYAN_STAINED_GLASS;
-            case HARD -> Material.ORANGE_STAINED_GLASS;
-            case EXPERT -> Material.MAGENTA_STAINED_GLASS;
-        };
-    }
-
     private static Message judgementMessage(RhythmJudgement judgement) {
         return switch (judgement) {
             case PERFECT -> Message.MUSIC_RHYTHM_PERFECT;
@@ -2830,7 +2748,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             ActiveCalibration calibration = activeCalibrations.remove(playerId);
             if (calibration != null) {
                 shutdown.attempt("rhythm calibration audio for " + playerId,
-                        calibration::closeStagePlayback);
+                        calibration.session::close);
                 shutdown.attempt("rhythm calibration silence for " + playerId,
                         calibration.silenceLease::close);
                 shutdown.attempt("rhythm calibration AFK suppression for " + playerId,
@@ -2867,40 +2785,12 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         private final JukeboxTarget target;
         private final UUID runId;
         private final Location anchor;
-        private final RhythmCalibrationPattern pattern;
         private InputState input;
         private final RhythmNetworkLatencyGuard networkLatency;
         private final int heldSlotBeforeCalibration;
         private final RhythmPlaybackIsolation.SilenceLease silenceLease;
         private final AfkActivityService.ActivityLease afkLease;
-        private final RhythmLatencyCalibration minecraftMeasurement =
-                new RhythmLatencyCalibration();
-        private final RhythmLatencyCalibration plasmoMeasurement =
-                new RhythmLatencyCalibration();
-        private final RhythmLatencyCalibration visualMeasurement =
-                new RhythmLatencyCalibration();
-        private final RhythmLatencyCalibration pointerMeasurement =
-                new RhythmLatencyCalibration();
-        private final RhythmCuePresentationLedger inputPresentations =
-                new RhythmCuePresentationLedger();
-        private final Map<String, RhythmCuePresentation> expectedVisualCommits =
-                new HashMap<>();
-        private CalibrationStage stage = CalibrationStage.INTRO;
-        private long stageStartedAtNanos;
-        private long nextAudioCue;
-        private long plasmoPhysicalBaseCycle;
-        private long plasmoLogicalBaseCycle;
-        private long highestPlasmoLogicalCycle = -1L;
-        private int visualTapOffsetMillis;
-        private int minecraftTapOffsetMillis;
-        private int plasmoTapOffsetMillis;
-        private RhythmCalibrationResult pendingResult;
-        private RhythmCalibrationAudioOutput.StagePlayback stagePlayback;
-        private int lastInputTick = Integer.MIN_VALUE;
-        private long inputExpectedSinceNanos = Long.MIN_VALUE;
-        private long lastObservedInputNanos = Long.MIN_VALUE;
-        private int plasmoStallTicks;
-        private long lastPlasmoRealignAtNanos = Long.MIN_VALUE;
+        private final RhythmCalibrationSession session;
 
         private ActiveCalibration(JukeboxTarget target, UUID runId,
                                   Location anchor, InputState input,
@@ -2912,7 +2802,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             this.target = Objects.requireNonNull(target, "target");
             this.runId = Objects.requireNonNull(runId, "runId");
             this.anchor = Objects.requireNonNull(anchor, "anchor");
-            this.pattern = RhythmCalibrationPattern.fixed();
             this.input = Objects.requireNonNull(input, "input");
             this.networkLatency = Objects.requireNonNull(
                     networkLatency, "networkLatency");
@@ -2920,407 +2809,9 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             this.silenceLease = Objects.requireNonNull(
                     silenceLease, "silenceLease");
             this.afkLease = Objects.requireNonNull(afkLease, "afkLease");
-            this.stageStartedAtNanos = startedAtNanos;
+            this.session = new RhythmCalibrationSession(startedAtNanos);
         }
 
-        private boolean claimInput(int tick) {
-            if (lastInputTick == tick) return false;
-            lastInputTick = tick;
-            return true;
-        }
-
-        private CalibrationAdvance advance(Player player, long nowNanos) {
-            long now = positionMillis(nowNanos);
-            if (stage == CalibrationStage.INTRO
-                    && now >= CALIBRATION_INTRO_MILLIS) {
-                transitionTo(CalibrationStage.MINECRAFT_LISTEN);
-                resetStageClock(nowNanos);
-                playMinecraftCues(player, 0L, false);
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.MINECRAFT_LISTEN) {
-                if (now >= CALIBRATION_BEAT_PREVIEW_MILLIS) {
-                    transitionTo(CalibrationStage.MINECRAFT_AUDIO);
-                    minecraftMeasurement.reset();
-                    resetStageClock(nowNanos);
-                    beginInputWindow(nowNanos);
-                    playMinecraftCues(player, 0L, true);
-                } else {
-                    playMinecraftCues(player, now, false);
-                }
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.MINECRAFT_AUDIO) {
-                playMinecraftCues(player, now, true);
-                minecraftMeasurement.advanceToCycle(now / pattern.durationMillis());
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.TRANSITION_TO_PLASMO
-                    && now >= CALIBRATION_TRANSITION_MILLIS) {
-                transitionTo(CalibrationStage.PLASMO_LISTEN);
-                resetStageClock(nowNanos);
-                return CalibrationAdvance.START_PLASMO;
-            }
-            if (stage == CalibrationStage.PLASMO_LISTEN
-                    || stage == CalibrationStage.PLASMO_AUDIO) {
-                return advancePlasmo(nowNanos);
-            }
-            if (stage == CalibrationStage.TRANSITION_TO_VISUAL
-                    && now >= CALIBRATION_TRANSITION_MILLIS) {
-                transitionTo(CalibrationStage.VISUAL_LISTEN);
-                visualMeasurement.reset();
-                resetStageClock(nowNanos);
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.VISUAL_LISTEN
-                    && now >= CALIBRATION_BEAT_PREVIEW_MILLIS) {
-                transitionTo(CalibrationStage.VISUAL);
-                visualMeasurement.reset();
-                resetStageClock(nowNanos);
-                beginInputWindow(nowNanos);
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.VISUAL) {
-                visualMeasurement.advanceToCycle(now / pattern.durationMillis());
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.TRANSITION_TO_POINTER
-                    && now >= CALIBRATION_TRANSITION_MILLIS) {
-                transitionTo(CalibrationStage.POINTER_LISTEN);
-                pointerMeasurement.reset();
-                resetStageClock(nowNanos);
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.POINTER_LISTEN
-                    && now >= CALIBRATION_BEAT_PREVIEW_MILLIS) {
-                transitionTo(CalibrationStage.POINTER_VISUAL);
-                pointerMeasurement.reset();
-                resetStageClock(nowNanos);
-                beginInputWindow(nowNanos);
-                return CalibrationAdvance.NONE;
-            }
-            if (stage == CalibrationStage.POINTER_VISUAL) {
-                pointerMeasurement.advanceToCycle(now / pattern.durationMillis());
-                return CalibrationAdvance.NONE;
-            }
-            return CalibrationAdvance.NONE;
-        }
-
-        private CalibrationAdvance advancePlasmo(long nowNanos) {
-            if (stagePlayback == null || !stagePlayback.active()) {
-                plasmoStallTicks = 0;
-                restartPlasmo(nowNanos);
-                return CalibrationAdvance.START_PLASMO;
-            }
-            RhythmCalibrationAudioOutput.PlaybackProgress progress =
-                    stagePlayback.progress();
-            boolean stalled = progress.stalled(nowNanos,
-                    CALIBRATION_AUDIO_STALL_NANOS)
-                    || !progress.hasStarted()
-                    && positionMillis(nowNanos) * 1_000_000L
-                    > CALIBRATION_AUDIO_STALL_CONFIRM_NANOS;
-            if (stalled) {
-                if (++plasmoStallTicks < CALIBRATION_AUDIO_STALL_CONSECUTIVE_TICKS) {
-                    return CalibrationAdvance.NONE;
-                }
-                restartPlasmo(nowNanos);
-                return CalibrationAdvance.START_PLASMO;
-            }
-            plasmoStallTicks = 0;
-            List<RhythmCuePresentation> supplied =
-                    stagePlayback.drainPresentations();
-            boolean listening = stage == CalibrationStage.PLASMO_LISTEN;
-            if (listening) {
-                if (progress.completedCycles() < 1L) {
-                    return CalibrationAdvance.NONE;
-                }
-                plasmoPhysicalBaseCycle = progress.completedCycles();
-                inputPresentations.clear();
-                lastPlasmoRealignAtNanos = Long.MIN_VALUE;
-                transitionTo(CalibrationStage.PLASMO_AUDIO);
-                beginInputWindow(nowNanos);
-                return CalibrationAdvance.NONE;
-            }
-
-            for (RhythmCuePresentation raw : supplied) {
-                if (raw.cycleIndex() < plasmoPhysicalBaseCycle) continue;
-                long logicalCycle = plasmoLogicalBaseCycle
-                        + raw.cycleIndex() - plasmoPhysicalBaseCycle;
-                    long cueId = logicalCycle * pattern.cueCount()
-                            + raw.cueIndex() + 1L;
-                RhythmCuePresentation mapped = new RhythmCuePresentation(
-                        cueId, logicalCycle, raw.cueIndex(), pattern.cueCount(),
-                        raw.presentedAtNanos(), raw.strength());
-                inputPresentations.add(mapped);
-                highestPlasmoLogicalCycle = Math.max(
-                        highestPlasmoLogicalCycle, logicalCycle);
-            }
-            long completed = Math.max(0L, progress.completedCycles()
-                    - plasmoPhysicalBaseCycle) + plasmoLogicalBaseCycle;
-            plasmoMeasurement.advanceToCycle(completed);
-            return CalibrationAdvance.NONE;
-        }
-
-        private void restartPlasmo(long nowNanos) {
-            closeStagePlayback();
-            plasmoStallTicks = 0;
-            if (highestPlasmoLogicalCycle >= plasmoLogicalBaseCycle) {
-                plasmoLogicalBaseCycle = highestPlasmoLogicalCycle + 1L;
-            }
-            transitionTo(CalibrationStage.PLASMO_LISTEN);
-            lastPlasmoRealignAtNanos = nowNanos;
-            inputPresentations.clear();
-            stageStartedAtNanos = nowNanos;
-        }
-
-        private void playMinecraftCues(Player player, long nowMillis,
-                                       boolean collect) {
-            RhythmCue cue = cue(nextAudioCue);
-            while (cue.timeMillis() != Long.MAX_VALUE
-                    && cue.timeMillis() <= nowMillis) {
-                long lateness = nowMillis - cue.timeMillis();
-                nextAudioCue++;
-                if (lateness <= CALIBRATION_LATE_CUE_MILLIS) {
-                    float volume = (float) (0.62 + cue.strength() * 0.22);
-                    float pitch = cue.strength() >= 0.9 ? 0.88F : 1.0F;
-                    player.playSound(player.getLocation(),
-                            Sound.BLOCK_NOTE_BLOCK_BASEDRUM,
-                            org.bukkit.SoundCategory.RECORDS, volume, pitch);
-                    if (collect) inputPresentations.add(presentation(
-                            nextAudioCue - 1L, System.nanoTime()));
-                }
-                cue = cue(nextAudioCue);
-            }
-        }
-
-        private RhythmCue cue(long index) {
-            long safeIndex = Math.max(0L, index);
-            long id = safeIndex == Long.MAX_VALUE
-                    ? Long.MAX_VALUE : safeIndex + 1L;
-            return new RhythmCue(id, pattern.cueTimeMillis(safeIndex),
-                    RhythmInput.ONE, pattern.strength(safeIndex));
-        }
-
-        private RhythmCuePresentation presentation(long cueIndex,
-                                                    long presentedAtNanos) {
-            long cycle = cueIndex / pattern.cueCount();
-            int withinCycle = (int) (cueIndex % pattern.cueCount());
-            return new RhythmCuePresentation(cueIndex + 1L, cycle,
-                    withinCycle, pattern.cueCount(), presentedAtNanos,
-                    pattern.strength(cueIndex));
-        }
-
-        private void planVisualCue(RhythmCue cue, long nowNanos) {
-            if (stage != CalibrationStage.VISUAL
-                    && stage != CalibrationStage.POINTER_VISUAL) return;
-            long globalIndex = cue.id() - 1L;
-            long plannedAt = saturatedAddNanos(stageStartedAtNanos,
-                    cue.timeMillis() * 1_000_000L);
-            inputPresentations.add(presentation(globalIndex, plannedAt));
-            if (Math.abs(cue.timeMillis() - positionMillis(nowNanos)) <= 60L) {
-                expectedVisualCommits.put(visualDecorationId(cue.id()),
-                        presentation(globalIndex, plannedAt));
-            }
-        }
-
-        private void visualFramePresented(String decorationId,
-                                          long presentedAtNanos) {
-            RhythmCuePresentation expected = expectedVisualCommits.remove(decorationId);
-            if (expected == null || stage != CalibrationStage.VISUAL
-                    && stage != CalibrationStage.POINTER_VISUAL) return;
-            inputPresentations.add(new RhythmCuePresentation(expected.cueId(),
-                    expected.cycleIndex(), expected.cueIndex(),
-                    expected.cuesPerCycle(), presentedAtNanos,
-                    expected.strength()));
-        }
-
-        private static String visualDecorationId(long cueId) {
-            return "calibration-cue:" + cueId;
-        }
-
-        private RhythmLatencyCalibration measurement() {
-            return switch (stage) {
-                case MINECRAFT_AUDIO -> minecraftMeasurement;
-                case PLASMO_AUDIO -> plasmoMeasurement;
-                case VISUAL -> visualMeasurement;
-                case POINTER_VISUAL -> pointerMeasurement;
-                default -> throw new IllegalStateException(
-                        "stage does not collect a raw latency measurement: " + stage);
-            };
-        }
-
-        private Optional<RhythmCuePresentation> closestPresentation(
-                long adjustedInputAtNanos) {
-            return inputPresentations.closestWithin(adjustedInputAtNanos,
-                    CALIBRATION_CAPTURE_WINDOW_NANOS,
-                    acceptsRawMeasurement() ? measurement()::sampled
-                            : cueId -> false);
-        }
-
-        private void beginPlasmoTransition(
-                RhythmLatencyCalibration.Estimate estimate, long nowNanos) {
-            minecraftTapOffsetMillis = estimate.offsetMillis();
-            plasmoMeasurement.reset();
-            plasmoLogicalBaseCycle = 0L;
-            highestPlasmoLogicalCycle = -1L;
-            transitionTo(CalibrationStage.TRANSITION_TO_PLASMO);
-            closeStagePlayback();
-            resetStageClock(nowNanos);
-        }
-
-        private void beginVisualTransition(
-                RhythmLatencyCalibration.Estimate estimate, long nowNanos) {
-            plasmoTapOffsetMillis = estimate.offsetMillis();
-            visualMeasurement.reset();
-            transitionTo(CalibrationStage.TRANSITION_TO_VISUAL);
-            closeStagePlayback();
-            resetStageClock(nowNanos);
-        }
-
-        private void beginPointerTransition(
-                RhythmLatencyCalibration.Estimate estimate, long nowNanos) {
-            visualTapOffsetMillis = estimate.offsetMillis();
-            pointerMeasurement.reset();
-            transitionTo(CalibrationStage.TRANSITION_TO_POINTER);
-            resetStageClock(nowNanos);
-        }
-
-        private void finishFromPointerStage(
-                RhythmLatencyCalibration.Estimate estimate, long nowNanos) {
-            pendingResult = RhythmCalibrationResult.fromTests(
-                    visualTapOffsetMillis, minecraftTapOffsetMillis,
-                    plasmoTapOffsetMillis, estimate.offsetMillis());
-            resetStageClock(nowNanos);
-            beginInputWindow(nowNanos);
-        }
-
-        private Optional<RhythmCalibrationResult> consumeResult() {
-            Optional<RhythmCalibrationResult> pending =
-                    Optional.ofNullable(pendingResult);
-            pendingResult = null;
-            return pending;
-        }
-
-        private boolean startPlasmoStage(
-                Player player, RhythmCalibrationAudioOutput output) {
-            closeStagePlayback();
-            stagePlayback = output.play(player, pattern).orElse(null);
-            return stagePlayback != null;
-        }
-
-        private void closeStagePlayback() {
-            RhythmCalibrationAudioOutput.StagePlayback playback = stagePlayback;
-            stagePlayback = null;
-            if (playback != null) playback.close();
-        }
-
-        private void showResult(long nowNanos) {
-            closeStagePlayback();
-            transitionTo(CalibrationStage.RESULT);
-            resetStageClock(nowNanos);
-        }
-
-        private boolean resultExpired(long nowNanos) {
-            return stage == CalibrationStage.RESULT
-                    && positionMillis(nowNanos) >= CALIBRATION_RESULT_MILLIS;
-        }
-
-        private boolean acceptsRawMeasurement() {
-            return stage.samplesInput();
-        }
-
-        private boolean acceptsInput() {
-            return stage.samplesInput();
-        }
-
-        private boolean acceptsModality(boolean pointerInput) {
-            return stage.acceptsInput(pointerInput);
-        }
-
-        private void noteInput(long receivedAtNanos) {
-            lastObservedInputNanos = receivedAtNanos;
-        }
-
-        private void beginInputWindow(long nowNanos) {
-            inputExpectedSinceNanos = nowNanos;
-            lastObservedInputNanos = Long.MIN_VALUE;
-        }
-
-        private boolean noInputWarning(long nowNanos) {
-            if (!acceptsInput() || inputExpectedSinceNanos == Long.MIN_VALUE) {
-                return false;
-            }
-            long reference = lastObservedInputNanos == Long.MIN_VALUE
-                    ? inputExpectedSinceNanos : lastObservedInputNanos;
-            long threshold = pattern.durationMillis() * 1_000_000L;
-            long elapsed = nowNanos - reference;
-            return elapsed >= threshold;
-        }
-
-        private boolean plasmoRealigning(long nowNanos) {
-            long elapsed = nowNanos - lastPlasmoRealignAtNanos;
-            return lastPlasmoRealignAtNanos != Long.MIN_VALUE
-                    && elapsed >= 0L
-                    && elapsed <= CALIBRATION_AUDIO_STALL_STATUS_NANOS
-                    && stage == CalibrationStage.PLASMO_LISTEN;
-        }
-
-        private void transitionTo(CalibrationStage next) {
-            stage = stage.transitionTo(next);
-        }
-
-        private long positionMillis() {
-            return positionMillis(System.nanoTime());
-        }
-
-        private long positionMillis(long nowNanos) {
-            long elapsed = nowNanos - stageStartedAtNanos;
-            return elapsed <= 0L ? 0L : elapsed / 1_000_000L;
-        }
-
-        private void resetStageClock(long nowNanos) {
-            stageStartedAtNanos = nowNanos;
-            nextAudioCue = 0L;
-            inputPresentations.clear();
-            expectedVisualCommits.clear();
-        }
-
-        private int pauseSecondsRemaining() {
-            long duration = switch (stage) {
-                case INTRO -> CALIBRATION_INTRO_MILLIS;
-                case TRANSITION_TO_PLASMO, TRANSITION_TO_VISUAL,
-                     TRANSITION_TO_POINTER -> CALIBRATION_TRANSITION_MILLIS;
-                case MINECRAFT_LISTEN, VISUAL_LISTEN, POINTER_LISTEN ->
-                        CALIBRATION_BEAT_PREVIEW_MILLIS;
-                case RESULT -> CALIBRATION_RESULT_MILLIS;
-                default -> 0L;
-            };
-            if (duration == 0L) return 0;
-            long remaining = Math.max(0L, duration - positionMillis());
-            return (int) Math.max(1L, (remaining + 999L) / 1_000L);
-        }
-
-        private static int median(List<Integer> values) {
-            int[] ordered = values.stream().mapToInt(Integer::intValue)
-                    .sorted().toArray();
-            if (ordered.length == 0) return 0;
-            int middle = ordered.length / 2;
-            return ordered.length % 2 == 0
-                    ? (int) Math.round((ordered[middle - 1]
-                    + ordered[middle]) * 0.5) : ordered[middle];
-        }
-
-        private static long saturatedAddNanos(long value, long increment) {
-            if (increment > 0L && value > Long.MAX_VALUE - increment) {
-                return Long.MAX_VALUE;
-            }
-            return value + increment;
-        }
-    }
-
-    private enum CalibrationAdvance {
-        NONE,
-        START_PLASMO
     }
 
     private static final class ActiveGame {
@@ -3476,10 +2967,10 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                                    UUID runId) {
     }
 
-    private record ModeSelectorView(JukeboxTarget target) {
+    private record ModeSelectorView(JukeboxTarget target, int page) {
     }
 
-    private record SelectorView(JukeboxTarget target, RhythmGameMode mode) {
+    private record SelectorView(JukeboxTarget target, RhythmGameMode mode, int page) {
     }
 
     record InputState(boolean sneak) {

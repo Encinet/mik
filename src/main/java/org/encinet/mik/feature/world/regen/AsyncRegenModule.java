@@ -12,12 +12,9 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import io.papermc.paper.registry.data.dialog.ActionButton;
 import io.papermc.paper.registry.data.dialog.DialogBase;
-import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -28,6 +25,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
+import org.encinet.mik.shared.menu.MenuDialogs;
+import org.encinet.mik.shared.menu.MenuDialogSession;
 
 import java.time.Duration;
 import java.util.Arrays;
@@ -36,7 +35,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
@@ -48,10 +46,6 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
     private static final int MAX_FILTER_IDS_IN_LABEL = 6;
     private static final Duration PLAN_CONFIRMATION_TTL = Duration.ofMinutes(2);
     private static final Duration STANDALONE_VISUALIZATION_TTL = Duration.ofSeconds(30);
-    private static final ClickCallback.Options CALLBACK_OPTIONS = ClickCallback.Options.builder()
-            .uses(1)
-            .lifetime(PLAN_CONFIRMATION_TTL)
-            .build();
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -134,7 +128,7 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
                                 .then(Commands.literal("blocks")
                                         .executes(context -> previewBlocks(context.getSource(), ""))
                                         .then(Commands.argument("types", StringArgumentType.greedyString())
-                                                .suggests((context, builder) -> suggestBlocks(builder))
+                                                .suggests((_, builder) -> suggestBlocks(builder))
                                                 .executes(context -> previewBlocks(
                                                         context.getSource(),
                                                         StringArgumentType.getString(context, "types")))))
@@ -586,20 +580,19 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
                             NamedTextColor.RED));
         }
         Component body = bodyBuilder.build();
+        MenuDialogSession session = MenuDialogs.begin(plugin, player);
 
         ActionButton confirm = ActionButton.create(
                 languageService.text(player, Message.ASYNC_REGEN_APPLY_PLAN, NamedTextColor.GREEN),
                 Component.text(operationLabel(player, pending.operation())
-                        + " · " + describeSelection(pending.selection()), NamedTextColor.GRAY),
+                        + " · " + describeSelection(pending.selection()), NamedTextColor.WHITE),
                 135,
-                DialogAction.customClick((response, audience) -> runOnMain(audience,
-                        target -> applyPlan(target, pending.token())), CALLBACK_OPTIONS));
+                session.action((target, _) -> applyPlan(target, pending.token())));
         ActionButton cancel = ActionButton.create(
-                languageService.text(player, Message.ASYNC_REGEN_PLAN_CANCEL, NamedTextColor.GRAY),
+                languageService.text(player, Message.ASYNC_REGEN_PLAN_CANCEL, NamedTextColor.YELLOW),
                 null,
                 100,
-                DialogAction.customClick((response, audience) -> runOnMain(audience,
-                        target -> cancelPendingPlan(target, pending.token())), CALLBACK_OPTIONS));
+                session.action((target, _) -> cancelPendingPlan(target, pending.token())));
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(languageService.text(player,
                                 Message.ASYNC_REGEN_PLAN_DIALOG_TITLE, NamedTextColor.GOLD))
@@ -610,7 +603,7 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
                         .inputs(List.of())
                         .build())
                 .type(DialogType.confirmation(confirm, cancel)));
-        player.showDialog(dialog);
+        session.show(dialog);
     }
 
     private Component previewSummary(
@@ -800,17 +793,6 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
         sender.sendMessage(languageService.text(
                 Language.DEFAULT, Message.PLAYER_ONLY, NamedTextColor.RED));
         return null;
-    }
-
-    private void runOnMain(Audience audience, Consumer<Player> action) {
-        if (!(audience instanceof Player player)) {
-            return;
-        }
-        if (Bukkit.isPrimaryThread()) {
-            action.accept(player);
-        } else if (plugin.isEnabled()) {
-            Bukkit.getScheduler().runTask(plugin, () -> action.accept(player));
-        }
     }
 
     private static String describeSelection(RegenSelection selection) {

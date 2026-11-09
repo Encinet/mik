@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 final class MikSpaceUnregisterEffect extends Effect {
 
     private final MikSkriptFacade facade;
-    private Expression<String> id;
+    private MikSkriptInput<String> id;
     private String owner;
 
     MikSpaceUnregisterEffect(MikSkriptFacade facade) {
@@ -19,17 +19,16 @@ final class MikSpaceUnregisterEffect extends Effect {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        id = (Expression<String>) expressions[0];
+        id = MikSkriptInput.of(expressions[0], String.class);
         owner = MikSkriptOwner.current(getParser());
         return true;
     }
 
     @Override
     protected void execute(Event event) {
-        String linkId = id.getSingle(event);
+        String linkId = id.single(event);
         if (linkId == null) {
             return;
         }
@@ -42,6 +41,6 @@ final class MikSpaceUnregisterEffect extends Effect {
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return "unregister MIK space " + (id == null ? "" : id.toString(event, debug));
+        return "unregister MIK space " + (id == null ? "" : id.describe(event, debug));
     }
 }

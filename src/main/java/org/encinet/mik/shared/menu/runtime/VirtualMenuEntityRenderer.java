@@ -27,9 +27,7 @@ import org.bukkit.entity.ItemDisplay;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.Transformation;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
+import org.encinet.mik.shared.menu.ui.UiRotation;
 
 import java.util.List;
 import java.util.Set;
@@ -46,6 +44,38 @@ import java.util.UUID;
 final class VirtualMenuEntityRenderer {
     private static final String NATIVE_PROTOCOL_VERSION = "26.3";
     private static final Display.Brightness FULL_BRIGHT = new Display.Brightness(15, 15);
+    private final java.util.Map<UUID,java.util.Map<Integer,Drawing>> drawings = new java.util.HashMap<>();
+    private static final class Drawing {
+        private UUID uuid;
+        private Location location;
+        private MenuVisualSnapshot.Paint paint;
+    }
+
+    /** Only the owning menu opts its bounded display entities into exit capture. */
+    void track(Player viewer, int id) { drawings.computeIfAbsent(viewer.getUniqueId(), _ -> new java.util.HashMap<>()).put(id,new Drawing()); }
+
+    private Drawing drawing(Player viewer, int id) {
+        var owned = drawings.get(viewer.getUniqueId());
+        return owned == null ? null : owned.get(id);
+    }
+
+    java.util.List<MenuVisualSnapshot> detach(Player viewer, int... ids) {
+        var result = new java.util.ArrayList<MenuVisualSnapshot>();
+        for (int id : ids) {
+            var drawing = drawing(viewer,id);
+            if (drawing != null && drawing.paint != null && drawing.location != null && drawing.uuid != null)
+                result.add(new MenuVisualSnapshot(id,drawing.uuid,drawing.location,drawing.paint));
+        }
+        forget(viewer.getUniqueId(),ids);
+        return java.util.List.copyOf(result);
+    }
+
+    void forget(UUID viewer, int... ids) {
+        var owned = drawings.get(viewer);
+        if (owned == null) return;
+        for (int id : ids) owned.remove(id);
+        if (owned.isEmpty()) drawings.remove(viewer);
+    }
 
     VirtualMenuEntityRenderer() {
         String actual = Bukkit.getMinecraftVersion();
@@ -86,6 +116,8 @@ final class VirtualMenuEntityRenderer {
                 0,
                 Vec3.ZERO,
                 presentationYaw));
+        var drawing = drawing(viewer,entityId);
+        if (drawing != null) { drawing.uuid = uuid; drawing.location = location.clone(); }
     }
 
     void text(Player viewer, int entityId, Component text, int background,
@@ -113,21 +145,23 @@ final class VirtualMenuEntityRenderer {
     void text(Player viewer, int entityId, Component text, int background,
               float displayWidth, float displayHeight, int lineWidthPixels, float scale,
               FloatingMenuDecoration.Alignment alignment, boolean seeThrough, double reveal) {
+        text(viewer, entityId, text, background, displayWidth, displayHeight, lineWidthPixels, scale, alignment, seeThrough, reveal, 1, UiRotation.IDENTITY);
+    }
+
+    void text(Player viewer, int entityId, Component text, int background,
+              float displayWidth, float displayHeight, int lineWidthPixels, float scale,
+              FloatingMenuDecoration.Alignment alignment, boolean seeThrough, double reveal, double textAlpha, UiRotation rotation) {
         if (lineWidthPixels < 1) throw new IllegalArgumentException("Line width must be positive");
         Entity entity = virtualEntity(viewer, Kind.TEXT, entityId);
         TextDisplay display = (TextDisplay) entity.getBukkitEntity();
         configureDisplay(display, displayWidth, displayHeight);
-        display.setTransformation(new Transformation(
-                new Vector3f(),
-                new Quaternionf(),
-                new Vector3f(scale, scale, scale),
-                new Quaternionf()));
+        display.setTransformation(MenuDisplayTransforms.text(scale, rotation));
         display.text(FloatingMenuText.readableOnDark(text));
         display.setLineWidth(lineWidthPixels);
         double progress = FloatingMenuMotion.progress(reveal);
         int alpha = (int) Math.round((background >>> 24) * progress);
         display.setBackgroundColor(Color.fromARGB((background & 0x00FFFFFF) | (alpha << 24)));
-        display.setTextOpacity(FloatingMenuMotion.textOpacity(progress));
+        display.setTextOpacity(FloatingMenuMotion.textOpacity(progress * textAlpha));
         display.setShadowed(true);
         display.setSeeThrough(seeThrough);
         display.setDefaultBackground(false);
@@ -137,21 +171,17 @@ final class VirtualMenuEntityRenderer {
             case RIGHT -> TextDisplay.TextAlignment.RIGHT;
         });
         metadata(viewer, entityId, entity);
+        var drawing = drawing(viewer,entityId);
+        if (drawing != null) drawing.paint = new MenuVisualSnapshot.Text(text,background,displayWidth,displayHeight,lineWidthPixels,
+                scale,alignment,seeThrough,reveal,textAlpha,rotation);
     }
 
-    void visual(Player viewer, int entityId, ItemStack item, boolean block, float scale) {
+    void visual(Player viewer, int entityId, ItemStack item, boolean block, float scale, UiRotation rotation) {
         Kind kind = block ? Kind.BLOCK : Kind.ITEM;
         Entity entity = virtualEntity(viewer, kind, entityId);
         Display display = (Display) entity.getBukkitEntity();
         configureDisplay(display, 1.0F, 1.0F);
-        Vector3f translation = block
-                ? new Vector3f(-scale / 2.0F, -scale / 2.0F, -scale / 2.0F)
-                : new Vector3f();
-        display.setTransformation(new Transformation(
-                translation,
-                new Quaternionf(),
-                new Vector3f(scale, scale, scale),
-                new Quaternionf()));
+        display.setTransformation(MenuDisplayTransforms.visual(scale, block, rotation));
         if (block) {
             ((BlockDisplay) display).setBlock(item.getType().createBlockData());
         } else {
@@ -160,6 +190,28 @@ final class VirtualMenuEntityRenderer {
             itemDisplay.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.GUI);
         }
         metadata(viewer, entityId, entity);
+        var drawing = drawing(viewer,entityId);
+        if (drawing != null) drawing.paint = new MenuVisualSnapshot.Model(item,block,scale,rotation);
+    }
+
+    void surface(Player viewer, int entityId, int background, float width, float height, double reveal, UiRotation rotation) {
+        Entity entity = virtualEntity(viewer, Kind.TEXT, entityId);
+        TextDisplay display = (TextDisplay) entity.getBukkitEntity();
+        configureDisplay(display, width, height);
+        // A single blank glyph supplies a rectangular background; children use independent displays.
+        display.text(Component.text(" "));
+        display.setLineWidth(16);
+        display.setTextOpacity((byte) 0);
+        display.setDefaultBackground(false);
+        display.setShadowed(false);
+        display.setSeeThrough(false);
+        display.setAlignment(TextDisplay.TextAlignment.CENTER);
+        display.setTransformation(MenuDisplayTransforms.surface(width, height, rotation));
+        int alpha = (int) Math.round((background >>> 24) * FloatingMenuMotion.progress(reveal));
+        display.setBackgroundColor(Color.fromARGB((background & 0xffffff) | (alpha << 24)));
+        metadata(viewer, entityId, entity);
+        var drawing = drawing(viewer,entityId);
+        if (drawing != null) drawing.paint = new MenuVisualSnapshot.Surface(background,width,height,reveal,rotation);
     }
 
     void interaction(Player viewer, int entityId, float width, float height) {
@@ -171,14 +223,15 @@ final class VirtualMenuEntityRenderer {
         metadata(viewer, entityId, entity);
     }
 
-    void volume(Player viewer, int entityId, BlockData block, float width, float height, float depth) {
+    void volume(Player viewer, int entityId, BlockData block, float width, float height, float depth, UiRotation rotation) {
         Entity entity = virtualEntity(viewer, Kind.BLOCK, entityId);
         BlockDisplay display = (BlockDisplay) entity.getBukkitEntity();
         configureDisplay(display, Math.max(width, depth), height);
-        display.setTransformation(new Transformation(new Vector3f(-width / 2, -height / 2, -depth / 2),
-                new Quaternionf(), new Vector3f(width, height, depth), new Quaternionf()));
+        display.setTransformation(MenuDisplayTransforms.volume(width, height, depth, rotation));
         display.setBlock(block);
         metadata(viewer, entityId, entity);
+        var drawing = drawing(viewer,entityId);
+        if (drawing != null) drawing.paint = new MenuVisualSnapshot.Volume(block,width,height,depth,rotation);
     }
 
     void teleport(Player viewer, int entityId, Location location, float presentationYaw) {
@@ -193,10 +246,13 @@ final class VirtualMenuEntityRenderer {
                 presentationYaw,
                 presentationPitch);
         send(viewer, ClientboundTeleportEntityPacket.teleport(entityId, position, Set.of(), false));
+        var drawing = drawing(viewer,entityId);
+        if (drawing != null) drawing.location = location.clone();
     }
 
     void destroy(Player viewer, int... entityIds) {
         send(viewer, new ClientboundRemoveEntitiesPacket(entityIds));
+        forget(viewer.getUniqueId(),entityIds);
     }
 
     private static void configureDisplay(Display display, float width, float height) {

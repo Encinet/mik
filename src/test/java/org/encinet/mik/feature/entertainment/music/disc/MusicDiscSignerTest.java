@@ -17,7 +17,7 @@ class MusicDiscSignerTest {
 
     @Test
     void persistsKeyAndRejectsTamperedSnapshots() throws Exception {
-        Path keyFile = directory.resolve("state/music-disc.key");
+        Path keyFile = directory.resolve("music/secrets/disc-signing.key");
         MusicDiscSigner first = new MusicDiscSigner(keyFile);
         String signature = first.sign("snapshot");
         byte[] key = Files.readAllBytes(keyFile);

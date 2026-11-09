@@ -4,6 +4,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.server.access.MaintenanceModule;
 import org.encinet.mik.feature.server.access.RestrictionModule;
 import org.encinet.mik.feature.server.access.WhitelistModule;
+import org.encinet.mik.feature.server.auth.AuthenticationFallbackModule;
 import org.encinet.mik.feature.server.ban.BanModule;
 import org.encinet.mik.feature.server.performance.NetworkEgressModule;
 import org.encinet.mik.feature.server.performance.PerformanceModule;
@@ -25,14 +26,19 @@ record ServerFeatures(BanModule bans) {
         var afkModule = players.afk();
         var playerAddressModule = players.addresses();
 
+        AuthenticationFallbackModule authenticationFallback = new AuthenticationFallbackModule(plugin);
+        lifecycle.startManaged("authentication-fallback", authenticationFallback::enable, authenticationFallback::disable);
+
         BanModule banModule = new BanModule(plugin, languageService, playerAddressModule);
         lifecycle.startManaged("ban", banModule::enable, banModule::disable);
         banModule.registerCommands(plugin.getLifecycleManager());
 
-        PerformanceModule performanceModule = new PerformanceModule(plugin);
+        PerformanceModule performanceModule = new PerformanceModule(plugin, languageService);
         lifecycle.startManaged("performance", performanceModule::start, performanceModule::stop);
 
-        NetworkEgressModule networkEgressModule = new NetworkEgressModule(plugin, afkModule);
+        NetworkEgressModule networkEgressModule = new NetworkEgressModule(plugin, afkModule,
+                plugin.getServer()::getAverageTickTime,
+                players.flightSpeeds());
         lifecycle.startManaged("network-egress", networkEgressModule::enable, networkEgressModule::disable);
         networkEgressModule.registerCommands(plugin.getLifecycleManager());
 

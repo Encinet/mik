@@ -45,7 +45,7 @@ public final class FloatingMenuScreen<S> {
             throw new IllegalStateException(
                     "Screen '" + id + "' requires an explicit initial state");
         }
-        S state = states.computeIfAbsent(player.getUniqueId(), ignored ->
+        S state = states.computeIfAbsent(player.getUniqueId(), _ ->
                 Objects.requireNonNull(initialState.apply(player), "initial state"));
         return open(player, state);
     }
@@ -69,7 +69,7 @@ public final class FloatingMenuScreen<S> {
         FloatingMenuFlow<S> flow = FloatingMenuFlow.open(player, state, context -> {
             states.put(playerId, context.state());
             return renderer.render(context).identifiedBy(id).withLifecycle(
-                    (closedPlayer, handle, previous, current, reason) -> {
+                    (_, handle, _, current, reason) -> {
                         if (current != FloatingMenuState.CLOSED) return;
                         FloatingMenuFlow<S> registered = flows.get(playerId);
                         if (registered != null && registered.handle() != null
@@ -106,7 +106,7 @@ public final class FloatingMenuScreen<S> {
     public void update(Player player, UnaryOperator<S> update) {
         flow(player).ifPresentOrElse(flow -> flow.update(update), () -> {
             UUID playerId = player.getUniqueId();
-            states.computeIfPresent(playerId, (ignored, value) ->
+            states.computeIfPresent(playerId, (_, value) ->
                     Objects.requireNonNull(update.apply(value), "updated state"));
         });
     }
@@ -180,7 +180,16 @@ public final class FloatingMenuScreen<S> {
 
     public void forget(UUID playerId) {
         FloatingMenuFlow<S> flow = flows.remove(playerId);
-        if (flow != null) flow.close();
         states.remove(playerId);
+        if (flow != null) flow.close();
+    }
+
+    /** Releases open flows and retained reading/draft state when the owning feature stops. */
+    public void forgetAll() {
+        var ids = new java.util.HashSet<>(states.keySet());
+        ids.addAll(flows.keySet());
+        var shutdown = new org.encinet.mik.shared.util.ShutdownSequence();
+        for (UUID playerId : ids) shutdown.attempt("menu flow " + playerId, () -> forget(playerId));
+        shutdown.finish("menu screen " + id);
     }
 }

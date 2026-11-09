@@ -4,56 +4,36 @@ import org.encinet.mik.shared.i18n.Language;
 
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Base64;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 
 /** Platform-neutral, structured content returned by social features. */
 public record SocialDocument(
+        Moderation moderation,
         String title,
         Tone tone,
         List<Block> blocks,
-        List<String> untrustedText,
         Language language
 ) {
 
     public SocialDocument {
+        moderation = Objects.requireNonNull(moderation, "moderation");
         title = singleLine(Objects.requireNonNull(title, "title"));
         if (title.isEmpty()) {
             throw new IllegalArgumentException("title must not be blank");
         }
         tone = Objects.requireNonNull(tone, "tone");
         blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
-        Objects.requireNonNull(untrustedText, "untrustedText");
-        LinkedHashSet<String> clean = new LinkedHashSet<>();
-        for (String value : untrustedText) {
-            String normalized = normalizeMultiline(
-                    Objects.requireNonNull(value, "untrusted text"));
-            if (!normalized.isBlank()) {
-                clean.add(normalized);
-            }
-        }
-        untrustedText = List.copyOf(clean);
         language = Objects.requireNonNull(language, "language");
     }
 
-    public SocialDocument(String title, Tone tone, List<Block> blocks) {
-        this(title, tone, blocks, List.of(), Language.DEFAULT);
+    public SocialDocument(Moderation moderation, String title, Tone tone, List<Block> blocks) {
+        this(moderation, title, tone, blocks, Language.DEFAULT);
     }
 
-    public SocialDocument(
-            String title,
-            Tone tone,
-            List<Block> blocks,
-            List<String> untrustedText
-    ) {
-        this(title, tone, blocks, untrustedText, Language.DEFAULT);
-    }
-
-    public static SocialDocument of(String title, Tone tone, Block... blocks) {
-        return new SocialDocument(title, tone, List.of(blocks));
+    public static SocialDocument of(Moderation moderation, String title, Tone tone, Block... blocks) {
+        return new SocialDocument(moderation, title, tone, List.of(blocks));
     }
 
     public static Paragraph paragraph(String text) {
@@ -89,30 +69,11 @@ public record SocialDocument(
                 width, height);
     }
 
-    /** Marks exact user-controlled fragments for shared content-safety scanning. */
-    public SocialDocument withUntrustedText(String... values) {
-        Objects.requireNonNull(values, "values");
-        return withUntrustedText(Arrays.asList(values));
-    }
-
-    /** Marks exact user-controlled fragments without scanning trusted document prose. */
-    public SocialDocument withUntrustedText(Iterable<String> values) {
-        Objects.requireNonNull(values, "values");
-        List<String> merged = new ArrayList<>(untrustedText);
-        values.forEach(merged::add);
-        return new SocialDocument(title, tone, blocks, merged, language);
-    }
-
     /** Carries the resolved response language through the shared outbound pipeline. */
     public SocialDocument localized(Language resolvedLanguage) {
         Language checked = Objects.requireNonNull(resolvedLanguage, "resolvedLanguage");
         return checked == language
-                ? this : new SocialDocument(title, tone, blocks, untrustedText, checked);
-    }
-
-    /** Deterministic input for content safety; empty means the document is fully trusted. */
-    public String untrustedPlainText() {
-        return String.join("\n", untrustedText);
+                ? this : new SocialDocument(moderation, title, tone, blocks, checked);
     }
 
     /** A deterministic unformatted representation used by renderers and tests. */
@@ -140,11 +101,17 @@ public record SocialDocument(
         int remaining = maximumLength - boundedTitle.length() - 2;
         if (remaining < 2) {
             return new SocialDocument(
-                    boundedTitle, tone, List.of(), untrustedText, language);
+                    moderation, boundedTitle, tone, List.of(), language);
         }
         String body = plain.substring(Math.min(plain.length(), title.length())).strip();
-        return new SocialDocument(boundedTitle, tone,
-                List.of(new Paragraph(limit(body, remaining))), untrustedText, language);
+        return new SocialDocument(moderation, boundedTitle, tone,
+                List.of(new Paragraph(limit(body, remaining))), language);
+    }
+
+    /** Every reply declares its trust at creation; there is no default or later override. */
+    public enum Moderation {
+        TRUSTED,
+        REQUIRED
     }
 
     public enum Tone {

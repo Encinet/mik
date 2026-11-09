@@ -44,7 +44,7 @@ final class MatrixReplyChannel implements SocialReplyChannel {
         return client.replyImage(event.roomId(), event.eventId(),
                         event.threadRootEventId(), embedded.mediaType(), data,
                         media.width(), media.height(), media.alternativeText(), plain, html)
-                .exceptionallyCompose(ignored -> textReply(plain, html));
+                .exceptionallyCompose(_ -> textReply(plain, html));
     }
 
     private java.util.concurrent.CompletableFuture<Void> textReply(

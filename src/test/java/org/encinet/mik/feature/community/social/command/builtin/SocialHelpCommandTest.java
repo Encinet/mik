@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,6 +51,7 @@ class SocialHelpCommandTest {
         SocialDocument.ItemList list = (SocialDocument.ItemList) document.blocks().getFirst();
 
         assertEquals("📖 SOCIAL_TITLE_COMMAND_HELP", document.title());
+        assertEquals(TRUSTED, document.moderation());
         assertTrue(list.items().contains(
                 "!オンライン — SOCIAL_ONLINE_COMMAND_DESCRIPTION"));
         assertTrue(list.items().contains("!ヘルプ — SOCIAL_HELP_COMMAND_DESCRIPTION"));
@@ -82,7 +84,7 @@ class SocialHelpCommandTest {
 
             @Override
             public SocialDocument present(SocialCommandContext context, NoArguments result) {
-                return SocialDocument.of("unused", SocialDocument.Tone.INFO);
+                return SocialDocument.of(TRUSTED, "unused", SocialDocument.Tone.INFO);
             }
         };
     }
@@ -91,7 +93,7 @@ class SocialHelpCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "!ヘルプ", false,
-                ignored -> CompletableFuture.completedFuture(null));
+                _ -> CompletableFuture.completedFuture(null));
         SocialCommandInput input = new SocialCommandInput(
                 "ヘルプ", "", SocialCommandInput.InvocationType.EXPLICIT_TEXT,
                 Map.of(), Optional.of(Language.JA_JP));

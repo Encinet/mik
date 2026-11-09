@@ -28,52 +28,11 @@
 
 back = Назад
 back-to-main = До головного меню
+cancel = Скасувати
 click-open = Натисніть, щоб відкрити
 close = Закрити
 current-off = Зараз: вимкнено
 current-on = Зараз: увімкнено
-password-already-connected = Цей обліковий запис уже підключено.
-password-already-set = Пароль уже встановлено. Скористайтеся /password change, щоб змінити його.
-password-busy = Забагато спроб. Зачекайте й повторіть.
-password-change = Змінити пароль
-password-change-done = Пароль змінено.
-password-checking = Перевірка безпеки облікового запису…
-password-command-description = Керування захистом облікового запису паролем
-password-confirm = Підтвердьте новий пароль
-password-conflict = Налаштування безпеки змінилися. Повторіть операцію.
-password-cooldown = Перевірку облікового запису тимчасово обмежено. Спробуйте знову через { $arg0 } с.
-password-current = Поточний пароль
-password-denied = Ви не маєте прав на скидання пароля цього облікового запису.
-password-disabled = Пароль: не задано
-password-enabled = Пароль: задано
-password-invalid = Неправильний пароль. Спробуйте ще раз.
-password-keep-role = Модератори й наглядачі не можуть видалити свій пароль.
-password-login = Увійти
-password-login-expired = Підтвердження входу втратило чинність. Підключіться знову.
-password-login-hint = Введіть пароль цього сервера. Якщо забули, попросіть адміністрацію скинути його.
-password-mismatch = Нові паролі не збігаються.
-password-new = Новий пароль
-password-nomination-required = Перед поданням заявки в модератори задайте пароль: /password set
-password-not-set = Пароль не встановлено. Установіть його командою /password set.
-password-remove = Видалити пароль
-password-remove-done = Пароль видалено.
-password-remove-question = Після видалення пароль під час входу не перевірятиметься. Введіть поточний пароль для підтвердження.
-password-required-application = Не можна видалити пароль, поки заявка до адміністрації або призначення не завершені.
-password-required-role = Обліковим записам адміністрації потрібен пароль. Попросіть уповноважену особу скинути його перед входом.
-password-reset = Скинути пароль
-password-reset-console = Пароль для { $arg0 } скинуто: { $arg1 }. Передайте його надійним каналом після перевірки особи.
-password-reset-done = Пароль для { $arg0 } скинуто. Скопіюйте його зараз і передайте після перевірки особи; повторний перегляд неможливий.
-password-reset-question = Скинути пароль для { $arg0 }? Старий пароль перестане діяти, з’єднання буде закрито. Підтвердьте своїм паролем.
-password-retry = Спробувати знову
-password-rules = Використовуйте від { $arg0 } до { $arg1 } символів. Імена гравців і поширені паролі заборонені.
-password-set = Задати пароль
-password-set-done = Пароль установлено.
-password-set-first = Задати пароль перед поданням заявки
-password-storage = Служба безпеки недоступна. Спробуйте пізніше або зверніться до власника сервера.
-password-timeout = Перевірку пароля скасовано або час очікування минув. Підключіться знову.
-password-tip-set-mm = Установіть <yellow>пароль для входу</yellow> через <gold><u>/password</u></gold>, щоб захистити свій обліковий запис.
-password-title = Безпека облікового запису
-
 player-only = Ця команда доступна лише гравцям
 unknown = Невідомо
 usage = Використання
@@ -93,27 +52,61 @@ time-minutes = { $arg0 } хв
 
 ## Shared · Menu presentation
 
-bedrock-menu-back = Назад
-bedrock-menu-hotkey = Швидка дія (F)
-bedrock-menu-primary = Основна дія
-bedrock-menu-scroll-down = Вниз
-bedrock-menu-scroll-up = Вгору
-bedrock-menu-secondary = Додаткова дія
 interface-fov-apply = Застосувати FOV
-interface-fov-custom = Ввести точне значення
-interface-fov-description = Укажіть FOV клієнта; змінюється лише позиція меню. Типово: 70°.
+interface-fov-custom = Власне значення
+interface-fov-description = Укажіть FOV з налаштувань гри для розташування меню.
 interface-fov-input = FOV клієнта: ціле число від 30 до 110
 interface-fov-invalid = Введіть ціле число від 30 до 110.
-interface-fov-title = Адаптація поля зору (FOV)
-interface-scale-current = Зараз: { $arg0 }
-interface-scale-description = Розмір тексту множиться на розмір меню; обидві групи налаштовуються коліщатком.
+interface-fov-title = Поле зору (FOV)
+interface-reduced-motion = Зменшити рух
+interface-reduced-motion-hint = Зменшує рух і погойдування меню.
+interface-scale-adjust-hint = Прокрутіть над відсотковим значенням для налаштування.
 interface-scale-layout-title = Розмір меню
 interface-scale-menu-title = Інтерфейс і текст
-interface-scale-native-hint = Ці налаштування стосуються просторових меню Java. Текст нативних форм залежить від налаштувань клієнта.
-interface-scale-preview = Зразок тексту Aa 123
-interface-scale-reset = Повернути обидва до 100%
+interface-scale-preview = Приклад Aa 123
+interface-scale-reset = Повернути 100%
 interface-scale-text-title = Розмір тексту
+interface-theme-apply = Зберегти кольори
+interface-theme-charcoal = Вугілля
+interface-theme-color = Колір (#RRGGBB)
+interface-theme-custom = Власна
+interface-theme-custom-hint = Копіює всі поточні значення в незалежну власну тему.
+interface-theme-edit = Змінити кольори
+interface-theme-forest = Ліс
+interface-theme-hint = Одразу застосовується лише до ваших меню.
+interface-theme-invalid = Введіть колір #RRGGBB і непрозорість від 0 до 100.
+interface-theme-opacity = Непрозорість (0–100 %)
+interface-theme-role-accent = Колір акценту
+interface-theme-role-button = Тло кнопки
+interface-theme-role-button-disabled = Неактивна кнопка
+interface-theme-role-button-hovered = Кнопка під вказівником
+interface-theme-role-button-pressed = Натиснута кнопка
+interface-theme-role-button-selected = Вибрана кнопка
+interface-theme-role-input = Тло вводу
+interface-theme-role-sidebar = Тло бічної панелі
+interface-theme-role-toolbar = Тло інструментів
+interface-theme-role-tooltip = Тло підказки
+interface-theme-role-window = Тло вікна
+interface-theme-title = Тема меню
+interface-theme-warm = Тепла
+menu-collapse = Згорнути
+menu-expand = Розгорнути
+menu-finish-editing = Спочатку завершіть введення.
+menu-input-clear = Очистити
+menu-input-done = Готово
+menu-input-empty = (порожньо)
+menu-input-single-line = Це поле приймає лише один рядок.
+menu-input-too-long = Довжина: { $arg0 } / { $arg1 }. Скоротіть текст перед підтвердженням.
+menu-query-cancel = Скасувати
+menu-query-hint-rich = Натисніть { $chatKey }, щоб ввести…
+menu-query-single-line = Дозволено один рядок. Натисніть поле, щоб повторити введення.
+menu-query-too-long = Довжина: { $arg0 } / { $arg1 }. Натисніть поле, щоб повторити введення.
 menu-rhythm-game-display = Грає в ритм-гру
+menu-search-empty = Збігів немає
+menu-search-failed = Помилка пошуку
+menu-search-limit = Показано { $arg0 } з { $arg1 }. Уточніть пошук.
+menu-search-loading = Пошук…
+menu-search-retry = Спробувати знову
 menu-usage-display-mm = <aqua><bold>У меню</bold></aqua>
 url-dialog-confirm = Відкрити
 url-dialog-hint = Клієнт ще раз попросить підтвердити відкриття посилання.
@@ -124,9 +117,8 @@ url-dialog-title = Відкрити { $arg0 }
 
 client-mods-undetected-rich = Рекомендовані моди: { $mods }. Натисніть назву, щоб завантажити.
 client-tip-axiom-flight-speed-mm = <white>Утримуйте <yellow>лівий Alt</yellow>, щоб відкрити меню <aqua>Axiom</aqua>, і налаштуйте швидкість польоту вертикальним повзунком праворуч. Також можна скористатися <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click>.</white>
-client-tip-axiom-intro-rich = { $mod } допомагає будувати: копіювати й вставляти креслення, редагувати рельєф і сутності відображення, розміщувати блоки без оновлень, проходити крізь стіни та зберігати кілька панелей швидкого доступу. Натисніть назву, щоб завантажити мод.
-client-tip-voxy-intro-rich = { $mod } показує далекі краєвиди з невеликим навантаженням. Варто спробувати і на слабких, і на потужних ПК. Натисніть назву, щоб завантажити.
-client-version-behind-mm = <white>Ваш клієнт <yellow>{ $clientVersion }</yellow> старіший за сервер <green>{ $serverVersion }</green>. Рекомендовано оновлення.</white>
+client-tip-axiom-intro-rich = З { $mod } можна копіювати й вставляти споруди, змінювати рельєф і редагувати сутності відображення. Натисніть назву, щоб завантажити мод.
+client-version-behind-mm = <white>Версія вашого клієнта <yellow>{ $clientVersion }</yellow> старіша за версію сервера <green>{ $serverVersion }</green>. Рекомендовано оновлення.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>Поблизу: { $count ->
         [one] <gold>{ $count }</gold> <gold>невидимий гравець</gold>
@@ -140,14 +132,16 @@ invisibility-nearby-mm = <yellow>Поблизу: { $count ->
        *[other] { $distance } блока
     }</gray>
 player-bedrock-label = Bedrock
+player-web-label = Веб
 presence-join-templates =
-    .item-1 = На сервер непомітно пробирається { $player }
-    .item-2 = На таємній стежці з’являється { $player }
-    .item-3 = З кущів з’являється { $player }
+    .item-1 = Дінь-дон! { $player } у мережі!
+    .item-2 = Ура, це { $player }!
+    .item-3 = Привіт-привіт, { $player }!
+# Broadcast to remaining players; the departing player does not receive this message.
 presence-quit-templates =
-    .item-1 = { $player } тихо зникає
-    .item-2 = { $player } вирушає зберігатися
-    .item-3 = Реальність кличе: { $player } залишає сервер
+    .item-1 = { $player } виходить із мережі.
+    .item-2 = Дінь-дон! { $player } не в мережі
+    .item-3 = У мережі -1. { $player } виходить із мережі
 welcome-first-join-mm = <gold><bold>Вітаємо на MIK!</bold></gold><newline><gray>Спершу відвідайте <click:open_url:'https://mcmik.top'><yellow>вебсайт</yellow></click> і <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>. Головне меню також можна відкрити командою <yellow>/menu</yellow>.</gray>
 welcome-return-mm = <gold><bold>З поверненням!</bold></gold><newline><gray>Ви востаннє заходили <yellow>{ $arg0 ->
         [one] { $arg0 } день
@@ -231,27 +225,84 @@ player-association-time-occurrences = { $arg0 } ({ $arg1 ->
 player-association-time-separator = ,
 player-association-time-today = сьогодні
 
+
+## Player · Account security
+password-already-connected = Цей обліковий запис уже підключено.
+password-already-set = Пароль уже встановлено. Скористайтеся /password change, щоб змінити його.
+password-busy = Забагато спроб. Зачекайте й повторіть.
+password-change = Змінити пароль
+password-change-done = Пароль змінено.
+password-checking = Перевірка безпеки облікового запису…
+password-command-description = Керування захистом облікового запису паролем
+password-confirm = Підтвердьте новий пароль
+password-conflict = Налаштування безпеки змінилися. Повторіть операцію.
+password-cooldown = Перевірку облікового запису тимчасово обмежено. Спробуйте знову через { $arg0 } с.
+password-current = Поточний пароль
+password-denied = Ви не маєте прав на скидання пароля цього облікового запису.
+password-disabled = Пароль: не задано
+password-enabled = Пароль: задано
+password-invalid = Неправильний пароль. Спробуйте ще раз.
+password-keep-role = Модератори й наглядачі не можуть видалити свій пароль.
+password-login = Увійти
+password-login-expired = Підтвердження входу втратило чинність. Підключіться знову.
+password-login-hint = Введіть пароль цього сервера. Якщо забули, попросіть адміністрацію скинути його.
+password-mismatch = Нові паролі не збігаються.
+password-new = Новий пароль
+password-nomination-required = Перед поданням заявки в модератори задайте пароль: /password set
+password-not-set = Пароль не встановлено. Установіть його командою /password set.
+password-remove = Видалити пароль
+password-remove-done = Пароль видалено.
+password-remove-question = Після видалення пароль під час входу не перевірятиметься. Введіть поточний пароль для підтвердження.
+password-required-application = Не можна видалити пароль, поки заявка до адміністрації або призначення не завершені.
+password-required-role = Обліковим записам адміністрації потрібен пароль. Попросіть уповноважену особу скинути його перед входом.
+password-reset = Скинути пароль
+password-reset-console = Пароль для { $arg0 } скинуто: { $arg1 }. Передайте його надійним каналом після перевірки особи.
+password-reset-done = Пароль для { $arg0 } скинуто. Скопіюйте його зараз і передайте після перевірки особи; повторний перегляд неможливий.
+password-reset-question = Скинути пароль для { $arg0 }? Старий пароль перестане діяти, з’єднання буде закрито. Підтвердьте своїм паролем.
+password-retry = Спробувати знову
+password-rules = Використовуйте від { $arg0 } до { $arg1 } символів. Імена гравців і поширені паролі заборонені.
+password-set = Задати пароль
+password-set-done = Пароль установлено.
+password-set-first = Задати пароль перед поданням заявки
+password-storage = Служба безпеки недоступна. Спробуйте пізніше або зверніться до власника сервера.
+password-timeout = Перевірку пароля скасовано або час очікування минув. Підключіться знову.
+password-tip-set-mm = Установіть <yellow>пароль для входу</yellow> через <gold><u>/password</u></gold>, щоб захистити свій обліковий запис.
+password-title = Безпека облікового запису
+
 ## Player · Profile and tab list
 
-nametag-clear-all-error = Не вдалося очистити теги імені. Спробуйте пізніше
-nametag-clear-all-success = ✔ Усі теги імені очищено
-nametag-clear-error = Не вдалося очистити { $arg0 }
-nametag-clear-success = ✔ Очищено: { $arg0 }
-nametag-click-fill-command = Натисніть, щоб вставити команду
+nametag-cancel = Скасувати
+nametag-clear = Очистити
+nametag-clear-hint = Видаляє власні значення; успадковані стилі можуть залишитися.
 nametag-command-description = Налаштувати теги імені
-nametag-copy-hover = Скопіювати код MiniMessage до буфера обміну
+nametag-confirm = Підтвердити
+nametag-conflict = Поточне значення змінилося. Порівняйте поточний вигляд і підтвердьте ще раз для заміни.
+nametag-copy-hint = Надіслати вихідний текст префікса й суфікса в чат
 nametag-copy-label = [копіювати]
-nametag-effect-label = Результат
-nametag-empty-content-rich = Вміст не може бути порожнім. Щоб очистити його, скористайтеся { $command }
-nametag-format-docs = Довідка з форматування
+nametag-copy-sent = Вихідний текст стилю гравця { $arg0 } надіслано в чат.
+nametag-current = Поточний вигляд
+nametag-edit = Змінити
+nametag-edit-ended = Редагування завершено. Виберіть «Змінити», щоб продовжити.
+nametag-edit-prompt = Натисніть T: { $arg0 } у MiniMessage (видно лише вам).
+nametag-finish-field = Спочатку підтвердьте або скасуйте редагування поточного поля.
+nametag-input-invalid = Неправильний формат. Надішліть MiniMessage одним рядком або виберіть «Очистити».
 nametag-leading-label = Префікс імені
-nametag-no-permission = Ви не маєте дозволу на цю команду
-nametag-online-editor = Онлайн-редактор
+nametag-mine = Моя іменна мітка
+nametag-next = Далі
+nametag-no-changes = Немає змін
+nametag-no-permission = Редагування доступне учасникам і адміністрації. Перегляд стилів доступний і вам.
+nametag-no-players = Немає гравців із налаштованим стилем імені
+nametag-page = Сторінка { $arg0 } / { $arg1 }
+nametag-players = Стилі гравців
 nametag-preview-label = Попередній перегляд
-nametag-sample-message = приклад повідомлення
-nametag-set-error = Не вдалося задати { $arg0 }. Спробуйте пізніше
+nametag-previous = Назад
+nametag-refresh = Оновити
+nametag-saving = Збереження…
+nametag-set-error = Помилка збереження: { $arg0 }. Повторіть спробу; поточний вигляд показано вище.
 nametag-set-success = ✔ Задано: { $arg0 }
-nametag-tip-customize-mm = Налаштуй <light_purple>префікс і суфікс імені</light_purple> командою <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold>.
+nametag-styles-failed = Не вдалося завантажити стилі. Оновіть, щоб повторити.
+nametag-styles-loading = Завантаження стилів гравців…
+nametag-tip-customize-mm = Налаштуйте <light_purple>префікс і суфікс імені</light_purple> командою <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold>.
 nametag-title = Теги імені
 nametag-too-long = Значення { $arg0 } задовге. Максимальна довжина: { $arg1 ->
         [one] { $arg1 } символ
@@ -295,6 +346,7 @@ fly-enabled = Політ увімкнено
 fly-native-mode = Ваш доступ /fly вимкнено. Цей режим гри все ще дозволяє літати.
 fly-speed-click = Встановити швидкість польоту { $arg0 }x
 fly-speed-current = Швидкість польоту: { $arg0 }x
+fly-speed-limited = Навантаження від дослідження тимчасово обмежує політ до { $arg0 }x; ваше налаштування залишається { $arg1 }x.
 fly-speed-presets = Передналаштування
 fly-speed-reset = Швидкість польоту скинуто до 1x
 fly-speed-reset-action = Скинути
@@ -303,10 +355,8 @@ fly-speed-set = Швидкість польоту встановлено на { 
 fly-state-disabled = Вимкнено
 fly-state-enabled = Увімкнено
 fly-status = Політ: { $arg0 } | Швидкість: { $arg1 }x
-flyspeed-command-description = Переглянути або налаштувати особисту швидкість польоту
 home-action-create = Створити дім
 home-action-delete = Видалити дім
-home-action-icon = Встановити значок із руки
 home-action-teleport = Телепортуватися
 home-action-update = Оновити місце
 home-already-exists = Дім із такою назвою вже існує
@@ -324,11 +374,6 @@ home-distance-blocks = { $arg0 } бл.
 home-distance-other-world = інший світ
 home-empty-description = Станьте там, де хочете створити домівку
 home-empty-title = Домівок ще немає
-home-icon = Значок: { $arg0 }{ $arg1 }
-home-icon-default-note = · типовий
-home-icon-hand-invalid = Предмет в основній руці не можна використати як значок домівки
-home-icon-updated-rich = Значок домівки { $home } оновлено
-home-invalid-icon = Цей матеріал не можна використати як значок домівки
 home-invalid-name = Назва домівки не може містити символи < > :
 home-list-rich = Домівки: { $homes }
 home-location = Координати: { $arg0 }, { $arg1 }, { $arg2 }
@@ -337,20 +382,20 @@ home-max-reached = Можна створити щонайбільше домів
 home-menu-title = Домівки
 home-no-homes = Ви ще не створили жодної домівки
 home-not-found-rich = Домівки { $home } не існує
+home-search-placeholder = Пошук за назвою дому…
+home-search-empty = Відповідних домівок немає
 home-set-command-description = Створити домівку в поточному місці
 home-set-rich = Домівку { $home } створено
 home-set-usage-desc = Створити домівку в поточному місці
 home-summary-count = Створено: { $arg0 } / { $arg1 }
-home-teleport-command-description = Телепортуватися до домівки
 home-teleport-failed = Не вдалося телепортуватися. Спробуйте ще раз
 home-teleported-rich = Ви телепортувалися до домівки { $home }
 home-tip-create-mm = Збережіть місце командою <green><u><click:suggest_command:'/sethome '>/sethome назва</click></u></green>, потім поверніться через <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>.
-home-tip-return-mm = Відкрийте <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> і виберіть дім для телепортації.
+home-tip-return-mm = Відкрийте <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>, виберіть дім і натисніть «{ home-action-teleport }».
 home-updated-rich = Розташування домівки { $home } оновлено
 home-usage-book = Довідка команд
 home-usage-delhome = /delhome <name>  Видалити домівку
-home-usage-home = /home tp <name>  Телепортуватися до домівки
-home-usage-icon = /home icon <material> <name>  Вибрати значок
+home-usage-home = /home <name>  Телепортуватися до домівки
 home-usage-name-rule = Назва домівки не може містити < > :
 home-usage-sethome = /sethome <name>  Зберегти поточне розташування
 home-world = Світ: { $arg0 }
@@ -378,10 +423,6 @@ teleport-request-none = У вас немає запиту на телепорт�
 teleport-request-received = Гравець { $sender } хоче телепортувати вас: { $command }
 teleport-request-rejected = Запит на телепортацію відхилено
 teleport-request-sent = Запит на телепортацію надіслано гравцю { $player }
-teleport-summary-afk = Завжди дозволено, крім статусу AFK
-teleport-summary-allow = Телепортації іншими гравцями завжди дозволено
-teleport-summary-consent = Телепортації іншими гравцями вимагають моєї згоди
-teleport-summary-deny = Телепортації іншими гравцями завжди заборонено
 tpany-command-description = Телепортуватися до гравця в мережі або поза нею
 tpany-done-offline-rich = Ви телепортувалися до останнього відомого розташування гравця { $player }: { $world } { $location }
 tpany-done-online-rich = Ви телепортувалися до поточного розташування гравця { $player }
@@ -392,14 +433,13 @@ tpany-usage-desc = Телепортуватися до гравця, викор�
 
 ## Player · PVP
 
-pvp-admin-menu-title = Керування PvP - сторінка { $arg0 }/{ $arg1 }
+pvp-admin-menu-title = Керування PvP
 pvp-allow-mounted-damage = Дозволити атакувати їздових мобів
 pvp-allow-mounted-damage-desc = Інший гравець зможе атакувати моба, на якому ви їдете, якщо у вас обох увімкнено PvP
 pvp-auto-enable-desc = Двічі поспіль атакувати гравця з увімкненим PvP
 pvp-auto-enable-label = Автоматичне ввімкнення
 pvp-auto-enable-warning-actionbar-mm = <yellow>Атакуйте ще раз, щоб автоматично ввімкнути PvP</yellow>
 pvp-auto-enabled-actionbar-mm = <green>PvP увімкнено автоматично</green>
-pvp-back-admin = До керування PvP
 pvp-combat-locked-mm = <red>Не можна вимкнути PvP під час бою</red> <dark_gray>|</dark_gray> <gray>Залишок часу: { $arg0 ->
         [one] <yellow>{ $arg0 }</yellow> секунда
         [few] <yellow>{ $arg0 }</yellow> секунди
@@ -425,12 +465,17 @@ pvp-menu-title = Налаштування PvP
 pvp-mob-protected-actionbar-mm = <yellow>Цього моба захищено від шкоди PvP</yellow>
 pvp-mob-protection-label = Захист мобів
 pvp-mounted-damage-label = Шкода мобам із вершником
-pvp-next-page = Наступна сторінка
 pvp-no-permission-mm = <red>Ви не маєте дозволу керувати станом PvP іншого гравця</red>
 pvp-player-not-found-mm = <red>Гравця немає в мережі</red>
-pvp-prev-page = Попередня сторінка
 pvp-protect-mobs = Захищати своїх мобів
 pvp-protect-mobs-desc = Захищати приручених вами мобів і мобів, на яких ви їдете
+pvp-quick-combat-cooldown = Блокування в бою: { $arg0 ->
+        [one] залишилася { $arg0 } секунда
+        [few] залишилося { $arg0 } секунди
+        [many] залишилося { $arg0 } секунд
+       *[other] залишилося { $arg0 } секунди
+    }
+pvp-quick-override = PvP визначається тимчасовим правилом. Особисті вподобання можна змінити в налаштуваннях.
 pvp-set-by-staff-mm = <aqua>Персонал установив ваш стан PvP:</aqua> <yellow>{ $arg0 }</yellow>
 pvp-set-other = Для { $arg0 } встановлено стан PvP: { $arg1 }
 pvp-set-other-rich = Для { $player } встановлено стан PvP: { $state }
@@ -491,7 +536,7 @@ trash-title = Смітник
 hat-command-description = Надіти предмет з основної руки
 hat-empty-hand-mm = <red>В основній руці немає предмета</red> <gray>Візьміть блок або предмет і введіть /hat</gray>
 hat-success-mm = <green>Предмет з основної руки надіто</green> <dark_gray>|</dark_gray> <gray>Предмети в руці та комірці шолома поміняно місцями</gray>
-hat-tip-wear-mm = Одягни предмет з <yellow>основної руки</yellow> на голову командою <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple>.
+hat-tip-wear-mm = Надягніть предмет з <yellow>основної руки</yellow> на голову командою <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple>.
 removeitems-command-description = Видалити викинуті предмети
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = Видалено: { $countValue ->
@@ -502,7 +547,7 @@ removeitems-done-rich = Видалено: { $countValue ->
     } · світ { $world } { $location } { $radius }
 removeitems-no-world = Не вдалося визначити світ
 removeitems-radius = радіус: { $arg0 } бл.
-removeitems-tip-usage-mm = Видали <yellow>предмети на землі</yellow> поблизу командою <aqua><u><click:suggest_command:'/rmitems '>/rmitems [радіус]</click></u></aqua>.
+removeitems-tip-usage-mm = Видаліть <yellow>предмети на землі</yellow> поблизу командою <aqua><u><click:suggest_command:'/rmitems '>/rmitems [радіус]</click></u></aqua>.
 self-kick-command-description = Кікнути себе із сервера
 self-kick-reason-too-long = Причина кіка не може перевищувати { $arg0 ->
         [one] { $arg0 } символ
@@ -513,21 +558,21 @@ self-kick-reason-too-long = Причина кіка не може перевищ
 # $person: second for the actor; third for other viewers and console.
 self-kick-with-reason = { $person ->
         [second] Ви залишили сервер за власним запитом. Причина: { $reason }
-       *[third] { $player }: добровільний вихід із сервера. Причина: { $reason }
+       *[third] { $player }: вихід із сервера за власним запитом. Причина: { $reason }
     }
-    .item-1 = { $player }: несподіваний самокік. Причина: { $reason }
-    .item-2 = { $player }: самокік через { $reason }!
-    .item-3 = { $player }: добровільний вихід із поясненням: { $reason }
-    .item-4 = { $player }: самостійний вихід із причини: { $reason }
+    .item-1 = { $player }: вихід із сервера за власним запитом. Причина: { $reason }
+    .item-2 = { $player } виходить із мережі з повідомленням: { $reason }
+    .item-3 = { $player } залишає сервер із повідомленням: { $reason }
+    .item-4 = { $player }: вихід із запискою: { $reason }
 # $person: second for the actor; third for other viewers and console.
 self-kick-without-reason = { $person ->
         [second] Ви залишили сервер за власним запитом.
-       *[third] { $player }: добровільний вихід із сервера.
+       *[third] { $player }: вихід із сервера за власним запитом.
     }
-    .item-1 = { $player }: оце так самокік!
-    .item-2 = { $player }: вихід без зайвих слів.
-    .item-3 = { $player }: бездоганний самокік.
-    .item-4 = { $player }: вихід за власним бажанням.
+    .item-1 = { $player }: вихід із сервера за власним запитом.
+    .item-2 = { $player } виходить із мережі.
+    .item-3 = Дінь-дон! { $player } не в мережі
+    .item-4 = У мережі -1. { $player } виходить із мережі
 
 ## Community · Chat and mentions
 
@@ -551,7 +596,7 @@ chat-private-label = ПП
 chat-private-no-reply-target = Жоден із недавніх співрозмовників приватного чату не в мережі
 chat-private-self = Не можна почати приватний чат із собою
 chat-private-target-not-found = Гравця немає в мережі: { $arg0 }
-chat-private-target-offline = Співрозмовник вийшов із мережі. Увімкнено загальний чат
+chat-private-target-offline = Співрозмовник не в мережі; зачекайте або виберіть інший канал
 chat-private-tip-channel-mm = Команда <aqua><u><click:suggest_command:'/msg '>/msg гравець</click></u></aqua> перемикає в особистий чат, а <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> повертає до загального.
 chat-public-command-description = Перейти до загального чату
 chat-public-enter = Увімкнено загальний чат
@@ -562,6 +607,7 @@ chat-social-bound-player-label = Прив’язаний гравець
 chat-social-name-label = Ім’я в соцмережі
 chat-social-unbound = Не прив’язано до гравця Minecraft
 chat-staff-command-description = Перейти до чату персоналу
+chat-staff-label = Команда
 chat-staff-permission-missing = Немає дозволу на чат персоналу. Увімкнено загальний чат
 mention-action-bar = Напис над інвентарем
 mention-action-bar-text = { $sender } згадує вас
@@ -569,28 +615,33 @@ mention-alerts = Сповіщення про згадки
 mention-menu-title = Сповіщення про згадки
 mention-mute-afk = Вимикати під час AFK
 mention-sound = Звук сповіщення
-mention-summary-action-bar = напис над інвентарем
-mention-summary-disabled = Сповіщення вимкнено
-mention-summary-enabled = Сповіщення ввімкнено
-mention-summary-enabled-afk = Сповіщення ввімкнено, але вимкнено під час AFK
-mention-summary-modes-afk = { $arg0 }, вимкнено під час AFK
-mention-summary-sound = звук
 staffchat-enter = Ви приєдналися до чату персоналу
 
 ## Community · Announcements
 
+announcement-count = { $arg0 ->
+        [one] { $arg0 } оголошення
+        [few] { $arg0 } оголошення
+        [many] { $arg0 } оголошень
+       *[other] { $arg0 } оголошення
+    }
 announcement-empty = Оголошень немає
 announcement-first-page = Найновіші оголошення
 announcement-last-page = Найдавніші оголошення
+announcement-latest = Нове оголошення
+announcement-list-newer = Новіші записи
+announcement-list-older = Раніші записи
 announcement-more-count = Ще { $arg0 } не показано
 announcement-new-count = Нових: { $arg0 }
 announcement-newer = Новіші оголошення
+announcement-next-page = Наступна сторінка
 announcement-older = Старіші оголошення
+announcement-page = Сторінка { $arg0 } / { $arg1 }
+announcement-previous-page = Попередня сторінка
 announcement-reload = Оновити оголошення
 announcement-reload-command-description = Перезавантажити файл оголошень
 announcement-reload-failed = Не вдалося перезавантажити оголошення; попередні збережено
 announcement-reloaded = Оголошення оновлено
-announcement-scroll-hint = Колесо для перегляду по горизонталі
 announcement-unread-count = Непрочитаних: { $arg0 }
 announcement-updated = Оголошення оновлено
 announcement-view-all = Усі оголошення
@@ -808,7 +859,46 @@ governance-active-header = ─── Умови активного учасни�
 governance-active-member = Зараз учасник
 governance-active-member-age = Учасник щонайменше 30 днів
 governance-active-playtime = Щонайменше 6 годин корисної гри за 60 днів (зараз { $arg0 })
+governance-activity-action = { $arg0 ->
+    [confirm] Підтвердити підтримку
+    [vote] Прочитати й проголосувати
+    *[details] Докладніше
+    }
+governance-activity-all = Показати всі ({ $arg0 })
+governance-activity-closed = Завершено
+governance-activity-confirm-petition = Підтримати петицію? Коли набереться потрібна кількість підписів, почнеться голосування про відставку.
+governance-activity-needed = { $arg0 ->
+    [one] Потрібен ще { $arg0 } підпис
+    [few] Потрібні ще { $arg0 } підписи
+    [many] Потрібно ще { $arg0 } підписів
+    *[other] Потрібно ще { $arg0 } підпису
+    }
+governance-activity-proposal = { $arg0 ->
+    [appointment] Призначити { $arg1 } модератором
+    [removal] Зняти { $arg1 } з посади модератора
+    [petition] Петиція про відставку { $arg1 }
+    *[ban] Голосування за блокування { $arg1 }
+    }
+governance-activity-remaining = { $arg1 ->
+    [days] До завершення: { governance-days }
+    [hours] До завершення: { governance-hours }
+    *[minutes] До завершення: { governance-minutes }
+    }
+governance-activity-status = { $arg0 ->
+    [available] Можна голосувати
+    [voted] Голос враховано
+    [join] Можна підтримати
+    [joined] Підтримано
+    [closed] Завершено
+    *[view] Лише перегляд
+    }
 governance-already-moderator = Ви вже модератор.
+governance-application-status = { $arg0 ->
+    [open] Триває голосування про призначення
+    [pending] Схвалено · очікується призначення
+    [blocked] Умови ще не виконано
+   *[ready] Можна подати заявку
+    }
 governance-ballot-recorded = Ваш таємний голос записано як «{ $arg0 }». До завершення його можна змінити.
 governance-ban-details = Запропонував { $arg0 } · Тривалість { $arg1 } · Причина: { $arg2 }
 governance-ban-suffix = · Тривалість { $arg0 } · Причина: { $arg1 }
@@ -818,7 +908,6 @@ governance-choice-yes = За
 governance-command-description = Переглянути статус управління та голосування
 governance-custodian-no-nomination = Опікуни не беруть участі у виборах модераторів.
 governance-custodian-no-resign = Порядок відставки модераторів не стосується опікунів.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-days = { $arg0 ->
         [one] { $arg0 } день
         [few] { $arg0 } дні
@@ -835,10 +924,12 @@ governance-error-pause-already-active = Підвищення цього грав
 governance-error-pause-already-member = Цей гравець уже учасник; призупиняти підвищення не потрібно.
 governance-error-pause-end-invalid = Призупинення підвищення має закінчитися в майбутньому.
 governance-error-player-unknown = Запису про цього гравця ще немає.
+governance-error-removal-petition-closed = Цю петицію завершено або замінено новою.
 governance-error-removal-requires-petition = Для голосування про усунення потрібно достатньо підтримки.
 governance-error-removal-self = Не можна підтримувати власне усунення.
 governance-error-removal-sponsor-ineligible = Лише активні учасники можуть підтримувати усунення.
 governance-error-removal-sponsors-too-few = Потрібні щонайменше два інші активні учасники.
+governance-error-removal-target-not-moderator = Цей гравець більше не є модератором, якого можна зняти з посади.
 governance-error-removal-vote-open = Голосування про усунення цього модератора вже триває.
 governance-error-termination-reason-invalid = Ця причина завершення не підходить до голосування.
 governance-error-vote-already-open = Щодо цього гравця вже триває голосування такого типу.
@@ -855,7 +946,6 @@ governance-failure-quorum = Кворум не досягнуто
 governance-failure-two-thirds = Голосів «за» менше двох третин голосів без утримань
 governance-history-header = ─── Останні результати ───
 governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
-# $arg0 (Number): duration; locale decides the unit form.
 governance-hours = { $arg0 ->
         [one] { $arg0 } година
         [few] { $arg0 } години
@@ -869,40 +959,50 @@ governance-kind-appointment = Призначення
 governance-kind-ban = Блокування
 governance-kind-removal = Усунення
 governance-legacy-ban-kick = Попереднє рішення спільноти забороняє вам вхід. Строк: { $arg0 }. Причина: { $arg1 }
-governance-menu-actions = Дії
+governance-menu-already-sponsored = Уже підтримано
+governance-menu-application = Стан заявки
 governance-menu-back = Назад
 governance-menu-cancel = Скасувати
+governance-menu-completed = Завершені
 governance-menu-confirm = Підтвердити
-governance-menu-confirm-nominate = Почати голосування за ваше призначення модератором?
+governance-menu-confirm-nominate = Подання заявки розпочинає голосування про ваше призначення модератором.
 governance-menu-confirm-resign = Піти з посади модератора?
 governance-menu-confirm-sponsor = Підтримати це подання про усунення?
 governance-menu-confirm-withdraw = Відкликати свою заявку в модератори?
-governance-menu-find-player = Знайти іншого гравця
-governance-menu-history = Історія голосувань
+governance-menu-custodian-duties = Обслуговування й адміністрування сервера.
+governance-menu-identity = Роль
+governance-menu-identity-hint = Умови підвищення та історія активності.
+governance-menu-join-petition = Підтримати відкликання
 governance-menu-loading = Завантаження стану врядування…
-governance-menu-new-petition = Почати подання про усунення
+governance-menu-matters = Справи спільноти
+governance-menu-moderator-duties = Модерація та допомога гравцям.
 governance-menu-nominate = Подати заявку в модератори
-governance-menu-nomination-open = Голосування за ваше призначення триває
+governance-menu-offline = Не в мережі
+governance-menu-ongoing = Поточні
+governance-menu-online = У мережі
 governance-menu-pause = Призупинити підвищення новачка
 governance-menu-pause-appeal = Шлях оскарження
 governance-menu-pause-duration = Термін (наприклад, 2d)
 governance-menu-pause-reason = Причина
+governance-menu-pause-until = Завершення
+governance-menu-pending-application = Ухвалено · очікує виконання
 governance-menu-petition-row = { $arg0 } · підтримка { $arg1 }/{ $arg2 }
 governance-menu-petitions = Подання про усунення
 governance-menu-player-name = Ім’я гравця
 governance-menu-players = Керування гравцями
-governance-menu-recent-results = Останні результати голосувань
 governance-menu-refresh = Оновити
+governance-menu-related = Нещодавні пов’язані записи
+governance-menu-related-matters = Пов’язані справи
 governance-menu-resign = Піти з посади модератора
 governance-menu-resume = Зняти паузу підвищення
 governance-menu-resume-reason = Причина зняття
 governance-menu-staff-only = Керувати гравцями можуть лише модератори й куратори.
-governance-menu-status = Ваш стан
-governance-menu-target = Ім’я модератора
+governance-menu-staff-search = Знайти адміністратора
+governance-menu-subject-filter = { $arg0 } · Скинути фільтр ×
+governance-menu-team = Список адміністрації
+governance-menu-team-empty = Збігів немає
 governance-menu-title = Управління спільнотою
-governance-menu-votes = Відкриті голосування
 governance-menu-withdraw = Відкликати заявку
-# $arg0 (Number): duration; locale decides the unit form.
 governance-minutes = { $arg0 ->
         [one] { $arg0 } хвилина
         [few] { $arg0 } хвилини
@@ -920,7 +1020,6 @@ governance-own-choice-closed = Ваш вибір: { $arg0 }
 governance-own-choice-open = Ваш вибір: { $arg0 }; до завершення його можна змінити.
 governance-own-not-voted = Ви мали право голосу, але не голосували.
 governance-own-not-voted-hint = Ви ще не голосували. Відкрийте «Врядування» й оберіть це голосування.
-governance-own-not-voted-open = Ви ще не проголосували.
 governance-own-not-voter = Вас немає у списку виборців цього голосування.
 governance-own-voted = Ви проголосували
 governance-pause-cleared = Призупинення підвищення гравця { $arg0 } знято.
@@ -954,7 +1053,6 @@ governance-result-terminated = Завершено ({ $arg0 })
 governance-resume-notice = Призупинення вашого підвищення знято. Причина: { $arg0 }
 governance-resume-reason-required = Укажіть причину зняття призупинення.
 governance-role-lookup-error = Не вдалося перевірити статус модератора. Зверніться до опікуна.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-seconds = { $arg0 ->
         [one] { $arg0 } секунда
         [few] { $arg0 } секунди
@@ -962,7 +1060,6 @@ governance-seconds = { $arg0 ->
        *[other] { $arg0 } секунди
     }
 governance-storage-error = Помилка даних управління. Зверніться до опікуна.
-governance-target-not-moderator = { $arg0 } зараз не модератор.
 governance-termination-inactive = Модератор пішов після тривалої відсутності
 governance-termination-ineligible = Кандидат утратив статус активного учасника
 governance-termination-resigned = Модератор пішов у відставку
@@ -990,13 +1087,10 @@ plot-area-confirm = Замінити межі ділянки «{ $arg0 }» ви�
         [many] { $arg1 } будівельних комірок
        *[other] { $arg1 } будівельної комірки
     })? Споруди залишаться.
-plot-area-hint = //pos1 → //pos2 → зберегти. Кути можна вибрати дерев’яною сокирою; додати/відняти для кількох областей.
+plot-area-hint = Виберіть кути лівою/правою кнопкою з дерев’яною сокирою або //pos1 і //pos2; поверніться для збереження.
 plot-area-replace-save = Замінити межі та зберегти
 plot-area-save = Зберегти межі
 plot-area-saved = Межі «{ $arg0 }» збережено.
-plot-arrival-removed = Точку прибуття видалено.
-plot-arrival-set = Точку прибуття збережено.
-plot-arrival-text-saved = Заголовок прибуття збережено.
 plot-atmosphere-saved = Налаштування оточення збережено.
 plot-back = Назад
 plot-board-auto-notify-result = Сповіщення заплановано для { $arg0 ->
@@ -1012,6 +1106,7 @@ plot-board-header = Оголошення та відгуки (останні { $
 plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
 plot-board-kind-notice = Оголошення
 plot-board-kind-objection = Заперечення
+plot-board-loading = Завантаження запису оголошення…
 plot-board-menu = Дошка спільноти
 plot-board-notice-alert = { $arg0 } опублікував оголошення: { $arg1 } · { $arg2 }
 plot-board-objection-alert = { $arg0 } подав заперечення: { $arg1 } · { $arg2 }
@@ -1030,7 +1125,7 @@ plot-board-unavailable = Записи не завантажилися. Спро�
 plot-board-withdrawal-alert = { $arg0 } відкликав заперечення: { $arg1 } · { $arg2 }
 plot-board-write-failed = Не вдалося оновити дошку. Спробуйте пізніше.
 plot-command-blocked = Захист ділянки заблокував команду. Використовуйте /fill або /setblock безпосередньо на своїй ділянці; складні команди /execute має перевірити адміністрація.
-plot-command-description = Керувати ділянками й громадськими проєктами
+plot-command-description = Керувати ділянками
 plot-created = { -plot.gender ->
         [masculine] { -plot } { $arg0 } створений · { $arg1 }
         [feminine] { -plot } { $arg0 } створена · { $arg1 }
@@ -1039,15 +1134,9 @@ plot-created = { -plot.gender ->
 plot-created-for-you = Для вас зареєстровано ділянку { $arg0 }. Реєстрація: { $arg1 }.
 plot-deleted = Ділянку звільнено; споруда залишилася.
 plot-denied = вимкнено
-plot-empty-summary = Тут немає ділянки.
 plot-error-admin-owner-only = Зміна учасників із повноваженнями керування вимагає керування учасниками та правами.
 plot-error-area-disconnected = Ділянка має бути однією зв’язною областю.
 plot-error-args = Неправильні або неповні аргументи. Використайте /plot help.
-plot-error-arrival-location = Станьте на безпечну підлогу в забудованій частині проєкту.
-plot-error-arrival-missing = Точку прибуття не задано.
-plot-error-arrival-private = Ви не можете відвідати цей приватний проєкт.
-plot-error-arrival-text = Недійсний заголовок. Один рядок; до 32 видимих символів у заголовку та 64 у підзаголовку.
-plot-error-arrival-unsafe = Точка прибуття недоступна або більше не є безпечною.
 plot-error-busy = Дані ділянки зберігаються. Повторіть пізніше; операцію не надіслано.
 plot-error-flag = Невідоме право. Оберіть дію зі списку прав.
 plot-error-id = ID ділянки не знайдено або він неоднозначний. Використайте /plot list.
@@ -1072,12 +1161,10 @@ plot-error-selection = Позначте два кути командами //pos
 plot-error-selection-changed = Виділення змінилося. Підтвердьте знову.
 plot-error-staff-only = Лише модератори або хранителі можуть керувати ділянками інших гравців або реєструвати їх.
 plot-error-storage = Помилка операції з ділянкою. Повторіть пізніше або зверніться до адміністрації.
-plot-error-subplot-arrival = Спочатку перенесіть точку прибуття батьківської ділянки за межі вибору.
 plot-error-subplot-children = Звільніть дочірні ділянки перед звільненням батьківської.
 plot-error-subplot-depth = Дозволено лише один рівень дочірніх ділянок.
 plot-error-subplot-disconnected = Вибрані будівельні комірки не з’єднані. Розділіть кожну частину окремо.
 plot-error-subplot-overlap = Вибрана область перетинається з іншою дочірньою ділянкою.
-plot-error-subplot-own-arrival = Залиште точку прибуття в новій області або спочатку перенесіть її.
 plot-error-subplot-owner = У вас немає прав на цю операцію з підділянкою.
 plot-error-subplot-parent = Позначте обидва кути в наявних будівельних комірках батьківської ділянки.
 plot-error-subplot-supervisor-member = Власник батьківської ділянки вже має тут нагляд і не потребує ролі учасника.
@@ -1098,16 +1185,10 @@ plot-member-draft-submit = Переглянути й підтвердити
 plot-member-draft-title = Чернетка учасника · { $arg0 }
 plot-member-permissions = Права
 plot-member-removed = Учасника проєкту видалено.
-plot-menu-access = Доступ і учасники
-plot-menu-access-by-settings = за налаштуваннями доступу
-plot-menu-admin = Додати керівника ділянки
-plot-menu-arrival = Точка прибуття
-plot-menu-arrival-subtitle = Підзаголовок (MiniMessage; необов'язково)
-plot-menu-arrival-text = Заголовок прибуття
-plot-menu-arrival-title = Заголовок (MiniMessage; порожньо — назва проєкту)
+plot-menu-access = Учасники та права
+plot-menu-add-member = Додати учасника
 plot-menu-atmosphere = Оточення
 plot-menu-clear = Ясно
-plot-menu-collaborator = Додати співавтора
 plot-menu-confirm-delete = Видалити реєстрацію { $arg0 }? Захист, права учасників і налаштування буде видалено без можливості скасування. Споруди залишаться.
 plot-menu-confirm-subplot-transfer = Передати { $arg0 } гравцеві { $arg1 }? Власник батьківської ділянки збереже нагляд.
 plot-menu-confirm-transfer = Передати керування ділянкою { $arg0 } гравцеві { $arg1 }? Ви втратите доступ; авторство робіт не зміниться.
@@ -1128,27 +1209,22 @@ plot-menu-group-collaborator = Співавтори
 plot-menu-group-member = Доступ учасників
 plot-menu-group-newcomer = Доступ новачків
 plot-menu-group-owner = власник ділянки
+plot-menu-here = Поточне місце
 plot-menu-manage = Керувати ділянками гравців
 plot-menu-managed-empty = Цей гравець ще не має ділянок.
 plot-menu-managed-title = Ділянки гравця { $arg0 }
 plot-menu-members = Учасники ({ $arg0 })
-plot-menu-my-access = Ваш доступ: { $arg0 } · { $arg1 }
 plot-menu-name = Назва проєкту
 plot-menu-owner = Власник: { $arg0 }
 plot-menu-parent-supervisor = Власник батьківської ділянки: { $arg0 } · нагляд
 plot-menu-player = Ім’я гравця або UUID
-plot-menu-project-kind = Тип проєкту
-plot-menu-public-destinations = Публічні місця
-plot-menu-public-destinations-empty = Публічних проєктів із точкою прибуття поки немає.
 plot-menu-rain = Опади
-plot-menu-record-id = ID запису; для старих записів введіть повний ID
+plot-menu-record-search = Номер або заголовок
 plot-menu-related-notice = Відкрити пов’язане повідомлення
-plot-menu-remove-arrival = Видалити точку прибуття
 plot-menu-remove-member = Видалити учасника
 plot-menu-rename = Перейменувати проєкт
 plot-menu-rule = Записати рішення
 plot-menu-ruling = Поясніть рішення (8–1000 символів)
-plot-menu-set-arrival = Установити точку прибуття тут
 plot-menu-set-role = Призначити роль { $arg0 }
 plot-menu-settings = Налаштування проєкту
 plot-menu-submit = Застосувати
@@ -1159,33 +1235,8 @@ plot-menu-subplots = Дочірні ділянки ({ $arg0 })
 plot-menu-time = Час
 plot-menu-time-input = Час (HH:mm)
 plot-menu-transfer = Передати ділянку
-plot-menu-visit = Відвідати проєкт
 plot-menu-weather = Погода
 plot-menu-withdraw = Відкликати відгук
-plot-model-fit = Показати всі межі
-plot-model-focus = Показати околиці
-plot-model-layer-down = Опустити зріз на 1 блок
-plot-model-layer-up = Підняти зріз на 1 блок
-plot-model-legend = Блакитний: збережено · Зелений/золотий: кути 1/2 · Фіолетовий: межі для збереження · Білий/червоний: ви/напрямок
-plot-model-level = Висота зрізу Y ≤ { $arg0 } (лише перегляд)
-plot-model-limited = Деталізацію моделі знижено. Сфокусуйтеся на ближній області чи прямокутнику; режим меж дає змогу перевірити краї.
-plot-model-north-up = На вигляді згори північ угорі. Для повороту поверніться до тривимірного вигляду.
-plot-model-perspective = Тривимірний вигляд
-plot-model-preparing = Обчислення меж і перевірка ділянки у фоні… Автоматичне оновлення після завершення.
-plot-model-progress = Читання моделі: { $arg0 } %…
-plot-model-rotate-left = ↶ Обернути ліворуч
-plot-model-rotate-right = ↷ Обернути праворуч
-plot-model-show-all = Показати повну висоту
-plot-model-slice = Зріз вище мого рівня
-plot-model-terrain = Показати споруди та рельєф
-plot-model-top = Вигляд згори
-plot-model-unknown = { $arg0 ->
-        [one] { $arg0 } незавантажений зразок
-        [few] { $arg0 } незавантажені зразки
-        [many] { $arg0 } незавантажених зразків
-       *[other] { $arg0 } незавантаженого зразка
-    } (сірий колір). Чанки не завантажуються примусово.
-plot-model-wireframe = Лише межі
 plot-no-here = Тут немає захищеної { -plot(case: "genitive") }.
 plot-notice-board = Дошка ділянки
 plot-notice-cleared = Дошку очищено
@@ -1232,7 +1283,6 @@ plot-permission-manage-area = Змінювати межі
 plot-permission-manage-members = Керувати учасниками
 plot-permission-manage-permissions = Керувати дозволами
 plot-permission-manage-settings = Змінювати налаштування ділянки
-plot-permission-management = Налаштування й власність ділянки
 plot-permission-modify = Змінювати блоки та удобрювати
 plot-permission-operation = Дія
 plot-permission-personal = Особисті права
@@ -1255,16 +1305,15 @@ plot-permission-transfer = Передавати володіння
 plot-permission-workstation = Використовувати об’єкти й робочі блоки
 plot-pos1 = Перша точка
 plot-pos2 = Друга точка
-plot-private = Приватний проєкт
-plot-public = Громадський проєкт
-plot-public-set = Тип проєкту: { $arg0 }.
+plot-private = Закрито
+plot-public = Загальнодоступно
 plot-region-adjust = Змінити цей прямокутник
 plot-region-apply = Завершити зміну прямокутника
 plot-region-cancel = Скасувати зміну прямокутника
 plot-region-changed = Виділення змінилося. Виберіть прямокутник знову.
 plot-region-delete = Видалити цей прямокутник
 plot-region-delete-confirm = Видалити прямокутник №{ $arg0 } із чернетки? Будівлі залишаться. Межі зміняться лише після збереження; дію можна скасувати.
-plot-region-edit-hint = Змініть два кути цього прямокутника через //pos1 і //pos2. Інші не зміняться. Завершіть зміну, потім збережіть ділянку.
+plot-region-edit-hint = Змініть цей прямокутник через //pos1 і //pos2, потім збережіть.
 plot-region-finish-first = Спочатку завершіть або скасуйте зміну поточного прямокутника.
 plot-region-open = Керування прямокутниками ({ $arg0 })
 plot-region-select-hint = Виберіть прямокутник за номером для фокуса й виділення. Сірі лінії показують поточну сторінку; після об’єднання номери можуть змінитися.
@@ -1278,13 +1327,8 @@ plot-role-server-staff = адміністрація сервера
 plot-selection-add = Додати поточний паралелепіпед
 plot-selection-clear = Повторно вибрати дві точки
 plot-selection-empty = Позначте два кути командами //pos1 і //pos2.
-plot-selection-exit = Завершити редагування / перегляд
 plot-selection-fit = Відновити збережені межі
 plot-selection-incomplete = Одну точку позначено. Позначте другу; до надсилання ділянка не зміниться.
-plot-selection-mode = Вибрати точки у світі
-plot-selection-no-redo = Немає зміни виділення для повторення.
-plot-selection-no-undo = Немає попередньої зміни виділення для скасування.
-plot-selection-open = Змінити межі
 plot-selection-redo = Повторити останній крок
 plot-selection-replace = Замінити поточним паралелепіпедом
 plot-selection-session-hint = Присісти+F або /plot edit для повернення. Вихід через 20 хвилин бездіяльності.
@@ -1303,12 +1347,46 @@ plot-transferred-to-you = Ділянку { $arg0 } передано вам. Ві
 
 ## World · Vehicles
 
-vehicle-admin-help = /vehicle — { vehicle-model-title }
-    Моделі: model | model help
-    Захоплення: origin | select <uuid>/radius <radius>/group [uuid]/info/clear | capture <id> car/boat/plane
-    Транспорт: spawn <model> [x y z] | reload
 vehicle-command-description = Керувати транспортом із сутностей відображення
-vehicle-controls = { $arg0 }: W/S та A/D — керування; колесо — передачі або газ; зміна рук — режим; присідання — вихід. /vehicle help · /vehicle dashboard — панель керування.
+vehicle-menu-label =
+    { $arg0 ->
+        [home] Транспорт
+        [nearby] Транспорт поруч
+        [fleet] Увесь доступний транспорт
+        [selection] Вибірка моделі
+        [origin] Початок координат під ногами
+        [group] Вибрати групу відображень
+        [radius] Радіус вибірки (0–16 м)
+        [displays] Перегляд відображень поруч
+        [clear] Очистити вибірку та початок
+        [capture] Створити модель із вибірки
+        [toggle-selection] Перемкнути вибір
+        [public] Відкрити доступ усім
+        [private] Зробити приватним
+        [reload] Перезавантажити моделі з файлів
+        [leave] Вийти
+        [passenger] Місце пасажира
+        [fuel] Заправити · тримати вугілля
+        [repair] Полагодити · тримати злиток заліза
+        [access] Доступ
+        [remove] Видалити транспорт
+        [hud] Показати HUD керування
+        [hide-preview] Сховати перегляд 3D
+        [service-hint] Підійдіть, вимкніть двигун і візьміть потрібний матеріал.
+        [nearby-hint] Підійдіть на 32 блоки та залиште поточне місце.
+        [use-required] Потрібно mik.vehicle.use.
+        [remove-hint] Зупиніть транспорт і висадіть усіх.
+        [reload-hint] Увесь транспорт має бути порожнім із вимкненими двигунами. Чернетки зберігаються; змінені моделі відкрийте знову.
+        [pick-hint] Наведіться на відображення та натисніть ПКМ. Присідання + ПКМ скасовує; термін 30 секунд.
+        [spawn-hint] Координати світу; типово чотири блоки попереду. Напрям за горизонтальним поглядом під час створення.
+        [zoom-in] Збільшити
+        [zoom-out] Зменшити
+        [frame] Знову розмістити перед собою
+        [offset] Змістити відносно
+       *[other] { vehicle-command-description }
+    }
+
+vehicle-controls = { $arg0 }: W/S та A/D — керування; колесо — передачі або газ; зміна рук — режим; присідання — вихід. /vehicle
 vehicle-dash-assisted = Допомога зі стабілізацією
 vehicle-dash-automatic = Автоматичний режим
 vehicle-dash-contact = Опора на ґрунт / воду: { $arg0 }
@@ -1350,18 +1428,136 @@ vehicle-group-selected = Вибрано групу: { $arg0 ->
         [many] { $arg0 } сутностей відображення
        *[other] { $arg0 } сутності відображення
     } · корінь { $arg1 }
-vehicle-help = /vehicle — Керування транспортом
-    Посадка: list | ride [uuid] | passenger [uuid] | leave | inspect [uuid]
-    Рух: engine | mode [automatic/manual/assisted] | gear P/R/N/D/up/down/number | throttle up/down
-    Панель: hud [on/off] | dashboard [drive/gearbox/details/off]
-    Обслуговування: fuel | repair | access public/private | remove [uuid]
 vehicle-hud-boat = { $arg0 } вуз. · тяга { $arg1 } % · курс { $arg2 }°
 vehicle-hud-car = { $arg0 } km/h  ·  { $arg1 }  ·  { $arg2 } RPM · { $arg3 }
 vehicle-hud-plane = { $arg0 } км/год · висота { $arg1 } м · підйом { $arg2 } м/с · газ { $arg3 } % · { $arg4 }
 vehicle-hud-status = Пальне { $arg0 } % · стан { $arg1 } % · { $arg2 }
+vehicle-model-center = Центр мас
+vehicle-model-choice = { $arg0 ->
+    [CAR] Автомобіль
+    [BOAT] Моторний човен
+    [PLANE] Літак
+    [BODY] Кузов
+    [FRONT_WHEEL] Кероване колесо
+    [WHEEL] Колесо
+    [PROPELLER] Пропелер
+    [RUDDER] Кермо
+    [FIXED] Нерухомо
+    [VERTICAL] Зберігати вертикаль
+    [HORIZONTAL] Зберігати горизонталь
+    [CENTER] До камери
+    [NONE] Початкове положення
+    [THIRDPERSON_LEFTHAND] Від третьої особи · зліва
+    [THIRDPERSON_RIGHTHAND] Від третьої особи · справа
+    [FIRSTPERSON_LEFTHAND] Від першої особи · зліва
+    [FIRSTPERSON_RIGHTHAND] Від першої особи · справа
+    [HEAD] Голова
+    [GUI] Інвентар
+    [GROUND] Земля
+    [LEFT] Ліворуч
+    [RIGHT] Праворуч
+    [false] Вимкнено
+    [true] Увімкнено
+    [TEXT_CENTER] По центру
+   *[other] { $arg0 }
+    }
+vehicle-model-field = { $arg0 ->
+    [kind] Тип транспорту
+    [mass] Маса
+    [maximum-speed] Гранична швидкість (км/год)
+    [support-length] Хід опор (м)
+    [grip] Зчеплення
+    [center-of-mass] Центр мас
+    [inertia] Моменти інерції X/Y/Z
+    [engine-torque] Піковий крутний момент
+    [engine-idle-rpm] Холостий хід (RPM)
+    [engine-redline-rpm] Граничні оберти (RPM)
+    [engine-inertia] Інерція двигуна
+    [engine-wheel-radius] Радіус колеса (м)
+    [engine-final-drive] Головна передача
+    [engine-reverse-ratio] Заднє передатне число
+    [engine-ratios] Передатні числа вперед
+    [engine-shift-seconds] Час перемикання (с)
+    [fuel-capacity] Місткість бака
+    [fuel-consumption] Витрата (/с)
+    [buoyancy] Плавучість
+    [wing-area] Площа крила (м²)
+    [lift] Коефіцієнт підіймальної сили
+    [animation] Роль анімації
+    [billboard] Поворот до камери
+    [item-transform] Положення предмета
+    [alignment] Вирівнювання тексту
+    [block-light] Світло блоків
+    [sky-light] Світло неба
+    [background] Тло (ARGB)
+    [line-width] Ширина рядка
+    [opacity] Непрозорість (0–255)
+    [shadow] Тінь тексту
+    [see-through] Текст крізь об’єкти
+    [x] X
+    [y] Y
+    [z] Z
+    [size-x] Повна ширина X (м)
+    [size-y] Повна висота Y (м)
+    [size-z] Повна довжина Z (м)
+   *[other] { $arg0 }
+    }
+vehicle-model-field-range = Дозволений діапазон: 0 < значення ≤ { $arg0 }
+vehicle-model-front = Передній бік (+Z)
+vehicle-model-front-choice = { $arg0 ->
+    [negative-x] Поточний бік −X
+    [back] Поточний задній бік (−Z)
+    [positive-x] Поточний бік +X
+    [look] За горизонтальним поглядом (округлення до 90°)
+   *[other] Призначити цей бік переднім
+    }
+vehicle-model-front-hint = Виберіть стрілку в 3D. Кузов залишається на місці; сидіння, виходи й фізичні точки разом переходять до нових осей. Повороти з кроком 90° можна скасувати.
+vehicle-model-handle = { $arg0 ->
+    [ROTATE] { $arg1 } { $arg2 } { $arg3 }°
+   *[other] { $arg1 } { $arg2 } { $arg3 }
+    }
+vehicle-model-marker = { $arg0 ->
+    [driver] Водійське сидіння #{ $arg1 }
+    [passenger] Пасажирське сидіння #{ $arg1 }
+    [exit] Вихід #{ $arg1 }
+    [colliders] Об’єм зіткнення #{ $arg1 }
+    [supports] Точка опори #{ $arg1 }
+    [center] Центр мас
+    [parts] Візуальна деталь #{ $arg1 }
+   *[other] { $arg1 }
+    }
+vehicle-model-parameter-group = { $arg0 ->
+    [body] Кузов і контакт із землею
+    [engine] Двигун і трансмісія
+    [fuel] Пальне
+    [boat] Плавучість човна
+    [plane] Підіймальна сила літака
+    [power] Потужність двигуна
+   *[other] { $arg0 }
+    }
+vehicle-model-parameter-help = { $arg0 ->
+    [body] Маса, швидкість і контакт із землею. Центр мас можна змінювати в 3D. До збереження змінюється лише чернетка.
+    [engine] Оберти, момент, колеса й передачі. Передатні числа вперед мають спадати; межа обертів має перевищувати 1,5 × холостий хід.
+    [fuel] Місткість вимірюється в ігрових одиницях пального, витрата — за секунду.
+    [boat] Плавучість діє для човнів. Параметри інших типів зберігаються.
+    [plane] Площа крила й підіймальна сила діють для літаків. Інші параметри зберігаються.
+    [power] Оберти й момент для поточного типу. Налаштування трансмісії автомобілів зберігаються.
+   *[other] { $arg0 }
+    }
+vehicle-model-property-help = { $arg0 ->
+    [block-light] −1 використовує світло світу. Для перевизначення задайте обидва значення в межах 0–15.
+    [sky-light] −1 використовує світло світу. Для перевизначення задайте обидва значення в межах 0–15.
+    [background] Ціле ARGB зі знаком, наприклад −16777216 для непрозорого чорного.
+    [line-width] Ширина рядка: 1–2048 пікселів.
+    [opacity] 0 — прозоро, 255 — непрозоро.
+   *[other] { $arg0 }
+    }
+vehicle-model-spatial = Керування в 3D
+vehicle-model-spatial-hint = Правий клік по мітці вибирає або змінює її. Присідання + правий клік повертає налаштування. Колесо миші змінює крок налаштування.
+vehicle-model-spawn = Створити за цією моделлю
 vehicle-model-add = Додати компонент
 vehicle-model-add-here = Додати опору біля моїх ніг
-vehicle-model-anchor = Розмістити початок перегляду тут, за напрямком погляду
+vehicle-model-anchor = Знову розмістити перед собою
 vehicle-model-animation = Анімація
 vehicle-model-apply = Застосувати / підтвердити
 vehicle-model-auto = Перерахувати межі зіткнень
@@ -1376,8 +1572,8 @@ vehicle-model-copy = Копіювати й змінити (копії сидін
 vehicle-model-corner-cancel = Скасувати незавершену область зіткнень
 vehicle-model-corner-first = Позначити перший кут біля моїх ніг
 vehicle-model-corner-first-look = Позначити перший кут на поверхні під прицілом
-vehicle-model-corner-hint = Перший кут позначено. Перейдіть до протилежного кута з урахуванням висоти та введіть /vehicle model collider corner2. Область вирівняна за осями моделі.
-vehicle-model-corner-required = Спочатку позначте перший кут: /vehicle model collider corner1.
+vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
+vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Використати ноги як протилежний кут і додати область
 vehicle-model-corner-second-look = Використати поверхню під прицілом як протилежний кут
 vehicle-model-create = Створити { -vehicle-model(case: "accusative") }
@@ -1395,20 +1591,16 @@ vehicle-model-draft = Незбережена чернетка
 vehicle-model-driver = Місце водія
 vehicle-model-driver-here = Додати місце водія біля моїх ніг
 vehicle-model-edit = Змінити / продовжити чернетку
+vehicle-model-overview = Огляд чернетки
+vehicle-model-component-details = Властивості компонента
+vehicle-model-selection-unavailable = Об’єкт змінено або видалено; поверніться та виберіть знову
 vehicle-model-exit = Місце виходу / точне налаштування
-vehicle-model-group = Додати групу відображення Axiom
-vehicle-model-help = /vehicle model — { vehicle-model-title }
-    Моделі: menu | list | info [id] | create <id> car/boat/plane | import <id> car/boat/plane [uuid] | edit <id> | clone <id> <new-id> | delete <id>
-    Зміни: set <field> <value...> | part/seat/collider/support — Tab — операції та аргументи
-    Чернетка: preview [off] | undo | redo | save | cancel
-    У світі: anchor | pick | here | look | snap [on/off] | move <index> <dx dy dz>
-    { vehicle-model-position-hint }
-    seat position/exit | part position | support add/set | collider position: here / look
-    collider corner1/corner2 [look] | collider cancel — { vehicle-model-corner-hint }
-    Інші дії: check | apply — { vehicle-model-save-continue }
+vehicle-model-group = Додати групу Axiom з основної руки
+vehicle-model-hand-invalid = Предмет відображення Axiom недійсний або містить непідтримувані сутності чи дані.
+vehicle-model-hand-required = Візьміть предмет сутності відображення Axiom в основну руку та повторіть імпорт.
 vehicle-model-here = Використати положення біля моїх ніг
 vehicle-model-history-empty = У цьому напрямку історії немає змін.
-vehicle-model-import = Імпортувати групу відображення Axiom
+vehicle-model-import = Імпортувати групу Axiom з основної руки
 vehicle-model-item = Предмет
 vehicle-model-library = Збережені моделі · чернетки залишаються в пам’яті до збереження
 vehicle-model-look = Розмістити прицілюванням (меню закриється; ПКМ — підтвердити)
@@ -1426,7 +1618,7 @@ vehicle-model-position = Положення / точне налаштуванн�
 vehicle-model-position-hint = Локальні X/Y/Z · here — біля ніг, look — на поверхні під прицілом · сітка використовує крок налаштування.
 vehicle-model-preview = Особистий попередній перегляд
 vehicle-model-preview-failed = Попередній перегляд недоступний; чернетку збережено: { $arg0 }
-vehicle-model-preview-hint = Особистий перегляд увімкнено. Видаляється через п’ять хвилин без редагування; /vehicle model preview off для закриття.
+vehicle-model-preview-hint = { vehicle-model-spatial-hint }
 vehicle-model-redo = Повторити скасовану зміну
 vehicle-model-remove = Видалити компонент
 vehicle-model-remove-warning = Видалити компонент? Наступні індекси зсунуться; дію можна скасувати.
@@ -1575,9 +1767,16 @@ async-regen-usage = Використання: /regen preview blocks [типи...
 async-regen-visualization-legend = Візуалізація у { $arg0 }: блакитний — межа виділення, помаранчевий — вибірка змінюваних блоків, червоний — блок-сутність під ризиком. Ці частинки бачите лише ви.
 async-regen-visualization-selection = Виділення у { $arg0 }: блакитні частинки позначають межу й видимі лише вам.
 async-regen-fawe-required = Для читання виділення потрібен FastAsyncWorldEdit
+building-map-layer = Споруди
+building-map-open = Переглянути споруду
+building-map-builders = Побудували: { $arg0 }
+building-map-original-author = Автор оригіналу: { $arg0 }
+building-map-type-original = Авторська робота
+building-map-type-derivative = Похідна робота
+building-map-type-replica = Копія
 -iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Присісти
-iron-elevator-tip-mm = Розташуйте блоки { -iron-elevator-block } точно один над одним, щоб створити ліфт. Станьте на блок: <green>стрибок — угору</green>, <aqua>присідання — униз</aqua>. Якщо поверхів більше двох, з’явиться <gold>панель вибору поверху</gold>.
+iron-elevator-tip-mm = Розташуйте блоки { -iron-elevator-block } точно один над одним, щоб створити ліфт. Станьте на блок: <green>стрибок — угору</green>, <aqua>присідання — униз</aqua>. Якщо є хоча б два поверхи, з’явиться <gold>панель вибору поверху</gold>.
 iron-elevator-up = ↑ Стрибок
 spawn-beacon-color-command-description = Перемкнути зміну кольору маяка точки відродження
 spawn-beacon-color-disabled = Зміну кольору маяка точки відродження вимкнено
@@ -1588,197 +1787,32 @@ spawn-world-missing = Світ точки відродження недосту�
 
 ## Entertainment · Music
 
-music-action-add-queue = додати до черги
-music-action-play-nearby = відтворити на найближчому програвачі
-music-action-play-now = відтворити зараз на цьому програвачі
-music-action-take-disc = отримати платівку
-music-added-to-queue-rich = Додано до черги: { $music }
 music-album = Альбом: { $arg0 }
-music-all-in-queue = Усі композиції вже є в черзі
 music-artist = Виконавець: { $arg0 }
 music-back = Назад
-music-browser-left-click = Ліва кнопка
-music-browser-right-click = Права кнопка
-music-cache-clear-done = Кеш онлайн-музики очищено
-music-cache-clear-started = Очищення кешу онлайн-музики...
-music-cache-operation-failed = Помилка операції з кешем музики: { $arg0 }
-music-cache-status = Кеш онлайн-музики: файлів — { $arg0 }, { $arg1 } / { $arg2 }
-music-cached = У кеші - готово до відтворення
-music-clear-queue = Очистити чергу
-music-clear-queue-done = Чергу очищено ({ $arg0 ->
-        [one] { $arg0 } композиція
-        [few] { $arg0 } композиції
-        [many] { $arg0 } композицій
-       *[other] { $arg0 } композиції
-    })
 music-command-description = Локальна, онлайн- і NBS-музика для програвача
 music-disc-left = ЛКМ: узяти платівку
 music-disc-right = ПКМ: відтворити на найближчому програвачі
-music-duplicate-in-queue = Ця композиція вже є в черзі
 music-duration = Тривалість: { $arg0 }
-music-empty-library = Музична бібліотека порожня
-music-empty-library-description = Немає доступних локальних аудіофайлів або композицій NBS
-music-empty-nbs = Композицій NBS не знайдено
-music-empty-nbs-description = Перейдіть до всієї музики або додайте файл NBS
-music-empty-playlist = У цьому плейлісті немає доступних композицій
-music-empty-playlist-description = Переконайтеся, що плейліст публічний і вибрано правильну платформу
-music-empty-search = Відповідних композицій не знайдено
-music-empty-search-description = Спробуйте інший запит або перевірте стан користувацьких джерел
-music-finished = Завершено
 music-format = Формат: { $arg0 }
-music-inventory-full = Інвентар заповнений. Не вдалося видати платівку
 music-jukebox-audible-field-conflict = Інший програвач відтворює іншу пісню в зоні чіткої чутності, що перетинається
-music-jukebox-music-mode = Режим музики
-music-jukebox-play-order = Порядок відтворення
-music-jukebox-range = Радіус відтворення
-music-jukebox-range-value = Зараз: { $arg0 ->
-        [one] { $arg0 } блок
-        [few] { $arg0 } блоки
-        [many] { $arg0 } блоків
-       *[other] { $arg0 } блока
-    }
-music-jukebox-rhythm-mode = Режим ритму
-music-jukebox-too-far = Ви надто далеко від програвача (не більше { $arg0 ->
-        [one] { $arg0 } блока
-        [few] { $arg0 } блоків
-        [many] { $arg0 } блоків
-       *[other] { $arg0 } блока
-    })
 music-jukebox-tp-hover = Натисніть, щоб телепортуватися до програвача
 music-jukebox-unavailable = Програвач видалено або його чанк недоступний
-music-jukebox-usage-mode = Режим програвача
-music-jukebox-volume = Гучність програвача
-music-jukebox-volume-value = Зараз: { $arg0 }%
-music-library-button = Музична бібліотека
-music-library-random-mode = Випадково з медіатеки
-music-library-random-mode-desc = Відтворювати випадкові композиції з усієї медіатеки без негайного повтору
-music-loading-title = Завантаження
-music-menu-nbs-title = Музика NBS - сторінка { $arg0 }/{ $arg1 }
-music-menu-playlist-title = Список відтворення: { $arg0 } · { $arg1 }/{ $arg2 }
-music-menu-search-nbs-title = Пошук NBS: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-title = Пошук: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-title = Платівки - сторінка { $arg0 }/{ $arg1 }
-music-mode-switched = Вибрано { $arg0 }
-music-nearest-jukebox-missing = У радіусі { $arg0 ->
-        [one] { $arg0 } блока
-        [few] { $arg0 } блоків
-        [many] { $arg0 } блоків
-       *[other] { $arg0 } блока
-    } немає програвача
-music-next-page = Наступна сторінка
-music-no-disc = Немає платівки
-music-no-files = Немає доступних музичних файлів
-music-no-search-results-rich = Композицій зі словами «{ $keyword }» не знайдено
 music-now-playing-rich = Зараз відтворюється: { $music }; програвач: { $location }
-music-online-partial-failure = Помилки джерел: { $arg0 ->
-        [one] { $arg0 } запит
-        [few] { $arg0 } запити
-        [many] { $arg0 } запитів
-       *[other] { $arg0 } запиту
-    }; показано доступні результати
 music-online-rate-limited = Забагато запитів музики. Повторіть через { $arg0 ->
         [one] { $arg0 } секунду
         [few] { $arg0 } секунди
         [many] { $arg0 } секунд
        *[other] { $arg0 } секунди
     }.
-music-online-searching = Пошук «{ $arg0 }» у локальних і онлайн-джерелах...
 music-original-author = Автор оригіналу: { $arg0 }
-music-page-out-of-range = Такої сторінки немає. Остання сторінка: { $arg0 }
-music-page-total = Усього: { $arg0 ->
-        [one] { $arg0 } композиція
-        [few] { $arg0 } композиції
-        [many] { $arg0 } композицій
-       *[other] { $arg0 } композиції
-    }
-music-page-usage-desc = Перейти до сторінки
-music-partial-results = Помилки джерел: { $arg0 ->
-        [one] { $arg0 } запит
-        [few] { $arg0 } запити
-        [many] { $arg0 } запитів
-       *[other] { $arg0 } запиту
-    }; показано доступні результати
-music-paused = Призупинено
 music-plasmo-voice-unavailable = Трек запущено, але ви не можете його почути, оскільки Plasmo Voice не встановлено, не підключено або вимкнено
-music-play-next = Відтворити наступну
-music-play-random = Відтворити випадкову
 music-playback-failed = Не вдалося відтворити «{ $arg0 }». Перевірте джерело або музичний файл і спробуйте ще раз.
-music-playback-status = Стан відтворення: { $arg0 }
-music-playing = Відтворюється
-music-playing-now-rich = Зараз відтворюється: { $music }
-music-playlist-import-button = Імпортувати плейліст
-music-playlist-import-done = «{ $arg0 }» імпортовано: { $arg1 } з { $arg2 ->
-        [one] { $arg2 } композиції
-        [few] { $arg2 } композицій
-        [many] { $arg2 } композицій
-       *[other] { $arg2 } композиції
-    }.
-music-playlist-import-failed = Не вдалося імпортувати плейліст: { $arg0 }
-music-playlist-import-prompt = Виберіть платформу, потім вставте ID або посилання публічного плейліста:
-music-playlist-import-usage-desc = Імпортувати публічний плейліст з іншої музичної платформи
-music-playlist-importing = Імпортування плейліста...
-music-playlist-reference-prompt = Вставте ID або посилання на публічний плейлист
-music-prev-page = Попередня сторінка
-music-queue-empty = Черга порожня
-music-queue-move-down = Перемістити нижче
-music-queue-move-up = Перемістити вище
-music-queue-remove = Вилучити композицію
-music-queue-summary = Черга: { $arg0 ->
-        [one] { $arg0 } композиція
-        [few] { $arg0 } композиції
-        [many] { $arg0 } композицій
-       *[other] { $arg0 } композиції
-    }
-music-queue-summary-description = Сторінка { $arg0 }/{ $arg1 }
-music-random-add = Додати випадкову композицію
-music-random-added-to-queue-rich = До черги додано випадкову композицію: { $music }
-music-random-disc = Випадкова платівка
-music-random-disc-got-rich = Отримано випадкову платівку: { $music }
-music-random-mode = Випадковий список
-music-random-mode-desc = Відтворювати список випадково без негайного повтору тієї самої композиції
-music-rank-down = Переміщено нижче
-music-rank-up = Переміщено вище
-music-reload-done = Перезавантаження завершено: { $arg0 ->
-        [one] { $arg0 } локальна композиція
-        [few] { $arg0 } локальні композиції
-        [many] { $arg0 } локальних композицій
-       *[other] { $arg0 } локальної композиції
-    }; джерела LX { $arg1 }/{ $arg2 }; підписок перевірено { $arg3 }, оновлено { $arg4 }
 music-reload-failed = Не вдалося перезавантажити музику: { $arg0 }
-music-reload-issues = Проблеми під час перезавантаження: { $arg0 }
-music-reload-partial = Перезавантаження завершено зі збереженням попереднього стану: { $arg0 ->
-        [one] { $arg0 } локальна композиція
-        [few] { $arg0 } локальні композиції
-        [many] { $arg0 } локальних композицій
-       *[other] { $arg0 } локальної композиції
-    }; джерела LX { $arg1 }/{ $arg2 }; підписок перевірено { $arg3 }, оновлено { $arg4 }
 music-reload-started = Перезавантаження музичних файлів і користувацьких джерел...
-music-remote-source-error = помилка оновлення: { $arg0 }
-music-remote-source-import-done = Підписку на джерело LX імпортовано: { $arg0 }
-music-remote-source-import-failed = Не вдалося імпортувати джерело LX: { $arg0 }
-music-remote-source-import-started = Імпортування підписки на джерело LX...
-music-remote-source-remove-done = Підписку на джерело LX видалено: { $arg0 }
-music-remote-source-remove-failed = Не вдалося видалити підписку на джерело LX: { $arg0 }
-music-remote-source-remove-not-found = Підписку на джерело LX не знайдено: { $arg0 }
-music-remote-source-update-done = Перевірка: { $arg0 ->
-        [one] { $arg0 } підписка
-        [few] { $arg0 } підписки
-        [many] { $arg0 } підписок
-       *[other] { $arg0 } підписки
-    }; оновлено: { $arg1 }; помилок: { $arg2 }.
-music-remote-source-update-failed = Не вдалося оновити джерело LX: { $arg0 }
-music-remote-source-update-started = Перевірка імпортованих підписок на джерела LX...
-music-remote-source-updated-at = оновлено: { $arg0 }
-music-remote-sources-title = Імпортовані підписки на джерела LX: { $arg0 }
-music-removed-from-queue-rich = Вилучено з черги: { $music }
-music-repeat-one-mode = Повтор однієї композиції
-music-repeat-one-mode-desc = Повторювати поточну композицію до ручного перемикання
-music-request-error = Помилка запиту: { $arg0 }
 music-rhythm-animation-offset = Зсув анімації { $arg0 } мс
-music-rhythm-calibration = Калібрування затримки
 music-rhythm-calibration-accumulating = Перевіряємо стабільність… продовжуйте грати
 music-rhythm-calibration-adapting = Підлаштовуємося під ритм… продовжуйте грати
-music-rhythm-calibration-complete = Тест затримки завершено · ритм-гра готова
 music-rhythm-calibration-done = Тест затримки завершено · налаштування збережено
 music-rhythm-calibration-failed = Звук тесту перервався. Тест безпечно завершено; запустіть його знову
 music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Клавіатура візуально → Миша візуально
@@ -1789,11 +1823,6 @@ music-rhythm-calibration-out-of-range = Виміряна затримка поз
 music-rhythm-calibration-plasmo-instruction = Тепер повторюйте: дотримуйтеся ритму Plasmo Voice і натискайте 1–4 на кожен удар
 music-rhythm-calibration-plasmo-ready = Тест Minecraft Note Block завершено; спочатку прослухайте той самий ритм через Plasmo Voice
 music-rhythm-calibration-pointer-instruction = Натискайте ліву або праву кнопку миші, коли нота перетинає лінію.
-music-rhythm-calibration-prompt-confirm = Почати повний тест
-music-rhythm-calibration-prompt-confirm-hint = Авто повернення після завершення.
-music-rhythm-calibration-prompt-later = Не зараз
-music-rhythm-calibration-prompt-reason = Спочатку пройдіть тест затримки.
-music-rhythm-calibration-prompt-title = Перед грою потрібен тест затримки
 music-rhythm-calibration-realigning = Звуковий потік перервався. Демонстрацію буде повторено, завершені вимірювання збережено
 music-rhythm-calibration-required = Перед запуском ритм-гри пройдіть повний тест затримки
 music-rhythm-calibration-reset-done = Калібрування затримки скинуто
@@ -1812,7 +1841,6 @@ music-rhythm-difficulty-expert = Експерт
 music-rhythm-difficulty-hard = Складно
 music-rhythm-difficulty-normal = Нормально
 music-rhythm-exit = Вийти з ритм-гри
-music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
 music-rhythm-get-ready = Приготуйтеся
 music-rhythm-go = СТАРТ!
 music-rhythm-good = Добре
@@ -1827,59 +1855,15 @@ music-rhythm-network-too-high = Мережева затримка надто в�
 music-rhythm-network-warning = Мережева затримка нестабільна ({ $arg0 } мс). Сеанс завершиться, якщо вона залишиться вище { $arg1 } мс
 music-rhythm-no-beats = У цій пісні не знайдено придатних ритмів
 music-rhythm-perfect = Ідеально
-music-rhythm-preparing = Зачекайте, поки пісня повністю кешується та буде проаналізовано її ритм
-music-rhythm-ready = Повна карта готова — початок із першого удару
 music-rhythm-requires-playback = Спочатку увімкніть пісню на цьому програвачі
-music-rhythm-reset-calibration = Скинути калібрування затримки
 music-rhythm-results = Результати
 music-rhythm-score = Рахунок: { $arg0 }
-music-rhythm-select-track = Вибрати трек для ритм-гри
 music-rhythm-spatial-no-room = Недостатньо вільного місця. Перейдіть у відкритішу зону.
 music-rhythm-spatial-slider-hint = Стежте за рухомою зіркою й натискайте кожну точку · не утримуйте
-music-rhythm-start-game = Почати гру
-music-rhythm-waiting-for-player = Очікування гравця для запуску ритм-гри
+music-rhythm-start = Почати гру
 music-sample-rate = Частота дискретизації: { $arg0 }
-music-search-button = Знайти композицію
-music-search-keyword-required = Пошуковий запит не може бути порожнім
-music-search-keyword-too-long = Задовгий запит. Ліміт: { $arg0 ->
-        [one] { $arg0 } символ
-        [few] { $arg0 } символи
-        [many] { $arg0 } символів
-       *[other] { $arg0 } символа
-    }.
-music-search-usage-desc = Знайти композиції
-music-section-all = Уся музика
-music-section-nbs = Музика NBS
-music-select-music = Вибрати музику
-music-sequential-mode = Повтор списку
-music-sequential-mode-desc = Відтворювати список по черзі та починати з початку
 music-size = Розмір: { $arg0 }
-music-sort-button = Сортування
-music-sort-current = Поточне: { $arg0 }
-music-sort-default = Типовий порядок
-music-sort-most-played = Найчастіше відтворювані
-music-sort-recently-played = Нещодавно відтворені
-music-sound-settings = Налаштування звуку
-music-source-actions = дії: { $arg0 }
-music-source-available = доступне
-music-source-capabilities = можливості: { $arg0 }
-music-source-error = помилка: { $arg0 }
-music-source-failures = помилок поспіль: { $arg0 }
-music-source-retry = повтор через { $arg0 ->
-        [one] { $arg0 } секунду
-        [few] { $arg0 } секунди
-        [many] { $arg0 } секунд
-       *[other] { $arg0 } секунди
-    }
-music-source-unavailable = недоступне
-music-sources-empty = Користувацькі джерела музики LX не знайдено
-music-sources-title = Користувацькі джерела музики LX: { $arg0 }
-music-stop-eject = Зупинити й вилучити
-music-stop-eject-done = Відтворення зупинено, платівку вилучено
-music-stopped = Зупинено
-music-track-details = Відомості про трек
 music-unavailable-disc = Недоступна платівка
-music-unavailable-disc-description = Цієї платівки MIK немає в поточному каталозі, але відтворення можна зупинити, а платівку вилучити
 
 ## Entertainment · Anniversary
 
@@ -2008,20 +1992,16 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Повідомлення про блокування]
 ban-command-description = Заблокувати гравця за фіксованим рівнем порушення
 ban-database-error = Помилка бази блокувань. Перевірте журнал сервера.
-ban-dialog-back = Назад
-ban-dialog-cancel = Скасувати
-ban-dialog-confirm-action = Заблокувати гравця
-ban-dialog-confirm-severity = Рівень
-ban-dialog-confirm-title = Підтвердження блокування
-ban-dialog-never-joined-confirm-action = Усе одно заблокувати
-ban-dialog-never-joined-title = Гравець ніколи не заходив
-ban-dialog-never-joined-warning = { $arg0 } ніколи не заходив на цей сервер. Перевірте ім’я, щоб не заблокувати іншого гравця.
-ban-dialog-next = Далі
-ban-dialog-player-input = Ввести ім’я гравця вручну
-ban-dialog-player-manual = Ручне введення
-ban-dialog-player-online = Гравці зараз на сервері
-ban-dialog-select-title = Вибір гравця
-ban-dialog-severity-title = Вибір рівня блокування
+ban-menu-back = Назад
+ban-menu-confirm-action = Заблокувати гравця
+ban-menu-confirm-severity = Рівень
+ban-menu-confirm-title = Підтвердження блокування
+ban-menu-never-joined-confirm-action = Усе одно заблокувати
+ban-menu-never-joined-title = Гравець ніколи не заходив
+ban-menu-never-joined-warning = { $arg0 } ніколи не заходив на цей сервер. Перевірте ім’я, щоб не заблокувати іншого гравця.
+ban-menu-player-input = Ввести ім’я гравця вручну
+ban-menu-select-title = Вибір гравця
+ban-menu-severity-title = Вибір рівня блокування
 ban-history-empty = Історія блокувань для { $arg0 } відсутня.
 ban-history-title = Історія блокувань: { $arg0 }
 ban-invalid-player = Некоректне ім’я гравця
@@ -2066,11 +2046,14 @@ banlist-reason = Причина
 banlist-source = { role-moderator }
 banlist-title = Список блокувань
 maintenance-command-description = Увімкнути, вимкнути або перевірити режим технічного обслуговування
+maintenance-kick = Сервер на технічному обслуговуванні
 maintenance-set = Режим технічного обслуговування { $arg0 }
 maintenance-state-disabled = вимкнено
 maintenance-state-enabled = увімкнено
 maintenance-status = Режим технічного обслуговування: { $arg0 }
 maintenance-unchanged = Режим технічного обслуговування вже { $arg0 }
+performance-kick-title = На сервері спостерігаються значні затримки
+performance-kick-reason = Вас тимчасово відключено, щоб сервер міг відновити роботу
 restriction-entity-too-large-mm = <red>Розмір сутності перевищує безпечне обмеження сервера</red>
 restriction-foreign-uuid-mm = <red>Можна використовувати UUID лише приручених вами мобів</red>
 restriction-no-kill-e-mm = <red>Команду <white>/kill @e</white> заборонено</red>
@@ -2081,7 +2064,7 @@ restriction-other-player-name-mm = <red>Ви не маєте дозволу зг
 tpsbar-command-description = Показати або приховати панель TPS
 tpsbar-hidden = Панель TPS прихована
 tpsbar-shown = Панель TPS показана
-tpsbar-tip-status-mm = Покажи або приховай панель <yellow>TPS, MSPT і пінгу</yellow> командою <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
+tpsbar-tip-status-mm = Покажіть або приховайте панель <yellow>TPS, MSPT і пінгу</yellow> командою <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Зняти блокування зі збереженням історії
 whitelist-already-whitelisted = { $arg0 } уже в білому списку
 whitelist-invalid-name = Неприпустимий формат імені гравця
@@ -2096,9 +2079,16 @@ whitelist-temp-usage-desc = Тимчасово додати гравця до б
 
 ## Shell · Menus, server information and scripting
 
-main-afk-current-afk = Зараз AFK
-main-afk-current-online = Зараз у мережі
-main-afk-status = Статус AFK
+main-afk-status =
+    { $arg0 ->
+        [afk] AFK: Відійшов
+       *[online] AFK: У мережі
+    }
+main-pvp-status =
+    { $arg0 ->
+        [on] PVP: Увімк.
+       *[off] PVP: Вимк.
+    }
 main-announcements = Оголошення
 main-home = Домівки
 main-language = Мова
@@ -2108,8 +2098,6 @@ main-map = Вебмапа
 main-menu-title = Головне меню
 main-music = Музика
 main-name-tag = Теги імені
-main-profile = Профіль
-main-pvp = PvP
 main-settings = Налаштування
 main-website = Сайт
 main-wiki = Wiki
@@ -2126,9 +2114,379 @@ stat-client-version = Версія клієнта
 stat-first-joined = Перше приєднання
 stat-location = Розташування
 stat-ping = Затримка
+stat-ping-value = { $arg0 } мс
 stat-play-time = Час гри
 stat-role = Роль
 stat-world = Світ
-weblogin-command-description = Підтвердити код входу в Mik Web
-weblogin-confirmed = Вхід у Mik Web підтверджено. Поверніться до браузера, щоб продовжити.
-weblogin-invalid-code = Неправильний код входу в Mik Web
+web-account-title = Вебакаунт і ключі доступу
+web-account-confirm = Підтвердити
+weblogin-question = Підтвердити цю перевірку особи для сайту? Підтверджуйте лише дії, які ви самі почали на mcmik.top. Ніколи не вводьте коди за інших людей.
+weblogin-command-description = Підтвердити код перевірки особи для сайту Mik
+weblogin-confirmed = Особу для сайту підтверджено. Поверніться до браузера, щоб продовжити.
+weblogin-invalid-code = Недійсний код перевірки особи для сайту
+
+
+# Music workspace
+music-space-label =
+    { $arg0 ->
+        [title] Музичний простір
+        [devices] Пристрої
+        [device-status] Стан
+        [sync-group] Група синхронізації
+        [single-device] Програвач
+        [device-location] Розташування
+        [visit-device] Телепортуватися поруч
+        [teleporting] Телепортація…
+        [recorded-device] Збережено
+        [nearby-device] Поруч
+        [group-select-members] Виберіть щонайменше два програвачі
+        [group-name-required] Уведіть назву групи
+        [all-online] Усі в мережі
+        [direction-front] Попереду
+        [direction-front-right] Праворуч попереду
+        [direction-right] Праворуч
+        [direction-back-right] Праворуч позаду
+        [direction-back] Позаду
+        [direction-back-left] Ліворуч позаду
+        [direction-left] Ліворуч
+        [direction-front-left] Ліворуч попереду
+        [direction-here] Тут
+        [direction-above] Зверху
+        [direction-below] Знизу
+        [no-devices] Немає пристроїв
+        [choose-members] Вибрати пристрої групи
+        [create-group] Створити групу синхронізації
+        [add-members] Додати пристрої
+        [create-play] Створити й відтворити
+        [create-and-append] Створити й додати пісні в кінець
+        [device-queue] Черга
+        [device-members] Учасники
+        [available] Доступно
+        [play] Відтворити
+        [retry-outputs] Повторити виведення
+        [dissolve-group] Розпустити групу
+        [remove-member] Вилучити з групи
+        [removed-stopped] Вилучені пристрої зупиняться та збережуть вибраний вміст.
+        [restore-previous] Відновити вміст до групи
+        [keep-group-content] Зберегти вміст групи
+        [queue] Черга відтворення
+        [back] { ban-menu-back }
+        [close] { close }
+        [unavailable] Music storage is unavailable
+        [saving] Збереження…
+        [saved] Збережено
+        [apply] { plot-menu-submit }
+        [cancel] { cancel }
+        [select-page] Select this page
+        [select-all] Select all results
+        [clear-tracks] Clear song selection
+        [add-playlist] Додати
+        [description] { plot-menu-description }
+        [make-private] Make private
+        [publish] Make public
+        [delete] Delete playlist
+        [favorite] Toggle favorite
+        [copy] Copy playlist
+        [share] Share playlist command
+        [recent] Нещодавно відтворені
+        [favorites] Favorite playlists
+        [public] Публічний
+        [private] Приватний
+        [new-playlist] Створити список відтворення
+        [name] Назва
+        [song-title] Назва
+        [track-count] Треки
+        [visibility] Видимість
+        [no-playlists] Немає списків відтворення
+        [fetching-playlist] Завантаження списку відтворення…
+        [artist] Виконавець
+        [duration] Тривалість
+        [track-type] Тип
+        [type-online] Онлайн
+        [undo] { vehicle-model-undo }
+        [remove] Remove selected entries
+        [clear-recents] Clear my play history
+        [clear-entries] Clear entry selection
+        [search-tracks] Пошук пісень, виконавців…
+        [search-playlists] Пошук списків відтворення…
+        [public-playlists] Public playlists
+        [searching] Searching…
+        [insert] Вставити й відтворити зараз
+        [append] Додати до черги
+        [choose-targets] Вибрати вивід
+        [group-source] Взяти чергу й позицію з
+        [removed-targets] Деякі цілі видалено; виберіть їх знову
+        [offline] Поза мережею
+        [device-discovery-hint] Присядьте й натисніть ПКМ по програвачу з порожньою рукою, щоб відкрити його.
+        [empty] Немає пісень
+        [queue-empty] У черзі немає пісень
+        [queue-current] Поточна пісня цифрової черги
+        [pause] Pause
+        [resume] Resume
+        [stop] Stop; keep playback list
+        [previous] Previous song / restart
+        [clear] Clear pending; stop after current song
+        [seek] Позиція
+        [more] Ще
+        [volume-control] Гучність
+        [group-volume] Гучність групи
+        [timeline-help] Прокрутка ±5 с · ПКМ для введення часу
+        [timeline-read-only] Перемотування недоступне
+        [seek-format] Введіть m:ss, h:mm:ss або секунди
+        [record] Зберегти для віддаленого керування
+        [forget] Видалити мої збережені пристрої
+        [alias] Особиста назва пристрою
+        [sound] Налаштування звуку
+        [rhythm] Ритм-кімнати
+        [room-players] Гравці
+        [room-player-status] Стан
+        [room-preparation] Моя підготовка
+        [room-ready] Готовий
+        [room-cancel-ready] Скасувати готовність
+        [room-playing] У грі
+        [room-score-ready] Ноти готові
+        [room-select-one] Виберіть одну композицію за допомогою множинного вибору в бібліотеці.
+        [room-end-confirmation] Це завершить кімнату для всіх учасників.
+        [create-room] Створити кімнату
+        [no-rhythm-devices] Поруч немає програвачів. Спочатку присядьте й клацніть по програвачу правою кнопкою з порожньою рукою.
+        [calibration] Калібрування затримки
+        [volume] Volume (0–100)
+        [range] Range (8–256 blocks)
+        [mode] Режим відтворення
+        [save-queue] Зберегти чергу як список відтворення
+        [sequential] Sequential
+        [repeat-all] Повтор списку
+        [repeat-one] Repeat song
+        [shuffle] Shuffle without repeats
+        [import] Імпортувати плейліст
+        [link] Посилання на плейліст
+        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
+        [import-preview] Preview fetched metadata; no audio was downloaded
+        [import-new] Створити й відкрити
+        [import-merge] Об’єднати зі списком
+        [stopped] Зупинено
+        [loading] Preparing audio
+        [cancel-loading] Скасувати підготовку
+        [playing] Відтворюється
+        [paused] Призупинено
+        [finished] Завершено
+        [retry-failed] Повторити відтворення
+        [select-song] Відтворіть вибрані пісні або разом додайте їх до списку.
+        [select-toggle] Вибрати цей запис
+        [deselect] Зняти вибір цього запису
+        [selected] Вибрано
+        [place-before] Розмістити вибране перед цим записом
+        [eject] Eject physical record
+        [make-disc] Create signed music disc
+        [gain] Group volume (0–100)
+        [retry-import] Fetch playlist again
+        [join-room] Приєднатися до кімнати
+        [ready] Готовий
+        [waiting] Waiting
+        [room-mode] Режим гри
+        [room-difficulty] Складність
+        [late-join] Join the running game
+        [leave-room] Leave room
+        [select-room-track] Використати вибрану композицію
+        [start-room] Почати гру
+        [end-room] Завершити кімнату
+        [base-queue] Base playback list
+        [priority-queue] One-time requests
+        [falling] Falling lanes
+        [radial] Radial approach
+        [spatial-aim] Spatial aim
+        [easy] Easy
+        [normal] Normal
+        [hard] Hard
+        [expert] Expert
+        [waiting-for-player] Waiting for preparation
+        [preparing] Preparing audio and chart
+        [no-beats] No playable beats
+        [catalog] Каталог
+        [my-playlists] Мої списки
+        [playlist] Список відтворення
+        [output] Вивід
+        [close-panel] Закрити панель
+        [playlist-settings] Налаштування списку
+        [multi-select] Вибрати
+        [move] Перемістити
+        [move-hint] Виберіть пісню, перед якою розмістити вибране
+        [cancel-move] Скасувати переміщення
+        [move-end] Помістити в кінець
+        [cancel-selection] Скасувати вибір
+        [track-details] Відомості про пісню
+        [skip-next] Перейти до наступної
+        [device-settings] Налаштування пристроїв
+        [already-added] Уже додано
+        [current-track] Поточна композиція
+        [shuffle-candidates] Кандидати випадкового вибору
+        [import-by-id] Імпорт за ID
+        [playlist-id] ID списку
+       *[unknown] Музичний простір
+    }
+
+music-space-error =
+    { $arg0 ->
+        [UNAVAILABLE] Music is unavailable; reopen later
+        [INTERNAL] Внутрішня помилка музики; попросіть адміністратора перевірити журнал сервера
+        [NOT_FOUND] The selected item no longer exists
+        [FORBIDDEN] Control or edit permission is required
+        [CONFLICT] Content changed; refresh and select again
+        [LIMIT] The music resource limit was reached
+        [INVALID] Check the name, selection or numeric range
+        [OFFLINE] Device unavailable: load its chunk or eject its physical record
+        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
+        [UNSUPPORTED] This media does not support that action
+        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NO_SAFE_DESTINATION] Поруч із цим програвачем немає безпечного місця
+        [TELEPORT_FAILED] Телепортація не вдалася або її заблоковано
+       *[UNKNOWN] Operation failed
+    }
+
+music-space-selected-tracks =
+    { $arg0 ->
+        [one] Вибрано { $arg0 } пісню
+        [few] Вибрано { $arg0 } пісні
+        [many] Вибрано { $arg0 } пісень
+       *[other] Вибрано { $arg0 } пісні
+    }
+music-space-track-count =
+    { $arg0 ->
+        [one] { $arg0 } трек
+        [few] { $arg0 } треки
+        [many] { $arg0 } треків
+        *[other] { $arg0 } треку
+    }
+music-space-device-count =
+    { $arg0 ->
+        [one] { $arg0 } програвач
+        [few] { $arg0 } програвачі
+        [many] { $arg0 } програвачів
+       *[other] { $arg0 } програвача
+    }
+music-space-online-count = У мережі: { $arg0 }/{ $arg1 } { $arg1 ->
+        [one] програвач
+        [few] програвачі
+        [many] програвачів
+       *[other] програвача
+    }
+music-space-device-distance = { $arg0 } · { $arg1 } м
+music-space-device-height = { $arg0 ->
+    [above] На { $arg1 } м вище
+   *[below] На { $arg1 } м нижче
+    }
+music-space-device-coordinates = { $arg0 } · X { $arg1 } · Y { $arg2 } · Z { $arg3 }
+music-space-sound-value = { $arg0 ->
+        [volume] { $arg1 ->
+           *[other] { $arg1 }%
+        }
+       *[range] { $arg1 ->
+            [one] { $arg1 } блок
+            [few] { $arg1 } блоки
+            [many] { $arg1 } блоків
+           *[other] { $arg1 } блока
+        }
+    }
+plot-permission-music-control = Керування музичними пристроями
+
+music-partial-results = Помилки джерел: { $arg0 ->
+        [one] { $arg0 } запит
+        [few] { $arg0 } запити
+        [many] { $arg0 } запитів
+       *[other] { $arg0 } запиту
+    }; показано доступні результати
+
+webchat-tab-label = { $arg0 ->
+    [1] { player-web-label }
+   *[other] { player-web-label } ×{ $arg0 }
+    }
+webchat-joined = { $arg0 } приєднався до вебчату
+webchat-left = { $arg0 } залишив вебчат
+chat-rate-limited = Ви надсилаєте повідомлення занадто швидко. Зачекайте.
+
+plot-map-corner-a = Кут A
+plot-map-corner-b = Кут B
+plot-map-corner-hint = Натисніть для центрування кута. Права кнопка: координати; колесо: Y ±4.
+plot-map-coordinates = Координати x,y,z
+plot-map-zoom-in = Наблизити
+plot-map-zoom-out = Віддалити
+plot-map-fit = Уся ділянка
+plot-map-near = Поруч зі мною
+plot-map-layer = Шар Y { $arg0 }…{ $arg1 }
+plot-map-layer-hint = Колесо змінює шар; натискання повертає ваш шар. Рельєф завжди показує поверхню.
+plot-map-north = Північ
+plot-map-west = Захід
+plot-map-east = Схід
+plot-map-south = Південь
+plot-map-scale = 1 піксель = { $arg0 } × { $arg0 } блоків
+plot-map-progress = Читання карти { $arg0 }%…
+plot-map-unknown = Незавантажені зразки поверхні: { $arg0 }
+plot-map-legend = Бірюзовий: збережено · Фіолетовий: додано · Помаранчевий: видалено · Зелений: паралелепіпед · A/B: кути · Стрілка: ви
+plot-selection-validating = Обчислення меж і перевірка ділянки у фоні… Автоматичне оновлення після завершення.
+
+plot-map-open = Карта Minecraft
+
+plot-map-handheld-hint = Карта в другій руці, вибір дерев’яною сокирою. Крадіться + F для повернення до панелі.
+
+plot-map-readonly-hint = Лише перегляд карти. Щоб змінити кути, поверніться до панелі й виберіть налаштування паралелепіпеда.
+
+plot-destinations = Точки телепортації
+plot-destination-add = Додати поточне місце
+plot-destination-confirm-delete = Видалити точку «{ $arg0 }»?
+plot-destination-delete = Видалити точку
+plot-destination-deleted = Точку телепортації видалено.
+plot-destination-description = Опис (необов’язково)
+plot-destination-edit = Змінити назву й опис
+plot-destination-empty = Немає доступних точок телепортації.
+plot-destination-error-changed = Ця точка змінилася. Відкрийте її знову.
+plot-destination-error-description = Опис допускає до 512 символів без керівних символів.
+plot-destination-error-location = Станьте на безпечну поверхню всередині цієї ділянки.
+plot-destination-error-missing = Цієї точки більше немає.
+plot-destination-error-name = Назва має бути одним рядком і містити від 1 до 48 символів.
+plot-destination-error-private = Ця точка закрита й доступна лише учасникам ділянки.
+plot-destination-error-unsafe = Ця точка недоступна або небезпечна.
+plot-destination-loading = Завантаження точки телепортації…
+plot-destination-move = Використати поточне місце
+plot-destination-name = Назва
+plot-destination-public-empty = Загальнодоступних точок поки немає.
+plot-destination-public-off = Спільний доступ: вимк.
+plot-destination-public-on = Спільний доступ: увімк.
+plot-destination-saved = Точку телепортації збережено.
+plot-destination-teleport = Телепортуватися
+plot-error-subplot-destination = Спочатку перемістіть або видаліть точки батьківської ділянки у вибраній області.
+plot-error-subplot-own-destination = Залиште точки в нових межах або спочатку перемістіть чи видаліть їх.
+
+plot-destination-manage = Керування
+plot-directory-owned = Мої · { $arg0 }
+plot-directory-participating = Участь · { $arg0 }
+plot-directory-search = Пошук ділянок
+plot-directory-search-value = Пошук: { $arg0 }
+plot-directory-search-field = Назва або ID ділянки
+plot-directory-clear-search = Очистити пошук
+plot-directory-empty = У цій категорії ще немає ділянок.
+plot-directory-no-match = Збігів немає. Змініть або очистьте пошук.
+plot-workspace-area = Змінити межі
+plot-workspace-area-hint = Налаштувати захищену область цієї ділянки
+plot-workspace-subplots = Підділянки
+plot-workspace-subplots-hint = Перегляд, створення та керування підділянками
+plot-workspace-access-hint = Керування учасниками, ролями та правами дій
+plot-workspace-settings-hint = Назва, оголошення, оточення та власність
+plot-workspace-destinations-hint = Перегляд і використання точок телепортації цієї ділянки
+plot-workspace-role = Ваша роль: { $arg0 }
+plot-workspace-ownership = Власність і видалення
+plot-workspace-id = ID ділянки: { $arg0 }
+plot-workspace-groups = Групи прав
+plot-workspace-permissions = Права дій
+plot-workspace-other-world = Спочатку перейдіть у світ цієї ділянки.
+
+plot-destination-titles = Заголовки прибуття
+plot-destination-title = Заголовок
+plot-destination-subtitle = Підзаголовок
+plot-destination-title-hint = Показуються після успішної телепортації. Підтримуються кольори, стилі та градієнти MiniMessage. Порожнє поле приховано; перегляд нічого не зберігає.
+plot-destination-title-preview = Повноекранний перегляд
+plot-destination-title-unset = Не задано
+plot-destination-title-save = Зберегти заголовки
+plot-destination-title-unchanged = Немає незбережених змін.
+plot-destination-title-apply = Застосувати до чернетки
+plot-destination-error-title = Заголовок має бути однорядковим: до 32 видимих символів і 512 символів вихідного тексту MiniMessage.
+plot-destination-error-subtitle = Підзаголовок має бути однорядковим: до 64 видимих символів і 512 символів вихідного тексту MiniMessage.

@@ -1,13 +1,17 @@
 package org.encinet.mik.shared.menu.runtime;
 
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
+import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.FloatingMenuAnimation;
-import org.encinet.mik.shared.menu.FloatingMenuNodeRole;
+import org.encinet.mik.shared.menu.ui.UiRole;
+import org.encinet.mik.shared.menu.ui.UiTextMetrics;
+import org.encinet.mik.shared.menu.ui.UiTheme;
+import org.encinet.mik.shared.menu.ui.UiBaseline;
+import org.encinet.mik.shared.menu.ui.UiFontMetrics;
+import org.encinet.mik.shared.menu.UiSceneContent;
 import org.encinet.mik.shared.menu.FloatingMenuSize;
 import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 import java.util.Objects;
 
@@ -23,106 +27,85 @@ final class FloatingMenuNodeSizing {
     private FloatingMenuNodeSizing() {
     }
 
-    static Measurement measure(FloatingMenuDefinition.Entry entry) {
+    static Measurement measure(MenuScene.Entry entry) {
         return measure(entry, 1.0);
     }
 
-    static Measurement measure(FloatingMenuDefinition.Entry entry,
+    static Measurement measure(MenuScene.Entry entry,
                                double typographyFactor) {
         return measure(entry, typographyFactor, FloatingMenuAnimation.DEFAULT.idleAmplitude());
     }
 
-    static Measurement measure(FloatingMenuDefinition.Entry entry,
+    static Measurement measure(MenuScene.Entry entry,
                                double typographyFactor, double idleAmplitude) {
+        return measure(entry, typographyFactor, idleAmplitude, 0);
+    }
+
+    static Measurement measure(MenuScene.Entry entry,
+                               double typographyFactor, double idleAmplitude, int widthPixels) {
         Objects.requireNonNull(entry, "entry");
         if (!Double.isFinite(typographyFactor) || typographyFactor <= 0.0) {
             throw new IllegalArgumentException("Typography factor must be positive and finite");
         }
-        TextLayout text = measureText(entry.label(), entry.role(), entry.interactive(),
-                entry.textWidth());
+        TextLayout text = widthPixels > 0
+                ? measureText(entry.label(), entry.interactive(), widthPixels)
+                : measureText(entry.label(), entry.role(), entry.interactive(), entry.textWidth());
+        return new Measurement(text, footprint(entry.style(), text, typographyFactor, idleAmplitude));
+    }
+
+    static FloatingMenuSize footprint(org.encinet.mik.shared.menu.FloatingMenuElementStyle style, TextLayout text,
+                                      double typographyFactor, double idleAmplitude) {
         FloatingMenuSize renderedText = scaled(text.size(), typographyFactor);
-        FloatingMenuSize footprint = switch (entry.style()) {
-            case TEXT -> renderedText;
-            case ITEM -> FloatingMenuNodeGeometry.visualFootprint(renderedText, 0.58);
-            case BLOCK -> FloatingMenuNodeGeometry.blockFootprint(renderedText, idleAmplitude);
-        };
-        return new Measurement(text, footprint);
+        return FloatingMenuNodeGeometry.footprint(style, renderedText, idleAmplitude);
     }
 
     private static FloatingMenuSize scaled(FloatingMenuSize size, double factor) {
         return new FloatingMenuSize(size.width() * factor, size.height() * factor);
     }
 
-    static TextLayout measureText(Component component, FloatingMenuNodeRole role,
+    static TextLayout measureText(Component component, UiRole role,
                                   boolean interactive) {
         return measureText(component, role, interactive, FloatingMenuTextWidth.AUTO);
     }
 
-    static TextLayout measureText(Component component, FloatingMenuNodeRole role,
+    static TextLayout measureText(Component component, UiRole role,
                                   boolean interactive, FloatingMenuTextWidth textWidth) {
-        String plain = PlainTextComponentSerializer.plainText().serialize(
-                Objects.requireNonNull(component, "component"));
         int automaticWidth = switch (Objects.requireNonNull(role, "role")) {
-            case INFORMATION -> 160;
-            case CONTROL -> 128;
+            case TEXT, HEADING, STATUS -> 160;
+            case ACTION, CHOICE -> 128;
             case NAVIGATION -> 104;
-            case ITEM, BLOCK -> 112;
         };
         int lineWidth = Objects.requireNonNull(textWidth, "textWidth")
                 .resolve(automaticWidth);
-        WrappedText wrapped = wrap(plain, lineWidth);
+        return measureText(component, interactive, lineWidth);
+    }
+
+    static TextLayout measureText(Component component, boolean interactive, int lineWidth) {
+        UiTextMetrics.Extent wrapped = UiTextMetrics.measure(component, lineWidth);
         double width = wrapped.widthPixels() * TEXT_PIXEL_SIZE + HORIZONTAL_PADDING;
-        double height = wrapped.lines() * LINE_HEIGHT_PIXELS * TEXT_PIXEL_SIZE
-                + VERTICAL_PADDING;
         double minimumWidth = interactive ? 0.62 : 0.34;
-        double minimumHeight = interactive ? 0.42 : 0.28;
-        FloatingMenuSize size = new FloatingMenuSize(
-                Math.max(minimumWidth, width), Math.max(minimumHeight, height));
+        double minimumHeight = interactive ? UiTheme.CONTROL_MIN_HEIGHT.value()*UiSceneContent.WORLD_PER_UI : 0.28;
+        FloatingMenuSize size = new FloatingMenuSize(Math.max(minimumWidth, width),
+                Math.max(minimumHeight, wrapped.lines() * LINE_HEIGHT_PIXELS * TEXT_PIXEL_SIZE + VERTICAL_PADDING));
         return new TextLayout(lineWidth, wrapped.widthPixels(), wrapped.lines(), size);
     }
 
-    private static WrappedText wrap(String text, int lineWidth) {
-        int lines = 1;
-        int currentWidth = 0;
-        int maximumWidth = 0;
-        for (int offset = 0; offset < text.length();) {
-            int codePoint = text.codePointAt(offset);
-            offset += Character.charCount(codePoint);
-            if (codePoint == '\n') {
-                maximumWidth = Math.max(maximumWidth, currentWidth);
-                currentWidth = 0;
-                lines++;
-                continue;
-            }
-            int glyphWidth = glyphWidth(codePoint);
-            if (currentWidth > 0 && currentWidth + glyphWidth > lineWidth) {
-                maximumWidth = Math.max(maximumWidth, currentWidth);
-                currentWidth = glyphWidth;
-                lines++;
-            } else {
-                currentWidth += glyphWidth;
-            }
-        }
-        maximumWidth = Math.max(maximumWidth, currentWidth);
-        return new WrappedText(Math.max(1, maximumWidth), lines);
+    static int textWidthPixels(double availableWidth, double textScale) {
+        // Match the compiler's UI-space fit tolerance at exact glyph boundaries.
+        // A one-ulp contraction must not turn every explicit line into two lines.
+        double tolerance = 1e-6 * UiSceneContent.WORLD_PER_UI;
+        return (int) Math.floor(((availableWidth + tolerance) / textScale - HORIZONTAL_PADDING) / TEXT_PIXEL_SIZE);
     }
 
-    private static int glyphWidth(int codePoint) {
-        int type = Character.getType(codePoint);
-        if (type == Character.NON_SPACING_MARK
-                || type == Character.COMBINING_SPACING_MARK
-                || type == Character.ENCLOSING_MARK) {
-            return 0;
-        }
-        if (codePoint == ' ') return 4;
-        if (codePoint == '\t') return 8;
-        if (codePoint < 128) {
-            if ("il.,:;!|'`".indexOf(codePoint) >= 0) return 2;
-            if ("[](){}tfrI".indexOf(codePoint) >= 0) return 4;
-            if ("mwMW@#%&".indexOf(codePoint) >= 0) return 7;
-            return 6;
-        }
-        return 9;
+    static UiBaseline baseline(TextLayout text, double textScale, double heightUi) {
+        double pixel = TEXT_PIXEL_SIZE * textScale / UiSceneContent.WORLD_PER_UI;
+        double top = (heightUi - text.renderedHeight() * textScale / UiSceneContent.WORLD_PER_UI) / 2;
+        double first = top + UiFontMetrics.ASCENT_ESTIMATE * pixel;
+        return new UiBaseline(first, first + (text.lines() - 1) * LINE_HEIGHT_PIXELS * pixel);
+    }
+
+    static int textLines(double availableHeight, double textScale) {
+        return (int) Math.floor((availableHeight / textScale - VERTICAL_PADDING) / (LINE_HEIGHT_PIXELS * TEXT_PIXEL_SIZE));
     }
 
     record Measurement(TextLayout text, FloatingMenuSize footprint) {
@@ -159,6 +142,4 @@ final class FloatingMenuNodeSizing {
         }
     }
 
-    private record WrappedText(int widthPixels, int lines) {
-    }
 }

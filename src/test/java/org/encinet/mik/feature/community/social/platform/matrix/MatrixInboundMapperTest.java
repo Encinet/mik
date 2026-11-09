@@ -67,7 +67,7 @@ class MatrixInboundMapperTest {
         MatrixPlatformConfig config = config();
         HttpClient httpClient = HttpClient.newHttpClient();
         MatrixInboundMapper mapper = new MatrixInboundMapper(config,
-                new MatrixClient(httpClient, config), message -> {
+                new MatrixClient(httpClient, config), _ -> {
                     throw new AssertionError("ignored event reached the host");
                 });
 

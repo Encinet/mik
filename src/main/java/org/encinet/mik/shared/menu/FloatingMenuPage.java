@@ -10,12 +10,12 @@ public record FloatingMenuPage(int index, int itemCount, int pageSize) {
         index = Math.clamp(index, 0, Math.max(0, (itemCount - 1) / pageSize));
     }
 
-    public int count() { return Math.max(1, (itemCount + pageSize - 1) / pageSize); }
+    public int count() { return itemCount == 0 ? 1 : (itemCount - 1) / pageSize + 1; }
     public boolean hasPrevious() { return index > 0; }
     public boolean hasNext() { return index + 1 < count(); }
     public FloatingMenuPage previous() { return new FloatingMenuPage(index - 1, itemCount, pageSize); }
     public FloatingMenuPage next() { return new FloatingMenuPage(index + 1, itemCount, pageSize); }
     public int fromIndex() { return index * pageSize; }
-    public int toIndex() { return Math.min(itemCount, fromIndex() + pageSize); }
+    public int toIndex() { return (int) Math.min(itemCount, (long) fromIndex() + pageSize); }
     public <T> List<T> slice(List<T> items) { return items.subList(fromIndex(), toIndex()); }
 }

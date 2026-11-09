@@ -1,7 +1,6 @@
 package org.encinet.mik.feature.community.ai.conversation;
 
 import com.google.gson.JsonObject;
-import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.encinet.mik.feature.community.ai.api.AiRequestException;
@@ -115,7 +114,7 @@ public final class AiConversationService implements AutoCloseable {
         } catch (RuntimeException error) {
             request = CompletableFuture.failedFuture(error);
         }
-        return request.whenComplete((ignored, error) -> {
+        return request.whenComplete((_, _) -> {
             capacity.release();
             activeConversations.remove(conversationId);
         });
@@ -293,7 +292,7 @@ public final class AiConversationService implements AutoCloseable {
         }
         synchronized (historiesLock) {
             Deque<AiChatMessage> history = histories.computeIfAbsent(
-                    conversationId, ignored -> new ArrayDeque<>());
+                    conversationId, _ -> new ArrayDeque<>());
             history.addLast(AiChatMessage.user(question));
             history.addLast(AiChatMessage.assistant(answer));
             while (history.size() > maximum) {

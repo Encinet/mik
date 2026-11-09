@@ -31,7 +31,7 @@ class KnowledgeLearningServiceTest {
     void extractsAndCuratesStandaloneKnowledgeWithEvidenceBackedSources() throws Exception {
         AiConfig config = config();
         AtomicInteger calls = new AtomicInteger();
-        AiCompletionClient client = (messages, tools) -> {
+        AiCompletionClient client = (messages, _) -> {
             if (calls.getAndIncrement() == 0) {
                 assertTrue(messages.getFirst().content().contains("post-answer knowledge extractor"));
                 assertTrue(messages.getLast().content().contains(
@@ -83,7 +83,7 @@ class KnowledgeLearningServiceTest {
     void privateMemoryTurnsCannotProducePublicKnowledge() throws Exception {
         AiConfig config = config();
         UUID owner = UUID.randomUUID();
-        AiCompletionClient client = (messages, tools) ->
+        AiCompletionClient client = (_, _) ->
                 java.util.concurrent.CompletableFuture.completedFuture(
                         AiChatMessage.assistant(null, List.of(new AiToolCall(
                                 "extract", "submit_learning_candidates", """

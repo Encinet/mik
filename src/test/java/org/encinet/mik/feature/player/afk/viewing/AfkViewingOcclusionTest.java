@@ -69,7 +69,7 @@ class AfkViewingOcclusionTest {
     private static World world(boolean loaded, List<RayTraceResult> hits, AtomicInteger rays) {
         ArrayDeque<RayTraceResult> remaining = new ArrayDeque<>(hits);
         return (World) Proxy.newProxyInstance(World.class.getClassLoader(), new Class<?>[]{World.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "isChunkLoaded" -> loaded;
                     case "rayTraceBlocks" -> {
                         rays.incrementAndGet();
@@ -81,7 +81,7 @@ class AfkViewingOcclusionTest {
 
     private static RayTraceResult hit(Material material, BoundingBox bounds) {
         Block block = (Block) Proxy.newProxyInstance(Block.class.getClassLoader(), new Class<?>[]{Block.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getType" -> material;
                     case "getBoundingBox" -> bounds;
                     default -> null;

@@ -38,6 +38,10 @@ dependencies:
       required: false
       join-classpath: true
   server:
+    Pl3xMap:
+      load: BEFORE
+      required: false
+      join-classpath: true
     DreamDisplays:
       load: BEFORE
       required: false

@@ -1,128 +1,74 @@
 package org.encinet.mik.shell.api;
 
 import org.junit.jupiter.api.Test;
-
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class WebLoginChallengeStoreTest {
-    @Test
-    void revokedAuthenticationCannotBeConsumedBeforeTheCleanupCallbackRuns() {
-        var valid = new AtomicBoolean(true);
-        var store = new WebLoginChallengeStore();
+    @Test void revokedAuthenticationCannotBeReadBeforeCleanupRuns() {
+        var valid = new AtomicBoolean(true); var store = new WebLoginChallengeStore();
         store.confirm("123456", UUID.randomUUID(), "Player", "moderator", valid::get);
-        valid.set(false);
-        assertNull(store.consume("123456"));
-        assertNull(store.find("123456"));
+        valid.set(false); assertNull(store.find("123456"));
     }
 
-    @Test
-    void changingCredentialsRevokesOnlyTheTargetsPendingWebConfirmations() {
-        var store = new WebLoginChallengeStore();
-        UUID changed = UUID.randomUUID();
-        UUID other = UUID.randomUUID();
+    @Test void changingCredentialsRevokesOnlyTheTargetsApprovals() {
+        var store = new WebLoginChallengeStore(); UUID changed = UUID.randomUUID(), other = UUID.randomUUID();
         store.confirm("123456", changed, "Changed", "moderator", () -> true);
         store.confirm("234567", changed, "Changed", "moderator", () -> true);
         store.confirm("345678", other, "Other", "member", () -> true);
-        store.invalidate(changed);
-        assertNull(store.find("123456"));
-        assertNull(store.consume("234567"));
-        assertEquals(other, store.consume("345678").playerUuid());
+        store.invalidate(changed); assertNull(store.find("123456")); assertNull(store.find("234567"));
+        assertEquals(other, store.find("345678").playerUuid());
     }
 
-    @Test
-    void confirmationExpiresAndReconfirmationReplacesConsumedState() {
-        AtomicLong time = new AtomicLong(1_000L);
-        WebLoginChallengeStore store = new WebLoginChallengeStore(time::get);
-        UUID firstPlayer = UUID.randomUUID();
-        UUID secondPlayer = UUID.randomUUID();
-
-        store.confirm("123456", firstPlayer, "First", "member", () -> true);
-        assertEquals(firstPlayer, store.consume("123456").playerUuid());
-        assertTrue(store.find("123456").consumed());
-
-        store.confirm("123456", secondPlayer, "Second", "custodian", () -> true);
-        assertEquals(secondPlayer, store.find("123456").playerUuid());
-        assertFalse(store.find("123456").consumed());
-
-        time.addAndGet(TimeUnit.MINUTES.toMillis(5));
-        assertNull(store.find("123456"));
-        assertNull(store.consume("123456"));
+    @Test void readsAreRetryableAndReconfirmationCannotSwitchAccountsOrExtendExpiry() {
+        var time = new AtomicLong(1000); var store = new WebLoginChallengeStore(time::get); UUID owner = UUID.randomUUID();
+        assertTrue(store.confirm("123456", owner, "First", "member", () -> true));
+        var approved = store.find("123456"); assertEquals(approved, store.find("123456"));
+        assertFalse(store.confirm("123456", UUID.randomUUID(), "Attacker", "member", () -> true));
+        time.addAndGet(TimeUnit.MINUTES.toMillis(4));
+        assertTrue(store.confirm("123456", owner, "Renamed", "custodian", () -> true));
+        assertEquals(approved, store.find("123456"));
+        time.addAndGet(TimeUnit.MINUTES.toMillis(1)); assertNull(store.find("123456"));
     }
 
-    @Test
-    void concurrentConsumptionConfirmsExactlyOneRequest() throws Exception {
-        WebLoginChallengeStore store = new WebLoginChallengeStore();
-        store.confirm("123456", UUID.randomUUID(), "Player", "member", () -> true);
-        CountDownLatch ready = new CountDownLatch(2);
-        CountDownLatch start = new CountDownLatch(1);
+    @Test void outstandingApprovalsAreBoundedPerAccount() {
+        var store = new WebLoginChallengeStore(); UUID owner = UUID.randomUUID();
+        for (int index = 0; index < 4; index++) assertTrue(store.confirm("12345" + index, owner, "Player", "member", () -> true));
+        assertFalse(store.confirm("123459", owner, "Player", "member", () -> true));
+        assertTrue(store.confirm("123459", UUID.randomUUID(), "Other", "member", () -> true));
+    }
 
+    @Test void simultaneousApprovalsCannotReplaceOneAnother() throws Exception {
+        var store = new WebLoginChallengeStore(); var start = new CountDownLatch(1);
         try (var executor = Executors.newFixedThreadPool(2)) {
-            var first = executor.submit(() -> {
-                ready.countDown();
-                start.await();
-                return store.consume("123456");
-            });
-            var second = executor.submit(() -> {
-                ready.countDown();
-                start.await();
-                return store.consume("123456");
-            });
-            assertTrue(ready.await(5, TimeUnit.SECONDS));
-            start.countDown();
-
-            WebLoginChallengeStore.Confirmation firstResult = first.get(5, TimeUnit.SECONDS);
-            WebLoginChallengeStore.Confirmation secondResult = second.get(5, TimeUnit.SECONDS);
-            assertNotNull(firstResult);
-            assertNotNull(secondResult);
-            assertEquals(1, (firstResult.consumed() ? 0 : 1)
-                    + (secondResult.consumed() ? 0 : 1));
-            assertTrue(store.find("123456").consumed());
+            var first = executor.submit(() -> { start.await(); return store.confirm("123456", UUID.randomUUID(), "First", "member", () -> true); });
+            var second = executor.submit(() -> { start.await(); return store.confirm("123456", UUID.randomUUID(), "Second", "member", () -> true); });
+            start.countDown(); assertNotEquals(first.get(5, TimeUnit.SECONDS), second.get(5, TimeUnit.SECONDS));
+            assertNotNull(store.find("123456"));
         }
     }
 
-    @Test
-    void expiredReadCannotDeleteAReplacementConfirmation() throws Exception {
-        AtomicLong time = new AtomicLong();
-        AtomicBoolean pauseNextRead = new AtomicBoolean();
-        CountDownLatch oldConfirmationRead = new CountDownLatch(1);
-        CountDownLatch replacementStored = new CountDownLatch(1);
-        WebLoginChallengeStore store = new WebLoginChallengeStore(() -> {
-            if (pauseNextRead.compareAndSet(true, false)) {
-                oldConfirmationRead.countDown();
-                try {
-                    if (!replacementStored.await(5, TimeUnit.SECONDS)) {
-                        throw new AssertionError("replacement was not stored");
-                    }
-                } catch (InterruptedException error) {
-                    Thread.currentThread().interrupt();
-                    throw new AssertionError(error);
-                }
+    @Test void expiredReadCannotDeleteAReplacementApproval() throws Exception {
+        AtomicLong time = new AtomicLong(); AtomicBoolean pause = new AtomicBoolean();
+        var read = new CountDownLatch(1); var replaced = new CountDownLatch(1);
+        var store = new WebLoginChallengeStore(() -> {
+            if (pause.compareAndSet(true, false)) {
+                read.countDown();
+                try { if (!replaced.await(5, TimeUnit.SECONDS)) throw new AssertionError("replacement missing"); }
+                catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new AssertionError(error); }
             }
             return time.get();
         });
         store.confirm("123456", UUID.randomUUID(), "Old", "member", () -> true);
-
         try (var executor = Executors.newSingleThreadExecutor()) {
-            pauseNextRead.set(true);
-            var staleRead = executor.submit(() -> store.find("123456"));
-            assertTrue(oldConfirmationRead.await(5, TimeUnit.SECONDS));
-            time.set(TimeUnit.MINUTES.toMillis(5));
-            store.confirm("123456", UUID.randomUUID(), "New", "member", () -> true);
-            replacementStored.countDown();
-
-            assertNull(staleRead.get(5, TimeUnit.SECONDS));
-            assertEquals("New", store.find("123456").playerName());
+            pause.set(true); var stale = executor.submit(() -> store.find("123456")); assertTrue(read.await(5, TimeUnit.SECONDS));
+            time.set(TimeUnit.MINUTES.toMillis(5)); store.confirm("123456", UUID.randomUUID(), "New", "member", () -> true);
+            replaced.countDown(); assertNull(stale.get(5, TimeUnit.SECONDS)); assertEquals("New", store.find("123456").playerName());
         }
     }
 }

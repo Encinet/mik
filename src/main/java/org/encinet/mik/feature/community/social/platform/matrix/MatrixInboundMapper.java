@@ -43,7 +43,7 @@ final class MatrixInboundMapper {
         List<SocialMessageReferences.MentionSpan> mentionSpans =
                 leadingBody.mentions().stream()
                         .map(mention -> identity(mention.member())
-                                .filter(identity -> !mention.member().userId()
+                                .filter(_ -> !mention.member().userId()
                                         .equals(botUserId))
                                 .map(identity -> {
                                     mentions.putIfAbsent(identity.key(), identity);

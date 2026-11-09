@@ -70,7 +70,7 @@ final class AnnouncementSeenStore {
 
     long positionOrStartAt(UUID playerId, long latestTimestamp) {
         requireLoaded();
-        return seenUntil.computeIfAbsent(playerId, ignored -> latestTimestamp);
+        return seenUntil.computeIfAbsent(playerId, _ -> latestTimestamp);
     }
 
     void markSeenThrough(UUID playerId, long timestamp) {

@@ -9,7 +9,7 @@ public final class LimitedHttpBody {
     }
 
     public static HttpResponse.BodyHandler<byte[]> bytes(int maximumBytes) {
-        return ignored -> HttpResponse.BodySubscribers.mapping(
+        return _ -> HttpResponse.BodySubscribers.mapping(
                 HttpResponse.BodySubscribers.ofInputStream(), input -> {
                     try (input) {
                         byte[] body = input.readNBytes(maximumBytes + 1);

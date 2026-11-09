@@ -7,15 +7,11 @@ import net.quickwrite.fluent4j.container.FluentBundle;
 import net.quickwrite.fluent4j.container.FluentBundleBuilder;
 import net.quickwrite.fluent4j.container.FluentResource;
 import net.quickwrite.fluent4j.impl.container.FluentResolverScope;
-import net.quickwrite.fluent4j.iterator.FluentIteratorFactory;
-import net.quickwrite.fluent4j.parser.ResourceParserBuilder;
 import net.quickwrite.fluent4j.result.ResultBuilder;
 import net.quickwrite.fluent4j.result.StringResultFactory;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -24,7 +20,6 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class LanguageResourcesTest {
@@ -47,7 +42,7 @@ class LanguageResourcesTest {
     private static final Set<String> ARGUMENT_MARKERS = Set.of(
             "__MIK_ARG0__", "__MIK_ARG1__", "__MIK_ARG2__", "__MIK_ARG3__", "__MIK_ARG4__",
             "__MIK_ARG5__", "__MIK_ARG6__", "__MIK_ARG7__",
-            "__MIK_CLIENT_VERSION__", "__MIK_COMMAND__", "__MIK_COUNT__", "__MIK_DAYS__", "__MIK_DISTANCE__", "__MIK_DURATION__",
+            "__MIK_CHAT_KEY__", "__MIK_CLIENT_VERSION__", "__MIK_COMMAND__", "__MIK_COUNT__", "__MIK_DAYS__", "__MIK_DISTANCE__", "__MIK_DURATION__",
             "__MIK_HOME__", "__MIK_HOMES__", "__MIK_KEYWORD__", "__MIK_LABEL__",
             "__MIK_LOCATION__", "__MIK_MAX__", "__MIK_MSPT__", "__MIK_MUSIC__",
             "__MIK_MOD__", "__MIK_MODS__", "__MIK_ONLINE__", "__MIK_PING__", "__MIK_PLAYER__", "__MIK_RADIUS__", "__MIK_REMAINING__",
@@ -75,6 +70,7 @@ class LanguageResourcesTest {
                 .add("arg5", "__MIK_ARG5__")
                 .add("arg6", "__MIK_ARG6__")
                 .add("arg7", "__MIK_ARG7__")
+                .add("chatKey", "__MIK_CHAT_KEY__")
                 .add("clientVersion", "__MIK_CLIENT_VERSION__")
                 .add("cause", "OTHER")
                 .add("command", "__MIK_COMMAND__")
@@ -176,19 +172,11 @@ class LanguageResourcesTest {
     }
 
     private FluentResource resource(Language language) throws IOException {
-        String resourcePath = "lang/" + language.id() + ".ftl";
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
-            assertNotNull(input, () -> "Missing language resource " + resourcePath);
-            String source = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-            return ResourceParserBuilder.defaultParser().parse(FluentIteratorFactory.fromString(source));
-        }
+        return FluentTestSupport.resource(language);
     }
 
     private FluentBundle bundle(Language language) throws IOException {
-        return FluentBundleBuilder.builder(language.locale())
-                .addResource(resource(language))
-                .addDefaultFunctions()
-                .build();
+        return FluentTestSupport.bundle(language);
     }
 
     private String resolve(

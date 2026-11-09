@@ -83,7 +83,9 @@ public class MaintenanceModule implements Listener {
             return;
         }
 
-        event.kickMessage(kickMessage());
+        Language language = languageService.language(playerProfile.getId(),
+                event.getConnection().getClientAddress().getAddress());
+        event.kickMessage(languageService.text(language, Message.MAINTENANCE_KICK, NamedTextColor.RED));
     }
 
     private int sendMaintenanceStatus(CommandSender sender) {
@@ -149,14 +151,6 @@ public class MaintenanceModule implements Listener {
 
     public void setMaintenanceEnabled(boolean maintenanceEnabled) {
         this.maintenanceEnabled = maintenanceEnabled;
-    }
-
-    private Component kickMessage() {
-        return Component.text()
-                .append(Component.text("服务器维护中", NamedTextColor.RED))
-                .append(Component.newline())
-                .append(Component.text("Server is under maintenance", NamedTextColor.GRAY))
-                .build();
     }
 
     private static PlayerProfile playerProfile(PlayerConnectionValidateLoginEvent event) {

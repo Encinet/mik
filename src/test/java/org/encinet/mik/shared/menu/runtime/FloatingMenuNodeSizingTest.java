@@ -1,29 +1,64 @@
 package org.encinet.mik.shared.menu.runtime;
 
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuNodeRole;
+import org.encinet.mik.shared.menu.MenuScene;
+import org.encinet.mik.shared.menu.ui.UiRole;
 import org.encinet.mik.shared.menu.FloatingMenuScale;
 import org.encinet.mik.shared.menu.FloatingMenuPreferences;
 import org.encinet.mik.shared.menu.FloatingMenuTextScale;
 import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.entry;
+
 class FloatingMenuNodeSizingTest {
+
+    @Test
+    void defaultFontAdvancesIncludeThePreviouslyUnderestimatedLatinGlyphs() {
+        // Advances from the 26.3 default bitmap font: r=6, f=5, l=3, `=3, ~=7.
+        var text = FloatingMenuNodeSizing.measureText(Component.text("rfl`~"), false, 100);
+        assertEquals(24, text.renderedWidthPixels());
+    }
+
+    @Test
+    void inheritedBoldAndExplicitResetsParticipateInWidthAndWrapping() {
+        var inherited = Component.text("A").decorate(TextDecoration.BOLD)
+                .append(Component.text("B"))
+                .append(Component.text("C").decoration(TextDecoration.BOLD, false));
+        assertEquals(20, FloatingMenuNodeSizing.measureText(inherited, false, 100).renderedWidthPixels());
+        assertEquals(1, FloatingMenuNodeSizing.measureText(Component.text("AAAAAAA"), false, 42).lines());
+        assertEquals(2, FloatingMenuNodeSizing.measureText(
+                Component.text("AAAAAAA").decorate(TextDecoration.BOLD), false, 42).lines());
+    }
+
+    @Test
+    void wrappingUsesWordBoundariesAndKeepsTheWholeClientLineWidthInsideTheSurface() {
+        var text = FloatingMenuNodeSizing.measureText(Component.text("AA AA AA"), false, 24);
+        // The client keeps each word intact: hard-wrapping characters incorrectly predicts two lines.
+        assertEquals(3, text.lines());
+        assertEquals(24, text.renderedWidthPixels());
+        assertEquals(24 * .025 * FloatingMenuNodeSizing.TEXT_SCALE, text.contentWidth(), 1e-6);
+        assertTrue(text.size().width() > text.contentWidth());
+        assertEquals(1, FloatingMenuNodeSizing.measureText(Component.text("AA "), false, 12).lines());
+        assertEquals(2, FloatingMenuNodeSizing.measureText(Component.text("AA\n"), false, 12).lines());
+        assertEquals(2, FloatingMenuNodeSizing.measureText(Component.text("中文"), false, 1).lines());
+        assertEquals(9, FloatingMenuNodeSizing.measureText(Component.text("中文"), false, 1).renderedWidthPixels());
+    }
 
     @Test
     void explicitAndAutomaticLineBreaksIncreaseMeasuredHeight() {
         var shortText = FloatingMenuNodeSizing.measureText(
-                Component.text("short"), FloatingMenuNodeRole.CONTROL, true);
+                Component.text("short"), UiRole.ACTION, true);
         var explicitLines = FloatingMenuNodeSizing.measureText(
-                Component.text("first\nsecond"), FloatingMenuNodeRole.CONTROL, true);
+                Component.text("first\nsecond"), UiRole.ACTION, true);
         var wrapped = FloatingMenuNodeSizing.measureText(
                 Component.text("这是一段需要根据空间面板宽度自动换行的很长文本内容"),
-                FloatingMenuNodeRole.NAVIGATION, true);
+                UiRole.NAVIGATION, true);
 
         assertEquals(1, shortText.lines());
         assertEquals(2, explicitLines.lines());
@@ -35,9 +70,9 @@ class FloatingMenuNodeSizingTest {
     void informationCanUseWiderSurfacesThanNavigation() {
         Component text = Component.text("A moderately long piece of spatial information");
         var information = FloatingMenuNodeSizing.measureText(
-                text, FloatingMenuNodeRole.INFORMATION, false);
+                text, UiRole.TEXT, false);
         var navigation = FloatingMenuNodeSizing.measureText(
-                text, FloatingMenuNodeRole.NAVIGATION, true);
+                text, UiRole.NAVIGATION, true);
 
         assertTrue(information.lineWidthPixels() > navigation.lineWidthPixels());
         assertTrue(navigation.lines() >= information.lines());
@@ -48,9 +83,9 @@ class FloatingMenuNodeSizingTest {
         Component text = Component.text(
                 "AAAAAAAAAAAAAAAAAAAAAAAAA\nBBBBBBBBBBBBBBBBBBBBBBBBB");
         var automatic = FloatingMenuNodeSizing.measureText(
-                text, FloatingMenuNodeRole.CONTROL, true);
+                text, UiRole.ACTION, true);
         var wide = FloatingMenuNodeSizing.measureText(
-                text, FloatingMenuNodeRole.CONTROL, true, FloatingMenuTextWidth.WIDE);
+                text, UiRole.ACTION, true, FloatingMenuTextWidth.WIDE);
 
         assertEquals(168, wide.lineWidthPixels());
         assertTrue(wide.lines() < automatic.lines());
@@ -59,9 +94,9 @@ class FloatingMenuNodeSizingTest {
 
     @Test
     void readingScaleExpandsTextAndItsInteractiveFootprintTogether() {
-        FloatingMenuDefinition.Builder builder = FloatingMenuDefinition.builder();
+        MenuScene.Builder builder = MenuScene.builder();
         builder.control("readable", Component.text("Readable text"));
-        FloatingMenuDefinition.Entry entry = builder.build().entries().get("readable");
+        MenuScene.Entry entry = entry(builder.build(), "readable");
 
         var small = FloatingMenuNodeSizing.measure(entry,
                 new FloatingMenuPreferences(FloatingMenuScale.NORMAL, FloatingMenuTextScale.SMALL).typographyFactor());
@@ -78,9 +113,9 @@ class FloatingMenuNodeSizingTest {
 
     @Test
     void textAndItsClickAreaShareTheAdditionalTextMultiplierAcrossEveryMenuSize() {
-        var builder = FloatingMenuDefinition.builder();
+        var builder = MenuScene.builder();
         builder.control("text", Component.text("Independent text\nSecond line"));
-        var entry = builder.build().entries().get("text");
+        var entry = entry(builder.build(), "text");
         var normal = FloatingMenuNodeSizing.measure(entry);
         for (FloatingMenuScale layout : FloatingMenuScale.values()) {
             for (FloatingMenuTextScale text : FloatingMenuTextScale.values()) {

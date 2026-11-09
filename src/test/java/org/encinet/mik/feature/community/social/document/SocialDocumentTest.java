@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -12,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SocialDocumentTest {
     @Test
     void plainTextIncludesEveryBlockWithoutFormatting() {
-        SocialDocument document = SocialDocument.of("Status", SocialDocument.Tone.INFO,
+        SocialDocument document = SocialDocument.of(TRUSTED, "Status", SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("Running"),
                 SocialDocument.fields(
                         new SocialDocument.Field("Online", "2 / 20"),
@@ -38,24 +40,23 @@ class SocialDocumentTest {
 
                 Player skin: https://textures.minecraft.net/texture/abc""",
                 document.plainText());
-        assertEquals("", document.untrustedPlainText());
+        assertEquals(TRUSTED, document.moderation());
         assertSame(document, document.truncated(500));
     }
 
     @Test
-    void untrustedTextIsExplicitAndSeparateFromRenderedContent() {
-        SocialDocument document = SocialDocument.of("Status", SocialDocument.Tone.INFO,
-                        SocialDocument.paragraph("Trusted system text"))
-                .withUntrustedText("PlayerOne", "PlayerTwo", "PlayerOne");
+    void moderationPolicySurvivesLocalizationAndTruncation() {
+        SocialDocument document = SocialDocument.of(REQUIRED, "Status", SocialDocument.Tone.INFO,
+                        SocialDocument.paragraph("Trusted system text"));
 
         assertEquals("Status\n\nTrusted system text", document.plainText());
-        assertEquals("PlayerOne\nPlayerTwo", document.untrustedPlainText());
-        assertEquals(document.untrustedText(), document.truncated(100).untrustedText());
+        assertEquals(REQUIRED, document.localized(org.encinet.mik.shared.i18n.Language.JA_JP)
+                .truncated(16).moderation());
     }
 
     @Test
     void truncationIsUnicodeSafeAndBounded() {
-        SocialDocument document = SocialDocument.of("Profile", SocialDocument.Tone.INFO,
+        SocialDocument document = SocialDocument.of(TRUSTED, "Profile", SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("😀".repeat(200)));
         SocialDocument truncated = document.truncated(100);
 

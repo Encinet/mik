@@ -5,7 +5,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /** Immutable logical state shared with protection and edit threads. */
-public record Plot(UUID id, UUID world, UUID owner, String name, boolean publicProject,
+public record Plot(UUID id, UUID world, UUID owner, String name,
                    long createdAt, Set<PlotGeometry.Cell> cells, Map<UUID, Role> members,
                    Map<String, Boolean> flags, UUID parentId) {
     public enum Role { ADMIN, COLLABORATOR }

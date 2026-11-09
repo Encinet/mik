@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.player.pvp;
 
 import org.encinet.mik.shared.role.RolePermissions;
+import org.encinet.mik.shared.menu.MenuPanel;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -26,7 +27,6 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
 import org.encinet.mik.shared.util.PlayerDisplay;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -40,6 +40,7 @@ public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
     private final LanguageService languageService;
     private final PvpSettingsStore settingsStore;
     private final PvpOverrideRegistry overrideRegistry;
+    private final PvpStateResolver effectiveState;
     private final PvpCombatController combatController;
     private final PvpMenuController menuController;
 
@@ -48,17 +49,17 @@ public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
         this.languageService = languageService;
         this.settingsStore = new PvpSettingsStore(plugin);
         this.overrideRegistry = new PvpOverrideRegistry();
-        this.combatController = new PvpCombatController(plugin, languageService, settingsStore, this, tips,
+        this.effectiveState = new PvpEffectiveState(settingsStore, overrideRegistry);
+        this.combatController = new PvpCombatController(plugin, languageService, settingsStore, effectiveState, tips,
                 Bukkit::getPlayer);
         this.menuController = new PvpMenuController(
-                plugin, languageService, settingsStore, combatController, this);
+                languageService, settingsStore, combatController, effectiveState, Bukkit::getOnlinePlayers, Bukkit::getPlayer);
     }
 
     public void enable() {
         try {
             settingsStore.enable();
             combatController.enable();
-            menuController.enable();
             Bukkit.getPluginManager().registerEvents(this, plugin);
             plugin.getLogger().info("PvpModule enabled");
         } catch (RuntimeException | LinkageError error) {
@@ -72,9 +73,11 @@ public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
     }
 
     public void disable() {
-        HandlerList.unregisterAll(this);
-        menuController.disable();
-        combatController.disable();
+        var shutdown = new org.encinet.mik.shared.util.ShutdownSequence();
+        shutdown.attempt("PVP menus", menuController::close);
+        shutdown.attempt("PVP combat", combatController::disable);
+        shutdown.attempt("PVP listener", () -> HandlerList.unregisterAll(this));
+        shutdown.finish("PVP module");
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -144,12 +147,12 @@ public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
                         .executes(ctx -> {
                             Player player = requirePlayer(ctx.getSource().getSender());
                             if (player != null) {
-                                openAdminMenu(player, 0);
+                                openAdminMenu(player);
                             }
                             return Command.SINGLE_SUCCESS;
                         })
                         .then(Commands.argument("player", StringArgumentType.word())
-                                .suggests((ctx, builder) -> {
+                                .suggests((_, builder) -> {
                                     String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
                                     Bukkit.getOnlinePlayers().stream()
                                             .map(Player::getName)
@@ -207,24 +210,54 @@ public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
-        overrideRegistry.clearAll(playerId);
-        settingsStore.invalidate(playerId);
+        var shutdown = new org.encinet.mik.shared.util.ShutdownSequence();
+        shutdown.attempt("PVP menus", () -> menuController.forget(playerId));
+        shutdown.attempt("PVP overrides", () -> overrideRegistry.clearAll(playerId));
+        shutdown.attempt("PVP settings cache", () -> settingsStore.invalidate(playerId));
+        shutdown.finish("PVP player " + playerId);
     }
 
     public void openMenu(Player player) {
         menuController.openMenu(player);
     }
 
+    public MenuPanel settingsPanel(Player player, Runnable redraw) {
+        return menuController.settingsPanel(player, redraw);
+    }
+
     public void openMenu(Player viewer, Player target) {
         menuController.openMenu(viewer, target);
     }
 
-    public void openAdminMenu(Player viewer, int requestedPage) {
-        menuController.openAdminMenu(viewer, requestedPage);
+    public void openAdminMenu(Player viewer) {
+        menuController.openAdminMenu(viewer);
     }
 
     public void togglePvp(Player player) {
         setPvp(player, !settingsStore.get(player.getUniqueId()).enabled());
+    }
+
+    /** The shortcut changes the live state; saved preferences remain available in settings. */
+    public Optional<Component> quickToggleDisabledReason(Player player) {
+        if (activeOverride(player).isPresent()) {
+            return Optional.of(Component.text(languageService.t(player, Message.PVP_QUICK_OVERRIDE),
+                    NamedTextColor.YELLOW));
+        }
+        UUID playerId = player.getUniqueId();
+        if (isEnabled(player) && isCombatTagged(playerId)) {
+            return Optional.of(Component.text(languageService.t(player, Message.PVP_QUICK_COMBAT_COOLDOWN,
+                    combatTagRemainingSeconds(playerId)), NamedTextColor.YELLOW));
+        }
+        return Optional.empty();
+    }
+
+    public void toggleQuickPvp(Player player) {
+        Optional<Component> reason = quickToggleDisabledReason(player);
+        if (reason.isPresent()) {
+            player.sendMessage(reason.get());
+            return;
+        }
+        togglePvp(player);
     }
 
     public void setPvp(Player player, boolean enabled) {
@@ -427,17 +460,17 @@ public class PvpModule implements Listener, PvpStateResolver, PvpAccess {
 
     @Override
     public boolean effectiveEnabled(UUID playerId) {
-        return effectiveEnabled(playerId, settingsStore.get(playerId).enabled());
+        return effectiveState.effectiveEnabled(playerId);
     }
 
     @Override
     public boolean effectiveEnabled(UUID playerId, boolean preference) {
-        return overrideRegistry.effectiveEnabled(playerId, preference);
+        return effectiveState.effectiveEnabled(playerId, preference);
     }
 
     @Override
     public boolean hasOverride(UUID playerId) {
-        return overrideRegistry.hasOverride(playerId);
+        return effectiveState.hasOverride(playerId);
     }
 
     @Override

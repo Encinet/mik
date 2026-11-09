@@ -128,7 +128,7 @@ class PlotRosterTest {
     }
 
     private static Plot plot(UUID owner, Map<UUID, Plot.Role> members, Map<String, Boolean> flags, UUID parent) {
-        return new Plot(UUID.randomUUID(), UUID.randomUUID(), owner, "Home", false, 0,
+        return new Plot(UUID.randomUUID(), UUID.randomUUID(), owner, "Home", 0,
                 Set.of(PlotGeometry.Cell.at(0, 64, 0)), members, flags, parent);
     }
 }

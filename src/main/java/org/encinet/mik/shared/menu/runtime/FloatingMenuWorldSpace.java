@@ -6,23 +6,47 @@ import org.bukkit.World;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
+import org.encinet.mik.shared.menu.runtime.space.MenuOcclusionGeometry;
+import org.encinet.mik.shared.menu.runtime.space.MenuBlockCollisionSnapshot;
+import org.encinet.mik.shared.menu.runtime.space.MenuOcclusionGeometry.Box;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 final class FloatingMenuWorldSpace {
-    private static final List<Vector> WORLD_AXES = List.of(
-            new Vector(1, 0, 0), new Vector(0, 1, 0), new Vector(0, 0, 1));
+    static final double MAX_TRACE_DISTANCE = 64;
     private final World world;
-    private final Map<BlockPosition, List<BoundingBox>> collisions = new HashMap<>();
+    private final Vector snapshotOrigin;
+    private final List<Box> entities;
+    private final MenuBlockCollisionSnapshot terrain;
 
     FloatingMenuWorldSpace(World world) {
         this.world = Objects.requireNonNull(world, "world");
+        this.terrain = new MenuBlockCollisionSnapshot(world);
+        this.snapshotOrigin = new Vector();
+        this.entities = List.of();
+    }
+
+    FloatingMenuWorldSpace(Location eye, List<Box> entities) {
+        this(eye, entities, new MenuBlockCollisionSnapshot(Objects.requireNonNull(eye.getWorld(), "world")));
+    }
+
+    private FloatingMenuWorldSpace(Location eye, List<Box> entities, MenuBlockCollisionSnapshot terrain) {
+        this.world = Objects.requireNonNull(eye.getWorld(), "world");
+        this.terrain = terrain;
+        this.snapshotOrigin = eye.toVector();
+        this.entities = List.copyOf(entities);
+    }
+
+    /** Parent and companion share the same loaded-block reads and placement budget, with their own eye-relative entities. */
+    FloatingMenuWorldSpace forCompanion(Location eye, List<Box> entities) {
+        if (!world.equals(eye.getWorld())) throw new IllegalArgumentException("A companion must share its parent's world");
+        return new FloatingMenuWorldSpace(eye, entities, terrain);
     }
 
     double firstHit(Location start, Vector direction, double distance) {
+        if (!Double.isFinite(distance) || distance < 0 || distance > MAX_TRACE_DISTANCE) return 0;
         if (!world.isChunkLoaded(start.getBlockX() >> 4, start.getBlockZ() >> 4)) return 0;
         double loadedDistance = distance;
         Vector end = start.toVector().add(direction.clone().multiply(distance));
@@ -43,70 +67,33 @@ final class FloatingMenuWorldSpace {
         if (loadedDistance <= 0) return 0;
         RayTraceResult hit = world.rayTraceBlocks(start, direction, loadedDistance,
                 FluidCollisionMode.NEVER, false);
-        return hit == null ? (loadedDistance < distance ? loadedDistance : Double.POSITIVE_INFINITY)
+        double blockDistance = hit == null ? (loadedDistance < distance ? loadedDistance : Double.POSITIVE_INFINITY)
                 : hit.getHitPosition().distance(start.toVector());
+        if (hit != null && !Double.isFinite(blockDistance)) return 0;
+        double result = Math.min(blockDistance, MenuOcclusionGeometry.firstHit(
+                start.toVector().subtract(snapshotOrigin), direction, loadedDistance, entities));
+        return Double.isNaN(result) ? 0 : result;
     }
 
-    boolean clearSurface(Vector center, Vector right, Vector up,
-                         double halfWidth, double halfHeight, double clearance) {
+    /** The whole eye-to-panel volume must be clear, including obstacles between all point probes. */
+    double limitSurface(Location eye, Vector center, Vector right, Vector up,
+                        double halfWidth, double halfHeight, double clearance) {
+        if (!entities.isEmpty() && snapshotOrigin.distanceSquared(eye.toVector()) > 1.0E-10)
+            throw new IllegalArgumentException("Entity obstacle snapshot belongs to a different eye position");
         Vector normal = right.clone().crossProduct(up).normalize();
-        Vector extent = absolute(right).multiply(halfWidth)
-                .add(absolute(up).multiply(halfHeight)).add(absolute(normal).multiply(clearance));
-        BoundingBox envelope = new BoundingBox(
-                center.getX() - extent.getX(), center.getY() - extent.getY(), center.getZ() - extent.getZ(),
-                center.getX() + extent.getX(), center.getY() + extent.getY(), center.getZ() + extent.getZ());
-        if (envelope.getMinY() < world.getMinHeight() || envelope.getMaxY() > world.getMaxHeight()) {
-            return false;
+        List<Vector> vertices = new ArrayList<>(9);
+        vertices.add(eye.toVector());
+        for (int corner = 0; corner < 8; corner++) {
+            vertices.add(center.clone().add(right.clone().multiply((corner & 1) == 0 ? -halfWidth : halfWidth))
+                    .add(up.clone().multiply((corner & 2) == 0 ? -halfHeight : halfHeight))
+                    .add(normal.clone().multiply((corner & 4) == 0 ? -clearance : clearance)));
         }
-        List<Vector> axes = List.of(right, up, normal);
-        double[] halfSizes = {halfWidth, halfHeight, clearance};
-        for (int blockX = (int) Math.floor(envelope.getMinX()); blockX <= Math.floor(envelope.getMaxX()); blockX++) {
-            for (int blockZ = (int) Math.floor(envelope.getMinZ()); blockZ <= Math.floor(envelope.getMaxZ()); blockZ++) {
-                if (!world.isChunkLoaded(blockX >> 4, blockZ >> 4)) return false;
-                for (int blockY = (int) Math.floor(envelope.getMinY()); blockY <= Math.floor(envelope.getMaxY()); blockY++) {
-                    BlockPosition position = new BlockPosition(blockX, blockY, blockZ);
-                    List<BoundingBox> boxes = collisions.computeIfAbsent(position, key ->
-                            world.getBlockAt(key.x(), key.y(), key.z()).getCollisionShape()
-                                    .getBoundingBoxes().stream()
-                                    .map(box -> box.clone().shift(key.x(), key.y(), key.z())).toList());
-                    for (BoundingBox box : boxes) {
-                        if (envelope.overlaps(box) && overlaps(center, axes, halfSizes, box)) return false;
-                    }
-                }
-            }
-        }
-        return true;
+        var blocks = terrain.capture(MenuOcclusionGeometry.bounds(vertices), eye.toVector());
+        if (!blocks.complete()) return 0;
+        List<Box> boxes = new ArrayList<>(entities);
+        boxes.addAll(blocks.boxes());
+        return MenuOcclusionGeometry.limit(center.clone().subtract(eye.toVector()), right, up,
+                halfWidth, halfHeight, clearance, boxes);
     }
 
-    private static boolean overlaps(Vector center, List<Vector> axes, double[] halfSizes, BoundingBox box) {
-        Vector delta = box.getCenter().subtract(center);
-        Vector boxHalf = new Vector(box.getWidthX() / 2, box.getHeight() / 2, box.getWidthZ() / 2);
-        for (Vector axis : WORLD_AXES) {
-            if (separated(axis, delta, axes, halfSizes, boxHalf)) return false;
-        }
-        for (Vector axis : axes) {
-            if (separated(axis, delta, axes, halfSizes, boxHalf)) return false;
-            for (Vector worldAxis : WORLD_AXES) {
-                Vector cross = axis.clone().crossProduct(worldAxis);
-                if (cross.lengthSquared() > 1.0E-10
-                        && separated(cross, delta, axes, halfSizes, boxHalf)) return false;
-            }
-        }
-        return true;
-    }
-
-    private static boolean separated(Vector axis, Vector delta, List<Vector> axes,
-                                     double[] halfSizes, Vector boxHalf) {
-        double radius = absolute(axis).dot(boxHalf);
-        for (int index = 0; index < axes.size(); index++) {
-            radius += Math.abs(axis.dot(axes.get(index))) * halfSizes[index];
-        }
-        return Math.abs(axis.dot(delta)) >= radius - 1.0E-8;
-    }
-
-    private static Vector absolute(Vector vector) {
-        return new Vector(Math.abs(vector.getX()), Math.abs(vector.getY()), Math.abs(vector.getZ()));
-    }
-
-    private record BlockPosition(int x, int y, int z) { }
 }

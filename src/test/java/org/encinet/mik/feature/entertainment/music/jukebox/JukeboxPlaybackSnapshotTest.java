@@ -8,7 +8,7 @@ class JukeboxPlaybackSnapshotTest {
 
     @Test
     void statusOnlyImplementationsRetainAZeroedPlaybackClock() {
-        JukeboxPlaybackStatus status = ignored -> PlaybackStatus.PLAYING;
+        JukeboxPlaybackStatus status = _ -> PlaybackStatus.PLAYING;
 
         assertEquals(new JukeboxPlaybackSnapshot(PlaybackStatus.PLAYING, 0L),
                 status.snapshot(null));

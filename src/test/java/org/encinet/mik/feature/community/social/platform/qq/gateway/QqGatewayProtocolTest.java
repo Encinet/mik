@@ -87,7 +87,7 @@ class QqGatewayProtocolTest {
                 """).orElseThrow();
         QqGatewayGroupMessage group = QqGatewayProtocol.groupMessage(frame).orElseThrow();
         SocialInboundMessage inbound = group.toInboundMessage(
-                "qq", "app-id", document -> java.util.concurrent.CompletableFuture.completedFuture(null));
+                "qq", "app-id", _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
 
         assertEquals("event-id", inbound.eventId());
         assertEquals("group-id", inbound.conversation().id());
@@ -122,7 +122,7 @@ class QqGatewayProtocolTest {
 
         QqGatewayGroupMessage group = QqGatewayProtocol.groupMessage(frame).orElseThrow();
         SocialInboundMessage inbound = group.toInboundMessage(
-                "qq", "app-id", document ->
+                "qq", "app-id", _ ->
                         java.util.concurrent.CompletableFuture.completedFuture(null));
 
         assertEquals("full-event-id", inbound.eventId());
@@ -171,7 +171,7 @@ class QqGatewayProtocolTest {
                 """).orElseThrow();
 
         SocialInboundMessage inbound = QqGatewayProtocol.groupMessage(frame).orElseThrow()
-                .toInboundMessage("qq", "app-id", ignored ->
+                .toInboundMessage("qq", "app-id", _ ->
                         java.util.concurrent.CompletableFuture.completedFuture(null));
 
         assertEquals("/我的 @Target",
@@ -211,7 +211,7 @@ class QqGatewayProtocolTest {
                 """).orElseThrow();
 
         SocialInboundMessage inbound = QqGatewayProtocol.groupMessage(frame).orElseThrow()
-                .toInboundMessage("qq", "app-id", ignored ->
+                .toInboundMessage("qq", "app-id", _ ->
                         java.util.concurrent.CompletableFuture.completedFuture(null));
 
         assertEquals("/我的 <@target-token>",

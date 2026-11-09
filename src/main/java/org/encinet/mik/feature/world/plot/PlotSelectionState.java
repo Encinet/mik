@@ -65,7 +65,7 @@ final class PlotSelectionState {
 
     void bindContext(UUID playerId, PlotEditorContext context, UUID world) {
         LinkedHashMap<PlotEditorContext, Draft> selections = drafts.computeIfAbsent(playerId,
-                ignored -> new LinkedHashMap<>(8, 0.75F, true));
+                _ -> new LinkedHashMap<>(8, 0.75F, true));
         Draft draft = selections.get(context);
         if (draft == null) {
             Draft unbound = context.subPlot() ? null : selections.remove(PlotEditorContext.area(null));
@@ -149,7 +149,7 @@ final class PlotSelectionState {
 
     private void store(UUID playerId, Draft draft) {
         LinkedHashMap<PlotEditorContext, Draft> selections = drafts.computeIfAbsent(playerId,
-                ignored -> new LinkedHashMap<>(8, 0.75F, true));
+                _ -> new LinkedHashMap<>(8, 0.75F, true));
         selections.put(context(playerId), draft);
         trim(selections);
     }

@@ -2,13 +2,49 @@ package org.encinet.mik.shared.menu.runtime;
 
 import org.encinet.mik.shared.menu.FloatingMenuPoint;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuAnimation;
 import org.encinet.mik.shared.menu.FloatingMenuRing;
+import org.encinet.mik.shared.menu.FloatingMenuPose;
+import org.encinet.mik.shared.menu.ui.UiRotation;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FloatingMenuMotionTest {
+    @Test void aRetargetedPoseConvergesToTheLatestPositionRotationAndScaleWithoutQueuingTheOldTarget() {
+        var current = FloatingMenuPose.transformed(FloatingMenuPoint.ORIGIN, UiRotation.degrees(0, 89, 0), 1);
+        var obsolete = FloatingMenuPose.transformed(new FloatingMenuPoint(4, 1, 2), UiRotation.degrees(0, 91, 175), 2);
+        for (int index = 0; index < 5; index++) current = FloatingMenuMotion.approachPose(current, obsolete, .25);
+        var latest = FloatingMenuPose.transformed(new FloatingMenuPoint(-2, 3, 1), UiRotation.degrees(45, -30, -175), .8);
+        for (int index = 0; index < 100; index++) current = FloatingMenuMotion.approachPose(current, latest, .25);
+        assertEquals(latest, current);
+    }
+
+    @Test void equivalentRollRepresentationsDoNotKeepAnOrbitAliveForever() {
+        var current = new FloatingMenuPose(new FloatingMenuPoint(0, 0, -4), 0, 0, 181, 1);
+        var target = new FloatingMenuPose(current.point(), 0, 0, -179, 1);
+        assertEquals(target, FloatingMenuMotion.approachOrbit(current, target, .3));
+    }
+    @Test void entryMotionIsBoundedAndReducedMotionKeepsTheFinalPlane() {
+        assertEquals(-.12, FloatingMenuMotion.entryDepth(0, FloatingMenuAnimation.DEFAULT));
+        assertEquals(-.06, FloatingMenuMotion.entryDepth(.5, FloatingMenuAnimation.DEFAULT), 1e-9);
+        assertEquals(0, FloatingMenuMotion.entryDepth(1, FloatingMenuAnimation.DEFAULT));
+        assertEquals(0, FloatingMenuMotion.entryDepth(5, FloatingMenuAnimation.DEFAULT));
+        assertEquals(-.12, FloatingMenuMotion.entryDepth(-5, FloatingMenuAnimation.DEFAULT));
+        for (double progress : new double[] {0, .2, .5, 1}) {
+            assertEquals(0, FloatingMenuMotion.entryDepth(progress, FloatingMenuAnimation.DEFAULT.reduced()));
+            assertEquals(0, FloatingMenuMotion.entryDepth(progress, FloatingMenuAnimation.PLANAR));
+        }
+    }
+    @Test void fullyTransparentOrInsufficientlyRevealedContentCannotReceiveInput() {
+        assertFalse(FloatingMenuMotion.inputReady(1, 0));
+        assertFalse(FloatingMenuMotion.inputReady(0, 1));
+        assertFalse(FloatingMenuMotion.inputReady(0.2, 0.5));
+        assertTrue(FloatingMenuMotion.inputReady(0.4, 0.5));
+        assertTrue(FloatingMenuMotion.inputReady(1, 1));
+    }
     @Test
     void trackingDecorationsNeverRetractTowardTheSceneOrigin() {
         for (double progress : new double[] {0, 0.2, 0.5, 1, 1.12}) {
@@ -36,9 +72,9 @@ class FloatingMenuMotionTest {
     }
 
     @Test
-    void revealOpacityAvoidsTheLowestAlphaValuesAndPreservesUnsignedFullOpacity() {
-        assertEquals(4, Byte.toUnsignedInt(FloatingMenuMotion.textOpacity(0)));
-        assertEquals(4, Byte.toUnsignedInt(FloatingMenuMotion.textOpacity(0.005)));
+    void revealOpacitySupportsFullyHiddenContentAndUnsignedFullOpacity() {
+        assertEquals(0, Byte.toUnsignedInt(FloatingMenuMotion.textOpacity(0)));
+        assertEquals(1, Byte.toUnsignedInt(FloatingMenuMotion.textOpacity(0.005)));
         assertEquals(128, Byte.toUnsignedInt(FloatingMenuMotion.textOpacity(0.5)));
         assertEquals(255, Byte.toUnsignedInt(FloatingMenuMotion.textOpacity(1.12)));
     }

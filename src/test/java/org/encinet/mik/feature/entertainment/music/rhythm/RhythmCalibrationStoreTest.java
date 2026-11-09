@@ -40,7 +40,7 @@ class RhythmCalibrationStoreTest {
 
     private static Plugin plugin() {
         return (Plugin) Proxy.newProxyInstance(Plugin.class.getClassLoader(),
-                new Class<?>[]{Plugin.class}, (proxy, method, args) -> {
+                new Class<?>[]{Plugin.class}, (_, method, _) -> {
                     if (method.getName().equals("getName")
                             || method.getName().equals("namespace")) return "mik";
                     throw new UnsupportedOperationException(method.getName());
@@ -49,7 +49,7 @@ class RhythmCalibrationStoreTest {
 
     private static Player player(PersistentDataContainer data) {
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[]{Player.class}, (proxy, method, args) -> {
+                new Class<?>[]{Player.class}, (_, method, _) -> {
                     if (method.getName().equals("getPersistentDataContainer")) return data;
                     throw new UnsupportedOperationException(method.getName());
                 });
@@ -58,7 +58,7 @@ class RhythmCalibrationStoreTest {
     private static PersistentDataContainer data(Map<NamespacedKey, Integer> values) {
         return (PersistentDataContainer) Proxy.newProxyInstance(
                 PersistentDataContainer.class.getClassLoader(),
-                new Class<?>[]{PersistentDataContainer.class}, (proxy, method, args) -> {
+                new Class<?>[]{PersistentDataContainer.class}, (_, method, args) -> {
                     return switch (method.getName()) {
                         case "get" -> values.get(args[0]);
                         case "set" -> {

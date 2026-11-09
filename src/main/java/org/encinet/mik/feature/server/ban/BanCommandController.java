@@ -49,7 +49,7 @@ final class BanCommandController {
     private final BanService banService;
     private final BanMessageRenderer renderer;
     private final BanAnnouncementBroadcaster announcementBroadcaster;
-    private final BanDialogController dialogController;
+    private final BanMenu banMenu;
 
     BanCommandController(
             JavaPlugin plugin,
@@ -58,7 +58,7 @@ final class BanCommandController {
             BanService banService,
             BanMessageRenderer renderer,
             BanAnnouncementBroadcaster announcementBroadcaster,
-            BanDialogController dialogController
+            BanMenu banMenu
     ) {
         this.plugin = plugin;
         this.languageService = languageService;
@@ -66,14 +66,14 @@ final class BanCommandController {
         this.banService = banService;
         this.renderer = renderer;
         this.announcementBroadcaster = announcementBroadcaster;
-        this.dialogController = dialogController;
+        this.banMenu = banMenu;
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             event.registrar().register(Commands.literal("ban")
                             .requires(source -> canManageBans(source.getSender()))
-                            .executes(this::openBanDialog)
+                            .executes(this::openBanMenu)
                             .then(Commands.literal("add")
                                     .then(Commands.argument("player", StringArgumentType.word())
                                             .suggests(bannablePlayerSuggestions())
@@ -134,13 +134,13 @@ final class BanCommandController {
         return RolePermissions.canModerate(sender);
     }
 
-    private int openBanDialog(CommandContext<CommandSourceStack> context) {
+    private int openBanMenu(CommandContext<CommandSourceStack> context) {
         CommandSender sender = context.getSource().getSender();
         if (!(sender instanceof Player player)) {
             sender.sendMessage(error(sender, Message.PLAYER_ONLY));
             return 0;
         }
-        dialogController.open(player);
+        banMenu.open(player);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -202,13 +202,13 @@ final class BanCommandController {
         String command = "/ban add " + playerName + " " + severity.id() + " --confirm " + reason;
         Component confirmButton = Component.text()
                 .append(Component.text("[", NamedTextColor.DARK_GRAY))
-                .append(Component.text(t(sender, Message.BAN_DIALOG_NEVER_JOINED_CONFIRM_ACTION),
+                .append(Component.text(t(sender, Message.BAN_MENU_NEVER_JOINED_CONFIRM_ACTION),
                         NamedTextColor.RED, TextDecoration.BOLD))
                 .append(Component.text("]", NamedTextColor.DARK_GRAY))
                 .clickEvent(ClickEvent.runCommand(command))
                 .hoverEvent(HoverEvent.showText(Component.text(command, NamedTextColor.GRAY)))
                 .build();
-        sender.sendMessage(Component.text(t(sender, Message.BAN_DIALOG_NEVER_JOINED_WARNING, playerName),
+        sender.sendMessage(Component.text(t(sender, Message.BAN_MENU_NEVER_JOINED_WARNING, playerName),
                         NamedTextColor.RED)
                 .appendNewline()
                 .append(confirmButton)
@@ -263,7 +263,7 @@ final class BanCommandController {
             BanRecord updated = banService.editSeverity(
                     identity.uuid(), identity.name(), severity, sender.getName());
             sender.sendMessage(Component.text(t(sender, Message.BAN_UPDATE_SUCCESS,
-                    updated.playerName(), t(sender, Message.BAN_DIALOG_CONFIRM_SEVERITY)), NamedTextColor.GREEN));
+                    updated.playerName(), t(sender, Message.BAN_MENU_CONFIRM_SEVERITY)), NamedTextColor.GREEN));
             return Command.SINGLE_SUCCESS;
         } catch (BanServiceException e) {
             return serviceError(sender, identity.name(), e);
@@ -410,17 +410,17 @@ final class BanCommandController {
     }
 
     private SuggestionProvider<CommandSourceStack> activePlayerSuggestions() {
-        return (context, builder) -> suggest(builder,
+        return (_, builder) -> suggest(builder,
                 banService.activeRecords().stream().map(BanRecord::playerName).toList());
     }
 
     private SuggestionProvider<CommandSourceStack> knownPlayerSuggestions() {
-        return (context, builder) -> suggest(builder,
+        return (_, builder) -> suggest(builder,
                 banService.allRecords().stream().map(BanRecord::playerName).distinct().toList());
     }
 
     private SuggestionProvider<CommandSourceStack> bannablePlayerSuggestions() {
-        return (context, builder) -> {
+        return (_, builder) -> {
             List<String> playerNames = new ArrayList<>();
             Bukkit.getOnlinePlayers().stream().map(Player::getName).forEach(playerNames::add);
             banService.allRecords().stream().map(BanRecord::playerName)
@@ -439,7 +439,7 @@ final class BanCommandController {
     }
 
     private SuggestionProvider<CommandSourceStack> severitySuggestions() {
-        return (context, builder) -> suggest(builder,
+        return (_, builder) -> suggest(builder,
                 Arrays.stream(BanSeverity.values()).map(BanSeverity::id).toList());
     }
 

@@ -107,16 +107,18 @@ final class PlotRepository implements AutoCloseable {
             s.execute("PRAGMA journal_mode=WAL");
             s.execute("PRAGMA busy_timeout=5000");
             s.execute("PRAGMA foreign_keys=ON");
-            s.execute("CREATE TABLE IF NOT EXISTS plots (id TEXT PRIMARY KEY, world TEXT NOT NULL, owner TEXT NOT NULL, name TEXT NOT NULL, public INTEGER NOT NULL, created_at INTEGER NOT NULL)");
+            s.execute("CREATE TABLE IF NOT EXISTS plots (id TEXT PRIMARY KEY, world TEXT NOT NULL, owner TEXT NOT NULL, name TEXT NOT NULL, created_at INTEGER NOT NULL)");
             s.execute("CREATE TABLE IF NOT EXISTS plot_cells (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, PRIMARY KEY(plot_id,x,y,z))");
             s.execute("CREATE TABLE IF NOT EXISTS plot_members (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, player TEXT NOT NULL, role TEXT NOT NULL, PRIMARY KEY(plot_id,player))");
             s.execute("CREATE TABLE IF NOT EXISTS plot_flags (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, flag TEXT NOT NULL, allowed INTEGER NOT NULL, PRIMARY KEY(plot_id,flag))");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_arrivals (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, yaw REAL NOT NULL, pitch REAL NOT NULL, title TEXT NOT NULL, subtitle TEXT NOT NULL)");
+            s.execute("CREATE TABLE IF NOT EXISTS plot_destinations (id TEXT PRIMARY KEY, plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, name TEXT NOT NULL, description TEXT NOT NULL, public INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, yaw REAL NOT NULL, pitch REAL NOT NULL, title TEXT NOT NULL, subtitle TEXT NOT NULL)");
+            s.execute("CREATE INDEX IF NOT EXISTS plot_destinations_plot ON plot_destinations(plot_id)");
             s.execute("CREATE TABLE IF NOT EXISTS plot_notice_boards (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, body TEXT NOT NULL)");
             s.execute("CREATE TABLE IF NOT EXISTS plot_atmospheres (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, time_ticks INTEGER CHECK(time_ticks BETWEEN 0 AND 23999), weather TEXT CHECK(weather IN ('CLEAR','RAIN')))");
             s.execute("CREATE TABLE IF NOT EXISTS plot_children (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, parent_id TEXT NOT NULL REFERENCES plots(id) ON DELETE RESTRICT, CHECK(plot_id <> parent_id))");
             s.execute("CREATE INDEX IF NOT EXISTS plot_children_parent ON plot_children(parent_id)");
         }
+        PlotDestinationMigration.apply(connection);
         writer = Executors.newSingleThreadExecutor(Thread.ofPlatform().name("mik-plot-storage").daemon(true).factory());
         preparer = Executors.newSingleThreadExecutor(Thread.ofPlatform().name("mik-plot-prepare").daemon(true).factory());
     }
@@ -151,8 +153,7 @@ final class PlotRepository implements AutoCloseable {
                 }
                 String parent = rows.getString("parent_id");
                 result.add(new Plot(UUID.fromString(id), UUID.fromString(rows.getString("world")),
-                        UUID.fromString(rows.getString("owner")), rows.getString("name"),
-                        rows.getInt("public") != 0, rows.getLong("created_at"), cells, members,
+                        UUID.fromString(rows.getString("owner")), rows.getString("name"), rows.getLong("created_at"), cells, members,
                         flags,
                         parent == null ? null : UUID.fromString(parent)));
             }
@@ -160,19 +161,18 @@ final class PlotRepository implements AutoCloseable {
         return result;
     }
 
-    Map<UUID, PlotArrival> loadArrivals() throws SQLException {
-        Map<UUID, PlotArrival> arrivals = new HashMap<>();
-        try (Statement s = connection.createStatement();
-             ResultSet rows = s.executeQuery("SELECT * FROM plot_arrivals")) {
+    Map<UUID, PlotDestination> loadDestinations() throws SQLException {
+        Map<UUID, PlotDestination> destinations = new HashMap<>();
+        try (Statement query = connection.createStatement(); ResultSet rows = query.executeQuery("SELECT * FROM plot_destinations")) {
             while (rows.next()) {
-                arrivals.put(UUID.fromString(rows.getString("plot_id")),
-                        new PlotArrival(rows.getDouble("x"), rows.getDouble("y"),
-                                rows.getDouble("z"), rows.getFloat("yaw"),
-                                rows.getFloat("pitch"), rows.getString("title"),
-                                rows.getString("subtitle")));
+                PlotDestination point = new PlotDestination(UUID.fromString(rows.getString("id")),
+                        UUID.fromString(rows.getString("plot_id")), rows.getString("name"), rows.getString("description"),
+                        rows.getInt("public") != 0, rows.getDouble("x"), rows.getDouble("y"), rows.getDouble("z"),
+                        rows.getFloat("yaw"), rows.getFloat("pitch"), rows.getString("title"), rows.getString("subtitle"));
+                destinations.put(point.id(), point);
             }
         }
-        return arrivals;
+        return destinations;
     }
 
     Map<UUID, String> loadNoticeBoards() throws SQLException {
@@ -242,32 +242,27 @@ final class PlotRepository implements AutoCloseable {
         }
     }
 
-    void saveArrival(UUID plotId, PlotArrival arrival) throws SQLException {
-        if (defer(() -> target.saveArrival(plotId, arrival))) return;
-        try (PreparedStatement q = connection.prepareStatement(
-                "INSERT INTO plot_arrivals(plot_id,x,y,z,yaw,pitch,title,subtitle) "
-                        + "VALUES(?,?,?,?,?,?,?,?) "
-                        + "ON CONFLICT(plot_id) DO UPDATE SET x=excluded.x,y=excluded.y,"
-                        + "z=excluded.z,yaw=excluded.yaw,pitch=excluded.pitch,"
-                        + "title=excluded.title,subtitle=excluded.subtitle")) {
-            q.setString(1, plotId.toString());
-            q.setDouble(2, arrival.x());
-            q.setDouble(3, arrival.y());
-            q.setDouble(4, arrival.z());
-            q.setFloat(5, arrival.yaw());
-            q.setFloat(6, arrival.pitch());
-            q.setString(7, arrival.title());
-            q.setString(8, arrival.subtitle());
-            q.executeUpdate();
+    void saveDestination(PlotDestination point) throws SQLException {
+        if (defer(() -> target.saveDestination(point))) return;
+        try (PreparedStatement query = connection.prepareStatement(
+                "INSERT INTO plot_destinations(id,plot_id,name,description,public,x,y,z,yaw,pitch,title,subtitle) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) "
+                        + "ON CONFLICT(id) DO UPDATE SET name=excluded.name,description=excluded.description,"
+                        + "public=excluded.public,x=excluded.x,y=excluded.y,z=excluded.z,yaw=excluded.yaw,pitch=excluded.pitch,"
+                        + "title=excluded.title,subtitle=excluded.subtitle "
+                        + "WHERE plot_destinations.plot_id=excluded.plot_id")) {
+            query.setString(1, point.id().toString()); query.setString(2, point.plotId().toString());
+            query.setString(3, point.name()); query.setString(4, point.description()); query.setInt(5, point.publicAccess() ? 1 : 0);
+            query.setDouble(6, point.x()); query.setDouble(7, point.y()); query.setDouble(8, point.z());
+            query.setFloat(9, point.yaw()); query.setFloat(10, point.pitch());
+            query.setString(11, point.title()); query.setString(12, point.subtitle());
+            if (query.executeUpdate() != 1) throw new SQLException("Cannot move a destination to a different plot");
         }
     }
 
-    void deleteArrival(UUID plotId) throws SQLException {
-        if (defer(() -> target.deleteArrival(plotId))) return;
-        try (PreparedStatement q = connection.prepareStatement(
-                "DELETE FROM plot_arrivals WHERE plot_id=?")) {
-            q.setString(1, plotId.toString());
-            q.executeUpdate();
+    void deleteDestination(UUID id) throws SQLException {
+        if (defer(() -> target.deleteDestination(id))) return;
+        try (PreparedStatement query = connection.prepareStatement("DELETE FROM plot_destinations WHERE id=?")) {
+            query.setString(1, id.toString()); query.executeUpdate();
         }
     }
 
@@ -283,15 +278,13 @@ final class PlotRepository implements AutoCloseable {
                 || !java.util.Objects.equals(previous.parentId(), plot.parentId())))
             throw new SQLException("Cannot change a plot's identity, world or creation time");
         if (previous == null || !previous.owner().equals(plot.owner())
-                || !previous.name().equals(plot.name())
-                || previous.publicProject() != plot.publicProject()) {
-            try (PreparedStatement q = connection.prepareStatement("INSERT INTO plots(id,world,owner,name,public,created_at) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner, name=excluded.name, public=excluded.public")) {
+                || !previous.name().equals(plot.name())) {
+            try (PreparedStatement q = connection.prepareStatement("INSERT INTO plots(id,world,owner,name,created_at) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner, name=excluded.name")) {
                 q.setString(1, plot.id().toString());
                 q.setString(2, plot.world().toString());
                 q.setString(3, plot.owner().toString());
                 q.setString(4, plot.name());
-                q.setInt(5, plot.publicProject() ? 1 : 0);
-                q.setLong(6, plot.createdAt());
+                q.setLong(5, plot.createdAt());
                 q.executeUpdate();
             }
         }

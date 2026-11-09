@@ -24,7 +24,7 @@ class PlotEditsTest {
     void permissionClicksUseCurrentStateAndPersistCompleteCycles() throws Exception {
         Path database = directory.resolve("permission-cycles.db");
         UUID owner = UUID.randomUUID();
-        Plot root = plot(UUID.randomUUID(), owner, Set.of(Cell.at(0, 64, 0)), true);
+        Plot root = plot(UUID.randomUUID(), owner, Set.of(Cell.at(0, 64, 0)));
         UUID childId;
         try (PlotRepository store = new PlotRepository(database)) {
             store.open();
@@ -68,7 +68,7 @@ class PlotEditsTest {
             PlotRegistry registry = new PlotRegistry(store);
             UUID owner = UUID.randomUUID();
             UUID administrator = UUID.randomUUID();
-            Plot root = new Plot(UUID.randomUUID(), UUID.randomUUID(), owner, "Home", false, 0,
+            Plot root = new Plot(UUID.randomUUID(), UUID.randomUUID(), owner, "Home", 0,
                     Set.of(Cell.at(0, 64, 0)), Map.of(administrator, Plot.Role.ADMIN), Map.of(), null);
             registry.put(root);
             PlotEdits edits = new PlotEdits(registry);
@@ -93,7 +93,7 @@ class PlotEditsTest {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             UUID owner = UUID.randomUUID(), guest = UUID.randomUUID();
-            Plot plot = plot(UUID.randomUUID(), owner, Set.of(Cell.at(0, 64, 0)), false);
+            Plot plot = plot(UUID.randomUUID(), owner, Set.of(Cell.at(0, 64, 0)));
             registry.put(plot);
             PlotEdits edits = new PlotEdits(registry);
             PlotProblem denied = assertThrows(PlotProblem.class,
@@ -109,7 +109,6 @@ class PlotEditsTest {
             assertTrue(changed.flags().get("member.container"));
             assertFalse(changed.flags().containsKey("container"));
             assertEquals("Shared workshop", changed.name());
-            assertFalse(changed.publicProject());
 
             edits.invite(changed, owner, false, guest, Plot.Role.ADMIN);
             assertEquals(Plot.Role.ADMIN, registry.byId(plot.id()).members().get(guest));
@@ -124,16 +123,15 @@ class PlotEditsTest {
         UUID world = UUID.randomUUID(), owner = UUID.randomUUID(), member = UUID.randomUUID();
         UUID id = UUID.randomUUID();
         Cell cell = Cell.at(0, 64, 0);
-        Plot plot = new Plot(id, world, owner, "Old name", false, 123L,
+        Plot plot = new Plot(id, world, owner, "Old name", 123L,
                 Set.of(cell), Map.of(member, Plot.Role.COLLABORATOR),
                 Map.of("member.container", true), null);
-        PlotArrival arrival = new PlotArrival(0.5, 65, 0.5, 90, 0,
-                "<gold>Workshop</gold>", "Welcome");
+        PlotDestination destination = new PlotDestination(id, id, "<gold>Workshop</gold>", "Welcome", false, 0.5, 65, 0.5, 90, 0, "", "");
         try (PlotRepository store = new PlotRepository(database)) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             registry.put(plot);
-            registry.setArrival(id, arrival);
+            registry.saveDestination(destination);
             PlotEdits edits = new PlotEdits(registry);
 
             PlotProblem invalid = assertThrows(PlotProblem.class,
@@ -149,7 +147,7 @@ class PlotEditsTest {
             assertEquals(plot.cells(), current.cells());
             assertEquals(plot.members(), current.members());
             assertEquals(plot.flags(), current.flags());
-            assertEquals(arrival, registry.arrival(id));
+            assertEquals(destination, registry.destination(id));
         }
         try (PlotRepository store = new PlotRepository(database)) {
             store.open();
@@ -161,10 +159,10 @@ class PlotEditsTest {
             assertEquals(plot.cells(), persisted.cells());
             assertEquals(plot.members(), persisted.members());
             assertEquals(plot.flags(), persisted.flags());
-            assertEquals(arrival, registry.arrival(id));
+            assertEquals(destination, registry.destination(id));
             registry.remove(persisted);
-            assertEquals(null, registry.arrival(id));
-            assertTrue(store.loadArrivals().isEmpty());
+            assertTrue(registry.destinations(id).isEmpty());
+            assertTrue(store.loadDestinations().isEmpty());
         }
     }
 
@@ -172,7 +170,7 @@ class PlotEditsTest {
     void localNoticeBoardPersistsThroughPlotEditsAndIsRemovedWithThePlot() throws Exception {
         Path database = directory.resolve("local-notice.db");
         UUID world = UUID.randomUUID(), owner = UUID.randomUUID(), successor = UUID.randomUUID();
-        Plot plot = plot(world, owner, Set.of(Cell.at(0, 64, 0)), false);
+        Plot plot = plot(world, owner, Set.of(Cell.at(0, 64, 0)));
         String notice = "Welcome 🌿\n" + "Long garden announcement ".repeat(100)
                 + "\nOpen garden\n".repeat(30) + "End";
         try (PlotRepository store = new PlotRepository(database)) {
@@ -223,7 +221,7 @@ class PlotEditsTest {
     void localAtmosphereSurvivesEditsAndReloadAndCascadesOnRelease() throws Exception {
         Path database = directory.resolve("atmosphere.db");
         UUID world = UUID.randomUUID(), owner = UUID.randomUUID(), successor = UUID.randomUUID();
-        Plot plot = plot(world, owner, Set.of(Cell.at(0, 64, 0)), false);
+        Plot plot = plot(world, owner, Set.of(Cell.at(0, 64, 0)));
         try (PlotRepository store = new PlotRepository(database)) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
@@ -261,25 +259,26 @@ class PlotEditsTest {
     }
 
     @Test
-    void largePublicPlotCanBeMadePrivateAndPersistsItsWholeShape() throws Exception {
+    void destinationVisibilityChangesPreserveTheWholePlotShape() throws Exception {
         try (PlotRepository store = new PlotRepository(directory.resolve("size.db"))) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
-            PlotEdits edits = new PlotEdits(registry);
             Set<Cell> cells = new HashSet<>();
             for (int horizontalX = 0; horizontalX < 17; horizontalX++) {
                 for (int horizontalZ = 0; horizontalZ < 17; horizontalZ++)
                     for (int verticalY = 16; verticalY < 32; verticalY++)
                         cells.add(new Cell(horizontalX, verticalY, horizontalZ));
             }
-            Plot publicPlot = plot(UUID.randomUUID(), UUID.randomUUID(), cells, true);
-            registry.put(publicPlot);
-            edits.setPublic(publicPlot, publicPlot.owner(), false, false);
-            assertFalse(registry.byId(publicPlot.id()).publicProject());
-            assertEquals(cells, registry.byId(publicPlot.id()).cells());
+            Plot largePlot = plot(UUID.randomUUID(), UUID.randomUUID(), cells);
+            registry.put(largePlot);
+            PlotDestination entrance = new PlotDestination(UUID.randomUUID(), largePlot.id(), "Entrance", "", true, 1, 65, 1, 0, 0, "", "");
+            registry.saveDestination(entrance);
+            registry.saveDestination(entrance.published(false));
+            assertFalse(registry.destination(entrance.id()).publicAccess());
+            assertEquals(cells, registry.byId(largePlot.id()).cells());
             registry.load();
-            assertFalse(registry.byId(publicPlot.id()).publicProject());
-            assertEquals(cells, registry.byId(publicPlot.id()).cells());
+            assertFalse(registry.destination(entrance.id()).publicAccess());
+            assertEquals(cells, registry.byId(largePlot.id()).cells());
         }
     }
 
@@ -288,7 +287,7 @@ class PlotEditsTest {
         Path database = directory.resolve("group-access.db");
         UUID world = UUID.randomUUID(), owner = UUID.randomUUID();
         UUID collaborator = UUID.randomUUID(), visitor = UUID.randomUUID();
-        Plot plot = new Plot(UUID.randomUUID(), world, owner, "Workshop", false, 0L,
+        Plot plot = new Plot(UUID.randomUUID(), world, owner, "Workshop", 0L,
                 Set.of(Cell.at(0, 64, 0)),
                 Map.of(collaborator, Plot.Role.COLLABORATOR, visitor, Plot.Role.COLLABORATOR),
                 Map.of("newcomer.door", true, "member.door", true), null);
@@ -332,7 +331,7 @@ class PlotEditsTest {
         Path database = directory.resolve("collaborator-access.db");
         UUID world = UUID.randomUUID(), owner = UUID.randomUUID();
         UUID visitor = UUID.randomUUID(), outsider = UUID.randomUUID();
-        Plot plot = new Plot(UUID.randomUUID(), world, owner, "Workshop", false, 0L,
+        Plot plot = new Plot(UUID.randomUUID(), world, owner, "Workshop", 0L,
                 Set.of(Cell.at(0, 64, 0)), Map.of(visitor, Plot.Role.COLLABORATOR),
                 Map.of("newcomer.door", false, "member.door", false,
                         "newcomer.container", false, "member.container", true), null);
@@ -386,7 +385,7 @@ class PlotEditsTest {
             PlotRegistry registry = new PlotRegistry(store);
             UUID owner = UUID.randomUUID(), admin = UUID.randomUUID();
             UUID collaborator = UUID.randomUUID(), newcomer = UUID.randomUUID();
-            Plot plot = plot(UUID.randomUUID(), owner, Set.of(Cell.at(0, 64, 0)), false);
+            Plot plot = plot(UUID.randomUUID(), owner, Set.of(Cell.at(0, 64, 0)));
             registry.put(plot);
             PlotEdits edits = new PlotEdits(registry);
 
@@ -432,9 +431,8 @@ class PlotEditsTest {
         UUID world = UUID.randomUUID(), owner = UUID.randomUUID();
         UUID successor = UUID.randomUUID(), collaborator = UUID.randomUUID();
         UUID id = UUID.randomUUID();
-        PlotArrival arrival = new PlotArrival(0.5, 65, 0.5, 90, 0,
-                "Workshop", "Welcome");
-        Plot plot = new Plot(id, world, owner, "Workshop", true, 123L,
+        PlotDestination destination = new PlotDestination(id, id, "Workshop", "Welcome", false, 0.5, 65, 0.5, 90, 0, "", "");
+        Plot plot = new Plot(id, world, owner, "Workshop", 123L,
                 Set.of(Cell.at(0, 64, 0)),
                 Map.of(successor, Plot.Role.ADMIN, collaborator, Plot.Role.COLLABORATOR),
                 Map.of("member.container", true), null);
@@ -442,7 +440,7 @@ class PlotEditsTest {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             registry.put(plot);
-            registry.setArrival(id, arrival);
+            registry.saveDestination(destination);
             PlotEdits edits = new PlotEdits(registry);
 
             assertEquals(Message.PLOT_ERROR_TRANSFER_SELF,
@@ -457,7 +455,7 @@ class PlotEditsTest {
             assertEquals(Plot.Role.COLLABORATOR, transferred.members().get(collaborator));
             assertFalse(registry.allowed(world, 0, 64, 0, owner, false, false, "build"));
             assertTrue(registry.allowed(world, 0, 64, 0, successor, false, false, "build"));
-            assertEquals(arrival, registry.arrival(id));
+            assertEquals(destination, registry.destination(id));
         }
         try (PlotRepository store = new PlotRepository(database)) {
             store.open();
@@ -468,7 +466,7 @@ class PlotEditsTest {
             assertEquals(plot.cells(), persisted.cells());
             assertEquals(plot.flags(), persisted.flags());
             assertEquals(Plot.Role.COLLABORATOR, persisted.members().get(collaborator));
-            assertEquals(arrival, registry.arrival(id));
+            assertEquals(destination, registry.destination(id));
         }
     }
 
@@ -480,7 +478,7 @@ class PlotEditsTest {
             UUID owner = UUID.randomUUID(), successor = UUID.randomUUID();
             UUID admin = UUID.randomUUID();
             Plot original = plot(UUID.randomUUID(), owner,
-                    Set.of(Cell.at(0, 64, 0)), false);
+                    Set.of(Cell.at(0, 64, 0)));
             registry.put(original);
             PlotEdits edits = new PlotEdits(registry);
 
@@ -499,8 +497,8 @@ class PlotEditsTest {
         }
     }
 
-    private static Plot plot(UUID world, UUID owner, Set<Cell> cells, boolean publicProject) {
-        return new Plot(UUID.randomUUID(), world, owner, "Workshop", publicProject,
+    private static Plot plot(UUID world, UUID owner, Set<Cell> cells) {
+        return new Plot(UUID.randomUUID(), world, owner, "Workshop",
                 0L, cells, Map.of(), Map.of(), null);
     }
 }

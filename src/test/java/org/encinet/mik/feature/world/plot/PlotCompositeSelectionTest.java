@@ -7,14 +7,12 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -67,20 +65,20 @@ class PlotCompositeSelectionTest {
     }
 
     @Test
-    void subtractingArrivalsIsValidatedAgainstRealCellsNotTheirEnvelope() throws Exception {
-        try (PlotRepository store = new PlotRepository(directory.resolve("arrival.db"))) {
+    void subtractingDestinationsIsValidatedAgainstRealCellsNotTheirEnvelope() throws Exception {
+        try (PlotRepository store = new PlotRepository(directory.resolve("destination.db"))) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             Plot parent = plot(grid(3, 16));
             registry.put(parent);
-            registry.setArrival(parent.id(), new PlotArrival(5, 64, 5, 0, 0, "", ""));
+            registry.saveDestination(new PlotDestination(parent.id(), parent.id(), "Entrance", "", false, 5, 64, 5, 0, 0, "", ""));
             Plot child = registry.createSubPlot(parent.id(), UUID.randomUUID(), "Ring", courtyard(16));
-            registry.setArrival(child.id(), new PlotArrival(1, 64, 1, 0, 0, "", ""));
-            assertEquals(Message.PLOT_ERROR_SUBPLOT_ARRIVAL, assertThrows(PlotProblem.class,
+            registry.saveDestination(new PlotDestination(child.id(), child.id(), "Entrance", "", false, 1, 64, 1, 0, 0, "", ""));
+            assertEquals(Message.PLOT_ERROR_SUBPLOT_DESTINATION, assertThrows(PlotProblem.class,
                     () -> registry.resizedSubPlotCells(child, shape(parent.cells()))).message());
             Set<Cell> removed = new HashSet<>(child.cells());
             removed.remove(new Cell(0, 16, 0));
-            assertEquals(Message.PLOT_ERROR_SUBPLOT_OWN_ARRIVAL, assertThrows(PlotProblem.class,
+            assertEquals(Message.PLOT_ERROR_SUBPLOT_OWN_DESTINATION, assertThrows(PlotProblem.class,
                     () -> registry.resizedSubPlotCells(child, shape(removed))).message());
             assertEquals(8, registry.byId(child.id()).cells().size());
         }
@@ -125,7 +123,7 @@ class PlotCompositeSelectionTest {
     }
 
     private Plot plot(Set<Cell> cells) {
-        return new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Town", false,
+        return new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Town",
                 System.currentTimeMillis(), cells, Map.of(), Map.of(), null);
     }
 

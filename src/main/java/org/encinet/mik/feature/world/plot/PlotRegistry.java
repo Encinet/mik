@@ -26,7 +26,7 @@ public final class PlotRegistry {
 
     private final PlotRepository store;
     private final Map<UUID, Plot> plots = new HashMap<>();
-    private final Map<UUID, PlotArrival> arrivals = new HashMap<>();
+    private final Map<UUID, PlotDestination> destinations = new HashMap<>();
     private final Map<UUID, String> noticeBoards = new HashMap<>();
     private final Map<UUID, PlotAtmosphere> atmospheres = new HashMap<>();
     private volatile SpatialSnapshot spatial = new SpatialSnapshot(Map.of(), Map.of(), Map.of());
@@ -123,13 +123,13 @@ public final class PlotRegistry {
     }
 
     private void accept(PlotRegistry staged) {
-        store.persistAsync(staged.store).whenComplete((ignored, error) -> {
+        store.persistAsync(staged.store).whenComplete((_, error) -> {
             if (error != null)
                 System.getLogger(PlotRegistry.class.getName()).log(System.Logger.Level.ERROR,
                         "Could not persist accepted plot changes", error);
         });
         plots.clear(); plots.putAll(staged.plots);
-        arrivals.clear(); arrivals.putAll(staged.arrivals);
+        destinations.clear(); destinations.putAll(staged.destinations);
         noticeBoards.clear(); noticeBoards.putAll(staged.noticeBoards);
         atmospheres.clear(); atmospheres.putAll(staged.atmospheres);
         spatial = staged.spatial;
@@ -152,7 +152,7 @@ public final class PlotRegistry {
     PlotRegistry snapshot() {
         PlotRegistry copy = new PlotRegistry(store.plan());
         copy.plots.putAll(plots);
-        copy.arrivals.putAll(arrivals);
+        copy.destinations.putAll(destinations);
         copy.noticeBoards.putAll(noticeBoards);
         copy.atmospheres.putAll(atmospheres);
         copy.spatial = spatial;
@@ -166,13 +166,13 @@ public final class PlotRegistry {
         synchronousMutation();
         Map<UUID, Plot> loadedPlots = new HashMap<>();
         for (Plot plot : store.load()) loadedPlots.put(plot.id(), plot);
-        Map<UUID, PlotArrival> loadedArrivals = store.loadArrivals();
+        Map<UUID, PlotDestination> loadedDestinations = store.loadDestinations();
         Map<UUID, String> loadedBoards = store.loadNoticeBoards();
         Map<UUID, PlotAtmosphere> loadedAtmospheres = store.loadAtmospheres();
         plots.clear();
         plots.putAll(loadedPlots);
-        arrivals.clear();
-        arrivals.putAll(loadedArrivals);
+        destinations.clear();
+        destinations.putAll(loadedDestinations);
         noticeBoards.clear();
         noticeBoards.putAll(loadedBoards);
         atmospheres.clear();
@@ -241,7 +241,16 @@ public final class PlotRegistry {
     boolean canRelease(Plot plot, UUID actor, boolean staff) {
         return permitted(plot, actor, staff, PlotPermission.DELETE);
     }
-    PlotArrival arrival(UUID id) { return arrivals.get(id); }
+    PlotDestination destination(UUID id) { return destinations.get(id); }
+    List<PlotDestination> destinations(UUID plotId) {
+        return destinations.values().stream().filter(point -> point.plotId().equals(plotId))
+                .sorted(DESTINATION_ORDER).toList();
+    }
+    private static final Comparator<PlotDestination> DESTINATION_ORDER = Comparator
+            .comparing(PlotDestination::name, String.CASE_INSENSITIVE_ORDER).thenComparing(PlotDestination::id);
+    List<PlotDestination> publicDestinations() {
+        return destinations.values().stream().filter(PlotDestination::publicAccess).sorted(DESTINATION_ORDER).toList();
+    }
     String noticeBoard(UUID id) { return noticeBoards.getOrDefault(id, ""); }
     PlotAtmosphere atmosphere(UUID id) { return atmospheres.getOrDefault(id, PlotAtmosphere.WORLD); }
 
@@ -277,19 +286,21 @@ public final class PlotRegistry {
         revision++;
     }
 
-    void setArrival(UUID id, PlotArrival arrival) throws SQLException {
+    void saveDestination(PlotDestination point) throws SQLException {
         synchronousMutation();
-        if (!plots.containsKey(id)) throw new SQLException("Plot no longer exists: " + id);
-        store.saveArrival(id, arrival);
-        arrivals.put(id, arrival);
+        if (!plots.containsKey(point.plotId())) throw new SQLException("Plot no longer exists: " + point.plotId());
+        PlotDestination previous = destinations.get(point.id());
+        if (previous != null && !previous.plotId().equals(point.plotId()))
+            throw new SQLException("Cannot move a destination to a different plot");
+        store.saveDestination(point);
+        destinations.put(point.id(), point);
         revision++;
     }
 
-    void clearArrival(UUID id) throws SQLException {
+    void deleteDestination(UUID id) throws SQLException {
         synchronousMutation();
-        store.deleteArrival(id);
-        arrivals.remove(id);
-        revision++;
+        store.deleteDestination(id);
+        if (destinations.remove(id) != null) revision++;
     }
 
     public Plot at(UUID world, int x, int y, int z) {
@@ -434,8 +445,7 @@ public final class PlotRegistry {
         Plot parent = plots.get(parentId);
         if (parent == null) throw new PlotProblem(Message.PLOT_ERROR_ID);
         Set<Cell> selected = creatableSubPlotCells(parent, shape);
-        Plot child = new Plot(UUID.randomUUID(), parent.world(), owner, name,
-                parent.publicProject(), System.currentTimeMillis(), selected, Map.of(),
+        Plot child = new Plot(UUID.randomUUID(), parent.world(), owner, name, System.currentTimeMillis(), selected, Map.of(),
                 Map.of(), parentId);
         validateHierarchy(child);
         put(child);
@@ -448,7 +458,7 @@ public final class PlotRegistry {
 
     Set<Cell> creatableSubPlotCells(Plot parent, PlotSelectionShape shape) {
         Set<Cell> selected = subPlotCells(parent, shape, null);
-        checkParentArrival(parent.id(), selected);
+        checkParentDestinations(parent.id(), selected);
         return selected;
     }
 
@@ -463,11 +473,10 @@ public final class PlotRegistry {
         Plot parent = parentOf(current);
         if (parent == null) throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_PARENT);
         Set<Cell> selected = subPlotCells(parent, shape, current.id());
-        checkParentArrival(parent.id(), selected);
-        PlotArrival ownArrival = arrivals.get(current.id());
-        if (ownArrival != null && !selected.contains(Cell.at(ownArrival.blockX(),
-                ownArrival.blockY(), ownArrival.blockZ())))
-            throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_OWN_ARRIVAL);
+        checkParentDestinations(parent.id(), selected);
+        if (destinations(current.id()).stream().anyMatch(point -> !selected.contains(Cell.at(
+                point.blockX(), point.blockY(), point.blockZ()))))
+            throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_OWN_DESTINATION);
         return selected;
     }
 
@@ -480,16 +489,14 @@ public final class PlotRegistry {
         Plot current = plots.get(child.id());
         if (current == null) throw new PlotProblem(Message.PLOT_ERROR_ID);
         Set<Cell> selected = resizedSubPlotCells(current, shape);
-        put(new Plot(current.id(), current.world(), current.owner(), current.name(),
-                current.publicProject(), current.createdAt(), selected, current.members(),
+        put(new Plot(current.id(), current.world(), current.owner(), current.name(), current.createdAt(), selected, current.members(),
                 current.flags(), current.parentId()));
     }
 
-    private void checkParentArrival(UUID parentId, Set<Cell> selected) {
-        PlotArrival arrival = arrivals.get(parentId);
-        if (arrival != null && selected.contains(Cell.at(arrival.blockX(),
-                arrival.blockY(), arrival.blockZ())))
-            throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_ARRIVAL);
+    private void checkParentDestinations(UUID parentId, Set<Cell> selected) {
+        if (destinations(parentId).stream().anyMatch(point -> selected.contains(Cell.at(
+                point.blockX(), point.blockY(), point.blockZ()))))
+            throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_DESTINATION);
     }
 
     private void publish(Plot plot) {
@@ -510,8 +517,7 @@ public final class PlotRegistry {
         synchronousMutation();
         Plot current = plots.get(id);
         if (current == null) throw new SQLException("Plot no longer exists: " + id);
-        Plot renamed = new Plot(current.id(), current.world(), current.owner(), name,
-                current.publicProject(), current.createdAt(), current.cells(), current.members(),
+        Plot renamed = new Plot(current.id(), current.world(), current.owner(), name, current.createdAt(), current.cells(), current.members(),
                 current.flags(), current.parentId());
         store.rename(id, name);
         publish(renamed);
@@ -524,7 +530,7 @@ public final class PlotRegistry {
             throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_CHILDREN);
         store.delete(plot.id());
         plots.remove(plot.id());
-        arrivals.remove(plot.id());
+        destinations.values().removeIf(point -> point.plotId().equals(plot.id()));
         noticeBoards.remove(plot.id());
         atmospheres.remove(plot.id());
         reindex();
@@ -560,11 +566,11 @@ public final class PlotRegistry {
             Plot previous = spatial.plots().get(plot.id());
             areas.put(plot.id(), previous != null && previous.cells() == plot.cells()
                     ? spatial.areas().get(plot.id()) : PlotGeometry.horizontalArea(plot.cells()));
-            Map<Long, Set<UUID>> chunks = building.computeIfAbsent(plot.world(), ignored -> new HashMap<>());
+            Map<Long, Set<UUID>> chunks = building.computeIfAbsent(plot.world(), _ -> new HashMap<>());
             for (Cell cell : plot.cells()) {
                 chunks.computeIfAbsent(chunk(Math.floorDiv(cell.x(), CELLS_PER_CHUNK),
                                 Math.floorDiv(cell.z(), CELLS_PER_CHUNK)),
-                        ignored -> new HashSet<>()).add(plot.id());
+                        _ -> new HashSet<>()).add(plot.id());
             }
         }
         Map<UUID, Map<Long, ChunkCoverage>> immutable = new HashMap<>();
@@ -583,9 +589,9 @@ public final class PlotRegistry {
         Map<UUID, List<UUID>> children = new HashMap<>();
         for (UUID id : ordered) {
             UUID parent = plots.get(id).parentId();
-            if (parent != null) children.computeIfAbsent(parent, ignored -> new ArrayList<>()).add(id);
+            if (parent != null) children.computeIfAbsent(parent, _ -> new ArrayList<>()).add(id);
         }
-        children.replaceAll((parent, members) -> List.copyOf(members));
+        children.replaceAll((_, members) -> List.copyOf(members));
         return new ChunkCoverage(ordered, Map.copyOf(children));
     }
 

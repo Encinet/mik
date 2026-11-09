@@ -7,10 +7,9 @@ import org.bukkit.persistence.PersistentDataType;
 
 public final class MusicDiscKeys {
 
-    public static final NamespacedKey TRACK = new NamespacedKey("mik", "music_track");
-    public static final NamespacedKey TRACK_DATA = new NamespacedKey("mik", "music_track_data");
-    public static final NamespacedKey TRACK_SIGNATURE = new NamespacedKey("mik", "music_track_signature");
-    public static final NamespacedKey INTERNAL = new NamespacedKey("mik", "music_internal");
+    public static final NamespacedKey TRACK = new NamespacedKey("mik", "music_v2_track");
+    public static final NamespacedKey TRACK_DATA = new NamespacedKey("mik", "music_v2_data");
+    public static final NamespacedKey TRACK_SIGNATURE = new NamespacedKey("mik", "music_v2_signature");
 
     private MusicDiscKeys() {
     }
@@ -49,24 +48,4 @@ public final class MusicDiscKeys {
                 .get(TRACK_SIGNATURE, PersistentDataType.STRING);
     }
 
-    public static boolean isInternal(ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            return false;
-        }
-        ItemMeta meta = item.getItemMeta();
-        Byte value = meta == null ? null : meta.getPersistentDataContainer()
-                .get(INTERNAL, PersistentDataType.BYTE);
-        return value != null && value != 0;
-    }
-
-    public static void markInternal(ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            return;
-        }
-        ItemMeta meta = item.getItemMeta();
-        if (meta != null) {
-            meta.getPersistentDataContainer().set(INTERNAL, PersistentDataType.BYTE, (byte) 1);
-            item.setItemMeta(meta);
-        }
-    }
 }

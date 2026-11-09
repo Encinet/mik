@@ -14,52 +14,11 @@
 
 back = 返回
 back-to-main = 返回主選單
+cancel = 取消
 click-open = 點擊開啟
 close = 關閉
 current-off = 目前: 關閉
 current-on = 目前: 開啟
-password-already-connected = 此帳號已連線至伺服器。
-password-already-set = 已設定密碼，請用 /password change 修改。
-password-busy = 嘗試過於頻繁，請稍後再試。
-password-change = 修改密碼
-password-change-done = 密碼已修改。
-password-checking = 正在檢查帳號安全狀態……
-password-command-description = 管理帳號密碼保護
-password-confirm = 確認新密碼
-password-conflict = 帳號安全狀態已變更，請重新操作。
-password-cooldown = 帳號驗證暫時受限，請於 { $arg0 } 秒後重試。
-password-current = 目前密碼
-password-denied = 你無權重設此帳號的密碼
-password-disabled = 密碼：未設定
-password-enabled = 密碼：已設定
-password-invalid = 密碼錯誤，請重試。
-password-keep-role = 管理員與維護者不能移除密碼
-password-login = 登入
-password-login-expired = 登入驗證已失效，請重新連線。
-password-login-hint = 請輸入本服密碼。忘記密碼請聯絡管理重設。
-password-mismatch = 兩次輸入的新密碼不一致。
-password-new = 新密碼
-password-nomination-required = 申請管理前請先設定帳號密碼：/password set
-password-not-set = 尚未設定密碼，可用 /password set 設定。
-password-remove = 移除密碼
-password-remove-done = 密碼已移除。
-password-remove-question = 移除後，登入將不再驗證密碼。請輸入目前密碼確認。
-password-required-application = 管理申請或任命尚未結束，暫不能移除密碼
-password-required-role = 管理與維護者帳號必須設定密碼，請聯絡有權限的管理者重設後登入。
-password-reset = 重設密碼
-password-reset-console = 已重設 { $arg0 } 的密碼：{ $arg1 }。請確認本人後透過可信管道交付。
-password-reset-done = 已重設 { $arg0 } 的密碼。請立即複製並確認本人後交付；關閉後無法再次查看。
-password-reset-question = 重設 { $arg0 } 的密碼？舊密碼將失效，目標連線將中斷。請輸入你自己的密碼確認。
-password-retry = 重試
-password-rules = 密碼須為 { $arg0 }～{ $arg1 } 個字元，不能使用玩家名稱或常見弱密碼。
-password-set = 設定密碼
-password-set-done = 密碼已設定。
-password-set-first = 先設定密碼再報名
-password-storage = 帳號安全服務無法使用，請稍後重試或聯絡服主
-password-timeout = 密碼驗證已取消或逾時，請重新連線後重試。
-password-tip-set-mm = 用 <gold><u>/password</u></gold> 設定<yellow>登入密碼</yellow>，保護你的帳號
-password-title = 帳號安全
-
 player-only = 該指令只能由玩家執行
 unknown = 未知
 usage = 用法
@@ -79,27 +38,61 @@ time-minutes = { $arg0 } 分鐘
 
 ## Shared · Menu presentation
 
-bedrock-menu-back = 返回
-bedrock-menu-hotkey = 快捷操作（F）
-bedrock-menu-primary = 主要操作
-bedrock-menu-scroll-down = 向下操作
-bedrock-menu-scroll-up = 向上操作
-bedrock-menu-secondary = 次要操作
 interface-fov-apply = 套用 FOV
-interface-fov-custom = 輸入精確值
-interface-fov-description = 匹配用戶端 FOV，僅調整選單位置；預設 70°。
+interface-fov-custom = 自訂
+interface-fov-description = 填入遊戲設定中的 FOV，讓選單位置配合你的視野
 interface-fov-input = 用戶端 FOV：30 至 110 的整數
 interface-fov-invalid = 請輸入 30 至 110 的整數。
-interface-fov-title = 視野適配（FOV）
-interface-scale-current = 目前：{ $arg0 }
-interface-scale-description = 文字大小在選單大小基礎上縮放；兩組均可滾輪調節。
+interface-fov-title = 視野（FOV）
+interface-reduced-motion = 減弱動態效果
+interface-reduced-motion-hint = 減少選單移動和晃動
+interface-scale-adjust-hint = 指向比例選項，用滾輪調整
 interface-scale-layout-title = 選單大小
 interface-scale-menu-title = 介面與文字
-interface-scale-native-hint = 這些設定用於 Java 空間選單；原生表單的字級由用戶端控制。
-interface-scale-preview = 文字預覽 Aa 123
-interface-scale-reset = 兩項恢復 100%
+interface-scale-preview = 範例 Aa 123
+interface-scale-reset = 還原 100%
 interface-scale-text-title = 文字大小
+interface-theme-apply = 儲存配色
+interface-theme-charcoal = 炭灰
+interface-theme-color = 顏色（#RRGGBB）
+interface-theme-custom = 自訂
+interface-theme-custom-hint = 將目前主題的全部配色複製為獨立的自訂主題
+interface-theme-edit = 編輯配色
+interface-theme-forest = 森林
+interface-theme-hint = 選擇後立即生效，僅影響自己的選單。
+interface-theme-invalid = 請輸入 #RRGGBB 顏色與 0–100 的不透明度
+interface-theme-opacity = 不透明度（0–100%）
+interface-theme-role-accent = 強調色
+interface-theme-role-button = 按鈕背景
+interface-theme-role-button-disabled = 停用按鈕
+interface-theme-role-button-hovered = 懸停按鈕
+interface-theme-role-button-pressed = 按下按鈕
+interface-theme-role-button-selected = 選取按鈕
+interface-theme-role-input = 輸入框背景
+interface-theme-role-sidebar = 側欄背景
+interface-theme-role-toolbar = 工具列背景
+interface-theme-role-tooltip = 提示背景
+interface-theme-role-window = 視窗背景
+interface-theme-title = 介面主題
+interface-theme-warm = 暖棕
+menu-collapse = 收合
+menu-expand = 展開
+menu-finish-editing = 請先結束目前的輸入。
+menu-input-clear = 清空
+menu-input-done = 完成
+menu-input-empty = （空）
+menu-input-single-line = 此欄位僅支援一行。
+menu-input-too-long = 長度 { $arg0 } / { $arg1 }，請縮短後確認。
+menu-query-cancel = 取消輸入
+menu-query-hint-rich = 按 { $chatKey } 輸入…
+menu-query-single-line = 僅支援單行，點選輸入框重試。
+menu-query-too-long = 長度 { $arg0 } / { $arg1 }，點選輸入框重試。
 menu-rhythm-game-display = 節奏遊戲中
+menu-search-empty = 沒有符合的結果
+menu-search-failed = 搜尋失敗
+menu-search-limit = 顯示 { $arg0 } / { $arg1 }，請縮小搜尋範圍。
+menu-search-loading = 正在搜尋…
+menu-search-retry = 重試
 menu-usage-display-mm = <aqua><bold>選單中</bold></aqua>
 url-dialog-confirm = 確認開啟
 url-dialog-hint = 確認後仍須在用戶端確認開啟連結。
@@ -108,22 +101,23 @@ url-dialog-title = 開啟 { $arg0 }
 
 ## Player · Client and presence
 
-client-mods-undetected-rich = 推薦模組：{ $mods }，點擊名稱下載。
-client-tip-axiom-flight-speed-mm = <white>按住 <yellow>左 Alt</yellow> 開啟 <aqua>Axiom</aqua> 選單，拖曳右側垂直滑桿調整飛行速度；也可用 <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click>。</white>
-client-tip-axiom-intro-rich = { $mod } 是建築輔助模組，支援藍圖複製貼上、地形與展示實體編輯，以及無更新放置、穿牆和多組快捷列。點擊名稱下載。
-client-tip-voxy-intro-rich = { $mod } 以較低負擔呈現更遠的風景，低階、高階電腦都值得一試。點擊名稱下載。
-client-version-behind-mm = <white>用戶端 <yellow>{ $clientVersion }</yellow> 早於伺服器 <green>{ $serverVersion }</green>，建議更新。</white>
+client-mods-undetected-rich = 推薦模組：{ $mods }，點擊名稱下載
+client-tip-axiom-flight-speed-mm = <white>按住 <yellow>左 Alt</yellow> 開啟 <aqua>Axiom</aqua> 選單，拖曳右側滑桿調整飛行速度，也可以用 <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click></white>
+client-tip-axiom-intro-rich = { $mod } 可以複製貼上建築、修改地形和編輯展示實體，點擊名稱下載
+client-version-behind-mm = <white>你的用戶端版本 <yellow>{ $clientVersion }</yellow> 比伺服器版本 <green>{ $serverVersion }</green> 舊，建議更新</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>附近有 <gold>{ $count }</gold> 名玩家處於 <gold>隱身</gold> 狀態</yellow> <gray>·</gray> <gray>最近約 { $distance } 格</gray>
 player-bedrock-label = 基岩版
+player-web-label = 網頁
 presence-join-templates =
-    .item-1 = { $player } 偷偷上線了
-    .item-2 = { $player } 想起了伺服器位址
-    .item-3 = { $player } 上線冒了個泡
+    .item-1 = 叮咚，{ $player } 上線啦！
+    .item-2 = 好耶，是 { $player }！
+    .item-3 = { $player } 來啦，歡迎歡迎～
+# Broadcast to remaining players; the departing player does not receive this message.
 presence-quit-templates =
-    .item-1 = { $player } 趁沒人注意溜走了
-    .item-2 = { $player } 暫時離開了這個世界
-    .item-3 = { $player } 回到了現實世界
+    .item-1 = { $player } 下線啦～
+    .item-2 = 叮咚，{ $player } 已離線
+    .item-3 = 線上 -1，{ $player } 下線了
 welcome-first-join-mm = <gold><bold>歡迎來到 MIK！</bold></gold><newline><gray>建議先看看 <click:open_url:'https://mcmik.top'><yellow>官網</yellow></click> 和 <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>；輸入 <yellow>/menu</yellow> 也能開啟主選單。</gray>
 welcome-return-mm = <gold><bold>歡迎回來！</bold></gold><newline><gray>你上次進服是 <yellow>{ $arg0 } 天前</yellow>。輸入 <yellow>/menu</yellow> 可以快速檢視常用功能。</gray>
 
@@ -166,27 +160,84 @@ player-association-time-occurrences = { $arg0 }（{ $arg1 } 項）
 player-association-time-separator = 、
 player-association-time-today = 今天
 
+
+## Player · Account security
+password-already-connected = 此帳號已連線至伺服器。
+password-already-set = 已設定密碼，請用 /password change 修改。
+password-busy = 嘗試過於頻繁，請稍後再試。
+password-change = 修改密碼
+password-change-done = 密碼已修改。
+password-checking = 正在檢查帳號安全狀態……
+password-command-description = 管理帳號密碼保護
+password-confirm = 確認新密碼
+password-conflict = 帳號安全狀態已變更，請重新操作。
+password-cooldown = 帳號驗證暫時受限，請於 { $arg0 } 秒後重試。
+password-current = 目前密碼
+password-denied = 你無權重設此帳號的密碼
+password-disabled = 密碼：未設定
+password-enabled = 密碼：已設定
+password-invalid = 密碼錯誤，請重試。
+password-keep-role = 管理員與維護者不能移除密碼
+password-login = 登入
+password-login-expired = 登入驗證已失效，請重新連線。
+password-login-hint = 請輸入本服密碼。忘記密碼請聯絡管理重設。
+password-mismatch = 兩次輸入的新密碼不一致。
+password-new = 新密碼
+password-nomination-required = 申請管理前請先設定帳號密碼：/password set
+password-not-set = 尚未設定密碼，可用 /password set 設定。
+password-remove = 移除密碼
+password-remove-done = 密碼已移除。
+password-remove-question = 移除後，登入將不再驗證密碼。請輸入目前密碼確認。
+password-required-application = 管理申請或任命尚未結束，暫不能移除密碼
+password-required-role = 管理與維護者帳號必須設定密碼，請聯絡有權限的管理者重設後登入。
+password-reset = 重設密碼
+password-reset-console = 已重設 { $arg0 } 的密碼：{ $arg1 }。請確認本人後透過可信管道交付。
+password-reset-done = 已重設 { $arg0 } 的密碼。請立即複製並確認本人後交付；關閉後無法再次查看。
+password-reset-question = 重設 { $arg0 } 的密碼？舊密碼將失效，目標連線將中斷。請輸入你自己的密碼確認。
+password-retry = 重試
+password-rules = 密碼須為 { $arg0 }～{ $arg1 } 個字元，不能使用玩家名稱或常見弱密碼。
+password-set = 設定密碼
+password-set-done = 密碼已設定。
+password-set-first = 先設定密碼再申請
+password-storage = 帳號安全服務無法使用，請稍後重試或聯絡服主
+password-timeout = 密碼驗證已取消或逾時，請重新連線後重試。
+password-tip-set-mm = 用 <gold><u>/password</u></gold> 設定<yellow>登入密碼</yellow>，保護你的帳號
+password-title = 帳號安全
+
 ## Player · Profile and tab list
 
-nametag-clear-all-error = 清除時發生錯誤，請稍後重試
-nametag-clear-all-success = ✔ 已清除所有名稱標籤
-nametag-clear-error = 清除 { $arg0 } 時發生錯誤
-nametag-clear-success = ✔ 已清除你的 { $arg0 }
-nametag-click-fill-command = 點擊填入指令
+nametag-cancel = 取消
+nametag-clear = 清空
+nametag-clear-hint = 清空自訂內容後，繼承的樣式仍可能顯示
 nametag-command-description = 自訂名稱標籤
-nametag-copy-hover = 複製 MiniMessage 原文到剪貼簿
+nametag-confirm = 確定
+nametag-conflict = 目前內容已被修改。請比較目前效果，再次確定以取代。
+nametag-copy-hint = 傳送前後綴原文到聊天
 nametag-copy-label = [複製]
-nametag-effect-label = 效果
-nametag-empty-content-rich = 內容不能為空，如需清除請使用 { $command }
-nametag-format-docs = 格式說明
+nametag-copy-sent = 已將 { $arg0 } 的樣式原文傳送到聊天。
+nametag-current = 目前效果
+nametag-edit = 編輯
+nametag-edit-ended = 編輯已結束，請重新點選編輯以繼續。
+nametag-edit-prompt = 按 T 輸入{ $arg0 }（MiniMessage，僅自己可見）。
+nametag-finish-field = 請先確定或取消目前欄位的編輯
+nametag-input-invalid = 格式無效，請傳送單行 MiniMessage，或點選清空
 nametag-leading-label = 名稱字首
-nametag-no-permission = 你沒有使用該指令的權限
-nametag-online-editor = 線上編輯器
+nametag-mine = 我的名牌
+nametag-next = 下一頁
+nametag-no-changes = 內容未變更
+nametag-no-permission = 正式成員以上可編輯名牌；你仍可查看樣式
+nametag-no-players = 尚無玩家設定名牌樣式
+nametag-page = 第 { $arg0 } / { $arg1 } 頁
+nametag-players = 玩家樣式
 nametag-preview-label = 預覽
-nametag-sample-message = 範例訊息
-nametag-set-error = 設定 { $arg0 } 時發生錯誤，請稍後重試
+nametag-previous = 上一頁
+nametag-refresh = 重新整理
+nametag-saving = 正在儲存…
+nametag-set-error = 儲存失敗：{ $arg0 }。請重試；上方顯示目前實際效果。
 nametag-set-success = ✔ { $arg0 } 已設定
-nametag-tip-customize-mm = 用 <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> 自訂<light_purple>名稱前綴和後綴</light_purple>。
+nametag-styles-failed = 無法載入玩家樣式，請重新整理後重試。
+nametag-styles-loading = 正在載入玩家樣式…
+nametag-tip-customize-mm = 用 <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> 自訂<light_purple>名稱前綴和後綴</light_purple>
 nametag-title = 名稱標籤
 nametag-too-long = { $arg0 } 過長，最多 { $arg1 } 個字元
 nametag-trailing-label = 名稱字尾
@@ -206,8 +257,8 @@ back-pending-mm = <gray>正在傳送，請稍等</gray>
 # $steps, $remaining, $max (Number): consumed history, remaining history and limit.
 back-success-mm = <green>已連續返回 { $steps } 次</green> <gray>·</gray> <gray>{ $remaining }/{ $max }</gray>
 back-teleport-failed-mm = <red>傳送失敗，請重試</red>
-back-tip-return-mm = 用 <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> 返回上次傳送或死亡前的位置。
-back-tip-undo-mm = 用 <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> 撤銷上一次 <yellow>/back</yellow>。
+back-tip-return-mm = 用 <yellow><u><click:suggest_command:'/back'>/back</click></u></yellow> 返回上次傳送或死亡前的位置
+back-tip-undo-mm = 用 <light_purple><u><click:suggest_command:'/reback'>/reback</click></u></light_purple> 撤銷上一次 <yellow>/back</yellow>
 back-undo-empty-mm = <gray>沒有可撤銷的 <white>/back</white></gray>
 back-undo-success-mm = <green>已撤銷上一次 <white>/back</white></green>
 back-undo-world-missing-mm = <red>目標世界不可用，無法撤銷</red>
@@ -220,6 +271,7 @@ fly-enabled = 已開啟飛行
 fly-native-mode = 已關閉 /fly 授權；目前遊戲模式仍允許飛行。
 fly-speed-click = 設定飛行速度為 { $arg0 }x
 fly-speed-current = 目前飛行速度：{ $arg0 }x
+fly-speed-limited = 跑圖負載較高，飛行暫限 { $arg0 }x；你的速度設定仍為 { $arg1 }x。
 fly-speed-presets = 快捷速度
 fly-speed-reset = 飛行速度已重設為 1x
 fly-speed-reset-action = 重設
@@ -228,10 +280,8 @@ fly-speed-set = 飛行速度已設為 { $arg0 }x
 fly-state-disabled = 已關閉
 fly-state-enabled = 已開啟
 fly-status = 飛行：{ $arg0 } | 速度：{ $arg1 }x
-flyspeed-command-description = 檢視或設定個人飛行速度
 home-action-create = 建立家
 home-action-delete = 刪除家
-home-action-icon = 以手持物品設圖示
 home-action-teleport = 傳送
 home-action-update = 更新位置
 home-already-exists = 已有同名的家
@@ -249,11 +299,6 @@ home-distance-blocks = { $arg0 } 格
 home-distance-other-world = 不同世界
 home-empty-description = 站在想儲存的位置
 home-empty-title = 尚未設定傳送點
-home-icon = 圖示: { $arg0 }{ $arg1 }
-home-icon-default-note = · 預設
-home-icon-hand-invalid = 主手物品不能設為傳送點圖示
-home-icon-updated-rich = 傳送點 { $home } 的圖示已更新
-home-invalid-icon = 這個物品不能設為傳送點圖示
 home-invalid-name = 傳送點名稱不能包含 < > : 這些符號
 home-list-rich = 已有傳送點 { $homes }
 home-location = 座標: { $arg0 }, { $arg1 }, { $arg2 }
@@ -262,20 +307,20 @@ home-max-reached = 你最多只能設定 { $arg0 } 個傳送點
 home-menu-title = 我的傳送點
 home-no-homes = 你尚未設定傳送點
 home-not-found-rich = 找不到傳送點 { $home }
+home-search-placeholder = 搜尋家的名稱…
+home-search-empty = 沒有符合的傳送點
 home-set-command-description = 將目前位置設為傳送點
 home-set-rich = 已設定傳送點 { $home }
 home-set-usage-desc = 將目前位置設為傳送點
 home-summary-count = 已設定: { $arg0 } / { $arg1 }
-home-teleport-command-description = 傳送至指定傳送點
 home-teleport-failed = 傳送失敗，請重試
 home-teleported-rich = 已傳送至 { $home }
-home-tip-create-mm = 用 <green><u><click:suggest_command:'/sethome '>/sethome 名稱</click></u></green> 儲存目前位置，再用 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 返回。
-home-tip-return-mm = 用 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 開啟家園選單，選擇家園即可傳送。
+home-tip-create-mm = 用 <green><u><click:suggest_command:'/sethome '>/sethome 名稱</click></u></green> 儲存目前位置，再用 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 返回
+home-tip-return-mm = 用 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 開啟家園選單，選好要去的家，再按「{ home-action-teleport }」
 home-updated-rich = 傳送點 { $home } 的位置已更新
 home-usage-book = 指令幫助
 home-usage-delhome = /delhome <名稱>  刪除傳送點
-home-usage-home = /home tp <名稱>  直接傳送
-home-usage-icon = /home icon <物品> <名稱>  設定圖示
+home-usage-home = /home <名稱>  直接傳送
 home-usage-name-rule = 傳送點名稱不能包含 < > :
 home-usage-sethome = /sethome <名稱>  儲存目前位置
 home-world = 世界: { $arg0 }
@@ -303,10 +348,6 @@ teleport-request-none = 目前沒有可處理的傳送請求
 teleport-request-received = { $sender } 想要傳送你：{ $command }
 teleport-request-rejected = 已拒絕傳送請求
 teleport-request-sent = 已向 { $player } 傳送傳送請求
-teleport-summary-afk = 永遠允許，暫離時拒絕
-teleport-summary-allow = 永遠允許其他玩家傳送
-teleport-summary-consent = 其他玩家傳送須經過我允許
-teleport-summary-deny = 永遠拒絕其他玩家傳送
 tpany-command-description = 傳送到玩家位置（線上/離線均可）
 tpany-done-offline-rich = 已傳送至 { $player } 離線前的位置 { $world } { $location }
 tpany-done-online-rich = 已傳送到 { $player } 目前位置
@@ -317,14 +358,13 @@ tpany-usage-desc = 傳送到玩家位置，支援離線快取
 
 ## Player · PVP
 
-pvp-admin-menu-title = 玩家對戰管理 - 第 { $arg0 }/{ $arg1 } 頁
+pvp-admin-menu-title = 玩家對戰管理
 pvp-allow-mounted-damage = 騎乘生物可被攻擊
 pvp-allow-mounted-damage-desc = 開啟後，當你和對方都開啟玩家對戰時，對方可以攻擊你正在騎乘的生物
 pvp-auto-enable-desc = 連續攻擊已開啟玩家對戰的玩家兩次
 pvp-auto-enable-label = 自動開啟
 pvp-auto-enable-warning-actionbar-mm = <yellow>再攻擊一次將自動開啟玩家對戰</yellow>
 pvp-auto-enabled-actionbar-mm = <green>玩家對戰已自動開啟</green>
-pvp-back-admin = 返回玩家對戰管理
 pvp-combat-locked-mm = <red>戰鬥中無法關閉玩家對戰</red> <dark_gray>|</dark_gray> <gray>剩餘時間：<yellow>{ $arg0 }</yellow>秒</gray>
 pvp-combat-tag-label = 戰鬥冷卻
 pvp-combat-tag-value = { $arg0 } 秒
@@ -345,13 +385,13 @@ pvp-menu-title = 玩家對戰設定
 pvp-mob-protected-actionbar-mm = <yellow>該生物受到玩家對戰保護</yellow>
 pvp-mob-protection-label = 生物保護
 pvp-mounted-damage-label = 騎乘生物可被攻擊
-pvp-next-page = 下一頁
 pvp-no-permission-mm = <red>你沒有權限管理其他玩家的玩家對戰狀態</red>
 pvp-player-not-found-mm = <red>找不到線上玩家</red>
-pvp-prev-page = 上一頁
 pvp-protect-mobs = 保護自己的生物
 pvp-protect-mobs-desc = 保護你馴服或正在騎乘的生物
-pvp-set-by-staff-mm = <aqua>工作人員已將你的玩家對戰狀態設定為</aqua> <yellow>{ $arg0 }</yellow>
+pvp-quick-combat-cooldown = 戰鬥冷卻剩餘 { $arg0 } 秒
+pvp-quick-override = 目前由臨時規則控制，可在設定中調整個人偏好
+pvp-set-by-staff-mm = <aqua>管理已將你的玩家對戰狀態設定為</aqua> <yellow>{ $arg0 }</yellow>
 pvp-set-other = 已將 { $arg0 } 的玩家對戰狀態設定為 { $arg1 }
 pvp-set-other-rich = 已將 { $player } 的玩家對戰狀態設定為 { $state }
 pvp-state-label = 玩家對戰
@@ -364,7 +404,7 @@ pvp-summary-disabled = 玩家對戰已關閉
 pvp-summary-enabled = 玩家對戰已開啟
 pvp-target-disabled-actionbar-mm = <yellow>對方未開啟玩家對戰</yellow>
 pvp-target-menu-title = 玩家對戰設定 - { $arg0 }
-pvp-tip-protection-mm = 用 <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> 開關自己的玩家對戰；<green>雙方開啟</green>後才能互相攻擊。
+pvp-tip-protection-mm = 用 <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> 開啟或關閉 PVP，<green>雙方都開啟</green>後才能互相攻擊
 pvp-toggled-off-mm = <gray>玩家對戰已關閉</gray> <dark_gray>|</dark_gray> <gray>其他玩家不能主動攻擊你</gray>
 pvp-toggled-on-mm = <green>玩家對戰已開啟</green> <dark_gray>|</dark_gray> <gray>你現在可以攻擊其他已開啟玩家對戰的玩家</gray>
 
@@ -398,7 +438,7 @@ trash-clear-hint = 點擊立即清空箱內物品；
 trash-command-description = 開啟垃圾桶
 trash-sort = 整理
 trash-sort-hint = 合併同類堆疊並依物品類型排列
-trash-tip-dispose-mm = 用 <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> 開啟<yellow>垃圾桶</yellow>，放入不需要的物品。
+trash-tip-dispose-mm = 用 <aqua><u><click:suggest_command:'/trash'>/trash</click></u></aqua> 開啟<yellow>垃圾桶</yellow>，放入不需要的物品
 trash-title = 垃圾桶
 
 ## Player · Utilities
@@ -406,33 +446,33 @@ trash-title = 垃圾桶
 hat-command-description = 把主手物品戴到頭上
 hat-empty-hand-mm = <red>主手沒有物品</red> <gray>先拿起一個方塊或物品再使用 /hat</gray>
 hat-success-mm = <green>已把主手物品戴到頭上</green> <dark_gray>|</dark_gray> <gray>主手與頭盔欄已交換</gray>
-hat-tip-wear-mm = 用 <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> 把<yellow>主手物品</yellow>戴到頭上。
+hat-tip-wear-mm = 用 <light_purple><u><click:suggest_command:'/hat'>/hat</click></u></light_purple> 把<yellow>主手物品</yellow>戴到頭上
 removeitems-command-description = 清除掉落物
 # $count: styled display; $countValue (Number): plural selector.
 removeitems-done-rich = 已在世界 { $world } { $location } 清除{ $count }個掉落物品 { $radius }
 removeitems-no-world = 無法確定世界
 removeitems-radius = 半徑 { $arg0 } 格
-removeitems-tip-usage-mm = 用 <aqua><u><click:suggest_command:'/rmitems '>/rmitems [半徑]</click></u></aqua> 清理附近的<yellow>掉落物</yellow>。
+removeitems-tip-usage-mm = 用 <aqua><u><click:suggest_command:'/rmitems '>/rmitems [半徑]</click></u></aqua> 清理附近的<yellow>掉落物</yellow>
 self-kick-command-description = 把自己踢出伺服器
 self-kick-reason-too-long = 踢出原因不可超過 { $arg0 } 個字元
 # $person: second for the actor; third for other viewers and console.
 self-kick-with-reason = { $person ->
         [second] 你已主動離開伺服器。原因：{ $reason }
-       *[third] { $player } 自己把自己踢出了伺服器，原因是：{ $reason }
+       *[third] { $player } 主動離開了伺服器。原因：{ $reason }
     }
-    .item-1 = { $player } 自己把自己踢出去了，原因竟然是：{ $reason }
-    .item-2 = { $player } 竟然因為 { $reason } 把自己踢出了伺服器！
-    .item-3 = { $player } 主動離開了伺服器，留下的理由是：{ $reason }
-    .item-4 = { $player } 選擇了自我踢出：{ $reason }
+    .item-1 = { $player } 主動離開了伺服器。原因：{ $reason }
+    .item-2 = { $player } 下線了。留言：{ $reason }
+    .item-3 = { $player } 離開了伺服器，留言：{ $reason }
+    .item-4 = { $player } 已退出。附言：{ $reason }
 # $person: second for the actor; third for other viewers and console.
 self-kick-without-reason = { $person ->
         [second] 你已主動離開伺服器。
-       *[third] { $player } 自己把自己踢出了伺服器。
+       *[third] { $player } 主動離開了伺服器。
     }
-    .item-1 = { $player } 竟然把自己踢出去了！
-    .item-2 = { $player } 一言不發地離開了伺服器。
-    .item-3 = { $player } 表演了一次自我踢出。
-    .item-4 = { $player } 按下了主動離開伺服器的按鈕。
+    .item-1 = { $player } 主動離開了伺服器。
+    .item-2 = { $player } 下線啦～
+    .item-3 = 叮咚，{ $player } 已離線
+    .item-4 = 線上 -1，{ $player } 下線了
 
 ## Community · Chat and mentions
 
@@ -456,8 +496,8 @@ chat-private-label = 私人訊息
 chat-private-no-reply-target = 沒有可回覆的線上私人聊天對象
 chat-private-self = 無法與自己開始私人聊天
 chat-private-target-not-found = 找不到線上玩家 { $arg0 }
-chat-private-target-offline = 私人聊天對象已離線，已返回公共聊天頻道
-chat-private-tip-channel-mm = 用 <aqua><u><click:suggest_command:'/msg '>/msg 玩家</click></u></aqua> 進入私聊頻道，用 <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> 返回公共頻道。
+chat-private-target-offline = 私訊對象已離線，請等待對方上線或選擇其他頻道
+chat-private-tip-channel-mm = 用 <aqua><u><click:suggest_command:'/msg '>/msg 玩家</click></u></aqua> 進入私聊頻道，用 <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> 返回公共頻道
 chat-public-command-description = 切換公共聊天頻道
 chat-public-enter = 已切換到公共聊天頻道
 chat-reply-command-description = 回覆最近的私人聊天對象
@@ -466,36 +506,37 @@ chat-social-account-label = 平台帳號
 chat-social-bound-player-label = 已綁定玩家
 chat-social-name-label = 社交暱稱
 chat-social-unbound = 未綁定 Minecraft 玩家
-chat-staff-command-description = 切換員工聊天頻道
-chat-staff-permission-missing = 你已失去員工聊天權限，已回到公共聊天頻道
+chat-staff-command-description = 切換{ chat-staff-label }聊天頻道
+chat-staff-label = 管理
+chat-staff-permission-missing = 你已失去{ chat-staff-label }聊天權限，已回到公共聊天頻道
 mention-action-bar = 螢幕提示
 mention-action-bar-text = { $sender } 提及了你
 mention-alerts = 提及提醒總開關
 mention-menu-title = 提及提醒
 mention-mute-afk = 暫離時靜音
 mention-sound = 提醒聲音
-mention-summary-action-bar = 螢幕提示
-mention-summary-disabled = 已關閉提醒
-mention-summary-enabled = 提醒開啟
-mention-summary-enabled-afk = 提醒開啟，暫離時靜音
-mention-summary-modes-afk = { $arg0 }，暫離時靜音
-mention-summary-sound = 聲音
-staffchat-enter = 已進入員工聊天頻道
+staffchat-enter = 已進入{ chat-staff-label }聊天頻道
 
 ## Community · Announcements
 
+announcement-count = { $arg0 } 則公告
 announcement-empty = 暫無公告
 announcement-first-page = 已到最新公告
 announcement-last-page = 已到最早公告
+announcement-latest = 最新公告
+announcement-list-newer = 較新一組
+announcement-list-older = 較早一組
 announcement-more-count = 還有 { $arg0 } 則未顯示
 announcement-new-count = 新增 { $arg0 } 則
 announcement-newer = 較新公告
+announcement-next-page = 下一頁
 announcement-older = 較早公告
+announcement-page = { $arg0 } / { $arg1 } 頁
+announcement-previous-page = 上一頁
 announcement-reload = 重新載入公告
 announcement-reload-command-description = 重新載入公告檔案
 announcement-reload-failed = 公告重新載入失敗，原有公告已保留
 announcement-reloaded = 公告已重新載入
-announcement-scroll-hint = 滾輪左右瀏覽
 announcement-unread-count = { $arg0 } 則未讀
 announcement-updated = 伺服器公告已更新
 announcement-view-all = 查看所有公告
@@ -663,7 +704,41 @@ governance-active-header = ─── 活躍成員資格 ───
 governance-active-member = 當前具有成員身份
 governance-active-member-age = 取得成員身份滿 30 天
 governance-active-playtime = 近 60 天有效遊玩 6 小時（當前 { $arg0 }）
+governance-activity-action = { $arg0 ->
+    [confirm] 確認聯署
+    [vote] 查看並投票
+    *[details] 查看詳情
+    }
+governance-activity-all = 查看全部（{ $arg0 }）
+governance-activity-closed = 已結束
+governance-activity-confirm-petition = 確認參與聯署？達到人數後將發起罷免投票。
+governance-activity-needed = 還需 { $arg0 } 人
+governance-activity-proposal = { $arg0 ->
+    [appointment] 任命 { $arg1 } 為管理員
+    [removal] 免去 { $arg1 } 的管理職務
+    [petition] 罷免 { $arg1 } 的聯署
+    *[ban] 封禁 { $arg1 } 的投票
+    }
+governance-activity-remaining = { $arg1 ->
+    [days] 剩餘：{ governance-days }
+    [hours] 剩餘：{ governance-hours }
+    *[minutes] 剩餘：{ governance-minutes }
+    }
+governance-activity-status = { $arg0 ->
+    [available] 可投票
+    [voted] 已投票
+    [join] 可聯署
+    [joined] 已聯署
+    [closed] 已結束
+    *[view] 僅查看
+    }
 governance-already-moderator = 你已經是管理。
+governance-application-status = { $arg0 ->
+    [open] 任命投票進行中
+    [pending] 已通過，等待任命
+    [blocked] 尚未符合申請條件
+   *[ready] 可以申請管理
+    }
 governance-ballot-recorded = 匿名投票已記錄為“{ $arg0 }”；截止前可修改選擇。
 governance-ban-details = 發起人 { $arg0 } · 封禁期限 { $arg1 } · 理由：{ $arg2 }
 governance-ban-suffix = · 期限 { $arg0 } · 理由：{ $arg1 }
@@ -673,22 +748,23 @@ governance-choice-yes = 贊成
 governance-command-description = 檢視治理資格與投票
 governance-custodian-no-nomination = 維護者不參加管理任免。
 governance-custodian-no-resign = 維護者不適用管理辭任流程。
-# $arg0 (Number): duration; locale decides the unit form.
 governance-days = { $arg0 }天
 governance-error-ban-already-active = 該玩家已有生效中的封禁。
 governance-error-ban-proposer-ineligible = 只有活躍成員可以發起封禁投票。
 governance-error-ban-self = 不能發起封禁自己的投票。
-governance-error-candidate-ineligible = 管理候選人必須是活躍成員。
-governance-error-nomination-not-open = 你沒有進行中的管理報名。
+governance-error-candidate-ineligible = 管理候選人必須是活躍成員
+governance-error-nomination-not-open = 你沒有進行中的管理申請。
 governance-error-not-voter = 你不在本次凍結選民名單中。
 governance-error-pause-already-active = 該玩家已有生效中的晉升暫停。
 governance-error-pause-already-member = 該玩家已是成員，無需暫停晉升。
 governance-error-pause-end-invalid = 晉升暫停期限必須晚於當前時間。
 governance-error-player-unknown = 該玩家尚無治理記錄。
+governance-error-removal-petition-closed = 這項聯署已結束或已由新申請取代。
 governance-error-removal-requires-petition = 罷免投票必須由達到人數的聯署啟動。
 governance-error-removal-self = 被罷免者不能聯署自己的罷免。
-governance-error-removal-sponsor-ineligible = 只有活躍成員可以聯署罷免。
+governance-error-removal-sponsor-ineligible = 只有活躍成員可以聯署罷免
 governance-error-removal-sponsors-too-few = 除被罷免者外至少需要兩名活躍成員。
+governance-error-removal-target-not-moderator = 對方已不再是可罷免的管理員。
 governance-error-removal-vote-open = 該管理已有進行中的罷免投票。
 governance-error-termination-reason-invalid = 終止原因不適用於該類投票。
 governance-error-vote-already-open = 該玩家已有進行中的同類投票。
@@ -705,7 +781,6 @@ governance-failure-quorum = 未達到法定參與人數
 governance-failure-two-thirds = 贊成票未達到非棄權票的三分之二
 governance-history-header = ─── 最近投票結果 ───
 governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
-# $arg0 (Number): duration; locale decides the unit form.
 governance-hours = { $arg0 }小時
 governance-inactive-removal = { $arg0 } 已因連續 180 天未登入自動卸任管理。
 governance-invalid-choice = 請選擇 yes、no 或 abstain。
@@ -714,44 +789,54 @@ governance-kind-appointment = 任命
 governance-kind-ban = 封禁
 governance-kind-removal = 罷免
 governance-legacy-ban-kick = 此前的治理投票已通過，你被封禁 { $arg0 }。理由：{ $arg1 }
-governance-menu-actions = 可用操作
+governance-menu-already-sponsored = 已連署
+governance-menu-application = 申請狀態
 governance-menu-back = 返回
 governance-menu-cancel = 取消
+governance-menu-completed = 已結束
 governance-menu-confirm = 確認
-governance-menu-confirm-nominate = 發起自己的管理任命投票？
+governance-menu-confirm-nominate = 提交申請將發起管理任命投票。
 governance-menu-confirm-resign = 確認辭任管理？
 governance-menu-confirm-sponsor = 支持這項罷免連署？
-governance-menu-confirm-withdraw = 撤回管理報名？
-governance-menu-find-player = 查找其他玩家
-governance-menu-history = 投票紀錄
+governance-menu-confirm-withdraw = 撤回管理申請？
+governance-menu-custodian-duties = 伺服器維護與管理。
+governance-menu-identity = 身分
+governance-menu-identity-hint = 查看晉升條件和活躍紀錄
+governance-menu-join-petition = 支持罷免連署
 governance-menu-loading = 正在讀取治理狀態…
-governance-menu-new-petition = 發起罷免連署
-governance-menu-nominate = 報名管理
-governance-menu-nomination-open = 你的任命投票正在進行
+governance-menu-matters = 治理事項
+governance-menu-moderator-duties = 處理違規與玩家求助。
+governance-menu-nominate = 申請管理
+governance-menu-offline = 離線
+governance-menu-ongoing = 進行中
+governance-menu-online = 線上
 governance-menu-pause = 暫停新人晉升
 governance-menu-pause-appeal = 申訴途徑
 governance-menu-pause-duration = 期限（例如 2d）
 governance-menu-pause-reason = 原因
+governance-menu-pause-until = 截止時間
+governance-menu-pending-application = 已通過 · 待執行
 governance-menu-petition-row = { $arg0 } · 已連署 { $arg1 }/{ $arg2 }
 governance-menu-petitions = 罷免連署
 governance-menu-player-name = 玩家名稱
 governance-menu-players = 玩家管理
-governance-menu-recent-results = 最近投票結果
 governance-menu-refresh = 重新整理
+governance-menu-related = 近期相關紀錄
+governance-menu-related-matters = 查看相關事項
 governance-menu-resign = 辭任管理
 governance-menu-resume = 解除晉升暫停
 governance-menu-resume-reason = 解除原因
-governance-menu-staff-only = 只有管理與維護者可以管理玩家。
-governance-menu-status = 我的狀態
-governance-menu-target = 管理名稱
-governance-menu-title = 治理
-governance-menu-votes = 進行中的投票
-governance-menu-withdraw = 撤回報名
-# $arg0 (Number): duration; locale decides the unit form.
+governance-menu-staff-only = 只有管理與維護者可以管理玩家
+governance-menu-staff-search = 尋找管理
+governance-menu-subject-filter = { $arg0 } · 清除篩選 ×
+governance-menu-team = 公開管理
+governance-menu-team-empty = 沒有符合條件的管理
+governance-menu-title = 社群治理
+governance-menu-withdraw = 撤回申請
 governance-minutes = { $arg0 }分鐘
 governance-no-active-ban = 當前沒有生效中的封禁
 governance-no-active-pause = 當前沒有生效中的晉升暫停
-governance-nomination-withdrawn = 已撤回管理報名；投票終止結果將自動公告。
+governance-nomination-withdrawn = 已撤回管理申請；投票終止結果將自動公告。
 governance-none = 暫無
 governance-not-member = 尚未成為成員
 governance-not-moderator = 你當前不是管理。
@@ -760,7 +845,6 @@ governance-own-choice-closed = 你的選擇：{ $arg0 }
 governance-own-choice-open = 你的選擇：{ $arg0 }；截止前可修改。
 governance-own-not-voted = 你在選民名單中，但尚未投票。
 governance-own-not-voted-hint = 你尚未投票；開啟「治理」並選擇這項投票。
-governance-own-not-voted-open = 你尚未投票。
 governance-own-not-voter = 你不在本次選民名單中。
 governance-own-voted = 你已投票
 governance-pause-cleared = 已解除 { $arg0 } 的晉升暫停。
@@ -794,15 +878,13 @@ governance-result-terminated = 已終止（{ $arg0 }）
 governance-resume-notice = 你的晉升暫停已解除。理由：{ $arg0 }
 governance-resume-reason-required = 請填寫解除暫停的理由。
 governance-role-lookup-error = 無法核對管理身份，請聯絡維護者。
-# $arg0 (Number): duration; locale decides the unit form.
 governance-seconds = { $arg0 }秒
 governance-storage-error = 治理資料操作失敗，請聯絡維護者。
-governance-target-not-moderator = { $arg0 } 當前不是管理。
 governance-termination-inactive = 被罷免者因長期離線自動卸任
 governance-termination-ineligible = 候選人失去活躍成員資格
 governance-termination-resigned = 被罷免者已經辭任
 governance-termination-unknown = 未記錄原因
-governance-termination-withdrew = 候選人撤回報名
+governance-termination-withdrew = 候選人撤回申請
 governance-vote-electorate = 選民 { $arg0 } 人 · 法定參與 { $arg1 } 人
 governance-vote-finalized = 結算：{ $arg0 }
 governance-vote-header = ─── 投票 #{ $arg0 } ───
@@ -820,13 +902,10 @@ plot-admin-created = 已為 { $arg1 } 登錄地段 { $arg0 } · { $arg2 }
 plot-allowed = 開啟
 plot-area-changed = 確認期間地段範圍已改變，請重新整理後重試。
 plot-area-confirm = 將「{ $arg0 }」的範圍替換為目前選區（{ $arg1 } 個單元）？不會刪除建築。
-plot-area-hint = //pos1 → //pos2 → 儲存；木斧左右鍵選點，多區域用加入／扣除。
+plot-area-hint = 用木斧左、右鍵或 //pos1、//pos2 選點，返回選單後儲存
 plot-area-replace-save = 替換範圍並儲存
 plot-area-save = 儲存地段範圍
 plot-area-saved = 已儲存「{ $arg0 }」的地段範圍。
-plot-arrival-removed = 已移除到訪點。
-plot-arrival-set = 已設定到訪點。
-plot-arrival-text-saved = 已儲存到訪標題。
 plot-atmosphere-saved = 已儲存環境設定。
 plot-back = 返回
 plot-board-auto-notify-result = 已安排提醒 { $arg0 } 位玩家。
@@ -837,6 +916,7 @@ plot-board-header = 社區公示與回饋（最近 { $arg0 } 條；/plot board �
 plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
 plot-board-kind-notice = 公示
 plot-board-kind-objection = 異議
+plot-board-loading = 正在讀取公示紀錄…
 plot-board-menu = 社區公示
 plot-board-notice-alert = { $arg0 } 發布了公示：{ $arg1 } · { $arg2 }
 plot-board-objection-alert = { $arg0 } 提出了異議：{ $arg1 } · { $arg2 }
@@ -855,46 +935,38 @@ plot-board-unavailable = 公示紀錄暫未載入，請稍後重試，或查看 
 plot-board-withdrawal-alert = { $arg0 } 已撤回異議：{ $arg1 } · { $arg2 }
 plot-board-write-failed = 更新公示失敗，請稍後重試。
 plot-command-blocked = 地段保護阻止了這條命令。請在自己的地段內直接使用 /fill、/setblock 等命令；複雜 /execute 請由管理員確認。
-plot-command-description = 管理地段與公共項目
+plot-command-description = 管理地段
 plot-created = 已建立地段 { $arg0 } · { $arg1 }
 plot-created-for-you = { $arg1 } 已為你登錄地段 { $arg0 }。
 plot-deleted = 已釋放地段；建築本身沒有被刪除。
 plot-denied = 關閉
-plot-empty-summary = 目前位置沒有地段。
 plot-error-admin-owner-only = 調整具備管理能力的成員，需要同時具備管理成員和管理權限能力。
 plot-error-area-disconnected = 地段必須是一個相連的區域。
 plot-error-args = 參數無效或不足。用 /plot help 查看用法。
-plot-error-arrival-location = 請站在專案已建區域內的安全地面上。
-plot-error-arrival-missing = 尚未設定到訪點。
-plot-error-arrival-private = 你不能前往這個私人專案。
-plot-error-arrival-text = 標題無效。請只用一行；主標題最多 32 個可見字元，副標題最多 64 個。
-plot-error-arrival-unsafe = 到訪點無法使用或已不安全。
 plot-error-busy = 地段資料正在儲存，請稍後重試；本次操作未提交。
 plot-error-flag = 不支援此權限名稱，請從權限列表選擇具體操作。
 plot-error-id = 地段 ID 不存在或不唯一。用 /plot list 查看。
 plot-error-member-missing = 該玩家已不在成員列表。
-plot-error-member-required = 新人可查看地段和提出異議；成為 正式成員 後可建立項目。
+plot-error-member-required = 新人可查看地段和提出異議；成為 正式成員 後可建立項目
 plot-error-name = 地段名稱需為 1–48 個字元。
 plot-error-notice-text = 公告板最多 { $arg0 } 字，不限制行數或單行長度；不能包含控制字元。
 plot-error-overlap = 選取範圍與已有地段重疊。
 plot-error-owner-member = 所有者使用所有者權限組，不作為普通成員邀請。
-plot-error-owner-only = 你沒有執行此操作所需的管理權限。
+plot-error-owner-only = 你沒有執行此操作所需的管理權限
 plot-error-permission-changed = 權限、成員或繼承規則已變更，請重新預覽後確認。
 plot-error-permission-grant = 不能授予自己不具備的管理權限。
 plot-error-permission-owner-scope = 只有地段所有者、母地段所有者或伺服器管理者可以修改所有者組權限。
 plot-error-player-unknown = 找不到這名已加入伺服器的玩家；請核對名稱或 UUID。
 plot-error-release-owner-only = 你沒有刪除地段的權限。
-plot-error-selection = 用 //pos1、//pos2 標記兩個角點。
+plot-error-selection = 用 //pos1、//pos2 標記兩個角點
 plot-error-selection-changed = 選區已變更，請重新確認。
 plot-error-staff-only = 只有管理或維護者可以管理或代登錄他人的地段。
 plot-error-storage = 地段操作失敗，請稍後重試或聯繫管理者。
-plot-error-subplot-arrival = 請先將母專案到訪點移出所選範圍。
-plot-error-subplot-children = 請先釋放子地段，再釋放母專案。
+plot-error-subplot-children = 請先釋放子地段，再釋放母專案
 plot-error-subplot-depth = 子地段僅支援一層。
 plot-error-subplot-disconnected = 所選建築單元沒有連成一片；請分別劃分各部分。
 plot-error-subplot-overlap = 所選範圍與其他子地段重疊。
-plot-error-subplot-own-arrival = 請讓子地段到訪點留在新範圍內，或先移動到訪點。
-plot-error-subplot-owner = 你沒有執行此子地段操作所需的權限。
+plot-error-subplot-owner = 你沒有執行此子地段操作所需的權限
 plot-error-subplot-parent = 請將兩個選區角點標在母專案已有的建築單元內。
 plot-error-subplot-supervisor-member = 母專案所有者已擁有此處的監管權限，無須再加入成員。
 plot-error-time-format = 請輸入 HH:mm 時間（00:00–23:59）。
@@ -914,16 +986,10 @@ plot-member-draft-submit = 預覽並確認
 plot-member-draft-title = 成員草案 · { $arg0 }
 plot-member-permissions = 權限
 plot-member-removed = 已移除項目成員。
-plot-menu-access = 權限與成員
-plot-menu-access-by-settings = 依存取設定
-plot-menu-admin = 新增地段管理員
-plot-menu-arrival = 到訪點
-plot-menu-arrival-subtitle = 副標題（MiniMessage；可留空）
-plot-menu-arrival-text = 到訪標題
-plot-menu-arrival-title = 主標題（MiniMessage；留空使用專案名稱）
+plot-menu-access = 成員與權限
+plot-menu-add-member = 新增成員
 plot-menu-atmosphere = 環境
 plot-menu-clear = 晴朗
-plot-menu-collaborator = 新增協作者
 plot-menu-confirm-delete = 確定刪除 { $arg0 } 的登記？保護、成員權限與設定將被移除，無法復原；建築會保留。
 plot-menu-confirm-subplot-transfer = 將「{ $arg0 }」轉給 { $arg1 }？母專案所有者仍可管理。
 plot-menu-confirm-transfer = 將「{ $arg0 }」的地段管理權轉給 { $arg1 }？你將失去存取權；既有作品署名不變。
@@ -944,27 +1010,22 @@ plot-menu-group-collaborator = 協作者
 plot-menu-group-member = 正式成員預設權限
 plot-menu-group-newcomer = 新人預設權限
 plot-menu-group-owner = 地段所有者
+plot-menu-here = 目前位置
 plot-menu-manage = 管理成員地段
 plot-menu-managed-empty = 這名玩家尚無地段。
 plot-menu-managed-title = { $arg0 } 的地段
 plot-menu-members = 成員（{ $arg0 }）
-plot-menu-my-access = 權限：{ $arg0 } · { $arg1 }
 plot-menu-name = 項目名稱
 plot-menu-owner = 所有者：{ $arg0 }
 plot-menu-parent-supervisor = 母專案所有者：{ $arg0 } · 可監管
 plot-menu-player = 玩家名稱或 UUID
-plot-menu-project-kind = 專案類型
-plot-menu-public-destinations = 公開到訪專案
-plot-menu-public-destinations-empty = 目前沒有設定到訪點的公開專案。
 plot-menu-rain = 降水
-plot-menu-record-id = 紀錄編號；舊紀錄請輸入完整編號
+plot-menu-record-search = 編號或標題
 plot-menu-related-notice = 查看關聯告知
-plot-menu-remove-arrival = 移除到訪點
 plot-menu-remove-member = 移除成員
 plot-menu-rename = 重新命名項目
 plot-menu-rule = 記錄裁決
 plot-menu-ruling = 說明裁決理由（8–1000 字）
-plot-menu-set-arrival = 將目前位置設為到訪點
 plot-menu-set-role = 設為{ $arg0 }
 plot-menu-settings = 設定
 plot-menu-submit = 提交
@@ -975,28 +1036,8 @@ plot-menu-subplots = 子地段（{ $arg0 }）
 plot-menu-time = 時間
 plot-menu-time-input = 時間（HH:mm）
 plot-menu-transfer = 轉讓地段所有權
-plot-menu-visit = 前往專案
 plot-menu-weather = 天氣
 plot-menu-withdraw = 撤回回饋
-plot-model-fit = 總覽
-plot-model-focus = 聚焦附近
-plot-model-layer-down = 剖切下移 1 格
-plot-model-layer-up = 剖切上移 1 格
-plot-model-legend = 青：已儲存 · 綠/金：角點1/2 · 紫：待儲存邊界 · 白/紅：我/朝向
-plot-model-level = 剖切 Y ≤ { $arg0 }
-plot-model-limited = 預覽細節已簡化
-plot-model-north-up = 俯視固定北向；切回立體視圖後可旋轉。
-plot-model-perspective = 立體視圖
-plot-model-preparing = 範圍校驗中…
-plot-model-progress = 讀取模型 { $arg0 }%…
-plot-model-rotate-left = ↶ 左轉
-plot-model-rotate-right = ↷ 右轉
-plot-model-show-all = 完整高度
-plot-model-slice = 剖切至所在層
-plot-model-terrain = 顯示建築地形
-plot-model-top = 俯視平面
-plot-model-unknown = { $arg0 } 處未載入（灰色）
-plot-model-wireframe = 僅顯示邊界
 plot-no-here = 目前位置沒有受保護地段。
 plot-notice-board = 地段公告板
 plot-notice-cleared = 地段公告板已清除
@@ -1038,7 +1079,6 @@ plot-permission-manage-area = 修改範圍
 plot-permission-manage-members = 管理成員
 plot-permission-manage-permissions = 管理權限
 plot-permission-manage-settings = 修改地段設定
-plot-permission-management = 地段設定與擁有權
 plot-permission-modify = 修改方塊與施肥
 plot-permission-operation = 操作
 plot-permission-personal = 個人權限
@@ -1061,16 +1101,15 @@ plot-permission-transfer = 轉讓所有權
 plot-permission-workstation = 使用設施與工作站
 plot-pos1 = 第一點
 plot-pos2 = 第二點
-plot-private = 私人項目
-plot-public = 公共項目
-plot-public-set = 專案類型已設為{ $arg0 }。
+plot-private = 未公開
+plot-public = 公開
 plot-region-adjust = 調整矩形
 plot-region-apply = 完成矩形調整
 plot-region-cancel = 取消矩形調整
 plot-region-changed = 選區已改變，請重新選擇矩形。
 plot-region-delete = 刪除矩形
 plot-region-delete-confirm = 從草稿移除矩形 #{ $arg0 }？不刪除建築；儲存地段後才修改邊界，可復原。
-plot-region-edit-hint = 用 //pos1、//pos2 調整此矩形兩角，其他矩形不變。完成調整後再統一儲存地段。
+plot-region-edit-hint = 用 //pos1、//pos2 調整目前矩形，完成後儲存
 plot-region-finish-first = 請先完成或取消目前的矩形調整。
 plot-region-open = 矩形管理（{ $arg0 }）
 plot-region-select-hint = 選擇一個矩形進行編輯。
@@ -1084,16 +1123,11 @@ plot-role-server-staff = 伺服器管理
 plot-selection-add = 累加目前框選
 plot-selection-clear = 重選兩點
 plot-selection-empty = 尚未選點
-plot-selection-exit = 退出編輯
 plot-selection-fit = 恢復已儲存範圍
 plot-selection-incomplete = 需選齊兩個角點
-plot-selection-mode = 實地選點
-plot-selection-no-redo = 沒有可重做的選區修改。
-plot-selection-no-undo = 沒有更早的選區修改可復原。
-plot-selection-open = 編輯範圍
 plot-selection-redo = 重做上一步
 plot-selection-replace = 用目前框選取代
-plot-selection-session-hint = 潛行+F 或 /plot edit 返回；20 分鐘無操作退出。
+plot-selection-session-hint = 潛行 + F 或 /plot edit 返回選單；20 分鐘無操作後自動退出
 plot-selection-size = { $arg0 } × { $arg1 } × { $arg2 } 格（X/Y/Z）
 plot-selection-stopped = 實地框選已結束，選區草稿仍按地段保留。
 plot-selection-subtract = 扣除目前框選
@@ -1109,12 +1143,46 @@ plot-transferred-to-you = { $arg1 } 已將地段「{ $arg0 }」轉讓給你。
 
 ## World · Vehicles
 
-vehicle-admin-help = /vehicle — 模型與實例管理
-    模型：model（開啟編輯器）| model help（編輯命令）
-    製作：origin | select <uuid>/radius <半徑>/group [uuid]/info/clear | capture <id> car/boat/plane
-    實例：spawn <模型> [x y z] | reload
 vehicle-command-description = 駕駛与管理展示實體載具
-vehicle-controls = { $arg0 }：W/S、A/D 駕駛；滾輪換檔或調節油门；換手切換駕駛模式；潛行退出。/vehicle help 查看操作。 /vehicle dashboard 開啟可點擊的駕駛控制台。
+vehicle-menu-label =
+    { $arg0 ->
+        [home] 載具工作台
+        [nearby] 附近載具
+        [fleet] 所有可存取載具
+        [selection] 模型擷取選區
+        [origin] 將腳下設為原點
+        [group] 選取展示實體組
+        [radius] 選取半徑（0–16 公尺）
+        [displays] 瀏覽附近展示實體
+        [clear] 清空選區與原點
+        [capture] 從選區建立模型
+        [toggle-selection] 切換選取狀態
+        [public] 設為公開
+        [private] 設為私人
+        [reload] 從檔案重新載入模型
+        [leave] 離開載具
+        [passenger] 乘客座位
+        [fuel] 加油 · 主手持煤或木炭
+        [repair] 維修 · 主手持鐵錠
+        [access] 存取權限
+        [remove] 移除載具
+        [hud] 顯示駕駛 HUD
+        [hide-preview] 隱藏 3D 預覽
+        [service-hint] 請靠近並停車熄火，主手持所需材料。
+        [nearby-hint] 請靠近至 32 格內，並先離開目前座位。
+        [use-required] 需要 mik.vehicle.use 權限。
+        [remove-hint] 請先停車並讓所有乘員下車。
+        [reload-hint] 所有載具須停車、熄火且無人乘坐。草稿保留；外部已變更的模型須重新開啟。
+        [pick-hint] 瞄準展示實體後右鍵選取整組；潛行右鍵取消，30 秒後到期。
+        [spawn-hint] 世界座標預設位於前方四格；載具依生成時的水平視角定向。
+        [zoom-in] 放大預覽
+        [zoom-out] 縮小預覽
+        [frame] 在面前重新擺放
+        [offset] 相對移動
+       *[other] { vehicle-command-description }
+    }
+
+vehicle-controls = { $arg0 }：W/S、A/D 駕駛；滾輪換檔或調節油门；換手切換駕駛模式；潛行退出。/vehicle
 vehicle-dash-assisted = 穩定輔助
 vehicle-dash-automatic = 自動檔
 vehicle-dash-contact = 接地 / 浮力支撐：{ $arg0 }
@@ -1151,18 +1219,136 @@ vehicle-group-invalid = 分組含不支援、受管、已失效或超出範圍�
 vehicle-group-limit = 最多匯入 128 個展示實體，分組總成員不得超過 256 個。
 vehicle-group-not-found = 未找到展示分組。請先選擇分組、瞄準方塊/物品展示，或指定實體 UUID。
 vehicle-group-selected = 已選擇群組：{ $arg0 }個顯示實體 · 根實體 { $arg1 }
-vehicle-help = /vehicle — 駕駛與載具操作
-    乘坐：list | ride [uuid] | passenger [uuid] | leave | inspect [uuid]
-    駕駛：engine | mode [automatic/manual/assisted] | gear P/R/N/D/up/down/數字 | throttle up/down
-    儀表：hud [on/off] | dashboard [drive/gearbox/details/off]
-    維護：fuel | repair | access public/private | remove [uuid]
 vehicle-hud-boat = { $arg0 } 節  ·  推進 { $arg1 }%  ·  航向 { $arg2 }°
 vehicle-hud-car = { $arg0 } km/h  ·  { $arg1 }  ·  { $arg2 } RPM · { $arg3 }
 vehicle-hud-plane = { $arg0 } km/h  ·  高度 { $arg1 } m  ·  垂速 { $arg2 } m/s  ·  油门 { $arg3 }%  ·  { $arg4 }
 vehicle-hud-status = 燃料 { $arg0 }%  ·  車況 { $arg1 }%  ·  { $arg2 }
+vehicle-model-center = 重心
+vehicle-model-choice = { $arg0 ->
+    [CAR] 汽車
+    [BOAT] 動力船
+    [PLANE] 固定翼飛機
+    [BODY] 車身
+    [FRONT_WHEEL] 轉向車輪
+    [WHEEL] 車輪
+    [PROPELLER] 螺旋槳
+    [RUDDER] 方向舵
+    [FIXED] 固定
+    [VERTICAL] 保持直立面向視角
+    [HORIZONTAL] 水平面向視角
+    [CENTER] 始終面向視角
+    [NONE] 原始姿態
+    [THIRDPERSON_LEFTHAND] 第三人稱·左手
+    [THIRDPERSON_RIGHTHAND] 第三人稱·右手
+    [FIRSTPERSON_LEFTHAND] 第一人稱·左手
+    [FIRSTPERSON_RIGHTHAND] 第一人稱·右手
+    [HEAD] 頭部
+    [GUI] 物品欄
+    [GROUND] 地面
+    [LEFT] 靠左
+    [RIGHT] 靠右
+    [false] 關閉
+    [true] 開啟
+    [TEXT_CENTER] 置中
+   *[other] { $arg0 }
+    }
+vehicle-model-field = { $arg0 ->
+    [kind] 載具類型
+    [mass] 質量
+    [maximum-speed] 最高速度（km/h）
+    [support-length] 支撐行程（公尺）
+    [grip] 抓地力
+    [center-of-mass] 重心
+    [inertia] 三軸轉動慣量
+    [engine-torque] 峰值扭矩
+    [engine-idle-rpm] 怠速（RPM）
+    [engine-redline-rpm] 限轉（RPM）
+    [engine-inertia] 引擎慣量
+    [engine-wheel-radius] 車輪半徑（公尺）
+    [engine-final-drive] 終傳比
+    [engine-reverse-ratio] 倒檔齒比
+    [engine-ratios] 前進檔齒比
+    [engine-shift-seconds] 換檔時間（秒）
+    [fuel-capacity] 燃料容量
+    [fuel-consumption] 燃料消耗（單位/秒）
+    [buoyancy] 浮力
+    [wing-area] 機翼面積（平方公尺）
+    [lift] 升力係數
+    [animation] 動畫角色
+    [billboard] 面向視角
+    [item-transform] 物品展示姿態
+    [alignment] 文字對齊
+    [block-light] 方塊光照
+    [sky-light] 天空光照
+    [background] 背景色（ARGB）
+    [line-width] 文字行寬
+    [opacity] 不透明度（0–255）
+    [shadow] 文字陰影
+    [see-through] 文字穿透顯示
+    [x] X
+    [y] Y
+    [z] Z
+    [size-x] 完整寬度 X（公尺）
+    [size-y] 完整高度 Y（公尺）
+    [size-z] 完整長度 Z（公尺）
+   *[other] { $arg0 }
+    }
+vehicle-model-field-range = 數值範圍：0 < 數值 ≤ { $arg0 }
+vehicle-model-front = 車頭方向（+Z）
+vehicle-model-front-choice = { $arg0 ->
+    [negative-x] 目前 −X 一側
+    [back] 目前後方（−Z）
+    [positive-x] 目前 +X 一側
+    [look] 使用我的水平視線方向（吸附至 90°）
+   *[other] 將這一側設為車頭
+    }
+vehicle-model-front-hint = 在 3D 中選擇車頭箭頭。車身維持原位，座位、出口和物理點同步換算；以 90° 為單位轉向，可整體復原。
+vehicle-model-handle = { $arg0 ->
+    [ROTATE] { $arg1 } { $arg2 } { $arg3 }°
+   *[other] { $arg1 } { $arg2 } { $arg3 }
+    }
+vehicle-model-marker = { $arg0 ->
+    [driver] 駕駛座 #{ $arg1 }
+    [passenger] 乘客座 #{ $arg1 }
+    [exit] 出口 #{ $arg1 }
+    [colliders] 碰撞盒 #{ $arg1 }
+    [supports] 支撐點 #{ $arg1 }
+    [center] 重心
+    [parts] 展示元件 #{ $arg1 }
+   *[other] { $arg1 }
+    }
+vehicle-model-parameter-group = { $arg0 ->
+    [body] 車身與地面接觸
+    [engine] 引擎與變速箱
+    [fuel] 燃料
+    [boat] 船隻浮力
+    [plane] 飛機升力
+    [power] 引擎動力
+   *[other] { $arg0 }
+    }
+vehicle-model-parameter-help = { $arg0 ->
+    [body] 調整質量、速度和地面接觸；重心可在 3D 中調整。儲存前只修改草稿。
+    [engine] 調整轉速、扭矩、車輪和齒比。前進檔齒比須遞減，限轉須高於怠速的 1.5 倍。
+    [fuel] 容量使用遊戲燃料單位；消耗以每秒計。
+    [boat] 浮力在船隻類型生效；其他類型的參數繼續保留。
+    [plane] 機翼面積和升力在飛機類型生效；其他類型的參數繼續保留。
+    [power] 調整目前載具的轉速與扭矩；汽車的變速箱參數繼續保留。
+   *[other] { $arg0 }
+    }
+vehicle-model-property-help = { $arg0 ->
+    [block-light] −1 使用世界光照；覆寫亮度時，兩個光照值皆須設為 0–15。
+    [sky-light] −1 使用世界光照；覆寫亮度時，兩個光照值皆須設為 0–15。
+    [background] 輸入帶正負號的 ARGB 整數，例如 −16777216 表示不透明黑色。
+    [line-width] 文字行寬範圍為 1–2048 像素。
+    [opacity] 0 表示透明，255 表示不透明。
+   *[other] { $arg0 }
+    }
+vehicle-model-spatial = 3D 操作
+vehicle-model-spatial-hint = 右鍵點擊標記選取物件或調整數值；蹲下按右鍵返回設定。滾輪切換調整步長。
+vehicle-model-spawn = 生成此模型的載具
 vehicle-model-add = 新增組件
 vehicle-model-add-here = 在腳下新增支撐點
-vehicle-model-anchor = 將預覽原點放在腳下（朝向作為車頭）
+vehicle-model-anchor = 在面前重新擺放
 vehicle-model-animation = 動畫
 vehicle-model-apply = 套用 / 確認
 vehicle-model-auto = 重建包圍碰撞盒
@@ -1177,8 +1363,8 @@ vehicle-model-copy = 複製並編輯（複製的座位為乘客位）
 vehicle-model-corner-cancel = 取消正在製作的碰撞盒
 vehicle-model-corner-first = 將腳下標記為碰撞盒第一角
 vehicle-model-corner-first-look = 將視線命中處標記為第一角
-vehicle-model-corner-hint = 第一角已標記。移動到對角（包括高度），執行 /vehicle model collider corner2 新增碰撞盒。盒子按模型軸向建立。
-vehicle-model-corner-required = 請先執行 /vehicle model collider corner1 標記第一角。
+vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
+vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = 以腳下為對角，新增碰撞盒
 vehicle-model-corner-second-look = 以視線命中處為對角，新增盒子
 vehicle-model-create = 建立模型
@@ -1192,17 +1378,16 @@ vehicle-model-draft = 未儲存草稿
 vehicle-model-driver = 駕駛位
 vehicle-model-driver-here = 在腳下新增駕駛座位
 vehicle-model-edit = 編輯 / 繼續草稿
+vehicle-model-overview = 草稿概覽
+vehicle-model-component-details = 元件詳情
+vehicle-model-selection-unavailable = 物件已移除或變更，請返回重新選擇
 vehicle-model-exit = 出口位置 / 軸向微調
-vehicle-model-group = 加入 Axiom 展示組
-vehicle-model-help = /vehicle model — 模型編輯
-    模型：menu | list | info [id] | create <id> car/boat/plane | import <id> car/boat/plane [uuid] | edit <id> | clone <id> <新id> | delete <id>
-    編輯：set <欄位> <值...> | part/seat/collider/support，按 Tab 查看操作與參數
-    草稿：preview [off] | undo | save | cancel
-    現場：anchor | pick | here；座位、出口、展示位置、支撐點與碰撞盒中心支援 here；collider corner1/corner2 兩角建盒；move <編號> <dx dy dz> 相對微調
-    更多：look 視線取點 | snap [on/off] 網格吸附 | redo 重做 | check 結構參數檢查 | apply 儲存並繼續；座標位置 here 也支援 look；collider corner1/corner2 [look]，cancel 取消草圖
+vehicle-model-group = 加入主手 Axiom 展示組
+vehicle-model-hand-invalid = Axiom 展示物品資料無效，或包含不支援的實體或展示屬性。
+vehicle-model-hand-required = 請將 Axiom 展示實體物品拿在主手後再匯入。
 vehicle-model-here = 使用我目前的腳下位置
-vehicle-model-history-empty = 目前沒有可復原或重做的編輯。
-vehicle-model-import = 匯入 Axiom 展示組
+vehicle-model-history-empty = 目前沒有可復原或重做的編輯
+vehicle-model-import = 匯入主手 Axiom 展示組
 vehicle-model-item = 物品
 vehicle-model-library = 已儲存模型 · 草稿儲存前僅在記憶體中
 vehicle-model-look = 視線放置（關閉選單後右擊確認）
@@ -1220,7 +1405,7 @@ vehicle-model-position = 位置 / 軸向微調
 vehicle-model-position-hint = 局部 X/Y/Z · here 取腳下、look 取視線表面 · 網格按目前步長吸附（預設關閉）
 vehicle-model-preview = 個人預覽
 vehicle-model-preview-failed = 預覽暫不可用，草稿已保留：{ $arg0 }
-vehicle-model-preview-hint = 個人預覽已開啟；停止編輯五分鐘後清除。/vehicle model preview off 關閉。
+vehicle-model-preview-hint = { vehicle-model-spatial-hint }
 vehicle-model-redo = 重做上次復原的編輯
 vehicle-model-remove = 移除組件
 vehicle-model-remove-warning = 移除此組件？後續索引會前移，可透過復原恢復。
@@ -1310,145 +1495,47 @@ async-regen-usage = 用法：/regen preview blocks [方塊類型...] | /regen pr
 async-regen-visualization-legend = 選區視覺化位於 { $arg0 }：青色 = 選區邊界，橙色 = 將變更方塊抽樣，紅色 = 可能被覆蓋的方塊實體；粒子只有你可見
 async-regen-visualization-selection = { $arg0 } 中的青色粒子表示選區邊界，只有你可見
 async-regen-fawe-required = 需要安裝 FastAsyncWorldEdit 才能讀取選區
+building-map-layer = 建築收錄
+building-map-open = 查看建築
+building-map-builders = 建造者：{ $arg0 }
+building-map-original-author = 原作者：{ $arg0 }
+building-map-type-original = 原創
+building-map-type-derivative = 衍生
+building-map-type-replica = 復刻
 -iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ 蹲
-iron-elevator-tip-mm = 放置上下對齊的{ -iron-elevator-block }就能建立電梯：站在{ -iron-elevator-block }上，<green>跳躍向上</green>、<aqua>潛行向下</aqua>；兩層以上的電梯會顯示<gold>樓層面板</gold>。
+iron-elevator-tip-mm = 把{ -iron-elevator-block }上下對齊放置就能搭建電梯，站在上面，<green>跳躍上樓</green>、<aqua>潛行下樓</aqua>；兩層起會顯示<gold>樓層面板</gold>
 iron-elevator-up = ↑ 跳
 spawn-beacon-color-command-description = 開關主城信標顏色切換
 spawn-beacon-color-disabled = 已停用主城信標顏色切換
 spawn-beacon-color-enabled = 已啟用主城信標顏色切換
 spawn-command-description = 返回主城
-spawn-tip-return-mm = 用 <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> 返回<yellow>主城</yellow>。
+spawn-tip-return-mm = 用 <aqua><u><click:suggest_command:'/spawn'>/spawn</click></u></aqua> 返回<yellow>主城</yellow>
 spawn-world-missing = 主城世界不可用
 
 ## Entertainment · Music
 
-music-action-add-queue = 加入播放佇列
-music-action-play-nearby = 在最近的唱片機播放
-music-action-play-now = 立即在此唱片機播放
-music-action-take-disc = 取得唱片
-music-added-to-queue-rich = 已加入播放佇列: { $music }
 music-album = 專輯: { $arg0 }
-music-all-in-queue = 所有歌曲都已在播放佇列中
 music-artist = 歌手: { $arg0 }
 music-back = 返回
-music-browser-left-click = 左鍵
-music-browser-right-click = 右鍵
-music-cache-clear-done = 線上音樂快取已清理
-music-cache-clear-started = 正在清理線上音樂快取...
-music-cache-operation-failed = 音樂快取操作失敗: { $arg0 }
-music-cache-status = 線上音樂快取: { $arg0 } 個檔案，{ $arg1 } / { $arg2 }
-music-cached = 已快取，可直接播放
-music-clear-queue = 清空播放佇列
-music-clear-queue-done = 已清空佇列（{ $arg0 }首歌曲）
 music-command-description = 本機、線上與 NBS 唱片機音樂
 music-disc-left = 左鍵: 拿取唱片
 music-disc-right = 右鍵: 在最近的唱片機播放
-music-duplicate-in-queue = 這首歌曲已在播放佇列中
 music-duration = 長度: { $arg0 }
-music-empty-library = 音樂庫為空
-music-empty-library-description = 暫無可用的本機音訊或 NBS 曲目
-music-empty-nbs = 沒有 NBS 曲目
-music-empty-nbs-description = 切換到全部音樂，或新增 NBS 檔案
-music-empty-playlist = 歌單中沒有可用歌曲
-music-empty-playlist-description = 請確認歌單已公開，且選擇了正確的平台
-music-empty-search = 沒有符合的歌曲
-music-empty-search-description = 嘗試其他關鍵字，或檢查自訂音源狀態
-music-finished = 播放完畢
 music-format = 格式: { $arg0 }
-music-inventory-full = 物品欄已滿，無法取得音樂唱片
 music-jukebox-audible-field-conflict = 另一台唱片機正在重疊的明顯聽聞範圍內播放不同歌曲
-music-jukebox-music-mode = 音樂模式
-music-jukebox-play-order = 播放順序
-music-jukebox-range = 播放範圍
-music-jukebox-range-value = 目前: { $arg0 } 格
-music-jukebox-rhythm-mode = 音遊模式
-music-jukebox-too-far = 你離唱片機太遠了（最多 { $arg0 } 格）
 music-jukebox-tp-hover = 點擊傳送到唱片機
 music-jukebox-unavailable = 唱片機已被移除或所在區塊無法使用
-music-jukebox-usage-mode = 唱片機用途
-music-jukebox-volume = 唱片機音量
-music-jukebox-volume-value = 目前: { $arg0 }%
-music-library-button = 音樂庫
-music-library-random-mode = 音樂庫隨機
-music-library-random-mode-desc = 從整個音樂庫中隨機播放，並避免連續重複同一首
-music-loading-title = 正在載入
-music-menu-nbs-title = NBS 音樂 - 第 { $arg0 }/{ $arg1 } 頁
-music-menu-playlist-title = 歌單: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-nbs-title = NBS 搜尋: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-title = 搜尋: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-title = 音樂唱片 - 第 { $arg0 }/{ $arg1 } 頁
-music-mode-switched = 已切換到 { $arg0 }
-music-nearest-jukebox-missing = 附近 { $arg0 } 格內沒有找到唱片機
-music-next-page = 下一頁
-music-no-disc = 無唱片
-music-no-files = 沒有可用的音樂檔案
-music-no-search-results-rich = 找不到包含「{ $keyword }」的歌曲
 music-now-playing-rich = 正在播放: { $music } 於唱片機 { $location }
-music-online-partial-failure = 有 { $arg0 } 個自訂音源請求失敗，已顯示其餘可用結果
 music-online-rate-limited = 音樂請求過多，請在{ $arg0 }秒後重試。
-music-online-searching = 正在從本機和線上音源搜尋「{ $arg0 }」...
 music-original-author = 原作者: { $arg0 }
-music-page-out-of-range = 頁碼超出範圍，最大頁碼為 { $arg0 }
-music-page-total = 共 { $arg0 }首歌曲
-music-page-usage-desc = 前往指定頁面
-music-partial-results = 部分結果可用，{ $arg0 } 個音源請求失敗
-music-paused = 已暫停
 music-plasmo-voice-unavailable = 歌曲已開始播放，但你未安裝、連線或啟用 Plasmo Voice，因此無法收聽
-music-play-next = 播放下一首
-music-play-random = 隨機播放
 music-playback-failed = 無法播放「{ $arg0 }」，請檢查音源或音樂檔案後重試
-music-playback-status = 播放狀態: { $arg0 }
-music-playing = 播放中
-music-playing-now-rich = 正在播放: { $music }
-music-playlist-import-button = 匯入歌單
-music-playlist-import-done = 已匯入「{ $arg0 }」：{ $arg1 }/{ $arg2 } 首歌曲
-music-playlist-import-failed = 歌單匯入失敗: { $arg0 }
-music-playlist-import-prompt = 請選擇平台，然後貼上公開歌單 ID 或連結：
-music-playlist-import-usage-desc = 從其他音樂平台匯入公開歌單
-music-playlist-importing = 正在匯入歌單...
-music-playlist-reference-prompt = 貼上公開歌單 ID 或連結
-music-prev-page = 上一頁
-music-queue-empty = 播放佇列為空
-music-queue-move-down = 下移
-music-queue-move-up = 上移
-music-queue-remove = 移除歌曲
-music-queue-summary = 佇列：{ $arg0 }首歌曲
-music-queue-summary-description = 第 { $arg0 }/{ $arg1 } 頁
-music-random-add = 隨機加入歌曲
-music-random-added-to-queue-rich = 已隨機加入播放佇列: { $music }
-music-random-disc = 隨機唱片
-music-random-disc-got-rich = 取得隨機音樂唱片: { $music }
-music-random-mode = 列表隨機
-music-random-mode-desc = 在播放列表中隨機播放，並避免連續重複同一首
-music-rank-down = 已向後移
-music-rank-up = 已向前移
-music-reload-done = 重新載入完成：{ $arg0 } 首本地音樂；LX 音源 { $arg1 }/{ $arg2 } 可用；已檢查 { $arg3 } 個訂閱，更新 { $arg4 } 個
 music-reload-failed = 音樂模組重新載入失敗: { $arg0 }
-music-reload-issues = 重新載入問題：{ $arg0 }
-music-reload-partial = 重新載入部分完成，失敗部分已保留舊狀態：{ $arg0 } 首本地音樂；LX 音源 { $arg1 }/{ $arg2 } 可用；已檢查 { $arg3 } 個訂閱，更新 { $arg4 } 個
 music-reload-started = 正在重新載入音樂檔案和自訂音源...
-music-remote-source-error = 更新錯誤: { $arg0 }
-music-remote-source-import-done = 已匯入 LX 音源訂閱: { $arg0 }
-music-remote-source-import-failed = LX 音源匯入失敗: { $arg0 }
-music-remote-source-import-started = 正在匯入 LX 音源訂閱...
-music-remote-source-remove-done = 已移除 LX 音源訂閱: { $arg0 }
-music-remote-source-remove-failed = 無法移除 LX 音源訂閱: { $arg0 }
-music-remote-source-remove-not-found = 找不到 LX 音源訂閱: { $arg0 }
-music-remote-source-update-done = 已檢查 { $arg0 } 個訂閱: { $arg1 } 個已更新，{ $arg2 } 個失敗
-music-remote-source-update-failed = LX 音源更新失敗: { $arg0 }
-music-remote-source-update-started = 正在檢查已匯入的 LX 音源訂閱...
-music-remote-source-updated-at = 最近更新: { $arg0 }
-music-remote-sources-title = 已匯入的 LX 音源訂閱: { $arg0 } 個
-music-removed-from-queue-rich = 已從播放佇列移除: { $music }
-music-repeat-one-mode = 單曲循環
-music-repeat-one-mode-desc = 重複目前歌曲，手動切歌時才播放下一首
-music-request-error = 請求失敗: { $arg0 }
 music-rhythm-animation-offset = 動畫 { $arg0 } ms
-music-rhythm-calibration = 延遲校準
 music-rhythm-calibration-accumulating = 取樣進行中，請繼續按目前階段的操作方式穩定輸入
 music-rhythm-calibration-adapting = 正在對齊節奏，繼續保持連續輸入
-music-rhythm-calibration-complete = 延遲測試已完成
 music-rhythm-calibration-done = 延遲測試完成
 music-rhythm-calibration-failed = 延遲測試音訊意外中斷，測試已安全結束，請重新開始
 music-rhythm-calibration-intro = 流程：Minecraft音符盒 → Plasmo Voice → 鍵盤視覺 → 滑鼠視覺
@@ -1459,11 +1546,6 @@ music-rhythm-calibration-out-of-range = 測得延遲超出支援範圍，請檢�
 music-rhythm-calibration-plasmo-instruction = 繼續相同節奏完成 Plasmo Voice，維持固定按鍵節奏，會自動排除異常值
 music-rhythm-calibration-plasmo-ready = Minecraft音符盒階段完成，保持同樣節奏繼續Plasmo Voice
 music-rhythm-calibration-pointer-instruction = 方塊過線時點擊滑鼠左鍵或右鍵
-music-rhythm-calibration-prompt-confirm = 開始測試
-music-rhythm-calibration-prompt-confirm-hint = 穩定樣本夠了就會自動回到音遊
-music-rhythm-calibration-prompt-later = 稍後
-music-rhythm-calibration-prompt-reason = 開始節奏遊戲前先做延遲測試，可同步校正 Minecraft音符盒與Plasmo Voice的判定與動畫
-music-rhythm-calibration-prompt-title = 開始延遲測試
 music-rhythm-calibration-realigning = 聲音串流掉線，重播中
 music-rhythm-calibration-required = 先完成延遲測試才能開始
 music-rhythm-calibration-reset-done = 延遲校準已重設
@@ -1482,7 +1564,6 @@ music-rhythm-difficulty-expert = 專家
 music-rhythm-difficulty-hard = 困難
 music-rhythm-difficulty-normal = 標準
 music-rhythm-exit = 離開節奏遊戲
-music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
 music-rhythm-get-ready = 準備
 music-rhythm-go = 開始！
 music-rhythm-good = 良好
@@ -1497,49 +1578,15 @@ music-rhythm-network-too-high = 目前網路延遲過高，無法保證公平判
 music-rhythm-network-warning = 網路延遲不穩定（{ $arg0 } ms）；若持續高於 { $arg1 } ms，本次工作階段將安全結束
 music-rhythm-no-beats = 這首歌曲中沒有偵測到可用節拍
 music-rhythm-perfect = 完美
-music-rhythm-preparing = 請等待整首歌曲完成快取與節奏分析
-music-rhythm-ready = 完整譜面已就緒，可從第一拍開始
 music-rhythm-requires-playback = 請先讓這台唱片機播放一首歌曲
-music-rhythm-reset-calibration = 重設延遲校準
 music-rhythm-results = 遊玩結算
 music-rhythm-score = 分數: { $arg0 }
-music-rhythm-select-track = 選擇音遊歌曲
 music-rhythm-spatial-no-room = 周圍空間不足以遊玩星域點擊，請前往更開闊的位置。
 music-rhythm-spatial-slider-hint = 跟隨移動星體，逐個點擊軌跡檢查點 · 無需長按
-music-rhythm-start-game = 開始遊戲
-music-rhythm-waiting-for-player = 等待玩家開始音遊
+music-rhythm-start = 開始遊戲
 music-sample-rate = 取樣率: { $arg0 }
-music-search-button = 搜尋歌曲
-music-search-keyword-required = 搜尋關鍵字不能為空
-music-search-keyword-too-long = 搜尋詞過長，上限為{ $arg0 }個字元。
-music-search-usage-desc = 搜尋歌曲
-music-section-all = 全部音樂
-music-section-nbs = NBS 專區
-music-select-music = 選擇音樂
-music-sequential-mode = 列表循環
-music-sequential-mode-desc = 依序播放列表，結尾自動回到開頭
 music-size = 大小: { $arg0 }
-music-sort-button = 排序
-music-sort-current = 目前：{ $arg0 }
-music-sort-default = 預設順序
-music-sort-most-played = 播放排行榜
-music-sort-recently-played = 最近播放
-music-sound-settings = 聲音設定
-music-source-actions = 操作: { $arg0 }
-music-source-available = 可用
-music-source-capabilities = 能力: { $arg0 }
-music-source-error = 錯誤: { $arg0 }
-music-source-failures = 連續失敗: { $arg0 }
-music-source-retry = { $arg0 }秒後重試
-music-source-unavailable = 不可用
-music-sources-empty = 找不到 LX 自訂音源指令碼
-music-sources-title = LX 自訂音源: { $arg0 } 個
-music-stop-eject = 停止並退出
-music-stop-eject-done = 已停止播放並退出唱片
-music-stopped = 已停止
-music-track-details = 曲目詳情
 music-unavailable-disc = 無法使用的唱片
-music-unavailable-disc-description = 此 MIK 唱片不在目前音樂目錄中，仍可停止並退出
 
 ## Entertainment · Anniversary
 
@@ -1658,20 +1705,16 @@ ban-broadcast-operator = 執行者
 ban-broadcast-prefix = [封禁公告]
 ban-command-description = 按固定嚴重程度封禁玩家
 ban-database-error = 封禁資料庫操作失敗，請檢查伺服器日誌
-ban-dialog-back = 返回
-ban-dialog-cancel = 取消
-ban-dialog-confirm-action = 確認封禁
-ban-dialog-confirm-severity = 嚴重程度
-ban-dialog-confirm-title = 確認封禁
-ban-dialog-never-joined-confirm-action = 仍然封禁
-ban-dialog-never-joined-title = 玩家從未加入
-ban-dialog-never-joined-warning = { $arg0 } 從未加入過伺服器。請再次確認玩家名稱無誤，以免封禁錯誤的玩家。
-ban-dialog-next = 下一步
-ban-dialog-player-input = 手動輸入玩家名稱
-ban-dialog-player-manual = 手動輸入
-ban-dialog-player-online = 目前在線玩家
-ban-dialog-select-title = 選擇玩家
-ban-dialog-severity-title = 選擇封禁程度
+ban-menu-back = 返回
+ban-menu-confirm-action = 確認封禁
+ban-menu-confirm-severity = 嚴重程度
+ban-menu-confirm-title = 確認封禁
+ban-menu-never-joined-confirm-action = 仍然封禁
+ban-menu-never-joined-title = 玩家從未加入
+ban-menu-never-joined-warning = { $arg0 } 從未加入過伺服器。請再次確認玩家名稱無誤，以免封禁錯誤的玩家。
+ban-menu-player-input = 手動輸入玩家名稱
+ban-menu-select-title = 選擇玩家
+ban-menu-severity-title = 選擇封禁程度
 ban-history-empty = 找不到 { $arg0 } 的封禁歷史
 ban-history-title = 封禁歷史：{ $arg0 }
 ban-invalid-player = 玩家名稱格式無效
@@ -1711,11 +1754,14 @@ banlist-reason = 原因
 banlist-source = 執行者
 banlist-title = 封禁列表
 maintenance-command-description = 切換或查看維護模式
+maintenance-kick = 伺服器維護中
 maintenance-set = 已將維護模式{ $arg0 }
 maintenance-state-disabled = 關閉
 maintenance-state-enabled = 開啟
 maintenance-status = 維護模式：{ $arg0 }
 maintenance-unchanged = 維護模式已處於{ $arg0 }狀態
+performance-kick-title = 伺服器出現嚴重延遲
+performance-kick-reason = 為協助伺服器恢復，暫時中斷連線
 restriction-entity-too-large-mm = <red>實體尺寸超過伺服器安全限制</red>
 restriction-foreign-uuid-mm = <red>你只能在指令中使用自己馴服生物的 UUID</red>
 restriction-no-kill-e-mm = <red>禁止使用 <white>/kill @e</white> 指令</red>
@@ -1726,7 +1772,7 @@ restriction-other-player-name-mm = <red>你沒有權限在指令中提及其他�
 tpsbar-command-description = 顯示/隱藏 TPS 資訊欄
 tpsbar-hidden = 已隱藏 TPS 資訊欄
 tpsbar-shown = 已顯示 TPS 資訊欄
-tpsbar-tip-status-mm = 用 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 開關<yellow>TPS、MSPT 和延遲</yellow>資訊列。
+tpsbar-tip-status-mm = 用 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 顯示或隱藏<yellow>TPS、MSPT 和延遲</yellow>資訊列
 unban-command-description = 解除玩家封禁並保留封禁記錄
 whitelist-already-whitelisted = { $arg0 } 已經在白名單中
 whitelist-invalid-name = 玩家名格式不正確
@@ -1741,9 +1787,16 @@ whitelist-temp-usage-desc = 加入 1 小時臨時白名單
 
 ## Shell · Menus, server information and scripting
 
-main-afk-current-afk = 目前正在暫離
-main-afk-current-online = 目前線上
-main-afk-status = 暫離狀態
+main-afk-status =
+    { $arg0 ->
+        [afk] AFK：暫離中
+       *[online] AFK：在線
+    }
+main-pvp-status =
+    { $arg0 ->
+        [on] PVP：開啟
+       *[off] PVP：關閉
+    }
 main-announcements = 公告
 main-home = 我的家
 main-language = 語言
@@ -1753,8 +1806,6 @@ main-map = 網頁地圖
 main-menu-title = 主選單
 main-music = 音樂
 main-name-tag = 名稱標籤
-main-profile = 我的資料
-main-pvp = 玩家對戰
 main-settings = 設定
 main-website = 官網
 main-wiki = Wiki
@@ -1771,9 +1822,348 @@ stat-client-version = 遊戲版本
 stat-first-joined = 首次加入
 stat-location = 座標
 stat-ping = Ping
+stat-ping-value = { $arg0 } 毫秒
 stat-play-time = 遊玩時間
 stat-role = 目前身份
 stat-world = 世界
-weblogin-command-description = 確認 Mik 網頁登入驗證碼
-weblogin-confirmed = 已確認 Mik 網頁登入，請返回瀏覽器繼續
-weblogin-invalid-code = 無效的網頁登入驗證碼
+web-account-title = 網頁帳號與 Passkey
+web-account-confirm = 確認
+weblogin-question = 確認此次網頁身分驗證？請只確認你在 mcmik.top 上親自發起的操作，不要替他人輸入驗證碼。
+weblogin-command-description = 確認 Mik 網頁身分驗證碼
+weblogin-confirmed = 已確認網頁身分，請回到瀏覽器繼續
+weblogin-invalid-code = 無效的網頁身分驗證碼
+
+
+# Music workspace
+music-space-label =
+    { $arg0 ->
+        [title] 音乐空间
+        [devices] 播放设备
+        [device-status] 狀態
+        [sync-group] 同步組
+        [single-device] 唱片機
+        [device-location] 位置
+        [visit-device] 傳送到旁邊
+        [teleporting] 正在傳送…
+        [recorded-device] 已記錄
+        [nearby-device] 附近
+        [group-select-members] 勾選至少兩台唱片機
+        [group-name-required] 填寫同步組名稱
+        [all-online] 全部在線
+        [direction-front] 前方
+        [direction-front-right] 右前方
+        [direction-right] 右側
+        [direction-back-right] 右後方
+        [direction-back] 後方
+        [direction-back-left] 左後方
+        [direction-left] 左側
+        [direction-front-left] 左前方
+        [direction-here] 旁邊
+        [direction-above] 上方
+        [direction-below] 下方
+        [no-devices] 暫無裝置
+        [choose-members] 選擇成員裝置
+        [create-group] 建立同步組
+        [add-members] 新增裝置
+        [create-play] 建立並播放
+        [create-and-append] 建立並加入歌曲
+        [device-queue] 佇列
+        [device-members] 成員
+        [available] 可用
+        [play] 播放
+        [retry-outputs] 重試輸出
+        [dissolve-group] 解散同步組
+        [remove-member] 移出同步組
+        [removed-stopped] 移出的裝置將停止播放，保留所選內容。
+        [restore-previous] 恢復加入前內容
+        [keep-group-content] 保留同步組內容
+        [queue] 播放队列
+        [back] 返回
+        [close] 关闭
+        [unavailable] 音乐存储不可用
+        [saving] 正在保存…
+        [saved] 已保存
+        [apply] 应用
+        [cancel] 取消
+        [select-page] 选中本页
+        [select-all] 选中全部结果
+        [clear-tracks] 清除歌曲选择
+        [add-playlist] 加入歌單
+        [description] 描述
+        [make-private] 设为私有
+        [publish] 设为公开
+        [delete] 删除歌单
+        [favorite] 收藏或取消收藏
+        [copy] 复制歌单
+        [share] 分享歌单命令
+        [recent] 最近播放
+        [favorites] 收藏歌单
+        [public] 公开
+        [private] 私有
+        [new-playlist] 新建歌单
+        [name] 名称
+        [song-title] 歌曲名稱
+        [track-count] 歌曲數
+        [visibility] 可見性
+        [no-playlists] 沒有歌單
+        [fetching-playlist] 正在讀取歌單…
+        [artist] 歌手
+        [duration] 時長
+        [track-type] 類型
+        [type-online] 線上
+        [undo] 撤销上次编辑
+        [remove] 移除所选条目
+        [clear-recents] 清空我的播放记录
+        [clear-entries] 清除条目选择
+        [search-tracks] 搜尋歌曲、歌手…
+        [search-playlists] 搜尋歌單…
+        [public-playlists] 公开歌单
+        [searching] 正在搜索…
+        [insert] 插播並立即播放
+        [append] 加入播放佇列
+        [choose-targets] 選擇播放裝置
+        [group-source] 採用哪台的佇列與進度
+        [removed-targets] 部分目標已移除，請重新選擇
+        [offline] 离线／区块未加载
+        [device-discovery-hint] 空手潛行右鍵唱片機即可開啟裝置。
+        [empty] 沒有歌曲
+        [queue-empty] 沒有待播歌曲
+        [queue-current] 數位佇列目前曲目
+        [pause] 暂停
+        [resume] 继续播放
+        [stop] 停止，保留播放列表
+        [previous] 上一首／从头播放
+        [clear] 清空待播，当前播完停止
+        [seek] 定位
+        [more] 更多
+        [volume-control] 音量
+        [group-volume] 同步群組總音量
+        [timeline-help] 滾輪 ±5 秒；右鍵輸入時間
+        [timeline-read-only] 此歌曲無法定位
+        [seek-format] 輸入 m:ss、h:mm:ss 或秒數
+        [record] 記錄以遠端控制
+        [forget] 移除我的设备记录
+        [alias] 个人设备别名
+        [sound] 声音设置
+        [rhythm] 音遊房間
+        [room-players] 玩家
+        [room-player-status] 狀態
+        [room-preparation] 我的準備
+        [room-ready] 準備
+        [room-cancel-ready] 取消準備
+        [room-playing] 遊戲中
+        [room-score-ready] 譜面就緒
+        [room-select-one] 在曲庫開啟多選，選取一首歌曲。
+        [room-end-confirmation] 這會結束所有參與者的音遊房間。
+        [create-room] 建立房間
+        [no-rhythm-devices] 附近沒有唱片機，請先空手蹲下並右鍵點擊唱片機。
+        [calibration] 延迟校准
+        [volume] 音量（0–100）
+        [range] 范围（8–256 格）
+        [mode] 播放模式
+        [save-queue] 將佇列儲存為歌單
+        [sequential] 顺序播放
+        [repeat-all] 列表循环
+        [repeat-one] 单曲循环
+        [shuffle] 随机播放，轮内不重复
+        [import] 导入歌单
+        [link] 歌單連結
+        [partial-import] 仅获取部分歌曲，保存将只包含已获取部分
+        [import-preview] 预览已获取信息，尚未下载音频
+        [import-new] 新增並開啟
+        [import-merge] 合併至歌單
+        [stopped] 已停止
+        [loading] 正在准备音频
+        [cancel-loading] 取消準備
+        [playing] 正在播放
+        [paused] 已暂停
+        [finished] 播放结束
+        [retry-failed] 重試播放
+        [select-song] 勾選歌曲，批次播放或加入歌單
+        [select-toggle] 選擇此項
+        [deselect] 取消選擇此項
+        [selected] 已選取
+        [place-before] 將所選內容放到此項前
+        [eject] 弹出实体唱片
+        [make-disc] 制作签名唱片
+        [gain] 同步组总音量（0–100）
+        [retry-import] 重新获取歌单
+        [join-room] 加入房間
+        [ready] 已準備
+        [waiting] 等待中
+        [room-mode] 玩法
+        [room-difficulty] 難度
+        [late-join] 中途加入游戏
+        [leave-room] 离开房间
+        [select-room-track] 使用所選歌曲
+        [start-room] 開始遊戲
+        [end-room] 結束房間
+        [base-queue] 基础播放列表
+        [priority-queue] 一次性待播
+        [falling] 下落式
+        [radial] 环向来袭
+        [spatial-aim] 星域点击
+        [easy] 轻松
+        [normal] 标准
+        [hard] 困难
+        [expert] 专家
+        [waiting-for-player] 等待准备
+        [preparing] 正在准备音频和谱面
+        [no-beats] 没有可玩节拍
+        [catalog] 曲庫
+        [my-playlists] 我的歌單
+        [playlist] 歌單
+        [output] 播放裝置
+        [close-panel] 收起面板
+        [playlist-settings] 歌單設定
+        [multi-select] 多選
+        [move] 移動
+        [move-hint] 點選目標歌曲，放到它之前
+        [cancel-move] 取消移動
+        [move-end] 放到末尾
+        [cancel-selection] 取消多選
+        [track-details] 歌曲詳情
+        [skip-next] 切到下一首
+        [device-settings] 裝置設定
+        [already-added] 已在歌單中
+        [current-track] 目前歌曲
+        [shuffle-candidates] 隨機候選歌曲
+        [import-by-id] 透過 ID 匯入
+        [playlist-id] 歌單 ID
+       *[unknown] 音乐
+    }
+
+music-space-error =
+    { $arg0 ->
+        [UNAVAILABLE] 音乐暂不可用，请稍后重新打开
+        [INTERNAL] 音樂發生內部錯誤，請聯絡管理員查看伺服器日誌
+        [NOT_FOUND] 所选对象已不存在
+        [FORBIDDEN] 需要控制或编辑权限；请检查地段授权及设备记录
+        [CONFLICT] 内容已变化，请刷新并重新选择
+        [LIMIT] 已达到音乐资源上限
+        [INVALID] 请检查名称、所选对象或数值范围
+        [OFFLINE] 设备不可用，请到现场加载区块或弹出实体唱片
+        [OVERLAP] 听闻范围重叠：请停止冲突设备、缩小范围或建立同步组
+        [UNSUPPORTED] 此媒体不支持该操作
+        [BUSY] 设备、请求或音游房间正在使用，请结束后重试
+        [NO_SAFE_DESTINATION] 唱片機旁沒有安全落點
+        [TELEPORT_FAILED] 傳送失敗或被阻止
+       *[UNKNOWN] 操作失败
+    }
+
+music-space-selected-tracks = 已選 { $arg0 } 首歌曲
+music-space-track-count = { $arg0 } 首
+music-space-device-count = { $arg0 } 台唱片機
+music-space-online-count = 在線：{ $arg0 }/{ $arg1 } 台
+music-space-device-distance = { $arg0 } · { $arg1 } 格
+music-space-device-height = { $arg0 ->
+    [above] 高 { $arg1 } 格
+   *[below] 低 { $arg1 } 格
+    }
+music-space-device-coordinates = { $arg0 } · X { $arg1 } · Y { $arg2 } · Z { $arg3 }
+music-space-sound-value = { $arg0 ->
+        [volume] { $arg1 ->
+           *[other] { $arg1 }%
+        }
+       *[range] { $arg1 ->
+           *[other] { $arg1 } 格
+        }
+    }
+plot-permission-music-control = 控制音乐设备
+
+music-partial-results = 部分結果可用，{ $arg0 } 個音源請求失敗
+
+webchat-tab-label = { $arg0 ->
+    [1] { player-web-label }
+   *[other] { player-web-label } ×{ $arg0 }
+    }
+webchat-joined = { $arg0 } 加入了網頁聊天
+webchat-left = { $arg0 } 離開了網頁聊天
+chat-rate-limited = 發送過於頻繁，請稍後再試
+
+plot-map-corner-a = 角點 A
+plot-map-corner-b = 角點 B
+plot-map-corner-hint = 點擊聚焦此角；右鍵輸入座標，滾輪將此角高度增減 4 格
+plot-map-coordinates = 座標 x,y,z
+plot-map-zoom-in = 放大
+plot-map-zoom-out = 縮小
+plot-map-fit = 範圍總覽
+plot-map-near = 回到我附近
+plot-map-layer = 高度層 Y { $arg0 }…{ $arg1 }
+plot-map-layer-hint = 滾輪切換顯示層，點擊回到所在層；地形底圖始終顯示地表
+plot-map-north = 向北
+plot-map-west = 向西
+plot-map-east = 向東
+plot-map-south = 向南
+plot-map-scale = 每像素 { $arg0 } × { $arg0 } 方塊
+plot-map-progress = 讀取地圖 { $arg0 }%…
+plot-map-unknown = 未載入的地表取樣點：{ $arg0 }
+plot-map-legend = 青：保留 · 紫：新增 · 橙：移除 · 綠：矩形 · A/B：角點 · 箭頭：我
+plot-selection-validating = 範圍校驗中…
+
+plot-map-open = 查看原生地圖
+
+plot-map-handheld-hint = 副手顯示 Minecraft 地圖，主手用木斧選點；潛行＋F 返回面板
+
+plot-map-readonly-hint = 目前僅查看地圖；要修改角點，請返回面板選擇「調整此矩形」
+
+plot-destinations = 傳送點
+plot-destination-add = 新增目前位置
+plot-destination-confirm-delete = 刪除傳送點「{ $arg0 }」？
+plot-destination-delete = 刪除傳送點
+plot-destination-deleted = 已刪除傳送點。
+plot-destination-description = 介紹（可留空）
+plot-destination-edit = 編輯名稱與介紹
+plot-destination-empty = 暫無可用的傳送點。
+plot-destination-error-changed = 傳送點已變更，請重新開啟後操作。
+plot-destination-error-description = 介紹最多 512 個字元，請勿使用控制字元。
+plot-destination-error-location = 請站在此地段內的安全地面上。
+plot-destination-error-missing = 傳送點已不存在。
+plot-destination-error-name = 名稱須為一行，包含 1 至 48 個字元。
+plot-destination-error-private = 此傳送點尚未公開，僅供地段成員使用。
+plot-destination-error-unsafe = 傳送點無法使用或落點不安全。
+plot-destination-loading = 正在載入傳送點…
+plot-destination-move = 更新為目前位置
+plot-destination-name = 名稱
+plot-destination-public-empty = 暫無公開傳送點。
+plot-destination-public-off = 公開：關
+plot-destination-public-on = 公開：開
+plot-destination-saved = 已儲存傳送點。
+plot-destination-teleport = 傳送
+plot-error-subplot-destination = 請先移動或刪除所選範圍內的母地段傳送點。
+plot-error-subplot-own-destination = 請將傳送點保留在新範圍內，或先移動或刪除。
+
+plot-destination-manage = 管理
+plot-directory-owned = 我擁有的 · { $arg0 }
+plot-directory-participating = 我參與的 · { $arg0 }
+plot-directory-search = 搜尋地段
+plot-directory-search-value = 搜尋：{ $arg0 }
+plot-directory-search-field = 地段名稱或編號
+plot-directory-clear-search = 清除搜尋
+plot-directory-empty = 此分類還沒有地段。
+plot-directory-no-match = 沒有符合的地段，請修改或清除搜尋。
+plot-workspace-area = 範圍編輯
+plot-workspace-area-hint = 調整目前地段的保護範圍
+plot-workspace-subplots = 子地段
+plot-workspace-subplots-hint = 查看、建立和管理內部劃分
+plot-workspace-access-hint = 管理成員、角色與操作權限
+plot-workspace-settings-hint = 名稱、公告、環境與所有權
+plot-workspace-destinations-hint = 查看並前往此地段的傳送點
+plot-workspace-role = 目前身分：{ $arg0 }
+plot-workspace-ownership = 所有權與刪除
+plot-workspace-id = 地段編號：{ $arg0 }
+plot-workspace-groups = 權限群組
+plot-workspace-permissions = 操作權限
+plot-workspace-other-world = 請先前往此地段所在的世界。
+
+plot-destination-titles = 傳送標題
+plot-destination-title = 標題
+plot-destination-subtitle = 副標題
+plot-destination-title-hint = 傳送成功後顯示。支援 MiniMessage 色彩、樣式與漸層；留空不顯示，預覽不會儲存。
+plot-destination-title-preview = 全螢幕預覽
+plot-destination-title-unset = 未設定
+plot-destination-title-save = 儲存標題
+plot-destination-title-unchanged = 沒有尚未儲存的修改。
+plot-destination-title-apply = 套用至草稿
+plot-destination-error-title = 標題須為單行，顯示文字最多 32 個字元，MiniMessage 原文最多 512 個字元。
+plot-destination-error-subtitle = 副標題須為單行，顯示文字最多 64 個字元，MiniMessage 原文最多 512 個字元。

@@ -115,7 +115,7 @@ public final class RhythmInputTimestampSource implements AutoCloseable {
     private void record(UUID playerId, Kind kind, int value, long receivedAtNanos) {
         if (playerId == null) return;
         ConcurrentLinkedDeque<Stamp> queue = stamps.computeIfAbsent(playerId,
-                ignored -> new ConcurrentLinkedDeque<>());
+                _ -> new ConcurrentLinkedDeque<>());
         ViewStamp view = kind == Kind.POINTER ? views.get(playerId) : null;
         queue.addLast(new Stamp(kind, value, receivedAtNanos,
                 view == null ? null : view.yaw(),

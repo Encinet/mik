@@ -344,7 +344,7 @@ class PlotAccessPlanTest {
         try (Fixture fixture = fixture(Map.of(target, Plot.Role.COLLABORATOR), Map.of())) {
             PlotAccessPlan plan = fixture.edits.planAccess(fixture.plot,
                     new PlotAccessRequest.Permission(PlotAccessPolicy.Subject.player(target), PlotPermission.DOOR, false));
-            Plot unrelated = new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Elsewhere", false,
+            Plot unrelated = new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Elsewhere",
                     0L, fixture.plot.cells(), Map.of(), Map.of(), null);
             fixture.registry.put(unrelated);
             fixture.child(Map.of(), Map.of());
@@ -399,14 +399,14 @@ class PlotAccessPlanTest {
         PlotRepository store = new PlotRepository(directory.resolve("access.db"));
         store.open();
         PlotRegistry registry = new PlotRegistry(store);
-        Plot plot = new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Access plan", false,
+        Plot plot = new Plot(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "Access plan",
                 0L, Set.of(PlotGeometry.Cell.at(0, 64, 0)), members, flags, null);
         registry.put(plot);
         return new Fixture(store, registry, new PlotEdits(registry), plot);
     }
 
     private static Plot copy(Plot plot, String name, Map<String, Boolean> flags) {
-        return new Plot(plot.id(), plot.world(), plot.owner(), name, plot.publicProject(), plot.createdAt(),
+        return new Plot(plot.id(), plot.world(), plot.owner(), name, plot.createdAt(),
                 plot.cells(), plot.members(), flags, plot.parentId());
     }
 
@@ -416,12 +416,12 @@ class PlotAccessPlanTest {
         Plot child(Map<UUID, Plot.Role> members, Map<String, Boolean> flags) throws Exception {
             Plot child = registry.createSubPlot(plot.id(), UUID.randomUUID(), "Child",
                     new PlotPosition(plot.world(), 0, 64, 0), new PlotPosition(plot.world(), 3, 67, 3));
-            child = new Plot(child.id(), child.world(), child.owner(), child.name(), false, child.createdAt(),
+            child = new Plot(child.id(), child.world(), child.owner(), child.name(), child.createdAt(),
                     child.cells(), members, flags, child.parentId());
             registry.put(child);
             return child;
         }
 
-        @Override public void close() throws Exception { store.close(); }
+        @Override public void close() throws java.sql.SQLException { store.close(); }
     }
 }

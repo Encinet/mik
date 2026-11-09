@@ -31,6 +31,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
 
 /** Exposes the shared AI gateway on every installed social platform. */
@@ -139,31 +141,32 @@ public final class AiSocialCommand implements SocialCommand<String, AiSocialComm
     public SocialDocument present(SocialCommandContext context, Result result) {
         Language language = result.language();
         return switch (result) {
-            case Result.Answer answer -> document(language, SocialDocument.Tone.INFO,
-                    answer.text()).withUntrustedText(answer.text());
-            case Result.QuestionRequired ignored -> document(
-                    language, SocialDocument.Tone.WARNING,
+            case Result.Answer answer -> document(REQUIRED, language, SocialDocument.Tone.INFO,
+                    answer.text());
+            case Result.QuestionRequired _ -> document(
+                    TRUSTED, language, SocialDocument.Tone.WARNING,
                     languages.t(language, Message.AI_SOCIAL_QUESTION_REQUIRED));
-            case Result.Disabled ignored -> document(language, SocialDocument.Tone.WARNING,
+            case Result.Disabled _ -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     languages.t(language, Message.AI_DISABLED));
-            case Result.Busy ignored -> document(language, SocialDocument.Tone.WARNING,
+            case Result.Busy _ -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     languages.t(language, Message.AI_BUSY));
-            case Result.PromptTooLong ignored -> document(language, SocialDocument.Tone.WARNING,
+            case Result.PromptTooLong _ -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     languages.t(language, Message.AI_PROMPT_TOO_LONG,
                             ai.maximumPromptCharacters()));
-            case Result.Cleared ignored -> document(language, SocialDocument.Tone.SUCCESS,
+            case Result.Cleared _ -> document(TRUSTED, language, SocialDocument.Tone.SUCCESS,
                     languages.t(language, Message.AI_CLEARED));
-            case Result.Failed ignored -> document(language, SocialDocument.Tone.ERROR,
+            case Result.Failed _ -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
                     languages.t(language, Message.AI_REQUEST_FAILED));
         };
     }
 
     private static SocialDocument document(
+            SocialDocument.Moderation moderation,
             Language language,
             SocialDocument.Tone tone,
             String text
     ) {
-        return SocialDocument.of("✦ AI", tone, SocialDocument.paragraph(text))
+        return SocialDocument.of(moderation, "✦ AI", tone, SocialDocument.paragraph(text))
                 .localized(language);
     }
 

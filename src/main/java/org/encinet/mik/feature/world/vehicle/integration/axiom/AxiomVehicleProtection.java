@@ -55,7 +55,7 @@ public final class AxiomVehicleProtection implements Listener {
                 bindings.add(new Binding(event, getter));
             }
             for (Binding binding : bindings) plugin.getServer().getPluginManager().registerEvent(binding.event(), entityListener,
-                    EventPriority.HIGHEST, (listener, event) -> {
+                    EventPriority.HIGHEST, (_, event) -> {
                         if (!binding.event().isInstance(event)) return;
                         try { protect(event, binding.entity(), protectedEntity); }
                         catch (ReflectiveOperationException exception) { throw new EventException(exception); }

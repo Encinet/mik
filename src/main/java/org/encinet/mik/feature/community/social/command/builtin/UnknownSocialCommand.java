@@ -13,6 +13,8 @@ import org.encinet.mik.feature.community.social.document.SocialDocument;
 
 import java.util.Objects;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
+
 /** Handles unknown explicitly prefixed commands. */
 public final class UnknownSocialCommand implements SocialCommand<NoArguments, NoArguments> {
     private static final String TITLE_ICON = "❓";
@@ -49,7 +51,7 @@ public final class UnknownSocialCommand implements SocialCommand<NoArguments, No
     @Override
     public SocialDocument present(SocialCommandContext context, NoArguments result) {
         Language language = languageResolver.language(context);
-        return SocialDocument.of(
+        return SocialDocument.of(TRUSTED,
                 TITLE_ICON + " " + languages.t(language, TITLE),
                 SocialDocument.Tone.WARNING,
                 SocialDocument.paragraph(languages.t(

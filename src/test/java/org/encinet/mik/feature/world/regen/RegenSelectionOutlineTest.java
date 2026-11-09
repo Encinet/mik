@@ -17,7 +17,7 @@ class RegenSelectionOutlineTest {
     @Test
     void cuboidOutlineUsesEdgesAndHonoursItsPointBudget() {
         TestSelection selection = new TestSelection(0, 0, 0, 99, 79, 59, true,
-                (x, y, z) -> true);
+                (_, _, _) -> true);
 
         List<RegenPreviewPoint> outline = RegenSelectionOutline.sample(selection, 160);
 
@@ -34,7 +34,7 @@ class RegenSelectionOutlineTest {
     @Test
     void arbitraryShapeSamplesItsActualSelectedSurface() {
         TestSelection cylinder = new TestSelection(-24, 0, -24, 24, 40, 24, false,
-                (x, y, z) -> x * x + z * z <= 24 * 24);
+                (x, _, z) -> x * x + z * z <= 24 * 24);
 
         List<RegenPreviewPoint> outline = RegenSelectionOutline.sample(cylinder, 220);
 
@@ -48,7 +48,7 @@ class RegenSelectionOutlineTest {
     @Test
     void elongatedArbitrarySelectionsRemainBounded() {
         TestSelection line = new TestSelection(0, 10, 0, 1_000_000, 10, 0, false,
-                (x, y, z) -> true);
+                (_, _, _) -> true);
 
         List<RegenPreviewPoint> outline = RegenSelectionOutline.sample(line, 128);
 

@@ -123,8 +123,8 @@ class IronElevatorLandingTest {
     void skipsLandingsRejectedByEntityOrWorldBorderCollision() {
         Column column = floors();
 
-        assertNull(IronElevatorLanding.find(column.block(0, 10, 0), 1, column.origin(),
-                IronElevatorLanding.DEFAULT_SIZE, body -> true));
+        assertNull(IronElevatorTestSupport.route(column.block(0, 10, 0), 1, column.origin(),
+                IronElevatorLanding.DEFAULT_SIZE, _ -> true));
     }
 
     private static Column floors() {
@@ -170,8 +170,8 @@ class IronElevatorLandingTest {
         }
 
         Location find(int sourceY, int direction, Location origin) {
-            return IronElevatorLanding.find(block(0, sourceY, 0), direction, origin,
-                    IronElevatorLanding.DEFAULT_SIZE, body -> false);
+            return IronElevatorTestSupport.route(block(0, sourceY, 0), direction, origin,
+                    IronElevatorLanding.DEFAULT_SIZE, _ -> false);
         }
 
         Block block(int blockX, int blockY, int blockZ) {
@@ -189,7 +189,7 @@ class IronElevatorLandingTest {
                 }
             };
             return (Block) Proxy.newProxyInstance(Block.class.getClassLoader(), new Class<?>[]{Block.class},
-                    (proxy, method, arguments) -> switch (method.getName()) {
+                    (_, method, _) -> switch (method.getName()) {
                         case "getX" -> blockX;
                         case "getY" -> blockY;
                         case "getZ" -> blockZ;

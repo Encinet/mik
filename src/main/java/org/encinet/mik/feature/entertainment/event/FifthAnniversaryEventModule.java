@@ -9,13 +9,10 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import io.papermc.paper.registry.data.dialog.ActionButton;
 import io.papermc.paper.registry.data.dialog.DialogBase;
-import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.type.DialogType;
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.event.ClickCallback;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -31,8 +28,10 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuLayouts;
+import org.encinet.mik.shared.menu.MenuScene;
+import org.encinet.mik.shared.menu.MenuDialogs;
+import org.encinet.mik.shared.menu.MenuDialogSession;
+import org.encinet.mik.shared.menu.ui.UiTemplates;
 import org.encinet.mik.shared.menu.FloatingMenuScreen;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -106,10 +105,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     private static final String GIFT_PACK_ID = "anniversary-gift-pack";
     private static final DateTimeFormatter ADMIN_TIME_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(EVENT_ZONE);
-    private static final ClickCallback.Options CALLBACK_OPTIONS = ClickCallback.Options.builder()
-            .uses(1)
-            .lifetime(Duration.ofMinutes(5))
-            .build();
     private static final String[] PRIZE_IDS = {
             "logo-keychain", "logo-mug", "group-photo-badge", GIFT_PACK_ID
     };
@@ -238,7 +233,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                                             return builder.buildFuture();
                                         })
                                         .then(Commands.argument("player", StringArgumentType.word())
-                                                .suggests((context, builder) -> {
+                                                .suggests((_, builder) -> {
                                                     suggestParticipantNames(
                                                             builder.getRemaining(), builder::suggest);
                                                     return builder.buildFuture();
@@ -256,7 +251,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                                 .executes(context -> sendAdminAudit(
                                         context.getSource().getSender()))
                                 .then(Commands.argument("player", StringArgumentType.word())
-                                        .suggests((context, builder) -> {
+                                        .suggests((_, builder) -> {
                                             suggestParticipantNames(builder.getRemaining(), builder::suggest);
                                             return builder.buildFuture();
                                         })
@@ -274,7 +269,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                         .then(Commands.literal("bonus")
                                 .requires(source -> isEventAdministrator(source.getSender()))
                                 .then(Commands.argument("player", StringArgumentType.word())
-                                        .suggests((context, builder) -> {
+                                        .suggests((_, builder) -> {
                                             suggestParticipantNames(builder.getRemaining(), builder::suggest);
                                             return builder.buildFuture();
                                         })
@@ -286,7 +281,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                                 .executes(context -> simulateNeutralDraw(
                                         context.getSource().getSender()))
                                 .then(Commands.argument("player", StringArgumentType.word())
-                                        .suggests((context, builder) -> {
+                                        .suggests((_, builder) -> {
                                             suggestParticipantNames(builder.getRemaining(), builder::suggest);
                                             return builder.buildFuture();
                                         })
@@ -391,14 +386,14 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return Command.SINGLE_SUCCESS;
     }
 
-    private FloatingMenuDefinition buildVirtualBag(Player player, Participant participant) {
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen(
+    private MenuScene buildVirtualBag(Player player, Participant participant) {
+        MenuScene.Builder menu = MenuScene.screen(
                         "anniversary-bag",
                         text(player, Message.ANNIVERSARY_BAG_TITLE, NamedTextColor.GOLD))
-                .layout(FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.actions("prizes", 3),
-                        FloatingMenuLayouts.information("status"),
-                        FloatingMenuLayouts.navigation("controls")));
+                .stableAnchor()
+                .content(UiTemplates.sheet(UiTemplates.window("bag", UiTemplates.menu(
+                                UiTemplates.actions("prizes", 3), UiTemplates.information("status"))),
+                        UiTemplates.toolbar("tools", UiTemplates.navigation("controls"))));
         List<PrizeStack> prizeStacks = prizeStacks(participant.virtualBag);
         for (PrizeStack stack : prizeStacks) {
             menu.item("prize:" + stack.prizeId,
@@ -409,7 +404,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         }
         if (participant.virtualBag.isEmpty()) {
             menu.information("bag:empty", text(player, Message.ANNIVERSARY_BAG_EMPTY,
-                            NamedTextColor.GRAY))
+                            NamedTextColor.WHITE))
                     .region("status");
         }
         menu.close(text(player, Message.CLOSE, NamedTextColor.RED))
@@ -549,7 +544,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 .append(Component.text("× " + amount, NamedTextColor.YELLOW))
                 .append(Component.newline())
                 .append(text(player, Message.ANNIVERSARY_BAG_ITEM_LOCKED,
-                        NamedTextColor.DARK_GRAY));
+                        NamedTextColor.YELLOW));
     }
 
     private boolean isEventAdministrator(CommandSender sender) {
@@ -622,7 +617,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_CONTROL, NamedTextColor.AQUA,
                 releasedStockAt(nowMillis), availableReleasedStock(nowMillis),
                 formatProbability(probability), formatOpportunityRate(nowMillis)));
-        sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_COMMANDS, NamedTextColor.GRAY));
+        sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_COMMANDS, NamedTextColor.WHITE));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -634,7 +629,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 NamedTextColor.GOLD, page, totalPages, winners.size()));
         if (winners.isEmpty()) {
             sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_WINNERS_EMPTY,
-                    NamedTextColor.GRAY));
+                    NamedTextColor.WHITE));
             return Command.SINGLE_SUCCESS;
         }
 
@@ -691,7 +686,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 NamedTextColor.GOLD, recent.size(), auditEntries.size()));
         if (recent.isEmpty()) {
             sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_AUDIT_EMPTY,
-                    NamedTextColor.GRAY));
+                    NamedTextColor.WHITE));
             return Command.SINGLE_SUCCESS;
         }
         for (AuditEntry entry : recent) {
@@ -699,7 +694,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                     NamedTextColor.WHITE, formatAdminTime(entry.occurredAt),
                     auditAction(sender, entry)));
             sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_AUDIT_IDENTITIES,
-                    NamedTextColor.GRAY, displayValue(entry.actorName),
+                    NamedTextColor.WHITE, displayValue(entry.actorName),
                     displayUuid(entry.actorId), displayValue(entry.targetName),
                     displayUuid(entry.targetId)));
         }
@@ -739,7 +734,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_PLAYER_HISTORY,
                 NamedTextColor.YELLOW));
         if (participant.regularDraws.isEmpty() && participant.bonusDraw == null) {
-            sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_NONE, NamedTextColor.GRAY));
+            sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_NONE, NamedTextColor.WHITE));
             return Command.SINGLE_SUCCESS;
         }
         participant.regularDraws.stream()
@@ -796,7 +791,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                 NamedTextColor.WHITE, effectiveLabel, formatAdminTime(draw.drawnAt),
                 prizeName(sender, draw.prizeId)));
         sender.sendMessage(text(sender, Message.ANNIVERSARY_ADMIN_DRAW_METRICS,
-                NamedTextColor.GRAY, formatProbability(draw.probability),
+                NamedTextColor.WHITE, formatProbability(draw.probability),
                 String.format(Locale.ROOT, "%.8f", draw.roll), draw.algorithmVersion));
     }
 
@@ -926,20 +921,19 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
     }
 
     private void openRulesDialog(Player player) {
-
+        MenuDialogSession session = MenuDialogs.begin(plugin, player);
         ActionButton confirm = ActionButton.create(
                 text(player, Message.ANNIVERSARY_CONFIRM, NamedTextColor.GREEN),
-                text(player, Message.ANNIVERSARY_CONFIRM_HINT, NamedTextColor.GRAY),
+                text(player, Message.ANNIVERSARY_CONFIRM_HINT, NamedTextColor.WHITE),
                 130,
-                DialogAction.customClick((response, audience) -> runOnMain(audience, this::confirmParticipation),
-                        CALLBACK_OPTIONS));
+                session.action((viewer, _) -> confirmParticipation(viewer)));
         ActionButton cancel = ActionButton.create(
-                text(player, Message.ANNIVERSARY_CANCEL, NamedTextColor.GRAY), null, 100, null);
+                text(player, Message.ANNIVERSARY_CANCEL, NamedTextColor.WHITE), null, 100, session.cancelAction());
 
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(rulesDialogBase(player))
                 .type(DialogType.confirmation(confirm, cancel)));
-        player.showDialog(dialog);
+        session.show(dialog);
     }
 
     private int showRules(CommandSender sender) {
@@ -949,12 +943,13 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             return 0;
         }
 
+        MenuDialogSession session = MenuDialogs.begin(plugin, player);
         ActionButton close = ActionButton.create(
-                text(player, Message.CLOSE, NamedTextColor.GRAY), null, 100, null);
+                text(player, Message.CLOSE, NamedTextColor.WHITE), null, 100, session.cancelAction());
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(rulesDialogBase(player))
                 .type(DialogType.notice(close)));
-        player.showDialog(dialog);
+        session.show(dialog);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -1081,7 +1076,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             broadcastWinner(player.getName(), draw.round, draw.prizeId);
         }
         if (!hasGiftPack(participant) && participant.regularDraws.size() < MAX_DRAWS) {
-            player.sendMessage(text(player, Message.ANNIVERSARY_SECOND_ROUND_HINT, NamedTextColor.GRAY));
+            player.sendMessage(text(player, Message.ANNIVERSARY_SECOND_ROUND_HINT, NamedTextColor.WHITE));
         }
         updateBossBar(player, Instant.now());
     }
@@ -1570,7 +1565,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                     ? Message.ANNIVERSARY_BONUS_STATUS_USED
                     : Message.ANNIVERSARY_BONUS_STATUS_READY;
             player.sendMessage(text(player, bonusStatus,
-                    participant.bonusDraw != null ? NamedTextColor.GRAY : NamedTextColor.GREEN));
+                    participant.bonusDraw != null ? NamedTextColor.WHITE : NamedTextColor.GREEN));
         }
         if (participant.regularDraws.size() >= MAX_DRAWS) {
             player.sendMessage(text(player, Message.ANNIVERSARY_STATUS_COMPLETED, NamedTextColor.GREEN));
@@ -1578,7 +1573,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         }
         long required = DRAW_INTERVAL_MILLIS * (participant.regularDraws.size() + 1L);
         long remaining = Math.max(0L, required - participant.activeMillis);
-        player.sendMessage(text(player, Message.ANNIVERSARY_STATUS_REMAINING, NamedTextColor.GRAY,
+        player.sendMessage(text(player, Message.ANNIVERSARY_STATUS_REMAINING, NamedTextColor.WHITE,
                 participant.regularDraws.size() + 1, formatDuration(remaining)));
     }
 
@@ -1848,17 +1843,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             return UUID.fromString(value);
         } catch (IllegalArgumentException exception) {
             return null;
-        }
-    }
-
-    private void runOnMain(Audience audience, java.util.function.Consumer<Player> action) {
-        if (!(audience instanceof Player player)) {
-            return;
-        }
-        if (Bukkit.isPrimaryThread()) {
-            action.accept(player);
-        } else {
-            Bukkit.getScheduler().runTask(plugin, () -> action.accept(player));
         }
     }
 

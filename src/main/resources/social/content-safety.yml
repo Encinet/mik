@@ -1,0 +1,8 @@
+# Shared by QQ and Matrix when their content-safety.enabled switch is true.
+# Optional OVHcloud AI Endpoints API access key. Blank uses anonymous requests.
+api-key: ""
+# Eden AI token for its OVHcloud Qwen3Guard 8B route. Blank disables this route.
+edenai-api-key: ""
+connect-timeout-millis: 5000
+# Total time for one moderation, including failover attempts and response bodies.
+request-timeout-millis: 10000

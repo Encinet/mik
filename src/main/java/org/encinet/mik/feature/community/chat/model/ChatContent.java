@@ -38,6 +38,18 @@ public record ChatContent(List<ChatNode> nodes) {
                 Objects.requireNonNull(text, "text"), ChatStyle.EMPTY)));
     }
 
+    /** A bounded, single-line preview; the complete external source remains elsewhere. */
+    public static ChatContent plainPreview(String text) {
+        Objects.requireNonNull(text, "text");
+        String preview = text;
+        if (text.length() > MAXIMUM_VISIBLE_LENGTH) {
+            int end = MAXIMUM_VISIBLE_LENGTH - 1;
+            if (Character.isHighSurrogate(text.charAt(end - 1)) && Character.isLowSurrogate(text.charAt(end))) end--;
+            preview = text.substring(0, end) + "…";
+        }
+        return plain(preview.replaceAll("\\p{Cc}", " "));
+    }
+
     public String plainText() {
         StringBuilder result = new StringBuilder();
         nodes.forEach(node -> result.append(node.visibleText()));

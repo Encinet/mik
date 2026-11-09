@@ -12,7 +12,7 @@ class FloatingMenuMovementPolicyTest {
 
     @Test
     void ordinaryMenusKeepTheShortSafetyLeash() {
-        FloatingMenuDefinition definition = FloatingMenuDefinition.builder(
+        MenuScene definition = MenuScene.builder(
                 Component.text("Menu")).build();
 
         assertEquals(FloatingMenuMovementPolicy.STANDARD,
@@ -23,7 +23,7 @@ class FloatingMenuMovementPolicyTest {
 
     @Test
     void capturedInputScenesCanDeclareASeparateBoundary() {
-        FloatingMenuDefinition definition = FloatingMenuDefinition.builder()
+        MenuScene definition = MenuScene.builder()
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .build();
 

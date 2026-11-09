@@ -29,17 +29,19 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 
 import java.util.HashSet;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public class FlightModule implements Listener {
+public class FlightModule implements Listener, FlightSpeedControl {
 
     private static final float[] SPEED_PRESETS = {0.5f, 1.0f, 2.0f, 5.0f, 10.0f};
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private final Set<UUID> grantedFlight = new HashSet<>();
+    private final Map<UUID, LimitedSpeed> limitedSpeeds = new HashMap<>();
 
     public FlightModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
@@ -54,11 +56,13 @@ public class FlightModule implements Listener {
     public void disable() {
         HandlerList.unregisterAll(this);
         for (Player player : Bukkit.getOnlinePlayers()) {
+            releaseExplorationSpeed(player);
             if (grantedFlight.remove(player.getUniqueId())) {
                 removeGrantedFlight(player);
             }
         }
         grantedFlight.clear();
+        limitedSpeeds.clear();
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
@@ -73,17 +77,9 @@ public class FlightModule implements Listener {
                                     .executes(ctx -> setFlight(ctx.getSource(), false)))
                             .then(Commands.literal("status")
                                     .executes(ctx -> showStatus(ctx.getSource())))
-                            .then(speedCommand("speed"))
+                            .then(speedCommand())
                             .build(),
                     languageService.t(Language.DEFAULT, Message.FLY_COMMAND_DESCRIPTION));
-
-            commands.register(Commands.literal("flyspeed")
-                            .executes(ctx -> showSpeed(ctx.getSource()))
-                            .then(speedArgument())
-                            .then(Commands.literal("reset")
-                                    .executes(ctx -> resetSpeed(ctx.getSource())))
-                            .build(),
-                    languageService.t(Language.DEFAULT, Message.FLYSPEED_COMMAND_DESCRIPTION));
         });
     }
 
@@ -103,13 +99,14 @@ public class FlightModule implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
+        releaseExplorationSpeed(event.getPlayer());
         if (grantedFlight.remove(event.getPlayer().getUniqueId())) {
             removeGrantedFlight(event.getPlayer());
         }
     }
 
-    private LiteralArgumentBuilder<CommandSourceStack> speedCommand(String literal) {
-        return Commands.literal(literal)
+    private LiteralArgumentBuilder<CommandSourceStack> speedCommand() {
+        return Commands.literal("speed")
                 .executes(ctx -> showSpeed(ctx.getSource()))
                 .then(speedArgument())
                 .then(Commands.literal("reset")
@@ -173,6 +170,7 @@ public class FlightModule implements Listener {
         player.sendMessage(languageService.text(player, Message.FLY_STATUS, enabled
                 ? NamedTextColor.GREEN
                 : NamedTextColor.YELLOW, state, speed));
+        sendSpeedLimit(player);
         sendSpeedPresets(player);
         return Command.SINGLE_SUCCESS;
     }
@@ -185,6 +183,7 @@ public class FlightModule implements Listener {
 
         String speed = FlightSpeed.format(FlightSpeed.fromBukkit(player.getFlySpeed()));
         player.sendMessage(languageService.text(player, Message.FLY_SPEED_CURRENT, NamedTextColor.GREEN, speed));
+        sendSpeedLimit(player);
         sendSpeedPresets(player);
         return Command.SINGLE_SUCCESS;
     }
@@ -195,9 +194,10 @@ public class FlightModule implements Listener {
             return 0;
         }
 
-        player.setFlySpeed(FlightSpeed.toBukkit(requestedSpeed));
+        applyRequestedSpeed(player, FlightSpeed.toBukkit(requestedSpeed));
         String speed = FlightSpeed.format(FlightSpeed.fromBukkit(player.getFlySpeed()));
         player.sendMessage(languageService.text(player, Message.FLY_SPEED_SET, NamedTextColor.GREEN, speed));
+        sendSpeedLimit(player);
         sendSpeedPresets(player);
         return Command.SINGLE_SUCCESS;
     }
@@ -208,8 +208,9 @@ public class FlightModule implements Listener {
             return 0;
         }
 
-        player.setFlySpeed(FlightSpeed.toBukkit(FlightSpeed.DEFAULT_USER_SPEED));
+        applyRequestedSpeed(player, FlightSpeed.toBukkit(FlightSpeed.DEFAULT_USER_SPEED));
         player.sendMessage(languageService.text(player, Message.FLY_SPEED_RESET, NamedTextColor.GREEN));
+        sendSpeedLimit(player);
         sendSpeedPresets(player);
         return Command.SINGLE_SUCCESS;
     }
@@ -223,17 +224,69 @@ public class FlightModule implements Listener {
                     ? NamedTextColor.GREEN
                     : NamedTextColor.AQUA;
             message = message.append(Component.text("[" + label + "x]", color)
-                    .clickEvent(ClickEvent.runCommand("/flyspeed " + label))
+                    .clickEvent(ClickEvent.runCommand("/fly speed " + label))
                     .hoverEvent(HoverEvent.showText(languageService.text(
                             player, Message.FLY_SPEED_CLICK, NamedTextColor.GRAY, label))))
                     .append(Component.space());
         }
         message = message.append(Component.text("[" + languageService.t(player, Message.FLY_SPEED_RESET_ACTION) + "]",
                         NamedTextColor.YELLOW)
-                .clickEvent(ClickEvent.runCommand("/flyspeed reset"))
+                .clickEvent(ClickEvent.runCommand("/fly speed reset"))
                 .hoverEvent(HoverEvent.showText(languageService.text(
                         player, Message.FLY_SPEED_RESET_CLICK, NamedTextColor.GRAY))));
         player.sendMessage(message);
+    }
+
+    @Override
+    public void limitExplorationSpeed(Player player, float maximumSpeed) {
+        if (!Float.isFinite(maximumSpeed) || maximumSpeed < 0.01f || maximumSpeed > 1.0f) {
+            throw new IllegalArgumentException("Invalid exploration flight speed");
+        }
+        LimitedSpeed previous = limitedSpeeds.get(player.getUniqueId());
+        float requested = previous != null && player.getFlySpeed() == previous.applied()
+                ? previous.requested() : player.getFlySpeed();
+        LimitedSpeed next = limitedSpeed(requested, maximumSpeed);
+        limitedSpeeds.put(player.getUniqueId(), next);
+        if (player.getFlySpeed() != next.applied()) {
+            player.setFlySpeed(next.applied());
+        }
+        if (previous == null && next.applied() != requested) {
+            sendSpeedLimit(player);
+        }
+    }
+
+    @Override
+    public void releaseExplorationSpeed(Player player) {
+        LimitedSpeed previous = limitedSpeeds.remove(player.getUniqueId());
+        if (previous != null && player.getFlySpeed() == previous.applied()) {
+            player.setFlySpeed(previous.requested());
+        }
+    }
+
+    void applyRequestedSpeed(Player player, float requested) {
+        LimitedSpeed previous = limitedSpeeds.get(player.getUniqueId());
+        if (previous == null) {
+            player.setFlySpeed(requested);
+        } else {
+            LimitedSpeed next = limitedSpeed(requested, previous.ceiling());
+            limitedSpeeds.put(player.getUniqueId(), next);
+            player.setFlySpeed(next.applied());
+        }
+    }
+
+    private static LimitedSpeed limitedSpeed(float requested, float ceiling) {
+        return new LimitedSpeed(requested, Math.copySign(Math.min(Math.abs(requested), ceiling), requested), ceiling);
+    }
+
+    private void sendSpeedLimit(Player player) {
+        LimitedSpeed limit = limitedSpeeds.get(player.getUniqueId());
+        if (limit != null && limit.applied() != limit.requested()) {
+            player.sendMessage(languageService.text(player, Message.FLY_SPEED_LIMITED, NamedTextColor.YELLOW,
+                    FlightSpeed.fromBukkit(limit.applied()), FlightSpeed.fromBukkit(limit.requested())));
+        }
+    }
+
+    private record LimitedSpeed(float requested, float applied, float ceiling) {
     }
 
     private Player requirePlayer(CommandSourceStack source) {

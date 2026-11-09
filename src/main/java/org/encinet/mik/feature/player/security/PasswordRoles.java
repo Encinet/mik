@@ -1,9 +1,11 @@
 package org.encinet.mik.feature.player.security;
+
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.user.User;
 import net.luckperms.api.node.NodeType;
 import org.encinet.mik.shared.role.PlayerRole;
 import org.bukkit.entity.Player;
+
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 

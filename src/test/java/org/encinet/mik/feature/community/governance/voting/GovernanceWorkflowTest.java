@@ -52,8 +52,6 @@ class GovernanceWorkflowTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-08-22T16:01:00Z"));
         try (TestContext context = context(clock)) {
             MembershipService membership = context.membership();
-            VotingService voting = context.voting();
-            DeliveryService delivery = context.delivery();
             membership.observeLogin(PLAYER, "Alex", clock.instant().minus(Duration.ofDays(5)), false);
             membership.recordEligibleInterval(PLAYER,
                     Instant.parse("2026-08-22T15:59:30Z"),
@@ -88,8 +86,6 @@ class GovernanceWorkflowTest {
         MutableClock clock = new MutableClock(Instant.parse("2026-08-22T12:00:00Z"));
         try (TestContext context = context(clock)) {
             MembershipService membership = context.membership();
-            VotingService voting = context.voting();
-            DeliveryService delivery = context.delivery();
             membership.observeLogin(PLAYER, "Alex", clock.instant().minus(Duration.ofDays(4)), false);
             membership.recordEligibleInterval(PLAYER,
                     clock.instant().minus(Duration.ofHours(9)), clock.instant());
@@ -112,8 +108,6 @@ class GovernanceWorkflowTest {
         Instant firstJoined = clock.instant().minus(Duration.ofDays(100));
         try (TestContext context = context(clock)) {
             MembershipService membership = context.membership();
-            VotingService voting = context.voting();
-            DeliveryService delivery = context.delivery();
             membership.observeLogin(PLAYER, "Alex", firstJoined, true);
             clock.advance(Duration.ofDays(1));
             membership.observeLogin(PLAYER, "Alex", firstJoined, true);
@@ -142,7 +136,6 @@ class GovernanceWorkflowTest {
         try (TestContext context = context(clock)) {
             MembershipService membership = context.membership();
             VotingService voting = context.voting();
-            DeliveryService delivery = context.delivery();
             PlayerProfile candidate = activeMember(membership, clock, PLAYER, "Alex", 0);
             UUID secondId = UUID.fromString("870a985e-2f5f-49d3-8611-cf564db5ba20");
             activeMember(membership, clock, secondId, "Blake", 1);
@@ -152,11 +145,9 @@ class GovernanceWorkflowTest {
             activeMember(membership, clock, lateId, "Casey", 2);
 
             assertEquals(2, vote.eligibleVoters());
-            try {
-                voting.castBallot(vote.id(), lateId, VoteChoice.YES);
-            } catch (GovernanceException expected) {
-                assertTrue(expected.getMessage().contains("冻结选民名单"));
-            }
+            assertEquals(GovernanceException.Code.NOT_VOTER,
+                    assertThrows(GovernanceException.class,
+                            () -> voting.castBallot(vote.id(), lateId, VoteChoice.YES)).code());
             assertEquals(0, voting.openVotes().getFirst().tally().participating());
         }
     }
@@ -223,7 +214,7 @@ class GovernanceWorkflowTest {
             PlayerProfile candidate = activeMember(membership, clock, PLAYER, "Alex", 0);
             UUID secondId = UUID.fromString("870a985e-2f5f-49d3-8611-cf564db5ba20");
             activeMember(membership, clock, secondId, "Blake", 1);
-            GovernanceVote vote = voting.startVote(appointment(candidate));
+            voting.startVote(appointment(candidate));
 
             clock.advance(VotingPolicy.VOTE_DURATION);
             GovernanceVote failed = voting.finalizeDueVotes().getFirst();
@@ -245,7 +236,6 @@ class GovernanceWorkflowTest {
         try (TestContext context = context(clock)) {
             MembershipService membership = context.membership();
             VotingService voting = context.voting();
-            DeliveryService delivery = context.delivery();
             PlayerProfile candidate = activeMember(membership, clock, PLAYER, "Alex", 0);
             UUID secondId = UUID.fromString("870a985e-2f5f-49d3-8611-cf564db5ba20");
             activeMember(membership, clock, secondId, "Blake", 1);
@@ -255,7 +245,7 @@ class GovernanceWorkflowTest {
             GovernanceException error = assertThrows(GovernanceException.class,
                     () -> voting.terminateVote(
                             vote.id(), VoteTerminationReason.CANDIDATE_WITHDREW));
-            assertTrue(error.getMessage().contains("截止时间"));
+            assertEquals(GovernanceException.Code.VOTE_TERMINATION_CLOSED, error.code());
             assertEquals(VoteStatus.FAILED, voting.finalizeDueVotes().getFirst().status());
         }
     }
@@ -266,7 +256,6 @@ class GovernanceWorkflowTest {
         try (TestContext context = context(clock)) {
             MembershipService membership = context.membership();
             VotingService voting = context.voting();
-            DeliveryService delivery = context.delivery();
             PlayerProfile subject = activeMember(membership, clock, PLAYER, "Alex", 0);
             UUID secondId = UUID.fromString("870a985e-2f5f-49d3-8611-cf564db5ba20");
             activeMember(membership, clock, secondId, "Blake", 1);
@@ -274,6 +263,8 @@ class GovernanceWorkflowTest {
             activeMember(membership, clock, thirdId, "Casey", 2);
 
             RemovalSponsorship first = context.removal().sponsorRemoval(subject, secondId);
+            assertTrue(context.removal().hasSponsored(first.petition().id(), secondId));
+            assertFalse(context.removal().hasSponsored(first.petition().id(), thirdId));
             RemovalSponsorship duplicate = context.removal().sponsorRemoval(subject, secondId);
             RemovalSponsorship second = context.removal().sponsorRemoval(subject, thirdId);
 
@@ -344,12 +335,67 @@ class GovernanceWorkflowTest {
                 candidate.playerId(), candidate.playerName());
     }
 
+    @Test
+    void completedHistoryPagesAndSubjectFiltersDoNotLoseOlderRecordsOrIncludeLiveVotes() throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse("2026-08-22T12:00:00Z"));
+        try (TestContext context = context(clock)) {
+            var first = activeMember(context.membership(), clock, PLAYER, "Alex", 0);
+            UUID otherId = new UUID(0, 2);
+            var second = activeMember(context.membership(), clock, otherId, "Blake", 1);
+            for (int index = 0; index < 12; index++) {
+                var subject = index % 2 == 0 ? first : second;
+                var vote = context.voting().startVote(appointment(subject));
+                context.voting().castBallot(vote.id(), PLAYER, VoteChoice.ABSTAIN);
+                context.voting().terminateVote(vote.id(), VoteTerminationReason.CANDIDATE_WITHDREW);
+                clock.advance(Duration.ofSeconds(1));
+            }
+            var live = context.voting().startVote(appointment(first));
+            var latest = context.voting().history(null, 3, 0);
+            assertEquals(12, latest.total());
+            assertEquals(List.of(12L, 11L, 10L), latest.votes().stream().map(GovernanceVote::id).toList());
+            var older = context.voting().history(otherId, 3, 3);
+            assertEquals(6, older.total());
+            assertEquals(List.of(6L, 4L, 2L), older.votes().stream().map(GovernanceVote::id).toList());
+            assertTrue(older.votes().stream().allMatch(vote -> vote.subjectId().equals(otherId)));
+            assertEquals(older, context.voting().history(otherId, 3, 999));
+            assertTrue(context.voting().history(new UUID(0, 999), 5, 0).votes().isEmpty());
+            assertFalse(latest.votes().stream().anyMatch(vote -> vote.id() == live.id()));
+            assertThrows(IllegalArgumentException.class, () -> context.voting().history(null, 0, 0));
+            assertThrows(IllegalArgumentException.class, () -> context.voting().history(null, 3, 1));
+        }
+    }
+
+    @Test
+    void joiningAnExpiredPetitionNeverRecreatesItOrSubstitutesANewerPetition() throws Exception {
+        var clock = new MutableClock(Instant.parse("2026-11-01T12:00:00Z"));
+        try (var context = context(clock)) {
+            var subject = activeMember(context.membership(), clock, PLAYER, "Alex", 0);
+            UUID sponsor = new UUID(0, 2), other = new UUID(0, 3);
+            activeMember(context.membership(), clock, sponsor, "Steve", 0);
+            activeMember(context.membership(), clock, other, "Blake", 0);
+            var original = context.removal().sponsorRemoval(subject, sponsor).petition();
+            clock.advance(Duration.between(clock.instant(), original.expiresAt()).plusSeconds(1));
+            assertEquals(GovernanceException.Code.REMOVAL_PETITION_CLOSED,
+                    assertThrows(GovernanceException.class, () -> context.removal().joinPetition(subject, other, original.id())).code());
+            assertTrue(context.removal().gatheringPetitions().isEmpty(), "an expired control must not create a new petition");
+            var next = context.removal().sponsorRemoval(subject, sponsor).petition();
+            assertTrue(next.id() != original.id());
+            assertEquals(GovernanceException.Code.REMOVAL_PETITION_CLOSED,
+                    assertThrows(GovernanceException.class, () -> context.removal().joinPetition(subject, other, original.id())).code());
+            assertEquals(1, context.removal().gatheringPetitions().getFirst().sponsorCount());
+            var started = context.removal().joinPetition(subject, other, next.id());
+            assertTrue(started.startedVote() != null);
+            assertEquals(next.id(), started.petition().id());
+            assertTrue(context.removal().gatheringPetitions().isEmpty());
+        }
+    }
+
     private TestContext context(MutableClock clock) throws Exception {
         SqliteGovernanceRepository database = new SqliteGovernanceRepository(
                 temporaryDirectory.resolve(UUID.randomUUID() + ".db").toFile());
         database.open();
         MembershipService membership = new MembershipService(
-                database, clock, (uuid, name) -> false, (uuid, name) -> true);
+                database, clock, (_, _) -> false, (_, _) -> true);
         VotingService voting = new VotingService(database, membership, clock, new org.encinet.mik.feature.player.security.EstablishedPasswordAccounts());
         RemovalService removal = new RemovalService(database, database, membership, clock);
         DeliveryService delivery = new DeliveryService(database);

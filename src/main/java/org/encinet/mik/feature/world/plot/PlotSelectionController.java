@@ -54,6 +54,7 @@ final class PlotSelectionController implements Listener {
     private final Predicate<Player> selectionTool;
     private final Map<UUID, Session> sessions = new HashMap<>();
     private BukkitTask task;
+    private final Consumer<UUID> clearPreview;
 
     enum Mode { PICKING, PREVIEW }
 
@@ -64,18 +65,19 @@ final class PlotSelectionController implements Listener {
     PlotSelectionController(PlotSelectionState selections, BiPredicate<Player, UUID> allowed,
                             BiConsumer<Player, UUID> preview, Consumer<Player> hint,
                             Consumer<Player> stopped, BiConsumer<Player, UUID> finish,
-                            BiConsumer<Player, PlotProblem> problem) {
+                            BiConsumer<Player, PlotProblem> problem, Consumer<UUID> clearPreview) {
         this(selections, allowed, preview, hint, stopped, finish, problem, System::nanoTime,
                 player -> FloatingMenus.current(player)
                         .map(handle -> handle.state() != FloatingMenuState.CLOSING).orElse(false),
-                player -> player.getInventory().getItemInMainHand().getType() == Material.WOODEN_AXE);
+                player -> player.getInventory().getItemInMainHand().getType() == Material.WOODEN_AXE, clearPreview);
     }
 
     PlotSelectionController(PlotSelectionState selections, BiPredicate<Player, UUID> allowed,
                             BiConsumer<Player, UUID> preview, Consumer<Player> hint,
                             Consumer<Player> stopped, BiConsumer<Player, UUID> finish,
                             BiConsumer<Player, PlotProblem> problem, LongSupplier clock,
-                            Predicate<Player> menuOpen, Predicate<Player> selectionTool) {
+                            Predicate<Player> menuOpen, Predicate<Player> selectionTool, Consumer<UUID> clearPreview) {
+        this.clearPreview = clearPreview;
         this.selections = selections;
         this.allowed = allowed;
         this.preview = preview;
@@ -96,7 +98,7 @@ final class PlotSelectionController implements Listener {
     void disable() {
         if (task != null) task.cancel();
         task = null;
-        sessions.clear();
+        List.copyOf(sessions.keySet()).forEach(this::stop);
         HandlerList.unregisterAll(this);
     }
 
@@ -115,7 +117,7 @@ final class PlotSelectionController implements Listener {
     }
 
     void stop(UUID playerId) {
-        sessions.remove(playerId);
+        if (sessions.remove(playerId) != null) clearPreview.accept(playerId);
     }
 
     UUID plotId(UUID playerId) {

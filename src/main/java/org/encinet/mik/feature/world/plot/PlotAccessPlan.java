@@ -52,7 +52,7 @@ record PlotAccessPlan(Plot before, Plot after, Plot parent, List<Plot> children,
                 flags = PlotAccessPolicy.withoutSubject(flags, reset.subject(), reset.category());
             }
         }
-        Plot next = new Plot(plot.id(), plot.world(), plot.owner(), plot.name(), plot.publicProject(),
+        Plot next = new Plot(plot.id(), plot.world(), plot.owner(), plot.name(),
                 plot.createdAt(), plot.cells(), members, flags, plot.parentId());
         List<Plot> related = request.subject() == null || request.subject().group() != null ? children : List.of();
         List<Effect> effects = new ArrayList<>();

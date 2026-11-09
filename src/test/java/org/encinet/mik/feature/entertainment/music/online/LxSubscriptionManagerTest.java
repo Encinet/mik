@@ -46,12 +46,12 @@ class LxSubscriptionManagerTest {
         LxSubscriptionManager manager = manager();
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/source.js";
         LxSubscriptionManager.ImportResult imported = manager.importSource(url);
-        Path snapshot = manager.remoteDirectory().resolve(imported.id() + ".js");
+        Path snapshot = manager.managedDirectory().resolve(imported.id() + ".js");
 
         assertTrue(imported.added());
         assertTrue(imported.changed());
         assertEquals(sourceScript("HTTP v1"), Files.readString(snapshot));
-        assertTrue(Files.readString(manager.remoteDirectory().resolve("sources.json"))
+        assertTrue(Files.readString(paths().subscriptionsFile())
                 .contains(imported.id()));
 
         LxSubscriptionManager.RefreshResult unchanged = manager.refreshAll();
@@ -78,7 +78,7 @@ class LxSubscriptionManagerTest {
         LxSubscriptionManager manager = manager();
 
         LxSubscriptionManager.ImportResult imported = manager.importSource(external.toUri().toString());
-        Path snapshot = manager.remoteDirectory().resolve(imported.id() + ".js");
+        Path snapshot = manager.managedDirectory().resolve(imported.id() + ".js");
 
         assertTrue(imported.added());
         assertEquals(sourceScript("File v1"), Files.readString(snapshot));
@@ -97,7 +97,7 @@ class LxSubscriptionManagerTest {
         Files.writeString(external, sourceScript("Stable"));
         LxSubscriptionManager manager = manager();
         LxSubscriptionManager.ImportResult imported = manager.importSource(external.toUri().toString());
-        Path snapshot = manager.remoteDirectory().resolve(imported.id() + ".js");
+        Path snapshot = manager.managedDirectory().resolve(imported.id() + ".js");
 
         Files.writeString(external, "throw new Error('broken update')");
         LxSubscriptionManager.RefreshResult refreshed = manager.refreshAll();
@@ -114,8 +114,8 @@ class LxSubscriptionManagerTest {
         Files.writeString(external, sourceScript("Managed"));
         LxSubscriptionManager manager = manager();
         LxSubscriptionManager.ImportResult imported = manager.importSource(external.toUri().toString());
-        Path snapshot = manager.remoteDirectory().resolve(imported.id() + ".js");
-        Path unmanaged = manager.remoteDirectory().resolve("manual.js");
+        Path snapshot = manager.managedDirectory().resolve(imported.id() + ".js");
+        Path unmanaged = manager.managedDirectory().resolve("manual.js");
         Files.writeString(unmanaged, sourceScript("Unmanaged"));
 
         assertTrue(manager.remove(imported.id()));
@@ -123,6 +123,32 @@ class LxSubscriptionManagerTest {
         assertTrue(Files.exists(unmanaged));
         assertFalse(manager.remove("remote-000000000000000000000000"));
         assertEquals(0, manager.statuses().size());
+    }
+
+    @Test
+    void registryAndLastWorkingSnapshotSurviveReopenWithoutScanningLocalScripts() throws Exception {
+        Path external = directory.resolve("external.js");
+        Files.writeString(external, sourceScript("Retained"));
+        LxSubscriptionManager original = manager();
+        var imported = original.importSource(external.toUri().toString());
+        original.close();
+        Path local = Files.createDirectories(paths().localDirectory()).resolve("administrator.js");
+        Files.writeString(local, sourceScript("Local"));
+        Files.delete(external);
+
+        try (LxSubscriptionManager reopened = manager()) {
+            assertEquals(1, reopened.statuses().size());
+            assertEquals(1, reopened.refreshAll().failed());
+            assertEquals(sourceScript("Retained"), Files.readString(
+                    paths().managedDirectory().resolve(imported.id() + ".js")));
+            assertTrue(Files.exists(paths().subscriptionsFile()));
+            assertFalse(Files.exists(paths().managedDirectory().resolve("subscriptions.json")));
+            assertTrue(reopened.remove(imported.id()));
+            assertEquals(sourceScript("Local"), Files.readString(local));
+        }
+        try (LxSubscriptionManager reopened = manager()) {
+            assertTrue(reopened.statuses().isEmpty());
+        }
     }
 
     @Test
@@ -142,7 +168,7 @@ class LxSubscriptionManagerTest {
         Files.writeString(external, "throw new Error('orphan is broken')");
         LxSubscriptionManager manager = manager();
         String id = remoteId(external.toUri().toString());
-        Files.writeString(manager.remoteDirectory().resolve(id + ".js"),
+        Files.writeString(manager.managedDirectory().resolve(id + ".js"),
                 Files.readString(external));
 
         assertThrows(IOException.class,
@@ -161,7 +187,7 @@ class LxSubscriptionManagerTest {
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/source.js";
         LxSubscriptionManager manager = manager();
         String id = remoteId(url);
-        Files.writeString(manager.remoteDirectory().resolve(id + ".js"),
+        Files.writeString(manager.managedDirectory().resolve(id + ".js"),
                 "throw new Error('unvalidated orphan')");
 
         IOException failure = assertThrows(IOException.class,
@@ -169,11 +195,15 @@ class LxSubscriptionManagerTest {
 
         assertTrue(failure.getMessage().contains("304"));
         assertTrue(manager.statuses().isEmpty());
-        assertFalse(Files.exists(manager.remoteDirectory().resolve("sources.json")));
+        assertFalse(Files.exists(paths().subscriptionsFile()));
+    }
+
+    private LxSourcePaths paths() {
+        return new LxSourcePaths(directory.resolve("music/sources"));
     }
 
     private LxSubscriptionManager manager() {
-        return new LxSubscriptionManager(directory.resolve("lxmusic"), ignored -> {},
+        return new LxSubscriptionManager(paths(), _ -> {},
                 Duration.ofSeconds(5));
     }
 

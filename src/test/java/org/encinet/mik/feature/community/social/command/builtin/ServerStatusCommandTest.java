@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -46,6 +47,7 @@ class ServerStatusCommandTest {
         SocialDocument document = command.present(context(), snapshot);
         SocialDocument.Fields fields = (SocialDocument.Fields) document.blocks().getFirst();
 
+        assertEquals(TRUSTED, document.moderation());
         assertEquals(4, fields.fields().size());
         assertEquals(Message.SOCIAL_QUERY_PLAYERS_LABEL.name(),
                 fields.fields().get(0).label());
@@ -68,7 +70,7 @@ class ServerStatusCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/状态", false,
-                ignored -> CompletableFuture.completedFuture(null));
+                _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ"), message);
     }
 

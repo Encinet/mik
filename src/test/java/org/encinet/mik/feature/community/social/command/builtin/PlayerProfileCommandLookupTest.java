@@ -171,7 +171,7 @@ class PlayerProfileCommandLookupTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.of(identity), new SocialInboundMessage.Text("/profile"), false,
-                references, ignored -> CompletableFuture.completedFuture(null));
+                references, _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(
                 new SocialPlatformDescriptor("qq", "QQ"), message);
     }

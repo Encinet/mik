@@ -142,7 +142,7 @@ final class PlotPreviewGeometry {
                 + (upperLower ? 1 : 0) + (upperUpper ? 1 : 0);
         if (occupied == 1 || occupied == 3 || occupied == 2
                 && (lowerLower && upperUpper || lowerUpper && upperLower)) {
-            segments.computeIfAbsent(line, ignored -> new TreeSet<>()).add(position);
+            segments.computeIfAbsent(line, _ -> new TreeSet<>()).add(position);
         }
     }
 
@@ -191,7 +191,7 @@ final class PlotPreviewGeometry {
         return List.copyOf(points);
     }
 
-    private static Edge clip(Edge edge, Point viewer, double distance) {
+    static Edge clip(Edge edge, Point viewer, double distance) {
         double length = edge.length();
         if (length == 0) return viewer.distanceSquared(edge.first()) <= distance * distance ? edge : null;
         Point direction = new Point((edge.second().horizontal() - edge.first().horizontal()) / length,

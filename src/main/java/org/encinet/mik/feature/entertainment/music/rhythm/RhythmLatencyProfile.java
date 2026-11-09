@@ -24,7 +24,7 @@ record RhythmLatencyProfile(int judgementOffsetMillis, int animationOffsetMillis
     static RhythmLatencyProfile fromTests(int visualTapOffsetMillis,
                                           int audioTapOffsetMillis) {
         long difference = (long) audioTapOffsetMillis - visualTapOffsetMillis;
-        int animation = (int) Math.clamp(difference,
+        int animation = Math.clamp(difference,
                 MINIMUM_ANIMATION_OFFSET_MILLIS,
                 MAXIMUM_ANIMATION_OFFSET_MILLIS);
         return new RhythmLatencyProfile(audioTapOffsetMillis,
@@ -35,7 +35,7 @@ record RhythmLatencyProfile(int judgementOffsetMillis, int animationOffsetMillis
     RhythmLatencyProfile withJudgementOffset(int sourceOffsetMillis) {
         long adjustedAnimation = (long) animationOffsetMillis
                 + sourceOffsetMillis - judgementOffsetMillis;
-        int safeAnimation = (int) Math.clamp(adjustedAnimation,
+        int safeAnimation = Math.clamp(adjustedAnimation,
                 MINIMUM_ANIMATION_OFFSET_MILLIS,
                 MAXIMUM_ANIMATION_OFFSET_MILLIS);
         return new RhythmLatencyProfile(sourceOffsetMillis, safeAnimation);
@@ -44,7 +44,7 @@ record RhythmLatencyProfile(int judgementOffsetMillis, int animationOffsetMillis
     /** Applies a mouse-vs-keyboard input delta without moving the visual clock. */
     RhythmLatencyProfile withInputDelta(int inputDeltaMillis) {
         long adjusted = (long) judgementOffsetMillis + inputDeltaMillis;
-        return new RhythmLatencyProfile((int) Math.clamp(adjusted,
+        return new RhythmLatencyProfile(Math.clamp(adjusted,
                 MINIMUM_JUDGEMENT_OFFSET_MILLIS,
                 MAXIMUM_JUDGEMENT_OFFSET_MILLIS),
                 animationOffsetMillis);

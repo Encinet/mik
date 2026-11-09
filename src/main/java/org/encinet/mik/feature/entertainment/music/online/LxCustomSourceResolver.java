@@ -51,8 +51,8 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
 
     private final Path sourceDirectory;
     private final Path localDirectory;
-    private final Path remoteDirectory;
-    private final Supplier<Set<String>> managedRemoteScripts;
+    private final Path managedDirectory;
+    private final Supplier<Set<String>> managedScripts;
     private final Consumer<String> infoLogger;
     private final Consumer<String> warningLogger;
     private final Duration requestTimeout;
@@ -70,21 +70,21 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
 
     LxCustomSourceResolver(Path sourceDirectory, Consumer<String> infoLogger,
                                   Consumer<String> warningLogger) {
-        this(sourceDirectory, infoLogger, warningLogger, null,
+        this(new LxSourcePaths(sourceDirectory), infoLogger, warningLogger, null,
                 REQUEST_TIMEOUT, FAILURE_THRESHOLD, RETRY_DELAY, null);
     }
 
-    LxCustomSourceResolver(Path sourceDirectory, Consumer<String> infoLogger,
+    LxCustomSourceResolver(LxSourcePaths paths, Consumer<String> infoLogger,
                                   Consumer<String> warningLogger,
-                                  Supplier<Set<String>> managedRemoteScripts) {
-        this(sourceDirectory, infoLogger, warningLogger, managedRemoteScripts,
+                                  Supplier<Set<String>> managedScripts) {
+        this(paths, infoLogger, warningLogger, managedScripts,
                 REQUEST_TIMEOUT, FAILURE_THRESHOLD, RETRY_DELAY, null);
     }
 
     LxCustomSourceResolver(Path sourceDirectory, Consumer<String> infoLogger,
                            Consumer<String> warningLogger, Duration requestTimeout,
                            int failureThreshold, Duration retryDelay) {
-        this(sourceDirectory, infoLogger, warningLogger, null,
+        this(new LxSourcePaths(sourceDirectory), infoLogger, warningLogger, null,
                 requestTimeout, failureThreshold, retryDelay, null);
     }
 
@@ -92,19 +92,19 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                            Consumer<String> warningLogger, Duration requestTimeout,
                            int failureThreshold, Duration retryDelay,
                            LxOnlineSearchService onlineSearch) {
-        this(sourceDirectory, infoLogger, warningLogger, null,
+        this(new LxSourcePaths(sourceDirectory), infoLogger, warningLogger, null,
                 requestTimeout, failureThreshold, retryDelay, onlineSearch);
     }
 
-    private LxCustomSourceResolver(Path sourceDirectory, Consumer<String> infoLogger,
+    private LxCustomSourceResolver(LxSourcePaths paths, Consumer<String> infoLogger,
                            Consumer<String> warningLogger,
-                           Supplier<Set<String>> managedRemoteScripts,
+                           Supplier<Set<String>> managedScripts,
                            Duration requestTimeout, int failureThreshold, Duration retryDelay,
                            LxOnlineSearchService onlineSearch) {
-        this.sourceDirectory = sourceDirectory.toAbsolutePath().normalize();
-        this.localDirectory = this.sourceDirectory.resolve("local");
-        this.remoteDirectory = this.sourceDirectory.resolve("remote");
-        this.managedRemoteScripts = managedRemoteScripts;
+        this.sourceDirectory = paths.directory();
+        this.localDirectory = paths.localDirectory();
+        this.managedDirectory = paths.managedDirectory();
+        this.managedScripts = managedScripts;
         this.infoLogger = infoLogger;
         this.warningLogger = warningLogger;
         this.requestTimeout = requestTimeout;
@@ -322,7 +322,7 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                 providersBySource.putIfAbsent(source, channel.info().id());
                 if (channel.info().supports(source, ACTION_MUSIC_SEARCH)
                         && customCallCount < MAX_AGGREGATE_CALLS) {
-                    customCalls.computeIfAbsent(source, ignored -> new ArrayList<>())
+                    customCalls.computeIfAbsent(source, _ -> new ArrayList<>())
                             .add(invokeAction(current, channel, source,
                                     ACTION_MUSIC_SEARCH, info.deepCopy()));
                     customCallCount++;
@@ -343,7 +343,7 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
             }
             CompletableFuture<List<ActionResult>> customResults = CompletableFuture
                     .allOf(custom.toArray(CompletableFuture[]::new))
-                    .thenApply(ignored -> custom.stream().map(CompletableFuture::join).toList());
+                    .thenApply(_ -> custom.stream().map(CompletableFuture::join).toList());
             if (onlineSearch.supports(source)) {
                 customResults = customResults.thenCompose(results -> {
                     if (results.stream().anyMatch(this::hasUsableSearchTrack)) {
@@ -365,7 +365,7 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
                     "No healthy LX custom source supports online music search"));
         }
         return CompletableFuture.allOf(sourceCalls.toArray(CompletableFuture[]::new))
-                .thenApply(ignored -> sourceCalls.stream()
+                .thenApply(_ -> sourceCalls.stream()
                         .flatMap(call -> call.join().stream()).toList());
     }
 
@@ -667,7 +667,7 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
     private ScriptSet scanScripts() {
         try {
             Files.createDirectories(localDirectory);
-            Files.createDirectories(remoteDirectory);
+            Files.createDirectories(managedDirectory);
         } catch (IOException exception) {
             throw new CompletionException(new IOException(
                     "Failed to create LX source directories", exception));
@@ -683,9 +683,9 @@ final class LxCustomSourceResolver implements LxTrackResolver, MusicSearchServic
             throw new CompletionException(new IOException(
                     "Failed to scan local LX custom sources", exception));
         }
-        Set<String> remoteScriptNames = managedRemoteScripts == null
-                ? null : Set.copyOf(managedRemoteScripts.get());
-        try (Stream<Path> paths = Files.list(remoteDirectory)) {
+        Set<String> remoteScriptNames = managedScripts == null
+                ? null : Set.copyOf(managedScripts.get());
+        try (Stream<Path> paths = Files.list(managedDirectory)) {
             paths.filter(path -> Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                     .filter(path -> REMOTE_SCRIPT_FILE.matcher(
                             path.getFileName().toString()).matches())

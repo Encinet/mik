@@ -21,16 +21,15 @@ class IronElevatorPlatformTest {
     void sharesOneFloorListAndChangesOnlyYFromEveryBlockOfThePlatform() {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         for (int height : List.of(20, 40, 80)) square(world, height);
-        IronElevatorFloors floors = new IronElevatorFloors();
-        var first = floors.scan(world.block(0, 40, 0), world.origin(40));
-        var second = floors.scan(world.block(1, 40, 1), new Location(world.world, 1.8, 41, 1.8));
+        IronElevatorCatalog floors = new IronElevatorCatalog();
+        var first = IronElevatorTestSupport.floors(floors, world.block(0, 40, 0));
+        var second = IronElevatorTestSupport.floors(floors, world.block(1, 40, 1));
         assertEquals(first, second);
         assertEquals(3, first.size());
         for (int blockX = 0; blockX <= 1; blockX++) {
             for (int blockZ = 0; blockZ <= 1; blockZ++) {
                 Location origin = new Location(world.world, blockX + 0.2, 41, blockZ + 0.8, 70, -25);
-                Location landing = floors.destination(world.block(blockX, 40, blockZ), 1, null, origin,
-                        IronElevatorLanding.DEFAULT_SIZE, body -> false);
+                Location landing = IronElevatorTestSupport.destination(floors, world.block(blockX, 40, blockZ), 1, null, origin, IronElevatorLanding.DEFAULT_SIZE, _ -> false);
                 assertNotNull(landing);
                 assertEquals(origin.getX(), landing.getX());
                 assertEquals(origin.getZ(), landing.getZ());
@@ -49,17 +48,13 @@ class IronElevatorPlatformTest {
         iron(world, 1, 40, 0);
         iron(world, 2, 40, 0);
         iron(world, 2, 80, 0);
-        IronElevatorFloors floors = new IronElevatorFloors();
-        assertEquals(List.of(20, 40, 80), floors.scan(world.block(0, 20, 0), world.origin(20))
-                .stream().map(floor -> floor.platform().height()).toList());
-        assertNull(floors.destination(world.block(2, 80, 0), 0, 20,
-                new Location(world.world, 2.2, 81, 0.7), IronElevatorLanding.DEFAULT_SIZE, body -> false));
-        assertEquals(41, floors.destination(world.block(2, 80, 0), -1, null,
-                new Location(world.world, 2.2, 81, 0.7), IronElevatorLanding.DEFAULT_SIZE, body -> false).getY());
-        assertNull(floors.destination(world.block(0, 20, 0), 1, null, world.origin(20),
-                IronElevatorLanding.DEFAULT_SIZE, body -> false));
-        assertEquals(41, floors.destination(world.block(1, 20, 0), 1, null,
-                new Location(world.world, 1.5, 21, 0.5), IronElevatorLanding.DEFAULT_SIZE, body -> false).getY());
+        IronElevatorCatalog floors = new IronElevatorCatalog();
+        assertEquals(List.of(20, 40, 80), IronElevatorTestSupport.floors(floors, world.block(0, 20, 0))
+                .stream().map(floor -> floor.level().height()).toList());
+        assertNull(IronElevatorTestSupport.destination(floors, world.block(2, 80, 0), 0, 20, new Location(world.world, 2.2, 81, 0.7), IronElevatorLanding.DEFAULT_SIZE, _ -> false));
+        assertEquals(41, IronElevatorTestSupport.destination(floors, world.block(2, 80, 0), -1, null, new Location(world.world, 2.2, 81, 0.7), IronElevatorLanding.DEFAULT_SIZE, _ -> false).getY());
+        assertNull(IronElevatorTestSupport.destination(floors, world.block(0, 20, 0), 1, null, world.origin(20), IronElevatorLanding.DEFAULT_SIZE, _ -> false));
+        assertEquals(41, IronElevatorTestSupport.destination(floors, world.block(1, 20, 0), 1, null, new Location(world.world, 1.5, 21, 0.5), IronElevatorLanding.DEFAULT_SIZE, _ -> false).getY());
     }
 
     @Test
@@ -71,16 +66,16 @@ class IronElevatorPlatformTest {
                 iron(world, blockX, 40, blockZ);
             }
         }
-        Location first = IronElevatorLanding.on(world.block(0, 40, 0), world.origin(20),
-                IronElevatorLanding.DEFAULT_SIZE, body -> false);
-        Location second = IronElevatorLanding.on(world.block(2, 40, 2),
-                new Location(world.world, 2.8, 21, 2.8), IronElevatorLanding.DEFAULT_SIZE, body -> false);
+        Location first = IronElevatorTestSupport.landing(world.block(0, 40, 0), world.origin(20),
+                IronElevatorLanding.DEFAULT_SIZE, _ -> false);
+        Location second = IronElevatorTestSupport.landing(world.block(2, 40, 2),
+                new Location(world.world, 2.8, 21, 2.8), IronElevatorLanding.DEFAULT_SIZE, _ -> false);
         assertEquals(0.5, first.getX());
         assertEquals(0.5, first.getZ());
         assertEquals(2.8, second.getX());
         assertEquals(2.8, second.getZ());
-        assertNull(IronElevatorLanding.on(world.block(0, 40, 0), new Location(world.world, 1.5, 21, 1.5),
-                IronElevatorLanding.DEFAULT_SIZE, body -> false));
+        assertNull(IronElevatorTestSupport.landing(world.block(0, 40, 0), new Location(world.world, 1.5, 21, 1.5),
+                IronElevatorLanding.DEFAULT_SIZE, _ -> false));
         assertNotEquals(Material.AIR, world.block(first.getBlockX(), 40, first.getBlockZ()).getType());
     }
 
@@ -89,10 +84,10 @@ class IronElevatorPlatformTest {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         iron(world, 0, 20, 0);
         iron(world, 1, 20, 1);
-        assertEquals(1, IronElevatorPlatform.resolve(world.block(0, 20, 0)).blocks().size());
-        assertEquals(1, IronElevatorShaft.scan(world.block(0, 20, 0)).columns().size());
+        assertEquals(1, IronElevatorTestSupport.platform(world.block(0, 20, 0)).blocks().size());
+        assertEquals(1, IronElevatorTestSupport.shaft(world.block(0, 20, 0)).columns().size());
         for (int blockX = 0; blockX <= IronElevatorPlatform.MAX_BLOCKS; blockX++) iron(world, blockX, 40, 0);
-        assertNull(IronElevatorPlatform.resolve(world.block(0, 40, 0)));
+        assertNull(IronElevatorTestSupport.platform(world.block(0, 40, 0)));
     }
 
     @Test
@@ -100,17 +95,17 @@ class IronElevatorPlatformTest {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         for (int height : List.of(20, 40, 80)) square(world, height);
         AtomicLong clock = new AtomicLong();
-        IronElevatorFloors floors = new IronElevatorFloors(clock::get);
-        floors.platform(world.block(0, 20, 0));
+        IronElevatorCatalog floors = new IronElevatorCatalog(clock::get);
+        IronElevatorTestSupport.warm(floors, world.block(0, 20, 0));
         int coldReads = world.blockReads;
-        for (int attempt = 0; attempt < 20; attempt++) floors.platform(world.block(1, 80, 1));
+        for (int attempt = 0; attempt < 20; attempt++) IronElevatorTestSupport.warm(floors, world.block(1, 80, 1));
         assertEquals(coldReads, world.blockReads);
         clock.set(2_000_000_001L);
-        floors.platform(world.block(1, 40, 1));
+        IronElevatorTestSupport.warm(floors, world.block(1, 40, 1));
         assertTrue(world.blockReads > coldReads);
         int refreshedReads = world.blockReads;
         floors.invalidate();
-        floors.platform(world.block(0, 20, 0));
+        IronElevatorTestSupport.warm(floors, world.block(0, 20, 0));
         assertTrue(world.blockReads > refreshedReads);
     }
 
@@ -119,16 +114,13 @@ class IronElevatorPlatformTest {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         world.iron(20);
         world.iron(40);
-        IronElevatorFloors floors = new IronElevatorFloors();
-        assertNotNull(floors.destination(world.block(0, 20, 0), 1, null, world.origin(20),
-                IronElevatorLanding.DEFAULT_SIZE, body -> false));
+        IronElevatorCatalog floors = new IronElevatorCatalog();
+        assertNotNull(IronElevatorTestSupport.destination(floors, world.block(0, 20, 0), 1, null, world.origin(20), IronElevatorLanding.DEFAULT_SIZE, _ -> false));
         world.put(0, 42, 0, Material.STONE, Set.of(BlockFace.UP));
-        assertNull(floors.destination(world.block(0, 20, 0), 1, null, world.origin(20),
-                IronElevatorLanding.DEFAULT_SIZE, body -> false));
+        assertNull(IronElevatorTestSupport.destination(floors, world.block(0, 20, 0), 1, null, world.origin(20), IronElevatorLanding.DEFAULT_SIZE, _ -> false));
         world.put(0, 42, 0, Material.AIR, Set.of());
         world.put(0, 40, 0, Material.AIR, Set.of());
-        assertNull(floors.destination(world.block(0, 20, 0), 1, null, world.origin(20),
-                IronElevatorLanding.DEFAULT_SIZE, body -> false));
+        assertNull(IronElevatorTestSupport.destination(floors, world.block(0, 20, 0), 1, null, world.origin(20), IronElevatorLanding.DEFAULT_SIZE, _ -> false));
     }
 
     @Test
@@ -136,14 +128,14 @@ class IronElevatorPlatformTest {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         world.iron(20);
         world.iron(40);
-        IronElevatorFloors floors = new IronElevatorFloors();
-        floors.platform(world.block(0, 20, 0));
+        IronElevatorCatalog floors = new IronElevatorCatalog();
+        IronElevatorTestSupport.warm(floors, world.block(0, 20, 0));
         world.unloadedChunks.add("0,0");
-        assertNull(floors.platform(world.block(0, 20, 0)));
+        assertNull(IronElevatorTestSupport.warm(floors, world.block(0, 20, 0)));
         world.unloadedChunks.clear();
         world.unloadedChunks.add("-1,0");
         floors.invalidate();
-        assertNull(floors.platform(world.block(0, 20, 0)));
+        assertNull(IronElevatorTestSupport.warm(floors, world.block(0, 20, 0)));
     }
 
     @Test
@@ -153,37 +145,50 @@ class IronElevatorPlatformTest {
             world.iron(height);
             iron(world, 48, height, 0);
         }
-        IronElevatorFloors floors = new IronElevatorFloors();
-        floors.platform(world.block(0, 20, 0));
-        floors.platform(world.block(48, 20, 0));
+        IronElevatorCatalog floors = new IronElevatorCatalog();
+        IronElevatorTestSupport.warm(floors, world.block(0, 20, 0));
+        IronElevatorTestSupport.warm(floors, world.block(48, 20, 0));
         iron(world, 1, 20, 0);
         floors.invalidate(world.block(1, 20, 0));
         int beforeRefresh = world.blockReads;
-        floors.platform(world.block(48, 20, 0));
+        IronElevatorTestSupport.warm(floors, world.block(48, 20, 0));
         assertEquals(beforeRefresh, world.blockReads);
-        assertEquals(2, floors.platform(world.block(0, 20, 0)).blocks().size());
+        assertEquals(2, IronElevatorTestSupport.warm(floors, world.block(0, 20, 0)).blocks().size());
         assertTrue(world.blockReads > beforeRefresh);
         int refreshed = world.blockReads;
         floors.invalidateChunk(world.worldId, 0, 0);
-        floors.platform(world.block(48, 20, 0));
+        IronElevatorTestSupport.warm(floors, world.block(48, 20, 0));
         assertEquals(refreshed, world.blockReads);
-        floors.platform(world.block(0, 20, 0));
+        IronElevatorTestSupport.warm(floors, world.block(0, 20, 0));
         assertTrue(world.blockReads > refreshed);
     }
 
     @Test
     void evictsOldShaftsInsteadOfGrowingTheScanCacheIndefinitely() {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
-        IronElevatorFloors floors = new IronElevatorFloors(() -> 0);
+        IronElevatorCatalog floors = new IronElevatorCatalog(() -> 0);
         for (int index = 0; index <= 64; index++) {
             iron(world, index * 16, 20, 0);
-            floors.platform(world.block(index * 16, 20, 0));
+            IronElevatorTestSupport.warm(floors, world.block(index * 16, 20, 0));
         }
         int reads = world.blockReads;
-        floors.platform(world.block(64 * 16, 20, 0));
+        IronElevatorTestSupport.warm(floors, world.block(64 * 16, 20, 0));
         assertEquals(reads, world.blockReads);
-        floors.platform(world.block(0, 20, 0));
+        IronElevatorTestSupport.warm(floors, world.block(0, 20, 0));
         assertTrue(world.blockReads > reads);
+    }
+
+    @Test
+    void warmShaftsPreserveTheSamePhysicalSourceAsColdDiscovery() {
+        var world = new IronElevatorTestWorld();
+        iron(world,0,20,0); iron(world,2,20,0);
+        for (int x = 0; x < 3; x++) iron(world,x,40,0);
+        var cold = IronElevatorTestSupport.platform(world.block(0,20,0));
+        var shaft = IronElevatorTestSupport.shaft(world.block(0,20,0));
+        assertEquals(2,shaft.at(20).platforms().size());
+        assertEquals(cold,shaft.source(world.block(0,20,0)));
+        assertEquals(1,shaft.source(world.block(0,20,0)).blocks().size());
+        assertNotEquals(shaft.source(world.block(0,20,0)),shaft.source(world.block(2,20,0)));
     }
 
     private static void square(IronElevatorTestWorld world, int height) {

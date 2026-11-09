@@ -13,16 +13,16 @@ import static org.junit.jupiter.api.Assertions.*;
 class AxiomVehicleProtectionTest {
     @Test void modificationAndDeletionEventsAreCancelledForManagedEntitiesOnly() throws Exception {
         var entity = (Entity) Proxy.newProxyInstance(Entity.class.getClassLoader(), new Class<?>[]{Entity.class},
-                (proxy, method, arguments) -> { throw new UnsupportedOperationException(method.getName()); });
+                (_, method, _) -> { throw new UnsupportedOperationException(method.getName()); });
         var event = new EntityEvent(entity);
         var getter = AxiomVehicleProtection.entityGetter(EntityEvent.class);
         AxiomVehicleProtection.protect(event, getter, candidate -> candidate == entity);
         assertTrue(event.isCancelled());
         var source = new EntityEvent(entity);
-        AxiomVehicleProtection.protect(source, getter, candidate -> false);
+        AxiomVehicleProtection.protect(source, getter, _ -> false);
         assertFalse(source.isCancelled());
         source.setCancelled(true);
-        AxiomVehicleProtection.protect(source, getter, candidate -> false);
+        AxiomVehicleProtection.protect(source, getter, _ -> false);
         assertTrue(source.isCancelled());
     }
 

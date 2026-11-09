@@ -1,4 +1,5 @@
 package org.encinet.mik.feature.player.security;
+
 import org.bukkit.entity.Player;
 import java.util.UUID;
 

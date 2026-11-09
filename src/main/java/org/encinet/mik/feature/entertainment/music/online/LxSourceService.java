@@ -39,8 +39,9 @@ public final class LxSourceService
         Objects.requireNonNull(directory, "directory");
         Objects.requireNonNull(infoLogger, "infoLogger");
         Objects.requireNonNull(warningLogger, "warningLogger");
-        this.subscriptions = new LxSubscriptionManager(directory, warningLogger);
-        this.resolver = new LxCustomSourceResolver(directory, infoLogger, warningLogger,
+        var paths = new LxSourcePaths(directory);
+        this.subscriptions = new LxSubscriptionManager(paths, warningLogger);
+        this.resolver = new LxCustomSourceResolver(paths, infoLogger, warningLogger,
                 subscriptions::managedScriptNames);
         this.search = new CachingMusicSearchService(resolver);
     }

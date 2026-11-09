@@ -21,25 +21,46 @@ class IronElevatorBenchmark {
     @Test
     void reportSharedShaftLookupAndNearestFloorSelection() {
         var world = new IronElevatorTestWorld();
-        var floors = new IronElevatorFloors(() -> 0);
+        var floors = new IronElevatorCatalog(() -> 0);
         for (int shaft = 0; shaft < 64; shaft++) {
             for (int height : List.of(20, 40, 80)) {
                 for (int x = 0; x < 2; x++)
                     for (int z = 0; z < 2; z++)
                         world.put(shaft * 32 + x, height, z, Material.IRON_BLOCK, Set.of(BlockFace.UP));
             }
-            floors.platform(world.block(shaft * 32, 20, 0));
+            IronElevatorTestSupport.warm(floors, world.block(shaft * 32, 20, 0));
         }
         var source = world.block(63 * 32 + 1, 80, 1);
-        report("elevator/64-shafts-warm", index -> floors.platform(source));
+        report("elevator/64-shafts-warm", _ -> IronElevatorTestSupport.warm(floors, source));
 
         var tallWorld = new IronElevatorTestWorld();
-        var tallFloors = new IronElevatorFloors(() -> 0);
+        var tallFloors = new IronElevatorCatalog(() -> 0);
         for (int height = -50; height < 350; height += 2) tallWorld.iron(height);
         var middle = tallWorld.block(0, 150, 0);
         var landing = tallWorld.origin(152);
-        tallFloors.platform(middle);
-        report("elevator/200-floors-next", index -> tallFloors.destination(middle, 1, null, target -> landing));
+        IronElevatorTestSupport.warm(tallFloors, middle);
+        report("elevator/200-floors-next", _ -> IronElevatorTestSupport.destination(tallFloors, middle, 1, null, _ -> landing));
+    }
+
+    @Test
+    void reportRouteReevaluationAgainstRebuildingAWarmQuery() {
+        var world = new IronElevatorTestWorld();
+        for (int height : List.of(20, 40, 80)) world.iron(height);
+        var source = world.block(0, 40, 0);
+        var shaft = IronElevatorTestSupport.shaft(source);
+        var supports = List.of(new IronElevatorPlatform.Column(0, 0));
+        report("elevator/rebuild-warm-route", _ -> {
+            var query = new IronElevatorRouteSearch(source, supports, _ -> true, null, shaft);
+            while (!query.step()) { }
+            return query.up();
+        });
+        var query = new IronElevatorRouteSearch(source, supports, _ -> true, null, shaft);
+        while (!query.step()) { }
+        report("elevator/reevaluate-known-route", _ -> {
+            query.reevaluate(_ -> true);
+            while (!query.step()) { }
+            return query.up();
+        });
     }
 
     private static void report(String label, IntFunction<Object> operation) {
@@ -60,6 +81,7 @@ class IronElevatorBenchmark {
             bytes[round] = allocation == null ? Double.NaN
                     : (allocation.getThreadAllocatedBytes(thread) - beforeBytes) / 10_000.0;
         }
+        java.lang.ref.Reference.reachabilityFence(sink);
         Arrays.sort(times);
         Arrays.sort(bytes);
         System.out.printf(Locale.ROOT, "%s: median %.1f ns/op, %.1f bytes/op%n",

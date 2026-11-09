@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.logging.Logger;
 
-/** Owns the announcement file and the public snapshot read by the HTTP API. */
+/** Owns the announcement file and immutable publications shared by menu readers and the HTTP API. */
 final class AnnouncementCatalog {
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -38,9 +38,8 @@ final class AnnouncementCatalog {
         List<Announcement> visible = readFile().stream()
                 .sorted(Comparator.comparingLong(Announcement::timestamp).reversed())
                 .toList();
-        Snapshot loaded = Snapshot.of(visible);
-        current = loaded;
-        return loaded;
+        if (!current.announcements().equals(visible)) current = Snapshot.of(visible);
+        return current;
     }
 
     private List<Announcement> readFile() throws IOException {

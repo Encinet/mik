@@ -17,7 +17,7 @@ public final class PlayerToolPack {
         List<AiTool> tools = List.of(
                 GameToolSupport.tool("list_online_players",
                         "List players in the current read-only online snapshot.",
-                        GameToolSupport.emptySchema(), ignored -> onlinePlayers(snapshot)),
+                        GameToolSupport.emptySchema(), _ -> onlinePlayers(snapshot)),
                 GameToolSupport.tool("get_player_info",
                         "Get read-only information for one currently online player by exact name.",
                         GameToolSupport.stringSchema(
@@ -27,7 +27,7 @@ public final class PlayerToolPack {
                 GameToolSupport.tool("get_my_inventory",
                         "Get the current requester's own inventory. Other players' inventories "
                                 + "are never exposed.",
-                        GameToolSupport.emptySchema(), ignored -> inventory(snapshot)),
+                        GameToolSupport.emptySchema(), _ -> inventory(snapshot)),
                 GameToolSupport.tool("get_player_statistics",
                         "Get play time, deaths, kills, jumps, and movement statistics for one "
                                 + "currently online player.",
@@ -38,7 +38,7 @@ public final class PlayerToolPack {
                 GameToolSupport.tool("get_nearby_entities",
                         "Get entities within 32 blocks of the current requester. This is only "
                                 + "available when location queries are enabled by the server owner.",
-                        GameToolSupport.emptySchema(), ignored -> nearby(snapshot)));
+                        GameToolSupport.emptySchema(), _ -> nearby(snapshot)));
         return new AiToolPack("player",
                 "Online players, profiles, own inventory, statistics, and nearby entities.",
                 List.of("player", "online", "inventory", "stats", "nearby", "entity",

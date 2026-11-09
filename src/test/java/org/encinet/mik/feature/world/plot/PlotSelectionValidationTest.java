@@ -86,18 +86,18 @@ class PlotSelectionValidationTest {
         }
     }
 
-    @Test void previewResizeStillProtectsChildrenAndArrivalPoints() throws Exception {
+    @Test void previewResizeStillProtectsChildrenAndDestinationPoints() throws Exception {
         try (var store = new PlotRepository(directory.resolve("resize-validation.db"))) {
             store.open();
             var registry = new PlotRegistry(store);
             var edits = new PlotEdits(registry);
             Plot parent = edits.create(owner, "Parent", world, shape(new Cell(0, 16, 0), new Cell(1, 16, 0)));
             registry.createSubPlot(parent.id(), UUID.randomUUID(), "Child", shape(new Cell(1, 16, 0)));
-            registry.setArrival(parent.id(), new PlotArrival(0.5, 65, 0.5, 0, 0, "", ""));
+            registry.saveDestination(new PlotDestination(parent.id(), parent.id(), "Entrance", "", false, 0.5, 65, 0.5, 0, 0, "", ""));
             long revision = registry.revision();
             assertEquals(Message.PLOT_ERROR_SUBPLOT_PARENT, assertThrows(PlotProblem.class,
                     () -> edits.validateResize(parent, shape(new Cell(0, 16, 0)))).message());
-            assertEquals(Message.PLOT_ERROR_SUBPLOT_OWN_ARRIVAL, assertThrows(PlotProblem.class,
+            assertEquals(Message.PLOT_ERROR_SUBPLOT_OWN_DESTINATION, assertThrows(PlotProblem.class,
                     () -> edits.validateResize(parent, shape(new Cell(1, 16, 0)))).message());
             edits.validateResize(parent, shape(new Cell(0, 16, 0), new Cell(1, 16, 0)));
             assertEquals(revision, registry.revision());

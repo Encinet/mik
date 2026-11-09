@@ -12,7 +12,6 @@ import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatStyle;
 import org.encinet.mik.feature.community.chat.model.ChatSubmission;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
-import org.encinet.mik.feature.community.identity.IdentityBinding;
 import org.encinet.mik.feature.community.social.api.SocialEventSink;
 import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
 import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
@@ -41,6 +40,9 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
+
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
+
 
 /** Owns every mutable resource belonging to exactly one platform generation. */
 final class SocialPlatformGeneration implements AutoCloseable {
@@ -107,7 +109,6 @@ final class SocialPlatformGeneration implements AutoCloseable {
         SocialPlatformSession opened;
         synchronized (lock) {
             ensureNotStarted();
-            contentGuard.validate(checkedPlan.runtimePolicy().output());
             plan = checkedPlan;
             deduplicator = new SocialEventDeduplicator(
                     checkedPlan.runtimePolicy().maximumDeduplicationEntries(),
@@ -264,8 +265,6 @@ final class SocialPlatformGeneration implements AutoCloseable {
                                     SocialDirectedNotice notice) {
         if (!chatSessionIsCurrent(chatSession)) return;
         try {
-            if (!contentGuard.allowsOutboundText(notice.body(), plan.runtimePolicy().output()))
-                return;
             List<ExternalIdentity> candidates = mentionBindings.findByPlayer(notice.playerId())
                     .stream()
                     .filter(binding -> binding.externalKey().platform().equals(descriptor.id()))
@@ -279,7 +278,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
                     new ChatNode.Text(" " + notice.body(), ChatStyle.EMPTY)));
             ChatSubmission submission = new ChatSubmission(
                     ChatMessageId.random(), new ChatOrigin.Plugin("community-board", Set.of()),
-                    new ChatSender("Mik", Optional.empty(), Optional.empty(), "", "", ""),
+                    new ChatSender("Mik", Optional.empty(), Optional.empty(), "", "", "", 0xFFFFFF),
                     ChatConversation.minecraftPublic(), content.plainText(),
                     ChatReferences.empty(), Instant.now(), ChatProcessingContext.external());
             ChatMessage message = new ChatMessage(submission, content, Set.of());
@@ -289,6 +288,10 @@ final class SocialPlatformGeneration implements AutoCloseable {
                 SocialChatMentionResolution resolution = chatSession.resolveMentions(
                         route.conversation(), List.of(request));
                 if (resolution.targetsFor(notice.playerId()).isEmpty()) continue;
+                if (!contentGuard.allowsOutboundText(
+                        SocialContentGuard.outboundChatText(message, resolution),
+                        REQUIRED, plan.runtimePolicy().output())) return;
+                if (!chatSessionIsCurrent(chatSession)) return;
                 chatSession.sendChat(route.conversation(), message, resolution)
                         .toCompletableFuture().join();
                 break;
@@ -304,13 +307,13 @@ final class SocialPlatformGeneration implements AutoCloseable {
 
     private void deliverChat(ChatSubmission message) {
         try {
-            Objects.requireNonNull(chatGateway.deliver(descriptor, message),
+            Objects.requireNonNull(chatGateway.deliver(message),
                     "Social chat gateway returned null").toCompletableFuture().join();
         } catch (RuntimeException error) {
             deliveryFailures.increment();
             if (resultIsCurrent()) {
                 logger.warning("Could not deliver " + descriptor.displayName()
-                        + " chat to Minecraft: "
+                        + " chat to shared chat: "
                         + SocialCommandProcessor.rootMessage(error));
             }
         }
@@ -325,44 +328,49 @@ final class SocialPlatformGeneration implements AutoCloseable {
         }
         try {
             List<CompletableFuture<Void>> sends = new ArrayList<>();
-            for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
-                if (message.submission().origin().visitedPlatforms()
-                        .contains(descriptor.id())) {
-                    continue;
-                }
-                route.outbound().select(message.submission().sourceText()).ifPresent(body -> {
-                    var richBody = route.outbound().mode()
-                            == org.encinet.mik.feature.community.social.chat.SocialChatOutboundPolicy.Mode.PREFIX
-                            && route.outbound().stripPrefix()
-                            ? message.content().withoutLeadingTrigger(
-                            route.outbound().prefix())
-                            : message.content();
-                    if (!contentGuard.allowsOutboundText(
-                            body, plan.runtimePolicy().output())
-                            || !contentGuard.allowsOutboundText(
-                            richBody.plainText(),
-                            plan.runtimePolicy().output())) {
-                        return;
+            try {
+                // Reuse a verdict when different routes produce the same outgoing text.
+                java.util.Map<String, Boolean> verdicts = new java.util.HashMap<>();
+                for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
+                    if (!chatSessionIsCurrent(chatSession)) break;
+                    if (message.submission().origin().visitedPlatforms()
+                            .contains(descriptor.id())) {
+                        continue;
                     }
-                    ChatSubmission original = message.submission();
-                    ChatSubmission routed = new ChatSubmission(
-                            original.id(), original.origin(), original.sender(),
-                            original.conversation(), body, original.references(),
-                            original.receivedAt(), original.processingContext());
-                    ChatMessage selected = new ChatMessage(
-                            routed, richBody, message.effects());
-                    List<SocialChatMentionRequest> requests = mentionRequests(selected);
-                    SocialChatMentionResolution mentions = Objects.requireNonNull(
-                            chatSession.resolveMentions(
-                                    route.conversation(), requests),
-                            "Social chat session returned null mention resolution");
-                    sends.add(Objects.requireNonNull(
-                            chatSession.sendChat(
-                                    route.conversation(), selected, mentions),
-                            "Social chat session returned null").toCompletableFuture());
-                });
+                    route.outbound().select(message.submission().sourceText()).ifPresent(body -> {
+                        var richBody = route.outbound().mode()
+                                == org.encinet.mik.feature.community.social.chat.SocialChatOutboundPolicy.Mode.PREFIX
+                                && route.outbound().stripPrefix()
+                                ? message.content().withoutLeadingTrigger(
+                                route.outbound().prefix())
+                                : message.content();
+                        ChatSubmission original = message.submission();
+                        ChatSubmission routed = new ChatSubmission(
+                                original.id(), original.origin(), original.sender(),
+                                original.conversation(), body, original.references(),
+                                original.receivedAt(), original.processingContext());
+                        ChatMessage selected = new ChatMessage(
+                                routed, richBody, message.effects());
+                        List<SocialChatMentionRequest> requests = mentionRequests(selected);
+                        SocialChatMentionResolution mentions = Objects.requireNonNull(
+                                chatSession.resolveMentions(
+                                        route.conversation(), requests),
+                                "Social chat session returned null mention resolution");
+                        String moderationText = SocialContentGuard.outboundChatText(selected, mentions);
+                        if (!verdicts.computeIfAbsent(moderationText,
+                                text -> contentGuard.allowsOutboundText(
+                                        text, REQUIRED, plan.runtimePolicy().output()))) return;
+                        if (!chatSessionIsCurrent(chatSession)) return;
+                        sends.add(Objects.requireNonNull(
+                                chatSession.sendChat(
+                                        route.conversation(), selected, mentions),
+                                "Social chat session returned null").toCompletableFuture());
+                    });
+                }
+            } finally {
+                // Retain worker admission until sends started before a later moderation failure finish.
+                CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
             }
-            CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
         } catch (RuntimeException error) {
             deliveryFailures.increment();
             if (chatSessionIsCurrent(chatSession)) {
@@ -406,13 +414,13 @@ final class SocialPlatformGeneration implements AutoCloseable {
         Optional<ExternalIdentity> identity = message.authenticatedIdentity();
         ChatSender sender = new ChatSender(
                 message.senderDisplayName(), Optional.empty(), identity,
-                "", "", "");
+                "", "", "", 0xFFFFFF);
         return new ChatSubmission(
-                ChatMessageId.external(descriptor.id(), message.eventId()),
-                new ChatOrigin.Social(descriptor.id(), message.eventId()),
+                ChatMessageId.external(descriptor.id(), message.conversation().id(), message.eventId()),
+                new ChatOrigin.Social(descriptor.id(), descriptor.displayName(),
+                        message.conversation().id(), message.eventId()),
                 sender,
-                new ChatConversation(ChatConversation.Kind.SOCIAL,
-                        descriptor.id() + ':' + message.conversation().id()),
+                ChatConversation.minecraftPublic(),
                 text.body(), references(message), Instant.now(),
                 ChatProcessingContext.external());
     }

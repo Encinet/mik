@@ -8,12 +8,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
 
 final class MikPlayerBooleanExpression extends SimpleExpression<Boolean> {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
+    private MikSkriptInput<Player> players;
     private Property property;
 
     MikPlayerBooleanExpression(MikSkriptFacade facade) {
@@ -21,17 +20,16 @@ final class MikPlayerBooleanExpression extends SimpleExpression<Boolean> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
+        players = MikSkriptInput.of(expressions[0], Player.class);
         property = Property.values()[matchedPattern / 2];
         return true;
     }
 
     @Override
     protected Boolean[] get(Event event) {
-        return Arrays.stream(players.getArray(event))
+        return players.values(event).stream()
                 .map(player -> property.resolve(facade, player))
                 .filter(java.util.Objects::nonNull)
                 .toArray(Boolean[]::new);
@@ -50,7 +48,7 @@ final class MikPlayerBooleanExpression extends SimpleExpression<Boolean> {
     @Override
     public String toString(@Nullable Event event, boolean debug) {
         String name = property == null ? "MIK player state" : property.displayName;
-        return name + " of " + (players == null ? "players" : players.toString(event, debug));
+        return name + " of " + (players == null ? "players" : players.describe(event, debug));
     }
 
     private enum Property {

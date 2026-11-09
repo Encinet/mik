@@ -2,7 +2,6 @@ package org.encinet.mik.feature.entertainment.music.online;
 
 import com.sun.net.httpserver.HttpServer;
 import com.google.gson.JsonParser;
-import org.encinet.mik.feature.entertainment.music.online.LxMusicTrackMapper;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.junit.jupiter.api.AfterEach;
@@ -191,7 +190,7 @@ class LxCustomSourceResolverTest {
                 "https://cdn.example/legacy.mp3"));
         Files.writeString(localDirectory().resolve("local.js"), resolvingScript("Local",
                 "https://cdn.example/local.mp3"));
-        Path remote = Files.createDirectories(directory.resolve("remote"));
+        Path remote = Files.createDirectories(directory.resolve("managed"));
         Files.writeString(remote.resolve("remote-0123456789abcdef01234567.js"),
                 resolvingScript("Remote", "https://cdn.example/remote.mp3"));
         Files.writeString(remote.resolve("manual.js"), resolvingScript("Unmanaged",
@@ -199,25 +198,25 @@ class LxCustomSourceResolverTest {
 
         resolver = resolver();
 
-        assertEquals(List.of("local/local.js", "remote/remote-0123456789abcdef01234567.js"),
+        assertEquals(List.of("local/local.js", "managed/remote-0123456789abcdef01234567.js"),
                 resolver.statuses().stream().map(LxCustomSourceResolver.SourceStatus::id).toList());
     }
 
     @Test
     void productionRemoteWhitelistExcludesUnregisteredHashNamedSnapshots() throws Exception {
-        Path remote = Files.createDirectories(directory.resolve("remote"));
+        Path remote = Files.createDirectories(directory.resolve("managed"));
         String managed = "remote-0123456789abcdef01234567.js";
         String orphan = "remote-fedcba9876543210fedcba98.js";
         Files.writeString(remote.resolve(managed), resolvingScript("Managed",
                 "https://cdn.example/managed.mp3"));
         Files.writeString(remote.resolve(orphan), resolvingScript("Orphan",
                 "https://cdn.example/orphan.mp3"));
-        resolver = new LxCustomSourceResolver(directory, ignored -> {}, warnings::add,
+        resolver = new LxCustomSourceResolver(new LxSourcePaths(directory), _ -> {}, warnings::add,
                 () -> java.util.Set.of(managed));
 
         resolver.reload();
 
-        assertEquals(List.of("remote/" + managed),
+        assertEquals(List.of("managed/" + managed),
                 resolver.statuses().stream().map(LxCustomSourceResolver.SourceStatus::id).toList());
     }
 
@@ -355,14 +354,14 @@ class LxCustomSourceResolverTest {
         server.start();
         Files.writeString(localDirectory().resolve("stalled-init.js"), asyncInitializationScript(
                 "http://127.0.0.1:" + server.getAddress().getPort()));
-        resolver = new LxCustomSourceResolver(directory, ignored -> {}, warnings::add,
+        resolver = new LxCustomSourceResolver(directory, _ -> {}, warnings::add,
                 Duration.ofSeconds(5), 2, Duration.ofSeconds(10));
         CompletableFuture<Void> reload = CompletableFuture.runAsync(resolver::reload);
         assertTrue(requestStarted.await(3, TimeUnit.SECONDS));
 
         resolver.close();
 
-        assertTrue(reload.handle((ignored, error) -> true).get(500, TimeUnit.MILLISECONDS));
+        assertTrue(reload.handle((_, _) -> true).get(500, TimeUnit.MILLISECONDS));
         assertTrue(reload.isCompletedExceptionally());
         releaseResponse.countDown();
     }
@@ -499,7 +498,7 @@ class LxCustomSourceResolverTest {
         assertEquals(2, resolver.statuses().size());
         assertTrue(resolver.statuses().stream().noneMatch(
                 LxCustomSourceResolver.SourceStatus::available));
-        assertFalse(resolver.resolve(target()).handle((url, error) -> error == null).join());
+        assertFalse(resolver.resolve(target()).handle((_, error) -> error == null).join());
     }
 
     @Test
@@ -628,7 +627,7 @@ class LxCustomSourceResolverTest {
                 searchableScript("Failing search", """
                         if (action === 'musicSearch') throw new Error('custom search failed')
                         """));
-        LxOnlineSearchService onlineSearch = new LxOnlineSearchService(Duration.ofSeconds(10), request ->
+        LxOnlineSearchService onlineSearch = new LxOnlineSearchService(Duration.ofSeconds(10), _ ->
                 JsonParser.parseString("""
                         {"TOTAL":"1","abslist":[{"MUSICRID":"MUSIC_456",
                         "SONGNAME":"Fallback Song","ARTIST":"Artist","DURATION":"120",
@@ -650,7 +649,7 @@ class LxCustomSourceResolverTest {
                 searchableScript("Empty search", """
                         if (action === 'musicSearch') return { total: 0, list: [] }
                         """));
-        LxOnlineSearchService onlineSearch = new LxOnlineSearchService(Duration.ofSeconds(10), request ->
+        LxOnlineSearchService onlineSearch = new LxOnlineSearchService(Duration.ofSeconds(10), _ ->
                 JsonParser.parseString("""
                         {"TOTAL":"1","abslist":[{"MUSICRID":"MUSIC_789",
                         "SONGNAME":"Catalog Song","ARTIST":"Artist","DURATION":"180",
@@ -671,7 +670,7 @@ class LxCustomSourceResolverTest {
                 searchableScript("Malformed search", """
                         if (action === 'musicSearch') return { total: 1, list: [{ name: 'No ID' }] }
                         """));
-        LxOnlineSearchService onlineSearch = new LxOnlineSearchService(Duration.ofSeconds(10), request ->
+        LxOnlineSearchService onlineSearch = new LxOnlineSearchService(Duration.ofSeconds(10), _ ->
                 JsonParser.parseString("""
                         {"TOTAL":"1","abslist":[{"MUSICRID":"MUSIC_999",
                         "SONGNAME":"Valid Catalog Song","ARTIST":"Artist","DURATION":"200",
@@ -726,7 +725,7 @@ class LxCustomSourceResolverTest {
                                             int failureThreshold, Duration retryDelay,
                                             LxOnlineSearchService onlineSearch) {
         LxCustomSourceResolver result = new LxCustomSourceResolver(directory,
-                ignored -> {}, warnings::add, requestTimeout, failureThreshold, retryDelay,
+                _ -> {}, warnings::add, requestTimeout, failureThreshold, retryDelay,
                 onlineSearch);
         result.reload();
         return result;

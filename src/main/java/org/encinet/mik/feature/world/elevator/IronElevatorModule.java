@@ -1,17 +1,13 @@
 package org.encinet.mik.feature.world.elevator;
 
 import com.destroystokyo.paper.event.player.PlayerJumpEvent;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Input;
 import org.bukkit.entity.Entity;
 import org.bukkit.event.player.PlayerInputEvent;
 import org.bukkit.event.entity.EntityDismountEvent;
-import org.bukkit.event.entity.HorseJumpEvent;
 import com.destroystokyo.paper.event.entity.EntityJumpEvent;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
@@ -35,7 +31,7 @@ import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.player.guidance.TipScope;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
-import org.encinet.mik.shared.menu.runtime.WorldTextDisplayService;
+import org.encinet.mik.shared.menu.WorldMenuScope;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,93 +46,74 @@ import java.util.UUID;
 public final class IronElevatorModule implements Listener {
 
     private final JavaPlugin plugin;
-    private final IronElevatorFloors floors = new IronElevatorFloors();
-    private final IronElevatorWallPanel wallPanel;
-    private final IronElevatorPanelInteraction panelInteraction;
+    private final IronElevatorCatalog catalog = new IronElevatorCatalog();
+    private final IronElevatorView view;
     private final IronElevatorController controller;
     private final Map<UUID, Input> lastInputs = new HashMap<>();
-    private final Set<UUID> showingHint = new HashSet<>();
     private BukkitTask workTask;
-    private boolean enabled;
+    private volatile boolean enabled;
+    private volatile long generation;
+    private volatile BukkitTask loadingTask;
+    private volatile BukkitTask activationTask;
 
     public IronElevatorModule(JavaPlugin plugin, LanguageService languageService,
-                              WorldTextDisplayService labels, TipScope tips) {
+                              WorldMenuScope panels, TipScope tips) {
         this.plugin = plugin;
-        this.wallPanel = new IronElevatorWallPanel(labels,
-                (player, height) -> selectFloor(player, height));
-        this.panelInteraction = new IronElevatorPanelInteraction(wallPanel::click);
-        this.controller = new IronElevatorController(floors, new IronElevatorController.Presentation() {
-            @Override
-            public void hint(Player player, boolean up, boolean down) {
-                player.sendActionBar(languageService.text(player, Message.IRON_ELEVATOR_UP,
-                        up ? NamedTextColor.GREEN : NamedTextColor.DARK_GRAY)
-                        .append(Component.text("   "))
-                        .append(languageService.text(player, Message.IRON_ELEVATOR_DOWN,
-                                down ? NamedTextColor.GREEN : NamedTextColor.DARK_GRAY)));
-                showingHint.add(player.getUniqueId());
-            }
-
-            @Override
-            public void clear(Player player) {
-                wallPanel.clear(player);
-                if (showingHint.remove(player.getUniqueId())) player.sendActionBar(Component.empty());
-            }
-
-            @Override
-            public void forget(UUID player) {
-                wallPanel.forget(player);
-                showingHint.remove(player);
-            }
-
-            @Override
-            public void panel(Player player, IronElevatorPlatform source, IronElevatorTravelGroup group,
-                              List<IronElevatorFloors.Floor> levels) {
-                wallPanel.update(player, source, group, levels);
-            }
-
-            @Override
-            public void travelled(Player player, Location departure) {
-                particles(departure);
-                particles(player.getLocation());
-            }
-        }, task -> plugin.getServer().getScheduler().runTask(plugin, task),
-                id -> plugin.getServer().getPlayer(id), plugin.getLogger()::warning);
+        this.view = new IronElevatorView(panels,languageService,new IronElevatorView.Actions() {
+            @Override public void select(Player player, Object visit, int height) { controller.selectFloor(player,visit,height); }
+            @Override public void visible(Player player, Object visit, IronElevatorCatalog.Result catalog,
+                                          org.encinet.mik.shared.menu.FloatingMenuPage page) { controller.visibleFloors(player,visit,catalog,page); }
+            @Override public void pause(Player player, Object visit) { controller.pausePanel(player,visit); }
+        });
+        this.controller = new IronElevatorController(catalog,view,id -> plugin.getServer().getPlayer(id),plugin.getLogger()::warning);
         tips.define("iron-elevator", Message.IRON_ELEVATOR_TIP_MM).ambient().build();
     }
 
-    private void selectFloor(Player player, int height) {
-        controller.request(player, player.getLocation(), 0, height, () -> true);
-    }
-
     public void enable() {
-        if (enabled) {
-            return;
-        }
-        Path config = plugin.getDataFolder().toPath().resolve("iron-elevators.yml");
-        if (!Files.exists(config)) {
-            plugin.saveResource("iron-elevators.yml", false);
-        }
-        floors.load(config);
-        plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        plugin.getServer().getPluginManager().registerEvents(panelInteraction, plugin);
+        if (enabled) return;
         enabled = true;
-        controller.enable();
-        workTask = plugin.getServer().getScheduler().runTaskTimer(plugin, controller::tick, 1, 1);
+        long expected = ++generation;
+        loadingTask = plugin.getServer().getScheduler().runTaskAsynchronously(plugin,() -> {
+            try {
+                Path config = plugin.getDataFolder().toPath().resolve("iron-elevators.yml");
+                if (!Files.exists(config)) {
+                    Files.createDirectories(config.getParent());
+                    try (var resource = plugin.getResource("iron-elevators.yml")) {
+                        if (resource == null) throw new IllegalStateException("Missing iron-elevators.yml resource");
+                        Files.copy(resource,config);
+                    }
+                }
+                var rules = IronElevatorCatalog.readRules(config);
+                if (!enabled || generation != expected) return;
+                activationTask = plugin.getServer().getScheduler().runTask(plugin,() -> {
+                    if (!enabled || generation != expected) return;
+                    catalog.installRules(rules);
+                    controller.enable();
+                    plugin.getServer().getPluginManager().registerEvents(this,plugin);
+                    workTask = plugin.getServer().getScheduler().runTaskTimer(plugin,controller::tick,1,1);
+                });
+                if (!enabled || generation != expected) activationTask.cancel();
+            } catch (Exception error) {
+                if (enabled && generation == expected) {
+                    enabled = false;
+                    plugin.getLogger().log(java.util.logging.Level.SEVERE,"Iron elevator configuration failed; feature remains disabled",error);
+                }
+            }
+        });
     }
 
     public void disable() {
         enabled = false;
+        generation++;
+        if (loadingTask != null) { loadingTask.cancel(); loadingTask = null; }
+        if (activationTask != null) { activationTask.cancel(); activationTask = null; }
         HandlerList.unregisterAll(this);
-        HandlerList.unregisterAll(panelInteraction);
         if (workTask != null) {
             workTask.cancel();
             workTask = null;
         }
-        controller.clear();
-        lastInputs.clear();
-        showingHint.clear();
-        floors.clear();
-        wallPanel.clearGeometry();
+        try { controller.clear(); }
+        finally { lastInputs.clear(); }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -159,7 +136,7 @@ public final class IronElevatorModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onJump(PlayerJumpEvent event) {
-        if (controller.request(event.getPlayer(), event.getFrom(), 1, null, () -> true)) {
+        if (controller.requestJump(event.getPlayer(), event.getFrom())) {
             event.setCancelled(true);
         }
     }
@@ -167,7 +144,7 @@ public final class IronElevatorModule implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSneak(PlayerToggleSneakEvent event) {
         if (event.isSneaking()) {
-            controller.request(event.getPlayer(), event.getPlayer().getLocation(), -1, null, () -> !event.isCancelled());
+            controller.request(event.getPlayer(), event.getPlayer().getLocation(), IronElevatorController.Direction.DOWN, () -> !event.isCancelled());
         }
     }
 
@@ -181,9 +158,9 @@ public final class IronElevatorModule implements Listener {
         Input previous = lastInputs.put(player.getUniqueId(), event.getInput());
         Input input = event.getInput();
         if (input.isSneak() && (previous == null || !previous.isSneak())) {
-            controller.request(player, player.getLocation(), -1, null, () -> true);
+            controller.request(player, player.getLocation(), IronElevatorController.Direction.DOWN, () -> true);
         } else if (input.isJump() && (previous == null || !previous.isJump())) {
-            controller.request(player, player.getLocation(), 1, null, () -> true);
+            controller.request(player, player.getLocation(), IronElevatorController.Direction.UP, () -> true);
         }
         controller.observe(player, player.getLocation(), false);
     }
@@ -203,11 +180,6 @@ public final class IronElevatorModule implements Listener {
         if (hasPendingRider(event.getEntity())) event.setCancelled(true);
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onHorseJump(HorseJumpEvent event) {
-        if (hasPendingRider(event.getEntity())) event.setCancelled(true);
-    }
-
     private boolean hasPendingRider(Entity vehicle) {
         java.util.ArrayDeque<Entity> remaining = new java.util.ArrayDeque<>(vehicle.getPassengers());
         Set<UUID> visited = new HashSet<>();
@@ -223,60 +195,55 @@ public final class IronElevatorModule implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlace(BlockPlaceEvent event) {
         Block block = event.getBlockPlaced();
-        wallPanel.invalidate(block);
         controller.invalidate(block);
         if (block.getType() != Material.IRON_BLOCK) return;
-        floors.invalidate(block);
         controller.placed(block, () -> block.getWorld().playSound(block.getLocation().add(0.5, 1, 0.5),
                 Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8F, 1.5F));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBreak(BlockBreakEvent event) {
-        wallPanel.invalidate(event.getBlock());
         invalidateBlocks(List.of(event.getBlock()));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onBlockExplosion(BlockExplodeEvent event) {
-        event.blockList().forEach(wallPanel::invalidate);
         invalidateBlocks(event.blockList());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onEntityExplosion(EntityExplodeEvent event) {
-        event.blockList().forEach(wallPanel::invalidate);
         invalidateBlocks(event.blockList());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPistonExtend(BlockPistonExtendEvent event) {
-        event.getBlocks().forEach(block -> {
-            wallPanel.invalidate(block);
-            wallPanel.invalidate(block.getRelative(event.getDirection()));
-        });
-        invalidateBlocks(event.getBlocks());
+        invalidatePiston(event.getBlocks(),event.getDirection());
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPistonRetract(BlockPistonRetractEvent event) {
-        event.getBlocks().forEach(block -> {
-            wallPanel.invalidate(block);
-            wallPanel.invalidate(block.getRelative(event.getDirection()));
-        });
-        invalidateBlocks(event.getBlocks());
+        invalidatePiston(event.getBlocks(),event.getDirection());
+    }
+
+    private void invalidatePiston(List<Block> blocks, org.bukkit.block.BlockFace direction) {
+        var changed = new java.util.LinkedHashSet<Block>(blocks);
+        blocks.forEach(block -> changed.add(block.getRelative(direction)));
+        invalidateBlocks(List.copyOf(changed));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onChunkUnload(ChunkUnloadEvent event) {
-        floors.invalidateChunk(event.getWorld().getUID(), event.getChunk().getX(), event.getChunk().getZ());
-        wallPanel.invalidateChunk(event.getWorld().getUID(), event.getChunk().getX(), event.getChunk().getZ());
         controller.invalidateChunk(event.getWorld().getUID(), event.getChunk().getX(), event.getChunk().getZ());
     }
 
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onWorldUnload(org.bukkit.event.world.WorldUnloadEvent event) {
+        controller.invalidate(event.getWorld().getUID());
+    }
+
     private void invalidateBlocks(List<Block> blocks) {
-        blocks.stream().filter(block -> block.getType() == Material.IRON_BLOCK).forEach(floors::invalidate);
-        blocks.forEach(controller::invalidate);
+        blocks.stream().distinct().forEach(controller::invalidate);
     }
 
     @EventHandler
@@ -286,8 +253,4 @@ public final class IronElevatorModule implements Listener {
         controller.quit(playerId);
     }
 
-    private static void particles(Location location) {
-        location.getWorld().spawnParticle(Particle.PORTAL, location.clone().add(0, 0.9, 0),
-                40, 0.35, 0.65, 0.35, 0.1);
-    }
 }

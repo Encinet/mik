@@ -44,6 +44,7 @@ final class PlotInteractionActions {
         if (name.endsWith("_DOOR") || name.endsWith("_TRAPDOOR") || name.endsWith("_FENCE_GATE"))
             return PlotPermission.DOOR;
         if (name.endsWith("_SIGN") || name.endsWith("_WALL_SIGN")) return PlotPermission.SIGN;
+        if (material == Material.JUKEBOX) return PlotPermission.MUSIC_CONTROL;
         if (inventory || material == Material.ENDER_CHEST) return PlotPermission.CONTAINER;
         if (material == Material.SWEET_BERRY_BUSH || material == Material.CAVE_VINES
                 || material == Material.CAVE_VINES_PLANT || material == Material.BEEHIVE
@@ -54,7 +55,11 @@ final class PlotInteractionActions {
                 || material == Material.CAKE || material == Material.CANDLE_CAKE || name.endsWith("_CANDLE_CAKE")
                 || material == Material.FLOWER_POT || name.startsWith("POTTED_")) return PlotPermission.MODIFY;
         if (FACILITIES.contains(material) || name.endsWith("_BED")) return PlotPermission.WORKSTATION;
-        return material.isInteractable() ? PlotPermission.WORKSTATION : null;
+        if (material == Material.REPEATER || material == Material.COMPARATOR
+                || material == Material.DAYLIGHT_DETECTOR) return PlotPermission.SWITCH;
+        if (material == Material.DRAGON_EGG || material == Material.CANDLE || name.endsWith("_CANDLE"))
+            return PlotPermission.MODIFY;
+        return null;
     }
 
     static PlotPermission item(Material material) {

@@ -39,11 +39,13 @@ final class NbsPlaybackEngine implements AutoCloseable {
     private final ExecutorService parsingExecutor;
     private final LongSupplier nanoClock;
     private final Predicate<UUID> audibleToPlayer;
+    private volatile java.util.function.BiPredicate<Location, UUID> outputAudience = (_, _) -> true;
+    void setOutputAudience(java.util.function.BiPredicate<Location, UUID> filter) { outputAudience = filter; }
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean closed = new AtomicBoolean();
 
     NbsPlaybackEngine(JavaPlugin plugin) {
-        this(plugin, ignored -> true);
+        this(plugin, _ -> true);
     }
 
     NbsPlaybackEngine(JavaPlugin plugin, Predicate<UUID> audibleToPlayer) {
@@ -55,14 +57,14 @@ final class NbsPlaybackEngine implements AutoCloseable {
     NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
                        NbsParser parser, ExecutorService parsingExecutor) {
         this(scheduler, mediaPreparer, parser, parsingExecutor,
-                NbsRhythmExtractor.INSTANCE, System::nanoTime, ignored -> true);
+                NbsRhythmExtractor.INSTANCE, System::nanoTime, _ -> true);
     }
 
     NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
                       NbsParser parser, ExecutorService parsingExecutor,
                       RhythmExtractor<NbsSong> rhythmExtractor) {
         this(scheduler, mediaPreparer, parser, parsingExecutor, rhythmExtractor,
-                System::nanoTime, ignored -> true);
+                System::nanoTime, _ -> true);
     }
 
     NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
@@ -70,7 +72,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
                       RhythmExtractor<NbsSong> rhythmExtractor,
                       LongSupplier nanoClock) {
         this(scheduler, mediaPreparer, parser, parsingExecutor, rhythmExtractor,
-                nanoClock, ignored -> true);
+                nanoClock, _ -> true);
     }
 
     NbsPlaybackEngine(Scheduler scheduler, LocalMediaPreparer mediaPreparer,
@@ -244,7 +246,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 status = paused
                         ? PlaybackStatus.PAUSED : PlaybackStatus.PLAYING;
                 if (status == PlaybackStatus.PLAYING) {
-                    playNotes(location, initial.notes(), settings, audibleToPlayer,
+                    playNotes(location, initial.notes(), settings, id -> audibleToPlayer.test(id) && outputAudience.test(location, id),
                             soundLedger);
                 }
                 callbacks.started();
@@ -267,7 +269,7 @@ final class NbsPlaybackEngine implements AutoCloseable {
                 NbsPlaybackCursor.PollResult result = cursor.poll(nanoClock.getAsLong());
                 playbackPositionMillis = result.positionMillis();
                 playbackMember.publishPositionMillis(playbackPositionMillis);
-                playNotes(location, result.notes(), settings, audibleToPlayer,
+                playNotes(location, result.notes(), settings, id -> audibleToPlayer.test(id) && outputAudience.test(location, id),
                         soundLedger);
                 if (result.finished()) {
                     finish();

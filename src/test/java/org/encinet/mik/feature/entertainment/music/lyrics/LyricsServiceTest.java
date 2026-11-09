@@ -20,6 +20,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class LyricsServiceTest {
 
@@ -47,10 +48,17 @@ class LyricsServiceTest {
                 "[00:01.00]Translated"));
         server.start();
         int port = server.getAddress().getPort();
-        sourceService = new LxSourceService(directory.resolve("lxmusic"), ignored -> {}, ignored -> {});
+        sourceService = new LxSourceService(directory.resolve("music/sources"), _ -> {}, _ -> {});
         sourceService.reloadAsync().get(5, TimeUnit.SECONDS);
-        lyricsService = new LyricsService(directory.resolve("cache/lyrics"),
-                sourceService, ignored -> {});
+        lyricsService = new LyricsService(directory.resolve("music/cache/lyrics"),
+                sourceService, _ -> {});
+        lyricsService.configureCacheLimit(4L * 1024 * 1024);
+        Path oldCache = directory.resolve("music/cache/lyrics/old.json");
+        Files.createDirectories(oldCache.getParent());
+        try (var file = java.nio.channels.FileChannel.open(oldCache,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.WRITE)) {
+            file.write(java.nio.ByteBuffer.wrap(new byte[]{0}), 4L * 1024 * 1024 - 1);
+        }
         MusicTrack track = onlineTrack("http://127.0.0.1:" + port);
 
         Lyrics loaded = lyricsService.load(track).get(5, TimeUnit.SECONDS).orElseThrow();
@@ -58,15 +66,16 @@ class LyricsServiceTest {
         assertEquals("Original", loaded.lineAt(1_000).orElseThrow().text());
         assertEquals("Translated", loaded.lineAt(1_000).orElseThrow().translation());
         assertEquals(2, requests.get());
+        assertFalse(Files.exists(oldCache));
         lyricsService.close();
-        lyricsService = new LyricsService(directory.resolve("cache/lyrics"),
-                sourceService, ignored -> {});
+        lyricsService = new LyricsService(directory.resolve("music/cache/lyrics"),
+                sourceService, _ -> {});
         server.stop(0);
         server = null;
 
         Lyrics cached = lyricsService.load(track).get(5, TimeUnit.SECONDS).orElseThrow();
         assertEquals("Original", cached.lineAt(1_000).orElseThrow().text());
-        try (var paths = Files.list(directory.resolve("cache/lyrics"))) {
+        try (var paths = Files.list(directory.resolve("music/cache/lyrics"))) {
             assertEquals(1, paths.filter(path -> path.toString().endsWith(".json")).count());
         }
     }

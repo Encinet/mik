@@ -17,11 +17,9 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 final class VehicleModelDraft {
-    static final Set<String> SCALARS = Set.of("mass", "support-length", "grip", "maximum-speed", "fuel.capacity", "fuel.consumption",
-            "buoyancy", "wing-area", "lift", "engine.torque", "engine.idle-rpm", "engine.redline-rpm", "engine.inertia",
-            "engine.wheel-radius", "engine.final-drive", "engine.reverse-ratio", "engine.shift-seconds");
+    static final Set<String> SCALARS = VehicleDefinition.SCALAR_LIMITS.keySet();
     static final Set<String> VECTORS = Set.of("center-of-mass", "inertia");
-    private record Revision(String content, int bytes) { }
+    private record Revision(String content, int bytes, int frameTurns) { }
     private final UUID token = UUID.randomUUID();
     private VehicleDefinition base;
     private final Deque<Revision> history = new ArrayDeque<>();
@@ -31,6 +29,7 @@ final class VehicleModelDraft {
     private List<VehicleDefinition.Part> cachedParts;
     private int historyBytes;
     private long revision;
+    private int frameTurns;
 
     VehicleModelDraft(VehicleDefinition base) { this(base, VehicleStore.encodeDefinition(base)); }
     static VehicleModelDraft imported(VehicleDefinition definition) { return new VehicleModelDraft(null, VehicleStore.encodeDefinition(definition)); }
@@ -59,6 +58,7 @@ final class VehicleModelDraft {
 
     UUID token() { return token; }
     long revision() { return revision; }
+    int frameTurns() { return frameTurns; }
     VehicleDefinition base() { return base; }
     String id() { return config.getString("id"); }
     String kind() { return config.getString("kind"); }
@@ -67,6 +67,10 @@ final class VehicleModelDraft {
     boolean canUndo() { return !history.isEmpty(); }
     boolean canRedo() { return !future.isEmpty(); }
     String field(String name) { return String.valueOf(config.get(name)); }
+    VehicleVector vectorField(String name) {
+        if (!VECTORS.contains(name)) throw new IllegalArgumentException("Unknown vector field: " + name);
+        return new VehicleVector(config.getDouble(name + ".x"), config.getDouble(name + ".y"), config.getDouble(name + ".z"));
+    }
     String describe(String section, int index) {
         ConfigurationSection entry = element(config, section, index);
         if (section.equals("parts")) {
@@ -85,6 +89,7 @@ final class VehicleModelDraft {
         return entry.getDouble(path + "x") + ", " + entry.getDouble(path + "y") + ", " + entry.getDouble(path + "z");
     }
     VehicleDefinition validate() { return VehicleStore.decodeDefinition(config); }
+    void check(Consumer<VehicleModelDraft> edit) { edit.accept(new VehicleModelDraft(base, read(config.saveToString()))); }
     List<VehicleDefinition.Part> parts() {
         if (cachedParts == null) cachedParts = VehicleStore.decodeParts(config);
         return cachedParts;
@@ -130,6 +135,30 @@ final class VehicleModelDraft {
         collider("set", index, new VehicleDefinition.Collider(current.center(), fullSize.multiply(0.5)));
     }
 
+    /** Changes what +Z means without moving any visible or physical point in the editor world. */
+    void front(int turns) {
+        int quarterTurns = Math.floorMod(turns, 4);
+        if (quarterTurns == 0) return;
+        mutate(next -> {
+            for (int index = 0; index < count("parts"); index++) {
+                Matrix4f matrix = VehicleEditorFacing.matrix(quarterTurns).mul(parts().get(index).transform());
+                var values = new ArrayList<Float>();
+                for (float number : matrix.get(new float[16])) values.add(number);
+                element(next, "parts", index).set("matrix", values);
+            }
+            for (String section : List.of("seats", "colliders", "supports")) for (int index = 0; index < count(section); index++) {
+                String path = section + "." + index;
+                putVector(next, path + (section.equals("seats") ? ".position" : section.equals("colliders") ? ".center" : ""),
+                        VehicleEditorFacing.rebase(position(section, index, false), quarterTurns));
+                if (section.equals("seats")) putVector(next, path + ".exit", VehicleEditorFacing.rebase(position(section, index, true), quarterTurns));
+                if (section.equals("colliders")) putVector(next, path + ".half-size", VehicleEditorFacing.extents(collider(index).halfSize(), quarterTurns));
+            }
+            putVector(next, "center-of-mass", VehicleEditorFacing.rebase(vectorField("center-of-mass"), quarterTurns));
+            putVector(next, "inertia", VehicleEditorFacing.extents(vectorField("inertia"), quarterTurns));
+            VehicleStore.decodeParts(next);
+        }, Math.floorMod(frameTurns + quarterTurns, 4));
+    }
+
     int copy(String section, int index) {
         if (!Set.of("parts", "seats", "colliders", "supports").contains(section)) throw new IllegalArgumentException("Unknown component");
         element(config, section, index);
@@ -151,16 +180,18 @@ final class VehicleModelDraft {
             mutate(next -> next.set(field, kind));
         } else if (SCALARS.contains(field)) {
             double value = finite(input);
-            if (value <= 0) throw new IllegalArgumentException("Positive number required");
+            VehicleDefinition.scalar(field, value);
             mutate(next -> next.set(field, value));
         } else if (VECTORS.contains(field)) {
             VehicleVector value = vector(input);
+            VehicleDefinition.vector(field, value);
             mutate(next -> putVector(next, field, value));
         } else if (field.equals("engine.ratios")) {
             List<Double> ratios = new ArrayList<>();
             double previous = Double.POSITIVE_INFINITY;
             for (String token : input.trim().split("[,\\s]+")) {
                 double ratio = finite(token);
+                VehicleDefinition.positive(ratio, "gear ratio", 20);
                 if (ratio <= 0 || ratio >= previous) throw new IllegalArgumentException("Gear ratios must be positive and decrease");
                 ratios.add(ratio);
                 previous = ratio;
@@ -297,16 +328,17 @@ final class VehicleModelDraft {
         if (source.isEmpty()) return false;
         Revision snapshot = source.removeLast();
         historyBytes -= snapshot.bytes();
-        remember(destination, config.saveToString());
+        remember(destination, config.saveToString(), frameTurns);
         config = read(snapshot.content());
+        frameTurns = snapshot.frameTurns();
         cachedParts = null;
         revision++;
         return true;
     }
 
-    private void remember(Deque<Revision> destination, String content) {
+    private void remember(Deque<Revision> destination, String content, int turns) {
         int bytes = content.getBytes(StandardCharsets.UTF_8).length;
-        destination.addLast(new Revision(content, bytes));
+        destination.addLast(new Revision(content, bytes, turns));
         historyBytes += bytes;
         while (history.size() + future.size() > 20 || historyBytes > 8388608) {
             Deque<Revision> oldest = history.isEmpty() ? future : history;
@@ -315,16 +347,21 @@ final class VehicleModelDraft {
     }
 
     private void mutate(Consumer<YamlConfiguration> operation) {
+        mutate(operation, frameTurns);
+    }
+
+    private void mutate(Consumer<YamlConfiguration> operation, int turns) {
         String previous = config.saveToString();
         YamlConfiguration candidate = read(previous);
         operation.accept(candidate);
         String proposed = candidate.saveToString();
         if (proposed.getBytes(StandardCharsets.UTF_8).length > 8388608) throw new IllegalArgumentException("Model exceeds 8 MiB");
-        if (previous.equals(proposed)) return;
+        if (previous.equals(proposed) && turns == frameTurns) return;
         for (Revision snapshot : future) historyBytes -= snapshot.bytes();
         future.clear();
-        remember(history, previous);
+        remember(history, previous, frameTurns);
         config = candidate;
+        frameTurns = turns;
         cachedParts = null;
         revision++;
     }

@@ -1,97 +1,209 @@
 package org.encinet.mik.feature.server.performance;
 
-/** Converts sustained outbound pressure into a send-distance throttle mode. */
+/** Feedback controller for a measured host egress budget. Confined to the server thread. */
 final class NetworkEgressThrottlePolicy {
-    private static final double SOFT_PRESSURE_RATIO = 0.70D;
-    private static final double HARD_PRESSURE_RATIO = 0.85D;
-    private static final double CRITICAL_PRESSURE_RATIO = 0.95D;
-    private static final double SOFT_RECOVERY_RATIO = 0.60D;
-    private static final double HARD_RECOVERY_RATIO = 0.75D;
-    private static final double CRITICAL_RECOVERY_RATIO = 0.85D;
-    private static final int ESCALATION_CONFIRM_SAMPLES = 2;
-    private static final int RECOVERY_CONFIRM_SAMPLES = 15;
+    static final double MAX_SAMPLE_SECONDS = 5.0D;
+    private static final double AFK_PRESSURE = 0.70D;
+    private static final double ACTIVE_PRESSURE = 0.85D;
+    private static final double TARGET_PRESSURE = 0.75D;
+    private static final double RECOVERY_PRESSURE = 0.65D;
+    private static final double CRITICAL_PRESSURE = 0.98D;
+    private static final double CONFIRM_SECONDS = 2.0D;
+    private static final double SETTLE_SECONDS = 5.0D;
+    private static final double TARGETED_SETTLE_SECONDS = 10.0D;
+    private static final double RECOVERY_SECONDS = 15.0D;
+    private static final double PROBE_SECONDS = 10.0D;
+    private static final double MIN_ACTIVE_RATIO = 3.0D / 32.0D;
+    private static final double MIN_AFK_RATIO = 2.0D / 32.0D;
+    private static final double INITIAL_RECOVERY_STEP = 0.05D;
 
-    private final int escalationConfirmSamples;
-    private ThrottleMode mode = ThrottleMode.OFF;
-    private ThrottleMode pendingEscalation = ThrottleMode.OFF;
-    private int escalationSamples;
-    private int recoverySamples;
+    static final Limit OPEN = new Limit(1.0D, 1.0D);
 
-    NetworkEgressThrottlePolicy() {
-        this(ESCALATION_CONFIRM_SAMPLES);
-    }
+    private Limit limit = OPEN;
+    private Limit beforeProbe;
+    private double fastPressure = -1.0D;
+    private double slowPressure = -1.0D;
+    private double highSeconds;
+    private double criticalSeconds;
+    private double lowSeconds;
+    private double sinceChange;
+    private double probeSeconds;
+    private double recoveryDelay = RECOVERY_SECONDS;
+    private double recoveryStep = INITIAL_RECOVERY_STEP;
+    private boolean explorersPresent;
+    private boolean targetedStageObserved;
+    private double activeObservationSeconds = SETTLE_SECONDS;
 
-    NetworkEgressThrottlePolicy(int escalationConfirmSamples) {
-        this.escalationConfirmSamples = escalationConfirmSamples;
-    }
+    Limit update(double pressure, double elapsedSeconds, boolean afkReliefAvailable) {
+        if (!Double.isFinite(pressure) || pressure < 0.0D
+                || !Double.isFinite(elapsedSeconds) || elapsedSeconds <= 0.0D
+                || elapsedSeconds > MAX_SAMPLE_SECONDS) {
+            suspend();
+            return limit;
+        }
 
-    synchronized ThrottleMode update(double pressureRatio) {
-        ThrottleMode desired = modeForPressure(pressureRatio);
-        if (desired.ordinal() > mode.ordinal()) {
-            if (desired != pendingEscalation) {
-                pendingEscalation = desired;
-                escalationSamples = 1;
-            } else {
-                escalationSamples++;
+        fastPressure = smooth(fastPressure, pressure, elapsedSeconds, 2.0D);
+        slowPressure = smooth(slowPressure, pressure, elapsedSeconds, 10.0D);
+        sinceChange += elapsedSeconds;
+        highSeconds = pressure >= ACTIVE_PRESSURE && fastPressure >= ACTIVE_PRESSURE
+                ? highSeconds + elapsedSeconds : 0.0D;
+        criticalSeconds = pressure >= CRITICAL_PRESSURE
+                ? criticalSeconds + elapsedSeconds : 0.0D;
+        double recoveryPressure = Math.max(pressure, Math.max(fastPressure, slowPressure));
+        lowSeconds = recoveryPressure < RECOVERY_PRESSURE ? lowSeconds + elapsedSeconds : 0.0D;
+
+        if (beforeProbe != null) {
+            boolean afkProbe = beforeProbe.afkRatio() != limit.afkRatio();
+            if ((afkProbe && pressure >= AFK_PRESSURE && fastPressure >= AFK_PRESSURE)
+                    || highSeconds >= CONFIRM_SECONDS || criticalSeconds >= CONFIRM_SECONDS) {
+                Limit rollback = beforeProbe;
+                beforeProbe = null;
+                recoveryDelay = Math.min(120.0D, recoveryDelay * 2.0D);
+                recoveryStep = Math.max(0.01D, recoveryStep * 0.5D);
+                changeTo(rollback);
+                return limit;
             }
-            int requiredSamples = desired == ThrottleMode.CRITICAL
-                    ? 1 : escalationConfirmSamples;
-            if (escalationSamples >= requiredSamples) {
-                mode = desired;
-                escalationSamples = 0;
+            probeSeconds += elapsedSeconds;
+            if (probeSeconds >= PROBE_SECONDS) {
+                beforeProbe = null;
+                recoveryDelay = Math.max(RECOVERY_SECONDS, recoveryDelay * 0.8D);
+                recoveryStep = Math.min(INITIAL_RECOVERY_STEP, recoveryStep * 1.25D);
             }
-            recoverySamples = 0;
-            return mode;
         }
 
-        pendingEscalation = mode;
-        escalationSamples = 0;
-        if (mode == ThrottleMode.OFF || pressureRatio >= recoveryRatio(mode)) {
-            recoverySamples = 0;
-            return mode;
+        if (pressure >= AFK_PRESSURE && (fastPressure >= AFK_PRESSURE || criticalSeconds >= CONFIRM_SECONDS)
+                && limit.afkRatio() > MIN_AFK_RATIO) {
+            // Applying the AFK limit is a distinct action. Never spend the same sample on active players.
+            changeTo(new Limit(limit.activeRatio(), MIN_AFK_RATIO));
+            targetedStageObserved = false;
+            activeObservationSeconds = SETTLE_SECONDS;
+            if (!afkReliefAvailable) {
+                sinceChange = SETTLE_SECONDS;
+            }
+            return limit;
         }
 
-        recoverySamples++;
-        if (recoverySamples >= RECOVERY_CONFIRM_SAMPLES) {
-            mode = previousMode(mode);
-            recoverySamples = 0;
+        boolean critical = criticalSeconds >= CONFIRM_SECONDS;
+        if (highSeconds >= CONFIRM_SECONDS && sinceChange >= SETTLE_SECONDS
+                && explorersPresent && !targetedStageObserved && !critical) {
+            // Give identified high-demand explorers one observation window before global active limits.
+            targetedStageObserved = true;
+            // Include the explorer controller's 5-second confirmation and 5-second response window.
+            activeObservationSeconds = TARGETED_SETTLE_SECONDS;
+            clearEvidence();
+            return limit;
         }
-        return mode;
+        if ((highSeconds >= CONFIRM_SECONDS || critical) && (sinceChange >= activeObservationSeconds || critical)) {
+            // Area is only a first estimate of chunk demand. Subsequent measurements correct it.
+            double areaFactor = Math.clamp(TARGET_PRESSURE / fastPressure, 0.50D, 0.90D);
+            double nextRatio = Math.max(MIN_ACTIVE_RATIO, limit.activeRatio() * Math.sqrt(areaFactor));
+            changeTo(new Limit(nextRatio, Math.min(limit.afkRatio(), MIN_AFK_RATIO)));
+            activeObservationSeconds = SETTLE_SECONDS;
+            return limit;
+        }
+
+        if (beforeProbe == null && limit.throttled() && lowSeconds >= recoveryDelay
+                && sinceChange >= SETTLE_SECONDS) {
+            boolean recoverActive = limit.activeRatio() < 1.0D;
+            double currentRatio = recoverActive ? limit.activeRatio() : limit.afkRatio();
+            // Bound the probe assuming all observed traffic scales with the square of the radius.
+            double headroomRatio = currentRatio * Math.sqrt(TARGET_PRESSURE / Math.max(0.01D, recoveryPressure));
+            double nextRatio = Math.min(1.0D, Math.min(currentRatio + recoveryStep, headroomRatio));
+            if (nextRatio > currentRatio) {
+                beforeProbe = limit;
+                probeSeconds = 0.0D;
+                changeTo(recoverActive
+                        ? new Limit(nextRatio, limit.afkRatio())
+                        : new Limit(1.0D, nextRatio));
+            }
+        }
+        return limit;
     }
 
-    synchronized ThrottleMode reset() {
-        mode = ThrottleMode.OFF;
-        pendingEscalation = ThrottleMode.OFF;
-        escalationSamples = 0;
-        recoverySamples = 0;
-        return mode;
+    /** Missing or stale observations provide neither escalation nor recovery evidence. */
+    void suspend() {
+        fastPressure = -1.0D;
+        slowPressure = -1.0D;
+        clearEvidence();
+        probeSeconds = 0.0D;
     }
 
-    static ThrottleMode modeForPressure(double pressureRatio) {
-        if (pressureRatio >= CRITICAL_PRESSURE_RATIO) return ThrottleMode.CRITICAL;
-        if (pressureRatio >= HARD_PRESSURE_RATIO) return ThrottleMode.HARD;
-        if (pressureRatio >= SOFT_PRESSURE_RATIO) return ThrottleMode.SOFT;
-        return ThrottleMode.OFF;
+    Limit reset() {
+        limit = OPEN;
+        beforeProbe = null;
+        recoveryDelay = RECOVERY_SECONDS;
+        recoveryStep = INITIAL_RECOVERY_STEP;
+        targetedStageObserved = false;
+        activeObservationSeconds = SETTLE_SECONDS;
+        suspend();
+        return limit;
     }
 
-    private static double recoveryRatio(ThrottleMode throttleMode) {
-        return switch (throttleMode) {
-            case OFF -> 0.0D;
-            case SOFT -> SOFT_RECOVERY_RATIO;
-            case HARD -> HARD_RECOVERY_RATIO;
-            case CRITICAL -> CRITICAL_RECOVERY_RATIO;
-        };
+    double fastPressure() {
+        return fastPressure;
     }
 
-    private static ThrottleMode previousMode(ThrottleMode throttleMode) {
-        return switch (throttleMode) {
-            case OFF, SOFT -> ThrottleMode.OFF;
-            case HARD -> ThrottleMode.SOFT;
-            case CRITICAL -> ThrottleMode.HARD;
-        };
+    double slowPressure() {
+        return slowPressure;
     }
 
-    enum ThrottleMode {
-        OFF, SOFT, HARD, CRITICAL
+    double recoveryDelay() {
+        return recoveryDelay;
+    }
+
+    Limit limit() {
+        return limit;
+    }
+
+    void observeExplorers(boolean present) {
+        explorersPresent = present;
+    }
+
+    double explorationPressure() {
+        return limit.afkThrottled() && (limit.activeRatio() < 1.0D || targetedStageObserved || sinceChange >= SETTLE_SECONDS)
+                ? fastPressure : Math.min(Math.nextDown(ACTIVE_PRESSURE), fastPressure);
+    }
+
+    private void changeTo(Limit next) {
+        limit = next;
+        clearEvidence();
+    }
+
+    private void clearEvidence() {
+        highSeconds = 0.0D;
+        criticalSeconds = 0.0D;
+        lowSeconds = 0.0D;
+        sinceChange = 0.0D;
+    }
+
+    private static double smooth(double previous, double current, double elapsedSeconds, double timeConstant) {
+        return previous < 0.0D ? current
+                : previous + (current - previous) * -Math.expm1(-elapsedSeconds / timeConstant);
+    }
+
+    record Limit(double activeRatio, double afkRatio) {
+        Limit {
+            if (!Double.isFinite(activeRatio) || !Double.isFinite(afkRatio)
+                    || activeRatio < MIN_ACTIVE_RATIO || activeRatio > 1.0D
+                    || afkRatio < MIN_AFK_RATIO || afkRatio > activeRatio) {
+                throw new IllegalArgumentException("Invalid send-distance ratios");
+            }
+        }
+
+        boolean throttled() {
+            return activeRatio < 1.0D || afkThrottled();
+        }
+
+        boolean afkThrottled() {
+            return afkRatio < 1.0D;
+        }
+
+        String stage() {
+            return activeRatio < 1.0D ? "ACTIVE" : afkThrottled() ? "AFK_ONLY" : "OPEN";
+        }
+
+        int sendDistance(int originalDistance, boolean afk) {
+            return PlayerViewDistancePolicy.scaledDistance(originalDistance, afk ? afkRatio : activeRatio, afk ? 2 : 3);
+        }
     }
 }

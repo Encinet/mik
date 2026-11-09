@@ -1,30 +1,26 @@
 package org.encinet.mik.feature.world.vehicle;
 
+import org.encinet.mik.shared.menu.MenuInputForm;
+import org.encinet.mik.shared.menu.FloatingMenus;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import org.bukkit.Location;
-import org.bukkit.Color;
 import org.bukkit.FluidCollisionMode;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.Particle;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.FloatingMenuContext;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuLayouts;
-import org.encinet.mik.shared.menu.FloatingMenuPage;
+import org.encinet.mik.shared.menu.MenuScene;
+import org.encinet.mik.shared.menu.ui.*;
 import org.encinet.mik.shared.menu.FloatingMenuScreen;
+import org.encinet.mik.shared.menu.FloatingMenuState;
 import org.encinet.mik.shared.menu.MenuDialogs;
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
+import org.encinet.mik.feature.world.vehicle.VehicleEditorRoute.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,38 +32,30 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 
 final class VehicleModelEditor {
-    private static final Particle.DustOptions RED = new Particle.DustOptions(Color.fromRGB(255, 85, 85), 0.8f);
-    private static final Particle.DustOptions GREEN = new Particle.DustOptions(Color.fromRGB(85, 255, 85), 0.8f);
-    private static final Particle.DustOptions BLUE = new Particle.DustOptions(Color.fromRGB(85, 170, 255), 0.8f);
-    private static final Particle.DustOptions ORANGE = new Particle.DustOptions(Color.fromRGB(255, 170, 0), 0.8f);
-    private static final Particle.DustOptions YELLOW = new Particle.DustOptions(Color.fromRGB(255, 255, 85), 0.8f);
-    private static final Particle.DustOptions PURPLE = new Particle.DustOptions(Color.fromRGB(255, 85, 255), 0.8f);
-    private static final Particle.DustOptions WHITE = new Particle.DustOptions(Color.WHITE, 0.8f);
-    private record State(String view, int page, String id) { }
     private record Corner(VehicleVector point, boolean look) { }
-    private record Placement(VehicleEditorPlacement operation, State returnTo) { }
+    private record Placement(VehicleEditorPlacement operation, VehicleEditorView returnTo) { }
     private record Aim(Location point, Display display) { }
-    private record Preview(Location origin, List<Display> displays, List<VehicleDefinition.Part> parts, long expires) { }
     @FunctionalInterface private interface Operation { void run() throws IOException; }
     private final JavaPlugin plugin;
     private final LanguageService language;
     private final VehicleModule module;
-    private final NamespacedKey previewKey;
+    private final VehicleEditorPreview previews;
+    private final Map<UUID, VehicleEditorRoute> spatial = new HashMap<>();
     private final Map<UUID, VehicleModelDraft> drafts = new HashMap<>();
+    private final Map<UUID, VehicleEditorStage> stages = new HashMap<>();
     private final Map<UUID, Location> draftOrigins = new HashMap<>();
-    private final Map<UUID, Preview> previews = new HashMap<>();
     private final Map<UUID, UUID> sessions = new HashMap<>();
     private final Map<UUID, Corner> corners = new HashMap<>();
     private final Map<UUID, Double> steps = new HashMap<>();
     private final Map<UUID, Map<VehicleEditorTransform.Mode, Double>> transformSteps = new HashMap<>();
     private final Set<UUID> snapping = new java.util.HashSet<>();
-    private final Map<UUID, State> focused = new HashMap<>();
     private final Map<UUID, Placement> placements = new HashMap<>();
     private final Map<UUID, Long> placementClicks = new HashMap<>();
-    private final FloatingMenuScreen<State> screen;
+    private final FloatingMenuScreen<VehicleEditorView> screen;
     private boolean closed;
     private long generation;
     private long ticks;
@@ -76,173 +64,114 @@ final class VehicleModelEditor {
         this.plugin = plugin;
         this.language = language;
         this.module = module;
-        previewKey = new NamespacedKey(plugin, "vehicle_model_preview");
+        previews = new VehicleEditorPreview(plugin, language, module::refreshGizmos);
         screen = new FloatingMenuScreen<>("vehicle-models", this::render);
     }
 
-    void execute(Player player, String input) throws IOException {
-        execute(player, input.isBlank() ? new String[]{"menu"} : input.strip().split("\\s+"));
+    enum Source { EMPTY, HAND, SELECTION }
+
+    void create(Player player, String id, VehicleDefinition.Kind kind, Source source) throws IOException {
+        requireAdmin(player);
+        requireNewDraft(player);
+        if (source == Source.EMPTY) begin(player, VehicleModelDraft.create(id, kind));
+        else if (source == Source.HAND) {
+            var imported = module.importGroup(player, id, kind, null);
+            begin(player, VehicleModelDraft.imported(imported.definition()), imported.origin());
+        } else begin(player, VehicleModelDraft.imported(module.captureDraft(player, id, kind)));
+        startSpatial(player, Workspace.INSTANCE);
     }
 
-    void execute(Player player, String[] args) throws IOException {
+    void edit(Player player, String id) {
         requireAdmin(player);
-        if (args.length > 1 && args[1].equals("copy") && Set.of("part", "seat", "collider", "support").contains(args[0])) {
-            exact(args, 3);
-            String section = switch (args[0]) { case "part" -> "parts"; case "seat" -> "seats"; case "collider" -> "colliders"; default -> "supports"; };
-            int target = draft(player).copy(section, index(args, 2));
-            State state = new State("position", target, section);
-            focused.put(player.getUniqueId(), state);
-            screen.update(player, ignored -> state);
-            changed(player);
-            return;
+        VehicleModelDraft existing = drafts.get(player.getUniqueId());
+        if (existing == null || !existing.id().equals(id)) begin(player, new VehicleModelDraft(model(id)));
+        startSpatial(player, Workspace.INSTANCE);
+    }
+
+    void cloneModel(Player player, String id, String newId) {
+        requireAdmin(player);
+        begin(player, VehicleModelDraft.copy(model(id), newId));
+        open(player);
+    }
+
+    void anchor(Player player) {
+        requireAdmin(player);
+        var draft = draft(player);
+        stages.put(player.getUniqueId(), VehicleEditorStage.fit(draft, player.getLocation()));
+        corners.remove(player.getUniqueId()); placements.remove(player.getUniqueId());
+        preview(player, draft, false); redraw(player);
+    }
+
+    void front(Player player, int turns) {
+        requireAdmin(player);
+        draft(player).front(turns);
+        corners.remove(player.getUniqueId());
+        changed(player);
+    }
+
+    void snap(Player player) {
+        requireAdmin(player);
+        draft(player);
+        if (!snapping.remove(player.getUniqueId())) snapping.add(player.getUniqueId());
+        redraw(player);
+    }
+
+    void save(Player player, boolean keepEditing) throws IOException {
+        requireAdmin(player);
+        var draft = draft(player);
+        var saved = module.saveModel(draft);
+        if (keepEditing) { draft.saved(saved); refreshPreview(player); }
+        else {
+            drafts.remove(player.getUniqueId()); draftOrigins.remove(player.getUniqueId()); stages.remove(player.getUniqueId());
+            clearTools(player.getUniqueId()); clearPreview(player.getUniqueId());
+            open(player);
         }
-        switch (args[0].toLowerCase(Locale.ROOT)) {
-            case "menu" -> { open(player); return; }
-            case "help" -> { player.sendMessage(text(player, Message.VEHICLE_MODEL_HELP)); return; }
-            case "list" -> { result(player, String.join(", ", module.models().keySet().stream().sorted().toList())); return; }
-            case "info" -> {
-                VehicleModelDraft draft = args.length == 1 ? draft(player) : new VehicleModelDraft(model(argument(args, 1)));
-                result(player, draft.id() + " · " + draft.kind());
-                for (String section : List.of("parts", "seats", "colliders", "supports"))
-                    for (int index = 0; index < draft.count(section); index++) result(player, section + " " + draft.describe(section, index));
-                return;
-            }
-            case "create" -> {
-                exact(args, 3);
-                begin(player, VehicleModelDraft.create(args[1], VehicleDefinition.parseKind(args[2])));
-                open(player);
-                return;
-            }
-            case "import" -> {
-                if (args.length != 3 && args.length != 4) throw new IllegalArgumentException("import <id> <car|boat|plane> [group-uuid]");
-                requireNewDraft(player);
-                VehicleModule.ModelImport imported = module.importGroup(player, args[1], VehicleDefinition.parseKind(args[2]), args.length == 4 ? UUID.fromString(args[3]) : null);
-                begin(player, VehicleModelDraft.imported(imported.definition()), imported.origin());
-                open(player);
-                return;
-            }
-            case "edit" -> {
-                exact(args, 2);
-                VehicleModelDraft existing = drafts.get(player.getUniqueId());
-                if (existing == null || !existing.id().equals(args[1])) begin(player, new VehicleModelDraft(model(args[1])));
-                open(player);
-                return;
-            }
-            case "clone" -> { exact(args, 3); begin(player, VehicleModelDraft.copy(model(args[1]), args[2])); open(player); return; }
-            case "anchor" -> {
-                exact(args, 1);
-                draft(player);
-                Location origin = player.getLocation().clone();
-                origin.setPitch(0);
-                Location previousOrigin = draftOrigins.get(player.getUniqueId());
-                draftOrigins.put(player.getUniqueId(), origin);
-                try { preview(player, draft(player)); }
-                catch (RuntimeException exception) { draftOrigins.put(player.getUniqueId(), previousOrigin); throw exception; }
-                corners.remove(player.getUniqueId());
-                placements.remove(player.getUniqueId());
-                sessions.put(player.getUniqueId(), UUID.randomUUID());
-                redraw(player);
-                return;
-            }
-            case "pick" -> { exact(args, 1); pick(player); return; }
-            case "snap" -> {
-                draft(player);
-                if (args.length > 2 || args.length == 2 && !Set.of("on", "off").contains(args[1]))
-                    throw new IllegalArgumentException("snap [on|off]");
-                boolean enabled = args.length == 1 ? !snapping.contains(player.getUniqueId()) : args[1].equals("on");
-                if (enabled) snapping.add(player.getUniqueId()); else snapping.remove(player.getUniqueId());
-                redraw(player);
-                result(player, language.t(player, enabled ? Message.VEHICLE_MODEL_SNAP_ON : Message.VEHICLE_MODEL_SNAP_OFF));
-                return;
-            }
-            case "check" -> {
-                exact(args, 1);
-                draft(player).validate();
-                result(player, language.t(player, Message.VEHICLE_MODEL_CHECKED));
-                return;
-            }
-            case "apply" -> {
-                exact(args, 1);
-                VehicleModelDraft draft = draft(player);
-                draft.saved(module.saveModel(draft));
-                refreshPreview(player);
-                screen.redrawWhere(ignored -> true);
-                result(player, language.t(player, Message.VEHICLE_MODEL_SAVED));
-                return;
-            }
-            case "here", "look" -> {
-                exact(args, 1);
-                State focus = focused.get(player.getUniqueId());
-                if (focus == null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_PICK_HINT));
-                draft(player).position(focus.id(), focus.page(), focus.view().equals("position-exit"), sample(player, args[0]));
-            }
-            case "set" -> draft(player).set(argument(args, 1), args.length == 3 && args[1].equals("center-of-mass") && Set.of("here", "look").contains(args[2])
-                    ? VehicleEditorGeometry.coordinates(sample(player, args[2])) : tail(args, 2));
-            case "part" -> part(player, args);
-            case "seat" -> { if (!positionCommand(player, "seats", args)) seat(draft(player), expandHere(player, args)); }
-            case "collider" -> {
-                argument(args, 1);
-                if (args.length == 2 && args[1].equals("cancel")) {
-                    draft(player);
-                    corners.remove(player.getUniqueId());
-                    redraw(player);
-                    return;
-                }
-                if (args[1].equals("corner1")) {
-                    if (args.length != 2 && !(args.length == 3 && args[2].equals("look"))) throw new IllegalArgumentException("collider corner1 [look]");
-                    draft(player);
-                    corners.put(player.getUniqueId(), new Corner(sample(player, args.length == 3 ? "look" : "here"), args.length == 3));
-                    if (!previews.containsKey(player.getUniqueId())) {
-                        try { preview(player, draft(player)); } catch (RuntimeException exception) { previewError(player, exception); }
-                    }
-                    redraw(player);
-                    result(player, language.t(player, Message.VEHICLE_MODEL_CORNER_HINT));
-                    return;
-                }
-                if (args[1].equals("corner2")) {
-                    if (args.length != 2 && !(args.length == 3 && args[2].equals("look"))) throw new IllegalArgumentException("collider corner2 [look]");
-                    Corner first = corners.get(player.getUniqueId());
-                    if (first == null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_CORNER_REQUIRED));
-                    draft(player).collider("add", -1, VehicleEditorGeometry.box(first.point(), sample(player, args.length == 3 ? "look" : "here")));
-                    corners.remove(player.getUniqueId());
-                } else if (!positionCommand(player, "colliders", args)) collider(draft(player), args);
-            }
-            case "support" -> { if (!positionCommand(player, "supports", args)) support(draft(player), expandHere(player, args)); }
-            case "undo", "redo" -> {
-                exact(args, 1);
-                VehicleModelDraft draft = draft(player);
-                List<String> sections = List.of("parts", "seats", "colliders", "supports");
-                List<Integer> before = sections.stream().map(draft::count).toList();
-                boolean restored = args[0].equals("redo") ? draft.redo() : draft.undo();
-                if (!restored) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_HISTORY_EMPTY));
-                if (!before.equals(sections.stream().map(draft::count).toList())) {
-                    focused.remove(player.getUniqueId());
-                    screen.update(player, ignored -> new State("editor", 0, null));
-                }
-            }
-            case "save" -> {
-                exact(args, 1);
-                module.saveModel(draft(player));
-                drafts.remove(player.getUniqueId());
-                draftOrigins.remove(player.getUniqueId());
-                clearTools(player.getUniqueId());
-                clearPreview(player.getUniqueId());
-                screen.redrawWhere(ignored -> true);
-                result(player, language.t(player, Message.VEHICLE_MODEL_SAVED));
-                return;
-            }
-            case "cancel" -> { exact(args, 1); discard(player); return; }
-            case "delete" -> { exact(args, 2); delete(player, model(args[1])); return; }
-            case "preview" -> {
-                if (args.length == 2 && args[1].equals("off")) clearPreview(player.getUniqueId());
-                else { exact(args, 1); preview(player, draft(player)); }
-                return;
-            }
-            default -> throw new IllegalArgumentException("Use /vehicle model help");
+        screen.redrawWhere(_ -> true);
+        result(player, language.t(player, Message.VEHICLE_MODEL_SAVED));
+    }
+
+    void history(Player player, boolean redo) {
+        requireAdmin(player);
+        var draft = draft(player);
+        List<String> sections = List.of("parts", "seats", "colliders", "supports");
+        var before = sections.stream().map(draft::count).toList();
+        if (!(redo ? draft.redo() : draft.undo())) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_HISTORY_EMPTY));
+        if (!before.equals(sections.stream().map(draft::count).toList())) {
+            if (spatial.containsKey(player.getUniqueId())) spatial.put(player.getUniqueId(), Workspace.INSTANCE);
+            screen.update(player, _ -> VehicleEditorView.open(Workspace.INSTANCE));
         }
-        if (args.length > 1 && args[1].equals("remove")) {
-            focused.remove(player.getUniqueId());
-            screen.update(player, ignored -> new State("editor", 0, null));
+        changed(player);
+    }
+
+    void corner(Player player, boolean second, boolean look) {
+        requireAdmin(player);
+        var point = sample(player, look ? "look" : "here");
+        if (!second) {
+            corners.put(player.getUniqueId(), new Corner(point, look));
+            if (previews.get(player.getUniqueId()) == null) preview(player, draft(player));
+            redraw(player);
+            result(player, language.t(player, Message.VEHICLE_MODEL_CORNER_HINT));
+        } else {
+            var first = corners.get(player.getUniqueId());
+            if (first == null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_CORNER_REQUIRED));
+            draft(player).collider("add", -1, VehicleEditorGeometry.box(first.point(), point));
+            corners.remove(player.getUniqueId()); changed(player);
+        }
+    }
+
+    private String itemPayload(Player player) {
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (item.getType().isAir()) throw new IllegalArgumentException("Hold an item in your main hand");
+        return Base64.getEncoder().encodeToString(item.serializeAsBytes());
+    }
+
+    void mutate(Player player, Consumer<VehicleModelDraft> action) {
+        requireAdmin(player);
+        var draft = draft(player);
+        var before = java.util.Arrays.stream(Section.values()).map(section -> draft.count(section.key())).toList();
+        action.accept(draft);
+        if (!before.equals(java.util.Arrays.stream(Section.values()).map(section -> draft.count(section.key())).toList())) {
+            if (spatial.containsKey(player.getUniqueId())) spatial.put(player.getUniqueId(), Workspace.INSTANCE);
         }
         changed(player);
     }
@@ -256,9 +185,12 @@ final class VehicleModelEditor {
         if (draft.base() == null && module.models().containsKey(draft.id())) throw new IllegalArgumentException("Model already exists");
         origin = origin.clone();
         origin.setPitch(0);
+        sessions.put(player.getUniqueId(), UUID.randomUUID());
         drafts.put(player.getUniqueId(), draft);
         draftOrigins.put(player.getUniqueId(), origin);
+        stages.put(player.getUniqueId(), VehicleEditorStage.fit(draft, player.getLocation()));
         clearTools(player.getUniqueId());
+        screen.update(player, _ -> VehicleEditorView.open(Workspace.INSTANCE));
         try { preview(player, draft); }
         catch (RuntimeException exception) { previewError(player, exception); }
     }
@@ -268,327 +200,489 @@ final class VehicleModelEditor {
         if (drafts.size() >= 32) throw new IllegalArgumentException("At most 32 concurrent model editors");
     }
 
-    private void part(Player player, String[] args) {
-        VehicleModelDraft draft = draft(player);
-        if (positionCommand(player, "parts", args)) return;
-        String operation = argument(args, 1);
-        if (operation.equals("add")) {
-            String kind = argument(args, 2);
-            if (kind.equals("selected")) { exact(args, 3); draft.addParts(module.selectedParts(player, previewOrigin(player))); }
-            else if (kind.equals("group")) {
-                if (args.length != 3 && args.length != 4) throw new IllegalArgumentException("part add group [group-uuid]");
-                draft.addParts(module.groupParts(player, args.length == 4 ? UUID.fromString(args[3]) : null, previewOrigin(player)));
-            }
-            else draft.addParts(List.of(VehicleModelDraft.part(VehicleDefinition.PartKind.valueOf(kind.toUpperCase(Locale.ROOT)), payload(player, kind, args, 3))));
-        } else if (operation.equals("remove")) { exact(args, 3); draft.remove("parts", index(args, 2)); }
-        else {
-            int index = index(args, 2);
-            String value = Set.of("block", "item", "text").contains(operation) ? payload(player, operation, args, 3) : tail(args, 3);
-            draft.changePart(index, operation, value);
-        }
-    }
-
     private VehicleVector here(Player player) {
         return sampled(player, player.getLocation());
     }
 
     private VehicleVector sampled(Player player, Location position) {
-        VehicleVector local = VehicleEditorGeometry.local(previewOrigin(player), position);
+        VehicleVector local = VehicleEditorGeometry.local(sourceOrigin(player), position);
         return snapping.contains(player.getUniqueId()) ? VehicleEditorGeometry.snap(local, steps.getOrDefault(player.getUniqueId(), 0.1)) : local;
     }
 
     private VehicleVector sample(Player player, String target) {
-        return target.equals("look") ? sampled(player, lookPoint(player)) : here(player);
-    }
-
-    private Location lookPoint(Player player) {
-        Aim target = aim(player);
-        if (target != null) return target.point();
-        throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_LOOK_MISSING));
+        if (!target.equals("look")) return here(player);
+        var aim = aim(player);
+        if (aim == null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_LOOK_MISSING));
+        return aim.display() == null ? sampled(player, aim.point()) : stages.get(player.getUniqueId()).local(draft(player), aim.point());
     }
 
     private Aim aim(Player player) {
         Location eye = player.getEyeLocation();
         var obstruction = player.getWorld().rayTraceBlocks(eye, eye.getDirection(), 32, FluidCollisionMode.NEVER, true);
         double maximum = obstruction == null ? 32 : obstruction.getHitPosition().distance(eye.toVector());
-        Preview preview = previews.get(player.getUniqueId());
+        VehicleEditorPreview.Preview preview = previews.get(player.getUniqueId());
         VehicleDisplayPicker.Hit hit = preview == null ? null
-                : VehicleDisplayPicker.hit(eye, eye.getDirection(), preview.displays(), ignored -> false, maximum);
+                : VehicleDisplayPicker.hit(eye, eye.getDirection(), preview.displays(), _ -> false, maximum);
         if (hit != null) return new Aim(new Location(player.getWorld(), hit.position().coordinateX(), hit.position().coordinateY(), hit.position().coordinateZ()), hit.display());
         if (obstruction != null) return new Aim(obstruction.getHitPosition().toLocation(player.getWorld()), null);
         return null;
     }
 
-    private String[] expandHere(Player player, String[] args) {
-        int offset = args.length > 2 && Set.of("here", "look").contains(args[2]) ? 2 : args.length > 3 && Set.of("here", "look").contains(args[3]) ? 3 : -1;
-        if (offset < 0) return args;
-        List<String> expanded = new ArrayList<>(List.of(args).subList(0, offset));
-        expanded.addAll(List.of(VehicleEditorGeometry.coordinates(sample(player, args[offset])).split(" ")));
-        expanded.addAll(List.of(args).subList(offset + 1, args.length));
-        return expanded.toArray(String[]::new);
+    void library(Player player) {
+        requireAdmin(player); spatial.remove(player.getUniqueId()); placements.remove(player.getUniqueId());
+        sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
+        screen.open(player, VehicleEditorView.open(new Library(0)));
     }
 
-    private boolean positionCommand(Player player, String section, String[] args) {
-        String operation = argument(args, 1);
-        boolean exit = operation.equals("exit");
-        if (!operation.equals("move") && !Set.of("position", "exit", "set").contains(operation)) return false;
-        if (!operation.equals("move") && !(args.length == 4 && Set.of("here", "look").contains(args[3]))
-                && !(section.equals("colliders") && operation.equals("position"))) return false;
-        int index = index(args, 2);
-        VehicleModelDraft draft = draft(player);
-        VehicleVector position;
-        if (args.length == 4 && Set.of("here", "look").contains(args[3])) position = sample(player, args[3]);
-        else {
-            exact(args, 6);
-            position = VehicleModelDraft.vector(tail(args, 3));
-            if (operation.equals("move")) position = draft.position(section, index, exit).add(position);
-        }
-        draft.position(section, index, exit, position);
-        return true;
-    }
-
-    private String payload(Player player, String kind, String[] args, int offset) {
-        return switch (kind) {
-            case "block" -> plugin.getServer().createBlockData(tail(args, offset)).getAsString();
-            case "text" -> GsonComponentSerializer.gson().serialize(Component.text(tail(args, offset)));
-            case "item" -> {
-                exact(args, offset);
-                ItemStack item = player.getInventory().getItemInMainHand();
-                if (item.getType().isAir()) throw new IllegalArgumentException("Hold an item in your main hand");
-                yield Base64.getEncoder().encodeToString(item.serializeAsBytes());
-            }
-            default -> throw new IllegalArgumentException("Use block|item|text|selected");
-        };
-    }
-
-    private void seat(VehicleModelDraft draft, String[] args) {
-        String operation = argument(args, 1);
-        if (operation.equals("remove")) { exact(args, 3); draft.remove("seats", index(args, 2)); }
-        else if (operation.equals("driver")) { exact(args, 3); draft.seat(operation, index(args, 2), null, true); }
-        else if (operation.equals("add")) {
-            exact(args, 6);
-            if (!Set.of("driver", "passenger").contains(args[5])) throw new IllegalArgumentException("seat add <x y z> <driver|passenger>");
-            draft.seat(operation, -1, VehicleModelDraft.vector(String.join(" ", args[2], args[3], args[4])), args[5].equals("driver"));
-        } else draft.seat(operation, index(args, 2), VehicleModelDraft.vector(tail(args, 3)), false);
-    }
-
-    private void collider(VehicleModelDraft draft, String[] args) {
-        String operation = argument(args, 1);
-        if (operation.equals("auto")) { exact(args, 2); draft.collider("auto", -1, null); }
-        else if (operation.equals("remove")) { exact(args, 3); draft.remove("colliders", index(args, 2)); }
-        else if (operation.equals("size")) { exact(args, 6); draft.size(index(args, 2), VehicleModelDraft.vector(tail(args, 3))); }
-        else {
-            int offset = operation.equals("add") ? 2 : 3;
-            exact(args, offset + 6);
-            VehicleVector center = VehicleModelDraft.vector(String.join(" ", args[offset], args[offset + 1], args[offset + 2]));
-            VehicleVector half = VehicleModelDraft.vector(String.join(" ", args[offset + 3], args[offset + 4], args[offset + 5]));
-            draft.collider(operation, offset == 2 ? -1 : index(args, 2), new VehicleDefinition.Collider(center, half));
-        }
-    }
-
-    private void support(VehicleModelDraft draft, String[] args) {
-        String operation = argument(args, 1);
-        if (operation.equals("remove")) { exact(args, 3); draft.remove("supports", index(args, 2)); }
-        else draft.support(operation, operation.equals("add") ? -1 : index(args, 2), VehicleModelDraft.vector(tail(args, operation.equals("add") ? 2 : 3)));
-    }
-
-    private void open(Player player) {
+    void open(Player player) {
+        requireAdmin(player);
+        spatial.remove(player.getUniqueId());
         placements.remove(player.getUniqueId());
-        sessions.computeIfAbsent(player.getUniqueId(), ignored -> UUID.randomUUID());
-        State initial = new State(drafts.containsKey(player.getUniqueId()) ? "editor" : "library", 0, null);
-        State previous = screen.state(player).orElse(initial);
-        screen.open(player, focused.containsKey(player.getUniqueId()) && !Set.of("library", "model").contains(previous.view()) ? previous : initial);
+        sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
+        VehicleEditorRoute initial = drafts.containsKey(player.getUniqueId()) ? Workspace.INSTANCE : new Library(0);
+        VehicleEditorView previous = screen.state(player).orElseGet(() -> VehicleEditorView.open(initial));
+        screen.open(player, drafts.containsKey(player.getUniqueId()) && !(previous.route() instanceof Library || previous.route() instanceof Model)
+                ? previous : VehicleEditorView.open(initial));
     }
 
-    private FloatingMenuDefinition render(FloatingMenuContext<State> context) {
+    private MenuScene render(FloatingMenuContext<VehicleEditorView> context) {
         Player player = context.player();
-        State state = context.state();
+        VehicleEditorView view = context.state();
+        VehicleEditorRoute state = view.route();
         VehicleModelDraft draft = drafts.get(player.getUniqueId());
-        FloatingMenuDefinition.Builder menu = createMenu(text(player, Message.VEHICLE_MODEL_TITLE));
+        VehicleEditorRoute displayRoute = draft == null && !(state instanceof Model)
+                || !player.hasPermission("mik.vehicle.admin") || closed ? new Library(0) : state;
+        MenuScene.Builder menu = createMenu(text(player, Message.VEHICLE_MODEL_TITLE), displayRoute);
+        UiNode reading = null;
+        VehicleEditorComposition.Primary primary = VehicleEditorComposition.primary(displayRoute);
+        if (draft != null && !(displayRoute instanceof Library || displayRoute instanceof Model) && player.hasPermission("mik.vehicle.admin") && !closed) {
+            menu.navigation("section:overview", text(player, Message.VEHICLE_MODEL_OVERVIEW)).region("sections")
+                    .selected(state == Workspace.INSTANCE).primary((_, _) -> navigate(context, view, Workspace.INSTANCE));
+            for (Section section : Section.values()) {
+                boolean current = state instanceof Components list && list.section() == section
+                        || state instanceof ObjectView object && object.target().section() == section;
+                menu.navigation("section:" + section, text(player, sectionMessage(section.key()))).region("sections").selected(current)
+                        .primary((_, _) -> navigate(context, view, new Components(section, 0)));
+            }
+            menu.navigation("section:parameters", text(player, Message.VEHICLE_MODEL_PARAMETERS)).region("sections")
+                    .selected(state instanceof Parameters || state instanceof Settings || state == Center.INSTANCE).primary((_, _) -> navigate(context, view, new Parameters(0)));
+            menu.navigation("section:tools", text(player, Message.VEHICLE_MODEL_TOOLS)).region("sections")
+                    .selected(state == Utilities.INSTANCE).primary((_, _) -> navigate(context, view, Utilities.INSTANCE));
+        }
         if (!player.hasPermission("mik.vehicle.admin") || closed) {
             menu.information("denied", Component.text("mik.vehicle.admin", NamedTextColor.RED)).region("summary");
-        } else if (state.view().equals("library") || draft == null && !state.view().equals("model")) {
+            primary = VehicleEditorComposition.Primary.SUMMARY;
+        } else if (state instanceof Library || draft == null && !(state instanceof Model)) {
             List<String> ids = module.models().keySet().stream().sorted().toList();
-            FloatingMenuPage page = new FloatingMenuPage(state.page(), ids.size(), 6);
+            int anchor = state instanceof Library library ? library.anchor() : 0;
             menu.information("summary", text(player, Message.VEHICLE_MODEL_LIBRARY)).region("summary");
-            for (String id : page.slice(ids)) menu.item("model:" + id, Material.MINECART, Component.text(id)).region("items")
-                    .primary((actor, handle) -> context.setState(new State("model", 0, id)));
-            menu.pagination("pages", page, next -> context.setState(new State("library", next, null)));
-            action(menu, player, "create", Material.EMERALD, Message.VEHICLE_MODEL_CREATE,
-                    actor -> prompt(actor, Message.VEHICLE_MODEL_CREATE, "<id> <car|boat|plane>", "", "create "));
-            action(menu, player, "import", Material.CHEST, Message.VEHICLE_MODEL_IMPORT,
-                    actor -> prompt(actor, Message.VEHICLE_MODEL_IMPORT, "<id> <car|boat|plane> [group-uuid]", "", "import "));
-            if (draft != null) action(menu, player, "resume", Material.WRITABLE_BOOK, Message.VEHICLE_MODEL_EDIT,
-                    actor -> context.setState(new State("editor", 0, null)));
-        } else if (state.view().equals("model")) {
-            VehicleDefinition definition = module.models().get(state.id());
+            var models = new ArrayList<VehicleEditorList.Item>();
+            for (int index = 0; index < ids.size(); index++) {
+                String id = ids.get(index);
+                int sourceIndex = index;
+                models.add(new VehicleEditorList.Item(UiKey.item("model:" + id), Component.text(id),
+                        (_, _) -> navigate(context, view, new Model(id, sourceIndex))));
+            }
+            reading = VehicleEditorList.content(models, text(player, Message.MENU_SEARCH_EMPTY), anchor,
+                    next -> navigate(context, view, new Library(next)));
+            action(menu, player, "create", Message.VEHICLE_MODEL_CREATE,
+                    actor -> newModel(actor, Source.EMPTY));
+            action(menu, player, "import", Message.VEHICLE_MODEL_IMPORT,
+                    actor -> newModel(actor, Source.HAND));
+            action(menu, player, "capture", Message.VEHICLE_MODEL_SELECTED, actor -> newModel(actor, Source.SELECTION));
+            action(menu, player, "selection", Message.VEHICLE_MODEL_GROUP, module::openSelection);
+            menu.navigation("vehicles", text(player, Message.VEHICLE_COMMAND_DESCRIPTION)).region("navigation").primary((actor, _) -> module.openMenu(actor));
+            if (draft != null) action(menu, player, "resume", Message.VEHICLE_MODEL_EDIT, actor -> startSpatial(actor, Workspace.INSTANCE));
+        } else if (state instanceof Model) {
+            VehicleDefinition definition = module.models().get(((Model) state).id());
             if (definition != null) {
-                menu.information("summary", Component.text(definition.id() + " · " + definition.kind() + " · " + definition.parts().size())).region("summary");
-                action(menu, player, "edit", Material.WRITABLE_BOOK, Message.VEHICLE_MODEL_EDIT, actor -> run(actor, () -> execute(actor, "edit " + definition.id())));
-                action(menu, player, "clone", Material.PAPER, Message.VEHICLE_MODEL_CLONE, actor -> prompt(actor, Message.VEHICLE_MODEL_CLONE, "<new-id>", "", "clone " + definition.id() + " "));
-                action(menu, player, "delete", Material.BARRIER, Message.VEHICLE_MODEL_DELETE, actor -> delete(actor, definition));
-            }
-        } else if (state.view().equals("editor")) {
-            menu.information("summary", Component.text(draft.id() + " · " + draft.kind() + " · ")
-                    .append(text(player, draft.dirty() ? Message.VEHICLE_MODEL_DRAFT : Message.VEHICLE_MODEL_SAVED))).region("summary");
-            for (String section : List.of("parts", "seats", "colliders", "supports", "parameters", "tools")) {
-                Message label = sectionMessage(section);
-                menu.item(section, Material.BOOK, text(player, label).append(Component.text(Set.of("parameters", "tools").contains(section) ? "" : " · " + draft.count(section))))
-                        .region("items").primary((actor, handle) -> context.setState(new State(section, 0, null)));
-            }
-            commandAction(menu, player, "save", Material.EMERALD, Message.VEHICLE_MODEL_SAVE, "save");
-            commandAction(menu, player, "apply", Material.WRITABLE_BOOK, Message.VEHICLE_MODEL_SAVE_CONTINUE, "apply");
-            historyAction(menu, player, "undo", Message.VEHICLE_MODEL_UNDO, draft.canUndo());
-            historyAction(menu, player, "redo", Message.VEHICLE_MODEL_REDO, draft.canRedo());
-            commandAction(menu, player, "preview", Material.ENDER_EYE, Message.VEHICLE_MODEL_PREVIEW, "preview");
-            action(menu, player, "discard", Material.BARRIER, Message.VEHICLE_MODEL_DISCARD, this::discard);
-        } else if (state.view().equals("tools")) {
-            menu.information("summary", text(player, Message.VEHICLE_MODEL_TOOLS)).region("summary");
-            commandAction(menu, player, "anchor", Material.COMPASS, Message.VEHICLE_MODEL_ANCHOR, "anchor");
-            action(menu, player, "pick", Material.SPYGLASS, Message.VEHICLE_MODEL_PICK, actor -> armLook(actor, "pick"));
-            commandAction(menu, player, "center-here", Material.IRON_BLOCK, Message.VEHICLE_MODEL_CENTER_HERE, "set center-of-mass here");
-            action(menu, player, "center-look", Material.SPYGLASS, Message.VEHICLE_MODEL_CENTER_LOOK, actor -> armLook(actor, "set", "center-of-mass", "look"));
-            commandAction(menu, player, "check", Material.LIME_DYE, Message.VEHICLE_MODEL_CHECK, "check");
-            commandAction(menu, player, "snap", Material.REPEATER, snapping.contains(player.getUniqueId()) ? Message.VEHICLE_MODEL_SNAP_ON : Message.VEHICLE_MODEL_SNAP_OFF, "snap");
-        } else if (state.view().equals("position") || state.view().equals("position-exit")) {
-            if (state.page() >= draft.count(state.id())) menu.information("missing", Component.text("Component removed; go back")).region("summary");
-            else positionMenu(menu, player, draft, state);
-        } else if (Set.of("rotate", "scale", "size").contains(state.view())) {
-            if (state.page() >= draft.count(state.id())) menu.information("missing", Component.text("Component removed; go back")).region("summary");
-            else transformMenu(menu, player, draft, state);
-        } else if (state.view().equals("component")) {
-            String section = state.id();
-            int index = state.page();
-            if (index >= draft.count(section)) {
-                menu.information("missing", Component.text("Component removed; go back")).region("summary");
+                menu.information("summary", Component.text(definition.id() + " · ")
+                        .append(language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, definition.kind().name()))).region("summary");
+                action(menu, player, "edit", Message.VEHICLE_MODEL_EDIT, actor -> run(actor, () -> edit(actor, definition.id())));
+                action(menu, player, "spawn", Message.VEHICLE_MODEL_SPAWN, actor -> spawnForm(actor, definition));
+                action(menu, player, "clone", Message.VEHICLE_MODEL_CLONE, actor -> prompt(actor, Message.VEHICLE_MODEL_CLONE, "ID", "", value -> cloneModel(actor, definition.id(), value)));
+                action(menu, player, "delete", Message.VEHICLE_MODEL_DELETE, actor -> delete(actor, definition));
             } else {
-                focused.put(player.getUniqueId(), state);
-                menu.information("summary", Component.text(draft.describe(section, index))).region("summary");
+                menu.information("missing", text(player, Message.VEHICLE_MODEL_SELECTION_UNAVAILABLE)).region("summary");
+                primary = VehicleEditorComposition.Primary.SUMMARY;
+            }
+        } else if (state == Workspace.INSTANCE) {
+            menu.information("summary", Component.text(draft.id() + " · ")
+                    .append(language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, draft.kind())).append(Component.text(" · "))
+                    .append(text(player, draft.dirty() ? Message.VEHICLE_MODEL_DRAFT : Message.VEHICLE_MODEL_SAVED))).region("summary");
+            action(menu, player, "save", Message.VEHICLE_MODEL_SAVE, actor -> run(actor, () -> save(actor, false)));
+            action(menu, player, "apply", Message.VEHICLE_MODEL_SAVE_CONTINUE, actor -> run(actor, () -> save(actor, true)));
+            historyAction(menu, player, "undo", Message.VEHICLE_MODEL_UNDO, draft.canUndo(), "navigation");
+            historyAction(menu, player, "redo", Message.VEHICLE_MODEL_REDO, draft.canRedo(), "navigation");
+            action(menu, player, "preview", Message.VEHICLE_MODEL_PREVIEW, actor -> preview(actor, draft(actor)));
+            menu.control("preview-off", language.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "hide-preview")).region("actions")
+                    .primary((actor, _) -> run(actor, () -> clearPreview(actor.getUniqueId())));
+            action(menu, player, "spatial", Message.VEHICLE_MODEL_SPATIAL, actor -> startSpatial(actor, Workspace.INSTANCE));
+            action(menu, player, "front", Message.VEHICLE_MODEL_FRONT, _ -> navigate(context, view, Facing.INSTANCE));
+            action(menu, player, "discard", Message.VEHICLE_MODEL_DISCARD, this::discard);
+        } else if (state == Utilities.INSTANCE) {
+            menu.information("summary", text(player, Message.VEHICLE_MODEL_TOOLS)).region("summary");
+            action(menu, player, "anchor", Message.VEHICLE_MODEL_ANCHOR, this::anchor);
+            action(menu, player, "pick", Message.VEHICLE_MODEL_PICK, actor -> armLook(actor, VehicleEditorPlacement.Target.PICK));
+            action(menu, player, "center-here", Message.VEHICLE_MODEL_CENTER_HERE, actor -> mutate(actor, next -> next.set("center-of-mass", VehicleEditorGeometry.coordinates(here(actor)))));
+            action(menu, player, "center-look", Message.VEHICLE_MODEL_CENTER_LOOK, actor -> armLook(actor, VehicleEditorPlacement.Target.CENTER));
+            action(menu, player, "check", Message.VEHICLE_MODEL_CHECK, actor -> { draft(actor).validate(); result(actor, language.t(actor, Message.VEHICLE_MODEL_CHECKED)); });
+            action(menu, player, "snap", snapping.contains(player.getUniqueId()) ? Message.VEHICLE_MODEL_SNAP_ON : Message.VEHICLE_MODEL_SNAP_OFF, this::snap);
+            action(menu, player, "center", Message.VEHICLE_MODEL_CENTER, _ -> navigate(context, view, Center.INSTANCE));
+            action(menu, player, "front", Message.VEHICLE_MODEL_FRONT, _ -> navigate(context, view, Facing.INSTANCE));
+        } else if (state == Facing.INSTANCE) {
+            menu.information("summary", text(player, Message.VEHICLE_MODEL_FRONT_HINT)).region("summary");
+            action(menu, player, "spatial", Message.VEHICLE_MODEL_SPATIAL, actor -> startSpatial(actor, Facing.INSTANCE));
+            long revision = draft.revision();
+            for (String direction : List.of("positive-x", "negative-x", "back", "look"))
+                menu.control("front:" + direction, language.text(player, Message.VEHICLE_MODEL_FRONT_CHOICE, NamedTextColor.AQUA, direction))
+                        .region("actions").primary((actor, _) -> run(actor, () -> {
+                            requireCurrent(actor, draft, revision);
+                            if (direction.equals("look")) armLook(actor, VehicleEditorPlacement.Target.FRONT);
+                            else front(actor, switch (direction) { case "forward" -> 0; case "positive-x" -> 3; case "negative-x" -> 1; default -> 2; });
+                        }));
+            historyAction(menu, player, "undo", Message.VEHICLE_MODEL_UNDO, draft.canUndo(), "navigation");
+            historyAction(menu, player, "redo", Message.VEHICLE_MODEL_REDO, draft.canRedo(), "navigation");
+        } else if (state == Center.INSTANCE) {
+            reading = centerMenu(menu, player, draft, view, next -> read(context, view, next));
+        } else if (state == Kinds.INSTANCE) {
+            menu.information("summary", fieldLabel(player, "kind")).region("summary");
+            long revision = draft.revision();
+            for (var kind : VehicleDefinition.Kind.values()) menu.control("kind:" + kind,
+                    language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, kind.name())).region("items")
+                    .selected(kind.name().equals(draft.kind())).primary((actor, _) -> run(actor, () -> {
+                        requireCurrent(actor, draft, revision);
+                        draft.set("kind", kind.name());
+                        changed(actor);
+                    }));
+        } else if (state instanceof Properties properties) {
+            if (properties.index() >= draft.count("parts")) { missingSelection(menu, player); primary = VehicleEditorComposition.Primary.SUMMARY; }
+            else {
+                menu.information("summary", text(player, Message.VEHICLE_MODEL_OPTIONS).append(Component.text(" · " + properties.index()))).region("summary");
+                var part = draft.parts().get(properties.index());
+                long revision = draft.revision();
+                for (var property : VehicleEditorProperty.values()) if (property != VehicleEditorProperty.ANIMATION && property.applies(part.kind())) {
+                    String value = property.value(part);
+                    Component valueLabel = property.choices().isEmpty() ? Component.text(value)
+                            : language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, property.choiceKey(value));
+                    menu.control("property:" + property, fieldLabel(player, property.key()).append(Component.text(" · ")).append(valueLabel))
+                            .region("items").primary((actor, _) -> run(actor, () -> {
+                                requireCurrent(actor, draft, revision);
+                                if (!property.choices().isEmpty()) navigate(context, view, new Choices(properties.target(), property));
+                                else propertyForm(actor, draft, properties.index(), property);
+                            }));
+                }
+            }
+        } else if (state instanceof Choices choices) {
+            if (choices.index() >= draft.count("parts") || !choices.property().applies(draft.parts().get(choices.index()).kind())) {
+                missingSelection(menu, player); primary = VehicleEditorComposition.Primary.SUMMARY;
+            }
+            else {
+                menu.information("summary", fieldLabel(player, choices.property().key()).append(Component.text(" · " + choices.index()))).region("summary");
+                long revision = draft.revision();
+                for (String value : choices.property().choices()) menu.control("choice:" + value,
+                        language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, choices.property().choiceKey(value))).region("items")
+                        .selected(value.equals(choices.property().value(draft.parts().get(choices.index())))).primary((actor, _) -> run(actor, () -> {
+                            requireCurrent(actor, draft, revision);
+                            choices.property().apply(draft, choices.index(), value);
+                            changed(actor);
+                        }));
+            }
+        } else if (state instanceof Position position) {
+            if (position.index() >= draft.count(position.section())) {
+                missingSelection(menu, player);
+                primary = VehicleEditorComposition.Primary.SUMMARY;
+            } else reading = positionMenu(menu, player, draft, position, view, next -> read(context, view, next));
+        } else if (state instanceof Transform transform) {
+            if (transform.index() >= draft.count(transform.section())) {
+                missingSelection(menu, player);
+                primary = VehicleEditorComposition.Primary.SUMMARY;
+            } else reading = transformMenu(menu, player, draft, transform, view, next -> read(context, view, next));
+        } else if (state instanceof Inspector inspector) {
+            String section = inspector.section();
+            int index = inspector.index();
+            if (index >= draft.count(section)) {
+                missingSelection(menu, player);
+                primary = VehicleEditorComposition.Primary.SUMMARY;
+            } else {
+                menu.information("summary", componentLabel(player, draft, section, index)).region("summary");
                 componentMenu(menu, player, draft, section, index);
             }
         } else {
-            String section = state.view();
+            String section = state instanceof Parameters || state instanceof Settings ? "parameters" : ((Components) state).section().key();
             menu.information("summary", text(player, sectionMessage(section))).region("summary");
             if (section.equals("parameters")) {
-                List<String> fields = new ArrayList<>(VehicleModelDraft.SCALARS);
-                fields.addAll(VehicleModelDraft.VECTORS);
-                fields.addAll(List.of("kind", "engine.ratios"));
-                fields.sort(String::compareTo);
-                FloatingMenuPage page = new FloatingMenuPage(state.page(), fields.size(), 6);
-                for (String field : page.slice(fields)) menu.item(field, Material.PAPER, Component.text(field + " · " + fieldValue(draft, field))).region("items")
-                        .primary((actor, handle) -> prompt(actor, Message.VEHICLE_MODEL_PARAMETERS, field, fieldValue(draft, field), "set " + field + " "));
-                menu.pagination("pages", page, next -> context.setState(new State(section, next, null)));
-            } else {
-                List<Integer> indices = java.util.stream.IntStream.range(0, draft.count(section)).boxed().toList();
-                FloatingMenuPage page = new FloatingMenuPage(state.page(), indices.size(), 6);
-                for (int index : page.slice(indices)) menu.item("component:" + index, Material.PAPER, Component.text(draft.describe(section, index))).region("items")
-                        .primary((actor, handle) -> context.setState(new State("component", index, section)));
-                menu.pagination("pages", page, next -> context.setState(new State(section, next, null)));
-                action(menu, player, "add", Material.EMERALD, Message.VEHICLE_MODEL_ADD, actor -> add(actor, section));
-                if (section.equals("seats")) {
-                    commandAction(menu, player, "driver-here", Material.MINECART, Message.VEHICLE_MODEL_DRIVER_HERE, "seat add here driver");
-                    commandAction(menu, player, "passenger-here", Material.OAK_BOAT, Message.VEHICLE_MODEL_PASSENGER_HERE, "seat add here passenger");
+                var parameters = new ArrayList<VehicleEditorList.Item>();
+                long revision = draft.revision();
+                if (state instanceof Parameters) {
+                    for (var group : VehicleEditorParameters.groups(draft.kind())) parameters.add(new VehicleEditorList.Item(UiKey.item(group.key()),
+                            language.text(player, Message.VEHICLE_MODEL_PARAMETER_GROUP, NamedTextColor.AQUA, VehicleEditorParameters.labelKey(group, draft.kind())),
+                            (_, _) -> navigate(context, view, new Settings(group, 0))));
+                    reading = VehicleEditorList.content(parameters, text(player, Message.MENU_SEARCH_EMPTY), ((Parameters) state).anchor(),
+                            next -> navigate(context, view, new Parameters(next)));
+                } else {
+                    Settings settings = (Settings) state;
+                    menu.information("group-help", language.text(player, Message.VEHICLE_MODEL_PARAMETER_HELP, NamedTextColor.AQUA, VehicleEditorParameters.labelKey(settings.group(), draft.kind()))).region("summary");
+                    for (String field : VehicleEditorParameters.visibleFields(settings.group(), draft.kind())) {
+                        String value = VehicleModelDraft.VECTORS.contains(field) ? VehicleEditorGeometry.display(draft.vectorField(field)) : VehicleEditorParameters.display(draft, field);
+                        Component valueLabel = field.equals("kind") ? language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, value) : Component.text(value);
+                        parameters.add(new VehicleEditorList.Item(UiKey.item(field), fieldLabel(player, field).append(Component.text(" · ")).append(valueLabel),
+                                (actor, _) -> run(actor, () -> {
+                                    requireCurrent(actor, draft, revision);
+                                    if (field.equals("center-of-mass")) navigate(context, view, Center.INSTANCE);
+                                    else if (field.equals("kind")) navigate(context, view, Kinds.INSTANCE);
+                                    else parameterForm(actor, draft, field);
+                                })));
+                    }
+                    reading = VehicleEditorList.content(parameters, text(player, Message.MENU_SEARCH_EMPTY), settings.anchor(),
+                            next -> navigate(context, view, new Settings(settings.group(), next)));
                 }
-                if (section.equals("supports")) commandAction(menu, player, "add-here", Material.COMPASS, Message.VEHICLE_MODEL_ADD_HERE, "support add here");
+            } else {
+                var components = new ArrayList<VehicleEditorList.Item>();
+                long listRevision = draft.revision();
+                for (int index = 0; index < draft.count(section); index++) {
+                    int target = index;
+                    components.add(new VehicleEditorList.Item(UiKey.item("component:" + index), componentLabel(player, draft, section, index),
+                            (actor, _) -> run(actor, () -> {
+                                requireCurrent(actor, draft, listRevision);
+                                navigate(context, view, new Inspector(new ComponentRef(Section.named(section), target)));
+                            })));
+                }
+                reading = VehicleEditorList.content(components, text(player, Message.MENU_SEARCH_EMPTY), ((Components) state).anchor(),
+                        next -> navigate(context, view, new Components(Section.named(section), next)));
+                if (!section.equals("parts")) action(menu, player, "add", Message.VEHICLE_MODEL_ADD, actor -> add(actor, section));
+                if (section.equals("seats")) {
+                    action(menu, player, "driver-here", Message.VEHICLE_MODEL_DRIVER_HERE, actor -> mutate(actor, next -> next.seat("add", -1, here(actor), true)));
+                    action(menu, player, "passenger-here", Message.VEHICLE_MODEL_PASSENGER_HERE, actor -> mutate(actor, next -> next.seat("add", -1, here(actor), false)));
+                }
+                if (section.equals("supports")) action(menu, player, "add-here", Message.VEHICLE_MODEL_ADD_HERE, actor -> mutate(actor, next -> next.support("add", -1, here(actor))));
                 if (section.equals("parts")) {
-                    commandAction(menu, player, "selected", Material.GLASS, Message.VEHICLE_MODEL_SELECTED, "part add selected");
-                    action(menu, player, "group", Material.CHEST, Message.VEHICLE_MODEL_GROUP,
-                            actor -> prompt(actor, Message.VEHICLE_MODEL_GROUP, "[group-uuid]", "", "part add group "));
+                    action(menu, player, "add-block", Message.VEHICLE_MODEL_BLOCK, actor -> payloadForm(actor, -1, VehicleDefinition.PartKind.BLOCK));
+                    action(menu, player, "add-item", Message.VEHICLE_MODEL_ITEM, actor -> mutate(actor, next -> next.addParts(List.of(VehicleModelDraft.part(VehicleDefinition.PartKind.ITEM, itemPayload(actor))))));
+                    action(menu, player, "add-text", Message.VEHICLE_MODEL_TEXT, actor -> payloadForm(actor, -1, VehicleDefinition.PartKind.TEXT));
+                    action(menu, player, "selected", Message.VEHICLE_MODEL_SELECTED, actor -> mutate(actor, next -> next.addParts(module.selectedParts(actor, sourceOrigin(actor)))));
+                    action(menu, player, "group", Message.VEHICLE_MODEL_GROUP, actor -> mutate(actor, next -> next.addParts(module.groupParts(actor, null, sourceOrigin(actor)))));
                 }
                 if (section.equals("colliders")) {
-                    commandAction(menu, player, "auto", Material.IRON_BLOCK, Message.VEHICLE_MODEL_AUTO, "collider auto");
-                    commandAction(menu, player, "corner1", Material.COMPASS, Message.VEHICLE_MODEL_CORNER_FIRST, "collider corner1");
-                    action(menu, player, "corner1-look", Material.SPYGLASS, Message.VEHICLE_MODEL_CORNER_FIRST_LOOK, actor -> armLook(actor, "collider", "corner1", "look"));
+                    action(menu, player, "auto", Message.VEHICLE_MODEL_AUTO, actor -> mutate(actor, next -> next.collider("auto", -1, null)));
+                    action(menu, player, "corner1", Message.VEHICLE_MODEL_CORNER_FIRST, actor -> corner(actor, false, false));
+                    action(menu, player, "corner1-look", Message.VEHICLE_MODEL_CORNER_FIRST_LOOK, actor -> armLook(actor, VehicleEditorPlacement.Target.CORNER_FIRST));
                     if (corners.containsKey(player.getUniqueId())) {
-                        commandAction(menu, player, "corner2", Material.IRON_BLOCK, Message.VEHICLE_MODEL_CORNER_SECOND, "collider corner2");
-                        action(menu, player, "corner2-look", Material.SPYGLASS, Message.VEHICLE_MODEL_CORNER_SECOND_LOOK, actor -> armLook(actor, "collider", "corner2", "look"));
-                        commandAction(menu, player, "cancel-corner", Material.BARRIER, Message.VEHICLE_MODEL_CORNER_CANCEL, "collider cancel");
+                        action(menu, player, "corner2", Message.VEHICLE_MODEL_CORNER_SECOND, actor -> corner(actor, true, false));
+                        action(menu, player, "corner2-look", Message.VEHICLE_MODEL_CORNER_SECOND_LOOK, actor -> armLook(actor, VehicleEditorPlacement.Target.CORNER_SECOND));
+                        action(menu, player, "cancel-corner", Message.VEHICLE_MODEL_CORNER_CANCEL, actor -> { corners.remove(actor.getUniqueId()); redraw(actor); });
                     }
                 }
             }
         }
-        menu.navigation("back", text(player, Message.BACK)).region("navigation").primary((actor, handle) -> {
-            if (state.view().startsWith("position") || Set.of("rotate", "scale", "size").contains(state.view()))
-                context.setState(new State("component", state.page(), state.id()));
-            else context.setState(new State(state.view().equals("component") ? state.id()
-                    : state.view().equals("library") || state.view().equals("model") || state.view().equals("editor") ? "library" : "editor", 0, null));
-        });
+        if (draft != null && state instanceof ObjectView object && object.index() < draft.count(object.section())
+                && player.hasPermission("mik.vehicle.admin") && !closed) {
+            long revision = draft.revision();
+            VehicleEditorComposition.tools(menu, object, message -> text(player, message), (actor, tool) -> run(actor, () -> {
+                requireCurrent(actor, draft, revision);
+                navigate(context, view, tool);
+            }));
+            action(menu, player, "spatial", Message.VEHICLE_MODEL_SPATIAL, actor -> {
+                requireCurrent(actor, draft, revision);
+                startSpatial(actor, object instanceof Inspector || object instanceof Properties || object instanceof Choices
+                        ? new Position(object.target(), false) : object);
+            });
+        }
+        if (!(displayRoute instanceof Library)) menu.navigation("back", text(player, Message.BACK)).region("navigation")
+                .primary((_, _) -> navigate(context, view, displayRoute.back()));
+        menu.content(VehicleEditorComposition.create(new VehicleEditorView(displayRoute, view.itemPage(), view.actionPage()),
+                reading, primary, next -> read(context, view, next)));
         return finishMenu(menu, text(player, Message.CLOSE));
     }
 
-    static FloatingMenuDefinition.Builder createMenu(Component title) {
-        return FloatingMenuDefinition.screen("vehicle-models", title)
-                .layout(FloatingMenuLayouts.menu(FloatingMenuLayouts.information("summary"), FloatingMenuLayouts.actions("items", 2),
-                        FloatingMenuLayouts.navigation("pages"), FloatingMenuLayouts.actions("actions", 3), FloatingMenuLayouts.navigation("navigation")));
+    private double spatialStep(Player player, VehicleEditorRoute route) {
+        if (route instanceof Transform transform) return transformSteps
+                .getOrDefault(player.getUniqueId(), Map.of()).getOrDefault(transform.mode(), VehicleEditorTransform.defaultStep(transform.mode()));
+        return steps.getOrDefault(player.getUniqueId(), 0.1);
     }
 
-    static FloatingMenuDefinition finishMenu(FloatingMenuDefinition.Builder menu, Component closeLabel) {
+    private void updateScene(Player player, VehicleModelDraft draft) {
+        VehicleEditorRoute route = spatial.getOrDefault(player.getUniqueId(),
+                screen.state(player).map(VehicleEditorView::route).orElse(Workspace.INSTANCE));
+        previews.scene(player, spatial.containsKey(player.getUniqueId())
+                ? VehicleEditorScene.stage(draft, route, spatialStep(player, route), stages.get(player.getUniqueId()).scale())
+                : VehicleEditorScene.create(draft, route, false, spatialStep(player, route)));
+    }
+
+    private void startSpatial(Player player, VehicleEditorRoute route) {
+        placements.remove(player.getUniqueId());
+        spatial.put(player.getUniqueId(), route);
+        preview(player, draft(player), false);
+        FloatingMenus.current(player).ifPresent(handle -> handle.close());
+        placementClicks.put(player.getUniqueId(), ticks + 6);
+        result(player, language.t(player, Message.VEHICLE_MODEL_SPATIAL_HINT));
+    }
+
+    private boolean spatialClick(Player player) {
+        UUID id = player.getUniqueId();
+        if (!spatial.containsKey(id)) return false;
+        if (hasForeground(player)) return false;
+        placementClicks.put(id, ticks + 1);
+        run(player, () -> {
+            if (player.isSneaking()) {
+                VehicleEditorRoute route = spatial.remove(id);
+                screen.open(player, VehicleEditorView.open(route));
+                return;
+            }
+            var preview = previews.get(id);
+            if (preview == null) { spatial.remove(id); return; }
+            var draft = draft(player);
+            var handle = pointedHandle(player, preview);
+            if (handle != null) {
+                switch (handle.action()) {
+                    case VehicleEditorScene.Select selection -> {
+                        VehicleEditorRoute selected = selection.route();
+                        spatial.put(id, selected);
+                        updateScene(player, draft);
+                    }
+                    case VehicleEditorScene.Navigate navigation -> {
+                        if (navigation.route() instanceof Inspector || navigation.route() instanceof Properties || navigation.route() instanceof Choices)
+                            screen.open(player, VehicleEditorView.open(navigation.route()));
+                        else { spatial.put(id, navigation.route()); updateScene(player, draft); }
+                    }
+                    case VehicleEditorScene.Tool tool -> {
+                        switch (tool) {
+                            case MENU -> screen.open(player, VehicleEditorView.open(spatial.get(id)));
+                            case SAVE -> save(player, true);
+                            case UNDO -> history(player, false);
+                            case REDO -> history(player, true);
+                            case FRAME -> anchor(player);
+                            case ZOOM_IN, ZOOM_OUT -> {
+                                double next = Math.clamp(stages.get(id).scale() * (tool == VehicleEditorScene.Tool.ZOOM_IN ? 1.25 : 0.8), 0.02, 2);
+                                stages.put(id, stages.get(id).withScale(draft, next));
+                                preview(player, draft, false);
+                            }
+                        }
+                    }
+                    case VehicleEditorScene.Face face -> front(player, face.turns());
+                    case VehicleEditorScene.Adjust adjust -> {
+                        VehicleEditorRoute route = spatial.get(id);
+                        double step = spatialStep(player, route);
+                        if (route instanceof Transform transform) VehicleEditorTransform.adjust(draft, transform.mode(), transform.index(), adjust.axis(), adjust.direction(), step);
+                        else {
+                            VehicleVector offset = new VehicleVector(adjust.axis() == 0 ? step * adjust.direction() : 0,
+                                    adjust.axis() == 1 ? step * adjust.direction() : 0, adjust.axis() == 2 ? step * adjust.direction() : 0);
+                            if (route == Center.INSTANCE) draft.set("center-of-mass", VehicleEditorGeometry.coordinates(draft.vectorField("center-of-mass").add(offset)));
+                            else if (route instanceof ObjectView object) draft.position(object.section(), object.index(), object.exit(),
+                                    draft.position(object.section(), object.index(), object.exit()).add(offset));
+                        }
+                        changed(player);
+                    }
+                }
+            } else {
+                Aim aim = aim(player);
+                int index = aim == null || aim.display() == null ? -1 : preview.displays().indexOf(aim.display());
+                if (index >= 0) {
+                    var selected = new Position(new ComponentRef(Section.PARTS, index), false);
+                    spatial.put(id, selected);
+                    updateScene(player, draft);
+                }
+            }
+        });
+        return true;
+    }
+
+    boolean scroll(Player player, int direction) {
+        var route = spatial.get(player.getUniqueId());
+        if (route == null || hasForeground(player) || !(route instanceof ObjectView || route == Center.INSTANCE)) return false;
+        run(player, () -> {
+            double current = spatialStep(player, route);
+            double next;
+            if (route instanceof Transform transform) {
+                next = VehicleEditorTransform.nextStep(transform.mode(), current, direction);
+                transformSteps.computeIfAbsent(player.getUniqueId(), _ -> new java.util.EnumMap<>(VehicleEditorTransform.Mode.class)).put(transform.mode(), next);
+            } else {
+                var choices = List.of(0.1, 0.25, 1.0);
+                next = choices.get(Math.floorMod(choices.indexOf(current) + (direction < 0 ? -1 : 1), choices.size()));
+                steps.put(player.getUniqueId(), next);
+            }
+            updateScene(player, draft(player));
+            player.sendActionBar(text(player, Message.VEHICLE_MODEL_TRANSFORM_STEP).append(Component.text(" · " + next)));
+        });
+        return true;
+    }
+
+    private static boolean hasForeground(Player player) {
+        return FloatingMenus.current(player).filter(handle -> handle.state() != FloatingMenuState.CLOSING && handle.state() != FloatingMenuState.CLOSED).isPresent();
+    }
+
+    private VehicleEditorScene.Handle pointedHandle(Player player, VehicleEditorPreview.Preview preview) {
+        Location eye = player.getEyeLocation();
+        if (!eye.getWorld().equals(preview.origin().getWorld()) || eye.distanceSquared(preview.origin()) > 1024) return null;
+        var block = player.getWorld().rayTraceBlocks(eye, eye.getDirection(), 32, FluidCollisionMode.NEVER, true);
+        double maximum = block == null ? 32 : block.getHitPosition().distance(eye.toVector());
+        var direction = eye.getDirection();
+        return VehicleEditorScene.pick(preview.handles(), VehicleEditorGeometry.local(preview.origin(), eye).multiply(1 / preview.scale()),
+                new VehicleVector(direction.getX(), direction.getY(), direction.getZ()).rotate(VehicleModel.orientation(preview.origin().getYaw()).conjugate()), maximum / preview.scale(), preview.scale());
+    }
+
+    private void navigate(FloatingMenuContext<VehicleEditorView> context, VehicleEditorView source, VehicleEditorRoute route) {
+        read(context, source, VehicleEditorView.open(route));
+    }
+
+    private void read(FloatingMenuContext<VehicleEditorView> context, VehicleEditorView source, VehicleEditorView next) {
+        if (!closed && context.player().hasPermission("mik.vehicle.admin")
+                && screen.flow(context.player()).filter(flow -> flow.state() == source
+                        && flow.handle().state() != FloatingMenuState.CLOSING && flow.handle().state() != FloatingMenuState.CLOSED).isPresent())
+            context.setState(next);
+    }
+
+    static MenuScene.Builder createMenu(Component title, VehicleEditorRoute route) {
+        var menu = MenuScene.screen("vehicle-models").stableAnchor()
+                .content(VehicleEditorComposition.create(route));
+        menu.information("heading", title).region("heading");
+        return menu;
+    }
+
+    static MenuScene finishMenu(MenuScene.Builder menu, Component closeLabel) {
         menu.dismiss(closeLabel).region("navigation");
         return menu.build();
     }
 
-    private void componentMenu(FloatingMenuDefinition.Builder menu, Player player, VehicleModelDraft draft, String section, int index) {
+    private void missingSelection(MenuScene.Builder menu, Player player) {
+        menu.information("missing", text(player, Message.VEHICLE_MODEL_SELECTION_UNAVAILABLE)).region("summary");
+    }
+
+    private void componentMenu(MenuScene.Builder menu, Player player, VehicleModelDraft draft, String section, int index) {
         long revision = draft.revision();
-        action(menu, player, "adjust-position", Material.COMPASS, Message.VEHICLE_MODEL_POSITION,
-                actor -> { requireCurrent(actor, draft, revision); screen.open(actor, new State("position", index, section)); });
-        if (section.equals("seats")) action(menu, player, "adjust-exit", Material.OAK_DOOR, Message.VEHICLE_MODEL_EXIT,
-                actor -> { requireCurrent(actor, draft, revision); screen.open(actor, new State("position-exit", index, section)); });
-        if (section.equals("colliders")) action(menu, player, "adjust-size", Material.IRON_BLOCK, Message.VEHICLE_MODEL_SIZE,
-                actor -> { requireCurrent(actor, draft, revision); screen.open(actor, new State("size", index, section)); });
-        action(menu, player, "copy", Material.PAPER, Message.VEHICLE_MODEL_COPY, actor -> {
+        action(menu, player, "copy", Message.VEHICLE_MODEL_COPY, actor -> {
             requireCurrent(actor, draft, revision);
             executeCopy(actor, section, index);
         });
         List<String> operations = switch (section) {
-            case "parts" -> List.of("rotate", "scale", "animation", "block", "item", "text", "option", "remove");
+            case "parts" -> List.of("animation", "block", "item", "text", "option", "remove");
             case "seats" -> List.of("driver", "remove");
             case "colliders" -> List.of("remove");
             default -> List.of("remove");
         };
-        for (String operation : operations) menu.item(operation, operation.equals("remove") ? Material.BARRIER : Material.PAPER,
-                text(player, operationMessage(operation))).region("items").primary((actor, handle) -> run(actor, () -> {
+        for (String operation : operations) menu.control(operation,
+                text(player, operationMessage(operation))).region("items").primary((actor, _) -> run(actor, () -> {
                     requireCurrent(actor, draft, revision);
-                    String command = singular(section) + " " + operation + " " + index;
-                    if (Set.of("rotate", "scale").contains(operation)) {
-                        screen.open(actor, new State(operation, index, section));
-                    } else if (operation.equals("remove")) {
-                        removeComponent(actor, draft, section, index);
-                    } else if (Set.of("driver", "item").contains(operation)) {
-                        execute(actor, command);
-                    }
-                    else {
-                        String initial = "";
-                        String hint = operation;
-                        if (Set.of("position", "exit", "set").contains(operation)) {
-                            String path = section + "." + index;
-                            if (section.equals("parts")) {
-                                var matrix = draft.parts().get(index).transform();
-                                initial = matrix.m30() + " " + matrix.m31() + " " + matrix.m32();
-                            } else if (section.equals("colliders")) initial = fieldValue(draft, path + ".center") + " " + fieldValue(draft, path + ".half-size");
-                            else initial = fieldValue(draft, path + (section.equals("seats") ? "." + operation : ""));
-                            hint = section.equals("colliders") ? "x y z halfX halfY halfZ" : "x y z (local coordinates)";
-                        } else if (operation.equals("animation")) { initial = draft.parts().get(index).animation().name(); hint = "BODY | WHEEL | FRONT_WHEEL | PROPELLER | RUDDER"; }
-                        else if (operation.equals("block")) {
-                            var part = draft.parts().get(index);
-                            initial = part.kind() == VehicleDefinition.PartKind.BLOCK ? part.payload() : "minecraft:stone";
-                            hint = "block data";
-                        }
-                        else if (operation.equals("text")) {
-                            var part = draft.parts().get(index);
-                            if (part.kind() == VehicleDefinition.PartKind.TEXT) initial = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
-                                    .serialize(GsonComponentSerializer.gson().deserialize(part.payload()));
-                            hint = "plain text";
-                        }
-                        else if (operation.equals("option")) hint = "billboard|item-transform|alignment|block-light|sky-light|background|line-width|opacity|shadow|see-through <value>";
-                        prompt(actor, sectionMessage(section), hint, initial, command + " ");
+                    switch (operation) {
+                        case "remove" -> removeComponent(actor, draft, section, index);
+                        case "animation" -> screen.open(actor, VehicleEditorView.open(new Choices(new ComponentRef(Section.PARTS, index), VehicleEditorProperty.ANIMATION)));
+                        case "option" -> screen.open(actor, VehicleEditorView.open(new Properties(new ComponentRef(Section.PARTS, index))));
+                        case "driver" -> mutate(actor, next -> next.seat("driver", index, null, true));
+                        case "item" -> mutate(actor, next -> next.changePart(index, "item", itemPayload(actor)));
+                        case "block" -> payloadForm(actor, index, VehicleDefinition.PartKind.BLOCK);
+                        case "text" -> payloadForm(actor, index, VehicleDefinition.PartKind.TEXT);
+                        default -> throw new IllegalStateException(operation);
                     }
                 }));
     }
 
     private void executeCopy(Player player, String section, int index) {
         run(player, () -> {
-            execute(player, singular(section) + " copy " + index);
-            screen.open(player, focused.get(player.getUniqueId()));
+            int target = draft(player).copy(section, index);
+            var route = new Position(new ComponentRef(Section.named(section), target), false);
+            if (spatial.containsKey(player.getUniqueId())) spatial.put(player.getUniqueId(), route);
+            changed(player);
+            screen.open(player, VehicleEditorView.open(route));
         });
     }
 
@@ -601,71 +695,77 @@ final class VehicleModelEditor {
                 text(player, Message.VEHICLE_MODEL_REMOVE), text(player, Message.CLOSE), actor -> run(actor, () -> {
                     requireCurrent(actor, draft, revision);
                     requireSession(actor, session, expectedGeneration);
-                    execute(actor, singular(section) + " remove " + index);
-                    screen.open(actor, new State(section, 0, null));
+                    mutate(actor, next -> next.remove(section, index));
+                    screen.open(actor, VehicleEditorView.open(new Components(Section.named(section), index)));
                 }));
     }
 
-    private void transformMenu(FloatingMenuDefinition.Builder menu, Player player, VehicleModelDraft draft, State state) {
-        focused.put(player.getUniqueId(), state);
-        var mode = VehicleEditorTransform.Mode.valueOf(state.view().toUpperCase(Locale.ROOT));
-        var preferences = transformSteps.computeIfAbsent(player.getUniqueId(), ignored -> new java.util.EnumMap<>(VehicleEditorTransform.Mode.class));
+    private UiNode transformMenu(MenuScene.Builder menu, Player player, VehicleModelDraft draft, Transform state,
+                                 VehicleEditorView view, Consumer<VehicleEditorView> read) {
+        var mode = state.mode();
+        var preferences = transformSteps.computeIfAbsent(player.getUniqueId(), _ -> new java.util.EnumMap<>(VehicleEditorTransform.Mode.class));
         double step = preferences.getOrDefault(mode, VehicleEditorTransform.defaultStep(mode));
-        VehicleVector value = VehicleEditorTransform.value(draft, mode, state.page());
-        Message title = operationMessage(state.view());
+        VehicleVector value = VehicleEditorTransform.value(draft, mode, state.index());
+        Message title = operationMessage(state.mode().name().toLowerCase(Locale.ROOT));
         Message hint = switch (mode) {
             case ROTATE -> Message.VEHICLE_MODEL_ROTATE_HINT;
             case SCALE -> Message.VEHICLE_MODEL_SCALE_HINT;
             case SIZE -> Message.VEHICLE_MODEL_SIZE_HINT;
         };
-        menu.information("summary", text(player, title).append(Component.text(" · " + state.page()
+        menu.information("summary", text(player, title).append(Component.text(" · " + state.index()
                         + (mode == VehicleEditorTransform.Mode.ROTATE ? "" : " · " + VehicleEditorGeometry.display(value))))
                 .append(Component.newline()).append(text(player, hint))).region("summary");
         long revision = draft.revision();
+        var axes = new ArrayList<UiElement>();
         for (int axis = 0; axis < 3; axis++) for (int direction : List.of(-1, 1)) {
             int selectedAxis = axis;
             String operator = mode == VehicleEditorTransform.Mode.SCALE ? direction < 0 ? " ÷ " : " × " : direction < 0 ? " − " : " + ";
             String label = List.of("X", "Y", "Z").get(axis) + operator + step + (mode == VehicleEditorTransform.Mode.ROTATE ? "°" : "");
-            menu.item("adjust:" + axis + ":" + direction, Material.ARROW, Component.text(label)).region("items")
-                    .primary((actor, handle) -> run(actor, () -> {
+            axes.add(Ui.button(Component.text(label)).key("adjust:" + axis + ":" + direction).singleLine()
+                    .primary((actor, _) -> run(actor, () -> {
                         requireCurrent(actor, draft, revision);
-                        VehicleEditorTransform.adjust(draft, mode, state.page(), selectedAxis, direction, step);
+                        VehicleEditorTransform.adjust(draft, mode, state.index(), selectedAxis, direction, step);
                         changed(actor);
-                    }));
+                    })).build());
         }
         if (mode == VehicleEditorTransform.Mode.SCALE) for (int direction : List.of(-1, 1))
-            menu.item("uniform:" + direction, Material.SLIME_BLOCK, language.text(player, Message.VEHICLE_MODEL_SCALE_ALL, NamedTextColor.AQUA,
-                    (direction < 0 ? "÷ " : "× ") + step)).region("actions").primary((actor, handle) -> run(actor, () -> {
+            menu.control("uniform:" + direction, language.text(player, Message.VEHICLE_MODEL_SCALE_ALL, NamedTextColor.AQUA,
+                    (direction < 0 ? "÷ " : "× ") + step)).region("actions").primary((actor, _) -> run(actor, () -> {
                         requireCurrent(actor, draft, revision);
-                        VehicleEditorTransform.scaleAll(draft, state.page(), direction, step);
+                        VehicleEditorTransform.scaleAll(draft, state.index(), direction, step);
                         changed(actor);
                     }));
-        menu.item("step", Material.REPEATER, text(player, Message.VEHICLE_MODEL_TRANSFORM_STEP).append(Component.text(" · " + step)))
-                .region("actions").primary((actor, handle) -> run(actor, () -> {
+        menu.control("step", text(player, Message.VEHICLE_MODEL_TRANSFORM_STEP).append(Component.text(" · " + step)))
+                .region("actions").primary((actor, _) -> run(actor, () -> {
                     requireCurrent(actor, draft, revision);
                     preferences.put(mode, VehicleEditorTransform.nextStep(mode, step));
                     redraw(actor);
                 }));
         String initial = mode == VehicleEditorTransform.Mode.ROTATE ? "0 0 0" : mode == VehicleEditorTransform.Mode.SCALE ? "1 1 1" : VehicleEditorGeometry.coordinates(value);
-        String prefix = singular(state.id()) + " " + state.view() + " " + state.page() + " ";
-        action(menu, player, "manual", Material.PAPER, Message.VEHICLE_MODEL_MANUAL, actor -> {
+        action(menu, player, "manual", Message.VEHICLE_MODEL_MANUAL, actor -> {
             requireCurrent(actor, draft, revision);
-            prompt(actor, title, language.t(actor, hint), initial, prefix);
+            VehicleVector vector = VehicleModelDraft.vector(initial);
+            editForm(actor, draft, text(actor, title), text(actor, hint), VehicleEditorForms.vector(language, actor, vector, ""), values -> next -> {
+                VehicleVector input = VehicleEditorForms.vector(values, "");
+                if (mode == VehicleEditorTransform.Mode.SIZE) next.size(state.index(), input);
+                else next.changePart(state.index(), mode.name().toLowerCase(Locale.ROOT), VehicleEditorGeometry.coordinates(input));
+            });
         });
         historyAction(menu, player, "undo", Message.VEHICLE_MODEL_UNDO, draft.canUndo(), "navigation");
         historyAction(menu, player, "redo", Message.VEHICLE_MODEL_REDO, draft.canRedo(), "navigation");
+        return VehicleEditorComposition.axes(axes, view, read);
     }
 
-    private void positionMenu(FloatingMenuDefinition.Builder menu, Player player, VehicleModelDraft draft, State state) {
-        focused.put(player.getUniqueId(), state);
-        boolean exit = state.view().equals("position-exit");
-        VehicleVector position = draft.position(state.id(), state.page(), exit);
+    private UiNode positionMenu(MenuScene.Builder menu, Player player, VehicleModelDraft draft, Position state,
+                                VehicleEditorView view, Consumer<VehicleEditorView> read) {
+        boolean exit = state.exit();
+        VehicleVector position = draft.position(state.section(), state.index(), exit);
         menu.information("summary", text(player, exit ? Message.VEHICLE_MODEL_EXIT : Message.VEHICLE_MODEL_POSITION)
-                .append(Component.text(" · " + state.page() + " · " + VehicleEditorGeometry.display(position)))
+                .append(Component.text(" · " + state.index() + " · " + VehicleEditorGeometry.display(position)))
                 .append(Component.newline()).append(text(player, Message.VEHICLE_MODEL_POSITION_HINT))).region("summary");
         double step = steps.getOrDefault(player.getUniqueId(), 0.1);
         long revision = draft.revision();
-        String operation = state.id().equals("supports") ? "set" : exit ? "exit" : "position";
+        var axes = new ArrayList<UiElement>();
         for (int axis = 0; axis < 3; axis++) for (int direction : List.of(-1, 1)) {
             VehicleVector offset = switch (axis) {
                 case 0 -> new VehicleVector(direction * step, 0, 0);
@@ -673,58 +773,69 @@ final class VehicleModelEditor {
                 default -> new VehicleVector(0, 0, direction * step);
             };
             String label = List.of("X", "Y", "Z").get(axis) + (direction < 0 ? " − " : " + ") + step;
-            menu.item("nudge:" + axis + ":" + direction, Material.ARROW, Component.text(label)).region("items")
-                    .primary((actor, handle) -> run(actor, () -> {
+            axes.add(Ui.button(Component.text(label)).key("nudge:" + axis + ":" + direction).singleLine()
+                    .primary((actor, _) -> run(actor, () -> {
                         requireCurrent(actor, draft, revision);
-                        draft.position(state.id(), state.page(), exit, position.add(offset));
+                        draft.position(state.section(), state.index(), exit, position.add(offset));
                         changed(actor);
-                    }));
+                    })).build());
         }
-        action(menu, player, "here", Material.COMPASS, Message.VEHICLE_MODEL_HERE, actor -> {
+        action(menu, player, "here", Message.VEHICLE_MODEL_HERE, actor -> {
             requireCurrent(actor, draft, revision);
-            draft.position(state.id(), state.page(), exit, here(actor));
+            draft.position(state.section(), state.index(), exit, here(actor));
             changed(actor);
         });
-        action(menu, player, "look", Material.SPYGLASS, Message.VEHICLE_MODEL_LOOK, actor -> {
+        action(menu, player, "look", Message.VEHICLE_MODEL_LOOK, actor -> {
             requireCurrent(actor, draft, revision);
-            armLook(actor, singular(state.id()), operation, String.valueOf(state.page()), "look");
+            armLook(actor, new VehicleEditorPlacement.Position(state));
         });
-        commandAction(menu, player, "snap", Material.REPEATER, snapping.contains(player.getUniqueId()) ? Message.VEHICLE_MODEL_SNAP_ON : Message.VEHICLE_MODEL_SNAP_OFF, "snap");
-        menu.item("step", Material.REPEATER, text(player, Message.VEHICLE_MODEL_STEP).append(Component.text(" · " + step)))
-                .region("actions").primary((actor, handle) -> run(actor, () -> {
+        action(menu, player, "snap", snapping.contains(player.getUniqueId()) ? Message.VEHICLE_MODEL_SNAP_ON : Message.VEHICLE_MODEL_SNAP_OFF, this::snap);
+        menu.control("step", text(player, Message.VEHICLE_MODEL_STEP).append(Component.text(" · " + step)))
+                .region("actions").primary((actor, _) -> run(actor, () -> {
                     requireCurrent(actor, draft, revision);
                     steps.put(actor.getUniqueId(), step == 0.1 ? 0.25 : step == 0.25 ? 1.0 : 0.1);
                     redraw(actor);
                 }));
-        action(menu, player, "manual", Material.PAPER, Message.VEHICLE_MODEL_MANUAL, actor -> prompt(actor,
-                Message.VEHICLE_MODEL_POSITION, "X Y Z", VehicleEditorGeometry.coordinates(position),
-                singular(state.id()) + " " + operation + " " + state.page() + " "));
+        action(menu, player, "manual", Message.VEHICLE_MODEL_MANUAL, actor -> {
+            requireCurrent(actor, draft, revision);
+            editForm(actor, draft, text(actor, Message.VEHICLE_MODEL_POSITION), text(actor, Message.VEHICLE_MODEL_POSITION_HINT),
+                    VehicleEditorForms.vector(language, actor, position, ""), values -> next -> next.position(state.section(), state.index(), exit, VehicleEditorForms.vector(values, "")));
+        });
+        menu.control("offset", language.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "offset")).region("actions")
+                .primary((actor, _) -> run(actor, () -> {
+                    requireCurrent(actor, draft, revision);
+                    editForm(actor, draft, language.text(actor, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "offset"), text(actor, Message.VEHICLE_MODEL_POSITION_HINT),
+                            VehicleEditorForms.vector(language, actor, VehicleVector.ZERO, ""), values -> next -> next.position(state.section(), state.index(), exit,
+                                    position.add(VehicleEditorForms.vector(values, ""))));
+                }));
         historyAction(menu, player, "undo", Message.VEHICLE_MODEL_UNDO, draft.canUndo(), "navigation");
         historyAction(menu, player, "redo", Message.VEHICLE_MODEL_REDO, draft.canRedo(), "navigation");
+        return VehicleEditorComposition.axes(axes, view, read);
     }
 
     private void changed(Player player) {
+        placements.remove(player.getUniqueId());
         refreshPreview(player);
         redraw(player);
-        result(player, draft(player).id() + " · " + language.t(player, draft(player).dirty() ? Message.VEHICLE_MODEL_DRAFT : Message.VEHICLE_MODEL_SAVED));
+        if (!spatial.containsKey(player.getUniqueId())) result(player, draft(player).id() + " · " + language.t(player, draft(player).dirty() ? Message.VEHICLE_MODEL_DRAFT : Message.VEHICLE_MODEL_SAVED));
     }
 
     private void redraw(Player player) {
         screen.flow(player).ifPresent(flow -> flow.redraw());
     }
 
-    private void armLook(Player player, String... command) {
+    private void armLook(Player player, VehicleEditorPlacement.Action action) {
         VehicleModelDraft draft = draft(player);
-        placements.put(player.getUniqueId(), new Placement(new VehicleEditorPlacement(draft, draft.revision(), List.of(command),
-                ticks + 6, System.nanoTime() + 30_000_000_000L), screen.state(player).orElse(new State("editor", 0, null))));
-        screen.flow(player).ifPresent(flow -> flow.close());
+        placements.put(player.getUniqueId(), new Placement(new VehicleEditorPlacement(draft, draft.revision(), action,
+                ticks + 6, System.nanoTime() + 30_000_000_000L), screen.state(player).orElseGet(() -> VehicleEditorView.open(Workspace.INSTANCE))));
+        FloatingMenus.current(player).ifPresent(handle -> handle.close());
         result(player, language.t(player, Message.VEHICLE_MODEL_PLACE_HINT));
     }
 
     boolean place(Player player) {
         if (placementClicks.getOrDefault(player.getUniqueId(), -1L) >= ticks) return true;
         Placement placement = placements.get(player.getUniqueId());
-        if (placement == null) return false;
+        if (placement == null) return spatialClick(player);
         VehicleEditorPlacement operation = placement.operation();
         if (!operation.current(drafts.get(player.getUniqueId()), System.nanoTime()) || !player.hasPermission("mik.vehicle.admin") || player.isSneaking()) {
             placementClicks.put(player.getUniqueId(), ticks + 1);
@@ -736,44 +847,207 @@ final class VehicleModelEditor {
         placementClicks.put(player.getUniqueId(), ticks + 1);
         run(player, () -> {
             requireCurrent(player, operation.draft(), operation.revision());
-            execute(player, operation.command().toArray(String[]::new));
+            switch (operation.action()) {
+                case VehicleEditorPlacement.Target target -> {
+                    switch (target) {
+                        case PICK -> pick(player);
+                        case FRONT -> front(player, VehicleEditorFacing.nearest(player.getLocation().getYaw() - previewOrigin(player).getYaw()));
+                        case CENTER -> mutate(player, next -> next.set("center-of-mass", VehicleEditorGeometry.coordinates(sample(player, "look"))));
+                        case CORNER_FIRST -> corner(player, false, true);
+                        case CORNER_SECOND -> corner(player, true, true);
+                    }
+                }
+                case VehicleEditorPlacement.Position position -> mutate(player, next -> next.position(position.route().section(), position.route().index(), position.route().exit(), sample(player, "look")));
+            }
             placements.remove(player.getUniqueId());
-            if (!operation.command().getFirst().equals("pick")) screen.open(player, placement.returnTo());
+            if (operation.action() != VehicleEditorPlacement.Target.PICK) screen.open(player, placement.returnTo());
         });
         return true;
     }
 
-    private void historyAction(FloatingMenuDefinition.Builder menu, Player player, String id, Message label, boolean available) {
-        historyAction(menu, player, id, label, available, "actions");
-    }
-
-    private void historyAction(FloatingMenuDefinition.Builder menu, Player player, String id, Message label, boolean available, String region) {
-        var button = menu.item(id, Material.CLOCK, text(player, label)).region(region)
-                .primary((actor, handle) -> run(actor, () -> execute(actor, id)));
+    private void historyAction(MenuScene.Builder menu, Player player, String id, Message label, boolean available, String region) {
+        var source = draft(player); long revision = source.revision();
+        var button = menu.control(id, text(player, label)).region(region)
+                .primary((actor, _) -> run(actor, () -> { requireCurrent(actor, source, revision); history(actor, id.equals("redo")); }));
         if (!available) button.disabled(text(player, Message.VEHICLE_MODEL_HISTORY_EMPTY));
     }
 
     private void add(Player player, String section) {
-        String hint = switch (section) {
-            case "parts" -> "block <blockdata> | item (held) | text <text> | selected";
-            case "seats" -> "<x y z> <driver|passenger>";
-            case "colliders" -> "<x y z halfX halfY halfZ>";
-            default -> "<x y z>";
-        };
-        prompt(player, Message.VEHICLE_MODEL_ADD, hint, "", singular(section) + " add ");
+        VehicleModelDraft draft = draft(player);
+        var fields = new ArrayList<>(VehicleEditorForms.vector(language, player, VehicleVector.ZERO, ""));
+        if (section.equals("colliders")) fields.addAll(VehicleEditorForms.vector(language, player, new VehicleVector(1, 1, 1), "size-"));
+        editForm(player, draft, text(player, Message.VEHICLE_MODEL_ADD), text(player, sectionMessage(section)), fields, values -> next -> {
+            VehicleVector position = VehicleEditorForms.vector(values, "");
+            switch (section) {
+                case "seats" -> next.seat("add", -1, position, false);
+                case "colliders" -> next.collider("add", -1, new VehicleDefinition.Collider(position, VehicleEditorForms.vector(values, "size-").multiply(0.5)));
+                case "supports" -> next.support("add", -1, position);
+                default -> throw new IllegalArgumentException("Unsupported component form");
+            }
+        });
     }
 
-    private void prompt(Player player, Message title, String label, String initial, String prefix) {
+    private Component fieldLabel(Player player, String field) { return VehicleEditorForms.label(language, player, field); }
+
+    private Component componentLabel(Player player, VehicleModelDraft draft, String section, int index) {
+        String kind = section.equals("seats") ? Boolean.parseBoolean(draft.field("seats." + index + ".driver")) ? "driver" : "passenger" : section;
+        Component label = language.text(player, Message.VEHICLE_MODEL_MARKER, NamedTextColor.AQUA, kind, index);
+        if (section.equals("parts")) {
+            var part = draft.parts().get(index);
+            label = label.append(Component.text(" · ")).append(text(player, switch (part.kind()) {
+                case BLOCK -> Message.VEHICLE_MODEL_BLOCK;
+                case ITEM -> Message.VEHICLE_MODEL_ITEM;
+                case TEXT -> Message.VEHICLE_MODEL_TEXT;
+            })).append(Component.text(" · ")).append(language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, part.animation().name()));
+        }
+        label = label.append(Component.text(" · " + VehicleEditorGeometry.display(draft.position(section, index, false))));
+        if (section.equals("seats")) label = label.append(Component.newline()).append(text(player, Message.VEHICLE_MODEL_EXIT))
+                .append(Component.text(" · " + VehicleEditorGeometry.display(draft.position(section, index, true))));
+        if (section.equals("colliders")) label = label.append(Component.newline()).append(text(player, Message.VEHICLE_MODEL_SIZE))
+                .append(Component.text(" · " + VehicleEditorGeometry.display(draft.collider(index).halfSize().multiply(2))));
+        return label;
+    }
+
+    private void parameterForm(Player player, VehicleModelDraft draft, String field) {
+        boolean vector = VehicleModelDraft.VECTORS.contains(field);
+        List<MenuInputForm.Field> fields = vector ? VehicleEditorForms.vector(language, player, draft.vectorField(field), "")
+                : List.of(MenuInputForm.Field.text("value", fieldLabel(player, field), VehicleEditorParameters.display(draft, field), 256));
+        Component description = VehicleModelDraft.SCALARS.contains(field)
+                ? language.text(player, Message.VEHICLE_MODEL_FIELD_RANGE, NamedTextColor.AQUA,
+                        VehicleDefinition.SCALAR_LIMITS.get(field) * (field.equals("maximum-speed") ? 3.6 : 1))
+                : field.equals("inertia") ? language.text(player, Message.VEHICLE_MODEL_FIELD_RANGE, NamedTextColor.AQUA, VehicleDefinition.INERTIA_LIMIT)
+                : field.equals("engine.ratios") ? language.text(player, Message.VEHICLE_MODEL_PARAMETER_HELP, NamedTextColor.AQUA, "engine") : text(player, Message.VEHICLE_MODEL_POSITION_HINT);
+        editForm(player, draft, fieldLabel(player, field), description, fields,
+                values -> next -> next.set(field, vector ? VehicleEditorGeometry.coordinates(VehicleEditorForms.vector(values, ""))
+                        : VehicleEditorParameters.stored(field, values.text("value").strip())));
+    }
+
+    private void propertyForm(Player player, VehicleModelDraft draft, int index, VehicleEditorProperty property) {
+        editForm(player, draft, fieldLabel(player, property.key()), language.text(player, Message.VEHICLE_MODEL_PROPERTY_HELP, NamedTextColor.AQUA, property.key()),
+                List.of(MenuInputForm.Field.text("value", fieldLabel(player, property.key()), property.value(draft.parts().get(index)), 64)),
+                values -> next -> property.apply(next, index, values.text("value").strip()));
+    }
+
+    private void editForm(Player player, VehicleModelDraft draft, Component title, Component description, List<MenuInputForm.Field> fields,
+                          Function<MenuInputForm.Values, Consumer<VehicleModelDraft>> edit) {
+        long revision = draft.revision();
+        long expectedGeneration = generation;
+        UUID session = sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
+        VehicleEditorForms.open(player, language, draft, title, description, fields, edit, actor -> {
+            requireAdmin(actor); requireCurrent(actor, draft, revision); requireSession(actor, session, expectedGeneration);
+        }, (actor, action) -> run(actor, action::run), this::changed);
+    }
+
+    private UiNode centerMenu(MenuScene.Builder menu, Player player, VehicleModelDraft draft, VehicleEditorView view, Consumer<VehicleEditorView> read) {
+        VehicleVector position = draft.vectorField("center-of-mass");
+        menu.information("summary", text(player, Message.VEHICLE_MODEL_CENTER).append(Component.text(" · " + VehicleEditorGeometry.display(position))))
+                .region("summary");
+        double step = spatialStep(player, Center.INSTANCE);
+        long revision = draft.revision();
+        var axes = new ArrayList<UiElement>();
+        for (int axis = 0; axis < 3; axis++) for (int direction : new int[]{-1, 1}) {
+            VehicleVector offset = new VehicleVector(axis == 0 ? direction * step : 0, axis == 1 ? direction * step : 0, axis == 2 ? direction * step : 0);
+            axes.add(Ui.button(Component.text("XYZ".charAt(axis) + (direction < 0 ? " − " : " + ") + step)).key("nudge:" + axis + ":" + direction).singleLine()
+                    .primary((actor, _) -> run(actor, () -> {
+                        requireCurrent(actor, draft, revision);
+                        draft.set("center-of-mass", VehicleEditorGeometry.coordinates(position.add(offset)));
+                        changed(actor);
+                    })).build());
+        }
+        action(menu, player, "spatial", Message.VEHICLE_MODEL_SPATIAL, actor -> { requireCurrent(actor, draft, revision); startSpatial(actor, Center.INSTANCE); });
+        action(menu, player, "manual", Message.VEHICLE_MODEL_MANUAL, actor -> { requireCurrent(actor, draft, revision); parameterForm(actor, draft, "center-of-mass"); });
+        action(menu, player, "here", Message.VEHICLE_MODEL_CENTER_HERE, actor -> mutate(actor, next -> next.set("center-of-mass", VehicleEditorGeometry.coordinates(here(actor)))));
+        action(menu, player, "look", Message.VEHICLE_MODEL_CENTER_LOOK, actor -> armLook(actor, VehicleEditorPlacement.Target.CENTER));
+        menu.control("step", text(player, Message.VEHICLE_MODEL_STEP).append(Component.text(" · " + step))).region("actions").primary((actor, _) -> run(actor, () -> {
+            requireCurrent(actor, draft, revision);
+            steps.put(actor.getUniqueId(), step == 0.1 ? 0.25 : step == 0.25 ? 1.0 : 0.1);
+            redraw(actor);
+        }));
+        historyAction(menu, player, "undo", Message.VEHICLE_MODEL_UNDO, draft.canUndo(), "navigation");
+        historyAction(menu, player, "redo", Message.VEHICLE_MODEL_REDO, draft.canRedo(), "navigation");
+        return VehicleEditorComposition.axes(axes, view, read);
+    }
+
+    private void prompt(Player player, Message title, String label, String initial, Consumer<String> action) {
         VehicleModelDraft expected = drafts.get(player.getUniqueId());
         long revision = expected == null ? -1 : expected.revision();
         long expectedGeneration = generation;
-        UUID session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> UUID.randomUUID());
-        MenuDialogs.openTextInput(plugin, player, text(player, title), Component.text(label), initial, 4096, false,
-                text(player, Message.VEHICLE_MODEL_APPLY), text(player, Message.CLOSE), (actor, value) -> run(actor, () -> {
+        UUID session = sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
+        FloatingMenus.input(player, MenuInputForm.builder(text(player, title))
+                .field(MenuInputForm.Field.text("value", Component.text(label), initial, 48))
+                .validate((actor, values) -> {
+                    try { requireAdmin(actor); requireCurrent(actor, expected, revision); requireSession(actor, session, expectedGeneration);
+                        if (!values.text("value").strip().matches("[a-z0-9][a-z0-9_-]{0,47}")) throw new IllegalArgumentException("ID: a-z, 0-9, _ and -, at most 48 characters");
+                        return null;
+                    } catch (IllegalArgumentException | IllegalStateException error) { return Component.text(error.getMessage(), NamedTextColor.RED); }
+                })
+                .cancel(text(player, Message.CLOSE))
+                .submit(text(player, Message.VEHICLE_MODEL_APPLY), (actor, inputValues) -> {
+                    String value = inputValues.text("value").strip();
+                    run(actor, () -> {
                     requireCurrent(actor, expected, revision);
                     requireSession(actor, session, expectedGeneration);
-                    execute(actor, prefix + value);
+                    action.accept(value);
+                });
+                }).build());
+    }
+
+    void newModel(Player player, Source source) {
+        requireAdmin(player);
+        requireNewDraft(player);
+        sessions.put(player.getUniqueId(), UUID.randomUUID());
+        var menu = MenuScene.screen("vehicle-create").stableAnchor().content(UiTemplates.sheet(
+                UiTemplates.window("main", UiTemplates.menu(UiTemplates.title("heading"), UiTemplates.actions("kinds", 1))),
+                UiTemplates.toolbar("footer", UiTemplates.navigation("navigation"))));
+        menu.information("heading", text(player, Message.VEHICLE_MODEL_CREATE)).region("heading");
+        for (var kind : VehicleDefinition.Kind.values()) menu.control(kind.name(), language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, kind.name()))
+                .region("kinds").primary((actor, _) -> prompt(actor, Message.VEHICLE_MODEL_CREATE, "ID", "", id -> run(actor, () -> create(actor, id, kind, source))));
+        menu.navigation("back", text(player, Message.BACK)).region("navigation").primary((actor, _) -> open(actor));
+        menu.dismiss(text(player, Message.CLOSE)).region("navigation");
+        FloatingMenus.open(player, menu.build());
+    }
+
+    private void spawnForm(Player player, VehicleDefinition definition) {
+        var origin = player.getLocation();
+        var forward = new VehicleVector(0, 0, 4).rotate(VehicleModel.orientation(origin.getYaw()));
+        var initial = new VehicleVector(origin.getX(), origin.getY() + 1, origin.getZ()).add(forward);
+        var expected = drafts.get(player.getUniqueId());
+        long revision = expected == null ? -1 : expected.revision();
+        UUID session = sessions.get(player.getUniqueId()); long expectedGeneration = generation;
+        var builder = MenuInputForm.builder(text(player, Message.VEHICLE_MODEL_SPAWN))
+                .description(language.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "spawn-hint"))
+                .cancel(text(player, Message.CLOSE)).validate((actor, values) -> {
+                    try { requireAdmin(actor); requireCurrent(actor, expected, revision); requireSession(actor, session, expectedGeneration);
+                        VehicleEditorForms.vector(values, ""); return null; }
+                    catch (IllegalArgumentException exception) { return Component.text(exception.getMessage(), NamedTextColor.RED); }
+                }).submit(text(player, Message.VEHICLE_MODEL_APPLY), (actor, values) -> run(actor, () -> {
+                    requireCurrent(actor, expected, revision); requireSession(actor, session, expectedGeneration);
+                    if (module.models().get(definition.id()) != definition) throw new IllegalArgumentException("Model changed; reopen it");
+                    var point = VehicleEditorForms.vector(values, "");
+                    module.spawn(actor, definition.id(), new Location(origin.getWorld(), point.coordinateX(), point.coordinateY(), point.coordinateZ(), origin.getYaw(), 0));
+                    module.openMenu(actor);
                 }));
+        VehicleEditorForms.vector(language, player, initial, "").forEach(builder::field);
+        FloatingMenus.input(player, builder.build());
+    }
+
+    private void payloadForm(Player player, int index, VehicleDefinition.PartKind kind) {
+        var draft = draft(player);
+        String initial = kind == VehicleDefinition.PartKind.BLOCK ? "minecraft:stone" : "";
+        if (index >= 0 && draft.parts().get(index).kind() == kind) {
+            initial = draft.parts().get(index).payload();
+            if (kind == VehicleDefinition.PartKind.TEXT) initial = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                    .serialize(GsonComponentSerializer.gson().deserialize(initial));
+        }
+        editForm(player, draft, text(player, kind == VehicleDefinition.PartKind.BLOCK ? Message.VEHICLE_MODEL_BLOCK : Message.VEHICLE_MODEL_TEXT), Component.empty(),
+                List.of(MenuInputForm.Field.text("value", text(player, kind == VehicleDefinition.PartKind.BLOCK ? Message.VEHICLE_MODEL_BLOCK : Message.VEHICLE_MODEL_TEXT), initial, 4096)
+                        .multiline(kind == VehicleDefinition.PartKind.TEXT)), values -> next -> {
+                    String value = values.text("value");
+                    String payload = kind == VehicleDefinition.PartKind.BLOCK ? plugin.getServer().createBlockData(value).getAsString()
+                            : GsonComponentSerializer.gson().serialize(Component.text(value));
+                    if (index < 0) next.addParts(List.of(VehicleModelDraft.part(kind, payload)));
+                    else next.changePart(index, kind.name().toLowerCase(Locale.ROOT), payload);
+                });
     }
 
     private void discard(Player player) {
@@ -783,7 +1057,7 @@ final class VehicleModelEditor {
             Consumer<Player> remove = actor -> run(actor, () -> {
                 requireCurrent(actor, expected, revision);
                 drafts.remove(actor.getUniqueId());
-                draftOrigins.remove(actor.getUniqueId());
+                draftOrigins.remove(actor.getUniqueId()); stages.remove(actor.getUniqueId());
                 clearTools(actor.getUniqueId());
                 clearPreview(actor.getUniqueId());
                 open(actor);
@@ -797,14 +1071,14 @@ final class VehicleModelEditor {
 
     private void delete(Player player, VehicleDefinition expected) {
         run(player, () -> {
-            UUID session = sessions.computeIfAbsent(player.getUniqueId(), ignored -> UUID.randomUUID());
+            UUID session = sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
             long expectedGeneration = generation;
             MenuDialogs.openConfirm(plugin, player, text(player, Message.VEHICLE_MODEL_DELETE),
                     text(player, Message.VEHICLE_MODEL_DELETE_WARNING).append(Component.text(" · " + expected.id())),
                     text(player, Message.VEHICLE_MODEL_DELETE), text(player, Message.CLOSE), actor -> run(actor, () -> {
                         requireSession(actor, session, expectedGeneration);
                         module.deleteModel(expected);
-                        screen.redrawWhere(ignored -> true);
+                        screen.redrawWhere(_ -> true);
                         result(actor, expected.id() + " · " + language.t(actor, Message.VEHICLE_MODEL_DELETED));
                     }));
         });
@@ -815,56 +1089,13 @@ final class VehicleModelEditor {
     }
 
     private void preview(Player player, VehicleModelDraft draft, boolean announce) {
-        List<VehicleDefinition.Part> parts = draft.parts();
-        if (previews.entrySet().stream().filter(entry -> !entry.getKey().equals(player.getUniqueId()))
-                .mapToInt(entry -> entry.getValue().displays().size()).sum() + parts.size() > 512)
-            throw new IllegalArgumentException("Preview display quota reached");
-        Location origin = previewOrigin(player);
-        if (!origin.getWorld().isChunkLoaded(origin.getBlockX() >> 4, origin.getBlockZ() >> 4)) throw new IllegalArgumentException("Preview chunk unavailable");
-        Preview existing = previews.get(player.getUniqueId());
-        Matrix4f rotation = new Matrix4f().rotate(new Quaternionf().set(VehicleModel.orientation(origin.getYaw())));
-        if (existing != null && existing.origin().equals(origin) && existing.parts().size() == parts.size()
-                && existing.displays().stream().allMatch(Entity::isValid)
-                && java.util.stream.IntStream.range(0, parts.size()).allMatch(index -> sameAppearance(existing.parts().get(index), parts.get(index)))) {
-            for (int index = 0; index < parts.size(); index++) {
-                existing.displays().get(index).setTransformationMatrix(new Matrix4f(rotation).mul(parts.get(index).transform()));
-                existing.displays().get(index).setInterpolationDelay(0);
-            }
-            previews.put(player.getUniqueId(), new Preview(origin, existing.displays(), parts, System.nanoTime() + 300_000_000_000L));
-            if (announce) result(player, language.t(player, Message.VEHICLE_MODEL_PREVIEW_HINT));
-            return;
-        }
-        List<Display> displays = new ArrayList<>();
-        try {
-            Location anchor = origin.clone();
-            anchor.setYaw(0);
-            anchor.setPitch(0);
-            for (VehicleDefinition.Part part : parts) {
-                Display display = VehicleEntityGroup.createDisplay(anchor, part, entity -> {
-                    entity.setVisibleByDefault(false);
-                    entity.getPersistentDataContainer().set(previewKey, PersistentDataType.STRING, player.getUniqueId().toString());
-                    entity.setTransformationMatrix(new Matrix4f(rotation).mul(part.transform()));
-                });
-                displays.add(display);
-                player.showEntity(plugin, display);
-            }
-            Preview previous = previews.put(player.getUniqueId(), new Preview(origin, displays, parts, System.nanoTime() + 300_000_000_000L));
-            if (previous != null) previous.displays().forEach(Entity::remove);
-            module.refreshGizmos();
-            if (announce) result(player, language.t(player, Message.VEHICLE_MODEL_PREVIEW_HINT));
-        } catch (RuntimeException exception) { displays.forEach(Entity::remove); throw exception; }
-    }
-
-    private static boolean sameAppearance(VehicleDefinition.Part first, VehicleDefinition.Part second) {
-        return first.kind() == second.kind() && first.payload().equals(second.payload()) && first.billboard().equals(second.billboard())
-                && first.itemTransform().equals(second.itemTransform()) && first.alignment().equals(second.alignment())
-                && first.blockLight() == second.blockLight() && first.skyLight() == second.skyLight() && first.background() == second.background()
-                && first.lineWidth() == second.lineWidth() && first.textOpacity() == second.textOpacity()
-                && first.shadow() == second.shadow() && first.seeThrough() == second.seeThrough();
+        previews.show(player, draft, previewOrigin(player), stages.get(player.getUniqueId()).scale());
+        updateScene(player, draft);
+        if (announce) result(player, language.t(player, Message.VEHICLE_MODEL_PREVIEW_HINT));
     }
 
     private void refreshPreview(Player player) {
-        if (!previews.containsKey(player.getUniqueId())) return;
+        if (previews.get(player.getUniqueId()) == null) return;
         try { preview(player, draft(player), false); }
         catch (RuntimeException exception) {
             clearPreview(player.getUniqueId());
@@ -879,65 +1110,38 @@ final class VehicleModelEditor {
 
     private void pick(Player player) {
         draft(player);
-        Preview preview = previews.get(player.getUniqueId());
+        VehicleEditorPreview.Preview preview = previews.get(player.getUniqueId());
         if (preview == null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_PICK_HINT));
         Aim target = aim(player);
         int index = target == null || target.display() == null ? -1 : preview.displays().indexOf(target.display());
         if (index < 0) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_PICK_HINT));
         placements.remove(player.getUniqueId());
-        screen.open(player, new State("component", index, "parts"));
+        screen.open(player, VehicleEditorView.open(new Inspector(new ComponentRef(Section.PARTS, index))));
     }
 
-    private void guides(Player player, Preview preview, VehicleModelDraft draft) {
-        Location origin = preview.origin();
-        for (int sample = 0; sample <= 5; sample++) {
-            double offset = sample * 0.2;
-            marker(player, origin, new VehicleVector(offset, 0, 0), RED);
-            marker(player, origin, new VehicleVector(0, offset, 0), GREEN);
-            marker(player, origin, new VehicleVector(0, 0, offset), BLUE);
-        }
-        for (int index = 0; index < draft.count("seats"); index++) {
-            marker(player, origin, draft.position("seats", index, false), Boolean.parseBoolean(draft.field("seats." + index + ".driver")) ? GREEN : BLUE);
-            marker(player, origin, draft.position("seats", index, true), ORANGE);
-        }
-        for (int index = 0; index < draft.count("supports"); index++) marker(player, origin, draft.position("supports", index, false), YELLOW);
-        marker(player, origin, VehicleModelDraft.vector(fieldValue(draft, "center-of-mass")), PURPLE);
-        State focus = focused.get(player.getUniqueId());
-        int collider = focus != null && focus.id().equals("colliders") ? focus.page() : 0;
-        if (collider < draft.count("colliders"))
-            for (VehicleVector point : VehicleEditorGeometry.outline(draft.collider(collider))) marker(player, origin, point, WHITE);
-        if (focus != null && focus.page() < draft.count(focus.id())) {
-            VehicleVector point = draft.position(focus.id(), focus.page(), focus.view().equals("position-exit"));
-            marker(player, origin, point, WHITE);
-            marker(player, origin, point.add(new VehicleVector(0, 0.15, 0)), WHITE);
+    private void guides(Player player, VehicleEditorPreview.Preview preview, VehicleModelDraft draft) {
+        updateScene(player, draft);
+        if (spatial.containsKey(player.getUniqueId())) {
+            var target = pointedHandle(player, previews.get(player.getUniqueId()));
+            player.sendActionBar(target == null ? text(player, Message.VEHICLE_MODEL_SPATIAL_HINT)
+                    : language.text(player, target.label(), NamedTextColor.YELLOW, target.arguments().toArray()));
+            if (target != null) VehicleEditorPreview.marker(player, preview.origin(), target.point().multiply(preview.scale()), VehicleEditorScene.Ink.WHITE);
         }
         if (placements.containsKey(player.getUniqueId())) {
             try {
-                Aim target = aim(player);
-                if (target != null && (!placements.get(player.getUniqueId()).operation().command().getFirst().equals("pick") || target.display() != null)) {
-                    VehicleVector cursor = sampled(player, target.point());
-                    marker(player, origin, cursor, YELLOW);
-                    marker(player, origin, cursor.add(new VehicleVector(0.1, 0, 0)), YELLOW);
-                    marker(player, origin, cursor.add(new VehicleVector(0, 0.1, 0)), YELLOW);
-                }
-            } catch (IllegalArgumentException exception) { }
+                Aim aim = aim(player);
+                if (aim != null && (placements.get(player.getUniqueId()).operation().action() != VehicleEditorPlacement.Target.PICK || aim.display() != null))
+                    VehicleEditorPreview.marker(player, preview.origin(), sample(player, "look").multiply(preview.scale()), VehicleEditorScene.Ink.YELLOW);
+            } catch (IllegalArgumentException ignored) { }
         }
         Corner corner = corners.get(player.getUniqueId());
-        if (corner != null) {
-            marker(player, origin, corner.point(), ORANGE);
-            VehicleVector candidate;
-            try { candidate = sample(player, corner.look() ? "look" : "here"); }
-            catch (IllegalArgumentException exception) { return; }
-            try {
-                for (VehicleVector point : VehicleEditorGeometry.outline(VehicleEditorGeometry.box(corner.point(), candidate)))
-                    marker(player, origin, point, ORANGE);
-            } catch (IllegalArgumentException exception) { marker(player, origin, candidate, RED); }
-        }
-    }
-
-    private static void marker(Player player, Location origin, VehicleVector point, Particle.DustOptions color) {
-        if (point.length() > 32) return;
-        player.spawnParticle(Particle.DUST, VehicleEditorGeometry.world(origin, point), 1, 0, 0, 0, 0, color);
+        if (corner == null) return;
+        VehicleEditorPreview.marker(player, preview.origin(), corner.point().multiply(preview.scale()), VehicleEditorScene.Ink.ORANGE);
+        try {
+            VehicleVector candidate = sample(player, corner.look() ? "look" : "here");
+            for (VehicleVector point : VehicleEditorGeometry.outline(VehicleEditorGeometry.box(corner.point(), candidate)))
+                VehicleEditorPreview.marker(player, preview.origin(), point.multiply(preview.scale()), VehicleEditorScene.Ink.ORANGE);
+        } catch (IllegalArgumentException ignored) { }
     }
 
     void tick() {
@@ -951,39 +1155,43 @@ final class VehicleModelEditor {
                 if (player != null) result(player, language.t(player, Message.VEHICLE_MODEL_PLACE_CANCELLED));
             }
         }
-        for (UUID id : List.copyOf(previews.keySet())) {
-            Preview preview = previews.get(id);
+        for (UUID id : previews.viewers()) {
+            VehicleEditorPreview.Preview preview = previews.get(id);
             Player player = plugin.getServer().getPlayer(id);
             if (player == null || !player.hasPermission("mik.vehicle.admin") || System.nanoTime() >= preview.expires()
                     || !player.getWorld().equals(preview.origin().getWorld()) || player.getLocation().distanceSquared(preview.origin()) > 1024
                     || preview.displays().stream().anyMatch(display -> !display.isValid())) clearPreview(id);
-            else if (ticks % 10 == 0 && drafts.containsKey(id)) guides(player, preview, drafts.get(id));
+            else if (ticks % 10 == 0) {
+                VehicleModelDraft source = drafts.get(id);
+                if (source != null) guides(player, preview, source);
+            }
         }
     }
 
     void enable() { closed = false; }
     void unload(org.bukkit.World world, Integer chunkX, Integer chunkZ) {
-        for (UUID id : List.copyOf(previews.keySet())) {
+        for (UUID id : previews.viewers()) {
             Location origin = previews.get(id).origin();
             if (origin.getWorld().equals(world) && (chunkX == null || (origin.getBlockX() >> 4) == chunkX && (origin.getBlockZ() >> 4) == chunkZ)) clearPreview(id);
         }
     }
 
-    boolean isPreview(Entity entity) { return entity.getPersistentDataContainer().has(previewKey); }
-    java.util.Set<UUID> previewIds(UUID viewer) {
-        Preview preview = previews.get(viewer);
-        return preview == null ? java.util.Set.of() : java.util.Set.copyOf(preview.displays().stream().map(Entity::getUniqueId).toList());
-    }
-    void clearPreview(UUID id) { placements.remove(id); Preview preview = previews.remove(id); if (preview != null) { preview.displays().forEach(Entity::remove); module.refreshGizmos(); } }
-    private void clearTools(UUID id) { corners.remove(id); steps.remove(id); transformSteps.remove(id); snapping.remove(id); focused.remove(id); placements.remove(id); placementClicks.remove(id); }
-    void forget(Player player) { clearPreview(player.getUniqueId()); drafts.remove(player.getUniqueId()); draftOrigins.remove(player.getUniqueId()); clearTools(player.getUniqueId()); sessions.remove(player.getUniqueId()); screen.forget(player); }
-    void close() { closed = true; generation++; for (UUID id : List.copyOf(sessions.keySet())) screen.forget(id); for (UUID id : List.copyOf(previews.keySet())) clearPreview(id); drafts.clear(); draftOrigins.clear(); sessions.clear(); corners.clear(); steps.clear(); transformSteps.clear(); snapping.clear(); focused.clear(); placements.clear(); placementClicks.clear(); }
+    VehicleEditorPreview.Preview preview(Player player) { return previews.get(player.getUniqueId()); }
+    boolean isPreview(Entity entity) { return previews.isPreview(entity); }
+    java.util.Set<UUID> previewIds(UUID viewer) { return previews.ids(viewer); }
+    void clearPreview(UUID id) { placements.remove(id); spatial.remove(id); previews.clear(id); }
+    private void clearTools(UUID id) { corners.remove(id); steps.remove(id); transformSteps.remove(id); snapping.remove(id); placements.remove(id); placementClicks.remove(id); spatial.remove(id); }
+    void forget(Player player) { clearPreview(player.getUniqueId()); drafts.remove(player.getUniqueId()); draftOrigins.remove(player.getUniqueId()); stages.remove(player.getUniqueId()); clearTools(player.getUniqueId()); sessions.remove(player.getUniqueId()); screen.forget(player); }
+    void close() { closed = true; generation++; for (UUID id : List.copyOf(sessions.keySet())) screen.forget(id); previews.close(); drafts.clear(); draftOrigins.clear(); stages.clear(); sessions.clear(); corners.clear(); steps.clear(); transformSteps.clear(); snapping.clear(); placements.clear(); placementClicks.clear(); spatial.clear(); }
+
+    private Location sourceOrigin(Player player) { return VehicleEditorGeometry.oriented(draftOrigins.get(player.getUniqueId()), draft(player).frameTurns()); }
 
     private Location previewOrigin(Player player) {
-        Location origin = draftOrigins.get(player.getUniqueId());
+        var stage = stages.get(player.getUniqueId());
+        Location origin = stage == null ? null : stage.origin();
         if (origin == null) throw new IllegalArgumentException("Create or edit a model first");
         VehicleEditorGeometry.local(origin, player.getLocation());
-        return origin.clone();
+        return VehicleEditorGeometry.oriented(origin, draft(player).frameTurns());
     }
 
     private VehicleModelDraft draft(Player player) { VehicleModelDraft draft = drafts.get(player.getUniqueId()); if (draft == null) throw new IllegalArgumentException("Create or edit a model first"); return draft; }
@@ -1005,11 +1213,15 @@ final class VehicleModelEditor {
     }
     private Component text(Player player, Message message) { return language.text(player, message, NamedTextColor.AQUA); }
     private void result(Player player, String message) { player.sendMessage(language.text(player, Message.VEHICLE_RESULT, NamedTextColor.GREEN, message)); }
-    private void action(FloatingMenuDefinition.Builder menu, Player player, String id, Material material, Message label, Consumer<Player> action) {
-        menu.item(id, material, text(player, label)).region("actions").primary((actor, handle) -> run(actor, () -> action.accept(actor)));
-    }
-    private void commandAction(FloatingMenuDefinition.Builder menu, Player player, String id, Material material, Message label, String command) {
-        action(menu, player, id, material, label, actor -> run(actor, () -> execute(actor, command)));
+    private void action(MenuScene.Builder menu, Player player, String id, Message label, Consumer<Player> action) {
+        var source = drafts.get(player.getUniqueId());
+        long revision = source == null ? -1 : source.revision();
+        var view = screen.state(player).orElse(null);
+        menu.control(id, text(player, label)).region("actions").primary((actor, _) -> run(actor, () -> {
+            if (screen.state(actor).orElse(null) != view) throw new IllegalArgumentException("Editor page changed");
+            requireCurrent(actor, source, revision);
+            action.accept(actor);
+        }));
     }
     private static Message sectionMessage(String section) {
         return switch (section) { case "parts" -> Message.VEHICLE_MODEL_PARTS; case "seats" -> Message.VEHICLE_MODEL_SEATS;
@@ -1030,15 +1242,4 @@ final class VehicleModelEditor {
             default -> Message.VEHICLE_MODEL_REMOVE;
         };
     }
-    private static String singular(String section) { return switch (section) { case "parts" -> "part"; case "seats" -> "seat"; case "colliders" -> "collider"; default -> "support"; }; }
-    private static String fieldValue(VehicleModelDraft draft, String field) {
-        if (VehicleModelDraft.VECTORS.contains(field) || field.startsWith("seats.") || field.startsWith("colliders.") || field.startsWith("supports."))
-            return draft.field(field + ".x") + " " + draft.field(field + ".y") + " " + draft.field(field + ".z");
-        if (field.equals("engine.ratios")) return draft.field(field).replace("[", "").replace("]", "");
-        return draft.field(field);
-    }
-    private static String argument(String[] args, int index) { if (args.length <= index) throw new IllegalArgumentException("Missing argument; use /vehicle model help"); return args[index]; }
-    private static int index(String[] args, int offset) { return Integer.parseInt(argument(args, offset)); }
-    private static String tail(String[] args, int offset) { argument(args, offset); return String.join(" ", java.util.Arrays.copyOfRange(args, offset, args.length)); }
-    private static void exact(String[] args, int count) { if (args.length != count) throw new IllegalArgumentException("Expected " + (count - 1) + " arguments; use /vehicle model help"); }
 }

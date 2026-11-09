@@ -17,7 +17,7 @@ class RhythmCuePresentationLedgerTest {
                 1_012_000_000L, 1.0));
 
         RhythmCuePresentation selected = ledger.closest(1_015_000_000L,
-                ignored -> false).orElseThrow();
+                _ -> false).orElseThrow();
 
         assertEquals(1_012_000_000L, selected.presentedAtNanos());
         assertEquals(1, ledger.snapshot().size());
@@ -35,7 +35,7 @@ class RhythmCuePresentationLedgerTest {
         assertTrue(ledger.closestWithin(1_399_999_999L,
                 400_000_000L, cueId -> cueId == 1L).isEmpty());
         assertThrows(IllegalArgumentException.class,
-                () -> ledger.closestWithin(0L, -1L, ignored -> false));
+                () -> ledger.closestWithin(0L, -1L, _ -> false));
     }
 
     @Test
@@ -58,7 +58,7 @@ class RhythmCuePresentationLedgerTest {
         ledger.add(presentation(2L, afterWrap + 800_000_000L));
 
         assertEquals(1L, ledger.closestWithin(afterWrap, 100L,
-                ignored -> false).orElseThrow().cueId());
+                _ -> false).orElseThrow().cueId());
         assertEquals(2, ledger.snapshot().size());
     }
 

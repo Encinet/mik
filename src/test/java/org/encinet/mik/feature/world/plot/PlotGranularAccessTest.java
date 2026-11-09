@@ -23,8 +23,7 @@ class PlotGranularAccessTest {
 
     @Test
     void catalogHasUniqueOperationsAndShortCategories() {
-        assertEquals(27, PlotPermission.values().length);
-        assertEquals(27, Arrays.stream(PlotPermission.values()).map(PlotPermission::key).distinct().count());
+        assertEquals(PlotPermission.values().length, Arrays.stream(PlotPermission.values()).map(PlotPermission::key).distinct().count());
         for (PlotPermission.Category category : PlotPermission.Category.values()) {
             assertFalse(category.permissions().isEmpty());
             assertTrue(category.permissions().size() <= 7);
@@ -192,7 +191,7 @@ class PlotGranularAccessTest {
 
     private static Plot plot(Plot parent, Map<String, Boolean> flags, Map<UUID, Plot.Role> members) {
         return new Plot(UUID.randomUUID(), parent == null ? UUID.randomUUID() : parent.world(),
-                UUID.randomUUID(), "Granular test", false, 0, Set.of(PlotGeometry.Cell.at(0, 64, 0)),
+                UUID.randomUUID(), "Granular test", 0, Set.of(PlotGeometry.Cell.at(0, 64, 0)),
                 members, flags, parent == null ? null : parent.id());
     }
 }

@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.player.effects;
 
+import org.encinet.mik.shared.util.PaperTestRegistries;
+
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -19,6 +21,8 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
 import org.encinet.mik.shared.i18n.TextArg;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -36,6 +40,9 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EffectCleanupModuleTest {
+    private static PaperTestRegistries registry;
+    @BeforeAll static void openRegistries() { registry = new PaperTestRegistries(); }
+    @AfterAll static void closeRegistries() { if (registry != null) registry.close(); }
     private static final PlainTextComponentSerializer PLAIN = PlainTextComponentSerializer.plainText();
     private static final LanguageService LANGUAGES = new LanguageService(null) {
         @Override public Language language(Player player) { return Language.EN_US; }
@@ -215,7 +222,7 @@ class EffectCleanupModuleTest {
         final List<Consumer<Player>> actions = new ArrayList<>();
         final ArrayDeque<Scheduled> queue = new ArrayDeque<>();
         final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
-                (proxy, method, args) -> switch (method.getName()) {
+                (_, method, args) -> switch (method.getName()) {
                     case "getUniqueId" -> id;
                     case "getGameMode" -> mode;
                     case "isOnline" -> online;
@@ -226,11 +233,11 @@ class EffectCleanupModuleTest {
                     case "sendMessage" -> { messages.add((Component) args[0]); yield null; }
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
-        final EffectCleanupModule module = new EffectCleanupModule(null, LANGUAGES, uuid -> combat, action -> {
+        final EffectCleanupModule module = new EffectCleanupModule(null, LANGUAGES, _ -> combat, action -> {
             Scheduled scheduled = new Scheduled(action);
             queue.add(scheduled);
             return scheduled.task;
-        }, (owner, action) -> {
+        }, (_, action) -> {
             actions.add(action);
             return ClickEvent.runCommand("/test-button-" + (actions.size() - 1));
         }, () -> now);

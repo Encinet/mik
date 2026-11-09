@@ -24,55 +24,11 @@
 
 back = Zurück
 back-to-main = Zurück zum Hauptmenü
+cancel = Abbrechen
 click-open = Zum Öffnen klicken
 close = Schließen
 current-off = Aktuell: Aus
 current-on = Aktuell: Ein
-password-already-connected = Dieses Konto ist bereits verbunden.
-password-already-set = Ein Passwort ist bereits eingerichtet. Ändere es mit /password change.
-password-busy = Zu viele Versuche. Bitte später erneut versuchen.
-password-change = Passwort ändern
-password-change-done = Passwort geändert.
-password-checking = Kontosicherheit wird geprüft…
-password-command-description = Passwortschutz des Kontos verwalten
-password-confirm = Neues Passwort bestätigen
-password-conflict = Die Kontosicherheit wurde geändert. Wiederhole den Vorgang.
-password-cooldown = Die Kontoprüfung ist vorübergehend eingeschränkt. Versuche es in { $arg0 ->
-        [one] { $arg0 } Sekunde
-       *[other] { $arg0 } Sekunden
-    } erneut.
-password-current = Aktuelles Passwort
-password-denied = Du darfst das Passwort dieses Kontos nicht zurücksetzen.
-password-disabled = Passwort: nicht eingerichtet
-password-enabled = Passwort: eingerichtet
-password-invalid = Falsches Passwort. Bitte erneut versuchen.
-password-keep-role = Moderatoren und Betreuer können ihr Passwort nicht entfernen.
-password-login = Anmelden
-password-login-expired = Deine Anmeldebestätigung ist abgelaufen. Verbinde dich erneut.
-password-login-hint = Gib das Serverpasswort ein. Vergessen? Bitte das Team um ein neues Passwort.
-password-mismatch = Die neuen Passwörter stimmen nicht überein.
-password-new = Neues Passwort
-password-nomination-required = Richte vor der Bewerbung als Moderator ein Passwort ein: /password set
-password-not-set = Es ist kein Passwort eingerichtet. Lege eines mit /password set fest.
-password-remove = Passwort entfernen
-password-remove-done = Passwort entfernt.
-password-remove-question = Nach dem Entfernen wird beim Anmelden kein Passwort mehr geprüft. Gib zur Bestätigung dein aktuelles Passwort ein.
-password-required-application = Während einer laufenden Teambewerbung oder ausstehenden Ernennung kannst du dein Passwort nicht entfernen.
-password-required-role = Teamkonten benötigen ein Passwort. Bitte ein berechtigtes Teammitglied vor der Anmeldung um ein neues Passwort.
-password-reset = Passwort zurücksetzen
-password-reset-console = Passwort für { $arg0 } zurückgesetzt: { $arg1 }. Übergib es nach Identitätsprüfung über einen vertrauenswürdigen Kanal.
-password-reset-done = Passwort für { $arg0 } zurückgesetzt. Kopiere es jetzt und übergib es nach Identitätsprüfung; es kann nicht erneut angezeigt werden.
-password-reset-question = Passwort von { $arg0 } zurücksetzen? Das alte Passwort wird ungültig und die Verbindungen werden getrennt. Bestätige mit deinem eigenen Passwort.
-password-retry = Erneut versuchen
-password-rules = Verwende { $arg0 }–{ $arg1 } Zeichen. Spielernamen und häufige Passwörter sind nicht erlaubt.
-password-set = Passwort einrichten
-password-set-done = Passwort eingerichtet.
-password-set-first = Vor der Bewerbung Passwort einrichten
-password-storage = Die Kontosicherheit ist nicht verfügbar. Versuche es später oder kontaktiere den Serverbetreiber.
-password-timeout = Die Passwortprüfung wurde abgebrochen oder ist abgelaufen. Verbinde dich erneut.
-password-tip-set-mm = Lege mit <gold><u>/password</u></gold> ein <yellow>Anmeldepasswort</yellow> fest, um dein Konto zu schützen.
-password-title = Kontosicherheit
-
 player-only = Dieser Befehl kann nur von Spielern verwendet werden
 unknown = Unbekannt
 usage = Verwendung
@@ -92,27 +48,61 @@ time-minutes = { $arg0 }m
 
 ## Shared · Menu presentation
 
-bedrock-menu-back = Zurück
-bedrock-menu-hotkey = Kurzbefehl (F)
-bedrock-menu-primary = Hauptaktion
-bedrock-menu-scroll-down = Nach unten
-bedrock-menu-scroll-up = Nach oben
-bedrock-menu-secondary = Weitere Aktion
 interface-fov-apply = FOV anwenden
-interface-fov-custom = Genauen Wert eingeben
-interface-fov-description = An das Client-FOV anpassen; nur die Menüposition ändert sich. Standard: 70°.
+interface-fov-custom = Eigener Wert
+interface-fov-description = Gib den FOV aus deinen Spieleinstellungen für die Menüposition ein.
 interface-fov-input = Client-FOV: ganze Zahl von 30 bis 110
 interface-fov-invalid = Gib eine ganze Zahl von 30 bis 110 ein.
-interface-fov-title = Sichtfeld-Anpassung (FOV)
-interface-scale-current = Aktuell: { $arg0 }
-interface-scale-description = Textgröße multipliziert die Menügröße; beide Gruppen sind per Mausrad einstellbar.
+interface-fov-title = Sichtfeld (FOV)
+interface-reduced-motion = Bewegungen reduzieren
+interface-reduced-motion-hint = Bewegung und Wippen des Menüs reduzieren.
+interface-scale-adjust-hint = Scrolle über einer Prozentoption zum Anpassen.
 interface-scale-layout-title = Menügröße
 interface-scale-menu-title = Oberfläche & Text
-interface-scale-native-hint = Diese Einstellungen gelten für Java-Raummenüs. Der Text nativer Formulare folgt deinen Client-Einstellungen.
-interface-scale-preview = Textvorschau Aa 123
-interface-scale-reset = Beide auf 100% zurücksetzen
+interface-scale-preview = Beispiel Aa 123
+interface-scale-reset = Auf 100% zurücksetzen
 interface-scale-text-title = Textgröße
+interface-theme-apply = Farben speichern
+interface-theme-charcoal = Anthrazit
+interface-theme-color = Farbe (#RRGGBB)
+interface-theme-custom = Eigene
+interface-theme-custom-hint = Alle Werte des aktuellen Designs in ein eigenständiges Design kopieren.
+interface-theme-edit = Farben bearbeiten
+interface-theme-forest = Wald
+interface-theme-hint = Gilt sofort und nur für deine Menüs.
+interface-theme-invalid = Farbe als #RRGGBB und Deckkraft von 0 bis 100 eingeben.
+interface-theme-opacity = Deckkraft (0–100 %)
+interface-theme-role-accent = Akzentfarbe
+interface-theme-role-button = Schaltflächenhintergrund
+interface-theme-role-button-disabled = Deaktivierte Schaltfläche
+interface-theme-role-button-hovered = Berührte Schaltfläche
+interface-theme-role-button-pressed = Gedrückte Schaltfläche
+interface-theme-role-button-selected = Ausgewählte Schaltfläche
+interface-theme-role-input = Eingabehintergrund
+interface-theme-role-sidebar = Seitenleistenhintergrund
+interface-theme-role-toolbar = Werkzeugleistenhintergrund
+interface-theme-role-tooltip = Hinweishintergrund
+interface-theme-role-window = Fensterhintergrund
+interface-theme-title = Menüdesign
+interface-theme-warm = Warm
+menu-collapse = Zuklappen
+menu-expand = Aufklappen
+menu-finish-editing = Schließe zuerst die Eingabe ab.
+menu-input-clear = Leeren
+menu-input-done = Fertig
+menu-input-empty = (leer)
+menu-input-single-line = Dieses Feld erlaubt nur eine Zeile.
+menu-input-too-long = Länge: { $arg0 } / { $arg1 }. Kürze den Text vor dem Bestätigen.
+menu-query-cancel = Abbrechen
+menu-query-hint-rich = Mit { $chatKey } eingeben…
+menu-query-single-line = Nur eine Zeile erlaubt. Zum Wiederholen das Feld anklicken.
+menu-query-too-long = Länge: { $arg0 } / { $arg1 }. Zum Wiederholen das Feld anklicken.
 menu-rhythm-game-display = Spielt Rhythmusspiel
+menu-search-empty = Keine Treffer
+menu-search-failed = Suche fehlgeschlagen
+menu-search-limit = Angezeigt: { $arg0 } / { $arg1 }. Grenze die Suche ein.
+menu-search-loading = Suche läuft…
+menu-search-retry = Erneut versuchen
 menu-usage-display-mm = <aqua><bold>Im Menü</bold></aqua>
 url-dialog-confirm = Öffnen
 url-dialog-hint = Der Client fragt erneut nach der Bestätigung zum Öffnen des Links.
@@ -123,9 +113,8 @@ url-dialog-title = { $arg0 } öffnen
 
 client-mods-undetected-rich = Empfohlene Mods: { $mods }. Klicke zum Herunterladen auf einen Namen.
 client-tip-axiom-flight-speed-mm = <white>Halte <yellow>die linke Alt-Taste</yellow> gedrückt, um das <aqua>Axiom</aqua>-Menü zu öffnen. Passe die Fluggeschwindigkeit mit dem senkrechten Regler rechts oder mit <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click> an.</white>
-client-tip-axiom-intro-rich = { $mod } ist eine Bauhilfe mit kopierbaren Bauplänen, Gelände- und Anzeigeentitätsbearbeitung, Blockplatzierung ohne Updates, Bewegung durch Wände und mehreren gespeicherten Schnellzugriffsleisten. Klicke zum Herunterladen auf den Namen.
-client-tip-voxy-intro-rich = { $mod } stellt ferne Landschaften mit wenig Aufwand dar und ist auf schwächeren wie stärkeren PCs einen Versuch wert. Klicke zum Herunterladen auf den Namen.
-client-version-behind-mm = <white>Dein Client <yellow>{ $clientVersion }</yellow> ist älter als der Server <green>{ $serverVersion }</green>. Ein Update wird empfohlen.</white>
+client-tip-axiom-intro-rich = Mit { $mod } kannst du Bauwerke kopieren und einfügen, Gelände gestalten und Anzeigeentitäten bearbeiten. Klicke auf den Namen, um die Mod herunterzuladen.
+client-version-behind-mm = <white>Deine Clientversion <yellow>{ $clientVersion }</yellow> ist älter als die Serverversion <green>{ $serverVersion }</green>. Ein Update wird empfohlen.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>{ $count ->
         [one] <gold>{ $count }</gold> Spieler in deiner Nähe ist <gold>unsichtbar</gold>
@@ -135,14 +124,16 @@ invisibility-nearby-mm = <yellow>{ $count ->
        *[other] { $distance } Blöcke
     } entfernt</gray>
 player-bedrock-label = Bedrock
+player-web-label = Web
 presence-join-templates =
-    .item-1 = { $player } ist durch die Hintertür auf den Server geschlichen
-    .item-2 = { $player } hat offenbar den geheimen Weg gefunden
-    .item-3 = { $player } ist gerade aus einem Busch aufgetaucht
+    .item-1 = Ding-dong! { $player } ist online!
+    .item-2 = Juhu, da ist { $player }!
+    .item-3 = Hey { $player }, willkommen, willkommen!
+# Broadcast to remaining players; the departing player does not receive this message.
 presence-quit-templates =
-    .item-1 = { $player } ist leise durch die Hintertür verschwunden
-    .item-2 = { $player } hat sich zum Speichern ausgeloggt
-    .item-3 = { $player } wurde von der Realität zurückgerufen
+    .item-1 = { $player } hat sich ausgeloggt.
+    .item-2 = Ding-dong! { $player } ist offline
+    .item-3 = Online -1. { $player } hat sich ausgeloggt
 welcome-first-join-mm = <gold><bold>Willkommen bei MIK!</bold></gold><newline><gray>Schau zuerst auf die <click:open_url:'https://mcmik.top'><yellow>Website</yellow></click> und ins <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click>. Mit <yellow>/menu</yellow> öffnest du das Hauptmenü.</gray>
 welcome-return-mm = <gold><bold>Willkommen zurück!</bold></gold><newline><gray>Dein letzter Besuch war vor <yellow>{ $arg0 ->
         [one] { $arg0 } Tag
@@ -200,26 +191,86 @@ player-association-time-occurrences = { $arg0 } ({ $arg1 ->
 player-association-time-separator = ,
 player-association-time-today = heute
 
+
+## Player · Account security
+password-already-connected = Dieses Konto ist bereits verbunden.
+password-already-set = Ein Passwort ist bereits eingerichtet. Ändere es mit /password change.
+password-busy = Zu viele Versuche. Bitte später erneut versuchen.
+password-change = Passwort ändern
+password-change-done = Passwort geändert.
+password-checking = Kontosicherheit wird geprüft…
+password-command-description = Passwortschutz des Kontos verwalten
+password-confirm = Neues Passwort bestätigen
+password-conflict = Die Kontosicherheit wurde geändert. Wiederhole den Vorgang.
+password-cooldown = Die Kontoprüfung ist vorübergehend eingeschränkt. Versuche es in { $arg0 ->
+        [one] { $arg0 } Sekunde
+       *[other] { $arg0 } Sekunden
+    } erneut.
+password-current = Aktuelles Passwort
+password-denied = Du darfst das Passwort dieses Kontos nicht zurücksetzen.
+password-disabled = Passwort: nicht eingerichtet
+password-enabled = Passwort: eingerichtet
+password-invalid = Falsches Passwort. Bitte erneut versuchen.
+password-keep-role = Moderatoren und Betreuer können ihr Passwort nicht entfernen.
+password-login = Anmelden
+password-login-expired = Deine Anmeldebestätigung ist abgelaufen. Verbinde dich erneut.
+password-login-hint = Gib das Serverpasswort ein. Vergessen? Bitte das Team um ein neues Passwort.
+password-mismatch = Die neuen Passwörter stimmen nicht überein.
+password-new = Neues Passwort
+password-nomination-required = Richte vor der Bewerbung als Moderator ein Passwort ein: /password set
+password-not-set = Es ist kein Passwort eingerichtet. Lege eines mit /password set fest.
+password-remove = Passwort entfernen
+password-remove-done = Passwort entfernt.
+password-remove-question = Nach dem Entfernen wird beim Anmelden kein Passwort mehr geprüft. Gib zur Bestätigung dein aktuelles Passwort ein.
+password-required-application = Während einer laufenden Teambewerbung oder ausstehenden Ernennung kannst du dein Passwort nicht entfernen.
+password-required-role = Teamkonten benötigen ein Passwort. Bitte ein berechtigtes Teammitglied vor der Anmeldung um ein neues Passwort.
+password-reset = Passwort zurücksetzen
+password-reset-console = Passwort für { $arg0 } zurückgesetzt: { $arg1 }. Übergib es nach Identitätsprüfung über einen vertrauenswürdigen Kanal.
+password-reset-done = Passwort für { $arg0 } zurückgesetzt. Kopiere es jetzt und übergib es nach Identitätsprüfung; es kann nicht erneut angezeigt werden.
+password-reset-question = Passwort von { $arg0 } zurücksetzen? Das alte Passwort wird ungültig und die Verbindungen werden getrennt. Bestätige mit deinem eigenen Passwort.
+password-retry = Erneut versuchen
+password-rules = Verwende { $arg0 }–{ $arg1 } Zeichen. Spielernamen und häufige Passwörter sind nicht erlaubt.
+password-set = Passwort einrichten
+password-set-done = Passwort eingerichtet.
+password-set-first = Vor der Bewerbung Passwort einrichten
+password-storage = Die Kontosicherheit ist nicht verfügbar. Versuche es später oder kontaktiere den Serverbetreiber.
+password-timeout = Die Passwortprüfung wurde abgebrochen oder ist abgelaufen. Verbinde dich erneut.
+password-tip-set-mm = Lege mit <gold><u>/password</u></gold> ein <yellow>Anmeldepasswort</yellow> fest, um dein Konto zu schützen.
+password-title = Kontosicherheit
+
 ## Player · Profile and tab list
 
-nametag-clear-all-error = Fehler beim Löschen der Namensschilder. Bitte versuche es später erneut
-nametag-clear-all-success = ✔ Alle Namensschilder gelöscht
-nametag-clear-error = Fehler beim Löschen von { $arg0 }
-nametag-clear-success = ✔ { $arg0 } gelöscht
-nametag-click-fill-command = Klicken, um den Befehl einzufügen
+nametag-cancel = Abbrechen
+nametag-clear = Leeren
+nametag-clear-hint = Entfernt eigene Werte; geerbte Stile können bleiben.
 nametag-command-description = Namensschilder individuell anpassen
-nametag-copy-hover = MiniMessage-Quelltext in die Zwischenablage kopieren
+nametag-confirm = Bestätigen
+nametag-conflict = Der aktuelle Wert wurde geändert. Vergleiche die aktuelle Anzeige und bestätige erneut zum Ersetzen.
+nametag-copy-hint = Präfix- und Suffix-Quelltext im Chat anzeigen
 nametag-copy-label = [kopieren]
-nametag-effect-label = Ergebnis
-nametag-empty-content-rich = Der Inhalt darf nicht leer sein. Verwende zum Löschen { $command }
-nametag-format-docs = Formatierungsdokumentation
+nametag-copy-sent = Der Stil-Quelltext von { $arg0 } steht im Chat.
+nametag-current = Aktuelle Anzeige
+nametag-edit = Bearbeiten
+nametag-edit-ended = Bearbeitung beendet. Wähle erneut Bearbeiten, um fortzufahren.
+nametag-edit-prompt = Drücke T: { $arg0 } mit MiniMessage bearbeiten (privat).
+nametag-finish-field = Bestätige zuerst das bearbeitete Feld oder brich es ab.
+nametag-input-invalid = Ungültiges Format. Sende einzeiliges MiniMessage oder wähle Leeren.
 nametag-leading-label = Namenspräfix
-nametag-no-permission = Du darfst diesen Befehl nicht verwenden
-nametag-online-editor = Online-Editor
+nametag-mine = Mein Namensschild
+nametag-next = Weiter
+nametag-no-changes = Keine Änderungen
+nametag-no-permission = Mitglieder und Teammitglieder können Namensschilder bearbeiten. Ansehen ist weiterhin möglich.
+nametag-no-players = Keine Spieler haben einen Namensstil eingerichtet
+nametag-page = Seite { $arg0 } / { $arg1 }
+nametag-players = Spielerstile
 nametag-preview-label = Vorschau
-nametag-sample-message = Beispielnachricht
-nametag-set-error = Fehler beim Festlegen von { $arg0 }. Bitte versuche es später erneut
+nametag-previous = Zurück
+nametag-refresh = Aktualisieren
+nametag-saving = Wird gespeichert…
+nametag-set-error = Speichern fehlgeschlagen: { $arg0 }. Versuche es erneut; die aktuelle Anzeige steht oben.
 nametag-set-success = ✔ { $arg0 } festgelegt
+nametag-styles-failed = Spielerstile konnten nicht geladen werden. Zum Wiederholen aktualisieren.
+nametag-styles-loading = Spielerstile werden geladen…
 nametag-tip-customize-mm = Passe mit <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> dein <light_purple>Namenspräfix und -suffix</light_purple> an.
 nametag-title = Namensschilder
 nametag-too-long = { $arg0 } ist zu lang. Die maximale Länge beträgt { $arg1 } Zeichen
@@ -257,6 +308,7 @@ fly-enabled = Fliegen aktiviert
 fly-native-mode = Dein /fly-Zugang ist deaktiviert. Dieser Spielmodus erlaubt weiterhin das Fliegen.
 fly-speed-click = Fluggeschwindigkeit auf { $arg0 }x setzen
 fly-speed-current = Fluggeschwindigkeit: { $arg0 }x
+fly-speed-limited = Die Erkundungslast begrenzt das Fliegen vorübergehend auf { $arg0 }x; deine Einstellung bleibt { $arg1 }x.
 fly-speed-presets = Voreinstellungen
 fly-speed-reset = Fluggeschwindigkeit auf 1x zurueckgesetzt
 fly-speed-reset-action = Zuruecksetzen
@@ -265,10 +317,8 @@ fly-speed-set = Fluggeschwindigkeit auf { $arg0 }x gesetzt
 fly-state-disabled = Deaktiviert
 fly-state-enabled = Aktiviert
 fly-status = Fliegen: { $arg0 } | Geschwindigkeit: { $arg1 }x
-flyspeed-command-description = Persoenliche Fluggeschwindigkeit anzeigen oder setzen
 home-action-create = Zuhause erstellen
 home-action-delete = Zuhause löschen
-home-action-icon = Symbol aus Hand setzen
 home-action-teleport = Teleportieren
 home-action-update = Standort aktualisieren
 home-already-exists = Ein Zuhause mit diesem Namen gibt es bereits
@@ -289,11 +339,6 @@ home-distance-blocks = { $arg0 ->
 home-distance-other-world = andere Welt
 home-empty-description = Stell dich dorthin, wo du einen Homepunkt speichern möchtest
 home-empty-title = Noch keine Homepunkte
-home-icon = Symbol: { $arg0 }{ $arg1 }
-home-icon-default-note = · Standard
-home-icon-hand-invalid = Der Gegenstand in deiner Haupthand kann nicht als Homepunkt-Symbol verwendet werden
-home-icon-updated-rich = Symbol von Homepunkt { $home } aktualisiert
-home-invalid-icon = Dieses Material kann nicht als Homepunkt-Symbol verwendet werden
 home-invalid-name = Homepunkt-Namen dürfen die Zeichen < > : nicht enthalten
 home-list-rich = Homepunkte: { $homes }
 home-location = Position: { $arg0 }, { $arg1 }, { $arg2 }
@@ -302,20 +347,20 @@ home-max-reached = Du kannst höchstens { $arg0 } Homepunkte setzen
 home-menu-title = Homepunkte
 home-no-homes = Du hast noch keine Homepunkte gesetzt
 home-not-found-rich = Homepunkt { $home } existiert nicht
+home-search-placeholder = Hausnamen suchen…
+home-search-empty = Keine passenden Homepunkte
 home-set-command-description = Homepunkt an deiner aktuellen Position setzen
 home-set-rich = Homepunkt { $home } gesetzt
 home-set-usage-desc = Homepunkt an deiner aktuellen Position setzen
 home-summary-count = Gesetzt: { $arg0 } / { $arg1 }
-home-teleport-command-description = Zu einem Homepunkt teleportieren
 home-teleport-failed = Teleportation fehlgeschlagen. Bitte versuche es erneut
 home-teleported-rich = Zu Homepunkt { $home } teleportiert
 home-tip-create-mm = Speichere deinen Standort mit <green><u><click:suggest_command:'/sethome '>/sethome Name</click></u></green> und kehre mit <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> zurück.
-home-tip-return-mm = Öffne <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> und wähle ein Zuhause zum Teleportieren.
+home-tip-return-mm = Öffne <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>, wähle ein Zuhause und dann „{ home-action-teleport }“.
 home-updated-rich = Position von Homepunkt { $home } aktualisiert
 home-usage-book = Befehlshilfe
 home-usage-delhome = /delhome <name>  Homepunkt löschen
-home-usage-home = /home tp <name>  Direkt teleportieren
-home-usage-icon = /home icon <material> <name>  Symbol festlegen
+home-usage-home = /home <name>  Direkt teleportieren
 home-usage-name-rule = Homepunkt-Namen dürfen < > : nicht enthalten
 home-usage-sethome = /sethome <name>  Aktuelle Position speichern
 home-world = Welt: { $arg0 }
@@ -343,10 +388,6 @@ teleport-request-none = Du hast keine ausstehende Teleportanfrage
 teleport-request-received = { $sender } möchte dich teleportieren: { $command }
 teleport-request-rejected = Teleportanfrage abgelehnt
 teleport-request-sent = Teleportanfrage an { $player } gesendet
-teleport-summary-afk = Immer erlaubt, während AFK abgelehnt
-teleport-summary-allow = Teleportationen durch andere Spieler immer erlaubt
-teleport-summary-consent = Teleportationen durch andere Spieler benötigen meine Zustimmung
-teleport-summary-deny = Teleportationen durch andere Spieler immer abgelehnt
 tpany-command-description = Zur Position eines Spielers teleportieren, online oder offline
 tpany-done-offline-rich = Zur letzten bekannten Position von { $player } teleportiert: { $world } { $location }
 tpany-done-online-rich = Zur aktuellen Position von { $player } teleportiert
@@ -357,14 +398,13 @@ tpany-usage-desc = Zur gespeicherten Position eines Spielers teleportieren, auch
 
 ## Player · PVP
 
-pvp-admin-menu-title = PVP-Verwaltung - Seite { $arg0 }/{ $arg1 }
+pvp-admin-menu-title = PVP-Verwaltung
 pvp-allow-mounted-damage = Berittene Mobs können angegriffen werden
 pvp-allow-mounted-damage-desc = Wenn aktiviert, kann ein anderer Spieler dein Reittier angreifen, wenn ihr beide PVP aktiviert habt
 pvp-auto-enable-desc = Greife einen Spieler mit aktiviertem PVP zweimal hintereinander an
 pvp-auto-enable-label = Automatische Aktivierung
 pvp-auto-enable-warning-actionbar-mm = <yellow>Greife noch einmal an, um PVP automatisch zu aktivieren</yellow>
 pvp-auto-enabled-actionbar-mm = <green>PVP automatisch aktiviert</green>
-pvp-back-admin = Zurück zur PVP-Verwaltung
 pvp-combat-locked-mm = <red>Du kannst PVP im Kampf nicht deaktivieren</red> <dark_gray>|</dark_gray> <gray>Verbleibend: { $arg0 ->
         [one] <yellow>{ $arg0 }</yellow> Sekunde
        *[other] <yellow>{ $arg0 }</yellow> Sekunden
@@ -388,12 +428,15 @@ pvp-menu-title = PVP-Einstellungen
 pvp-mob-protected-actionbar-mm = <yellow>Dieser Mob ist vor PVP-Schaden geschützt</yellow>
 pvp-mob-protection-label = Mob-Schutz
 pvp-mounted-damage-label = Schaden an Reittieren
-pvp-next-page = Nächste Seite
 pvp-no-permission-mm = <red>Du darfst den PVP-Status anderer Spieler nicht verwalten</red>
 pvp-player-not-found-mm = <red>Online-Spieler nicht gefunden</red>
-pvp-prev-page = Vorherige Seite
 pvp-protect-mobs = Beschütze deine Mobs
 pvp-protect-mobs-desc = Beschütze Mobs, die du gezähmt hast oder auf denen du reitest
+pvp-quick-combat-cooldown = Kampfsperre: noch { $arg0 ->
+        [one] { $arg0 } Sekunde
+       *[other] { $arg0 } Sekunden
+    }
+pvp-quick-override = Eine vorübergehende Regel steuert PVP. Persönliche Vorlieben lassen sich in den Einstellungen ändern.
 pvp-set-by-staff-mm = <aqua>Das Team hat deinen PVP-Status gesetzt auf</aqua> <yellow>{ $arg0 }</yellow>
 pvp-set-other = PVP-Status von { $arg0 } auf { $arg1 } gesetzt
 pvp-set-other-rich = PVP-Status von { $player } auf { $state } gesetzt
@@ -407,7 +450,7 @@ pvp-summary-disabled = PVP deaktiviert
 pvp-summary-enabled = PVP aktiviert
 pvp-target-disabled-actionbar-mm = <yellow>Für diesen Spieler ist PVP nicht aktiviert</yellow>
 pvp-target-menu-title = PVP-Einstellungen - { $arg0 }
-pvp-tip-protection-mm = Mit <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> schaltest du dein PVP um. Zum Kämpfen müssen es <green>beide Spieler aktivieren</green>.
+pvp-tip-protection-mm = Mit <light_purple><u><click:suggest_command:'/pvp'>/pvp</click></u></light_purple> schaltest du PVP ein oder aus. Zum Kämpfen müssen es <green>beide Spieler aktivieren</green>.
 pvp-toggled-off-mm = <gray>PVP deaktiviert</gray> <dark_gray>|</dark_gray> <gray>Andere Spieler können dich nicht angreifen</gray>
 pvp-toggled-on-mm = <green>PVP aktiviert</green> <dark_gray>|</dark_gray> <gray>Du kannst jetzt gegen andere Spieler mit aktiviertem PVP kämpfen</gray>
 
@@ -470,21 +513,21 @@ self-kick-reason-too-long = Der Kick-Grund darf höchstens { $arg0 } Zeichen lan
 # $person: second for the actor; third for other viewers and console.
 self-kick-with-reason = { $person ->
         [second] Du hast den Server auf eigenen Wunsch verlassen. Grund: { $reason }
-       *[third] { $player } hat sich selbst vom Server gekickt. Grund: { $reason }
+       *[third] { $player } hat den Server freiwillig verlassen. Grund: { $reason }
     }
-    .item-1 = { $player } hat sich selbst rausgeworfen, und der Grund ist tatsächlich: { $reason }
-    .item-2 = { $player } hat sich tatsächlich wegen { $reason } vom Server gekickt!
-    .item-3 = { $player } hat den Server freiwillig verlassen und diese Begründung hinterlassen: { $reason }
-    .item-4 = { $player } hat den Selbst-Kick gewählt: { $reason }
+    .item-1 = { $player } hat den Server freiwillig verlassen. Grund: { $reason }
+    .item-2 = { $player } hat sich mit einer Nachricht ausgeloggt: { $reason }
+    .item-3 = { $player } hat den Server mit einer Nachricht verlassen: { $reason }
+    .item-4 = { $player } hat sich mit einer Notiz verabschiedet: { $reason }
 # $person: second for the actor; third for other viewers and console.
 self-kick-without-reason = { $person ->
         [second] Du hast den Server auf eigenen Wunsch verlassen.
-       *[third] { $player } hat sich selbst vom Server gekickt.
+       *[third] { $player } hat den Server freiwillig verlassen.
     }
-    .item-1 = { $player } hat sich tatsächlich selbst rausgeworfen!
-    .item-2 = { $player } hat den Server wortlos verlassen.
-    .item-3 = { $player } hat einen tadellosen Selbst-Kick hingelegt.
-    .item-4 = { $player } hat eigenhändig den Server-verlassen-Knopf gedrückt.
+    .item-1 = { $player } hat den Server freiwillig verlassen.
+    .item-2 = { $player } hat sich ausgeloggt.
+    .item-3 = Ding-dong! { $player } ist offline
+    .item-4 = Online -1. { $player } hat sich ausgeloggt
 
 ## Community · Chat and mentions
 
@@ -508,8 +551,8 @@ chat-private-label = MSG
 chat-private-no-reply-target = Kein kürzlich angeschriebener Spieler ist online
 chat-private-self = Du kannst keinen privaten Chat mit dir selbst starten
 chat-private-target-not-found = Online-Spieler nicht gefunden: { $arg0 }
-chat-private-target-offline = Der andere Spieler ist offline; zum öffentlichen Chat zurückgekehrt
-chat-private-tip-channel-mm = Mit <aqua><u><click:suggest_command:'/msg '>/msg Spieler</click></u></aqua> in den privaten Chat wechseln, mit <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> zurück in den öffentlichen Chat.
+chat-private-target-offline = Dein Gesprächspartner ist offline; warte oder wähle einen anderen Kanal
+chat-private-tip-channel-mm = Mit <aqua><u><click:suggest_command:'/msg '>/msg Spieler</click></u></aqua> wechselst du in den privaten Chat, mit <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> zurück in den öffentlichen Chat.
 chat-public-command-description = Öffentlichen Chat-Kanal wechseln
 chat-public-enter = Zum öffentlichen Chat gewechselt
 chat-reply-command-description = Dem zuletzt angeschriebenen Spieler antworten
@@ -519,6 +562,7 @@ chat-social-bound-player-label = Verknüpfter Spieler
 chat-social-name-label = Anzeigename
 chat-social-unbound = Mit keinem Minecraft-Spieler verknüpft
 chat-staff-command-description = Zum Teamchat wechseln
+chat-staff-label = Team
 chat-staff-permission-missing = Berechtigung für den Teamchat fehlt; zum öffentlichen Chat zurückgekehrt
 mention-action-bar = Hinweis in der Aktionsleiste
 mention-action-bar-text = { $sender } hat dich erwähnt
@@ -526,28 +570,31 @@ mention-alerts = Erwähnungsbenachrichtigungen
 mention-menu-title = Erwähnungsbenachrichtigungen
 mention-mute-afk = Während AFK stummschalten
 mention-sound = Benachrichtigungston
-mention-summary-action-bar = Aktionsleiste
-mention-summary-disabled = Benachrichtigungen deaktiviert
-mention-summary-enabled = Benachrichtigungen aktiviert
-mention-summary-enabled-afk = Benachrichtigungen aktiviert, während AFK stummgeschaltet
-mention-summary-modes-afk = { $arg0 }, während AFK stummgeschaltet
-mention-summary-sound = Ton
 staffchat-enter = Teamchat beigetreten
 
 ## Community · Announcements
 
+announcement-count = { $arg0 ->
+        [one] { $arg0 } Ankündigung
+       *[other] { $arg0 } Ankündigungen
+    }
 announcement-empty = Keine Ankündigungen
 announcement-first-page = Neueste Mitteilungen erreicht
 announcement-last-page = Älteste Mitteilungen erreicht
+announcement-latest = Neueste Meldung
+announcement-list-newer = Neuere Gruppe
+announcement-list-older = Ältere Gruppe
 announcement-more-count = { $arg0 } weitere nicht angezeigt
 announcement-new-count = { $arg0 } neu
 announcement-newer = Neuere Mitteilungen
+announcement-next-page = Nächste Seite
 announcement-older = Ältere Mitteilungen
+announcement-page = Seite { $arg0 } / { $arg1 }
+announcement-previous-page = Vorherige Seite
 announcement-reload = Ankündigungen neu laden
 announcement-reload-command-description = Ankündigungsdatei neu laden
 announcement-reload-failed = Ankündigungen konnten nicht neu geladen werden; die bisherigen bleiben erhalten
 announcement-reloaded = Ankündigungen neu geladen
-announcement-scroll-hint = Scrollen zum seitlichen Blättern
 announcement-unread-count = { $arg0 } ungelesen
 announcement-updated = Ankündigungen aktualisiert
 announcement-view-all = Alle Ankündigungen ansehen
@@ -757,7 +804,44 @@ governance-active-header = ─── Berechtigung als aktives Mitglied ───
 governance-active-member = Derzeit Mitglied
 governance-active-member-age = Seit mindestens 30 Tagen Mitglied
 governance-active-playtime = Mindestens 6 Stunden wirksame Spielzeit in 60 Tagen (derzeit { $arg0 })
+governance-activity-action = { $arg0 ->
+    [confirm] Mitzeichnung bestätigen
+    [vote] Lesen und abstimmen
+    *[details] Details ansehen
+    }
+governance-activity-all = Alle ansehen ({ $arg0 })
+governance-activity-closed = Beendet
+governance-activity-confirm-petition = Diesen Antrag mitzeichnen? Bei genügend Mitzeichnern beginnt eine Abberufungsabstimmung.
+governance-activity-needed = { $arg0 ->
+    [one] Noch { $arg0 } Mitzeichner nötig
+    *[other] Noch { $arg0 } Mitzeichner nötig
+    }
+governance-activity-proposal = { $arg0 ->
+    [appointment] { $arg1 } zum Moderator ernennen
+    [removal] { $arg1 } als Moderator abberufen
+    [petition] Abberufungsantrag für { $arg1 }
+    *[ban] Abstimmung zur Sperre von { $arg1 }
+    }
+governance-activity-remaining = { $arg1 ->
+    [days] Verbleibend: { governance-days }
+    [hours] Verbleibend: { governance-hours }
+    *[minutes] Verbleibend: { governance-minutes }
+    }
+governance-activity-status = { $arg0 ->
+    [available] Abstimmen möglich
+    [voted] Abgestimmt
+    [join] Mitzeichnen möglich
+    [joined] Mitgezeichnet
+    [closed] Beendet
+    *[view] Nur ansehen
+    }
 governance-already-moderator = Du bist bereits Moderator.
+governance-application-status = { $arg0 ->
+    [open] Eine Ernennungsabstimmung läuft
+    [pending] Angenommen · Ernennung ausstehend
+    [blocked] Voraussetzungen noch nicht erfüllt
+   *[ready] Du kannst dich bewerben
+    }
 governance-ballot-recorded = Deine anonyme Stimme wurde als { $arg0 } erfasst. Bis zum Fristende kannst du sie ändern.
 governance-ban-details = Vorgeschlagen von { $arg0 } · Dauer { $arg1 } · Grund: { $arg2 }
 governance-ban-suffix = · Dauer { $arg0 } · Grund: { $arg1 }
@@ -767,7 +851,6 @@ governance-choice-yes = Ja
 governance-command-description = Governance-Status und Abstimmungen anzeigen
 governance-custodian-no-nomination = Betreiber nehmen nicht an der Wahl von Moderatoren teil.
 governance-custodian-no-resign = Für Betreiber gilt das Rücktrittsverfahren für Moderatoren nicht.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-days = { $arg0 ->
         [one] { $arg0 } Tag
        *[other] { $arg0 } Tage
@@ -782,10 +865,12 @@ governance-error-pause-already-active = Für diesen Spieler besteht bereits eine
 governance-error-pause-already-member = Dieser Spieler ist bereits Mitglied; eine Beförderungspause ist nicht nötig.
 governance-error-pause-end-invalid = Die Beförderungspause muss in der Zukunft enden.
 governance-error-player-unknown = Für diesen Spieler gibt es noch keinen Governance-Eintrag.
+governance-error-removal-petition-closed = Dieser Antrag ist beendet oder wurde ersetzt.
 governance-error-removal-requires-petition = Eine Abwahl benötigt genügend Unterstützer.
 governance-error-removal-self = Du kannst deine eigene Abwahl nicht unterstützen.
 governance-error-removal-sponsor-ineligible = Nur aktive Mitglieder dürfen eine Abwahl unterstützen.
 governance-error-removal-sponsors-too-few = Mindestens zwei andere aktive Mitglieder sind erforderlich.
+governance-error-removal-target-not-moderator = Dieser Spieler ist kein abberufbarer Moderator mehr.
 governance-error-removal-vote-open = Für diesen Moderator läuft bereits eine Abwahl.
 governance-error-termination-reason-invalid = Dieser Beendigungsgrund gilt nicht für diese Abstimmung.
 governance-error-vote-already-open = Für diesen Spieler läuft bereits eine Abstimmung dieser Art.
@@ -802,7 +887,6 @@ governance-failure-quorum = Mindestbeteiligung nicht erreicht
 governance-failure-two-thirds = Ja-Stimmen erreichen nicht zwei Drittel der nicht enthaltenden Stimmen
 governance-history-header = ─── Letzte Abstimmungsergebnisse ───
 governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
-# $arg0 (Number): duration; locale decides the unit form.
 governance-hours = { $arg0 ->
         [one] { $arg0 } Stunde
        *[other] { $arg0 } Stunden
@@ -814,40 +898,50 @@ governance-kind-appointment = Ernennung
 governance-kind-ban = Sperre
 governance-kind-removal = Abwahl
 governance-legacy-ban-kick = Eine frühere Governance-Abstimmung wurde angenommen. Du bist für { $arg0 } gesperrt. Grund: { $arg1 }
-governance-menu-actions = Aktionen
+governance-menu-already-sponsored = Bereits unterstützt
+governance-menu-application = Bewerbungsstatus
 governance-menu-back = Zurück
 governance-menu-cancel = Abbrechen
+governance-menu-completed = Abgeschlossen
 governance-menu-confirm = Bestätigen
-governance-menu-confirm-nominate = Eine Abstimmung über deine Ernennung zum Moderator starten?
+governance-menu-confirm-nominate = Mit der Bewerbung beginnt eine Abstimmung über deine Ernennung zum Moderator.
 governance-menu-confirm-resign = Als Moderator zurücktreten?
 governance-menu-confirm-sponsor = Diesen Abwahlantrag unterstützen?
 governance-menu-confirm-withdraw = Deine Bewerbung als Moderator zurückziehen?
-governance-menu-find-player = Anderen Spieler suchen
-governance-menu-history = Abstimmungsverlauf
+governance-menu-custodian-duties = Serverwartung und Verwaltung.
+governance-menu-identity = Rolle
+governance-menu-identity-hint = Aufstiegsbedingungen und Aktivitätsverlauf.
+governance-menu-join-petition = Absetzungsantrag unterstützen
 governance-menu-loading = Governance-Status wird geladen…
-governance-menu-new-petition = Abwahlantrag starten
+governance-menu-matters = Gemeinschaftsangelegenheiten
+governance-menu-moderator-duties = Moderation und Spielerhilfe.
 governance-menu-nominate = Als Moderator bewerben
-governance-menu-nomination-open = Deine Ernennungsabstimmung läuft
+governance-menu-offline = Offline
+governance-menu-ongoing = Laufend
+governance-menu-online = Online
 governance-menu-pause = Aufstieg pausieren
 governance-menu-pause-appeal = Beschwerdeweg
 governance-menu-pause-duration = Dauer (z. B. 2d)
 governance-menu-pause-reason = Begründung
+governance-menu-pause-until = Endet am
+governance-menu-pending-application = Angenommen · Umsetzung ausstehend
 governance-menu-petition-row = { $arg0 } · { $arg1 }/{ $arg2 } Unterstützer
 governance-menu-petitions = Abwahlanträge
 governance-menu-player-name = Spielername
 governance-menu-players = Spielerverwaltung
-governance-menu-recent-results = Neueste Abstimmungsergebnisse
 governance-menu-refresh = Aktualisieren
+governance-menu-related = Letzte zugehörige Vorgänge
+governance-menu-related-matters = Zugehörige Vorgänge ansehen
 governance-menu-resign = Als Moderator zurücktreten
 governance-menu-resume = Aufstiegspause aufheben
 governance-menu-resume-reason = Grund für Aufhebung
 governance-menu-staff-only = Nur Moderatoren und Verwalter dürfen Spieler verwalten.
-governance-menu-status = Dein Status
-governance-menu-target = Moderatorname
+governance-menu-staff-search = Team suchen
+governance-menu-subject-filter = { $arg0 } · Filter löschen ×
+governance-menu-team = Öffentliches Team
+governance-menu-team-empty = Keine passenden Teammitglieder
 governance-menu-title = Gemeinschaftsverwaltung
-governance-menu-votes = Laufende Abstimmungen
 governance-menu-withdraw = Bewerbung zurückziehen
-# $arg0 (Number): duration; locale decides the unit form.
 governance-minutes = { $arg0 ->
         [one] { $arg0 } Minute
        *[other] { $arg0 } Minuten
@@ -863,7 +957,6 @@ governance-own-choice-closed = Deine Wahl: { $arg0 }
 governance-own-choice-open = Deine Wahl: { $arg0 }; bis zum Fristende änderbar.
 governance-own-not-voted = Du warst wahlberechtigt, hast aber nicht abgestimmt.
 governance-own-not-voted-hint = Du hast noch nicht abgestimmt. Öffne Governance und wähle diese Abstimmung.
-governance-own-not-voted-open = Du hast noch nicht abgestimmt.
 governance-own-not-voter = Du stehst nicht auf der Wählerliste dieser Abstimmung.
 governance-own-voted = Du hast abgestimmt
 governance-pause-cleared = Beförderungspause für { $arg0 } aufgehoben.
@@ -897,13 +990,11 @@ governance-result-terminated = Beendet ({ $arg0 })
 governance-resume-notice = Deine Beförderungspause wurde aufgehoben. Grund: { $arg0 }
 governance-resume-reason-required = Gib einen Grund für die Aufhebung an.
 governance-role-lookup-error = Moderatorenstatus konnte nicht geprüft werden. Bitte wende dich an einen Betreiber.
-# $arg0 (Number): duration; locale decides the unit form.
 governance-seconds = { $arg0 ->
         [one] { $arg0 } Sekunde
        *[other] { $arg0 } Sekunden
     }
 governance-storage-error = Governance-Daten konnten nicht verarbeitet werden. Bitte wende dich an einen Betreiber.
-governance-target-not-moderator = { $arg0 } ist derzeit kein Moderator.
 governance-termination-inactive = Moderator wegen langer Abwesenheit ausgeschieden
 governance-termination-ineligible = Kandidat verlor den Status als aktives Mitglied
 governance-termination-resigned = Moderator ist zurückgetreten
@@ -929,13 +1020,10 @@ plot-area-confirm = Grenzen von „{ $arg0 }“ durch die Auswahl ({ $arg1 ->
         [one] { $arg1 } Bauzelle
        *[other] { $arg1 } Bauzellen
     }) ersetzen? Bauwerke bleiben erhalten.
-plot-area-hint = //pos1 → //pos2 → speichern. Ecken auch per Holzaxt wählen; mehrere Bereiche hinzufügen/abziehen.
+plot-area-hint = Ecken per Links-/Rechtsklick mit der Holzaxt oder //pos1 und //pos2 wählen; dann zurück zum Speichern.
 plot-area-replace-save = Grenzen ersetzen und speichern
 plot-area-save = Grenzen speichern
 plot-area-saved = Grenzen von „{ $arg0 }“ gespeichert.
-plot-arrival-removed = Ankunftspunkt entfernt.
-plot-arrival-set = Ankunftspunkt gespeichert.
-plot-arrival-text-saved = Ankunftstitel gespeichert.
 plot-atmosphere-saved = Umgebung gespeichert.
 plot-back = Zurück
 plot-board-auto-notify-result = Benachrichtigungen für { $arg0 } Spieler vorgemerkt.
@@ -946,6 +1034,7 @@ plot-board-header = Gemeinschaftseinträge (letzte { $arg0 }; Details: /plot boa
 plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
 plot-board-kind-notice = Bekanntmachung
 plot-board-kind-objection = Einspruch
+plot-board-loading = Bekanntmachung wird geladen…
 plot-board-menu = Gemeinschaftstafel
 plot-board-notice-alert = { $arg0 } hat eine Bekanntmachung veröffentlicht: { $arg1 } · { $arg2 }
 plot-board-objection-alert = { $arg0 } hat Einspruch erhoben: { $arg1 } · { $arg2 }
@@ -964,20 +1053,14 @@ plot-board-unavailable = Einträge wurden nicht geladen. Versuche es später ode
 plot-board-withdrawal-alert = { $arg0 } hat einen Einspruch zurückgezogen: { $arg1 } · { $arg2 }
 plot-board-write-failed = Das Board konnte nicht aktualisiert werden. Versuche es später.
 plot-command-blocked = Der Grundstücksschutz blockiert diesen Befehl. Nutze /fill oder /setblock direkt im eigenen Grundstück; komplexe /execute-Befehle muss das Serverteam prüfen.
-plot-command-description = Baugrundstücke und öffentliche Projekte verwalten
+plot-command-description = Baugrundstücke verwalten
 plot-created = Grundstück { $arg0 } erstellt · { $arg1 }
 plot-created-for-you = { $arg1 } hat das Grundstück { $arg0 } für dich erfasst.
 plot-deleted = Grundstück freigegeben; das Bauwerk bleibt erhalten.
 plot-denied = deaktiviert
-plot-empty-summary = Hier ist kein Grundstück.
 plot-error-admin-owner-only = Mitglieder mit Verwaltungsrechten zu ändern erfordert Mitglieder- und Rechteverwaltung.
 plot-error-area-disconnected = Das Grundstück muss zusammenhängend sein.
 plot-error-args = Ungültige oder fehlende Argumente. Nutze /plot help.
-plot-error-arrival-location = Stehe auf sicherem Boden innerhalb des bebauten Projektbereichs.
-plot-error-arrival-missing = Kein Ankunftspunkt festgelegt.
-plot-error-arrival-private = Du darfst dieses private Projekt nicht besuchen.
-plot-error-arrival-text = Ungültiger Titel. Nur eine Zeile; höchstens 32 sichtbare Zeichen im Titel und 64 im Untertitel.
-plot-error-arrival-unsafe = Dieser Ankunftspunkt ist nicht verfügbar oder nicht mehr sicher.
 plot-error-busy = Grundstücksdaten werden gespeichert. Versuche es später erneut; diese Aktion wurde nicht eingereicht.
 plot-error-flag = Unbekanntes Recht. Eine Aktion aus der Berechtigungsliste wählen.
 plot-error-id = Grundstücks-ID fehlt oder ist mehrdeutig. Nutze /plot list.
@@ -997,12 +1080,10 @@ plot-error-selection = Markiere zwei Ecken mit //pos1 und //pos2.
 plot-error-selection-changed = Die Auswahl hat sich geändert. Bitte erneut bestätigen.
 plot-error-staff-only = Nur Moderatoren oder Kustoden können Grundstücke anderer Spieler verwalten oder erfassen.
 plot-error-storage = Grundstücksaktion fehlgeschlagen. Versuche es später erneut oder kontaktiere das Serverteam.
-plot-error-subplot-arrival = Verschiebe zuerst den Ankunftspunkt des Hauptgrundstücks aus der Auswahl.
 plot-error-subplot-children = Gib die Teilgrundstücke frei, bevor du das Hauptgrundstück freigibst.
 plot-error-subplot-depth = Teilgrundstücke sind nur auf einer Ebene möglich.
 plot-error-subplot-disconnected = Die ausgewählten Bauzellen sind nicht verbunden. Teile die Bereiche einzeln auf.
 plot-error-subplot-overlap = Die Auswahl überschneidet sich mit einem anderen Teilgrundstück.
-plot-error-subplot-own-arrival = Der Ankunftspunkt dieses Teilgrundstücks muss im neuen Bereich bleiben. Verschiebe ihn sonst zuerst.
 plot-error-subplot-owner = Dir fehlt die Berechtigung für diesen Teilgrundstück-Vorgang.
 plot-error-subplot-parent = Markiere beide Ecken innerhalb vorhandener Bauzellen des Hauptgrundstücks.
 plot-error-subplot-supervisor-member = Der Eigentümer des Hauptgrundstücks hat hier bereits Aufsicht und braucht keine Mitgliedsrolle.
@@ -1026,16 +1107,10 @@ plot-member-draft-submit = Prüfen und bestätigen
 plot-member-draft-title = Mitgliederentwurf · { $arg0 }
 plot-member-permissions = Berechtigungen
 plot-member-removed = Projektmitglied entfernt.
-plot-menu-access = Zugriff und Mitglieder
-plot-menu-access-by-settings = nach Zugriffseinstellungen
-plot-menu-admin = Grundstücksverwalter hinzufügen
-plot-menu-arrival = Ankunftspunkt
-plot-menu-arrival-subtitle = Untertitel (MiniMessage; optional)
-plot-menu-arrival-text = Ankunftstitel
-plot-menu-arrival-title = Titel (MiniMessage; leer = Projektname)
+plot-menu-access = Mitglieder und Rechte
+plot-menu-add-member = Mitglied hinzufügen
 plot-menu-atmosphere = Umgebung
 plot-menu-clear = Klar
-plot-menu-collaborator = Mitwirkende hinzufügen
 plot-menu-confirm-delete = Registrierung von { $arg0 } löschen? Schutz, Mitgliederrechte und Einstellungen werden unwiderruflich entfernt. Bauwerke bleiben erhalten.
 plot-menu-confirm-subplot-transfer = { $arg0 } an { $arg1 } übertragen? Der Eigentümer des Hauptgrundstücks behält die Aufsicht.
 plot-menu-confirm-transfer = Die Verwaltung von { $arg0 } an { $arg1 } übertragen? Du verlierst den Zugang; bestehende Urheberschaft bleibt bestehen.
@@ -1056,27 +1131,22 @@ plot-menu-group-collaborator = Mitwirkende
 plot-menu-group-member = Standard für Mitglieder
 plot-menu-group-newcomer = Standard für Neulinge
 plot-menu-group-owner = Grundstückseigentümer
+plot-menu-here = Aktueller Standort
 plot-menu-manage = Spielergrundstücke verwalten
 plot-menu-managed-empty = Dieser Spieler hat noch keine Grundstücke.
 plot-menu-managed-title = Grundstücke von { $arg0 }
 plot-menu-members = Mitglieder ({ $arg0 })
-plot-menu-my-access = Dein Zugriff: { $arg0 } · { $arg1 }
 plot-menu-name = Projektname
 plot-menu-owner = Eigentümer: { $arg0 }
 plot-menu-parent-supervisor = Eigentümer des Hauptgrundstücks: { $arg0 } · Aufsicht
 plot-menu-player = Spielername oder UUID
-plot-menu-project-kind = Projektart
-plot-menu-public-destinations = Öffentliche Reiseziele
-plot-menu-public-destinations-empty = Noch keine öffentlichen Projekte mit Ankunftspunkt.
 plot-menu-rain = Niederschlag
-plot-menu-record-id = Eintrags-ID; für ältere Einträge die vollständige ID eingeben
+plot-menu-record-search = Nummer oder Titel
 plot-menu-related-notice = Zugehörigen Hinweis ansehen
-plot-menu-remove-arrival = Ankunftspunkt entfernen
 plot-menu-remove-member = Mitglied entfernen
 plot-menu-rename = Projekt umbenennen
 plot-menu-rule = Entscheidung eintragen
 plot-menu-ruling = Entscheidung begründen (8–1000 Zeichen)
-plot-menu-set-arrival = Ankunftspunkt hier setzen
 plot-menu-set-role = Als { $arg0 } festlegen
 plot-menu-settings = Projekteinstellungen
 plot-menu-submit = Anwenden
@@ -1087,31 +1157,8 @@ plot-menu-subplots = Teilgrundstücke ({ $arg0 })
 plot-menu-time = Uhrzeit
 plot-menu-time-input = Uhrzeit (HH:mm)
 plot-menu-transfer = Grundstück übertragen
-plot-menu-visit = Projekt besuchen
 plot-menu-weather = Wetter
 plot-menu-withdraw = Rückmeldung zurückziehen
-plot-model-fit = Alle Grenzen einpassen
-plot-model-focus = Umgebung fokussieren
-plot-model-layer-down = Schnitthöhe um 1 Block senken
-plot-model-layer-up = Schnitthöhe um 1 Block anheben
-plot-model-legend = Türkis: gespeichert · Grün/Gold: Ecken 1/2 · Violett: zu speichernde Grenzen · Weiß/Rot: du/Blickrichtung
-plot-model-level = Schnitt bei Y ≤ { $arg0 } (nur Vorschau)
-plot-model-limited = Modellabtastung oder Details reduziert. Fokussiere die Nähe oder ein Rechteck für mehr Details; nutze die Grenzansicht zur Kantenprüfung.
-plot-model-north-up = Draufsicht mit Norden oben. Wechsle zum Drehen in die 3D-Ansicht.
-plot-model-perspective = 3D-Ansicht
-plot-model-preparing = Grenzen und Bereich werden im Hintergrund geprüft… Automatische Aktualisierung nach Abschluss.
-plot-model-progress = Modell wird gelesen: { $arg0 } %…
-plot-model-rotate-left = ↶ Links drehen
-plot-model-rotate-right = ↷ Rechts drehen
-plot-model-show-all = Volle Höhe zeigen
-plot-model-slice = Über meiner Ebene schneiden
-plot-model-terrain = Bauwerke und Gelände anzeigen
-plot-model-top = Draufsicht
-plot-model-unknown = { $arg0 ->
-        [one] { $arg0 } ungeladene Probe
-       *[other] { $arg0 } ungeladene Proben
-    } (grau). Chunks werden nicht zwangsweise geladen.
-plot-model-wireframe = Nur Grenzen
 plot-no-here = Hier ist kein geschütztes Grundstück.
 plot-notice-board = Grundstücksaushang
 plot-notice-cleared = Aushang gelöscht
@@ -1153,7 +1200,6 @@ plot-permission-manage-area = Grenzen ändern
 plot-permission-manage-members = Mitglieder verwalten
 plot-permission-manage-permissions = Berechtigungen verwalten
 plot-permission-manage-settings = Grundstückeinstellungen ändern
-plot-permission-management = Grundstückseinstellungen und Eigentum
 plot-permission-modify = Blöcke ändern und düngen
 plot-permission-operation = Aktion
 plot-permission-personal = Individuelle Rechte
@@ -1176,16 +1222,15 @@ plot-permission-transfer = Eigentum übertragen
 plot-permission-workstation = Einrichtungen und Werkstationen nutzen
 plot-pos1 = Erster Punkt
 plot-pos2 = Zweiter Punkt
-plot-private = Privates Projekt
-plot-public = Öffentliches Projekt
-plot-public-set = Projektart: { $arg0 }.
+plot-private = Privat
+plot-public = Öffentlich
 plot-region-adjust = Dieses Rechteck anpassen
 plot-region-apply = Rechteckanpassung abschließen
 plot-region-cancel = Rechteckanpassung abbrechen
 plot-region-changed = Die Auswahl wurde geändert. Wähle das Rechteck erneut.
 plot-region-delete = Dieses Rechteck löschen
 plot-region-delete-confirm = Rechteck #{ $arg0 } aus dem Entwurf entfernen? Gebäude bleiben. Grenzen ändern sich erst beim Speichern; dies lässt sich rückgängig machen.
-plot-region-edit-hint = Passe dieses Rechteck mit //pos1 und //pos2 an. Andere Rechtecke bleiben unverändert. Schließe die Anpassung ab und speichere dann das Grundstück.
+plot-region-edit-hint = Dieses Rechteck mit //pos1 und //pos2 anpassen, dann speichern.
 plot-region-finish-first = Schließe die aktuelle Rechteckanpassung zuerst ab oder brich sie ab.
 plot-region-open = Rechtecke verwalten ({ $arg0 })
 plot-region-select-hint = Wähle ein nummeriertes Rechteck zum Fokussieren und Hervorheben. Graue Linien zeigen diese Seite; Zusammenführen kann die Nummern ändern.
@@ -1199,13 +1244,8 @@ plot-role-server-staff = Serverteam
 plot-selection-add = Aktuellen Quader hinzufügen
 plot-selection-clear = Beide Punkte zurücksetzen
 plot-selection-empty = Markiere zwei Ecken mit //pos1 und //pos2.
-plot-selection-exit = Bearbeitung / Vorschau beenden
 plot-selection-fit = Gespeicherte Grenzen wiederherstellen
 plot-selection-incomplete = Ein Punkt ist markiert. Markiere den zweiten; vor dem Absenden ändert sich nichts.
-plot-selection-mode = Punkte vor Ort wählen
-plot-selection-no-redo = Keine Auswahländerung zum Wiederholen.
-plot-selection-no-undo = Keine frühere Auswahländerung zum Rückgängigmachen.
-plot-selection-open = Grenzen bearbeiten
 plot-selection-redo = Letzten Schritt wiederholen
 plot-selection-replace = Durch aktuellen Quader ersetzen
 plot-selection-session-hint = Schleichen+F oder /plot edit zum Zurückkehren. Ende nach 20 Minuten Inaktivität.
@@ -1224,12 +1264,46 @@ plot-transferred-to-you = { $arg1 } hat Grundstück { $arg0 } an dich übertrage
 
 ## World · Vehicles
 
-vehicle-admin-help = /vehicle — { vehicle-model-title }
-    Modelle: model | model help
-    Erfassung: origin | select <uuid>/radius <radius>/group [uuid]/info/clear | capture <id> car/boat/plane
-    Fahrzeuge: spawn <model> [x y z] | reload
 vehicle-command-description = Anzeige-Fahrzeuge fahren und verwalten
-vehicle-controls = { $arg0 }: W/S und A/D steuern; Mausrad schaltet oder ändert Gas; Handwechsel wechselt den Modus; Schleichen steigt aus. /vehicle help · /vehicle dashboard öffnet die Fahrsteuerung.
+vehicle-menu-label =
+    { $arg0 ->
+        [home] Fahrzeuge
+        [nearby] Fahrzeuge in der Nähe
+        [fleet] Alle zugänglichen Fahrzeuge
+        [selection] Modellauswahl
+        [origin] Ursprung an den Füßen setzen
+        [group] Anzeigegruppe auswählen
+        [radius] Auswahlradius (0–16 m)
+        [displays] Anzeigen in der Nähe
+        [clear] Auswahl und Ursprung leeren
+        [capture] Modell aus Auswahl erstellen
+        [toggle-selection] Auswahl umschalten
+        [public] Öffentlich machen
+        [private] Privat machen
+        [reload] Modelle aus Dateien neu laden
+        [leave] Aussteigen
+        [passenger] Beifahrersitz
+        [fuel] Tanken · Kohle/Holzkohle halten
+        [repair] Reparieren · Eisenbarren halten
+        [access] Zugriff
+        [remove] Fahrzeug entfernen
+        [hud] Fahr-HUD anzeigen
+        [hide-preview] 3D-Vorschau ausblenden
+        [service-hint] In der Nähe anhalten, Motor ausschalten und Material halten.
+        [nearby-hint] Auf 32 Blöcke nähern und vorher aussteigen.
+        [use-required] Benötigt mik.vehicle.use.
+        [remove-hint] Anhalten und alle aussteigen lassen.
+        [reload-hint] Alle Fahrzeuge müssen leer und ausgeschaltet sein. Entwürfe bleiben erhalten; geänderte Modelle erneut öffnen.
+        [pick-hint] Anzeige anvisieren und rechtsklicken. Schleich-Rechtsklick bricht ab; endet nach 30 Sekunden.
+        [spawn-hint] Weltkoordinaten; Vorgabe vier Blöcke voraus. Ausrichtung nach Blickrichtung beim Erzeugen.
+        [zoom-in] Vergrößern
+        [zoom-out] Verkleinern
+        [frame] Vor mir neu platzieren
+        [offset] Relativ verschieben
+       *[other] { vehicle-command-description }
+    }
+
+vehicle-controls = { $arg0 }: W/S und A/D steuern; Mausrad schaltet oder ändert Gas; Handwechsel wechselt den Modus; Schleichen steigt aus. /vehicle
 vehicle-dash-assisted = Stabilitätshilfe
 vehicle-dash-automatic = Automatik
 vehicle-dash-contact = Boden- / Wasserkontakt: { $arg0 }
@@ -1269,18 +1343,136 @@ vehicle-group-selected = Ausgewählte Gruppe: { $arg0 ->
         [one] { $arg0 } Anzeige-Entität
        *[other] { $arg0 } Anzeige-Entitäten
     } · Wurzel { $arg1 }
-vehicle-help = /vehicle — Fahrzeugsteuerung
-    Fahren: list | ride [uuid] | passenger [uuid] | leave | inspect [uuid]
-    Antrieb: engine | mode [automatic/manual/assisted] | gear P/R/N/D/up/down/number | throttle up/down
-    Anzeige: hud [on/off] | dashboard [drive/gearbox/details/off]
-    Wartung: fuel | repair | access public/private | remove [uuid]
 vehicle-hud-boat = { $arg0 } kn · Schub { $arg1 } % · Kurs { $arg2 }°
 vehicle-hud-car = { $arg0 } km/h  ·  { $arg1 }  ·  { $arg2 } RPM · { $arg3 }
 vehicle-hud-plane = { $arg0 } km/h · Höhe { $arg1 } m · Steigrate { $arg2 } m/s · Gas { $arg3 } % · { $arg4 }
 vehicle-hud-status = Kraftstoff { $arg0 } % · Zustand { $arg1 } % · { $arg2 }
+vehicle-model-center = Schwerpunkt
+vehicle-model-choice = { $arg0 ->
+    [CAR] Auto
+    [BOAT] Motorboot
+    [PLANE] Flugzeug
+    [BODY] Karosserie
+    [FRONT_WHEEL] Lenkbares Rad
+    [WHEEL] Rad
+    [PROPELLER] Propeller
+    [RUDDER] Ruder
+    [FIXED] Fest
+    [VERTICAL] Senkrecht ausrichten
+    [HORIZONTAL] Waagerecht ausrichten
+    [CENTER] Zur Kamera
+    [NONE] Ohne Haltung
+    [THIRDPERSON_LEFTHAND] Dritte Person · links
+    [THIRDPERSON_RIGHTHAND] Dritte Person · rechts
+    [FIRSTPERSON_LEFTHAND] Erste Person · links
+    [FIRSTPERSON_RIGHTHAND] Erste Person · rechts
+    [HEAD] Kopf
+    [GUI] Inventar
+    [GROUND] Boden
+    [LEFT] Links
+    [RIGHT] Rechts
+    [false] Aus
+    [true] Ein
+    [TEXT_CENTER] Zentriert
+   *[other] { $arg0 }
+    }
+vehicle-model-field = { $arg0 ->
+    [kind] Fahrzeugtyp
+    [mass] Masse
+    [maximum-speed] Höchstgeschwindigkeit (km/h)
+    [support-length] Stützweg (m)
+    [grip] Bodenhaftung
+    [center-of-mass] Schwerpunkt
+    [inertia] Trägheitsmomente X/Y/Z
+    [engine-torque] Spitzendrehmoment
+    [engine-idle-rpm] Leerlauf (RPM)
+    [engine-redline-rpm] Drehzahlgrenze (RPM)
+    [engine-inertia] Motorträgheit
+    [engine-wheel-radius] Radradius (m)
+    [engine-final-drive] Achsübersetzung
+    [engine-reverse-ratio] Rückwärtsübersetzung
+    [engine-ratios] Vorwärtsübersetzungen
+    [engine-shift-seconds] Schaltzeit (s)
+    [fuel-capacity] Tankkapazität
+    [fuel-consumption] Verbrauch (/s)
+    [buoyancy] Auftrieb im Wasser
+    [wing-area] Flügelfläche (m²)
+    [lift] Auftriebsbeiwert
+    [animation] Animationsrolle
+    [billboard] Zur Kamera ausrichten
+    [item-transform] Gegenstandshaltung
+    [alignment] Textausrichtung
+    [block-light] Blocklicht
+    [sky-light] Himmelslicht
+    [background] Hintergrund (ARGB)
+    [line-width] Textbreite
+    [opacity] Deckkraft (0–255)
+    [shadow] Textschatten
+    [see-through] Text durch Wände
+    [x] X
+    [y] Y
+    [z] Z
+    [size-x] Gesamtbreite X (m)
+    [size-y] Gesamthöhe Y (m)
+    [size-z] Gesamtlänge Z (m)
+   *[other] { $arg0 }
+    }
+vehicle-model-field-range = Zulässiger Bereich: 0 < Wert ≤ { $arg0 }
+vehicle-model-front = Vorderseite (+Z)
+vehicle-model-front-choice = { $arg0 ->
+    [negative-x] Bisherige −X-Seite
+    [back] Bisherige Rückseite (−Z)
+    [positive-x] Bisherige +X-Seite
+    [look] Horizontale Blickrichtung nutzen (auf 90° runden)
+   *[other] Diese Seite als vorn festlegen
+    }
+vehicle-model-front-hint = Wähle den Pfeil im 3D-Modus. Die Karosserie bleibt stehen; Sitze, Ausstiege und Physikpunkte werden gemeinsam umgerechnet. Schritte von 90° sind rückgängig zu machen.
+vehicle-model-handle = { $arg0 ->
+    [ROTATE] { $arg1 } { $arg2 } { $arg3 }°
+   *[other] { $arg1 } { $arg2 } { $arg3 }
+    }
+vehicle-model-marker = { $arg0 ->
+    [driver] Fahrersitz #{ $arg1 }
+    [passenger] Passagiersitz #{ $arg1 }
+    [exit] Ausstieg #{ $arg1 }
+    [colliders] Kollisionsbox #{ $arg1 }
+    [supports] Stützpunkt #{ $arg1 }
+    [center] Schwerpunkt
+    [parts] Darstellungsteil #{ $arg1 }
+   *[other] { $arg1 }
+    }
+vehicle-model-parameter-group = { $arg0 ->
+    [body] Karosserie und Bodenkontakt
+    [engine] Motor und Getriebe
+    [fuel] Kraftstoff
+    [boat] Bootsauftrieb
+    [plane] Flugzeugauftrieb
+    [power] Motorleistung
+   *[other] { $arg0 }
+    }
+vehicle-model-parameter-help = { $arg0 ->
+    [body] Masse, Tempo und Bodenkontakt einstellen. Der Schwerpunkt ist in 3D einstellbar. Bis zum Speichern ändert sich nur der Entwurf.
+    [engine] Drehzahl, Drehmoment, Räder und Übersetzungen. Vorwärtsübersetzungen müssen abnehmen; die Drehzahlgrenze muss über 1,5 × Leerlauf liegen.
+    [fuel] Kapazität in Spiel-Kraftstoffeinheiten, Verbrauch pro Sekunde.
+    [boat] Wasserauftrieb gilt für Boote. Werte anderer Typen bleiben erhalten.
+    [plane] Flügelfläche und Auftrieb gelten für Flugzeuge. Werte anderer Typen bleiben erhalten.
+    [power] Drehzahl und Drehmoment für diesen Fahrzeugtyp. Getriebewerte für Autos bleiben erhalten.
+   *[other] { $arg0 }
+    }
+vehicle-model-property-help = { $arg0 ->
+    [block-light] −1 nutzt Weltlicht. Zum Überschreiben müssen beide Lichtwerte auf 0–15 stehen.
+    [sky-light] −1 nutzt Weltlicht. Zum Überschreiben müssen beide Lichtwerte auf 0–15 stehen.
+    [background] Vorzeichenbehaftete ARGB-Ganzzahl, etwa −16777216 für deckendes Schwarz.
+    [line-width] Textbreite von 1–2048 Pixeln.
+    [opacity] 0 ist durchsichtig, 255 ist deckend.
+   *[other] { $arg0 }
+    }
+vehicle-model-spatial = 3D-Steuerung
+vehicle-model-spatial-hint = Markierung rechts anklicken, um auszuwählen oder anzupassen. Schleichen + Rechtsklick öffnet die Einstellungen. Mit dem Mausrad änderst du die Schrittweite.
+vehicle-model-spawn = Dieses Modell erzeugen
 vehicle-model-add = Bauteil hinzufügen
 vehicle-model-add-here = Stützpunkt an meinen Füßen hinzufügen
-vehicle-model-anchor = Vorschauursprung hier setzen (in deine Blickrichtung)
+vehicle-model-anchor = Vor mir neu platzieren
 vehicle-model-animation = Animation
 vehicle-model-apply = Anwenden / bestätigen
 vehicle-model-auto = Kollisionsgrenzen neu berechnen
@@ -1295,8 +1487,8 @@ vehicle-model-copy = Kopieren und bearbeiten (Sitzkopien sind Beifahrersitze)
 vehicle-model-corner-cancel = Ausstehende Kollisionsbox verwerfen
 vehicle-model-corner-first = Erste Boxecke an meinen Füßen markieren
 vehicle-model-corner-first-look = Erste Ecke auf anvisierter Fläche markieren
-vehicle-model-corner-hint = Erste Ecke markiert. Gehe zur gegenüberliegenden Ecke, auch in der Höhe, und nutze /vehicle model collider corner2. Die Box folgt den Modellachsen.
-vehicle-model-corner-required = Markiere zuerst die erste Ecke mit /vehicle model collider corner1.
+vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
+vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Meine Füße als Gegenecke nutzen und Box hinzufügen
 vehicle-model-corner-second-look = Anvisierte Fläche als Gegenecke nutzen
 vehicle-model-create = { -vehicle-model(case: "accusative") } erstellen
@@ -1310,20 +1502,16 @@ vehicle-model-draft = Ungespeicherter Entwurf
 vehicle-model-driver = Fahrersitz
 vehicle-model-driver-here = Fahrersitz an meinen Füßen hinzufügen
 vehicle-model-edit = Entwurf bearbeiten / fortsetzen
+vehicle-model-overview = Entwurfsübersicht
+vehicle-model-component-details = Komponentendetails
+vehicle-model-selection-unavailable = Objekt geändert oder entfernt; gehe zurück und wähle erneut
 vehicle-model-exit = Ausstiegsposition / Feinanpassung
-vehicle-model-group = Axiom-Anzeigegruppe hinzufügen
-vehicle-model-help = /vehicle model — { vehicle-model-title }
-    Modelle: menu | list | info [id] | create <id> car/boat/plane | import <id> car/boat/plane [uuid] | edit <id> | clone <id> <new-id> | delete <id>
-    Bearbeiten: set <field> <value...> | part/seat/collider/support — Tab zeigt Operationen und Argumente
-    Entwurf: preview [off] | undo | redo | save | cancel
-    In der Welt: anchor | pick | here | look | snap [on/off] | move <index> <dx dy dz>
-    { vehicle-model-position-hint }
-    seat position/exit | part position | support add/set | collider position: here / look
-    collider corner1/corner2 [look] | collider cancel — { vehicle-model-corner-hint }
-    Weitere Aktionen: check | apply — { vehicle-model-save-continue }
+vehicle-model-group = Axiom-Gruppe aus Haupthand hinzufügen
+vehicle-model-hand-invalid = Der Axiom-Anzeigegegenstand ist ungültig oder enthält nicht unterstützte Entitäten oder Anzeigedaten.
+vehicle-model-hand-required = Halte einen Axiom-Anzeigegegenstand in der Haupthand und importiere erneut.
 vehicle-model-here = Aktuelle Fußposition verwenden
 vehicle-model-history-empty = Keine Änderung in dieser Verlaufsrichtung vorhanden.
-vehicle-model-import = Axiom-Anzeigegruppe importieren
+vehicle-model-import = Axiom-Gruppe aus Haupthand importieren
 vehicle-model-item = Gegenstand
 vehicle-model-library = Gespeicherte Modelle · Entwürfe bleiben bis zum Speichern nur im Arbeitsspeicher
 vehicle-model-look = Zielplatzierung (Menü schließt; Rechtsklick bestätigt)
@@ -1341,7 +1529,7 @@ vehicle-model-position = Position / Feinanpassung
 vehicle-model-position-hint = Lokales X/Y/Z · here nutzt deine Füße, look eine getroffene Fläche · das optionale Raster folgt der Schrittweite.
 vehicle-model-preview = Private Vorschau
 vehicle-model-preview-failed = Vorschau nicht verfügbar; der Entwurf bleibt erhalten: { $arg0 }
-vehicle-model-preview-hint = Private Vorschau aktiv. Nach fünf Minuten ohne Bearbeitung entfernt; /vehicle model preview off zum Schließen.
+vehicle-model-preview-hint = { vehicle-model-spatial-hint }
 vehicle-model-redo = Rückgängig gemachte Änderung wiederholen
 vehicle-model-remove = Bauteil entfernen
 vehicle-model-remove-warning = Bauteil entfernen? Nachfolgende Indizes verschieben sich; Rückgängigmachen ist möglich.
@@ -1530,9 +1718,16 @@ async-regen-usage = Verwendung: /regen preview blocks [Typen...] | /regen previe
 async-regen-visualization-legend = Visualisierung in { $arg0 }: Cyan = Auswahlgrenze, Orange = Stichprobe geänderter Blöcke, Rot = gefährdete Blockentität. Nur du siehst diese Partikel.
 async-regen-visualization-selection = Auswahl in { $arg0 }: Cyanfarbene Partikel markieren die Grenze. Nur du siehst sie.
 async-regen-fawe-required = FastAsyncWorldEdit wird zum Lesen der Auswahl benötigt
+building-map-layer = Bauwerke
+building-map-open = Bauwerk ansehen
+building-map-builders = Erbaut von { $arg0 }
+building-map-original-author = Urheber des Originals: { $arg0 }
+building-map-type-original = Eigenbau
+building-map-type-derivative = Abwandlung
+building-map-type-replica = Nachbau
 -iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ Schleichen
-iron-elevator-tip-mm = Baue einen Aufzug aus senkrecht übereinander angeordneten { -iron-elevator-block }. Stelle dich darauf: <green>Springen fährt hoch</green>, <aqua>Schleichen fährt runter</aqua>. Bei mehr als zwei Etagen erscheint eine <gold>Etagenauswahl</gold>.
+iron-elevator-tip-mm = Baue einen Aufzug aus senkrecht übereinander angeordneten { -iron-elevator-block }. Stelle dich darauf: <green>Springen fährt hoch</green>, <aqua>Schleichen fährt runter</aqua>. Ab zwei Etagen erscheint eine <gold>Etagenauswahl</gold>.
 iron-elevator-up = ↑ Springen
 spawn-beacon-color-command-description = Farbwechsel des Spawn-Leuchtfeuers umschalten
 spawn-beacon-color-disabled = Farbwechsel des Spawn-Leuchtfeuers deaktiviert
@@ -1543,174 +1738,30 @@ spawn-world-missing = Die Spawn-Welt ist nicht verfügbar
 
 ## Entertainment · Music
 
-music-action-add-queue = Zur Warteschlange hinzufügen
-music-action-play-nearby = Am nächsten Plattenspieler abspielen
-music-action-play-now = Jetzt an diesem Plattenspieler abspielen
-music-action-take-disc = Schallplatte nehmen
-music-added-to-queue-rich = Zur Warteschlange hinzugefügt: { $music }
 music-album = Album: { $arg0 }
-music-all-in-queue = Alle Lieder sind bereits in der Warteschlange
 music-artist = Künstler: { $arg0 }
 music-back = Zurück
-music-browser-left-click = Linksklick
-music-browser-right-click = Rechtsklick
-music-cache-clear-done = Online-Musikcache geleert
-music-cache-clear-started = Der Online-Musikcache wird geleert...
-music-cache-operation-failed = Cache-Vorgang für Musik fehlgeschlagen: { $arg0 }
-music-cache-status = Online-Musikcache: { $arg0 ->
-        [one] { $arg0 } Datei
-       *[other] { $arg0 } Dateien
-    }, { $arg1 } / { $arg2 }
-music-cached = Im Cache - sofort abspielbar
-music-clear-queue = Warteschlange leeren
-music-clear-queue-done = Warteschlange geleert ({ $arg0 ->
-        [one] { $arg0 } Lied
-       *[other] { $arg0 } Lieder
-    })
 music-command-description = Lokale, Online- und NBS-Musik für Plattenspieler
 music-disc-left = Linksklick: Schallplatte nehmen
 music-disc-right = Rechtsklick: auf dem nächsten Plattenspieler abspielen
-music-duplicate-in-queue = Dieses Lied ist bereits in der Warteschlange
 music-duration = Dauer: { $arg0 }
-music-empty-library = Die Musikbibliothek ist leer
-music-empty-library-description = Keine lokalen Audiodateien oder NBS-Titel verfügbar
-music-empty-nbs = Keine NBS-Titel gefunden
-music-empty-nbs-description = Wechsle zu aller Musik oder füge eine NBS-Datei hinzu
-music-empty-playlist = Diese Playlist enthält keine verfügbaren Titel
-music-empty-playlist-description = Prüfe, ob die Playlist öffentlich und die richtige Plattform ausgewählt ist
-music-empty-search = Keine passenden Lieder
-music-empty-search-description = Versuche ein anderes Schlüsselwort oder prüfe den Status benutzerdefinierter Quellen
-music-finished = Beendet
 music-format = Format: { $arg0 }
-music-inventory-full = Dein Inventar ist voll. Die Schallplatte konnte nicht hinzugefügt werden
 music-jukebox-audible-field-conflict = Ein anderer Plattenspieler spielt in einem überlappenden deutlich hörbaren Bereich ein anderes Lied
-music-jukebox-music-mode = Musikmodus
-music-jukebox-play-order = Wiedergabereihenfolge
-music-jukebox-range = Wiedergabereich
-music-jukebox-range-value = Aktuell: { $arg0 ->
-        [one] { $arg0 } Block
-       *[other] { $arg0 } Blöcke
-    }
-music-jukebox-rhythm-mode = Rhythmusmodus
-music-jukebox-too-far = Du bist zu weit vom Plattenspieler entfernt (maximal { $arg0 ->
-        [one] { $arg0 } Block
-       *[other] { $arg0 } Blöcke
-    })
 music-jukebox-tp-hover = Zum Plattenspieler teleportieren
 music-jukebox-unavailable = Der Plattenspieler wurde entfernt oder sein Chunk ist nicht verfügbar
-music-jukebox-usage-mode = Jukebox-Nutzung
-music-jukebox-volume = Lautstärke der Musikbox
-music-jukebox-volume-value = Aktuell: { $arg0 }%
-music-library-button = Musikbibliothek
-music-library-random-mode = Musikbibliothek mischen
-music-library-random-mode-desc = Zufällig aus der gesamten Musikbibliothek abspielen, ohne ein Lied direkt zu wiederholen
-music-loading-title = Wird geladen
-music-menu-nbs-title = NBS-Musik - Seite { $arg0 }/{ $arg1 }
-music-menu-playlist-title = Wiedergabeliste: { $arg0 } · { $arg1 }/{ $arg2 }
-music-menu-search-nbs-title = NBS-Suche: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-title = Suche: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-title = Schallplatten - Seite { $arg0 }/{ $arg1 }
-music-mode-switched = Zu { $arg0 }
-music-nearest-jukebox-missing = Im Umkreis von { $arg0 ->
-        [one] { $arg0 } Block
-       *[other] { $arg0 } Blöcken
-    } wurde kein Plattenspieler gefunden
-music-next-page = Nächste Seite
-music-no-disc = Keine Schallplatte
-music-no-files = Es sind keine Musikdateien verfügbar
-music-no-search-results-rich = Keine Lieder mit "{ $keyword }" gefunden
 music-now-playing-rich = Läuft gerade: { $music } am Plattenspieler { $location }
-music-online-partial-failure = Fehlgeschlagene Quellenanfragen: { $arg0 ->
-        [one] { $arg0 } Anfrage
-       *[other] { $arg0 } Anfragen
-    }; verfügbare Ergebnisse werden angezeigt
 music-online-rate-limited = Zu viele Musikanfragen. Versuche es in { $arg0 ->
         [one] { $arg0 } Sekunde
        *[other] { $arg0 } Sekunden
     } erneut.
-music-online-searching = Lokale und Online-Quellen werden nach "{ $arg0 }" durchsucht...
 music-original-author = Originalautor: { $arg0 }
-music-page-out-of-range = Seite außerhalb des Bereichs. Letzte Seite: { $arg0 }
-music-page-total = Insgesamt { $arg0 ->
-        [one] { $arg0 } Lied
-       *[other] { $arg0 } Lieder
-    }
-music-page-usage-desc = Zu einer Seite springen
-music-partial-results = Fehlgeschlagene Quellenanfragen: { $arg0 ->
-        [one] { $arg0 } Anfrage
-       *[other] { $arg0 } Anfragen
-    }; verfügbare Ergebnisse werden angezeigt
-music-paused = Pausiert
 music-plasmo-voice-unavailable = Der Song wurde gestartet, aber du kannst ihn nicht hören, weil Plasmo Voice nicht installiert, verbunden oder aktiviert ist
-music-play-next = Als nächstes spielen
-music-play-random = Zufällig abspielen
 music-playback-failed = "{ $arg0 }" konnte nicht abgespielt werden. Prüfe die Quelle oder Musikdatei und versuche es erneut.
-music-playback-status = Wiedergabestatus: { $arg0 }
-music-playing = Wird abgespielt
-music-playing-now-rich = Wird jetzt abgespielt: { $music }
-music-playlist-import-button = Playlist importieren
-music-playlist-import-done = „{ $arg0 }“ importiert: { $arg1 } von { $arg2 ->
-        [one] { $arg2 } Lied
-       *[other] { $arg2 } Liedern
-    }.
-music-playlist-import-failed = Playlist-Import fehlgeschlagen: { $arg0 }
-music-playlist-import-prompt = Wähle eine Plattform und füge dann eine öffentliche Playlist-ID oder einen Link ein:
-music-playlist-import-usage-desc = Öffentliche Playlist von einer anderen Musikplattform importieren
-music-playlist-importing = Playlist wird importiert...
-music-playlist-reference-prompt = Öffentliche Playlist-ID oder Link einfügen
-music-prev-page = Vorherige Seite
-music-queue-empty = Die Warteschlange ist leer
-music-queue-move-down = Nach unten
-music-queue-move-up = Nach oben
-music-queue-remove = Lied entfernen
-music-queue-summary = Warteschlange: { $arg0 ->
-        [one] { $arg0 } Lied
-       *[other] { $arg0 } Lieder
-    }
-music-queue-summary-description = Seite { $arg0 }/{ $arg1 }
-music-random-add = Zufälliges Lied hinzufügen
-music-random-added-to-queue-rich = Zufällig zur Warteschlange hinzugefügt: { $music }
-music-random-disc = Zufällige Schallplatte
-music-random-disc-got-rich = Zufällige Schallplatte erhalten: { $music }
-music-random-mode = Wiedergabeliste mischen
-music-random-mode-desc = Die Wiedergabeliste zufällig abspielen, ohne ein Lied direkt zu wiederholen
-music-rank-down = Nach unten verschoben
-music-rank-up = Nach oben verschoben
-music-reload-done = Neuladen abgeschlossen: { $arg0 ->
-        [one] { $arg0 } lokaler Titel
-       *[other] { $arg0 } lokale Titel
-    }; LX-Quellen verfügbar { $arg1 }/{ $arg2 }; Abonnements geprüft { $arg3 }, aktualisiert { $arg4 }
 music-reload-failed = Neuladen der Musik fehlgeschlagen: { $arg0 }
-music-reload-issues = Probleme beim Neuladen: { $arg0 }
-music-reload-partial = Neuladen mit beibehaltenem Zustand abgeschlossen: { $arg0 ->
-        [one] { $arg0 } lokaler Titel
-       *[other] { $arg0 } lokale Titel
-    }; LX-Quellen verfügbar { $arg1 }/{ $arg2 }; Abonnements geprüft { $arg3 }, aktualisiert { $arg4 }
 music-reload-started = Musikdateien und benutzerdefinierte Quellen werden neu geladen...
-music-remote-source-error = Aktualisierungsfehler: { $arg0 }
-music-remote-source-import-done = LX-Quellenabonnement importiert: { $arg0 }
-music-remote-source-import-failed = Import der LX-Quelle fehlgeschlagen: { $arg0 }
-music-remote-source-import-started = LX-Quellenabonnement wird importiert...
-music-remote-source-remove-done = LX-Quellenabonnement entfernt: { $arg0 }
-music-remote-source-remove-failed = LX-Quellenabonnement konnte nicht entfernt werden: { $arg0 }
-music-remote-source-remove-not-found = LX-Quellenabonnement nicht gefunden: { $arg0 }
-music-remote-source-update-done = Geprüft: { $arg0 ->
-        [one] { $arg0 } Abonnement
-       *[other] { $arg0 } Abonnements
-    }; aktualisiert: { $arg1 }; fehlgeschlagen: { $arg2 }.
-music-remote-source-update-failed = Aktualisierung der LX-Quelle fehlgeschlagen: { $arg0 }
-music-remote-source-update-started = Importierte LX-Quellenabonnements werden geprüft...
-music-remote-source-updated-at = aktualisiert: { $arg0 }
-music-remote-sources-title = Importierte LX-Quellenabonnements: { $arg0 }
-music-removed-from-queue-rich = Aus der Warteschlange entfernt: { $music }
-music-repeat-one-mode = Ein Lied wiederholen
-music-repeat-one-mode-desc = Das aktuelle Lied wiederholen, bis du manuell weiterschaltest
-music-request-error = Anfrage fehlgeschlagen: { $arg0 }
 music-rhythm-animation-offset = Animationsversatz { $arg0 } ms
-music-rhythm-calibration = Latenzkalibrierung
 music-rhythm-calibration-accumulating = Stabiles Timing wird bestätigt… bitte weiterspielen
 music-rhythm-calibration-adapting = Rhythmus wird angepasst… bitte weiterspielen
-music-rhythm-calibration-complete = Latenztest abgeschlossen · Rhythmusspiel bereit
 music-rhythm-calibration-done = Latenztest abgeschlossen · Einstellungen gespeichert
 music-rhythm-calibration-failed = Das Audio des Latenztests wurde unerwartet unterbrochen. Der Test wurde sicher beendet; bitte erneut starten
 music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Tastatur visuell → Maus visuell
@@ -1721,11 +1772,6 @@ music-rhythm-calibration-out-of-range = Die gemessene Verzögerung liegt außerh
 music-rhythm-calibration-plasmo-instruction = Jetzt mitspielen: Wiederhole den Plasmo-Voice-Rhythmus und drücke bei jedem Schlag 1–4
 music-rhythm-calibration-plasmo-ready = Minecraft-Test fertig; höre denselben Rhythmus zuerst über Plasmo Voice
 music-rhythm-calibration-pointer-instruction = Klicke links oder rechts, wenn die Blöcke die Trefferlinie überqueren.
-music-rhythm-calibration-prompt-confirm = Vollständigen Test starten
-music-rhythm-calibration-prompt-confirm-hint = Automatisch zurück nach Abschluss.
-music-rhythm-calibration-prompt-later = Nicht jetzt
-music-rhythm-calibration-prompt-reason = Starte einen Latenztest vor dem Spielen.
-music-rhythm-calibration-prompt-title = Vor dem Spielen ist ein Latenztest erforderlich
 music-rhythm-calibration-realigning = Der Audiostream wurde unterbrochen. Die Demonstration wird wiederholt; fertige Messwerte bleiben erhalten
 music-rhythm-calibration-required = Vor dem Rhythmusspiel muss der vollständige Latenztest abgeschlossen werden
 music-rhythm-calibration-reset-done = Latenzkalibrierung wurde zurückgesetzt
@@ -1744,7 +1790,6 @@ music-rhythm-difficulty-expert = Experte
 music-rhythm-difficulty-hard = Schwer
 music-rhythm-difficulty-normal = Normal
 music-rhythm-exit = Rhythmusspiel verlassen
-music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
 music-rhythm-get-ready = Bereit machen
 music-rhythm-go = LOS!
 music-rhythm-good = Gut
@@ -1759,52 +1804,15 @@ music-rhythm-network-too-high = Die Netzwerklatenz ist für eine faire Wertung z
 music-rhythm-network-warning = Die Netzwerklatenz schwankt ({ $arg0 } ms). Bleibt sie über { $arg1 } ms, wird die Sitzung sicher beendet
 music-rhythm-no-beats = In diesem Titel wurden keine spielbaren Takte erkannt
 music-rhythm-perfect = Perfekt
-music-rhythm-preparing = Warte, bis der Titel vollständig zwischengespeichert und rhythmisch analysiert ist
-music-rhythm-ready = Vollständige Beatmap bereit — Start ab dem ersten Schlag
 music-rhythm-requires-playback = Spiele zuerst einen Titel auf diesem Plattenspieler ab
-music-rhythm-reset-calibration = Latenzkalibrierung zurücksetzen
 music-rhythm-results = Ergebnis
 music-rhythm-score = Punkte: { $arg0 }
-music-rhythm-select-track = Rhythmus-Titel wählen
 music-rhythm-spatial-no-room = Für räumliches Zielen ist hier nicht genug Platz. Gehe in einen offeneren Bereich.
 music-rhythm-spatial-slider-hint = Folge dem bewegten Stern und klicke jeden Kontrollpunkt · nicht halten
-music-rhythm-start-game = Spiel starten
-music-rhythm-waiting-for-player = Warte auf einen Spieler, der das Rhythmusspiel startet
+music-rhythm-start = Spiel starten
 music-sample-rate = Abtastrate: { $arg0 }
-music-search-button = Lieder suchen
-music-search-keyword-required = Der Suchbegriff darf nicht leer sein
-music-search-keyword-too-long = Suchbegriff zu lang. Limit: { $arg0 } Zeichen.
-music-search-usage-desc = Lieder suchen
-music-section-all = Alle Musik
-music-section-nbs = NBS-Musik
-music-select-music = Musik auswählen
-music-sequential-mode = Wiedergabeliste wiederholen
-music-sequential-mode-desc = Die Wiedergabeliste der Reihe nach abspielen und am Anfang neu beginnen
 music-size = Größe: { $arg0 }
-music-sort-button = Sortierung
-music-sort-current = Aktuell: { $arg0 }
-music-sort-default = Standardsortierung
-music-sort-most-played = Meistgespielt
-music-sort-recently-played = Zuletzt gespielt
-music-sound-settings = Toneinstellungen
-music-source-actions = Aktionen: { $arg0 }
-music-source-available = verfügbar
-music-source-capabilities = Fähigkeiten: { $arg0 }
-music-source-error = Fehlerursache: { $arg0 }
-music-source-failures = Fehler: { $arg0 }
-music-source-retry = erneut in { $arg0 ->
-        [one] { $arg0 } Sekunde
-       *[other] { $arg0 } Sekunden
-    }
-music-source-unavailable = nicht verfügbar
-music-sources-empty = Keine benutzerdefinierten LX-Musikquellen gefunden
-music-sources-title = Benutzerdefinierte LX-Musikquellen: { $arg0 }
-music-stop-eject = Anhalten und auswerfen
-music-stop-eject-done = Wiedergabe angehalten und Schallplatte ausgeworfen
-music-stopped = Angehalten
-music-track-details = Titeldetails
 music-unavailable-disc = Nicht verfügbare Schallplatte
-music-unavailable-disc-description = Diese MIK-Schallplatte ist nicht im aktuellen Katalog; sie kann dennoch angehalten und ausgeworfen werden
 
 ## Entertainment · Anniversary
 
@@ -1932,20 +1940,16 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Sperrmitteilung]
 ban-command-description = Einen Spieler nach fester Schweregradstufe sperren
 ban-database-error = Sperrdatenbank-Aktion fehlgeschlagen. Prüfe das Serverprotokoll.
-ban-dialog-back = Zurück
-ban-dialog-cancel = Abbrechen
-ban-dialog-confirm-action = Spieler sperren
-ban-dialog-confirm-severity = Schweregrad
-ban-dialog-confirm-title = Sperre bestätigen
-ban-dialog-never-joined-confirm-action = Trotzdem sperren
-ban-dialog-never-joined-title = Spieler war noch nie auf dem Server
-ban-dialog-never-joined-warning = { $arg0 } war noch nie auf diesem Server. Prüfe den Spielernamen, damit du nicht den falschen Spieler sperrst.
-ban-dialog-next = Weiter
-ban-dialog-player-input = Spielernamen manuell eingeben
-ban-dialog-player-manual = Manuelle Eingabe
-ban-dialog-player-online = Spieler, die gerade online sind
-ban-dialog-select-title = Spieler auswählen
-ban-dialog-severity-title = Sperrstufe auswählen
+ban-menu-back = Zurück
+ban-menu-confirm-action = Spieler sperren
+ban-menu-confirm-severity = Schweregrad
+ban-menu-confirm-title = Sperre bestätigen
+ban-menu-never-joined-confirm-action = Trotzdem sperren
+ban-menu-never-joined-title = Spieler war noch nie auf dem Server
+ban-menu-never-joined-warning = { $arg0 } war noch nie auf diesem Server. Prüfe den Spielernamen, damit du nicht den falschen Spieler sperrst.
+ban-menu-player-input = Spielernamen manuell eingeben
+ban-menu-select-title = Spieler auswählen
+ban-menu-severity-title = Sperrstufe auswählen
 ban-history-empty = Kein Sperrverlauf für { $arg0 } vorhanden.
 ban-history-title = Sperrverlauf: { $arg0 }
 ban-invalid-player = Ungültiger Spielername
@@ -1991,11 +1995,14 @@ banlist-reason = Grund
 banlist-source = { role-moderator }
 banlist-title = Sperrliste
 maintenance-command-description = Wartungsmodus umschalten oder Status anzeigen
+maintenance-kick = Der Server wird gewartet
 maintenance-set = Wartungsmodus wurde { $arg0 }
 maintenance-state-disabled = deaktiviert
 maintenance-state-enabled = aktiviert
 maintenance-status = Wartungsmodus: { $arg0 }
 maintenance-unchanged = Der Wartungsmodus ist bereits { $arg0 }
+performance-kick-title = Der Server ist stark überlastet
+performance-kick-reason = Du wurdest vorübergehend getrennt, damit sich der Server erholen kann
 restriction-entity-too-large-mm = <red>Die Größe der Entität überschreitet das Sicherheitslimit des Servers</red>
 restriction-foreign-uuid-mm = <red>Du kannst UUIDs nur für Mobs verwenden, die du gezähmt hast</red>
 restriction-no-kill-e-mm = <red>Der Befehl <white>/kill @e</white> ist nicht erlaubt</red>
@@ -2021,9 +2028,16 @@ whitelist-temp-usage-desc = Temporären Whitelist-Eintrag für eine Stunde hinzu
 
 ## Shell · Menus, server information and scripting
 
-main-afk-current-afk = Derzeit AFK
-main-afk-current-online = Derzeit online
-main-afk-status = AFK-Status
+main-afk-status =
+    { $arg0 ->
+        [afk] AFK: Abwesend
+       *[online] AFK: Online
+    }
+main-pvp-status =
+    { $arg0 ->
+        [on] PVP: An
+       *[off] PVP: Aus
+    }
 main-announcements = Ankündigungen
 main-home = Homepunkte
 main-language = Sprache
@@ -2033,8 +2047,6 @@ main-map = Webkarte
 main-menu-title = Hauptmenü
 main-music = Musik
 main-name-tag = Namensschilder
-main-profile = Profil
-main-pvp = PVP
 main-settings = Einstellungen
 main-website = Webseite
 main-wiki = Wiki
@@ -2051,9 +2063,360 @@ stat-client-version = Clientversion
 stat-first-joined = Erstmals beigetreten
 stat-location = Position
 stat-ping = Latenz
+stat-ping-value = { $arg0 } ms
 stat-play-time = Spielzeit
 stat-role = Rolle
 stat-world = Welt
-weblogin-command-description = Mik-Web-Anmeldecode bestätigen
-weblogin-confirmed = Mik-Web-Anmeldung bestätigt. Kehre zum Fortfahren zu deinem Browser zurück.
-weblogin-invalid-code = Ungültiger Web-Anmeldecode
+web-account-title = Webkonto und Passkeys
+web-account-confirm = Bestätigen
+weblogin-question = Diese Identitätsprüfung für die Website bestätigen? Bestätige nur selbst auf mcmik.top gestartete Vorgänge. Gib niemals einen Code für andere ein.
+weblogin-command-description = Mik-Code zur Identitätsprüfung für die Website bestätigen
+weblogin-confirmed = Identität für die Website bestätigt. Fahre im Browser fort.
+weblogin-invalid-code = Ungültiger Code zur Identitätsprüfung für die Website
+
+
+# Music workspace
+music-space-label =
+    { $arg0 ->
+        [title] Musikraum
+        [devices] Wiedergabegeräte
+        [device-status] Status
+        [sync-group] Synchronisierte Gruppe
+        [single-device] Plattenspieler
+        [device-location] Standort
+        [visit-device] Dorthin teleportieren
+        [teleporting] Teleportation läuft…
+        [recorded-device] Gemerkt
+        [nearby-device] In der Nähe
+        [group-select-members] Mindestens zwei Plattenspieler auswählen
+        [group-name-required] Gruppennamen eingeben
+        [all-online] Alle online
+        [direction-front] Vorne
+        [direction-front-right] Vorne rechts
+        [direction-right] Rechts
+        [direction-back-right] Hinten rechts
+        [direction-back] Hinten
+        [direction-back-left] Hinten links
+        [direction-left] Links
+        [direction-front-left] Vorne links
+        [direction-here] Hier
+        [direction-above] Oben
+        [direction-below] Unten
+        [no-devices] Keine Geräte
+        [choose-members] Mitglieder auswählen
+        [create-group] Synchronisierte Gruppe erstellen
+        [add-members] Geräte hinzufügen
+        [create-play] Erstellen und abspielen
+        [create-and-append] Erstellen und Titel anhängen
+        [device-queue] Warteschlange
+        [device-members] Mitglieder
+        [available] Verfügbar
+        [play] Abspielen
+        [retry-outputs] Ausgabe erneut versuchen
+        [dissolve-group] Gruppe auflösen
+        [remove-member] Aus Gruppe entfernen
+        [removed-stopped] Entfernte Geräte stoppen und behalten den gewählten Inhalt.
+        [restore-previous] Inhalt vor dem Beitritt wiederherstellen
+        [keep-group-content] Gruppeninhalt behalten
+        [queue] Warteschlange
+        [back] { ban-menu-back }
+        [close] { close }
+        [unavailable] Music storage is unavailable
+        [saving] Wird gespeichert…
+        [saved] Gespeichert
+        [apply] { plot-menu-submit }
+        [cancel] { cancel }
+        [select-page] Select this page
+        [select-all] Select all results
+        [clear-tracks] Clear song selection
+        [add-playlist] Hinzufügen
+        [description] { plot-menu-description }
+        [make-private] Make private
+        [publish] Make public
+        [delete] Delete playlist
+        [favorite] Toggle favorite
+        [copy] Copy playlist
+        [share] Share playlist command
+        [recent] Zuletzt gespielt
+        [favorites] Favorite playlists
+        [public] Öffentlich
+        [private] Privat
+        [new-playlist] Wiedergabeliste erstellen
+        [name] Name
+        [song-title] Titel
+        [track-count] Titel
+        [visibility] Sichtbarkeit
+        [no-playlists] Keine Wiedergabelisten
+        [fetching-playlist] Wiedergabeliste wird geladen…
+        [artist] Interpret
+        [duration] Dauer
+        [track-type] Typ
+        [type-online] Online
+        [undo] { vehicle-model-undo }
+        [remove] Remove selected entries
+        [clear-recents] Clear my play history
+        [clear-entries] Clear entry selection
+        [search-tracks] Titel, Interpreten suchen…
+        [search-playlists] Playlists suchen…
+        [public-playlists] Public playlists
+        [searching] Searching…
+        [insert] Sofort einschieben und abspielen
+        [append] Zur Warteschlange hinzufügen
+        [choose-targets] Ausgabe wählen
+        [group-source] Warteschlange und Fortschritt übernehmen von
+        [removed-targets] Einige Ziele wurden entfernt; wähle sie erneut
+        [offline] Nicht verbunden
+        [device-discovery-hint] Schleiche und rechtsklicke mit leerer Hand auf eine Jukebox, um sie zu öffnen.
+        [empty] Keine Titel
+        [queue-empty] Keine wartenden Titel
+        [queue-current] Aktueller Titel der digitalen Warteschlange
+        [pause] Pause
+        [resume] Resume
+        [stop] Stop; keep playback list
+        [previous] Previous song / restart
+        [clear] Clear pending; stop after current song
+        [seek] Position
+        [more] Mehr
+        [volume-control] Lautstärke
+        [group-volume] Gruppenlautstärke
+        [timeline-help] Scrollen ±5 s · Rechtsklick für Zeiteingabe
+        [timeline-read-only] Positionswechsel nicht verfügbar
+        [seek-format] m:ss, h:mm:ss oder Sekunden eingeben
+        [record] Für Fernsteuerung speichern
+        [forget] Meine Gerätemerkung entfernen
+        [alias] Persönlicher Gerätename
+        [sound] Toneinstellungen
+        [rhythm] Rhythmusräume
+        [room-players] Spieler
+        [room-player-status] Status
+        [room-preparation] Meine Vorbereitung
+        [room-ready] Bereit
+        [room-cancel-ready] Bereitschaft aufheben
+        [room-playing] Im Spiel
+        [room-score-ready] Noten bereit
+        [room-select-one] Wähle in der Bibliothek per Mehrfachauswahl genau einen Titel.
+        [room-end-confirmation] Dies beendet den Raum für alle Teilnehmer.
+        [create-room] Raum erstellen
+        [no-rhythm-devices] Keine Musikbox in der Nähe. Zuerst mit leerer Hand schleichen und eine Musikbox rechts anklicken.
+        [calibration] Latenzkalibrierung
+        [volume] Volume (0–100)
+        [range] Range (8–256 blocks)
+        [mode] Wiedergabemodus
+        [save-queue] Warteschlange als Playlist speichern
+        [sequential] Sequential
+        [repeat-all] Wiedergabeliste wiederholen
+        [repeat-one] Repeat song
+        [shuffle] Shuffle without repeats
+        [import] Playlist importieren
+        [link] Playlist-Link
+        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
+        [import-preview] Preview fetched metadata; no audio was downloaded
+        [import-new] Erstellen und öffnen
+        [import-merge] In Playlist einfügen
+        [stopped] Angehalten
+        [loading] Preparing audio
+        [cancel-loading] Vorbereitung abbrechen
+        [playing] Wird abgespielt
+        [paused] Pausiert
+        [finished] Beendet
+        [retry-failed] Wiedergabe erneut versuchen
+        [select-song] Gewählte Lieder gemeinsam abspielen oder einer Playlist hinzufügen.
+        [select-toggle] Diesen Eintrag auswählen
+        [deselect] Auswahl dieses Eintrags aufheben
+        [selected] Ausgewählt
+        [place-before] Auswahl vor diesem Eintrag einfügen
+        [eject] Eject physical record
+        [make-disc] Create signed music disc
+        [gain] Group volume (0–100)
+        [retry-import] Fetch playlist again
+        [join-room] Raum beitreten
+        [ready] Bereit
+        [waiting] Waiting
+        [room-mode] Spielmodus
+        [room-difficulty] Schwierigkeit
+        [late-join] Join the running game
+        [leave-room] Leave room
+        [select-room-track] Ausgewählten Titel nutzen
+        [start-room] Spiel starten
+        [end-room] Raum beenden
+        [base-queue] Base playback list
+        [priority-queue] One-time requests
+        [falling] Falling lanes
+        [radial] Radial approach
+        [spatial-aim] Spatial aim
+        [easy] Easy
+        [normal] Normal
+        [hard] Hard
+        [expert] Expert
+        [waiting-for-player] Waiting for preparation
+        [preparing] Preparing audio and chart
+        [no-beats] No playable beats
+        [catalog] Musikkatalog
+        [my-playlists] Meine Playlists
+        [playlist] Playlist
+        [output] Ausgabe
+        [close-panel] Bereich schließen
+        [playlist-settings] Playlist verwalten
+        [multi-select] Auswählen
+        [move] Verschieben
+        [move-hint] Zieltitel wählen, um die Auswahl davor einzufügen
+        [cancel-move] Verschieben abbrechen
+        [move-end] Ans Ende setzen
+        [cancel-selection] Auswahl abbrechen
+        [track-details] Titeldetails
+        [skip-next] Nächsten Titel starten
+        [device-settings] Geräte verwalten
+        [already-added] Bereits enthalten
+        [current-track] Aktueller Titel
+        [shuffle-candidates] Zufallsauswahl
+        [import-by-id] Per ID importieren
+        [playlist-id] Playlist-ID
+       *[unknown] Musikraum
+    }
+
+music-space-error =
+    { $arg0 ->
+        [UNAVAILABLE] Music is unavailable; reopen later
+        [INTERNAL] Interner Musikfehler; bitte einen Administrator, das Serverprotokoll zu prüfen
+        [NOT_FOUND] The selected item no longer exists
+        [FORBIDDEN] Control or edit permission is required
+        [CONFLICT] Content changed; refresh and select again
+        [LIMIT] The music resource limit was reached
+        [INVALID] Check the name, selection or numeric range
+        [OFFLINE] Device unavailable: load its chunk or eject its physical record
+        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
+        [UNSUPPORTED] This media does not support that action
+        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NO_SAFE_DESTINATION] Neben dieser Jukebox wurde kein sicherer Platz gefunden
+        [TELEPORT_FAILED] Die Teleportation ist fehlgeschlagen oder wurde blockiert
+       *[UNKNOWN] Operation failed
+    }
+
+music-space-selected-tracks = { $arg0 } Titel ausgewählt
+music-space-track-count =
+    { $arg0 ->
+        [one] { $arg0 } Titel
+        *[other] { $arg0 } Titel
+    }
+music-space-device-count =
+    { $arg0 ->
+        [one] { $arg0 } Plattenspieler
+       *[other] { $arg0 } Plattenspieler
+    }
+music-space-online-count = Online: { $arg0 }/{ $arg1 } Plattenspieler
+music-space-device-distance = { $arg0 } · { $arg1 } m
+music-space-device-height = { $arg0 ->
+    [above] { $arg1 } m höher
+   *[below] { $arg1 } m tiefer
+    }
+music-space-device-coordinates = { $arg0 } · X { $arg1 } · Y { $arg2 } · Z { $arg3 }
+music-space-sound-value = { $arg0 ->
+        [volume] { $arg1 ->
+           *[other] { $arg1 }%
+        }
+       *[range] { $arg1 ->
+            [one] { $arg1 } Block
+           *[other] { $arg1 } Blöcke
+        }
+    }
+plot-permission-music-control = Musikgeräte steuern
+
+music-partial-results = Fehlgeschlagene Quellenanfragen: { $arg0 ->
+        [one] { $arg0 } Anfrage
+       *[other] { $arg0 } Anfragen
+    }; verfügbare Ergebnisse werden angezeigt
+
+webchat-tab-label = { $arg0 ->
+    [1] { player-web-label }
+   *[other] { player-web-label } ×{ $arg0 }
+    }
+webchat-joined = { $arg0 } ist dem Webchat beigetreten
+webchat-left = { $arg0 } hat den Webchat verlassen
+chat-rate-limited = Du sendest zu schnell. Bitte warte kurz.
+
+plot-map-corner-a = Ecke A
+plot-map-corner-b = Ecke B
+plot-map-corner-hint = Klicken zum Zentrieren. Rechtsklick: Koordinaten; Mausrad: Y ±4.
+plot-map-coordinates = Koordinaten x,y,z
+plot-map-zoom-in = Vergrößern
+plot-map-zoom-out = Verkleinern
+plot-map-fit = Gesamtbereich
+plot-map-near = Meine Umgebung
+plot-map-layer = Ebene Y { $arg0 }…{ $arg1 }
+plot-map-layer-hint = Mausrad wechselt die Ebene; Klick wählt deine Ebene. Gelände zeigt stets die Oberfläche.
+plot-map-north = Norden
+plot-map-west = Westen
+plot-map-east = Osten
+plot-map-south = Süden
+plot-map-scale = 1 Pixel = { $arg0 } × { $arg0 } Blöcke
+plot-map-progress = Karte lesen: { $arg0 }%…
+plot-map-unknown = Ungeladene Oberflächenproben: { $arg0 }
+plot-map-legend = Türkis: behalten · Lila: hinzugefügt · Orange: entfernt · Grün: Quader · A/B: Ecken · Pfeil: du
+plot-selection-validating = Grenzen und Bereich werden im Hintergrund geprüft… Automatische Aktualisierung nach Abschluss.
+
+plot-map-open = Minecraft-Karte ansehen
+
+plot-map-handheld-hint = Karte in der Nebenhand, Auswahl mit der Holzaxt. Schleichen + F öffnet das Menü.
+
+plot-map-readonly-hint = Nur Kartenansicht. Zum Ändern der Ecken im Menü Quader anpassen wählen.
+
+plot-destinations = Teleportpunkte
+plot-destination-add = Aktuellen Standort hinzufügen
+plot-destination-confirm-delete = Teleportpunkt „{ $arg0 }“ löschen?
+plot-destination-delete = Teleportpunkt löschen
+plot-destination-deleted = Teleportpunkt gelöscht.
+plot-destination-description = Beschreibung (optional)
+plot-destination-edit = Name und Beschreibung bearbeiten
+plot-destination-empty = Keine Teleportpunkte verfügbar.
+plot-destination-error-changed = Dieser Teleportpunkt wurde geändert. Öffne ihn erneut.
+plot-destination-error-description = Die Beschreibung darf höchstens 512 Zeichen und keine Steuerzeichen enthalten.
+plot-destination-error-location = Stelle dich auf sicheren Boden innerhalb dieses Grundstücks.
+plot-destination-error-missing = Dieser Teleportpunkt existiert nicht mehr.
+plot-destination-error-name = Der Name muss einzeilig sein und 1–48 Zeichen enthalten.
+plot-destination-error-private = Dieser Teleportpunkt ist nur für Grundstücksmitglieder verfügbar.
+plot-destination-error-unsafe = Dieser Teleportpunkt ist nicht verfügbar oder unsicher.
+plot-destination-loading = Teleportpunkt wird geladen…
+plot-destination-move = Auf aktuellen Standort setzen
+plot-destination-name = Name
+plot-destination-public-empty = Noch keine öffentlichen Teleportpunkte.
+plot-destination-public-off = Öffentlich: aus
+plot-destination-public-on = Öffentlich: an
+plot-destination-saved = Teleportpunkt gespeichert.
+plot-destination-teleport = Teleportieren
+plot-error-subplot-destination = Verschiebe oder lösche zuerst die Teleportpunkte des übergeordneten Grundstücks im gewählten Bereich.
+plot-error-subplot-own-destination = Belasse Teleportpunkte im neuen Bereich oder verschiebe oder lösche sie zuerst.
+
+plot-destination-manage = Verwalten
+plot-directory-owned = Eigene · { $arg0 }
+plot-directory-participating = Beteiligungen · { $arg0 }
+plot-directory-search = Grundstücke suchen
+plot-directory-search-value = Suche: { $arg0 }
+plot-directory-search-field = Grundstücksname oder ID
+plot-directory-clear-search = Suche löschen
+plot-directory-empty = Noch keine Grundstücke in dieser Kategorie.
+plot-directory-no-match = Keine passenden Grundstücke. Ändere oder lösche die Suche.
+plot-workspace-area = Bereich bearbeiten
+plot-workspace-area-hint = Den geschützten Bereich dieses Grundstücks ändern
+plot-workspace-subplots = Untergrundstücke
+plot-workspace-subplots-hint = Unterteilungen ansehen, erstellen und verwalten
+plot-workspace-access-hint = Mitglieder, Rollen und Aktionsrechte verwalten
+plot-workspace-settings-hint = Name, Aushang, Umgebung und Eigentum
+plot-workspace-destinations-hint = Teleportpunkte dieses Grundstücks ansehen und nutzen
+plot-workspace-role = Deine Rolle: { $arg0 }
+plot-workspace-ownership = Eigentum und Löschung
+plot-workspace-id = Grundstücks-ID: { $arg0 }
+plot-workspace-groups = Berechtigungsgruppen
+plot-workspace-permissions = Aktionsrechte
+plot-workspace-other-world = Begib dich zuerst in die Welt dieses Grundstücks.
+
+plot-destination-titles = Ankunftstitel
+plot-destination-title = Titel
+plot-destination-subtitle = Untertitel
+plot-destination-title-hint = Nach erfolgreicher Teleportation angezeigt. MiniMessage-Farben, Stile und Verläufe werden unterstützt. Leer lassen zum Ausblenden; die Vorschau speichert nichts.
+plot-destination-title-preview = Vollbildvorschau
+plot-destination-title-unset = Nicht festgelegt
+plot-destination-title-save = Titel speichern
+plot-destination-title-unchanged = Keine ungespeicherten Änderungen.
+plot-destination-title-apply = Auf Entwurf anwenden
+plot-destination-error-title = Der Titel muss einzeilig sein: höchstens 32 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
+plot-destination-error-subtitle = Der Untertitel muss einzeilig sein: höchstens 64 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.

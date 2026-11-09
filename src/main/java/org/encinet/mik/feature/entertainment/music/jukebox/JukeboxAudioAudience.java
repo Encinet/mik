@@ -19,7 +19,7 @@ final class JukeboxAudioAudience {
         return () -> {
             if (!restored.compareAndSet(false, true)) return;
             exclusions.computeIfPresent(id,
-                    (ignored, count) -> count <= 1 ? null : count - 1);
+                    (_, count) -> count <= 1 ? null : count - 1);
         };
     }
 

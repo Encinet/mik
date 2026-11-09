@@ -168,7 +168,7 @@ public class TPSBarModule implements Listener {
 
     private void showTPSBar(Player player) {
         BossBar bossBar = playerBossBars.computeIfAbsent(
-                player.getUniqueId(), ignored -> createBossBar());
+                player.getUniqueId(), _ -> createBossBar());
         player.showBossBar(bossBar);
         updateBossBar(bossBar, player);
     }

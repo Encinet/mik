@@ -51,6 +51,13 @@ final class LocalApiServer {
     private final Supplier<List<BanRecord>> activeBans;
     private final Supplier<byte[]> announcementsJson;
     private final CommunityBoardView communityBoard;
+    private final java.util.function.Function<UUID, org.encinet.mik.feature.player.security.WebAccountPolicy> accountPolicy;
+
+    private final java.util.function.BiPredicate<UUID, String> accountAllowed;
+
+    private org.encinet.mik.feature.community.chat.web.WebChatModule webChat;
+
+    void webChat(org.encinet.mik.feature.community.chat.web.WebChatModule chat) { this.webChat = Objects.requireNonNull(chat); }
 
     private volatile HttpServer server;
     private volatile ExecutorService executor;
@@ -65,13 +72,17 @@ final class LocalApiServer {
 
     LocalApiServer(Plugin plugin, ApiPlayerSnapshot players,
                    WebLoginChallengeStore challenges, Supplier<List<BanRecord>> activeBans,
-                   Supplier<byte[]> announcementsJson, CommunityBoardView communityBoard) {
+                   Supplier<byte[]> announcementsJson, CommunityBoardView communityBoard,
+                   java.util.function.Function<UUID, org.encinet.mik.feature.player.security.WebAccountPolicy> accountPolicy,
+                   java.util.function.BiPredicate<UUID, String> accountAllowed) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.players = Objects.requireNonNull(players, "players");
         this.challenges = Objects.requireNonNull(challenges, "challenges");
         this.activeBans = Objects.requireNonNull(activeBans, "activeBans");
         this.announcementsJson = Objects.requireNonNull(announcementsJson, "announcementsJson");
         this.communityBoard = Objects.requireNonNull(communityBoard, "communityBoard");
+        this.accountPolicy = Objects.requireNonNull(accountPolicy, "accountPolicy");
+        this.accountAllowed = Objects.requireNonNull(accountAllowed, "accountAllowed");
     }
 
     void start(int port) throws IOException {
@@ -128,6 +139,8 @@ final class LocalApiServer {
     }
 
     private void installContexts(HttpServer target) {
+        createLocalContext(target, "/api/chat/authorize", "POST", exchange -> handleChatControl(exchange, false));
+        createLocalContext(target, "/api/chat/revoke", "POST", exchange -> handleChatControl(exchange, true));
         createLocalContext(target, "/api/players", "GET", exchange ->
                 sendJson(exchange, 200, players.jsonBytes(), "no-store"));
         createLocalContext(target, "/api/announcements", "GET", exchange ->
@@ -136,6 +149,25 @@ final class LocalApiServer {
                 sendJson(exchange, 200, bansJson(activeBans.get()), null));
         createLocalContext(target, "/api/players/resolve", "GET", this::handlePlayerResolve);
         createAuthChallengeContext(target);
+        target.createContext("/api/auth/accounts/", exchange -> {
+            try {
+                if (!isLocalRequest(exchange)) { drop(exchange); return; }
+                if (!exchange.getRequestMethod().equals("GET")) { sendJson(exchange, 405, METHOD_NOT_ALLOWED, "no-store"); return; }
+                String suffix = exchange.getRequestURI().getPath().substring("/api/auth/accounts/".length());
+                UUID id;
+                try { id = UUID.fromString(suffix); }
+                catch (IllegalArgumentException error) { sendJson(exchange, 404, NOT_FOUND, "no-store"); return; }
+                if (!id.toString().equals(suffix)) { sendJson(exchange, 404, NOT_FOUND, "no-store"); return; }
+                var policy = accountPolicy.apply(id);
+                JsonObject player = new JsonObject();
+                player.addProperty("uuid", id.toString());
+                player.addProperty("role", policy.role());
+                player.addProperty("credentialsChangedAt", policy.credentialsChangedAt());
+                player.addProperty("banned", !accountAllowed.test(id, queryParam(exchange, "name")));
+                JsonObject body = new JsonObject(); body.add("player", player);
+                sendJson(exchange, 200, bytes(body.toString()), "no-store");
+            } catch (Exception error) { serveError(exchange, error); }
+        });
         createCommunityBoardContext(target);
         target.createContext("/", exchange -> {
             if (!isLocalRequest(exchange)) {
@@ -144,6 +176,39 @@ final class LocalApiServer {
             }
             sendJson(exchange, 404, NOT_FOUND, "no-store");
         });
+    }
+
+    private void handleChatControl(HttpExchange exchange, boolean revoke) throws Exception {
+        if (webChat == null) { sendJson(exchange, 503, bytes("{\"error\":\"chat_unavailable\"}"), "no-store"); return; }
+        if (!"application/json".equalsIgnoreCase(exchange.getRequestHeaders().getFirst("Content-Type"))) {
+            sendJson(exchange, 415, bytes("{\"error\":\"unsupported_media_type\"}"), "no-store"); return;
+        }
+        byte[] raw = exchange.getRequestBody().readNBytes(16_385);
+        if (raw.length > 16_384) { sendJson(exchange, 413, bytes("{\"error\":\"body_too_large\"}"), "no-store"); return; }
+        JsonObject body;
+        try { body = com.google.gson.JsonParser.parseString(new String(raw, StandardCharsets.UTF_8)).getAsJsonObject(); }
+        catch (RuntimeException invalid) { sendJson(exchange, 422, bytes("{\"error\":\"invalid_body\"}"), "no-store"); return; }
+        java.util.concurrent.CompletableFuture<org.encinet.mik.feature.community.chat.web.WebChatModule.ControlResult> pending;
+        if (revoke) {
+            java.util.ArrayList<String> refs = new java.util.ArrayList<>();
+            try {
+                var array = body.getAsJsonArray("sessionRefs");
+                if (array.size() > 128) throw new IllegalArgumentException();
+                for (var ref : array) { String value = ref.getAsString(); if (!value.matches("[A-Za-z0-9_-]{43}")) throw new IllegalArgumentException(); refs.add(value); }
+            } catch (RuntimeException invalid) { sendJson(exchange, 422, bytes("{\"error\":\"invalid_body\"}"), "no-store"); return; }
+            pending = webChat.revoke(refs);
+        } else pending = webChat.authorize(body);
+        try {
+            var result = pending.get(3, TimeUnit.SECONDS);
+            JsonObject response = new JsonObject();
+            response.addProperty("ok", result.status() == 200);
+            if (!result.error().isEmpty()) response.addProperty("error", result.error());
+            response.addProperty("lastActivityAt", result.lastActivityAt());
+            sendJson(exchange, result.status(), bytes(response.toString()), "no-store");
+        } catch (TimeoutException timeout) {
+            pending.cancel(false);
+            sendJson(exchange, 503, bytes("{\"error\":\"chat_busy\"}"), "no-store");
+        }
     }
 
     private void handlePlayerResolve(HttpExchange exchange) throws IOException {
@@ -224,21 +289,21 @@ final class LocalApiServer {
             return;
         }
 
-        String suffix = path.substring(prefix.length());
-        boolean consume = suffix.endsWith("/consume");
-        String code = consume ? suffix.substring(0, suffix.length() - "/consume".length()) : suffix;
-        if (!WebLoginChallengeStore.validCode(code)) {
-            sendJson(exchange, 404, NOT_FOUND, "no-store");
-            return;
+        String code = path.substring(prefix.length());
+        if (!WebLoginChallengeStore.validCode(code)) { sendJson(exchange, 404, NOT_FOUND, "no-store"); return; }
+        if (!exchange.getRequestMethod().equals("GET")) { sendJson(exchange, 405, METHOD_NOT_ALLOWED, "no-store"); return; }
+        WebLoginChallengeStore.Confirmation confirmation = challenges.find(code);
+        if (confirmation != null) {
+            if (!accountAllowed.test(confirmation.playerUuid(), confirmation.playerName())) {
+                sendJson(exchange, 200, bytes("{\"status\":\"banned\"}"), "no-store");
+                return;
+            }
+            var policy = accountPolicy.apply(confirmation.playerUuid());
+            if (policy.credentialsChangedAt() > java.time.Instant.parse(confirmation.confirmedAt()).toEpochMilli()
+                    || challenges.find(code) == null) confirmation = null;
+            else confirmation = new WebLoginChallengeStore.Confirmation(confirmation.playerUuid(),
+                    confirmation.playerName(), policy.role(), confirmation.confirmedAt(), confirmation.expiresAtMillis());
         }
-
-        String requiredMethod = consume ? "POST" : "GET";
-        if (!exchange.getRequestMethod().equalsIgnoreCase(requiredMethod)) {
-            sendJson(exchange, 405, METHOD_NOT_ALLOWED, "no-store");
-            return;
-        }
-        WebLoginChallengeStore.Confirmation confirmation = consume
-                ? challenges.consume(code) : challenges.find(code);
         sendJson(exchange, 200, challengeJson(confirmation), "no-store");
     }
 
@@ -246,8 +311,7 @@ final class LocalApiServer {
         JsonObject response = new JsonObject();
         if (confirmation == null) {
             response.addProperty("status", "not_found");
-        } else if (confirmation.consumed()) {
-            response.addProperty("status", "consumed");
+
         } else {
             response.addProperty("status", "confirmed");
             JsonObject player = new JsonObject();

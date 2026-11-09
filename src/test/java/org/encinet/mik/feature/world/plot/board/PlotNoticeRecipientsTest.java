@@ -51,7 +51,7 @@ class PlotNoticeRecipientsTest {
     }
 
     private static Plot plot(UUID world, UUID owner, int x) {
-        return new Plot(UUID.randomUUID(), world, owner, "Build", false, 0,
+        return new Plot(UUID.randomUUID(), world, owner, "Build", 0,
                 Set.of(PlotGeometry.Cell.at(x, 0, 0)), Map.of(), Map.of(), null);
     }
 }

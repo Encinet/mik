@@ -14,52 +14,11 @@
 
 back = กลับ
 back-to-main = กลับเมนูหลัก
+cancel = ยกเลิก
 click-open = คลิกเพื่อเปิด
 close = ปิด
 current-off = ขณะนี้: ปิด
 current-on = ขณะนี้: เปิด
-password-already-connected = บัญชีนี้เชื่อมต่ออยู่แล้ว
-password-already-set = ตั้งรหัสผ่านไว้แล้ว ใช้ /password change เพื่อเปลี่ยนรหัสผ่าน
-password-busy = พยายามบ่อยเกินไป โปรดรอสักครู่แล้วลองใหม่
-password-change = เปลี่ยนรหัสผ่าน
-password-change-done = เปลี่ยนรหัสผ่านแล้ว
-password-checking = กำลังตรวจสอบความปลอดภัยบัญชี…
-password-command-description = จัดการการป้องกันบัญชีด้วยรหัสผ่าน
-password-confirm = ยืนยันรหัสผ่านใหม่
-password-conflict = สถานะความปลอดภัยของบัญชีเปลี่ยนแล้ว โปรดทำรายการใหม่
-password-cooldown = การยืนยันบัญชีถูกจำกัดชั่วคราว โปรดลองอีกครั้งใน { $arg0 } วินาที
-password-current = รหัสผ่านปัจจุบัน
-password-denied = คุณไม่มีสิทธิ์รีเซ็ตรหัสผ่านของบัญชีนี้
-password-disabled = รหัสผ่าน: ยังไม่ตั้ง
-password-enabled = รหัสผ่าน: ตั้งแล้ว
-password-invalid = รหัสผ่านไม่ถูกต้อง โปรดลองใหม่
-password-keep-role = ผู้ดูแลและผู้ดูแลระบบไม่สามารถลบรหัสผ่านของตนได้
-password-login = เข้าสู่ระบบ
-password-login-expired = การยืนยันเข้าสู่ระบบหมดอายุแล้ว โปรดเชื่อมต่อใหม่
-password-login-hint = ป้อนรหัสผ่านของเซิร์ฟเวอร์นี้ หากลืมให้ขอผู้ดูแลรีเซ็ต
-password-mismatch = รหัสผ่านใหม่ไม่ตรงกัน
-password-new = รหัสผ่านใหม่
-password-nomination-required = ตั้งรหัสผ่านก่อนสมัครเป็นผู้ดูแล: /password set
-password-not-set = ยังไม่ได้ตั้งรหัสผ่าน ใช้ /password set เพื่อตั้งรหัสผ่าน
-password-remove = ลบรหัสผ่าน
-password-remove-done = ลบรหัสผ่านแล้ว
-password-remove-question = เมื่อลบแล้ว จะไม่มีการตรวจรหัสผ่านขณะเข้าสู่ระบบ ป้อนรหัสผ่านปัจจุบันเพื่อยืนยัน
-password-required-application = ไม่สามารถลบรหัสผ่านได้ขณะที่ใบสมัครผู้ดูแลหรือการแต่งตั้งยังไม่เสร็จสิ้น
-password-required-role = บัญชีผู้ดูแลต้องมีรหัสผ่าน โปรดขอผู้มีสิทธิ์รีเซ็ตก่อนเข้าสู่ระบบ
-password-reset = รีเซ็ตรหัสผ่าน
-password-reset-console = รีเซ็ตรหัสผ่านของ { $arg0 } แล้ว: { $arg1 } โปรดยืนยันตัวตนแล้วส่งผ่านช่องทางที่เชื่อถือได้
-password-reset-done = รีเซ็ตรหัสผ่านของ { $arg0 } แล้ว โปรดคัดลอกทันทีและส่งหลังยืนยันตัวตน จะดูอีกครั้งไม่ได้
-password-reset-question = รีเซ็ตรหัสผ่านของ { $arg0 } หรือไม่? รหัสเดิมจะใช้ไม่ได้และการเชื่อมต่อจะถูกปิด ป้อนรหัสผ่านของคุณเพื่อยืนยัน
-password-retry = ลองอีกครั้ง
-password-rules = ใช้ { $arg0 }–{ $arg1 } ตัวอักษร ห้ามใช้ชื่อผู้เล่นหรือรหัสผ่านที่พบบ่อย
-password-set = ตั้งรหัสผ่าน
-password-set-done = ตั้งรหัสผ่านแล้ว
-password-set-first = ตั้งรหัสผ่านก่อนสมัคร
-password-storage = บริการความปลอดภัยบัญชีไม่พร้อมใช้งาน โปรดลองภายหลังหรือติดต่อเจ้าของเซิร์ฟเวอร์
-password-timeout = ยกเลิกการยืนยันหรือหมดเวลาแล้ว โปรดเชื่อมต่อเพื่อลองใหม่
-password-tip-set-mm = ใช้ <gold><u>/password</u></gold> เพื่อตั้ง<yellow>รหัสผ่านเข้าสู่ระบบ</yellow>และปกป้องบัญชีของคุณ
-password-title = ความปลอดภัยบัญชี
-
 player-only = ใช้คำสั่งนี้ได้เฉพาะผู้เล่น
 unknown = ไม่ทราบ
 usage = วิธีใช้
@@ -79,27 +38,61 @@ time-minutes = { $arg0 } นาที
 
 ## Shared · Menu presentation
 
-bedrock-menu-back = กลับ
-bedrock-menu-hotkey = การทำงานด่วน (F)
-bedrock-menu-primary = การทำงานหลัก
-bedrock-menu-scroll-down = ลง
-bedrock-menu-scroll-up = ขึ้น
-bedrock-menu-secondary = การทำงานรอง
 interface-fov-apply = ใช้ค่า FOV
-interface-fov-custom = ใส่ค่าที่แน่นอน
-interface-fov-description = ตั้งให้ตรงกับ FOV ของไคลเอนต์ เปลี่ยนเฉพาะตำแหน่งเมนู ค่าเริ่มต้น 70°
+interface-fov-custom = กำหนดเอง
+interface-fov-description = กรอก FOV จากการตั้งค่าเกมเพื่อจัดตำแหน่งเมนู
 interface-fov-input = FOV ไคลเอนต์: จำนวนเต็ม 30 ถึง 110
 interface-fov-invalid = ใส่จำนวนเต็มตั้งแต่ 30 ถึง 110
-interface-fov-title = ปรับตามมุมมอง (FOV)
-interface-scale-current = ปัจจุบัน: { $arg0 }
-interface-scale-description = ขนาดข้อความคูณกับขนาดเมนู ปรับทั้งสองกลุ่มด้วยล้อเมาส์ได้
+interface-fov-title = มุมมอง (FOV)
+interface-reduced-motion = ลดการเคลื่อนไหว
+interface-reduced-motion-hint = ลดการเคลื่อนไหวและการแกว่งของเมนู
+interface-scale-adjust-hint = ชี้ตัวเลือกเปอร์เซ็นต์แล้วเลื่อนล้อเพื่อปรับ
 interface-scale-layout-title = ขนาดเมนู
 interface-scale-menu-title = เมนูและข้อความ
-interface-scale-native-hint = การตั้งค่านี้ใช้กับเมนูเชิงพื้นที่ของ Java ข้อความในแบบฟอร์มดั้งเดิมขึ้นอยู่กับการตั้งค่าไคลเอนต์
-interface-scale-preview = ตัวอย่างข้อความ Aa 123
-interface-scale-reset = คืนค่าทั้งสองเป็น 100%
+interface-scale-preview = ตัวอย่าง Aa 123
+interface-scale-reset = คืนค่าเป็น 100%
 interface-scale-text-title = ขนาดข้อความ
+interface-theme-apply = บันทึกสี
+interface-theme-charcoal = ถ่าน
+interface-theme-color = สี (#RRGGBB)
+interface-theme-custom = กำหนดเอง
+interface-theme-custom-hint = คัดลอกค่าปัจจุบันทั้งหมดเป็นธีมกำหนดเองที่แยกอิสระ
+interface-theme-edit = แก้ไขสี
+interface-theme-forest = ป่า
+interface-theme-hint = ใช้ทันทีเฉพาะเมนูของคุณ
+interface-theme-invalid = ป้อนสี #RRGGBB และความทึบตั้งแต่ 0 ถึง 100
+interface-theme-opacity = ความทึบ (0–100%)
+interface-theme-role-accent = สีเน้น
+interface-theme-role-button = พื้นหลังปุ่ม
+interface-theme-role-button-disabled = ปุ่มที่ปิดใช้งาน
+interface-theme-role-button-hovered = ปุ่มที่ชี้อยู่
+interface-theme-role-button-pressed = ปุ่มที่กดอยู่
+interface-theme-role-button-selected = ปุ่มที่เลือก
+interface-theme-role-input = พื้นหลังช่องป้อน
+interface-theme-role-sidebar = พื้นหลังแถบด้านข้าง
+interface-theme-role-toolbar = พื้นหลังแถบเครื่องมือ
+interface-theme-role-tooltip = พื้นหลังคำแนะนำ
+interface-theme-role-window = พื้นหลังหน้าต่าง
+interface-theme-title = ธีมเมนู
+interface-theme-warm = โทนอุ่น
+menu-collapse = ยุบ
+menu-expand = ขยาย
+menu-finish-editing = แก้ไขให้เสร็จก่อน
+menu-input-clear = ล้าง
+menu-input-done = เสร็จสิ้น
+menu-input-empty = (ว่าง)
+menu-input-single-line = ช่องนี้รองรับข้อความบรรทัดเดียว
+menu-input-too-long = ความยาว: { $arg0 } / { $arg1 } โปรดย่อข้อความก่อนยืนยัน
+menu-query-cancel = ยกเลิก
+menu-query-hint-rich = กด { $chatKey } เพื่อพิมพ์…
+menu-query-single-line = กรอกได้เพียงบรรทัดเดียว คลิกช่องเพื่อกรอกใหม่
+menu-query-too-long = ความยาว { $arg0 } / { $arg1 } คลิกช่องเพื่อกรอกใหม่
 menu-rhythm-game-display = กำลังเล่นเกมจังหวะ
+menu-search-empty = ไม่พบผลลัพธ์
+menu-search-failed = ค้นหาไม่สำเร็จ
+menu-search-limit = แสดง { $arg0 } / { $arg1 } โปรดระบุคำค้นให้เจาะจงขึ้น
+menu-search-loading = กำลังค้นหา…
+menu-search-retry = ลองอีกครั้ง
 menu-usage-display-mm = <aqua><bold>กำลังใช้เมนู</bold></aqua>
 url-dialog-confirm = เปิด
 url-dialog-hint = ไคลเอนต์จะขอให้ยืนยันการเปิดลิงก์อีกครั้ง
@@ -110,20 +103,21 @@ url-dialog-title = เปิด { $arg0 }
 
 client-mods-undetected-rich = ม็อดแนะนำ: { $mods } คลิกชื่อเพื่อดาวน์โหลด
 client-tip-axiom-flight-speed-mm = <white>กด <yellow>Alt ซ้าย</yellow> ค้างไว้เพื่อเปิดเมนู <aqua>Axiom</aqua> แล้วลากแถบเลื่อนแนวตั้งด้านขวาเพื่อปรับความเร็วในการบิน หรือใช้ <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click></white>
-client-tip-axiom-intro-rich = { $mod } เป็นม็อดช่วยก่อสร้าง รองรับการคัดลอกและวางพิมพ์เขียว แก้ไขภูมิประเทศและเอนทิตีแสดงผล วางบล็อกโดยไม่อัปเดตบล็อกรอบข้าง บินทะลุกำแพง และบันทึกแถบไอเทมหลายชุด คลิกชื่อเพื่อดาวน์โหลด
-client-tip-voxy-intro-rich = { $mod } แสดงทิวทัศน์ได้ไกลขึ้นโดยใช้ทรัพยากรน้อย คุ้มค่าที่จะลองทั้งบนเครื่องสเปกต่ำและสูง คลิกชื่อเพื่อดาวน์โหลด
+client-tip-axiom-intro-rich = { $mod } ช่วยคัดลอกและวางสิ่งก่อสร้าง ปรับแต่งภูมิประเทศ และแก้ไขเอนทิตีแสดงผล คลิกชื่อเพื่อดาวน์โหลด
 client-version-behind-mm = <white>ไคลเอนต์ <yellow>{ $clientVersion }</yellow> เก่ากว่าเซิร์ฟเวอร์ <green>{ $serverVersion }</green> แนะนำให้อัปเดต</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>ผู้เล่น <gold>ล่องหน</gold> ใกล้คุณจำนวน <gold>{ $count }</gold> คน</yellow> <gray>·</gray> <gray>คนที่ใกล้ที่สุดห่างประมาณ { $distance } บล็อก</gray>
 player-bedrock-label = Bedrock
+player-web-label = เว็บ
 presence-join-templates =
-    .item-1 = { $player } แอบเข้ามาทางประตูหลังแล้ว
-    .item-2 = { $player } พบทางลับแล้ว
-    .item-3 = { $player } โผล่ออกมาจากพุ่มไม้
+    .item-1 = ติ๊งต่อง! { $player } ออนไลน์แล้ว!
+    .item-2 = เย้! { $player } มาแล้ว!
+    .item-3 = หวัดดี { $player } ยินดีต้อนรับน้า!
+# Broadcast to remaining players; the departing player does not receive this message.
 presence-quit-templates =
-    .item-1 = { $player } ย่องออกไปแล้ว
-    .item-2 = { $player } ไปบันทึกเกมก่อน
-    .item-3 = โลกจริงเรียก { $player } กลับไปแล้ว
+    .item-1 = { $player } ออฟไลน์แล้ว
+    .item-2 = ติ๊งต่อง! { $player } ออฟไลน์แล้ว
+    .item-3 = ออนไลน์ -1 { $player } ออกจากเซิร์ฟเวอร์แล้ว
 welcome-first-join-mm = <gold><bold>ยินดีต้อนรับสู่ MIK!</bold></gold><newline><gray>เริ่มต้นที่ <click:open_url:'https://mcmik.top'><yellow>เว็บไซต์</yellow></click> และ <click:open_url:'https://mcmik.top/wiki'><yellow>Wiki</yellow></click> หรือใช้ <yellow>/menu</yellow> เพื่อเปิดเมนูหลัก</gray>
 welcome-return-mm = <gold><bold>ยินดีต้อนรับกลับมา!</bold></gold><newline><gray>คุณเข้าเซิร์ฟเวอร์ครั้งล่าสุดเมื่อ <yellow>{ $arg0 } วันที่ผ่านมา</yellow> ใช้ <yellow>/menu</yellow> เพื่อเปิดฟังก์ชันที่ใช้บ่อย</gray>
 
@@ -166,26 +160,83 @@ player-association-time-occurrences = { $arg0 } ({ $arg1 } รายการ)
 player-association-time-separator = ,
 player-association-time-today = วันนี้
 
+
+## Player · Account security
+password-already-connected = บัญชีนี้เชื่อมต่ออยู่แล้ว
+password-already-set = ตั้งรหัสผ่านไว้แล้ว ใช้ /password change เพื่อเปลี่ยนรหัสผ่าน
+password-busy = พยายามบ่อยเกินไป โปรดรอสักครู่แล้วลองใหม่
+password-change = เปลี่ยนรหัสผ่าน
+password-change-done = เปลี่ยนรหัสผ่านแล้ว
+password-checking = กำลังตรวจสอบความปลอดภัยบัญชี…
+password-command-description = จัดการการป้องกันบัญชีด้วยรหัสผ่าน
+password-confirm = ยืนยันรหัสผ่านใหม่
+password-conflict = สถานะความปลอดภัยของบัญชีเปลี่ยนแล้ว โปรดทำรายการใหม่
+password-cooldown = การยืนยันบัญชีถูกจำกัดชั่วคราว โปรดลองอีกครั้งใน { $arg0 } วินาที
+password-current = รหัสผ่านปัจจุบัน
+password-denied = คุณไม่มีสิทธิ์รีเซ็ตรหัสผ่านของบัญชีนี้
+password-disabled = รหัสผ่าน: ยังไม่ตั้ง
+password-enabled = รหัสผ่าน: ตั้งแล้ว
+password-invalid = รหัสผ่านไม่ถูกต้อง โปรดลองใหม่
+password-keep-role = ผู้ดูแลและผู้ดูแลระบบไม่สามารถลบรหัสผ่านของตนได้
+password-login = เข้าสู่ระบบ
+password-login-expired = การยืนยันเข้าสู่ระบบหมดอายุแล้ว โปรดเชื่อมต่อใหม่
+password-login-hint = ป้อนรหัสผ่านของเซิร์ฟเวอร์นี้ หากลืมให้ขอผู้ดูแลรีเซ็ต
+password-mismatch = รหัสผ่านใหม่ไม่ตรงกัน
+password-new = รหัสผ่านใหม่
+password-nomination-required = ตั้งรหัสผ่านก่อนสมัครเป็นผู้ดูแล: /password set
+password-not-set = ยังไม่ได้ตั้งรหัสผ่าน ใช้ /password set เพื่อตั้งรหัสผ่าน
+password-remove = ลบรหัสผ่าน
+password-remove-done = ลบรหัสผ่านแล้ว
+password-remove-question = เมื่อลบแล้ว จะไม่มีการตรวจรหัสผ่านขณะเข้าสู่ระบบ ป้อนรหัสผ่านปัจจุบันเพื่อยืนยัน
+password-required-application = ไม่สามารถลบรหัสผ่านได้ขณะที่ใบสมัครผู้ดูแลหรือการแต่งตั้งยังไม่เสร็จสิ้น
+password-required-role = บัญชีผู้ดูแลต้องมีรหัสผ่าน โปรดขอผู้มีสิทธิ์รีเซ็ตก่อนเข้าสู่ระบบ
+password-reset = รีเซ็ตรหัสผ่าน
+password-reset-console = รีเซ็ตรหัสผ่านของ { $arg0 } แล้ว: { $arg1 } โปรดยืนยันตัวตนแล้วส่งผ่านช่องทางที่เชื่อถือได้
+password-reset-done = รีเซ็ตรหัสผ่านของ { $arg0 } แล้ว โปรดคัดลอกทันทีและส่งหลังยืนยันตัวตน จะดูอีกครั้งไม่ได้
+password-reset-question = รีเซ็ตรหัสผ่านของ { $arg0 } หรือไม่? รหัสเดิมจะใช้ไม่ได้และการเชื่อมต่อจะถูกปิด ป้อนรหัสผ่านของคุณเพื่อยืนยัน
+password-retry = ลองอีกครั้ง
+password-rules = ใช้ { $arg0 }–{ $arg1 } ตัวอักษร ห้ามใช้ชื่อผู้เล่นหรือรหัสผ่านที่พบบ่อย
+password-set = ตั้งรหัสผ่าน
+password-set-done = ตั้งรหัสผ่านแล้ว
+password-set-first = ตั้งรหัสผ่านก่อนสมัคร
+password-storage = บริการความปลอดภัยบัญชีไม่พร้อมใช้งาน โปรดลองภายหลังหรือติดต่อเจ้าของเซิร์ฟเวอร์
+password-timeout = ยกเลิกการยืนยันหรือหมดเวลาแล้ว โปรดเชื่อมต่อเพื่อลองใหม่
+password-tip-set-mm = ใช้ <gold><u>/password</u></gold> เพื่อตั้ง<yellow>รหัสผ่านเข้าสู่ระบบ</yellow>และปกป้องบัญชีของคุณ
+password-title = ความปลอดภัยบัญชี
+
 ## Player · Profile and tab list
 
-nametag-clear-all-error = ล้างป้ายชื่อไม่สำเร็จ โปรดลองอีกครั้งภายหลัง
-nametag-clear-all-success = ✔ ล้างป้ายชื่อทั้งหมดแล้ว
-nametag-clear-error = ล้าง { $arg0 } ไม่สำเร็จ
-nametag-clear-success = ✔ ล้าง { $arg0 } แล้ว
-nametag-click-fill-command = คลิกเพื่อกรอกคำสั่ง
+nametag-cancel = ยกเลิก
+nametag-clear = ล้าง
+nametag-clear-hint = ลบเฉพาะค่าที่กำหนดเอง รูปแบบที่สืบทอดอาจยังแสดงอยู่
 nametag-command-description = ปรับแต่งป้ายชื่อ
-nametag-copy-hover = คัดลอกข้อความ MiniMessage ไปยังคลิปบอร์ด
+nametag-confirm = ยืนยัน
+nametag-conflict = ค่าปัจจุบันเปลี่ยนแล้ว โปรดเปรียบเทียบผลปัจจุบัน แล้วยืนยันอีกครั้งเพื่อแทนที่
+nametag-copy-hint = ส่งต้นฉบับคำนำหน้าและคำต่อท้ายไปยังแชต
 nametag-copy-label = [คัดลอก]
-nametag-effect-label = ผลลัพธ์
-nametag-empty-content-rich = เนื้อหาห้ามว่าง หากต้องการล้างให้ใช้ { $command }
-nametag-format-docs = คู่มือการจัดรูปแบบ
+nametag-copy-sent = ส่งต้นฉบับรูปแบบของ { $arg0 } ไปยังแชตแล้ว
+nametag-current = ผลปัจจุบัน
+nametag-edit = แก้ไข
+nametag-edit-ended = สิ้นสุดการแก้ไขแล้ว เลือกแก้ไขอีกครั้งเพื่อดำเนินการต่อ
+nametag-edit-prompt = กด T เพื่อแก้ไข { $arg0 } ด้วย MiniMessage (เห็นเฉพาะคุณ)
+nametag-finish-field = โปรดยืนยันหรือยกเลิกช่องที่กำลังแก้ไขก่อน
+nametag-input-invalid = รูปแบบไม่ถูกต้อง ส่ง MiniMessage บรรทัดเดียว หรือเลือกล้าง
 nametag-leading-label = คำนำหน้าชื่อ
-nametag-no-permission = คุณไม่ได้รับอนุญาตให้ใช้คำสั่งนี้
-nametag-online-editor = เครื่องมือแก้ไขออนไลน์
+nametag-mine = ป้ายชื่อของฉัน
+nametag-next = ถัดไป
+nametag-no-changes = ไม่มีการเปลี่ยนแปลง
+nametag-no-permission = สมาชิกและทีมงานแก้ไขป้ายชื่อได้ คุณยังดูรูปแบบได้
+nametag-no-players = ยังไม่มีผู้เล่นตั้งค่ารูปแบบป้ายชื่อ
+nametag-page = หน้า { $arg0 } / { $arg1 }
+nametag-players = รูปแบบของผู้เล่น
 nametag-preview-label = ดูตัวอย่าง
-nametag-sample-message = ข้อความตัวอย่าง
-nametag-set-error = ตั้งค่า { $arg0 } ไม่สำเร็จ โปรดลองอีกครั้งภายหลัง
+nametag-previous = ก่อนหน้า
+nametag-refresh = รีเฟรช
+nametag-saving = กำลังบันทึก…
+nametag-set-error = บันทึกไม่สำเร็จ: { $arg0 } ลองอีกครั้ง ผลปัจจุบันแสดงอยู่ด้านบน
 nametag-set-success = ✔ ตั้งค่า { $arg0 } แล้ว
+nametag-styles-failed = โหลดรูปแบบผู้เล่นไม่สำเร็จ รีเฟรชเพื่อลองอีกครั้ง
+nametag-styles-loading = กำลังโหลดรูปแบบผู้เล่น…
 nametag-tip-customize-mm = ใช้ <gold><u><click:suggest_command:'/nametag'>/nametag</click></u></gold> เพื่อปรับแต่ง<light_purple>คำนำหน้าและคำต่อท้ายชื่อ</light_purple>ของคุณ
 nametag-title = ป้ายชื่อ
 nametag-too-long = { $arg0 } ยาวเกินไป กำหนดได้สูงสุด { $arg1 } ตัวอักษร
@@ -220,6 +271,7 @@ fly-enabled = เปิดการบินแล้ว
 fly-native-mode = ปิดสิทธิ์ /fly แล้ว แต่โหมดเกมนี้ยังบินได้
 fly-speed-click = ตั้งค่าความเร็วการบินเป็น { $arg0 }x
 fly-speed-current = ความเร็วการบิน: { $arg0 }x
+fly-speed-limited = ภาระจากการสำรวจจำกัดความเร็วบินชั่วคราวไว้ที่ { $arg0 }x โดยค่าที่ตั้งไว้ยังเป็น { $arg1 }x
 fly-speed-presets = ค่าลัด
 fly-speed-reset = รีเซ็ตความเร็วการบินเป็น 1x แล้ว
 fly-speed-reset-action = รีเซ็ต
@@ -228,10 +280,8 @@ fly-speed-set = ตั้งค่าความเร็วการบิน�
 fly-state-disabled = ปิด
 fly-state-enabled = เปิด
 fly-status = การบิน: { $arg0 } | ความเร็ว: { $arg1 }x
-flyspeed-command-description = ดูหรือตั้งค่าความเร็วการบินส่วนตัว
 home-action-create = สร้างบ้าน
 home-action-delete = ลบบ้าน
-home-action-icon = ใช้ไอเท็มในมือเป็นไอคอน
 home-action-teleport = เทเลพอร์ต
 home-action-update = อัปเดตตำแหน่ง
 home-already-exists = มีบ้านชื่อนี้อยู่แล้ว
@@ -249,11 +299,6 @@ home-distance-blocks = { $arg0 } บล็อก
 home-distance-other-world = คนละโลก
 home-empty-description = ยืนในจุดที่ต้องการบันทึกเป็นบ้าน
 home-empty-title = ยังไม่มีบ้าน
-home-icon = ไอคอน: { $arg0 }{ $arg1 }
-home-icon-default-note = · ค่าเริ่มต้น
-home-icon-hand-invalid = ไอเทมในมือหลักของคุณไม่สามารถใช้เป็นไอคอนบ้านได้
-home-icon-updated-rich = อัปเดตไอคอนบ้าน { $home } แล้ว
-home-invalid-icon = วัสดุนี้ไม่สามารถใช้เป็นไอคอนบ้านได้
 home-invalid-name = ชื่อบ้านห้ามมีอักขระ < > :
 home-list-rich = บ้าน: { $homes }
 home-location = ตำแหน่ง: { $arg0 }, { $arg1 }, { $arg2 }
@@ -262,20 +307,20 @@ home-max-reached = ตั้งบ้านได้สูงสุด { $arg0 }
 home-menu-title = บ้าน
 home-no-homes = คุณยังไม่ได้ตั้งบ้าน
 home-not-found-rich = ไม่พบบ้าน { $home }
+home-search-placeholder = ค้นหาชื่อบ้าน…
+home-search-empty = ไม่พบบ้านที่ตรงกัน
 home-set-command-description = ตั้งบ้านที่ตำแหน่งปัจจุบันของคุณ
 home-set-rich = ตั้งบ้าน { $home } แล้ว
 home-set-usage-desc = ตั้งบ้านที่ตำแหน่งปัจจุบันของคุณ
 home-summary-count = ตั้งแล้ว: { $arg0 } / { $arg1 }
-home-teleport-command-description = เทเลพอร์ตไปยังบ้าน
 home-teleport-failed = เทเลพอร์ตไม่สำเร็จ โปรดลองอีกครั้ง
 home-teleported-rich = เทเลพอร์ตไปยังบ้าน { $home } แล้ว
 home-tip-create-mm = บันทึกตำแหน่งด้วย <green><u><click:suggest_command:'/sethome '>/sethome ชื่อ</click></u></green> แล้วกลับมาด้วย <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>
-home-tip-return-mm = เปิด <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> แล้วเลือกบ้านเพื่อวาร์ป
+home-tip-return-mm = เปิด <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> เลือกบ้าน แล้วกด “{ home-action-teleport }”
 home-updated-rich = อัปเดตตำแหน่งบ้าน { $home } แล้ว
 home-usage-book = วิธีใช้คำสั่ง
 home-usage-delhome = /delhome <name>  ลบบ้าน
-home-usage-home = /home tp <name>  เทเลพอร์ตไปยังบ้าน
-home-usage-icon = /home icon <material> <name>  ตั้งไอคอน
+home-usage-home = /home <name>  เทเลพอร์ตไปยังบ้าน
 home-usage-name-rule = ชื่อบ้านห้ามมี < > :
 home-usage-sethome = /sethome <name>  บันทึกตำแหน่งปัจจุบันของคุณ
 home-world = โลก: { $arg0 }
@@ -303,10 +348,6 @@ teleport-request-none = คุณไม่มีคำขอเทเลพอ�
 teleport-request-received = { $sender } ต้องการเทเลพอร์ตคุณ: { $command }
 teleport-request-rejected = ปฏิเสธคำขอเทเลพอร์ตแล้ว
 teleport-request-sent = ส่งคำขอเทเลพอร์ตไปยัง { $player } แล้ว
-teleport-summary-afk = อนุญาตเสมอ ยกเว้นขณะ AFK
-teleport-summary-allow = อนุญาตการเทเลพอร์ตโดยผู้เล่นอื่นเสมอ
-teleport-summary-consent = การเทเลพอร์ตโดยผู้เล่นอื่นต้องได้รับอนุญาตจากฉัน
-teleport-summary-deny = ปฏิเสธการเทเลพอร์ตโดยผู้เล่นอื่นเสมอ
 tpany-command-description = เทเลพอร์ตไปยังตำแหน่งของผู้เล่น ออนไลน์หรือออฟไลน์
 tpany-done-offline-rich = เทเลพอร์ตไปยังตำแหน่งล่าสุดของ { $player } ใน { $world } { $location } แล้ว
 tpany-done-online-rich = เทเลพอร์ตไปยังตำแหน่งปัจจุบันของ { $player } แล้ว
@@ -317,14 +358,13 @@ tpany-usage-desc = เทเลพอร์ตไปยังตำแหน่�
 
 ## Player · PVP
 
-pvp-admin-menu-title = จัดการ PVP - หน้า { $arg0 }/{ $arg1 }
+pvp-admin-menu-title = จัดการ PVP
 pvp-allow-mounted-damage = อนุญาตให้โจมตีม็อบที่กำลังขี่
 pvp-allow-mounted-damage-desc = เมื่อทั้งคุณและผู้เล่นอื่นเปิด PVP ผู้เล่นนั้นจะโจมตีม็อบที่คุณกำลังขี่ได้
 pvp-auto-enable-desc = โจมตีผู้เล่นที่เปิด PVP สองครั้งติดต่อกัน
 pvp-auto-enable-label = เปิดอัตโนมัติ
 pvp-auto-enable-warning-actionbar-mm = <yellow>โจมตีอีกครั้งเพื่อเปิด PVP อัตโนมัติ</yellow>
 pvp-auto-enabled-actionbar-mm = <green>เปิด PVP อัตโนมัติแล้ว</green>
-pvp-back-admin = กลับหน้าจัดการ PVP
 pvp-combat-locked-mm = <red>ปิด PVP ระหว่างต่อสู้ไม่ได้</red> <dark_gray>|</dark_gray> <gray>เวลาที่เหลือ: <yellow>{ $arg0 }</yellow> วินาที</gray>
 pvp-combat-tag-label = เวลารอหลังต่อสู้
 pvp-combat-tag-value = { $arg0 } วินาที
@@ -345,12 +385,12 @@ pvp-menu-title = การตั้งค่า PVP
 pvp-mob-protected-actionbar-mm = <yellow>ม็อบนี้ป้องกันความเสียหาย PVP อยู่</yellow>
 pvp-mob-protection-label = การป้องกันม็อบ
 pvp-mounted-damage-label = โจมตีม็อบที่กำลังขี่
-pvp-next-page = หน้าถัดไป
 pvp-no-permission-mm = <red>คุณไม่มีสิทธิ์จัดการสถานะ PVP ของผู้เล่นอื่น</red>
 pvp-player-not-found-mm = <red>ไม่พบผู้เล่นออนไลน์</red>
-pvp-prev-page = หน้าก่อนหน้า
 pvp-protect-mobs = ปกป้องม็อบของคุณ
 pvp-protect-mobs-desc = ปกป้องม็อบที่คุณฝึกให้เชื่องหรือกำลังขี่
+pvp-quick-combat-cooldown = เวลาพักการต่อสู้: เหลือ { $arg0 } วินาที
+pvp-quick-override = กฎชั่วคราวควบคุม PVP อยู่ คุณยังปรับค่าของตนเองในการตั้งค่าได้
 pvp-set-by-staff-mm = <aqua>ทีมงานตั้งสถานะ PVP ของคุณเป็น</aqua> <yellow>{ $arg0 }</yellow>
 pvp-set-other = ตั้งสถานะ PVP ของ { $arg0 } เป็น { $arg1 }
 pvp-set-other-rich = ตั้งสถานะ PVP ของ { $player } เป็น { $state }
@@ -418,21 +458,21 @@ self-kick-reason-too-long = เหตุผลการเตะต้องม�
 # $person: second for the actor; third for other viewers and console.
 self-kick-with-reason = { $person ->
         [second] คุณออกจากเซิร์ฟเวอร์ตามคำขอของตนเอง เหตุผล: { $reason }
-       *[third] { $player } เตะตัวเองออกจากเซิร์ฟเวอร์ด้วยเหตุผลนี้: { $reason }
+       *[third] { $player } ออกจากเซิร์ฟเวอร์ตามคำขอของตนเอง เหตุผล: { $reason }
     }
-    .item-1 = { $player } เตะตัวเองออกไป และเหตุผลที่น่าประหลาดใจคือ: { $reason }
-    .item-2 = { $player } เตะตัวเองออกจากเซิร์ฟเวอร์เพราะ { $reason } จริง ๆ!
-    .item-3 = { $player } ออกจากเซิร์ฟเวอร์ด้วยตนเองพร้อมทิ้งคำอธิบายไว้ว่า: { $reason }
-    .item-4 = { $player } เลือกเตะตัวเอง: { $reason }
+    .item-1 = { $player } ออกจากเซิร์ฟเวอร์ตามคำขอของตนเอง เหตุผล: { $reason }
+    .item-2 = { $player } ออฟไลน์แล้ว ข้อความ: { $reason }
+    .item-3 = { $player } ออกจากเซิร์ฟเวอร์แล้ว ข้อความ: { $reason }
+    .item-4 = { $player } ฝากข้อความก่อนออก: { $reason }
 # $person: second for the actor; third for other viewers and console.
 self-kick-without-reason = { $person ->
         [second] คุณออกจากเซิร์ฟเวอร์ตามคำขอของตนเอง
-       *[third] { $player } เตะตัวเองออกจากเซิร์ฟเวอร์แล้ว
+       *[third] { $player } ออกจากเซิร์ฟเวอร์ตามคำขอของตนเอง
     }
-    .item-1 = { $player } เตะตัวเองออกไปได้จริง ๆ!
-    .item-2 = { $player } ออกจากเซิร์ฟเวอร์ไปโดยไม่พูดอะไรเลย
-    .item-3 = { $player } แสดงการเตะตัวเองได้อย่างไร้ที่ติ
-    .item-4 = { $player } กดปุ่มออกจากเซิร์ฟเวอร์ด้วยตัวเอง
+    .item-1 = { $player } ออกจากเซิร์ฟเวอร์ตามคำขอของตนเอง
+    .item-2 = { $player } ออฟไลน์แล้ว
+    .item-3 = ติ๊งต่อง! { $player } ออฟไลน์แล้ว
+    .item-4 = ออนไลน์ -1 { $player } ออกจากเซิร์ฟเวอร์แล้ว
 
 ## Community · Chat and mentions
 
@@ -456,7 +496,7 @@ chat-private-label = ข้อความ
 chat-private-no-reply-target = ไม่มีคู่สนทนาส่วนตัวล่าสุดที่ออนไลน์อยู่
 chat-private-self = คุณไม่สามารถเริ่มแชทส่วนตัวกับตัวเองได้
 chat-private-target-not-found = ไม่พบผู้เล่นออนไลน์: { $arg0 }
-chat-private-target-offline = คู่สนทนาส่วนตัวออฟไลน์แล้ว จึงกลับไปยังแชทสาธารณะ
+chat-private-target-offline = คู่สนทนาออฟไลน์อยู่ โปรดรอหรือเลือกช่องอื่น
 chat-private-tip-channel-mm = ใช้ <aqua><u><click:suggest_command:'/msg '>/msg ผู้เล่น</click></u></aqua> เพื่อเข้าสู่แชตส่วนตัว และ <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> เพื่อกลับสู่แชตสาธารณะ
 chat-public-command-description = สลับช่องแชทสาธารณะ
 chat-public-enter = เปลี่ยนเป็นแชทสาธารณะแล้ว
@@ -467,6 +507,7 @@ chat-social-bound-player-label = ผู้เล่นที่เชื่อ�
 chat-social-name-label = ชื่อบนแพลตฟอร์ม
 chat-social-unbound = ยังไม่ได้เชื่อมโยงกับผู้เล่น Minecraft
 chat-staff-command-description = สลับช่องแชททีมงาน
+chat-staff-label = ทีมงาน
 chat-staff-permission-missing = ไม่มีสิทธิ์ใช้แชททีมงาน จึงกลับไปยังแชทสาธารณะ
 mention-action-bar = ข้อความบนแอ็กชันบาร์
 mention-action-bar-text = { $sender } กล่าวถึงคุณแล้ว
@@ -474,28 +515,28 @@ mention-alerts = การแจ้งเตือน
 mention-menu-title = การแจ้งเตือนเมื่อถูกกล่าวถึง
 mention-mute-afk = ปิดเสียงขณะ AFK
 mention-sound = เสียงเตือน
-mention-summary-action-bar = แอ็กชันบาร์
-mention-summary-disabled = ปิดการแจ้งเตือนแล้ว
-mention-summary-enabled = เปิดการแจ้งเตือนแล้ว
-mention-summary-enabled-afk = เปิดการแจ้งเตือน ปิดเสียงขณะ AFK
-mention-summary-modes-afk = { $arg0 }, ปิดเสียงขณะ AFK
-mention-summary-sound = เสียง
 staffchat-enter = เข้าร่วมแชททีมงานแล้ว
 
 ## Community · Announcements
 
+announcement-count = ประกาศ { $arg0 } รายการ
 announcement-empty = ไม่มีประกาศ
 announcement-first-page = ถึงประกาศล่าสุดแล้ว
 announcement-last-page = ถึงประกาศเก่าสุดแล้ว
+announcement-latest = ประกาศล่าสุด
+announcement-list-newer = กลุ่มใหม่กว่า
+announcement-list-older = กลุ่มเก่ากว่า
 announcement-more-count = ยังไม่แสดงอีก { $arg0 } รายการ
 announcement-new-count = ใหม่ { $arg0 } รายการ
 announcement-newer = ประกาศใหม่กว่า
+announcement-next-page = หน้าถัดไป
 announcement-older = ประกาศเก่ากว่า
+announcement-page = หน้า { $arg0 } / { $arg1 }
+announcement-previous-page = หน้าก่อนหน้า
 announcement-reload = โหลดประกาศใหม่
 announcement-reload-command-description = โหลดไฟล์ประกาศใหม่
 announcement-reload-failed = โหลดประกาศใหม่ไม่สำเร็จ ประกาศเดิมยังคงอยู่
 announcement-reloaded = โหลดประกาศใหม่แล้ว
-announcement-scroll-hint = เลื่อนเพื่ออ่านแนวนอน
 announcement-unread-count = ยังไม่อ่าน { $arg0 } รายการ
 announcement-updated = อัปเดตประกาศแล้ว
 announcement-view-all = ดูประกาศทั้งหมด
@@ -663,7 +704,41 @@ governance-active-header = ─── คุณสมบัติสมาชิ�
 governance-active-member = เป็นสมาชิกอยู่ในปัจจุบัน
 governance-active-member-age = เป็นสมาชิกมาแล้วอย่างน้อย 30 วัน
 governance-active-playtime = เล่นอย่างมีผลอย่างน้อย 6 ชั่วโมงใน 60 วัน (ขณะนี้ { $arg0 })
+governance-activity-action = { $arg0 ->
+    [confirm] ยืนยันการสนับสนุน
+    [vote] อ่านและลงคะแนน
+    *[details] ดูรายละเอียด
+    }
+governance-activity-all = ดูทั้งหมด ({ $arg0 })
+governance-activity-closed = สิ้นสุดแล้ว
+governance-activity-confirm-petition = สนับสนุนคำร้องนี้หรือไม่? เมื่อมีผู้สนับสนุนครบจะเริ่มการลงคะแนนถอดถอน
+governance-activity-needed = ต้องการอีก { $arg0 } คน
+governance-activity-proposal = { $arg0 ->
+    [appointment] แต่งตั้ง { $arg1 } เป็นผู้ดูแล
+    [removal] ถอดถอน { $arg1 } จากผู้ดูแล
+    [petition] คำร้องถอดถอน { $arg1 }
+    *[ban] การลงคะแนนแบน { $arg1 }
+    }
+governance-activity-remaining = { $arg1 ->
+    [days] เหลือเวลา: { governance-days }
+    [hours] เหลือเวลา: { governance-hours }
+    *[minutes] เหลือเวลา: { governance-minutes }
+    }
+governance-activity-status = { $arg0 ->
+    [available] ลงคะแนนได้
+    [voted] ลงคะแนนแล้ว
+    [join] สนับสนุนได้
+    [joined] สนับสนุนแล้ว
+    [closed] สิ้นสุดแล้ว
+    *[view] ดูได้อย่างเดียว
+    }
 governance-already-moderator = คุณเป็นผู้ดูแลอยู่แล้ว
+governance-application-status = { $arg0 ->
+    [open] กำลังโหวตแต่งตั้ง
+    [pending] ผ่านแล้ว · รอแต่งตั้ง
+    [blocked] ยังไม่ผ่านเงื่อนไข
+   *[ready] สมัครเป็นผู้ดูแลได้
+    }
 governance-ballot-recorded = บันทึกคะแนนลับของคุณเป็น { $arg0 } แล้ว เปลี่ยนได้ก่อนปิดรับคะแนน
 governance-ban-details = เสนอโดย { $arg0 } · ระยะเวลา { $arg1 } · เหตุผล: { $arg2 }
 governance-ban-suffix = · ระยะเวลา { $arg0 } · เหตุผล: { $arg1 }
@@ -673,7 +748,6 @@ governance-choice-yes = เห็นด้วย
 governance-command-description = ดูสิทธิ์การบริหารและการลงคะแนน
 governance-custodian-no-nomination = ผู้ดูแลระบบไม่เข้าร่วมการเลือกผู้ดูแลชุมชน
 governance-custodian-no-resign = ขั้นตอนลาออกของผู้ดูแลชุมชนไม่ใช้กับผู้ดูแลระบบ
-# $arg0 (Number): duration; locale decides the unit form.
 governance-days = { $arg0 } วัน
 governance-error-ban-already-active = ผู้เล่นคนนี้ถูกแบนอยู่แล้ว
 governance-error-ban-proposer-ineligible = เฉพาะสมาชิกที่ยังมีส่วนร่วมเท่านั้นที่เสนอการลงคะแนนแบนได้
@@ -685,10 +759,12 @@ governance-error-pause-already-active = การเลื่อนขั้น�
 governance-error-pause-already-member = ผู้เล่นคนนี้เป็นสมาชิกแล้ว ไม่ต้องระงับการเลื่อนขั้น
 governance-error-pause-end-invalid = การระงับการเลื่อนขั้นต้องสิ้นสุดในอนาคต
 governance-error-player-unknown = ยังไม่มีประวัติการบริหารของผู้เล่นคนนี้
+governance-error-removal-petition-closed = คำร้องนี้สิ้นสุดแล้วหรือถูกแทนที่ด้วยคำร้องใหม่
 governance-error-removal-requires-petition = การลงคะแนนถอดถอนต้องมีผู้ร่วมเสนอครบจำนวน
 governance-error-removal-self = คุณร่วมเสนอถอดถอนตัวเองไม่ได้
 governance-error-removal-sponsor-ineligible = เฉพาะสมาชิกที่ยังมีส่วนร่วมเท่านั้นที่ร่วมเสนอถอดถอนได้
 governance-error-removal-sponsors-too-few = ต้องมีสมาชิกที่ยังมีส่วนร่วมอื่นอย่างน้อยสองคน
+governance-error-removal-target-not-moderator = ผู้เล่นนี้ไม่ได้เป็นผู้ดูแลที่ถอดถอนได้อีกต่อไป
 governance-error-removal-vote-open = มีการลงคะแนนถอดถอนผู้ดูแลคนนี้อยู่แล้ว
 governance-error-termination-reason-invalid = เหตุผลนี้ใช้ยุติการลงคะแนนประเภทนี้ไม่ได้
 governance-error-vote-already-open = มีการลงคะแนนประเภทเดียวกันของผู้เล่นคนนี้อยู่แล้ว
@@ -705,7 +781,6 @@ governance-failure-quorum = ผู้ร่วมลงคะแนนไม่�
 governance-failure-two-thirds = คะแนนเห็นด้วยไม่ถึงสองในสามของคะแนนที่ไม่งดออกเสียง
 governance-history-header = ─── ผลการลงคะแนนล่าสุด ───
 governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
-# $arg0 (Number): duration; locale decides the unit form.
 governance-hours = { $arg0 } ชั่วโมง
 governance-inactive-removal = { $arg0 } พ้นจากตำแหน่งผู้ดูแลโดยอัตโนมัติหลังไม่เข้าสู่ระบบ 180 วัน
 governance-invalid-choice = เลือก yes, no หรือ abstain
@@ -714,40 +789,50 @@ governance-kind-appointment = แต่งตั้ง
 governance-kind-ban = แบน
 governance-kind-removal = ถอดถอน
 governance-legacy-ban-kick = การลงคะแนนครั้งก่อนผ่านแล้ว คุณถูกแบนเป็นเวลา { $arg0 } เหตุผล: { $arg1 }
-governance-menu-actions = การดำเนินการ
+governance-menu-already-sponsored = ลงชื่อสนับสนุนแล้ว
+governance-menu-application = สถานะการสมัคร
 governance-menu-back = กลับ
 governance-menu-cancel = ยกเลิก
+governance-menu-completed = สิ้นสุดแล้ว
 governance-menu-confirm = ยืนยัน
-governance-menu-confirm-nominate = เริ่มโหวตแต่งตั้งตนเองเป็นผู้ดูแลหรือไม่?
+governance-menu-confirm-nominate = การสมัครจะเริ่มโหวตแต่งตั้งคุณเป็นผู้ดูแล
 governance-menu-confirm-resign = ลาออกจากผู้ดูแลหรือไม่?
 governance-menu-confirm-sponsor = สนับสนุนคำร้องถอดถอนนี้หรือไม่?
 governance-menu-confirm-withdraw = ถอนใบสมัครผู้ดูแลหรือไม่?
-governance-menu-find-player = ค้นหาผู้เล่นอื่น
-governance-menu-history = ประวัติการโหวต
+governance-menu-custodian-duties = บำรุงรักษาและบริหารเซิร์ฟเวอร์
+governance-menu-identity = บทบาท
+governance-menu-identity-hint = เงื่อนไขเลื่อนระดับและประวัติกิจกรรม
+governance-menu-join-petition = สนับสนุนคำร้องถอดถอน
 governance-menu-loading = กำลังโหลดสถานะการดูแล…
-governance-menu-new-petition = เริ่มคำร้องถอดถอน
+governance-menu-matters = กิจการชุมชน
+governance-menu-moderator-duties = ดูแลกฎและช่วยเหลือผู้เล่น
 governance-menu-nominate = สมัครเป็นผู้ดูแล
-governance-menu-nomination-open = การโหวตแต่งตั้งของคุณกำลังดำเนินอยู่
+governance-menu-offline = ออฟไลน์
+governance-menu-ongoing = กำลังดำเนินการ
+governance-menu-online = ออนไลน์
 governance-menu-pause = ระงับการเลื่อนขั้นผู้เล่นใหม่
 governance-menu-pause-appeal = ช่องทางอุทธรณ์
 governance-menu-pause-duration = ระยะเวลา (เช่น 2d)
 governance-menu-pause-reason = เหตุผล
+governance-menu-pause-until = สิ้นสุด
+governance-menu-pending-application = ผ่านแล้ว · รอดำเนินการ
 governance-menu-petition-row = { $arg0 } · ผู้สนับสนุน { $arg1 }/{ $arg2 }
 governance-menu-petitions = คำร้องถอดถอน
 governance-menu-player-name = ชื่อผู้เล่น
 governance-menu-players = จัดการผู้เล่น
-governance-menu-recent-results = ผลการลงคะแนนล่าสุด
 governance-menu-refresh = รีเฟรช
+governance-menu-related = บันทึกที่เกี่ยวข้องล่าสุด
+governance-menu-related-matters = ดูเรื่องที่เกี่ยวข้อง
 governance-menu-resign = ลาออกจากผู้ดูแล
 governance-menu-resume = ยกเลิกการระงับเลื่อนขั้น
 governance-menu-resume-reason = เหตุผลที่ยกเลิก
 governance-menu-staff-only = เฉพาะผู้ดูแลและผู้รับผิดชอบเท่านั้นที่จัดการผู้เล่นได้
-governance-menu-status = สถานะของคุณ
-governance-menu-target = ชื่อผู้ดูแล
-governance-menu-title = การบริหารชุมชน
-governance-menu-votes = การโหวตที่เปิดอยู่
+governance-menu-staff-search = ค้นหาผู้ดูแล
+governance-menu-subject-filter = { $arg0 } · ล้างตัวกรอง ×
+governance-menu-team = รายชื่อผู้ดูแลสาธารณะ
+governance-menu-team-empty = ไม่พบผู้ดูแลที่ตรงกัน
+governance-menu-title = การปกครองชุมชน
 governance-menu-withdraw = ถอนใบสมัคร
-# $arg0 (Number): duration; locale decides the unit form.
 governance-minutes = { $arg0 } นาที
 governance-no-active-ban = ไม่มีการแบนที่ยังมีผล
 governance-no-active-pause = ไม่มีการระงับการเลื่อนขั้นที่ยังมีผล
@@ -760,7 +845,6 @@ governance-own-choice-closed = ตัวเลือกของคุณ: { $ar
 governance-own-choice-open = ตัวเลือกของคุณ: { $arg0 } เปลี่ยนได้ก่อนปิดรับคะแนน
 governance-own-not-voted = คุณมีสิทธิ์แต่ไม่ได้ลงคะแนน
 governance-own-not-voted-hint = คุณยังไม่ได้ลงคะแนน เปิดเมนูการดูแลชุมชนแล้วเลือกการโหวตนี้
-governance-own-not-voted-open = คุณยังไม่ได้ลงคะแนน
 governance-own-not-voter = คุณไม่อยู่ในรายชื่อผู้มีสิทธิ์ของการลงคะแนนนี้
 governance-own-voted = คุณลงคะแนนแล้ว
 governance-pause-cleared = ยกเลิกการระงับการเลื่อนขั้นของ { $arg0 } แล้ว
@@ -794,10 +878,8 @@ governance-result-terminated = ยุติแล้ว ({ $arg0 })
 governance-resume-notice = ยกเลิกการระงับการเลื่อนขั้นของคุณแล้ว เหตุผล: { $arg0 }
 governance-resume-reason-required = ระบุเหตุผลในการยกเลิกการระงับ
 governance-role-lookup-error = ตรวจสอบสถานะผู้ดูแลไม่ได้ โปรดติดต่อผู้ดูแลระบบ
-# $arg0 (Number): duration; locale decides the unit form.
 governance-seconds = { $arg0 } วินาที
 governance-storage-error = จัดการข้อมูลการบริหารไม่สำเร็จ โปรดติดต่อผู้ดูแลระบบ
-governance-target-not-moderator = ขณะนี้ { $arg0 } ไม่ใช่ผู้ดูแล
 governance-termination-inactive = ผู้ดูแลพ้นตำแหน่งหลังไม่เข้าร่วมเป็นเวลานาน
 governance-termination-ineligible = ผู้สมัครหมดคุณสมบัติสมาชิกที่ยังมีส่วนร่วม
 governance-termination-resigned = ผู้ดูแลลาออกแล้ว
@@ -820,13 +902,10 @@ plot-admin-created = ลงทะเบียน { $arg0 } ให้ { $arg1 } �
 plot-allowed = เปิด
 plot-area-changed = ขอบเขตเปลี่ยนระหว่างยืนยัน โปรดรีเฟรชและยืนยันอีกครั้ง
 plot-area-confirm = แทนที่ขอบเขตของ “{ $arg0 }” ด้วยพื้นที่ที่เลือก ({ $arg1 } ช่อง)? อาคารจะไม่ถูกลบ
-plot-area-hint = //pos1 → //pos2 → บันทึก ใช้ขวานไม้คลิกซ้าย/ขวาเลือกมุมได้ เพิ่ม/ลบสำหรับหลายพื้นที่
+plot-area-hint = คลิกซ้าย/ขวาด้วยขวานไม้หรือใช้ //pos1 และ //pos2 เลือกมุม แล้วกลับมาบันทึก
 plot-area-replace-save = แทนที่ขอบเขตและบันทึก
 plot-area-save = บันทึกขอบเขต
 plot-area-saved = บันทึกขอบเขตของ “{ $arg0 }” แล้ว
-plot-arrival-removed = ลบจุดเดินทางถึงแล้ว
-plot-arrival-set = บันทึกจุดเดินทางถึงแล้ว
-plot-arrival-text-saved = บันทึกข้อความต้อนรับแล้ว
 plot-atmosphere-saved = บันทึกบรรยากาศแล้ว
 plot-back = กลับ
 plot-board-auto-notify-result = กำหนดการแจ้งเตือนผู้เล่น { $arg0 } คนแล้ว
@@ -837,6 +916,7 @@ plot-board-header = ประกาศและข้อคิดเห็นช
 plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
 plot-board-kind-notice = ประกาศ
 plot-board-kind-objection = ข้อคัดค้าน
+plot-board-loading = กำลังโหลดประกาศ…
 plot-board-menu = กระดานชุมชน
 plot-board-notice-alert = { $arg0 } ลงประกาศ: { $arg1 } · { $arg2 }
 plot-board-objection-alert = { $arg0 } ยื่นข้อคัดค้าน: { $arg1 } · { $arg2 }
@@ -855,20 +935,14 @@ plot-board-unavailable = ยังโหลดกระดานไม่ได�
 plot-board-withdrawal-alert = { $arg0 } ถอนข้อคัดค้าน: { $arg1 } · { $arg2 }
 plot-board-write-failed = อัปเดตกระดานไม่ได้ โปรดลองภายหลัง
 plot-command-blocked = ระบบปกป้องแปลงบล็อกคำสั่งนี้ ใช้ /fill หรือ /setblock โดยตรงในแปลงตนเอง และให้ทีมงานตรวจคำสั่ง /execute ที่ซับซ้อน
-plot-command-description = จัดการแปลงก่อสร้างและโครงการสาธารณะ
+plot-command-description = จัดการแปลงก่อสร้าง
 plot-created = สร้างแปลง { $arg0 } แล้ว · { $arg1 }
 plot-created-for-you = { $arg1 } ลงทะเบียนที่ดิน { $arg0 } ให้คุณแล้ว
 plot-deleted = ปล่อยที่ดินแล้ว สิ่งปลูกสร้างยังอยู่
 plot-denied = ปิด
-plot-empty-summary = ยังไม่มีแปลงที่นี่
 plot-error-admin-owner-only = การเปลี่ยนสมาชิกที่มีสิทธิ์จัดการต้องมีทั้งสิทธิ์จัดการสมาชิกและจัดการสิทธิ์
 plot-error-area-disconnected = ที่ดินต้องเป็นพื้นที่ที่เชื่อมต่อกัน
 plot-error-args = อาร์กิวเมนต์ไม่ถูกต้องหรือไม่ครบ ใช้ /plot help
-plot-error-arrival-location = โปรดยืนบนพื้นปลอดภัยภายในส่วนที่สร้างแล้วของโครงการ
-plot-error-arrival-missing = ยังไม่ได้ตั้งจุดเดินทางถึง
-plot-error-arrival-private = คุณไม่สามารถเยี่ยมชมโครงการส่วนตัวนี้ได้
-plot-error-arrival-text = ข้อความไม่ถูกต้อง ใช้ได้หนึ่งบรรทัด โดยหัวเรื่องไม่เกิน 32 ตัวอักษรที่มองเห็น และหัวเรื่องรองไม่เกิน 64 ตัวอักษร
-plot-error-arrival-unsafe = จุดเดินทางถึงนี้ใช้ไม่ได้หรือไม่ปลอดภัยแล้ว
 plot-error-busy = กำลังบันทึกข้อมูลแปลง ลองภายหลัง การทำงานนี้ยังไม่ได้ส่ง
 plot-error-flag = ไม่รองรับสิทธิ์นี้ โปรดเลือกการดำเนินการจากรายการสิทธิ์
 plot-error-id = ไม่พบ ID แปลงหรือระบุไม่ชัดเจน ใช้ /plot list
@@ -888,12 +962,10 @@ plot-error-selection = ระบุมุมสองจุดด้วย //pos
 plot-error-selection-changed = พื้นที่ที่เลือกเปลี่ยนไป โปรดยืนยันอีกครั้ง
 plot-error-staff-only = เฉพาะผู้ดูแลหรือผู้ดูแลระบบเท่านั้นที่จัดการหรือลงทะเบียนที่ดินให้ผู้เล่นอื่นได้
 plot-error-storage = ดำเนินการกับแปลงไม่สำเร็จ ลองภายหลังหรือติดต่อทีมงาน
-plot-error-subplot-arrival = ย้ายจุดมาถึงของพื้นที่หลักออกจากช่วงที่เลือกก่อน
 plot-error-subplot-children = ปล่อยพื้นที่ย่อยก่อนปล่อยพื้นที่หลัก
 plot-error-subplot-depth = พื้นที่ย่อยสร้างซ้อนได้เพียงชั้นเดียว
 plot-error-subplot-disconnected = ช่องก่อสร้างที่เลือกไม่เชื่อมต่อกัน ให้แบ่งแต่ละส่วนแยกกัน
 plot-error-subplot-overlap = ช่วงที่เลือกทับกับพื้นที่ย่อยอื่น
-plot-error-subplot-own-arrival = ให้จุดมาถึงอยู่ในขอบเขตใหม่ หรือย้ายจุดนั้นก่อน
 plot-error-subplot-owner = คุณไม่มีสิทธิ์ดำเนินการนี้กับแปลงย่อย
 plot-error-subplot-parent = ปักทั้งสองมุมภายในช่องก่อสร้างเดิมของพื้นที่หลัก
 plot-error-subplot-supervisor-member = เจ้าของพื้นที่หลักมีสิทธิ์ดูแลอยู่แล้ว ไม่จำเป็นต้องเพิ่มเป็นสมาชิก
@@ -914,16 +986,10 @@ plot-member-draft-submit = ดูตัวอย่างและยืนย�
 plot-member-draft-title = ร่างสมาชิก · { $arg0 }
 plot-member-permissions = สิทธิ์
 plot-member-removed = นำสมาชิกออกจากโครงการแล้ว
-plot-menu-access = สิทธิ์และสมาชิก
-plot-menu-access-by-settings = ตามการตั้งค่าสิทธิ์
-plot-menu-admin = เพิ่มผู้ดูแลแปลง
-plot-menu-arrival = จุดเดินทางถึง
-plot-menu-arrival-subtitle = หัวเรื่องรอง (MiniMessage; ไม่จำเป็น)
-plot-menu-arrival-text = ข้อความต้อนรับ
-plot-menu-arrival-title = หัวเรื่อง (MiniMessage; เว้นว่างเพื่อใช้ชื่อโครงการ)
+plot-menu-access = สมาชิกและสิทธิ์
+plot-menu-add-member = เพิ่มสมาชิก
 plot-menu-atmosphere = บรรยากาศ
 plot-menu-clear = ฟ้าใส
-plot-menu-collaborator = เพิ่มผู้ร่วมงาน
 plot-menu-confirm-delete = ลบการลงทะเบียน { $arg0 } หรือไม่? การป้องกัน สิทธิ์สมาชิก และการตั้งค่าจะถูกลบและไม่สามารถย้อนกลับได้ สิ่งปลูกสร้างจะยังอยู่
 plot-menu-confirm-subplot-transfer = โอน { $arg0 } ให้ { $arg1 } หรือไม่? เจ้าของพื้นที่หลักยังดูแลได้
 plot-menu-confirm-transfer = โอนสิทธิ์จัดการแปลง { $arg0 } ให้ { $arg1 } หรือไม่? คุณจะเสียสิทธิ์เข้าถึง แต่ชื่อผู้สร้างผลงานเดิมไม่เปลี่ยน
@@ -944,27 +1010,22 @@ plot-menu-group-collaborator = ผู้ร่วมงาน
 plot-menu-group-member = ค่าเริ่มต้นสำหรับสมาชิก
 plot-menu-group-newcomer = ค่าเริ่มต้นสำหรับผู้เล่นใหม่
 plot-menu-group-owner = เจ้าของพื้นที่
+plot-menu-here = ตำแหน่งปัจจุบัน
 plot-menu-manage = จัดการที่ดินของผู้เล่น
 plot-menu-managed-empty = ผู้เล่นนี้ยังไม่มีที่ดิน
 plot-menu-managed-title = ที่ดินของ { $arg0 }
 plot-menu-members = สมาชิก ({ $arg0 })
-plot-menu-my-access = สิทธิ์ของคุณ: { $arg0 } · { $arg1 }
 plot-menu-name = ชื่อโครงการ
 plot-menu-owner = เจ้าของ: { $arg0 }
 plot-menu-parent-supervisor = เจ้าของพื้นที่หลัก: { $arg0 } · ดูแล
 plot-menu-player = ชื่อผู้เล่นหรือ UUID
-plot-menu-project-kind = ประเภทโครงการ
-plot-menu-public-destinations = จุดหมายสาธารณะ
-plot-menu-public-destinations-empty = ยังไม่มีโครงการสาธารณะที่ตั้งจุดเดินทางถึง
 plot-menu-rain = ฝนหรือหิมะ
-plot-menu-record-id = รหัสบันทึก; บันทึกเก่าต้องใช้รหัสเต็ม
+plot-menu-record-search = รหัสหรือหัวข้อ
 plot-menu-related-notice = ดูประกาศที่เกี่ยวข้อง
-plot-menu-remove-arrival = ลบจุดเดินทางถึง
 plot-menu-remove-member = นำสมาชิกออก
 plot-menu-rename = เปลี่ยนชื่อโครงการ
 plot-menu-rule = บันทึกคำตัดสิน
 plot-menu-ruling = อธิบายเหตุผลของคำตัดสิน (8–1000 อักขระ)
-plot-menu-set-arrival = ตั้งจุดเดินทางถึงตรงนี้
 plot-menu-set-role = ตั้งเป็น{ $arg0 }
 plot-menu-settings = การตั้งค่าโครงการ
 plot-menu-submit = ใช้
@@ -975,28 +1036,8 @@ plot-menu-subplots = พื้นที่ย่อย ({ $arg0 })
 plot-menu-time = เวลา
 plot-menu-time-input = เวลา (HH:mm)
 plot-menu-transfer = โอนแปลง
-plot-menu-visit = เยี่ยมชมโครงการ
 plot-menu-weather = สภาพอากาศ
 plot-menu-withdraw = ถอนความเห็น
-plot-model-fit = แสดงขอบเขตทั้งหมด
-plot-model-focus = ดูบริเวณรอบฉัน
-plot-model-layer-down = ลดระดับตัดลง 1 บล็อก
-plot-model-layer-up = ยกระดับตัดขึ้น 1 บล็อก
-plot-model-legend = ฟ้า: บันทึกแล้ว · เขียว/ทอง: มุม 1/2 · ม่วง: ขอบเขตที่จะบันทึก · ขาว/แดง: คุณ/ทิศทาง
-plot-model-level = ระดับตัด Y ≤ { $arg0 } (เฉพาะตัวอย่าง)
-plot-model-limited = ลดการเก็บตัวอย่างหรือรายละเอียดแล้ว โฟกัสใกล้ตัวหรือสี่เหลี่ยมเพื่อเพิ่มรายละเอียด ใช้แสดงเฉพาะขอบเขตเพื่อตรวจขอบ
-plot-model-north-up = มุมมองด้านบนให้ทิศเหนืออยู่ด้านบน กลับไปมุมมอง 3 มิติเพื่อหมุน
-plot-model-perspective = มุมมอง 3 มิติ
-plot-model-preparing = กำลังคำนวณขอบเขตและตรวจสอบพื้นที่ในเบื้องหลัง… จะอัปเดตโดยอัตโนมัติเมื่อเสร็จสิ้น
-plot-model-progress = กำลังอ่านโมเดล { $arg0 }%…
-plot-model-rotate-left = ↶ หมุนซ้าย
-plot-model-rotate-right = ↷ หมุนขวา
-plot-model-show-all = แสดงความสูงทั้งหมด
-plot-model-slice = ตัดเหนือชั้นที่ฉันอยู่
-plot-model-terrain = แสดงสิ่งปลูกสร้างและภูมิประเทศ
-plot-model-top = มุมมองด้านบน
-plot-model-unknown = ตัวอย่าง { $arg0 } จุดยังไม่โหลด (สีเทา) จะไม่บังคับโหลดชังก์
-plot-model-wireframe = เฉพาะขอบเขต
 plot-no-here = ตำแหน่งนี้ไม่มีแปลงที่ได้รับการปกป้อง
 plot-notice-board = ป้ายประกาศแปลง
 plot-notice-cleared = ลบป้ายประกาศแล้ว
@@ -1038,7 +1079,6 @@ plot-permission-manage-area = แก้ไขขอบเขต
 plot-permission-manage-members = จัดการสมาชิก
 plot-permission-manage-permissions = จัดการสิทธิ์
 plot-permission-manage-settings = แก้ไขการตั้งค่าแปลง
-plot-permission-management = การตั้งค่าและเจ้าของแปลง
 plot-permission-modify = แก้ไขบล็อกและใส่ปุ๋ย
 plot-permission-operation = การกระทำ
 plot-permission-personal = สิทธิ์ส่วนบุคคล
@@ -1061,16 +1101,15 @@ plot-permission-transfer = โอนความเป็นเจ้าขอ�
 plot-permission-workstation = ใช้สิ่งอำนวยความสะดวกและโต๊ะทำงาน
 plot-pos1 = จุดแรก
 plot-pos2 = จุดที่สอง
-plot-private = โครงการส่วนตัว
-plot-public = โครงการสาธารณะ
-plot-public-set = ประเภทโครงการ: { $arg0 }
+plot-private = ส่วนตัว
+plot-public = สาธารณะ
 plot-region-adjust = ปรับสี่เหลี่ยมนี้
 plot-region-apply = ยืนยันการปรับสี่เหลี่ยม
 plot-region-cancel = ยกเลิกการปรับสี่เหลี่ยม
 plot-region-changed = การเลือกเปลี่ยนไปแล้ว กรุณาเลือกสี่เหลี่ยมใหม่
 plot-region-delete = ลบสี่เหลี่ยมนี้
 plot-region-delete-confirm = ลบสี่เหลี่ยม #{ $arg0 } จากฉบับร่างหรือไม่? อาคารยังอยู่ ขอบเขตเปลี่ยนเมื่อบันทึกพื้นที่แล้วเท่านั้น และเลิกทำได้
-plot-region-edit-hint = ใช้ //pos1 และ //pos2 ปรับสองมุมของสี่เหลี่ยมนี้ สี่เหลี่ยมอื่นไม่เปลี่ยน เสร็จแล้วจึงบันทึกพื้นที่
+plot-region-edit-hint = ใช้ //pos1 และ //pos2 ปรับสี่เหลี่ยมนี้ แล้วบันทึก
 plot-region-finish-first = กรุณาทำการปรับสี่เหลี่ยมปัจจุบันให้เสร็จหรือยกเลิกก่อน
 plot-region-open = จัดการสี่เหลี่ยม ({ $arg0 })
 plot-region-select-hint = เลือกสี่เหลี่ยมตามหมายเลขเพื่อโฟกัสและเน้นเส้น เส้นสีเทาแสดงหน้าปัจจุบัน การรวมอาจเปลี่ยนหมายเลข
@@ -1084,13 +1123,8 @@ plot-role-server-staff = ผู้ดูแลเซิร์ฟเวอร์
 plot-selection-add = เพิ่มกรอบปัจจุบัน
 plot-selection-clear = เลือกสองจุดใหม่
 plot-selection-empty = ระบุมุมสองจุดด้วย //pos1 และ //pos2
-plot-selection-exit = ออกจากการแก้ไข / ดูขอบเขต
 plot-selection-fit = คืนขอบเขตที่บันทึกไว้
 plot-selection-incomplete = ทำเครื่องหมายแล้วหนึ่งจุด กรุณาเลือกอีกจุด แปลงจะไม่เปลี่ยนก่อนส่ง
-plot-selection-mode = เลือกจุดในโลก
-plot-selection-no-redo = ไม่มีการเปลี่ยนกรอบเลือกที่จะทำซ้ำ
-plot-selection-no-undo = ไม่มีการเปลี่ยนกรอบเลือกก่อนหน้าที่จะเลิกทำ
-plot-selection-open = แก้ไขขอบเขต
 plot-selection-redo = ทำซ้ำขั้นตอนล่าสุด
 plot-selection-replace = แทนที่ด้วยกรอบปัจจุบัน
 plot-selection-session-hint = ย่อ+F หรือ /plot edit เพื่อกลับ ออกเมื่อไม่มีการใช้งาน 20 นาที
@@ -1109,12 +1143,46 @@ plot-transferred-to-you = { $arg1 } โอนแปลง { $arg0 } ให้ค
 
 ## World · Vehicles
 
-vehicle-admin-help = /vehicle — { vehicle-model-title }
-    โมเดล: model | model help
-    จับกลุ่ม: origin | select <uuid>/radius <radius>/group [uuid]/info/clear | capture <id> car/boat/plane
-    ยานพาหนะ: spawn <model> [x y z] | reload
 vehicle-command-description = ขับและจัดการยานพาหนะจากเอนทิตีแสดงผล
-vehicle-controls = { $arg0 }: W/S และ A/D ควบคุม ล้อเมาส์เปลี่ยนเกียร์หรือคันเร่ง สลับมือเปลี่ยนโหมด ย่อเพื่อลง /vehicle help · /vehicle dashboard เปิดแผงควบคุม
+vehicle-menu-label =
+    { $arg0 ->
+        [home] ยานพาหนะ
+        [nearby] ยานพาหนะใกล้เคียง
+        [fleet] ยานพาหนะที่เข้าถึงได้ทั้งหมด
+        [selection] ส่วนที่เลือกของโมเดล
+        [origin] ตั้งจุดกำเนิดที่เท้า
+        [group] เลือกกลุ่มแสดงผล
+        [radius] รัศมีการเลือก (0–16 ม.)
+        [displays] ดูเอนทิตีแสดงผลใกล้เคียง
+        [clear] ล้างการเลือกและจุดกำเนิด
+        [capture] สร้างโมเดลจากส่วนที่เลือก
+        [toggle-selection] สลับการเลือก
+        [public] เปิดเป็นสาธารณะ
+        [private] ตั้งเป็นส่วนตัว
+        [reload] โหลดโมเดลจากไฟล์ใหม่
+        [leave] ลงจากยานพาหนะ
+        [passenger] ที่นั่งผู้โดยสาร
+        [fuel] เติมเชื้อเพลิง · ถือถ่านหิน
+        [repair] ซ่อม · ถือแท่งเหล็ก
+        [access] การเข้าถึง
+        [remove] ลบยานพาหนะ
+        [hud] แสดง HUD การขับขี่
+        [hide-preview] ซ่อนตัวอย่าง 3D
+        [service-hint] เข้าใกล้ จอดและดับเครื่อง แล้วถือวัสดุที่ต้องใช้
+        [nearby-hint] เข้าใกล้ในระยะ 32 บล็อกและออกจากที่นั่งปัจจุบัน
+        [use-required] ต้องมีสิทธิ์ mik.vehicle.use
+        [remove-hint] จอดและให้ผู้โดยสารลงทั้งหมดก่อน
+        [reload-hint] ยานพาหนะทั้งหมดต้องว่างและดับเครื่อง ร่างยังคงอยู่ ให้เปิดโมเดลที่เปลี่ยนแล้วใหม่
+        [pick-hint] เล็งเอนทิตีแล้วคลิกขวา ย่อและคลิกขวาเพื่อยกเลิก หมดเวลาใน 30 วินาที
+        [spawn-hint] พิกัดโลก ค่าเริ่มต้นอยู่ด้านหน้า 4 บล็อก หันตามมุมมองแนวนอนขณะสร้าง
+        [zoom-in] ขยาย
+        [zoom-out] ย่อ
+        [frame] จัดวางด้านหน้าใหม่
+        [offset] ย้ายแบบสัมพัทธ์
+       *[other] { vehicle-command-description }
+    }
+
+vehicle-controls = { $arg0 }: W/S และ A/D ควบคุม ล้อเมาส์เปลี่ยนเกียร์หรือคันเร่ง สลับมือเปลี่ยนโหมด ย่อเพื่อลง /vehicle
 vehicle-dash-assisted = ระบบช่วยทรงตัว
 vehicle-dash-automatic = อัตโนมัติ
 vehicle-dash-contact = การรองรับบนพื้น / น้ำ: { $arg0 }
@@ -1151,18 +1219,136 @@ vehicle-group-invalid = กลุ่มมีเอนทิตีที่ไ�
 vehicle-group-limit = นำเข้าเอนทิตีแสดงผลได้ไม่เกิน 128 ตัว และสมาชิกกลุ่มรวม 256 ตัว
 vehicle-group-not-found = ไม่พบกลุ่มแสดงผล เลือกกลุ่ม เล็งเอนทิตีแสดงบล็อกหรือไอเทม หรือระบุ UUID ของเอนทิตี
 vehicle-group-selected = กลุ่มที่เลือก: เอนทิตีแสดงผล { $arg0 } ตัว · ราก { $arg1 }
-vehicle-help = /vehicle — ควบคุมยานพาหนะ
-    ขึ้นลง: list | ride [uuid] | passenger [uuid] | leave | inspect [uuid]
-    ขับขี่: engine | mode [automatic/manual/assisted] | gear P/R/N/D/up/down/number | throttle up/down
-    แผงควบคุม: hud [on/off] | dashboard [drive/gearbox/details/off]
-    บำรุงรักษา: fuel | repair | access public/private | remove [uuid]
 vehicle-hud-boat = { $arg0 } นอต · แรงขับ { $arg1 }% · ทิศทาง { $arg2 }°
 vehicle-hud-car = { $arg0 } km/h  ·  { $arg1 }  ·  { $arg2 } RPM · { $arg3 }
 vehicle-hud-plane = { $arg0 } กม./ชม. · สูง { $arg1 } ม. · แนวตั้ง { $arg2 } ม./วินาที · คันเร่ง { $arg3 }% · { $arg4 }
 vehicle-hud-status = เชื้อเพลิง { $arg0 }% · สภาพ { $arg1 }% · { $arg2 }
+vehicle-model-center = จุดศูนย์กลางมวล
+vehicle-model-choice = { $arg0 ->
+    [CAR] รถยนต์
+    [BOAT] เรือยนต์
+    [PLANE] เครื่องบินปีกตรึง
+    [BODY] ตัวถัง
+    [FRONT_WHEEL] ล้อเลี้ยว
+    [WHEEL] ล้อ
+    [PROPELLER] ใบพัด
+    [RUDDER] หางเสือ
+    [FIXED] คงที่
+    [VERTICAL] คงแนวตั้ง
+    [HORIZONTAL] คงแนวนอน
+    [CENTER] หันเข้าหากล้อง
+    [NONE] ท่าเดิม
+    [THIRDPERSON_LEFTHAND] บุคคลที่สาม · มือซ้าย
+    [THIRDPERSON_RIGHTHAND] บุคคลที่สาม · มือขวา
+    [FIRSTPERSON_LEFTHAND] บุคคลที่หนึ่ง · มือซ้าย
+    [FIRSTPERSON_RIGHTHAND] บุคคลที่หนึ่ง · มือขวา
+    [HEAD] ศีรษะ
+    [GUI] ช่องเก็บของ
+    [GROUND] พื้น
+    [LEFT] ชิดซ้าย
+    [RIGHT] ชิดขวา
+    [false] ปิด
+    [true] เปิด
+    [TEXT_CENTER] กึ่งกลาง
+   *[other] { $arg0 }
+    }
+vehicle-model-field = { $arg0 ->
+    [kind] ประเภทยานพาหนะ
+    [mass] มวล
+    [maximum-speed] ความเร็วสูงสุด (km/h)
+    [support-length] ระยะรองรับ (m)
+    [grip] แรงยึดเกาะ
+    [center-of-mass] จุดศูนย์กลางมวล
+    [inertia] โมเมนต์ความเฉื่อย X/Y/Z
+    [engine-torque] แรงบิดสูงสุด
+    [engine-idle-rpm] รอบเดินเบา (RPM)
+    [engine-redline-rpm] รอบสูงสุด (RPM)
+    [engine-inertia] ความเฉื่อยเครื่องยนต์
+    [engine-wheel-radius] รัศมีล้อ (m)
+    [engine-final-drive] อัตราทดเฟืองท้าย
+    [engine-reverse-ratio] อัตราทดถอยหลัง
+    [engine-ratios] อัตราทดเดินหน้า
+    [engine-shift-seconds] เวลาเปลี่ยนเกียร์ (วินาที)
+    [fuel-capacity] ความจุเชื้อเพลิง
+    [fuel-consumption] การใช้เชื้อเพลิง (หน่วย/วินาที)
+    [buoyancy] แรงลอยตัว
+    [wing-area] พื้นที่ปีก (m²)
+    [lift] สัมประสิทธิ์แรงยก
+    [animation] บทบาทแอนิเมชัน
+    [billboard] หันเข้าหากล้อง
+    [item-transform] ท่าทางไอเทม
+    [alignment] การจัดข้อความ
+    [block-light] แสงบล็อก
+    [sky-light] แสงท้องฟ้า
+    [background] พื้นหลัง (ARGB)
+    [line-width] ความกว้างข้อความ
+    [opacity] ความทึบ (0–255)
+    [shadow] เงาข้อความ
+    [see-through] แสดงข้อความทะลุวัตถุ
+    [x] X
+    [y] Y
+    [z] Z
+    [size-x] ความกว้างเต็ม X (m)
+    [size-y] ความสูงเต็ม Y (m)
+    [size-z] ความยาวเต็ม Z (m)
+   *[other] { $arg0 }
+    }
+vehicle-model-field-range = ช่วงที่ใช้ได้: 0 < ค่า ≤ { $arg0 }
+vehicle-model-front = ด้านหน้า (+Z)
+vehicle-model-front-choice = { $arg0 ->
+    [negative-x] ด้าน −X ปัจจุบัน
+    [back] ด้านหลังปัจจุบัน (−Z)
+    [positive-x] ด้าน +X ปัจจุบัน
+    [look] ใช้ทิศมองแนวนอนของฉัน (ปัดเป็นช่วง 90°)
+   *[other] กำหนดด้านนี้เป็นด้านหน้า
+    }
+vehicle-model-front-hint = เลือกลูกศรในมุมมอง 3D ตัวถังจะอยู่ที่เดิม และแปลงพิกัดที่นั่ง ทางออก และจุดฟิสิกส์พร้อมกัน หมุนครั้งละ 90° และเลิกทำได้
+vehicle-model-handle = { $arg0 ->
+    [ROTATE] { $arg1 } { $arg2 } { $arg3 }°
+   *[other] { $arg1 } { $arg2 } { $arg3 }
+    }
+vehicle-model-marker = { $arg0 ->
+    [driver] ที่นั่งคนขับ #{ $arg1 }
+    [passenger] ที่นั่งผู้โดยสาร #{ $arg1 }
+    [exit] ทางออก #{ $arg1 }
+    [colliders] กล่องชน #{ $arg1 }
+    [supports] จุดรองรับ #{ $arg1 }
+    [center] จุดศูนย์กลางมวล
+    [parts] ชิ้นส่วนแสดงผล #{ $arg1 }
+   *[other] { $arg1 }
+    }
+vehicle-model-parameter-group = { $arg0 ->
+    [body] ตัวถังและการสัมผัสพื้น
+    [engine] เครื่องยนต์และระบบเกียร์
+    [fuel] เชื้อเพลิง
+    [boat] แรงลอยตัวของเรือ
+    [plane] แรงยกของเครื่องบิน
+    [power] กำลังเครื่องยนต์
+   *[other] { $arg0 }
+    }
+vehicle-model-parameter-help = { $arg0 ->
+    [body] ปรับมวล ความเร็ว และการสัมผัสพื้น จุดศูนย์กลางมวลปรับใน 3D ได้ ก่อนบันทึกจะเปลี่ยนเฉพาะฉบับร่าง
+    [engine] ปรับรอบ แรงบิด ล้อ และอัตราทด อัตราทดเดินหน้าต้องลดลงตามลำดับ และรอบสูงสุดต้องเกิน 1.5 เท่าของรอบเดินเบา
+    [fuel] ความจุใช้หน่วยเชื้อเพลิงในเกม ส่วนการใช้คิดต่อวินาที
+    [boat] แรงลอยตัวใช้กับเรือเท่านั้น โดยยังเก็บค่าของประเภทอื่นไว้
+    [plane] พื้นที่ปีกและแรงยกใช้กับเครื่องบิน โดยยังเก็บค่าของประเภทอื่นไว้
+    [power] ปรับรอบและแรงบิดของประเภทปัจจุบัน โดยยังเก็บการตั้งค่าเกียร์รถยนต์ไว้
+   *[other] { $arg0 }
+    }
+vehicle-model-property-help = { $arg0 ->
+    [block-light] −1 ใช้แสงของโลก หากกำหนดเองต้องตั้งค่าทั้งสองเป็น 0–15
+    [sky-light] −1 ใช้แสงของโลก หากกำหนดเองต้องตั้งค่าทั้งสองเป็น 0–15
+    [background] จำนวนเต็ม ARGB แบบมีเครื่องหมาย เช่น −16777216 คือสีดำทึบ
+    [line-width] ความกว้างบรรทัด 1–2048 พิกเซล
+    [opacity] 0 คือโปร่งใส และ 255 คือทึบ
+   *[other] { $arg0 }
+    }
+vehicle-model-spatial = ควบคุมแบบ 3D
+vehicle-model-spatial-hint = คลิกขวาที่เครื่องหมายเพื่อเลือกหรือปรับค่า ย่อตัวแล้วคลิกขวาเพื่อกลับไปการตั้งค่า เลื่อนล้อเมาส์เพื่อเปลี่ยนระยะการปรับ
+vehicle-model-spawn = สร้างจากโมเดลนี้
 vehicle-model-add = เพิ่มส่วนประกอบ
 vehicle-model-add-here = เพิ่มจุดรองรับที่เท้าฉัน
-vehicle-model-anchor = วางจุดกำเนิดตัวอย่างที่นี่ตามทิศที่มอง
+vehicle-model-anchor = จัดวางด้านหน้าใหม่
 vehicle-model-animation = ภาพเคลื่อนไหว
 vehicle-model-apply = ใช้ / ยืนยัน
 vehicle-model-auto = คำนวณขอบเขตการชนใหม่
@@ -1177,8 +1363,8 @@ vehicle-model-copy = ทำสำเนาและแก้ไข (ที่น
 vehicle-model-corner-cancel = ยกเลิกกล่องชนที่ค้างอยู่
 vehicle-model-corner-first = กำหนดมุมแรกของกล่องที่เท้าฉัน
 vehicle-model-corner-first-look = กำหนดมุมแรกบนพื้นผิวที่เล็ง
-vehicle-model-corner-hint = กำหนดมุมแรกแล้ว ไปยังมุมตรงข้ามโดยคำนึงถึงความสูง แล้วใช้ /vehicle model collider corner2 กล่องจะยึดตามแกนโมเดล
-vehicle-model-corner-required = กำหนดมุมแรกด้วย /vehicle model collider corner1 ก่อน
+vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
+vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = ใช้เท้าฉันเป็นมุมตรงข้ามแล้วเพิ่มกล่อง
 vehicle-model-corner-second-look = ใช้พื้นผิวที่เล็งเป็นมุมตรงข้าม
 vehicle-model-create = สร้างโมเดล
@@ -1192,20 +1378,16 @@ vehicle-model-draft = แบบร่างที่ยังไม่บัน�
 vehicle-model-driver = ที่นั่งคนขับ
 vehicle-model-driver-here = เพิ่มที่นั่งคนขับที่เท้าฉัน
 vehicle-model-edit = แก้ไข / ต่อแบบร่าง
+vehicle-model-overview = ภาพรวมฉบับร่าง
+vehicle-model-component-details = รายละเอียดส่วนประกอบ
+vehicle-model-selection-unavailable = วัตถุเปลี่ยนแปลงหรือถูกนำออกแล้ว โปรดย้อนกลับและเลือกใหม่
 vehicle-model-exit = จุดลง / ปรับละเอียด
-vehicle-model-group = เพิ่มกลุ่มแสดงผล Axiom
-vehicle-model-help = /vehicle model — { vehicle-model-title }
-    โมเดล: menu | list | info [id] | create <id> car/boat/plane | import <id> car/boat/plane [uuid] | edit <id> | clone <id> <new-id> | delete <id>
-    แก้ไข: set <field> <value...> | part/seat/collider/support — กด Tab ดูการทำงานและอาร์กิวเมนต์
-    แบบร่าง: preview [off] | undo | redo | save | cancel
-    ในโลก: anchor | pick | here | look | snap [on/off] | move <index> <dx dy dz>
-    { vehicle-model-position-hint }
-    seat position/exit | part position | support add/set | collider position: here / look
-    collider corner1/corner2 [look] | collider cancel — { vehicle-model-corner-hint }
-    การทำงานอื่น: check | apply — { vehicle-model-save-continue }
+vehicle-model-group = เพิ่มกลุ่ม Axiom จากมือหลัก
+vehicle-model-hand-invalid = ไอเทมแสดงผล Axiom ไม่ถูกต้อง หรือมีเอนทิตีหรือข้อมูลที่ไม่รองรับ
+vehicle-model-hand-required = ถือไอเทมเอนทิตีแสดงผล Axiom ในมือหลักแล้วนำเข้าอีกครั้ง
 vehicle-model-here = ใช้ตำแหน่งเท้าปัจจุบัน
 vehicle-model-history-empty = ไม่มีการแก้ไขในทิศทางประวัตินี้
-vehicle-model-import = นำเข้ากลุ่มแสดงผล Axiom
+vehicle-model-import = นำเข้ากลุ่ม Axiom จากมือหลัก
 vehicle-model-item = ไอเทม
 vehicle-model-library = โมเดลที่บันทึกแล้ว · แบบร่างอยู่ในหน่วยความจำจนกว่าจะบันทึก
 vehicle-model-look = วางด้วยการเล็ง (เมนูจะปิด คลิกขวาเพื่อยืนยัน)
@@ -1223,7 +1405,7 @@ vehicle-model-position = ตำแหน่ง / ปรับละเอีย�
 vehicle-model-position-hint = X/Y/Z ภายในโมเดล · here ใช้เท้า look ใช้พื้นผิวที่เล็ง · ตารางเสริมใช้ระยะปรับเดียวกัน
 vehicle-model-preview = ตัวอย่างส่วนตัว
 vehicle-model-preview-failed = แสดงตัวอย่างไม่ได้ แบบร่างยังอยู่: { $arg0 }
-vehicle-model-preview-hint = เปิดตัวอย่างส่วนตัวแล้ว ล้างหลังหยุดแก้ไขห้านาที ใช้ /vehicle model preview off เพื่อปิด
+vehicle-model-preview-hint = { vehicle-model-spatial-hint }
 vehicle-model-redo = ทำซ้ำการแก้ไขที่เลิกทำ
 vehicle-model-remove = ลบส่วนประกอบ
 vehicle-model-remove-warning = ลบส่วนประกอบนี้หรือไม่? หมายเลขถัดไปจะเลื่อน และเลิกทำได้
@@ -1313,9 +1495,16 @@ async-regen-usage = วิธีใช้: /regen preview blocks [ชนิด..
 async-regen-visualization-legend = ภาพแสดงใน { $arg0 }: สีฟ้า = ขอบเขตที่เลือก สีส้ม = ตัวอย่างบล็อกที่จะเปลี่ยน สีแดง = บล็อกเอนทิตีที่เสี่ยง มีเพียงคุณที่เห็นอนุภาคนี้
 async-regen-visualization-selection = อนุภาคสีฟ้าใน { $arg0 } แสดงขอบเขตที่เลือกและมีเพียงคุณที่เห็น
 async-regen-fawe-required = ต้องมี FastAsyncWorldEdit เพื่ออ่านพื้นที่ที่เลือก
+building-map-layer = สิ่งปลูกสร้าง
+building-map-open = ดูสิ่งปลูกสร้าง
+building-map-builders = สร้างโดย { $arg0 }
+building-map-original-author = ผู้สร้างต้นฉบับ: { $arg0 }
+building-map-type-original = ผลงานต้นฉบับ
+building-map-type-derivative = ผลงานดัดแปลง
+building-map-type-replica = ผลงานจำลอง
 -iron-elevator-block = <yellow><hover:show_item:'minecraft:iron_block'><lang:block.minecraft.iron_block></lang></hover></yellow>
 iron-elevator-down = ↓ ย่อตัว
-iron-elevator-tip-mm = วาง { -iron-elevator-block } ให้ตรงกันในแนวดิ่งเพื่อสร้างลิฟต์ ยืนบนบล็อกแล้ว<green>กระโดดเพื่อขึ้น</green>หรือ<aqua>ย่อตัวเพื่อลง</aqua> ลิฟต์ที่มีมากกว่าสองชั้นจะแสดง<gold>แผงเลือกชั้น</gold>
+iron-elevator-tip-mm = วาง { -iron-elevator-block } ให้ตรงกันในแนวดิ่งเพื่อสร้างลิฟต์ ยืนบนบล็อกแล้ว<green>กระโดดเพื่อขึ้น</green>หรือ<aqua>ย่อตัวเพื่อลง</aqua> ลิฟต์ที่มีตั้งแต่สองชั้นขึ้นไปจะแสดง<gold>แผงเลือกชั้น</gold>
 iron-elevator-up = ↑ กระโดด
 spawn-beacon-color-command-description = สลับการเปลี่ยนสีบีคอนที่จุดเกิด
 spawn-beacon-color-disabled = ปิดการเปลี่ยนสีบีคอนที่จุดเกิดแล้ว
@@ -1326,132 +1515,27 @@ spawn-world-missing = โลกของจุดเกิดไม่พร้�
 
 ## Entertainment · Music
 
-music-action-add-queue = เพิ่มลงคิว
-music-action-play-nearby = เล่นที่ตู้เพลงที่ใกล้ที่สุด
-music-action-play-now = เล่นทันทีที่ตู้เพลงนี้
-music-action-take-disc = รับแผ่นเสียง
-music-added-to-queue-rich = เพิ่มลงคิวแล้ว: { $music }
 music-album = อัลบั้ม: { $arg0 }
-music-all-in-queue = ทุกเพลงอยู่ในคิวแล้ว
 music-artist = ศิลปิน: { $arg0 }
 music-back = กลับ
-music-browser-left-click = คลิกซ้าย
-music-browser-right-click = คลิกขวา
-music-cache-clear-done = ล้างแคชเพลงออนไลน์แล้ว
-music-cache-clear-started = กำลังล้างแคชเพลงออนไลน์...
-music-cache-operation-failed = ดำเนินการกับแคชเพลงไม่สำเร็จ: { $arg0 }
-music-cache-status = แคชเพลงออนไลน์: { $arg0 } ไฟล์, { $arg1 } / { $arg2 }
-music-cached = แคชแล้ว - พร้อมเล่นทันที
-music-clear-queue = ล้างคิว
-music-clear-queue-done = ล้างคิวแล้ว ({ $arg0 } เพลง)
 music-command-description = เพลงในเครื่อง ออนไลน์ และ NBS สำหรับตู้เพลง
 music-disc-left = คลิกซ้าย: หยิบแผ่นเสียง
 music-disc-right = คลิกขวา: เล่นบนตู้เพลงที่ใกล้ที่สุด
-music-duplicate-in-queue = เพลงนี้อยู่ในคิวแล้ว
 music-duration = ความยาว: { $arg0 }
-music-empty-library = คลังเพลงว่าง
-music-empty-library-description = ไม่มีไฟล์เสียงในเครื่องหรือเพลง NBS ที่ใช้งานได้
-music-empty-nbs = ไม่พบเพลง NBS
-music-empty-nbs-description = เปลี่ยนไปยังเพลงทั้งหมดหรือเพิ่มไฟล์ NBS
-music-empty-playlist = เพลย์ลิสต์นี้ไม่มีเพลงที่ใช้งานได้
-music-empty-playlist-description = ตรวจสอบว่าเพลย์ลิสต์เป็นสาธารณะและเลือกแพลตฟอร์มถูกต้อง
-music-empty-search = ไม่พบเพลงที่ตรงกัน
-music-empty-search-description = ลองใช้คำค้นอื่นหรือตรวจสอบสถานะแหล่งเพลงกำหนดเอง
-music-finished = เล่นจบแล้ว
 music-format = รูปแบบ: { $arg0 }
-music-inventory-full = ช่องเก็บของเต็ม จึงไม่สามารถมอบแผ่นเสียงได้
 music-jukebox-audible-field-conflict = ตู้เพลงอื่นกำลังเล่นเพลงต่างกันในพื้นที่ที่ได้ยินชัดซึ่งทับซ้อนกัน
-music-jukebox-music-mode = โหมดเพลง
-music-jukebox-play-order = ลำดับการเล่น
-music-jukebox-range = ระยะการเล่น
-music-jukebox-range-value = ปัจจุบัน: { $arg0 } บล็อก
-music-jukebox-rhythm-mode = โหมดจังหวะ
-music-jukebox-too-far = คุณอยู่ไกลจากตู้เพลงเกินไป (สูงสุด { $arg0 } บล็อก)
 music-jukebox-tp-hover = คลิกเพื่อเทเลพอร์ตไปยังตู้เพลง
 music-jukebox-unavailable = ตู้เพลงถูกนำออกหรือชังก์ของตู้เพลงไม่พร้อมใช้งาน
-music-jukebox-usage-mode = การใช้งานตู้เพลง
-music-jukebox-volume = ระดับเสียงตู้เพลง
-music-jukebox-volume-value = ปัจจุบัน: { $arg0 }%
-music-library-button = คลังเพลง
-music-library-random-mode = สุ่มคลังเพลง
-music-library-random-mode-desc = เล่นแบบสุ่มจากคลังเพลงทั้งหมดโดยไม่เล่นเพลงเดิมซ้ำทันที
-music-loading-title = กำลังโหลด
-music-menu-nbs-title = เพลง NBS - หน้า { $arg0 }/{ $arg1 }
-music-menu-playlist-title = รายการเพลง: { $arg0 } · { $arg1 }/{ $arg2 }
-music-menu-search-nbs-title = ค้นหา NBS: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-search-title = ค้นหา: { $arg0 } - { $arg1 }/{ $arg2 }
-music-menu-title = แผ่นเสียง - หน้า { $arg0 }/{ $arg1 }
-music-mode-switched = เปลี่ยนเป็น { $arg0 } แล้ว
-music-nearest-jukebox-missing = ไม่พบตู้เพลงภายใน { $arg0 } บล็อก
-music-next-page = หน้าถัดไป
-music-no-disc = ไม่มีแผ่นเสียง
-music-no-files = ไม่มีไฟล์เพลงให้ใช้งาน
-music-no-search-results-rich = ไม่พบเพลงที่มีคำว่า "{ $keyword }"
 music-now-playing-rich = กำลังเล่น: { $music } ที่ตู้เพลง { $location }
-music-online-partial-failure = คำขอไปยังแหล่งเพลงกำหนดเองล้มเหลว { $arg0 } รายการ จึงแสดงเฉพาะผลลัพธ์ที่ใช้ได้
 music-online-rate-limited = คำขอเพลงมากเกินไป ลองใหม่ในอีก { $arg0 } วินาที
-music-online-searching = กำลังค้นหา "{ $arg0 }" จากแหล่งเพลงในเครื่องและออนไลน์...
 music-original-author = ผู้ประพันธ์ต้นฉบับ: { $arg0 }
-music-page-out-of-range = ไม่มีหน้านี้ หน้าสูงสุดคือ { $arg0 }
-music-page-total = ทั้งหมด { $arg0 } เพลง
-music-page-usage-desc = ไปยังหน้า
-music-partial-results = แสดงผลลัพธ์บางส่วน คำขอแหล่งเพลงล้มเหลว { $arg0 } รายการ
-music-paused = หยุดชั่วคราว
 music-plasmo-voice-unavailable = เพลงเริ่มเล่นแล้ว แต่คุณจะไม่ได้ยินเพราะยังไม่ได้ติดตั้ง เชื่อมต่อ หรือเปิดใช้ Plasmo Voice
-music-play-next = เล่นถัดไป
-music-play-random = เล่นแบบสุ่ม
 music-playback-failed = เล่น "{ $arg0 }" ไม่สำเร็จ โปรดตรวจสอบแหล่งเพลงหรือไฟล์เพลงแล้วลองอีกครั้ง
-music-playback-status = สถานะการเล่น: { $arg0 }
-music-playing = กำลังเล่น
-music-playing-now-rich = กำลังเล่น: { $music }
-music-playlist-import-button = นำเข้าเพลย์ลิสต์
-music-playlist-import-done = นำเข้า “{ $arg0 }” แล้ว: { $arg1 } จาก { $arg2 } เพลง
-music-playlist-import-failed = นำเข้าเพลย์ลิสต์ไม่สำเร็จ: { $arg0 }
-music-playlist-import-prompt = เลือกแพลตฟอร์ม แล้ววาง ID หรือลิงก์เพลย์ลิสต์สาธารณะ:
-music-playlist-import-usage-desc = นำเข้าเพลย์ลิสต์สาธารณะจากแพลตฟอร์มเพลงอื่น
-music-playlist-importing = กำลังนำเข้าเพลย์ลิสต์...
-music-playlist-reference-prompt = วาง ID หรือลิงก์เพลย์ลิสต์สาธารณะ
-music-prev-page = หน้าก่อนหน้า
-music-queue-empty = คิวว่าง
-music-queue-move-down = เลื่อนลง
-music-queue-move-up = เลื่อนขึ้น
-music-queue-remove = นำเพลงออก
-music-queue-summary = คิว: { $arg0 } เพลง
-music-queue-summary-description = หน้า { $arg0 }/{ $arg1 }
-music-random-add = เพิ่มเพลงสุ่ม
-music-random-added-to-queue-rich = สุ่มเพิ่มลงคิวแล้ว: { $music }
-music-random-disc = แผ่นเสียงสุ่ม
-music-random-disc-got-rich = ได้รับแผ่นเสียงแบบสุ่ม: { $music }
-music-random-mode = สุ่มรายการ
-music-random-mode-desc = เล่นรายการแบบสุ่มโดยไม่เล่นเพลงเดิมซ้ำทันที
-music-rank-down = เลื่อนลงแล้ว
-music-rank-up = เลื่อนขึ้นแล้ว
-music-reload-done = โหลดใหม่เสร็จแล้ว: เพลงในเครื่อง { $arg0 } เพลง, แหล่ง LX ใช้ได้ { $arg1 }/{ $arg2 }, ตรวจสอบการสมัคร { $arg3 } รายการและอัปเดต { $arg4 } รายการ
 music-reload-failed = โหลดเพลงใหม่ไม่สำเร็จ: { $arg0 }
-music-reload-issues = ปัญหาในการโหลดใหม่: { $arg0 }
-music-reload-partial = โหลดใหม่บางส่วนโดยคงสถานะเดิมไว้: เพลงในเครื่อง { $arg0 } เพลง, แหล่ง LX ใช้ได้ { $arg1 }/{ $arg2 }, ตรวจสอบการสมัคร { $arg3 } รายการและอัปเดต { $arg4 } รายการ
 music-reload-started = กำลังโหลดไฟล์เพลงและแหล่งเพลงกำหนดเองใหม่...
-music-remote-source-error = ข้อผิดพลาดในการอัปเดต: { $arg0 }
-music-remote-source-import-done = นำเข้าการสมัครแหล่งเพลง LX แล้ว: { $arg0 }
-music-remote-source-import-failed = นำเข้าแหล่งเพลง LX ไม่สำเร็จ: { $arg0 }
-music-remote-source-import-started = กำลังนำเข้าการสมัครแหล่งเพลง LX...
-music-remote-source-remove-done = ลบการสมัครแหล่งเพลง LX แล้ว: { $arg0 }
-music-remote-source-remove-failed = ลบการสมัครแหล่งเพลง LX ไม่สำเร็จ: { $arg0 }
-music-remote-source-remove-not-found = ไม่พบการสมัครแหล่งเพลง LX: { $arg0 }
-music-remote-source-update-done = ตรวจสอบ { $arg0 } รายการ: อัปเดต { $arg1 } รายการ, ล้มเหลว { $arg2 } รายการ
-music-remote-source-update-failed = อัปเดตแหล่งเพลง LX ไม่สำเร็จ: { $arg0 }
-music-remote-source-update-started = กำลังตรวจสอบการสมัครแหล่งเพลง LX ที่นำเข้า...
-music-remote-source-updated-at = อัปเดตเมื่อ: { $arg0 }
-music-remote-sources-title = การสมัครแหล่งเพลง LX ที่นำเข้า: { $arg0 }
-music-removed-from-queue-rich = ลบออกจากคิวแล้ว: { $music }
-music-repeat-one-mode = วนเพลงเดียว
-music-repeat-one-mode-desc = เล่นเพลงปัจจุบันซ้ำจนกว่าจะข้ามด้วยตนเอง
-music-request-error = คำขอล้มเหลว: { $arg0 }
 music-rhythm-animation-offset = การชดเชยภาพเคลื่อนไหว { $arg0 } มิลลิวินาที
-music-rhythm-calibration = ปรับเทียบความหน่วง
 music-rhythm-calibration-accumulating = กำลังยืนยันจังหวะที่นิ่ง…เล่นตามต่อไป
 music-rhythm-calibration-adapting = กำลังปรับตามจังหวะ…เล่นตามต่อไป
-music-rhythm-calibration-complete = ทดสอบความหน่วงเสร็จแล้ว · เกมจังหวะพร้อมเล่น
 music-rhythm-calibration-done = ทดสอบความหน่วงเสร็จแล้ว · บันทึกการตั้งค่าแล้ว
 music-rhythm-calibration-failed = เสียงทดสอบหยุดกะทันหัน ระบบปิดการทดสอบอย่างปลอดภัยแล้ว โปรดเริ่มใหม่
 music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → ภาพคีย์บอร์ด → ภาพเมาส์
@@ -1462,11 +1546,6 @@ music-rhythm-calibration-out-of-range = ค่าหน่วงที่วั�
 music-rhythm-calibration-plasmo-instruction = เริ่มเล่นตาม: ทำซ้ำจังหวะ Plasmo Voice และกด 1–4 ทุกเสียงกลอง
 music-rhythm-calibration-plasmo-ready = ทดสอบ Minecraft Note Block เสร็จแล้ว ให้ฟังจังหวะเดิมผ่าน Plasmo Voice ก่อน
 music-rhythm-calibration-pointer-instruction = คลิกซ้ายหรือขวาเมื่อโน้ตผ่านเส้น
-music-rhythm-calibration-prompt-confirm = เริ่มการทดสอบเต็ม
-music-rhythm-calibration-prompt-confirm-hint = เสร็จแล้วจะกลับอัตโนมัติ.
-music-rhythm-calibration-prompt-later = ยังไม่ทดสอบ
-music-rhythm-calibration-prompt-reason = ก่อนเล่นให้ทดสอบความหน่วงก่อน.
-music-rhythm-calibration-prompt-title = ต้องทดสอบความหน่วงก่อนเล่น
 music-rhythm-calibration-realigning = เสียงขาดช่วง กำลังสาธิตใหม่และจะเก็บข้อมูลที่เสร็จแล้วไว้
 music-rhythm-calibration-required = ทำการทดสอบความหน่วงให้ครบก่อนเริ่มเกมจังหวะ
 music-rhythm-calibration-reset-done = รีเซ็ตการปรับเทียบความหน่วงแล้ว
@@ -1485,7 +1564,6 @@ music-rhythm-difficulty-expert = เชี่ยวชาญ
 music-rhythm-difficulty-hard = ยาก
 music-rhythm-difficulty-normal = ปกติ
 music-rhythm-exit = ออกจากเกมจังหวะ
-music-rhythm-game-description = 1 · 2 · 3 · 4  /  360°
 music-rhythm-get-ready = เตรียมพร้อม
 music-rhythm-go = เริ่ม!
 music-rhythm-good = ดี
@@ -1500,49 +1578,15 @@ music-rhythm-network-too-high = ความหน่วงเครือข่
 music-rhythm-network-warning = ความหน่วงเครือข่ายไม่เสถียร ({ $arg0 } ms) เซสชันจะหยุดหากยังสูงกว่า { $arg1 } ms
 music-rhythm-no-beats = ไม่พบจังหวะที่เล่นได้ในเพลงนี้
 music-rhythm-perfect = สมบูรณ์แบบ
-music-rhythm-preparing = โปรดรอให้แคชเพลงทั้งเพลงและวิเคราะห์จังหวะเสร็จสิ้น
-music-rhythm-ready = แผนที่จังหวะพร้อมแล้ว — เริ่มจากจังหวะแรกได้
 music-rhythm-requires-playback = เล่นเพลงในตู้เพลงนี้ก่อน
-music-rhythm-reset-calibration = รีเซ็ตการปรับเทียบความหน่วง
 music-rhythm-results = ผลลัพธ์
 music-rhythm-score = คะแนน: { $arg0 }
-music-rhythm-select-track = เลือกเพลงเกมจังหวะ
 music-rhythm-spatial-no-room = พื้นที่ไม่เพียงพอสำหรับโหมดเล็งเป้าสามมิติ โปรดย้ายไปยังที่โล่งกว่า
 music-rhythm-spatial-slider-hint = ตามดาวที่เคลื่อนที่และคลิกทุกจุด · ไม่ต้องกดค้าง
-music-rhythm-start-game = เริ่มเกม
-music-rhythm-waiting-for-player = กำลังรอผู้เล่นเพื่อเริ่มเกมจังหวะ
+music-rhythm-start = เริ่มเกม
 music-sample-rate = อัตราการสุ่มตัวอย่าง: { $arg0 }
-music-search-button = ค้นหาเพลง
-music-search-keyword-required = ต้องระบุคำค้นหา
-music-search-keyword-too-long = คำค้นหายาวเกินไป จำกัด { $arg0 } อักขระ
-music-search-usage-desc = ค้นหาเพลง
-music-section-all = เพลงทั้งหมด
-music-section-nbs = เพลง NBS
-music-select-music = เลือกเพลง
-music-sequential-mode = วนรายการ
-music-sequential-mode-desc = เล่นรายการตามลำดับและเริ่มใหม่จากต้นรายการ
 music-size = ขนาด: { $arg0 }
-music-sort-button = เรียงลำดับ
-music-sort-current = ปัจจุบัน: { $arg0 }
-music-sort-default = ลำดับเริ่มต้น
-music-sort-most-played = เล่นมากที่สุด
-music-sort-recently-played = เล่นล่าสุด
-music-sound-settings = ตั้งค่าเสียง
-music-source-actions = การทำงาน: { $arg0 }
-music-source-available = พร้อมใช้งาน
-music-source-capabilities = ความสามารถ: { $arg0 }
-music-source-error = ข้อผิดพลาด: { $arg0 }
-music-source-failures = ล้มเหลวต่อเนื่อง: { $arg0 }
-music-source-retry = ลองใหม่ในอีก { $arg0 } วินาที
-music-source-unavailable = ใช้งานไม่ได้
-music-sources-empty = ไม่พบสคริปต์แหล่งเพลง LX แบบกำหนดเอง
-music-sources-title = แหล่งเพลง LX แบบกำหนดเอง: { $arg0 }
-music-stop-eject = หยุดและนำออก
-music-stop-eject-done = หยุดเล่นและนำแผ่นเสียงออกแล้ว
-music-stopped = หยุดแล้ว
-music-track-details = รายละเอียดเพลง
 music-unavailable-disc = แผ่นเสียงไม่พร้อมใช้งาน
-music-unavailable-disc-description = แผ่นเสียง MIK นี้ไม่มีในคลังปัจจุบัน แต่ยังหยุดและนำออกได้
 
 ## Entertainment · Anniversary
 
@@ -1661,20 +1705,16 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [ประกาศการแบน]
 ban-command-description = แบนผู้เล่นตามระดับความรุนแรงที่กำหนด
 ban-database-error = ดำเนินการกับฐานข้อมูลแบนไม่สำเร็จ ตรวจบันทึกเซิร์ฟเวอร์
-ban-dialog-back = ย้อนกลับ
-ban-dialog-cancel = ยกเลิก
-ban-dialog-confirm-action = แบนผู้เล่น
-ban-dialog-confirm-severity = ความรุนแรง
-ban-dialog-confirm-title = ยืนยันการแบน
-ban-dialog-never-joined-confirm-action = แบนต่อไป
-ban-dialog-never-joined-title = ผู้เล่นไม่เคยเข้าเซิร์ฟเวอร์
-ban-dialog-never-joined-warning = { $arg0 } ไม่เคยเข้าเซิร์ฟเวอร์นี้ โปรดตรวจสอบชื่อเพื่อหลีกเลี่ยงการแบนผู้เล่นผิดคน
-ban-dialog-next = ถัดไป
-ban-dialog-player-input = ป้อนชื่อผู้เล่นด้วยตนเอง
-ban-dialog-player-manual = ป้อนด้วยตนเอง
-ban-dialog-player-online = ผู้เล่นที่ออนไลน์อยู่
-ban-dialog-select-title = เลือกผู้เล่น
-ban-dialog-severity-title = เลือกระดับความรุนแรง
+ban-menu-back = ย้อนกลับ
+ban-menu-confirm-action = แบนผู้เล่น
+ban-menu-confirm-severity = ความรุนแรง
+ban-menu-confirm-title = ยืนยันการแบน
+ban-menu-never-joined-confirm-action = แบนต่อไป
+ban-menu-never-joined-title = ผู้เล่นไม่เคยเข้าเซิร์ฟเวอร์
+ban-menu-never-joined-warning = { $arg0 } ไม่เคยเข้าเซิร์ฟเวอร์นี้ โปรดตรวจสอบชื่อเพื่อหลีกเลี่ยงการแบนผู้เล่นผิดคน
+ban-menu-player-input = ป้อนชื่อผู้เล่นด้วยตนเอง
+ban-menu-select-title = เลือกผู้เล่น
+ban-menu-severity-title = เลือกระดับความรุนแรง
 ban-history-empty = ไม่มีประวัติการแบนของ { $arg0 }
 ban-history-title = ประวัติการแบน: { $arg0 }
 ban-invalid-player = ชื่อผู้เล่นไม่ถูกต้อง
@@ -1714,11 +1754,14 @@ banlist-reason = เหตุผล
 banlist-source = { role-moderator }
 banlist-title = รายชื่อผู้ถูกแบน
 maintenance-command-description = เปิด ปิด หรือตรวจสอบโหมดบำรุงรักษา
+maintenance-kick = เซิร์ฟเวอร์อยู่ระหว่างการบำรุงรักษา
 maintenance-set = ตั้งค่าโหมดบำรุงรักษาเป็น{ $arg0 }แล้ว
 maintenance-state-disabled = ปิดใช้งาน
 maintenance-state-enabled = เปิดใช้งาน
 maintenance-status = โหมดบำรุงรักษา: { $arg0 }
 maintenance-unchanged = โหมดบำรุงรักษาอยู่ในสถานะ{ $arg0 }แล้ว
+performance-kick-title = เซิร์ฟเวอร์มีอาการหน่วงอย่างรุนแรง
+performance-kick-reason = ตัดการเชื่อมต่อชั่วคราวเพื่อให้เซิร์ฟเวอร์ฟื้นตัว
 restriction-entity-too-large-mm = <red>ขนาดเอนทิตีเกินขีดจำกัดความปลอดภัยของเซิร์ฟเวอร์</red>
 restriction-foreign-uuid-mm = <red>ใช้ UUID ได้เฉพาะกับม็อบที่คุณฝึกให้เชื่องแล้ว</red>
 restriction-no-kill-e-mm = <red>ไม่อนุญาตให้ใช้คำสั่ง <white>/kill @e</white></red>
@@ -1744,9 +1787,16 @@ whitelist-temp-usage-desc = เพิ่มผู้เล่นในบัญ�
 
 ## Shell · Menus, server information and scripting
 
-main-afk-current-afk = ขณะนี้ AFK
-main-afk-current-online = ขณะนี้ออนไลน์
-main-afk-status = สถานะ AFK
+main-afk-status =
+    { $arg0 ->
+        [afk] AFK: ไม่อยู่
+       *[online] AFK: ออนไลน์
+    }
+main-pvp-status =
+    { $arg0 ->
+        [on] PVP: เปิด
+       *[off] PVP: ปิด
+    }
 main-announcements = ประกาศ
 main-home = บ้าน
 main-language = ภาษา
@@ -1756,8 +1806,6 @@ main-map = เว็บแผนที่
 main-menu-title = เมนูหลัก
 main-music = เพลง
 main-name-tag = ป้ายชื่อ
-main-profile = โปรไฟล์
-main-pvp = PVP
 main-settings = การตั้งค่า
 main-website = เว็บไซต์
 main-wiki = วิกิ
@@ -1774,9 +1822,348 @@ stat-client-version = เวอร์ชันไคลเอนต์
 stat-first-joined = เข้าเล่นครั้งแรก
 stat-location = ตำแหน่ง
 stat-ping = ความหน่วง
+stat-ping-value = { $arg0 } มิลลิวินาที
 stat-play-time = เวลาเล่น
 stat-role = บทบาท
 stat-world = โลก
-weblogin-command-description = ยืนยันรหัสเข้าสู่ระบบ Mik Web
-weblogin-confirmed = ยืนยันการเข้าสู่ระบบ Mik Web แล้ว โปรดกลับไปดำเนินการต่อในเบราว์เซอร์
-weblogin-invalid-code = รหัสเข้าสู่ระบบ Mik Web ไม่ถูกต้อง
+web-account-title = บัญชีเว็บและพาสคีย์
+web-account-confirm = ยืนยัน
+weblogin-question = ยืนยันการตรวจสอบตัวตนบนเว็บครั้งนี้หรือไม่? ยืนยันเฉพาะการดำเนินการที่คุณเริ่มเองบน mcmik.top อย่าป้อนรหัสแทนผู้อื่น
+weblogin-command-description = ยืนยันรหัสตรวจสอบตัวตนบนเว็บของ Mik
+weblogin-confirmed = ยืนยันตัวตนบนเว็บแล้ว กลับไปที่เบราว์เซอร์เพื่อดำเนินการต่อ
+weblogin-invalid-code = รหัสตรวจสอบตัวตนบนเว็บไม่ถูกต้อง
+
+
+# Music workspace
+music-space-label =
+    { $arg0 ->
+        [title] พื้นที่ดนตรี
+        [devices] อุปกรณ์เล่นเพลง
+        [device-status] สถานะ
+        [sync-group] กลุ่มซิงค์
+        [single-device] ตู้เพลง
+        [device-location] ตำแหน่ง
+        [visit-device] วาร์ปไปข้าง ๆ
+        [teleporting] กำลังวาร์ป…
+        [recorded-device] บันทึกแล้ว
+        [nearby-device] ใกล้เคียง
+        [group-select-members] เลือกตู้เพลงอย่างน้อยสองตู้
+        [group-name-required] ระบุชื่อกลุ่ม
+        [all-online] ออนไลน์ทั้งหมด
+        [direction-front] ด้านหน้า
+        [direction-front-right] ขวาด้านหน้า
+        [direction-right] ด้านขวา
+        [direction-back-right] ขวาด้านหลัง
+        [direction-back] ด้านหลัง
+        [direction-back-left] ซ้ายด้านหลัง
+        [direction-left] ด้านซ้าย
+        [direction-front-left] ซ้ายด้านหน้า
+        [direction-here] ตรงนี้
+        [direction-above] ด้านบน
+        [direction-below] ด้านล่าง
+        [no-devices] ไม่มีอุปกรณ์
+        [choose-members] เลือกอุปกรณ์สมาชิก
+        [create-group] สร้างกลุ่มซิงค์
+        [add-members] เพิ่มอุปกรณ์
+        [create-play] สร้างและเล่น
+        [create-and-append] สร้างและเพิ่มเพลงท้ายคิว
+        [device-queue] คิว
+        [device-members] สมาชิก
+        [available] พร้อมใช้งาน
+        [play] เล่น
+        [retry-outputs] ลองส่งเสียงอีกครั้ง
+        [dissolve-group] ยุบกลุ่ม
+        [remove-member] นำออกจากกลุ่ม
+        [removed-stopped] อุปกรณ์ที่นำออกจะหยุดเล่นและเก็บเนื้อหาที่เลือกไว้
+        [restore-previous] คืนค่าเนื้อหาก่อนเข้ากลุ่ม
+        [keep-group-content] เก็บเนื้อหาของกลุ่ม
+        [queue] คิวการเล่น
+        [back] { ban-menu-back }
+        [close] { close }
+        [unavailable] Music storage is unavailable
+        [saving] กำลังบันทึก…
+        [saved] บันทึกแล้ว
+        [apply] { plot-menu-submit }
+        [cancel] { cancel }
+        [select-page] Select this page
+        [select-all] Select all results
+        [clear-tracks] Clear song selection
+        [add-playlist] เพิ่มในรายการ
+        [description] { plot-menu-description }
+        [make-private] Make private
+        [publish] Make public
+        [delete] Delete playlist
+        [favorite] Toggle favorite
+        [copy] Copy playlist
+        [share] Share playlist command
+        [recent] เล่นล่าสุด
+        [favorites] Favorite playlists
+        [public] สาธารณะ
+        [private] ส่วนตัว
+        [new-playlist] สร้างเพลย์ลิสต์
+        [name] ชื่อ
+        [song-title] ชื่อเพลง
+        [track-count] จำนวนเพลง
+        [visibility] การมองเห็น
+        [no-playlists] ไม่มีเพลย์ลิสต์
+        [fetching-playlist] กำลังโหลดเพลย์ลิสต์…
+        [artist] ศิลปิน
+        [duration] ระยะเวลา
+        [track-type] ประเภท
+        [type-online] ออนไลน์
+        [undo] { vehicle-model-undo }
+        [remove] Remove selected entries
+        [clear-recents] Clear my play history
+        [clear-entries] Clear entry selection
+        [search-tracks] ค้นหาเพลง ศิลปิน…
+        [search-playlists] ค้นหาเพลย์ลิสต์…
+        [public-playlists] Public playlists
+        [searching] Searching…
+        [insert] แทรกและเล่นทันที
+        [append] เพิ่มลงในคิว
+        [choose-targets] เลือกอุปกรณ์
+        [group-source] ใช้คิวและตำแหน่งการเล่นจาก
+        [removed-targets] บางเป้าหมายถูกนำออกแล้ว โปรดเลือกอีกครั้ง
+        [offline] ออฟไลน์
+        [device-discovery-hint] ย่อตัวแล้วคลิกขวาที่ตู้เพลงด้วยมือเปล่าเพื่อเปิดอุปกรณ์
+        [empty] ไม่มีเพลง
+        [queue-empty] ไม่มีเพลงในคิว
+        [queue-current] เพลงปัจจุบันในคิวดิจิทัล
+        [pause] Pause
+        [resume] Resume
+        [stop] Stop; keep playback list
+        [previous] Previous song / restart
+        [clear] Clear pending; stop after current song
+        [seek] ตำแหน่ง
+        [more] เพิ่มเติม
+        [volume-control] ระดับเสียง
+        [group-volume] ระดับเสียงกลุ่ม
+        [timeline-help] เลื่อน ±5 วินาที · คลิกขวาเพื่อป้อนเวลา
+        [timeline-read-only] ไม่สามารถเปลี่ยนตำแหน่งได้
+        [seek-format] ป้อน m:ss, h:mm:ss หรือวินาที
+        [record] บันทึกเพื่อควบคุมระยะไกล
+        [forget] ลบอุปกรณ์ที่ฉันบันทึก
+        [alias] ชื่ออุปกรณ์ส่วนตัว
+        [sound] ตั้งค่าเสียง
+        [rhythm] ห้องเกมจังหวะ
+        [room-players] ผู้เล่น
+        [room-player-status] สถานะ
+        [room-preparation] การเตรียมของฉัน
+        [room-ready] พร้อม
+        [room-cancel-ready] ยกเลิกความพร้อม
+        [room-playing] อยู่ในเกม
+        [room-score-ready] โน้ตพร้อมแล้ว
+        [room-select-one] เปิดการเลือกหลายรายการในคลังเพลง แล้วเลือกหนึ่งเพลง
+        [room-end-confirmation] การดำเนินการนี้จะสิ้นสุดห้องสำหรับผู้เข้าร่วมทุกคน
+        [create-room] สร้างห้อง
+        [no-rhythm-devices] ไม่มีตู้เพลงอยู่ใกล้เคียง ให้ย่อตัวแล้วคลิกขวาที่ตู้เพลงด้วยมือเปล่าก่อน
+        [calibration] ปรับเทียบความหน่วง
+        [volume] Volume (0–100)
+        [range] Range (8–256 blocks)
+        [mode] โหมดการเล่น
+        [save-queue] บันทึกคิวเป็นเพลย์ลิสต์
+        [sequential] Sequential
+        [repeat-all] วนรายการ
+        [repeat-one] Repeat song
+        [shuffle] Shuffle without repeats
+        [import] นำเข้าเพลย์ลิสต์
+        [link] ลิงก์เพลย์ลิสต์
+        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
+        [import-preview] Preview fetched metadata; no audio was downloaded
+        [import-new] สร้างและเปิด
+        [import-merge] รวมในรายการ
+        [stopped] หยุดแล้ว
+        [loading] Preparing audio
+        [cancel-loading] ยกเลิกการเตรียม
+        [playing] กำลังเล่น
+        [paused] หยุดชั่วคราว
+        [finished] เล่นจบแล้ว
+        [retry-failed] ลองเล่นอีกครั้ง
+        [select-song] เล่นเพลงที่เลือกหรือเพิ่มลงเพลย์ลิสต์พร้อมกัน
+        [select-toggle] เลือกรายการนี้
+        [deselect] ยกเลิกการเลือกรายการนี้
+        [selected] เลือกแล้ว
+        [place-before] ย้ายรายการที่เลือกไปไว้ก่อนรายการนี้
+        [eject] Eject physical record
+        [make-disc] Create signed music disc
+        [gain] Group volume (0–100)
+        [retry-import] Fetch playlist again
+        [join-room] เข้าร่วมห้อง
+        [ready] พร้อม
+        [waiting] Waiting
+        [room-mode] โหมดเกม
+        [room-difficulty] ความยาก
+        [late-join] Join the running game
+        [leave-room] Leave room
+        [select-room-track] ใช้เพลงที่เลือก
+        [start-room] เริ่มเกม
+        [end-room] สิ้นสุดห้อง
+        [base-queue] Base playback list
+        [priority-queue] One-time requests
+        [falling] Falling lanes
+        [radial] Radial approach
+        [spatial-aim] Spatial aim
+        [easy] Easy
+        [normal] Normal
+        [hard] Hard
+        [expert] Expert
+        [waiting-for-player] Waiting for preparation
+        [preparing] Preparing audio and chart
+        [no-beats] No playable beats
+        [catalog] คลังเพลง
+        [my-playlists] เพลย์ลิสต์ของฉัน
+        [playlist] เพลย์ลิสต์
+        [output] อุปกรณ์เล่น
+        [close-panel] ปิดแผง
+        [playlist-settings] ตั้งค่าเพลย์ลิสต์
+        [multi-select] เลือกหลายเพลง
+        [move] ย้าย
+        [move-hint] เลือกเพลงปลายทางเพื่อวางเพลงที่เลือกไว้ข้างหน้า
+        [cancel-move] ยกเลิกการย้าย
+        [move-end] วางไว้ท้ายรายการ
+        [cancel-selection] ยกเลิกการเลือก
+        [track-details] รายละเอียดเพลง
+        [skip-next] ข้ามไปเพลงถัดไป
+        [device-settings] ตั้งค่าอุปกรณ์
+        [already-added] เพิ่มแล้ว
+        [current-track] เพลงปัจจุบัน
+        [shuffle-candidates] เพลงที่อาจสุ่มได้
+        [import-by-id] นำเข้าด้วย ID
+        [playlist-id] ID เพลย์ลิสต์
+       *[unknown] พื้นที่ดนตรี
+    }
+
+music-space-error =
+    { $arg0 ->
+        [UNAVAILABLE] Music is unavailable; reopen later
+        [INTERNAL] เกิดข้อผิดพลาดภายในระบบเพลง โปรดให้ผู้ดูแลตรวจสอบบันทึกของเซิร์ฟเวอร์
+        [NOT_FOUND] The selected item no longer exists
+        [FORBIDDEN] Control or edit permission is required
+        [CONFLICT] Content changed; refresh and select again
+        [LIMIT] The music resource limit was reached
+        [INVALID] Check the name, selection or numeric range
+        [OFFLINE] Device unavailable: load its chunk or eject its physical record
+        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
+        [UNSUPPORTED] This media does not support that action
+        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NO_SAFE_DESTINATION] ไม่พบจุดปลอดภัยข้างตู้เพลงนี้
+        [TELEPORT_FAILED] วาร์ปล้มเหลวหรือถูกบล็อก
+       *[UNKNOWN] Operation failed
+    }
+
+music-space-selected-tracks = เลือกแล้ว { $arg0 } เพลง
+music-space-track-count = { $arg0 } เพลง
+music-space-device-count = ตู้เพลง { $arg0 } เครื่อง
+music-space-online-count = ออนไลน์: { $arg0 }/{ $arg1 } เครื่อง
+music-space-device-distance = { $arg0 } · { $arg1 } ม.
+music-space-device-height = { $arg0 ->
+    [above] สูงกว่า { $arg1 } ม.
+   *[below] ต่ำกว่า { $arg1 } ม.
+    }
+music-space-device-coordinates = { $arg0 } · X { $arg1 } · Y { $arg2 } · Z { $arg3 }
+music-space-sound-value = { $arg0 ->
+        [volume] { $arg1 ->
+           *[other] { $arg1 }%
+        }
+       *[range] { $arg1 ->
+           *[other] { $arg1 } บล็อก
+        }
+    }
+plot-permission-music-control = ควบคุมอุปกรณ์ดนตรี
+
+music-partial-results = แสดงผลลัพธ์บางส่วน คำขอแหล่งเพลงล้มเหลว { $arg0 } รายการ
+
+webchat-tab-label = { $arg0 ->
+    [1] { player-web-label }
+   *[other] { player-web-label } ×{ $arg0 }
+    }
+webchat-joined = { $arg0 } เข้าร่วมแชทเว็บ
+webchat-left = { $arg0 } ออกจากแชทเว็บ
+chat-rate-limited = คุณส่งข้อความถี่เกินไป โปรดรอสักครู่
+
+plot-map-corner-a = มุม A
+plot-map-corner-b = มุม B
+plot-map-corner-hint = คลิกเพื่อเลื่อนไปยังมุมนี้ คลิกขวากรอกพิกัด หมุนล้อเปลี่ยน Y ครั้งละ 4
+plot-map-coordinates = พิกัด x,y,z
+plot-map-zoom-in = ขยาย
+plot-map-zoom-out = ย่อ
+plot-map-fit = ดูทั้งพื้นที่
+plot-map-near = ใกล้ตัวฉัน
+plot-map-layer = ชั้น Y { $arg0 }…{ $arg1 }
+plot-map-layer-hint = หมุนล้อเปลี่ยนชั้น คลิกกลับชั้นปัจจุบัน ภูมิประเทศแสดงผิวดินเสมอ
+plot-map-north = เหนือ
+plot-map-west = ตะวันตก
+plot-map-east = ตะวันออก
+plot-map-south = ใต้
+plot-map-scale = 1 พิกเซล = { $arg0 } × { $arg0 } บล็อก
+plot-map-progress = กำลังอ่านแผนที่ { $arg0 }%…
+plot-map-unknown = จุดตัวอย่างผิวดินที่ยังไม่โหลด: { $arg0 }
+plot-map-legend = ฟ้า: คงไว้ · ม่วง: เพิ่ม · ส้ม: ลบ · เขียว: ทรงสี่เหลี่ยม · A/B: มุม · ลูกศร: คุณ
+plot-selection-validating = กำลังคำนวณขอบเขตและตรวจสอบพื้นที่ในเบื้องหลัง… จะอัปเดตโดยอัตโนมัติเมื่อเสร็จสิ้น
+
+plot-map-open = ดูแผนที่ Minecraft
+
+plot-map-handheld-hint = แสดงแผนที่ในมือรอง เลือกจุดด้วยขวานไม้ ย่อง + F กลับแผงควบคุม
+
+plot-map-readonly-hint = ดูแผนที่อย่างเดียว หากต้องการเปลี่ยนมุม ให้กลับแผงควบคุมแล้วเลือกปรับทรงสี่เหลี่ยม
+
+plot-destinations = จุดเทเลพอร์ต
+plot-destination-add = เพิ่มตำแหน่งปัจจุบัน
+plot-destination-confirm-delete = ลบจุด “{ $arg0 }” หรือไม่?
+plot-destination-delete = ลบจุดเทเลพอร์ต
+plot-destination-deleted = ลบจุดเทเลพอร์ตแล้ว
+plot-destination-description = คำอธิบาย (ไม่บังคับ)
+plot-destination-edit = แก้ไขชื่อและคำอธิบาย
+plot-destination-empty = ไม่มีจุดเทเลพอร์ตที่ใช้ได้
+plot-destination-error-changed = จุดนี้มีการเปลี่ยนแปลง โปรดเปิดใหม่
+plot-destination-error-description = คำอธิบายยาวได้ไม่เกิน 512 อักขระ และห้ามใช้อักขระควบคุม
+plot-destination-error-location = โปรดยืนบนพื้นปลอดภัยภายในแปลงนี้
+plot-destination-error-missing = จุดนี้ไม่มีอยู่แล้ว
+plot-destination-error-name = ชื่อต้องอยู่ในบรรทัดเดียวและยาว 1–48 อักขระ
+plot-destination-error-private = จุดนี้ไม่เปิดสาธารณะ ใช้ได้เฉพาะสมาชิกแปลง
+plot-destination-error-unsafe = จุดนี้ไม่พร้อมใช้งานหรือไม่ปลอดภัย
+plot-destination-loading = กำลังโหลดจุดเทเลพอร์ต…
+plot-destination-move = เปลี่ยนเป็นตำแหน่งปัจจุบัน
+plot-destination-name = ชื่อ
+plot-destination-public-empty = ยังไม่มีจุดเทเลพอร์ตสาธารณะ
+plot-destination-public-off = สาธารณะ: ปิด
+plot-destination-public-on = สาธารณะ: เปิด
+plot-destination-saved = บันทึกจุดเทเลพอร์ตแล้ว
+plot-destination-teleport = เทเลพอร์ต
+plot-error-subplot-destination = ย้ายหรือลบจุดของแปลงแม่ในพื้นที่ที่เลือกก่อน
+plot-error-subplot-own-destination = เก็บจุดไว้ในขอบเขตใหม่ หรือย้ายหรือลบจุดก่อน
+
+plot-destination-manage = จัดการ
+plot-directory-owned = เป็นเจ้าของ · { $arg0 }
+plot-directory-participating = เข้าร่วม · { $arg0 }
+plot-directory-search = ค้นหาแปลง
+plot-directory-search-value = ค้นหา: { $arg0 }
+plot-directory-search-field = ชื่อหรือรหัสแปลง
+plot-directory-clear-search = ล้างการค้นหา
+plot-directory-empty = ยังไม่มีแปลงในหมวดนี้
+plot-directory-no-match = ไม่พบแปลงที่ตรงกัน โปรดเปลี่ยนหรือล้างการค้นหา
+plot-workspace-area = แก้ไขขอบเขต
+plot-workspace-area-hint = ปรับพื้นที่คุ้มครองของแปลงนี้
+plot-workspace-subplots = แปลงย่อย
+plot-workspace-subplots-hint = ดู สร้าง และจัดการการแบ่งพื้นที่
+plot-workspace-access-hint = จัดการสมาชิก บทบาท และสิทธิ์การกระทำ
+plot-workspace-settings-hint = ชื่อ ประกาศ สภาพแวดล้อม และความเป็นเจ้าของ
+plot-workspace-destinations-hint = ดูและใช้จุดเทเลพอร์ตของแปลงนี้
+plot-workspace-role = บทบาทของคุณ: { $arg0 }
+plot-workspace-ownership = ความเป็นเจ้าของและการลบ
+plot-workspace-id = รหัสแปลง: { $arg0 }
+plot-workspace-groups = กลุ่มสิทธิ์
+plot-workspace-permissions = สิทธิ์การกระทำ
+plot-workspace-other-world = ไปยังโลกที่แปลงนี้ตั้งอยู่ก่อน
+
+plot-destination-titles = หัวข้อเมื่อมาถึง
+plot-destination-title = หัวข้อ
+plot-destination-subtitle = หัวข้อรอง
+plot-destination-title-hint = แสดงเมื่อเทเลพอร์ตสำเร็จ รองรับสี รูปแบบ และการไล่สี MiniMessage เว้นว่างเพื่อซ่อน การดูตัวอย่างจะไม่บันทึก
+plot-destination-title-preview = ดูตัวอย่างเต็มหน้าจอ
+plot-destination-title-unset = ยังไม่ตั้งค่า
+plot-destination-title-save = บันทึกหัวข้อ
+plot-destination-title-unchanged = ไม่มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก
+plot-destination-title-apply = ใช้กับฉบับร่าง
+plot-destination-error-title = หัวข้อต้องมีบรรทัดเดียว ข้อความที่แสดงไม่เกิน 32 อักขระ และต้นฉบับ MiniMessage ไม่เกิน 512 อักขระ
+plot-destination-error-subtitle = หัวข้อรองต้องมีบรรทัดเดียว ข้อความที่แสดงไม่เกิน 64 อักขระ และต้นฉบับ MiniMessage ไม่เกิน 512 อักขระ

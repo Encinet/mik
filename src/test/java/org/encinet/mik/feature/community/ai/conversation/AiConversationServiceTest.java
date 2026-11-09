@@ -62,7 +62,7 @@ class AiConversationServiceTest {
     @Test
     void boundsTheNumberOfRememberedGameAndSocialConversations() throws Exception {
         AiConfig config = config(2);
-        AiCompletionClient client = (messages, tools) ->
+        AiCompletionClient client = (_, _) ->
                 CompletableFuture.completedFuture(AiChatMessage.assistant("ok"));
 
         try (AiConversationService conversations =
@@ -78,7 +78,7 @@ class AiConversationServiceTest {
     @Test
     void injectsPrivateMemoryAsUntrustedToolDataAndMarksTheTurn() throws Exception {
         AiConfig config = config(2);
-        AiCompletionClient client = (messages, tools) -> {
+        AiCompletionClient client = (messages, _) -> {
             assertTrue(messages.stream()
                     .filter(message -> message.role().equals("system"))
                     .noneMatch(message -> message.content().contains("prefers concise answers")));
@@ -107,7 +107,7 @@ class AiConversationServiceTest {
     void appendsOnlyCitationsReturnedByKnowledgeSearch() throws Exception {
         AiConfig config = config(2);
         AtomicInteger step = new AtomicInteger();
-        AiCompletionClient client = (messages, tools) -> switch (step.getAndIncrement()) {
+        AiCompletionClient client = (_, _) -> switch (step.getAndIncrement()) {
             case 0 -> CompletableFuture.completedFuture(AiChatMessage.assistant(null, List.of(
                     new AiToolCall("discover", "tool_search",
                             "{\"packs\":[\"knowledge\"]}"))));

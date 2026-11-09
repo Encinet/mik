@@ -1,152 +1,129 @@
 package org.encinet.mik.feature.world.plot;
 
 import org.encinet.mik.shared.menu.FloatingMenuAppearance;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
+import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.FloatingMenuFraming;
-import org.encinet.mik.shared.menu.FloatingMenuLayout;
-import org.encinet.mik.shared.menu.FloatingMenuLayouts;
+import org.encinet.mik.shared.menu.ui.*;
 
 public final class PlotMenuLayouts {
 
     private PlotMenuLayouts() {
     }
 
-    public static FloatingMenuDefinition.Builder screen(String id, FloatingMenuAppearance appearance,
-                                                        FloatingMenuLayout layout) {
-        return FloatingMenuDefinition.screen(id).appearance(appearance)
-                .stableAnchor().frontArc().framing(FloatingMenuFraming.WIDE_ARC)
-                .layout(layout);
+    public static MenuScene.Builder screen(String id, FloatingMenuAppearance appearance,
+                                                        UiNode layout) {
+        return MenuScene.screen(id).appearance(appearance)
+                .stableAnchor().framing(FloatingMenuFraming.COMFORTABLE)
+                .content(Ui.column().key("plot-screen").child(UiKey.named(id),layout).build());
     }
 
-    public static FloatingMenuLayout browser(String entries, String summary) {
-        return FloatingMenuLayouts.panoramicPanels("focus", 0.6,
-                FloatingMenuLayouts.panel("list", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.balancedCards(entries, 3, 4)), entries),
-                FloatingMenuLayouts.panel("focus", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("heading"),
-                        FloatingMenuLayouts.information(summary),
-                        FloatingMenuLayouts.actions("here", 1),
-                        FloatingMenuLayouts.navigation("pagination"),
-                        FloatingMenuLayouts.navigation("navigation")),
-                        "heading", summary, "here", "pagination", "navigation"),
-                FloatingMenuLayouts.panel("actions", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.balancedCards("actions", 2, 8)), "actions"));
+    public static UiNode browser(UiNode entries) {
+        return UiTemplates.sheet(UiTemplates.window("browser", UiTemplates.reading(UiKey.named("cards"),
+                        UiTemplates.information("context"), UiTemplates.title("heading"), entries)),
+                UiTemplates.toolbar("tools", UiTemplates.menu(
+                        UiTemplates.actions("actions", 3), UiTemplates.navigation("navigation"))));
     }
 
-    public static FloatingMenuLayout detail() {
-        return FloatingMenuLayouts.panoramicPanels("focus", 0.6,
-                FloatingMenuLayouts.panel("building", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("building-heading"),
-                        FloatingMenuLayouts.information("selection"),
-                        FloatingMenuLayouts.balancedCards("construction", 2, 8)),
-                        "building-heading", "selection", "construction"),
-                FloatingMenuLayouts.panel("subplots", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("subplots-heading"),
-                        FloatingMenuLayouts.balancedCards("subplots", 2, 8)), "subplots-heading", "subplots"),
-                FloatingMenuLayouts.panel("focus", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("heading"),
-                        FloatingMenuLayouts.information("summary"),
-                        FloatingMenuLayouts.information("notice"),
-                        FloatingMenuLayouts.navigation("navigation")),
-                        "heading", "summary", "notice", "navigation"),
-                FloatingMenuLayouts.panel("settings", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("settings-heading"),
-                        FloatingMenuLayouts.balancedCards("settings", 2, 8),
-                        FloatingMenuLayouts.actions("ownership", 1)),
-                        "settings-heading", "settings", "ownership"),
-                FloatingMenuLayouts.panel("arrival", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("arrival-heading"),
-                        FloatingMenuLayouts.balancedCards("arrival-actions", 2, 8)),
-                        "arrival-heading", "arrival-actions"));
+    public static UiNode directory(UiNode entries) {
+        return UiTemplates.sheet(UiTemplates.window("directory", UiTemplates.reading(UiKey.named("cards"),
+                        UiTemplates.title("heading"), UiTemplates.list("here"),
+                        UiTemplates.actions("filters", 2), UiTemplates.navigation("search"),
+                        entries)),
+                UiTemplates.toolbar("tools", UiTemplates.menu(
+                        UiTemplates.actions("actions", 2), UiTemplates.navigation("navigation"))));
     }
 
-    public static FloatingMenuLayout access() {
-        return FloatingMenuLayouts.menu(
-                FloatingMenuLayouts.heading("heading"),
-                FloatingMenuLayouts.actions("project", 1),
-                FloatingMenuLayouts.actions("rows", 1),
-                FloatingMenuLayouts.actions("ownership", 1),
-                FloatingMenuLayouts.navigation("navigation"));
+    public static UiNode workspace(UiReadingPosition position,java.util.function.Consumer<UiReadingPosition> read) {
+        return UiTemplates.sheet(UiTemplates.window("plot", UiTemplates.reading(UiKey.named("summary"),
+                        UiTemplates.navigation("context").withSummaryLines(1), UiTemplates.title("heading").withSummaryLines(1),
+                        UiTemplates.information("summary").document(position,read).readingBody(), UiTemplates.information("notice").withSummaryLines(2),
+                        UiTemplates.cards("tasks", 3, 2).withSummaryLines(1))),
+                UiTemplates.toolbar("tools", UiTemplates.navigation("navigation")));
     }
 
-    public static FloatingMenuLayout permissionTable() {
-        return new PlotPermissionMenuLayout();
+    public static UiNode settings(boolean general,int page,java.util.function.IntConsumer read) {
+        var settings = new UiPagedPort(UiTemplates.actions("settings",2).withSummaryLines(1),1,page,read);
+        UiNode ownership = general ? Ui.port("ownership",UiLayouts.wrap(UiLength.ui(10),UiLength.ui(8))).withSummaryLines(1)
+                : new UiPagedPort(UiTemplates.actions("ownership",2).withSummaryLines(1),1,page,read);
+        var context = UiTemplates.actionRow(UiTemplates.information("context").withSummaryLines(1),
+                UiTemplates.information("identifier").withSummaryLines(1));
+        var owner = UiTemplates.actionRow(UiTemplates.heading("ownership-heading"),UiTemplates.information("owner").withSummaryLines(1));
+        return UiTemplates.sheet(UiTemplates.window("settings",UiTemplates.focus(Ui.layout(UiLayouts.contentColumn(general ? settings.key() : ownership.key(),UiLength.ui(12)))
+                .child(UiKey.named("context-summary"),context).child(UiTemplates.title("heading").withSummaryLines(1))
+                .child(settings).child(UiKey.named("ownership-summary"),owner).child(ownership).build(),general ? settings.key() : ownership.key())),
+                UiTemplates.toolbar("tools",UiTemplates.navigation("navigation")));
     }
 
-    public static FloatingMenuLayout help() {
-        return FloatingMenuLayouts.menu(
-                FloatingMenuLayouts.heading("heading"),
-                FloatingMenuLayouts.information("instructions"),
-                FloatingMenuLayouts.navigation("navigation"));
+    public static UiNode members(UiNode members) {
+        UiNode directory = UiTemplates.workspace(UiTemplates.menu(UiTemplates.heading("groups-heading").withSummaryLines(1),UiTemplates.list("groups").withSummaryLines(1)),
+                UiTemplates.reading(members.key(), UiTemplates.heading("members-heading").withSummaryLines(1),UiTemplates.information("hint").withSummaryLines(1),members,
+                        UiTemplates.actions("actions",1)));
+        return UiTemplates.sheet(UiTemplates.window("access", UiTemplates.reading(directory.key(),
+                        UiTemplates.information("context").withSummaryLines(1), UiTemplates.title("heading").withSummaryLines(1),
+                        directory)),
+                UiTemplates.toolbar("tools", UiTemplates.navigation("navigation")));
     }
 
-    public static FloatingMenuLayout noticeBoard() {
-        return FloatingMenuLayouts.menu(
-                FloatingMenuLayouts.heading("heading"),
-                FloatingMenuLayouts.information("body"),
-                FloatingMenuLayouts.navigation("pagination"),
-                FloatingMenuLayouts.navigation("navigation"));
+    public static UiNode destinationList(UiNode rows) {
+        return UiTemplates.sheet(UiTemplates.window("destinations", UiTemplates.reading(rows.key(),
+                        UiTemplates.information("context"), UiTemplates.title("heading"),rows)),
+                UiTemplates.toolbar("tools", UiTemplates.menu(UiTemplates.actions("actions", 1), UiTemplates.navigation("navigation"))));
     }
 
-    public static FloatingMenuLayout editor() {
-        return FloatingMenuLayouts.workbench(3.2, 2.2,
-                FloatingMenuLayouts.panel("selection-controls", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.balancedCards("points", 2, 8),
-                        FloatingMenuLayouts.balancedCards("composition", 2, 8),
-                        FloatingMenuLayouts.information("region-heading"),
-                        FloatingMenuLayouts.balancedCards("regions", 2, 8),
-                        FloatingMenuLayouts.navigation("region-pagination")),
-                        "points", "composition", "region-heading", "regions", "region-pagination"),
-                FloatingMenuLayouts.panel("focus", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("heading"),
-                        FloatingMenuLayouts.information("selection"),
-                        FloatingMenuLayouts.information("hint")), "heading", "selection", "hint"),
-                FloatingMenuLayouts.panel("operations", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.information("region-selection"),
-                        FloatingMenuLayouts.balancedCards("region-actions", 2, 8),
-                        FloatingMenuLayouts.balancedCards("operations", 2, 8),
-                        FloatingMenuLayouts.balancedCards("view", 2, 8)),
-                        "region-selection", "region-actions", "operations", "view"),
-                FloatingMenuLayouts.panel("navigation", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.navigation("navigation")), "navigation"));
+    public static UiNode destinationTitle(UiNode fields) {
+        return UiTemplates.sheet(UiTemplates.window("destination-title", UiTemplates.reading(fields.key(),
+                        UiTemplates.information("context"), UiTemplates.title("heading"),
+                        UiTemplates.information("hint"), fields)),
+                UiTemplates.toolbar("tools", UiTemplates.menu(UiTemplates.actions("actions", 2), UiTemplates.navigation("navigation"))));
     }
 
-    public static FloatingMenuLayout atmosphere() {
-        return FloatingMenuLayouts.panoramicPanels("focus", 0.6,
-                FloatingMenuLayouts.panel("time", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("time-heading"),
-                        FloatingMenuLayouts.balancedCards("times", 3, 4)), "time-heading", "times"),
-                FloatingMenuLayouts.panel("focus", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("weather-heading"),
-                        FloatingMenuLayouts.navigation("navigation")),
-                        "weather-heading", "navigation"),
-                FloatingMenuLayouts.panel("weather", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.balancedCards("weather-options", 2, 8)), "weather-options"));
+    public static UiNode choices(int page, java.util.function.IntConsumer read) {
+        var choices = new UiPagedPort(UiTemplates.actions("rows", 2).withSummaryLines(2), 1, page, read)
+                .withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 220)));
+        return UiTemplates.sheet(UiTemplates.window("choices", UiTemplates.reading(choices.key(),
+                        UiTemplates.information("context").withSummaryLines(1), UiTemplates.title("heading").withSummaryLines(1),
+                        UiTemplates.information("subject").withSummaryLines(1), choices)),
+                UiTemplates.toolbar("tools", UiTemplates.navigation("navigation")));
     }
 
-    public static FloatingMenuLayout member() {
-        return FloatingMenuLayouts.panoramicPanels("focus", 0.6,
-                FloatingMenuLayouts.panel("focus", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("heading"),
-                        FloatingMenuLayouts.actions("identity", 1),
-                        FloatingMenuLayouts.navigation("navigation")),
-                        "heading", "identity", "navigation"),
-                FloatingMenuLayouts.panel("actions", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.balancedCards("actions", 2, 8)), "actions"));
+    public static UiNode permissionTable(Plot plot, PlotPermission.Category category,int page,java.util.function.IntConsumer read) {
+        return PlotPermissionComposition.create(plot, category,page,read);
     }
 
-    public static FloatingMenuLayout record() {
-        return FloatingMenuLayouts.panoramicPanels("focus", 0.6,
-                FloatingMenuLayouts.panel("metadata", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.information("metadata")), "metadata"),
-                FloatingMenuLayouts.panel("focus", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.heading("heading"),
-                        FloatingMenuLayouts.information("detail"),
-                        FloatingMenuLayouts.navigation("pagination"),
-                        FloatingMenuLayouts.navigation("navigation")),
-                        "heading", "detail", "pagination", "navigation"),
-                FloatingMenuLayouts.panel("actions", FloatingMenuLayouts.menu(
-                        FloatingMenuLayouts.balancedCards("actions", 2, 8)), "actions"));
+    public static UiNode help(UiNode instructions) {
+        return UiTemplates.sheet(UiTemplates.window("reading", UiTemplates.reading(instructions.key(),
+                        UiTemplates.title("heading").withSummaryLines(1), instructions)),
+                UiTemplates.toolbar("tools", UiTemplates.navigation("navigation")));
     }
 
+    public static UiNode noticeBoard(UiNode reading) {
+        return UiTemplates.sheet(UiTemplates.window("reading", reading),
+                UiTemplates.toolbar("tools", UiTemplates.navigation("navigation")));
+    }
+
+    public static UiNode atmosphere(int page, java.util.function.IntConsumer read) {
+        var options = new UiPagedPort(UiTemplates.actions("options", 3).withSummaryLines(2), 1, page, read)
+                .withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 220)));
+        return UiTemplates.sheet(UiTemplates.window("atmosphere", UiTemplates.reading(options.key(),
+                        UiTemplates.information("context").withSummaryLines(1), UiTemplates.title("heading").withSummaryLines(1),
+                        UiTemplates.actions("sections", 2).withSummaryLines(1), options)),
+                UiTemplates.toolbar("tools", UiTemplates.navigation("navigation")));
+    }
+
+    public static UiNode member() {
+        return member(UiTemplates.list("identity"));
+    }
+
+    public static UiNode member(UiNode identity) {
+        return UiTemplates.sheet(UiTemplates.window("member", UiTemplates.reading(identity.key(),
+                        UiTemplates.information("context"), UiTemplates.title("heading"), identity)),
+                UiTemplates.toolbar("tools", UiTemplates.menu(UiTemplates.actions("actions", 2), UiTemplates.navigation("navigation"))));
+    }
+
+    public static UiNode record(UiNode reading) {
+        return UiTemplates.sheet(UiTemplates.window("record", UiTemplates.reading(reading.key(),
+                        UiTemplates.information("status").withSummaryLines(1), reading)),
+                UiTemplates.toolbar("tools", UiTemplates.menu(UiTemplates.actions("actions", 2).withSummaryLines(1),
+                        UiTemplates.navigation("navigation"))));
+    }
 }

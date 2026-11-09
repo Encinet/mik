@@ -134,7 +134,7 @@ public final class GovernanceDeliveryCoordinator {
         var operation = action.type() == GovernanceActionType.APPOINT_MODERATOR
                 ? roleManager.appointModerator(action.playerId())
                 : roleManager.removeModerator(action.playerId());
-        operation.whenComplete((ignored, error) -> complete(action, unwrap(error)));
+        operation.whenComplete((_, error) -> complete(action, unwrap(error)));
     }
 
     private void applyBan(GovernanceAction action) {

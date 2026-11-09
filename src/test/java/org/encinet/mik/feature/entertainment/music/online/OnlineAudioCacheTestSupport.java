@@ -15,7 +15,9 @@ public final class OnlineAudioCacheTestSupport {
     public static OnlineAudioCache create(
             Path directory,
             Function<TrackTarget.Lx, CompletableFuture<String>> resolver) {
-        return new OnlineAudioCache(directory, resolver::apply, ignored -> {},
+        var cache = new OnlineAudioCache(directory, resolver::apply, _ -> {},
                 1024 * 1024, Duration.ofSeconds(5));
+        cache.initialize();
+        return cache;
     }
 }

@@ -6,7 +6,6 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -15,6 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChatModelTest {
+
+    @Test
+    void playerConnectionsCannotDisagreeWithTheAuthenticatedSender() {
+        UUID playerId = UUID.randomUUID();
+        for (ChatOrigin.Player origin : List.of(new ChatOrigin.Minecraft(playerId), new ChatOrigin.Web(playerId))) {
+            ChatSubmission accepted = new ChatSubmission(ChatMessageId.random(), origin, ChatSender.minecraft(playerId, "Alice"),
+                    ChatConversation.minecraftPublic(), "hello", ChatReferences.empty(), Instant.EPOCH, ChatProcessingContext.external());
+            assertEquals(playerId, accepted.sender().minecraftId().orElseThrow());
+            assertThrows(IllegalArgumentException.class, () -> new ChatSubmission(ChatMessageId.random(), origin,
+                    ChatSender.minecraft(UUID.randomUUID(), "Alice"), ChatConversation.minecraftPublic(), "hello",
+                    ChatReferences.empty(), Instant.EPOCH, ChatProcessingContext.external()));
+        }
+    }
 
     @Test
     void semanticContentMergesPlainRunsAndKeepsLinks() {
@@ -29,6 +41,18 @@ class ChatModelTest {
         assertEquals(2, content.nodes().size());
         assertEquals("https://zh.minecraft.wiki/w/钻石",
                 ((ChatNode.Link) content.nodes().getLast()).target().toString());
+    }
+
+    @Test
+    void longContentPreviewsStayBoundedWithoutSplittingUnicode() {
+        String complete = "x".repeat(16_000);
+        assertEquals(complete, ChatContent.plainPreview(complete).plainText());
+        assertThrows(IllegalArgumentException.class, () -> ChatContent.plain(complete + "x"));
+        assertEquals("x".repeat(15_999) + "…", ChatContent.plainPreview(complete + "x").plainText());
+
+        String unicode = "x".repeat(15_998) + "😀" + "more";
+        assertEquals("x".repeat(15_998) + "…", ChatContent.plainPreview(unicode).plainText());
+        assertEquals("Title     Body", ChatContent.plainPreview("Title\u0001\t\u007F\u0085\nBody").plainText());
     }
 
     @Test
@@ -86,12 +110,11 @@ class ChatModelTest {
     void submissionRetainsRawFactsAndOriginTrace() {
         UUID playerId = UUID.randomUUID();
         ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.external("matrix", "$event"),
-                new ChatOrigin.Social("matrix", "$event"),
+                ChatMessageId.external("matrix", "room", "$event"),
+                new ChatOrigin.Social("matrix", "Matrix", "!room:example.org", "$event"),
                 new ChatSender("Steve", Optional.of(playerId), Optional.empty(),
-                        "Steve", "[VIP] ", ""),
-                new ChatConversation(ChatConversation.Kind.SOCIAL,
-                        "!room:example.org"),
+                        "Steve", "[VIP] ", "", 0xFFFFFF),
+                ChatConversation.minecraftPublic(),
                 "hello", ChatReferences.empty(), Instant.EPOCH,
                 ChatProcessingContext.external());
 
@@ -103,10 +126,10 @@ class ChatModelTest {
     @Test
     void transportLineBreaksBecomeSafeSingleLineText() {
         ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.random(), new ChatOrigin.Social("matrix", "$event"),
+                ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", "!room:example.org", "$event"),
                 new ChatSender("Alice", Optional.empty(), Optional.empty(),
-                        "", "", ""),
-                new ChatConversation(ChatConversation.Kind.SOCIAL, "room"),
+                        "", "", "", 0xFFFFFF),
+                ChatConversation.minecraftPublic(),
                 "hello\nworld", ChatReferences.empty(), Instant.EPOCH,
                 ChatProcessingContext.external());
 

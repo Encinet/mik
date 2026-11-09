@@ -36,12 +36,12 @@ class PlotProtectionPermissionsTest {
     private final UUID worldId = UUID.randomUUID();
     private final UUID actor = UUID.randomUUID();
     private final World world = (World) Proxy.newProxyInstance(World.class.getClassLoader(),
-            new Class<?>[]{World.class}, (proxy, method, arguments) -> {
+            new Class<?>[]{World.class}, (_, method, _) -> {
                 if (method.getName().equals("getUID")) return worldId;
                 throw new AssertionError(method.getName());
             });
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, arguments) -> switch (method.getName()) {
+            new Class<?>[]{Player.class}, (_, method, _) -> switch (method.getName()) {
                 case "getUniqueId" -> actor;
                 case "hasPermission" -> false;
                 default -> throw new AssertionError(method.getName());
@@ -51,7 +51,7 @@ class PlotProtectionPermissionsTest {
     void placingAndBreakingAreEnforcedSeparatelyEvenForCollaborators() throws Exception {
         try (PlotRepository store = store()) {
             PlotRegistry registry = registry(store, Map.of("collaborator.place", true, "collaborator.break", false));
-            PlotProtection guard = new PlotProtection(registry, null);
+            PlotProtection guard = new PlotProtection(registry);
             Block block = block(Material.STONE, false);
             BlockPlaceEvent place = new BlockPlaceEvent(block, block.getState(), block, null, player, true, EquipmentSlot.HAND);
             guard.place(place);
@@ -66,7 +66,7 @@ class PlotProtectionPermissionsTest {
     void deniedStorageCannotBeBypassedByDestroyingTheContainerOrBulkEditing() throws Exception {
         try (PlotRepository store = store()) {
             PlotRegistry registry = registry(store, Map.of("collaborator.container", false));
-            PlotProtection guard = new PlotProtection(registry, null);
+            PlotProtection guard = new PlotProtection(registry);
             BlockBreakEvent chest = new BlockBreakEvent(block(Material.CHEST, true), player);
             guard.breakBlock(chest);
             assertTrue(chest.isCancelled());
@@ -81,7 +81,7 @@ class PlotProtectionPermissionsTest {
     void doorsAndPressurePlatesFollowDifferentRules() throws Exception {
         try (PlotRepository store = store()) {
             PlotProtection guard = new PlotProtection(registry(store, Map.of("collaborator.door", true,
-                    "collaborator.switch", false, "collaborator.modify", false)), null);
+                    "collaborator.switch", false, "collaborator.modify", false)));
             PlayerInteractEvent door = click(Material.OAK_DOOR, Action.RIGHT_CLICK_BLOCK);
             guard.interact(door);
             assertFalse(door.useInteractedBlock() == Event.Result.DENY);
@@ -98,7 +98,7 @@ class PlotProtectionPermissionsTest {
     void mountEventChecksRidingRatherThanGenericEntityAccess() throws Exception {
         try (PlotRepository store = store()) {
             PlotProtection guard = new PlotProtection(registry(store, Map.of("collaborator.ride", false,
-                    "collaborator.entity_interact", true)), null);
+                    "collaborator.entity_interact", true)));
             EntityMountEvent event = new EntityMountEvent(player, entity(Entity.class));
             guard.mount(event);
             assertTrue(event.isCancelled());
@@ -108,7 +108,7 @@ class PlotProtectionPermissionsTest {
     @Test
     void playerAndProjectileDamageUseTheSamePermission() throws Exception {
         try (PlotRepository store = store()) {
-            PlotProtection guard = new PlotProtection(registry(store, Map.of("collaborator.entity_damage", false)), null);
+            PlotProtection guard = new PlotProtection(registry(store, Map.of("collaborator.entity_damage", false)));
             Entity target = entity(Entity.class);
             assertTrue(guard.deniesEntityDamage(target, null, player));
             assertTrue(guard.deniesEntityDamage(target, null, entity(Projectile.class)));
@@ -123,7 +123,7 @@ class PlotProtectionPermissionsTest {
 
     private PlotRegistry registry(PlotRepository store, Map<String, Boolean> flags) throws Exception {
         PlotRegistry registry = new PlotRegistry(store);
-        registry.put(new Plot(UUID.randomUUID(), worldId, UUID.randomUUID(), "Protected", false, 0,
+        registry.put(new Plot(UUID.randomUUID(), worldId, UUID.randomUUID(), "Protected", 0,
                 Set.of(PlotGeometry.Cell.at(0, 64, 0)), Map.of(actor, Plot.Role.COLLABORATOR), flags, null));
         return registry;
     }
@@ -136,9 +136,9 @@ class PlotProtectionPermissionsTest {
         Class<?>[] types = container ? new Class<?>[]{BlockState.class, InventoryHolder.class}
                 : new Class<?>[]{BlockState.class};
         BlockState state = (BlockState) Proxy.newProxyInstance(BlockState.class.getClassLoader(), types,
-                (proxy, method, arguments) -> { throw new AssertionError(method.getName()); });
+                (_, method, _) -> { throw new AssertionError(method.getName()); });
         return (Block) Proxy.newProxyInstance(Block.class.getClassLoader(), new Class<?>[]{Block.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getWorld" -> world;
                     case "getX", "getZ" -> 0;
                     case "getY" -> 64;
@@ -150,7 +150,7 @@ class PlotProtectionPermissionsTest {
 
     private Entity entity(Class<? extends Entity> type) {
         return (Entity) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getLocation" -> new Location(world, 0, 64, 0);
                     case "getShooter" -> player;
                     default -> throw new AssertionError(method.getName());

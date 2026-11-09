@@ -41,7 +41,7 @@ class IronElevatorGroundTest {
                 new IronElevatorGround.Sample(56, 8), new IronElevatorGround.Sample(62, 16),
                 new IronElevatorGround.Sample(68, 32), new IronElevatorGround.Sample(74, 32)), 10));
         assertEquals(10, IronElevatorGround.reference(List.of(), 10));
-        assertEquals(1, IronElevatorFloors.groundIndex(List.of(50, 62, 80), 64));
+        assertEquals(1, IronElevatorGround.groundIndex(List.of(50, 62, 80), 64));
     }
 
     @Test
@@ -58,7 +58,7 @@ class IronElevatorGroundTest {
                 }
             }
         }
-        assertEquals(64, IronElevatorGround.estimate(world.block(0, 40, 0), 20));
+        assertEquals(64, IronElevatorTestSupport.groundHeight(world.block(0, 40, 0), 20));
         assertEquals(48, world.terrainReads);
     }
 
@@ -73,9 +73,9 @@ class IronElevatorGroundTest {
                 }
             }
         }
-        assertEquals(20, IronElevatorGround.estimate(world.block(0, 40, 0), 20));
+        assertEquals(20, IronElevatorTestSupport.groundHeight(world.block(0, 40, 0), 20));
         world.unloadedChunks.addAll(Set.of("-2,-2", "-2,0", "-2,2", "0,-2", "0,2", "2,-2", "2,0", "2,2"));
-        assertDoesNotThrow(() -> IronElevatorGround.estimate(world.block(0, 40, 0), 20));
+        assertDoesNotThrow(() -> IronElevatorTestSupport.groundHeight(world.block(0, 40, 0), 20));
     }
 
     @Test
@@ -85,19 +85,19 @@ class IronElevatorGroundTest {
             world.iron(height);
             world.put(1, height, 0, Material.IRON_BLOCK, Set.of(BlockFace.values()));
         }
-        IronElevatorFloors floors = new IronElevatorFloors();
-        floors.scan(world.block(0, 50, 0), world.origin(50));
+        IronElevatorCatalog floors = new IronElevatorCatalog();
+        IronElevatorTestSupport.floors(floors, world.block(0, 50, 0));
         int terrainReads = world.terrainReads;
         world.terrainHeight = 120;
         floors.invalidate();
-        assertEquals(List.of(-2, -1, 1, 2), floors.scan(world.block(1, 80, 0), world.origin(80))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-2, -1, 1, 2), IronElevatorTestSupport.floors(floors, world.block(1, 80, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         assertEquals(terrainReads, world.terrainReads);
         Path config = temporary.resolve("iron-elevators.yml");
         Files.writeString(config, "ground-floors:\n  '" + world.worldId + "':\n    '1,0': 50\n");
-        floors.load(config);
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 80, 0), world.origin(80))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        floors.installRules(IronElevatorCatalog.readRules(config));
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 80, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         assertEquals(terrainReads, world.terrainReads);
     }
 
@@ -106,21 +106,21 @@ class IronElevatorGroundTest {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         for (int height : List.of(40, 64, 80)) world.iron(height);
         AtomicLong clock = new AtomicLong();
-        IronElevatorFloors floors = new IronElevatorFloors(clock::get);
-        floors.platform(world.block(0, 40, 0));
+        IronElevatorCatalog floors = new IronElevatorCatalog(clock::get);
+        IronElevatorTestSupport.warm(floors, world.block(0, 40, 0));
         for (int chunkX = -8; chunkX <= 8; chunkX++) {
             for (int chunkZ = -8; chunkZ <= 8; chunkZ++) {
                 if (chunkX != 0 || chunkZ != 0) world.unloadedChunks.add(chunkX + "," + chunkZ);
             }
         }
         world.terrainHeight = 120;
-        assertEquals(List.of(1, 2, 3), floors.scan(world.block(0, 40, 0), world.origin(40))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 40, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         world.unloadedChunks.clear();
         world.terrainHeight = 64;
         clock.set(2_000_000_001L);
-        assertEquals(List.of(-1, 1, 2), floors.scan(world.block(0, 40, 0), world.origin(40))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2), IronElevatorTestSupport.floors(floors, world.block(0, 40, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
     }
 
     @Test
@@ -138,11 +138,11 @@ class IronElevatorGroundTest {
                 }
             }
         }
-        IronElevatorFloors floors = new IronElevatorFloors();
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 120, 0), world.origin(120))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 40, 0), world.origin(40))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        IronElevatorCatalog floors = new IronElevatorCatalog();
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 120, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 40, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
     }
 
     @Test
@@ -150,11 +150,11 @@ class IronElevatorGroundTest {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         world.terrainHeight = 120;
         for (int height : List.of(40, 80, 120)) world.iron(height);
-        var estimate = IronElevatorGround.measure(world.block(0, 40, 0), List.of(40, 80, 120));
+        var estimate = IronElevatorTestSupport.ground(world.block(0, 40, 0), List.of(40, 80, 120));
         assertEquals(40, estimate.height());
         assertFalse(estimate.stable());
-        assertEquals(List.of(1, 2, 3), new IronElevatorFloors().scan(world.block(0, 120, 0), world.origin(120))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(1, 2, 3), IronElevatorTestSupport.floors(new IronElevatorCatalog(), world.block(0, 120, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
     }
 
     @Test
@@ -170,8 +170,8 @@ class IronElevatorGroundTest {
                 }
             }
         }
-        assertEquals(List.of(-2, -1, 1), new IronElevatorFloors().scan(world.block(0, 40, 0), world.origin(40))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-2, -1, 1), IronElevatorTestSupport.floors(new IronElevatorCatalog(), world.block(0, 40, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
     }
 
     @Test
@@ -181,11 +181,11 @@ class IronElevatorGroundTest {
         for (int height : List.of(40, 64, 100, 160, 200)) world.iron(height);
         surface(world, 0, 0, List.of(4, 8, 16, 32, 64, 128), 200, Material.GRASS_BLOCK);
         surface(world, 0, 0, List.of(256, 512), 64, Material.GRASS_BLOCK);
-        var floors = new IronElevatorFloors();
-        assertEquals(List.of(-1, 1, 2, 3, 4), floors.scan(world.block(0, 200, 0), world.origin(200))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
-        assertEquals(List.of(-1, 1, 2, 3, 4), floors.scan(world.block(0, 64, 0), world.origin(64))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        var floors = new IronElevatorCatalog();
+        assertEquals(List.of(-1, 1, 2, 3, 4), IronElevatorTestSupport.floors(floors, world.block(0, 200, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2, 3, 4), IronElevatorTestSupport.floors(floors, world.block(0, 64, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         assertEquals(64, world.terrainReads);
     }
 
@@ -193,16 +193,16 @@ class IronElevatorGroundTest {
     void preservesGroundFromTheEntranceWhenTheRooftopAddsANewReferenceColumn() {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         for (int height : List.of(40, 64, 100, 160, 200)) world.iron(height);
-        var floors = new IronElevatorFloors();
-        assertEquals(List.of(-1, 1, 2, 3, 4), floors.scan(world.block(0, 64, 0), world.origin(64))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        var floors = new IronElevatorCatalog();
+        assertEquals(List.of(-1, 1, 2, 3, 4), IronElevatorTestSupport.floors(floors, world.block(0, 64, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         int terrainReads = world.terrainReads;
         world.put(-1, 200, 0, Material.IRON_BLOCK, Set.of(BlockFace.values()));
         world.terrainHeight = 200;
         surface(world, -1, 0, List.of(4, 8, 16, 32, 64, 128, 256, 512), 200, Material.GRASS_BLOCK);
         floors.invalidate(world.block(-1, 200, 0));
-        assertEquals(List.of(-1, 1, 2, 3, 4), floors.scan(world.block(-1, 200, 0), world.origin(200))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2, 3, 4), IronElevatorTestSupport.floors(floors, world.block(-1, 200, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         assertEquals(terrainReads, world.terrainReads);
     }
 
@@ -213,9 +213,9 @@ class IronElevatorGroundTest {
             world.iron(height);
             world.put(-1, height, 0, Material.IRON_BLOCK, Set.of(BlockFace.values()));
         }
-        var floors = new IronElevatorFloors();
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 64, 0), world.origin(64))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        var floors = new IronElevatorCatalog();
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 64, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         int terrainReads = world.terrainReads;
         for (int height : List.of(40, 64, 100, 200)) {
             world.put(-1, height, 0, Material.AIR, Set.of());
@@ -223,8 +223,8 @@ class IronElevatorGroundTest {
         }
         world.terrainHeight = 200;
         surface(world, 0, 0, List.of(4, 8, 16, 32, 64, 128, 256, 512), 200, Material.GRASS_BLOCK);
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 200, 0), world.origin(200))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 200, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         assertEquals(terrainReads, world.terrainReads);
     }
 
@@ -243,7 +243,7 @@ class IronElevatorGroundTest {
                 }
             }
         }
-        var estimate = IronElevatorGround.measure(world.block(0, 200, 0), List.of(40, 64, 100, 200));
+        var estimate = IronElevatorTestSupport.ground(world.block(0, 200, 0), List.of(40, 64, 100, 200));
         assertEquals(64, estimate.height());
         assertTrue(estimate.stable());
     }
@@ -264,17 +264,17 @@ class IronElevatorGroundTest {
             }
         }
         AtomicLong clock = new AtomicLong();
-        var floors = new IronElevatorFloors(clock::get);
-        var estimate = IronElevatorGround.measure(world.block(0, 200, 0), List.of(40, 64, 100, 200));
+        var floors = new IronElevatorCatalog(clock::get);
+        var estimate = IronElevatorTestSupport.ground(world.block(0, 200, 0), List.of(40, 64, 100, 200));
         assertEquals(40, estimate.height());
         assertFalse(estimate.stable());
         assertEquals(48, world.terrainReads);
-        assertEquals(List.of(1, 2, 3, 4), floors.scan(world.block(0, 200, 0), world.origin(200))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(1, 2, 3, 4), IronElevatorTestSupport.floors(floors, world.block(0, 200, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         world.unloadedChunks.clear();
         clock.set(2_000_000_001L);
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 200, 0), world.origin(200))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 200, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
     }
 
     @Test
@@ -282,14 +282,14 @@ class IronElevatorGroundTest {
         IronElevatorTestWorld world = new IronElevatorTestWorld();
         for (int height : List.of(40, 64, 100, 200)) world.iron(height);
         AtomicLong clock = new AtomicLong();
-        var floors = new IronElevatorFloors(clock::get);
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 64, 0), world.origin(64))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        var floors = new IronElevatorCatalog(clock::get);
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 64, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         assertEquals(48, world.terrainReads);
         world.terrainHeight = 200;
         clock.set(2_000_000_001L);
-        assertEquals(List.of(-1, 1, 2, 3), floors.scan(world.block(0, 200, 0), world.origin(200))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2, 3), IronElevatorTestSupport.floors(floors, world.block(0, 200, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         assertEquals(48, world.terrainReads);
     }
 
@@ -299,17 +299,17 @@ class IronElevatorGroundTest {
         for (int height : List.of(40, 64, 100)) world.iron(height);
         for (int height : List.of(70, 100, 140))
             world.put(8, height, 0, Material.IRON_BLOCK, Set.of(BlockFace.values()));
-        var floors = new IronElevatorFloors();
-        assertEquals(List.of(-1, 1, 2), floors.scan(world.block(0, 64, 0), world.origin(64))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        var floors = new IronElevatorCatalog();
+        assertEquals(List.of(-1, 1, 2), IronElevatorTestSupport.floors(floors, world.block(0, 64, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         world.terrainHeight = 100;
-        assertEquals(List.of(-1, 1, 2), floors.scan(world.block(8, 140, 0), world.origin(140))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2), IronElevatorTestSupport.floors(floors, world.block(8, 140, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
         IronElevatorTestWorld other = new IronElevatorTestWorld();
         other.terrainHeight = 100;
         for (int height : List.of(70, 100, 140)) other.iron(height);
-        assertEquals(List.of(-1, 1, 2), floors.scan(other.block(0, 140, 0), other.origin(140))
-                .stream().map(IronElevatorFloors.Floor::number).toList());
+        assertEquals(List.of(-1, 1, 2), IronElevatorTestSupport.floors(floors, other.block(0, 140, 0))
+                .stream().map(IronElevatorCatalog.Floor::number).toList());
     }
 
     private static void surface(IronElevatorTestWorld world, int centerX, int centerZ, List<Integer> radii,

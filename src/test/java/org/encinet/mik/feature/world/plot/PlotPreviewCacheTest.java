@@ -193,7 +193,8 @@ class PlotPreviewCacheTest {
         CountDownLatch stopped = new CountDownLatch(1);
         var queued = new ArrayList<FutureTask<Void>>();
         AtomicInteger rejected = new AtomicInteger();
-        try (var cache = new PlotPreviewCache()) {
+        var cache = new PlotPreviewCache();
+        try {
             FutureTask<Void> running = new FutureTask<>(() -> {
                 assertEquals("mik-plot-preview", Thread.currentThread().getName());
                 entered.countDown();
@@ -222,6 +223,8 @@ class PlotPreviewCacheTest {
             cache.close();
             assertTrue(stopped.await(5, TimeUnit.SECONDS));
             assertTrue(queued.stream().allMatch(FutureTask::isCancelled));
+        } finally {
+            cache.close();
         }
     }
 

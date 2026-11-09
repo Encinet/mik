@@ -73,7 +73,7 @@ class InvisibilityNotifyModuleTest {
         final List<TestPlayer> entries = new ArrayList<>();
         int spatialQueries;
         int locationReads;
-        final World world = proxy(World.class, (object, method, args) -> switch (method) {
+        final World world = proxy(World.class, (_, method, args) -> switch (method) {
             case "getNearbyPlayers" -> {
                 spatialQueries++;
                 Location center = (Location) args[0];
@@ -106,7 +106,7 @@ class InvisibilityNotifyModuleTest {
         TestPlayer(TestWorld world, double x, double y, double z, boolean invisible) {
             this.location = new Location(world.world, x, y, z);
             this.invisible = invisible;
-            player = proxy(Player.class, (object, method, args) -> switch (method) {
+            player = proxy(Player.class, (_, method, args) -> switch (method) {
                 case "getWorld" -> world.world;
                 case "getLocation" -> {
                     world.locationReads++;

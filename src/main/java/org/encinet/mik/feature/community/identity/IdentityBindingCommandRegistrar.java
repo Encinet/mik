@@ -55,7 +55,7 @@ final class IdentityBindingCommandRegistrar {
                                             context.getSource().getSender())))
                             .then(Commands.literal("cancel")
                                     .then(Commands.argument("platform", StringArgumentType.word())
-                                            .suggests((context, builder) ->
+                                            .suggests((_, builder) ->
                                                     suggestPlatforms(builder))
                                             .executes(context -> cancel(
                                                     context.getSource().getSender(),
@@ -64,14 +64,14 @@ final class IdentityBindingCommandRegistrar {
                             .then(Commands.literal("unlink")
                                     .then(Commands.argument(
                                                     "platform", StringArgumentType.word())
-                                            .suggests((context, builder) ->
+                                            .suggests((_, builder) ->
                                                     suggestPlatforms(builder))
                                             .executes(context -> unlinkOwn(
                                                     context.getSource().getSender(),
                                                     StringArgumentType.getString(
                                                             context, "platform")))))
                             .then(Commands.argument("platform", StringArgumentType.word())
-                                    .suggests((context, builder) ->
+                                    .suggests((_, builder) ->
                                             suggestPlatforms(builder))
                                     .executes(context -> issueCode(
                                             context.getSource().getSender(),
@@ -94,7 +94,7 @@ final class IdentityBindingCommandRegistrar {
                                             .then(Commands.argument(
                                                             "platform",
                                                             StringArgumentType.word())
-                                                    .suggests((context, builder) ->
+                                                    .suggests((_, builder) ->
                                                             suggestPlatforms(builder))
                                                     .then(Commands.literal("confirm")
                                                             .executes(context -> adminUnlink(

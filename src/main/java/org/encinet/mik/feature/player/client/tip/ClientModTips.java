@@ -26,7 +26,7 @@ public final class ClientModTips {
     private final Predicate<Set<ClientMod>> condition;
 
     public ClientModTips(TipScope tips, ClientMods mods, Predicate<UUID> bedrockPlayer) {
-        this(tips, mods, bedrockPlayer, detected -> true);
+        this(tips, mods, bedrockPlayer, _ -> true);
     }
 
     private ClientModTips(TipScope tips, ClientMods mods, Predicate<UUID> bedrockPlayer,
@@ -61,7 +61,7 @@ public final class ClientModTips {
     public <C> Tip.Builder<C> define(String id,
                                     BiFunction<Set<ClientMod>, Language, Optional<TipContent>> content) {
         Objects.requireNonNull(content, "content");
-        return this.<C>define(id).resolve((player, context, language) ->
+        return this.<C>define(id).resolve((player, _, language) ->
                 matchingMods(player).flatMap(detected -> content.apply(detected, language)));
     }
 

@@ -31,30 +31,36 @@ final class IronElevatorTravelGroup {
     private record Member(Entity entity, Location origin, Entity holder, Entity vehicle,
                           List<Entity> passengers, Vector velocity, float fallDistance, IronElevatorLanding.Size size) { }
     private final List<Member> members;
+    private final Map<UUID, Member> membersById;
+    private final List<IronElevatorPlatform.Column> supports;
     private final int sourceHeight;
 
-    private IronElevatorTravelGroup(List<Member> members, int sourceHeight) {
-        this.members = List.copyOf(members);
+    private IronElevatorTravelGroup(Map<UUID, Member> members, int sourceHeight) {
+        this.members = List.copyOf(members.values());
+        membersById = Map.copyOf(members);
+        supports = this.members.stream().filter(member -> member.vehicle() == null)
+                .map(member -> new IronElevatorPlatform.Column(member.origin().getBlockX(), member.origin().getBlockZ()))
+                .distinct().sorted(java.util.Comparator.comparingInt(IronElevatorPlatform.Column::blockX)
+                        .thenComparingInt(IronElevatorPlatform.Column::blockZ)).toList();
         this.sourceHeight = sourceHeight;
     }
 
-    List<IronElevatorPlatform.Column> supportColumns() {
-        return members.stream().filter(member -> member.vehicle() == null)
-                .map(member -> new IronElevatorPlatform.Column(member.origin().getBlockX(), member.origin().getBlockZ()))
-                .distinct().toList();
-    }
+    Set<UUID> memberIds() { return membersById.keySet(); }
+    List<Player> players() { return members.stream().map(Member::entity).filter(Player.class::isInstance).map(Player.class::cast).toList(); }
+
+    List<IronElevatorPlatform.Column> supportColumns() { return supports; }
 
     boolean sameGeometry(IronElevatorTravelGroup other) {
         if (sourceHeight != other.sourceHeight || members.size() != other.members.size()) return false;
         for (Member member : members) {
-            Member matching = null;
-            for (Member candidate : other.members)
-                if (member.entity().getUniqueId().equals(candidate.entity().getUniqueId())) { matching = candidate; break; }
+            Member matching = other.membersById.get(member.entity().getUniqueId());
             if (matching == null || !Objects.equals(member.holder(), matching.holder())
                     || !Objects.equals(member.vehicle(), matching.vehicle())
                     || !member.passengers().equals(matching.passengers()) || !member.size().equals(matching.size())
                     || !member.origin().getWorld().equals(matching.origin().getWorld())
-                    || member.origin().distanceSquared(matching.origin()) > 1.0E-8) return false;
+                    || member.origin().getX() != matching.origin().getX()
+                    || member.origin().getY() != matching.origin().getY()
+                    || member.origin().getZ() != matching.origin().getZ()) return false;
         }
         return true;
     }
@@ -83,7 +89,7 @@ final class IronElevatorTravelGroup {
         Map<UUID, List<Entity>> children = new HashMap<>();
         for (Entity entity : nearby) {
             Entity holder = holder(entity);
-            if (holder != null) children.computeIfAbsent(holder.getUniqueId(), ignored -> new ArrayList<>()).add(entity);
+            if (holder != null) children.computeIfAbsent(holder.getUniqueId(), _ -> new ArrayList<>()).add(entity);
         }
         Map<UUID, Member> found = new LinkedHashMap<>();
         ArrayDeque<Entity> pending = new ArrayDeque<>();
@@ -115,10 +121,10 @@ final class IronElevatorTravelGroup {
                 cursor = cursor.getVehicle();
             }
         }
-        return new IronElevatorTravelGroup(new ArrayList<>(found.values()), source.height());
+        return new IronElevatorTravelGroup(found, source.height());
     }
 
-    Location landing(IronElevatorPlatform target) {
+    Location landing(IronElevatorShaft.Level target) {
         Location playerLanding = null;
         for (Member member : members) {
             Entity entity = member.entity();

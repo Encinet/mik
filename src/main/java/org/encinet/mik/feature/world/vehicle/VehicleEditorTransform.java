@@ -10,12 +10,16 @@ final class VehicleEditorTransform {
     }
 
     static double nextStep(Mode mode, double current) {
+        return nextStep(mode, current, 1);
+    }
+
+    static double nextStep(Mode mode, double current, int direction) {
         List<Double> choices = switch (mode) {
             case ROTATE -> List.of(1.0, 5.0, 15.0);
             case SCALE -> List.of(1.01, 1.05, 1.25);
             case SIZE -> List.of(0.1, 0.25, 1.0);
         };
-        return choices.get((choices.indexOf(current) + 1) % choices.size());
+        return choices.get(Math.floorMod(choices.indexOf(current) + (direction < 0 ? -1 : 1), choices.size()));
     }
 
     static VehicleVector value(VehicleModelDraft draft, Mode mode, int index) {

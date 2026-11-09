@@ -8,6 +8,7 @@ import org.encinet.mik.feature.community.social.chat.SocialDirectedNotice;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
 import org.encinet.mik.feature.community.social.chat.SocialMentionBindingDirectory;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
+import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,9 +44,9 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             Logger logger
     ) {
         this(adapters, commands, identityLeases, contentGuard,
-                (platform, message) ->
+                _ ->
                         java.util.concurrent.CompletableFuture.completedFuture(null),
-                playerId -> List.of(), logger);
+                _ -> List.of(), logger);
     }
 
     public SocialPlatformHost(
@@ -57,7 +58,7 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             Logger logger
     ) {
         this(adapters, commands, identityLeases, contentGuard, chatGateway,
-                playerId -> List.of(), logger);
+                _ -> List.of(), logger);
     }
 
     public SocialPlatformHost(
@@ -81,8 +82,9 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
 
     public synchronized void start() {
         ensureOpen();
+        Optional<String> contentSafetyProblem = contentGuard.reload();
         for (String platformId : List.copyOf(adapters.keySet())) {
-            reload(platformId);
+            reloadPlatform(platformId, contentSafetyProblem);
         }
     }
 
@@ -95,6 +97,11 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
     public synchronized boolean reload(String platformId) {
         ensureOpen();
         String id = normalizePlatformId(platformId);
+        if (!adapters.containsKey(id)) return false;
+        return reloadPlatform(id, contentGuard.reload());
+    }
+
+    private boolean reloadPlatform(String id, Optional<String> contentSafetyProblem) {
         SocialPlatformAdapter adapter = adapters.get(id);
         if (adapter == null) {
             return false;
@@ -114,6 +121,11 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             if (plan.isEmpty()) {
                 next.disable();
             } else {
+                if (plan.get().runtimePolicy().output().contentSafetyEnabled()) {
+                    contentSafetyProblem.ifPresent(reason -> logger.warning(
+                            "Social content safety is unavailable on " + id
+                                    + "; output requiring moderation is blocked: " + reason));
+                }
                 next.start(plan.get());
             }
         } catch (RuntimeException error) {
@@ -186,7 +198,10 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             return;
         }
         closed = true;
-        generations.values().forEach(SocialPlatformGeneration::close);
+        ShutdownSequence shutdown = new ShutdownSequence();
+        generations.forEach((id, generation) -> shutdown.attempt(id, generation::close));
+        shutdown.attempt("content safety", contentGuard::close);
+        shutdown.finish("social platforms");
     }
 
     private void ensureOpen() {

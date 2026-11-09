@@ -10,7 +10,6 @@ import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.io.IOAccess;
 import org.graalvm.polyglot.proxy.ProxyArray;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
-import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 
 import javax.crypto.Cipher;
@@ -191,7 +190,7 @@ final class LxCustomSourceRuntime implements AutoCloseable {
     private <T> CompletableFuture<T> newPendingRequest() {
         CompletableFuture<T> future = new CompletableFuture<>();
         pendingRequests.add(future);
-        future.whenComplete((ignored, error) -> pendingRequests.remove(future));
+        future.whenComplete((_, _) -> pendingRequests.remove(future));
         if (closed.get()) {
             future.completeExceptionally(new IOException("LX source is closed"));
         }
@@ -203,7 +202,7 @@ final class LxCustomSourceRuntime implements AutoCloseable {
         try {
             newContext = Context.newBuilder("js")
                     .allowHostAccess(HostAccess.NONE)
-                    .allowHostClassLookup(name -> false)
+                    .allowHostClassLookup(_ -> false)
                     .allowIO(IOAccess.NONE)
                     .allowCreateThread(false)
                     .allowNativeAccess(false)
@@ -342,7 +341,7 @@ final class LxCustomSourceRuntime implements AutoCloseable {
                             releaseHttpPermit(permitReleased);
                         }
                     });
-            return (ProxyExecutable) ignored -> {
+            return (ProxyExecutable) _ -> {
                 if (cancelled.compareAndSet(false, true)) {
                     pending.cancel(true);
                 }
@@ -353,7 +352,7 @@ final class LxCustomSourceRuntime implements AutoCloseable {
                 releaseHttpPermit(permitReleased);
             }
             invokeHttpCallback(callback, null, throwable);
-            return (ProxyExecutable) ignored -> null;
+            return (ProxyExecutable) _ -> null;
         }
     }
 

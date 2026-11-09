@@ -1,12 +1,12 @@
 package org.encinet.mik.feature.world.plot.board;
 
+import org.encinet.mik.shared.menu.MenuInputForm;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -15,11 +15,15 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.FloatingMenuAppearance;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
+import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.feature.world.plot.PlotMenuLayouts;
-import org.encinet.mik.shared.menu.FloatingMenuPage;
+import org.encinet.mik.feature.world.plot.PlotCardList;
+import org.encinet.mik.shared.menu.FloatingMenuContext;
 import org.encinet.mik.shared.menu.FloatingMenus;
 import org.encinet.mik.shared.menu.MenuDialogs;
+import org.encinet.mik.shared.menu.MenuSearch;
+import org.encinet.mik.shared.menu.ui.UiKey;
+import org.encinet.mik.shared.util.ShutdownSequence;
 import org.encinet.mik.shared.role.RolePermissions;
 import org.encinet.mik.feature.world.plot.Plot;
 import org.encinet.mik.feature.world.plot.PlotDataPaths;
@@ -32,14 +36,17 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 
 /** Owns the community board's persistence, game menus, commands and public snapshot. */
 public final class PlotCommunityBoard {
-    private static final int BOARD_RECORDS_PER_PAGE = 8;
     private static final int NOTICE_AUTO_RADIUS = 64;
 
     private final JavaPlugin plugin;
@@ -47,8 +54,11 @@ public final class PlotCommunityBoard {
     private final PlotRegistry registry;
     private final PlotBoardStore boardStore;
     private final PlotBoardNotifications boardNotifications;
+    private final ExecutorService reads = Executors.newSingleThreadExecutor(Thread.ofVirtual().name("mik-plot-board-read-",0).factory());
     private volatile JsonObject communityBoard;
     private long boardRevision;
+    private volatile boolean closed;
+    private final PlotBoardRecordMenus recordMenus;
 
     public PlotCommunityBoard(JavaPlugin plugin, LanguageService language, PlotNoticePublisher notices,
                               PlotRegistry registry) {
@@ -58,6 +68,7 @@ public final class PlotCommunityBoard {
         boardStore = new PlotBoardStore(PlotDataPaths.in(
                 plugin.getDataFolder().toPath()).boardDatabase());
         boardNotifications = new PlotBoardNotifications(plugin, language, notices);
+        recordMenus = new PlotBoardRecordMenus(plugin, language, () -> boardRevision, reads, boardStore::readFor, this::boardEntryDefinition);
     }
 
     public void open() throws Exception {
@@ -67,11 +78,13 @@ public final class PlotCommunityBoard {
     }
 
     public void close() throws SQLException {
-        try {
-            boardNotifications.disable();
-        } finally {
-            boardStore.close();
-        }
+        closed = true;
+        var shutdown = new ShutdownSequence();
+        shutdown.attempt("board record menus", recordMenus::close);
+        shutdown.attempt("board reads", reads::shutdownNow);
+        shutdown.attempt("board notifications", boardNotifications::disable);
+        shutdown.attempt("board storage", boardStore::close);
+        shutdown.finish("plot community board");
     }
 
     private void reloadCommunityBoard() throws SQLException {
@@ -90,46 +103,43 @@ public final class PlotCommunityBoard {
         FloatingMenus.present(player, boardDefinition(player, requestedPage));
     }
 
-    private FloatingMenuDefinition boardDefinition(Player player, int requestedPage) {
+    private MenuScene boardDefinition(Player player, int requestedPage) {
         long revision = boardRevision;
         List<JsonObject> records = boardRecords();
-        FloatingMenuPage page = new FloatingMenuPage(requestedPage,
-                records.size(), BOARD_RECORDS_PER_PAGE);
-        FloatingMenuDefinition.Builder menu = PlotMenuLayouts.screen("plot-board",
-                        FloatingMenuAppearance.ARCHIVE, PlotMenuLayouts.browser("records", "summary"))
+        var cards = records.stream().map(record -> {
+            String id = record.get("id").getAsString();
+            Message kind = record.get("kind").getAsString().equals("objection")
+                    ? Message.PLOT_BOARD_KIND_OBJECTION : Message.PLOT_BOARD_KIND_NOTICE;
+            Component label = Component.text(t(player,kind) + " · " + t(player,boardStatus(record.get("status").getAsString())),NamedTextColor.AQUA)
+                    .append(Component.newline()).append(Component.text(record.get("subject").getAsString(),NamedTextColor.WHITE));
+            return new PlotCardList.Card(UiKey.named("record:" + id),label,(viewer,_) -> {
+                if (boardRevision == revision) openBoardEntry(viewer,record);
+            });
+        }).toList();
+        var list = PlotCardList.content(cards,Component.text(t(player,communityBoard == null
+                ? Message.PLOT_BOARD_UNAVAILABLE : Message.PLOT_BOARD_EMPTY),NamedTextColor.WHITE),requestedPage,
+                index -> { if (boardRevision == revision) openMenu(player,index); });
+        MenuScene.Builder menu = PlotMenuLayouts.screen("plot-board",
+                        FloatingMenuAppearance.DEFAULT, PlotMenuLayouts.browser(list))
                 .refreshEvery(40, (p, handle) -> {
                     if (boardRevision != revision)
-                        handle.update(boardDefinition(p, page.index()));
+                        handle.update(boardDefinition(p, requestedPage));
                 });
         menu.information("heading", Component.text(t(player, Message.PLOT_BOARD_MENU),
                 NamedTextColor.GOLD)).region("heading").keepAccessible();
-        if (records.isEmpty()) {
-            menu.information("empty", Component.text(t(player, communityBoard == null
-                            ? Message.PLOT_BOARD_UNAVAILABLE : Message.PLOT_BOARD_EMPTY),
-                    NamedTextColor.GRAY)).region("records");
-        } else {
-            for (JsonObject record : page.slice(records)) {
-                String id = record.get("id").getAsString();
-                String subject = shortBoardSubject(record.get("subject").getAsString());
-                Message kind = record.get("kind").getAsString().equals("objection")
-                        ? Message.PLOT_BOARD_KIND_OBJECTION : Message.PLOT_BOARD_KIND_NOTICE;
-                menu.item("record:" + id, Material.PAPER,
-                                Component.text(t(player, kind) + " · " + t(player, boardStatus(
-                                        record.get("status").getAsString())), NamedTextColor.AQUA)
-                                .append(Component.newline())
-                                .append(Component.text(subject, NamedTextColor.GRAY)))
-                        .region("records")
-                        .primary((p, handle) -> openBoardEntry(p, record));
-            }
-        }
-        if (page.count() > 1)
-            menu.pagination("pagination", page, index -> openMenu(player, index));
-        menu.item("find", Material.COMPASS,
-                        Component.text(t(player, Message.PLOT_MENU_FIND_RECORD), NamedTextColor.AQUA))
+        menu.control("find", Component.text(t(player, Message.PLOT_MENU_FIND_RECORD), NamedTextColor.AQUA))
                 .region("actions")
-                .primary((p, handle) -> textInput(p, Message.PLOT_MENU_FIND_RECORD,
-                        Message.PLOT_MENU_RECORD_ID, "", 36, false,
-                        this::openBoardRecord));
+                .primary((p, _) -> FloatingMenus.search(p, MenuSearch.<JsonObject>builder(
+                        Component.text(t(p, Message.PLOT_MENU_FIND_RECORD), NamedTextColor.GOLD),
+                        Component.text(t(p, Message.PLOT_MENU_RECORD_SEARCH), NamedTextColor.AQUA))
+                        .find(query -> CompletableFuture.supplyAsync(() -> {
+                            try { return boardStore.searchPublic(query); }
+                            catch (SQLException error) { throw new java.util.concurrent.CompletionException(error); }
+                        },reads))
+                        .key(record -> UiKey.item(record.get("id").getAsString()))
+                        .label(record -> Component.text(record.get("subject").getAsString(),NamedTextColor.WHITE)
+                                .append(Component.text(" · "+record.get("id").getAsString().substring(0,8),NamedTextColor.AQUA)))
+                        .selected(this::openBoardEntry).build()));
         menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
@@ -147,12 +157,18 @@ public final class PlotCommunityBoard {
                 .toList();
     }
 
-    private JsonObject cachedBoardRecord(String id) {
+    private JsonObject snapshotBoardRecord(String id) {
         JsonObject loaded = communityBoard;
         if (loaded != null) for (JsonElement element : loaded.getAsJsonArray("notices")) {
             JsonObject record = element.getAsJsonObject();
             if (record.get("id").getAsString().equals(id)) return record;
         }
+        return null;
+    }
+
+    private JsonObject cachedBoardRecord(String id) {
+        JsonObject cached = snapshotBoardRecord(id);
+        if (cached != null) return cached;
         try { return boardStore.getPublic(id); }
         catch (SQLException error) {
             plugin.getLogger().log(Level.WARNING, "Could not read community board record", error);
@@ -160,155 +176,82 @@ public final class PlotCommunityBoard {
         }
     }
 
-    private void openBoardRecord(Player player, String rawId) {
-        try {
-            String id = boardId(rawId);
-            JsonObject record = cachedBoardRecord(id);
-            if (record != null) openBoardEntry(player, record);
-            else fetchBoardDetail(player, id, true);
-        } catch (PlotProblem invalid) {
-            send(player, NamedTextColor.RED, invalid.message(), invalid.args());
-            openMenu(player);
-        }
-    }
-
     private void openBoardEntry(Player player, JsonObject record) {
-        openBoardEntry(player, record, 0);
+        if (!closed) recordMenus.open(player, PlotBoardRecord.unverified(record));
     }
 
-    private void openBoardEntry(Player player, JsonObject record, int requestedPage) {
-        FloatingMenus.present(player, boardEntryDefinition(player, record, requestedPage));
-    }
-
-    private FloatingMenuDefinition boardEntryDefinition(Player player, JsonObject record,
-                                                        int requestedPage) {
+    private MenuScene.Builder boardEntryDefinition(FloatingMenuContext<PlotBoardRecordState> context, PlotBoardRecordMenus.Reader reader) {
+        Player player = context.player();
+        PlotBoardRecordState state = context.state();
+        JsonObject record = state.source().record();
         String id = record.get("id").getAsString();
-        String description = boardDescription(player, record);
-        if (record.has("ruling") && !record.get("ruling").isJsonNull())
-            description += "\n\n" + t(player, Message.PLOT_BOARD_RULING_DETAIL,
-                    record.get("ruling").getAsString());
-        List<String> textPages = textPages(description);
-        FloatingMenuPage page = new FloatingMenuPage(requestedPage, textPages.size(), 1);
-        long revision = boardRevision;
-        FloatingMenuDefinition.Builder menu = PlotMenuLayouts.screen("plot-board-entry:" + id,
-                        FloatingMenuAppearance.ARCHIVE, PlotMenuLayouts.record())
-                .refreshEvery(40, (p, handle) -> {
-                    if (boardRevision != revision) {
-                        JsonObject fresh = cachedBoardRecord(id);
-                        handle.update(boardEntryDefinition(p,
-                                fresh == null ? record : fresh, page.index()));
-                    }
-                });
-        menu.information("heading", Component.text(
-                textPages(record.get("subject").getAsString()).getFirst(),
-                NamedTextColor.GOLD)).region("heading").keepAccessible();
+        var locale = language.language(player);
+        boolean moderator = RolePermissions.canModerate(player);
         Message kind = record.get("kind").getAsString().equals("objection")
                 ? Message.PLOT_BOARD_KIND_OBJECTION : Message.PLOT_BOARD_KIND_NOTICE;
         String location = record.get("world").getAsString() + " "
-                + record.get("x").getAsInt() + ", " + record.get("y").getAsInt()
-                + ", " + record.get("z").getAsInt();
-        menu.information("metadata", Component.text(t(player, kind) + " · "
-                        + t(player, boardStatus(record.get("status").getAsString()))
-                        + " · " + id.substring(0, 8), NamedTextColor.AQUA)
-                .append(Component.newline())
-                .append(Component.text(record.get("authorName").getAsString() + " · "
-                        + location, NamedTextColor.GRAY))).region("metadata");
-        menu.information("detail", Component.text(textPages.get(page.index()), NamedTextColor.WHITE))
-                .region("detail").keepAccessible();
-        if (page.count() > 1)
-            menu.pagination("pagination", page, index -> openBoardEntry(player, record, index));
+                + record.get("x").getAsInt() + ", " + record.get("y").getAsInt() + ", " + record.get("z").getAsInt();
+        Component metadata = Component.text(t(player, kind) + " · "
+                        + t(player, boardStatus(record.get("status").getAsString())) + " · " + id.substring(0, 8), NamedTextColor.AQUA)
+                .append(Component.newline()).append(Component.text(record.get("authorName").getAsString() + " · " + location, NamedTextColor.WHITE));
+        Optional<Component> ruling = record.has("ruling") && !record.get("ruling").isJsonNull()
+                ? Optional.of(Component.text(t(player, Message.PLOT_BOARD_RULING_DETAIL, record.get("ruling").getAsString()), NamedTextColor.WHITE))
+                : Optional.empty();
+        var reading = PlotBoardRecordContent.reading(Component.text(record.get("subject").getAsString(), NamedTextColor.GOLD),
+                metadata, Component.text(boardDescription(player, record), NamedTextColor.WHITE), ruling, state.position(),
+                next -> reader.read(context, state, next));
+        MenuScene.Builder menu = PlotMenuLayouts.screen("plot-board-entry:" + id,
+                        FloatingMenuAppearance.DEFAULT, PlotMenuLayouts.record(reading))
+                .refreshEvery(40, (viewer, _) -> {
+                    if (!reader.current(state)) return;
+                    if (boardRevision != state.revision() || state.source().ownership().isEmpty() && !state.failed() && !reader.loading())
+                        reader.reload(state);
+                    else if (language.language(viewer) != locale || RolePermissions.canModerate(viewer) != moderator) context.redraw();
+                });
+        if (reader.loading() || state.source().ownership().isEmpty() && !state.failed())
+            menu.information("loading", Component.text(t(player, Message.PLOT_BOARD_LOADING), NamedTextColor.WHITE)).region("status");
+        if (state.failed()) {
+            menu.information("unavailable", Component.text(t(player, Message.PLOT_BOARD_UNAVAILABLE), NamedTextColor.RED)).region("status");
+            menu.control("retry", Component.text(t(player, Message.MENU_SEARCH_RETRY), NamedTextColor.AQUA)).region("actions")
+                    .primary((_, _) -> reader.reload(state));
+        }
         if (record.get("kind").getAsString().equals("notice")) {
-            menu.item("feedback", Material.FEATHER,
-                            Component.text(t(player, Message.PLOT_MENU_FEEDBACK), NamedTextColor.YELLOW))
-                    .region("actions")
-                    .primary((p, handle) -> textInput(p, Message.PLOT_MENU_FEEDBACK,
+            reader.control(state, menu, "feedback", Component.text(t(player, Message.PLOT_MENU_FEEDBACK), NamedTextColor.YELLOW))
+                    .primary(reader.action(state, (p, _) -> textInput(p, Message.PLOT_MENU_FEEDBACK,
                             Message.PLOT_MENU_DESCRIPTION, "", 1000, true,
                             (viewer, value) -> {
+                                if (!reader.actionable(state)) return;
                                 perform(viewer, () -> postObjection(viewer, id, value));
                                 openBoardEntry(viewer, record);
-                            }));
+                            })));
         }
         if (record.has("relatedNoticeId") && !record.get("relatedNoticeId").isJsonNull())
-            menu.item("related", Material.MAP,
-                            Component.text(t(player, Message.PLOT_MENU_RELATED_NOTICE), NamedTextColor.AQUA))
-                    .region("actions")
-                    .primary((p, handle) -> openBoardRecord(p,
-                            record.get("relatedNoticeId").getAsString()));
+            reader.control(state, menu, "related", Component.text(t(player, Message.PLOT_MENU_RELATED_NOTICE), NamedTextColor.AQUA))
+                    .primary(reader.action(state, (_, _) -> reader.openRelated(state,
+                            record.get("relatedNoticeId").getAsString())));
         if (record.get("kind").getAsString().equals("objection")
                 && record.get("status").getAsString().equals("open")) {
-            JsonObject related = record.has("relatedNoticeId")
-                    && !record.get("relatedNoticeId").isJsonNull()
-                    ? cachedBoardRecord(record.get("relatedNoticeId").getAsString()) : null;
-            boolean ownsFeedback = boardAuthoredBy(id, player.getUniqueId());
-            boolean ownDispute = ownsFeedback || related != null
-                    && boardAuthoredBy(related.get("id").getAsString(), player.getUniqueId());
+            var ownership = state.source().ownership();
+            boolean ownsFeedback = ownership.map(PlotBoardRecord.Ownership::feedbackAuthor).orElse(false);
+            boolean ownDispute = ownership.map(PlotBoardRecord.Ownership::disputeAuthor).orElse(true);
             if (ownsFeedback)
-                menu.item("withdraw", Material.BARRIER,
-                                Component.text(t(player, Message.PLOT_MENU_WITHDRAW), NamedTextColor.RED))
-                        .region("actions")
-                        .primary((p, handle) -> MenuDialogs.openConfirm(plugin, p,
+                reader.control(state, menu, "withdraw", Component.text(t(player, Message.PLOT_MENU_WITHDRAW), NamedTextColor.RED))
+                        .primary(reader.action(state, (p, _) -> MenuDialogs.openConfirm(plugin, p,
                                 Component.text(t(p, Message.PLOT_MENU_WITHDRAW), NamedTextColor.RED),
-                                Component.text(t(p, Message.PLOT_MENU_CONFIRM_WITHDRAW), NamedTextColor.GRAY),
+                                Component.text(t(p, Message.PLOT_MENU_CONFIRM_WITHDRAW), NamedTextColor.WHITE),
                                 Component.text(t(p, Message.PLOT_MENU_WITHDRAW), NamedTextColor.RED),
-                                Component.text(t(p, Message.PLOT_BACK), NamedTextColor.GRAY),
-                                viewer -> perform(viewer, () -> withdraw(viewer, id))));
-            if (RolePermissions.canModerate(player) && !ownDispute)
-                menu.item("rule", Material.WRITABLE_BOOK,
-                                Component.text(t(player, Message.PLOT_MENU_RULE), NamedTextColor.YELLOW))
-                        .region("actions")
-                        .primary((p, handle) -> textInput(p, Message.PLOT_MENU_RULE,
+                                Component.text(t(p, Message.PLOT_BACK), NamedTextColor.WHITE),
+                                viewer -> { if (reader.actionable(state)) perform(viewer, () -> withdraw(viewer, id)); })));
+            if (moderator && !ownDispute)
+                reader.control(state, menu, "rule", Component.text(t(player, Message.PLOT_MENU_RULE), NamedTextColor.YELLOW))
+                        .primary(reader.action(state, (p, _) -> textInput(p, Message.PLOT_MENU_RULE,
                                 Message.PLOT_MENU_RULING, "", 1000, true,
-                                (viewer, value) -> perform(viewer,
-                                        () -> rule(viewer, id, value))));
+                                (viewer, value) -> { if (reader.actionable(state)) perform(viewer,
+                                        () -> rule(viewer, id, value)); })));
         }
         menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
-        return menu.build();
-    }
-
-    private static String shortBoardSubject(String subject) {
-        StringBuilder shortText = new StringBuilder();
-        int width = 0;
-        for (int offset = 0; offset < subject.length();) {
-            int character = subject.codePointAt(offset);
-            offset += Character.charCount(character);
-            if (Character.isISOControl(character)) character = ' ';
-            int characterWidth = character < 0x80 ? 1 : 2;
-            if (width + characterWidth > 37) return shortText.append('…').toString();
-            shortText.appendCodePoint(character);
-            width += characterWidth;
-        }
-        return shortText.toString();
-    }
-
-    public static List<String> textPages(String text) {
-        List<String> lines = new ArrayList<>();
-        StringBuilder line = new StringBuilder();
-        int width = 0;
-        for (int offset = 0; offset < text.length();) {
-            int character = text.codePointAt(offset);
-            offset += Character.charCount(character);
-            if (character == '\r') continue;
-            if (character == '\n') {
-                lines.add(line.toString());
-                line.setLength(0);
-                width = 0;
-                continue;
-            }
-            int characterWidth = character < 0x80 ? 1 : 2;
-            if (width + characterWidth > 48) {
-                lines.add(line.toString());
-                line.setLength(0);
-                width = 0;
-            }
-            line.appendCodePoint(character);
-            width += characterWidth;
-        }
-        lines.add(line.toString());
-        List<String> pages = new ArrayList<>();
-        for (int first = 0; first < lines.size(); first += 6)
-            pages.add(String.join("\n", lines.subList(first, Math.min(first + 6, lines.size()))));
-        return pages;
+        return menu;
     }
 
     public void show(Player player, String recordId) {
@@ -340,7 +283,7 @@ public final class PlotCommunityBoard {
             String kind = item.get("kind").getAsString();
             String status = item.get("status").getAsString();
             String subject = item.get("subject").getAsString().replace('\n', ' ');
-            send(player, NamedTextColor.GRAY, Message.PLOT_BOARD_ITEM,
+            send(player, NamedTextColor.WHITE, Message.PLOT_BOARD_ITEM,
                     t(player, kind.equals("objection") ? Message.PLOT_BOARD_KIND_OBJECTION : Message.PLOT_BOARD_KIND_NOTICE),
                     item.get("id").getAsString().substring(0, 8),
                     t(player, boardStatus(status)),
@@ -356,7 +299,7 @@ public final class PlotCommunityBoard {
                         ? Message.PLOT_BOARD_KIND_OBJECTION : Message.PLOT_BOARD_KIND_NOTICE),
                 id.substring(0, 8), t(player, boardStatus(item.get("status").getAsString())),
                 item.get("subject").getAsString());
-        send(player, NamedTextColor.GRAY, Message.PLOT_BOARD_DETAIL,
+        send(player, NamedTextColor.WHITE, Message.PLOT_BOARD_DETAIL,
                 item.get("authorName").getAsString(), item.get("world").getAsString(),
                 item.get("x").getAsInt(), item.get("y").getAsInt(), item.get("z").getAsInt(),
                 boardDescription(player, item));
@@ -366,17 +309,12 @@ public final class PlotCommunityBoard {
     }
 
     private void fetchBoardDetail(Player player, String id) {
-        fetchBoardDetail(player, id, false);
-    }
-
-    private void fetchBoardDetail(Player player, String id, boolean inMenu) {
         JsonObject record = cachedBoardRecord(id);
         if (record == null) {
             send(player, NamedTextColor.RED, Message.PLOT_BOARD_RECORD_INVALID);
             return;
         }
-        if (inMenu) openBoardEntry(player, record);
-        else showBoardEntry(player, record);
+        showBoardEntry(player, record);
     }
 
     private static Message boardStatus(String status) {
@@ -566,20 +504,12 @@ public final class PlotCommunityBoard {
         throw new PlotProblem(Message.PLOT_BOARD_RECORD_INVALID);
     }
 
-    private boolean boardAuthoredBy(String id, UUID playerId) {
-        try { return boardStore.isAuthor(id, playerId); }
-        catch (SQLException error) {
-            plugin.getLogger().log(Level.WARNING, "Could not check community board author", error);
-            return true;
-        }
-    }
-
     private static boolean fullBoardId(String id) {
         return id.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
     }
 
     private void writeBoard(Player player, String action, JsonObject payload) {
-        writeBoard(player, action, payload, saved -> { });
+        writeBoard(player, action, payload, _ -> { });
     }
 
     private void writeBoard(Player player, String action, JsonObject payload,
@@ -626,12 +556,10 @@ public final class PlotCommunityBoard {
     private void textInput(Player player, Message title, Message label, String initial,
                            int maximumLength, boolean multiline,
                            BiConsumer<Player, String> submit) {
-        MenuDialogs.openTextInput(plugin, player,
-                Component.text(t(player, title), NamedTextColor.GOLD),
-                Component.text(t(player, label), NamedTextColor.GRAY),
-                initial, maximumLength, multiline,
-                Component.text(t(player, Message.PLOT_MENU_SUBMIT), NamedTextColor.GREEN),
-                Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GRAY), submit);
+        FloatingMenus.input(player, MenuInputForm.builder(Component.text(t(player, title), NamedTextColor.GOLD))
+                .field(MenuInputForm.Field.text("value", Component.text(t(player, label), NamedTextColor.WHITE), initial, maximumLength).multiline(multiline))
+                .cancel(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE))
+                .submit(Component.text(t(player, Message.PLOT_MENU_SUBMIT), NamedTextColor.GREEN), (responder, inputValues) -> submit.accept(responder, inputValues.text("value").strip())).build());
     }
 
     private String t(Player player, Message message, Object... args) {

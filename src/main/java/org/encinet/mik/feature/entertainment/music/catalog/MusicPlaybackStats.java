@@ -5,7 +5,7 @@ import java.time.Instant;
 /** Read-only server-wide playback statistics used by ranking and cache policy. */
 public interface MusicPlaybackStats {
 
-    MusicPlaybackStats EMPTY = trackId -> TrackStats.EMPTY;
+    MusicPlaybackStats EMPTY = _ -> TrackStats.EMPTY;
 
     TrackStats stats(String trackId);
 

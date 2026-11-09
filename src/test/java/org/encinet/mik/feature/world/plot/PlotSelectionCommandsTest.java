@@ -11,6 +11,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlotSelectionCommandsTest {
+    @Test void coordinateFieldsRejectBlankInputAndKeepSignedIntegerCoordinates() {
+        UUID world = UUID.randomUUID();
+        assertEquals(new PlotPosition(world, -4, -64, 12), PlotSelectionCommands.parseCoordinates("-4,-64,+12", world));
+        for (String input : List.of("", " ", "1,2", "1,2,3,4", "1,32000000000,3"))
+            assertThrows(PlotProblem.class, () -> PlotSelectionCommands.parseCoordinates(input, world));
+    }
     private final UUID world = UUID.randomUUID();
     private final PlotPosition current = new PlotPosition(world, -1, 65, 3);
 

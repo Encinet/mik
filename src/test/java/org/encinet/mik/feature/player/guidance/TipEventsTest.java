@@ -64,7 +64,7 @@ class TipEventsTest {
         AtomicInteger checks = new AtomicInteger();
         Tip<?> tip = scope.define("chat", Message.HOME_TIP_CREATE_MM)
                 .on(chatTrigger().filter(event -> plain(event.message()).contains("home")))
-                .when(viewer -> { checks.incrementAndGet(); return true; }).build();
+                .when(_ -> { checks.incrementAndGet(); return true; }).build();
         events.register(this, tip);
 
         CompletableFuture.runAsync(() -> handlers.fire(TipTestScope.chatEvent(player, "how do I set a home?"))).join();
@@ -81,7 +81,7 @@ class TipEventsTest {
     void aTeleportCompletionCallbackCanMakeTheScenarioRelevantAfterDispatch() {
         AtomicBoolean historyReady = new AtomicBoolean();
         events.register(this, scope.define("return", Message.BACK_TIP_UNDO_MM).on(TipTriggers.teleport(0.1))
-                .when(viewer -> historyReady.get()).build());
+                .when(_ -> historyReady.get()).build());
         PlayerTeleportEvent teleport = teleport();
         handlers.fire(teleport);
         position.set(teleport.getTo());
@@ -152,7 +152,7 @@ class TipEventsTest {
         AtomicBoolean permitted = new AtomicBoolean(false);
         var rule = scope.define("density", Message.HOME_TIP_CREATE_MM)
                 .on(TipTriggers.chatMentions(Pattern.compile("home")))
-                .when(viewer -> permitted.get()).build();
+                .when(_ -> permitted.get()).build();
         events.register(this, rule);
         handlers.fire(TipTestScope.chatEvent(player, "home"));
         flush();
@@ -204,7 +204,7 @@ class TipEventsTest {
     @Test
     void matcherFailuresDoNotBlockIndependentDefinitions() {
         events.register(this, scope.define("matcher", Message.BACK_TIP_RETURN_MM)
-                .on(chatTrigger().filter(event -> { throw new IllegalStateException("bad text matcher"); })).build());
+                .on(chatTrigger().filter(_ -> { throw new IllegalStateException("bad text matcher"); })).build());
         events.register(this, scope.define("useful", Message.HOME_TIP_CREATE_MM).on(chatTrigger()).build());
         handlers.fire(TipTestScope.chatEvent(player, "home"));
         flush();
@@ -220,7 +220,7 @@ class TipEventsTest {
                 .filter(event -> event.getBlock().getType() == Material.DIAMOND_ORE);
         events.register(this, scope.define("ore", Message.HOME_TIP_CREATE_MM).on(ores).build());
         events.register(this, scope.define("no-recipient", Message.BACK_TIP_RETURN_MM)
-                .on(TipTrigger.event(BlockBreakEvent.class, event -> null)).build());
+                .on(TipTrigger.event(BlockBreakEvent.class, _ -> null)).build());
 
         handlers.fire(new BlockBreakEvent(block(Material.STONE), player));
         assertTrue(mainTasks.isEmpty());
@@ -247,7 +247,7 @@ class TipEventsTest {
                     captures.incrementAndGet();
                     return plain(event.message());
                 })
-                .resolve((viewer, text, language) -> java.util.Optional.of(new TipContent("message", Component.text(text))))
+                .resolve((_, text, _) -> java.util.Optional.of(new TipContent("message", Component.text(text))))
                 .build();
         events.register(this, tip);
         AsyncChatEvent event = TipTestScope.chatEvent(player, "original context");
@@ -280,9 +280,9 @@ class TipEventsTest {
     @Test
     void equallyLikelyTriggersChooseTheLatestContextAndPublishOnlyOnce() {
         events.register(this, scope.<String>define("latest-context")
-                .on(chatTrigger(), event -> "chat")
-                .on(TipTrigger.event(PlayerJoinEvent.class), event -> "join")
-                .resolve((viewer, context, language) -> java.util.Optional.of(new TipContent("context", Component.text(context))))
+                .on(chatTrigger(), _ -> "chat")
+                .on(TipTrigger.event(PlayerJoinEvent.class), _ -> "join")
+                .resolve((_, context, _) -> java.util.Optional.of(new TipContent("context", Component.text(context))))
                 .build());
         handlers.fire(TipTestScope.chatEvent(player, "home"));
         handlers.fire(new PlayerJoinEvent(player, Component.empty()));
@@ -295,9 +295,9 @@ class TipEventsTest {
     @Test
     void verificationAndContextFailuresAreIsolatedFromOtherTips() {
         events.register(this, scope.define("bad-verification", Message.BACK_TIP_RETURN_MM)
-                .on(chatTrigger().verify(event -> { throw new IllegalStateException("verify"); })).build());
+                .on(chatTrigger().verify(_ -> { throw new IllegalStateException("verify"); })).build());
         events.register(this, scope.define("bad-context", Message.BACK_TIP_UNDO_MM)
-                .on(chatTrigger(), event -> { throw new IllegalStateException("context"); }).build());
+                .on(chatTrigger(), _ -> { throw new IllegalStateException("context"); }).build());
         events.register(this, scope.define("working", Message.HOME_TIP_CREATE_MM).on(chatTrigger()).build());
         handlers.fire(TipTestScope.chatEvent(player, "home"));
         flush();
@@ -333,7 +333,7 @@ class TipEventsTest {
 
     private Block block(Material material) {
         return (Block) Proxy.newProxyInstance(Block.class.getClassLoader(), new Class<?>[]{Block.class},
-                (proxy, method, args) -> {
+                (_, method, _) -> {
                     assertSame(mainThread, Thread.currentThread());
                     if (method.getName().equals("getType")) return material;
                     throw new AssertionError(method.getName());
@@ -356,7 +356,7 @@ class TipEventsTest {
 
     private Player player() {
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
-                (proxy, method, args) -> {
+                (_, method, _) -> {
                     assertSame(mainThread, Thread.currentThread(), "Bukkit player state must stay on the main thread");
                     return switch (method.getName()) {
                         case "getUniqueId" -> id;

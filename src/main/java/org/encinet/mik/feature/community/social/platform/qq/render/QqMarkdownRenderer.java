@@ -44,7 +44,7 @@ public final class QqMarkdownRenderer {
                                 .append(escapeMultiline(list.items().get(index)));
                     }
                 }
-                case SocialDocument.Image ignored -> {
+                case SocialDocument.Image _ -> {
                     // Native media is uploaded by QqReplyChannel.
                 }
             }

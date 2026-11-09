@@ -97,7 +97,7 @@ final class TipScheduler {
     boolean offer(Object owner, UUID player, Tip.Policy definition, long now, double chance,
                boolean adaptive, int occurrences, Duration delay, Function<Language, Optional<TipContent>> content) {
         if (adaptive && chance > 0) {
-            TipState state = states.computeIfAbsent(player, ignored -> new TipState());
+            TipState state = states.computeIfAbsent(player, _ -> new TipState());
             TipState.Entry history = state.history.getOrDefault(definition.id(), TipState.Entry.empty());
             chance *= history.probability(now, occurrences);
             state.history.put(definition.id(), history.matched(now, occurrences));
@@ -105,7 +105,7 @@ final class TipScheduler {
         }
         chance = audience.apply(player).chance(chance);
         if (chance == 0 || chance < 1 && random.getAsDouble() >= chance) return false;
-        Map<String, Pending> offers = pending.computeIfAbsent(player, ignored -> new LinkedHashMap<>());
+        Map<String, Pending> offers = pending.computeIfAbsent(player, _ -> new LinkedHashMap<>());
         offers.values().removeIf(it -> now >= it.expiresAt);
         Pending previous = offers.get(definition.id());
         if (previous != null && previous.owner != owner) {
@@ -235,11 +235,11 @@ final class TipScheduler {
     }
 
     void delivered(UUID player, List<Delivery> batch, long now) {
-        TipState state = states.computeIfAbsent(player, ignored -> new TipState());
+        TipState state = states.computeIfAbsent(player, _ -> new TipState());
         state.lastSentAt = now;
         for (Delivery delivery : batch) {
             if (!delivery.definition.remembersHistory()) continue;
-            state.history.compute(delivery.definition.id(), (id, previous) ->
+            state.history.compute(delivery.definition.id(), (_, previous) ->
                     (previous == null ? TipState.Entry.empty() : previous).delivered(delivery.situationKey, now));
             dirty.add(player);
         }

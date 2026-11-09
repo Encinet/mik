@@ -83,6 +83,23 @@ class AnnouncementCatalogTest {
                 .get(1).getAsJsonObject().get("content").getAsString());
     }
 
+    @Test
+    void unchangedReloadRetainsItsRevisionButEditingContentAtTheSameTimestampReplacesIt() throws IOException {
+        Path file = directory.resolve("announcements.txt");
+        Files.writeString(file, dateLine() + "\nFirst", StandardCharsets.UTF_8);
+        var catalog = new AnnouncementCatalog(file, Logger.getLogger("AnnouncementCatalogTest"));
+        var first = catalog.reload();
+        assertSame(first, catalog.reload());
+
+        Files.writeString(file, dateLine() + "\nCorrected", StandardCharsets.UTF_8);
+        var corrected = catalog.reload();
+        org.junit.jupiter.api.Assertions.assertNotEquals(first, corrected);
+        assertEquals(first.announcements().getFirst().timestamp(), corrected.announcements().getFirst().timestamp());
+        assertEquals("Corrected", corrected.announcements().getFirst().content());
+        assertEquals("First", first.announcements().getFirst().content(), "published revisions stay immutable");
+        assertSame(corrected, catalog.reload());
+    }
+
     private static String dateLine() {
         return NOW.atZone(ZoneId.systemDefault()).format(FILE_DATE);
     }

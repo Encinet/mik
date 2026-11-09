@@ -2,15 +2,9 @@ package org.encinet.mik.feature.world.plot;
 
 import org.encinet.mik.shared.i18n.Message;
 
-import java.util.ArrayList;
-import java.util.List;
-
 final class PlotNoticeText {
     static final int MAX_LENGTH = 4096;
-    static final int MAX_INPUT_LENGTH = MAX_LENGTH * 2;
     static final int PREVIEW_LENGTH = 96;
-    static final int PAGE_LENGTH = 240;
-    static final int PAGE_LINES = 8;
 
     private PlotNoticeText() { }
 
@@ -31,25 +25,4 @@ final class PlotNoticeText {
         return compact.substring(0, compact.offsetByCodePoints(0, PREVIEW_LENGTH - 1)) + "…";
     }
 
-    static List<String> pages(String text) {
-        if (text.isEmpty()) return List.of("");
-        List<String> pages = new ArrayList<>();
-        int start = 0;
-        int offset = 0;
-        int characters = 0;
-        int lines = 1;
-        while (offset < text.length()) {
-            int character = text.codePointAt(offset);
-            offset += Character.charCount(character);
-            characters++;
-            if (character == '\n') lines++;
-            if (characters == PAGE_LENGTH || lines == PAGE_LINES || offset == text.length()) {
-                pages.add(text.substring(start, offset));
-                start = offset;
-                characters = 0;
-                lines = 1;
-            }
-        }
-        return List.copyOf(pages);
-    }
 }

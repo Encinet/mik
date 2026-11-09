@@ -41,7 +41,7 @@ final class QqReplyChannel implements SocialReplyChannel {
                         embedded.base64Data(), caption);
             };
             return mediaReply
-                    .exceptionallyCompose(ignored -> api.replyMarkdown(
+                    .exceptionallyCompose(_ -> api.replyMarkdown(
                             event.groupOpenId(), event.messageId(), 1,
                             QqMarkdownRenderer.render(document, maximumLength)));
         }

@@ -94,7 +94,7 @@ public final class TrashModule implements Listener {
     void open(Player player) {
         UUID playerId = player.getUniqueId();
         Session session = sessions.computeIfAbsent(playerId,
-                ignored -> new Session(new TrashInventory(player, languageService)));
+                _ -> new Session(new TrashInventory(player, languageService)));
         cancelCleanup(session);
         InventoryView view = player.openInventory(session.menu.getInventory());
         if (view != null && view.getTopInventory() == session.menu.getInventory()) {
@@ -113,11 +113,11 @@ public final class TrashModule implements Listener {
         Session session = session(event.getWhoClicked(), event.getInventory());
         if (session == null) return;
         int slot = event.getRawSlot();
-        if (slot == TrashInventory.CLEAR_SLOT || slot == TrashInventory.SORT_SLOT) {
+        if (TrashInventory.toolbarSlot(slot)) {
             event.setCancelled(true);
             if (event.isLeftClick() || event.isRightClick()) {
                 if (slot == TrashInventory.CLEAR_SLOT) session.menu.clearStorage();
-                else session.menu.sortStorage();
+                else if (slot == TrashInventory.SORT_SLOT) session.menu.sortStorage();
             }
         } else if (event.getAction() == InventoryAction.COLLECT_TO_CURSOR
                 && session.menu.matchesButton(event.getCursor())) {
@@ -127,9 +127,9 @@ public final class TrashModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDrag(InventoryDragEvent event) {
-        if (session(event.getWhoClicked(), event.getInventory()) == null) return;
-        if (event.getRawSlots().contains(TrashInventory.SORT_SLOT)
-                || event.getRawSlots().contains(TrashInventory.CLEAR_SLOT)) event.setCancelled(true);
+        Session session = session(event.getWhoClicked(), event.getInventory());
+        if (session == null) return;
+        if (event.getRawSlots().stream().anyMatch(TrashInventory::toolbarSlot)) event.setCancelled(true);
     }
 
     @EventHandler
@@ -147,7 +147,7 @@ public final class TrashModule implements Listener {
     }
 
     private boolean frequentDrops(PlayerDropItemEvent event) {
-        return recentDrops.computeIfAbsent(event.getPlayer().getUniqueId(), ignored -> new DropWindow())
+        return recentDrops.computeIfAbsent(event.getPlayer().getUniqueId(), _ -> new DropWindow())
                 .record(System.nanoTime(), event.getItemDrop().getItemStack().getAmount());
     }
 

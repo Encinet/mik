@@ -98,7 +98,7 @@ class PlotFaweProcessorTest {
 
             PlotFaweProcessor processor = new PlotFaweProcessor(registry, world, visitor, false, false);
             Plot plot = registry.all().getFirst();
-            registry.put(new Plot(plot.id(), world, owner, plot.name(), false, 0, plot.cells(),
+            registry.put(new Plot(plot.id(), world, owner, plot.name(), 0, plot.cells(),
                     Map.of(visitor, Plot.Role.COLLABORATOR), Map.of(), null));
             CharSetBlocks set = edits();
             processor.processSet(chunk(), null, set);
@@ -126,12 +126,12 @@ class PlotFaweProcessorTest {
     }
 
     @Test
-    void fallbackGuardsVectorIntegerAndBulkWritesWithoutDelegatingAroundProtection() throws Exception {
+    void fallbackGuardsIntegerAndBulkWritesWithoutDelegatingAroundProtection() throws Exception {
         try (PlotRepository store = store()) {
             PlotRegistry registry = registry(store, Map.of(), Map.of());
             Set<BlockVector3> writes = new java.util.HashSet<>();
             Extent parent = (Extent) Proxy.newProxyInstance(Extent.class.getClassLoader(),
-                    new Class<?>[]{Extent.class}, (proxy, method, args) -> {
+                    new Class<?>[]{Extent.class}, (_, method, args) -> {
                         if (Set.of("setBlock", "setBiome", "tile").contains(method.getName())) {
                             assertEquals(4, args.length);
                             writes.add(BlockVector3.at((int) args[0], (int) args[1], (int) args[2]));
@@ -142,19 +142,19 @@ class PlotFaweProcessorTest {
             Extent guard = new PlotFaweProcessor(registry, world, visitor, false, false).construct(parent);
             BlockVector3 inside = BlockVector3.at(-13, -60, 37);
             BlockVector3 outside = BlockVector3.at(-12, -60, 37);
-            assertFalse(guard.setBlock(inside, null));
+            assertFalse(guard.setBlock(inside.x(), inside.y(), inside.z(), null));
             assertFalse(guard.setBlock(-13, -60, 37, null));
             assertFalse(guard.tile(-13, -60, 37, null));
             assertFalse(guard.setBiome(inside, biome));
             assertFalse(guard.setBiome(-13, -60, 37, biome));
             assertTrue(writes.isEmpty());
-            assertTrue(guard.setBlock(outside, null));
+            assertTrue(guard.setBlock(outside.x(), outside.y(), outside.z(), null));
             assertTrue(guard.setBiome(outside, biome));
             assertTrue(guard.tile(-12, -60, 37, null));
             writes.clear();
             BlockStateHolder<?> block = (BlockStateHolder<?>) Proxy.newProxyInstance(
                     BlockStateHolder.class.getClassLoader(), new Class<?>[]{BlockStateHolder.class},
-                    (proxy, method, args) -> { throw new AssertionError(method.getName()); });
+                    (_, method, _) -> { throw new AssertionError(method.getName()); });
             assertEquals(1, guard.setBlocks((Region) new CuboidRegion(inside, outside), block));
             assertEquals(Set.of(outside), writes);
         }
@@ -169,7 +169,7 @@ class PlotFaweProcessorTest {
     private PlotRegistry registry(PlotRepository store, Map<UUID, Plot.Role> members, Map<String, Boolean> flags)
             throws Exception {
         PlotRegistry registry = new PlotRegistry(store);
-        registry.put(new Plot(UUID.randomUUID(), world, owner, "Protected", false, 0,
+        registry.put(new Plot(UUID.randomUUID(), world, owner, "Protected", 0,
                 Set.of(PlotGeometry.Cell.at(-13, -60, 37)), members, flags, null));
         return registry;
     }
@@ -201,7 +201,7 @@ class PlotFaweProcessorTest {
 
     private static IChunk chunk() {
         return (IChunk) Proxy.newProxyInstance(IChunk.class.getClassLoader(), new Class<?>[]{IChunk.class},
-                (proxy, method, args) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getX" -> -1;
                     case "getZ" -> 2;
                     default -> throw new AssertionError(method.getName());

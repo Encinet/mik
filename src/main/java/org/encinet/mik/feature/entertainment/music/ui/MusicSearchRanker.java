@@ -42,7 +42,7 @@ final class MusicSearchRanker {
             if (track == null) {
                 continue;
             }
-            sources.computeIfAbsent(sourceKey(track), ignored -> new SourceQueue())
+            sources.computeIfAbsent(sourceKey(track), _ -> new SourceQueue())
                     .add(new RankedTrack(track, match(track, query, terms)));
         }
 

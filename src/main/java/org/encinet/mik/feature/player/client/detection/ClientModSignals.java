@@ -33,7 +33,7 @@ final class ClientModSignals {
                 while (start < channels.length()) {
                     int end = channels.indexOf('\0', start);
                     if (end < 0) end = channels.length();
-                    fromChannel(channels.substring(start, end)).ifPresent(detected::add);
+                    fromRegisteredChannel(channels.substring(start, end)).ifPresent(detected::add);
                     start = end + 1;
                 }
             } else {
@@ -45,7 +45,7 @@ final class ClientModSignals {
                 int count = readVarInt(buffer);
                 if (count < 0 || count > buffer.remaining()) return Set.of();
                 for (int index = 0; index < count; index++) {
-                    fromChannel(readString(buffer)).ifPresent(detected::add);
+                    fromRegisteredChannel(readString(buffer)).ifPresent(detected::add);
                 }
                 if (buffer.hasRemaining()) return Set.of();
             }
@@ -78,12 +78,20 @@ final class ClientModSignals {
         return StandardCharsets.UTF_8.newDecoder().decode(buffer).toString();
     }
 
+    static Optional<ClientMod> fromRegisteredChannel(String channel) {
+        // Legacy Premium is clientbound: its receiver registration is positive evidence.
+        if (channel.equals("dreamdisplays:premium")) return Optional.of(ClientMod.DREAM_DISPLAYS);
+        return fromChannel(channel);
+    }
+
     static Optional<ClientMod> fromChannel(String channel) {
         if (channel.length() > 256) return Optional.empty();
         int colon = channel.indexOf(':');
         if (colon <= 0 || colon == channel.length() - 1) return Optional.empty();
         ClientMod candidate = switch (channel.substring(0, colon)) {
             case "axiom" -> ClientMod.AXIOM;
+            // The proxy channel is backend-to-proxy traffic, not evidence of a client mod.
+            case "dreamdisplays" -> channel.equals("dreamdisplays:v2") ? ClientMod.DREAM_DISPLAYS : null;
             // Voxy itself is silent; these VoxyServer channels advertise the compatible LOD client.
             case "voxyserver" -> switch (channel) {
                 case "voxyserver:lod_ready", "voxyserver:lod_preferences", "voxyserver:lod_server_settings",

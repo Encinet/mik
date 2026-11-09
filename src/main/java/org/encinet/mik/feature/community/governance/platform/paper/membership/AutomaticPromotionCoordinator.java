@@ -82,7 +82,7 @@ public final class AutomaticPromotionCoordinator {
                 return;
             }
             roleManager.promoteMember(candidate.playerId())
-                    .whenComplete((ignored, error) -> onMain(() -> {
+                    .whenComplete((_, error) -> onMain(() -> {
                         inFlight.remove(candidate.playerId());
                         if (error != null) {
                             plugin.getLogger().log(Level.SEVERE,

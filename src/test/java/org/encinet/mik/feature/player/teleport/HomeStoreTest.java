@@ -1,18 +1,14 @@
 package org.encinet.mik.feature.player.teleport;
 
-import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Locale;
 import java.util.UUID;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,36 +17,16 @@ class HomeStoreTest {
     @TempDir Path directory;
 
     @Test
-    void legacyIconsAreRejectedBeforeAnyServerConversion() {
-        var legacyMaterials = Arrays.stream(Material.values()).filter(Material::isLegacy).toList();
-        assertFalse(legacyMaterials.isEmpty());
-
-        // No Bukkit server is installed: any attempt to convert a legacy material fails.
-        for (Material material : legacyMaterials) {
-            assertFalse(HomeStore.isValidIcon(material), material.name());
-            assertNull(HomeStore.icon(material.name().toLowerCase(Locale.ROOT)), material.name());
-        }
-    }
-
-    @Test
-    void missingUnknownAndAirIconsAreRejected() {
-        assertFalse(HomeStore.isValidIcon(null));
-        assertFalse(HomeStore.isValidIcon(Material.AIR));
-        assertNull(HomeStore.icon("not_a_material"));
-        assertNull(HomeStore.icon("air"));
-    }
-
-    @Test
     void closeFlushesTheLastSnapshotAfterConsecutiveChanges() {
         Path file = directory.resolve("homes.yml");
         UUID playerId = UUID.randomUUID();
         try (HomeStore store = new HomeStore(file, Logger.getLogger("HomeStoreTest"))) {
             assertEquals(0, store.load());
             for (int index = 0; index < 40; index++) {
-                store.put(playerId, "家", new HomeStore.Entry("world:" + index, null));
+                store.put(playerId, "家", new HomeStore.Entry("world:" + index));
             }
             store.put(playerId, "矿洞", new HomeStore.Entry(
-                    "world:128.5,64.0,-200.3,90.0,0.0", null));
+                    "world:128.5,64.0,-200.3,90.0,0.0"));
             assertTrue(store.remove(playerId, "家"));
         }
 
@@ -58,7 +34,7 @@ class HomeStoreTest {
             assertEquals(1, reloaded.load());
             assertNull(reloaded.get(playerId, "家"));
             assertEquals(new HomeStore.Entry(
-                            "world:128.5,64.0,-200.3,90.0,0.0", null),
+                            "world:128.5,64.0,-200.3,90.0,0.0"),
                     reloaded.get(playerId, "矿洞"));
         }
     }
@@ -78,7 +54,7 @@ class HomeStoreTest {
             assertEquals(2, store.load());
             assertEquals("world:1,2,3,4,5", store.get(playerId, "base").locationRaw());
             assertEquals("world:7,8,9,0,0", store.get(playerId, "old.dotted").locationRaw());
-            store.put(playerId, "base.one", new HomeStore.Entry("world:5,4,3,2,1", null));
+            store.put(playerId, "base.one", new HomeStore.Entry("world:5,4,3,2,1"));
         }
 
         try (HomeStore reloaded = new HomeStore(file, Logger.getLogger("HomeStoreTest"))) {
@@ -106,7 +82,7 @@ class HomeStoreTest {
         store.load();
         Files.delete(file);
         Files.createDirectory(file);
-        store.put(UUID.randomUUID(), "家", new HomeStore.Entry("world:1,2,3,4,5", null));
+        store.put(UUID.randomUUID(), "家", new HomeStore.Entry("world:1,2,3,4,5"));
 
         assertThrows(IllegalStateException.class, store::close);
     }

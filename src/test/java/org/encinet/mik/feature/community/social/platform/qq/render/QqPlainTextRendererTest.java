@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QqPlainTextRendererTest {
     @Test
     void rendersMediaCaptionWithoutRepeatingTheRemoteUrl() {
-        SocialDocument document = SocialDocument.of("👤 Minecraft", SocialDocument.Tone.INFO,
+        SocialDocument document = SocialDocument.of(TRUSTED, "👤 Minecraft", SocialDocument.Tone.INFO,
                 SocialDocument.image("Skin",
                         URI.create("https://textures.minecraft.net/texture/abc"), 64, 64),
                 SocialDocument.fields(
@@ -27,7 +28,7 @@ class QqPlainTextRendererTest {
 
     @Test
     void boundsMediaCaptionWithoutSplittingUnicode() {
-        SocialDocument document = SocialDocument.of("Profile", SocialDocument.Tone.INFO,
+        SocialDocument document = SocialDocument.of(TRUSTED, "Profile", SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("😀".repeat(100)));
 
         String text = QqPlainTextRenderer.render(document, 80);

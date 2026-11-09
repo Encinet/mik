@@ -1,13 +1,13 @@
 package org.encinet.mik.feature.community.governance;
 
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import org.encinet.mik.feature.player.security.PasswordAccess;
 import net.luckperms.api.LuckPerms;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.feature.player.security.PasswordAccess;
 import org.encinet.mik.feature.player.afk.AfkService;
 import org.encinet.mik.feature.server.ban.BanManager;
 import org.encinet.mik.feature.community.governance.delivery.DeliveryService;
@@ -15,7 +15,6 @@ import org.encinet.mik.feature.community.governance.membership.MembershipService
 import org.encinet.mik.feature.community.governance.persistence.sqlite.SqliteGovernanceRepository;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceTaskExecutor;
 import org.encinet.mik.feature.community.governance.platform.paper.GovernanceText;
-import org.encinet.mik.feature.community.governance.platform.paper.dashboard.GovernanceDashboardAccess;
 import org.encinet.mik.feature.community.governance.platform.paper.command.GovernanceCommandController;
 import org.encinet.mik.feature.community.governance.platform.paper.delivery.GovernanceDeliveryCoordinator;
 import org.encinet.mik.feature.community.governance.platform.paper.membership.AutomaticPromotionCoordinator;
@@ -23,9 +22,11 @@ import org.encinet.mik.feature.community.governance.platform.paper.membership.Ef
 import org.encinet.mik.feature.community.governance.platform.paper.membership.ModeratorTenureCoordinator;
 import org.encinet.mik.feature.community.governance.platform.paper.membership.MembershipRoleSnapshot;
 import org.encinet.mik.feature.community.governance.platform.paper.role.LuckPermsGovernanceRoles;
+import org.encinet.mik.feature.community.governance.platform.paper.role.LuckPermsStaffDirectory;
 import org.encinet.mik.feature.community.governance.removal.RemovalService;
 import org.encinet.mik.feature.community.governance.voting.VotingService;
 import org.encinet.mik.shared.i18n.LanguageService;
+import org.encinet.mik.shared.menu.MenuPanel;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.io.File;
@@ -48,11 +49,11 @@ public final class GovernanceModule {
     private final RemovalService removal;
     private final DeliveryService delivery;
     private final ExecutorService storageExecutor;
-    private GovernanceDashboardAccess dashboard;
 
     private GovernanceCommandController commands;
     private EffectivePlaytimeTracker playtime;
     private ModeratorTenureCoordinator moderatorTenure;
+    private LuckPermsStaffDirectory staff;
 
     public GovernanceModule(
             JavaPlugin plugin,
@@ -91,13 +92,16 @@ public final class GovernanceModule {
         }
 
         membershipRoles.start(luckPerms);
-        LuckPermsGovernanceRoles roleManager = new LuckPermsGovernanceRoles(luckPerms, passwords::roleChanged);
+        LuckPermsStaffDirectory publicStaff = new LuckPermsStaffDirectory(luckPerms, plugin);
+        staff = publicStaff;
+        LuckPermsGovernanceRoles roleManager = new LuckPermsGovernanceRoles(luckPerms, id -> {
+            publicStaff.invalidate();
+            passwords.roleChanged(id);
+        });
         GovernanceText text = new GovernanceText(languages);
         GovernanceDeliveryCoordinator coordinator = new GovernanceDeliveryCoordinator(
                 plugin, membership, voting, delivery, roleManager, banManager,
                 this::submitStorage, text);
-        dashboard = new GovernanceDashboardAccess(plugin, voting,
-                this::submitStorage, text, coordinator);
         AutomaticPromotionCoordinator promotions = new AutomaticPromotionCoordinator(
                 plugin, languages, membership, membershipRoles,
                 roleManager, this::submitStorage);
@@ -108,7 +112,7 @@ public final class GovernanceModule {
                 plugin, roleManager, voting, coordinator, this::submitStorage, text);
         commands = new GovernanceCommandController(
                 plugin, languages, membership, voting, removal, roleManager,
-                coordinator, this::submitStorage, passwords);
+                coordinator, this::submitStorage, passwords, staff, delivery);
 
         playtime.start();
         moderatorTenure.start();
@@ -135,9 +139,16 @@ public final class GovernanceModule {
         commands.openMenu(player);
     }
 
-    public GovernanceDashboardAccess dashboard() {
-        if (dashboard == null) throw new IllegalStateException("Governance dashboard is not enabled");
-        return dashboard;
+    public MenuPanel identityPanel(Player player, Runnable redraw) {
+        if (commands == null) {
+            throw new IllegalStateException("GovernanceModule must be enabled first");
+        }
+        return commands.identityPanel(player, redraw);
+    }
+
+    public MenuPanel activityPanel(Player player, Runnable redraw) {
+        if (commands == null) throw new IllegalStateException("GovernanceModule must be enabled first");
+        return commands.activityPanel(player, redraw);
     }
 
     public void disable() {
@@ -149,8 +160,11 @@ public final class GovernanceModule {
         playtime = null;
         if (activePlaytime != null) shutdown.attempt("effective playtime", activePlaytime::stop);
         shutdown.attempt("membership roles", membershipRoles::stop);
+        if (commands != null) shutdown.attempt("governance workspace", commands::close);
         commands = null;
-        dashboard = null;
+
+        if (staff != null) shutdown.attempt("staff directory", staff::close);
+        staff = null;
 
         shutdown.attempt("governance storage", () -> {
             storageExecutor.shutdown();

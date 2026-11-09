@@ -76,8 +76,8 @@ public final class OnlineAudioCache implements AutoCloseable {
     private final Path cacheDirectory;
     private final LxTrackResolver upstream;
     private final Consumer<String> warningLogger;
-    private final long maxAudioBytes;
-    private final long maxCacheBytes;
+    private volatile CacheLimits limits;
+    private volatile boolean initialized;
     private final Duration downloadTimeout;
     private final Duration downloadIdleTimeout;
     private final HttpClient httpClient;
@@ -146,20 +146,13 @@ public final class OnlineAudioCache implements AutoCloseable {
         this.warningLogger = warningLogger;
         this.trackCatalog = new CachedOnlineTrackCatalog(this.cacheDirectory, warningLogger);
         this.playbackStats = Objects.requireNonNull(playbackStats, "playbackStats");
-        this.maxAudioBytes = maxAudioBytes;
-        this.maxCacheBytes = maxCacheBytes;
+        this.limits = new CacheLimits(maxAudioBytes, maxCacheBytes);
         this.downloadTimeout = downloadTimeout;
         this.downloadIdleTimeout = downloadIdleTimeout;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(20))
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
-        if (maxAudioBytes < 1) {
-            throw new IllegalArgumentException("maxAudioBytes must be positive");
-        }
-        if (maxCacheBytes < maxAudioBytes) {
-            throw new IllegalArgumentException("maxCacheBytes must cover one audio file");
-        }
         if (downloadTimeout.isNegative() || downloadTimeout.isZero()) {
             throw new IllegalArgumentException("downloadTimeout must be positive");
         }
@@ -168,8 +161,29 @@ public final class OnlineAudioCache implements AutoCloseable {
             throw new IllegalArgumentException(
                     "downloadIdleTimeout must be positive and no greater than downloadTimeout");
         }
-        cleanupPartFiles();
-        loadCacheIndex();
+    }
+
+    /** Loads the disk index after startup settings are applied. Call on a background thread. */
+    public void initialize() {
+        initialize(limits.fileBytes(), limits.totalBytes());
+    }
+
+    /** Freezes the startup budget before inspecting, indexing, or deleting any cached file. */
+    public void initialize(long maximumFileBytes, long maximumTotalBytes) {
+        CacheLimits configured = new CacheLimits(maximumFileBytes, maximumTotalBytes);
+        synchronized (cacheLock) {
+            if (closed.get()) throw new IllegalStateException("Music audio cache is closed");
+            if (initialized) {
+                if (!limits.equals(configured)) {
+                    throw new IllegalStateException("Music cache settings require a restart");
+                }
+                return;
+            }
+            limits = configured;
+            cleanupPartFiles();
+            loadCacheIndex();
+            initialized = true;
+        }
     }
 
     /** Returns a memory-only snapshot of whether this exact online playback target is cached. */
@@ -192,8 +206,8 @@ public final class OnlineAudioCache implements AutoCloseable {
         String entryKey = cacheKey(target);
         try {
             return resolve(target).thenApplyAsync(
-                            ignored -> indexNow(entryKey, track), downloadExecutor)
-                    .exceptionally(ignored -> false);
+                            _ -> indexNow(entryKey, track), downloadExecutor)
+                    .exceptionally(_ -> false);
         } catch (RuntimeException exception) {
             return CompletableFuture.failedFuture(exception);
         }
@@ -221,6 +235,9 @@ public final class OnlineAudioCache implements AutoCloseable {
 
     private CompletableFuture<DownloadAccess> start(TrackTarget.Lx target) {
         Objects.requireNonNull(target, "target");
+        if (!initialized) {
+            return CompletableFuture.failedFuture(new IOException("Music audio cache is not initialized"));
+        }
         if (closed.get()) {
             return CompletableFuture.failedFuture(new IOException("Music audio cache is closed"));
         }
@@ -234,7 +251,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 return CompletableFuture.failedFuture(new IOException("Music audio cache is closed"));
             }
             if (clearInFlight != null) {
-                return clearInFlight.thenCompose(ignored -> start(target));
+                return clearInFlight.thenCompose(_ -> start(target));
             }
             if (deleteOnRelease.contains(entryKey)) {
                 return CompletableFuture.failedFuture(new IOException(
@@ -423,7 +440,7 @@ public final class OnlineAudioCache implements AutoCloseable {
 
     private DownloadOperation track(DownloadOperation operation) {
         activeDownloads.add(operation);
-        operation.terminated().whenComplete((ignored, error) -> activeDownloads.remove(operation));
+        operation.terminated().whenComplete((_, _) -> activeDownloads.remove(operation));
         return operation;
     }
 
@@ -442,7 +459,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 audio.close();
             }
         });
-        result.whenComplete((audio, error) -> {
+        result.whenComplete((_, error) -> {
             if (error != null) {
                 reservation.close();
             }
@@ -471,7 +488,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 audio.close();
             }
         });
-        result.whenComplete((audio, error) -> {
+        result.whenComplete((_, error) -> {
             if (error != null) {
                 reservation.close();
             }
@@ -491,6 +508,7 @@ public final class OnlineAudioCache implements AutoCloseable {
         Objects.requireNonNull(target, "target");
         String entryKey = cacheKey(target);
         synchronized (cacheLock) {
+            if (!initialized || closed.get()) return;
             DownloadOperation download = inFlight.remove(entryKey);
             if (download != null) {
                 download.cancel();
@@ -507,6 +525,9 @@ public final class OnlineAudioCache implements AutoCloseable {
         CompletableFuture<CacheStats> operation;
         List<DownloadOperation> downloads;
         synchronized (cacheLock) {
+            if (!initialized) {
+                return CompletableFuture.failedFuture(new IOException("Music audio cache is not initialized"));
+            }
             if (closed.get()) {
                 return CompletableFuture.failedFuture(new IOException("Music audio cache is closed"));
             }
@@ -523,7 +544,7 @@ public final class OnlineAudioCache implements AutoCloseable {
         CompletableFuture.allOf(downloads.stream()
                         .map(DownloadOperation::terminated)
                         .toArray(CompletableFuture[]::new))
-                .whenComplete((ignored, error) -> submitClear(operation, error));
+                .whenComplete((_, error) -> submitClear(operation, error));
         return operation;
     }
 
@@ -598,7 +619,16 @@ public final class OnlineAudioCache implements AutoCloseable {
     }
 
     public long maxCacheBytes() {
-        return maxCacheBytes;
+        return limits.totalBytes();
+    }
+
+    private record CacheLimits(long fileBytes, long totalBytes) {
+        private CacheLimits {
+            if (fileBytes < 1) throw new IllegalArgumentException("maxAudioBytes must be positive");
+            if (totalBytes < fileBytes) {
+                throw new IllegalArgumentException("maxCacheBytes must cover one audio file");
+            }
+        }
     }
 
     /** Returns whether a playback error originated from the remote HTTP audio stream. */
@@ -640,6 +670,7 @@ public final class OnlineAudioCache implements AutoCloseable {
     private Path download(String entryKey, LxTrackResolver.Resolution resolution,
                           Path destination, long expectedGeneration,
                           DownloadOperation owner) {
+        long maxAudioBytes = limits.fileBytes();
         if (closed.get()) {
             throw new java.util.concurrent.CompletionException(
                     new IOException("Music audio cache is closed"));
@@ -843,6 +874,7 @@ public final class OnlineAudioCache implements AutoCloseable {
     }
 
     private boolean isUsable(String entryKey, Path path) {
+        long maxAudioBytes = limits.fileBytes();
         try {
             long size = Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) ? Files.size(path) : 0;
             if (size > 0 && size <= maxAudioBytes) {
@@ -885,7 +917,7 @@ public final class OnlineAudioCache implements AutoCloseable {
         for (CacheEntry entry : entries) {
             usedBytes = addSaturated(usedBytes, entry.bytes());
         }
-        long available = maxCacheBytes - reservedDownloadBytes - incomingBytes;
+        long available = limits.totalBytes() - reservedDownloadBytes - incomingBytes;
         for (CacheEntry entry : entries) {
             if (usedBytes <= available) {
                 break;
@@ -1196,6 +1228,10 @@ public final class OnlineAudioCache implements AutoCloseable {
     }
 
     private void ensureOpen() {
+        if (!initialized) {
+            throw new java.util.concurrent.CompletionException(
+                    new IOException("Music audio cache is not initialized"));
+        }
         if (closed.get()) {
             throw new java.util.concurrent.CompletionException(
                     new IOException("Music audio cache is closed"));
@@ -1879,6 +1915,9 @@ public final class OnlineAudioCache implements AutoCloseable {
     }
 
     private static final class RemoteAudioException extends IOException {
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
         private final boolean transientFailure;
 
         private RemoteAudioException(String message, Throwable cause, boolean transientFailure) {
@@ -1892,6 +1931,9 @@ public final class OnlineAudioCache implements AutoCloseable {
     }
 
     private static final class LocalCacheException extends IOException {
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
         private LocalCacheException(String message, Throwable cause) {
             super(message, cause);
         }

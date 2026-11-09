@@ -8,7 +8,6 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.util.BoundingBox;
-import org.bukkit.util.Vector;
 import org.bukkit.util.VoxelShape;
 import org.joml.Quaterniond;
 import org.junit.jupiter.api.Test;
@@ -104,7 +103,7 @@ class VehicleWorldTest {
         int unloadedReads;
 
         TestWorld() {
-            WorldBorder border = proxy(WorldBorder.class, (name, arguments) -> switch (name) {
+            WorldBorder border = proxy(WorldBorder.class, (name, _) -> switch (name) {
                 case "getSize" -> 60000000.0;
                 case "getCenter" -> new Location(null, 0, 0, 0);
                 default -> null;
@@ -130,11 +129,11 @@ class VehicleWorldTest {
         }
         private Block block(Position position) {
             Cell cell = cells.getOrDefault(position, new Cell(Material.AIR, null));
-            VoxelShape shape = proxy(VoxelShape.class, (name, arguments) -> name.equals("getBoundingBoxes")
+            VoxelShape shape = proxy(VoxelShape.class, (name, _) -> name.equals("getBoundingBoxes")
                     ? cell.shape() == null ? List.of() : List.of(cell.shape()) : null);
-            BlockData data = cell.material() == Material.WATER ? proxy(Levelled.class, (name, arguments) -> name.equals("getLevel") ? 0 : null)
-                    : proxy(BlockData.class, (name, arguments) -> null);
-            return proxy(Block.class, (name, arguments) -> switch (name) {
+            BlockData data = cell.material() == Material.WATER ? proxy(Levelled.class, (name, _) -> name.equals("getLevel") ? 0 : null)
+                    : proxy(BlockData.class, (_, _) -> null);
+            return proxy(Block.class, (name, _) -> switch (name) {
                 case "getType" -> cell.material();
                 case "getCollisionShape" -> shape;
                 case "getBlockData" -> data;
@@ -144,7 +143,7 @@ class VehicleWorldTest {
         private interface Method { Object invoke(String name, Object[] arguments); }
         private static <Value> Value proxy(Class<Value> type, Method method) {
             return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                    (object, called, arguments) -> method.invoke(called.getName(), arguments)));
+                    (_, called, arguments) -> method.invoke(called.getName(), arguments)));
         }
     }
 }

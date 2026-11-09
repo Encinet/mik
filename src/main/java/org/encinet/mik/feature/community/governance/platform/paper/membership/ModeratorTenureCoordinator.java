@@ -78,7 +78,7 @@ public final class ModeratorTenureCoordinator {
                 OfflinePlayer player = Bukkit.getOfflinePlayer(playerId);
                 String name = player.getName() == null
                         ? playerId.toString() : player.getName();
-                long lastPlayed = player.getLastPlayed();
+                long lastPlayed = player.getLastLogin();
                 return new ModeratorPresence(playerId, name,
                         lastPlayed > 0 ? Instant.ofEpochMilli(lastPlayed) : Instant.EPOCH);
             }).toList();
@@ -91,7 +91,7 @@ public final class ModeratorTenureCoordinator {
 
     private void removeInactiveModerator(ModeratorPresence moderator) {
         roleManager.removeModerator(moderator.playerId())
-                .whenComplete((ignored, error) -> onMain(() -> {
+                .whenComplete((_, error) -> onMain(() -> {
                     if (error != null) {
                         plugin.getLogger().log(Level.SEVERE,
                                 "Could not auto-remove inactive moderator "

@@ -7,7 +7,7 @@ import java.util.Objects;
 /** Receives centralized screen lifecycle transitions. */
 @FunctionalInterface
 public interface FloatingMenuLifecycle {
-    FloatingMenuLifecycle NONE = (player, handle, previous, current, reason) -> { };
+    FloatingMenuLifecycle NONE = (_, _, _, _, _) -> { };
 
     /** {@code reason} is populated on the terminal {@link FloatingMenuState#CLOSED} transition. */
     void changed(Player player, FloatingMenuHandle handle,

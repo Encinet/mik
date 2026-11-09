@@ -31,17 +31,22 @@ class IronElevatorRouteSearchTest {
             }
             var source = world.block(0, 40, 0);
             var origin = world.origin(40);
-            Predicate<IronElevatorPlatform> fits = target -> IronElevatorLanding.on(target, origin,
-                    IronElevatorLanding.DEFAULT_SIZE, body -> false) != null;
-            var shaft = IronElevatorShaft.scan(source);
+            Predicate<IronElevatorShaft.Level> fits = target -> IronElevatorLanding.on(target, origin,
+                    IronElevatorLanding.DEFAULT_SIZE, _ -> false) != null;
+            var shaft = IronElevatorTestSupport.shaft(source);
             var query = new IronElevatorRouteSearch(source, List.of(new IronElevatorPlatform.Column(0, 0)), fits, null, null);
             finish(query);
-            for (int direction : List.of(-1, 1)) {
-                Location expected = IronElevatorFloors.destination(shaft, 40, direction, null,
-                        target -> fits.test(target) ? world.origin(target.height()) : null);
-                var actual = direction > 0 ? query.up() : query.down();
-                assertEquals(expected == null ? null : (int) expected.getY() - 1,
-                        actual == null ? null : actual.height());
+            for (double x : List.of(0.5, 0.25, 0.75)) {
+                origin.setX(x);
+                query.reevaluate(fits);
+                finish(query);
+                for (int direction : List.of(-1, 1)) {
+                    Location expected = IronElevatorTestSupport.expectedDestination(shaft, 40, direction, null,
+                            target -> fits.test(target) ? world.origin(target.height()) : null);
+                    var actual = direction > 0 ? query.up() : query.down();
+                    assertEquals(expected == null ? null : (int) expected.getY() - 1,
+                            actual == null ? null : actual.height());
+                }
             }
         }
     }
@@ -56,8 +61,8 @@ class IronElevatorRouteSearchTest {
         var second = new Location(world.world, 2.5, 21, 0.5);
         var query = new IronElevatorRouteSearch(world.block(0, 20, 0),
                 List.of(new IronElevatorPlatform.Column(0, 0), new IronElevatorPlatform.Column(2, 0)),
-                target -> IronElevatorLanding.on(target, first, IronElevatorLanding.DEFAULT_SIZE, body -> false) != null
-                        && IronElevatorLanding.on(target, second, IronElevatorLanding.DEFAULT_SIZE, body -> false) != null,
+                target -> IronElevatorLanding.on(target, first, IronElevatorLanding.DEFAULT_SIZE, _ -> false) != null
+                        && IronElevatorLanding.on(target, second, IronElevatorLanding.DEFAULT_SIZE, _ -> false) != null,
                 null, null);
         finish(query);
         assertNotNull(query.up());
@@ -71,7 +76,7 @@ class IronElevatorRouteSearchTest {
         world.iron(20);
         world.iron(24);
         var query = new IronElevatorRouteSearch(world.block(0, 20, 0),
-                List.of(new IronElevatorPlatform.Column(0, 0)), target -> true, null, null);
+                List.of(new IronElevatorPlatform.Column(0, 0)), _ -> true, null, null);
         int steps = 0;
         while (!query.ready(1)) {
             query.step(1);
@@ -88,19 +93,53 @@ class IronElevatorRouteSearchTest {
         world.iron(100);
         world.iron(300);
         var source = world.block(0, 100, 0);
-        var shaft = IronElevatorShaft.scan(source);
+        var shaft = IronElevatorTestSupport.shaft(source);
         int reads = world.blockReads;
         var query = new IronElevatorRouteSearch(source, List.of(new IronElevatorPlatform.Column(0, 0)),
-                target -> true, null, shaft);
+                _ -> true, null, shaft);
         finish(query);
         assertEquals(reads, world.blockReads);
         assertEquals(20, query.down().height());
         assertEquals(300, query.up().height());
         var exact = new IronElevatorRouteSearch(source, List.of(new IronElevatorPlatform.Column(0, 0)),
-                target -> true, 20, shaft);
+                _ -> true, 20, shaft);
         finish(exact);
         assertEquals(20, exact.up().height());
         assertNull(exact.down());
+    }
+
+    @Test
+    void rechecksRejectedCandidatesWithoutReadingTheirGeometryAgain() {
+        var world = new IronElevatorTestWorld();
+        for (int height : List.of(20, 40, 80)) world.iron(height);
+        var query = new IronElevatorRouteSearch(world.block(0, 40, 0),
+                List.of(new IronElevatorPlatform.Column(0, 0)), target -> target.height() > 40, null, null);
+        finish(query);
+        assertNull(query.down());
+        int reads = world.blockReads;
+
+        query.reevaluate(_ -> true);
+        finish(query);
+        assertEquals(20, query.down().height());
+        assertEquals(reads, world.blockReads, "changing landing rules must reuse discovered geometry");
+    }
+
+    @Test
+    void resumesScanningBeyondAnUnsafePreviousResultAndCanReturnToANearerCandidate() {
+        var world = new IronElevatorTestWorld();
+        for (int height : List.of(20, 40, 80)) world.iron(height);
+        var query = new IronElevatorRouteSearch(world.block(0, 20, 0),
+                List.of(new IronElevatorPlatform.Column(0, 0)), _ -> true, null, null);
+        finish(query);
+        assertEquals(40, query.up().height());
+        query.reevaluate(target -> target.height() == 80);
+        finish(query);
+        assertEquals(80, query.up().height());
+        int reads = world.blockReads;
+        query.reevaluate(_ -> true);
+        finish(query);
+        assertEquals(40, query.up().height());
+        assertEquals(reads, world.blockReads);
     }
 
     private static void iron(IronElevatorTestWorld world, int x, int y, int z) {

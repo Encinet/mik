@@ -171,16 +171,21 @@ class PlotPreflightCacheTest {
             store.open();
             var edits = new PlotEdits(new PlotRegistry(store));
             ArrayDeque<Runnable> tasks = new ArrayDeque<>();
-            try (var worker = new PlotPreviewCache(tasks::add); var preflight = new PlotPreflightCache(worker)) {
-                var draft = draft(cube(0, 3), 1);
-                preflight.request(player, world, null, 0, draft, edits);
-                Runnable forgotten = tasks.remove();
-                preflight.forget(player);
-                forgotten.run();
-                assertNull(preflight.request(player, world, null, 0, draft, edits));
-                preflight.close();
-                tasks.remove().run();
-                assertNull(preflight.request(player, world, null, 0, draft, edits));
+            try (var worker = new PlotPreviewCache(tasks::add)) {
+                var preflight = new PlotPreflightCache(worker);
+                try {
+                    var draft = draft(cube(0, 3), 1);
+                    preflight.request(player, world, null, 0, draft, edits);
+                    Runnable forgotten = tasks.remove();
+                    preflight.forget(player);
+                    forgotten.run();
+                    assertNull(preflight.request(player, world, null, 0, draft, edits));
+                    preflight.close();
+                    tasks.remove().run();
+                    assertNull(preflight.request(player, world, null, 0, draft, edits));
+                } finally {
+                    preflight.close();
+                }
             }
         }
     }

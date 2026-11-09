@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
 
 /** Lists online players and owns its complete response layout. */
@@ -80,9 +82,6 @@ public final class OnlinePlayersCommand implements SocialCommand<NoArguments, Se
     @Override
     public SocialDocument present(SocialCommandContext context, ServerSnapshot snapshot) {
         Language language = languageResolver.language(context);
-        List<String> playerNames = snapshot.players().stream()
-                .map(ServerSnapshot.PlayerSummary::name)
-                .toList();
         List<String> displayedPlayerNames = snapshot.players().stream()
                 .map(player -> player.name() + (player.afk() ? " (AFK)" : ""))
                 .toList();
@@ -95,12 +94,11 @@ public final class OnlinePlayersCommand implements SocialCommand<NoArguments, Se
                 displayedPlayerNames.isEmpty()
                         ? languages.t(language, Message.SOCIAL_QUERY_NO_PLAYERS)
                         : String.join(", ", displayedPlayerNames)));
-        SocialDocument document = new SocialDocument(
+        return new SocialDocument(
+                displayedPlayerNames.isEmpty() ? TRUSTED : REQUIRED,
                 TITLE_ICON + " " + languages.t(language, TITLE),
                 SocialDocument.Tone.INFO, List.of(new SocialDocument.Fields(fields)))
                 .localized(language);
-        return playerNames.isEmpty()
-                ? document : document.withUntrustedText(playerNames);
     }
 
     private String label(Language language, Message message) {

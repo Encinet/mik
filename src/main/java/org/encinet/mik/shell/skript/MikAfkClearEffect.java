@@ -11,7 +11,7 @@ import org.jetbrains.annotations.Nullable;
 final class MikAfkClearEffect extends Effect {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
+    private MikSkriptInput<Player> players;
     private boolean broadcast;
 
     MikAfkClearEffect(MikSkriptFacade facade) {
@@ -19,24 +19,23 @@ final class MikAfkClearEffect extends Effect {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
+        players = MikSkriptInput.of(expressions[0], Player.class);
         broadcast = !parseResult.hasTag("silent");
         return true;
     }
 
     @Override
     protected void execute(Event event) {
-        for (Player player : players.getArray(event)) {
+        for (Player player : players.values(event)) {
             facade.clearAfk(player, broadcast);
         }
     }
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return "clear MIK AFK state of " + players.toString(event, debug)
+        return "clear MIK AFK state of " + players.describe(event, debug)
                 + (broadcast ? "" : " silently");
     }
 }

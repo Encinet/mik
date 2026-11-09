@@ -66,7 +66,7 @@ public final class FloatingMenuFlow<S> {
     private void redrawNow() {
         if (handle != null && (handle.state() == FloatingMenuState.CLOSED
                 || handle.state() == FloatingMenuState.CLOSING)) return;
-        FloatingMenuDefinition next = render();
+        MenuScene next = render();
         if (handle == null) {
             handle = FloatingMenus.open(player, next);
         } else {
@@ -84,11 +84,16 @@ public final class FloatingMenuFlow<S> {
         FloatingMenus.execute(() -> { if (handle != null) handle.close(); });
     }
 
-    public FloatingMenuHandle openChild(FloatingMenuDefinition definition) {
+    public FloatingMenuHandle openChild(MenuScene definition) {
         if (handle == null || handle.state() == FloatingMenuState.CLOSED) {
             throw new IllegalStateException("Cannot open a child from a closed menu flow");
         }
         return handle.openChild(Objects.requireNonNull(definition, "definition"));
+    }
+
+    public void openPopover(MenuPopover definition) {
+        if (handle == null) throw new IllegalStateException("Cannot open a popover before its host");
+        handle.openPopover(Objects.requireNonNull(definition));
     }
 
     public void back() {
@@ -99,7 +104,7 @@ public final class FloatingMenuFlow<S> {
         FloatingMenus.execute(() -> { if (handle != null) handle.feedback(message, kind); });
     }
 
-    private FloatingMenuDefinition render() {
+    private MenuScene render() {
         if (rendering) throw new IllegalStateException("Menu renderer cannot update state while rendering");
         rendering = true;
         try {

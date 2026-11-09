@@ -30,7 +30,7 @@ class IronElevatorTravelGroupTest {
         Actor branch = actor(false, 3.5).leashedTo(player);
         var group = collect(player);
         assertNotNull(group);
-        Location destination = group.landing(platform(30));
+        Location destination = group.landing(IronElevatorShaft.Level.of(platform(30)));
         assertNotNull(destination);
         assertTrue(group.teleport(destination, message -> fail(message)));
         for (Actor actor : List.of(player, first, second, branch)) {
@@ -67,15 +67,13 @@ class IronElevatorTravelGroupTest {
         actor(false, 1.5).leashedTo(player);
         var group = collect(player);
         world.put(1, 31, 0, Material.STONE, Set.of());
-        assertNull(group.landing(platform(30)));
+        assertNull(group.landing(IronElevatorShaft.Level.of(platform(30))));
         world.iron(20); // A player-only floor must also be skipped.
-        var floors = new IronElevatorFloors();
-        assertNull(floors.destination(world.block(0, 10, 0), 1, null, player.location,
-                IronElevatorLanding.DEFAULT_SIZE, box -> false, target -> group.landing(target) != null));
+        var floors = new IronElevatorCatalog();
+        assertNull(IronElevatorTestSupport.destination(floors, world.block(0, 10, 0), 1, null, player.location, IronElevatorLanding.DEFAULT_SIZE, _ -> false, target -> group.landing(target) != null));
         for (int x = 0; x < 2; x++) world.put(x, 40, 0, Material.IRON_BLOCK, Set.of());
         floors.invalidate();
-        assertEquals(41, floors.destination(world.block(0, 10, 0), 1, null, player.location,
-                IronElevatorLanding.DEFAULT_SIZE, box -> false, target -> group.landing(target) != null).getY());
+        assertEquals(41, IronElevatorTestSupport.destination(floors, world.block(0, 10, 0), 1, null, player.location, IronElevatorLanding.DEFAULT_SIZE, _ -> false, target -> group.landing(target) != null).getY());
     }
 
     @Test
@@ -86,7 +84,7 @@ class IronElevatorTravelGroupTest {
         Actor last = actor(false, 2.5).leashedTo(first);
         last.cancel = true;
         var group = collect(player);
-        assertFalse(group.teleport(group.landing(platform(30)), message -> fail(message)));
+        assertFalse(group.teleport(group.landing(IronElevatorShaft.Level.of(platform(30))), message -> fail(message)));
         for (Actor actor : List.of(player, first, last)) {
             assertEquals(11, actor.location.getY());
             assertEquals(new Vector(0.1, 0, 0), actor.velocity);
@@ -104,7 +102,7 @@ class IronElevatorTravelGroupTest {
         animal.redirect = true;
         var group = collect(player);
         List<String> warnings = new ArrayList<>();
-        assertFalse(group.teleport(group.landing(platform(30)), warnings::add));
+        assertFalse(group.teleport(group.landing(IronElevatorShaft.Level.of(platform(30))), warnings::add));
         assertEquals(11, player.location.getY());
         assertFalse(warnings.isEmpty());
     }
@@ -117,7 +115,7 @@ class IronElevatorTravelGroupTest {
         Actor unrelated = actor(false, 2.5);
         animal.dropLeash = true;
         var group = collect(player);
-        assertTrue(group.teleport(group.landing(platform(30)), message -> fail(message)));
+        assertTrue(group.teleport(group.landing(IronElevatorShaft.Level.of(platform(30))), message -> fail(message)));
         assertSame(player.entity, animal.holder);
         assertEquals(11, unrelated.location.getY());
         assertEquals(0, unrelated.teleports);
@@ -127,7 +125,7 @@ class IronElevatorTravelGroupTest {
     void rejectsOversizedComponents() {
         floors(64);
         Actor player = actor(true, 0.5);
-        Actor animal = actor(false, 1.5).leashedTo(player);
+        actor(false, 1.5).leashedTo(player);
         for (int i = 0; i < 63; i++) actor(false, 0.5).leashedTo(player);
         assertNull(collect(player));
     }
@@ -142,8 +140,8 @@ class IronElevatorTravelGroupTest {
         assertEquals(world.block(0, 10, 0), IronElevatorTravelGroup.platformAt((Player) player.entity, player.location));
         var group = collect(player);
         assertNotNull(group);
-        assertEquals(32.5, group.landing(platform(30)).getY());
-        assertTrue(group.teleport(group.landing(platform(30)), message -> fail(message)));
+        assertEquals(32.5, group.landing(IronElevatorShaft.Level.of(platform(30))).getY());
+        assertTrue(group.teleport(group.landing(IronElevatorShaft.Level.of(platform(30))), message -> fail(message)));
         assertEquals(31, mount.location.getY());
         assertEquals(32.5, player.location.getY());
         assertSame(mount, player.vehicle);
@@ -161,7 +159,7 @@ class IronElevatorTravelGroupTest {
         Actor companion = actor(false, 0.5).mountedOn(bottom);
         var group = collect(player);
         assertNotNull(group);
-        assertTrue(group.teleport(group.landing(platform(30)), message -> fail(message)));
+        assertTrue(group.teleport(group.landing(IronElevatorShaft.Level.of(platform(30))), message -> fail(message)));
         assertEquals(34, player.location.getY());
         assertEquals(32.5, middle.location.getY());
         assertEquals(32.5, companion.location.getY());
@@ -177,7 +175,7 @@ class IronElevatorTravelGroupTest {
         Actor player = actor(true, 0.5).mountedOn(mount);
         var group = collect(player);
         world.put(0, 34, 0, Material.STONE, Set.of());
-        assertNull(group.landing(platform(30)));
+        assertNull(group.landing(IronElevatorShaft.Level.of(platform(30))));
         mount.location.setX(2.5);
         assertNull(collect(player));
     }
@@ -190,7 +188,7 @@ class IronElevatorTravelGroupTest {
         Actor animal = actor(false, 1.5).leashedTo(player);
         animal.cancel = true;
         var group = collect(player);
-        assertFalse(group.teleport(group.landing(platform(30)), message -> fail(message)));
+        assertFalse(group.teleport(group.landing(IronElevatorShaft.Level.of(platform(30))), message -> fail(message)));
         assertEquals(11, mount.location.getY());
         assertEquals(12.5, player.location.getY());
         assertSame(mount, player.vehicle);
@@ -203,7 +201,7 @@ class IronElevatorTravelGroupTest {
     }
 
     private IronElevatorPlatform platform(int y) {
-        return IronElevatorPlatform.resolve(world.block(0, y, 0));
+        return IronElevatorTestSupport.platform(world.block(0, y, 0));
     }
 
     private IronElevatorTravelGroup collect(Actor player) {

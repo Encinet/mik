@@ -21,6 +21,8 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
+import org.encinet.mik.shared.menu.ui.UiPalette;
+import org.encinet.mik.shared.menu.ui.UiColorRole;
 import org.encinet.mik.integration.axiom.AxiomGizmoService;
 
 import java.util.ArrayList;
@@ -43,7 +45,7 @@ final class MenuUsageDisplayController {
     private static final double DISPLAY_Y_OFFSET = 0.85D;
     private static final double DISPLAY_SYNC_RANGE = 64.0D;
     private static final double DISPLAY_SYNC_RANGE_SQUARED = DISPLAY_SYNC_RANGE * DISPLAY_SYNC_RANGE;
-    private static final int BACKGROUND_COLOR_ARGB = 0x60000000;
+    private static final int BACKGROUND_COLOR_ARGB = UiPalette.DEFAULT.argb(UiColorRole.STATUS);
     private static final int LINE_WIDTH = 180;
     private static final int TEXT_METADATA_INDEX = 23;
     private static final int LINE_WIDTH_METADATA_INDEX = 24;
@@ -68,7 +70,7 @@ final class MenuUsageDisplayController {
 
     void update(Player player, String screenId) {
         VirtualDisplay display = displays.computeIfAbsent(player.getUniqueId(),
-                ignored -> new VirtualDisplay(player.getWorld()));
+                _ -> new VirtualDisplay(player.getWorld()));
         syncDisplay(player, display, Usage.fromScreenId(screenId),
                 OnlineView.capture());
     }
@@ -92,7 +94,7 @@ final class MenuUsageDisplayController {
                 continue;
             }
             VirtualDisplay display = displays.computeIfAbsent(playerId,
-                    ignored -> new VirtualDisplay(subject.world));
+                    _ -> new VirtualDisplay(subject.world));
             syncDisplay(subject.player, display,
                     Usage.fromScreenId(activeScreens.get(playerId)), online);
         }
@@ -330,7 +332,7 @@ final class MenuUsageDisplayController {
             for (Player player : Bukkit.getOnlinePlayers()) {
                 ViewerSnapshot viewer = ViewerSnapshot.capture(player);
                 online.byId.put(player.getUniqueId(), viewer);
-                online.byWorld.computeIfAbsent(viewer.world, ignored -> new ArrayList<>()).add(viewer);
+                online.byWorld.computeIfAbsent(viewer.world, _ -> new ArrayList<>()).add(viewer);
             }
             return online;
         }

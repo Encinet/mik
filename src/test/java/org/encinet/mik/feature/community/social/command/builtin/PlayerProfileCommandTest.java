@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -77,7 +78,7 @@ class PlayerProfileCommandTest {
                         && field.value().equals(playerId.toString())));
         assertTrue(document.plainText().contains(Message.SOCIAL_PROFILE_PLAY_TIME_LABEL.name()));
         assertFalse(document.plainText().contains("QQ member"));
-        assertEquals("PlayerOne", document.untrustedPlainText());
+        assertEquals(REQUIRED, document.moderation());
     }
 
     @Test
@@ -172,7 +173,7 @@ class PlayerProfileCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/我的", false,
-                ignored -> CompletableFuture.completedFuture(null));
+                _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ"), message,
                 org.encinet.mik.feature.community.social.command.SocialCommandInput.nativeCommand(
                         "binding.profile", "", Map.of()),

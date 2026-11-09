@@ -1,4 +1,5 @@
 package org.encinet.mik.feature.player.security;
+
 import org.encinet.mik.shared.i18n.Message;
 
 /** Translate domain failures at the presentation boundary, keeping login recovery specific to login. */

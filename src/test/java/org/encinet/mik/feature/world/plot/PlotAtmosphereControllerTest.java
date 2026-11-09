@@ -20,7 +20,7 @@ class PlotAtmosphereControllerTest {
     void enteringAndLeavingRestoresOnlyTheOverriddenPlayerFields() {
         List<Call> calls = new ArrayList<>();
         Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[] {Player.class}, (proxy, method, args) -> {
+                new Class<?>[] {Player.class}, (_, method, args) -> {
                     calls.add(new Call(method.getName(), args == null ? List.of() : List.of(args)));
                     return switch (method.getName()) {
                         case "getPlayerTimeOffset" -> 90L;
@@ -56,7 +56,7 @@ class PlotAtmosphereControllerTest {
     @Test
     void unchangedAtmosphereReusesTheAppliedStateWithoutCallingPlayerApis() {
         Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[] {Player.class}, (proxy, method, arguments) -> {
+                new Class<?>[] {Player.class}, (_, method, _) -> {
                     throw new AssertionError("Unexpected player call: " + method.getName());
                 });
         var setting = new PlotAtmosphere(6000, PlotAtmosphere.Weather.CLEAR);
@@ -86,7 +86,7 @@ class PlotAtmosphereControllerTest {
     void forceStillReappliesUnchangedOverridesAndPreservesRestorationState() {
         List<Call> calls = new ArrayList<>();
         Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[] {Player.class}, (proxy, method, arguments) -> {
+                new Class<?>[] {Player.class}, (_, method, arguments) -> {
                     calls.add(new Call(method.getName(), arguments == null ? List.of() : List.of(arguments)));
                     return null;
                 });
@@ -104,7 +104,7 @@ class PlotAtmosphereControllerTest {
     void worldDefaultsAreResetAfterLeaving() {
         List<Call> calls = new ArrayList<>();
         Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[] {Player.class}, (proxy, method, args) -> {
+                new Class<?>[] {Player.class}, (_, method, args) -> {
                     calls.add(new Call(method.getName(), args == null ? List.of() : List.of(args)));
                     return switch (method.getName()) {
                         case "getPlayerTimeOffset" -> 0L;

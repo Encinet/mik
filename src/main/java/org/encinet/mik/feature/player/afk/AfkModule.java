@@ -907,7 +907,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             Language language = languageService.language(viewer);
             localizedMessages.computeIfAbsent(language,
-                            ignored -> enterMessage(language, player, customMessage, customMessagePresent))
+                            _ -> enterMessage(language, player, customMessage, customMessagePresent))
                     .ifPresent(viewer::sendMessage);
         }
     }
@@ -915,7 +915,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
     private void broadcastAutomaticEnterMessages(List<? extends Player> players) {
         Map<Language, List<Player>> viewersByLanguage = new EnumMap<>(Language.class);
         for (Player viewer : Bukkit.getOnlinePlayers()) {
-            viewersByLanguage.computeIfAbsent(languageService.language(viewer), ignored -> new ArrayList<>())
+            viewersByLanguage.computeIfAbsent(languageService.language(viewer), _ -> new ArrayList<>())
                     .add(viewer);
         }
 
@@ -948,7 +948,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         Map<Language, Optional<Component>> localizedMessages = new EnumMap<>(Language.class);
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             Language language = languageService.language(viewer);
-            localizedMessages.computeIfAbsent(language, ignored -> exitMessage(language, player))
+            localizedMessages.computeIfAbsent(language, _ -> exitMessage(language, player))
                     .ifPresent(viewer::sendMessage);
         }
     }

@@ -39,7 +39,6 @@ public record QqPlatformConfig(
 
     public static final String PLATFORM_ID = "qq";
     public static final String FILE_NAME = "social/qq.yml";
-    public static final String SAFETY_FILE_NAME = "social/blocked-keywords.txt";
     private static final String LEGACY_FILE_NAME = "qq-bot.yml";
     private static final String DEFAULT_API_BASE = "https://api.sgroup.qq.com";
     private static final String DEFAULT_ACCESS_TOKEN_URL =

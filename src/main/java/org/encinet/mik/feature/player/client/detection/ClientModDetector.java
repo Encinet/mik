@@ -65,12 +65,12 @@ public final class ClientModDetector implements ClientMods {
         if (current == null) return Optional.empty();
         Set<ClientMod> present = EnumSet.noneOf(ClientMod.class);
         for (String channel : player.getListeningPluginChannels()) {
-            ClientModSignals.fromChannel(channel).ifPresent(present::add);
+            ClientModSignals.fromRegisteredChannel(channel).ifPresent(present::add);
         }
         if (voiceClientPresent.test(player)) present.add(ClientMod.PLASMO_VOICE);
         synchronized (currentObservations) {
             if (observations != currentObservations) return Optional.empty();
-            Evidence evidence = currentObservations.connections.computeIfAbsent(current, ignored -> new Evidence());
+            Evidence evidence = currentObservations.connections.computeIfAbsent(current, _ -> new Evidence());
             if (evidence.closed) return Optional.empty();
             return Optional.of(evidence.merge(present));
         }
@@ -86,7 +86,7 @@ public final class ClientModDetector implements ClientMods {
         if (signals.isEmpty()) return;
         synchronized (currentObservations) {
             if (observations != currentObservations) return;
-            Evidence evidence = currentObservations.connections.computeIfAbsent(user, ignored -> new Evidence());
+            Evidence evidence = currentObservations.connections.computeIfAbsent(user, _ -> new Evidence());
             if (!evidence.closed) evidence.merge(signals);
         }
     }
@@ -97,7 +97,8 @@ public final class ClientModDetector implements ClientMods {
         @Override
         public void onPacketReceive(PacketReceiveEvent event) {
             Observations currentObservations = observations;
-            if (currentObservations == null || event.isCancelled()) return;
+            // Another plugin may consume a mod's handshake. It still proves the client sent it.
+            if (currentObservations == null) return;
             if (event.getPacketType() == PacketType.Configuration.Client.PLUGIN_MESSAGE) {
                 var packet = new WrapperConfigClientPluginMessage(event);
                 observe(currentObservations, event.getUser(), packet.getChannelName(), packet.getData());
@@ -113,7 +114,7 @@ public final class ClientModDetector implements ClientMods {
             if (currentObservations == null) return;
             synchronized (currentObservations) {
                 if (observations != currentObservations) return;
-                currentObservations.connections.computeIfAbsent(event.getUser(), ignored -> new Evidence()).close();
+                currentObservations.connections.computeIfAbsent(event.getUser(), _ -> new Evidence()).close();
             }
         }
     }

@@ -11,36 +11,35 @@ import org.jetbrains.annotations.Nullable;
 final class MikPvpPreferenceEffect extends Effect {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
-    private Expression<Boolean> enabled;
+    private MikSkriptInput<Player> players;
+    private MikSkriptInput<Boolean> enabled;
 
     MikPvpPreferenceEffect(MikSkriptFacade facade) {
         this.facade = facade;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
-        enabled = (Expression<Boolean>) expressions[1];
+        players = MikSkriptInput.of(expressions[0], Player.class);
+        enabled = MikSkriptInput.of(expressions[1], Boolean.class);
         return true;
     }
 
     @Override
     protected void execute(Event event) {
-        Boolean value = enabled.getSingle(event);
+        Boolean value = enabled.single(event);
         if (value == null) {
             return;
         }
-        for (Player player : players.getArray(event)) {
+        for (Player player : players.values(event)) {
             facade.setPvpPreference(player, value);
         }
     }
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return "set MIK PVP preference of " + players.toString(event, debug)
-                + " to " + enabled.toString(event, debug);
+        return "set MIK PVP preference of " + players.describe(event, debug)
+                + " to " + enabled.describe(event, debug);
     }
 }

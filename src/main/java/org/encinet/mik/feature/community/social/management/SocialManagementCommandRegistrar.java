@@ -82,7 +82,7 @@ public final class SocialManagementCommandRegistrar {
             Command<CommandSourceStack> command
     ) {
         return Commands.argument(PLATFORM_ARGUMENT, StringArgumentType.word())
-                .suggests((context, builder) -> {
+                .suggests((_, builder) -> {
                     matchingPlatformIds(platforms.platforms().stream()
                                     .map(value -> value.descriptor().id()).toList(),
                             builder.getRemaining()).forEach(builder::suggest);

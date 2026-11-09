@@ -7,16 +7,12 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.quickwrite.fluent4j.container.ArgumentListBuilder;
 import net.quickwrite.fluent4j.container.FluentBundle;
-import net.quickwrite.fluent4j.container.FluentBundleBuilder;
-import net.quickwrite.fluent4j.iterator.FluentIteratorFactory;
-import net.quickwrite.fluent4j.parser.ResourceParserBuilder;
 import net.quickwrite.fluent4j.result.StringResultFactory;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -31,6 +27,37 @@ class FluentGrammarTest {
     private static final Pattern SELECTOR = Pattern.compile("\\{\\s*\\$(\\w+)\\s*->");
     private static final Pattern VARIABLE = Pattern.compile("\\$(\\w+)");
     private final Map<Language, FluentBundle> bundles = new EnumMap<>(Language.class);
+
+    @Test
+    void sourceLabelsAreLocalizedAndWebTabCountsReuseTheSameLabel() throws IOException {
+        assertEquals("基岩", text(Language.ZH_CN, Message.PLAYER_BEDROCK_LABEL));
+        assertEquals("Bedrock", text(Language.EN_US, Message.PLAYER_BEDROCK_LABEL));
+        assertEquals("网页", text(Language.ZH_CN, Message.PLAYER_WEB_LABEL));
+        assertEquals("Web", text(Language.EN_US, Message.PLAYER_WEB_LABEL));
+        for (Language language : Language.values()) {
+            String label = text(language, Message.PLAYER_WEB_LABEL);
+            assertEquals(label, text(language, Message.WEBCHAT_TAB_LABEL, 1));
+            assertEquals(label + " ×3", text(language, Message.WEBCHAT_TAB_LABEL, 3));
+        }
+    }
+
+    @Test
+    void musicOutputValuesAndDeviceCountsUseNumericGrammar() throws IOException {
+        assertEquals("0%", text(Language.EN_US, Message.MUSIC_SPACE_SOUND_VALUE, "volume", 0));
+        assertEquals("1 block", text(Language.EN_US, Message.MUSIC_SPACE_SOUND_VALUE, "range", 1));
+        assertEquals("2 blocks", text(Language.EN_US, Message.MUSIC_SPACE_SOUND_VALUE, "range", 2));
+        assertEquals("21 блок", text(Language.RU_RU, Message.MUSIC_SPACE_SOUND_VALUE, "range", 21));
+        assertEquals("22 блока", text(Language.RU_RU, Message.MUSIC_SPACE_SOUND_VALUE, "range", 22));
+        assertEquals("25 блоков", text(Language.RU_RU, Message.MUSIC_SPACE_SOUND_VALUE, "range", 25));
+        assertEquals("0 jukeboxes", text(Language.EN_US, Message.MUSIC_SPACE_DEVICE_COUNT, 0));
+        assertEquals("1 jukebox", text(Language.EN_US, Message.MUSIC_SPACE_DEVICE_COUNT, 1));
+        assertEquals("2 jukeboxes", text(Language.EN_US, Message.MUSIC_SPACE_DEVICE_COUNT, 2));
+        assertEquals("21 проигрыватель", text(Language.RU_RU, Message.MUSIC_SPACE_DEVICE_COUNT, 21));
+        assertEquals("22 проигрывателя", text(Language.RU_RU, Message.MUSIC_SPACE_DEVICE_COUNT, 22));
+        assertEquals("25 проигрывателей", text(Language.RU_RU, Message.MUSIC_SPACE_DEVICE_COUNT, 25));
+        assertEquals("Online: 1/1 jukebox", text(Language.EN_US, Message.MUSIC_SPACE_ONLINE_COUNT, 1, 1));
+        assertEquals("Online: 1/2 jukeboxes", text(Language.EN_US, Message.MUSIC_SPACE_ONLINE_COUNT, 1, 2));
+    }
 
     @Test
     void englishUsesOneAndOtherIncludingZero() throws IOException {
@@ -228,16 +255,12 @@ class FluentGrammarTest {
     private FluentBundle bundle(Language language) throws IOException {
         FluentBundle loaded=bundles.get(language);
         if (loaded!=null) return loaded;
-        var resource=ResourceParserBuilder.defaultParser().parse(FluentIteratorFactory.fromString(source(language)));
-        loaded=FluentBundleBuilder.builder(language.locale()).addResource(resource).addDefaultFunctions().build();
+        loaded=FluentTestSupport.bundle(language);
         bundles.put(language,loaded);
         return loaded;
     }
 
     private static String source(Language language) throws IOException {
-        try (var input=FluentGrammarTest.class.getClassLoader().getResourceAsStream("lang/"+language.id()+".ftl")) {
-            if (input==null) throw new IOException("Missing locale "+language.id());
-            return new String(input.readAllBytes(),StandardCharsets.UTF_8);
-        }
+        return FluentTestSupport.source(language);
     }
 }

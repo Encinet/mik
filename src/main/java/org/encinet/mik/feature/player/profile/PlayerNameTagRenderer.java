@@ -1,6 +1,11 @@
 package org.encinet.mik.feature.player.profile;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.standard.StandardTags;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.cacheddata.CachedMetaData;
 import net.luckperms.api.model.user.User;
@@ -8,7 +13,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.Plugin;
 import org.encinet.mik.shared.util.NameMetaRenderer;
 
 import java.util.Objects;
@@ -24,20 +29,22 @@ import java.time.Instant;
 /** Resolves and renders the LuckPerms prefix/name/suffix portion of an identity. */
 public final class PlayerNameTagRenderer {
 
+    private static final MiniMessage USERNAME_COLOR = MiniMessage.builder().tags(StandardTags.color()).build();
+
     private static final int MAX_REPORTED_INVALID_DECORATIONS = 512;
     private static final int MAX_REPORTED_LOAD_FAILURES = 512;
     private static final long USER_LOAD_TIMEOUT_SECONDS = 2;
     private static final Duration RESOLVED_TAG_TTL = Duration.ofSeconds(30);
     private static final int MAX_RESOLVED_TAGS = 2_048;
 
-    private final JavaPlugin plugin;
+    private final Plugin plugin;
     private final Set<String> reportedInvalidDecorations = ConcurrentHashMap.newKeySet();
     private final Set<UUID> reportedLoadFailures = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<UUID, CachedNameTag> resolvedTags =
             new ConcurrentHashMap<>();
     private LuckPerms luckPerms;
 
-    public PlayerNameTagRenderer(JavaPlugin plugin) {
+    public PlayerNameTagRenderer(Plugin plugin) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
     }
 
@@ -61,15 +68,24 @@ public final class PlayerNameTagRenderer {
 
     public PlayerNameTag current(Player player) {
         Objects.requireNonNull(player, "player");
+        return current(player.getUniqueId());
+    }
+
+    /** Reads loaded metadata or a resolved offline snapshot, without storage access. */
+    public PlayerNameTag current(UUID playerId) {
+        Objects.requireNonNull(playerId, "playerId");
         if (luckPerms == null) {
             return PlayerNameTag.empty();
         }
-        User user = luckPerms.getUserManager().getUser(player.getUniqueId());
-        if (user == null) {
-            return PlayerNameTag.empty();
-        }
-        return snapshot(user);
+        User user = luckPerms.getUserManager().getUser(playerId);
+        if (user != null) return snapshot(user);
+        CachedNameTag cached = resolvedTags.get(playerId);
+        return cached != null && Instant.now().isBefore(cached.expiresAt())
+                ? cached.nameTag() : PlayerNameTag.empty();
     }
+
+    /** A successful custom edit invalidates any older offline snapshot too. */
+    public void invalidate(UUID playerId) { resolvedTags.remove(playerId); }
 
     /**
      * Resolves a stable tag snapshot without blocking the Bukkit primary thread.
@@ -87,15 +103,15 @@ public final class PlayerNameTagRenderer {
             cache(playerId, current);
             return current;
         }
-        if (Bukkit.isPrimaryThread()) {
-            reportLoadFailure(playerId, playerName,
-                    "offline metadata was requested on the primary thread");
-            return PlayerNameTag.empty();
-        }
         CachedNameTag cached = resolvedTags.get(playerId);
         Instant now = Instant.now();
         if (cached != null && now.isBefore(cached.expiresAt())) {
             return cached.nameTag();
+        }
+        if (Bukkit.isPrimaryThread()) {
+            reportLoadFailure(playerId, playerName,
+                    "offline metadata was requested on the primary thread");
+            return PlayerNameTag.empty();
         }
         resolvedTags.remove(playerId, cached);
         try {
@@ -130,14 +146,27 @@ public final class PlayerNameTagRenderer {
 
     private static PlayerNameTag snapshot(User user) {
         CachedMetaData metadata = user.getCachedData().getMetaData();
-        return new PlayerNameTag(metadata.getPrefix(), metadata.getSuffix());
+        return new PlayerNameTag(metadata.getPrefix(), metadata.getSuffix(),
+                parseUsernameColor(metadata.getMetaValue("username-color")));
     }
 
-    public Component render(Player player, Component baseName) {
+    static TextColor parseUsernameColor(String value) {
+        if (value == null || value.isBlank() || value.length() > 64) return NamedTextColor.WHITE;
+        try {
+            Component parsed = USERNAME_COLOR.deserialize(value.strip() + "x");
+            if (parsed instanceof TextComponent text && text.content().equals("x")
+                    && parsed.children().isEmpty() && parsed.color() != null) return parsed.color();
+        } catch (RuntimeException ignored) {
+            // Invalid metadata must not prevent chat or tab-list rendering.
+        }
+        return NamedTextColor.WHITE;
+    }
+
+    public PlayerIdentityComponent render(Player player, Component baseName) {
         return render(player, baseName, current(player));
     }
 
-    public Component render(
+    public PlayerIdentityComponent render(
             OfflinePlayer player,
             Component baseName,
             PlayerNameTag nameTag
@@ -145,11 +174,11 @@ public final class PlayerNameTagRenderer {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(baseName, "baseName");
         Objects.requireNonNull(nameTag, "nameTag");
-        return Component.text()
+        return new PlayerIdentityComponent(Component.text()
                 .append(decoration(player, nameTag.prefix(), "prefix"))
-                .append(baseName)
+                .append(PlayerNameRenderer.withColor(baseName, nameTag.usernameColor()))
                 .append(decoration(player, nameTag.suffix(), "suffix"))
-                .build();
+                .build());
     }
 
     private Component decoration(OfflinePlayer player, String raw, String position) {

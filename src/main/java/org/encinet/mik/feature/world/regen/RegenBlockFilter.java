@@ -73,16 +73,19 @@ public record RegenBlockFilter(Set<Material> materials) {
     }
 
     public static final class UnknownBlocksException extends Exception {
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
 
-        private final List<String> blockIds;
+
+        private final String[] blockIds;
 
         private UnknownBlocksException(List<String> blockIds) {
             super(String.join(", ", blockIds));
-            this.blockIds = List.copyOf(blockIds);
+            this.blockIds = blockIds.toArray(String[]::new);
         }
 
         public List<String> blockIds() {
-            return blockIds;
+            return List.of(blockIds);
         }
     }
 }

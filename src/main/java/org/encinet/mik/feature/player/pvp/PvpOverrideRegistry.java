@@ -35,7 +35,7 @@ final class PvpOverrideRegistry {
         long now = clock.getAsLong();
         long expiresAt = durationMillis == PvpOverrideRules.PERMANENT
                 ? 0L : saturatedAdd(now, durationMillis);
-        overrides.computeIfAbsent(playerId, ignored -> new HashMap<>())
+        overrides.computeIfAbsent(playerId, _ -> new HashMap<>())
                 .put(new OverrideKey(normalizedOwner, id),
                         new Entry(normalizedOwner, id, enabled, priority, expiresAt, ++sequence));
     }

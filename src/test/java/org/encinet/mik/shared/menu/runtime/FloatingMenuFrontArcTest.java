@@ -1,6 +1,6 @@
 package org.encinet.mik.shared.menu.runtime;
 
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
+import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.FloatingMenuPoint;
 import org.encinet.mik.shared.menu.FloatingMenuPose;
 import org.encinet.mik.shared.menu.FloatingMenuSize;
@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class FloatingMenuFrontArcTest {
     @Test
@@ -28,7 +29,7 @@ class FloatingMenuFrontArcTest {
                 "center", pose(0, 0, -3, 0),
                 "left", pose(-2.6, -0.7, -1.5, -60),
                 "right", pose(2.6, 0.7, -1.5, 60)), new FloatingMenuSize(2, 2));
-        var fitted = FloatingMenuAnchorResolver.frontArc(eye, new Vector(0, 0, 1), 1.1, bounds);
+        var fitted = MenuAnchorTestSupport.arc(eye, new Vector(0, 0, 1), 1.1, bounds);
         assertTrue(fitted.spatialScale() > 0.1);
         assertClear(scene, eye, fitted, bounds);
     }
@@ -38,7 +39,7 @@ class FloatingMenuFrontArcTest {
         FloatingMenuTestWorld scene = new FloatingMenuTestWorld();
         Location eye = new Location(scene.world(), 0, 65, 0);
         var bounds = bounds(Map.of("tall", pose(0, 0, -3, 0)), new FloatingMenuSize(2, 12));
-        var fitted = FloatingMenuAnchorResolver.frontArc(eye, new Vector(0, 0, 1), 1, bounds);
+        var fitted = MenuAnchorTestSupport.arc(eye, new Vector(0, 0, 1), 1, bounds);
         for (FloatingMenuPoint point : bounds.probes()) {
             Vector target = position(fitted, point).subtract(eye.toVector());
             if (Math.hypot(target.getX(), target.getZ()) < 1.0E-6) continue;
@@ -54,7 +55,7 @@ class FloatingMenuFrontArcTest {
         var bounds = bounds(Map.of("tall", pose(0, 0, -3, 0)), new FloatingMenuSize(2, 12));
         for (int degrees = 30; degrees <= 110; degrees++) {
             var fieldOfView = new FloatingMenuFieldOfView(degrees);
-            var fitted = FloatingMenuAnchorResolver.frontArc(eye, new Vector(0, 0, 1), 1, bounds, fieldOfView);
+            var fitted = MenuAnchorTestSupport.arc(eye, new Vector(0, 0, 1), 1, bounds, fieldOfView);
             assertVerticalEnvelope(eye, fitted, bounds, fieldOfView);
         }
         java.lang.ref.Reference.reachabilityFence(scene);
@@ -66,7 +67,7 @@ class FloatingMenuFrontArcTest {
         var eye = new Location(scene.world(), 0, 65, 0);
         var bounds = bounds(Map.of("tall", pose(0, 0, 0, 0)), new FloatingMenuSize(2, 12));
         for (var fieldOfView : FloatingMenuFieldOfView.PRESETS) {
-            var fitted = FloatingMenuAnchorResolver.resolve(eye, new Vector(0, 0, 1), bounds, 1, fieldOfView);
+            var fitted = MenuAnchorTestSupport.front(eye, new Vector(0, 0, 1), bounds, 1, fieldOfView);
             assertVerticalEnvelope(eye, fitted, bounds, fieldOfView);
         }
         java.lang.ref.Reference.reachabilityFence(scene);
@@ -79,7 +80,7 @@ class FloatingMenuFrontArcTest {
         var bounds = bounds(Map.of("center", pose(0, 0, -3, 0),
                 "left", pose(-2.6, -0.7, -1.5, -60), "right", pose(2.6, 0.7, -1.5, 60)), new FloatingMenuSize(2, 2));
         for (var fieldOfView : FloatingMenuFieldOfView.PRESETS) {
-            var fitted = FloatingMenuAnchorResolver.frontArc(eye, new Vector(0, 0, 1), 1.1, bounds, fieldOfView);
+            var fitted = MenuAnchorTestSupport.arc(eye, new Vector(0, 0, 1), 1.1, bounds, fieldOfView);
             assertClear(scene, eye, fitted, bounds);
             assertVerticalEnvelope(eye, fitted, bounds, fieldOfView);
         }
@@ -97,7 +98,7 @@ class FloatingMenuFrontArcTest {
                     var projected = FloatingMenuViewProjection.pose(org.encinet.mik.shared.menu.FloatingMenuSpatialFrame.FRONT_ARC,
                             fieldOfView, layout.factor(), pose(0, 0, -3, 0));
                     var bounds = bounds(Map.of("center", projected), size);
-                    var fitted = FloatingMenuAnchorResolver.frontArc(eye, new Vector(0, 0, 1), layout.factor(), bounds, fieldOfView);
+                    var fitted = MenuAnchorTestSupport.arc(eye, new Vector(0, 0, 1), layout.factor(), bounds, fieldOfView);
                     assertTrue(fitted.spatialScale() > 0);
                     assertTrue(fitted.spatialScale() <= layout.factor() + 0.0001);
                     assertVerticalEnvelope(eye, fitted, bounds, fieldOfView);
@@ -125,7 +126,7 @@ class FloatingMenuFrontArcTest {
         FloatingMenuTestWorld scene = room();
         Location eye = new Location(scene.world(), 0.5, 65.62, 0.5);
         var bounds = bounds(Map.of("center", pose(0, 0, -3, 0)), new FloatingMenuSize(4, 5));
-        var fitted = FloatingMenuAnchorResolver.frontArc(eye, new Vector(0, 0, 1), 1.1, bounds);
+        var fitted = MenuAnchorTestSupport.arc(eye, new Vector(0, 0, 1), 1.1, bounds);
         assertClear(scene, eye, fitted, bounds);
     }
 
@@ -134,13 +135,13 @@ class FloatingMenuFrontArcTest {
         FloatingMenuTestWorld scene = room();
         Location eye = new Location(scene.world(), 0.5, 65.62, 0.5);
         var bounds = bounds(Map.of("center", pose(0, 0, 0, 0)), new FloatingMenuSize(2, 4));
-        var fitted = FloatingMenuAnchorResolver.resolve(eye, new Vector(0, 0, 1), bounds, 1.1);
+        var fitted = MenuAnchorTestSupport.front(eye, new Vector(0, 0, 1), bounds, 1.1);
         assertClear(scene, eye, fitted, bounds);
     }
 
     @Test
     void titlesHaveAFullFootprintAndStayInFrontOfTheViewer() {
-        FloatingMenuDefinition.Builder builder = FloatingMenuDefinition.screen("title-test").frontArc().title(Component.text("Title"));
+        MenuScene.Builder builder = MenuScene.screen("title-test").frontArc().title(Component.text("Title"));
         builder.information("center", Component.text("Center"));
         var bounds = FloatingMenuAnchorResolver.measure(builder.build(),
                 Map.of("center", pose(0, 0, -3, 0)), Map.of("center", new FloatingMenuSize(2, 2)));
@@ -169,9 +170,9 @@ class FloatingMenuFrontArcTest {
     }
 
     private static FloatingMenuAnchorResolver.SceneBounds bounds(Map<String, FloatingMenuPose> poses, FloatingMenuSize size) {
-        var builder = FloatingMenuDefinition.screen("arc-test").frontArc();
+        var builder = MenuScene.screen("arc-test").frontArc();
         poses.keySet().forEach(id -> builder.information(id, Component.text(id)));
-        var sizes = poses.keySet().stream().collect(java.util.stream.Collectors.toMap(id -> id, id -> size));
+        var sizes = poses.keySet().stream().collect(java.util.stream.Collectors.toMap(id -> id, _ -> size));
         return FloatingMenuAnchorResolver.measure(builder.build(), poses, sizes);
     }
 
@@ -188,9 +189,9 @@ class FloatingMenuFrontArcTest {
         for (var surface : bounds.surfaces()) {
             double yaw = Math.toRadians(surface.pose().yawDegrees());
             Vector right = anchor.right().multiply(Math.cos(yaw)).add(anchor.forward().multiply(-Math.sin(yaw)));
-            assertTrue(space.clearSurface(position(anchor, surface.pose().point()), right, new Vector(0, 1, 0),
+            assertEquals(1, space.limitSurface(eye, position(anchor, surface.pose().point()), right, new Vector(0, 1, 0),
                     surface.size().width() * anchor.spatialScale() / 2,
-                    surface.size().height() * anchor.spatialScale() / 2, 0.001), surface.toString());
+                    surface.size().height() * anchor.spatialScale() / 2, 0.001), 1e-7, surface.toString());
         }
         for (FloatingMenuPoint point : bounds.probes()) {
             Vector ray = position(anchor, point).subtract(eye.toVector());

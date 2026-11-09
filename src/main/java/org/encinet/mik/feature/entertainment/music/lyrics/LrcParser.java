@@ -121,7 +121,7 @@ final class LrcParser {
             } else {
                 String timedText = visible == null ? "" : visible;
                 for (long timestamp : timestamps) {
-                    timed.computeIfAbsent(timestamp, ignored -> new LinkedHashSet<>()).add(timedText);
+                    timed.computeIfAbsent(timestamp, _ -> new LinkedHashSet<>()).add(timedText);
                 }
             }
         }

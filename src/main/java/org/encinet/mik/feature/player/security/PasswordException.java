@@ -2,6 +2,9 @@ package org.encinet.mik.feature.player.security;
 
 /** Safe, typed failures; messages never contain submitted credentials. */
 public final class PasswordException extends RuntimeException {
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
+
     public enum Code { INVALID, MISMATCH, WEAK, CONFLICT, REQUIRED_ROLE, KEEP_ROLE, REQUIRED_APPLICATION, DENIED, SESSION_EXPIRED, STORAGE, BUSY, COOLDOWN }
     private final Code code;
     private final long retryAfterSeconds;

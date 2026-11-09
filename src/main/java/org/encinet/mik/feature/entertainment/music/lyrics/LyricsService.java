@@ -61,6 +61,7 @@ public final class LyricsService implements AutoCloseable {
             new ConcurrentHashMap<>();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final Object cacheWriteLock = new Object();
+    private volatile long maximumCacheBytes = MAX_CACHE_TOTAL_BYTES;
 
     public LyricsService(Path cacheDirectory, LxSourceService sourceService,
                          Consumer<String> warningLogger) {
@@ -77,16 +78,24 @@ public final class LyricsService implements AutoCloseable {
         }
         String requestKey = requestKey(track);
         CompletableFuture<Optional<Lyrics>> future = inFlight.computeIfAbsent(requestKey,
-                ignored -> loadNew(track));
-        future.whenComplete((value, error) -> inFlight.remove(requestKey, future));
+                _ -> loadNew(track));
+        future.whenComplete((_, _) -> inFlight.remove(requestKey, future));
         return future;
+    }
+
+    /** Applies the startup disk budget while preserving the per-entry safety bound. */
+    public void configureCacheLimit(long maximumBytes) {
+        if (maximumBytes < MAX_CACHE_BYTES) {
+            throw new IllegalArgumentException("Lyrics cache budget must cover one entry");
+        }
+        maximumCacheBytes = maximumBytes;
     }
 
     private CompletableFuture<Optional<Lyrics>> loadNew(MusicTrack track) {
         TrackTarget target = track.target();
         if (target instanceof TrackTarget.LocalFile local) {
             return CompletableFuture.supplyAsync(() -> parseLocal(track, local), executor)
-                    .exceptionally(error -> Optional.empty());
+                    .exceptionally(_ -> Optional.empty());
         }
         if (target instanceof TrackTarget.Lx lx) {
             return CompletableFuture.supplyAsync(() -> readCached(cacheKey(lx)), executor)
@@ -124,7 +133,7 @@ public final class LyricsService implements AutoCloseable {
                     }
                     return parsed;
                 }, executor)
-                .exceptionally(error -> Optional.empty());
+                .exceptionally(_ -> Optional.empty());
     }
 
     private CompletableFuture<LyricSourceText> supplementTranslation(
@@ -139,7 +148,7 @@ public final class LyricsService implements AutoCloseable {
         return CompletableFuture.supplyAsync(() -> {
             String translation = fetch(translationUrl);
             return new LyricSourceText(source.original(), translation, source.romanization());
-        }, executor).exceptionally(error -> source);
+        }, executor).exceptionally(_ -> source);
     }
 
     private LyricSourceText loadFromUrls(TrackTarget.Lx target) {
@@ -253,6 +262,7 @@ public final class LyricsService implements AutoCloseable {
     }
 
     private void trimCache(Path retained) throws IOException {
+        long maximumBytes = maximumCacheBytes;
         List<CacheFile> files = new ArrayList<>();
         long total = 0;
         try (var paths = Files.list(cacheDirectory)) {
@@ -270,12 +280,12 @@ public final class LyricsService implements AutoCloseable {
         } catch (ArithmeticException exception) {
             total = Long.MAX_VALUE;
         }
-        if (total <= MAX_CACHE_TOTAL_BYTES) {
+        if (total <= maximumBytes) {
             return;
         }
         files.sort(Comparator.comparingLong(CacheFile::lastModifiedMillis));
         for (CacheFile file : files) {
-            if (total <= MAX_CACHE_TOTAL_BYTES) {
+            if (total <= maximumBytes) {
                 break;
             }
             if (file.path().equals(retained)) {

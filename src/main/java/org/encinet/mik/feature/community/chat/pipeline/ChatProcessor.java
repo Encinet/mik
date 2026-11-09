@@ -89,6 +89,30 @@ public final class ChatProcessor {
         return process(source, context, ChatReferences.empty());
     }
 
+    /** Retain unchanged semantics and derive effects from edited content using the original capabilities. */
+    public ChatMessage acceptFinalContent(ChatMessage original, ChatContent finalContent) {
+        if (original.content().equals(finalContent)) return original;
+        ChatProcessingContext context = original.submission().processingContext();
+        Set<ChatCapability> mentionCapabilities = new LinkedHashSet<>(context.capabilities());
+        mentionCapabilities.retainAll(Set.of(ChatCapability.PLAYER_MENTION, ChatCapability.BROADCAST_MENTION));
+        ChatProcessingContext mentionContext = new ChatProcessingContext(
+                mentionCapabilities, context.mentions(), java.util.Optional.empty(), java.util.Map.of());
+        List<ChatNode> nodes = new ArrayList<>();
+        for (ChatNode node : finalContent.nodes()) {
+            if (node instanceof ChatNode.Text text) {
+                // Imported link labels are never reparsed as links or mentions.
+                for (ChatNode parsed : process(text.text(), mentionContext).nodes()) {
+                    nodes.add(parsed instanceof ChatNode.Text plain
+                            ? new ChatNode.Text(plain.text(), text.style()) : parsed);
+                }
+            } else {
+                nodes.add(node);
+            }
+        }
+        ChatContent content = new ChatContent(nodes);
+        return new ChatMessage(original.submission(), content, effects(content));
+    }
+
     private ChatContent process(
             String source,
             ChatProcessingContext context,
@@ -97,12 +121,19 @@ public final class ChatProcessor {
         if (source == null || source.isEmpty()) {
             return new ChatContent(List.of());
         }
+        ChatReplacement[] candidates = new ChatReplacement[modifiers.size()];
+        for (int index = 0; index < modifiers.size(); index++) {
+            ChatModifier modifier = modifiers.get(index);
+            if (modifier.supports(context)) {
+                candidates[index] = modifier.find(source, 0, context);
+            }
+        }
         List<ChatNode> nodes = new ArrayList<>();
         int cursor = 0;
         boolean previousReplacementPaddedAfter = false;
         while (cursor < source.length()) {
             ChatReplacement replacement = nextReplacement(
-                    source, cursor, context, references.mentions());
+                    source, cursor, context, references.mentions(), candidates);
             if (replacement == null) {
                 nodes.addAll(renderTextSegment(source.substring(cursor), context));
                 break;
@@ -148,17 +179,21 @@ public final class ChatProcessor {
             String text,
             int fromIndex,
             ChatProcessingContext context,
-            List<ChatReferences.Mention> trustedMentions
+            List<ChatReferences.Mention> trustedMentions,
+            ChatReplacement[] candidates
     ) {
         ChatReplacement trusted = trustedReplacement(
                 text, fromIndex, trustedMentions);
         ChatReplacement best = trusted;
         int bestPriority = Integer.MAX_VALUE;
-        for (ChatModifier modifier : modifiers) {
-            if (!modifier.supports(context)) {
-                continue;
+        for (int index = 0; index < modifiers.size(); index++) {
+            ChatModifier modifier = modifiers.get(index);
+            ChatReplacement replacement = candidates[index];
+            // Future matches and exhausted searches stay valid as the cursor advances.
+            if (replacement != null && replacement.start() < fromIndex) {
+                replacement = modifier.find(text, fromIndex, context);
+                candidates[index] = replacement;
             }
-            ChatReplacement replacement = modifier.find(text, fromIndex, context);
             if (replacement != null
                     && !overlapsTrustedMention(replacement, trustedMentions)
                     && (best == null
@@ -207,7 +242,7 @@ public final class ChatProcessor {
         return false;
     }
 
-    private Set<ChatEffect> effects(ChatContent content) {
+    public static Set<ChatEffect> effects(ChatContent content) {
         LinkedHashSet<UUID> players = new LinkedHashSet<>();
         boolean broadcast = false;
         for (ChatNode node : content.nodes()) {

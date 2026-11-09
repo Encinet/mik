@@ -12,8 +12,8 @@ import org.jetbrains.annotations.Nullable;
 final class MikPvpOverrideCondition extends Condition {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
-    private Expression<String> id;
+    private MikSkriptInput<Player> players;
+    private MikSkriptInput<String> id;
     private String owner;
 
     MikPvpOverrideCondition(MikSkriptFacade facade) {
@@ -21,11 +21,10 @@ final class MikPvpOverrideCondition extends Condition {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
-        id = (Expression<String>) expressions[1];
+        players = MikSkriptInput.of(expressions[0], Player.class);
+        id = MikSkriptInput.of(expressions[1], String.class);
         owner = MikSkriptOwner.current(getParser());
         setNegated(matchedPattern == 1);
         return true;
@@ -33,7 +32,7 @@ final class MikPvpOverrideCondition extends Condition {
 
     @Override
     public boolean check(Event event) {
-        String overrideId = id.getSingle(event);
+        String overrideId = id.single(event);
         if (overrideId == null) {
             return false;
         }
@@ -49,7 +48,7 @@ final class MikPvpOverrideCondition extends Condition {
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return players.toString(event, debug) + (isNegated() ? " does not have " : " has ")
-                + "MIK PVP override " + id.toString(event, debug);
+        return players.describe(event, debug) + (isNegated() ? " does not have " : " has ")
+                + "MIK PVP override " + id.describe(event, debug);
     }
 }

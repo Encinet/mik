@@ -5,6 +5,9 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 
 final class VehicleImportException extends IllegalArgumentException {
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
+
     private final Message message;
 
     VehicleImportException(Message message) {

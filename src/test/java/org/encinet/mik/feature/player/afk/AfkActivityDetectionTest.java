@@ -279,7 +279,7 @@ class AfkActivityDetectionTest {
         AfkActivityTracker tracker = tracker(0L);
         tracker.recordMovementInput(true, WORLD_ID, 0.0D, 0.0D, 0.0D, 0L);
 
-        recordTravelSamples(tracker, index -> 15.0F);
+        recordTravelSamples(tracker, _ -> 15.0F);
 
         assertEquals(AfkActivityTracker.CheckResult.ACTIVE,
                 tracker.check(AfkBehaviorAnalyzer.ANALYSIS_MILLIS));

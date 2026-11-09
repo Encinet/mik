@@ -1,6 +1,6 @@
 package org.encinet.mik.feature.community.governance.persistence.sqlite;
 
-import org.encinet.mik.feature.community.governance.delivery.GovernanceActionType;
+import org.encinet.mik.feature.community.governance.voting.VoteHistory;
 import org.encinet.mik.feature.community.governance.membership.profile.PlayerProfile;
 import org.encinet.mik.feature.community.governance.removal.RemovalPetition;
 import org.encinet.mik.feature.community.governance.removal.RemovalSponsorship;
@@ -281,6 +281,17 @@ final class SqliteVotingStore {
 
     List<GovernanceVote> recentVotes(int limit) throws SQLException {
         if (limit <= 0) return List.of();
+        return voteHistory(null, limit, 0).votes();
+    }
+
+    VoteHistory voteHistory(UUID subjectId, int limit, int offset) throws SQLException {
+        String filter = subjectId == null ? "" : " AND v.subject_uuid = ?";
+        int total;
+        try (var count = connection.prepareStatement("SELECT COUNT(*) FROM governance_votes v WHERE v.status <> 'OPEN'" + filter)) {
+            if (subjectId != null) count.setString(1, subjectId.toString());
+            try (var rows = count.executeQuery()) { rows.next(); total = rows.getInt(1); }
+        }
+        offset = Math.min(offset, Math.max(0, total - 1) / limit * limit);
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT v.*,
                        d.proposer_uuid, d.proposer_name, d.duration_seconds, d.reason,
@@ -291,15 +302,19 @@ final class SqliteVotingStore {
                 LEFT JOIN governance_ban_vote_details d ON d.vote_id = v.id
                 LEFT JOIN governance_ballots b ON b.vote_id = v.id
                 WHERE v.status <> 'OPEN'
+                """ + filter + "\n" + """
                 GROUP BY v.id
                 ORDER BY v.finalized_at DESC, v.id DESC
-                LIMIT ?
+                LIMIT ? OFFSET ?
                 """)) {
-            statement.setInt(1, limit);
+            int parameter = 1;
+            if (subjectId != null) statement.setString(parameter++, subjectId.toString());
+            statement.setInt(parameter++, limit);
+            statement.setInt(parameter, offset);
             try (ResultSet result = statement.executeQuery()) {
                 List<GovernanceVote> votes = new ArrayList<>();
                 while (result.next()) votes.add(SqliteGovernanceRows.readVote(result));
-                return List.copyOf(votes);
+                return new VoteHistory(votes, total, offset);
             }
         }
     }

@@ -16,7 +16,7 @@ final class PlayerViewDistancePolicy {
      * Preserve that boundary when installing an explicit per-player distance.
      */
     static int clientChunkLimit(int clientViewDistance) {
-        return (int) Math.clamp(
+        return Math.clamp(
                 (long) clientViewDistance + 1L,
                 MINIMUM_DISTANCE,
                 MAXIMUM_DISTANCE);
@@ -24,6 +24,12 @@ final class PlayerViewDistancePolicy {
 
     static int sendDistance(int requestedSendDistance, int clientViewDistance) {
         return Math.min(normalize(requestedSendDistance), clientChunkLimit(clientViewDistance));
+    }
+
+    static int scaledDistance(int originalDistance, double radiusRatio, int minimumDistance) {
+        int base = normalize(originalDistance);
+        int floor = Math.clamp(minimumDistance, MINIMUM_DISTANCE, base);
+        return Math.max(floor, (int) Math.ceil(base * radiusRatio));
     }
 
     private static int normalize(int distance) {

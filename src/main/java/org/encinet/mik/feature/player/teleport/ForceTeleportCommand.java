@@ -45,12 +45,12 @@ final class ForceTeleportCommand {
         return invocation(teleport, context).execute();
     }
 
-    @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings("unchecked") // Native command sources implement the Paper source API; Brigadier nodes are invariant.
     private static CommandNode<CommandSourceStack> nativeTarget(CommandNode<CommandSourceStack> node) {
         // Paper's API proxy forbids child traversal. Use its native handle only in
         // our private dispatcher, never as a redirect in the registered API tree.
         while (true) {
-            if (node instanceof ShadowBrigNode shadow) node = (CommandNode) shadow.getHandle();
+            if (node instanceof ShadowBrigNode shadow) node = (CommandNode<CommandSourceStack>) (CommandNode<?>) shadow.getHandle();
             else if (node.getRedirect() != null) node = node.getRedirect();
             else return node;
         }

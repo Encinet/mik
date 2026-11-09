@@ -8,7 +8,6 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 /** Heading-aware Markdown chunking that keeps fenced blocks intact where possible. */

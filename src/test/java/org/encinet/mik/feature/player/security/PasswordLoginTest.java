@@ -326,7 +326,7 @@ class PasswordLoginTest {
         final PasswordLogin login;
         Fixture() {
             service.open();
-            login = new PasswordLogin(service, ignored -> role.get(), new PasswordLogin.Prompt() {
+            login = new PasswordLogin(service, _ -> role.get(), new PasswordLogin.Prompt() {
                 @Override public CompletableFuture<String> login(PlayerConfigurationConnection connection, Language locale) {
                     forms.incrementAndGet(); return answer.get().get();
                 }
@@ -338,12 +338,12 @@ class PasswordLoginTest {
         void configure(Connection connection) { login.configure(new AsyncPlayerConnectionConfigureEvent(connection.proxy)); }
         Player player(InetSocketAddress address) {
             PlayerGameConnection connection = (PlayerGameConnection) Proxy.newProxyInstance(PlayerGameConnection.class.getClassLoader(),
-                    new Class<?>[] {PlayerGameConnection.class}, (proxy, method, args) -> switch (method.getName()) {
+                    new Class<?>[] {PlayerGameConnection.class}, (_, method, _) -> switch (method.getName()) {
                         case "getAddress" -> address;
                         case "isConnected" -> online.get();
                         default -> throw new UnsupportedOperationException(method.getName());
                     });
-            return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[] {Player.class}, (proxy, method, args) -> switch (method.getName()) {
+            return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[] {Player.class}, (_, method, args) -> switch (method.getName()) {
                 case "getUniqueId" -> id;
                 case "getConnection" -> connection;
                 case "isOnline" -> online.get();
@@ -364,7 +364,7 @@ class PasswordLoginTest {
         Connection(UUID id, int port) {
             address = new InetSocketAddress("127.0.0.1", port);
             PlayerProfile profile = (PlayerProfile) Proxy.newProxyInstance(PlayerProfile.class.getClassLoader(), new Class<?>[] {PlayerProfile.class},
-                    (object, method, args) -> method.getName().equals("getId") ? id : "Alex");
+                    (_, method, _) -> method.getName().equals("getId") ? id : "Alex");
             proxy = (PlayerConfigurationConnection) Proxy.newProxyInstance(PlayerConfigurationConnection.class.getClassLoader(),
                     new Class<?>[] {PlayerConfigurationConnection.class, Audience.class}, (object, method, args) -> switch (method.getName()) {
                         case "getProfile" -> profile;

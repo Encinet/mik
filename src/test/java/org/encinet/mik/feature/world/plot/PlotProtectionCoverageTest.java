@@ -63,7 +63,7 @@ class PlotProtectionCoverageTest {
     private final UUID worldId = UUID.randomUUID();
     private final UUID actor = UUID.randomUUID();
     private final World world = (World) Proxy.newProxyInstance(World.class.getClassLoader(),
-            new Class<?>[]{World.class}, (proxy, method, arguments) -> {
+            new Class<?>[]{World.class}, (_, method, _) -> {
                 if (method.getName().equals("getUID")) return worldId;
                 throw new AssertionError(method.getName());
             });
@@ -334,7 +334,7 @@ class PlotProtectionCoverageTest {
             fixture.guard.bed(bed);
             assertEquals(Event.Result.DENY, bed.useBed());
             Sign sign = (Sign) Proxy.newProxyInstance(Sign.class.getClassLoader(), new Class<?>[]{Sign.class},
-                    (proxy, method, arguments) -> {
+                    (_, method, _) -> {
                         if (method.getName().equals("getBlock")) return block(0);
                         throw new AssertionError(method.getName());
                     });
@@ -398,7 +398,7 @@ class PlotProtectionCoverageTest {
     void automationTreatsParentAndChildAsSeparateProtectedAreas() throws Exception {
         try (Fixture fixture = fixture(Map.of())) {
             Plot parent = fixture.plot;
-            fixture.registry.put(new Plot(parent.id(), parent.world(), parent.owner(), parent.name(), false, 0,
+            fixture.registry.put(new Plot(parent.id(), parent.world(), parent.owner(), parent.name(), 0,
                     Set.of(PlotGeometry.Cell.at(0, 64, 0), PlotGeometry.Cell.at(4, 64, 0)),
                     parent.members(), parent.flags(), null));
             fixture.registry.createSubPlot(parent.id(), UUID.randomUUID(), "Child",
@@ -413,17 +413,17 @@ class PlotProtectionCoverageTest {
         PlotRepository store = new PlotRepository(directory.resolve(UUID.randomUUID() + ".db"));
         store.open();
         PlotRegistry registry = new PlotRegistry(store);
-        Plot plot = new Plot(UUID.randomUUID(), worldId, UUID.randomUUID(), "Coverage", false, 0,
+        Plot plot = new Plot(UUID.randomUUID(), worldId, UUID.randomUUID(), "Coverage", 0,
                 Set.of(PlotGeometry.Cell.at(0, 64, 0)), Map.of(actor, Plot.Role.COLLABORATOR), flags, null);
         registry.put(plot);
-        return new Fixture(store, registry, plot, new PlotProtection(registry, null));
+        return new Fixture(store, registry, plot, new PlotProtection(registry));
     }
 
     private Location location(int blockX) { return new Location(world, blockX, 64, 0); }
 
     private Player player(int blockX) {
         return (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getUniqueId" -> actor;
                     case "getLocation" -> location(blockX);
                     case "hasPermission" -> false;
@@ -437,9 +437,9 @@ class PlotProtectionCoverageTest {
 
     private Block block(int blockX, Material material) {
         BlockState state = (BlockState) Proxy.newProxyInstance(BlockState.class.getClassLoader(), new Class<?>[]{BlockState.class},
-                (proxy, method, arguments) -> { throw new AssertionError(method.getName()); });
+                (_, method, _) -> { throw new AssertionError(method.getName()); });
         return (Block) Proxy.newProxyInstance(Block.class.getClassLoader(), new Class<?>[]{Block.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getWorld" -> world;
                     case "getX" -> blockX;
                     case "getY" -> 64;
@@ -452,7 +452,7 @@ class PlotProtectionCoverageTest {
 
     private <EntityType extends Entity> EntityType entity(Class<EntityType> type, int blockX) {
         return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getLocation" -> location(blockX);
                     case "getShooter" -> player;
                     default -> throw new AssertionError(method.getName());
@@ -461,7 +461,7 @@ class PlotProtectionCoverageTest {
 
     private DamageSource damageSource(Entity entity) {
         return (DamageSource) Proxy.newProxyInstance(DamageSource.class.getClassLoader(), new Class<?>[]{DamageSource.class},
-                (proxy, method, arguments) -> {
+                (_, method, _) -> {
                     if (method.getName().equals("getCausingEntity")) return entity;
                     throw new AssertionError(method.getName());
                 });
@@ -469,7 +469,7 @@ class PlotProtectionCoverageTest {
 
     private Inventory inventory(int blockX) {
         return (Inventory) Proxy.newProxyInstance(Inventory.class.getClassLoader(), new Class<?>[]{Inventory.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getHolder" -> null;
                     case "getLocation" -> location(blockX);
                     default -> throw new AssertionError(method.getName());
@@ -482,7 +482,7 @@ class PlotProtectionCoverageTest {
             @Override public InventoryHolder getRightSide(boolean useSnapshot) { return storageBlock(rightX); }
         };
         return (Inventory) Proxy.newProxyInstance(Inventory.class.getClassLoader(), new Class<?>[]{Inventory.class},
-                (proxy, method, arguments) -> {
+                (_, method, _) -> {
                     if (method.getName().equals("getHolder")) return holder;
                     throw new AssertionError(method.getName());
                 });
@@ -490,7 +490,7 @@ class PlotProtectionCoverageTest {
 
     private InventoryHolder storageBlock(int blockX) {
         return (InventoryHolder) Proxy.newProxyInstance(BlockState.class.getClassLoader(),
-                new Class<?>[]{BlockState.class, InventoryHolder.class}, (proxy, method, arguments) -> {
+                new Class<?>[]{BlockState.class, InventoryHolder.class}, (_, method, _) -> {
                     if (method.getName().equals("getLocation")) return location(blockX);
                     throw new AssertionError(method.getName());
                 });
@@ -508,6 +508,6 @@ class PlotProtectionCoverageTest {
             new PlotEdits(registry).flag(plot, plot.owner(), false, "collaborator." + permission, allowed);
         }
 
-        @Override public void close() throws Exception { store.close(); }
+        @Override public void close() throws java.sql.SQLException { store.close(); }
     }
 }

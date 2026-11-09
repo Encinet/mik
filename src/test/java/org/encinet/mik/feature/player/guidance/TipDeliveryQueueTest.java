@@ -25,7 +25,7 @@ class TipDeliveryQueueTest {
     private final List<Runnable> tasks = new ArrayList<>();
     private final List<RuntimeException> errors = new ArrayList<>();
     private final Map<UUID, List<TipScheduler.Delivery>> sent = new HashMap<>();
-    private final TipScheduler scheduler = new TipScheduler(errors::add, () -> 0.5, ignored -> TipAudience.MEMBER);
+    private final TipScheduler scheduler = new TipScheduler(errors::add, () -> 0.5, _ -> TipAudience.MEMBER);
     private final TipDeliveryQueue queue = new TipDeliveryQueue(task -> {
         tasks.add(task);
         return () -> tasks.remove(task);
@@ -76,7 +76,7 @@ class TipDeliveryQueueTest {
     void aCompletedOperationIsObservedOnTheNextMainTaskWithoutASecondsLongTimer() {
         Player player = player(UUID.randomUUID());
         AtomicBoolean completed = new AtomicBoolean();
-        offer(player, "result", 1, language -> {
+        offer(player, "result", 1, _ -> {
             assertTrue(completed.get(), "the source must not be read inside the original event");
             return Optional.of(new TipContent("result", Component.text("ready")));
         });
@@ -151,7 +151,7 @@ class TipDeliveryQueueTest {
     }
 
     private void offer(Player player, String id, double chance) {
-        offer(player, id, chance, language -> Optional.of(new TipContent(id, Component.text(id))));
+        offer(player, id, chance, _ -> Optional.of(new TipContent(id, Component.text(id))));
     }
 
     private void offer(Player player, String id, double chance, Function<Language, Optional<TipContent>> source) {

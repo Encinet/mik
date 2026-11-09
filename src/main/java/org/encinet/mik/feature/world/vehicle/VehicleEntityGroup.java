@@ -56,7 +56,7 @@ final class VehicleEntityGroup {
                 seats.add(host);
                 tag(host);
             }
-            for (VehicleDefinition.Collider collider : instance.body.definition.colliders()) {
+            for (VehicleDefinition.Collider _ : instance.body.definition.colliders()) {
                 Interaction interaction = world.spawn(location, Interaction.class);
                 interactions.add(interaction);
                 tag(interaction);

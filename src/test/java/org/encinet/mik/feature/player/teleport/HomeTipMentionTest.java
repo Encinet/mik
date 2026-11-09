@@ -34,7 +34,7 @@ class HomeTipMentionTest {
     private int offered(String text) {
         UUID id = UUID.randomUUID();
         Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
-                (proxy, method, args) -> {
+                (_, method, _) -> {
                     if (method.getName().equals("getUniqueId")) return id;
                     if (method.getName().equals("hasPermission")) return true;
                     throw new UnsupportedOperationException(method.getName());

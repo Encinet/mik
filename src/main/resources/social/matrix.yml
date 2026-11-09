@@ -32,6 +32,7 @@ chat-bridge:
   #     prefix: "#"
   #     strip-prefix: true
 
+# Uses Qwen3Guard and the shared credentials in social/content-safety.yml.
 content-safety:
   enabled: false
 

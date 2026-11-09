@@ -92,7 +92,7 @@ class ProjectArchitectureTest {
             assertTrue(declaration.find());
             String owner = capability(declaration.group(1));
             if (owner.isEmpty()) continue;
-            dependencies.computeIfAbsent(owner, ignored -> new HashSet<>());
+            dependencies.computeIfAbsent(owner, _ -> new HashSet<>());
             for (String imported : imports(source)) {
                 String target = capability(imported);
                 if (target.isEmpty() || owner.equals(target)) continue;
@@ -102,7 +102,7 @@ class ProjectArchitectureTest {
                             source + " imports another feature's module instead of a capability: " + imported);
                 }
                 dependencies.get(owner).add(target);
-                dependencies.computeIfAbsent(target, ignored -> new HashSet<>());
+                dependencies.computeIfAbsent(target, _ -> new HashSet<>());
             }
         }
         Set<String> remaining = new HashSet<>(dependencies.keySet());

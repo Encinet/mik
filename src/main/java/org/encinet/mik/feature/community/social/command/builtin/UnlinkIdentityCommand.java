@@ -18,6 +18,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
 
 /** Unlinks the current identity and owns every response for the unlink command. */
@@ -103,31 +105,31 @@ public final class UnlinkIdentityCommand
     public SocialDocument present(SocialCommandContext context, Result result) {
         Language language = languageResolver.language(result.languageBinding(), context);
         return switch (result) {
-            case Result.IdentityMissing ignored -> document(
-                    language, SocialDocument.Tone.ERROR,
+            case Result.IdentityMissing _ -> document(
+                    TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_IDENTITY_MISSING);
-            case Result.Prompt ignored -> document(
-                    language, SocialDocument.Tone.WARNING,
+            case Result.Prompt _ -> document(
+                    TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_BINDING_UNLINK_PROMPT);
             case Result.Unlinked unlinked -> unlinked.binding()
-                    .map(binding -> document(language, SocialDocument.Tone.SUCCESS,
-                            Message.SOCIAL_BINDING_UNLINKED, binding.playerName())
-                            .withUntrustedText(binding.playerName()))
-                    .orElseGet(() -> document(language, SocialDocument.Tone.WARNING,
+                    .map(binding -> document(REQUIRED, language, SocialDocument.Tone.SUCCESS,
+                            Message.SOCIAL_BINDING_UNLINKED, binding.playerName()))
+                    .orElseGet(() -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                             Message.SOCIAL_BINDING_NOT_BOUND));
-            case Result.Unavailable ignored -> document(
-                    language, SocialDocument.Tone.ERROR,
+            case Result.Unavailable _ -> document(
+                    TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_UNAVAILABLE);
         };
     }
 
     private SocialDocument document(
+            SocialDocument.Moderation moderation,
             Language language,
             SocialDocument.Tone tone,
             Message message,
             Object... arguments
     ) {
-        return SocialDocument.of(
+        return SocialDocument.of(moderation,
                         TITLE_ICON + " " + languages.t(language, TITLE), tone,
                         SocialDocument.paragraph(languages.t(
                                 language, message, arguments)))

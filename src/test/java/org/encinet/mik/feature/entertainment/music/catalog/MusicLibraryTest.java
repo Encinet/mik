@@ -26,7 +26,7 @@ class MusicLibraryTest {
         Files.write(music.resolve("song.nbs"), minimalNbs());
         List<String> errors = new ArrayList<>();
         MusicLibrary library = new MusicLibrary(
-                music, Runnable::run, ignored -> {}, errors::add);
+                music, Runnable::run, _ -> {}, errors::add);
 
         MusicLibrary.ReloadResult loaded = library.reloadAsync().join();
         assertTrue(loaded.successful());

@@ -1,5 +1,7 @@
 package org.encinet.mik.shared.menu;
 
+import org.encinet.mik.shared.menu.ui.UiColor;
+import org.encinet.mik.shared.menu.ui.UiColorRole;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.block.data.BlockData;
@@ -48,13 +50,13 @@ public record FloatingMenuDecoration(
 
     public static FloatingMenuDecoration text(String id, FloatingMenuPoint point,
                                                Component text) {
-        return text(id, FloatingMenuPose.at(point), text, 0xB8121720, 3.2F, 2.4F, 0.72F,
+        return text(id, FloatingMenuPose.at(point), text, UiColor.themed(UiColorRole.WINDOW), 3.2F, 2.4F, 0.72F,
                 Alignment.CENTER);
     }
 
     public static FloatingMenuDecoration text(String id, FloatingMenuPose pose,
                                                Component text) {
-        return text(id, pose, text, 0xB8121720, 3.2F, 2.4F, 0.72F,
+        return text(id, pose, text, UiColor.themed(UiColorRole.WINDOW), 3.2F, 2.4F, 0.72F,
                 Alignment.CENTER);
     }
 
@@ -87,6 +89,14 @@ public record FloatingMenuDecoration(
                                                Component text, int background,
                                                float displayWidth, float displayHeight,
                                                float scale, Alignment alignment) {
+        return text(id, pose, text, UiColor.fromArgb(background),
+                displayWidth, displayHeight, scale, alignment);
+    }
+
+    private static FloatingMenuDecoration text(String id, FloatingMenuPose pose,
+                                                Component text, UiColor background,
+                                                float displayWidth, float displayHeight,
+                                                float scale, Alignment alignment) {
         return new FloatingMenuDecoration(id, FloatingMenuPlacement.local(pose),
                 new Text(Objects.requireNonNull(text, "text"), background,
                         displayWidth, displayHeight, scale,
@@ -170,7 +180,48 @@ public record FloatingMenuDecoration(
                 new BlockVolume(block, width, height, depth), Motion.NONE).tracking();
     }
 
-    public sealed interface Content permits Text, Visual, BlockVolume {
+    public sealed interface Content permits Text, Visual, BlockVolume, Surface, Image, RangePart, IconPart {
+    }
+
+    /** Stable local paint identity; the owning control supplies transforms, state and input. */
+    public record IconPart(String source, org.encinet.mik.shared.menu.ui.UiIcon icon, int part, Layer layer,
+                           double size, UiColor tint, double alpha) implements Content {
+        public enum Layer { FEATHER, CORE }
+        public IconPart {
+            Objects.requireNonNull(source, "source"); Objects.requireNonNull(icon, "icon"); Objects.requireNonNull(tint, "tint");
+            Objects.requireNonNull(layer, "layer");
+            if (part < 0 || part >= icon.partCount() || !Double.isFinite(size) || size <= 0
+                    || !Double.isFinite(alpha) || alpha < 0 || alpha > 1)
+                throw new IllegalArgumentException("Invalid icon paint part");
+        }
+    }
+
+    /** Parts share one semantic range target and are updated through the ordinary menu lifecycle. */
+    public record RangePart(String source, org.encinet.mik.shared.menu.ui.UiRange range,
+                            org.encinet.mik.shared.menu.ui.UiRange.Geometry geometry, Part part, double alpha) implements Content {
+        public enum Part { TRACK, FILL, THUMB, PREVIEW, VALUE, MAXIMUM }
+        public RangePart {
+            Objects.requireNonNull(source, "source"); Objects.requireNonNull(range, "range");
+            Objects.requireNonNull(geometry, "geometry"); Objects.requireNonNull(part, "part");
+            if (!Double.isFinite(alpha) || alpha < 0 || alpha > 1) throw new IllegalArgumentException("Invalid range opacity");
+        }
+    }
+
+    /** Proportional image quad. The runtime sends its texture through Axiom, with text as a client fallback. */
+    public record Image(org.encinet.mik.shared.menu.image.UiImage source, Component alternative,
+                        float width, float height, float opacity) implements Content {
+        public Image {
+            Objects.requireNonNull(source, "source");
+            Objects.requireNonNull(alternative, "alternative");
+            if (!positiveFinite(width) || !positiveFinite(height) || !Float.isFinite(opacity) || opacity < 0 || opacity > 1)
+                throw new IllegalArgumentException("Invalid image bounds or opacity");
+        }
+    }
+
+    public record Surface(float width, float height, int background) implements Content {
+        public Surface {
+            if (!positiveFinite(width) || !positiveFinite(height)) throw new IllegalArgumentException("Invalid surface size");
+        }
     }
 
     public record BlockVolume(BlockData block, float width, float height, float depth) implements Content {
@@ -183,10 +234,16 @@ public record FloatingMenuDecoration(
         @Override public BlockData block() { return block.clone(); }
     }
 
-    public record Text(Component text, int background, float displayWidth,
+    public record Text(Component text, UiColor backgroundColor, float displayWidth,
                        float displayHeight, float scale, Alignment alignment,
                        boolean seeThrough) implements Content {
+        public Text(Component text, int background, float displayWidth, float displayHeight,
+                    float scale, Alignment alignment, boolean seeThrough) {
+            this(text, UiColor.fromArgb(background),
+                    displayWidth, displayHeight, scale, alignment, seeThrough);
+        }
         public Text {
+            Objects.requireNonNull(backgroundColor, "backgroundColor");
             text = Objects.requireNonNull(text, "text");
             alignment = Objects.requireNonNull(alignment, "alignment");
             if (!positiveFinite(displayWidth) || !positiveFinite(displayHeight)

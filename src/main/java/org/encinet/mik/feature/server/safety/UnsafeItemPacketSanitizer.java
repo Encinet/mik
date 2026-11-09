@@ -245,7 +245,7 @@ final class UnsafeItemPacketSanitizer {
         return changed ? new ClientboundBundlePacket(replacement) : bundle;
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("unchecked") // Only clientbound item packets are replaced; listener direction remains unchanged.
     private static Packet<? super ClientGamePacketListener> asGamePacket(Packet<?> packet) {
         return (Packet<? super ClientGamePacketListener>) packet;
     }

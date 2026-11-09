@@ -189,10 +189,6 @@ class RhythmLatencyPipelineTest {
         return timeline;
     }
 
-    private static RhythmCue cue(long id, long timeMillis) {
-        return new RhythmCue(id, timeMillis, RhythmInput.ONE, 0.9);
-    }
-
     private static void recordCycles(RhythmLatencyCalibration calibration,
                                      int[] rttMillis,
                                      int fixedOffsetMillis) {

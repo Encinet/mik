@@ -4,11 +4,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.community.chat.model.ChatSender;
 import org.encinet.mik.feature.community.chat.model.ChatSubmission;
-import org.encinet.mik.feature.community.chat.bridge.SocialChatGameSink;
+import org.encinet.mik.feature.community.chat.bridge.ChatIngress;
 import org.encinet.mik.feature.community.identity.IdentityBindingManager;
 import org.encinet.mik.feature.player.profile.PlayerNameTag;
 import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
-import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.feature.community.social.chat.SocialChatGateway;
 
 import java.util.Objects;
@@ -21,7 +20,7 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
     private final JavaPlugin plugin;
     private final IdentityBindingManager identityBindings;
     private final PlayerNameTagRenderer playerNameTags;
-    private volatile SocialChatGameSink gameSink;
+    private volatile ChatIngress ingress;
 
     public BukkitSocialChatGateway(
             JavaPlugin plugin,
@@ -35,20 +34,16 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
                 playerNameTags, "playerNameTags");
     }
 
-    public synchronized void bind(SocialChatGameSink sink) {
+    public synchronized void bind(ChatIngress sink) {
         Objects.requireNonNull(sink, "sink");
-        if (gameSink != null) {
-            throw new IllegalStateException("Social chat game sink is already bound");
+        if (ingress != null) {
+            throw new IllegalStateException("Social chat ingress is already bound");
         }
-        gameSink = sink;
+        ingress = sink;
     }
 
     @Override
-    public CompletionStage<Void> deliver(
-            SocialPlatformDescriptor platform,
-            ChatSubmission submission
-    ) {
-        Objects.requireNonNull(platform, "platform");
+    public CompletionStage<Void> deliver(ChatSubmission submission) {
         Objects.requireNonNull(submission, "submission");
         ChatSender original = submission.sender();
         ChatSender sender = original.externalIdentity()
@@ -59,7 +54,7 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
                     return new ChatSender(
                             binding.playerName(), Optional.of(binding.playerId()),
                             original.externalIdentity(), binding.playerName(),
-                            nameTag.prefix(), nameTag.suffix());
+                            nameTag.prefix(), nameTag.suffix(), nameTag.usernameColor().value());
                 }).orElse(original);
         org.encinet.mik.feature.community.chat.model.ChatReferences references =
                 enrichMentions(submission.references());
@@ -71,12 +66,12 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
         CompletableFuture<Void> delivered = new CompletableFuture<>();
         Runnable task = () -> {
             try {
-                SocialChatGameSink sink = gameSink;
+                ChatIngress sink = ingress;
                 if (sink == null) {
                     throw new IllegalStateException(
-                            "Social chat game sink has not been bound");
+                            "Social chat ingress has not been bound");
                 }
-                sink.display(platform.displayName(), enriched);
+                sink.accept(enriched);
                 delivered.complete(null);
             } catch (RuntimeException error) {
                 delivered.completeExceptionally(error);

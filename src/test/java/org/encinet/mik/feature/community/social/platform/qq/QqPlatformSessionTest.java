@@ -27,8 +27,8 @@ class QqPlatformSessionTest {
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokens);
         QqGatewaySession gateway = new QqGatewaySession(
                 httpClient, config, tokens,
-                ignored -> SocialEventSink.Acceptance.IGNORED,
-                ignored -> { }, Logger.getAnonymousLogger());
+                _ -> SocialEventSink.Acceptance.IGNORED,
+                _ -> { }, Logger.getAnonymousLogger());
         QqPlatformSession session = new QqPlatformSession(
                 gateway, httpClient, api, config);
         UUID playerId = UUID.randomUUID();

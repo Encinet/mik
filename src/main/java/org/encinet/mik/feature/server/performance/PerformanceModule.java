@@ -1,6 +1,8 @@
 package org.encinet.mik.feature.server.performance;
 
 import org.encinet.mik.shared.role.RolePermissions;
+import org.encinet.mik.shared.i18n.LanguageService;
+import org.encinet.mik.shared.i18n.Message;
 
 import com.destroystokyo.paper.event.server.ServerTickEndEvent;
 import net.kyori.adventure.text.Component;
@@ -41,7 +43,7 @@ public class PerformanceModule implements Listener {
 
     private final JavaPlugin plugin;
     private final ServerTickManager tickManager;
-    private final Component kickMessage;
+    private final LanguageService languageService;
 
     private final MsptSampler sampler;
     private final EmergencyTickPausePolicy tickPausePolicy;
@@ -53,16 +55,10 @@ public class PerformanceModule implements Listener {
     private volatile double lastEffectiveMspt = 20.0;
     private volatile boolean liveFrozen;
 
-    public PerformanceModule(JavaPlugin plugin) {
+    public PerformanceModule(JavaPlugin plugin, LanguageService languageService) {
         this.plugin = plugin;
+        this.languageService = languageService;
         this.tickManager = plugin.getServer().getServerTickManager();
-        this.kickMessage = Component.text("═══════════════════════════════")
-                .append(Component.newline())
-                .append(Component.text("服务器出现严重卡顿").color(NamedTextColor.RED))
-                .append(Component.newline())
-                .append(Component.text("为帮助服务器恢复，暂时断开连接").color(NamedTextColor.YELLOW))
-                .append(Component.newline())
-                .append(Component.text("═══════════════════════════════"));
 
         this.sampler = new MsptSampler();
         this.tickPausePolicy = new EmergencyTickPausePolicy();
@@ -223,7 +219,13 @@ public class PerformanceModule implements Listener {
             if (player.hasPermission(CUSTODIAN_PERMISSION)) {
                 continue;
             }
-            player.kick(kickMessage);
+            player.kick(Component.text("═══════════════════════════════")
+                    .appendNewline()
+                    .append(languageService.text(player, Message.PERFORMANCE_KICK_TITLE, NamedTextColor.RED))
+                    .appendNewline()
+                    .append(languageService.text(player, Message.PERFORMANCE_KICK_REASON, NamedTextColor.YELLOW))
+                    .appendNewline()
+                    .append(Component.text("═══════════════════════════════")));
             kicked++;
         }
         return kicked;
@@ -438,7 +440,7 @@ public class PerformanceModule implements Listener {
                 return true;
             }
 
-            int[] counts = counters.computeIfAbsent(key, ignored -> new int[COUNTER_COUNT]);
+            int[] counts = counters.computeIfAbsent(key, _ -> new int[COUNTER_COUNT]);
             int current = ++counts[rule.index()];
             if (current >= rule.hardLimit()) {
                 throttleChunk(block, rule.category(), current, true);
@@ -449,7 +451,7 @@ public class PerformanceModule implements Listener {
                 return false;
             }
 
-            int[] breaches = softBreaches.computeIfAbsent(key, ignored -> new int[COUNTER_COUNT]);
+            int[] breaches = softBreaches.computeIfAbsent(key, _ -> new int[COUNTER_COUNT]);
             if (breaches[rule.index()] > 0) {
                 breaches[rule.index()] = 0;
                 throttleChunk(block, rule.category(), current, false);

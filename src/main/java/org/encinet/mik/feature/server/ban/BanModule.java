@@ -35,11 +35,11 @@ public final class BanModule {
         BanMessageRenderer renderer = new BanMessageRenderer(languageService, zoneId);
         BanAnnouncementBroadcaster announcementBroadcaster = new BanAnnouncementBroadcaster(languageService, renderer);
         BanAdmissionChecker admissionChecker = new BanAdmissionChecker(banService, addressLookup);
-        BanDialogController dialogController = new BanDialogController(
+        BanMenu banMenu = new BanMenu(
                 plugin, languageService, banService, renderer, announcementBroadcaster);
         this.commandController = new BanCommandController(
                 plugin, languageService, paperSynchronizer, banService, renderer, announcementBroadcaster,
-                dialogController);
+                banMenu);
         this.loginListener = new BanLoginListener(
                 plugin, paperSynchronizer, languageService, renderer, admissionChecker);
     }

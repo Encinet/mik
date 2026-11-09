@@ -122,10 +122,15 @@ class TeleportForceCommandTest {
     }
 
     @Test
-    @SuppressWarnings({"rawtypes", "unchecked"})
     void helpUsageDoesNotTraverseTheRestrictedVanillaProxy() throws Exception {
-        var nativeTeleport = dispatcher.getRoot().getChild("minecraft:teleport");
-        var shadow = new ShadowBrigNode((com.mojang.brigadier.tree.CommandNode) nativeTeleport);
+        var delegated = new java.util.concurrent.atomic.AtomicReference<String>();
+        var nativeTeleport = com.mojang.brigadier.builder.LiteralArgumentBuilder
+                .<net.minecraft.commands.CommandSourceStack>literal("teleport")
+                .then(com.mojang.brigadier.builder.RequiredArgumentBuilder
+                        .<net.minecraft.commands.CommandSourceStack, String>argument("arguments", StringArgumentType.greedyString())
+                        .executes(context -> { delegated.set(StringArgumentType.getString(context, "arguments")); return 7; }))
+                .build();
+        var shadow = new ShadowBrigNode(nativeTeleport);
         var force = ForceTeleportCommand.create(shadow, LANGUAGES);
         var usageRoot = force.getRedirect() == null ? force : force.getRedirect();
 
@@ -133,6 +138,7 @@ class TeleportForceCommandTest {
         dispatcher.getRoot().removeCommand("tpforce");
         dispatcher.getRoot().addChild(force);
         assertEquals(7, dispatcher.execute("tpforce Target Sender", source(PlayerRole.CUSTODIAN)));
+        assertEquals("Target Sender", delegated.get());
     }
 
     private CommandDispatcher<CommandSourceStack> dispatcher() {
@@ -141,7 +147,7 @@ class TeleportForceCommandTest {
         var teleport = result.register(Commands.literal("minecraft:teleport")
                 .requires(source -> source.getSender().hasPermission("minecraft.command.teleport"))
                 .then(Commands.argument("arguments", StringArgumentType.greedyString())
-                        .suggests((context, builder) -> builder.suggest("Target").buildFuture())
+                        .suggests((_, builder) -> builder.suggest("Target").buildFuture())
                         .executes(context -> {
                             invocations.add(new Invocation(StringArgumentType.getString(context, "arguments"),
                                     context.getSource()));
@@ -157,7 +163,7 @@ class TeleportForceCommandTest {
 
     private CommandSourceStack source(PlayerRole role, boolean vanillaPermission) {
         var sender = (CommandSender) Proxy.newProxyInstance(CommandSender.class.getClassLoader(),
-                new Class<?>[]{CommandSender.class}, (proxy, method, args) -> {
+                new Class<?>[]{CommandSender.class}, (_, method, args) -> {
                     if (method.getName().equals("hasPermission")) {
                         return role.permission().equals(args[0])
                                 || vanillaPermission && "minecraft.command.teleport".equals(args[0]);

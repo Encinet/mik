@@ -18,6 +18,7 @@ class PlotHotPathBenchmark {
     private static volatile long resultSink;
     private static volatile Object objectSink;
 
+    @SuppressWarnings("resource") // Deferred plan benchmark never opens external resources.
     @Test
     void reportSteadyStateHotPathTimeAndAllocationsWithoutTimingAssertions() throws Exception {
         UUID world = UUID.randomUUID();
@@ -55,7 +56,7 @@ class PlotHotPathBenchmark {
         var setting = new PlotAtmosphere(6000, PlotAtmosphere.Weather.CLEAR);
         var applied = new PlotAtmosphereController.Applied(setting, null, null);
         Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-                new Class<?>[] {Player.class}, (proxy, method, arguments) -> {
+                new Class<?>[] {Player.class}, (_, method, _) -> {
                     throw new AssertionError("Unchanged atmosphere must not call " + method.getName());
                 });
         report("atmosphere/unchanged", 100_000, () -> {
@@ -84,6 +85,8 @@ class PlotHotPathBenchmark {
         long elapsed = System.nanoTime() - started;
         long bytes = allocation == null ? 0 : allocation.getThreadAllocatedBytes(thread) - beforeBytes;
         resultSink = total;
+        java.lang.ref.Reference.reachabilityFence(resultSink);
+        java.lang.ref.Reference.reachabilityFence(objectSink);
         String allocated = allocation == null ? "allocation unavailable"
                 : String.format(java.util.Locale.ROOT, "%.1f bytes/op", bytes / (double) count);
         System.out.printf(java.util.Locale.ROOT, "%s: %.1f ns/op, %s%n", label,

@@ -32,16 +32,16 @@ class MikSkriptModuleTest {
     @Test
     void normalizesAnOptionalClientVersionCapability() {
         assertEquals("unknown", MikSkriptModule.clientVersionName(null, null));
-        assertEquals("unknown", MikSkriptModule.clientVersionName(player -> "", null));
-        assertEquals("unknown", MikSkriptModule.clientVersionName(player -> "Unknown", null));
-        assertEquals("1.21.8", MikSkriptModule.clientVersionName(player -> "1.21.8", null));
+        assertEquals("unknown", MikSkriptModule.clientVersionName(_ -> "", null));
+        assertEquals("unknown", MikSkriptModule.clientVersionName(_ -> "Unknown", null));
+        assertEquals("1.21.8", MikSkriptModule.clientVersionName(_ -> "1.21.8", null));
     }
 
     @Test
     void registersAllMikSyntaxes() {
         org.skriptlang.skript.Skript skript = org.skriptlang.skript.Skript.of(
                 MikSkriptModuleTest.class, "TestSkript");
-        Function<Player, String> value = player -> "value";
+        Function<Player, String> value = _ -> "value";
         MikSkriptFacade facade = new MikSkriptFacade(null, value, value, value, null, null);
 
         MikSkriptModule.register(skript, MikSkriptModuleTest.class, facade);
@@ -101,7 +101,7 @@ class MikSkriptModuleTest {
     @Test
     void unregistersMikSyntaxFromEveryParserRegistryWithoutRemovingOtherAddons() {
         var skript = org.skriptlang.skript.Skript.of(MikSkriptModuleTest.class, "TestSkript");
-        Function<Player, String> value = player -> "value";
+        Function<Player, String> value = _ -> "value";
         var facade = new MikSkriptFacade(null, value, value, value, null, null);
         var other = skript.registerAddon(MikSkriptModuleTest.class, "OtherAddon");
         other.syntaxRegistry().register(SyntaxRegistry.EXPRESSION,
@@ -135,7 +135,7 @@ class MikSkriptModuleTest {
         var failure = new IllegalStateException("Registration failed");
         SyntaxRegistry failing = (SyntaxRegistry) Proxy.newProxyInstance(
                 SyntaxRegistry.class.getClassLoader(), new Class<?>[]{SyntaxRegistry.class},
-                (proxy, method, arguments) -> {
+                (_, method, arguments) -> {
                     Object result = method.invoke(registry, arguments);
                     if (method.getName().equals("register") && registrations.incrementAndGet() == 3) {
                         throw failure;
@@ -143,7 +143,7 @@ class MikSkriptModuleTest {
                     return result;
                 });
         skript.storeRegistry(SyntaxRegistry.class, failing);
-        Function<Player, String> value = player -> "value";
+        Function<Player, String> value = _ -> "value";
         var facade = new MikSkriptFacade(null, value, value, value, null, null);
 
         assertSame(failure, assertThrows(IllegalStateException.class,

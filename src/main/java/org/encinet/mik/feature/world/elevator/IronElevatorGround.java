@@ -32,20 +32,6 @@ final class IronElevatorGround {
     private IronElevatorGround() {
     }
 
-    static int estimate(Block source, int fallback) {
-        return measure(source, fallback).height();
-    }
-
-    static Estimate measure(Block source, int fallback) {
-        return measure(source, List.of(fallback));
-    }
-
-    static Estimate measure(Block source, List<Integer> floors) {
-        Measurement measurement = new Measurement(source, floors);
-        while (!measurement.step()) { }
-        return measurement.result();
-    }
-
     /** One surface or entrance probe per step; numbering never gates route discovery. */
     static final class Measurement {
         private final Block source;
@@ -129,7 +115,7 @@ final class IronElevatorGround {
     }
 
     private static boolean highestFloor(List<Integer> floors, int reference) {
-        return floors.size() >= 3 && IronElevatorFloors.groundIndex(floors, reference) == floors.size() - 1;
+        return floors.size() >= 3 && groundIndex(floors, reference) == floors.size() - 1;
     }
 
     private static void probeSurface(Block source, int radius, int offsetX, int offsetZ,
@@ -163,7 +149,7 @@ final class IronElevatorGround {
             if (foliage(material) || material == Material.IRON_BLOCK
                     || !support.getBlockData().isFaceSturdy(BlockFace.UP, BlockSupport.FULL)) continue;
             Location feet = new Location(world, probe.blockX() + 0.5, height + 1, probe.blockZ() + 0.5);
-            if (IronElevatorLanding.isSafe(feet, IronElevatorLanding.DEFAULT_SIZE, body -> false))
+            if (IronElevatorLanding.isSafe(feet, IronElevatorLanding.DEFAULT_SIZE, _ -> false))
                 return new Sample(height, probe.radius(), natural(material));
         }
         return null;
@@ -196,4 +182,16 @@ final class IronElevatorGround {
         return name.endsWith("_LEAVES") || name.endsWith("_LOG") || name.endsWith("_WOOD")
                 || name.endsWith("_STEM") || name.endsWith("_HYPHAE");
     }
+    static int groundIndex(List<Integer> heights, int reference) {
+        if (heights.isEmpty()) {
+            throw new IllegalArgumentException("At least one floor is required");
+        }
+        for (int index = 0; index < heights.size(); index++) {
+            if (heights.get(index) >= (long) reference - 2) {
+                return index;
+            }
+        }
+        return heights.size() - 1;
+    }
+
 }

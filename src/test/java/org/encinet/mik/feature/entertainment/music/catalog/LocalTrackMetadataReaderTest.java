@@ -20,13 +20,13 @@ class LocalTrackMetadataReaderTest {
     @Test
     void mergesEveryFieldIndependentlyInPriorityOrder() {
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
-                (path, extension) -> new LocalTrackMetadata(
+                (_, _) -> new LocalTrackMetadata(
                         "Embedded title", null, "Embedded album",
                         new AudioProperties(null, 48_000, null)),
-                (path, extension) -> new PlaybackProbeResult(true,
+                (_, _) -> new PlaybackProbeResult(true,
                         new LocalTrackMetadata("Probe title", "Probe artist", null,
                                 new AudioProperties(null, null, Duration.ofSeconds(61)))),
-                (path, extension) -> new LocalTrackMetadata(null, null, null,
+                (_, _) -> new LocalTrackMetadata(null, null, null,
                         new AudioProperties(4096L, 44_100, Duration.ofSeconds(90))),
                 new MetadataFallbackPolicy());
 
@@ -43,10 +43,10 @@ class LocalTrackMetadataReaderTest {
     @Test
     void fallsBackToFileNameWhenMetadataIsMissingOrUnsafe() {
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
-                (path, extension) -> new LocalTrackMetadata(
+                (_, _) -> new LocalTrackMetadata(
                         "bad\nvalue", " ", null, AudioProperties.EMPTY),
-                (path, extension) -> new PlaybackProbeResult(true, LocalTrackMetadata.EMPTY),
-                (path, extension) -> LocalTrackMetadata.EMPTY,
+                (_, _) -> new PlaybackProbeResult(true, LocalTrackMetadata.EMPTY),
+                (_, _) -> LocalTrackMetadata.EMPTY,
                 new MetadataFallbackPolicy());
 
         TrackDetails details = reader.read(TRACK, "webm", "Readable file name");
@@ -60,15 +60,15 @@ class LocalTrackMetadataReaderTest {
     void stopsBeforeProbingWhenTagReadingIsInterrupted() {
         AtomicInteger probes = new AtomicInteger();
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
-                (path, extension) -> {
+                (_, _) -> {
                     Thread.currentThread().interrupt();
                     throw new IllegalStateException("Interrupted tag reader");
                 },
-                (path, extension) -> {
+                (_, _) -> {
                     probes.incrementAndGet();
                     return PlaybackProbeResult.UNSUPPORTED;
                 },
-                (path, extension) -> {
+                (_, _) -> {
                     probes.incrementAndGet();
                     return LocalTrackMetadata.EMPTY;
                 },
@@ -87,9 +87,9 @@ class LocalTrackMetadataReaderTest {
     void doesNotTreatCancelledPlaybackProbeAsAnUnsupportedFile() {
         CancellationException cancelled = new CancellationException("Stopped");
         LocalTrackMetadataReader reader = new LocalTrackMetadataReader(
-                (path, extension) -> LocalTrackMetadata.EMPTY,
-                (path, extension) -> { throw cancelled; },
-                (path, extension) -> { throw new AssertionError("Must not read after cancellation"); },
+                (_, _) -> LocalTrackMetadata.EMPTY,
+                (_, _) -> { throw cancelled; },
+                (_, _) -> { throw new AssertionError("Must not read after cancellation"); },
                 new MetadataFallbackPolicy());
 
         assertSame(cancelled, assertThrows(CancellationException.class,
@@ -99,18 +99,18 @@ class LocalTrackMetadataReaderTest {
     @Test
     void isolatesReaderFailuresButRequiresPlaybackSupport() {
         LocalTrackMetadataReader recoverable = new LocalTrackMetadataReader(
-                (path, extension) -> { throw new IllegalStateException("bad tag"); },
-                (path, extension) -> new PlaybackProbeResult(true, LocalTrackMetadata.EMPTY),
-                (path, extension) -> { throw new IllegalStateException("bad header"); },
+                (_, _) -> { throw new IllegalStateException("bad tag"); },
+                (_, _) -> new PlaybackProbeResult(true, LocalTrackMetadata.EMPTY),
+                (_, _) -> { throw new IllegalStateException("bad header"); },
                 new MetadataFallbackPolicy());
 
         assertEquals("Fallback", recoverable.read(TRACK, "webm", "Fallback").title());
 
         LocalTrackMetadataReader unsupported = new LocalTrackMetadataReader(
-                (path, extension) -> new LocalTrackMetadata(
+                (_, _) -> new LocalTrackMetadata(
                         "Tagged", "Artist", "Album", AudioProperties.EMPTY),
-                (path, extension) -> PlaybackProbeResult.UNSUPPORTED,
-                (path, extension) -> LocalTrackMetadata.EMPTY,
+                (_, _) -> PlaybackProbeResult.UNSUPPORTED,
+                (_, _) -> LocalTrackMetadata.EMPTY,
                 new MetadataFallbackPolicy());
 
         assertNull(unsupported.read(TRACK, "webm", "Fallback"));

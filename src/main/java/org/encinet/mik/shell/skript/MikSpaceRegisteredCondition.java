@@ -11,31 +11,30 @@ import org.jetbrains.annotations.Nullable;
 final class MikSpaceRegisteredCondition extends Condition {
 
     private final MikSkriptFacade facade;
-    private Expression<String> id;
+    private MikSkriptInput<String> id;
 
     MikSpaceRegisteredCondition(MikSkriptFacade facade) {
         this.facade = facade;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        id = (Expression<String>) expressions[0];
+        id = MikSkriptInput.of(expressions[0], String.class);
         setNegated(matchedPattern == 1);
         return true;
     }
 
     @Override
     public boolean check(Event event) {
-        String linkId = id.getSingle(event);
+        String linkId = id.single(event);
         boolean registered = linkId != null && facade.spaceRegistered(linkId);
         return isNegated() ? !registered : registered;
     }
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return "MIK space " + (id == null ? "" : id.toString(event, debug))
+        return "MIK space " + (id == null ? "" : id.describe(event, debug))
                 + (isNegated() ? " is not registered" : " is registered");
     }
 }

@@ -18,10 +18,10 @@ public final class ServerToolPack {
                 GameToolSupport.tool("server_status",
                         "Get the current read-only server version, player counts, TPS, MSPT, "
                                 + "uptime, memory, and loaded-world count.",
-                        GameToolSupport.emptySchema(), ignored -> status(snapshot)),
+                        GameToolSupport.emptySchema(), _ -> status(snapshot)),
                 GameToolSupport.tool("get_server_time",
                         "Get the current instant and local time in the server time zone.",
-                        GameToolSupport.emptySchema(), ignored -> time(snapshot)));
+                        GameToolSupport.emptySchema(), _ -> time(snapshot)));
         return new AiToolPack("server",
                 "Server health, performance, version, uptime, and clock queries.",
                 List.of("status", "tps", "mspt", "time", "clock", "服务器", "狀態",

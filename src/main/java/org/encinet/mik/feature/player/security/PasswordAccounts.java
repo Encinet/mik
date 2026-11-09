@@ -1,4 +1,5 @@
 package org.encinet.mik.feature.player.security;
+
 import java.util.UUID;
 
 /** Cached credential presence and coordination with operations that require keeping a password. */

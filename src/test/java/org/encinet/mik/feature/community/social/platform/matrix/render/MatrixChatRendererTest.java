@@ -134,12 +134,11 @@ class MatrixChatRendererTest {
     void usesBoundMinecraftNameAndKeepsItemFallbacksPortable() {
         UUID playerId = UUID.randomUUID();
         ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.external("matrix", "$event"),
-                new ChatOrigin.Social("matrix", "$event"),
+                ChatMessageId.external("matrix", "room", "$event"),
+                new ChatOrigin.Social("matrix", "Matrix", "!room:example.org", "$event"),
                 new ChatSender("Steve", java.util.Optional.of(playerId),
-                        java.util.Optional.empty(), "Steve", "[VIP] ", ""),
-                new ChatConversation(ChatConversation.Kind.SOCIAL,
-                        "matrix:room"), "item", ChatReferences.empty(),
+                        java.util.Optional.empty(), "Steve", "[VIP] ", "", 0xFFFFFF),
+                ChatConversation.minecraftPublic(), "item", ChatReferences.empty(),
                 Instant.EPOCH, ChatProcessingContext.external());
         ChatMessage message = new ChatMessage(submission,
                 new ChatContent(List.of(new ChatNode.Item(
@@ -163,7 +162,7 @@ class MatrixChatRendererTest {
         ExternalIdentity second = matrix("@alex:two.example", "Alex Two");
 
         MatrixChatRenderer.RenderedChat rendered = MatrixChatRenderer.render(
-                message("Alex@", content),
+                message("@Alex", content),
                 new SocialChatMentionResolution(Map.of(
                         target, List.of(first, second))), 4_000);
 

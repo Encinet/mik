@@ -8,7 +8,7 @@ public interface SocialIdentityLeaseManager {
     AutoCloseable register(IdentityPlatform platform);
 
     static SocialIdentityLeaseManager unavailable() {
-        return platform -> {
+        return _ -> {
             throw new IllegalStateException("Identity binding service is unavailable");
         };
     }

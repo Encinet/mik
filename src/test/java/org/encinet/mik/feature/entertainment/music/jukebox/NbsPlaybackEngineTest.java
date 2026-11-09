@@ -177,6 +177,44 @@ class NbsPlaybackEngineTest {
     }
 
     @Test
+    void aNewRhythmAttemptReplaysThePreparedChartFromTheBeginning() throws Exception {
+        Path file = directory.resolve("replay.nbs");
+        Files.write(file, minimalNbs());
+        ManualExecutor executor = new ManualExecutor();
+        ImmediateScheduler scheduler = new ImmediateScheduler();
+        AtomicLong clock = new AtomicLong(1_000_000_000L);
+        engine = new NbsPlaybackEngine(scheduler, new LocalMediaPreparer(),
+                new NbsParser(), executor,
+                org.encinet.mik.feature.entertainment.music.rhythm.analysis.NbsRhythmExtractor.INSTANCE,
+                clock::get);
+        TrackTarget.NbsFile target = new TrackTarget.NbsFile(file, directory);
+        var timeline = new org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmTimeline(
+                "rhythm-replay");
+        PlaybackAttempt first = new PlaybackAttempt(new JukeboxPlaybackGroup(clock::get));
+        first.prepare(() -> engine.create(new Location(null, 0, 0, 0), target,
+                JukeboxSoundSettings.defaults(), first.guard(new RecordingCallbacks()),
+                timeline, first.group()));
+        first.start();
+        executor.runAll();
+        clock.addAndGet(50_000_000L);
+        scheduler.runPlaybackTick();
+        assertEquals(50L, first.session().positionMillis());
+        first.close();
+
+        PlaybackAttempt second = new PlaybackAttempt(new JukeboxPlaybackGroup(clock::get));
+        second.prepare(() -> engine.create(new Location(null, 0, 0, 0), target,
+                JukeboxSoundSettings.defaults(), second.guard(new RecordingCallbacks()),
+                timeline, second.group()));
+        second.start();
+        executor.runAll();
+
+        assertTrue(timeline.complete());
+        assertEquals(PlaybackStatus.PLAYING, second.session().status());
+        assertEquals(0L, second.session().positionMillis());
+        second.close();
+    }
+
+    @Test
     void synchronizedJukeboxesKeepIndependentSessionsPlayingAtTheSameTime()
             throws Exception {
         Path file = directory.resolve("simultaneous.nbs");

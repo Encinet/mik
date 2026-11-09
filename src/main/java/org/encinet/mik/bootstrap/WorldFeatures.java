@@ -1,6 +1,7 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.world.buildings.BuildingMapModule;
 import org.encinet.mik.feature.world.elevator.IronElevatorModule;
 import org.encinet.mik.feature.world.plot.PlotModule;
 import org.encinet.mik.feature.world.regen.AsyncRegenModule;
@@ -10,7 +11,8 @@ import org.encinet.mik.feature.world.vehicle.VehicleModule;
 
 record WorldFeatures(
         PlotModule plots,
-        NonEuclideanSpaceModule spaces) {
+        NonEuclideanSpaceModule spaces,
+        java.util.function.Consumer<org.bukkit.entity.Player> vehicles) {
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -33,7 +35,7 @@ record WorldFeatures(
         plotModule.registerCommands(plugin.getLifecycleManager());
 
         IronElevatorModule ironElevatorModule = new IronElevatorModule(
-                plugin, languageService, floatingMenuService.worldTextDisplays(),
+                plugin, languageService, lifecycle.own("iron-elevator-panels", floatingMenuService.worldPanels()),
                 lifecycle.own("iron-elevator-tips", players.guidance().scope()));
         lifecycle.startManaged("iron-elevator", ironElevatorModule::enable, ironElevatorModule::disable);
 
@@ -46,6 +48,9 @@ record WorldFeatures(
         lifecycle.startManaged("spawn-beacon-color", spawnBeaconColorModule::enable, spawnBeaconColorModule::disable);
         spawnBeaconColorModule.registerCommands(plugin.getLifecycleManager());
 
-        return new WorldFeatures(plotModule, nonEuclideanSpaceModule);
+        BuildingMapModule buildingMapModule = new BuildingMapModule(plugin, languageService);
+        lifecycle.startManaged("building-map", buildingMapModule::enable, buildingMapModule::disable);
+
+        return new WorldFeatures(plotModule, nonEuclideanSpaceModule, vehicleModule::openMenu);
     }
 }

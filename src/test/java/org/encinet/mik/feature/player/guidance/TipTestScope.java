@@ -51,7 +51,7 @@ public final class TipTestScope implements TipScope, Tip.Binding {
         events = new TipEvents(handlers, action -> {
             mainTasks.add(action);
             return () -> mainTasks.remove(action);
-        }, player -> true, error -> { throw new AssertionError(error); });
+        }, _ -> true, error -> { throw new AssertionError(error); });
     }
 
     @Override

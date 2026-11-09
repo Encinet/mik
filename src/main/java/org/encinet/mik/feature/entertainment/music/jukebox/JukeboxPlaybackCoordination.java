@@ -18,20 +18,14 @@ final class JukeboxPlaybackCoordination {
         Objects.requireNonNull(trackId, "trackId");
         Objects.requireNonNull(settings, "settings");
         Objects.requireNonNull(activeFields, "activeFields");
-        JukeboxPlaybackGroup playbackGroup = null;
         for (ActiveField active : activeFields) {
             if (!JukeboxAudibleField.overlaps(location, settings,
                     active.location(), active.settings())) {
                 continue;
             }
-            if (!trackId.equals(active.trackId())) {
-                return new Decision(true, null);
-            }
-            if (playbackGroup == null) {
-                playbackGroup = active.playbackGroup();
-            }
+            return new Decision(true, null);
         }
-        return new Decision(false, playbackGroup);
+        return new Decision(false, null);
     }
 
     record ActiveField(

@@ -7,7 +7,6 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
 
-import java.util.Comparator;
 import java.util.function.Predicate;
 
 final class IronElevatorLanding {
@@ -45,30 +44,7 @@ final class IronElevatorLanding {
         return block.getType() == Material.IRON_BLOCK ? block : null;
     }
 
-    static Location find(Block source, int direction, Location origin, Size size,
-                         Predicate<BoundingBox> extraCollision) {
-        if (direction != -1 && direction != 1) {
-            throw new IllegalArgumentException("Direction must be -1 or 1");
-        }
-        var platforms = IronElevatorShaft.scan(source).platforms().stream()
-                .filter(platform -> direction * (platform.height() - source.getY()) > 0)
-                .sorted(Comparator.comparingInt(platform -> direction * platform.height())).toList();
-        for (IronElevatorPlatform platform : platforms) {
-            Location landing = on(platform, origin, size, extraCollision);
-            if (landing != null) {
-                return landing;
-            }
-        }
-        return null;
-    }
-
-    static Location on(Block platform, Location origin, Size size,
-                       Predicate<BoundingBox> extraCollision) {
-        IronElevatorPlatform group = IronElevatorPlatform.resolve(platform);
-        return group == null ? null : on(group, origin, size, extraCollision);
-    }
-
-    static Location on(IronElevatorPlatform platform, Location origin, Size size,
+    static Location on(IronElevatorShaft.Level platform, Location origin, Size size,
                        Predicate<BoundingBox> extraCollision) {
         if (!platform.anchor().getWorld().equals(origin.getWorld())) return null;
         Location landing = origin.clone();
@@ -76,22 +52,18 @@ final class IronElevatorLanding {
         return supported(platform, landing) && isSafe(landing, size, extraCollision) ? landing : null;
     }
 
-    static boolean usable(IronElevatorPlatform platform) {
-        Usability search = new Usability(platform);
-        while (!search.step()) { }
-        return search.usable;
-    }
-
     static final class Usability {
-        private final IronElevatorPlatform platform;
+        private final IronElevatorShaft.Level platform;
+        private final java.util.List<Block> blocks;
         private final Location probe;
         private int block;
         private int offset = -1;
         private boolean done;
         private boolean usable;
 
-        Usability(IronElevatorPlatform platform) {
+        Usability(IronElevatorShaft.Level platform) {
             this.platform = platform;
+            blocks = platform.blocks();
             probe = new Location(platform.anchor().getWorld(), 0, platform.height() + 1, 0);
         }
 
@@ -99,15 +71,15 @@ final class IronElevatorLanding {
 
         boolean step() {
             if (done) return true;
-            if (block == platform.blocks().size()) return done = true;
-            Block current = platform.blocks().get(block);
+            if (block == blocks.size()) return done = true;
+            Block current = blocks.get(block);
             probe.setX(current.getX() + (offset < 0 ? 0.5 : EDGE_OFFSETS[offset / 3]));
             probe.setZ(current.getZ() + (offset < 0 ? 0.5 : EDGE_OFFSETS[offset % 3]));
             if (offset < 0 && !supported(platform, probe)) {
                 block++;
                 return false;
             }
-            if (isSafe(probe, DEFAULT_SIZE, body -> false)) {
+            if (isSafe(probe, DEFAULT_SIZE, _ -> false)) {
                 usable = true;
                 return done = true;
             }
@@ -119,7 +91,7 @@ final class IronElevatorLanding {
         }
     }
 
-    private static boolean supported(IronElevatorPlatform platform, Location feet) {
+    private static boolean supported(IronElevatorShaft.Level platform, Location feet) {
         World world = feet.getWorld();
         if (!world.isChunkLoaded(feet.getBlockX() >> 4, feet.getBlockZ() >> 4)) return false;
         Block support = world.getBlockAt(feet.getBlockX(), platform.height(), feet.getBlockZ());

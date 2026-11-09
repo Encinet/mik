@@ -128,7 +128,7 @@ class PlotRegionEditingTest {
         try (PlotRepository repository = new PlotRepository(directory.resolve("rectangles.db"))) {
             repository.open();
             PlotRegistry registry = new PlotRegistry(repository);
-            Plot saved = new Plot(plotId, world, actor, "Room", false, 0, original, Map.of(), Map.of(), null);
+            Plot saved = new Plot(plotId, world, actor, "Room", 0, original, Map.of(), Map.of(), null);
             registry.put(saved);
             var before = initialize();
             state.deleteRegion(actor, world, PlotSelectionRegions.decompose(before.base().candidate()).get(1), before.revision());

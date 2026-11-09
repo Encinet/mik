@@ -6,6 +6,7 @@ import org.joml.Matrix4fc;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Map;
 
 record VehicleDefinition(String id, Kind kind, double mass, VehicleVector centerOfMass,
                          VehicleVector inertia, List<Collider> colliders, List<Seat> seats,
@@ -16,6 +17,14 @@ record VehicleDefinition(String id, Kind kind, double mass, VehicleVector center
     enum Kind { CAR, BOAT, PLANE }
     enum PartKind { BLOCK, ITEM, TEXT }
     enum Animation { BODY, FRONT_WHEEL, WHEEL, PROPELLER, RUDDER }
+    static final double INERTIA_LIMIT = 100000000;
+    static final Map<String, Double> SCALAR_LIMITS = Map.ofEntries(
+            Map.entry("mass", 1000000.0), Map.entry("support-length", 2.0), Map.entry("grip", 3.0), Map.entry("maximum-speed", 80.0),
+            Map.entry("fuel.capacity", 1000000.0), Map.entry("fuel.consumption", 1000.0), Map.entry("buoyancy", 100.0),
+            Map.entry("wing-area", 1000.0), Map.entry("lift", 10.0), Map.entry("engine.torque", 100000.0),
+            Map.entry("engine.idle-rpm", 10000.0), Map.entry("engine.redline-rpm", 50000.0), Map.entry("engine.inertia", 100.0),
+            Map.entry("engine.wheel-radius", 4.0), Map.entry("engine.final-drive", 20.0), Map.entry("engine.reverse-ratio", 20.0),
+            Map.entry("engine.shift-seconds", 5.0));
 
     record Collider(VehicleVector center, VehicleVector halfSize) {
         Collider {
@@ -40,15 +49,15 @@ record VehicleDefinition(String id, Kind kind, double mass, VehicleVector center
                   double wheelRadius, double finalDrive, double reverseRatio, List<Double> ratios,
                   double shiftSeconds) {
         Engine {
-            positive(peakTorque, "torque", 100000);
-            positive(idleRpm, "idle-rpm", 10000);
-            positive(redlineRpm, "redline-rpm", 50000);
+            scalar("engine.torque", peakTorque);
+            scalar("engine.idle-rpm", idleRpm);
+            scalar("engine.redline-rpm", redlineRpm);
             if (redlineRpm <= idleRpm * 1.5) throw new IllegalArgumentException("Redline too close to idle");
-            positive(inertia, "engine inertia", 100);
-            positive(wheelRadius, "wheel radius", 4);
-            positive(finalDrive, "final drive", 20);
-            positive(reverseRatio, "reverse ratio", 20);
-            positive(shiftSeconds, "shift time", 5);
+            scalar("engine.inertia", inertia);
+            scalar("engine.wheel-radius", wheelRadius);
+            scalar("engine.final-drive", finalDrive);
+            scalar("engine.reverse-ratio", reverseRatio);
+            scalar("engine.shift-seconds", shiftSeconds);
             ratios = List.copyOf(ratios);
             if (ratios.isEmpty() || ratios.size() > 12) throw new IllegalArgumentException("Use 1..12 forward gears");
             double previous = Double.POSITIVE_INFINITY;
@@ -95,18 +104,17 @@ record VehicleDefinition(String id, Kind kind, double mass, VehicleVector center
         Objects.requireNonNull(centerOfMass);
         Objects.requireNonNull(inertia);
         Objects.requireNonNull(engine);
-        positive(mass, "mass", 1000000);
-        positive(inertia.coordinateX(), "inertia.x", 100000000);
-        positive(inertia.coordinateY(), "inertia.y", 100000000);
-        positive(inertia.coordinateZ(), "inertia.z", 100000000);
-        positive(supportLength, "support length", 2);
-        positive(grip, "grip", 3);
-        positive(maximumSpeed, "maximum speed", 80);
-        positive(fuelCapacity, "fuel capacity", 1000000);
-        positive(consumption, "consumption", 1000);
-        positive(buoyancy, "buoyancy", 100);
-        positive(wingArea, "wing area", 1000);
-        positive(lift, "lift", 10);
+        scalar("mass", mass);
+        vector("inertia", inertia);
+        vector("center-of-mass", centerOfMass);
+        scalar("support-length", supportLength);
+        scalar("grip", grip);
+        scalar("maximum-speed", maximumSpeed);
+        scalar("fuel.capacity", fuelCapacity);
+        scalar("fuel.consumption", consumption);
+        scalar("buoyancy", buoyancy);
+        scalar("wing-area", wingArea);
+        scalar("lift", lift);
         colliders = List.copyOf(colliders);
         seats = List.copyOf(seats);
         supports = List.copyOf(supports);
@@ -115,7 +123,7 @@ record VehicleDefinition(String id, Kind kind, double mass, VehicleVector center
                 || seats.isEmpty() || seats.size() > 16 || supports.size() < 3 || supports.size() > 16)
             throw new IllegalArgumentException("Invalid component count");
         if (seats.stream().filter(Seat::driver).count() != 1) throw new IllegalArgumentException("Exactly one driver seat required");
-        if (centerOfMass.length() > 24 || supports.stream().anyMatch(point -> point.length() > 24))
+        if (supports.stream().anyMatch(point -> point.length() > 24))
             throw new IllegalArgumentException("Physics points exceed 24 blocks");
     }
 
@@ -140,6 +148,20 @@ record VehicleDefinition(String id, Kind kind, double mass, VehicleVector center
     }
 
     static Kind parseKind(String input) { return Kind.valueOf(input.toUpperCase(Locale.ROOT)); }
+    static void scalar(String field, double value) {
+        Double maximum = SCALAR_LIMITS.get(field);
+        if (maximum == null) throw new IllegalArgumentException("Unknown scalar field: " + field);
+        positive(value, field, maximum);
+    }
+    static void vector(String field, VehicleVector value) {
+        if (field.equals("center-of-mass")) {
+            if (value.length() > 24) throw new IllegalArgumentException("Center of mass exceeds 24 blocks");
+        } else if (field.equals("inertia")) {
+            positive(value.coordinateX(), "inertia.x", INERTIA_LIMIT);
+            positive(value.coordinateY(), "inertia.y", INERTIA_LIMIT);
+            positive(value.coordinateZ(), "inertia.z", INERTIA_LIMIT);
+        } else throw new IllegalArgumentException("Unknown vector field: " + field);
+    }
     static void positive(double value, String name, double maximum) {
         if (!Double.isFinite(value) || value <= 0 || value > maximum)
             throw new IllegalArgumentException("Invalid " + name);

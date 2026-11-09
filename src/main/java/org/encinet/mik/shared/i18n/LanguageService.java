@@ -17,7 +17,6 @@ import net.quickwrite.fluent4j.parser.ResourceParserBuilder;
 import net.quickwrite.fluent4j.result.StringResultFactory;
 import net.quickwrite.fluent4j.result.ResultBuilder;
 import org.bukkit.Bukkit;
-import org.bukkit.NamespacedKey;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;

@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -45,6 +46,7 @@ class PlotSelectionControllerTest {
     private final AtomicLong clock = new AtomicLong();
     private final List<UUID> finished = new ArrayList<>();
     private final List<UUID> stopped = new ArrayList<>();
+    private final List<UUID> cleared = new ArrayList<>();
     private final List<UUID> previews = new ArrayList<>();
     private final List<UUID> hints = new ArrayList<>();
     private final List<PlotProblem> problems = new ArrayList<>();
@@ -54,7 +56,7 @@ class PlotSelectionControllerTest {
     private double vertical = 65.8;
     private double forward = 3.9;
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, arguments) -> switch (method.getName()) {
+            new Class<?>[]{Player.class}, (_, method, _) -> switch (method.getName()) {
                 case "getUniqueId" -> playerId;
                 case "getWorld" -> currentWorld;
                 case "getLocation" -> new Location(currentWorld, horizontal, vertical, forward);
@@ -62,10 +64,10 @@ class PlotSelectionControllerTest {
                 default -> throw new AssertionError(method.getName());
             });
     private final PlotSelectionController controller = new PlotSelectionController(selections,
-            (viewer, target) -> permitted.get(), (viewer, target) -> previews.add(target),
+            (_, _) -> permitted.get(), (_, target) -> previews.add(target),
             viewer -> hints.add(viewer.getUniqueId()), viewer -> stopped.add(viewer.getUniqueId()),
-            (viewer, target) -> finished.add(target), (viewer, error) -> problems.add(error),
-            clock::get, viewer -> menuOpen.get(), viewer -> holdingAxe.get());
+            (_, target) -> finished.add(target), (_, error) -> problems.add(error),
+            clock::get, _ -> menuOpen.get(), _ -> holdingAxe.get(), cleared::add);
 
     @Test
     void creationCanPickAndReturnToThePanelBeforeAPlotExists() {
@@ -139,7 +141,7 @@ class PlotSelectionControllerTest {
         assertEquals(new PlotPosition(worldId, 1, 64, 2), selections.first(playerId));
         PlayerInteractEvent normal = click(Action.LEFT_CLICK_BLOCK, block(3, 64, 2), EquipmentSlot.HAND);
         controller.onInteract(normal);
-        assertFalse(normal.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, normal.useInteractedBlock());
         assertEquals(new PlotPosition(worldId, 1, 64, 2), selections.first(playerId));
     }
 
@@ -162,7 +164,7 @@ class PlotSelectionControllerTest {
         clock.set(Duration.ofMinutes(20).toNanos());
         PlayerInteractEvent expired = click(Action.RIGHT_CLICK_BLOCK, block(3, 64, 4), EquipmentSlot.HAND);
         controller.onInteract(expired);
-        assertFalse(expired.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, expired.useInteractedBlock());
         assertNull(selections.second(playerId));
         assertEquals(new PlotPosition(worldId, 1, 64, 2), selections.first(playerId));
         assertEquals(List.of(playerId), stopped);
@@ -186,12 +188,14 @@ class PlotSelectionControllerTest {
         currentWorld = world(UUID.randomUUID());
         controller.onWorldChange(new PlayerChangedWorldEvent(player, previous));
         assertEquals(List.of(playerId), stopped);
+        assertEquals(List.of(playerId), cleared);
         currentWorld = previous;
         controller.onInteract(click(Action.LEFT_CLICK_BLOCK, block(1, 64, 2), EquipmentSlot.HAND));
         assertNull(selections.first(playerId));
         controller.start(player, plotId);
         controller.onQuit(new PlayerQuitEvent(player, net.kyori.adventure.text.Component.empty(),
                 PlayerQuitEvent.QuitReason.DISCONNECTED));
+        assertEquals(List.of(playerId, playerId), cleared);
         controller.onInteract(click(Action.LEFT_CLICK_BLOCK, block(1, 64, 2), EquipmentSlot.HAND));
         assertNull(selections.first(playerId));
     }
@@ -249,7 +253,7 @@ class PlotSelectionControllerTest {
         controller.onDamage(damage);
         PlayerCommandPreprocessEvent worldEdit = command("//pos1");
         controller.onCommand(worldEdit);
-        assertFalse(normal.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, normal.useInteractedBlock());
         assertFalse(breaking.isCancelled());
         assertFalse(damage.isCancelled());
         assertTrue(worldEdit.isCancelled());
@@ -279,7 +283,7 @@ class PlotSelectionControllerTest {
         assertTrue(hints.isEmpty());
         PlayerInteractEvent menuClick = click(Action.LEFT_CLICK_BLOCK, block(1, 64, 2), EquipmentSlot.HAND);
         controller.onInteract(menuClick);
-        assertFalse(menuClick.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, menuClick.useInteractedBlock());
         assertNull(selections.first(playerId));
         menuOpen.set(false);
         controller.onInteract(click(Action.LEFT_CLICK_BLOCK, block(1, 64, 2), EquipmentSlot.HAND));
@@ -323,7 +327,7 @@ class PlotSelectionControllerTest {
         selections.bind(playerId, plotId, worldId);
         PlayerInteractEvent outdated = click(Action.RIGHT_CLICK_BLOCK, block(3, 64, 4), EquipmentSlot.HAND);
         controller.onInteract(outdated);
-        assertFalse(outdated.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, outdated.useInteractedBlock());
         assertNull(selections.second(playerId));
         assertNull(controller.mode(playerId));
     }
@@ -392,12 +396,12 @@ class PlotSelectionControllerTest {
         controller.start(player, plotId);
         PlayerInteractEvent normal = click(Action.LEFT_CLICK_BLOCK, block(1, 64, 2), EquipmentSlot.HAND);
         controller.onInteract(normal);
-        assertFalse(normal.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, normal.useInteractedBlock());
         permitted.set(true);
         controller.start(player, plotId);
         PlayerInteractEvent pressure = click(Action.PHYSICAL, block(1, 64, 2), EquipmentSlot.HAND);
         controller.onInteract(pressure);
-        assertFalse(pressure.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, pressure.useInteractedBlock());
     }
 
     @Test
@@ -470,7 +474,7 @@ class PlotSelectionControllerTest {
         BlockBreakEvent breaking = new BlockBreakEvent(block(1, 64, 2), player);
         controller.onInteract(click);
         controller.onBreak(breaking);
-        assertFalse(click.isCancelled());
+        assertNotEquals(org.bukkit.event.Event.Result.DENY, click.useInteractedBlock());
         assertFalse(breaking.isCancelled());
         assertNull(selections.first(playerId));
         PlayerCommandPreprocessEvent command = command("//pos1");
@@ -509,7 +513,7 @@ class PlotSelectionControllerTest {
 
     private Block block(int horizontal, int vertical, int forward) {
         return (Block) Proxy.newProxyInstance(Block.class.getClassLoader(), new Class<?>[]{Block.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "getWorld" -> currentWorld;
                     case "getX" -> horizontal;
                     case "getY" -> vertical;
@@ -520,7 +524,7 @@ class PlotSelectionControllerTest {
 
     private static World world(UUID id) {
         return (World) Proxy.newProxyInstance(World.class.getClassLoader(), new Class<?>[]{World.class},
-                (proxy, method, arguments) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                         case "getUID" -> id;
                         case "getMinHeight" -> -64;
                         case "getMaxHeight" -> 320;

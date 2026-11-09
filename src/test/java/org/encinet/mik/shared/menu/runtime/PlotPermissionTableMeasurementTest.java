@@ -3,10 +3,9 @@ package org.encinet.mik.shared.menu.runtime;
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuElementStyle;
-import org.encinet.mik.shared.menu.FloatingMenuLayout;
-import org.encinet.mik.shared.menu.FloatingMenuPose;
+import org.encinet.mik.shared.menu.MenuScene;
+import org.encinet.mik.feature.world.plot.Plot;
+import org.encinet.mik.feature.world.plot.PlotPermission;
 import org.encinet.mik.shared.menu.FloatingMenuTextScale;
 import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.feature.world.plot.PlotMenuLayouts;
@@ -15,13 +14,11 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PlotPermissionTableMeasurementTest {
@@ -56,18 +53,17 @@ class PlotPermissionTableMeasurementTest {
                 locales++;
                 for (var category : CATEGORIES.entrySet()) {
                     for (boolean draft : List.of(false, true)) {
-                        FloatingMenuDefinition definition = definition(messages, category.getKey(), category.getValue(), draft);
+                        MenuScene definition = definition(messages, category.getKey(), category.getValue(), draft);
                         for (FloatingMenuTextScale scale : FloatingMenuTextScale.values()) {
-                            List<FloatingMenuLayout.Node> nodes = new ArrayList<>();
-                            for (var entry : definition.entries().values()) {
-                                assertEquals(FloatingMenuElementStyle.TEXT, entry.style());
-                                var measurement = FloatingMenuNodeSizing.measure(entry, scale.factor());
-                                if (entry.region().endsWith("-group-heading") && measurement.text().lines() > 1)
-                                    wrappedLabel = true;
-                                nodes.add(new FloatingMenuLayout.Node(entry.id(), entry.style(), entry.role(),
-                                        entry.region(), measurement.footprint()));
+                            org.encinet.mik.shared.menu.ui.UiFrame measured;
+                            try {
+                                measured = SceneGeometryTestSupport.measure(definition, scale.factor());
+                            } catch (IllegalArgumentException error) {
+                                throw new AssertionError(path + " category=" + category.getKey() + " draft=" + draft + " scale=" + scale, error);
                             }
-                            assertSeparated(nodes, path.getFileName() + ":" + category.getKey() + ":" + scale + ":" + draft);
+                            if (measured.elements().stream().anyMatch(element -> element.node().key().value().endsWith("-label")
+                                    && element.size().height() > 30)) wrappedLabel = true;
+                            org.encinet.mik.shared.menu.ui.UiSceneTestSupport.assertDisjoint(measured);
                         }
                     }
                 }
@@ -77,31 +73,36 @@ class PlotPermissionTableMeasurementTest {
         assertTrue(wrappedLabel);
     }
 
-    private static FloatingMenuDefinition definition(Map<String, String> messages, Message category,
+    private static MenuScene definition(Map<String, String> messages, Message category,
                                                       List<Message> operations, boolean draft) {
-        var builder = FloatingMenuDefinition.screen("plot-permissions-measured");
+        var actualCategory = java.util.Arrays.stream(PlotPermission.Category.values())
+                .filter(value -> value.label() == category).findFirst().orElseThrow();
+        var builder = MenuScene.screen("plot-permissions-measured").content(
+                PlotMenuLayouts.permissionTable(new Plot(java.util.UUID.randomUUID(), java.util.UUID.randomUUID(),
+                        java.util.UUID.randomUUID(), "Plot", 0, java.util.Set.of(), Map.of(), Map.of(), null), actualCategory,0,_ -> {}));
+        builder.information("context", Component.text("A long plot name 地段名称测试")).region("context").textWidth(FloatingMenuTextWidth.WIDE);
         builder.information("heading", Component.text(draft ? text(messages, Message.PLOT_MEMBER_DRAFT_TITLE)
-                        .replace("{ $arg0 }", "A long player name 成员名称测试") : "A long plot name 地段名称测试"))
+                        .replace("{ $arg0 }", "A long player name 成员名称测试") : text(messages, Message.PLOT_WORKSPACE_PERMISSIONS)))
                 .region("heading").textWidth(FloatingMenuTextWidth.WIDE);
         builder.control("subject", Component.text((draft ? text(messages, Message.PLOT_MEMBER_DRAFT_ROLE)
                         .replace("{ $arg0 }", text(messages, Message.PLOT_MENU_GROUP_ADMIN))
                         : text(messages, Message.PLOT_MENU_GROUP_NEWCOMER)) + " ▾"))
                 .region("subject").textWidth(FloatingMenuTextWidth.COMPACT)
-                .alignment(FloatingMenuDecoration.Alignment.LEFT).primary((viewer, handle) -> { });
+                .alignment(FloatingMenuDecoration.Alignment.LEFT).primary((_, _) -> { });
         builder.information("section", Component.text(text(messages, category)))
                 .region("section").textWidth(FloatingMenuTextWidth.WIDE)
                 .alignment(FloatingMenuDecoration.Alignment.LEFT);
         for (Message next : CATEGORIES.keySet()) {
             builder.control(next.key(), Component.text((next == category ? "› " : "  ") + text(messages, next)))
                     .region("categories").textWidth(FloatingMenuTextWidth.COMPACT)
-                    .alignment(FloatingMenuDecoration.Alignment.LEFT).primary((viewer, handle) -> { });
+                    .alignment(FloatingMenuDecoration.Alignment.LEFT).primary((_, _) -> { });
         }
         builder.information("operation-heading", Component.text(text(messages, Message.PLOT_PERMISSION_OPERATION)))
-                .region("operation-heading").spatialOnly();
+                .region("operation-heading");
         builder.information("result-heading", Component.text(text(messages, Message.PLOT_PERMISSION_RESULT)))
-                .region("result-heading").spatialOnly();
+                .region("result-heading");
         for (int index = 0; index < operations.size(); index++) {
-            String region = "permission-" + index;
+            String region = "permission-" + actualCategory.permissions().get(index).key();
             builder.information(region + "-label", Component.text(text(messages, operations.get(index))))
                     .region(region + "-group-heading").textWidth(FloatingMenuTextWidth.COMPACT)
                     .alignment(FloatingMenuDecoration.Alignment.LEFT);
@@ -122,16 +123,16 @@ class PlotPermissionTableMeasurementTest {
                         .alignment(FloatingMenuDecoration.Alignment.LEFT);
             } else {
                 builder.control(region, status).region(region).textWidth(FloatingMenuTextWidth.WIDE)
-                        .alignment(FloatingMenuDecoration.Alignment.LEFT).primary((viewer, handle) -> { });
+                        .alignment(FloatingMenuDecoration.Alignment.LEFT).primary((_, _) -> { });
             }
         }
         if (draft) builder.information("hint", Component.text(text(messages, Message.PLOT_MEMBER_DRAFT_HINT)))
                 .region("hint").textWidth(FloatingMenuTextWidth.EXPANDED);
         builder.navigation("reset", Component.text(text(messages, draft
                         ? Message.PLOT_MEMBER_DRAFT_RESET : Message.PLOT_PERMISSION_RESET)))
-                .region("navigation").primary((viewer, handle) -> { });
+                .region("navigation").primary((_, _) -> { });
         if (draft) builder.navigation("submit", Component.text(text(messages, Message.PLOT_MEMBER_DRAFT_SUBMIT)))
-                .region("navigation").primary((viewer, handle) -> { });
+                .region("navigation").primary((_, _) -> { });
         builder.back(Component.text(text(messages, Message.PLOT_BACK))).region("navigation");
         return builder.build();
     }
@@ -151,24 +152,4 @@ class PlotPermissionTableMeasurementTest {
         return value;
     }
 
-    private static void assertSeparated(List<FloatingMenuLayout.Node> nodes, String scenario) {
-        FloatingMenuLayout layout = PlotMenuLayouts.permissionTable();
-        List<FloatingMenuPose> poses = new ArrayList<>();
-        for (int index = 0; index < nodes.size(); index++)
-            poses.add(layout.pose(new FloatingMenuLayout.Context(index, nodes)));
-        for (int first = 0; first < nodes.size(); first++) {
-            var firstNode = nodes.get(first);
-            var firstPose = poses.get(first);
-            for (int second = first + 1; second < nodes.size(); second++) {
-                var secondNode = nodes.get(second);
-                var secondPose = poses.get(second);
-                boolean overlapsHorizontal = Math.abs(firstPose.right() - secondPose.right())
-                        < (firstNode.size().width() + secondNode.size().width()) / 2 - 1.0E-9;
-                boolean overlapsVertical = Math.abs(firstPose.up() - secondPose.up())
-                        < (firstNode.size().height() + secondNode.size().height()) / 2 - 1.0E-9;
-                assertFalse(overlapsHorizontal && overlapsVertical,
-                        scenario + ": " + firstNode.elementId() + " overlaps " + secondNode.elementId());
-            }
-        }
-    }
 }

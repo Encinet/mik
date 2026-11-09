@@ -5,7 +5,6 @@ import org.encinet.mik.feature.entertainment.music.catalog.nbs.NbsSong;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
@@ -30,7 +29,7 @@ public final class LocalMusicSource {
     private final Consumer<String> warningLogger;
 
     public LocalMusicSource(Path root) {
-        this(root, ignored -> {});
+        this(root, _ -> {});
     }
 
     public LocalMusicSource(Path root, Consumer<String> warningLogger) {

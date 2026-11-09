@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -109,12 +108,12 @@ class MatrixPlatformSessionTest {
         MatrixPlatformConfig config = config();
         HttpClient httpClient = HttpClient.newHttpClient();
         MatrixClient client = new MatrixClient(httpClient, config);
-        MatrixInboundMapper mapper = new MatrixInboundMapper(config, client, message ->
+        MatrixInboundMapper mapper = new MatrixInboundMapper(config, client, _ ->
                 admissions.incrementAndGet() == 1
                         ? SocialEventSink.Acceptance.RETRY_LATER
                         : SocialEventSink.Acceptance.ACCEPTED);
         MatrixPlatformSession session = new MatrixPlatformSession(httpClient, client,
-                config, mapper, ignored -> { },
+                config, mapper, _ -> { },
                 Logger.getLogger("MatrixPlatformSessionTest"));
 
         session.start();
@@ -149,7 +148,7 @@ class MatrixPlatformSessionTest {
         MatrixPlatformConfig config = config();
         HttpClient httpClient = HttpClient.newHttpClient();
         MatrixClient client = new MatrixClient(httpClient, config);
-        MatrixInboundMapper mapper = new MatrixInboundMapper(config, client, message -> {
+        MatrixInboundMapper mapper = new MatrixInboundMapper(config, client, _ -> {
             admissions.incrementAndGet();
             return statuses.getLast().state() == SocialSessionStatus.State.READY
                     ? SocialEventSink.Acceptance.ACCEPTED
@@ -232,7 +231,7 @@ class MatrixPlatformSessionTest {
         MatrixClient client = new MatrixClient(httpClient, config);
         List<SocialSessionStatus> statuses = new CopyOnWriteArrayList<>();
         MatrixInboundMapper mapper = new MatrixInboundMapper(config, client,
-                ignored -> SocialEventSink.Acceptance.IGNORED);
+                _ -> SocialEventSink.Acceptance.IGNORED);
         MatrixPlatformSession session = new MatrixPlatformSession(httpClient, client,
                 config, mapper, statuses::add,
                 Logger.getLogger("MatrixPlatformSessionTest"));

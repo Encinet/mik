@@ -53,7 +53,10 @@ class SearxngSearchToolTest {
         JsonObject arguments = new JsonObject();
         arguments.addProperty("query", "Minecraft 新闻");
 
-        String output = new SearxngSearchTool(config).execute(arguments).join();
+        String output;
+        try (var tool = new SearxngSearchTool(config)) {
+            output = tool.execute(arguments).join();
+        }
 
         assertTrue(query.get().contains("format=json"));
         assertTrue(query.get().contains("safesearch=2"));

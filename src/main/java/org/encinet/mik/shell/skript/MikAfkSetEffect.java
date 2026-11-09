@@ -12,8 +12,8 @@ import org.jetbrains.annotations.Nullable;
 final class MikAfkSetEffect extends Effect {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
-    private @Nullable Expression<String> message;
+    private MikSkriptInput<Player> players;
+    private @Nullable MikSkriptInput<String> message;
     private boolean broadcast;
 
     MikAfkSetEffect(MikSkriptFacade facade) {
@@ -21,18 +21,17 @@ final class MikAfkSetEffect extends Effect {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
-        message = (Expression<String>) expressions[1];
+        players = MikSkriptInput.of(expressions[0], Player.class);
+        message = MikSkriptInput.of(expressions[1], String.class);
         broadcast = !parseResult.hasTag("silent");
         return true;
     }
 
     @Override
     protected void execute(Event event) {
-        String value = message == null ? "" : message.getSingle(event);
+        String value = message == null ? "" : message.single(event);
         if (value == null) {
             return;
         }
@@ -40,15 +39,15 @@ final class MikAfkSetEffect extends Effect {
             error("MIK AFK message cannot exceed " + AfkState.MAX_MESSAGE_CODE_POINTS + " characters");
             return;
         }
-        for (Player player : players.getArray(event)) {
+        for (Player player : players.values(event)) {
             facade.setAfk(player, value, broadcast);
         }
     }
 
     @Override
     public String toString(@Nullable Event event, boolean debug) {
-        return "set " + players.toString(event, debug) + " MIK AFK"
-                + (message == null ? "" : " with message " + message.toString(event, debug))
+        return "set " + players.describe(event, debug) + " MIK AFK"
+                + (message == null ? "" : " with message " + message.describe(event, debug))
                 + (broadcast ? "" : " silently");
     }
 }

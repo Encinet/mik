@@ -17,7 +17,7 @@ class ClientModSignalsTest {
     @Test
     void clientAnnouncementsDetectEachModWithoutDependingOnTheLoader() {
         byte[] registration = text("fabric:registry/sync\0axiom:enable\0plasmo:voice/v2/installed\0"
-                + "xaerominimap:main\0xaeroworldmap:main\0voxyserver:lod_preserialized\0");
+                + "xaerominimap:main\0xaeroworldmap:main\0voxyserver:lod_preserialized\0dreamdisplays:v2\0");
         assertEquals(EnumSet.allOf(ClientMod.class),
                 ClientModSignals.fromPayload("minecraft:register", registration));
     }
@@ -47,6 +47,42 @@ class ClientModSignalsTest {
         assertEquals(Set.of(ClientMod.XAERO_WORLD_MAP),
                 ClientModSignals.fromPayload("xaeroworldmap:main", new byte[0]));
         assertTrue(ClientModSignals.fromPayload("xaerolib:main", new byte[0]).isEmpty());
+    }
+
+    @Test
+    void dreamDisplaysV2HandshakeAndRegistrationsArePositiveEvidence() {
+        String channel = "dreamdisplays:v2";
+        assertEquals(Set.of(ClientMod.DREAM_DISPLAYS), ClientModSignals.fromPayload(channel, new byte[0]));
+        assertEquals(Set.of(ClientMod.DREAM_DISPLAYS),
+                ClientModSignals.fromPayload("minecraft:register", text(channel)));
+        for (String phase : List.of("play", "configuration")) {
+            assertEquals(Set.of(ClientMod.DREAM_DISPLAYS), ClientModSignals.fromPayload("c:register",
+                    commonRegistration(1, phase, List.of(channel))));
+        }
+    }
+
+    @Test
+    void dreamDisplaysPremiumIsDetectedThroughReceiverRegistrationOnly() {
+        String channel = "dreamdisplays:premium";
+        assertTrue(ClientModSignals.fromPayload(channel, new byte[]{1}).isEmpty());
+        assertEquals(Set.of(ClientMod.DREAM_DISPLAYS),
+                ClientModSignals.fromPayload("minecraft:register", text(channel)));
+        for (String phase : List.of("play", "configuration")) {
+            assertEquals(Set.of(ClientMod.DREAM_DISPLAYS), ClientModSignals.fromPayload("c:register",
+                    commonRegistration(1, phase, List.of(channel))));
+        }
+        assertTrue(ClientModSignals.fromPayload("minecraft:unregister", text(channel)).isEmpty());
+        assertTrue(ClientModSignals.fromPayload("minecraft:register", text(channel + "_extra")).isEmpty());
+    }
+
+    @Test
+    void dreamDisplaysProxyTrafficAndSimilarNamesDoNotProveClientInstallation() {
+        for (String channel : List.of("dreamdisplays:proxy", "dreamdisplays:version", "dreamdisplays:other", "dreamdisplays:v2_extra",
+                "dreamdisplays:version_extra", "dreamdisplays_extra:v2", "dreamdisplay:v2", "DREAMDISPLAYS:v2")) {
+            assertTrue(ClientModSignals.fromPayload(channel, new byte[0]).isEmpty(), channel);
+            assertTrue(ClientModSignals.fromPayload("minecraft:register", text(channel)).isEmpty(), channel);
+        }
+        assertTrue(ClientModSignals.fromPayload("minecraft:brand", text("dreamdisplays")).isEmpty());
     }
 
     @Test

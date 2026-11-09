@@ -32,7 +32,7 @@ class HomeModuleTest {
     private final UUID id = UUID.randomUUID();
     private final AtomicReference<Location> position = new AtomicReference<>(new Location(null, 0, 64, 0));
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, args) -> {
+            new Class<?>[]{Player.class}, (_, method, _) -> {
                 if (method.getName().equals("getUniqueId")) return id;
                 if (method.getName().equals("hasPermission")) return true;
                 if (method.getName().equals("getLocation")) return position.get().clone();
@@ -44,7 +44,7 @@ class HomeModuleTest {
         try (HomeStore store = store(); TipTestScope tips = new TipTestScope()) {
             new HomeModule(null, LANGUAGES, tips, store);
             teleport(tips);
-            store.put(id, "base", new HomeStore.Entry("world:0,64,0,0,0", null));
+            store.put(id, "base", new HomeStore.Entry("world:0,64,0,0,0"));
             assertTrue(tips.collect(player, 2000).isEmpty());
 
             store.remove(id, "base");
@@ -59,7 +59,7 @@ class HomeModuleTest {
     void playersWithHomesReceiveNeitherTeleportNorChatCreationReminders() {
         try (HomeStore store = store(); TipTestScope tips = new TipTestScope()) {
             new HomeModule(null, LANGUAGES, tips, store);
-            store.put(id, "base", new HomeStore.Entry("world:0,64,0,0,0", null));
+            store.put(id, "base", new HomeStore.Entry("world:0,64,0,0,0"));
             teleport(tips);
             tips.chat(player, "how do I set a home?");
             assertTrue(tips.collect(player, 2000).isEmpty());

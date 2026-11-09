@@ -1,10 +1,13 @@
 package org.encinet.mik.feature.community.chat.render;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.encinet.mik.feature.player.profile.PlayerIdentityComponent;
+import org.encinet.mik.feature.player.profile.PlayerSource;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -16,23 +19,25 @@ class ChatMessageFormatterTest {
     @Test
     void channelMarkerPrecedesTheCompleteSenderIdentity() {
         Component privateBody = ChatMessageFormatter.privateBody(
-                Component.text("[Bedrock] A"),
+                new PlayerIdentityComponent(Component.text("[Member] A"))
+                        .chat(new PlayerSource("Bedrock")),
                 Component.text("B"));
         Component prefix = ChatMessageFormatter.channelPrefix(
                 Component.text("[MSG] "),
                 privateBody);
 
-        assertEquals("[MSG] [Bedrock] A -> B",
+        assertEquals("[MSG] [Bedrock] [Member] A -> B",
                 PlainTextComponentSerializer.plainText().serialize(prefix));
     }
 
     @Test
     void repeatSuffixUsesTheExpectedTextColorAndClickAction() {
-        Component suffix = ChatMessageFormatter.repeatSuffix("/mikrepeat token");
+        Key identifier = Key.key("mik", "chat/repeat/00000000-0000-0000-0000-000000000001");
+        Component suffix = ChatMessageFormatter.repeatSuffix(identifier);
 
         assertEquals(" [+1]", PlainTextComponentSerializer.plainText().serialize(suffix));
         assertEquals(NamedTextColor.GRAY, suffix.color());
-        assertEquals(ClickEvent.runCommand("/mikrepeat token"), suffix.clickEvent());
+        assertEquals(ClickEvent.custom(identifier), suffix.clickEvent());
         assertEquals(Component.empty(), ChatMessageFormatter.repeatSuffix(null));
     }
 
@@ -43,14 +48,12 @@ class ChatMessageFormatterTest {
                 .hoverEvent(HoverEvent.showText(Component.text(
                         "Matrix identity details")));
         Component suffix = Component.text(" [Member]", NamedTextColor.GRAY);
-        Component sender = Component.text().append(prefix).append(name)
-                .append(suffix).build();
-        Component rendered = ChatMessageFormatter.externalPublicMessage(
-                "Matrix",
-                sender,
-                Component.text("你好"),
-                "你好",
-                "点击复制");
+        Component sender = new PlayerIdentityComponent(Component.text().append(prefix).append(name).append(suffix).build())
+                .chat(new PlayerSource("Matrix"));
+        Component rendered = ChatMessageFormatter.channelMessage(
+                Component.empty(),
+                sender, Component.text(" »", NamedTextColor.GOLD),
+                Component.text("你好"), "你好", "点击复制", null);
 
         assertEquals("[Matrix] [VIP] Steve [Member] » 你好",
                 PlainTextComponentSerializer.plainText().serialize(rendered));

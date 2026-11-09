@@ -18,15 +18,18 @@ import java.util.List;
 
 final class TrashInventory implements InventoryHolder {
     static final int SIZE = 54;
-    static final int SORT_SLOT = SIZE - 2;
-    static final int CLEAR_SLOT = SIZE - 1;
-    static final int STORAGE_SIZE = SIZE - 2;
+    static final int STORAGE_SIZE = SIZE - 9;
+    static final int SORT_SLOT = STORAGE_SIZE + 2;
+    static final int CLEAR_SLOT = STORAGE_SIZE + 6;
 
     private final Inventory inventory;
 
     TrashInventory(Player player, LanguageService languageService) {
         inventory = Bukkit.createInventory(this, SIZE,
                 languageService.text(player, Message.TRASH_TITLE, NamedTextColor.RED));
+        ItemStack divider = ItemStack.of(Material.GRAY_STAINED_GLASS_PANE);
+        divider.editMeta(meta -> { meta.displayName(Component.empty()); meta.setMaxStackSize(1); });
+        for (int slot = STORAGE_SIZE; slot < SIZE; slot++) inventory.setItem(slot, divider);
         inventory.setItem(SORT_SLOT, button(player, languageService, Material.HOPPER, Message.TRASH_SORT,
                 Message.TRASH_SORT_HINT, NamedTextColor.AQUA));
         inventory.setItem(CLEAR_SLOT, button(player, languageService, Material.BARRIER, Message.TRASH_CLEAR,
@@ -43,9 +46,12 @@ final class TrashInventory implements InventoryHolder {
     }
 
     boolean matchesButton(ItemStack item) {
-        return item != null && (item.isSimilar(inventory.getItem(SORT_SLOT))
-                || item.isSimilar(inventory.getItem(CLEAR_SLOT)));
+        if (item == null) return false;
+        for (int slot = STORAGE_SIZE; slot < SIZE; slot++) if (item.isSimilar(inventory.getItem(slot))) return true;
+        return false;
     }
+
+    static boolean toolbarSlot(int rawSlot) { return rawSlot >= STORAGE_SIZE && rawSlot < SIZE; }
 
     void sortStorage() {
         List<ItemStack> items = new ArrayList<>();

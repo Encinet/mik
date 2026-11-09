@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.community.governance.persistence.sqlite;
 
+import org.encinet.mik.feature.community.governance.voting.VoteHistory;
 import org.encinet.mik.feature.community.governance.delivery.GovernanceAction;
 import org.encinet.mik.feature.community.governance.membership.participation.DailyParticipation;
 import org.encinet.mik.feature.community.governance.membership.profile.PlayerProfile;
@@ -195,6 +196,11 @@ final class SqliteGovernanceStore implements AutoCloseable {
     synchronized List<GovernanceVote> recentVotes(int limit) throws SQLException {
         ensureOpen();
         return votingStore.recentVotes(limit);
+    }
+
+    synchronized VoteHistory voteHistory(UUID subjectId, int limit, int offset) throws SQLException {
+        ensureOpen();
+        return votingStore.voteHistory(subjectId, limit, offset);
     }
 
     synchronized List<GovernanceVote> pendingVoteAnnouncements() throws SQLException {

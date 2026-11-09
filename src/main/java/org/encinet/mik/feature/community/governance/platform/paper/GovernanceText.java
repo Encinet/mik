@@ -158,7 +158,9 @@ public final class GovernanceText {
             case BAN_PROPOSER_INELIGIBLE -> Message.GOVERNANCE_ERROR_BAN_PROPOSER_INELIGIBLE;
             case BAN_ALREADY_ACTIVE -> Message.GOVERNANCE_ERROR_BAN_ALREADY_ACTIVE;
             case TERMINATION_REASON_INVALID -> Message.GOVERNANCE_ERROR_TERMINATION_REASON_INVALID;
+            case REMOVAL_TARGET_NOT_MODERATOR -> Message.GOVERNANCE_ERROR_REMOVAL_TARGET_NOT_MODERATOR;
             case REMOVAL_SELF -> Message.GOVERNANCE_ERROR_REMOVAL_SELF;
+            case REMOVAL_PETITION_CLOSED -> Message.GOVERNANCE_ERROR_REMOVAL_PETITION_CLOSED;
             case REMOVAL_SPONSOR_INELIGIBLE -> Message.GOVERNANCE_ERROR_REMOVAL_SPONSOR_INELIGIBLE;
             case REMOVAL_SPONSORS_TOO_FEW -> Message.GOVERNANCE_ERROR_REMOVAL_SPONSORS_TOO_FEW;
             case REMOVAL_VOTE_OPEN -> Message.GOVERNANCE_ERROR_REMOVAL_VOTE_OPEN;
@@ -166,7 +168,7 @@ public final class GovernanceText {
         };
     }
 
-    private String failure(Language language, VoteFailure failure) {
+    public String failure(Language language, VoteFailure failure) {
         return t(language, switch (failure) {
             case QUORUM -> Message.GOVERNANCE_FAILURE_QUORUM;
             case MINIMUM_YES -> Message.GOVERNANCE_FAILURE_MINIMUM_YES;
@@ -176,7 +178,7 @@ public final class GovernanceText {
         });
     }
 
-    private String termination(Language language, VoteTerminationReason reason) {
+    public String termination(Language language, VoteTerminationReason reason) {
         if (reason == null) return t(language, Message.GOVERNANCE_TERMINATION_UNKNOWN);
         return t(language, switch (reason) {
             case CANDIDATE_WITHDREW -> Message.GOVERNANCE_TERMINATION_WITHDREW;

@@ -23,7 +23,7 @@ class LocalEmbeddedLyricsReaderTest {
     void missingOrBrokenTagProducesNoLyrics() {
         assertNull(LocalEmbeddedLyricsReader.extract(null));
         Tag broken = (Tag) Proxy.newProxyInstance(Tag.class.getClassLoader(),
-                new Class<?>[]{Tag.class}, (proxy, method, arguments) -> {
+                new Class<?>[]{Tag.class}, (_, _, _) -> {
                     throw new IllegalStateException("broken tag");
                 });
         assertNull(LocalEmbeddedLyricsReader.extract(broken));
@@ -31,7 +31,7 @@ class LocalEmbeddedLyricsReaderTest {
 
     private static Tag tag(List<String> lyrics) {
         return (Tag) Proxy.newProxyInstance(Tag.class.getClassLoader(),
-                new Class<?>[]{Tag.class}, (proxy, method, arguments) -> {
+                new Class<?>[]{Tag.class}, (_, method, arguments) -> {
                     if (method.getName().equals("getAll")
                             && arguments[0] == FieldKey.LYRICS) {
                         return lyrics;

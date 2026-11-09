@@ -3,201 +3,86 @@ package org.encinet.mik.shared.menu;
 import io.papermc.paper.dialog.Dialog;
 import io.papermc.paper.registry.data.dialog.ActionButton;
 import io.papermc.paper.registry.data.dialog.DialogBase;
+import io.papermc.paper.registry.data.dialog.body.DialogBody;
+import io.papermc.paper.registry.data.dialog.type.DialogType;
 import io.papermc.paper.registry.data.dialog.action.DialogAction;
 import io.papermc.paper.registry.data.dialog.input.DialogInput;
 import io.papermc.paper.registry.data.dialog.input.TextDialogInput;
-import net.kyori.adventure.text.event.ClickCallback;
-import io.papermc.paper.registry.data.dialog.body.DialogBody;
-import io.papermc.paper.registry.data.dialog.type.DialogType;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.entity.Player;
-import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
 
 import java.util.List;
-import java.time.Duration;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
+/** Native field editing, confirmations and external URL prompts. */
 public final class MenuDialogs {
+    private MenuDialogs() { }
 
-    private MenuDialogs() {
+    public static MenuDialogSession begin(JavaPlugin plugin, Player player) {
+        return new MenuDialogSession(plugin, player);
     }
 
-    /** Native text input for spatial-menu actions that need a short name or description. */
-    public static void openTextInput(JavaPlugin plugin, Player player, Component title,
-                                     Component label, String initial, int maximumLength,
-                                     boolean multiline, Component submit, Component cancel,
-                                     BiConsumer<Player, String> onSubmit) {
-        openTextInput(plugin, player, title, label, initial, maximumLength,
-                multiline ? TextDialogInput.MultilineOptions.create(8, 120) : null,
-                submit, cancel, onSubmit);
-    }
-
-    public static void openTextInput(JavaPlugin plugin, Player player, Component title,
-                                     Component label, String initial, int maximumLength,
-                                     TextDialogInput.MultilineOptions multilineOptions,
-                                     Component submit, Component cancel,
-                                     BiConsumer<Player, String> onSubmit) {
-        String inputKey = "value";
-        var options = ClickCallback.Options.builder().uses(1)
-                .lifetime(Duration.ofMinutes(5)).build();
+    /** Edits the complete source text. Completing this dialog does not persist a form's draft. */
+    public static MenuDialogSession editText(JavaPlugin plugin, Player player, Component title, MenuInputForm.Field field,
+                                            String value, Component problem, Component done, Component cancel,
+                                            Consumer<String> accepted, Runnable cancelled) {
+        var session = new MenuDialogSession(plugin, player, cancelled);
+        // Client character units need not match the form's Unicode code-point limit.
+        int clientLimit = (int) Math.min(Integer.MAX_VALUE, Math.max(value.length(), 2L * field.maximumLength()));
+        var input = DialogInput.text("value", field.label()).width(360).initial(value).maxLength(clientLimit);
+        if (field.multiline()) input.multiline(TextDialogInput.MultilineOptions.create(null, 160));
+        var body = new java.util.ArrayList<DialogBody>();
+        if (!field.label().equals(title)) body.add(DialogBody.plainMessage(field.label(), 360));
+        if (problem != null) body.add(DialogBody.plainMessage(problem.color(NamedTextColor.RED), 360));
         Dialog dialog = Dialog.create(builder -> builder.empty()
-                .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
-                        .pause(false)
+                .base(DialogBase.builder(title).canCloseWithEscape(true).pause(false)
                         .afterAction(DialogBase.DialogAfterAction.CLOSE)
-                        .body(List.of())
-                        .inputs(List.of(DialogInput.text(inputKey, 300, label, true,
-                                initial, maximumLength, multilineOptions)))
-                        .build())
+                        .body(body)
+                        .inputs(List.of(input.labelVisible(false).build())).build())
                 .type(DialogType.confirmation(
-                        ActionButton.create(submit, null, 100,
-                                DialogAction.customClick((response, audience) -> {
-                                    if (!(audience instanceof Player responder)
-                                            || !responder.getUniqueId().equals(player.getUniqueId())) return;
-                                    String value = response.getText(inputKey);
-                                    Runnable action = () -> {
-                                        if (responder.isOnline()) onSubmit.accept(responder,
-                                                value == null ? "" : value.strip());
-                                    };
-                                    if (Bukkit.isPrimaryThread()) action.run();
-                                    else Bukkit.getScheduler().runTask(plugin, action);
-                                }, options)),
-                        ActionButton.create(cancel, null, 90, null))));
-        player.showDialog(dialog);
-    }
-
-    /** A compact in-game form for actions requiring three short text fields. */
-    public static void openThreeTextInputs(JavaPlugin plugin, Player player, Component title,
-                                           Component firstLabel, int firstMax,
-                                           Component secondLabel, int secondMax,
-                                           Component thirdLabel, int thirdMax,
-                                           Component submit, Component cancel,
-                                           BiConsumer<Player, ThreeTextValues> onSubmit) {
-        var options = ClickCallback.Options.builder().uses(1)
-                .lifetime(Duration.ofMinutes(5)).build();
-        Dialog dialog = Dialog.create(builder -> builder.empty()
-                .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
-                        .pause(false)
-                        .afterAction(DialogBase.DialogAfterAction.CLOSE)
-                        .body(List.of())
-                        .inputs(List.of(
-                                DialogInput.text("first", 300, firstLabel, true,
-                                        "", firstMax, null),
-                                DialogInput.text("second", 300, secondLabel, true,
-                                        "", secondMax, null),
-                                DialogInput.text("third", 300, thirdLabel, true,
-                                        "", thirdMax, null)))
-                        .build())
-                .type(DialogType.confirmation(
-                        ActionButton.create(submit, null, 100,
-                                DialogAction.customClick((response, audience) -> {
-                                    if (!(audience instanceof Player responder)
-                                            || !responder.getUniqueId().equals(player.getUniqueId())) return;
-                                    ThreeTextValues values = new ThreeTextValues(
-                                            clean(response.getText("first")),
-                                            clean(response.getText("second")),
-                                            clean(response.getText("third")));
-                                    Runnable action = () -> {
-                                        if (responder.isOnline()) onSubmit.accept(responder, values);
-                                    };
-                                    if (Bukkit.isPrimaryThread()) action.run();
-                                    else Bukkit.getScheduler().runTask(plugin, action);
-                                }, options)),
-                        ActionButton.create(cancel, null, 90, null))));
-        player.showDialog(dialog);
-    }
-
-    public record ThreeTextValues(String first, String second, String third) { }
-
-    /** Two prefilled fields for editing paired labels without a second dialog. */
-    public static void openTwoTextInputs(JavaPlugin plugin, Player player, Component title,
-                                         Component firstLabel, String firstInitial, int firstMax,
-                                         Component secondLabel, String secondInitial, int secondMax,
-                                         Component submit, Component cancel,
-                                         BiConsumer<Player, TwoTextValues> onSubmit) {
-        var options = ClickCallback.Options.builder().uses(1)
-                .lifetime(Duration.ofMinutes(5)).build();
-        Dialog dialog = Dialog.create(builder -> builder.empty()
-                .base(DialogBase.builder(title)
-                        .canCloseWithEscape(true)
-                        .pause(false)
-                        .afterAction(DialogBase.DialogAfterAction.CLOSE)
-                        .body(List.of())
-                        .inputs(List.of(
-                                DialogInput.text("first", 300, firstLabel, true,
-                                        firstInitial, firstMax, null),
-                                DialogInput.text("second", 300, secondLabel, true,
-                                        secondInitial, secondMax, null)))
-                        .build())
-                .type(DialogType.confirmation(
-                        ActionButton.create(submit, null, 100,
-                                DialogAction.customClick((response, audience) -> {
-                                    if (!(audience instanceof Player responder)
-                                            || !responder.getUniqueId().equals(player.getUniqueId())) return;
-                                    TwoTextValues values = new TwoTextValues(
-                                            clean(response.getText("first")),
-                                            clean(response.getText("second")));
-                                    Runnable action = () -> {
-                                        if (responder.isOnline()) onSubmit.accept(responder, values);
-                                    };
-                                    if (Bukkit.isPrimaryThread()) action.run();
-                                    else Bukkit.getScheduler().runTask(plugin, action);
-                                }, options)),
-                        ActionButton.create(cancel, null, 90, null))));
-        player.showDialog(dialog);
-    }
-
-    public record TwoTextValues(String first, String second) { }
-
-    private static String clean(String value) {
-        return value == null ? "" : value.strip();
+                        ActionButton.create(done, null, 120, session.action((_, response) -> {
+                            String text = response == null ? null : response.getText("value");
+                            if (text == null) cancelled.run();
+                            else accepted.accept(text);
+                        })),
+                        ActionButton.create(cancel, null, 100, session.action((_, _) -> cancelled.run())))));
+        session.show(dialog);
+        return session;
     }
 
     public static void openConfirm(JavaPlugin plugin, Player player, Component title,
                                    Component question, Component confirm, Component cancel,
-                                   java.util.function.Consumer<Player> onConfirm) {
-        var options = ClickCallback.Options.builder().uses(1)
-                .lifetime(Duration.ofMinutes(5)).build();
+                                   Consumer<Player> onConfirm) {
+        MenuDialogSession session = begin(plugin, player);
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(title).canCloseWithEscape(true).pause(false)
                         .afterAction(DialogBase.DialogAfterAction.CLOSE)
-                        .body(List.of(DialogBody.plainMessage(question, 300)))
-                        .inputs(List.of()).build())
+                        .body(List.of(DialogBody.plainMessage(question, 300))).build())
                 .type(DialogType.confirmation(
                         ActionButton.create(confirm, null, 100,
-                                DialogAction.customClick((response, audience) -> {
-                                    if (!(audience instanceof Player responder)
-                                            || !responder.getUniqueId().equals(player.getUniqueId())) return;
-                                    Runnable action = () -> {
-                                        if (responder.isOnline()) onConfirm.accept(responder);
-                                    };
-                                    if (Bukkit.isPrimaryThread()) action.run();
-                                    else Bukkit.getScheduler().runTask(plugin, action);
-                                }, options)),
-                        ActionButton.create(cancel, null, 90, null))));
-        player.showDialog(dialog);
+                                session.action((responder, _) -> onConfirm.accept(responder))),
+                        ActionButton.create(cancel, null, 90, session.cancelAction()))));
+        session.show(dialog);
     }
 
     public static void openUrlConfirm(Player player, String label, String url, LanguageService languageService) {
         Dialog dialog = Dialog.create(builder -> builder.empty()
                 .base(DialogBase.builder(Component.text(languageService.t(player,
-                                Message.URL_DIALOG_TITLE, label), TextColor.color(0xC86A1D)))
+                                Message.URL_DIALOG_TITLE, label), org.encinet.mik.shared.menu.ui.UiPalette.DEFAULT.color(org.encinet.mik.shared.menu.ui.UiColorRole.WARNING)))
                         .canCloseWithEscape(true)
                         .pause(false)
                         .afterAction(DialogBase.DialogAfterAction.CLOSE)
                         .body(List.of(DialogBody.plainMessage(
                                 Component.text()
-                                        .append(Component.text(languageService.t(player, Message.URL_DIALOG_HINT), NamedTextColor.GRAY))
+                                        .append(Component.text(languageService.t(player, Message.URL_DIALOG_HINT), NamedTextColor.WHITE))
                                         .append(Component.newline())
-                                        .append(languageService.rich(player, Message.URL_DIALOG_QUESTION_RICH, NamedTextColor.GRAY,
+                                        .append(languageService.rich(player, Message.URL_DIALOG_QUESTION_RICH, NamedTextColor.WHITE,
                                                 RichArg.component("label", Component.text(label, NamedTextColor.YELLOW))))
                                         .append(Component.newline())
                                         .append(Component.text(url, NamedTextColor.AQUA))
@@ -207,11 +92,11 @@ public final class MenuDialogs {
                 .type(DialogType.confirmation(
                         ActionButton.create(
                                 Component.text(languageService.t(player, Message.URL_DIALOG_CONFIRM), NamedTextColor.GREEN),
-                                Component.text(url, NamedTextColor.GRAY),
+                                Component.text(url, NamedTextColor.WHITE),
                                 90,
                                 DialogAction.staticAction(ClickEvent.openUrl(url))),
                         ActionButton.create(
-                                Component.text(languageService.t(player, Message.BACK_TO_MAIN), NamedTextColor.GRAY),
+                                Component.text(languageService.t(player, Message.BACK_TO_MAIN), NamedTextColor.WHITE),
                                 null,
                                 100,
                                 DialogAction.staticAction(ClickEvent.runCommand("/menu")))

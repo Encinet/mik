@@ -249,14 +249,14 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         Map<String, List<IdentityBinding>> byName = new LinkedHashMap<>();
         for (IdentityBinding binding : loaded) {
             external.put(binding.externalKey(), binding);
-            byPlayer.computeIfAbsent(binding.playerId(), ignored ->
+            byPlayer.computeIfAbsent(binding.playerId(), _ ->
                     new java.util.ArrayList<>()).add(binding);
             byName.computeIfAbsent(binding.playerName().toLowerCase(
-                    java.util.Locale.ROOT), ignored ->
+                    java.util.Locale.ROOT), _ ->
                     new java.util.ArrayList<>()).add(binding);
         }
-        byPlayer.replaceAll((ignored, values) -> List.copyOf(values));
-        byName.replaceAll((ignored, values) -> List.copyOf(values));
+        byPlayer.replaceAll((_, values) -> List.copyOf(values));
+        byName.replaceAll((_, values) -> List.copyOf(values));
         bindings = List.copyOf(loaded);
         bindingsByExternal = Map.copyOf(external);
         bindingsByPlayer = Map.copyOf(byPlayer);

@@ -37,7 +37,7 @@ public final class ClientTips {
                     + "|비행|날기|날아|날고|속도|빠르|빠른|빠르게|느리|느린|느리게"
                     + "|บิน|ความเร็ว|เร็ว"
                     + "|(?<![\\p{IsLatin}\\p{IsCyrillic}\\p{M}\\p{N}_])(?:"
-                    + "fly(?:ing)?|flight|flyspeed|speed|fast(?:er|est)?|quick(?:er|ly)?|slow(?:er|est)?"
+                    + "fly(?:ing)?|flight|speed|fast(?:er|est)?|quick(?:er|ly)?|slow(?:er|est)?"
                     + "|fliegen|fliege|fliegst|fliegt|flug(?:geschwindigkeit)?|geschwindigkeit|schnell(?:er)?|langsam(?:er)?"
                     + "|volar|vuelo|volando|velocidad|r[áa]pid[oa]s?|lent[oa]s?"
                     + "|voler|vol|vitesse|vite|rapide(?:ment)?|lentement"
@@ -50,14 +50,12 @@ public final class ClientTips {
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Recommendation AXIOM_RECOMMENDATION =
             new Recommendation(ClientMod.AXIOM, "Axiom", "https://modrinth.com/mod/axiom");
-    private static final Recommendation VOXY_RECOMMENDATION =
-            new Recommendation(ClientMod.VOXY, "Voxy", "https://modrinth.com/mod/voxy");
     private static final List<Recommendation> RECOMMENDED = List.of(
             AXIOM_RECOMMENDATION,
+            new Recommendation(ClientMod.DREAM_DISPLAYS, "Dream Displays", "https://modrinth.com/plugin/dreamdisplays"),
             new Recommendation(ClientMod.PLASMO_VOICE, "Plasmo Voice", "https://modrinth.com/mod/plasmo-voice"),
             new Recommendation(ClientMod.XAERO_MINIMAP, "Xaero's Minimap", "https://modrinth.com/mod/xaeros-minimap"),
-            new Recommendation(ClientMod.XAERO_WORLD_MAP, "Xaero's World Map", "https://modrinth.com/mod/xaeros-world-map"),
-            VOXY_RECOMMENDATION);
+            new Recommendation(ClientMod.XAERO_WORLD_MAP, "Xaero's World Map", "https://modrinth.com/mod/xaeros-world-map"));
 
     private ClientTips() {}
 
@@ -69,11 +67,12 @@ public final class ClientTips {
                 .lifetime(Duration.ofSeconds(45))
                 .on(TipTrigger.event(PlayerJoinEvent.class))
                 .when(player -> !bedrockPlayer.test(player.getUniqueId()))
-                .resolve((player, ignored, language) -> versions.version(player).filter(ClientVersions.Version::outdated)
+                .resolve((player, _, language) -> versions.version(player).filter(ClientVersions.Version::outdated)
                         .map(version -> versionAdvice(languages, language, version)))
                 .build();
         modTips.define("client-mods", (detected, language) -> modAdvice(languages, language, detected))
                 .group("client-setup").priority(30).withoutHistory()
+                .delay(Duration.ofSeconds(10))
                 .lifetime(Duration.ofSeconds(45))
                 .on(TipTrigger.event(PlayerJoinEvent.class))
                 .build();
@@ -82,17 +81,11 @@ public final class ClientTips {
                 .on(TipTriggers.chatMentions(FLIGHT_SPEED_MENTION))
                 .build();
         modTips.whenUndetected(ClientMod.AXIOM)
-                .define("axiom-intro", (detected, language) -> Optional.of(new TipContent("axiom-intro",
+                .define("axiom-intro", (_, language) -> Optional.of(new TipContent("axiom-intro",
                         languages.rich(language, Message.CLIENT_TIP_AXIOM_INTRO_RICH, NamedTextColor.WHITE,
                                 RichArg.component("mod", modLink(AXIOM_RECOMMENDATION))))))
                 .ambient()
                 .on(TipTriggers.chatMentions(FLIGHT_SPEED_MENTION))
-                .build();
-        modTips.whenUndetected(ClientMod.VOXY)
-                .define("voxy-intro", (detected, language) -> Optional.of(new TipContent("voxy-intro",
-                        languages.rich(language, Message.CLIENT_TIP_VOXY_INTRO_RICH, NamedTextColor.WHITE,
-                                RichArg.component("mod", modLink(VOXY_RECOMMENDATION))))))
-                .ambient()
                 .build();
     }
 

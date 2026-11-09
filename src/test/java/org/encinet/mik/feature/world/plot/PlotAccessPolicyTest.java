@@ -119,7 +119,7 @@ class PlotAccessPolicyTest {
 
     private static Plot plot(Plot parent, Map<String, Boolean> flags, Map<UUID, Plot.Role> members) {
         return new Plot(UUID.randomUUID(), parent == null ? UUID.randomUUID() : parent.world(),
-                UUID.randomUUID(), "Access test", false, 0, Set.of(PlotGeometry.Cell.at(0, 64, 0)),
+                UUID.randomUUID(), "Access test", 0, Set.of(PlotGeometry.Cell.at(0, 64, 0)),
                 members, flags, parent == null ? null : parent.id());
     }
 }

@@ -23,7 +23,7 @@ public final class Tip<C> {
     private final Policy policy;
     private final Resolver<C> resolver;
     private final BiPredicate<Player, C> condition;
-    private final ClickEvent action;
+    private final ClickEvent<?> action;
     private final List<EventBinding<?, C>> triggers;
     private final boolean ambient;
 
@@ -94,8 +94,8 @@ public final class Tip<C> {
         private Duration delay = Duration.ZERO;
         private Duration lifetime = Duration.ofSeconds(20);
         private Resolver<C> resolver;
-        private BiPredicate<Player, C> condition = (player, context) -> true;
-        private ClickEvent action;
+        private BiPredicate<Player, C> condition = (_, _) -> true;
+        private ClickEvent<?> action;
         private final List<EventBinding<?, C>> triggers = new ArrayList<>();
         private boolean ambient;
         private boolean remembersHistory = true;
@@ -122,7 +122,7 @@ public final class Tip<C> {
         /** Check current feature state immediately before delivery, rather than during the triggering event. */
         public Builder<C> when(Predicate<Player> value) {
             Objects.requireNonNull(value, "condition");
-            return when((player, context) -> value.test(player));
+            return when((player, _) -> value.test(player));
         }
 
         public Builder<C> when(BiPredicate<Player, C> value) {
@@ -136,7 +136,7 @@ public final class Tip<C> {
         }
 
         public Builder<C> on(TipTrigger<?> trigger) {
-            return on(trigger, event -> null);
+            return on(trigger, _ -> null);
         }
 
         /** Capture event data on its thread; async events must not read live Bukkit state. Never retain the Event. */
@@ -148,7 +148,7 @@ public final class Tip<C> {
 
         Builder<C> message(Message message) {
             Objects.requireNonNull(message, "message");
-            resolver = (player, context, language) -> Optional.of(new TipContent(id, binding.text(language, message)));
+            resolver = (_, _, language) -> Optional.of(new TipContent(id, binding.text(language, message)));
             return this;
         }
 

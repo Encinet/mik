@@ -48,6 +48,18 @@ public final class RemovalService {
             PlayerProfile subject,
             UUID sponsorId
     ) throws GovernanceException {
+        return sponsorRemoval(subject, sponsorId, null);
+    }
+
+    /** Joins the displayed petition, without creating or substituting a later petition. */
+    public RemovalSponsorship joinPetition(PlayerProfile subject, UUID sponsorId, long petitionId)
+            throws GovernanceException {
+        if (petitionId <= 0) throw new IllegalArgumentException("Petition id must be positive");
+        return sponsorRemoval(subject, sponsorId, petitionId);
+    }
+
+    private RemovalSponsorship sponsorRemoval(PlayerProfile subject, UUID sponsorId, Long expectedPetition)
+            throws GovernanceException {
         Objects.requireNonNull(subject, "subject");
         Objects.requireNonNull(sponsorId, "sponsorId");
         if (subject.playerId().equals(sponsorId)) {
@@ -75,9 +87,11 @@ public final class RemovalService {
                     && failedAt.get().plus(VotingPolicy.FAILED_VOTE_COOLDOWN).isAfter(now)) {
                 throw new GovernanceException(GovernanceException.Code.VOTE_COOLDOWN);
             }
-            RemovalPetition petition = repository.gatheringRemovalPetition(
-                            subject.playerId(), now)
-                    .orElseGet(() -> createPetition(subject, required, now));
+            var existing = repository.gatheringRemovalPetition(subject.playerId(), now);
+            if (expectedPetition != null && (existing.isEmpty() || existing.get().id() != expectedPetition)) {
+                throw new GovernanceException(GovernanceException.Code.REMOVAL_PETITION_CLOSED);
+            }
+            RemovalPetition petition = existing.orElseGet(() -> createPetition(subject, required, now));
             Set<UUID> activeIds = electorate.stream()
                     .map(PlayerProfile::playerId)
                     .collect(Collectors.toUnmodifiableSet());
@@ -107,6 +121,15 @@ public final class RemovalService {
         }
     }
 
+    /** Only the requester's participation is exposed; sponsor identities stay private. */
+    public boolean hasSponsored(long petitionId, UUID requester) throws GovernanceException {
+        try {
+            return repository.removalSponsors(petitionId).contains(requester);
+        } catch (GovernanceRepositoryException | RuntimeException error) {
+            throw storageFailure("Could not inspect own removal sponsorship", error);
+        }
+    }
+
     private RemovalPetition createPetition(
             PlayerProfile subject,
             int sponsorsRequired,
@@ -125,6 +148,9 @@ public final class RemovalService {
     }
 
     private static final class RepositoryFailure extends RuntimeException {
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
         private RepositoryFailure(Throwable cause) {
             super(cause);
         }

@@ -77,6 +77,34 @@ final class PlotBoardStore implements AutoCloseable {
         return entry == null ? null : publicRecord(entry.record().toString());
     }
 
+    synchronized PlotBoardRecord readFor(String id, UUID viewer) throws SQLException {
+        if (!isUuid(id)) return null;
+        Entry entry = find(id.toLowerCase());
+        if (entry == null) return null;
+        JsonObject record = entry.record();
+        Entry related = record.has("relatedNoticeId") && !record.get("relatedNoticeId").isJsonNull()
+                ? find(record.get("relatedNoticeId").getAsString()) : null;
+        boolean feedbackAuthor = entry.authorId().equals(viewer);
+        return PlotBoardRecord.verified(publicRecord(record.toString()), feedbackAuthor,
+                feedbackAuthor || related != null && related.authorId().equals(viewer));
+    }
+
+    synchronized java.util.List<JsonObject> searchPublic(String text) throws SQLException {
+        var result = new java.util.ArrayList<JsonObject>();
+        String pattern = "%"+text.strip().toLowerCase(java.util.Locale.ROOT).replace("!","!!").replace("%","!%").replace("_","!_")+"%";
+        try (PreparedStatement query = connection.prepareStatement("""
+                SELECT public_json FROM board_entries
+                WHERE lower(id) LIKE ? ESCAPE '!' OR lower(json_extract(public_json,'$.subject')) LIKE ? ESCAPE '!'
+                ORDER BY created_at DESC,id DESC
+                """)) {
+            query.setString(1,pattern); query.setString(2,pattern);
+            try (ResultSet rows = query.executeQuery()) {
+                while (rows.next()) result.add(publicRecord(rows.getString(1)));
+            }
+        }
+        return java.util.List.copyOf(result);
+    }
+
     synchronized boolean isAuthor(String id, UUID playerId) throws SQLException {
         Entry entry = find(id);
         return entry != null && entry.authorId().equals(playerId);
@@ -329,6 +357,9 @@ final class PlotBoardStore implements AutoCloseable {
     private record Entry(UUID authorId, JsonObject record, LinkedHashMap<UUID, String> recipients) { }
 
     static final class Failure extends RuntimeException {
+        @java.io.Serial
+        private static final long serialVersionUID = 1L;
+
         Failure(String code) { super(code); }
     }
 }

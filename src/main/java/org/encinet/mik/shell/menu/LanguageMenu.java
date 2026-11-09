@@ -6,7 +6,6 @@ import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.encinet.mik.shared.i18n.Language;
@@ -14,14 +13,16 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.FloatingMenuAppearance;
 import org.encinet.mik.shared.menu.FloatingMenuContext;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuInteraction;
+import org.encinet.mik.shared.menu.MenuScene;
+import org.encinet.mik.shared.menu.MenuPanel;
+import org.encinet.mik.shared.menu.ui.*;
+import java.util.function.IntConsumer;
 import org.encinet.mik.shared.menu.FloatingMenuScreen;
 import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 
 import java.util.Objects;
 
-/** A player-centered ring of language choices with one clear reading point. */
+/** A compact language catalog with native names and an explicit current selection. */
 public final class LanguageMenu {
     private static final String CHOICE_PREFIX = "language:";
 
@@ -51,30 +52,54 @@ public final class LanguageMenu {
     }
 
     public void open(Player player) {
-        String preference = languageService.preference(player.getUniqueId());
-        int focused = Language.fromId(preference)
-                .orElseGet(() -> languageService.language(player)).ordinal();
-        screen.open(player, new MenuState(focused));
+        screen.open(player, new MenuState(0));
     }
 
-    private FloatingMenuDefinition build(FloatingMenuContext<MenuState> context) {
+    static UiNode content(int page, IntConsumer browse) {
+        var languages = UiTemplates.pagedActions("languages",
+                UiLayouts.balancedGrid(4,1.3,UiLayouts.GridBias.WIDER,UiLength.ui(10),UiLength.ui(8)),page,browse);
+        var body = UiTemplates.focus(Ui.layout(UiLayouts.contentColumn(languages.key(),UiLength.ui(12))).key("catalogue")
+                .child(UiTemplates.title("reader")).child(languages).build(), languages.key());
+        return UiTemplates.sheet(UiTemplates.window("languages", body),
+                UiTemplates.toolbar("tools", UiTemplates.navigation("navigation")));
+    }
+
+    private MenuScene build(FloatingMenuContext<MenuState> context) {
         Player player = context.player();
+        MenuScene content = definition(player, context.state().page(),
+                page -> context.setState(new MenuState(page)), context::redraw, () -> screen.state(player).orElse(null) == context.state());
+        return content.toBuilder().content(UiTemplates.withBack(content.content(),
+                Component.text(languageService.t(player, context.canGoBack() ? Message.BACK : Message.CLOSE),
+                        NamedTextColor.GREEN))).build();
+    }
+
+    MenuPanel panel(Player player, Runnable redraw) {
+        return new MenuPanel() {
+            private int page;
+            private boolean closed;
+            @Override public MenuScene render() {
+                if (closed) return MenuScene.screen("language-closed").content(Ui.column().build()).build();
+                return definition(player, page, next -> { if (!closed) { page = next; redraw.run(); } },
+                        () -> { if (!closed) redraw.run(); }, () -> !closed);
+            }
+            @Override public void close() { closed = true; }
+        };
+    }
+
+    private MenuScene definition(Player player, int page, IntConsumer browse, Runnable redraw, java.util.function.BooleanSupplier active) {
         Language displayLanguage = languageService.language(player);
         String currentPreference = languageService.preference(player.getUniqueId());
         Language[] languages = Language.values();
-        int focused = Math.floorMod(context.state().rotation(), languages.length);
-        Language focusedLanguage = languages[focused];
 
-        FloatingMenuDefinition.Builder menu = FloatingMenuDefinition.screen("language")
-                .appearance(FloatingMenuAppearance.CONSOLE)
+        MenuScene.Builder menu = MenuScene.screen("language")
+                .appearance(FloatingMenuAppearance.DEFAULT)
                 .stableAnchor()
-                .aroundViewer()
-                .layout(new LanguageRingLayout(context.state().rotation()));
+                .content(content(page, browse));
         Component reader = Component.text(languageService.t(displayLanguage,
                         Message.LANGUAGE_MENU_TITLE), NamedTextColor.LIGHT_PURPLE)
                 .append(Component.newline())
-                .append(Component.text(focusedLanguage.displayName(), NamedTextColor.GOLD));
-        if (focusedLanguage.id().equals(currentPreference)) {
+                .append(Component.text(displayLanguage.displayName(), NamedTextColor.GOLD));
+        if (displayLanguage.id().equals(currentPreference)) {
             reader = reader.append(Component.newline()).append(Component.text(
                     languageService.t(displayLanguage, Message.LANGUAGE_SELECTED),
                     NamedTextColor.GREEN));
@@ -87,48 +112,26 @@ public final class LanguageMenu {
             Language option = languages[languageIndex];
             String value = option.id();
             boolean selected = value.equals(currentPreference);
-            int selectedIndex = languageIndex;
-            menu.choice(CHOICE_PREFIX + value, selected,
-                            languageMaterial(option), Component.text(option.displayName(),
-                                    selected ? NamedTextColor.GREEN : NamedTextColor.AQUA))
-                    .region(LanguageRingLayout.cardRegion(languageIndex))
-                    .textWidth(FloatingMenuTextWidth.RING)
-                    .primary((p, handle) -> {
+            menu.control(CHOICE_PREFIX + value, choiceLabel(player, value, selected)).selected(selected)
+                    .region("languages")
+                    .textWidth(FloatingMenuTextWidth.COMPACT)
+                    .primary((p, _) -> {
+                        if (!active.getAsBoolean()) return;
                         selectLanguage(p, value);
-                        context.update(state -> focus(state, selectedIndex));
+                        redraw.run();
                     });
         }
-        menu.on(FloatingMenuInteraction.SCROLL_UP, (p, handle, input) ->
-                context.update(value -> rotate(value, -1)));
-        menu.on(FloatingMenuInteraction.SCROLL_DOWN, (p, handle, input) ->
-                context.update(value -> rotate(value, 1)));
         boolean automatic = LanguageService.AUTO.equals(currentPreference);
-        menu.choice("automatic", automatic, Material.COMPASS,
-                        choiceLabel(player, LanguageService.AUTO, automatic))
+        menu.control("automatic", choiceLabel(player, LanguageService.AUTO, automatic)).selected(automatic)
                 .region("navigation")
-                .textWidth(FloatingMenuTextWidth.RING)
+                .textWidth(FloatingMenuTextWidth.COMPACT)
                 .keepAccessible()
-                .primary((p, handle) -> {
+                .primary((p, _) -> {
+                    if (!active.getAsBoolean()) return;
                     selectLanguage(p, LanguageService.AUTO);
-                    context.update(state -> focus(state, languageService.language(p).ordinal()));
+                    redraw.run();
                 });
-        menu.back(Component.text(languageService.t(displayLanguage,
-                        context.canGoBack() ? Message.BACK : Message.CLOSE),
-                        NamedTextColor.GREEN))
-                .region("navigation")
-                .keepAccessible();
         return menu.build();
-    }
-
-    static MenuState rotate(MenuState state, int direction) {
-        return new MenuState(state.rotation() + Integer.signum(direction));
-    }
-
-    static MenuState focus(MenuState state, int selected) {
-        int count = Language.values().length;
-        int focused = Math.floorMod(state.rotation(), count);
-        int difference = Math.floorMod(selected - focused + count / 2, count) - count / 2;
-        return new MenuState(state.rotation() + difference);
     }
 
     private Component choiceLabel(Player player, String value, boolean selected) {
@@ -145,26 +148,5 @@ public final class LanguageMenu {
                 languageService.languageLabel(player, value)), NamedTextColor.GREEN));
     }
 
-    private static Material languageMaterial(Language language) {
-        return switch (language) {
-            case ZH_CN -> Material.RED_BANNER;
-            case ZH_HK -> Material.MAGENTA_BANNER;
-            case ZH_TW -> Material.PINK_BANNER;
-            case LZH -> Material.BLACK_BANNER;
-            case EN_US -> Material.BLUE_BANNER;
-            case DE_DE -> Material.YELLOW_BANNER;
-            case ES_ES -> Material.ORANGE_BANNER;
-            case FR_FR -> Material.WHITE_BANNER;
-            case IT_IT -> Material.LIME_BANNER;
-            case JA_JP -> Material.RED_BANNER;
-            case KO_KR -> Material.LIGHT_BLUE_BANNER;
-            case NL_NL -> Material.ORANGE_BANNER;
-            case PT_BR -> Material.GREEN_BANNER;
-            case RU_RU -> Material.CYAN_BANNER;
-            case TH_TH -> Material.PURPLE_BANNER;
-            case UK_UA -> Material.YELLOW_BANNER;
-        };
-    }
-
-    record MenuState(long rotation) { }
+    record MenuState(int page) { }
 }

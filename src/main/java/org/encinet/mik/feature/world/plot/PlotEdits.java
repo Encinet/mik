@@ -6,7 +6,6 @@ import org.encinet.mik.feature.world.plot.PlotGeometry.Cell;
 import java.math.BigInteger;
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -82,7 +81,7 @@ final class PlotEdits {
         registry.requireGeometry();
         validName(name);
         Set<Cell> cells = creatableCells(world, shape);
-        Plot plot = new Plot(UUID.randomUUID(), world, owner, name, false, System.currentTimeMillis(),
+        Plot plot = new Plot(UUID.randomUUID(), world, owner, name, System.currentTimeMillis(),
                 cells, Map.of(), Map.of(), null);
         registry.put(plot);
         return plot;
@@ -118,9 +117,9 @@ final class PlotEdits {
         requireSelection(plot.world(), shape);
         if (registry.childrenOf(plot.id()).stream().anyMatch(child -> child.cells().stream().anyMatch(cell -> !shape.contains(cell))))
             throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_PARENT);
-        PlotArrival arrival = registry.arrival(plot.id());
-        if (arrival != null && !shape.contains(Cell.at(arrival.blockX(), arrival.blockY(), arrival.blockZ())))
-            throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_OWN_ARRIVAL);
+        if (registry.destinations(plot.id()).stream().anyMatch(point -> !shape.contains(Cell.at(
+                point.blockX(), point.blockY(), point.blockZ()))))
+            throw new PlotProblem(Message.PLOT_ERROR_SUBPLOT_OWN_DESTINATION);
         if (registry.overlapsSelection(plot.world(), plot.id(), shape)) throw new PlotProblem(Message.PLOT_ERROR_OVERLAP);
     }
 
@@ -131,7 +130,7 @@ final class PlotEdits {
         if (!plot.cells().equals(latest.cells())) throw new PlotProblem(Message.PLOT_AREA_CHANGED);
         plot = latest;
         Set<Cell> cells = resizedCells(plot, shape);
-        registry.put(new Plot(plot.id(), plot.world(), plot.owner(), plot.name(), plot.publicProject(),
+        registry.put(new Plot(plot.id(), plot.world(), plot.owner(), plot.name(),
                 plot.createdAt(), cells, plot.members(), plot.flags(), plot.parentId()));
     }
 
@@ -221,8 +220,7 @@ final class PlotEdits {
         Map<String, Boolean> flags = PlotAccessPolicy.withoutSubject(plot.flags(),
                 PlotAccessPolicy.Subject.player(successor), null);
         flags = PlotAccessPolicy.withoutSubject(flags, PlotAccessPolicy.Subject.player(plot.owner()), null);
-        registry.put(new Plot(plot.id(), plot.world(), successor, plot.name(),
-                plot.publicProject(), plot.createdAt(), plot.cells(), members,
+        registry.put(new Plot(plot.id(), plot.world(), successor, plot.name(), plot.createdAt(), plot.cells(), members,
                 flags, plot.parentId()));
     }
 
@@ -258,15 +256,6 @@ final class PlotEdits {
     void resetAccess(Plot plot, UUID actor, boolean staff, PlotAccessPolicy.Subject subject,
                      PlotPermission.Category category) throws SQLException {
         applyAccess(planAccess(plot, new PlotAccessRequest.Reset(subject, category)), actor, staff);
-    }
-
-    private void setPublic(Plot plot, boolean value) throws SQLException {
-        plot = current(plot);
-        registry.put(copy(plot, null, null, null, value));
-    }
-
-    void setPublic(Plot plot, UUID actor, boolean staff, boolean value) throws SQLException {
-        setPublic(requirePermission(plot, actor, staff, PlotPermission.MANAGE_SETTINGS), value);
     }
 
     void flag(Plot plot, UUID actor, boolean staff, String flag, boolean allowed) throws SQLException {
@@ -360,11 +349,4 @@ final class PlotEdits {
             throw new PlotProblem(Message.PLOT_ERROR_NAME);
     }
 
-    private static Plot copy(Plot plot, String name, Map<UUID, Plot.Role> members,
-                             Map<String, Boolean> flags, Boolean publicProject) {
-        return new Plot(plot.id(), plot.world(), plot.owner(), name == null ? plot.name() : name,
-                publicProject == null ? plot.publicProject() : publicProject, plot.createdAt(),
-                plot.cells(), members == null ? plot.members() : members,
-                flags == null ? plot.flags() : flags, plot.parentId());
-    }
 }

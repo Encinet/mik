@@ -1,13 +1,16 @@
 package org.encinet.mik.feature.player.profile;
 
-import org.encinet.mik.shared.role.RolePermissions;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;
+import java.util.function.BiPredicate;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+import com.destroystokyo.paper.profile.PlayerProfile;
+import java.util.concurrent.CompletableFuture;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -24,9 +27,9 @@ import org.encinet.mik.shared.i18n.LanguageChangeListener;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
-import org.encinet.mik.feature.player.profile.PlayerIdentityRenderer;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
@@ -36,6 +39,63 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class TabListModule implements Listener, AfkStateListener, LanguageChangeListener {
+
+    public record WebPlayer(UUID playerUuid, String name, int connections) { }
+    private List<WebPlayer> webPlayers = List.of();
+    private BiPredicate<UUID, UUID> webVisibility = (_, _) -> true;
+    private final WebTabList webTabList = new WebTabList();
+    private final Map<UUID, PlayerProfile> webProfiles = new HashMap<>();
+    private final Map<UUID, CompletableFuture<PlayerProfile>> pendingProfiles = new HashMap<>();
+    private volatile boolean enabled;
+
+    public void webVisibility(BiPredicate<UUID, UUID> visibility) { webVisibility = visibility; }
+
+    public void webPlayers(List<WebPlayer> players) {
+        webPlayers = players.stream().sorted(Comparator.comparing(WebPlayer::name, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(WebPlayer::playerUuid)).toList();
+        var present = players.stream().map(WebPlayer::playerUuid).collect(java.util.stream.Collectors.toSet());
+        webProfiles.keySet().removeIf(id -> !present.contains(id));
+        pendingProfiles.entrySet().removeIf(entry -> {
+            if (present.contains(entry.getKey())) return false;
+            entry.getValue().cancel(false);
+            return true;
+        });
+        for (WebPlayer player : players) if (!webProfiles.containsKey(player.playerUuid())) loadWebProfile(player.playerUuid());
+        for (Player viewer : Bukkit.getOnlinePlayers()) updateWebPlayers(viewer);
+    }
+
+    private void loadWebProfile(UUID id) {
+        PlayerProfile profile = Bukkit.getOfflinePlayer(id).getPlayerProfile();
+        webProfiles.put(id, profile);
+        if (!enabled || profile.hasTextures()) return;
+        CompletableFuture<PlayerProfile> pending = profile.update();
+        pendingProfiles.put(id, pending);
+        pending.whenCompleteAsync((updated, error) -> {
+            pendingProfiles.remove(id, pending);
+            if (!enabled || webProfiles.get(id) != profile) return;
+            if (error != null || updated == null) return;
+            webProfiles.put(id, updated);
+            for (Player viewer : Bukkit.getOnlinePlayers()) updateWebPlayers(viewer);
+        }, Bukkit.getScheduler().getMainThreadExecutor(plugin));
+    }
+
+    private void updateWebPlayers(Player viewer) {
+        List<WebTabList.Entry> visible = new ArrayList<>();
+        for (WebPlayer player : webPlayers) {
+            if (!webVisibility.test(viewer.getUniqueId(), player.playerUuid())) continue;
+            Player online = Bukkit.getPlayer(player.playerUuid());
+            OfflinePlayer subject = online == null ? Bukkit.getOfflinePlayer(player.playerUuid()) : online;
+            Component label = nameTags.render(subject,
+                    Component.text(player.name()), nameTags.current(player.playerUuid()))
+                    .tabList(sources.webTabList(viewer, player.connections()));
+            PlayerProfile profile = online == null ? webProfiles.get(player.playerUuid()) : online.getPlayerProfile();
+            if (online != null) webProfiles.put(player.playerUuid(), profile);
+            visible.add(new WebTabList.Entry(player.playerUuid(), label, profile.getProperties().stream()
+                    .filter(property -> property.getName().equals("textures")).toList(), -1 - visible.size()));
+        }
+        webTabList.synchronize(viewer.getUniqueId(), visible,
+                packet -> PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, packet));
+    }
 
     private static final long REFRESH_INTERVAL_TICKS = 5L * 20L;
     private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
@@ -53,20 +113,23 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
     private final JavaPlugin plugin;
     private final AfkService afkService;
     private final LanguageService languageService;
-    private final PlayerIdentityRenderer playerIdentities;
+    private final PlayerSourceRenderer sources;
+    private final PlayerNameTagRenderer nameTags;
     private BukkitTask refreshTask;
     private BukkitTask pendingAfkRefreshTask;
 
     public TabListModule(JavaPlugin plugin, AfkService afkService,
                          LanguageService languageService,
-                         PlayerIdentityRenderer playerIdentities) {
+                         PlayerNameTagRenderer nameTags, PlayerSourceRenderer sources) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.languageService = languageService;
-        this.playerIdentities = playerIdentities;
+        this.sources = sources;
+        this.nameTags = nameTags;
     }
 
     public void enable() {
+        enabled = true;
         Bukkit.getPluginManager().registerEvents(this, plugin);
         afkService.addListener(this);
         languageService.addLanguageChangeListener(this);
@@ -83,6 +146,7 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
         player.sendPlayerListHeaderAndFooter(resolveTabListHeader(), tabListFooter(player));
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             if (player.isOnline()) {
+                updateWebPlayers(player);
                 updateAllPlayerListNames();
                 updateAllHeadersAndFooters();
             }
@@ -91,6 +155,7 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
 
     @EventHandler
     public void onPlayerQuit(PlayerQuitEvent event) {
+        webTabList.forget(event.getPlayer().getUniqueId());
         Bukkit.getScheduler().runTask(plugin, this::updateAllHeadersAndFooters);
     }
 
@@ -108,10 +173,14 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
             return;
         }
         updatePlayerListNamesForViewer(player);
+        updateWebPlayers(player);
         player.sendPlayerListHeaderAndFooter(resolveTabListHeader(), tabListFooter(player));
     }
 
     public void disable() {
+        enabled = false;
+        webPlayers(List.of());
+        webTabList.clear();
         HandlerList.unregisterAll(this);
         afkService.removeListener(this);
         languageService.removeLanguageChangeListener(this);
@@ -145,6 +214,12 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
                     value -> renderPlayerListNames(onlinePlayers, value));
             sendPlayerListNames(viewer, onlinePlayers, localizedNames);
         }
+    }
+
+    public void refreshPlayerName(UUID playerId) {
+        Player subject = Bukkit.getPlayer(playerId);
+        if (subject != null) updatePlayerListNameForAllViewers(subject);
+        for (Player viewer : Bukkit.getOnlinePlayers()) updateWebPlayers(viewer);
     }
 
     private void updatePlayerListNameForAllViewers(Player subject) {
@@ -182,9 +257,9 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
     }
 
     private Component renderPlayerListName(Player subject, Language language) {
-        Component identity = playerIdentities
-                .render(subject, language, renderPlayerName(subject))
-                .component();
+        Component identity = nameTags
+                .render(subject, Component.text(subject.getName()))
+                .tabList(sources.game(subject, language));
         return afkService.isAfk(subject.getUniqueId())
                 ? identity.append(renderAfkBadge())
                 : identity;
@@ -364,13 +439,6 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
 
         int nonAfkThreshold = Math.max(1, (int) Math.floor(onlinePlayers * 0.1));
         return nonAfkPlayers <= nonAfkThreshold;
-    }
-
-    private Component renderPlayerName(Player player) {
-        NamedTextColor color = RolePermissions.isMember(player)
-                ? NamedTextColor.WHITE
-                : NamedTextColor.YELLOW;
-        return Component.text(player.getName(), color);
     }
 
     private Component renderAfkBadge() {

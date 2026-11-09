@@ -66,7 +66,7 @@ class LuckPermsGovernanceRolesTest {
             throw new AssertionError(error);
         }
         Object nodeMap = Proxy.newProxyInstance(nodeMapType.getClassLoader(),
-                new Class<?>[] {nodeMapType}, (proxy, method, arguments) -> {
+                new Class<?>[] {nodeMapType}, (_, method, arguments) -> {
                     if (method.getName().equals("remove")) {
                         nodes.remove(arguments[0]);
                         return null;
@@ -74,7 +74,7 @@ class LuckPermsGovernanceRolesTest {
                     throw new UnsupportedOperationException(method.getName());
                 });
         User user = (User) Proxy.newProxyInstance(User.class.getClassLoader(),
-                new Class<?>[] {User.class}, (proxy, method, arguments) -> switch (method.getName()) {
+                new Class<?>[] {User.class}, (_, method, arguments) -> switch (method.getName()) {
                     case "getNodes" -> Set.copyOf(nodes);
                     case "data" -> nodeMap;
                     case "getPrimaryGroup" -> primaryGroup.get();

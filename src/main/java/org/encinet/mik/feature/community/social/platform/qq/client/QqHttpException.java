@@ -1,6 +1,9 @@
 package org.encinet.mik.feature.community.social.platform.qq.client;
 
 final class QqHttpException extends RuntimeException {
+    @java.io.Serial
+    private static final long serialVersionUID = 1L;
+
 
     private final int statusCode;
     private final long errorCode;

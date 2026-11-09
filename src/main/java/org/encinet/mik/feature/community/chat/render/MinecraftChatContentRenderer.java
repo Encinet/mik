@@ -11,7 +11,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.inventory.ItemStack;
-import org.encinet.mik.feature.community.chat.ChatDisplayRenderer;
+import org.encinet.mik.feature.player.profile.PlayerNameRenderer;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
 import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatStyle;
@@ -33,7 +33,7 @@ public final class MinecraftChatContentRenderer {
         Component rendered;
         if (node instanceof ChatNode.Link link) {
             String target = link.target().toString();
-            ClickEvent clickEvent = "mailto".equalsIgnoreCase(
+            ClickEvent<?> clickEvent = "mailto".equalsIgnoreCase(
                     link.target().getScheme())
                     ? ClickEvent.copyToClipboard(
                     link.target().getRawSchemeSpecificPart())
@@ -47,7 +47,7 @@ public final class MinecraftChatContentRenderer {
                     .hoverEvent(HoverEvent.showEntity(
                             PLAYER_ENTITY_TYPE, mention.playerId(),
                             Component.text(mention.playerName())));
-            Component clickableName = ChatDisplayRenderer.clickablePlayerName(
+            Component clickableName = PlayerNameRenderer.clickablePlayerName(
                     name, mention.playerName());
             if (mention.sourceIdentity().isPresent()) {
                 var identity = mention.sourceIdentity().orElseThrow();

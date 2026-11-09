@@ -90,7 +90,7 @@ public final class AfkViewingController implements Listener {
                     sessions.remove(playerId);
                     continue;
                 }
-                ViewingSession session = sessions.computeIfAbsent(playerId, ignored -> new ViewingSession(policy));
+                ViewingSession session = sessions.computeIfAbsent(playerId, _ -> new ViewingSession(policy));
                 Location eyeLocation = player.getEyeLocation();
                 Point eye = point(eyeLocation.toVector());
                 Point view = point(eyeLocation.getDirection());

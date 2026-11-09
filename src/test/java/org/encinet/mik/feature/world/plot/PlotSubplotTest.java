@@ -34,7 +34,7 @@ class PlotSubplotTest {
             PlotEdits edits = new PlotEdits(registry);
             Plot created = edits.createSubPlot(parent, owner, false, childOwner, "Child",
                     point(world, 0, 64, 0), point(world, 3, 67, 3));
-            Plot child = new Plot(created.id(), world, childOwner, created.name(), false, created.createdAt(),
+            Plot child = new Plot(created.id(), world, childOwner, created.name(), created.createdAt(),
                     created.cells(), Map.of(member, Plot.Role.COLLABORATOR),
                     Map.of(PlotAccessPolicy.playerKey(member, "create_subplot"), true), parent.id());
             registry.put(child);
@@ -153,7 +153,7 @@ class PlotSubplotTest {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
             PlotEdits edits = new PlotEdits(registry);
-            Plot parent = new Plot(UUID.randomUUID(), world, parentOwner, "Town", true, 0L,
+            Plot parent = new Plot(UUID.randomUUID(), world, parentOwner, "Town", 0L,
                     Set.of(new Cell(0, 16, 0)), Map.of(visitor, Plot.Role.ADMIN),
                     Map.of("newcomer.container", true, "collaborator.entity_interact", true), null);
             registry.put(parent);
@@ -216,14 +216,13 @@ class PlotSubplotTest {
             PlotEdits edits = new PlotEdits(registry);
             UUID world = UUID.randomUUID(), parentOwner = UUID.randomUUID();
             UUID childOwner = UUID.randomUUID(), newcomer = UUID.randomUUID();
-            Plot parent = new Plot(UUID.randomUUID(), world, parentOwner, "Town", true, 0L,
+            Plot parent = new Plot(UUID.randomUUID(), world, parentOwner, "Town", 0L,
                     Set.of(new Cell(0, 16, 0)), Map.of(),
                     Map.of("newcomer.container", false), null);
             registry.put(parent);
             Plot child = registry.createSubPlot(parent.id(), childOwner, "East",
                     point(world, 0, 64, 0), point(world, 3, 64, 3));
-            registry.put(new Plot(child.id(), child.world(), child.owner(), child.name(),
-                    child.publicProject(), child.createdAt(), child.cells(), child.members(),
+            registry.put(new Plot(child.id(), child.world(), child.owner(), child.name(), child.createdAt(), child.cells(), child.members(),
                     Map.of("newcomer.container", true, "collaborator.entity_interact", false,
                             "member.door", true, "future.option", true), child.parentId()));
             assertTrue(registry.allowed(world, 0, 64, 0, newcomer,
@@ -243,7 +242,7 @@ class PlotSubplotTest {
     }
 
     @Test
-    void selectionRejectsOverlapDisconnectedCellsAndParentArrival() throws Exception {
+    void selectionRejectsOverlapDisconnectedCellsAndParentDestination() throws Exception {
         try (PlotRepository store = new PlotRepository(directory.resolve("selection.db"))) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
@@ -259,12 +258,12 @@ class PlotSubplotTest {
                     () -> registry.createSubPlot(parent.id(), owner, "Outside",
                             point(world, 8, 64, 0), point(world, 12, 64, 0)));
 
-            registry.setArrival(parent.id(), new PlotArrival(9, 64, 1, 0, 0, "", ""));
-            assertProblem(Message.PLOT_ERROR_SUBPLOT_ARRIVAL,
+            registry.saveDestination(new PlotDestination(parent.id(), parent.id(), "Entrance", "", false, 9, 64, 1, 0, 0, "", ""));
+            assertProblem(Message.PLOT_ERROR_SUBPLOT_DESTINATION,
                     () -> registry.createSubPlot(parent.id(), owner, "Portal",
                             point(world, 8, 64, 0), point(world, 11, 64, 3)));
 
-            Plot disconnected = new Plot(UUID.randomUUID(), world, owner, "Islands", true,
+            Plot disconnected = new Plot(UUID.randomUUID(), world, owner, "Islands",
                     0L, Set.of(new Cell(0, 16, 2), new Cell(0, 16, 3),
                             new Cell(1, 16, 3), new Cell(2, 16, 3), new Cell(2, 16, 2)),
                     Map.of(), Map.of(), null);
@@ -343,8 +342,8 @@ class PlotSubplotTest {
             assertEquals("East gate", registry.noticeBoard(child.id()));
             assertEquals(parent.id(), registry.byId(child.id()).parentId());
 
-            registry.setArrival(child.id(), new PlotArrival(1, 64, 1, 0, 0, "", ""));
-            assertProblem(Message.PLOT_ERROR_SUBPLOT_OWN_ARRIVAL,
+            registry.saveDestination(new PlotDestination(child.id(), child.id(), "Entrance", "", false, 1, 64, 1, 0, 0, "", ""));
+            assertProblem(Message.PLOT_ERROR_SUBPLOT_OWN_DESTINATION,
                     () -> edits.resizeSubPlot(child, parentOwner, false,
                             point(world, 4, 64, 0), point(world, 7, 64, 3)));
             edits.transfer(child, parentOwner, successor);
@@ -367,7 +366,7 @@ class PlotSubplotTest {
     }
 
     private static Plot parent(UUID world, UUID owner, Map<UUID, Plot.Role> members) {
-        return new Plot(UUID.randomUUID(), world, owner, "Town", true, 0L,
+        return new Plot(UUID.randomUUID(), world, owner, "Town", 0L,
                 Set.of(new Cell(0, 16, 0), new Cell(1, 16, 0), new Cell(2, 16, 0)),
                 members, Map.of("newcomer.door", true), null);
     }

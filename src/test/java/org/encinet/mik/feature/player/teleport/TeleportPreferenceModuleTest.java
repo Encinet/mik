@@ -17,6 +17,10 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
 import org.encinet.mik.shared.role.PlayerRole;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.encinet.mik.shared.menu.FloatingMenuInteraction;
+import org.encinet.mik.shared.menu.ui.UiSceneTestSupport;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -26,10 +30,33 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.nio.file.Path;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class TeleportPreferenceModuleTest {
+    @Test void embeddedPolicyChoicesCycleAndPersistWithoutOpeningAnotherScreen(@TempDir Path temporary) throws Exception {
+        try (Fixture fixture = new Fixture(PlayerRole.DEFAULT, TeleportPolicy.ALWAYS_ALLOW, false, false)) {
+            var file = temporary.resolve("preferences.yml").toFile();
+            var field = TeleportPreferenceModule.class.getDeclaredField("settingsFile");
+            field.setAccessible(true);
+            field.set(fixture.module, file);
+            var redraws = new AtomicInteger();
+            try (var panel = fixture.module.settingsPanel(fixture.target.player, redraws::incrementAndGet)) {
+                for (TeleportPolicy policy : List.of(TeleportPolicy.REQUIRE_CONSENT, TeleportPolicy.ALWAYS_DENY, TeleportPolicy.ALWAYS_ALLOW)) {
+                    UiSceneTestSupport.entry(panel.render(), "setting:teleport-policy").trigger(FloatingMenuInteraction.PRIMARY)
+                            .execute(fixture.target.player, null, FloatingMenuInteraction.PRIMARY);
+                    assertEquals(policy.id(), YamlConfiguration.loadConfiguration(file).getString(fixture.target.id + ".teleport-policy"));
+                }
+                UiSceneTestSupport.entry(panel.render(), "setting:block-teleports-while-afk").trigger(FloatingMenuInteraction.PRIMARY)
+                        .execute(fixture.target.player, null, FloatingMenuInteraction.PRIMARY);
+                assertTrue(YamlConfiguration.loadConfiguration(file).getBoolean(fixture.target.id + ".block-teleports-while-afk"));
+                assertEquals(4, redraws.get());
+            }
+        }
+    }
+
     private static final LanguageService LANGUAGES = new LanguageService(null) {
         @Override
         public String t(Player player, Message message, Object... args) {
@@ -142,7 +169,7 @@ class TeleportPreferenceModuleTest {
         Fixture(PlayerRole role, TeleportPolicy policy, boolean blockWhileAfk, boolean afk) throws Exception {
             sender = new TestPlayer("Sender", role);
             AfkService afkService = (AfkService) Proxy.newProxyInstance(AfkService.class.getClassLoader(),
-                    new Class<?>[]{AfkService.class}, (proxy, method, args) -> {
+                    new Class<?>[]{AfkService.class}, (_, method, _) -> {
                         if (method.getName().equals("isAfk")) return afk;
                         throw new AssertionError(method.getName());
                     });
@@ -156,12 +183,12 @@ class TeleportPreferenceModuleTest {
 
             BukkitScheduler scheduler = (BukkitScheduler) Proxy.newProxyInstance(
                     BukkitScheduler.class.getClassLoader(), new Class<?>[]{BukkitScheduler.class},
-                    (proxy, method, args) -> {
+                    (_, method, _) -> {
                         if (method.getName().equals("runTask") || method.getName().equals("runTaskLater")) return null;
                         throw new AssertionError(method.getName());
                     });
             Server server = (Server) Proxy.newProxyInstance(Server.class.getClassLoader(),
-                    new Class<?>[]{Server.class}, (proxy, method, args) -> switch (method.getName()) {
+                    new Class<?>[]{Server.class}, (_, method, _) -> switch (method.getName()) {
                         case "getPlayerExact" -> target.player;
                         case "getScheduler" -> scheduler;
                         default -> throw new AssertionError(method.getName());

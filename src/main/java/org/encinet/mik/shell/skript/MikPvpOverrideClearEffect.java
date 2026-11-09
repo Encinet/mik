@@ -12,8 +12,8 @@ import org.jetbrains.annotations.Nullable;
 final class MikPvpOverrideClearEffect extends Effect {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
-    private @Nullable Expression<String> id;
+    private MikSkriptInput<Player> players;
+    private @Nullable MikSkriptInput<String> id;
     private boolean all;
     private String owner;
 
@@ -22,16 +22,15 @@ final class MikPvpOverrideClearEffect extends Effect {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
         owner = MikSkriptOwner.current(getParser());
         all = matchedPattern == 1;
         if (all) {
-            players = (Expression<Player>) expressions[0];
+            players = MikSkriptInput.of(expressions[0], Player.class);
         } else {
-            id = (Expression<String>) expressions[0];
-            players = (Expression<Player>) expressions[1];
+            id = MikSkriptInput.of(expressions[0], String.class);
+            players = MikSkriptInput.of(expressions[1], Player.class);
         }
         return true;
     }
@@ -39,13 +38,13 @@ final class MikPvpOverrideClearEffect extends Effect {
     @Override
     protected void execute(Event event) {
         if (all) {
-            for (Player player : players.getArray(event)) {
+            for (Player player : players.values(event)) {
                 facade.clearPvpOverrides(player, owner);
             }
             return;
         }
 
-        String overrideId = id == null ? null : id.getSingle(event);
+        String overrideId = id == null ? null : id.single(event);
         if (overrideId == null) {
             return;
         }
@@ -55,7 +54,7 @@ final class MikPvpOverrideClearEffect extends Effect {
             error(e.getMessage());
             return;
         }
-        for (Player player : players.getArray(event)) {
+        for (Player player : players.values(event)) {
             facade.clearPvpOverride(player, owner, overrideId);
         }
     }
@@ -63,6 +62,6 @@ final class MikPvpOverrideClearEffect extends Effect {
     @Override
     public String toString(@Nullable Event event, boolean debug) {
         return "clear " + (all ? "all MIK PVP overrides" : "MIK PVP override " + id)
-                + " of " + players.toString(event, debug);
+                + " of " + players.describe(event, debug);
     }
 }

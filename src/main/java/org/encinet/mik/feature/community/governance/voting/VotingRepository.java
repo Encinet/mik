@@ -38,6 +38,8 @@ public interface VotingRepository {
 
     List<GovernanceVote> recentVotes(int limit) throws GovernanceRepositoryException;
 
+    VoteHistory voteHistory(UUID subjectId, int limit, int offset) throws GovernanceRepositoryException;
+
     Optional<GovernanceVote> openVote(VoteKind kind, UUID subjectId)
             throws GovernanceRepositoryException;
 

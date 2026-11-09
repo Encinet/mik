@@ -1,150 +1,277 @@
 package org.encinet.mik.shared.menu.runtime;
 
-import org.encinet.mik.shared.i18n.Message;
-import org.encinet.mik.shared.menu.FloatingMenuDefinition;
-import org.encinet.mik.shared.menu.FloatingMenuElementStyle;
-import org.encinet.mik.shared.menu.FloatingMenuInteraction;
-import org.encinet.mik.shared.menu.FloatingMenuLayout;
-import org.encinet.mik.shared.menu.FloatingMenuPreferences;
-import org.encinet.mik.shared.menu.FloatingMenuScale;
-import org.encinet.mik.shared.menu.FloatingMenuTextScale;
-import org.encinet.mik.shared.menu.FloatingMenuSpatialFrame;
-import org.encinet.mik.shared.menu.FloatingMenuFieldOfView;
-import org.junit.jupiter.api.Test;
-
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import org.bukkit.entity.Player;
+import org.encinet.mik.shared.i18n.*;
+import org.encinet.mik.shared.menu.*;
+import org.encinet.mik.shared.menu.ui.*;
+import org.encinet.mik.shell.menu.SettingsMenuTestSupport;
+import org.junit.jupiter.api.Test;
+import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 class FloatingMenuSettingsMenuTest {
-    private final AtomicReference<FloatingMenuScale> selectedLayout = new AtomicReference<>();
-    private final AtomicReference<FloatingMenuTextScale> selectedText = new AtomicReference<>();
-    private boolean reset;
-
-    @Test
-    void settingsExposeBothFullChoiceSetsWithoutPagingOrAmbiguousGlobalScrolling() {
-        var definition = definition(FloatingMenuPreferences.DEFAULT, true);
-        assertEquals(FloatingMenuSpatialFrame.FRONT_ARC, definition.spatialFrame());
-        assertEquals(7, definition.entries().values().stream().filter(entry -> entry.region().equals("layout")).count());
-        assertEquals(9, definition.entries().values().stream().filter(entry -> entry.region().equals("text")).count());
-        assertTrue(definition.triggers().isEmpty());
-        assertTrue(definition.entries().values().stream().allMatch(entry -> entry.style() == FloatingMenuElementStyle.TEXT));
-        assertEquals(2, definition.entries().values().stream().filter(FloatingMenuDefinition.Entry::selected).count());
-        assertFalse(definition.entries().containsKey("native-hint"));
-        assertTrue(definition.entries().containsKey("preview"));
-        assertTrue(definition.entries().containsKey("field-of-view"));
+    private static final class Harness {
+        final AtomicReference<FloatingMenuPreferences> preferences;
+        final AtomicInteger writes = new AtomicInteger(), edits = new AtomicInteger(), fov = new AtomicInteger(), resets = new AtomicInteger();
+        Harness(FloatingMenuPreferences selected) {
+            preferences = new AtomicReference<>(selected);
+        }
+        MenuScene render(Function<Message,String> text) {
+            return FloatingMenuSettingsMenu.definition(preferences.get(),text,new FloatingMenuSettingsMenu.Actions(
+                    (_,change) -> { preferences.updateAndGet(change); writes.incrementAndGet(); },
+                    _ -> edits.incrementAndGet(),_ -> fov.incrementAndGet(),_ -> {
+                        preferences.updateAndGet(current -> current.withLayout(FloatingMenuScale.NORMAL).withText(FloatingMenuTextScale.NORMAL)); resets.incrementAndGet();
+                    }));
+        }
+        MenuScene render() { return render(Message::key); }
     }
 
-    @Test
-    void directChoicesAndWheelInputOnlyChangeThePointedAtDimension() {
-        var definition = definition(FloatingMenuPreferences.DEFAULT, true);
-        invoke(definition, "scale:minimum", FloatingMenuInteraction.PRIMARY);
-        assertEquals(FloatingMenuScale.MINIMUM, selectedLayout.get());
-        assertNull(selectedText.get());
-        selectedLayout.set(null);
-        invoke(definition, "text-scale:180", FloatingMenuInteraction.PRIMARY);
-        assertEquals(FloatingMenuTextScale.MAXIMUM, selectedText.get());
-        assertNull(selectedLayout.get());
-        selectedText.set(null);
-        invoke(definition, "scale:normal", FloatingMenuInteraction.SCROLL_UP);
-        assertEquals(FloatingMenuScale.LARGE, selectedLayout.get());
-        assertNull(selectedText.get());
-        selectedLayout.set(null);
-        invoke(definition, "text-scale:100", FloatingMenuInteraction.SCROLL_DOWN);
-        assertEquals(FloatingMenuTextScale.SMALL, selectedText.get());
-        assertNull(selectedLayout.get());
-        invoke(definition, "reset-scale", FloatingMenuInteraction.PRIMARY);
-        assertTrue(reset);
-    }
-
-    @Test
-    void wheelInputStopsAtEitherLimit() {
-        var maximum = definition(new FloatingMenuPreferences(FloatingMenuScale.MAXIMUM, FloatingMenuTextScale.MAXIMUM), true);
-        invoke(maximum, "scale:maximum", FloatingMenuInteraction.SCROLL_UP);
-        invoke(maximum, "text-scale:180", FloatingMenuInteraction.SCROLL_UP);
-        assertEquals(FloatingMenuScale.MAXIMUM, selectedLayout.get());
-        assertEquals(FloatingMenuTextScale.MAXIMUM, selectedText.get());
-        var minimum = definition(new FloatingMenuPreferences(FloatingMenuScale.MINIMUM, FloatingMenuTextScale.MINIMUM), true);
-        invoke(minimum, "scale:minimum", FloatingMenuInteraction.SCROLL_DOWN);
-        invoke(minimum, "text-scale:70", FloatingMenuInteraction.SCROLL_DOWN);
-        assertEquals(FloatingMenuScale.MINIMUM, selectedLayout.get());
-        assertEquals(FloatingMenuTextScale.MINIMUM, selectedText.get());
-    }
-
-    @Test
-    void everyCombinationKeepsMenuChoicesLeftAndTextChoicesRight() {
-        for (FloatingMenuScale layout : FloatingMenuScale.values()) {
-            for (FloatingMenuTextScale text : FloatingMenuTextScale.values()) {
-                var preferences = new FloatingMenuPreferences(layout, text);
-                var definition = definition(preferences, true);
-                List<FloatingMenuLayout.Node> nodes = new ArrayList<>();
-                for (var entry : definition.entries().values()) {
-                    var measurement = FloatingMenuNodeSizing.measure(entry, preferences.typographyFactor());
-                    nodes.add(new FloatingMenuLayout.Node(entry.id(), entry.style(), entry.role(), entry.region(), measurement.footprint()));
-                }
-                for (int index = 0; index < nodes.size(); index++) {
-                    var node = nodes.get(index);
-                    var pose = definition.layout().pose(new FloatingMenuLayout.Context(index, nodes));
-                    if (node.region().equals("layout")) assertTrue(pose.right() < 0);
-                    if (node.region().equals("text")) assertTrue(pose.right() > 0);
-                    assertTrue(Double.isFinite(pose.up()));
-                    assertTrue(Math.abs(pose.yawDegrees()) < 80);
-                }
+    @Test void allPreferencesAndEveryColorAndFovPageFitTheStandaloneAndEmbeddedHostsInEveryLanguageAndTextSize() throws Exception {
+        var custom = UiCustomTheme.copyOf(UiPalette.FOREST);
+        for (var language : Language.values()) {
+            var bundle = FluentTestSupport.bundle(language);
+            Function<Message,String> text = message -> FluentTestSupport.text(bundle,message);
+            for (var typography : FloatingMenuTextScale.values()) {
+                var selected = FloatingMenuPreferences.DEFAULT.withTheme(custom).withText(typography);
+                var owner = new Harness(selected);
+                allPages(() -> owner.render(text),null,typography.factor(),frame -> {
+                    for (String key : List.of("preview","field-of-view","reset-scale","scale:normal","text-scale:100","theme:custom","reduced-motion"))
+                        assertNotNull(element(frame,key));
+                    assertTrue(frame.pagination().isEmpty());
+                },text);
+                var colorPage = new AtomicInteger();
+                allPages(() -> FloatingMenuThemeEditor.definition(custom,text,colorPage.get(),colorPage::set,(_,_) -> {},_ -> {}),
+                        "colors",typography.factor(),frame -> {
+                            assertNotNull(element(frame,"back"));
+                            assertColumn(frame.elements().stream().filter(element -> element.node().key().value().startsWith("color:")).toList());
+                        },text);
+                var fovPage = new AtomicInteger();
+                allPages(() -> FloatingMenuSettingsMenu.fieldOfViewDefinition(selected,text,fovPage.get(),fovPage::set,
+                                (_,_) -> {},_ -> {},_ -> {}),"presets",typography.factor(),frame -> {
+                            assertNotNull(element(frame,"fov-custom")); assertNotNull(element(frame,"back"));
+                        },text);
             }
         }
     }
 
-    @Test
-    void nativeFormsKeepGroupsClearAndChoicesDirectWithoutWheelActionDialogs() {
-        var definition = definition(FloatingMenuPreferences.DEFAULT, false);
-        assertTrue(definition.entries().containsKey("native-hint"));
-        assertFalse(definition.entries().containsKey("field-of-view"));
-        var translated = new BedrockMenuTranslator().translate(definition,
-                new BedrockMenuTranslator.ActionLabels("Primary", "Secondary", "Shortcut", "Up", "Down"));
-        assertEquals(18, translated.options().size());
-        for (var option : translated.options()) {
-            assertEquals(List.of(FloatingMenuInteraction.PRIMARY), option.interactions());
-            if (option.elementId().startsWith("scale:")) assertTrue(option.label().contains(Message.INTERFACE_SCALE_LAYOUT_TITLE.key()));
-            if (option.elementId().startsWith("text-scale:")) assertTrue(option.label().contains(Message.INTERFACE_SCALE_TEXT_TITLE.key()));
+    @Test void allPercentageChoicesAreReachableAtBothFovAndSizeExtremesAndTheirActionsRetainTheNumericTarget() {
+        for (var scale : List.of(FloatingMenuScale.MINIMUM,FloatingMenuScale.MAXIMUM)) for (var typography : List.of(FloatingMenuTextScale.MINIMUM,FloatingMenuTextScale.MAXIMUM))
+            for (int degrees : new int[]{30,110}) for (String prefix : List.of("scale:","text-scale:")) {
+                var snapshot = new FloatingMenuPreferences(scale,typography,new FloatingMenuFieldOfView(degrees));
+                var owner = new Harness(snapshot);
+                var seen = new HashSet<String>();
+                var scene = owner.render();
+                var frame = SceneGeometryTestSupport.readableFrame(scene,typography.factor(),snapshot.fieldOfView(),scale.factor());
+                assertDisjoint(frame);
+                assertTrue(frame.pagination().isEmpty());
+                for (var row : frame.elements()) if (row.node().key().value().startsWith(prefix)) {
+                    String key = row.node().key().value(); assertTrue(seen.add(key));
+                    row.node().input().actions().get(FloatingMenuInteraction.PRIMARY).execute(null,null,FloatingMenuInteraction.PRIMARY);
+                    assertEquals(prefix.equals("scale:") ? key.substring(prefix.length()) : snapshot.layout().id(),owner.preferences.get().layout().id());
+                    assertEquals(prefix.equals("text-scale:") ? key.substring(prefix.length()) : snapshot.text().id(),owner.preferences.get().text().id());
+                    owner.preferences.set(snapshot);
+                }
+                assertEquals(prefix.equals("scale:") ? FloatingMenuScale.values().length : FloatingMenuTextScale.values().length,seen.size());
+            }
+    }
+
+    @Test void allDimensionsAreVisibleTogetherAndChoicesOnlyChangeTheirOwnDimension() {
+        var owner = new Harness(FloatingMenuPreferences.DEFAULT);
+        assertEquals(0,owner.writes.get());
+        invoke(owner.render(),"text-scale:180",FloatingMenuInteraction.PRIMARY);
+        assertEquals(FloatingMenuTextScale.MAXIMUM,owner.preferences.get().text());
+        assertEquals(FloatingMenuScale.NORMAL,owner.preferences.get().layout());
+        invoke(owner.render(),"scale:minimum",FloatingMenuInteraction.PRIMARY);
+        assertEquals(FloatingMenuScale.MINIMUM,owner.preferences.get().layout());
+        assertEquals(FloatingMenuTextScale.MAXIMUM,owner.preferences.get().text());
+        assertNotNull(entry(owner.render(),"text-scale:180"));
+        assertNotNull(entry(owner.render(),"theme:custom"));
+        assertNotNull(entry(owner.render(),"reduced-motion"));
+        assertTrue(owner.render().triggers().isEmpty());
+    }
+
+    @Test void wheelActionsUseTheCurrentPreferencesAndStopAtEachDimensionLimit() {
+        var owner = new Harness(FloatingMenuPreferences.DEFAULT);
+        var old = owner.render();
+        owner.preferences.set(owner.preferences.get().withLayout(FloatingMenuScale.EXTRA_LARGE));
+        invoke(old,"scale:normal",FloatingMenuInteraction.SCROLL_UP);
+        assertEquals(FloatingMenuScale.MAXIMUM,owner.preferences.get().layout());
+        invoke(old,"scale:normal",FloatingMenuInteraction.SCROLL_UP);
+        assertEquals(FloatingMenuScale.MAXIMUM,owner.preferences.get().layout());
+        var text = owner.render();
+        owner.preferences.set(owner.preferences.get().withText(FloatingMenuTextScale.MINIMUM));
+        invoke(text,"text-scale:100",FloatingMenuInteraction.SCROLL_DOWN);
+        assertEquals(FloatingMenuTextScale.MINIMUM,owner.preferences.get().text());
+        assertEquals(FloatingMenuScale.MAXIMUM,owner.preferences.get().layout());
+    }
+
+    @Test void choosingCustomCopiesTheCurrentPaletteAndPreservesTheCurrentCustomValues() {
+        var owner = new Harness(FloatingMenuPreferences.DEFAULT.withTheme(UiPalette.WARM));
+        var original = owner.render();
+        owner.preferences.set(owner.preferences.get().withTheme(UiPalette.FOREST));
+        invoke(original,"theme:custom",FloatingMenuInteraction.PRIMARY);
+        var copied = assertInstanceOf(UiCustomTheme.class,owner.preferences.get().theme());
+        for (var role : UiColorRole.values()) assertEquals(UiPalette.FOREST.argb(role),copied.argb(role));
+        var edited = copied.withColor(UiColorRole.WINDOW,0x123456,.37);
+        owner.preferences.set(owner.preferences.get().withTheme(edited));
+        invoke(original,"theme:custom",FloatingMenuInteraction.PRIMARY);
+        assertEquals(edited,owner.preferences.get().theme());
+        invoke(owner.render(),"theme:warm",FloatingMenuInteraction.PRIMARY);
+        assertEquals(UiPalette.WARM,owner.preferences.get().theme());
+    }
+
+    @Test void resettingOnlyChangesSizesAndPreservesThemeMotionAndFov() {
+        var before = new FloatingMenuPreferences(FloatingMenuScale.MAXIMUM,FloatingMenuTextScale.MAXIMUM,new FloatingMenuFieldOfView(91),true,UiPalette.FOREST);
+        var owner = new Harness(before);
+        invoke(owner.render(),"reset-scale",FloatingMenuInteraction.PRIMARY);
+        assertEquals(1,owner.resets.get());
+        assertEquals(before.withLayout(FloatingMenuScale.NORMAL).withText(FloatingMenuTextScale.NORMAL),owner.preferences.get());
+        invoke(owner.render(),"reduced-motion",FloatingMenuInteraction.PRIMARY);
+        assertFalse(owner.preferences.get().reducedMotion());
+    }
+
+    @Test void fovPresetsStepsAndNumericWheelActionsUseTheCurrentValueWithoutChangingThePage() {
+        var preferences = new AtomicReference<>(FloatingMenuPreferences.DEFAULT.withFieldOfView(new FloatingMenuFieldOfView(73)));
+        var page = new AtomicInteger();
+        var custom = new AtomicInteger();
+        var back = new AtomicInteger();
+        Supplier<MenuScene> render = () -> FloatingMenuSettingsMenu.fieldOfViewDefinition(preferences.get(),Message::key,page.get(),page::set,
+                (_,change) -> preferences.updateAndGet(change),_ -> custom.incrementAndGet(),_ -> back.incrementAndGet());
+        var original = render.get();
+        invoke(original,"fov-increase",FloatingMenuInteraction.PRIMARY); assertEquals(78,preferences.get().fieldOfView().degrees());
+        invoke(original,"fov-decrease",FloatingMenuInteraction.PRIMARY); assertEquals(73,preferences.get().fieldOfView().degrees());
+        invoke(original,"fov:30",FloatingMenuInteraction.SCROLL_UP); assertEquals(78,preferences.get().fieldOfView().degrees());
+        assertEquals(0,page.get());
+        invoke(original,"fov:30",FloatingMenuInteraction.PRIMARY); assertEquals(30,preferences.get().fieldOfView().degrees());
+        invoke(original,"fov-decrease",FloatingMenuInteraction.PRIMARY); assertEquals(30,preferences.get().fieldOfView().degrees());
+        invoke(original,"fov-custom",FloatingMenuInteraction.PRIMARY); invoke(original,"back",FloatingMenuInteraction.PRIMARY);
+        assertEquals(1,custom.get()); assertEquals(1,back.get());
+    }
+
+    @Test void thePanelRejectsRetiredEditorCallbacksAndClosedReads() {
+        var preferences = new AtomicReference<>(FloatingMenuPreferences.DEFAULT);
+        var reads = new AtomicInteger(); var redraws = new AtomicInteger();
+        var language = new LanguageService(null) {
+            @Override public String t(Player player, Message key, Object... args) { return key.key(); }
+        };
+        var panel = new FloatingMenuSettingsPanel(null,language,() -> { reads.incrementAndGet(); return preferences.get(); },preferences::set,redraws::incrementAndGet);
+        var opening = panel.render();
+        var oldLayout = entry(opening,"scale:minimum").trigger(FloatingMenuInteraction.PRIMARY);
+        invoke(opening,"field-of-view",FloatingMenuInteraction.PRIMARY);
+        oldLayout.execute(null,null,FloatingMenuInteraction.PRIMARY);
+        assertEquals(FloatingMenuPreferences.DEFAULT,preferences.get());
+        invoke(panel.render(),"back",FloatingMenuInteraction.PRIMARY);
+        invoke(panel.render(),"theme:custom",FloatingMenuInteraction.PRIMARY);
+        var main = panel.render();
+        var retiredTheme = entry(main,"theme:warm").trigger(FloatingMenuInteraction.PRIMARY);
+        invoke(main,"edit-theme",FloatingMenuInteraction.PRIMARY);
+        var colors = panel.render();
+        var retiredColor = entry(colors,"color:window").trigger(FloatingMenuInteraction.PRIMARY);
+        var oldBack = entry(colors,"back").trigger(FloatingMenuInteraction.PRIMARY);
+        retiredTheme.execute(null,null,FloatingMenuInteraction.PRIMARY);
+        assertInstanceOf(UiCustomTheme.class,preferences.get().theme());
+        invoke(colors,"back",FloatingMenuInteraction.PRIMARY);
+        assertTrue(entry(panel.render(),"theme:custom").selected());
+        oldBack.execute(null,null,FloatingMenuInteraction.PRIMARY);
+        retiredColor.execute(null,null,FloatingMenuInteraction.PRIMARY);
+        assertEquals("interface-scale",panel.render().screenId());
+        invoke(panel.render(),"edit-theme",FloatingMenuInteraction.PRIMARY);
+        preferences.set(preferences.get().withTheme(UiPalette.WARM));
+        assertEquals("interface-scale",panel.render().screenId(),"a removed custom theme invalidates its editor");
+        retiredColor.execute(null,null,FloatingMenuInteraction.PRIMARY);
+        panel.close(); int before = reads.get();
+        assertTrue(panel.render().entries().isEmpty()); assertEquals(before,reads.get());
+        oldLayout.execute(null,null,FloatingMenuInteraction.PRIMARY); assertEquals(before,reads.get());
+    }
+
+    private static final class NativeForm implements FloatingMenuSettingsPanel.FormFactory {
+        MenuInputForm form;
+        Runnable finished;
+        int closes;
+        String focused;
+        @Override public MenuFormSession open(Player player, MenuInputForm form, Runnable changed, Runnable finished) {
+            this.form = form; this.finished = finished;
+            return new MenuFormSession() {
+                @Override public UiNode content(Actions actions) { return Ui.column().build(); }
+                @Override public void focus(String field) { focused = field; }
+                @Override public void close() { closes++; finished.run(); }
+            };
         }
-        assertTrue(translated.content().contains(Message.INTERFACE_SCALE_NATIVE_HINT.key()));
+        void submit(java.util.Map<String,String> values) {
+            // Native field editing releases its display before the form delivers the accepted values.
+            finished.run(); form.onSubmit().accept(null, new MenuInputForm.Values(values));
+        }
     }
 
-    @Test
-    void fovControlsOfferPresetsExactInputClampedStepsAndAFreshReturn() {
-        var selected = new AtomicReference<FloatingMenuFieldOfView>();
-        var custom = new AtomicReference<Boolean>(false);
-        var returned = new AtomicReference<Boolean>(false);
-        var definition = FloatingMenuSettingsMenu.fieldOfViewDefinition(new FloatingMenuFieldOfView(73), Message::key,
-                (player, value) -> selected.set(value), player -> custom.set(true), player -> returned.set(true));
-        assertEquals(9, definition.entries().values().stream().filter(entry -> entry.region().equals("presets")).count());
-        assertEquals(0, definition.entries().values().stream().filter(FloatingMenuDefinition.Entry::selected).count());
-        invoke(definition, "fov:30", FloatingMenuInteraction.PRIMARY);
-        assertEquals(30, selected.get().degrees());
-        invoke(definition, "fov-increase", FloatingMenuInteraction.PRIMARY);
-        assertEquals(78, selected.get().degrees());
-        invoke(definition, "fov-decrease", FloatingMenuInteraction.PRIMARY);
-        assertEquals(68, selected.get().degrees());
-        definition.triggers().get(FloatingMenuInteraction.SCROLL_UP).execute(null, null, FloatingMenuInteraction.SCROLL_UP);
-        assertEquals(78, selected.get().degrees());
-        invoke(definition, "fov-custom", FloatingMenuInteraction.PRIMARY);
-        assertTrue(custom.get());
-        invoke(definition, "back", FloatingMenuInteraction.PRIMARY);
-        assertTrue(returned.get());
+    @Test void nativeSubmissionsCommitOnceAfterDisplayRetirementAndUseTheLatestIndependentPreferences() {
+        var preferences = new AtomicReference<>(FloatingMenuPreferences.DEFAULT.withTheme(UiCustomTheme.copyOf(UiPalette.WARM)));
+        var writes = new AtomicInteger(); var forms = new NativeForm();
+        var language = new LanguageService(null) {
+            @Override public String t(Player player, Message key, Object... args) { return key.key(); }
+        };
+        var panel = new FloatingMenuSettingsPanel(null,language,preferences::get,value -> { preferences.set(value); writes.incrementAndGet(); },() -> {},forms);
+        invoke(panel.render(),"edit-theme",FloatingMenuInteraction.PRIMARY);
+        invoke(panel.render(),"color:window",FloatingMenuInteraction.PRIMARY);
+        assertEquals("color",forms.focused);
+        var before = assertInstanceOf(UiCustomTheme.class,preferences.get().theme());
+        preferences.set(preferences.get().withText(FloatingMenuTextScale.MAXIMUM).withTheme(before.withColor(UiColorRole.TOOLBAR,0xABCDEF,.61)));
+        forms.submit(java.util.Map.of("color","#123456","opacity","37%"));
+        var changed = assertInstanceOf(UiCustomTheme.class,preferences.get().theme());
+        assertEquals(0x123456,changed.rgb(UiColorRole.WINDOW)); assertEquals(.37,changed.alpha(UiColorRole.WINDOW));
+        assertEquals(0xABCDEF,changed.rgb(UiColorRole.TOOLBAR)); assertEquals(.61,changed.alpha(UiColorRole.TOOLBAR));
+        assertEquals(FloatingMenuTextScale.MAXIMUM,preferences.get().text());
+        forms.submit(java.util.Map.of("color","#000000","opacity","10")); assertEquals(1,writes.get());
+        invoke(panel.render(),"back",FloatingMenuInteraction.PRIMARY);
+        invoke(panel.render(),"field-of-view",FloatingMenuInteraction.PRIMARY);
+        invoke(panel.render(),"fov-custom",FloatingMenuInteraction.PRIMARY);
+        assertEquals("degrees",forms.focused);
+        assertNotNull(forms.form.validation().apply(null,new MenuInputForm.Values(java.util.Map.of("degrees","111"))));
+        forms.submit(java.util.Map.of("degrees","91"));
+        assertEquals(91,preferences.get().fieldOfView().degrees()); assertEquals(2,writes.get());
+        assertEquals(FloatingMenuTextScale.MAXIMUM,preferences.get().text());
+        panel.close();
     }
 
-    private FloatingMenuDefinition definition(FloatingMenuPreferences preferences, boolean spatial) {
-        return FloatingMenuSettingsMenu.definition(preferences, spatial, Message::key,
-                (player, selected) -> selectedLayout.set(selected),
-                (player, selected) -> selectedText.set(selected), player -> { }, player -> reset = true);
+    @Test void ownerSuspensionAndClosingInvalidateNativeResultsAndRetireTheirSessionOnce() {
+        for (var state : List.of(FloatingMenuState.SUSPENDED,FloatingMenuState.CLOSING,FloatingMenuState.CLOSED)) {
+            var preferences = new AtomicReference<>(FloatingMenuPreferences.DEFAULT); var forms = new NativeForm();
+            var language = new LanguageService(null) {
+                @Override public String t(Player player, Message key, Object... args) { return key.key(); }
+            };
+            var panel = new FloatingMenuSettingsPanel(null,language,preferences::get,_ -> fail("Retired input wrote preferences"),() -> {},forms);
+            invoke(panel.render(),"field-of-view",FloatingMenuInteraction.PRIMARY);
+            invoke(panel.render(),"fov-custom",FloatingMenuInteraction.PRIMARY);
+            panel.render().lifecycle().changed(null,null,FloatingMenuState.ACTIVE,state,FloatingMenuCloseReason.BACK);
+            forms.submit(java.util.Map.of("degrees","91"));
+            assertEquals(FloatingMenuPreferences.DEFAULT,preferences.get()); assertEquals(1,forms.closes);
+            panel.close(); assertEquals(1,forms.closes);
+        }
     }
 
-    private void invoke(FloatingMenuDefinition definition, String id, FloatingMenuInteraction interaction) {
-        definition.entries().get(id).triggers().get(interaction).execute(null, null, interaction);
+    private static void allPages(Supplier<MenuScene> render, String collection, double typography,
+                                 java.util.function.Consumer<UiFrame> check, Function<Message,String> text) {
+        int count = 1;
+        for (int index = 0; index < count; index++) {
+            var scene = render.get(); var frame = SceneGeometryTestSupport.measure(scene,typography);
+            var hosted = SettingsMenuTestSupport.frame(scene,text,"INTERFACE");
+            var embedded = SceneGeometryTestSupport.measure(hosted,typography);
+            assertDisjoint(frame); assertDisjoint(embedded); check.accept(frame);
+            if (collection == null) continue;
+            var paging = paging(frame,collection); count = paging.page().count();
+            assertEquals(index,paging.page().index());
+            if (paging.page().hasNext()) paging.selectPage().accept(paging.page().next().index());
+        }
+    }
+    private static UiFrame.Pagination paging(UiFrame frame, String key) {
+        return frame.pagination().stream().filter(value -> value.path().endsWith("/" + key)).findFirst().orElseThrow();
+    }
+    private static void invoke(MenuScene scene, String key, FloatingMenuInteraction interaction) {
+        var target = entry(scene,key); assertNotNull(target,key); target.trigger(interaction).execute(null,null,interaction);
     }
 }

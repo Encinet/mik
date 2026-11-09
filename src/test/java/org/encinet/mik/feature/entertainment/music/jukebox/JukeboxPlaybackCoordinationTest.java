@@ -9,7 +9,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JukeboxPlaybackCoordinationTest {
@@ -33,7 +32,7 @@ class JukeboxPlaybackCoordinationTest {
     }
 
     @Test
-    void overlappingSameSongSharesTheExistingClock() {
+    void overlappingSameSongRequiresAnExplicitSyncGroup() {
         World world = world();
         JukeboxPlaybackGroup group = new JukeboxPlaybackGroup();
 
@@ -43,8 +42,8 @@ class JukeboxPlaybackCoordinationTest {
                         List.of(new JukeboxPlaybackCoordination.ActiveField(
                                 new Location(world, 32, 0, 0), "same", SETTINGS, group)));
 
-        assertFalse(decision.blocked());
-        assertSame(group, decision.playbackGroup());
+        assertTrue(decision.blocked());
+        assertNull(decision.playbackGroup());
     }
 
     @Test

@@ -164,15 +164,15 @@ public final class BanItemGuardModule implements Listener {
 
         event.setCancelled(true);
         if (cursorResult.blocked()) {
-            logRemoval(player, "inventory-cursor", cursor, cursorResult);
+            logBlockedItem(player, "inventory-cursor", cursor, cursorResult);
             event.getView().setCursor(emptyItem());
         }
         if (currentResult.blocked()) {
-            logRemoval(player, "inventory-slot", current, currentResult);
+            logBlockedItem(player, "inventory-slot", current, currentResult);
             event.setCurrentItem(emptyItem());
         }
         if (player != null && swapTarget != null && swapResult.blocked()) {
-            logRemoval(player, swapTarget.source(), swapTarget.item(), swapResult);
+            logBlockedItem(player, swapTarget.source(), swapTarget.item(), swapResult);
             clearSwapTarget(player.getInventory(), swapTarget);
         }
     }
@@ -188,10 +188,9 @@ public final class BanItemGuardModule implements Listener {
         event.setCancelled(true);
         event.getView().setCursor(emptyItem());
         Player player = event.getWhoClicked() instanceof Player target ? target : null;
-        logRemoval(player, "inventory-drag", item, result);
+        logBlockedItem(player, "inventory-drag", item, result);
     }
 
-    @SuppressWarnings("removal")
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onBookEdit(PlayerEditBookEvent event) {
         ItemStack candidate = new ItemStack(
@@ -206,24 +205,8 @@ public final class BanItemGuardModule implements Listener {
         }
 
         event.setCancelled(true);
-        Player player = event.getPlayer();
-        PlayerInventory inventory = player.getInventory();
-        int slot = event.getSlot();
-        ItemStack original;
-
-        if (slot == -1) {
-            original = inventory.getItemInOffHand();
-            inventory.setItemInOffHand(emptyItem());
-        } else {
-            original = inventory.getItem(slot);
-            inventory.clear(slot);
-        }
-
-        logRemoval(
-                player,
-                "book-edit",
-                isEmpty(original) ? candidate : original,
-                result);
+        // Reject this draft; the previous book remains safe and unchanged when the event is cancelled.
+        logBlockedItem(event.getPlayer(), "book-edit", candidate, result);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -280,7 +263,7 @@ public final class BanItemGuardModule implements Listener {
 
         event.setCancelled(true);
         event.getItem().remove();
-        logRemoval(null, "inventory-item-pickup", item, result);
+        logBlockedItem(null, "inventory-item-pickup", item, result);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -292,7 +275,7 @@ public final class BanItemGuardModule implements Listener {
         }
 
         event.setCancelled(true);
-        logRemoval(null, "item-spawn", item, result);
+        logBlockedItem(null, "item-spawn", item, result);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -306,7 +289,7 @@ public final class BanItemGuardModule implements Listener {
         event.setCancelled(true);
         event.getItem().remove();
         Player player = event.getEntity() instanceof Player target ? target : null;
-        logRemoval(player, "item-pickup", item, result);
+        logBlockedItem(player, "item-pickup", item, result);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -341,7 +324,7 @@ public final class BanItemGuardModule implements Listener {
         }
 
         event.setCancelled(true);
-        logRemoval(
+        logBlockedItem(
                 event.getPlayer(),
                 event.isIncludeData() ? "pick-item/with-data" : "pick-item",
                 item,
@@ -362,7 +345,7 @@ public final class BanItemGuardModule implements Listener {
 
         event.setCancelled(true);
         clearHand(player, hand);
-        logRemoval(player, source, item, result);
+        logBlockedItem(player, source, item, result);
     }
 
     private InventorySwapTarget inventorySwapTarget(
@@ -637,7 +620,7 @@ public final class BanItemGuardModule implements Listener {
             }
 
             if (removed < MAX_DETAILED_LOGS_PER_PURGE) {
-                logRemoval(player, source + "/slot=" + slot, item, result);
+                logBlockedItem(player, source + "/slot=" + slot, item, result);
             }
             inventory.clear(slot);
             removed++;
@@ -659,7 +642,7 @@ public final class BanItemGuardModule implements Listener {
             return;
         }
 
-        logRemoval(player, source, item, result);
+        logBlockedItem(player, source, item, result);
         player.setItemOnCursor(emptyItem());
     }
 
@@ -671,7 +654,7 @@ public final class BanItemGuardModule implements Listener {
         }
     }
 
-    private void logRemoval(
+    private void logBlockedItem(
             Player player,
             String source,
             ItemStack item,
@@ -682,7 +665,7 @@ public final class BanItemGuardModule implements Listener {
                 : "unavailable (encodingError=" + result.error() + ")";
 
         plugin.getLogger().warning(
-                "Removed unsafe item: player=" + playerInfo(player)
+                "Blocked unsafe item: player=" + playerInfo(player)
                         + ", source=" + source
                         + ", type=" + item.getType()
                         + ", size=" + sizeInfo
@@ -717,10 +700,6 @@ public final class BanItemGuardModule implements Listener {
         return player == null
                 ? "none"
                 : player.getName() + "/" + player.getUniqueId();
-    }
-
-    private static boolean isEmpty(ItemStack item) {
-        return item == null || item.getType().isAir();
     }
 
     private static ItemStack emptyItem() {

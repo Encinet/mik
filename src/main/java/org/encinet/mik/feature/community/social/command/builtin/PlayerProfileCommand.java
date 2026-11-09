@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
+import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
 
 /** Looks up a player profile and owns its complete response layout. */
@@ -135,26 +137,26 @@ public final class PlayerProfileCommand
     public SocialDocument present(SocialCommandContext context, Result result) {
         Language language = languageResolver.language(result.languageBinding(), context);
         return switch (result) {
-            case Result.IdentityMissing ignored -> message(
-                    language, SocialDocument.Tone.ERROR,
+            case Result.IdentityMissing _ -> message(
+                    TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_IDENTITY_MISSING);
-            case Result.Unbound ignored -> message(
-                    language, SocialDocument.Tone.WARNING,
+            case Result.Unbound _ -> message(
+                    TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_BINDING_STATUS_UNBOUND);
-            case Result.MemberRequired ignored -> message(
-                    language, SocialDocument.Tone.WARNING,
+            case Result.MemberRequired _ -> message(
+                    TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_PROFILE_MEMBER_REQUIRED);
-            case Result.PlayerNotFound ignored -> message(
-                    language, SocialDocument.Tone.WARNING,
+            case Result.PlayerNotFound _ -> message(
+                    TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_PROFILE_PLAYER_NOT_FOUND);
-            case Result.TargetUnbound ignored -> message(
-                    language, SocialDocument.Tone.WARNING,
+            case Result.TargetUnbound _ -> message(
+                    TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_PROFILE_TARGET_UNBOUND);
-            case Result.TargetAmbiguous ignored -> message(
-                    language, SocialDocument.Tone.WARNING,
+            case Result.TargetAmbiguous _ -> message(
+                    TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_PROFILE_TARGET_AMBIGUOUS);
-            case Result.Unavailable ignored -> message(
-                    language, SocialDocument.Tone.ERROR,
+            case Result.Unavailable _ -> message(
+                    TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_UNAVAILABLE);
             case Result.Found found -> profile(
                     found.profile(), language, context.syntax().defaultLanguage());
@@ -204,18 +206,18 @@ public final class PlayerProfileCommand
         fields.add(field(language, Message.SOCIAL_PROFILE_LANGUAGE_LABEL,
                 playerLanguage(profile.playerId(), platformDefault)));
         blocks.add(new SocialDocument.Fields(fields));
-        return new SocialDocument(title(language) + " · " + profile.playerName(),
+        return new SocialDocument(REQUIRED, title(language) + " · " + profile.playerName(),
                 SocialDocument.Tone.INFO, blocks)
-                .localized(language)
-                .withUntrustedText(profile.playerName());
+                .localized(language);
     }
 
     private SocialDocument message(
+            SocialDocument.Moderation moderation,
             Language language,
             SocialDocument.Tone tone,
             Message message
     ) {
-        return SocialDocument.of(title(language), tone,
+        return SocialDocument.of(moderation, title(language), tone,
                         SocialDocument.paragraph(languages.t(language, message)))
                 .localized(language);
     }

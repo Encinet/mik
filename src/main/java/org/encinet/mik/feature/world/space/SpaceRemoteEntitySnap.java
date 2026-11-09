@@ -54,7 +54,7 @@ final class SpaceRemoteEntitySnap {
                 if (!viewer.isOnline() || localViewers.contains(viewer.getUniqueId())) {
                     continue;
                 }
-                visibleByViewer.computeIfAbsent(viewer, ignored -> new ArrayList<>())
+                visibleByViewer.computeIfAbsent(viewer, _ -> new ArrayList<>())
                         .add(member);
             }
         }

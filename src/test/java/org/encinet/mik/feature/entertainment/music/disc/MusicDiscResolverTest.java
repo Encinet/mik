@@ -53,7 +53,7 @@ class MusicDiscResolverTest {
     void restoresOnlineTrackSnapshotWithoutGlobalRegistration() {
         MusicTrack onlineTrack = onlineTrack("lx:kw:7");
         MusicDiscResolver resolver = new MusicDiscResolver(
-                ignored -> null, SIGNER);
+                _ -> null, SIGNER);
 
         String snapshot = MusicDiscSnapshot.serialize(onlineTrack);
 
@@ -67,7 +67,7 @@ class MusicDiscResolverTest {
     void rejectsMissingOrMismatchedDiscData() {
         MusicTrack onlineTrack = onlineTrack("lx:kw:7");
         MusicDiscResolver resolver = new MusicDiscResolver(
-                ignored -> null, SIGNER);
+                _ -> null, SIGNER);
 
         String snapshot = MusicDiscSnapshot.serialize(onlineTrack);
 

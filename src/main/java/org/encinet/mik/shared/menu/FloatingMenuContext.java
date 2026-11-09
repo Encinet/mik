@@ -29,9 +29,10 @@ public final class FloatingMenuContext<S> {
     }
 
     public void redraw() { flow.redraw(); }
-    public FloatingMenuHandle openChild(FloatingMenuDefinition definition) {
+    public FloatingMenuHandle openChild(MenuScene definition) {
         return flow.openChild(definition);
     }
+    public void openPopover(MenuPopover definition) { flow.openPopover(definition); }
     public void close() { flow.close(); }
     public void back() { flow.back(); }
 

@@ -95,8 +95,8 @@ class RhythmAudioFilterFactoryTest {
         CountDownLatch flushCalled = new CountDownLatch(1);
         AtomicBoolean accepted = new AtomicBoolean();
         AtomicBoolean flushSawAccepted = new AtomicBoolean();
-        PcmRhythmExtractorFactory extractorFactory = (sink, sampleRate,
-                                                        initialPosition) ->
+        PcmRhythmExtractorFactory extractorFactory = (_, _,
+                                                        _) ->
                 new PcmRhythmExtractor() {
                     @Override
                     public void accept(float[][] channels, int offset, int length) {

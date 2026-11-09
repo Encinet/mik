@@ -71,7 +71,7 @@ public final class SocialTaskExecutor implements AutoCloseable {
                 return false;
             }
             ArrayDeque<Runnable> queue = orderedTasks.computeIfAbsent(
-                    checkedKey, ignored -> new ArrayDeque<>());
+                    checkedKey, _ -> new ArrayDeque<>());
             start = queue.isEmpty();
             queue.addLast(task);
         }

@@ -1,0 +1,13 @@
+# Music startup settings. Restart the server after editing this file.
+# /music reload refreshes the local library and sources only.
+sources:
+  # 0 disables periodic checks; manual reload/import remains available.
+  refresh-interval-minutes: 360
+
+cache:
+  audio:
+    # MiB = 1024 * 1024 bytes. The total must cover at least one file.
+    maximum-file-mib: 512
+    maximum-total-mib: 8192
+  lyrics:
+    maximum-total-mib: 256

@@ -19,7 +19,7 @@ final class AfkSuppressionRegistry {
         }
 
         UUID leaseId = UUID.randomUUID();
-        leasesByPlayer.computeIfAbsent(playerId, ignored -> new HashMap<>())
+        leasesByPlayer.computeIfAbsent(playerId, _ -> new HashMap<>())
                 .put(leaseId, reason);
         AtomicBoolean open = new AtomicBoolean(true);
         return () -> {

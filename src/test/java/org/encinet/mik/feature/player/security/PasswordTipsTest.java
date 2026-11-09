@@ -19,7 +19,7 @@ class PasswordTipsTest {
     private static final String PASSWORD = "river8642!";
     private final UUID id = UUID.randomUUID();
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (proxy, method, args) -> switch (method.getName()) {
+            new Class<?>[]{Player.class}, (_, method, _) -> switch (method.getName()) {
                 case "getUniqueId" -> id;
                 case "hasPermission" -> true;
                 default -> throw new AssertionError(method.getName());
@@ -55,7 +55,7 @@ class PasswordTipsTest {
     private PasswordService open() {
         var accounts = new PasswordService(directory.resolve("passwords.db"));
         accounts.open();
-        accounts.retention(ignored -> false);
+        accounts.retention(_ -> false);
         return accounts;
     }
 }

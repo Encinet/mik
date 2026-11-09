@@ -36,7 +36,7 @@ class LocalApiServerTest {
 
         WebLoginChallengeStore.Confirmation confirmation =
                 new WebLoginChallengeStore.Confirmation(id, text, "member",
-                        "2026-09-27T00:00:00Z", 1_000L, false);
+                        "2026-09-27T00:00:00Z", 1_000L);
         assertEquals(text, JsonParser.parseString(string(LocalApiServer.challengeJson(confirmation)))
                 .getAsJsonObject().getAsJsonObject("player").get("name").getAsString());
 
@@ -53,7 +53,7 @@ class LocalApiServerTest {
     }
 
     @Test
-    void loopbackRoutesKeepMethodsAndChallengeConsumption() throws Exception {
+    void loopbackRoutesExposeRetryableApprovalsAndAccountPolicy() throws Exception {
         Logger logger = Logger.getLogger("LocalApiServerTest");
         ApiPlayerSnapshot players = new ApiPlayerSnapshot(directory, logger);
         players.load();
@@ -64,8 +64,10 @@ class LocalApiServerTest {
             @Override public String listJson() { return "{\"notices\":[]}"; }
             @Override public String detailJson(String id) { return null; }
         };
+        var currentPolicy = new java.util.concurrent.atomic.AtomicReference<>(new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L));
+        var banned = new java.util.concurrent.atomic.AtomicBoolean(false);
         LocalApiServer server = new LocalApiServer(plugin(logger), players, challenges,
-                List::of, () -> "[]".getBytes(StandardCharsets.UTF_8), board);
+                List::of, () -> "[]".getBytes(StandardCharsets.UTF_8), board, _ -> currentPolicy.get(), (_, _) -> !banned.get());
 
         server.start(0);
         try (HttpClient client = HttpClient.newHttpClient()) {
@@ -80,12 +82,26 @@ class LocalApiServerTest {
             assertEquals("confirmed", JsonParser.parseString(request(client, server, "GET",
                     "/api/auth/challenges/123456").body()).getAsJsonObject()
                     .get("status").getAsString());
-            assertEquals("confirmed", JsonParser.parseString(request(client, server, "POST",
-                    "/api/auth/challenges/123456/consume").body()).getAsJsonObject()
-                    .get("status").getAsString());
-            assertEquals("consumed", JsonParser.parseString(request(client, server, "GET",
-                    "/api/auth/challenges/123456").body()).getAsJsonObject()
-                    .get("status").getAsString());
+            assertEquals(404, request(client, server, "POST", "/api/auth/challenges/123456/consume").statusCode());
+            assertEquals(405, request(client, server, "POST", "/api/auth/challenges/123456").statusCode());
+            assertEquals("confirmed", JsonParser.parseString(request(client, server, "GET",
+                    "/api/auth/challenges/123456").body()).getAsJsonObject().get("status").getAsString());
+            var policy = JsonParser.parseString(request(client, server, "GET",
+                    "/api/auth/accounts/00000000-0000-4000-8000-000000000001").body()).getAsJsonObject().getAsJsonObject("player");
+            assertEquals("member", policy.get("role").getAsString()); assertEquals(1234L, policy.get("credentialsChangedAt").getAsLong());
+            assertFalse(policy.get("banned").getAsBoolean());
+            assertEquals(404, request(client, server, "GET", "/api/auth/accounts/1-1-1-1-1").statusCode());
+            currentPolicy.set(new org.encinet.mik.feature.player.security.WebAccountPolicy("default", 1234L));
+            var downgraded = JsonParser.parseString(request(client, server, "GET", "/api/auth/challenges/123456").body()).getAsJsonObject();
+            assertEquals("default", downgraded.getAsJsonObject("player").get("role").getAsString());
+            banned.set(true);
+            var denied = JsonParser.parseString(request(client, server, "GET", "/api/auth/accounts/00000000-0000-4000-8000-000000000001?name=Player").body()).getAsJsonObject().getAsJsonObject("player");
+            assertTrue(denied.get("banned").getAsBoolean());
+            assertEquals("banned", JsonParser.parseString(request(client, server, "GET", "/api/auth/challenges/123456").body()).getAsJsonObject().get("status").getAsString());
+            banned.set(false);
+            assertEquals("confirmed", JsonParser.parseString(request(client, server, "GET", "/api/auth/challenges/123456").body()).getAsJsonObject().get("status").getAsString());
+            currentPolicy.set(new org.encinet.mik.feature.player.security.WebAccountPolicy("member", System.currentTimeMillis() + 1000L));
+            assertEquals("not_found", JsonParser.parseString(request(client, server, "GET", "/api/auth/challenges/123456").body()).getAsJsonObject().get("status").getAsString());
         } finally {
             server.stop();
         }
@@ -103,9 +119,9 @@ class LocalApiServerTest {
             @Override public String detailJson(String id) { return null; }
         };
         LocalApiServer first = new LocalApiServer(plugin(logger), players,
-                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, board);
+                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, board, _ -> new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L), (_, _) -> true);
         LocalApiServer second = new LocalApiServer(plugin(logger), players,
-                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, board);
+                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, board, _ -> new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L), (_, _) -> true);
         first.start(0);
         try {
             assertThrows(IOException.class, () -> second.start(first.port()));
@@ -128,7 +144,7 @@ class LocalApiServerTest {
 
     private static Plugin plugin(Logger logger) {
         return (Plugin) Proxy.newProxyInstance(Plugin.class.getClassLoader(),
-                new Class<?>[]{Plugin.class}, (proxy, method, args) -> {
+                new Class<?>[]{Plugin.class}, (_, method, _) -> {
                     if (method.getName().equals("getLogger")) return logger;
                     throw new UnsupportedOperationException(method.getName());
                 });

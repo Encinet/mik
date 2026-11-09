@@ -7,7 +7,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.Plugin;
 import org.encinet.mik.shared.role.RolePermissions;
 import org.encinet.mik.feature.community.governance.GovernanceException;
 import org.encinet.mik.feature.community.governance.membership.MembershipService;
@@ -24,13 +24,13 @@ import java.util.logging.Level;
 
 /** Thread handoff and Bukkit player-snapshot boundary shared by command handlers. */
 final class GovernanceCommandContext {
-    private final JavaPlugin plugin;
+    private final Plugin plugin;
     private final MembershipService membership;
     private final GovernanceTaskExecutor executor;
     private final GovernanceText text;
 
     GovernanceCommandContext(
-            JavaPlugin plugin,
+            Plugin plugin,
             MembershipService membership,
             GovernanceTaskExecutor executor,
             GovernanceText text
@@ -51,7 +51,7 @@ final class GovernanceCommandContext {
                 ? player.getUniqueId().toString() : player.getName();
         long now = System.currentTimeMillis();
         long first = player.getFirstPlayed() > 0 ? player.getFirstPlayed() : now;
-        long last = player.getLastPlayed() > 0 ? player.getLastPlayed() : first;
+        long last = player.getLastLogin() > 0 ? player.getLastLogin() : first;
         Player online = player.getPlayer();
         boolean member = online != null && RolePermissions.isMember(online);
         return new KnownPlayer(player.getUniqueId(), name,
@@ -73,11 +73,23 @@ final class GovernanceCommandContext {
     }
 
     void onMain(Runnable task) {
-        Bukkit.getScheduler().runTask(plugin, task);
+        if (!plugin.isEnabled()) return;
+        plugin.getServer().getScheduler().runTask(plugin, task);
     }
 
     void submit(CommandSender sender, GovernanceTaskExecutor.Task operation) {
         submit(sender, operation, () -> { });
+    }
+
+    <T> CompletableFuture<T> query(java.util.concurrent.Callable<T> read) {
+        var result = new CompletableFuture<T>();
+        try {
+            executor.submit(() -> {
+                try { result.complete(read.call()); }
+                catch (Exception error) { result.completeExceptionally(error); }
+            });
+        } catch (RuntimeException error) { result.completeExceptionally(error); }
+        return result;
     }
 
     void submit(CommandSender sender, GovernanceTaskExecutor.Task operation,
@@ -112,10 +124,19 @@ final class GovernanceCommandContext {
     }
 
     static Throwable unwrap(Throwable error) {
-        if (error instanceof CompletionException completion && completion.getCause() != null) {
-            return completion.getCause();
-        }
+        while ((error instanceof CompletionException || error instanceof java.util.concurrent.ExecutionException)
+                && error.getCause() != null && error.getCause() != error) error = error.getCause();
         return error;
+    }
+
+    void reportFailure(CommandSender sender, Throwable error) {
+        Throwable cause = unwrap(error);
+        if (cause instanceof GovernanceException failure && failure.code() != null && failure.getCause() == null) {
+            text.send(sender, text.error(failure.code()), NamedTextColor.RED);
+        } else {
+            plugin.getLogger().log(Level.SEVERE, "Governance operation failed for " + sender.getName(), cause);
+            text.send(sender, Message.GOVERNANCE_OPERATION_ERROR, NamedTextColor.RED);
+        }
     }
 
     record KnownPlayer(

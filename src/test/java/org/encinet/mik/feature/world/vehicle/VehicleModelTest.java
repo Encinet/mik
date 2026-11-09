@@ -58,9 +58,9 @@ class VehicleModelTest {
 
     private BlockDisplay display(World world, Location location, Transformation transformation) {
         BlockData block = (BlockData) Proxy.newProxyInstance(BlockData.class.getClassLoader(), new Class<?>[]{BlockData.class},
-                (object, method, args) -> method.getName().equals("getAsString") ? "minecraft:stone" : null);
+                (_, method, _) -> method.getName().equals("getAsString") ? "minecraft:stone" : null);
         return (BlockDisplay) Proxy.newProxyInstance(BlockDisplay.class.getClassLoader(), new Class<?>[]{BlockDisplay.class},
-                (object, method, args) -> switch (method.getName()) {
+                (_, method, _) -> switch (method.getName()) {
                     case "isValid" -> true;
                     case "getWorld" -> world;
                     case "getLocation" -> location.clone();

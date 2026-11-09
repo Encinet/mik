@@ -8,28 +8,26 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
 
 final class MikPvpOverridePriorityExpression extends SimpleExpression<Number> {
 
     private final MikSkriptFacade facade;
-    private Expression<Player> players;
+    private MikSkriptInput<Player> players;
 
     MikPvpOverridePriorityExpression(MikSkriptFacade facade) {
         this.facade = facade;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public boolean init(Expression<?>[] expressions, int matchedPattern,
                         Kleenean delayed, SkriptParser.ParseResult parseResult) {
-        players = (Expression<Player>) expressions[0];
+        players = MikSkriptInput.of(expressions[0], Player.class);
         return true;
     }
 
     @Override
     protected Number[] get(Event event) {
-        return Arrays.stream(players.getArray(event))
+        return players.values(event).stream()
                 .map(facade::pvpOverridePriority)
                 .filter(java.util.Objects::nonNull)
                 .toArray(Number[]::new);
@@ -48,6 +46,6 @@ final class MikPvpOverridePriorityExpression extends SimpleExpression<Number> {
     @Override
     public String toString(@Nullable Event event, boolean debug) {
         return "MIK PVP override priority of "
-                + (players == null ? "players" : players.toString(event, debug));
+                + (players == null ? "players" : players.describe(event, debug));
     }
 }

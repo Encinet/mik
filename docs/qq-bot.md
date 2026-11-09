@@ -73,7 +73,7 @@ Minecraft 端统一执行 `/bind qq` 生成验证码。
 
 每个回复固定携带当前入站消息的 `msg_id` 和 `msg_seq=1`。Gateway 连接与 OpenAPI 回复共用 Access Token 缓存；OpenAPI 返回 401 时会失效缓存并重试一次。平台 renderer 对所有动态字段做 Markdown 转义，并在配置上限内截断。
 
-共享安全规则文件为 `plugins/mik/social/blocked-keywords.txt`。Host 只扫描文档显式标记的用户可控片段（目前是玩家名称），不会扫描固定回复、字段标签、TPS、MSPT、版本或管理状态；命中后用安全提示文档替换结果。
+内容安全由共享的 Qwen3Guard 服务提供。QQ 默认启用 `content-safety.enabled`，共享配置 `plugins/mik/social/content-safety.yml` 的 `api-key` 可留空使用匿名调用，也可填写 OVHcloud API 密钥以使用更高额度。配置损坏时，help、status 等可信回复仍可使用，需要审核的输出停止外发。含用户可控内容的命令回复按完整文档审核，拦截时显示安全提示；聊天和社区提醒在外发前审核。配置、判定与失败处理见[内容安全](social-platforms.md#内容安全)。
 
 管理统一使用 `/social status qq`、`/social reload qq` 和 `/social conversations qq`。
 
