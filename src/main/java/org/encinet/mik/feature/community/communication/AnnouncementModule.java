@@ -42,6 +42,7 @@ public final class AnnouncementModule implements Listener, AnnouncementHighlight
 
     private final JavaPlugin plugin;
     private final ServerChatPublisher serverChat;
+    private final AnnouncementPublisher socialAnnouncements;
     private final LanguageService languageService;
     private final AnnouncementSeenStore seenStore;
     private final AnnouncementCatalog catalog;
@@ -49,8 +50,10 @@ public final class AnnouncementModule implements Listener, AnnouncementHighlight
     private AnnouncementCatalog.Snapshot boardSnapshot;
     private AnnouncementBoard board = new AnnouncementBoard(List.of());
 
-    public AnnouncementModule(JavaPlugin plugin, LanguageService languageService, ServerChatPublisher serverChat) {
+    public AnnouncementModule(JavaPlugin plugin, LanguageService languageService, ServerChatPublisher serverChat,
+                              AnnouncementPublisher socialAnnouncements) {
         this.serverChat = java.util.Objects.requireNonNull(serverChat, "serverChat");
+        this.socialAnnouncements = Objects.requireNonNull(socialAnnouncements, "socialAnnouncements");
         this.plugin = plugin;
         this.languageService = Objects.requireNonNull(languageService, "languageService");
         this.seenStore = new AnnouncementSeenStore(
@@ -119,7 +122,16 @@ public final class AnnouncementModule implements Listener, AnnouncementHighlight
         for (Announcement announcement : added) {
             ChatContent preview = ChatContent.plainPreview(announcement.content());
             if (preview.plainText().isBlank()) continue;
-            serverChat.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(preview), null, true));
+            try {
+                serverChat.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(preview), null, true));
+            } catch (RuntimeException error) {
+                plugin.getLogger().log(Level.WARNING, "Could not publish announcement to WebChat", error);
+            }
+            try {
+                socialAnnouncements.publish(announcement.timestamp(), announcement.content());
+            } catch (RuntimeException error) {
+                plugin.getLogger().log(Level.WARNING, "Could not publish announcement to Social", error);
+            }
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
             Component header = chatHeader(languageService.t(player, Message.ANNOUNCEMENT_UPDATED),

@@ -2,6 +2,7 @@ package org.encinet.mik.feature.community.social.platform.matrix;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.encinet.mik.shared.i18n.Language;
+import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,6 +23,10 @@ class MatrixPlatformConfigTest {
                 chat-bridge:
                   routes:
                     - room-id: '!allowed:example.org'
+                      inbound:
+                        mode: prefix
+                        prefix: '>'
+                        strip-prefix: false
                       outbound:
                         mode: always
                     - room-id: '!prefixed:example.org'
@@ -51,6 +56,10 @@ class MatrixPlatformConfigTest {
         assertEquals(Language.JA_JP, config.defaultLanguage());
         assertTrue(config.acceptsRoom("!allowed:example.org"));
         assertFalse(config.acceptsRoom("!other:example.org"));
+        assertEquals(SocialChatPolicy.prefixed(">", false), config.chatRoute("!allowed:example.org")
+                .orElseThrow().inbound());
+        assertEquals(SocialChatPolicy.always(), config.chatRoute("!prefixed:example.org")
+                .orElseThrow().inbound());
         assertEquals("hello", config.chatRoute("!allowed:example.org")
                 .orElseThrow().outbound().select("hello").orElseThrow());
         assertTrue(config.chatRoute("!prefixed:example.org")

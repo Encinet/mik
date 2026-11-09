@@ -31,12 +31,15 @@ class QqGatewayProtocolTest {
     @Test
     void identifyAndResumeUseGatewayAuthenticationShape() {
         JsonObject identify = JsonParser.parseString(
-                QqGatewayProtocol.identify("access-token")).getAsJsonObject();
+                QqGatewayProtocol.identify("access-token", false)).getAsJsonObject();
         JsonObject identifyData = identify.getAsJsonObject("d");
 
         assertEquals(QqGatewayProtocol.OP_IDENTIFY, identify.get("op").getAsInt());
         assertEquals("QQBot access-token", identifyData.get("token").getAsString());
         assertEquals(1 << 25, identifyData.get("intents").getAsInt());
+        assertEquals((1 << 25) | (1 << 24), JsonParser.parseString(
+                QqGatewayProtocol.identify("access-token", true)).getAsJsonObject()
+                .getAsJsonObject("d").get("intents").getAsInt());
         assertEquals(0, identifyData.getAsJsonArray("shard").get(0).getAsInt());
         assertEquals(1, identifyData.getAsJsonArray("shard").get(1).getAsInt());
         assertEquals("mik", identifyData.getAsJsonObject("properties")

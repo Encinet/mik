@@ -3,6 +3,7 @@ package org.encinet.mik.feature.community.social.chat;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.social.api.SocialConversation;
 import org.encinet.mik.feature.community.social.api.SocialPlatformSession;
+import org.encinet.mik.feature.community.social.document.SocialDocument;
 
 import java.util.List;
 import java.util.concurrent.CompletionStage;
@@ -10,6 +11,9 @@ import java.util.concurrent.CompletionStage;
 /** Optional session capability for sending Minecraft chat to a platform. */
 public interface SocialChatPlatformSession extends SocialPlatformSession {
     List<SocialChatRoute> chatRoutes();
+
+    /** Sends a server notice independently of the ordinary-chat routing policy. */
+    CompletionStage<Void> sendNotice(SocialConversation conversation, SocialDocument document);
 
     CompletionStage<Void> sendChat(
             SocialConversation conversation,

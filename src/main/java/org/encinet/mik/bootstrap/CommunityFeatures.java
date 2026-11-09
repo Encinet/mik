@@ -87,7 +87,8 @@ record CommunityFeatures(
         governanceModule.registerCommands(plugin.getLifecycleManager());
         players.security().retention(governanceModule::requiresPassword);
 
-        AnnouncementModule announcementModule = new AnnouncementModule(plugin, languageService, webChat);
+        AnnouncementModule announcementModule = new AnnouncementModule(
+                plugin, languageService, webChat, socialModule.announcementPublisher());
         lifecycle.startManaged("announcement", announcementModule::enable, announcementModule::disable);
         announcementModule.registerCommands(plugin.getLifecycleManager());
 

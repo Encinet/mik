@@ -70,7 +70,7 @@ flowchart TD
 | --- | --- |
 | `ai/` | AI 请求、会话、知识库、工具和提供商实现 |
 | `chat/` | 玩家消息模型、频道规则、富文本、提及与投递；`bridge/` 定义连接查询和外部投递能力，`web/` 实现网页授权、WebSocket、在线路由和限流，不保存消息历史 |
-| `communication/` | 公告与阅读状态 |
+| `communication/` | 公告与阅读状态；通过 `AnnouncementPublisher` 发布新增公告，由装配层连接 Social 通知 |
 | `governance/` | 社区成员资格、公开管理目录、投票、罢免和结果交付；工作区状态、读取与呈现分离，角色目录由 LuckPerms 适配提供 |
 | `identity/` | 游戏账号与外部身份绑定、平台注册和绑定存储 |
 | `social/` | 共享社交命令、运行时、QQ 与 Matrix 协议适配 |

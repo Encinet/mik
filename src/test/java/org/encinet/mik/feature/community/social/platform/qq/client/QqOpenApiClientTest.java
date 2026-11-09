@@ -119,6 +119,66 @@ class QqOpenApiClientTest {
     }
 
     @Test
+    void reviewsExactJoinRequestsWithOfficialOperationsAndRefreshesExpiredToken() throws Exception {
+        AtomicInteger tokenRequests = new AtomicInteger();
+        List<JsonObject> bodies = new ArrayList<>();
+        List<String> paths = new ArrayList<>();
+        List<String> authorizations = new ArrayList<>();
+        List<String> appIds = new ArrayList<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"token-" + tokenRequests.incrementAndGet()
+                        + "\",\"expires_in\":\"7200\"}"));
+        server.createContext("/v2/groups/", exchange -> {
+            paths.add(exchange.getRequestMethod() + " " + exchange.getRequestURI().getRawPath());
+            authorizations.add(exchange.getRequestHeaders().getFirst("Authorization"));
+            appIds.add(exchange.getRequestHeaders().getFirst("X-Union-Appid"));
+            bodies.add(JsonParser.parseString(new String(exchange.getRequestBody().readAllBytes(),
+                    StandardCharsets.UTF_8)).getAsJsonObject());
+            respond(exchange, bodies.size() == 1 ? 401 : 200,
+                    bodies.size() == 1 ? "{\"code\":11243}" : "{}");
+        });
+        server.start();
+
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            api.reviewGroupJoinRequest("group/a", "member a/b", "application-one", true).join();
+            api.reviewGroupJoinRequest("group/a", "member a/b", "application-two", false).join();
+
+            assertEquals(2, tokenRequests.get());
+            assertEquals(List.of("QQBot token-1", "QQBot token-2", "QQBot token-2"), authorizations);
+            assertEquals(List.of("app", "app", "app"), appIds);
+            assertTrue(paths.stream().allMatch(path -> path.equals(
+                    "POST /v2/groups/group%2Fa/approval_join_request/member%20a%2Fb")));
+            assertEquals("approve", bodies.get(0).get("op").getAsString());
+            assertEquals(bodies.get(0), bodies.get(1));
+            assertEquals("application-one", bodies.get(1).get("join_request_id").getAsString());
+            assertEquals("decline", bodies.get(2).get("op").getAsString());
+            assertEquals("application-two", bodies.get(2).get("join_request_id").getAsString());
+            assertTrue(bodies.stream().allMatch(body -> body.size() == 2));
+        }
+    }
+
+    @Test
+    void failedJoinReviewDoesNotReportSuccessOrRetryWithoutLimit() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"token\",\"expires_in\":\"7200\"}"));
+        server.createContext("/v2/groups/", exchange -> {
+            attempts.incrementAndGet();
+            respond(exchange, 401, "{\"code\":11243}");
+        });
+        server.start();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> api.reviewGroupJoinRequest("group", "member", "application", true).join());
+            assertEquals(2, attempts.get());
+        }
+    }
+
+    @Test
     void proactiveGroupMarkdownOmitsPassiveReplyFields() throws Exception {
         List<String> bodies = new ArrayList<>();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);

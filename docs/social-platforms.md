@@ -28,11 +28,14 @@ Minecraft 公共聊天 → ChatSubmission → ChatProcessor → ChatMessage
 | `SocialPlatformPlan.open(context)` | 固定本代运行策略并创建会话 |
 | `SocialPlatformSession.close()` | 关闭传输与资源；状态由专属 sink 推送 `STARTING/READY/FAILED/STOPPED` |
 | `SocialChatPlatformSession` | 提供聊天发送及目标会话提及解析 |
-| `SocialChatRoute` | 会话级 `ALWAYS` 或 `PREFIX` 路由，可选择剥离前缀 |
+| `SocialChatPlatformSession.sendNotice` | 向指定会话发送服务端文档，QQ 与 Matrix 各自渲染，不套用普通聊天前缀 |
+| `SocialChatRoute` | 会话的入站与出站各自使用 `ALWAYS` 或 `PREFIX`，可选择剥离前缀；入站同步调整可信提及范围 |
 
 Host 为每个平台独立维护运行代次（generation）、会话、身份平台注册租约、有界虚拟线程执行器、去重与会话快照。同会话按提交顺序处理，不同会话可并发。并发额度持续到异步回复结束；队列满时返回 `RETRY_LATER` 并撤销该次去重标记。Minecraft 发布端获得包含 accepted、unavailable、backpressured 数量的报告。
 
 重载只替换指定平台，旧代任务与结果失效。机器人消息、重复事件及生命周期拒绝不会作为普通聊天继续处理。
+
+公告功能通过自己的 `AnnouncementPublisher` 发布新增时间戳与正文，`bootstrap` 将该能力连接到 Social；公告不依赖具体协议或 Social 运行时。Social 使用每个平台的默认语言构造文档，在同一有界执行器的独立有序队列中审核并投递到全部已配置路由。每个目的地分别处理发送错误，一个群或平台失败不会中止其他投递。公告使用 `REQUIRED` 审核策略，拦截时取消该平台的发送，不向全部群广播拦截占位提示。
 
 ## 命令与回复
 

@@ -13,6 +13,7 @@ import org.encinet.mik.feature.community.social.platform.matrix.client.MatrixCli
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionRequest;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
+import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -277,8 +278,16 @@ class MatrixPlatformSessionTest {
                 path.contains("%21always%3Aexample.org")).count() == 1);
         assertTrue(rooms.stream().filter(path ->
                 path.contains("%21prefix%3Aexample.org")).count() == 1);
+        SocialDocument notice = SocialDocument.of(SocialDocument.Moderation.REQUIRED,
+                "Announcement", SocialDocument.Tone.INFO, SocialDocument.paragraph("First line\n<everyone> & text"));
+        session.sendNotice(config.chatRoutes().get(1).conversation(), notice).toCompletableFuture().join();
+        assertEquals(3, bodies.size());
+        assertEquals("Announcement\n\nFirst line\n<everyone> & text", bodies.getLast());
+        assertEquals("<h3>Announcement</h3><p>First line<br>&lt;everyone&gt; &amp; text</p>", formattedBodies.getLast());
         holdSync.countDown();
         session.close();
+        session.sendNotice(config.chatRoutes().get(1).conversation(), notice).toCompletableFuture().join();
+        assertEquals(3, bodies.size());
     }
 
     private HttpServer server(SyncHandler syncHandler) throws IOException {

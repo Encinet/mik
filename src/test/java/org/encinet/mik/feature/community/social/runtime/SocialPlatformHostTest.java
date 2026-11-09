@@ -9,9 +9,11 @@ import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatStyle;
 import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.encinet.mik.feature.community.identity.IdentityBinding;
+import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.social.api.SocialConversation;
 import org.encinet.mik.feature.community.social.api.SocialEventSink;
 import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
+import org.encinet.mik.feature.community.social.api.SocialMessageReferences;
 import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.feature.community.social.api.SocialPlatformRuntimeContext;
 import org.encinet.mik.feature.community.social.api.SocialPlatformSession;
@@ -24,7 +26,7 @@ import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.command.SocialCommandSyntax;
 import org.encinet.mik.feature.community.social.chat.SocialChatPlatformSession;
-import org.encinet.mik.feature.community.social.chat.SocialChatOutboundPolicy;
+import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionRequest;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionResolution;
@@ -40,6 +42,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Logger;
 import java.util.UUID;
 import java.util.Map;
@@ -86,9 +89,9 @@ class SocialPlatformHostTest {
         MemoryAdapter adapter = new MemoryAdapter("matrix", "!", 4);
         adapter.chatRoutes = List.of(
                 new SocialChatRoute(new SocialConversation("absent", SocialConversation.Type.GROUP),
-                        SocialChatOutboundPolicy.always()),
+                        SocialChatPolicy.always(), SocialChatPolicy.always()),
                 new SocialChatRoute(new SocialConversation("joined", SocialConversation.Type.GROUP),
-                        SocialChatOutboundPolicy.prefixed("#", true)));
+                        SocialChatPolicy.always(), SocialChatPolicy.prefixed("#", true)));
         UUID player = UUID.randomUUID();
         IdentityBinding binding = new IdentityBinding(player, "Alex",
                 new ExternalIdentityKey("matrix", "example.org", "", "@alex:example.org"),
@@ -316,10 +319,10 @@ class SocialPlatformHostTest {
         adapter.chatRoutes = List.of(
                 new SocialChatRoute(new SocialConversation(
                         "always", SocialConversation.Type.GROUP),
-                        SocialChatOutboundPolicy.always()),
+                        SocialChatPolicy.always(), SocialChatPolicy.always()),
                 new SocialChatRoute(new SocialConversation(
                         "prefix", SocialConversation.Type.GROUP),
-                        SocialChatOutboundPolicy.prefixed("#", true)));
+                        SocialChatPolicy.always(), SocialChatPolicy.prefixed("#", true)));
         List<ChatSubmission> incoming = new CopyOnWriteArrayList<>();
         CountDownLatch delivered = new CountDownLatch(1);
         SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
@@ -413,13 +416,232 @@ class SocialPlatformHostTest {
     }
 
     @Test
+    void qqInboundPrefixFiltersChatWhileCommandsAndOutboundKeepTheirOwnRules() throws Exception {
+        org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();
+        yaml.loadFromString("""
+                chat-bridge:
+                  routes:
+                    - group-openid: stripped
+                      inbound:
+                        mode: prefix
+                        prefix: '#'
+                        strip-prefix: true
+                      outbound:
+                        mode: always
+                    - group-openid: preserved
+                      inbound:
+                        mode: prefix
+                        prefix: '~'
+                        strip-prefix: false
+                      outbound:
+                        mode: prefix
+                        prefix: '>'
+                """);
+        MemoryAdapter adapter = new MemoryAdapter("qq", "/", 4);
+        adapter.chatRoutes = org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig
+                .from(yaml).chatRoutes();
+        LinkedBlockingQueue<ChatSubmission> incoming = new LinkedBlockingQueue<>();
+        try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(argument -> argument)), SocialIdentityLeaseManager.unavailable(),
+                guard(), message -> {
+                    incoming.add(message);
+                    return CompletableFuture.completedFuture(null);
+                }, Logger.getAnonymousLogger())) {
+            host.start();
+            for (String body : List.of("ordinary text", "#   ", ">wrong direction")) {
+                assertEquals(SocialEventSink.Acceptance.UNHANDLED,
+                        adapter.emit("filtered-" + body, "stripped", "Alice", body, new Capture()));
+            }
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED,
+                    adapter.emit("prefixed", "stripped", "Alice", "# 你好", new Capture()));
+            ChatSubmission stripped = incoming.poll(2, TimeUnit.SECONDS);
+            org.junit.jupiter.api.Assertions.assertNotNull(stripped);
+            assertEquals("你好", stripped.sourceText());
+            assertEquals(SocialEventSink.Acceptance.IGNORED,
+                    adapter.emit("prefixed", "stripped", "Alice", "# 你好", new Capture()));
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED,
+                    adapter.emit("kept", "preserved", "Alice", "~hello", new Capture()));
+            ChatSubmission preserved = incoming.poll(2, TimeUnit.SECONDS);
+            org.junit.jupiter.api.Assertions.assertNotNull(preserved);
+            assertEquals("~hello", preserved.sourceText());
+
+            Capture command = new Capture();
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED,
+                    adapter.emit("command", "stripped", "Alice", "/echo works", command));
+            assertTrue(command.sent.await(2, TimeUnit.SECONDS));
+            assertEquals("Qq:works", command.documents.getFirst().title());
+            assertTrue(incoming.isEmpty());
+
+            host.publish(ChatTestMessages.minecraft("Steve", "ordinary outbound"));
+            host.publish(ChatTestMessages.minecraft("Steve", ">selected outbound"));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (adapter.outgoingChat.size() < 3 && System.nanoTime() < deadline) Thread.sleep(10);
+            assertEquals(List.of("ordinary outbound", ">selected outbound", "selected outbound"),
+                    adapter.outgoingChat.stream().map(message -> message.submission().sourceText()).toList());
+        }
+    }
+
+    @Test
+    void strippingInboundPrefixRelocatesTrustedMentionsAndRetainsReplyTarget() throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("qq", "/", 4);
+        SocialConversation conversation = new SocialConversation("room", SocialConversation.Type.GROUP);
+        adapter.chatRoutes = List.of(new SocialChatRoute(conversation,
+                SocialChatPolicy.prefixed("#", true), SocialChatPolicy.always()));
+        ExternalIdentity trigger = new ExternalIdentity(new ExternalIdentityKey("qq", "app", "room", "trigger"), "Trigger");
+        ExternalIdentity alex = new ExternalIdentity(new ExternalIdentityKey("qq", "app", "room", "alex"), "Alex");
+        ExternalIdentity replied = new ExternalIdentity(new ExternalIdentityKey("qq", "app", "room", "bob"), "Bob");
+        LinkedBlockingQueue<ChatSubmission> incoming = new LinkedBlockingQueue<>();
+        try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(argument -> argument)), SocialIdentityLeaseManager.unavailable(),
+                guard(), message -> {
+                    incoming.add(message);
+                    return CompletableFuture.completedFuture(null);
+                }, Logger.getAnonymousLogger())) {
+            host.start();
+            SocialInboundMessage message = new SocialInboundMessage("mentions", conversation,
+                    Optional.empty(), "Alice", new SocialInboundMessage.Text("#  @Alex hi"), false,
+                    new SocialMessageReferences(List.of(trigger, alex), Optional.of(replied), List.of(
+                            new SocialMessageReferences.MentionSpan(0, 1, trigger),
+                            new SocialMessageReferences.MentionSpan(3, 8, alex))), new Capture());
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED, adapter.context.events().accept(message));
+            ChatSubmission selected = incoming.poll(2, TimeUnit.SECONDS);
+            org.junit.jupiter.api.Assertions.assertNotNull(selected);
+            assertEquals("@Alex hi", selected.sourceText());
+            assertEquals(List.of(new org.encinet.mik.feature.community.chat.model.ChatReferences.Mention(0, 5, alex)),
+                    selected.references().mentions());
+            assertEquals("bob", selected.references().replyTo().orElseThrow().id());
+            assertEquals("Bob", selected.references().replyTo().orElseThrow().displayName());
+        }
+    }
+
+    @Test
+    void serverNoticesReachEveryConfiguredDestinationInEachPlatformsLanguage() throws Exception {
+        MemoryAdapter qq = new MemoryAdapter("qq", "/", 4);
+        MemoryAdapter matrix = new MemoryAdapter("matrix", "!", 4);
+        matrix.defaultLanguage = Language.EN_US;
+        for (MemoryAdapter adapter : List.of(qq, matrix)) {
+            adapter.chatRoutes = List.of(
+                    new SocialChatRoute(new SocialConversation("first", SocialConversation.Type.GROUP),
+                            SocialChatPolicy.always(), SocialChatPolicy.always()),
+                    new SocialChatRoute(new SocialConversation("second", SocialConversation.Type.GROUP),
+                            SocialChatPolicy.prefixed("#", true), SocialChatPolicy.prefixed("#", true)));
+        }
+        try (SocialPlatformHost host = host(List.of(qq, matrix), echoCommand(argument -> argument))) {
+            host.start();
+            var report = host.publishNotice(language -> SocialDocument.of(
+                    SocialDocument.Moderation.REQUIRED, language.id(), SocialDocument.Tone.INFO,
+                    SocialDocument.paragraph("New announcement\nFull body")).localized(language));
+            assertEquals(2, report.accepted());
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while ((qq.outgoingNotices.size() < 2 || matrix.outgoingNotices.size() < 2)
+                    && System.nanoTime() < deadline) Thread.sleep(10);
+            for (MemoryAdapter adapter : List.of(qq, matrix)) {
+                assertEquals(List.of("first", "second"), adapter.outgoingNotices.stream()
+                        .map(notice -> notice.conversation().id()).toList());
+                assertTrue(adapter.outgoingNotices.stream().allMatch(notice ->
+                        notice.document().title().equals(adapter.defaultLanguage.id())
+                                && notice.document().plainText().contains("Full body")
+                                && notice.document().language() == adapter.defaultLanguage));
+                assertTrue(adapter.outgoingChat.isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void failedNoticeDestinationDoesNotSuppressOtherDestinationsOrPlatforms() throws Exception {
+        MemoryAdapter qq = new MemoryAdapter("qq", "/", 4);
+        qq.chatRoutes = List.of(
+                new SocialChatRoute(new SocialConversation("fails", SocialConversation.Type.GROUP),
+                        SocialChatPolicy.always(), SocialChatPolicy.always()),
+                new SocialChatRoute(new SocialConversation("works", SocialConversation.Type.GROUP),
+                        SocialChatPolicy.always(), SocialChatPolicy.always()));
+        qq.noticeSender = notice -> notice.conversation().id().equals("fails")
+                ? CompletableFuture.failedFuture(new IllegalStateException("destination unavailable"))
+                : CompletableFuture.completedFuture(null);
+        MemoryAdapter matrix = new MemoryAdapter("matrix", "!", 4);
+        try (SocialPlatformHost host = host(List.of(qq, matrix), echoCommand(argument -> argument))) {
+            host.start();
+            host.publishNotice(_ -> SocialDocument.of(SocialDocument.Moderation.REQUIRED,
+                    "Announcement", SocialDocument.Tone.INFO, SocialDocument.paragraph("Body")));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while ((qq.outgoingNotices.size() < 2 || matrix.outgoingNotices.isEmpty()
+                    || host.status("qq").orElseThrow().deliveryFailures() == 0)
+                    && System.nanoTime() < deadline) Thread.sleep(10);
+            assertEquals(List.of("fails", "works"), qq.outgoingNotices.stream()
+                    .map(notice -> notice.conversation().id()).toList());
+            assertEquals(1, matrix.outgoingNotices.size());
+            assertEquals(1, host.status("qq").orElseThrow().deliveryFailures());
+            assertEquals(0, host.status("matrix").orElseThrow().deliveryFailures());
+        }
+    }
+
+    @Test
+    void noticeModerationUsesEachPlatformsPolicyAndDoesNotEmitBlockedPlaceholders() throws Exception {
+        MemoryAdapter guarded = new MemoryAdapter("qq", "/", 4);
+        guarded.contentSafetyEnabled = true;
+        MemoryAdapter unguarded = new MemoryAdapter("matrix", "!", 4);
+        List<String> checks = new CopyOnWriteArrayList<>();
+        SocialContentGuard rejecting = SocialContentGuard.available(text -> {
+            checks.add(text);
+            return false;
+        }, SocialDocument.of(TRUSTED, "Blocked", SocialDocument.Tone.WARNING));
+        try (SocialPlatformHost host = new SocialPlatformHost(List.of(guarded, unguarded),
+                dispatcher(echoCommand(argument -> argument)), SocialIdentityLeaseManager.unavailable(),
+                rejecting, Logger.getAnonymousLogger())) {
+            host.start();
+            host.publishNotice(_ -> SocialDocument.of(SocialDocument.Moderation.REQUIRED,
+                    "Announcement", SocialDocument.Tone.INFO, SocialDocument.paragraph("Review this")));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while ((checks.isEmpty() || unguarded.outgoingNotices.isEmpty())
+                    && System.nanoTime() < deadline) Thread.sleep(10);
+            assertEquals(List.of("Announcement\n\nReview this"), checks);
+            assertTrue(guarded.outgoingNotices.isEmpty());
+            assertEquals(1, unguarded.outgoingNotices.size());
+        }
+    }
+
+    @Test
+    void reloadDiscardsQueuedNoticesFromTheOldPlatformGeneration() throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("qq", "/", 1);
+        CountDownLatch firstStarted = new CountDownLatch(1);
+        CompletableFuture<Void> firstSend = new CompletableFuture<>();
+        adapter.noticeSender = notice -> {
+            if (notice.document().title().equals("old-first")) {
+                firstStarted.countDown();
+                return firstSend;
+            }
+            return CompletableFuture.completedFuture(null);
+        };
+        AtomicInteger discardedFactoryCalls = new AtomicInteger();
+        try (SocialPlatformHost host = host(List.of(adapter), echoCommand(argument -> argument))) {
+            host.start();
+            host.publishNotice(_ -> SocialDocument.of(TRUSTED, "old-first", SocialDocument.Tone.INFO));
+            assertTrue(firstStarted.await(2, TimeUnit.SECONDS));
+            host.publishNotice(_ -> {
+                discardedFactoryCalls.incrementAndGet();
+                return SocialDocument.of(TRUSTED, "old-queued", SocialDocument.Tone.INFO);
+            });
+            assertTrue(host.reload("qq"));
+            host.publishNotice(_ -> SocialDocument.of(TRUSTED, "new", SocialDocument.Tone.INFO));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (adapter.outgoingNotices.size() < 2 && System.nanoTime() < deadline) Thread.sleep(10);
+            firstSend.complete(null);
+            assertEquals(List.of("old-first", "new"), adapter.outgoingNotices.stream()
+                    .map(notice -> notice.document().title()).toList());
+            assertEquals(0, discardedFactoryCalls.get());
+        } finally {
+            firstSend.complete(null);
+        }
+    }
+
+    @Test
     void strippedRoutePrefixDoesNotParticipateInOutboundFiltering()
             throws Exception {
         MemoryAdapter adapter = new MemoryAdapter("bridge", "!", 4);
         adapter.contentSafetyEnabled = true;
         adapter.chatRoutes = List.of(new SocialChatRoute(
                 new SocialConversation("prefix", SocialConversation.Type.GROUP),
-                SocialChatOutboundPolicy.prefixed("trigger", true)));
+                SocialChatPolicy.always(), SocialChatPolicy.prefixed("trigger", true)));
         SocialContentGuard directionalGuard = SocialContentGuard.available(
                 text -> !text.contains("trigger"),
                 SocialDocument.of(TRUSTED, "Blocked", SocialDocument.Tone.WARNING));
@@ -475,10 +697,10 @@ class SocialPlatformHostTest {
         adapter.chatRoutes = List.of(
                 new SocialChatRoute(new SocialConversation(
                         "joined", SocialConversation.Type.GROUP),
-                        SocialChatOutboundPolicy.always()),
+                        SocialChatPolicy.always(), SocialChatPolicy.always()),
                 new SocialChatRoute(new SocialConversation(
                         "absent", SocialConversation.Type.GROUP),
-                        SocialChatOutboundPolicy.always()));
+                        SocialChatPolicy.always(), SocialChatPolicy.always()));
         UUID target = UUID.randomUUID();
         IdentityBinding matrixBinding = new IdentityBinding(target, "Alex",
                 new ExternalIdentityKey("matrix", "example.org", "",
@@ -612,6 +834,10 @@ class SocialPlatformHostTest {
         private volatile boolean enabled = true;
         private volatile boolean failPrepare;
         private volatile boolean contentSafetyEnabled;
+        private volatile Language defaultLanguage = Language.ZH_CN;
+        private final List<NoticeCapture> outgoingNotices = new CopyOnWriteArrayList<>();
+        private volatile java.util.function.Function<NoticeCapture, CompletableFuture<Void>> noticeSender =
+                _ -> CompletableFuture.completedFuture(null);
         private final List<ChatMessage> outgoingChat =
                 new CopyOnWriteArrayList<>();
         private final List<List<SocialChatMentionRequest>> outgoingMentionRequests =
@@ -625,7 +851,7 @@ class SocialPlatformHostTest {
         private volatile List<SocialChatRoute> chatRoutes = List.of(
                 new SocialChatRoute(new SocialConversation(
                         "room", SocialConversation.Type.GROUP),
-                        SocialChatOutboundPolicy.always()));
+                        SocialChatPolicy.always(), SocialChatPolicy.always()));
 
         private MemoryAdapter(String id, String prefix, int concurrency) {
             this(id, prefix, concurrency, null);
@@ -663,7 +889,7 @@ class SocialPlatformHostTest {
 
                 @Override
                 public SocialCommandSyntax commandSyntax() {
-                    return SocialCommandSyntax.caseInsensitive(Language.ZH_CN, prefix);
+                    return SocialCommandSyntax.caseInsensitive(defaultLanguage, prefix);
                 }
 
                 @Override
@@ -675,6 +901,14 @@ class SocialPlatformHostTest {
                         @Override
                         public List<SocialChatRoute> chatRoutes() {
                             return chatRoutes;
+                        }
+
+                        @Override
+                        public java.util.concurrent.CompletionStage<Void> sendNotice(
+                                SocialConversation conversation, SocialDocument document) {
+                            NoticeCapture notice = new NoticeCapture(conversation, document);
+                            outgoingNotices.add(notice);
+                            return noticeSender.apply(notice);
                         }
 
                         @Override
@@ -748,4 +982,6 @@ class SocialPlatformHostTest {
             return Character.toUpperCase(value.charAt(0)) + value.substring(1);
         }
     }
+
+    private record NoticeCapture(SocialConversation conversation, SocialDocument document) { }
 }

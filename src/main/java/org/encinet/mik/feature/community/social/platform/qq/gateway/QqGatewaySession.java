@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -37,6 +38,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
     private final Runnable invalidateToken;
     private final Connector connector;
     private final Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events;
+    private final Function<QqGatewayJoinRequest, SocialEventSink.Acceptance> joinRequests;
     private final Consumer<SocialSessionStatus> statusUpdates;
     private final Logger logger;
     private final QqGatewayReconnectPolicy reconnectPolicy;
@@ -60,6 +62,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             QqPlatformConfig config,
             QqAccessTokenProvider tokenProvider,
             Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events,
+            Function<QqGatewayJoinRequest, SocialEventSink.Acceptance> joinRequests,
             Consumer<SocialSessionStatus> statusUpdates,
             Logger logger
     ) {
@@ -72,6 +75,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
                         .connectTimeout(CONNECT_TIMEOUT)
                         .buildAsync(uri, listener),
                 events,
+                joinRequests,
                 statusUpdates,
                 logger);
     }
@@ -83,6 +87,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             Runnable invalidateToken,
             Connector connector,
             Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events,
+            Function<QqGatewayJoinRequest, SocialEventSink.Acceptance> joinRequests,
             Consumer<SocialSessionStatus> statusUpdates,
             Logger logger
     ) {
@@ -92,6 +97,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
         this.invalidateToken = Objects.requireNonNull(invalidateToken, "invalidateToken");
         this.connector = Objects.requireNonNull(connector, "connector");
         this.events = Objects.requireNonNull(events, "events");
+        this.joinRequests = Objects.requireNonNull(joinRequests, "joinRequests");
         this.statusUpdates = Objects.requireNonNull(statusUpdates, "statusUpdates");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.endpoint = config.apiUri("/gateway/bot").toString();
@@ -255,7 +261,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
                 if (sessionId != null && sequence != null) {
                     command = QqGatewayProtocol.resume(token, sessionId, sequence);
                 } else {
-                    command = QqGatewayProtocol.identify(token);
+                    command = QqGatewayProtocol.identify(token, !config.groupJoinRules().isEmpty());
                 }
             }
             sendText(connectionGeneration, command);
@@ -303,11 +309,14 @@ public final class QqGatewaySession implements SocialPlatformSession {
         }
 
         QqGatewayGroupMessage event = QqGatewayProtocol.groupMessage(frame).orElse(null);
-        if (event == null) {
+        QqGatewayJoinRequest joinRequest = QqGatewayProtocol.joinRequest(
+                frame, Instant.now()).orElse(null);
+        if (event == null && joinRequest == null) {
             return;
         }
         try {
-            SocialEventSink.Acceptance acceptance = events.apply(event);
+            SocialEventSink.Acceptance acceptance = joinRequest != null
+                    ? joinRequests.apply(joinRequest) : events.apply(event);
             if (acceptance == SocialEventSink.Acceptance.RETRY_LATER) {
                 retryEvent(connectionGeneration, previousSequence,
                         "QQ Gateway event could not enter the social work queue");

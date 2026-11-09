@@ -4,15 +4,16 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.feature.community.social.api.SocialConversation;
-import org.encinet.mik.feature.community.social.chat.SocialChatOutboundPolicy;
+import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRule;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqTotp;
 
 import java.io.File;
 import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -33,6 +34,7 @@ public record QqPlatformConfig(
         Language defaultLanguage,
         Set<String> allowedGroupOpenIds,
         List<SocialChatRoute> chatRoutes,
+        List<QqGroupJoinRule> groupJoinRules,
         boolean contentSafetyEnabled,
         int maxOutboundLength
 ) {
@@ -109,6 +111,7 @@ public record QqPlatformConfig(
 
         Set<String> allowedGroups = stringSet(yaml, "allowed-group-openids");
         List<SocialChatRoute> chatRoutes = chatRoutes(yaml, allowedGroups);
+        List<QqGroupJoinRule> groupJoinRules = groupJoinRules(yaml, allowedGroups);
         boolean contentSafety = yaml.getBoolean("content-safety.enabled", true);
         int maxLength = (int) clamp(yaml.getInt("reply.max-message-length", 1_500),
                 100, 4_000);
@@ -123,7 +126,7 @@ public record QqPlatformConfig(
                 gatewayMaxReconnectAttempts, gatewayMaxFrameBytes,
                 gatewayHandshakeTimeoutMillis, gatewayDebugEnabled,
                 workerMaxConcurrentTasks, defaultLanguage, allowedGroups,
-                chatRoutes, contentSafety, maxLength);
+                chatRoutes, groupJoinRules, contentSafety, maxLength);
     }
 
     public boolean acceptsGroup(String groupOpenId) {
@@ -180,25 +183,10 @@ public record QqPlatformConfig(
                         "chat-bridge.routes contains duplicate group-openid "
                                 + groupOpenId);
             }
-            Map<?, ?> outbound = map(entry.get("outbound"));
-            String modeName = configuredValue(string(outbound.get("mode")));
-            SocialChatOutboundPolicy.Mode mode;
-            try {
-                mode = SocialChatOutboundPolicy.Mode.valueOf(
-                        (modeName.isEmpty() ? "always" : modeName)
-                                .toUpperCase(Locale.ROOT));
-            } catch (IllegalArgumentException error) {
-                throw new IllegalArgumentException(
-                        "chat-bridge.routes outbound.mode must be always or prefix", error);
-            }
-            SocialChatOutboundPolicy policy = mode == SocialChatOutboundPolicy.Mode.ALWAYS
-                    ? SocialChatOutboundPolicy.always()
-                    : SocialChatOutboundPolicy.prefixed(
-                    string(outbound.get("prefix")),
-                    bool(outbound.get("strip-prefix"), true));
             routes.add(new SocialChatRoute(
                     new SocialConversation(groupOpenId, SocialConversation.Type.GROUP),
-                    policy));
+                    SocialChatPolicy.fromConfig(entry.get("inbound"), "chat-bridge.routes inbound"),
+                    SocialChatPolicy.fromConfig(entry.get("outbound"), "chat-bridge.routes outbound")));
             if (routes.size() > 256) {
                 throw new IllegalArgumentException(
                         "chat-bridge.routes supports at most 256 groups");
@@ -215,16 +203,47 @@ public record QqPlatformConfig(
         }
     }
 
-    private static Map<?, ?> map(Object value) {
-        return value instanceof Map<?, ?> map ? map : Map.of();
+    private static List<QqGroupJoinRule> groupJoinRules(
+            YamlConfiguration yaml,
+            Set<String> allowedGroups
+    ) {
+        String path = "group-join.groups";
+        if (yaml.contains("group-join") && !yaml.isConfigurationSection("group-join")) {
+            throw new IllegalArgumentException("group-join must be a configuration section");
+        }
+        if (yaml.contains(path) && !yaml.isList(path)) {
+            throw new IllegalArgumentException(path + " must be a list");
+        }
+        java.util.ArrayList<QqGroupJoinRule> rules = new java.util.ArrayList<>();
+        for (Object value : yaml.getList(path, List.of())) {
+            if (!(value instanceof Map<?, ?> entry)) {
+                throw new IllegalArgumentException(path + " entries must be maps");
+            }
+            String groupOpenId = configuredValue(string(entry.get("group-openid")));
+            requireGroupOpenId(groupOpenId, path + " group-openid");
+            if (!allowedGroups.isEmpty() && !allowedGroups.contains(groupOpenId)) {
+                throw new IllegalArgumentException(path
+                        + " group-openid must also appear in allowed-group-openids");
+            }
+            QqTotp totp = new QqTotp(string(entry.get("totp-secret")));
+            for (QqGroupJoinRule rule : rules) {
+                if (rule.groupOpenId().equals(groupOpenId)) {
+                    throw new IllegalArgumentException(path + " contains duplicate group-openid");
+                }
+                if (rule.totp().hasSameSecret(totp)) {
+                    throw new IllegalArgumentException(path + " must use distinct TOTP secrets");
+                }
+            }
+            rules.add(new QqGroupJoinRule(groupOpenId, totp));
+            if (rules.size() > 2) {
+                throw new IllegalArgumentException(path + " supports at most two groups");
+            }
+        }
+        return List.copyOf(rules);
     }
 
     private static String string(Object value) {
         return value instanceof String text ? text : "";
-    }
-
-    private static boolean bool(Object value, boolean fallback) {
-        return value instanceof Boolean result ? result : fallback;
     }
 
     private static URI parseHttpUri(String value, String field) {

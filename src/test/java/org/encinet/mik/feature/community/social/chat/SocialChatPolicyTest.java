@@ -7,17 +7,18 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class SocialChatOutboundPolicyTest {
+class SocialChatPolicyTest {
 
     @Test
     void alwaysRoutesEveryNonBlankMessageUnchanged() {
-        SocialChatOutboundPolicy policy = SocialChatOutboundPolicy.always();
+        SocialChatPolicy policy = SocialChatPolicy.always();
 
         assertEquals("hello", policy.select("hello").orElseThrow());
         assertEquals("#hello", policy.select("#hello").orElseThrow());
@@ -26,10 +27,10 @@ class SocialChatOutboundPolicyTest {
 
     @Test
     void prefixRoutesOnlyMatchingMessagesAndCanStripTheTrigger() {
-        SocialChatOutboundPolicy stripped =
-                SocialChatOutboundPolicy.prefixed("#", true);
-        SocialChatOutboundPolicy preserved =
-                SocialChatOutboundPolicy.prefixed("@matrix", false);
+        SocialChatPolicy stripped =
+                SocialChatPolicy.prefixed("#", true);
+        SocialChatPolicy preserved =
+                SocialChatPolicy.prefixed("@matrix", false);
 
         assertEquals("你好", stripped.select("#你好").orElseThrow());
         assertEquals("你好", stripped.select("#  你好").orElseThrow());
@@ -42,9 +43,35 @@ class SocialChatOutboundPolicyTest {
     @Test
     void prefixValidationIsSharedByEveryAdapter() {
         assertThrows(IllegalArgumentException.class,
-                () -> SocialChatOutboundPolicy.prefixed("", true));
+                () -> SocialChatPolicy.prefixed("", true));
         assertThrows(IllegalArgumentException.class,
-                () -> SocialChatOutboundPolicy.prefixed("two words", true));
+                () -> SocialChatPolicy.prefixed("two words", true));
+    }
+
+    @Test
+    void directionalConfigurationDefaultsAndValidationAreShared() {
+        assertEquals(SocialChatPolicy.always(), SocialChatPolicy.fromConfig(null, "inbound"));
+        assertEquals(SocialChatPolicy.prefixed("#", true), SocialChatPolicy.fromConfig(
+                Map.of("mode", "prefix", "prefix", "#"), "inbound"));
+        assertEquals(SocialChatPolicy.prefixed("~", false), SocialChatPolicy.fromConfig(
+                Map.of("mode", "PREFIX", "prefix", "~", "strip-prefix", false), "outbound"));
+        for (Object invalid : List.of("prefix", Map.of("mode", "sometimes"),
+                Map.of("mode", 1), Map.of("mode", "prefix"),
+                Map.of("mode", "prefix", "prefix", "#", "strip-prefix", "true"))) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> SocialChatPolicy.fromConfig(invalid, "inbound"));
+        }
+    }
+
+    @Test
+    void selectedRangesRetainExactUtf16OffsetsForMentionRelocation() {
+        SocialChatPolicy.Selection selected = SocialChatPolicy.prefixed("😀", true)
+                .selectRange("  😀\t @Alex hi  ").orElseThrow();
+        assertEquals("@Alex hi", selected.body());
+        assertEquals(6, selected.start());
+        assertEquals(14, selected.end());
+        assertEquals(new SocialChatPolicy.Selection("# @Alex", 2, 9),
+                SocialChatPolicy.prefixed("#", false).selectRange("  # @Alex ").orElseThrow());
     }
 
     @Test

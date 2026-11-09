@@ -2,7 +2,7 @@ package org.encinet.mik.feature.community.social.platform.qq;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.encinet.mik.shared.i18n.Language;
-import org.encinet.mik.feature.community.social.chat.SocialChatOutboundPolicy;
+import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,6 +80,9 @@ class QqPlatformConfigTest {
                 chat-bridge:
                   routes:
                     - group-openid: group-a
+                      inbound:
+                        mode: prefix
+                        prefix: ">"
                       outbound:
                         mode: always
                     - group-openid: group-b
@@ -91,10 +94,12 @@ class QqPlatformConfigTest {
 
         assertEquals(2, config.chatRoutes().size());
         assertEquals("group-a", config.chatRoutes().get(0).conversation().id());
-        assertEquals(SocialChatOutboundPolicy.Mode.ALWAYS,
+        assertEquals(SocialChatPolicy.prefixed(">", true), config.chatRoutes().get(0).inbound());
+        assertEquals(SocialChatPolicy.Mode.ALWAYS,
                 config.chatRoutes().get(0).outbound().mode());
         assertEquals("group-b", config.chatRoutes().get(1).conversation().id());
-        assertEquals(SocialChatOutboundPolicy.Mode.PREFIX,
+        assertEquals(SocialChatPolicy.always(), config.chatRoutes().get(1).inbound());
+        assertEquals(SocialChatPolicy.Mode.PREFIX,
                 config.chatRoutes().get(1).outbound().mode());
         assertEquals("#", config.chatRoutes().get(1).outbound().prefix());
         assertFalse(config.chatRoutes().get(1).outbound().stripPrefix());
@@ -233,6 +238,51 @@ class QqPlatformConfigTest {
                 enabled: false
                 default-language: klingon
                 """)));
+    }
+
+    @Test
+    void joinApprovalLoadsTwoIndependentGroupSecretsAndDefaultsToDisabled() throws Exception {
+        assertTrue(QqPlatformConfig.from(yaml("")).groupJoinRules().isEmpty());
+        QqPlatformConfig config = QqPlatformConfig.from(yaml("""
+                allowed-group-openids: [group-a, group-b]
+                group-join:
+                  groups:
+                    - group-openid: group-a
+                      totp-secret: GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ
+                    - group-openid: group-b
+                      totp-secret: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+                """));
+        assertEquals(java.util.List.of("group-a", "group-b"), config.groupJoinRules().stream()
+                .map(org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRule::groupOpenId)
+                .toList());
+        assertFalse(config.groupJoinRules().get(0).totp()
+                .hasSameSecret(config.groupJoinRules().get(1).totp()));
+    }
+
+    @Test
+    void rejectsAmbiguousIncompleteOrDisallowedJoinRules() {
+        String first = """
+                group-join:
+                  groups:
+                    - group-openid: group-a
+                      totp-secret: GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ
+                """;
+        for (String invalid : java.util.List.of(
+                "allowed-group-openids: [other]\n" + first,
+                first + """
+                    - group-openid: group-a
+                      totp-secret: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+                """,
+                first + """
+                    - group-openid: group-b
+                      totp-secret: gezdgnbvgy3tqojqgezdgnbvgy3tqojq
+                """,
+                "group-join: {groups: [{group-openid: group-a}]}",
+                "group-join: {groups: [invalid]}",
+                "group-join: {groups: invalid}")) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> QqPlatformConfig.from(yaml(invalid)));
+        }
     }
 
     private static YamlConfiguration yaml(String value) throws Exception {

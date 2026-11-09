@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -23,10 +24,12 @@ final class QqGatewayProtocol {
     static final int OP_HEARTBEAT_ACK = 11;
 
     static final int INTENT_GROUP_AND_C2C_EVENT = 1 << 25;
+    static final int INTENT_GROUP_MEMBER_EVENT = 1 << 24;
     static final String EVENT_READY = "READY";
     static final String EVENT_RESUMED = "RESUMED";
     static final String EVENT_GROUP_AT_MESSAGE_CREATE = "GROUP_AT_MESSAGE_CREATE";
     static final String EVENT_GROUP_MESSAGE_CREATE = "GROUP_MESSAGE_CREATE";
+    static final String EVENT_GROUP_JOIN_REQUEST = "GROUP_JOIN_REQUEST";
 
     private static final Gson GSON = new GsonBuilder().serializeNulls().create();
 
@@ -91,10 +94,18 @@ final class QqGatewayProtocol {
                 || EVENT_GROUP_MESSAGE_CREATE.equals(eventType);
     }
 
-    static String identify(String accessToken) {
+    static Optional<QqGatewayJoinRequest> joinRequest(Frame frame, Instant receivedAt) {
+        if (frame.opcode() != OP_DISPATCH || !EVENT_GROUP_JOIN_REQUEST.equals(frame.type())) {
+            return Optional.empty();
+        }
+        return QqGatewayJoinRequest.from(frame.data(), receivedAt);
+    }
+
+    static String identify(String accessToken, boolean groupJoinEnabled) {
         JsonObject data = new JsonObject();
         data.addProperty("token", "QQBot " + accessToken);
-        data.addProperty("intents", INTENT_GROUP_AND_C2C_EVENT);
+        data.addProperty("intents", INTENT_GROUP_AND_C2C_EVENT
+                | (groupJoinEnabled ? INTENT_GROUP_MEMBER_EVENT : 0));
         com.google.gson.JsonArray shard = new com.google.gson.JsonArray();
         shard.add(0);
         shard.add(1);

@@ -17,16 +17,22 @@ worker:
 # Empty accepts every unencrypted room joined by the bot.
 allowed-room-ids: []
 
-# Empty disables chat interoperability. Each room chooses its own Minecraft
-# outbound policy; Matrix-to-Minecraft text is enabled for every listed room.
+# Empty disables chat interoperability. inbound = Matrix to Minecraft;
+# outbound = Minecraft to Matrix. Each omitted direction defaults to always.
 chat-bridge:
   routes: []
   # Full interoperability example:
   # - room-id: "!public:example.org"
+  #   inbound:
+  #     mode: "always"
   #   outbound:
   #     mode: "always"
-  # Prefix-triggered example: "#hello" is sent as "hello".
+  # Prefix-triggered example in both directions: "#hello" becomes "hello".
   # - room-id: "!relay:example.org"
+  #   inbound:
+  #     mode: "prefix"
+  #     prefix: "#"
+  #     strip-prefix: true
   #   outbound:
   #     mode: "prefix"
   #     prefix: "#"

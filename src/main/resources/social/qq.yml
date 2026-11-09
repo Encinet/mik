@@ -20,16 +20,32 @@ worker:
 
 allowed-group-openids: []
 
-# Empty disables chat interoperability. Each group chooses its own Minecraft
-# outbound policy; QQ-to-Minecraft text is enabled for every listed group.
+# Empty disables automatic join approval. Each group must use its own Base32
+# secret, shared with the external verifier (SHA-1, 6 digits, 30 seconds).
+# Only the current and previous 30-second steps at Gateway receive time pass.
+group-join:
+  groups: []
+  # - group-openid: "first-group-openid"
+  #   totp-secret: "YOUR_FIRST_BASE32_SECRET"
+  # - group-openid: "second-group-openid"
+  #   totp-secret: "YOUR_SECOND_BASE32_SECRET"
+
+# Empty disables chat interoperability. inbound = QQ to Minecraft;
+# outbound = Minecraft to QQ. Each omitted direction defaults to always.
 chat-bridge:
   routes: []
   # Full interoperability example:
   # - group-openid: "your-group-openid"
+  #   inbound:
+  #     mode: "always"
   #   outbound:
   #     mode: "always"
-  # Prefix-triggered example: "#hello" is sent as "hello".
+  # Prefix-triggered example in both directions: "#hello" becomes "hello".
   # - group-openid: "another-group-openid"
+  #   inbound:
+  #     mode: "prefix"
+  #     prefix: "#"
+  #     strip-prefix: true
   #   outbound:
   #     mode: "prefix"
   #     prefix: "#"

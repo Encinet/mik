@@ -9,6 +9,8 @@ import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
 import org.encinet.mik.feature.community.social.chat.SocialMentionBindingDirectory;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
 import org.encinet.mik.shared.util.ShutdownSequence;
+import org.encinet.mik.shared.i18n.Language;
+import org.encinet.mik.feature.community.social.document.SocialDocument;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -21,6 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.function.Function;
 
 /** Coordinates installed adapters while each generation owns its runtime resources. */
 public final class SocialPlatformHost implements SocialPlatformAdmin,
@@ -180,6 +183,17 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
         SocialChatPublishReport report = SocialChatPublishReport.empty();
         for (SocialPlatformGeneration generation : generations.values()) {
             report = report.plus(generation.publishDirectedNotice(notice));
+        }
+        return report;
+    }
+
+    /** Broadcasts to configured destinations on every platform, independent of chat prefixes. */
+    public synchronized SocialChatPublishReport publishNotice(Function<Language, SocialDocument> document) {
+        Objects.requireNonNull(document, "document");
+        if (closed) return SocialChatPublishReport.empty();
+        SocialChatPublishReport report = SocialChatPublishReport.empty();
+        for (SocialPlatformGeneration generation : generations.values()) {
+            report = report.plus(generation.publishNotice(document));
         }
         return report;
     }

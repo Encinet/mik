@@ -7,10 +7,12 @@ import java.util.Objects;
 /** A platform conversation linked to public Minecraft chat. */
 public record SocialChatRoute(
         SocialConversation conversation,
-        SocialChatOutboundPolicy outbound
+        SocialChatPolicy inbound,
+        SocialChatPolicy outbound
 ) {
     public SocialChatRoute {
         conversation = Objects.requireNonNull(conversation, "conversation");
+        inbound = Objects.requireNonNull(inbound, "inbound");
         outbound = Objects.requireNonNull(outbound, "outbound");
     }
 }

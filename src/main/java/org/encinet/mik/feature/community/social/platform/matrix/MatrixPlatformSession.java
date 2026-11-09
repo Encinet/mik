@@ -11,6 +11,9 @@ import org.encinet.mik.feature.community.social.chat.SocialChatMentionResolution
 import org.encinet.mik.feature.community.social.platform.matrix.client.MatrixClient;
 import org.encinet.mik.feature.community.social.platform.matrix.client.MatrixHttpException;
 import org.encinet.mik.feature.community.social.platform.matrix.render.MatrixChatRenderer;
+import org.encinet.mik.feature.community.social.platform.matrix.render.MatrixHtmlRenderer;
+import org.encinet.mik.feature.community.social.platform.matrix.render.MatrixPlainTextRenderer;
+import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomMessage;
 import org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixMemberDirectory;
 import org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixSyncProcessor;
@@ -240,6 +243,20 @@ final class MatrixPlatformSession implements SocialChatPlatformSession {
     @Override
     public List<SocialChatRoute> chatRoutes() {
         return config.chatRoutes();
+    }
+
+    @Override
+    public CompletionStage<Void> sendNotice(SocialConversation conversation, SocialDocument document) {
+        Objects.requireNonNull(conversation, "conversation");
+        Objects.requireNonNull(document, "document");
+        synchronized (lock) {
+            if (closed || state != SocialSessionStatus.State.READY) {
+                return CompletableFuture.completedFuture(null);
+            }
+        }
+        SocialDocument bounded = document.truncated(config.maxOutboundLength());
+        return client.sendFormattedText(conversation.id(),
+                MatrixPlainTextRenderer.render(bounded, config.maxOutboundLength()), MatrixHtmlRenderer.render(bounded));
     }
 
     @Override

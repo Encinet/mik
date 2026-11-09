@@ -24,9 +24,12 @@ import org.encinet.mik.feature.community.social.chat.SocialChatMentionRequest;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionResolution;
 import org.encinet.mik.feature.community.social.chat.SocialMentionBindingDirectory;
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
+import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
 import org.encinet.mik.feature.community.social.chat.SocialDirectedNotice;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
+import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.shared.i18n.Language;
 
 import java.util.ArrayList;
 import java.time.Instant;
@@ -40,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
+import java.util.function.Function;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 
@@ -261,6 +265,55 @@ final class SocialPlatformGeneration implements AutoCloseable {
         }
     }
 
+    SocialChatPublishReport.Admission publishNotice(Function<Language, SocialDocument> document) {
+        synchronized (lock) {
+            if (closed || state != SocialPlatformState.READY
+                    || !(session instanceof SocialChatPlatformSession chatSession)
+                    || chatSession.chatRoutes().isEmpty()) {
+                return SocialChatPublishReport.Admission.UNAVAILABLE;
+            }
+            if (executor.submitOrdered("outbound-public-notices", () -> sendNotice(chatSession, document))) {
+                outboundAccepted.increment();
+                return SocialChatPublishReport.Admission.ACCEPTED;
+            }
+            outboundBackpressured.increment();
+            return SocialChatPublishReport.Admission.BACKPRESSURED;
+        }
+    }
+
+    private void sendNotice(SocialChatPlatformSession chatSession, Function<Language, SocialDocument> document) {
+        if (!chatSessionIsCurrent(chatSession)) return;
+        try {
+            SocialDocument notice = Objects.requireNonNull(document.apply(plan.commandSyntax().defaultLanguage()),
+                    "Social notice factory returned null").truncated(plan.runtimePolicy().output().maximumLength());
+            if (!contentGuard.allowsOutboundText(notice.plainText(), notice.moderation(), plan.runtimePolicy().output())) return;
+            List<CompletableFuture<Void>> sends = new ArrayList<>();
+            for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
+                if (!chatSessionIsCurrent(chatSession)) break;
+                try {
+                    sends.add(Objects.requireNonNull(chatSession.sendNotice(route.conversation(), notice),
+                            "Social notice sender returned null").toCompletableFuture().handle((_, error) -> {
+                        if (error != null) noticeFailed(chatSession, error);
+                        return null;
+                    }));
+                } catch (RuntimeException error) {
+                    noticeFailed(chatSession, error);
+                }
+            }
+            CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
+        } catch (RuntimeException error) {
+            noticeFailed(chatSession, error);
+        }
+    }
+
+    private void noticeFailed(SocialChatPlatformSession chatSession, Throwable error) {
+        deliveryFailures.increment();
+        if (chatSessionIsCurrent(chatSession)) {
+            logger.warning("Could not deliver a server notice to " + descriptor.displayName()
+                    + ": " + SocialCommandProcessor.rootMessage(error));
+        }
+    }
+
     private void sendDirectedNotice(SocialChatPlatformSession chatSession,
                                     SocialDirectedNotice notice) {
         if (!chatSessionIsCurrent(chatSession)) return;
@@ -339,7 +392,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
                     }
                     route.outbound().select(message.submission().sourceText()).ifPresent(body -> {
                         var richBody = route.outbound().mode()
-                                == org.encinet.mik.feature.community.social.chat.SocialChatOutboundPolicy.Mode.PREFIX
+                                == SocialChatPolicy.Mode.PREFIX
                                 && route.outbound().stripPrefix()
                                 ? message.content().withoutLeadingTrigger(
                                 route.outbound().prefix())
@@ -406,9 +459,15 @@ final class SocialPlatformGeneration implements AutoCloseable {
     private ChatSubmission chatSubmission(SocialInboundMessage message) {
         if (!(message.content() instanceof SocialInboundMessage.Text text)
                 || text.body().isBlank()
-                || !(session instanceof SocialChatPlatformSession chatSession)
-                || chatSession.chatRoutes().stream().noneMatch(route ->
-                route.conversation().id().equals(message.conversation().id()))) {
+                || !(session instanceof SocialChatPlatformSession chatSession)) {
+            return null;
+        }
+        SocialChatPolicy.Selection selection = chatSession.chatRoutes().stream()
+                .filter(route -> route.conversation().equals(message.conversation()))
+                .findFirst()
+                .flatMap(route -> route.inbound().selectRange(text.body()))
+                .orElse(null);
+        if (selection == null) {
             return null;
         }
         Optional<ExternalIdentity> identity = message.authenticatedIdentity();
@@ -421,17 +480,21 @@ final class SocialPlatformGeneration implements AutoCloseable {
                         message.conversation().id(), message.eventId()),
                 sender,
                 ChatConversation.minecraftPublic(),
-                text.body(), references(message), Instant.now(),
+                selection.body(), references(message, selection), Instant.now(),
                 ChatProcessingContext.external());
     }
 
-    private ChatReferences references(SocialInboundMessage message) {
+    private ChatReferences references(
+            SocialInboundMessage message,
+            SocialChatPolicy.Selection selection
+    ) {
         Optional<ChatReferences.Reference> reply = message.references()
                 .repliedAuthor().map(this::reference);
         List<ChatReferences.Mention> mentions = message.references()
                 .mentionSpans().stream()
+                .filter(span -> span.start() >= selection.start() && span.end() <= selection.end())
                 .map(span -> new ChatReferences.Mention(
-                        span.start(), span.end(), span.identity()))
+                        span.start() - selection.start(), span.end() - selection.start(), span.identity()))
                 .toList();
         return new ChatReferences(reply, Optional.empty(), mentions);
     }

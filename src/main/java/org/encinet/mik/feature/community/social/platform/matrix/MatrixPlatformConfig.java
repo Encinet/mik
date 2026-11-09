@@ -4,7 +4,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.feature.community.social.api.SocialConversation;
-import org.encinet.mik.feature.community.social.chat.SocialChatOutboundPolicy;
+import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
 
 import java.io.File;
@@ -12,7 +12,6 @@ import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -151,24 +150,10 @@ public record MatrixPlatformConfig(
                 throw new IllegalArgumentException(
                         "chat-bridge.routes contains duplicate room-id " + roomId);
             }
-            Map<?, ?> outbound = map(entry.get("outbound"));
-            String modeName = configuredValue(string(outbound.get("mode")));
-            SocialChatOutboundPolicy.Mode mode;
-            try {
-                mode = SocialChatOutboundPolicy.Mode.valueOf(
-                        (modeName.isEmpty() ? "always" : modeName)
-                                .toUpperCase(Locale.ROOT));
-            } catch (IllegalArgumentException error) {
-                throw new IllegalArgumentException(
-                        "chat-bridge.routes outbound.mode must be always or prefix", error);
-            }
-            SocialChatOutboundPolicy policy = mode == SocialChatOutboundPolicy.Mode.ALWAYS
-                    ? SocialChatOutboundPolicy.always()
-                    : SocialChatOutboundPolicy.prefixed(
-                    string(outbound.get("prefix")),
-                    bool(outbound.get("strip-prefix"), true));
             routes.add(new SocialChatRoute(
-                    new SocialConversation(roomId, SocialConversation.Type.GROUP), policy));
+                    new SocialConversation(roomId, SocialConversation.Type.GROUP),
+                    SocialChatPolicy.fromConfig(entry.get("inbound"), "chat-bridge.routes inbound"),
+                    SocialChatPolicy.fromConfig(entry.get("outbound"), "chat-bridge.routes outbound")));
             if (routes.size() > 256) {
                 throw new IllegalArgumentException(
                         "chat-bridge.routes supports at most 256 rooms");
@@ -177,16 +162,8 @@ public record MatrixPlatformConfig(
         return List.copyOf(routes);
     }
 
-    private static Map<?, ?> map(Object value) {
-        return value instanceof Map<?, ?> map ? map : Map.of();
-    }
-
     private static String string(Object value) {
         return value instanceof String text ? text : "";
-    }
-
-    private static boolean bool(Object value, boolean fallback) {
-        return value instanceof Boolean result ? result : fallback;
     }
 
     private static URI parseHttpUri(String value, String field) {

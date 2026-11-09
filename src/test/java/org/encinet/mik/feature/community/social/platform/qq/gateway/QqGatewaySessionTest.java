@@ -105,6 +105,45 @@ class QqGatewaySessionTest {
     }
 
     @Test
+    void joinApplicationsUseTheirOwnCallbackAndBackpressureReplaysTheApplication() throws Exception {
+        RecordingConnector connector = new RecordingConnector();
+        AtomicReference<QqGatewayJoinRequest> received = new AtomicReference<>();
+        QqPlatformConfig platformConfig = config(3);
+        QqGatewaySession session = tracked(statusUpdates -> new QqGatewaySession(platformConfig,
+                () -> CompletableFuture.completedFuture(URI.create("wss://gateway.example/socket")),
+                () -> CompletableFuture.completedFuture("access-token"), () -> { }, connector,
+                _ -> { throw new AssertionError("Join application entered chat"); },
+                request -> {
+                    received.set(request);
+                    return SocialEventSink.Acceptance.RETRY_LATER;
+                }, statusUpdates, Logger.getAnonymousLogger()));
+        try {
+            session.start();
+            Connection first = connector.only();
+            first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
+            first.emit("{\"op\":0,\"s\":10,\"t\":\"READY\",\"d\":{\"session_id\":\"joins\"}}");
+            java.time.Instant before = java.time.Instant.now();
+            first.emit("""
+                    {"op":0,"s":11,"t":"GROUP_JOIN_REQUEST","d":{
+                      "group_openid":"group","member_openid":"member","join_request_id":"request",
+                      "verify_info":{"method":"verify_message","verify_message":"081804"}
+                    }}
+                    """);
+            assertEquals("request", received.get().joinRequestId());
+            assertEquals(List.of("081804"), received.get().answers());
+            assertTrue(!received.get().receivedAt().isBefore(before));
+            assertTrue(!received.get().receivedAt().isAfter(java.time.Instant.now()));
+            await(() -> connector.connections.size() == 2);
+            Connection second = connector.connections.get(1);
+            second.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
+            JsonObject resume = JsonParser.parseString(second.socket.sent.getFirst()).getAsJsonObject();
+            assertEquals(10L, resume.getAsJsonObject("d").get("seq").getAsLong());
+        } finally {
+            session.close();
+        }
+    }
+
+    @Test
     void expiredConnectionCloseCodeResumesTheSession() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         QqGatewaySession session = session(config(3), connector,
@@ -228,7 +267,8 @@ class QqGatewaySessionTest {
                 () -> {
                     invalidations.incrementAndGet();
                     token.set("token-two");
-                }, connector, _ -> SocialEventSink.Acceptance.ACCEPTED, statusUpdates,
+                }, connector, _ -> SocialEventSink.Acceptance.ACCEPTED,
+                _ -> SocialEventSink.Acceptance.IGNORED, statusUpdates,
                 Logger.getLogger("QqGatewaySessionTest")));
         session.start();
         Connection first = connector.only();
@@ -292,6 +332,7 @@ class QqGatewaySessionTest {
                         URI.create("wss://gateway.example/socket")),
                 () -> CompletableFuture.completedFuture("access-token"),
                 () -> { }, connector, _ -> SocialEventSink.Acceptance.ACCEPTED,
+                _ -> SocialEventSink.Acceptance.IGNORED,
                 statusUpdates, Logger.getLogger("QqGatewaySessionTest")));
 
         session.start();
@@ -342,7 +383,7 @@ class QqGatewaySessionTest {
                 () -> CompletableFuture.completedFuture(
                         URI.create("wss://gateway.example/socket")),
                 () -> CompletableFuture.completedFuture("access-token"),
-                () -> { }, connector, events, statusUpdates,
+                () -> { }, connector, events, _ -> SocialEventSink.Acceptance.IGNORED, statusUpdates,
                 Logger.getLogger("QqGatewaySessionTest")));
     }
 

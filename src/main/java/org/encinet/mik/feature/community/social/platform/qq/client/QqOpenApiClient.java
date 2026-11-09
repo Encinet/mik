@@ -60,6 +60,45 @@ public final class QqOpenApiClient {
         return sendMarkdown(groupOpenId, content, null, 0, false);
     }
 
+    /** Reviews the exact application carried by an authenticated GROUP_JOIN_REQUEST. */
+    public CompletableFuture<Void> reviewGroupJoinRequest(
+            String groupOpenId,
+            String memberOpenId,
+            String joinRequestId,
+            boolean approve
+    ) {
+        if (groupOpenId == null || groupOpenId.isBlank()
+                || memberOpenId == null || memberOpenId.isBlank()
+                || joinRequestId == null || joinRequestId.isBlank()) {
+            throw new IllegalArgumentException("QQ join approval requires group, member and request IDs");
+        }
+        JsonObject body = new JsonObject();
+        body.addProperty("op", approve ? "approve" : "decline");
+        body.addProperty("join_request_id", joinRequestId);
+        return reviewGroupJoinRequest(groupOpenId, memberOpenId, body, false);
+    }
+
+    private CompletableFuture<Void> reviewGroupJoinRequest(
+            String groupOpenId,
+            String memberOpenId,
+            JsonObject body,
+            boolean retriedAuthentication
+    ) {
+        return tokenProvider.accessToken()
+                .thenCompose(token -> postAuthorized(groupOpenId,
+                        "/approval_join_request/" + encodePathSegment(memberOpenId),
+                        body, token, "Review QQ group join request"))
+                .exceptionallyCompose(error -> {
+                    Throwable cause = unwrap(error);
+                    if (!retriedAuthentication && cause instanceof QqHttpException httpError
+                            && httpError.statusCode() == 401) {
+                        tokenProvider.invalidate();
+                        return reviewGroupJoinRequest(groupOpenId, memberOpenId, body, true);
+                    }
+                    return CompletableFuture.failedFuture(cause);
+                });
+    }
+
     /** Uploads a remote image without sending it, then attaches it to one passive reply. */
     public CompletableFuture<Void> replyRemoteImage(
             String groupOpenId,
@@ -209,7 +248,18 @@ public final class QqOpenApiClient {
 
     private CompletableFuture<Void> sendAuthorizedMessage(String groupOpenId, JsonObject body,
                                                           String accessToken) {
-        HttpRequest request = requestBuilder(groupOpenId, "/messages", accessToken)
+        return postAuthorized(groupOpenId, "/messages", body, accessToken,
+                "Send QQ group message");
+    }
+
+    private CompletableFuture<Void> postAuthorized(
+            String groupOpenId,
+            String suffix,
+            JsonObject body,
+            String accessToken,
+            String operation
+    ) {
+        HttpRequest request = requestBuilder(groupOpenId, suffix, accessToken)
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
                 .build();
 
@@ -221,7 +271,7 @@ public final class QqOpenApiClient {
                     if (response.statusCode() < 200 || response.statusCode() >= 300
                             || errorCode != 0) {
                         throw QqAccessTokenProvider.responseError(
-                                "Send QQ group message", response.statusCode(), responseBody);
+                                operation, response.statusCode(), responseBody);
                     }
                     return null;
                 });
@@ -232,14 +282,17 @@ public final class QqOpenApiClient {
             String suffix,
             String accessToken
     ) {
-        String encodedGroupId = URLEncoder.encode(groupOpenId, StandardCharsets.UTF_8)
-                .replace("+", "%20");
+        String encodedGroupId = encodePathSegment(groupOpenId);
         return HttpRequest.newBuilder(
                         config.apiUri("/v2/groups/" + encodedGroupId + suffix))
                 .timeout(REQUEST_TIMEOUT)
                 .header("Authorization", "QQBot " + accessToken)
                 .header("X-Union-Appid", config.appId())
                 .header("Content-Type", "application/json; charset=utf-8");
+    }
+
+    private static String encodePathSegment(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
     }
 
     private static void validateReply(String messageId, int messageSequence) {

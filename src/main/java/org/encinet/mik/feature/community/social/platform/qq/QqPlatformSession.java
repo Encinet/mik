@@ -9,7 +9,11 @@ import org.encinet.mik.feature.community.social.chat.SocialChatPlatformSession;
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.encinet.mik.feature.community.social.platform.qq.gateway.QqGatewaySession;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinApproval;
 import org.encinet.mik.feature.community.social.platform.qq.render.QqChatRenderer;
+import org.encinet.mik.feature.community.social.platform.qq.render.QqMarkdownRenderer;
+import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.net.http.HttpClient;
 import java.util.LinkedHashMap;
@@ -27,18 +31,21 @@ final class QqPlatformSession implements SocialChatPlatformSession {
     private final HttpClient httpClient;
     private final QqOpenApiClient api;
     private final QqPlatformConfig config;
+    private final QqGroupJoinApproval joinApproval;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     QqPlatformSession(
             QqGatewaySession gateway,
             HttpClient httpClient,
             QqOpenApiClient api,
-            QqPlatformConfig config
+            QqPlatformConfig config,
+            QqGroupJoinApproval joinApproval
     ) {
         this.gateway = Objects.requireNonNull(gateway, "gateway");
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.api = Objects.requireNonNull(api, "api");
         this.config = Objects.requireNonNull(config, "config");
+        this.joinApproval = Objects.requireNonNull(joinApproval, "joinApproval");
     }
 
     @Override
@@ -51,6 +58,14 @@ final class QqPlatformSession implements SocialChatPlatformSession {
     @Override
     public List<SocialChatRoute> chatRoutes() {
         return config.chatRoutes();
+    }
+
+    @Override
+    public CompletionStage<Void> sendNotice(SocialConversation conversation, SocialDocument document) {
+        Objects.requireNonNull(conversation, "conversation");
+        Objects.requireNonNull(document, "document");
+        if (closed.get()) return CompletableFuture.completedFuture(null);
+        return api.sendMarkdown(conversation.id(), QqMarkdownRenderer.render(document, config.maxOutboundLength()));
     }
 
     @Override
@@ -105,7 +120,10 @@ final class QqPlatformSession implements SocialChatPlatformSession {
         if (!closed.compareAndSet(false, true)) {
             return;
         }
-        gateway.close();
-        httpClient.shutdownNow();
+        ShutdownSequence shutdown = new ShutdownSequence();
+        shutdown.attempt("QQ Gateway", gateway::close);
+        shutdown.attempt("QQ group join approval", joinApproval::close);
+        shutdown.attempt("QQ HTTP client", httpClient::shutdownNow);
+        shutdown.finish("QQ platform session");
     }
 }

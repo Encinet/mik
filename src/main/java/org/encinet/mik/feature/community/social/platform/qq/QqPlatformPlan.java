@@ -6,6 +6,7 @@ import org.encinet.mik.feature.community.social.command.SocialCommandSyntax;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqAccessTokenProvider;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.encinet.mik.feature.community.social.platform.qq.gateway.QqGatewaySession;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinApproval;
 import org.encinet.mik.feature.community.social.runtime.SocialRuntimePolicy;
 
 import java.net.http.HttpClient;
@@ -40,9 +41,10 @@ record QqPlatformPlan(
                 httpClient, config);
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokenProvider);
         QqInboundMapper inbound = new QqInboundMapper(config, api, context.events());
+        QqGroupJoinApproval joinApproval = new QqGroupJoinApproval(config, api, logger);
         QqGatewaySession gateway = new QqGatewaySession(
-                httpClient, config, tokenProvider, inbound::accept,
+                httpClient, config, tokenProvider, inbound::accept, joinApproval::accept,
                 context.status()::update, logger);
-        return new QqPlatformSession(gateway, httpClient, api, config);
+        return new QqPlatformSession(gateway, httpClient, api, config, joinApproval);
     }
 }
