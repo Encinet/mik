@@ -7,6 +7,7 @@ import org.encinet.mik.feature.community.social.api.SocialEventSink;
 import org.encinet.mik.feature.community.social.api.SocialSessionStatus;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.junit.jupiter.api.Test;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRequest;
 
 import java.net.URI;
 import java.net.http.WebSocket;
@@ -107,7 +108,7 @@ class QqGatewaySessionTest {
     @Test
     void joinApplicationsUseTheirOwnCallbackAndBackpressureReplaysTheApplication() throws Exception {
         RecordingConnector connector = new RecordingConnector();
-        AtomicReference<QqGatewayJoinRequest> received = new AtomicReference<>();
+        AtomicReference<QqGroupJoinRequest> received = new AtomicReference<>();
         QqPlatformConfig platformConfig = config(3);
         QqGatewaySession session = tracked(statusUpdates -> new QqGatewaySession(platformConfig,
                 () -> CompletableFuture.completedFuture(URI.create("wss://gateway.example/socket")),
@@ -122,17 +123,16 @@ class QqGatewaySessionTest {
             Connection first = connector.only();
             first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
             first.emit("{\"op\":0,\"s\":10,\"t\":\"READY\",\"d\":{\"session_id\":\"joins\"}}");
-            java.time.Instant before = java.time.Instant.now();
             first.emit("""
                     {"op":0,"s":11,"t":"GROUP_JOIN_REQUEST","d":{
                       "group_openid":"group","member_openid":"member","join_request_id":"request",
+                      "apply_at":"1970-01-01T00:01:00Z",
                       "verify_info":{"method":"verify_message","verify_message":"081804"}
                     }}
                     """);
             assertEquals("request", received.get().joinRequestId());
             assertEquals(List.of("081804"), received.get().answers());
-            assertTrue(!received.get().receivedAt().isBefore(before));
-            assertTrue(!received.get().receivedAt().isAfter(java.time.Instant.now()));
+            assertEquals(java.time.Instant.ofEpochSecond(60), received.get().appliedAt());
             await(() -> connector.connections.size() == 2);
             Connection second = connector.connections.get(1);
             second.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");

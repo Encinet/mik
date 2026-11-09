@@ -173,7 +173,7 @@ class PlayerProfileCommandLookupTest {
                 Optional.of(identity), new SocialInboundMessage.Text("/profile"), false,
                 references, _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(
-                new SocialPlatformDescriptor("qq", "QQ"), message);
+                new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message);
     }
 
     private static IdentityBinding binding(String name, ExternalIdentityKey key) {

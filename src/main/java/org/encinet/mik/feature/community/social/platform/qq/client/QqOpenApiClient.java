@@ -3,6 +3,7 @@ package org.encinet.mik.feature.community.social.platform.qq.client;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinPage;
 
 import java.net.URLEncoder;
 import java.net.URI;
@@ -11,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -60,7 +62,7 @@ public final class QqOpenApiClient {
         return sendMarkdown(groupOpenId, content, null, 0, false);
     }
 
-    /** Reviews the exact application carried by an authenticated GROUP_JOIN_REQUEST. */
+    /** Reviews the exact application identified by an authenticated event or pending-list response. */
     public CompletableFuture<Void> reviewGroupJoinRequest(
             String groupOpenId,
             String memberOpenId,
@@ -94,6 +96,39 @@ public final class QqOpenApiClient {
                             && httpError.statusCode() == 401) {
                         tokenProvider.invalidate();
                         return reviewGroupJoinRequest(groupOpenId, memberOpenId, body, true);
+                    }
+                    return CompletableFuture.failedFuture(cause);
+                });
+    }
+
+    public CompletableFuture<QqGroupJoinPage> listGroupJoinRequests(String groupOpenId, String cursor) {
+        if (groupOpenId == null || groupOpenId.isBlank() || cursor == null || cursor.length() > 1_024
+                || cursor.codePoints().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("QQ join list requires a group and valid cursor");
+        }
+        return listGroupJoinRequests(groupOpenId, cursor, false);
+    }
+
+    private CompletableFuture<QqGroupJoinPage> listGroupJoinRequests(
+            String groupOpenId, String cursor, boolean retriedAuthentication) {
+        String suffix = "/join_request_list?limit=50"
+                + (cursor.isEmpty() ? "" : "&cursor=" + encodePathSegment(cursor));
+        return tokenProvider.accessToken().thenCompose(token -> httpClient.sendAsync(
+                requestBuilder(groupOpenId, suffix, token).GET().build(), HttpResponse.BodyHandlers.ofString()))
+                .thenApply(response -> {
+                    JsonObject body = QqAccessTokenProvider.parseObject(response.body());
+                    long code = QqAccessTokenProvider.longValue(body, "err_code",
+                            QqAccessTokenProvider.longValue(body, "code", 0));
+                    if (response.statusCode() < 200 || response.statusCode() >= 300 || code != 0) {
+                        throw QqAccessTokenProvider.responseError("List QQ group join requests", response, body);
+                    }
+                    return QqGroupJoinPage.parse(response.body(), groupOpenId, Instant.now());
+                }).exceptionallyCompose(error -> {
+                    Throwable cause = unwrap(error);
+                    if (!retriedAuthentication && cause instanceof QqHttpException httpError
+                            && httpError.statusCode() == 401) {
+                        tokenProvider.invalidate();
+                        return listGroupJoinRequests(groupOpenId, cursor, true);
                     }
                     return CompletableFuture.failedFuture(cause);
                 });
@@ -223,7 +258,7 @@ public final class QqOpenApiClient {
                     if (response.statusCode() < 200 || response.statusCode() >= 300
                             || errorCode != 0 || fileInfo.isBlank()) {
                         throw QqAccessTokenProvider.responseError(
-                                "Upload QQ group image", response.statusCode(), responseBody);
+                                "Upload QQ group image", response, responseBody);
                     }
                     return fileInfo;
                 });
@@ -270,8 +305,7 @@ public final class QqOpenApiClient {
                             QqAccessTokenProvider.longValue(responseBody, "code", 0));
                     if (response.statusCode() < 200 || response.statusCode() >= 300
                             || errorCode != 0) {
-                        throw QqAccessTokenProvider.responseError(
-                                operation, response.statusCode(), responseBody);
+                        throw QqAccessTokenProvider.responseError(operation, response, responseBody);
                     }
                     return null;
                 });

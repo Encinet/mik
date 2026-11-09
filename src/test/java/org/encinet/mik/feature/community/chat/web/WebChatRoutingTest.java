@@ -42,7 +42,7 @@ class WebChatRoutingTest {
                 ChatSender sender = new ChatSender("Guest", bound ? Optional.of(offline) : Optional.empty(),
                         Optional.empty(), bound ? "Offline" : "", "", "", 0xFFFFFF);
                 f.chat.accept(new ChatSubmission(ChatMessageId.external("matrix", "room", "event-" + bound),
-                        new ChatOrigin.Social("matrix", "Matrix", "room", "event-" + bound), sender,
+                        new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "event-" + bound), sender,
                         ChatConversation.minecraftPublic(), "from social", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external()));
                 List<JsonObject> entries = browser.messages(); assertEquals(1, entries.size());
                 assertEquals("social", text(entries.getFirst().getAsJsonObject("source"), "kind"));

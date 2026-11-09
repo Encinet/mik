@@ -272,7 +272,7 @@ class ChatProcessorTest {
                 new ChatReferences.Mention(14, 20, unbound)));
         ChatSubmission submission = new ChatSubmission(
                 ChatMessageId.external("matrix", "room", "$mention"),
-                new ChatOrigin.Social("matrix", "Matrix", "!room:example.org", "$mention"),
+                new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "!room:example.org", "$mention"),
                 new ChatSender("Sender", Optional.empty(), Optional.empty(),
                         "", "", "", 0xFFFFFF),
                 ChatConversation.minecraftPublic(),

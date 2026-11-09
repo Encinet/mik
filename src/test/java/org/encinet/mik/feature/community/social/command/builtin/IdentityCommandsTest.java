@@ -109,7 +109,7 @@ class IdentityCommandsTest {
                 identity, "/绑定", false,
                 _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(
-                new SocialPlatformDescriptor(platformId, platformId), message);
+                new SocialPlatformDescriptor(platformId, platformId, 0x55FFFF), message);
     }
 
     private static IdentityBinding binding() {

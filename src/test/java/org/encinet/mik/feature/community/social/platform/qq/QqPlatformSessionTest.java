@@ -14,6 +14,7 @@ import org.encinet.mik.feature.community.social.platform.qq.client.QqAccessToken
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.encinet.mik.feature.community.social.platform.qq.gateway.QqGatewaySession;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinApproval;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinReconciler;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.junit.jupiter.api.Test;
 
@@ -54,10 +55,11 @@ class QqPlatformSessionTest {
         HttpClient client = HttpClient.newHttpClient();
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(client, config);
         QqOpenApiClient api = new QqOpenApiClient(client, config, tokens);
+        QqGroupJoinApproval approvals = new QqGroupJoinApproval(config, api, Logger.getAnonymousLogger());
         QqPlatformSession session = new QqPlatformSession(new QqGatewaySession(client, config, tokens,
                 _ -> SocialEventSink.Acceptance.IGNORED, _ -> SocialEventSink.Acceptance.IGNORED,
                 _ -> { }, Logger.getAnonymousLogger()), client, api, config,
-                new QqGroupJoinApproval(config, api, Logger.getAnonymousLogger()));
+                approvals, new QqGroupJoinReconciler(config, api, approvals, Logger.getAnonymousLogger()));
         try {
             SocialDocument notice = SocialDocument.of(SocialDocument.Moderation.REQUIRED,
                     "Announcement", SocialDocument.Tone.INFO, SocialDocument.paragraph("First line\n<everyone> *text*"));
@@ -90,9 +92,10 @@ class QqPlatformSessionTest {
                 _ -> SocialEventSink.Acceptance.IGNORED,
                 _ -> SocialEventSink.Acceptance.IGNORED,
                 _ -> { }, Logger.getAnonymousLogger());
+        QqGroupJoinApproval approvals = new QqGroupJoinApproval(config, api, Logger.getAnonymousLogger());
         QqPlatformSession session = new QqPlatformSession(
                 gateway, httpClient, api, config,
-                new QqGroupJoinApproval(config, api, Logger.getAnonymousLogger()));
+                approvals, new QqGroupJoinReconciler(config, api, approvals, Logger.getAnonymousLogger()));
         UUID playerId = UUID.randomUUID();
         ExternalIdentity current = identity("app", "group-a", "current");
         ExternalIdentity wrongApp = identity("other-app", "group-a", "wrong-app");

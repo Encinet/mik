@@ -35,6 +35,7 @@ public record QqPlatformConfig(
         Set<String> allowedGroupOpenIds,
         List<SocialChatRoute> chatRoutes,
         List<QqGroupJoinRule> groupJoinRules,
+        long groupJoinReconcileIntervalSeconds,
         boolean contentSafetyEnabled,
         int maxOutboundLength
 ) {
@@ -112,6 +113,9 @@ public record QqPlatformConfig(
         Set<String> allowedGroups = stringSet(yaml, "allowed-group-openids");
         List<SocialChatRoute> chatRoutes = chatRoutes(yaml, allowedGroups);
         List<QqGroupJoinRule> groupJoinRules = groupJoinRules(yaml, allowedGroups);
+        long groupJoinReconcileInterval = requireRange(
+                yaml.getLong("group-join.reconcile-interval-seconds", 30), 10, 3_600,
+                "group-join.reconcile-interval-seconds");
         boolean contentSafety = yaml.getBoolean("content-safety.enabled", true);
         int maxLength = (int) clamp(yaml.getInt("reply.max-message-length", 1_500),
                 100, 4_000);
@@ -126,7 +130,7 @@ public record QqPlatformConfig(
                 gatewayMaxReconnectAttempts, gatewayMaxFrameBytes,
                 gatewayHandshakeTimeoutMillis, gatewayDebugEnabled,
                 workerMaxConcurrentTasks, defaultLanguage, allowedGroups,
-                chatRoutes, groupJoinRules, contentSafety, maxLength);
+                chatRoutes, groupJoinRules, groupJoinReconcileInterval, contentSafety, maxLength);
     }
 
     public boolean acceptsGroup(String groupOpenId) {

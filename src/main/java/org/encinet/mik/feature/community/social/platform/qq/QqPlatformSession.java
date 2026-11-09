@@ -10,6 +10,7 @@ import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.encinet.mik.feature.community.social.platform.qq.gateway.QqGatewaySession;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinApproval;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinReconciler;
 import org.encinet.mik.feature.community.social.platform.qq.render.QqChatRenderer;
 import org.encinet.mik.feature.community.social.platform.qq.render.QqMarkdownRenderer;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
@@ -32,6 +33,7 @@ final class QqPlatformSession implements SocialChatPlatformSession {
     private final QqOpenApiClient api;
     private final QqPlatformConfig config;
     private final QqGroupJoinApproval joinApproval;
+    private final QqGroupJoinReconciler reconciler;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     QqPlatformSession(
@@ -39,18 +41,21 @@ final class QqPlatformSession implements SocialChatPlatformSession {
             HttpClient httpClient,
             QqOpenApiClient api,
             QqPlatformConfig config,
-            QqGroupJoinApproval joinApproval
+            QqGroupJoinApproval joinApproval,
+            QqGroupJoinReconciler reconciler
     ) {
         this.gateway = Objects.requireNonNull(gateway, "gateway");
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.api = Objects.requireNonNull(api, "api");
         this.config = Objects.requireNonNull(config, "config");
         this.joinApproval = Objects.requireNonNull(joinApproval, "joinApproval");
+        this.reconciler = Objects.requireNonNull(reconciler, "reconciler");
     }
 
     @Override
     public void start() {
         if (!closed.get()) {
+            reconciler.start();
             gateway.start();
         }
     }
@@ -122,6 +127,7 @@ final class QqPlatformSession implements SocialChatPlatformSession {
         }
         ShutdownSequence shutdown = new ShutdownSequence();
         shutdown.attempt("QQ Gateway", gateway::close);
+        shutdown.attempt("QQ group join reconciliation", reconciler::close);
         shutdown.attempt("QQ group join approval", joinApproval::close);
         shutdown.attempt("QQ HTTP client", httpClient::shutdownNow);
         shutdown.finish("QQ platform session");

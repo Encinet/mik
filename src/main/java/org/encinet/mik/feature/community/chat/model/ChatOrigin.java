@@ -23,10 +23,14 @@ public sealed interface ChatOrigin permits ChatOrigin.Player,
         public Web { playerId = Objects.requireNonNull(playerId, "playerId"); }
     }
 
-    record Social(String platformId, String platformName, String conversationId, String eventId) implements ChatOrigin {
+    record Social(String platformId, String platformName, int sourceColor,
+                  String conversationId, String eventId) implements ChatOrigin {
         public Social {
             platformId = requireId(platformId, "platformId");
             platformName = requireId(platformName, "platformName");
+            if (sourceColor < 0 || sourceColor > 0xFFFFFF) {
+                throw new IllegalArgumentException("sourceColor is outside RGB range");
+            }
             conversationId = requireId(conversationId, "conversationId");
             eventId = requireId(eventId, "eventId");
         }

@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRequest;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -94,11 +95,11 @@ final class QqGatewayProtocol {
                 || EVENT_GROUP_MESSAGE_CREATE.equals(eventType);
     }
 
-    static Optional<QqGatewayJoinRequest> joinRequest(Frame frame, Instant receivedAt) {
+    static Optional<QqGroupJoinRequest> joinRequest(Frame frame, Instant observedAt) {
         if (frame.opcode() != OP_DISPATCH || !EVENT_GROUP_JOIN_REQUEST.equals(frame.type())) {
             return Optional.empty();
         }
-        return QqGatewayJoinRequest.from(frame.data(), receivedAt);
+        return QqGroupJoinRequest.fromEvent(frame.data(), observedAt);
     }
 
     static String identify(String accessToken, boolean groupJoinEnabled) {

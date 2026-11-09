@@ -5,6 +5,7 @@ import org.encinet.mik.feature.community.social.api.SocialPlatformSession;
 import org.encinet.mik.feature.community.social.api.SocialSessionStatus;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqAccessTokenProvider;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRequest;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -38,7 +39,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
     private final Runnable invalidateToken;
     private final Connector connector;
     private final Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events;
-    private final Function<QqGatewayJoinRequest, SocialEventSink.Acceptance> joinRequests;
+    private final Function<QqGroupJoinRequest, SocialEventSink.Acceptance> joinRequests;
     private final Consumer<SocialSessionStatus> statusUpdates;
     private final Logger logger;
     private final QqGatewayReconnectPolicy reconnectPolicy;
@@ -62,7 +63,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             QqPlatformConfig config,
             QqAccessTokenProvider tokenProvider,
             Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events,
-            Function<QqGatewayJoinRequest, SocialEventSink.Acceptance> joinRequests,
+            Function<QqGroupJoinRequest, SocialEventSink.Acceptance> joinRequests,
             Consumer<SocialSessionStatus> statusUpdates,
             Logger logger
     ) {
@@ -87,7 +88,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             Runnable invalidateToken,
             Connector connector,
             Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events,
-            Function<QqGatewayJoinRequest, SocialEventSink.Acceptance> joinRequests,
+            Function<QqGroupJoinRequest, SocialEventSink.Acceptance> joinRequests,
             Consumer<SocialSessionStatus> statusUpdates,
             Logger logger
     ) {
@@ -309,7 +310,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
         }
 
         QqGatewayGroupMessage event = QqGatewayProtocol.groupMessage(frame).orElse(null);
-        QqGatewayJoinRequest joinRequest = QqGatewayProtocol.joinRequest(
+        QqGroupJoinRequest joinRequest = QqGatewayProtocol.joinRequest(
                 frame, Instant.now()).orElse(null);
         if (event == null && joinRequest == null) {
             return;

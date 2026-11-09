@@ -476,7 +476,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
                 "", "", "", 0xFFFFFF);
         return new ChatSubmission(
                 ChatMessageId.external(descriptor.id(), message.conversation().id(), message.eventId()),
-                new ChatOrigin.Social(descriptor.id(), descriptor.displayName(),
+                new ChatOrigin.Social(descriptor.id(), descriptor.displayName(), descriptor.sourceColor(),
                         message.conversation().id(), message.eventId()),
                 sender,
                 ChatConversation.minecraftPublic(),

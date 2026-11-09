@@ -7,6 +7,8 @@ import org.encinet.mik.feature.community.social.platform.qq.client.QqAccessToken
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.encinet.mik.feature.community.social.platform.qq.gateway.QqGatewaySession;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinApproval;
+import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinReconciler;
+import org.encinet.mik.feature.community.social.api.SocialSessionStatus;
 import org.encinet.mik.feature.community.social.runtime.SocialRuntimePolicy;
 
 import java.net.http.HttpClient;
@@ -42,9 +44,13 @@ record QqPlatformPlan(
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokenProvider);
         QqInboundMapper inbound = new QqInboundMapper(config, api, context.events());
         QqGroupJoinApproval joinApproval = new QqGroupJoinApproval(config, api, logger);
+        QqGroupJoinReconciler reconciler = new QqGroupJoinReconciler(config, api, joinApproval, logger);
         QqGatewaySession gateway = new QqGatewaySession(
                 httpClient, config, tokenProvider, inbound::accept, joinApproval::accept,
-                context.status()::update, logger);
-        return new QqPlatformSession(gateway, httpClient, api, config, joinApproval);
+                status -> {
+                    context.status().update(status);
+                    if (status.state() == SocialSessionStatus.State.READY) reconciler.requestScan();
+                }, logger);
+        return new QqPlatformSession(gateway, httpClient, api, config, joinApproval, reconciler);
     }
 }

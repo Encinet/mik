@@ -19,11 +19,13 @@ Minecraft 公共聊天 → ChatSubmission → ChatProcessor → ChatMessage
 
 `ChatContent` 使用文本、链接、玩家提及、外部提及、广播提及和物品等语义节点。Minecraft、QQ、Matrix 各自渲染或降级，不在共享修饰器中拼平台标记。
 
+每个平台在 `SocialPlatformDescriptor.sourceColor` 显式声明来源标签的 RGB 颜色。Host 将颜色随 `ChatOrigin.Social` 传递，游戏聊天统一读取该快照渲染标签；新增平台只需在自己的适配器中声明显示名与颜色。
+
 ## 平台 SPI 与生命周期
 
 | 接口 | 契约 |
 | --- | --- |
-| `descriptor()` | 稳定平台 ID、显示名及可选的 `IdentityPlatform` |
+| `descriptor()` | 稳定平台 ID、显示名、来源标签颜色及可选的 `IdentityPlatform` |
 | `prepare()` | 校验配置，禁用时返回空计划，异常只令该平台失败 |
 | `SocialPlatformPlan.open(context)` | 固定本代运行策略并创建会话 |
 | `SocialPlatformSession.close()` | 关闭传输与资源；状态由专属 sink 推送 `STARTING/READY/FAILED/STOPPED` |

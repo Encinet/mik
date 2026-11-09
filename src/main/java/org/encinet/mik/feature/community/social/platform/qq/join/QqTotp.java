@@ -19,15 +19,15 @@ public final class QqTotp {
         key = new SecretKeySpec(decodeSecret(secret), "HmacSHA1");
     }
 
-    public boolean matches(String answer, Instant receivedAt) {
-        if (answer == null || receivedAt.getEpochSecond() < 0) {
+    public boolean matches(String answer, Instant appliedAt) {
+        if (answer == null || appliedAt.getEpochSecond() < 0) {
             return false;
         }
         String code = answer.strip();
         if (code.length() != 6 || !code.matches("[0-9]{6}")) {
             return false;
         }
-        long counter = receivedAt.getEpochSecond() / 30;
+        long counter = appliedAt.getEpochSecond() / 30;
         byte[] supplied = code.getBytes(StandardCharsets.US_ASCII);
         boolean current = MessageDigest.isEqual(supplied, code(counter));
         boolean previous = counter > 0

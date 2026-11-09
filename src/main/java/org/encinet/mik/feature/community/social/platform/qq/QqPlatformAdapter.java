@@ -16,7 +16,7 @@ public final class QqPlatformAdapter implements SocialPlatformAdapter {
     public static final IdentityPlatform IDENTITY_PLATFORM = new IdentityPlatform(
             QqPlatformConfig.PLATFORM_ID, "QQ", "/绑定 {code}", true);
     static final SocialPlatformDescriptor DESCRIPTOR =
-            new SocialPlatformDescriptor(QqPlatformConfig.PLATFORM_ID, "QQ", IDENTITY_PLATFORM);
+            new SocialPlatformDescriptor(QqPlatformConfig.PLATFORM_ID, "QQ", 0xFFC0CB, IDENTITY_PLATFORM);
 
     private final JavaPlugin plugin;
 

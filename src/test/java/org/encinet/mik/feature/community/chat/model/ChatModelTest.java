@@ -111,7 +111,7 @@ class ChatModelTest {
         UUID playerId = UUID.randomUUID();
         ChatSubmission submission = new ChatSubmission(
                 ChatMessageId.external("matrix", "room", "$event"),
-                new ChatOrigin.Social("matrix", "Matrix", "!room:example.org", "$event"),
+                new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "!room:example.org", "$event"),
                 new ChatSender("Steve", Optional.of(playerId), Optional.empty(),
                         "Steve", "[VIP] ", "", 0xFFFFFF),
                 ChatConversation.minecraftPublic(),
@@ -126,7 +126,7 @@ class ChatModelTest {
     @Test
     void transportLineBreaksBecomeSafeSingleLineText() {
         ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", "!room:example.org", "$event"),
+                ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "!room:example.org", "$event"),
                 new ChatSender("Alice", Optional.empty(), Optional.empty(),
                         "", "", "", 0xFFFFFF),
                 ChatConversation.minecraftPublic(),

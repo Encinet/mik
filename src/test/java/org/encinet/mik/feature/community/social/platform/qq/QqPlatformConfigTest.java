@@ -13,6 +13,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QqPlatformConfigTest {
 
     @Test
+    void joinReconciliationHasABoundedConfigurableInterval() throws Exception {
+        assertEquals(30, QqPlatformConfig.from(yaml("")).groupJoinReconcileIntervalSeconds());
+        for (long seconds : new long[]{10, 60, 3_600}) {
+            assertEquals(seconds, QqPlatformConfig.from(yaml("""
+                    group-join:
+                      reconcile-interval-seconds: %d
+                    """.formatted(seconds))).groupJoinReconcileIntervalSeconds());
+        }
+        for (long seconds : new long[]{-1, 0, 9, 3_601}) {
+            assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml("""
+                    group-join:
+                      reconcile-interval-seconds: %d
+                    """.formatted(seconds))));
+        }
+    }
+
+    @Test
     void gatewayAndCredentialsComeFromTheNewYaml() throws Exception {
         QqPlatformConfig config = QqPlatformConfig.from(yaml("""
                 enabled: true

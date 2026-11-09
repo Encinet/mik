@@ -174,7 +174,7 @@ class PlayerProfileCommandTest {
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/我的", false,
                 _ -> CompletableFuture.completedFuture(null));
-        return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ"), message,
+        return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message,
                 org.encinet.mik.feature.community.social.command.SocialCommandInput.nativeCommand(
                         "binding.profile", "", Map.of()),
                 SocialCommandSyntax.caseInsensitive(platformDefault, "/"));

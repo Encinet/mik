@@ -16,7 +16,7 @@ public final class MatrixPlatformAdapter implements SocialPlatformAdapter {
     public static final IdentityPlatform IDENTITY_PLATFORM = new IdentityPlatform(
             MatrixPlatformConfig.PLATFORM_ID, "Matrix", "!绑定 {code}");
     static final SocialPlatformDescriptor DESCRIPTOR =
-            new SocialPlatformDescriptor(MatrixPlatformConfig.PLATFORM_ID, "Matrix", IDENTITY_PLATFORM);
+            new SocialPlatformDescriptor(MatrixPlatformConfig.PLATFORM_ID, "Matrix", 0x55FFFF, IDENTITY_PLATFORM);
 
     private final JavaPlugin plugin;
 

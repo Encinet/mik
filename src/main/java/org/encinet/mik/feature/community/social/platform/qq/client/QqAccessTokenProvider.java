@@ -10,6 +10,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 
 public final class QqAccessTokenProvider {
@@ -76,7 +80,7 @@ public final class QqAccessTokenProvider {
     private CachedToken parseTokenResponse(HttpResponse<String> response) {
         JsonObject body = parseObject(response.body());
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw responseError("Access token request", response.statusCode(), body);
+            throw responseError("Access token request", response, body);
         }
 
         String token = string(body, "access_token");
@@ -92,13 +96,6 @@ public final class QqAccessTokenProvider {
         return new CachedToken(token, expiresAt);
     }
 
-    static QqHttpException responseError(String operation, int statusCode, JsonObject body) {
-        return new QqHttpException(operation, statusCode,
-                longValue(body, "err_code", longValue(body, "code", 0)),
-                firstNonBlank(string(body, "message"), "QQ API rejected the request"),
-                string(body, "trace_id"));
-    }
-
     static JsonObject parseObject(String value) {
         try {
             JsonElement element = JsonParser.parseString(value == null || value.isBlank() ? "{}" : value);
@@ -106,6 +103,25 @@ public final class QqAccessTokenProvider {
         } catch (RuntimeException ignored) {
             return new JsonObject();
         }
+    }
+
+    static QqHttpException responseError(String operation, HttpResponse<String> response, JsonObject body) {
+        long delay = 0;
+        String value = response.headers().firstValue("Retry-After").orElse("").strip();
+        try {
+            delay = Math.multiplyExact(Long.parseLong(value), 1_000L);
+        } catch (NumberFormatException | ArithmeticException invalidSeconds) {
+            try {
+                delay = Duration.between(Instant.now(), ZonedDateTime.parse(
+                        value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()).toMillis();
+            } catch (DateTimeException | ArithmeticException invalidDate) {
+                // An absent or malformed header leaves retry timing to the caller's backoff.
+            }
+        }
+        return new QqHttpException(operation, response.statusCode(),
+                longValue(body, "err_code", longValue(body, "code", 0)),
+                firstNonBlank(string(body, "message"), "QQ API rejected the request"),
+                string(body, "trace_id"), Math.clamp(delay, 0, 86_400_000));
     }
 
     static String string(JsonObject object, String name) {

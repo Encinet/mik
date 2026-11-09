@@ -21,6 +21,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,6 +34,104 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QqOpenApiClientTest {
 
     private HttpServer server;
+
+    @Test
+    void listsApplicationsUsingAuthorizedGetAndAnEncodedCursorWithOneTokenRefresh() throws Exception {
+        AtomicInteger tokenRequests = new AtomicInteger();
+        List<String> requests = new ArrayList<>();
+        List<String> authorizations = new ArrayList<>();
+        List<String> appIds = new ArrayList<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"token-" + tokenRequests.incrementAndGet() + "\",\"expires_in\":7200}"));
+        server.createContext("/v2/groups/", exchange -> {
+            requests.add(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+            authorizations.add(exchange.getRequestHeaders().getFirst("Authorization"));
+            appIds.add(exchange.getRequestHeaders().getFirst("X-Union-Appid"));
+            assertEquals(0, exchange.getRequestBody().readAllBytes().length);
+            respond(exchange, requests.size() == 1 ? 401 : 200, requests.size() == 1 ? "{\"code\":11243}" : """
+                    {"list":[{"member_openid":"member","join_request_id":"request",
+                    "apply_at":"1970-01-01T00:01:00Z",
+                    "verify_info":{"method":"verify_message","verify_message":"005924"}}],"next_cursor":"next"}
+                    """);
+        });
+        server.start();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            var page = api.listGroupJoinRequests("group/a", "cursor+/= space&").join();
+            assertEquals(2, tokenRequests.get());
+            assertEquals(List.of("QQBot token-1", "QQBot token-2"), authorizations);
+            assertEquals(List.of("app", "app"), appIds);
+            assertTrue(requests.stream().allMatch(request -> request.equals(
+                    "GET /v2/groups/group%2Fa/join_request_list?limit=50&cursor=cursor%2B%2F%3D%20space%26")));
+            assertEquals("next", page.nextCursor());
+            assertEquals("group/a", page.requests().getFirst().groupOpenId());
+            assertEquals(Instant.ofEpochSecond(60), page.requests().getFirst().appliedAt());
+        }
+    }
+
+    @Test
+    void listFailuresAreNotEmptyPagesAndUnauthorizedRetriesStopAfterOneRefresh() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<String> body = new java.util.concurrent.atomic.AtomicReference<>("{}");
+        AtomicInteger status = new AtomicInteger(200);
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"token\",\"expires_in\":7200}"));
+        server.createContext("/v2/groups/", exchange -> {
+            attempts.incrementAndGet();
+            respond(exchange, status.get(), body.get());
+        });
+        server.start();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            for (String malformed : List.of("{}", "not json", "{\"code\":42,\"list\":[]}")) {
+                body.set(malformed);
+                assertThrows(java.util.concurrent.CompletionException.class,
+                        () -> api.listGroupJoinRequests("group", "").join());
+            }
+            assertEquals(3, attempts.get());
+            status.set(401);
+            assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> api.listGroupJoinRequests("group", "").join());
+            assertEquals(5, attempts.get());
+        }
+    }
+
+    @Test
+    void listAndApprovalErrorsPreserveRetryAfterWithoutImmediateRateLimitRetries() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<String> retryAfter = new java.util.concurrent.atomic.AtomicReference<>("120");
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"token\",\"expires_in\":7200}"));
+        server.createContext("/v2/groups/", exchange -> {
+            attempts.incrementAndGet();
+            exchange.getResponseHeaders().set("Retry-After", retryAfter.get());
+            respond(exchange, 429, "{\"code\":429,\"message\":\"rate limited\"}");
+        });
+        server.start();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            var error = assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> api.listGroupJoinRequests("group", "").join());
+            assertEquals(120_000, ((QqHttpException) error.getCause()).retryAfterMillis());
+            error = assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> api.reviewGroupJoinRequest("group", "member", "request", true).join());
+            assertEquals(120_000, ((QqHttpException) error.getCause()).retryAfterMillis());
+            retryAfter.set(ZonedDateTime.now(ZoneOffset.UTC).plusSeconds(90).format(DateTimeFormatter.RFC_1123_DATE_TIME));
+            error = assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> api.listGroupJoinRequests("group", "").join());
+            assertTrue(((QqHttpException) error.getCause()).retryAfterMillis() > 80_000);
+            for (String invalid : List.of("invalid", "-10", "99999999999999999999999")) {
+                retryAfter.set(invalid);
+                error = assertThrows(java.util.concurrent.CompletionException.class,
+                        () -> api.listGroupJoinRequests("group", "").join());
+                assertEquals(0, ((QqHttpException) error.getCause()).retryAfterMillis());
+            }
+            assertEquals(6, attempts.get());
+        }
+    }
 
     @AfterEach
     void stopServer() {

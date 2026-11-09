@@ -98,7 +98,7 @@ class SocialHelpCommandTest {
                 "ヘルプ", "", SocialCommandInput.InvocationType.EXPLICIT_TEXT,
                 Map.of(), Optional.of(Language.JA_JP));
         return new SocialCommandContext(
-                new SocialPlatformDescriptor("test", "Test"), message, input,
+                new SocialPlatformDescriptor("test", "Test", 0x55FFFF), message, input,
                 SocialCommandSyntax.caseInsensitive(Language.ZH_CN, "!"));
     }
 

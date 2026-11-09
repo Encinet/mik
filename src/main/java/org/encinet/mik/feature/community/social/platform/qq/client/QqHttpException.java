@@ -1,6 +1,6 @@
 package org.encinet.mik.feature.community.social.platform.qq.client;
 
-final class QqHttpException extends RuntimeException {
+public final class QqHttpException extends RuntimeException {
     @java.io.Serial
     private static final long serialVersionUID = 1L;
 
@@ -8,17 +8,28 @@ final class QqHttpException extends RuntimeException {
     private final int statusCode;
     private final long errorCode;
     private final String traceId;
+    private final long retryAfterMillis;
 
     QqHttpException(String operation, int statusCode, long errorCode,
                     String message, String traceId) {
+        this(operation, statusCode, errorCode, message, traceId, 0);
+    }
+
+    QqHttpException(String operation, int statusCode, long errorCode,
+                    String message, String traceId, long retryAfterMillis) {
         super(describe(operation, statusCode, errorCode, message, traceId));
         this.statusCode = statusCode;
         this.errorCode = errorCode;
         this.traceId = traceId;
+        this.retryAfterMillis = retryAfterMillis;
     }
 
-    int statusCode() {
+    public int statusCode() {
         return statusCode;
+    }
+
+    public long retryAfterMillis() {
+        return retryAfterMillis;
     }
 
     long errorCode() {

@@ -71,7 +71,7 @@ class ServerStatusCommandTest {
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/状态", false,
                 _ -> CompletableFuture.completedFuture(null));
-        return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ"), message);
+        return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message);
     }
 
     private static final class StubLanguageService extends LanguageService {

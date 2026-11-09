@@ -123,7 +123,7 @@ class SocialCommandDispatcherTest {
                                   SocialInboundMessage message) {
         return dispatcher.resolve(syntax, message).orElseThrow()
                 .execute(new SocialCommandContext(
-                        new SocialPlatformDescriptor("test", "Test"), message))
+                        new SocialPlatformDescriptor("test", "Test", 0x55FFFF), message))
                 .title();
     }
 

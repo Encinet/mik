@@ -140,17 +140,21 @@ class PlayerChatDeliveryTest {
             Player alice = f.game("Alice");
             Player bob = f.game("Bob");
             f.bedrock.add(alice.getUniqueId());
-            for (String platform : List.of("QQ", "Matrix", "IRC")) {
-                var origin = new ChatOrigin.Social(platform.toLowerCase(Locale.ROOT), platform, "room", "event");
+            for (var origin : List.of(
+                    new ChatOrigin.Social("qq", "QQ", 0xFFC0CB, "room", "event"),
+                    new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "event"),
+                    new ChatOrigin.Social("irc", "IRC", 0x123456, "room", "event"))) {
                 var sender = new ChatSender("Alice", Optional.of(alice.getUniqueId()), Optional.empty(),
                         "Alice", "<gold>[Member] </gold>", "<green> [Tag]</green>", 0xFFFFFF);
                 f.chat.messages().accept(new ChatSubmission(ChatMessageId.random(), origin, sender,
                         ChatConversation.minecraftPublic(), "external", ChatReferences.empty(), Instant.EPOCH,
                         ChatProcessingContext.external()));
+                assertEquals(origin.sourceColor(), namedText(f.consoleComponents.getLast(),
+                        "[" + origin.platformName() + "]").color().value());
             }
             var unbound = new ChatSender("Guest", Optional.empty(), Optional.empty(), "", "", "", 0xFFFFFF);
             f.chat.messages().accept(new ChatSubmission(ChatMessageId.random(),
-                    new ChatOrigin.Social("matrix", "Matrix", "room", "unbound"), unbound,
+                    new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "unbound"), unbound,
                     ChatConversation.minecraftPublic(), "guest", ChatReferences.empty(), Instant.EPOCH,
                     ChatProcessingContext.external()));
 
@@ -162,7 +166,7 @@ class PlayerChatDeliveryTest {
             assertTrue(f.geyserQueries.isEmpty());
             assertEquals(4, f.social.size());
             assertThrows(IllegalArgumentException.class, () -> f.chat.messages().accept(new ChatSubmission(
-                    ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", "room", "bad"), unbound,
+                    ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "bad"), unbound,
                     ChatConversation.minecraftStaff(), "restricted", ChatReferences.empty(), Instant.EPOCH,
                     ChatProcessingContext.external())));
             assertEquals(4, f.social.size());

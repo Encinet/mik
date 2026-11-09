@@ -1,31 +1,45 @@
-package org.encinet.mik.feature.community.social.platform.qq.gateway;
+package org.encinet.mik.feature.community.social.platform.qq.join;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import java.time.Instant;
+import java.time.DateTimeException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Authenticated join-application fields plus the local Gateway receive time. */
-public record QqGatewayJoinRequest(
+/** One authenticated QQ application, shared by Gateway delivery and list reconciliation. */
+public record QqGroupJoinRequest(
         String groupOpenId,
         String memberOpenId,
         String joinRequestId,
         List<String> answers,
-        Instant receivedAt
+        Instant appliedAt
 ) {
-    public QqGatewayJoinRequest {
+    public QqGroupJoinRequest {
         answers = List.copyOf(answers);
     }
 
-    static Optional<QqGatewayJoinRequest> from(JsonElement payload, Instant receivedAt) {
+    public static Optional<QqGroupJoinRequest> fromEvent(JsonElement payload, Instant observedAt) {
+        return parse(payload, null, observedAt);
+    }
+
+    public static Optional<QqGroupJoinRequest> fromListItem(JsonElement payload, String groupOpenId, Instant observedAt) {
+        return parse(payload, groupOpenId, observedAt);
+    }
+
+    private static Optional<QqGroupJoinRequest> parse(JsonElement payload, String listedGroup, Instant observedAt) {
         if (payload == null || !payload.isJsonObject()) {
             return Optional.empty();
         }
         JsonObject data = payload.getAsJsonObject();
         String group = string(data, "group_openid");
+        if (listedGroup != null) {
+            if (!group.isEmpty() && !group.equals(listedGroup)) return Optional.empty();
+            group = listedGroup;
+        }
         String member = string(data, "member_openid");
         String request = string(data, "join_request_id");
         JsonElement bot = data.get("bot");
@@ -33,6 +47,15 @@ public record QqGatewayJoinRequest(
                 || (data.has("auto_approved") && !data.get("auto_approved").isJsonNull())
                 || (bot != null && (!bot.isJsonPrimitive()
                 || !bot.getAsJsonPrimitive().isBoolean() || bot.getAsBoolean()))) {
+            return Optional.empty();
+        }
+        final Instant appliedAt;
+        try {
+            appliedAt = OffsetDateTime.parse(string(data, "apply_at")).toInstant();
+            if (appliedAt.getEpochSecond() < 0 || appliedAt.isAfter(observedAt.plusSeconds(30))) {
+                return Optional.empty();
+            }
+        } catch (DateTimeException error) {
             return Optional.empty();
         }
         List<String> answers = new ArrayList<>();
@@ -55,8 +78,8 @@ public record QqGatewayJoinRequest(
                 default -> { }
             }
         }
-        return Optional.of(new QqGatewayJoinRequest(group, member, request,
-                answers, receivedAt));
+        return Optional.of(new QqGroupJoinRequest(group, member, request,
+                answers, appliedAt));
     }
 
     private static boolean validId(String value, int maximumLength) {

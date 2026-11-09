@@ -20,7 +20,7 @@ class WebChatContractTest {
         var identity = new ExternalIdentity(new ExternalIdentityKey("matrix", "https://example.org", "room", "@guest:example.org"), "Guest");
         JsonArray frames = new JsonArray();
         List<ChatOrigin> origins = List.of(new ChatOrigin.Minecraft(player), new ChatOrigin.Web(player),
-                new ChatOrigin.Social("matrix", "Matrix", "room", "event"));
+                new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "event"));
         for (ChatOrigin origin : origins) {
             for (boolean bound : List.of(false, true)) {
                 if (origin instanceof ChatOrigin.Player && !bound) continue;

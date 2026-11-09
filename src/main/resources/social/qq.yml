@@ -22,8 +22,11 @@ allowed-group-openids: []
 
 # Empty disables automatic join approval. Each group must use its own Base32
 # secret, shared with the external verifier (SHA-1, 6 digits, 30 seconds).
-# Only the current and previous 30-second steps at Gateway receive time pass.
+# Only the current and previous 30-second steps at QQ's apply_at time pass.
 group-join:
+  # Scan pending applications at startup, after reconnect, and every 30 seconds.
+  # Range: 10-3600. Paginated API calls are paced across both groups.
+  reconcile-interval-seconds: 30
   groups: []
   # - group-openid: "first-group-openid"
   #   totp-secret: "YOUR_FIRST_BASE32_SECRET"

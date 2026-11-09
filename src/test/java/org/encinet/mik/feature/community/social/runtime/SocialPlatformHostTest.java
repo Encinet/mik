@@ -350,6 +350,7 @@ class SocialPlatformHostTest {
             var origin = assertInstanceOf(org.encinet.mik.feature.community.chat.model.ChatOrigin.Social.class,
                     incoming.getFirst().origin());
             assertEquals("Bridge", origin.platformName());
+            assertEquals(0x123456, origin.sourceColor());
             assertEquals("always", origin.conversationId());
             assertEquals("chat-event", origin.eventId());
             assertEquals(org.encinet.mik.feature.community.chat.model.ChatConversation.minecraftPublic(),
@@ -674,7 +675,7 @@ class SocialPlatformHostTest {
                             org.encinet.mik.feature.community.chat.model.ChatMessageId.external(
                                     "matrix", "!room:example.org", "$event"),
                             new org.encinet.mik.feature.community.chat.model.ChatOrigin.Social(
-                                    "matrix", "Matrix", "!room:example.org", "$event"),
+                                    "matrix", "Matrix", 0x55FFFF, "!room:example.org", "$event"),
                             new org.encinet.mik.feature.community.chat.model.ChatSender(
                                     "Alice", Optional.empty(), Optional.empty(),
                                     "", "", "", 0xFFFFFF),
@@ -860,8 +861,8 @@ class SocialPlatformHostTest {
         private MemoryAdapter(String id, String prefix, int concurrency,
                               IdentityPlatform identityPlatform) {
             descriptor = identityPlatform == null
-                    ? new SocialPlatformDescriptor(id, capitalize(id))
-                    : new SocialPlatformDescriptor(id, capitalize(id), identityPlatform);
+                    ? new SocialPlatformDescriptor(id, capitalize(id), 0x123456)
+                    : new SocialPlatformDescriptor(id, capitalize(id), 0x123456, identityPlatform);
             this.prefix = prefix;
             this.concurrency = concurrency;
         }

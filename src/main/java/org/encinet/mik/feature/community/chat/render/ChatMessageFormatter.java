@@ -86,7 +86,8 @@ public final class ChatMessageFormatter {
     private PlayerSource source(ChatOrigin origin, Audience viewer) {
         return switch (origin) {
             case ChatOrigin.Web _ -> sources.web(viewer);
-            case ChatOrigin.Social social -> new PlayerSource(social.platformName());
+            case ChatOrigin.Social social -> new PlayerSource(social.platformName(),
+                    TextColor.color(social.sourceColor()));
             case ChatOrigin.Minecraft game -> {
                 Player subject = onlinePlayers.apply(game.playerId());
                 yield subject == null ? PlayerSource.NONE : sources.game(subject, viewer);

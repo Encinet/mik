@@ -135,7 +135,7 @@ class AiSocialCommandTest {
                 "ai", argument, SocialCommandInput.InvocationType.EXPLICIT_TEXT,
                 Map.of(), Optional.of(language));
         return new SocialCommandContext(
-                new SocialPlatformDescriptor("qq", "QQ"), message, input,
+                new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message, input,
                 SocialCommandSyntax.caseInsensitive(Language.ZH_CN, "/"));
     }
 

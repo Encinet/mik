@@ -18,7 +18,7 @@ class ChatServiceTest {
     }
     private static ChatSubmission social(Optional<UUID> binding) {
         return new ChatSubmission(ChatMessageId.external("matrix", "room", "event"),
-                new ChatOrigin.Social("matrix", "Matrix", "room", "event"),
+                new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "event"),
                 new ChatSender("Guest", binding, Optional.empty(), binding.isPresent() ? "Alice" : "", "", "", 0xFFFFFF),
                 ChatConversation.minecraftPublic(), "hello", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external());
     }

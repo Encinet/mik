@@ -10,6 +10,7 @@ import java.util.Optional;
 public record SocialPlatformDescriptor(
         String id,
         String displayName,
+        int sourceColor,
         Optional<IdentityPlatform> identityPlatform
 ) {
     public SocialPlatformDescriptor {
@@ -17,6 +18,9 @@ public record SocialPlatformDescriptor(
         displayName = Objects.requireNonNull(displayName, "displayName").strip();
         if (displayName.isEmpty()) {
             throw new IllegalArgumentException("displayName must not be blank");
+        }
+        if (sourceColor < 0 || sourceColor > 0xFFFFFF) {
+            throw new IllegalArgumentException("sourceColor is outside RGB range");
         }
         identityPlatform = identityPlatform == null ? Optional.empty() : identityPlatform;
         if (identityPlatform.isPresent()
@@ -26,13 +30,13 @@ public record SocialPlatformDescriptor(
         }
     }
 
-    public SocialPlatformDescriptor(String id, String displayName) {
-        this(id, displayName, Optional.empty());
+    public SocialPlatformDescriptor(String id, String displayName, int sourceColor) {
+        this(id, displayName, sourceColor, Optional.empty());
     }
 
-    public SocialPlatformDescriptor(String id, String displayName,
+    public SocialPlatformDescriptor(String id, String displayName, int sourceColor,
                                     IdentityPlatform identityPlatform) {
-        this(id, displayName, Optional.ofNullable(identityPlatform));
+        this(id, displayName, sourceColor, Optional.ofNullable(identityPlatform));
     }
 
     private static String requireId(String value) {
