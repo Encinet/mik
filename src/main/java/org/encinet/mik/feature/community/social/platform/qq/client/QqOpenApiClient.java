@@ -319,7 +319,7 @@ public final class QqOpenApiClient {
     ) {
         String encodedGroupId = encodePathSegment(groupOpenId);
         return HttpRequest.newBuilder(
-                        config.apiUri("/v2/groups/" + encodedGroupId + suffix))
+                        QqApiEndpoints.apiUri("/v2/groups/" + encodedGroupId + suffix))
                 .timeout(REQUEST_TIMEOUT)
                 .header("Authorization", "QQBot " + accessToken)
                 .header("X-Union-Appid", config.appId())

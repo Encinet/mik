@@ -4,6 +4,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
+import org.encinet.mik.feature.community.social.platform.qq.client.QqApiEndpoints;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -42,7 +43,7 @@ final class QqGatewayDiscovery {
 
     private CompletableFuture<URI> discover(boolean retriedAuthentication) {
         return accessTokens.get().thenCompose(token -> {
-            HttpRequest request = HttpRequest.newBuilder(config.apiUri("/gateway/bot"))
+            HttpRequest request = HttpRequest.newBuilder(QqApiEndpoints.GATEWAY)
                     .timeout(REQUEST_TIMEOUT)
                     .header("Authorization", "QQBot " + token)
                     .header("X-Union-Appid", config.appId())

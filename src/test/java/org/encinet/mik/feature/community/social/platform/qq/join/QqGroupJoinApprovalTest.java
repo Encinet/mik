@@ -6,6 +6,7 @@ import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
+import org.encinet.mik.test.QqTestHttpClient;
 
 import java.time.Instant;
 import java.time.Duration;
@@ -29,7 +30,7 @@ class QqGroupJoinApprovalTest {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
             String path = exchange.getRequestURI().getPath();
-            boolean token = path.equals("/token");
+            boolean token = path.equals("/app/getAppAccessToken");
             boolean alreadyHandled = path.contains("/group-a/");
             byte[] body = (token ? "{\"access_token\":\"token\",\"expires_in\":7200}" :
                     alreadyHandled ? "{\"code\":404}" : "{}").getBytes(StandardCharsets.UTF_8);
@@ -39,12 +40,10 @@ class QqGroupJoinApprovalTest {
             exchange.close();
         });
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = QqTestHttpClient.create(server.getAddress().getPort())) {
             YamlConfiguration yaml = new YamlConfiguration();
             yaml.set("app-id", "app");
             yaml.set("app-secret", "secret");
-            yaml.set("api-base-url", "http://127.0.0.1:" + server.getAddress().getPort());
-            yaml.set("access-token-url", "http://127.0.0.1:" + server.getAddress().getPort() + "/token");
             QqOpenApiClient api = new QqOpenApiClient(client, QqPlatformConfig.from(yaml));
             try (QqGroupJoinApproval approval = new QqGroupJoinApproval(config(), (request, approve) ->
                     api.reviewGroupJoinRequest(request.groupOpenId(), request.memberOpenId(), request.joinRequestId(), approve),

@@ -61,7 +61,7 @@ public final class QqAccessTokenProvider {
         requestBody.addProperty("clientSecret", config.appSecret());
 
         HttpRequest request = HttpRequest.newBuilder(
-                        config.accessTokenUri())
+                        QqApiEndpoints.ACCESS_TOKEN)
                 .timeout(REQUEST_TIMEOUT)
                 .header("Content-Type", "application/json; charset=utf-8")
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(requestBody)))

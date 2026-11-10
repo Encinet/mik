@@ -5,6 +5,7 @@ import org.encinet.mik.feature.community.social.api.SocialPlatformSession;
 import org.encinet.mik.feature.community.social.api.SocialSessionStatus;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
+import org.encinet.mik.feature.community.social.platform.qq.client.QqApiEndpoints;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqAccessTokenProvider;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRequest;
 
@@ -100,7 +101,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
         this.joinRequests = Objects.requireNonNull(joinRequests, "joinRequests");
         this.statusUpdates = Objects.requireNonNull(statusUpdates, "statusUpdates");
         this.logger = Objects.requireNonNull(logger, "logger");
-        this.endpoint = config.apiUri("/gateway/bot").toString();
+        this.endpoint = QqApiEndpoints.GATEWAY.toString();
         this.reconnectPolicy = new QqGatewayReconnectPolicy(config);
         this.timers = new QqGatewayTimers();
     }

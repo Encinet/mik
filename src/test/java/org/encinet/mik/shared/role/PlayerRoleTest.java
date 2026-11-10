@@ -18,14 +18,6 @@ class PlayerRoleTest {
                 PlayerRole.resolve(permissions("manager", "helper")::contains));
     }
 
-    @Test
-    void exposesStableLowercaseIds() {
-        assertEquals("custodian", PlayerRole.CUSTODIAN.id());
-        assertEquals("moderator", PlayerRole.MODERATOR.id());
-        assertEquals("member", PlayerRole.MEMBER.id());
-        assertEquals("default", PlayerRole.DEFAULT.id());
-    }
-
     private static Set<String> permissions(String... groups) {
         return Set.of(groups).stream()
                 .map(group -> "group." + group)

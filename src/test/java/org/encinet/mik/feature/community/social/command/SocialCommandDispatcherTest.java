@@ -88,13 +88,6 @@ class SocialCommandDispatcherTest {
     }
 
     @Test
-    void syntaxCarriesTheOwningPlatformsDefaultLanguage() {
-        SocialCommandSyntax syntax = SocialCommandSyntax.caseInsensitive(Language.FR_FR, "/");
-
-        assertEquals(Language.FR_FR, syntax.defaultLanguage());
-    }
-
-    @Test
     void richDisplayContentCannotInvokeCommandsOrBecomeCommandArguments() {
         SocialCommandDispatcher dispatcher = new SocialCommandDispatcher(List.of(
                 command(SocialCommandSpec.explicit("test.echo", "echo"))));

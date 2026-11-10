@@ -4,9 +4,6 @@ app-id: ""
 app-secret: ""
 default-language: "zh_cn"
 
-api-base-url: "https://api.sgroup.qq.com"
-access-token-url: "https://bots.qq.com/app/getAppAccessToken"
-
 gateway:
   debug: false
   reconnect-base-delay-millis: 1000

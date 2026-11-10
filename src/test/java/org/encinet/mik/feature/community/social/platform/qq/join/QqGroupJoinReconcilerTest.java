@@ -6,6 +6,7 @@ import org.encinet.mik.feature.community.social.api.SocialEventSink.Acceptance;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.junit.jupiter.api.Test;
+import org.encinet.mik.test.QqTestHttpClient;
 
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
@@ -139,7 +140,7 @@ class QqGroupJoinReconcilerTest {
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         LinkedBlockingQueue<Long> requests = new LinkedBlockingQueue<>();
         server.createContext("/", exchange -> {
-            boolean token = exchange.getRequestURI().getPath().equals("/token");
+            boolean token = exchange.getRequestURI().getPath().equals("/app/getAppAccessToken");
             if (!token) requests.add(System.nanoTime());
             byte[] body = (token ? "{\"access_token\":\"private-token\",\"expires_in\":7200}" : """
                     {"err_code":40012019,"message":"verification-answer 005924 private-token",
@@ -153,11 +154,8 @@ class QqGroupJoinReconcilerTest {
         server.start();
         LinkedBlockingQueue<LogRecord> warnings = new LinkedBlockingQueue<>();
         Logger logger = capturingLogger(warnings);
-        try (HttpClient client = HttpClient.newHttpClient()) {
+        try (HttpClient client = QqTestHttpClient.create(server.getAddress().getPort())) {
             YamlConfiguration yaml = new YamlConfiguration();
-            String base = "http://127.0.0.1:" + server.getAddress().getPort();
-            yaml.set("api-base-url", base);
-            yaml.set("access-token-url", base + "/token");
             QqOpenApiClient api = new QqOpenApiClient(client, QqPlatformConfig.from(yaml));
             try (QqGroupJoinReconciler reconciler = new QqGroupJoinReconciler(List.of("a"),
                     Duration.ofMillis(20), Duration.ZERO, api::listGroupJoinRequests,

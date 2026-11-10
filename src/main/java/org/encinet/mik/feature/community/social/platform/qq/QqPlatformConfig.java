@@ -10,7 +10,6 @@ import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRule
 import org.encinet.mik.feature.community.social.platform.qq.join.QqTotp;
 
 import java.io.File;
-import java.net.URI;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -22,8 +21,6 @@ public record QqPlatformConfig(
         boolean enabled,
         String appId,
         String appSecret,
-        URI apiBaseUri,
-        URI accessTokenUri,
         long gatewayReconnectBaseDelayMillis,
         long gatewayReconnectMaxDelayMillis,
         int gatewayMaxReconnectAttempts,
@@ -43,11 +40,6 @@ public record QqPlatformConfig(
     public static final String PLATFORM_ID = "qq";
     public static final String FILE_NAME = "social/qq.yml";
     private static final String LEGACY_FILE_NAME = "qq-bot.yml";
-    private static final String DEFAULT_API_BASE = "https://api.sgroup.qq.com";
-    private static final String DEFAULT_ACCESS_TOKEN_URL =
-            "https://bots.qq.com/app/getAppAccessToken";
-    private static final String UNIFIED_API_HOST = "api.bot.qq.com";
-
     public static QqPlatformConfig load(JavaPlugin plugin) {
         File legacy = new File(plugin.getDataFolder(), LEGACY_FILE_NAME);
         if (legacy.isFile()) {
@@ -80,11 +72,6 @@ public record QqPlatformConfig(
                     "event-transport/gateway-url are obsolete; QQ always discovers its Gateway");
         }
 
-        URI apiBase = compatibleApiBase(parseHttpUri(configuredUrl(
-                yaml.getString("api-base-url"), DEFAULT_API_BASE), "api-base-url"));
-        URI accessTokenUri = compatibleAccessTokenUri(parseHttpUri(
-                configuredUrl(yaml.getString("access-token-url"), DEFAULT_ACCESS_TOKEN_URL),
-                "access-token-url"));
         long gatewayReconnectBaseDelayMillis = requireRange(
                 yaml.getLong("gateway.reconnect-base-delay-millis", 1_000L),
                 100L, 60_000L, "gateway.reconnect-base-delay-millis");
@@ -125,7 +112,7 @@ public record QqPlatformConfig(
                     FILE_NAME + " is enabled, but app-id/app-secret are missing");
         }
 
-        return new QqPlatformConfig(enabled, appId, appSecret, apiBase, accessTokenUri,
+        return new QqPlatformConfig(enabled, appId, appSecret,
                 gatewayReconnectBaseDelayMillis, gatewayReconnectMaxDelayMillis,
                 gatewayMaxReconnectAttempts, gatewayMaxFrameBytes,
                 gatewayHandshakeTimeoutMillis, gatewayDebugEnabled,
@@ -141,11 +128,6 @@ public record QqPlatformConfig(
         return chatRoutes.stream()
                 .filter(route -> route.conversation().id().equals(groupOpenId))
                 .findFirst();
-    }
-
-    public URI apiUri(String path) {
-        String base = apiBaseUri.toString();
-        return URI.create(base + (path.startsWith("/") ? path : "/" + path));
     }
 
     private static String configuredValue(String value) {
@@ -250,66 +232,12 @@ public record QqPlatformConfig(
         return value instanceof String text ? text : "";
     }
 
-    private static URI parseHttpUri(String value, String field) {
-        URI uri = parseAbsoluteUri(trimTrailingSlash(value), field);
-        if (!uri.getScheme().equalsIgnoreCase("https")
-                && !uri.getScheme().equalsIgnoreCase("http")) {
-            throw new IllegalArgumentException(field + " must use http or https");
-        }
-        if (uri.getRawQuery() != null || uri.getRawFragment() != null
-                || uri.getUserInfo() != null) {
-            throw new IllegalArgumentException(
-                    field + " must not contain credentials, a query, or a fragment");
-        }
-        return uri;
-    }
-
-    private static String configuredUrl(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
-    }
-
-    private static URI compatibleApiBase(URI configured) {
-        if (UNIFIED_API_HOST.equalsIgnoreCase(configured.getHost())
-                && (configured.getPath().isEmpty() || "/".equals(configured.getPath()))) {
-            return URI.create(DEFAULT_API_BASE);
-        }
-        return configured;
-    }
-
-    private static URI compatibleAccessTokenUri(URI configured) {
-        if (UNIFIED_API_HOST.equalsIgnoreCase(configured.getHost())
-                && "/app/getAppAccessToken".equals(configured.getPath())) {
-            return URI.create(DEFAULT_ACCESS_TOKEN_URL);
-        }
-        return configured;
-    }
-
-    private static URI parseAbsoluteUri(String value, String field) {
-        try {
-            URI uri = URI.create(value.strip());
-            if (!uri.isAbsolute() || uri.getHost() == null) {
-                throw new IllegalArgumentException(field + " must be an absolute URL");
-            }
-            return uri;
-        } catch (IllegalArgumentException error) {
-            throw new IllegalArgumentException("Invalid " + field + ": " + error.getMessage(), error);
-        }
-    }
-
     private static long requireRange(long value, long minimum, long maximum, String field) {
         if (value < minimum || value > maximum) {
             throw new IllegalArgumentException(
                     field + " must be between " + minimum + " and " + maximum);
         }
         return value;
-    }
-
-    private static String trimTrailingSlash(String value) {
-        String result = value.strip();
-        while (result.endsWith("/")) {
-            result = result.substring(0, result.length() - 1);
-        }
-        return result;
     }
 
     private static long clamp(long value, long minimum, long maximum) {

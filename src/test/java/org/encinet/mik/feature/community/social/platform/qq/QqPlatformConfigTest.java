@@ -70,15 +70,9 @@ class QqPlatformConfigTest {
     void defaultsUseGatewayDiscoveryAndAcceptEveryGroup() throws Exception {
         QqPlatformConfig config = QqPlatformConfig.from(yaml("""
                 enabled: false
-                api-base-url: ""
-                access-token-url: ""
                 """));
 
         assertTrue(config.acceptsGroup("any-group"));
-        assertEquals("https://api.sgroup.qq.com/gateway/bot",
-                config.apiUri("/gateway/bot").toString());
-        assertEquals("https://bots.qq.com/app/getAppAccessToken",
-                config.accessTokenUri().toString());
         assertEquals(1_000, config.gatewayReconnectBaseDelayMillis());
         assertEquals(30_000, config.gatewayReconnectMaxDelayMillis());
         assertEquals(10, config.gatewayMaxReconnectAttempts());
@@ -180,32 +174,6 @@ class QqPlatformConfigTest {
                 enabled: true
                 app-id: only-an-id
                 """)));
-    }
-
-    @Test
-    void endpointSchemesAreValidated() throws Exception {
-        assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml("""
-                enabled: false
-                api-base-url: file:///tmp/not-an-api
-                """)));
-        assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml("""
-                enabled: false
-                access-token-url: file:///tmp/not-a-token-endpoint
-                """)));
-    }
-
-    @Test
-    void unifiedDomainsFallBackToThirdPartyCompatibleEndpoints() throws Exception {
-        QqPlatformConfig config = QqPlatformConfig.from(yaml("""
-                enabled: false
-                api-base-url: https://api.bot.qq.com
-                access-token-url: https://api.bot.qq.com/app/getAppAccessToken
-                """));
-
-        assertEquals("https://api.sgroup.qq.com/gateway/bot",
-                config.apiUri("/gateway/bot").toString());
-        assertEquals("https://bots.qq.com/app/getAppAccessToken",
-                config.accessTokenUri().toString());
     }
 
     @Test

@@ -17,6 +17,7 @@ import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinAppr
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinReconciler;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.junit.jupiter.api.Test;
+import org.encinet.mik.test.QqTestHttpClient;
 
 import java.net.http.HttpClient;
 import java.net.InetSocketAddress;
@@ -48,11 +49,9 @@ class QqPlatformSessionTest {
         yaml.loadFromString("""
                 app-id: app
                 app-secret: secret
-                api-base-url: http://127.0.0.1:%d
-                access-token-url: http://127.0.0.1:%d/app/getAppAccessToken
-                """.formatted(server.getAddress().getPort(), server.getAddress().getPort()));
+                """);
         QqPlatformConfig config = QqPlatformConfig.from(yaml);
-        HttpClient client = HttpClient.newHttpClient();
+        HttpClient client = QqTestHttpClient.create(server.getAddress().getPort());
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(client, config);
         QqOpenApiClient api = new QqOpenApiClient(client, config, tokens);
         QqGroupJoinApproval approvals = new QqGroupJoinApproval(config, api, Logger.getAnonymousLogger());

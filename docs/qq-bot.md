@@ -15,9 +15,6 @@ enabled: false
 app-id: ""
 app-secret: ""
 
-api-base-url: "https://api.sgroup.qq.com"
-access-token-url: "https://bots.qq.com/app/getAppAccessToken"
-
 gateway:
   debug: false
   reconnect-base-delay-millis: 1000
@@ -44,7 +41,7 @@ reply:
   max-message-length: 1500
 ```
 
-AppID 与 AppSecret 只从此文件读取。使用示例中的 API 端点；配置与凭据错误可通过 `/social status qq` 检查，修改后执行 `/social reload qq`。
+AppID 与 AppSecret 只从此文件读取。OpenAPI 与令牌获取统一使用代码中固定的官方域名 `api.bot.qq.com`，无需配置接口地址；Gateway 的 WSS 地址仍通过官方接口动态发现。配置与凭据错误可通过 `/social status qq` 检查，修改后执行 `/social reload qq`。
 
 启动时适配器先申请 Access Token，再通过 `GET /gateway/bot` 动态发现当前 WSS 地址。Gateway discovery 和 OpenAPI 请求均携带 `Authorization: QQBot <access_token>` 与第三方 SDK 使用的 `X-Union-Appid: <app-id>`。连接收到 `HELLO` 后发送 `IDENTIFY`，订阅群聊与 C2C 事件；`READY` 后 `/social status qq` 显示 `READY`。连接期间按服务端下发的间隔发送心跳，收到重连指令或网络断开时使用 session ID 和最后 sequence 尝试恢复；无效 session 会重新鉴权建立新会话。
 

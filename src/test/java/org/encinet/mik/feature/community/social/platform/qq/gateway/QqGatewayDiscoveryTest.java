@@ -5,6 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.junit.jupiter.api.AfterEach;
+import org.encinet.mik.test.QqTestHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -49,9 +50,9 @@ class QqGatewayDiscoveryTest {
             respond(exchange, 200, "{\"url\":\"wss://gateway.example/socket?v=1\"}");
         });
         server.start();
-        client = HttpClient.newHttpClient();
+        client = QqTestHttpClient.create(server.getAddress().getPort());
 
-        URI endpoint = new QqGatewayDiscovery(client, config(server.getAddress().getPort()),
+        URI endpoint = new QqGatewayDiscovery(client, config(),
                 () -> CompletableFuture.completedFuture("access-token"), () -> { })
                 .discover().join();
 
@@ -66,11 +67,11 @@ class QqGatewayDiscoveryTest {
         server.createContext("/gateway/bot", exchange ->
                 respond(exchange, 200, "{\"url\":\"https://not-a-websocket.example\"}"));
         server.start();
-        client = HttpClient.newHttpClient();
+        client = QqTestHttpClient.create(server.getAddress().getPort());
 
         CompletionException error = org.junit.jupiter.api.Assertions.assertThrows(
                 CompletionException.class,
-                () -> new QqGatewayDiscovery(client, config(server.getAddress().getPort()),
+                () -> new QqGatewayDiscovery(client, config(),
                         () -> CompletableFuture.completedFuture("token"), () -> { })
                         .discover().join());
 
@@ -94,9 +95,9 @@ class QqGatewayDiscoveryTest {
             }
         });
         server.start();
-        client = HttpClient.newHttpClient();
+        client = QqTestHttpClient.create(server.getAddress().getPort());
 
-        URI endpoint = new QqGatewayDiscovery(client, config(server.getAddress().getPort()),
+        URI endpoint = new QqGatewayDiscovery(client, config(),
                 () -> CompletableFuture.completedFuture(
                         "token-" + tokenRequests.incrementAndGet()),
                 invalidations::incrementAndGet).discover().join();
@@ -115,11 +116,11 @@ class QqGatewayDiscoveryTest {
                 "{\"code\":11243,\"message\":\"invalid app access token\","
                         + "\"trace_id\":\"trace-123\"}"));
         server.start();
-        client = HttpClient.newHttpClient();
+        client = QqTestHttpClient.create(server.getAddress().getPort());
 
         CompletionException error = org.junit.jupiter.api.Assertions.assertThrows(
                 CompletionException.class,
-                () -> new QqGatewayDiscovery(client, config(server.getAddress().getPort()),
+                () -> new QqGatewayDiscovery(client, config(),
                         () -> CompletableFuture.completedFuture("token"), () -> { })
                         .discover().join());
 
@@ -137,9 +138,9 @@ class QqGatewayDiscoveryTest {
                 "trace_id":"a93ab23871f9110667419f1a0001fcb1","url":"wss://gateway.example/socket"}
                 """));
         server.start();
-        client = HttpClient.newHttpClient();
+        client = QqTestHttpClient.create(server.getAddress().getPort());
         CompletionException error = org.junit.jupiter.api.Assertions.assertThrows(CompletionException.class,
-                () -> new QqGatewayDiscovery(client, config(server.getAddress().getPort()),
+                () -> new QqGatewayDiscovery(client, config(),
                         () -> CompletableFuture.completedFuture("private-token"), () -> { }).discover().join());
         assertInstanceOf(org.encinet.mik.feature.community.social.platform.qq.client.QqHttpException.class, error.getCause());
         String message = error.getCause().getMessage();
@@ -150,14 +151,13 @@ class QqGatewayDiscoveryTest {
         org.junit.jupiter.api.Assertions.assertFalse(message.contains("private-token"));
     }
 
-    private static QqPlatformConfig config(int port) throws Exception {
+    private static QqPlatformConfig config() throws Exception {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.loadFromString("""
                 enabled: true
                 app-id: app
                 app-secret: secret
-                api-base-url: http://127.0.0.1:%d
-                """.formatted(port));
+                """);
         return QqPlatformConfig.from(yaml);
     }
 

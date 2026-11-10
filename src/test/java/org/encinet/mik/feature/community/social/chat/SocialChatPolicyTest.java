@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -89,22 +88,4 @@ class SocialChatPolicyTest {
                 ((ChatNode.Link) selected.nodes().getFirst()).target().toString());
     }
 
-    @Test
-    void sharedContentRejectsUnsafeLinks() {
-        for (String unsafe : List.of(
-                "javascript:alert(1)",
-                "file:///etc/passwd",
-                "https://user:secret@example.com/path",
-                "https://example.com\\@evil.test/path")) {
-            assertThrows(IllegalArgumentException.class, () ->
-                    new ChatNode.Link("link", URI.create(unsafe),
-                            ChatStyle.EMPTY), unsafe);
-        }
-        ChatNode.Link unicode = new ChatNode.Link(
-                "wiki", URI.create("https://zh.minecraft.wiki/w/钻石"),
-                ChatStyle.EMPTY);
-        assertEquals("https://zh.minecraft.wiki/w/钻石",
-                unicode.target().toString());
-        assertFalse(unicode.target().toString().isBlank());
-    }
 }

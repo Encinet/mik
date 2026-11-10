@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.junit.jupiter.api.AfterEach;
+import org.encinet.mik.test.QqTestHttpClient;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -56,8 +57,8 @@ class QqOpenApiClientTest {
                     """);
         });
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             var page = api.listGroupJoinRequests("group/a", "cursor+/= space&").join();
             assertEquals(2, tokenRequests.get());
             assertEquals(List.of("QQBot token-1", "QQBot token-2"), authorizations);
@@ -83,8 +84,8 @@ class QqOpenApiClientTest {
             respond(exchange, status.get(), body.get());
         });
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             for (String malformed : List.of("{}", "not json", "{\"code\":42,\"list\":[]}",
                     "{\"code\":42,\"err_code\":0,\"list\":[]}")) {
                 body.set(malformed);
@@ -112,8 +113,8 @@ class QqOpenApiClientTest {
             respond(exchange, 429, "{\"code\":429,\"message\":\"rate limited\"}");
         });
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             var error = assertThrows(java.util.concurrent.CompletionException.class,
                     () -> api.listGroupJoinRequests("group", "").join());
             assertEquals(120_000, ((QqHttpException) error.getCause()).retryAfterMillis());
@@ -147,8 +148,8 @@ class QqOpenApiClientTest {
                     """);
         });
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             List<CompletableFuture<?>> operations = List.of(
                     api.listGroupJoinRequests("group", ""),
                     api.reviewGroupJoinRequest("group", "member", "request", true),
@@ -183,8 +184,8 @@ class QqOpenApiClientTest {
             respond(exchange, 400, error.toString());
         });
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             var error = assertThrows(java.util.concurrent.CompletionException.class,
                     () -> api.sendMarkdown("group", content).join());
             java.io.StringWriter stack = new java.io.StringWriter();
@@ -206,8 +207,8 @@ class QqOpenApiClientTest {
                  "access_token":"private-token","trace_id":"trace-token"}
                 """));
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             var error = assertThrows(java.util.concurrent.CompletionException.class,
                     () -> api.listGroupJoinRequests("group", "").join());
             String message = error.getCause().getMessage();
@@ -244,8 +245,8 @@ class QqOpenApiClientTest {
         });
         server.start();
 
-        QqPlatformConfig config = config(server.getAddress().getPort());
-        HttpClient httpClient = HttpClient.newHttpClient();
+        QqPlatformConfig config = config();
+        HttpClient httpClient = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort());
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(httpClient, config);
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokens);
 
@@ -293,8 +294,8 @@ class QqOpenApiClientTest {
         });
         server.start();
 
-        QqPlatformConfig config = config(server.getAddress().getPort());
-        HttpClient httpClient = HttpClient.newHttpClient();
+        QqPlatformConfig config = config();
+        HttpClient httpClient = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort());
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(httpClient, config);
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokens);
 
@@ -327,8 +328,8 @@ class QqOpenApiClientTest {
         });
         server.start();
 
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             api.reviewGroupJoinRequest("group/a", "member a/b", "application-one", true).join();
             api.reviewGroupJoinRequest("group/a", "member a/b", "application-two", false).join();
 
@@ -357,8 +358,8 @@ class QqOpenApiClientTest {
             respond(exchange, 401, "{\"code\":11243}");
         });
         server.start();
-        try (HttpClient client = HttpClient.newHttpClient()) {
-            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+        try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config());
             assertThrows(java.util.concurrent.CompletionException.class,
                     () -> api.reviewGroupJoinRequest("group", "member", "application", true).join());
             assertEquals(2, attempts.get());
@@ -378,8 +379,8 @@ class QqOpenApiClientTest {
         });
         server.start();
 
-        QqPlatformConfig config = config(server.getAddress().getPort());
-        HttpClient httpClient = HttpClient.newHttpClient();
+        QqPlatformConfig config = config();
+        HttpClient httpClient = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort());
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config);
 
         api.sendMarkdown("group-id", "Alex: hello").join();
@@ -413,8 +414,8 @@ class QqOpenApiClientTest {
         });
         server.start();
 
-        QqPlatformConfig config = config(server.getAddress().getPort());
-        HttpClient httpClient = HttpClient.newHttpClient();
+        QqPlatformConfig config = config();
+        HttpClient httpClient = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort());
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config);
 
         api.replyRemoteImage("group-id", "incoming-id", 1,
@@ -477,8 +478,8 @@ class QqOpenApiClientTest {
         });
         server.start();
 
-        QqPlatformConfig config = config(server.getAddress().getPort());
-        HttpClient httpClient = HttpClient.newHttpClient();
+        QqPlatformConfig config = config();
+        HttpClient httpClient = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort());
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(httpClient, config);
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokens);
         List<CompletableFuture<Void>> replies = new ArrayList<>();
@@ -501,8 +502,8 @@ class QqOpenApiClientTest {
 
     @Test
     void aReplyCannotBeSentWithoutAnInboundMessageOrValidSequence() throws Exception {
-        QqPlatformConfig config = config(1);
-        HttpClient httpClient = HttpClient.newHttpClient();
+        QqPlatformConfig config = config();
+        HttpClient httpClient = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort());
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config,
                 new QqAccessTokenProvider(httpClient, config));
 
@@ -521,15 +522,13 @@ class QqOpenApiClientTest {
         httpClient.shutdownNow();
     }
 
-    private static QqPlatformConfig config(int port) throws Exception {
+    private static QqPlatformConfig config() throws Exception {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.loadFromString("""
                 enabled: true
                 app-id: app
                 app-secret: secret
-                api-base-url: http://127.0.0.1:%d
-                access-token-url: http://127.0.0.1:%d/app/getAppAccessToken
-                """.formatted(port, port));
+                """);
         return QqPlatformConfig.from(yaml);
     }
 

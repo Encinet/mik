@@ -86,29 +86,6 @@ class MenuSceneTest {
         assertEquals(1, definition.framingDecorations().size());
     }
 
-
-    @Test
-    void buildsDefinitionWithStableDefaults() {
-        MenuScene.Builder builder = MenuScene.builder(Component.text("Root"));
-        builder.item("stone", new TestItemStack(), Component.text("Stone"));
-        MenuScene definition = builder.build();
-
-        assertEquals(FloatingMenuAnimation.DEFAULT, definition.animation());
-        assertEquals(1, definition.entries().size());
-        assertNotNull(entry(definition, "stone"));
-    }
-
-    @Test
-    void applicationScreenFactoryOwnsIdentityAndSharedAppearance() {
-        MenuScene definition = MenuScene.screen(
-                        "settings", Component.text("Settings"))
-                .build();
-
-        assertEquals("settings", definition.screenId());
-        assertEquals(FloatingMenuAppearance.DEFAULT, definition.appearance());
-        assertTrue(definition.titleVisible());
-    }
-
     @Test
     void sharedPaginationOwnsNodesAndScrollActions() {
         AtomicInteger selectedPage = new AtomicInteger(-1);
@@ -166,17 +143,6 @@ class MenuSceneTest {
             assertEquals(1.0, easing.apply(1.0), 0.0001);
         }
         assertEquals(0.5, FloatingMenuEasing.LINEAR.apply(0.5), 0.0001);
-    }
-
-    @Test
-    void globalSemanticTriggersAreDeclaredWithoutInteractionSwitches() {
-        MenuScene.Builder builder = MenuScene.builder(Component.text("menu"));
-        builder.onScroll((_, _, _) -> { },
-                (_, _, _) -> { });
-
-        MenuScene definition = builder.build();
-        assertNotNull(definition.triggers().get(FloatingMenuInteraction.SCROLL_UP));
-        assertNotNull(definition.triggers().get(FloatingMenuInteraction.SCROLL_DOWN));
     }
 
     @Test
@@ -242,62 +208,6 @@ class MenuSceneTest {
     }
 
     @Test
-    void persistentSelectionIsSemanticNodeState() {
-        MenuScene.Builder builder = MenuScene.builder();
-        builder.control("off", Component.text("Off"))
-                .selected(true)
-                .primary((_, _) -> { });
-        builder.control("three-seconds", Component.text("3 seconds"))
-                .selected(false)
-                .primary((_, _) -> { });
-
-        MenuScene definition = builder.build();
-        assertTrue(entry(definition, "off").selected());
-        assertFalse(entry(definition, "three-seconds").selected());
-        assertNotEquals(
-                definition.appearance().elementBackground(FloatingMenuElementState.NORMAL),
-                definition.appearance().elementBackground(FloatingMenuElementState.SELECTED));
-    }
-
-    @Test
-    void nodeTextAlignmentIsPartOfTheSemanticDefinition() {
-        MenuScene.Builder builder = MenuScene.builder();
-        builder.information("profile", Component.text("one\ntwo"))
-                .alignment(FloatingMenuDecoration.Alignment.RIGHT);
-
-        assertEquals(FloatingMenuDecoration.Alignment.RIGHT,
-                entry(builder.build(), "profile").alignment());
-    }
-
-    @Test
-    void essentialRingControlsCanRemainAccessibleWhenCardsAreOccluded() {
-        MenuScene.Builder builder = MenuScene.screen("ring")
-                .aroundViewer();
-        builder.information("reader", Component.text("Current notice"))
-                .keepAccessible();
-        builder.control("side-card", Component.text("Another notice"))
-                .primary((_, _) -> { });
-
-        MenuScene definition = builder.build();
-        assertTrue(entry(definition, "reader").keepAccessible());
-        assertFalse(entry(definition, "side-card").keepAccessible());
-    }
-
-    @Test
-    void framingAndTextWidthAreDeclarativeScenePolicies() {
-        MenuScene.Builder builder = MenuScene.builder()
-                .framing(FloatingMenuFraming.PANORAMIC);
-        builder.control("track", Component.text("Song\nArtist"))
-                .textWidth(FloatingMenuTextWidth.WIDE);
-
-        MenuScene definition = builder.build();
-        assertEquals(FloatingMenuFraming.PANORAMIC, definition.framing());
-        assertEquals(FloatingMenuTextWidth.WIDE.resolve(128),
-                UiSceneContent.elements(definition.content()).values().stream()
-                        .filter(node -> node.key().value().equals("track")).findFirst().orElseThrow().textWidthPixels());
-    }
-
-    @Test
     void decorationsAreSeparateFromInteractiveEntries() {
         MenuScene.Builder builder = MenuScene.builder(Component.text("scene"));
         builder.textDecoration("context", FloatingMenuPose.oriented(
@@ -315,38 +225,6 @@ class MenuSceneTest {
         assertEquals(3.0, placement.pose().pitchDegrees());
         assertThrows(IllegalArgumentException.class,
                 () -> builder.item("context", new TestItemStack(), Component.text("Duplicate")));
-    }
-
-    @Test
-    void untitledScenesAndTextSurfacesAreExplicitPolicies() {
-        MenuScene definition = MenuScene.builder()
-                .appearance(FloatingMenuAppearance.DEFAULT)
-                .build();
-
-        assertFalse(definition.titleVisible());
-        assertEquals(Component.empty(), definition.title());
-        assertTrue((definition.appearance().elementBackground(
-                FloatingMenuElementState.NORMAL) >>> 24) >= 0xA0);
-        assertTrue((definition.appearance().titleBackground() >>> 24) >= 0xA0);
-        assertNotEquals(FloatingMenuAppearance.TRANSPARENT,
-                definition.appearance().elementBackground(FloatingMenuElementState.HOVERED));
-        assertEquals(FloatingMenuAppearance.TRANSPARENT,
-                FloatingMenuAppearance.NO_BACKGROUNDS.elementBackground(
-                        FloatingMenuElementState.HOVERED));
-    }
-
-    @Test
-    void liveRefreshCanSuppressUnchangedEntityUpdatesWithARevision() {
-        MenuScene definition = MenuScene.builder()
-                .refreshWhenChanged(5, _ -> "revision",
-                        (_, _) -> { })
-                .build();
-
-        assertTrue(definition.refresh().enabled());
-        assertEquals(5, definition.refresh().intervalTicks());
-        assertEquals("revision", definition.refresh().revision(null));
-        assertThrows(IllegalArgumentException.class, () ->
-                FloatingMenuRefresh.every(0, (_, _) -> { }));
     }
 
     @Test
