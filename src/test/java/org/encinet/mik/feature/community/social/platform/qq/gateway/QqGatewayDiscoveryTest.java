@@ -125,8 +125,29 @@ class QqGatewayDiscoveryTest {
 
         assertTrue(error.getCause().getMessage().contains("HTTP 401"));
         assertTrue(error.getCause().getMessage().contains("code=11243"));
-        assertTrue(error.getCause().getMessage().contains("invalid app access token"));
+        assertTrue(error.getCause().getMessage().contains("invalid app access [redacted]"));
         assertTrue(error.getCause().getMessage().contains("trace_id=trace-123"));
+    }
+
+    @Test
+    void businessErrorsInSuccessfulHttpResponsesUseTheSharedErrorContract() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/gateway/bot", exchange -> respond(exchange, 200, """
+                {"code":11703,"err_code":40011030,"message":"机器人不是群管理员 secret private-token",
+                "trace_id":"a93ab23871f9110667419f1a0001fcb1","url":"wss://gateway.example/socket"}
+                """));
+        server.start();
+        client = HttpClient.newHttpClient();
+        CompletionException error = org.junit.jupiter.api.Assertions.assertThrows(CompletionException.class,
+                () -> new QqGatewayDiscovery(client, config(server.getAddress().getPort()),
+                        () -> CompletableFuture.completedFuture("private-token"), () -> { }).discover().join());
+        assertInstanceOf(org.encinet.mik.feature.community.social.platform.qq.client.QqHttpException.class, error.getCause());
+        String message = error.getCause().getMessage();
+        assertTrue(message.contains("QQ Gateway discovery failed (HTTP 200, code=11703, err_code=40011030)"));
+        assertTrue(message.contains("机器人不是群管理员"));
+        assertTrue(message.contains("trace_id=a93ab23871f9110667419f1a0001fcb1"));
+        org.junit.jupiter.api.Assertions.assertFalse(message.contains("secret"));
+        org.junit.jupiter.api.Assertions.assertFalse(message.contains("private-token"));
     }
 
     private static QqPlatformConfig config(int port) throws Exception {

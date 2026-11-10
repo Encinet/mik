@@ -3,6 +3,7 @@ package org.encinet.mik.feature.community.social.platform.qq.join;
 import org.encinet.mik.feature.community.social.api.SocialEventSink.Acceptance;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqHttpException;
+import org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 
 import java.time.Duration;
@@ -146,15 +147,16 @@ public final class QqGroupJoinReconciler implements AutoCloseable {
                 if (!closed) {
                     group.failures = Math.min(group.failures + 1, 5);
                     long delay = Math.min(Duration.ofMinutes(5).toNanos(), intervalNanos << (group.failures - 1));
-                    Throwable cause = error instanceof ExecutionException ? error.getCause() : error;
+                    Throwable cause = QqApiErrors.unwrap(error);
                     if (cause instanceof QqHttpException httpError) {
                         delay = Math.max(delay, Duration.ofMillis(httpError.retryAfterMillis()).toNanos());
                     }
                     group.resetCursor();
                     group.blockedUntil = System.nanoTime() + delay;
                     group.due = group.blockedUntil;
-                    // Neither verification text nor remote error bodies belong in logs.
-                    logger.warning("Could not reconcile QQ group join applications; retrying later (group " + group.id + ")");
+                    // The shared summary contains only sanitized response metadata.
+                    logger.warning("Could not reconcile QQ group join applications (group " + group.id
+                            + "; " + QqApiErrors.describe(cause) + "); retrying in " + Duration.ofNanos(delay).toMillis() + " ms");
                 }
             }
         } finally {

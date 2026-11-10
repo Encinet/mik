@@ -1,19 +1,13 @@
 package org.encinet.mik.feature.community.social.platform.qq.client;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.time.DateTimeException;
-import java.time.Instant;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.concurrent.CompletableFuture;
 
 public final class QqAccessTokenProvider {
@@ -78,78 +72,21 @@ public final class QqAccessTokenProvider {
     }
 
     private CachedToken parseTokenResponse(HttpResponse<String> response) {
-        JsonObject body = parseObject(response.body());
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw responseError("Access token request", response, body);
+        JsonObject body = QqApiErrors.parseObject(response.body());
+        if (response.statusCode() < 200 || response.statusCode() >= 300 || QqApiErrors.hasError(body)) {
+            throw QqApiErrors.responseError("Access token request", response, body,
+                    config.appSecret(), QqApiErrors.string(body, "access_token"), null);
         }
 
-        String token = string(body, "access_token");
-        long expiresIn = longValue(body, "expires_in", 0);
+        String token = QqApiErrors.string(body, "access_token");
+        long expiresIn = QqApiErrors.longValue(body, "expires_in", 0);
         if (token.isBlank() || expiresIn <= 0) {
-            throw new QqHttpException("Access token request", response.statusCode(),
-                    longValue(body, "err_code", longValue(body, "code", 0)),
-                    firstNonBlank(string(body, "message"), "response omitted access_token/expires_in"),
-                    string(body, "trace_id"));
+            throw QqApiErrors.responseError("Access token request", response, body,
+                    config.appSecret(), token, null);
         }
         long usableSeconds = Math.max(1, expiresIn - Math.min(EXPIRY_SAFETY_SECONDS, expiresIn / 2));
         long expiresAt = System.currentTimeMillis() + Duration.ofSeconds(usableSeconds).toMillis();
         return new CachedToken(token, expiresAt);
-    }
-
-    static JsonObject parseObject(String value) {
-        try {
-            JsonElement element = JsonParser.parseString(value == null || value.isBlank() ? "{}" : value);
-            return element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
-        } catch (RuntimeException ignored) {
-            return new JsonObject();
-        }
-    }
-
-    static QqHttpException responseError(String operation, HttpResponse<String> response, JsonObject body) {
-        long delay = 0;
-        String value = response.headers().firstValue("Retry-After").orElse("").strip();
-        try {
-            delay = Math.multiplyExact(Long.parseLong(value), 1_000L);
-        } catch (NumberFormatException | ArithmeticException invalidSeconds) {
-            try {
-                delay = Duration.between(Instant.now(), ZonedDateTime.parse(
-                        value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant()).toMillis();
-            } catch (DateTimeException | ArithmeticException invalidDate) {
-                // An absent or malformed header leaves retry timing to the caller's backoff.
-            }
-        }
-        return new QqHttpException(operation, response.statusCode(),
-                longValue(body, "err_code", longValue(body, "code", 0)),
-                firstNonBlank(string(body, "message"), "QQ API rejected the request"),
-                string(body, "trace_id"), Math.clamp(delay, 0, 86_400_000));
-    }
-
-    static String string(JsonObject object, String name) {
-        JsonElement value = object.get(name);
-        if (value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
-            return "";
-        }
-        try {
-            return value.getAsString();
-        } catch (RuntimeException ignored) {
-            return "";
-        }
-    }
-
-    static long longValue(JsonObject object, String name, long fallback) {
-        JsonElement value = object.get(name);
-        if (value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
-            return fallback;
-        }
-        try {
-            return value.getAsLong();
-        } catch (RuntimeException ignored) {
-            return fallback;
-        }
-    }
-
-    private static String firstNonBlank(String first, String second) {
-        return first == null || first.isBlank() ? second : first;
     }
 
     private record CachedToken(String value, long expiresAtMillis) {

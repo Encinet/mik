@@ -85,16 +85,17 @@ class QqOpenApiClientTest {
         server.start();
         try (HttpClient client = HttpClient.newHttpClient()) {
             QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
-            for (String malformed : List.of("{}", "not json", "{\"code\":42,\"list\":[]}")) {
+            for (String malformed : List.of("{}", "not json", "{\"code\":42,\"list\":[]}",
+                    "{\"code\":42,\"err_code\":0,\"list\":[]}")) {
                 body.set(malformed);
                 assertThrows(java.util.concurrent.CompletionException.class,
                         () -> api.listGroupJoinRequests("group", "").join());
             }
-            assertEquals(3, attempts.get());
+            assertEquals(4, attempts.get());
             status.set(401);
             assertThrows(java.util.concurrent.CompletionException.class,
                     () -> api.listGroupJoinRequests("group", "").join());
-            assertEquals(5, attempts.get());
+            assertEquals(6, attempts.get());
         }
     }
 
@@ -130,6 +131,90 @@ class QqOpenApiClientTest {
                 assertEquals(0, ((QqHttpException) error.getCause()).retryAfterMillis());
             }
             assertEquals(6, attempts.get());
+        }
+    }
+
+    @Test
+    void allOpenApiOperationsPreserveBothCodesAndSafeDiagnosticDetails() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"private-token\",\"expires_in\":7200}"));
+        server.createContext("/v2/groups/", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            exchange.getResponseHeaders().set("X-Tps-trace-ID", "a93ab23871f9110667419f1a0001fcb1");
+            respond(exchange, 400, """
+                    {"code":11703,"err_code":40011030,"message":"机器人不是群管理员 secret private-token 005924"}
+                    """);
+        });
+        server.start();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            List<CompletableFuture<?>> operations = List.of(
+                    api.listGroupJoinRequests("group", ""),
+                    api.reviewGroupJoinRequest("group", "member", "request", true),
+                    api.sendMarkdown("group", "private message"),
+                    api.replyRemoteImage("group", "message", 1, URI.create("https://example.com/image"), "caption"));
+            for (CompletableFuture<?> operation : operations) {
+                var error = assertThrows(java.util.concurrent.CompletionException.class, operation::join);
+                QqHttpException httpError = org.junit.jupiter.api.Assertions.assertInstanceOf(QqHttpException.class, error.getCause());
+                assertEquals(11703, httpError.code());
+                assertEquals(40011030, httpError.errorCode());
+                String message = httpError.getMessage();
+                assertTrue(message.contains("HTTP 400, code=11703, err_code=40011030"));
+                assertTrue(message.contains("机器人不是群管理员"));
+                assertTrue(message.contains("trace_id=a93ab23871f9110667419f1a0001fcb1"));
+                for (String sensitive : List.of("secret", "private-token", "005924")) assertFalse(message.contains(sensitive));
+            }
+        }
+    }
+
+    @Test
+    void echoedMessageContentIsRedactedBeforeErrorsReachOrdinaryExceptionLogging() throws Exception {
+        String content = "private \"payload\" / 005924";
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"secret-token\",\"expires_in\":7200}"));
+        server.createContext("/v2/groups/", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            JsonObject error = new JsonObject();
+            error.addProperty("err_code", 42);
+            error.addProperty("message", "rejected " + content + " secret-token secret\nforged-log\u2028line");
+            error.addProperty("trace_id", "bad\ntrace");
+            respond(exchange, 400, error.toString());
+        });
+        server.start();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            var error = assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> api.sendMarkdown("group", content).join());
+            java.io.StringWriter stack = new java.io.StringWriter();
+            error.printStackTrace(new java.io.PrintWriter(stack));
+            for (String sensitive : List.of(content, "secret-token", "005924")) assertFalse(stack.toString().contains(sensitive));
+            String message = error.getCause().getMessage();
+            assertFalse(message.contains("\n"));
+            assertFalse(message.contains("\u2028"));
+            assertFalse(message.contains("trace_id="));
+            assertTrue(message.contains("[redacted]"));
+        }
+    }
+
+    @Test
+    void tokenFailureUsesTheSameDetailsAndNeverEchoesCredentials() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 400, """
+                {"code":11243,"err_code":40012001,"message":"invalid secret private-token",
+                 "access_token":"private-token","trace_id":"trace-token"}
+                """));
+        server.start();
+        try (HttpClient client = HttpClient.newHttpClient()) {
+            QqOpenApiClient api = new QqOpenApiClient(client, config(server.getAddress().getPort()));
+            var error = assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> api.listGroupJoinRequests("group", "").join());
+            String message = error.getCause().getMessage();
+            assertTrue(message.contains("Access token request failed (HTTP 400, code=11243, err_code=40012001)"));
+            assertTrue(message.contains("trace_id=trace-token"));
+            assertFalse(message.contains("secret"));
+            assertFalse(message.contains("private-token"));
         }
     }
 

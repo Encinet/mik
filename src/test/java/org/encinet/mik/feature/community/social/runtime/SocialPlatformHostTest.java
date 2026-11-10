@@ -516,6 +516,37 @@ class SocialPlatformHostTest {
     }
 
     @Test
+    void richMessagesBridgeWithoutRunningQuotedCommandsAndRespectRoutePrefixes() throws Exception {
+        MemoryAdapter adapter = new MemoryAdapter("qq", "/", 4);
+        SocialConversation room = new SocialConversation("room", SocialConversation.Type.GROUP);
+        SocialConversation prefixed = new SocialConversation("prefixed", SocialConversation.Type.GROUP);
+        adapter.chatRoutes = List.of(new SocialChatRoute(room, SocialChatPolicy.always(), SocialChatPolicy.always()),
+                new SocialChatRoute(prefixed, SocialChatPolicy.prefixed("#", true), SocialChatPolicy.always()));
+        LinkedBlockingQueue<ChatSubmission> incoming = new LinkedBlockingQueue<>();
+        try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
+                dispatcher(echoCommand(_ -> { throw new AssertionError("Quoted commands must not execute"); })),
+                SocialIdentityLeaseManager.unavailable(), guard(), message -> {
+                    incoming.add(message);
+                    return CompletableFuture.completedFuture(null);
+                }, Logger.getAnonymousLogger())) {
+            host.start();
+            String media = "📎 https://cdn.example.org/file.zip";
+            SocialInboundMessage quote = new SocialInboundMessage("quote", room, Optional.empty(),
+                    new SocialInboundMessage.Text("/echo quoted " + media, ""), false, new Capture());
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED, adapter.context.events().accept(quote));
+            ChatSubmission forwarded = incoming.poll(2, TimeUnit.SECONDS);
+            org.junit.jupiter.api.Assertions.assertNotNull(forwarded);
+            assertEquals("/echo quoted " + media, forwarded.sourceText());
+            SocialInboundMessage attachment = new SocialInboundMessage("attachment", prefixed, Optional.empty(),
+                    new SocialInboundMessage.Text("# " + media, "#"), false, new Capture());
+            assertEquals(SocialEventSink.Acceptance.ACCEPTED, adapter.context.events().accept(attachment));
+            ChatSubmission selected = incoming.poll(2, TimeUnit.SECONDS);
+            org.junit.jupiter.api.Assertions.assertNotNull(selected);
+            assertEquals(media, selected.sourceText());
+        }
+    }
+
+    @Test
     void serverNoticesReachEveryConfiguredDestinationInEachPlatformsLanguage() throws Exception {
         MemoryAdapter qq = new MemoryAdapter("qq", "/", 4);
         MemoryAdapter matrix = new MemoryAdapter("matrix", "!", 4);

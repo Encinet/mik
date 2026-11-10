@@ -3,6 +3,7 @@ package org.encinet.mik.feature.community.social.platform.qq.gateway;
 import org.encinet.mik.feature.community.social.api.SocialEventSink;
 import org.encinet.mik.feature.community.social.api.SocialPlatformSession;
 import org.encinet.mik.feature.community.social.api.SocialSessionStatus;
+import org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqAccessTokenProvider;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinRequest;
@@ -15,8 +16,6 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -172,7 +171,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
                     new QqGatewaySocketListener(connectionGeneration,
                             config.gatewayMaxFrameBytes(), socketCallbacks()));
         }).whenComplete((_, error) -> {
-            if (error != null && !(unwrap(error) instanceof CancellationException)) {
+            if (error != null && !(QqApiErrors.unwrap(error) instanceof CancellationException)) {
                 connectionLost(connectionGeneration, error, true);
             }
         });
@@ -489,21 +488,15 @@ public final class QqGatewaySession implements SocialPlatformSession {
         }
     }
 
-    private static Throwable unwrap(Throwable error) {
-        Throwable result = error;
-        while ((result instanceof CompletionException || result instanceof ExecutionException)
-                && result.getCause() != null) {
-            result = result.getCause();
+    private String errorMessage(Throwable error) {
+        Throwable cause = QqApiErrors.unwrap(error);
+        if (!(cause instanceof IllegalStateException)) {
+            return QqApiErrors.describe(cause);
         }
-        return result;
-    }
-
-    private static String errorMessage(Throwable error) {
-        Throwable cause = unwrap(error);
         String message = cause.getMessage();
         String result = message == null || message.isBlank()
                 ? cause.getClass().getSimpleName() : message.strip();
-        return result.length() <= 300 ? result : result.substring(0, 300);
+        return QqApiErrors.safeMessage(result, config.appSecret());
     }
 
     @FunctionalInterface

@@ -82,7 +82,7 @@ request-timeout-millis: 10000
 | OVHcloud 直连 | [Qwen3Guard-Gen-8B](https://www.ovhcloud.com/en-gb/public-cloud/ai-endpoints/catalog/qwen-guard-gen-8b/) | 同上 |
 | Eden AI | [OVHcloud Qwen3Guard-Gen-8B](https://www.edenai.co/expert-models/ovhcloud-qwen3guard-gen-8b) | `edenai-api-key`，留空或省略时不加入池 |
 
-健康入口等权轮询：未启用 Eden 时为 1:1，启用后为 1:1:1。OVH 端点为 `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions`；Eden 使用 `https://api.edenai.run/v3/universal-ai`，模型标识为 `text/moderation/ovhcloud/Qwen3Guard-Gen-8B`。两家凭据独立，匿名 OVH 请求省略 `Authorization`，有密钥的入口发送各自的 `Bearer` 鉴权；禁止自动跟随重定向。
+始终优先使用健康的 8B 入口：未启用 Eden 时使用 OVH 8B，启用后在 OVH 8B 与 Eden 8B 之间等权轮询。只有所有 8B 入口均不可用或本次尝试均失败时，才使用 OVH 0.6B；8B 入口冷却结束后自动恢复优先使用，0.6B 不参与日常轮询。OVH 端点为 `https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions`；Eden 使用 `https://api.edenai.run/v3/universal-ai`，模型标识为 `text/moderation/ovhcloud/Qwen3Guard-Gen-8B`。两家凭据独立，匿名 OVH 请求省略 `Authorization`，有密钥的入口发送各自的 `Bearer` 鉴权；禁止自动跟随重定向。
 
 配置损坏时记录警告，平台继续启动，help、status 等可信回复仍可发送；审核客户端的可用性只在处理 `REQUIRED` 内容时检查，审核不可用时拒绝该次外发。修复配置后执行 `/social reload`，或重载对应平台。密钥和远端错误正文不写入日志。
 
@@ -103,6 +103,8 @@ OVH 仅完整的 `Safety: Safe` 且 `Categories: None` 结果放行，`Controver
 出站提及先按 Minecraft UUID 查绑定，再由平台会话确认目标账号确实属于当前房间或群。多个有效账号全部保留；无目标时仅保留可读文本。被长度限制截断的提及不发送原生通知。显示约定为游戏到平台 `@游戏名(平台昵称)`，平台到游戏 `@平台昵称(游戏名)`。
 
 共享 handler 运行于有界 worker，Bukkit 数据由 `SocialGameService` 经主线程网关捕获为不可变快照。查询自己只需绑定；查询他人还须具有 `member`、`moderator` 或 `custodian` 角色。资料包含 UUID、在线状态、游玩时间、首次加入、最近在线和皮肤头像，不暴露平台身份字段。
+
+入站 `SocialInboundMessage.Text` 分别保存桥接展示正文与可执行命令的原始正文，普通文字默认两者相同。平台添加附件、卡片、引用或聊天记录说明时，只扩展展示正文；命令解析只读取发送者自己的命令正文，防止引用内容触发命令。可信提及的位置仍相对于展示正文，路由剥离前缀时同步调整。
 
 入站聊天经共享 gateway 补充绑定及 LuckPerms 身份，再交给共享聊天服务，统一投递游戏、网页和其他 Social 平台的公共会话。作者没有 Minecraft 绑定或绑定玩家游戏离线时仍可在网页显示。已绑定身份使用游戏名字与前后缀，未绑定时使用平台昵称。Minecraft 内提及输入语法为 `@玩家名` 或 `@ 玩家名`，统一显示为 `@玩家名`；中日韩正文无需用空格隔开，例如 `你好@Alex在吗`，`@all` 使用相同边界。自然聊天只在 Paper 事件最终未取消后提交提醒、重复状态及社交发布。
 

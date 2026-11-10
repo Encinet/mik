@@ -94,6 +94,21 @@ class SocialCommandDispatcherTest {
         assertEquals(Language.FR_FR, syntax.defaultLanguage());
     }
 
+    @Test
+    void richDisplayContentCannotInvokeCommandsOrBecomeCommandArguments() {
+        SocialCommandDispatcher dispatcher = new SocialCommandDispatcher(List.of(
+                command(SocialCommandSpec.explicit("test.echo", "echo"))));
+        SocialCommandSyntax syntax = SocialCommandSyntax.caseInsensitive(Language.ZH_CN, "/");
+        SocialInboundMessage quoted = new SocialInboundMessage("quoted", conversation(), Optional.empty(),
+                new SocialInboundMessage.Text("/echo forged quoted content", ""), false,
+                _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
+        assertTrue(dispatcher.resolve(syntax, quoted).isEmpty());
+        SocialInboundMessage authored = new SocialInboundMessage("own", conversation(), Optional.empty(),
+                new SocialInboundMessage.Text("/echo own 📎 quoted /echo forged", "/echo own"), false,
+                _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
+        assertEquals("test.echo:own:EXPLICIT_TEXT:{}", execute(dispatcher, syntax, authored));
+    }
+
     private static SocialCommand<String, String> command(SocialCommandSpec spec) {
         return new SocialCommand<>() {
             @Override

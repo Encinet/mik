@@ -4,6 +4,7 @@ import org.encinet.mik.feature.community.social.api.SocialEventSink.Acceptance;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqHttpException;
+import org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors;
 import org.encinet.mik.feature.community.social.runtime.SocialEventDeduplicator;
 import org.encinet.mik.feature.community.social.runtime.SocialTaskExecutor;
 
@@ -78,7 +79,8 @@ public final class QqGroupJoinApproval implements AutoCloseable {
         CompletableFuture<Void> pending = null;
         boolean acquired = false;
         boolean completed = false;
-        boolean failed = false;
+        Throwable failure = null;
+        long backoffMillis = 0;
         try {
             boolean approve = request.answers().stream()
                     .anyMatch(answer -> totp.matches(answer, request.appliedAt()));
@@ -102,15 +104,15 @@ public final class QqGroupJoinApproval implements AutoCloseable {
                 pending.cancel(true);
             }
         } catch (ExecutionException | RuntimeException error) {
-            failed = true;
-            Throwable cause = error instanceof ExecutionException ? error.getCause() : error;
+            Throwable cause = QqApiErrors.unwrap(error);
+            failure = cause;
             boolean transientFailure = !(cause instanceof QqHttpException httpError)
                     || httpError.statusCode() < 400 || httpError.statusCode() == 401 || httpError.statusCode() == 429
                     || httpError.statusCode() >= 500 || httpError.retryAfterMillis() > 0;
             // An application already handled elsewhere must not delay valid applications in either group.
             if (acquired && transientFailure) {
                 consecutiveFailures = Math.min(consecutiveFailures + 1, 5);
-                long backoffMillis = Math.min(300_000, 30_000L << (consecutiveFailures - 1));
+                backoffMillis = Math.min(300_000, 30_000L << (consecutiveFailures - 1));
                 if (cause instanceof QqHttpException httpError) {
                     backoffMillis = Math.max(backoffMillis, httpError.retryAfterMillis());
                 }
@@ -123,8 +125,9 @@ public final class QqGroupJoinApproval implements AutoCloseable {
                 if (completed && !closed) requests.accept(key);
             }
             if (acquired) reviewPermit.release();
-            // Remote errors may echo verification answers; do not log their bodies.
-            if (failed) logger.warning("QQ group join approval failed; retrying through the pending application list");
+            if (failure != null) logger.warning("QQ group join approval failed (group " + request.groupOpenId()
+                    + "; " + QqApiErrors.describe(failure) + "); retrying through the pending application list"
+                    + (backoffMillis > 0 ? " after " + backoffMillis + " ms" : ""));
         }
     }
 

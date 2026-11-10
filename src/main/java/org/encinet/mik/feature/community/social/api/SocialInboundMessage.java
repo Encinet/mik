@@ -138,9 +138,15 @@ public final class SocialInboundMessage {
     public sealed interface Content permits Text, NativeCommand {
     }
 
-    public record Text(String body) implements Content {
+    /** Display/bridge content can include quoted material; commands use only the author's own text. */
+    public record Text(String body, String commandBody) implements Content {
+        public Text(String body) {
+            this(body, body);
+        }
+
         public Text {
             body = Objects.requireNonNullElse(body, "").strip();
+            commandBody = Objects.requireNonNullElse(commandBody, "").strip();
         }
     }
 

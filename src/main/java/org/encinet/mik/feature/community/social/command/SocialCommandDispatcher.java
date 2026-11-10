@@ -79,7 +79,7 @@ public final class SocialCommandDispatcher {
                         SocialCommandInput.nativeCommand(command.spec().id(),
                                 nativeCommand.rawArgument(), nativeCommand.options()), syntax));
             }
-            case SocialInboundMessage.Text text -> syntax.parse(text.body())
+            case SocialInboundMessage.Text text -> syntax.parse(text.commandBody())
                     .flatMap(input -> resolveText(syntax, input));
         };
     }

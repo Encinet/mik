@@ -178,7 +178,8 @@ class QqGatewayProtocolTest {
                         java.util.concurrent.CompletableFuture.completedFuture(null));
 
         assertEquals("/我的 @Target",
-                ((SocialInboundMessage.Text) inbound.content()).body());
+                ((SocialInboundMessage.Text) inbound.content()).commandBody());
+        assertTrue(((SocialInboundMessage.Text) inbound.content()).body().contains("↪ Target: hello"));
         assertEquals(1, inbound.references().mentions().size());
         assertEquals("target-member", inbound.references().mentions().getFirst()
                 .key().subject());

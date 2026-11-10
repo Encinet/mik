@@ -2,6 +2,7 @@ package org.encinet.mik.feature.community.social.platform.qq.client;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinPage;
 
@@ -15,7 +16,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
 public final class QqOpenApiClient {
 
@@ -91,7 +91,7 @@ public final class QqOpenApiClient {
                         "/approval_join_request/" + encodePathSegment(memberOpenId),
                         body, token, "Review QQ group join request"))
                 .exceptionallyCompose(error -> {
-                    Throwable cause = unwrap(error);
+                    Throwable cause = QqApiErrors.unwrap(error);
                     if (!retriedAuthentication && cause instanceof QqHttpException httpError
                             && httpError.statusCode() == 401) {
                         tokenProvider.invalidate();
@@ -114,17 +114,21 @@ public final class QqOpenApiClient {
         String suffix = "/join_request_list?limit=50"
                 + (cursor.isEmpty() ? "" : "&cursor=" + encodePathSegment(cursor));
         return tokenProvider.accessToken().thenCompose(token -> httpClient.sendAsync(
-                requestBuilder(groupOpenId, suffix, token).GET().build(), HttpResponse.BodyHandlers.ofString()))
+                requestBuilder(groupOpenId, suffix, token).GET().build(), HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
-                    JsonObject body = QqAccessTokenProvider.parseObject(response.body());
-                    long code = QqAccessTokenProvider.longValue(body, "err_code",
-                            QqAccessTokenProvider.longValue(body, "code", 0));
-                    if (response.statusCode() < 200 || response.statusCode() >= 300 || code != 0) {
-                        throw QqAccessTokenProvider.responseError("List QQ group join requests", response, body);
+                    JsonObject body = QqApiErrors.parseObject(response.body());
+                    if (response.statusCode() < 200 || response.statusCode() >= 300 || QqApiErrors.hasError(body)) {
+                        throw QqApiErrors.responseError("List QQ group join requests", response, body,
+                                config.appSecret(), token, new JsonPrimitive(cursor));
                     }
-                    return QqGroupJoinPage.parse(response.body(), groupOpenId, Instant.now());
-                }).exceptionallyCompose(error -> {
-                    Throwable cause = unwrap(error);
+                    try {
+                        return QqGroupJoinPage.parse(response.body(), groupOpenId, Instant.now());
+                    } catch (RuntimeException invalidPage) {
+                        throw QqApiErrors.responseError("List QQ group join requests", response, body,
+                                config.appSecret(), token, new JsonPrimitive(cursor));
+                    }
+                })).exceptionallyCompose(error -> {
+                    Throwable cause = QqApiErrors.unwrap(error);
                     if (!retriedAuthentication && cause instanceof QqHttpException httpError
                             && httpError.statusCode() == 401) {
                         tokenProvider.invalidate();
@@ -200,7 +204,7 @@ public final class QqOpenApiClient {
         return tokenProvider.accessToken()
                 .thenCompose(token -> sendAuthorizedMessage(groupOpenId, body, token))
                 .exceptionallyCompose(error -> {
-                    Throwable cause = unwrap(error);
+                    Throwable cause = QqApiErrors.unwrap(error);
                     if (!retriedAuthentication && cause instanceof QqHttpException httpError
                             && httpError.statusCode() == 401) {
                         tokenProvider.invalidate();
@@ -225,7 +229,7 @@ public final class QqOpenApiClient {
                                 imageMessageBody(messageId, messageSequence,
                                         fileInfo, content), token)))
                 .exceptionallyCompose(error -> {
-                    Throwable cause = unwrap(error);
+                    Throwable cause = QqApiErrors.unwrap(error);
                     if (!retriedAuthentication && cause instanceof QqHttpException httpError
                             && httpError.statusCode() == 401) {
                         tokenProvider.invalidate();
@@ -251,14 +255,12 @@ public final class QqOpenApiClient {
                 .build();
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
-                    JsonObject responseBody = QqAccessTokenProvider.parseObject(response.body());
-                    long errorCode = QqAccessTokenProvider.longValue(responseBody, "err_code",
-                            QqAccessTokenProvider.longValue(responseBody, "code", 0));
-                    String fileInfo = QqAccessTokenProvider.string(responseBody, "file_info");
+                    JsonObject responseBody = QqApiErrors.parseObject(response.body());
+                    String fileInfo = QqApiErrors.string(responseBody, "file_info");
                     if (response.statusCode() < 200 || response.statusCode() >= 300
-                            || errorCode != 0 || fileInfo.isBlank()) {
-                        throw QqAccessTokenProvider.responseError(
-                                "Upload QQ group image", response, responseBody);
+                            || QqApiErrors.hasError(responseBody) || fileInfo.isBlank()) {
+                        throw QqApiErrors.responseError("Upload QQ group image", response, responseBody,
+                                config.appSecret(), accessToken, body);
                     }
                     return fileInfo;
                 });
@@ -300,12 +302,11 @@ public final class QqOpenApiClient {
 
         return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenApply(response -> {
-                    JsonObject responseBody = QqAccessTokenProvider.parseObject(response.body());
-                    long errorCode = QqAccessTokenProvider.longValue(responseBody, "err_code",
-                            QqAccessTokenProvider.longValue(responseBody, "code", 0));
+                    JsonObject responseBody = QqApiErrors.parseObject(response.body());
                     if (response.statusCode() < 200 || response.statusCode() >= 300
-                            || errorCode != 0) {
-                        throw QqAccessTokenProvider.responseError(operation, response, responseBody);
+                            || QqApiErrors.hasError(responseBody)) {
+                        throw QqApiErrors.responseError(operation, response, responseBody,
+                                config.appSecret(), accessToken, body);
                     }
                     return null;
                 });
@@ -338,13 +339,4 @@ public final class QqOpenApiClient {
         }
     }
 
-    private static Throwable unwrap(Throwable error) {
-        Throwable result = error;
-        while ((result instanceof CompletionException
-                || result instanceof java.util.concurrent.ExecutionException)
-                && result.getCause() != null) {
-            result = result.getCause();
-        }
-        return result;
-    }
 }

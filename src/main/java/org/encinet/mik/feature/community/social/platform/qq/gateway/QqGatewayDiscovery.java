@@ -2,7 +2,7 @@ package org.encinet.mik.feature.community.social.platform.qq.gateway;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 
 import java.net.URI;
@@ -48,30 +48,25 @@ final class QqGatewayDiscovery {
                     .header("X-Union-Appid", config.appId())
                     .GET()
                     .build();
-            return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
-        }).thenCompose(response -> {
-            if (!retriedAuthentication && response.statusCode() == 401) {
-                invalidateToken.run();
-                return discover(true);
-            }
-            try {
-                return CompletableFuture.completedFuture(parseResponse(response));
-            } catch (RuntimeException error) {
-                return CompletableFuture.failedFuture(error);
-            }
+            return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenCompose(response -> {
+                if (!retriedAuthentication && response.statusCode() == 401) {
+                    invalidateToken.run();
+                    return discover(true);
+                }
+                try {
+                    return CompletableFuture.completedFuture(parseResponse(response, token));
+                } catch (RuntimeException error) {
+                    return CompletableFuture.failedFuture(error);
+                }
+            });
         });
     }
 
-    private static URI parseResponse(HttpResponse<String> response) {
-        if (response.statusCode() < 200 || response.statusCode() >= 300) {
-            throw discoveryError(response);
-        }
-        final JsonObject body;
-        try {
-            JsonElement parsed = JsonParser.parseString(response.body());
-            body = parsed.isJsonObject() ? parsed.getAsJsonObject() : new JsonObject();
-        } catch (RuntimeException error) {
-            throw new IllegalStateException("QQ Gateway discovery returned invalid JSON", error);
+    private URI parseResponse(HttpResponse<String> response, String token) {
+        JsonObject body = QqApiErrors.parseObject(response.body());
+        if (response.statusCode() < 200 || response.statusCode() >= 300 || QqApiErrors.hasError(body)) {
+            throw QqApiErrors.responseError("QQ Gateway discovery", response, body,
+                    config.appSecret(), token, null);
         }
         JsonElement urlValue = body.get("url");
         if (urlValue == null || !urlValue.isJsonPrimitive()) {
@@ -81,7 +76,7 @@ final class QqGatewayDiscovery {
         try {
             endpoint = URI.create(urlValue.getAsString().strip());
         } catch (RuntimeException error) {
-            throw new IllegalStateException("QQ Gateway discovery returned an invalid url", error);
+            throw new IllegalStateException("QQ Gateway discovery returned an invalid url");
         }
         if (endpoint.getHost() == null
                 || (!"wss".equalsIgnoreCase(endpoint.getScheme())
@@ -92,45 +87,4 @@ final class QqGatewayDiscovery {
         return endpoint;
     }
 
-    private static IllegalStateException discoveryError(HttpResponse<String> response) {
-        StringBuilder message = new StringBuilder("QQ Gateway discovery returned HTTP ")
-                .append(response.statusCode());
-        try {
-            JsonElement parsed = JsonParser.parseString(response.body());
-            if (parsed.isJsonObject()) {
-                JsonObject body = parsed.getAsJsonObject();
-                appendErrorField(message, body, "err_code", "err_code");
-                if (!body.has("err_code")) {
-                    appendErrorField(message, body, "code", "code");
-                }
-                appendErrorField(message, body, "message", null);
-                appendErrorField(message, body, "trace_id", "trace_id");
-            }
-        } catch (RuntimeException ignored) {
-            // The status code remains actionable even if QQ returned a non-JSON proxy page.
-        }
-        return new IllegalStateException(message.toString());
-    }
-
-    private static void appendErrorField(
-            StringBuilder target,
-            JsonObject body,
-            String field,
-            String label
-    ) {
-        JsonElement value = body.get(field);
-        if (value == null || value.isJsonNull() || !value.isJsonPrimitive()) {
-            return;
-        }
-        String text = value.getAsString().strip();
-        if (text.isEmpty()) {
-            return;
-        }
-        String limited = text.length() <= 200 ? text : text.substring(0, 200) + "…";
-        target.append(label == null ? ": " : " [" + label + "=")
-                .append(limited);
-        if (label != null) {
-            target.append(']');
-        }
-    }
 }

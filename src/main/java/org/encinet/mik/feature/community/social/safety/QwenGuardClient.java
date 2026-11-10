@@ -20,7 +20,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Bounded round-robin moderation across OVHcloud and Eden AI Qwen3Guard routes. */
+/** Bounded moderation with round-robin 8B routes and a last-resort 0.6B route. */
 public final class QwenGuardClient implements SocialContentModerator {
     private static final URI OVH_ENDPOINT = URI.create(
             "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions");
@@ -33,7 +33,8 @@ public final class QwenGuardClient implements SocialContentModerator {
     private static final Duration MAXIMUM_COOLDOWN = Duration.ofDays(1);
 
     private final SocialContentSafetyConfig config;
-    private final List<Route> routes;
+    private final List<Route> preferredRoutes;
+    private final Route fallbackRoute;
     private final AtomicInteger cursor = new AtomicInteger();
     private final HttpClient httpClient;
     private volatile boolean closed;
@@ -45,15 +46,15 @@ public final class QwenGuardClient implements SocialContentModerator {
     QwenGuardClient(SocialContentSafetyConfig config, URI ovhEndpoint, URI edenEndpoint) {
         this.config = Objects.requireNonNull(config, "config");
         List<Route> configured = new ArrayList<>();
-        configured.add(new Route(ovhEndpoint, "Qwen3Guard-Gen-0.6B", config.apiKey(),
-                QwenGuardProtocol.OVH));
         configured.add(new Route(ovhEndpoint, "Qwen3Guard-Gen-8B", config.apiKey(),
                 QwenGuardProtocol.OVH));
         if (!config.edenaiApiKey().isEmpty()) {
             configured.add(new Route(edenEndpoint, "text/moderation/ovhcloud/Qwen3Guard-Gen-8B",
                     config.edenaiApiKey(), QwenGuardProtocol.EDEN));
         }
-        routes = List.copyOf(configured);
+        preferredRoutes = List.copyOf(configured);
+        fallbackRoute = new Route(ovhEndpoint, "Qwen3Guard-Gen-0.6B", config.apiKey(),
+                QwenGuardProtocol.OVH);
         httpClient = HttpClient.newBuilder()
                 .connectTimeout(config.connectTimeout())
                 .followRedirects(HttpClient.Redirect.NEVER)
@@ -70,14 +71,12 @@ public final class QwenGuardClient implements SocialContentModerator {
             return false;
         }
         long deadline = System.nanoTime() + config.requestTimeout().toNanos();
-        List<Route> candidates = new ArrayList<>();
-        for (Route route : routes) if (route.available()) candidates.add(route);
+        List<Route> candidates = candidates();
         String failure = "Qwen Guard has no available moderation route";
         if (candidates.isEmpty()) throw new IllegalStateException(failure);
-        int start = cursor.getAndUpdate(value -> (value + 1) % candidates.size()) % candidates.size();
         for (int index = 0; index < candidates.size(); index++) {
             checkActive();
-            Route route = candidates.get((start + index) % candidates.size());
+            Route route = candidates.get(index);
             if (!route.available()) continue;
             long remaining = deadline - System.nanoTime();
             if (remaining <= 0) break;
@@ -114,6 +113,20 @@ public final class QwenGuardClient implements SocialContentModerator {
         }
         // Remote bodies, credentials and low-level exception details must not enter logs.
         throw new IllegalStateException(failure);
+    }
+
+    private List<Route> candidates() {
+        List<Route> available = new ArrayList<>();
+        for (Route route : preferredRoutes) if (route.available()) available.add(route);
+        List<Route> candidates = new ArrayList<>();
+        if (!available.isEmpty()) {
+            int start = cursor.getAndUpdate(value -> (value + 1) % available.size()) % available.size();
+            for (int index = 0; index < available.size(); index++) {
+                candidates.add(available.get((start + index) % available.size()));
+            }
+        }
+        if (fallbackRoute.available()) candidates.add(fallbackRoute);
+        return candidates;
     }
 
     private HttpResponse<byte[]> request(Route route, String text, Duration timeout)
