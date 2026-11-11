@@ -573,13 +573,19 @@ identity-admin-help = /bindadmin lookup <플레이어-또는-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 해당 플레이어의 연결을 찾지 못했습니다.
 identity-admin-lookup-title = { $arg0 }의 연결:
-identity-binding-account = 계정 전체
-identity-binding-details = · { $arg0 } · 범위 { $arg1 } · { $arg2 }
+identity-binding-community = 커뮤니티 #{ $arg0 }
+identity-binding-info = 연결 날짜: { $arg0 }
+    연결 ID: { $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = 선택한 연결이 없거나 본인의 연결이 아닙니다.
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 선택한 { $arg0 } 연결을 해제했습니다.
+identity-binding-unnamed = 닉네임 없음
 identity-bindings-empty = 연결된 외부 플랫폼 계정이 없습니다.
-identity-bindings-title = 연결된 외부 계정:
-identity-bindings-unlink-hint = 해제할 항목의 연결 해제를 클릭하세요.
+identity-bindings-title = 연결된 계정
 identity-code-cancelled = 사용하지 않은 { $arg0 } 연결 코드를 취소했습니다.
 identity-code-copy = 클릭하여 전체 연결 명령어 복사
 identity-code-expiry = 코드 유효 기간: { $arg0 }분
@@ -621,6 +627,8 @@ social-binding-help = 서버 접속을 시도하면 로그인 화면에서 코�
     /프로필로 연결을 확인합니다.
 social-binding-identity-missing = 이 메시지에는 신뢰할 수 있는 멤버 식별 정보가 없어 연결할 수 없습니다.
 social-binding-linked = Minecraft 플레이어와 연결했습니다: { $arg0 }
+social-binding-membership-required = 이 플랫폼의 연동된 커뮤니티에 가입한 후 계정 연결을 다시 시도하세요
+social-binding-membership-unavailable = 현재 커뮤니티 가입 여부를 확인할 수 없습니다. 나중에 다시 시도하거나 서버 관리자에게 문의하세요
 social-binding-not-bound = 이 플랫폼 식별 정보는 연결되어 있지 않습니다.
 social-binding-platform-mismatch = 이 인증 코드는 다른 플랫폼용으로 발급되었습니다.
 social-binding-player-scope-in-use = 이 Minecraft 플레이어는 같은 플랫폼 계정 범위에 다른 신원이 이미 연결되어 있습니다.

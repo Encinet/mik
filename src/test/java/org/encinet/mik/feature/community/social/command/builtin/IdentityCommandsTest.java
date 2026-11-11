@@ -3,6 +3,7 @@ package org.encinet.mik.feature.community.social.command.builtin;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
+import org.encinet.mik.shared.i18n.FluentTestSupport;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.encinet.mik.feature.community.identity.IdentityBinding;
@@ -15,6 +16,7 @@ import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
 import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
+import org.encinet.mik.feature.community.social.command.SocialCommandSyntax;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.junit.jupiter.api.Test;
 
@@ -30,6 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class IdentityCommandsTest {
     private static final ExternalIdentityKey KEY =
@@ -95,6 +100,33 @@ class IdentityCommandsTest {
                 languages.arguments.get(Message.SOCIAL_BINDING_HELP));
         assertEquals(List.of("matrix"),
                 languages.arguments.get(Message.SOCIAL_BINDING_CODE_INVALID));
+    }
+
+    @Test
+    void membershipFailuresExplainTheReasonInTheCommandLanguage() {
+        var languages = FluentTestSupport.languages();
+        var bindings = mock(IdentityBindingManager.class);
+        when(bindings.find(KEY)).thenReturn(Optional.empty());
+        var command = new LinkIdentityCommand(bindings,
+                new SocialCommandLanguageResolver(bindings, languages), languages);
+        for (var language : List.of(Language.EN_US, Language.ZH_CN)) {
+            var original = context(true, "matrix");
+            var context = new SocialCommandContext(original.platform(), original.message(), original.input(),
+                    SocialCommandSyntax.caseInsensitive(language, "!"));
+            for (var status : List.of(IdentityLinkResult.Status.MEMBERSHIP_REQUIRED,
+                    IdentityLinkResult.Status.MEMBERSHIP_UNAVAILABLE)) {
+                when(bindings.redeem("123456", context.message().authenticatedIdentity().orElseThrow()))
+                        .thenReturn(new IdentityLinkResult(status, null, null));
+                var document = command.present(context, command.handle(context, "123456"));
+                String expected = switch (status) {
+                    case MEMBERSHIP_REQUIRED -> language == Language.EN_US ? "Join a connected community" : "请先加入";
+                    case MEMBERSHIP_UNAVAILABLE -> language == Language.EN_US ? "membership cannot currently be verified" : "成员资格暂时无法核验";
+                    default -> throw new AssertionError(status);
+                };
+                assertTrue(document.plainText().contains(expected), document.plainText());
+                assertEquals(SocialDocument.Tone.WARNING, document.tone());
+            }
+        }
     }
 
     private static SocialCommandContext context(boolean authenticated) {

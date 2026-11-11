@@ -573,13 +573,19 @@ identity-admin-help = /bindadmin lookup <玩家或UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 未找到该玩家的绑定记录。
 identity-admin-lookup-title = { $arg0 } 的绑定：
-identity-binding-account = 账号通用
-identity-binding-details = · { $arg0 } · 作用域 { $arg1 } · { $arg2 }
+identity-binding-community = 社区 #{ $arg0 }
+identity-binding-info = 绑定时间：{ $arg0 }
+    绑定编号：{ $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = 所选绑定不存在或不属于你。
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 已解除所选的 { $arg0 } 绑定。
+identity-binding-unnamed = 未提供昵称
 identity-bindings-empty = 当前没有绑定任何外部平台账号。
-identity-bindings-title = 已绑定的外部身份：
-identity-bindings-unlink-hint = 点击对应记录的「解绑」，仅解除该条绑定。
+identity-bindings-title = 已绑定的账号
 identity-code-cancelled = 已取消尚未使用的 { $arg0 } 绑定验证码。
 identity-code-copy = 点击复制完整绑定指令
 identity-code-expiry = 验证码有效期：{ $arg0 } 分钟
@@ -621,6 +627,8 @@ social-binding-help = 尝试连接服务器，在登录提示中获取验证码�
     使用 /我的 验证绑定。
 social-binding-identity-missing = 当前消息没有可靠的平台成员标识，无法执行身份绑定。
 social-binding-linked = 已绑定 Minecraft 玩家 { $arg0 }。
+social-binding-membership-required = 请先加入此平台的接入社区，再重试绑定
+social-binding-membership-unavailable = 社区成员资格暂时无法核验，请稍后重试或联系服务器管理员
 social-binding-not-bound = 当前平台身份尚未绑定 Minecraft 玩家。
 social-binding-platform-mismatch = 该验证码是为其他平台生成的。
 social-binding-player-scope-in-use = 该 Minecraft 玩家已在相同的平台账号范围内绑定其他身份。

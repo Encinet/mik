@@ -573,13 +573,19 @@ identity-admin-help = /bindadmin lookup <ผู้เล่น-หรือ-UUID
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = ไม่พบการเชื่อมของผู้เล่นนี้
 identity-admin-lookup-title = การเชื่อมของ { $arg0 }:
-identity-binding-account = ทั้งบัญชี
-identity-binding-details = · { $arg0 } · ขอบเขต { $arg1 } · { $arg2 }
+identity-binding-community = ชุมชน #{ $arg0 }
+identity-binding-info = วันที่เชื่อมบัญชี: { $arg0 }
+    รหัสการเชื่อมบัญชี: { $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = ไม่พบการเชื่อมที่เลือกหรือการเชื่อมนี้ไม่ใช่ของคุณ
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = ยกเลิกการเชื่อม { $arg0 } ที่เลือกแล้ว
+identity-binding-unnamed = บัญชีที่ไม่ได้ระบุชื่อ
 identity-bindings-empty = คุณยังไม่ได้เชื่อมบัญชีแพลตฟอร์มภายนอก
-identity-bindings-title = ตัวตนภายนอกที่เชื่อมแล้ว:
-identity-bindings-unlink-hint = คลิกยกเลิกการเชื่อมที่รายการที่ต้องการลบ
+identity-bindings-title = บัญชีที่เชื่อมแล้ว
 identity-code-cancelled = ยกเลิกรหัสเชื่อม { $arg0 } ที่ยังไม่ได้ใช้แล้ว
 identity-code-copy = คลิกเพื่อคัดลอกคำสั่งเชื่อมฉบับเต็ม
 identity-code-expiry = รหัสมีอายุ { $arg0 } นาที
@@ -621,6 +627,8 @@ social-binding-help = ลองเชื่อมต่อเซิร์ฟเ�
     ใช้ /โปรไฟล์ เพื่อตรวจสอบการผูก
 social-binding-identity-missing = ข้อความนี้ไม่มีข้อมูลสมาชิกที่เชื่อถือได้ จึงไม่สามารถผูกตัวตนได้
 social-binding-linked = ผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
+social-binding-membership-required = เข้าร่วมชุมชนที่เชื่อมต่อบนแพลตฟอร์มนี้ก่อน แล้วลองผูกบัญชีอีกครั้ง
+social-binding-membership-unavailable = ขณะนี้ไม่สามารถตรวจสอบการเป็นสมาชิกชุมชนได้ โปรดลองอีกครั้งภายหลังหรือติดต่อผู้ดูแลเซิร์ฟเวอร์
 social-binding-not-bound = ตัวตนบนแพลตฟอร์มนี้ยังไม่ได้ผูก
 social-binding-platform-mismatch = รหัสยืนยันนี้ออกให้สำหรับแพลตฟอร์มอื่น
 social-binding-player-scope-in-use = ผู้เล่น Minecraft นี้ผูกตัวตนอื่นไว้แล้วในขอบเขตบัญชีแพลตฟอร์มเดียวกัน

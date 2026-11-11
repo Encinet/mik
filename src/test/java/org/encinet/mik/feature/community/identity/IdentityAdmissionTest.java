@@ -132,7 +132,29 @@ class IdentityAdmissionTest {
         String instructions = denial(pending);
         assertTrue(instructions.contains("现有绑定暂时无法验证"));
         assertTrue(instructions.contains("!bind"));
-        assertThrows(IdentityBindingException.class, () -> runtime.redeem("123456", account));
+        assertEquals(IdentityLinkResult.Status.MEMBERSHIP_UNAVAILABLE,
+                runtime.redeem("123456", account).status());
+    }
+
+    @Test
+    void membershipFailuresDistinguishAbsenceFromUnknownAndPreserveTheCodeForRetry() {
+        var code = runtime.issueCode(player, "Alice", "matrix").orElseThrow();
+        matrix.member("room", matrixAccount.key(), false);
+        assertEquals(IdentityLinkResult.Status.MEMBERSHIP_REQUIRED,
+                runtime.redeem(code.code(), matrixAccount).status());
+        assertTrue(runtime.codeIsPending(player, code));
+        assertTrue(runtime.findByPlayer(player).isEmpty());
+
+        matrix.invalidate();
+        assertEquals(IdentityLinkResult.Status.MEMBERSHIP_UNAVAILABLE,
+                runtime.redeem(code.code(), matrixAccount).status());
+        assertTrue(runtime.codeIsPending(player, code));
+        assertTrue(runtime.findByPlayer(player).isEmpty());
+
+        matrix.replace(matrix.revision(), Map.of("room", Set.of(matrixAccount.key())));
+        assertEquals(IdentityLinkResult.Status.LINKED,
+                runtime.redeem(code.code(), matrixAccount).status());
+        assertTrue(runtime.canJoin(player));
     }
 
     @Test

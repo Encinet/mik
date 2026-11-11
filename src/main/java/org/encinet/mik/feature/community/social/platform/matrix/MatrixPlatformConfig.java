@@ -13,6 +13,7 @@ public record MatrixPlatformConfig(
         URI homeserverUri,
         String accessToken,
         String recoveryKey,
+        boolean onlyVerifiedUsers,
         long syncTimeoutMillis,
         int syncMaxResponseBytes,
         long reconnectBaseDelayMillis,
@@ -45,6 +46,9 @@ public record MatrixPlatformConfig(
         requireNoControls(accessToken, "access-token");
         String recoveryKey = configuredValue(yaml.getString("encryption.recovery-key", ""));
         requireNoControls(recoveryKey, "encryption.recovery-key");
+        if (!(yaml.get("encryption.only-verified-users", false) instanceof Boolean onlyVerifiedUsers)) {
+            throw new IllegalArgumentException("encryption.only-verified-users must be a boolean");
+        }
 
         long syncTimeoutMillis = requireRange(
                 yaml.getLong("sync.timeout-millis", 30_000L),
@@ -84,7 +88,7 @@ public record MatrixPlatformConfig(
         if (enabled && rooms.commandRoomIds().isEmpty()) {
             throw new IllegalArgumentException("commands.room-ids must name the chat rooms accepting binding commands");
         }
-        return new MatrixPlatformConfig(enabled, homeserver, accessToken, recoveryKey,
+        return new MatrixPlatformConfig(enabled, homeserver, accessToken, recoveryKey, onlyVerifiedUsers,
                 syncTimeoutMillis, syncMaxResponseBytes,
                 reconnectBaseDelayMillis, reconnectMaxDelayMillis,
                 maxReconnectAttempts, workerMaxConcurrentTasks,

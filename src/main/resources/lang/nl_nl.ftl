@@ -636,13 +636,19 @@ identity-admin-help = /bindadmin lookup <speler-of-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Voor die speler zijn geen koppelingen gevonden.
 identity-admin-lookup-title = Koppelingen van { $arg0 }:
-identity-binding-account = Hele account
-identity-binding-details = · { $arg0 } · bereik { $arg1 } · { $arg2 }
+identity-binding-community = Community #{ $arg0 }
+identity-binding-info = Gekoppeld op: { $arg0 }
+    Koppelings-ID: { $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = De geselecteerde koppeling bestaat niet meer of is niet van jou.
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = De geselecteerde { $arg0}-koppeling is verwijderd.
+identity-binding-unnamed = Naamloos account
 identity-bindings-empty = Je hebt geen externe platformaccounts gekoppeld.
-identity-bindings-title = Gekoppelde externe identiteiten:
-identity-bindings-unlink-hint = Klik op Ontkoppelen bij de koppeling die je wilt verwijderen.
+identity-bindings-title = Gekoppelde accounts
 identity-code-cancelled = De ongebruikte koppelcode voor { $arg0 } is geannuleerd.
 identity-code-copy = Klik om de volledige koppelopdracht te kopiëren
 identity-code-expiry = Geldigheidsduur code: { $arg0 ->
@@ -687,6 +693,8 @@ social-binding-help = Probeer verbinding te maken om een code op het inlogscherm
     Gebruik /profiel om de koppeling te controleren.
 social-binding-identity-missing = Dit bericht bevat geen betrouwbare ledenidentiteit; koppelen is daarom niet mogelijk.
 social-binding-linked = Gekoppeld aan Minecraft-speler { $arg0 }.
+social-binding-membership-required = Word lid van een aangesloten community op dit platform en probeer je account opnieuw te koppelen.
+social-binding-membership-unavailable = Het communitylidmaatschap kan momenteel niet worden gecontroleerd. Probeer het later opnieuw of neem contact op met de serverbeheerder.
 social-binding-not-bound = Deze platformidentiteit is niet gekoppeld.
 social-binding-platform-mismatch = Deze verificatiecode is voor een ander platform uitgegeven.
 social-binding-player-scope-in-use = Deze Minecraft-speler heeft al een andere identiteit gekoppeld binnen hetzelfde platformaccountbereik.

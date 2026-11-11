@@ -678,13 +678,19 @@ identity-admin-help = /bindadmin lookup <гравець-або-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Прив’язок цього гравця не знайдено.
 identity-admin-lookup-title = Прив’язки гравця { $arg0 }:
-identity-binding-account = Увесь обліковий запис
-identity-binding-details = · { $arg0 } · область { $arg1 } · { $arg2 }
+identity-binding-community = Спільнота № { $arg0 }
+identity-binding-info = Дата прив’язування: { $arg0 }
+    ID прив’язки: { $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = Вибрана прив’язка більше не існує або належить іншому гравцеві.
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = Вибрану прив’язку { $arg0 } видалено.
+identity-binding-unnamed = Ім’я не вказано
 identity-bindings-empty = Ви не прив’язали жодного облікового запису зовнішньої платформи.
-identity-bindings-title = Прив’язані зовнішні облікові записи:
-identity-bindings-unlink-hint = Натисніть «Відв’язати» біля потрібного запису.
+identity-bindings-title = Прив’язані облікові записи
 identity-code-cancelled = Невикористаний код прив’язки { $arg0 } скасовано.
 identity-code-copy = Натисніть, щоб скопіювати повну команду прив’язки
 identity-code-expiry = Термін дії коду: { $arg0 ->
@@ -731,6 +737,8 @@ social-binding-help = Спробуйте під’єднатися до серв
     Перевірте прив’язку командою /профіль.
 social-binding-identity-missing = У цьому повідомленні немає надійного ідентифікатора учасника, тому прив’язування недоступне.
 social-binding-linked = Прив’язано до гравця Minecraft { $arg0 }.
+social-binding-membership-required = Приєднайтеся до підключеної спільноти на цій платформі й повторіть прив’язування.
+social-binding-membership-unavailable = Зараз не вдається перевірити участь у спільноті. Спробуйте пізніше або зверніться до адміністратора сервера.
 social-binding-not-bound = Цю особу платформи не прив’язано.
 social-binding-platform-mismatch = Цей код підтвердження видано для іншої платформи.
 social-binding-player-scope-in-use = Цей гравець Minecraft уже має іншу прив’язку в тій самій області облікового запису платформи.

@@ -573,13 +573,19 @@ identity-admin-help = /bindadmin lookup <玩家或UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 未得此玩家之繫錄。
 identity-admin-lookup-title = { $arg0 } 之繫：
-identity-binding-account = 帳號共用
-identity-binding-details = · { $arg0 } · 域 { $arg1 } · { $arg2 }
+identity-binding-community = 社群 #{ $arg0 }
+identity-binding-info = 繫於：{ $arg0 }
+    繫號：{ $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = 此繫無存，或非君所有。
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 已解所選之 { $arg0 } 繫。
+identity-binding-unnamed = 未具暱稱
 identity-bindings-empty = 今未繫外臺之號。
-identity-bindings-title = 已繫之外部身份：
-identity-bindings-unlink-hint = 點所選之「解繫」，唯除此繫。
+identity-bindings-title = 已繫之號
 identity-code-cancelled = 已廢未用之 { $arg0 } 驗碼。
 identity-code-copy = 點此抄完整繫定之令
 identity-code-expiry = 驗碼效期：{ $arg0 } 分
@@ -621,6 +627,8 @@ social-binding-help = 先嘗連服，於登入之示取驗碼；已入服者可�
     以 /吾 驗之。
 social-binding-identity-missing = 此訊無可信之臺員身分，故不可繫身分。
 social-binding-linked = 已繫 Minecraft 遊者 { $arg0 }。
+social-binding-membership-required = 請先入此平臺所接社群，再試繫定
+social-binding-membership-unavailable = 社群成員之籍暫不可驗，請稍後再試或洽服主
 social-binding-not-bound = 此臺身分未繫 Minecraft 遊者。
 social-binding-platform-mismatch = 此驗碼乃為他臺所發。
 social-binding-player-scope-in-use = 此 Minecraft 玩家於同臺帳域已有他身。

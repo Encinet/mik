@@ -149,6 +149,10 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
                     Message.SOCIAL_BINDING_EXTERNAL_IN_USE);
             case PLAYER_SCOPE_IN_USE -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_PLAYER_SCOPE_IN_USE);
+            case MEMBERSHIP_REQUIRED -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
+                    Message.SOCIAL_BINDING_MEMBERSHIP_REQUIRED);
+            case MEMBERSHIP_UNAVAILABLE -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
+                    Message.SOCIAL_BINDING_MEMBERSHIP_UNAVAILABLE);
             case RATE_LIMITED -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_BINDING_RATE_LIMITED, retryMinutes(result.retryAt()));
         };

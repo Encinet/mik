@@ -219,10 +219,12 @@ final class IdentityBindingCommandRegistrar {
     private CompletableFuture<Suggestions> suggestBindings(CommandSender sender, SuggestionsBuilder builder) {
         if (sender instanceof Player player && runtime.isAvailable()) {
             String remaining = builder.getRemainingLowerCase();
-            for (IdentityBinding binding : runtime.findByPlayer(player.getUniqueId())) {
+            List<IdentityBinding> bindings = runtime.findByPlayer(player.getUniqueId());
+            var labels = presenter.selectionLabels(sender, bindings);
+            for (IdentityBinding binding : bindings) {
                 String id = binding.bindingId().toString();
                 if (id.startsWith(remaining)) builder.suggest(id,
-                        new com.mojang.brigadier.LiteralMessage(presenter.selectionLabel(binding)));
+                        new com.mojang.brigadier.LiteralMessage(labels.get(binding.bindingId())));
             }
         }
         return builder.buildFuture();

@@ -147,11 +147,11 @@ final class IdentityBindingRuntime implements IdentityBindingManager {
         ensureAvailable();
         IdentityLinkResult result;
         synchronized (service) {
-            if (memberships.state(identity.key()) != IdentityMemberships.State.JOINED) {
-                throw new IdentityBindingException("Community membership is not verified",
-                        new IllegalStateException("membership unavailable"));
-            }
-            result = service.redeem(code, identity);
+            result = switch (memberships.state(identity.key())) {
+                case JOINED -> service.redeem(code, identity);
+                case ABSENT -> new IdentityLinkResult(IdentityLinkResult.Status.MEMBERSHIP_REQUIRED, null, null);
+                case UNKNOWN -> new IdentityLinkResult(IdentityLinkResult.Status.MEMBERSHIP_UNAVAILABLE, null, null);
+            };
         }
         if (result.status() == IdentityLinkResult.Status.LINKED && result.binding() != null) {
             notifier.linked(result.binding());

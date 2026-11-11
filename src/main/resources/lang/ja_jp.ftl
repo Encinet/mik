@@ -573,13 +573,19 @@ identity-admin-help = /bindadmin lookup <プレイヤーまたはUUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = このプレイヤーの連携は見つかりませんでした。
 identity-admin-lookup-title = { $arg0 } の連携：
-identity-binding-account = アカウント共通
-identity-binding-details = · { $arg0 } · スコープ { $arg1 } · { $arg2 }
+identity-binding-community = コミュニティ #{ $arg0 }
+identity-binding-info = 連携日：{ $arg0 }
+    連携 ID：{ $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = 選択した連携は存在しないか、あなたのものではありません。
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 選択した { $arg0 } の連携を解除しました。
+identity-binding-unnamed = ニックネーム未設定
 identity-bindings-empty = 外部プラットフォームのアカウントは連携されていません。
-identity-bindings-title = 連携済みの外部 ID：
-identity-bindings-unlink-hint = 解除する項目の「連携解除」をクリックしてください。
+identity-bindings-title = 連携済みアカウント
 identity-code-cancelled = 未使用の { $arg0 } 連携コードを取り消しました。
 identity-code-copy = クリックして完全な連携コマンドをコピー
 identity-code-expiry = コードの有効期間：{ $arg0 } 分
@@ -621,6 +627,8 @@ social-binding-help = サーバーへの接続を試すとログイン画面に�
     /プロフィール で連携を確認します。
 social-binding-identity-missing = このメッセージには信頼できるメンバー識別情報がないため、連携できません。
 social-binding-linked = Minecraft プレイヤー { $arg0 } と連携しました。
+social-binding-membership-required = このプラットフォームの連携コミュニティに参加してから、もう一度連携してください
+social-binding-membership-unavailable = コミュニティへの参加状況を確認できません。しばらくしてから再試行するか、サーバー管理者に連絡してください
 social-binding-not-bound = このプラットフォーム識別情報は連携されていません。
 social-binding-platform-mismatch = この確認コードは別のプラットフォーム用です。
 social-binding-player-scope-in-use = この Minecraft プレイヤーには、同じプラットフォームアカウントのスコープで別の ID が連携されています。

@@ -4,11 +4,15 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
+import org.encinet.mik.shared.i18n.RichArg;
+import org.encinet.mik.shared.i18n.TextArg;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -18,7 +22,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /** Renders all Minecraft-side identity command responses. */
 final class IdentityBindingCommandPresenter {
@@ -88,9 +95,7 @@ final class IdentityBindingCommandPresenter {
         Language language = language(sender);
         sender.sendMessage(Component.text(languages.t(language,
                 Message.IDENTITY_BINDINGS_TITLE), NamedTextColor.AQUA));
-        bindings.forEach(binding -> sender.sendMessage(bindingLine(binding, language, false)));
-        sender.sendMessage(Component.text(languages.t(language,
-                Message.IDENTITY_BINDINGS_UNLINK_HINT), NamedTextColor.WHITE));
+        entries(bindings, language).forEach(entry -> sender.sendMessage(bindingLine(entry, language, false)));
     }
 
     void codeCancelled(CommandSender sender, boolean cancelled, IdentityPlatform platform) {
@@ -121,13 +126,14 @@ final class IdentityBindingCommandPresenter {
         Language language = language(sender);
         sender.sendMessage(Component.text(languages.t(language,
                 Message.IDENTITY_ADMIN_LOOKUP_TITLE, playerName), NamedTextColor.AQUA));
-        for (IdentityBinding binding : bindings) {
+        for (BindingEntry entry : entries(bindings, language)) {
+            IdentityBinding binding = entry.binding();
             Component row = Component.text(languages.t(language,
                             Message.IDENTITY_ADMIN_BINDING_OWNER, binding.playerName(),
                             binding.playerId().toString().substring(0, 8)),
                             NamedTextColor.WHITE)
                     .append(Component.space())
-                    .append(bindingLine(binding, language, true));
+                    .append(bindingLine(entry, language, true));
             if (!(sender instanceof Player)) {
                 row = row.append(Component.text(" · " + unlinkCommand(binding, true), NamedTextColor.WHITE));
             }
@@ -145,9 +151,9 @@ final class IdentityBindingCommandPresenter {
                 NamedTextColor.GREEN, platformName(binding.externalKey().platform()), binding.playerName()));
     }
 
-    String selectionLabel(IdentityBinding binding) {
-        return platformName(binding.externalKey().platform()) + " · " + binding.externalDisplayName()
-                + " · " + binding.scopeDisplayName() + " · " + scopeFingerprint(binding.externalKey());
+    Map<UUID, String> selectionLabels(CommandSender sender, List<IdentityBinding> bindings) {
+        return entries(bindings, language(sender)).stream().collect(Collectors.toUnmodifiableMap(
+                entry -> entry.binding().bindingId(), entry -> plain(entry.label())));
     }
 
     String platformName(String platformId) {
@@ -156,28 +162,64 @@ final class IdentityBindingCommandPresenter {
                 .orElse(platformId);
     }
 
-    Component bindingLine(IdentityBinding binding, Language language, boolean admin) {
+    private Component bindingLabel(IdentityBinding binding, Language language) {
         String displayName = binding.externalDisplayName().isBlank()
-                ? languages.t(language, Message.UNKNOWN)
+                ? languages.t(language, Message.IDENTITY_BINDING_UNNAMED)
                 : binding.externalDisplayName();
+        boolean scoped = !binding.externalKey().scope().isEmpty();
+        String community = !scoped ? "" : binding.scopeDisplayName().isBlank()
+                ? languages.t(language, Message.IDENTITY_BINDING_COMMUNITY, scopeFingerprint(binding.externalKey()))
+                : binding.scopeDisplayName();
+        return languages.rich(language, Message.IDENTITY_BINDING_LABEL_RICH, NamedTextColor.WHITE,
+                new TextArg[]{TextArg.of("kind", scoped ? "community" : "account")},
+                RichArg.component("platform", Component.text(platformName(binding.externalKey().platform()), NamedTextColor.AQUA)),
+                RichArg.component("account", Component.text(displayName, NamedTextColor.WHITE)),
+                RichArg.component("community", Component.text(community, NamedTextColor.WHITE)));
+    }
+
+    private List<BindingEntry> entries(List<IdentityBinding> bindings, Language language) {
+        List<BindingEntry> entries = bindings.stream()
+                .map(binding -> new BindingEntry(binding, bindingLabel(binding, language))).toList();
+        Map<String, Long> counts = entries.stream().collect(Collectors.groupingBy(
+                entry -> plain(entry.label()), Collectors.counting()));
+        return entries.stream().map(entry -> counts.get(plain(entry.label())) > 1
+                ? new BindingEntry(entry.binding(), languages.rich(language,
+                        Message.IDENTITY_BINDING_REFERENCE_RICH, NamedTextColor.WHITE,
+                        RichArg.component("label", entry.label()),
+                        RichArg.component("reference", Component.text(bindingReference(entry.binding(), bindings)))))
+                : entry).toList();
+    }
+
+    private Component bindingLine(BindingEntry entry, Language language, boolean admin) {
+        IdentityBinding binding = entry.binding();
         String date = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
                 .withLocale(language.locale())
                 .withZone(ZoneId.systemDefault())
                 .format(binding.createdAt());
-        String scopeLabel = binding.externalKey().scope().isEmpty()
-                ? languages.t(language, Message.IDENTITY_BINDING_ACCOUNT)
-                : binding.scopeDisplayName();
-        String origin = (scopeLabel.isBlank() ? "" : scopeLabel + " · ") + scopeFingerprint(binding.externalKey());
         Component unlink = Component.text(languages.t(language, Message.IDENTITY_UNLINK_ACTION), NamedTextColor.YELLOW)
+                .decorate(TextDecoration.UNDERLINED)
                 .clickEvent(ClickEvent.runCommand(unlinkCommand(binding, admin)))
                 .hoverEvent(HoverEvent.showText(Component.text(languages.t(language, Message.IDENTITY_UNLINK_HINT))));
-        return Component.text(platformName(binding.externalKey().platform()),
-                        NamedTextColor.AQUA)
-                .append(Component.text(languages.t(language,
-                        Message.IDENTITY_BINDING_DETAILS, displayName,
-                        origin, date), NamedTextColor.WHITE))
+        return entry.label().hoverEvent(HoverEvent.showText(Component.text(languages.t(language,
+                        Message.IDENTITY_BINDING_INFO, date, binding.bindingId().toString()), NamedTextColor.WHITE)))
                 .append(Component.space()).append(unlink);
     }
+
+    private static String bindingReference(IdentityBinding binding, List<IdentityBinding> bindings) {
+        String id = binding.bindingId().toString();
+        for (int length = 8; length < id.length(); length++) {
+            String prefix = id.substring(0, length);
+            if (bindings.stream().noneMatch(other -> !other.bindingId().equals(binding.bindingId())
+                    && other.bindingId().toString().startsWith(prefix))) return prefix;
+        }
+        return id;
+    }
+
+    private static String plain(Component component) {
+        return PlainTextComponentSerializer.plainText().serialize(component);
+    }
+
+    private record BindingEntry(IdentityBinding binding, Component label) { }
 
     static String unlinkCommand(IdentityBinding binding, boolean admin) {
         return admin ? "/bindadmin unlink " + binding.bindingId() + " confirm"

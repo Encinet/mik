@@ -13,6 +13,7 @@ import de.connect2x.trixnity.client.room
 import de.connect2x.trixnity.client.room.encrypt
 import de.connect2x.trixnity.client.roomEventEncryptionServices
 import de.connect2x.trixnity.client.store.AccountStore
+import de.connect2x.trixnity.client.store.OlmCryptoStore
 import de.connect2x.trixnity.client.store.StoreTransactionManager
 import de.connect2x.trixnity.client.store.repository.exposed.exposed
 import de.connect2x.trixnity.clientserverapi.client.MatrixClientAuthProviderData
@@ -55,7 +56,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.future.future
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.job
@@ -143,6 +143,7 @@ class TrixnityEncryption(
                     autoJoinUpgradedRooms = false
                     storeTimelineEventContentUnencrypted = false
                     matrixClientServerApiClientFactory = MatrixSdkFactory(syncState, advertised)
+                    if (config.onlyVerifiedUsers()) modulesFactories += ::matrixVerifiedKeySharingModule
                 }.getOrThrow()
                 client = sdk
                 check(sdk.userId.full == userId && sdk.deviceId == deviceId) { "Matrix key store belongs to another device" }
@@ -150,12 +151,21 @@ class TrixnityEncryption(
                     "Matrix device identity does not match its existing keys; restore the key store or use a fresh device token"
                 }
                 sdk.started.first { it }
+                if (!config.onlyVerifiedUsers()) {
+                    // Disabling the policy must retire sessions that excluded unverified devices.
+                    val crypto = sdk.di.get<OlmCryptoStore>()
+                    sdk.di.get<StoreTransactionManager>().writeTransaction {
+                        config.rooms().observedRoomIds().forEach { room ->
+                            crypto.updateOutboundMegolmSession(RoomId(room)) { null }
+                        }
+                    }
+                }
                 token = sdk.di.get<AccountStore>().getAccount()?.syncBatchToken
                 check(!closed.get()) { "Matrix encryption is closed" }
                 logger.info("Matrix encryption device: $userId / $deviceId; Ed25519 ${sdk.signingKey.value.value}")
                 val verification = MatrixDeviceVerification(sdk, logger)
                 deviceVerification = verification
-                if (recoveryKey.isNotBlank()) scope.launch { verification.restore(recoveryKey) }
+                verification.start(scope, recoveryKey)
             } catch (failure: Throwable) {
                 withContext(NonCancellable) {
                     try {
@@ -184,6 +194,7 @@ class TrixnityEncryption(
             sdk.api.sync.emit(SyncEvents(sdk.api.json.decodeFromString(
                 SyncResponseSerializer(sdk.api.json, sdk.api.eventContentSerializerMappings), prepared)))
             lastReceived = fingerprint
+            deviceVerification?.synced()
         }
     }
 
@@ -221,9 +232,14 @@ class TrixnityEncryption(
                 put("content", sdk.api.json.parseToJsonElement(content.toString()))
             }
             val event = sdk.api.json.decodeFromJsonElement(serializer, template)
-            val encrypted = checkNotNull(sdk.roomEventEncryptionServices.encrypt(event.content, RoomId(roomId))) {
-                "Matrix room encryption is not available"
-            }.getOrThrow()
+            val room = RoomId(roomId)
+            val encrypt: suspend () -> MessageEventContent = {
+                checkNotNull(sdk.roomEventEncryptionServices.encrypt(event.content, room)) {
+                    "Matrix room encryption is not available"
+                }.getOrThrow()
+            }
+            val encrypted = if (config.onlyVerifiedUsers()) sdk.di.get<MatrixVerifiedKeySharing>().encryptRoom(room, encrypt)
+                else encrypt()
             check(encrypted is EncryptedMessageEventContent) { "Matrix SDK refused to encrypt the room message" }
             val encoded = sdk.api.json.encodeToJsonElement(serializer, MessageEvent<MessageEventContent>(
                 encrypted, event.id, event.sender, event.roomId, event.originTimestamp,

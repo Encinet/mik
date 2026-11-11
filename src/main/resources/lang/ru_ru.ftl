@@ -687,13 +687,19 @@ identity-admin-help = /bindadmin lookup <игрок-или-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Привязки этого игрока не найдены.
 identity-admin-lookup-title = Привязки игрока { $arg0 }:
-identity-binding-account = Весь аккаунт
-identity-binding-details = · { $arg0 } · область { $arg1 } · { $arg2 }
+identity-binding-community = Сообщество № { $arg0 }
+identity-binding-info = Дата привязки: { $arg0 }
+    ID привязки: { $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = Выбранная привязка больше не существует или принадлежит другому игроку.
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = Выбранная привязка { $arg0 } удалена.
+identity-binding-unnamed = Имя не указано
 identity-bindings-empty = У вас нет привязанных учётных записей внешних платформ.
-identity-bindings-title = Привязанные внешние учётные записи:
-identity-bindings-unlink-hint = Нажмите «Отвязать» рядом с нужной записью.
+identity-bindings-title = Привязанные аккаунты
 identity-code-cancelled = Неиспользованный код привязки { $arg0 } отменён.
 identity-code-copy = Нажмите, чтобы скопировать полную команду привязки
 identity-code-expiry = Срок действия кода: { $arg0 ->
@@ -740,6 +746,8 @@ social-binding-help = Попробуйте подключиться к серв�
     Проверьте привязку командой /профиль.
 social-binding-identity-missing = В этом сообщении нет надёжного идентификатора участника, поэтому привязка недоступна.
 social-binding-linked = Выполнена привязка к игроку Minecraft { $arg0 }.
+social-binding-membership-required = Вступите в подключённое сообщество на этой платформе и повторите привязку.
+social-binding-membership-unavailable = Сейчас не удаётся проверить участие в сообществе. Повторите попытку позже или обратитесь к администратору сервера.
 social-binding-not-bound = Эта платформенная личность не привязана.
 social-binding-platform-mismatch = Этот код подтверждения выдан для другой платформы.
 social-binding-player-scope-in-use = У этого игрока Minecraft уже есть другая привязка в той же области учётной записи платформы.

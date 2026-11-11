@@ -636,13 +636,19 @@ identity-admin-help = /bindadmin lookup <player-or-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = No identity links were found for that player.
 identity-admin-lookup-title = Identity links for { $arg0 }:
-identity-binding-account = Account-wide
-identity-binding-details = · { $arg0 } · scope { $arg1 } · { $arg2 }
+identity-binding-community = Community #{ $arg0 }
+identity-binding-info = Linked on: { $arg0 }
+    Link ID: { $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = The selected link no longer exists or does not belong to you.
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = Removed the selected { $arg0 } link.
+identity-binding-unnamed = Unnamed account
 identity-bindings-empty = You have not linked any external platform accounts.
-identity-bindings-title = Linked external identities:
-identity-bindings-unlink-hint = Click Unlink on the entry you want to remove.
+identity-bindings-title = Linked accounts
 identity-code-cancelled = The unused { $arg0 } link code was cancelled.
 identity-code-copy = Click to copy the complete linking command
 identity-code-expiry = Code validity: { $arg0 ->
@@ -687,6 +693,8 @@ social-binding-help = Try connecting to the server to get a code on the login sc
     Use /profile to verify the link.
 social-binding-identity-missing = This message has no trusted member identity, so identity binding is unavailable.
 social-binding-linked = Linked to Minecraft player { $arg0 }.
+social-binding-membership-required = Join a connected community on this platform, then try linking again.
+social-binding-membership-unavailable = Community membership cannot currently be verified. Try again later or contact a server administrator.
 social-binding-not-bound = This social identity is not linked.
 social-binding-platform-mismatch = This verification code was issued for another platform.
 social-binding-player-scope-in-use = That Minecraft player already has another identity linked in the same platform account scope.

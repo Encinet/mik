@@ -8,6 +8,8 @@ encryption:
   # Optional account recovery key: restores cross-signing secrets and room-key backup.
   # Use a dedicated device token; keep social/matrix-crypto together with its database.key files.
   recovery-key: ""
+  # Only share encrypted room keys with devices trusted by this bot.
+  only-verified-users: false
 
 sync:
   timeout-millis: 30000

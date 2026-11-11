@@ -631,13 +631,19 @@ identity-admin-help = /bindadmin lookup <Spieler-oder-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Für diesen Spieler wurden keine Verknüpfungen gefunden.
 identity-admin-lookup-title = Verknüpfungen von { $arg0 }:
-identity-binding-account = Kontoweit
-identity-binding-details = · { $arg0 } · Bereich { $arg1 } · { $arg2 }
+identity-binding-community = Community #{ $arg0 }
+identity-binding-info = Verknüpft am: { $arg0 }
+    Verknüpfungs-ID: { $arg1 }
+identity-binding-label-rich = { $kind ->
+    [community] { $platform } · { $account } · { $community }
+   *[account] { $platform } · { $account }
+    }
 identity-binding-not-owned = Die ausgewählte Verknüpfung existiert nicht mehr oder gehört dir nicht.
+identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = Die ausgewählte { $arg0 }-Verknüpfung wurde entfernt.
+identity-binding-unnamed = Unbenanntes Konto
 identity-bindings-empty = Du hast keine externen Plattformkonten verknüpft.
-identity-bindings-title = Verknüpfte externe Identitäten:
-identity-bindings-unlink-hint = Klicke beim gewünschten Eintrag auf Trennen.
+identity-bindings-title = Verknüpfte Konten
 identity-code-cancelled = Der ungenutzte Verknüpfungscode für { $arg0 } wurde verworfen.
 identity-code-copy = Klicken, um den vollständigen Verknüpfungsbefehl zu kopieren
 identity-code-expiry = Gültigkeit des Codes: { $arg0 ->
@@ -682,6 +688,8 @@ social-binding-help = Verbinde dich für einen Code auf dem Anmeldebildschirm mi
     Prüfe die Verknüpfung mit /profil.
 social-binding-identity-missing = Diese Nachricht enthält keine vertrauenswürdige Mitgliederidentität; eine Verknüpfung ist daher nicht möglich.
 social-binding-linked = Mit Minecraft-Spieler { $arg0 } verknüpft.
+social-binding-membership-required = Tritt zuerst einer angebundenen Community auf dieser Plattform bei und versuche die Verknüpfung erneut.
+social-binding-membership-unavailable = Die Community-Mitgliedschaft kann derzeit nicht geprüft werden. Versuche es später erneut oder kontaktiere die Serveradministration.
 social-binding-not-bound = Diese Plattformidentität ist nicht verknüpft.
 social-binding-platform-mismatch = Dieser Bestätigungscode wurde für eine andere Plattform ausgestellt.
 social-binding-player-scope-in-use = Dieser Minecraft-Spieler hat im selben Plattformkontobereich bereits eine andere Identität verknüpft.

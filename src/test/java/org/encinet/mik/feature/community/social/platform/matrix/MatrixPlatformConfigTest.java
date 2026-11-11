@@ -31,6 +31,8 @@ class MatrixPlatformConfigTest {
                 homeserver-url: https://matrix.example.org/client/
                 access-token: secret-token
                 default-language: ja_jp
+                encryption:
+                  only-verified-users: true
                 membership:
                   room-ids: ['!space:example.org']
                 commands:
@@ -68,6 +70,7 @@ class MatrixPlatformConfigTest {
         assertEquals("https://matrix.example.org/client/_matrix/client/v3/sync",
                 config.apiUri("/_matrix/client/v3/sync").toString());
         assertEquals("secret-token", config.accessToken());
+        assertTrue(config.onlyVerifiedUsers());
         assertEquals(Language.JA_JP, config.defaultLanguage());
         assertTrue(config.rooms().acceptsMessages("!allowed:example.org"));
         assertFalse(config.rooms().acceptsMessages("!other:example.org"));
@@ -105,6 +108,7 @@ class MatrixPlatformConfigTest {
         assertEquals(30_000, config.syncTimeoutMillis());
         assertEquals(2_097_152, config.syncMaxResponseBytes());
         assertEquals(Language.ZH_CN, config.defaultLanguage());
+        assertFalse(config.onlyVerifiedUsers());
         assertEquals("social/matrix.yml", MatrixPlatformConfig.FILE_NAME);
         assertTrue(config.rooms().chatRoutes().isEmpty());
     }
@@ -159,6 +163,14 @@ class MatrixPlatformConfigTest {
                 "chat-bridge: {routes: {room-id: '!room:example.org'}}",
                 "chat-bridge: {routes: ['!room:example.org']}")) {
             assertThrows(IllegalArgumentException.class, () -> MatrixPlatformConfig.from(yaml(invalid)));
+        }
+    }
+
+    @Test
+    void malformedEncryptionPolicyCannotSilentlyDisableVerification() {
+        for (String value : java.util.List.of("'true'", "'false'", "1", "[]")) {
+            assertThrows(IllegalArgumentException.class, () -> MatrixPlatformConfig.from(
+                    yaml("encryption: {only-verified-users: " + value + "}")));
         }
     }
 

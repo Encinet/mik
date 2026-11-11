@@ -41,6 +41,8 @@ public record IdentityLinkResult(
         PLATFORM_MISMATCH,
         EXTERNAL_IDENTITY_IN_USE,
         PLAYER_SCOPE_IN_USE,
+        MEMBERSHIP_REQUIRED,
+        MEMBERSHIP_UNAVAILABLE,
         RATE_LIMITED
     }
 
