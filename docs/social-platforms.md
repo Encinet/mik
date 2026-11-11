@@ -17,9 +17,19 @@ Minecraft 公共聊天 → ChatSubmission → ChatProcessor → ChatMessage
 
 命令优先解析，未命中时才进入已配置的聊天路由；同一事件只分类一次。公共聊天可桥接，staff 与私聊不外发。`ChatOrigin.visitedPlatforms` 防止消息返回来源平台。
 
-`ChatContent` 使用文本、链接、玩家提及、外部提及、广播提及和物品等语义节点。Minecraft、QQ、Matrix 各自渲染或降级，不在共享修饰器中拼平台标记。
+`ChatContent` 使用文本、链接、玩家提及、外部提及、广播提及、物品和内容说明等语义节点。Minecraft、QQ、Matrix 各自渲染或降级，不在共享修饰器中拼平台标记。
 
 每个平台在 `SocialPlatformDescriptor.sourceColor` 显式声明来源标签的 RGB 颜色。Host 将颜色随 `ChatOrigin.Social` 传递，游戏聊天统一读取该快照渲染标签；新增平台只需在自己的适配器中声明显示名与颜色。
+
+## 多语言与展示边界
+
+协议解码保留平台内容类型，投影层输出稳定正文、独立命令正文和生成说明的精确范围。QQ 与 Matrix 将图片、表情、聊天记录等映射到共享的 `ChatPlaceholder`；`ChatProcessor` 按可信范围构造 `ChatNode.Placeholder`。用户原文中手写的 `[image]` 等文字保持字面内容，不按文本匹配翻译。路由剥离前缀时同时调整提及和内容说明的位置；被截断的节点不产生残缺范围。
+
+`ChatContent.localized` 只解析内容说明节点，保留节点类型、样式、链接、提及与原始内容。游戏在渲染时采用接收玩家语言；网页采用绑定账号保存的语言，并按语言、发送者身份与提及状态复用消息帧；其他 Social 平台采用目标平台的 `default-language`，在内容审核之前解析展示文本。没有翻译上下文的日志或协议回退使用稳定的类型说明，例如 `[image]`。QQ 和 Matrix 的长度限制将内容说明作为整体保留或省略。
+
+命令业务结果与语言资源分离。`SocialCommandLanguageResolver` 统一选择回复语言；帮助与动作提示从注册的命令别名和实际前缀生成，翻译只安排完整句子。计数、总体人数和指标以数值交给 Fluent，挂机状态以语义条件选择分支；`SocialTimeText` 统一日期与时长格式，公告由 `SocialAnnouncementPresenter` 按目标语言生成文档。全部公开文案同步维护 `Message` 和所有 FTL。
+
+Matrix 加密管理返回 `MatrixCryptoResult`，分别区分自身验证、事务阶段和目标设备信任；预期操作错误使用 `MatrixCryptoException` 的原因类型。SDK 适配不返回已拼好的英文文案，`MatrixCryptoPresenter` 负责控制台展示和错误翻译。指纹、设备 ID 与 SAS 比对值按协议原样展示，故障详情记录到日志。
 
 ## 平台 SPI 与生命周期
 
@@ -28,6 +38,7 @@ Minecraft 公共聊天 → ChatSubmission → ChatProcessor → ChatMessage
 | `descriptor()` | 稳定平台 ID、显示名、来源标签颜色及可选的 `IdentityPlatform` |
 | `prepare()` | 校验配置，禁用时返回空计划，异常只令该平台失败 |
 | `SocialPlatformPlan.open(context)` | 固定本代运行策略并创建会话 |
+| `SocialPlatformSession.memberships()` | 暴露绑定入口时必须返回 `IdentityMemberships`，提供成员事实和退出监测；无法观测的状态返回 `UNKNOWN` |
 | `SocialPlatformSession.close()` | 关闭传输与资源；状态由专属 sink 推送 `STARTING/READY/FAILED/STOPPED` |
 | `SocialChatPlatformSession` | 提供聊天发送及目标会话提及解析 |
 | `SocialChatPlatformSession.sendNotice` | 向指定会话发送服务端文档，QQ 与 Matrix 各自渲染，不套用普通聊天前缀 |
@@ -50,7 +61,8 @@ Host 为每个平台独立维护运行代次（generation）、会话、身份�
 每份回复在创建时必须显式传入 `SocialDocument.Moderation`，构造器和工厂都没有默认策略，也没有创建后修改策略的接口；未声明策略的调用无法编译。回复辅助方法同样传递必填策略。
 
 ```java
-SocialDocument.of(TRUSTED, "帮助", Tone.INFO, paragraph("固定命令说明"));
+SocialDocument.of(TRUSTED, languages.t(language, Message.SOCIAL_TITLE_COMMAND_HELP),
+        Tone.INFO, paragraph(languages.t(language, Message.SOCIAL_HELP_COMMAND_DESCRIPTION)));
 SocialDocument.of(REQUIRED, "AI", Tone.INFO, paragraph(answer));
 ```
 
@@ -98,7 +110,7 @@ OVH 仅完整的 `Safety: Safe` 且 `Categories: None` 结果放行，`Controver
 
 ## 身份、提及与游戏数据
 
-平台必须从已认证事件构造 `ExternalIdentityKey`、提及范围和回复作者，不接受正文中自报的账号或伪造 `@名字`。玩家名查询可直接读取游戏资料；平台提及与回复目标须在当前作用域已绑定，多个不同目标会被拒绝。
+平台必须从已认证事件构造 `ExternalIdentityKey`、提及范围和回复作者，不接受正文中自报的账号或伪造 `@名字`。玩家名查询可直接读取游戏资料；平台提及与回复目标须在适配器声明的身份作用域内已绑定（QQ 为 AppID，群上下文不产生额外绑定），多个不同目标会被拒绝。
 
 出站提及先按 Minecraft UUID 查绑定，再由平台会话确认目标账号确实属于当前房间或群。多个有效账号全部保留；无目标时仅保留可读文本。被长度限制截断的提及不发送原生通知。显示约定为游戏到平台 `@游戏名(平台昵称)`，平台到游戏 `@平台昵称(游戏名)`。
 
@@ -131,6 +143,6 @@ Social 按 UUID 和语言偏好，只向已确认收件人绑定账号在场的�
 /social conversations <platform>
 ```
 
-省略平台的 status 显示全部状态，reload 独立重载全部适配器。身份验证码使用 `/bind <platform>`。
+省略平台的 status 显示全部状态，reload 独立重载全部适配器。首次登录的拒绝界面会提供身份指令，已入服可用 `/bind <platform>`。
 
-新增平台时实现鉴权、可信身份映射、事件回复凭证、配置、`SocialCommandSyntax` 和 renderer，向 `context.events()` 提交事件。聊天接入另实现 `SocialChatPlatformSession` 并声明路由。共享命令、Bukkit 调度、身份仓储访问、去重和背压由 Host 与游戏网关负责。
+新增平台时实现鉴权、可信身份映射、事件回复凭证、配置、`SocialCommandSyntax` 和 renderer，向 `context.events()` 提交事件。暴露身份绑定时，必须提供成员证据和加入／退出监测；缺少该能力不能注册绑定入口。完整名单与事件记录分别由适配器维护；仅掌握部分社区状态时不能推断全部缺席。成员核验与入服规则见[绑定白名单](identity-binding.md#绑定白名单与成员退出)。聊天接入另实现 `SocialChatPlatformSession` 并声明路由。共享命令、Bukkit 调度、身份仓储访问、去重和背压由 Host 与游戏网关负责。

@@ -1,23 +1,33 @@
 package org.encinet.mik.feature.community.social.platform.matrix.sync;
 
 import java.util.List;
+import org.encinet.mik.feature.community.chat.model.ChatPlaceholder;
 import java.util.Optional;
 
-/** Authenticated fields from one unencrypted Matrix room message. */
+/** Authenticated fields after optional device decryption and shared text projection. */
 public record MatrixRoomMessage(
         String eventId,
         String roomId,
         MatrixMember sender,
         String body,
+        String commandBody,
         List<MatrixMention> mentions,
         Optional<MatrixMember> repliedAuthor,
-        Optional<String> threadRootEventId
+        Optional<String> threadRootEventId,
+        List<ChatPlaceholder.Span> placeholders
 ) {
     public MatrixRoomMessage {
         mentions = List.copyOf(mentions);
+        placeholders = ChatPlaceholder.validate(placeholders, body.length());
         repliedAuthor = repliedAuthor == null ? Optional.empty() : repliedAuthor;
         threadRootEventId = threadRootEventId == null
                 ? Optional.empty() : threadRootEventId;
+    }
+
+    public MatrixRoomMessage(String eventId, String roomId, MatrixMember sender, String body, String commandBody,
+                             List<MatrixMention> mentions, Optional<MatrixMember> repliedAuthor,
+                             Optional<String> threadRootEventId) {
+        this(eventId, roomId, sender, body, commandBody, mentions, repliedAuthor, threadRootEventId, List.of());
     }
 
     public record MatrixMember(String userId, String displayName) {

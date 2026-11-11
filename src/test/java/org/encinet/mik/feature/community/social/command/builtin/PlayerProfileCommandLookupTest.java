@@ -178,8 +178,8 @@ class PlayerProfileCommandLookupTest {
 
     private static IdentityBinding binding(String name, ExternalIdentityKey key) {
         Instant now = Instant.parse("2026-08-12T00:00:00Z");
-        return new IdentityBinding(UUID.randomUUID(), name, key,
-                "QQ " + name, now, now);
+        return new IdentityBinding(UUID.randomUUID(), UUID.randomUUID(), name, key,
+                "QQ " + name, "", now, now);
     }
 
     private static SocialPlayerProfile profile(IdentityBinding binding) {
@@ -251,7 +251,7 @@ class PlayerProfileCommandLookupTest {
         }
 
         @Override
-        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
+        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, org.encinet.mik.feature.community.identity.IdentityMemberships memberships) {
             throw new UnsupportedOperationException();
         }
 

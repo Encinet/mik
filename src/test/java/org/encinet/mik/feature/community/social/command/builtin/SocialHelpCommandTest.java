@@ -35,6 +35,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SocialHelpCommandTest {
     @Test
+    void actionHintsUseTheRegisteredAliasAndActualPrefixInTheResolvedLanguage() {
+        var languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
+        var bindings = new EmptyBindings();
+        var resolver = new SocialCommandLanguageResolver(bindings, languages);
+        String unknown = new UnknownSocialCommand(resolver, languages).present(context(), NoArguments.INSTANCE).plainText();
+        assertTrue(unknown.contains("!ヘルプ"), unknown);
+        String unlink = new UnlinkIdentityCommand(bindings, resolver, languages)
+                .present(context(), new UnlinkIdentityCommand.Result.Prompt(Optional.empty())).plainText();
+        assertTrue(unlink.contains("!解除 confirm"), unlink);
+    }
+
+    @Test
     void commandBuildsHelpDirectlyFromInstalledCommandMetadata() {
         StubLanguageService languages = new StubLanguageService();
         EmptyBindings bindings = new EmptyBindings();
@@ -130,7 +142,7 @@ class SocialHelpCommandTest {
         }
 
         @Override
-        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
+        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, org.encinet.mik.feature.community.identity.IdentityMemberships memberships) {
             throw new UnsupportedOperationException();
         }
 

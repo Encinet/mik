@@ -475,6 +475,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [오디오]
+chat-content-card = [카드]
+chat-content-contact = [연락처]
+chat-content-emote = [동작]
+chat-content-face = [이모지]
+chat-content-file = [파일]
+chat-content-history = [대화 기록]
+chat-content-image = [이미지]
+chat-content-location = [위치]
+chat-content-message = [메시지]
+chat-content-multiple = [여러 메시지]
+chat-content-music = [음악]
+chat-content-notice = [알림]
+chat-content-reply = [인용 메시지]
+chat-content-sticker = [스티커]
+chat-content-video = [동영상]
 chat-copy-hover = 좌클릭하여 메시지 복사
 chat-delay-3s = 3초
 chat-delay-5s = 5초
@@ -543,44 +559,53 @@ announcement-view-command-description = 서버 공지 보기
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = 플레이어와 플랫폼 연결을 명확히 찾지 못했습니다.
+identity-admission-bind-rich = { $platform }: { $command }
+identity-admission-instructions = 플랫폼을 선택하고 해당 커뮤니티 봇에게 명령어를 보내세요:
+identity-admission-pending = 기존 연결을 아직 확인할 수 없습니다. 나중에 다시 시도하거나 다른 플랫폼 계정을 연결하세요
+identity-admission-reconnect = 계정 연결 후 서버에 다시 접속하세요
+identity-admission-required = 커뮤니티 계정을 연결하면 서버에 접속할 수 있습니다
+identity-admission-revoked = 유효한 커뮤니티 연결이 모두 해제되었습니다. 다시 접속하여 연결 안내를 받으세요
+identity-admin-binding-not-found = 선택한 연결이 더 이상 없습니다.
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = 플레이어 { $arg1 }의 { $arg0 } 연결 { $arg2 }개를 해제했습니다.
+identity-admin-binding-unlinked = { $arg1 }의 선택한 { $arg0 } 연결을 해제했습니다.
 identity-admin-command-description = 외부 계정 연결을 조회하거나 해제합니다
 identity-admin-help = /bindadmin lookup <플레이어-또는-UUID>
-    /bindadmin unlink <플레이어-또는-UUID> <플랫폼> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 해당 플레이어의 연결을 찾지 못했습니다.
 identity-admin-lookup-title = { $arg0 }의 연결:
+identity-binding-account = 계정 전체
 identity-binding-details = · { $arg0 } · 범위 { $arg1 } · { $arg2 }
-identity-binding-not-owned = 해당 플랫폼에 연결된 계정이 없습니다.
-identity-binding-unlinked = { $arg0 } 연결 { $arg1 }개를 해제했습니다.
+identity-binding-not-owned = 선택한 연결이 없거나 본인의 연결이 아닙니다.
+identity-binding-unlinked = 선택한 { $arg0 } 연결을 해제했습니다.
 identity-bindings-empty = 연결된 외부 플랫폼 계정이 없습니다.
 identity-bindings-title = 연결된 외부 계정:
-identity-bindings-unlink-hint = /bind unlink <플랫폼>으로 해당 플랫폼의 모든 연결을 해제할 수 있습니다.
+identity-bindings-unlink-hint = 해제할 항목의 연결 해제를 클릭하세요.
 identity-code-cancelled = 사용하지 않은 { $arg0 } 연결 코드를 취소했습니다.
 identity-code-copy = 클릭하여 전체 연결 명령어 복사
-identity-code-expiry = 코드는 5분 동안 유효하며 한 번만 사용할 수 있습니다. 새 코드를 만들면 이전 코드는 무효가 됩니다.
-identity-code-issued = { $arg0 } 연결 코드를 생성했습니다:
+identity-code-expiry = 코드 유효 기간: { $arg0 }분
 identity-code-not-pending = 사용하지 않은 { $arg0 } 연결 코드가 없습니다.
-identity-code-redeem = 대상 { $arg0 } 그룹에서 봇을 멘션하고 전송하세요: { $arg1 }
+identity-code-redeem-rich = { $platform } 커뮤니티 봇에게 전송: { $command }
 identity-command-description = Minecraft를 외부 플랫폼 계정과 연결합니다
+identity-community-join-rich = 커뮤니티 참여: { $link }
 identity-help = 계정 연결 명령어:
     /bind qq — QQ 연결 명령어를 빠르게 생성
     /bind <플랫폼> — 일회용 코드 생성
     /bind list — 기존 연결 보기
     /bind cancel <플랫폼> — 미사용 코드 취소
-    /bind unlink <플랫폼> — 해당 플랫폼의 모든 연결 해제
-identity-notify-linked = { $arg0 } 신원이 확인되었습니다. /bind list로 확인하거나 /bind unlink { $arg0 }으로 해제할 수 있습니다.
+    /bind unlink — 해제할 연결 하나 선택
+identity-notify-linked = { $arg0 } 계정이 연결되었습니다. /bind list로 연결을 확인하고 관리하세요.
 identity-notify-unlinked = { $arg0 } 신원 연결을 해제했습니다.
 identity-platform-none = 없음
 identity-platforms = 지원 플랫폼: { $arg0 }
-identity-scope-notice = 이 플랫폼의 계정은 그룹별로 분리됩니다. 봇을 사용할 그룹에서 연결하고, 다른 그룹에서는 별도로 연결하세요.
 identity-storage-error = 계정 연결 데이터베이스 작업에 실패했습니다. 관리자에게 문의하세요.
 identity-unavailable = 계정 연결 서비스를 현재 사용할 수 없습니다. 관리자에게 문의하세요.
+identity-unlink-action = [연결 해제]
+identity-unlink-hint = 선택한 이 연결만 해제합니다.
 identity-unsupported-platform = 지원하지 않는 플랫폼: { $arg0 }
 social-admin-conversations-empty = { $arg0 }에서 관찰된 대화가 없습니다.
 social-admin-conversations-title = { $arg0 }에서 관찰된 대화:
 social-admin-help = /social platforms · /social status [플랫폼] · /social reload [플랫폼] · /social conversations <플랫폼>
+social-admin-metrics = 수신 { $arg0 } / 재시도 { $arg1 } · 발신 { $arg2 } / 역압 { $arg3 } · 실패 { $arg4 }
 social-admin-platform = - { $arg0 }({ $arg1 }): { $arg2 }
 social-admin-reloaded = 소셜 플랫폼을 다시 불러왔습니다: { $arg0 }
 social-admin-reloaded-all = 모든 소셜 플랫폼을 다시 불러왔습니다.
@@ -588,9 +613,9 @@ social-admin-status = { $arg0 } · { $arg1 } · 세대 { $arg2 } · 대화 { $ar
 social-admin-title = 소셜 플랫폼
 social-admin-unknown = 알 수 없는 소셜 플랫폼: { $arg0 }
 social-binding-already-linked = 이미 연결된 Minecraft 플레이어: { $arg0 }
-social-binding-code-invalid = 인증 코드가 잘못되었거나 만료되었습니다. Minecraft에서 /bind { $arg0 }로 새 코드를 생성하세요.
+social-binding-code-invalid = 코드가 잘못되었거나 만료되었습니다. 다시 접속하여 새 코드를 받거나 게임에서 /bind { $arg0 }를 실행하세요.
 social-binding-external-in-use = 이 식별 정보는 이미 다른 Minecraft 플레이어와 연결되어 있습니다.
-social-binding-help = Minecraft에서 /bind { $arg0 }를 실행합니다.
+social-binding-help = 서버 접속을 시도하면 로그인 화면에서 코드를 받을 수 있습니다. 이미 접속 중이라면 /bind { $arg0 }를 실행하세요.
     생성된 전체 명령어를 복사합니다.
     해당 명령어를 여기에 보냅니다.
     /프로필로 연결을 확인합니다.
@@ -598,13 +623,50 @@ social-binding-identity-missing = 이 메시지에는 신뢰할 수 있는 멤�
 social-binding-linked = Minecraft 플레이어와 연결했습니다: { $arg0 }
 social-binding-not-bound = 이 플랫폼 식별 정보는 연결되어 있지 않습니다.
 social-binding-platform-mismatch = 이 인증 코드는 다른 플랫폼용으로 발급되었습니다.
-social-binding-player-scope-in-use = 해당 Minecraft 플레이어는 이 대화에서 이미 다른 식별 정보와 연결되어 있습니다.
+social-binding-player-scope-in-use = 이 Minecraft 플레이어는 같은 플랫폼 계정 범위에 다른 신원이 이미 연결되어 있습니다.
 social-binding-rate-limited = 실패 횟수가 너무 많습니다. 약 { $arg0 }분 후 다시 시도하세요.
-social-binding-status-unbound = 이 식별 정보는 연결되어 있지 않습니다. 인증 코드와 함께 /연결을 사용하세요.
 social-binding-unavailable = 현재 식별 정보 연결을 사용할 수 없습니다.
-social-binding-unlink-prompt = 연결을 해제하면 이 플랫폼 식별 정보와 Minecraft의 연결이 삭제됩니다. 계속하려면 /연결해제 확인을 보내세요.
+social-binding-unlink-prompt = 연결을 해제하면 이 플랫폼 식별 정보와 Minecraft의 연결이 삭제됩니다. 계속하려면 { $arg0 } 보내세요.
 social-binding-unlinked = Minecraft 플레이어 연결을 해제했습니다: { $arg0 }
 social-command-description = 소셜 플랫폼 어댑터 관리
+social-crypto-command-description = Matrix 암호화 기기 인증 관리
+social-crypto-comparison-not-ready = SAS 비교가 아직 준비되지 않았습니다.
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = 기기 인증에 실패했습니다. 서버 로그를 확인하세요.
+social-crypto-no-active = 진행 중인 기기 인증이 없습니다.
+social-crypto-not-accepting = 현재 인증은 수락을 기다리는 상태가 아닙니다.
+social-crypto-not-running = Matrix가 실행 중이 아닙니다.
+social-crypto-requested = 인증 요청됨: { $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] 초기화 중
+    [verified] 인증됨
+    [unverified] 미인증
+    [no_cross_signing] 교차 서명 비활성화
+    [requested] 요청됨
+    [ready] 준비됨
+    [started] 시작됨
+    [comparison] 비교 대기 중
+    [waiting] 완료 대기 중
+    [done] 완료됨
+    [cancelled] 취소됨
+   *[unknown] 알 수 없음
+    [valid] 유효한 키
+    [cross_signed] 교차 서명됨
+    [not_cross_signed] 교차 서명되지 않음
+    [blocked] 차단됨
+    [invalid] 유효하지 않은 키
+    }
+social-crypto-status = 인증: { $arg0 }
+    키 백업 버전: { $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = 현재 인증 트랜잭션의 전체 ID를 지정하세요.
+social-crypto-unavailable = 사용 불가
+social-crypto-updated = 인증이 업데이트되었습니다. matrixcrypto status로 확인하세요.
+social-crypto-usage = matrixcrypto status [사용자ID 기기ID]
+    matrixcrypto verify <사용자ID> <기기ID>
+    matrixcrypto accept|confirm|cancel <트랜잭션ID>
 social-duration-days = { $arg0 }일 { $arg1 }시간 { $arg2 }분
 social-duration-hours = { $arg0 }시간 { $arg1 }분
 social-duration-minutes = { $arg0 }분
@@ -627,11 +689,16 @@ social-profile-presence-label = 상태
 social-profile-target-ambiguous = 플레이어 이름, 한 명 멘션 또는 한 명에게 답장 중 하나만 지정하세요.
 social-profile-target-unbound = 멘션하거나 답장한 사용자는 Minecraft와 연결되어 있지 않습니다.
 social-profile-uuid-label = UUID
-social-query-active-label = 활동 중
+social-query-metric = { $arg0 }
 social-query-no-players = 현재 온라인 플레이어가 없습니다.
 social-query-online-label = 온라인
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (자리 비움)
+   *[active] { $arg0 }
+    }
 social-query-players-label = 플레이어
-social-query-unknown = 알 수 없는 명령어입니다. /도움말을 보내 사용 가능한 명령어를 확인하세요.
+social-query-population = 온라인 { $arg0 }/{ $arg1 } · 활동 중 { $arg2 } · 자리 비움 { $arg3 }
+social-query-unknown = 알 수 없는 명령어입니다. { $arg0 } 보내 사용 가능한 명령어를 확인하세요.
 social-query-uptime-label = 가동 시간
 social-reply-hidden = 서버 콘텐츠 안전 정책에 따라 이 답변을 숨겼습니다.
 social-state-disabled = 비활성화됨
@@ -1801,16 +1868,6 @@ tpsbar-hidden = TPS 바를 숨겼습니다
 tpsbar-shown = TPS 바를 표시했습니다
 tpsbar-tip-status-mm = <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 명령어로 <yellow>TPS, MSPT, 핑</yellow> 표시줄을 켜거나 끄세요.
 unban-command-description = 기록을 보존하며 플레이어 차단 해제
-whitelist-already-whitelisted = 이미 화이트리스트에 등록된 플레이어: { $arg0 }
-whitelist-invalid-name = 플레이어 이름 형식이 올바르지 않습니다
-whitelist-kick-apply-rich = { $site }에서 화이트리스트를 신청하세요
-whitelist-kick-title = 화이트리스트에 등록되어 있지 않습니다
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = 임시 화이트리스트 등록 완료: { $arg0 } · 유효 기간: { $arg1 }
-whitelist-temp-added-rich = 임시 화이트리스트 등록 완료: { $player } · 유효 기간: { $duration }
-whitelist-temp-command-description = 1시간짜리 임시 화이트리스트 추가
-whitelist-temp-duration = 1시간
-whitelist-temp-usage-desc = 1시간짜리 임시 화이트리스트 추가
 
 ## Shell · Menus, server information and scripting
 

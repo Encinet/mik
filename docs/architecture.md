@@ -72,10 +72,20 @@ flowchart TD
 | `chat/` | 玩家消息模型、频道规则、富文本、提及与投递；`bridge/` 定义连接查询和外部投递能力，`web/` 实现网页授权、WebSocket、在线路由和限流，不保存消息历史 |
 | `communication/` | 公告与阅读状态；通过 `AnnouncementPublisher` 发布新增公告，由装配层连接 Social 通知 |
 | `governance/` | 社区成员资格、公开管理目录、投票、罢免和结果交付；工作区状态、读取与呈现分离，角色目录由 LuckPerms 适配提供 |
-| `identity/` | 游戏账号与外部身份绑定、平台注册和绑定存储 |
+| `identity/` | 游戏账号与外部身份绑定、平台成员核验、登录准入、平台注册和绑定存储 |
 | `social/` | 共享社交命令、运行时、QQ 与 Matrix 协议适配 |
 
 Social 通过 `AiGateway` 调用 AI，通过身份管理能力查询绑定，通过聊天桥接契约进入游戏聊天。QQ、Matrix 的协议代码仍留在 `social/platform`，以便与共享命令、会话和输出策略区分。
+
+QQ 入站内容由 `social/platform/qq/message` 维护。`QqContentDecoder` 按接收协议读取 `message_type`、`content`、`attachments`、`ark_data` 和递归的 `msg_elements`，生成不可变的 `QqMessageContent`；表情、提及、媒体、卡片与嵌套消息保留各自的节点类型。`QqContentProjector` 统一决定说明类型与范围、空白归一化、长度预算和截断，输出共享聊天正文与独立的命令正文。Gateway 只解码协议字段，`QqInboundMapper` 通过 `QqAccountIdentity` 生成 AppID 下的账号键与提及目标；`QqMembershipDirectory` 根据顶层消息作者及加入／退出事件记录成员事实，`QqMembershipStore` 原子保存这些事实，绑定准入与原生提及共用同一份记录。投影层不反向依赖 Gateway；嵌套消息不获得顶层提及的身份权限。QQ 协议变更修改解码层，展示策略修改投影层，各目的平台继续消费共享聊天内容。
+
+Identity 用完整外部身份键去重，以随机 `binding_id` 标识每一次绑定关系。相同身份重复验证保留原绑定 ID；重新绑定生成新 ID。游戏端列表、命令补全与管理员操作都精确选择绑定，玩家解绑校验所有者，移除按平台批量解绑的入口。`scopeDisplayName` 只供展示，不参与身份判断。群内用户 ID 若真正隔离，由适配器写入身份 `scope`；账号级 ID 的消息会话不进入绑定键。数据库写入与不可变查询快照由 Identity 维护，平台不直接操作绑定表，具体规则见 [外部身份绑定](identity-binding.md)。
+
+Identity 的准入与自动解绑通过 `IdentityMemberships` 接入平台成员证据。Social 会话拥有社区名单或持久化的成员事件记录，统一区分已加入、确认缺席和未知；QQ 保留事件观测，Matrix 由 `SocialMembershipDirectory` 合并完整名单和实时变化。`IdentityMembershipCoordinator` 合并当前注册提供方的证据，按绑定 ID 在后台撤销。`IdentityAdmission` 在登录配置阶段、已有密码验证之后核验，给首次登录提供可复用挑战，并在主线程检查在线连接。原版名单与临时白名单入口不再作为准入依据。具体故障与退出规则见[绑定白名单](identity-binding.md#绑定白名单与成员退出)。
+
+Matrix 入站内容由 `social/platform/matrix/message` 维护。`MatrixContentDecoder` 读取消息类型、原生提及与回复／线程关系，生成 `MatrixMessageContent`；`MatrixContentProjector` 负责 HTML 文本投影、媒体说明类型与范围、完整节点截断和独立的命令正文；内联提及与图片保留类型化来源，命令资格独立于显示占位符，不依赖 `/sync` 或身份服务。`MatrixRoomPolicy` 分别声明资格来源、命令房间和聊天路由，`MatrixAccountIdentity` 统一账号键及其权威范围。`MatrixSyncRequest` 保存请求游标与完整性语义；`MatrixSyncState` 是不含网络 I/O 的同步状态所有者，校验并整体替换完整成员状态，按增量更新已有名单，只向 Identity 发布资格来源的成员证明。首次在增量中发现的房间通过下一轮完整同步建立名单，不独立请求成员接口，也不将未完成名单用于缺席证明。`MatrixSyncProcessor` 维护成员和事件作者上下文，再将投影结果交给 `MatrixInboundMapper` 映射共享身份。`MatrixRoomDirectory` 维护加入、Space 类型、加密与同步状态，并提供可取消的异步发送等待。成员状态与消息投影来自同一批同步数据，SDK 加密状态更新完成后才解除发送等待；成员名单不创建独立任务或网络连接。
+
+`social/platform/matrix/crypto` 拥有设备密钥和加密生命周期。`TrixnityEncryption` 通过窄接口连接 Trixnity／vodozemac；`MatrixSdkFactory` 将同一份同步状态交给全部 SDK 服务，禁止 SDK 自行轮询。`MatrixDeviceVerification` 负责恢复密钥与确切事务的 SAS 验证，控制台通过 `MatrixCryptoControl` 访问当前代次。`MatrixEncryptedInbox` 按房间串行等待密钥与投递，实行全局背压并在离开或关闭时取消；解密内容仍复用原有投影。`MatrixClient` 在发送前及上传后重新获取房间状态，选择明文或加密事件；`MatrixEncryptedAttachment` 维护 v2 附件封装。数据库密钥、设备排他锁、加密数据库与游标均由此功能保管，关闭时取消 HTTP、SDK 协程和待解密事件，后台完成数据库清理。具体支持范围见 [Matrix 机器人](matrix-bot.md#端到端加密)。
 
 ### 世界：`feature/world/`
 
@@ -112,7 +122,7 @@ Social 通过 `AiGateway` 调用 AI，通过身份管理能力查询绑定，通
 
 | 功能包 | 职责 |
 | --- | --- |
-| `access/` | 维护模式、白名单和使用限制 |
+| `access/` | 维护模式和使用限制；绑定准入由社区 Identity 管理 |
 | `auth/` | 正版认证容灾、已验证身份与来源地址缓存、Paper 认证服务接入与恢复；见[认证容灾](authentication-fallback.md) |
 | `ban/` | 封禁规则、记录、准入检查和 Paper 封禁同步 |
 | `performance/` | 性能管理、网络出口反馈限流（AFK、跑图者优先）与高速探索的区块预算、加载范围和飞行速度联动、TPS 展示及性能信息栏的场景提示 |

@@ -13,15 +13,13 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IdentityBindingRepositorySchemaTest {
     @TempDir
     Path tempDirectory;
 
     @Test
-    void freshDatabaseUsesTheOnlySupportedFormat() throws Exception {
+    void freshDatabaseCreatesBindingAndCodeTables() throws Exception {
         Path database = tempDirectory.resolve("identity-bindings.db");
         IdentityBindingRepository repository = new IdentityBindingRepository(database.toFile());
 
@@ -31,8 +29,8 @@ class IdentityBindingRepositorySchemaTest {
         try (Connection connection = open(database);
              Statement statement = connection.createStatement()) {
             assertEquals(Set.of(
-                            "player_uuid", "player_name", "platform", "issuer",
-                            "identity_scope", "subject", "external_display_name",
+                            "binding_id", "player_uuid", "player_name", "platform", "issuer",
+                            "identity_scope", "subject", "external_display_name", "scope_display_name",
                             "created_at", "verified_at"),
                     columns(statement, "identity_bindings"));
             assertEquals(Set.of(
@@ -41,25 +39,6 @@ class IdentityBindingRepositorySchemaTest {
                     columns(statement, "identity_link_codes"));
             assertEquals(Set.of("identity_bindings", "identity_link_codes"),
                     identityTables(statement));
-        }
-    }
-
-    @Test
-    void differentExistingFormatIsRejectedWithoutMigration() throws Exception {
-        Path database = tempDirectory.resolve("identity-bindings.db");
-        try (Connection connection = open(database);
-             Statement statement = connection.createStatement()) {
-            statement.execute("CREATE TABLE identity_bindings (binding_id INTEGER PRIMARY KEY)");
-        }
-
-        try (IdentityBindingRepository repository = new IdentityBindingRepository(database.toFile())) {
-            SQLException error = assertThrows(SQLException.class, repository::open);
-
-            assertTrue(error.getMessage().contains("Unsupported identity database format"));
-            try (Connection connection = open(database);
-                 Statement statement = connection.createStatement()) {
-                assertEquals(Set.of("binding_id"), columns(statement, "identity_bindings"));
-            }
         }
     }
 

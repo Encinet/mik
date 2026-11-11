@@ -25,11 +25,14 @@ import org.encinet.mik.feature.community.social.command.builtin.SocialHelpComman
 import org.encinet.mik.feature.community.social.command.builtin.UnknownSocialCommand;
 import org.encinet.mik.feature.community.social.command.builtin.UnlinkIdentityCommand;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.feature.community.social.document.SocialAnnouncementPresenter;
 import org.encinet.mik.feature.community.social.game.BukkitMainThreadGateway;
 import org.encinet.mik.feature.community.social.game.BukkitSocialGameService;
 import org.encinet.mik.feature.community.social.game.SocialGameService;
 import org.encinet.mik.feature.community.social.management.SocialManagementCommandRegistrar;
 import org.encinet.mik.feature.community.social.platform.matrix.MatrixPlatformAdapter;
+import org.encinet.mik.feature.community.social.platform.matrix.crypto.MatrixCryptoControl;
+import org.encinet.mik.feature.community.social.platform.matrix.crypto.MatrixCryptoCommandRegistrar;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformAdapter;
 import org.encinet.mik.feature.community.social.runtime.SocialContentGuard;
 import org.encinet.mik.feature.community.social.runtime.SocialPlatformHost;
@@ -37,20 +40,17 @@ import org.encinet.mik.feature.community.social.safety.QwenGuardClient;
 import org.encinet.mik.feature.community.social.safety.SocialContentSafetyConfig;
 
 import java.time.ZoneId;
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.util.Locale;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
-import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 
 /** Bukkit composition root for shared social features and platform adapters. */
 public final class SocialModule {
     private final SocialPlatformHost host;
     private final SocialManagementCommandRegistrar managementCommands;
+    private final MatrixCryptoCommandRegistrar matrixCryptoCommands;
     private final AnnouncementPublisher announcements;
 
     public SocialModule(
@@ -93,19 +93,18 @@ public final class SocialModule {
         SocialContentGuard contentGuard = SocialContentGuard.reloadable(
                 () -> new QwenGuardClient(SocialContentSafetyConfig.load(plugin)),
                 blockedDocument);
+        MatrixCryptoControl matrixCrypto = new MatrixCryptoControl();
+        matrixCryptoCommands = new MatrixCryptoCommandRegistrar(plugin, matrixCrypto, languages);
         host = new SocialPlatformHost(
-                List.of(new QqPlatformAdapter(plugin), new MatrixPlatformAdapter(plugin)),
+                List.of(new QqPlatformAdapter(plugin), new MatrixPlatformAdapter(plugin, matrixCrypto)),
                 dispatcher,
                 identityBindings::registerPlatform, contentGuard,
-                chatGateway, identityBindings::findByPlayer, plugin.getLogger());
+                chatGateway, identityBindings::findByPlayer, languages, plugin.getLogger());
         managementCommands = new SocialManagementCommandRegistrar(host, languages);
-        DateTimeFormatter announcementDate = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss", Locale.ROOT)
-                .withZone(ZoneId.systemDefault());
+        var announcementPresenter = new SocialAnnouncementPresenter(
+                languages, ZoneId.systemDefault());
         announcements = (timestamp, content) -> {
-            String date = announcementDate.format(Instant.ofEpochSecond(timestamp));
-            var report = host.publishNotice(language -> SocialDocument.of(
-                    REQUIRED, languages.t(language, Message.ANNOUNCEMENT_UPDATED), SocialDocument.Tone.INFO,
-                    SocialDocument.paragraph(date), SocialDocument.paragraph(content)).localized(language));
+            var report = host.publishNotice(language -> announcementPresenter.present(language, timestamp, content));
             if (report.backpressured() > 0) {
                 plugin.getLogger().warning("Announcement delivery is backpressured on "
                         + report.backpressured() + " social platform(s)");
@@ -123,6 +122,7 @@ public final class SocialModule {
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
         managementCommands.register(lifecycleManager);
+        matrixCryptoCommands.register(lifecycleManager);
     }
 
     public SocialChatPublisher chatPublisher() {

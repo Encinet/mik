@@ -1,8 +1,6 @@
 package org.encinet.mik.feature.community.social.command.builtin;
 
-import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
-import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.encinet.mik.feature.community.identity.IdentityBinding;
@@ -34,7 +32,7 @@ class OnlinePlayersCommandTest {
 
     @Test
     void marksAfkPlayersInTheDisplayedPlayerList() {
-        StubLanguageService languages = new StubLanguageService();
+        LanguageService languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
         OnlinePlayersCommand command = new OnlinePlayersCommand(new UnusedGameService(),
                 new SocialCommandLanguageResolver(new EmptyBindingManager(), languages), languages);
         ServerSnapshot snapshot = new ServerSnapshot(
@@ -48,7 +46,7 @@ class OnlinePlayersCommandTest {
         SocialDocument document = command.present(context(), snapshot);
         SocialDocument.Fields fields = (SocialDocument.Fields) document.blocks().getFirst();
 
-        assertEquals("Alice, Bob (AFK), Carol", fields.fields().get(1).value());
+        assertEquals("Alice, Bob (挂机), Carol", fields.fields().get(1).value());
         assertEquals(REQUIRED, document.moderation());
     }
 
@@ -58,17 +56,6 @@ class OnlinePlayersCommandTest {
                 Optional.empty(), "/online", false,
                 _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message);
-    }
-
-    private static final class StubLanguageService extends LanguageService {
-        private StubLanguageService() {
-            super(null);
-        }
-
-        @Override
-        public String t(Language language, Message message, Object... args) {
-            return message.name();
-        }
     }
 
     private static final class EmptyBindingManager implements IdentityBindingManager {
@@ -88,7 +75,7 @@ class OnlinePlayersCommandTest {
         }
 
         @Override
-        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
+        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, org.encinet.mik.feature.community.identity.IdentityMemberships memberships) {
             throw new UnsupportedOperationException();
         }
 

@@ -102,11 +102,15 @@ final class QqGatewayProtocol {
         return QqGroupJoinRequest.fromEvent(frame.data(), observedAt);
     }
 
-    static String identify(String accessToken, boolean groupJoinEnabled) {
+    static Optional<QqGroupMemberEvent> memberEvent(Frame frame) {
+        return frame.opcode() == OP_DISPATCH ? QqGroupMemberEvent.from(frame.type(), frame.data()) : Optional.empty();
+    }
+
+    static String identify(String accessToken) {
         JsonObject data = new JsonObject();
         data.addProperty("token", "QQBot " + accessToken);
         data.addProperty("intents", INTENT_GROUP_AND_C2C_EVENT
-                | (groupJoinEnabled ? INTENT_GROUP_MEMBER_EVENT : 0));
+                | INTENT_GROUP_MEMBER_EVENT);
         com.google.gson.JsonArray shard = new com.google.gson.JsonArray();
         shard.add(0);
         shard.add(1);

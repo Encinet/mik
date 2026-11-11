@@ -15,6 +15,8 @@ gateway:
 worker:
   max-concurrent-tasks: 64
 
+# Required when enabled: communities granting identity binding and server admission.
+# Membership is observed from group messages and member join/leave events.
 allowed-group-openids: []
 
 # Empty disables automatic join approval. Each group must use its own Base32

@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.community.chat.model;
 
+import org.encinet.mik.shared.i18n.Message;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -48,6 +49,12 @@ public record ChatContent(List<ChatNode> nodes) {
             preview = text.substring(0, end) + "…";
         }
         return plain(preview.replaceAll("\\p{Cc}", " "));
+    }
+
+    /** Resolve only transport-authored descriptions; literal user text remains untouched. */
+    public ChatContent localized(java.util.function.Function<Message, String> text) {
+        return new ChatContent(nodes.stream().map(node -> node instanceof ChatNode.Placeholder placeholder
+                ? new ChatNode.Placeholder(placeholder.kind(), text.apply(placeholder.kind().message()), placeholder.style()) : node).toList());
     }
 
     public String plainText() {

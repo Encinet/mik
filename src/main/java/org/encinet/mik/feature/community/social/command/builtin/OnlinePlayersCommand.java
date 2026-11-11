@@ -83,12 +83,13 @@ public final class OnlinePlayersCommand implements SocialCommand<NoArguments, Se
     public SocialDocument present(SocialCommandContext context, ServerSnapshot snapshot) {
         Language language = languageResolver.language(context);
         List<String> displayedPlayerNames = snapshot.players().stream()
-                .map(player -> player.name() + (player.afk() ? " (AFK)" : ""))
+                .map(player -> languages.t(language, Message.SOCIAL_QUERY_ONLINE_PLAYER, player.name(), player.afk() ? "afk" : "active"))
                 .toList();
         List<SocialDocument.Field> fields = new ArrayList<>();
         fields.add(new SocialDocument.Field(
                 label(language, Message.SOCIAL_QUERY_ONLINE_LABEL),
-                snapshot.onlinePlayers() + " / " + snapshot.maxPlayers()));
+                languages.t(language, Message.SOCIAL_QUERY_METRIC, snapshot.onlinePlayers()) + " / "
+                        + languages.t(language, Message.SOCIAL_QUERY_METRIC, snapshot.maxPlayers())));
         fields.add(new SocialDocument.Field(
                 label(language, Message.SOCIAL_QUERY_PLAYERS_LABEL),
                 displayedPlayerNames.isEmpty()
@@ -102,6 +103,6 @@ public final class OnlinePlayersCommand implements SocialCommand<NoArguments, Se
     }
 
     private String label(Language language, Message message) {
-        return languages.t(language, message).replaceAll("[：:]\\s*$", "");
+        return languages.t(language, message);
     }
 }

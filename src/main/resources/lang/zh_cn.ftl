@@ -475,6 +475,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [音频]
+chat-content-card = [卡片]
+chat-content-contact = [名片]
+chat-content-emote = [动作]
+chat-content-face = [表情]
+chat-content-file = [文件]
+chat-content-history = [聊天记录]
+chat-content-image = [图片]
+chat-content-location = [位置]
+chat-content-message = [消息]
+chat-content-multiple = [多条消息]
+chat-content-music = [音乐]
+chat-content-notice = [通知]
+chat-content-reply = [引用消息]
+chat-content-sticker = [贴纸]
+chat-content-video = [视频]
 chat-copy-hover = 左键点击复制消息
 chat-delay-3s = 3 秒
 chat-delay-5s = 5 秒
@@ -543,44 +559,53 @@ announcement-view-command-description = 查看服务器公告
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = 未找到唯一匹配的玩家与平台绑定。
+identity-admission-bind-rich = { $platform }：{ $command }
+identity-admission-instructions = 选择一个平台，向社区机器人发送对应指令：
+identity-admission-pending = 现有绑定暂时无法验证，请稍后重试或绑定其他平台账号
+identity-admission-reconnect = 绑定后重新连接服务器
+identity-admission-required = 绑定社区账号后即可入服
+identity-admission-revoked = 你已没有有效的社区平台绑定，请重新连接以获取绑定指令
+identity-admin-binding-not-found = 所选绑定已不存在。
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = 已解除玩家 { $arg1 } 的 { $arg2 } 个 { $arg0 } 绑定。
+identity-admin-binding-unlinked = 已解除玩家 { $arg1 } 所选的 { $arg0 } 绑定。
 identity-admin-command-description = 管理员查看或撤销外部身份绑定
 identity-admin-help = /bindadmin lookup <玩家或UUID>
-    /bindadmin unlink <玩家或UUID> <平台> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 未找到该玩家的绑定记录。
 identity-admin-lookup-title = { $arg0 } 的绑定：
+identity-binding-account = 账号通用
 identity-binding-details = · { $arg0 } · 作用域 { $arg1 } · { $arg2 }
-identity-binding-not-owned = 你在该平台没有绑定。
-identity-binding-unlinked = 已解除 { $arg0 } 的 { $arg1 } 个绑定。
+identity-binding-not-owned = 所选绑定不存在或不属于你。
+identity-binding-unlinked = 已解除所选的 { $arg0 } 绑定。
 identity-bindings-empty = 当前没有绑定任何外部平台账号。
 identity-bindings-title = 已绑定的外部身份：
-identity-bindings-unlink-hint = 使用 /bind unlink <平台> 解除该平台的全部绑定。
+identity-bindings-unlink-hint = 点击对应记录的「解绑」，仅解除该条绑定。
 identity-code-cancelled = 已取消尚未使用的 { $arg0 } 绑定验证码。
 identity-code-copy = 点击复制完整绑定指令
-identity-code-expiry = 验证码 5 分钟内有效且只能使用一次；重新生成会使旧码失效。
-identity-code-issued = 已生成 { $arg0 } 绑定验证码：
+identity-code-expiry = 验证码有效期：{ $arg0 } 分钟
 identity-code-not-pending = 没有待使用的 { $arg0 } 绑定验证码。
-identity-code-redeem = 请到目标 { $arg0 } 群 @机器人并发送：{ $arg1 }
+identity-code-redeem-rich = 在 { $platform } 社区向机器人发送：{ $command }
 identity-command-description = 将 Minecraft 与外部平台身份绑定
+identity-community-join-rich = 加入社区：{ $link }
 identity-help = 身份绑定命令：
     /bind qq — 快速生成 QQ 绑定指令
     /bind <平台> — 生成一次性验证码
     /bind list — 查看已有绑定
     /bind cancel <平台> — 取消待用验证码
-    /bind unlink <平台> — 解除该平台的全部绑定
-identity-notify-linked = { $arg0 } 身份绑定成功。可用 /bind list 查看，或用 /bind unlink { $arg0 } 解除该平台绑定。
+    /bind unlink — 选择并解除一条绑定
+identity-notify-linked = { $arg0 } 身份绑定成功。使用 /bind list 查看和管理绑定。
 identity-notify-unlinked = 已解除你的 { $arg0 } 身份绑定。
 identity-platform-none = 无
 identity-platforms = 支持的平台：{ $arg0 }
-identity-scope-notice = 该平台的身份按群组隔离；请在你要使用的群完成绑定，不同群需要分别绑定。
 identity-storage-error = 身份绑定数据库操作失败，请联系管理员。
 identity-unavailable = 身份绑定服务当前不可用，请联系管理员。
+identity-unlink-action = [解绑]
+identity-unlink-hint = 只解除所选的这一条绑定。
 identity-unsupported-platform = 不支持的平台：{ $arg0 }
 social-admin-conversations-empty = 尚未观察到 { $arg0 } 的会话。
 social-admin-conversations-title = { $arg0 } 已观察到的会话：
 social-admin-help = /social platforms · /social status [平台] · /social reload [平台] · /social conversations <平台>
+social-admin-metrics = 入站 { $arg0 }／重试 { $arg1 } · 出站 { $arg2 }／背压 { $arg3 } · 失败 { $arg4 }
 social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
 social-admin-reloaded = 已重新加载社交平台 { $arg0 }。
 social-admin-reloaded-all = 已重新加载所有社交平台。
@@ -588,9 +613,9 @@ social-admin-status = { $arg0 } · { $arg1 } · 代次 { $arg2 } · 会话 { $ar
 social-admin-title = 社交平台
 social-admin-unknown = 未知社交平台：{ $arg0 }
 social-binding-already-linked = 当前平台身份已绑定 Minecraft 玩家 { $arg0 }。
-social-binding-code-invalid = 验证码无效或已过期。请在 Minecraft 内重新执行 /bind { $arg0 }。
+social-binding-code-invalid = 验证码无效或已过期。请重新连接服务器获取新码，或在游戏内执行 /bind { $arg0 }。
 social-binding-external-in-use = 当前平台身份已绑定其他 Minecraft 玩家。
-social-binding-help = 在 Minecraft 内执行 /bind { $arg0 }。
+social-binding-help = 尝试连接服务器，在登录提示中获取验证码；已入服可执行 /bind { $arg0 }。
     复制生成的完整指令。
     在此发送该指令。
     使用 /我的 验证绑定。
@@ -598,13 +623,50 @@ social-binding-identity-missing = 当前消息没有可靠的平台成员标识�
 social-binding-linked = 已绑定 Minecraft 玩家 { $arg0 }。
 social-binding-not-bound = 当前平台身份尚未绑定 Minecraft 玩家。
 social-binding-platform-mismatch = 该验证码是为其他平台生成的。
-social-binding-player-scope-in-use = 该 Minecraft 玩家已在当前会话绑定其他平台身份。
+social-binding-player-scope-in-use = 该 Minecraft 玩家已在相同的平台账号范围内绑定其他身份。
 social-binding-rate-limited = 验证码尝试次数过多，请约 { $arg0 } 分钟后重试。
-social-binding-status-unbound = 当前平台身份尚未绑定。请使用游戏内生成的验证码执行 /绑定。
 social-binding-unavailable = 身份绑定暂时不可用，请联系服务器管理员。
-social-binding-unlink-prompt = 解绑会移除当前平台身份与 Minecraft 的关联。如确定，请发送 /解绑 确认。
+social-binding-unlink-prompt = 解绑会移除当前平台身份与 Minecraft 的关联。如确定，请发送 { $arg0 }。
 social-binding-unlinked = 已解除与 Minecraft 玩家 { $arg0 } 的绑定。
 social-command-description = 管理社交平台适配器
+social-crypto-command-description = 管理 Matrix 加密设备验证
+social-crypto-comparison-not-ready = SAS 比对尚未就绪。
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = 设备验证失败，请查看服务器日志。
+social-crypto-no-active = 当前没有进行中的设备验证。
+social-crypto-not-accepting = 当前验证阶段无法接受请求。
+social-crypto-not-running = Matrix 尚未运行。
+social-crypto-requested = 已发起验证：{ $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] 正在初始化
+    [verified] 已验证
+    [unverified] 未验证
+    [no_cross_signing] 未启用交叉签名
+    [requested] 已请求
+    [ready] 就绪
+    [started] 已开始
+    [comparison] 等待比对
+    [waiting] 等待完成
+    [done] 已完成
+    [cancelled] 已取消
+   *[unknown] 未知
+    [valid] 密钥有效
+    [cross_signed] 已交叉签名
+    [not_cross_signed] 未交叉签名
+    [blocked] 已屏蔽
+    [invalid] 密钥无效
+    }
+social-crypto-status = 验证：{ $arg0 }
+    密钥备份版本：{ $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = 请指定当前验证事务的完整 ID。
+social-crypto-unavailable = 不可用
+social-crypto-updated = 验证已更新；使用 matrixcrypto status 查看状态。
+social-crypto-usage = matrixcrypto status [用户ID 设备ID]
+    matrixcrypto verify <用户ID> <设备ID>
+    matrixcrypto accept|confirm|cancel <事务ID>
 social-duration-days = { $arg0 } 天 { $arg1 } 小时 { $arg2 } 分钟
 social-duration-hours = { $arg0 } 小时 { $arg1 } 分钟
 social-duration-minutes = { $arg0 } 分钟
@@ -627,11 +689,16 @@ social-profile-presence-label = 状态
 social-profile-target-ambiguous = 请只指定一个玩家名、@一名用户，或回复一名用户。
 social-profile-target-unbound = 被提及或回复的平台身份尚未绑定 Minecraft 玩家。
 social-profile-uuid-label = UUID
-social-query-active-label = 活跃
+social-query-metric = { $arg0 }
 social-query-no-players = 当前没有玩家在线。
 social-query-online-label = 在线
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (挂机)
+   *[active] { $arg0 }
+    }
 social-query-players-label = 玩家
-social-query-unknown = 未知指令。发送 /帮助 查看可用指令。
+social-query-population = 在线 { $arg0 }/{ $arg1 } · 活跃 { $arg2 } · 挂机 { $arg3 }
+social-query-unknown = 未知指令。发送 { $arg0 } 查看可用指令。
 social-query-uptime-label = 运行时间
 social-reply-hidden = 回复命中服务器内容安全规则，已隐藏原内容。
 social-state-disabled = 已禁用
@@ -1801,16 +1868,6 @@ tpsbar-hidden = 已隐藏 TPS 信息栏
 tpsbar-shown = 已显示 TPS 信息栏
 tpsbar-tip-status-mm = 用 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 显示或隐藏<yellow>TPS、MSPT 和延迟</yellow>信息栏
 unban-command-description = 解除玩家封禁并保留封禁历史
-whitelist-already-whitelisted = { $arg0 } 已经在白名单中
-whitelist-invalid-name = 玩家名格式不正确
-whitelist-kick-apply-rich = 前往 { $site } 申请白名单
-whitelist-kick-title = 你不在白名单中
-whitelist-kick-website-rich = 官网 { $site }
-whitelist-temp-added-plain = 已添加 { $arg0 } 的临时白名单 { $arg1 }
-whitelist-temp-added-rich = 已添加 { $player } 的临时白名单 { $duration }
-whitelist-temp-command-description = 添加 1 小时临时白名单
-whitelist-temp-duration = 1 小时
-whitelist-temp-usage-desc = 添加 1 小时临时白名单
 
 ## Shell · Menus, server information and scripting
 

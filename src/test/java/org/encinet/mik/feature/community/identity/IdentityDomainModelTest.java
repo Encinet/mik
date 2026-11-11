@@ -37,23 +37,23 @@ class IdentityDomainModelTest {
     void bindingsEnforceTemporalAndPresentationInvariants() {
         ExternalIdentityKey key = key();
 
-        IdentityBinding cleaned = new IdentityBinding(
-                UUID.randomUUID(), "Alice", key, " External\nUser ",
+        IdentityBinding cleaned = new IdentityBinding(UUID.randomUUID(),
+                UUID.randomUUID(), "Alice", key, " External\nUser ", "",
                 CREATED_AT, CREATED_AT.plusSeconds(1));
 
         assertEquals("External User", cleaned.externalDisplayName());
-        assertThrows(IllegalArgumentException.class, () -> new IdentityBinding(
-                UUID.randomUUID(), " ", key, "External",
+        assertThrows(IllegalArgumentException.class, () -> new IdentityBinding(UUID.randomUUID(),
+                UUID.randomUUID(), " ", key, "External", "",
                 CREATED_AT, CREATED_AT));
-        assertThrows(IllegalArgumentException.class, () -> new IdentityBinding(
-                UUID.randomUUID(), "Alice", key, "External",
+        assertThrows(IllegalArgumentException.class, () -> new IdentityBinding(UUID.randomUUID(),
+                UUID.randomUUID(), "Alice", key, "External", "",
                 CREATED_AT, CREATED_AT.minusSeconds(1)));
     }
 
     @Test
     void platformInstructionsMustBeSafeExecutableTemplates() {
         IdentityPlatform platform = new IdentityPlatform(
-                "discord", "Discord", "/bind {code}", true);
+                "discord", "Discord", "/bind {code}");
 
         assertEquals("discord", platform.id());
         assertThrows(IllegalArgumentException.class,
@@ -63,8 +63,8 @@ class IdentityDomainModelTest {
     }
 
     private static IdentityBinding binding() {
-        return new IdentityBinding(
-                UUID.randomUUID(), "Alice", key(), "External",
+        return new IdentityBinding(UUID.randomUUID(),
+                UUID.randomUUID(), "Alice", key(), "External", "",
                 CREATED_AT, CREATED_AT);
     }
 

@@ -112,9 +112,9 @@ class BukkitChatContextFactoryTest {
     }
 
     private static IdentityBinding binding(UUID playerId, String name, String account) {
-        return new IdentityBinding(playerId, name,
+        return new IdentityBinding(UUID.randomUUID(), playerId, name,
                 new ExternalIdentityKey("matrix", "example.org", "", "@" + account + ":example.org"),
-                account, Instant.EPOCH, Instant.EPOCH);
+                account, "", Instant.EPOCH, Instant.EPOCH);
     }
 
     private static final class Fixture implements AutoCloseable {

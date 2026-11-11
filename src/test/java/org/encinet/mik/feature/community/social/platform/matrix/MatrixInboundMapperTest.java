@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.social.platform.matrix;
 
+import static org.encinet.mik.feature.community.social.platform.matrix.MatrixTestSupport.plaintextDevice;
+
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.encinet.mik.feature.community.social.api.SocialEventSink;
 import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
@@ -21,7 +23,7 @@ class MatrixInboundMapperTest {
     void mapsGlobalMxidsAndOnlyStructuredReferences() throws Exception {
         MatrixPlatformConfig config = config();
         HttpClient httpClient = HttpClient.newHttpClient();
-        MatrixClient client = new MatrixClient(httpClient, config);
+        MatrixClient client = new MatrixClient(httpClient, config, _ -> java.util.concurrent.CompletableFuture.completedFuture(org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory.Security.PLAINTEXT), plaintextDevice());
         AtomicReference<SocialInboundMessage> received = new AtomicReference<>();
         MatrixInboundMapper mapper = new MatrixInboundMapper(config, client, message -> {
             received.set(message);
@@ -29,6 +31,7 @@ class MatrixInboundMapperTest {
         });
         MatrixRoomMessage event = new MatrixRoomMessage("$event", "!room:example.org",
                 new MatrixRoomMessage.MatrixMember("@alice:remote.example", "Alice"),
+                "@bot:example.org !profile @forged:example.org",
                 "@bot:example.org !profile @forged:example.org",
                 List.of(
                         new MatrixRoomMessage.MatrixMention(
@@ -67,7 +70,7 @@ class MatrixInboundMapperTest {
         MatrixPlatformConfig config = config();
         HttpClient httpClient = HttpClient.newHttpClient();
         MatrixInboundMapper mapper = new MatrixInboundMapper(config,
-                new MatrixClient(httpClient, config), _ -> {
+                new MatrixClient(httpClient, config, _ -> java.util.concurrent.CompletableFuture.completedFuture(org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory.Security.PLAINTEXT), plaintextDevice()), _ -> {
                     throw new AssertionError("ignored event reached the host");
                 });
 
@@ -81,13 +84,33 @@ class MatrixInboundMapperTest {
     }
 
     @Test
+    void preservesEmptyCommandBodyForNoticesAndMedia() throws Exception {
+        MatrixPlatformConfig config = config();
+        try (HttpClient httpClient = HttpClient.newHttpClient()) {
+            AtomicReference<SocialInboundMessage> received = new AtomicReference<>();
+            MatrixInboundMapper mapper = new MatrixInboundMapper(config,
+                    new MatrixClient(httpClient, config, _ -> java.util.concurrent.CompletableFuture.completedFuture(org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory.Security.PLAINTEXT), plaintextDevice()), message -> {
+                        received.set(message);
+                        return SocialEventSink.Acceptance.ACCEPTED;
+                    });
+            MatrixRoomMessage notice = new MatrixRoomMessage("$notice", "!room:example.org",
+                    new MatrixRoomMessage.MatrixMember("@otherbot:example.org", "Other bot"),
+                    "!绑定 secret [通知]", "", List.of(), Optional.empty(), Optional.empty());
+            mapper.accept(notice, "@bot:example.org");
+            SocialInboundMessage.Text content = (SocialInboundMessage.Text) received.get().content();
+            assertEquals("!绑定 secret [通知]", content.body());
+            assertEquals("", content.commandBody());
+        }
+    }
+
+    @Test
     void submitsEachTextEventOnceForHostClassification()
             throws Exception {
         MatrixPlatformConfig config = bridgeConfig();
         HttpClient httpClient = HttpClient.newHttpClient();
         AtomicReference<SocialInboundMessage> received = new AtomicReference<>();
         MatrixInboundMapper mapper = new MatrixInboundMapper(config,
-                new MatrixClient(httpClient, config),
+                new MatrixClient(httpClient, config, _ -> java.util.concurrent.CompletableFuture.completedFuture(org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory.Security.PLAINTEXT), plaintextDevice()),
                 message -> {
                     received.set(message);
                     return SocialEventSink.Acceptance.ACCEPTED;
@@ -95,16 +118,17 @@ class MatrixInboundMapperTest {
 
         MatrixRoomMessage chat = new MatrixRoomMessage("$chat", "!room:example.org",
                 new MatrixRoomMessage.MatrixMember("@alice:example.org", "Alice"),
-                "hello Minecraft", List.of(), Optional.empty(), Optional.empty());
+                "hello Minecraft", "hello Minecraft", List.of(), Optional.empty(), Optional.empty());
         assertEquals(SocialEventSink.Acceptance.ACCEPTED,
                 mapper.accept(chat, "@bot:example.org"));
         assertEquals("Alice", received.get().senderDisplayName());
         assertEquals("hello Minecraft",
                 ((SocialInboundMessage.Text) received.get().content()).body());
+        assertEquals("", ((SocialInboundMessage.Text) received.get().content()).commandBody());
 
         MatrixRoomMessage shortChat = new MatrixRoomMessage("$js", "!room:example.org",
                 new MatrixRoomMessage.MatrixMember("@alice:example.org", "Alice"),
-                "js", List.of(), Optional.empty(), Optional.empty());
+                "js", "js", List.of(), Optional.empty(), Optional.empty());
         assertEquals(SocialEventSink.Acceptance.ACCEPTED,
                 mapper.accept(shortChat, "@bot:example.org"));
         assertEquals("js",
@@ -113,7 +137,7 @@ class MatrixInboundMapperTest {
         received.set(null);
         MatrixRoomMessage outside = new MatrixRoomMessage("$outside", "!commands:example.org",
                 new MatrixRoomMessage.MatrixMember("@alice:example.org", "Alice"),
-                "ordinary text", List.of(), Optional.empty(), Optional.empty());
+                "ordinary text", "ordinary text", List.of(), Optional.empty(), Optional.empty());
         assertEquals(SocialEventSink.Acceptance.ACCEPTED,
                 mapper.accept(outside, "@bot:example.org"));
         assertEquals("ordinary text",
@@ -124,7 +148,7 @@ class MatrixInboundMapperTest {
     private static MatrixRoomMessage message(String room, String sender) {
         return new MatrixRoomMessage("$event", room,
                 new MatrixRoomMessage.MatrixMember(sender, sender),
-                "!status", List.of(), Optional.empty(), Optional.empty());
+                "!status", "!status", List.of(), Optional.empty(), Optional.empty());
     }
 
     private static MatrixPlatformConfig config() throws Exception {
@@ -133,7 +157,10 @@ class MatrixInboundMapperTest {
                 enabled: true
                 homeserver-url: https://matrix.example.org
                 access-token: token
-                allowed-room-ids: ['!room:example.org']
+                membership:
+                  room-ids: ['!room:example.org']
+                commands:
+                  room-ids: ['!room:example.org']
                 """);
         return MatrixPlatformConfig.from(yaml);
     }
@@ -144,9 +171,10 @@ class MatrixInboundMapperTest {
                 enabled: true
                 homeserver-url: https://matrix.example.org
                 access-token: token
-                allowed-room-ids:
-                  - '!room:example.org'
-                  - '!commands:example.org'
+                membership:
+                  room-ids: ['!space:example.org']
+                commands:
+                  room-ids: ['!commands:example.org']
                 chat-bridge:
                   routes:
                     - room-id: '!room:example.org'

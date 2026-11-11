@@ -111,6 +111,9 @@ public record QqPlatformConfig(
             throw new IllegalArgumentException(
                     FILE_NAME + " is enabled, but app-id/app-secret are missing");
         }
+        if (enabled && allowedGroups.isEmpty()) {
+            throw new IllegalArgumentException("allowed-group-openids must name the communities used for identity membership");
+        }
 
         return new QqPlatformConfig(enabled, appId, appSecret,
                 gatewayReconnectBaseDelayMillis, gatewayReconnectMaxDelayMillis,

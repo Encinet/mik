@@ -584,6 +584,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [Аудио]
+chat-content-card = [Карточка]
+chat-content-contact = [Контакт]
+chat-content-emote = [Действие]
+chat-content-face = [Эмодзи]
+chat-content-file = [Файл]
+chat-content-history = [История чата]
+chat-content-image = [Изображение]
+chat-content-location = [Местоположение]
+chat-content-message = [Сообщение]
+chat-content-multiple = [Несколько сообщений]
+chat-content-music = [Музыка]
+chat-content-notice = [Уведомление]
+chat-content-reply = [Цитата]
+chat-content-sticker = [Стикер]
+chat-content-video = [Видео]
 chat-copy-hover = ЛКМ: скопировать сообщение
 chat-delay-3s = 3 секунды
 chat-delay-5s = 5 секунд
@@ -657,54 +673,58 @@ announcement-view-command-description = Просмотреть объявлен�
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = Однозначная привязка игрока и платформы не найдена.
+identity-admission-bind-rich = { $platform }: { $command }
+identity-admission-instructions = Выберите платформу и отправьте её команду боту сообщества:
+identity-admission-pending = Проверить текущую привязку пока не удалось. Повторите попытку позже или привяжите аккаунт другой платформы.
+identity-admission-reconnect = После привязки подключитесь к серверу снова.
+identity-admission-required = Привяжите аккаунт сообщества, чтобы войти на сервер.
+identity-admission-revoked = У вас больше нет действующих привязок сообщества. Подключитесь снова, чтобы получить инструкции.
+identity-admin-binding-not-found = Выбранная привязка больше не существует.
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = Для { $arg1 } удалено: { $arg2 ->
-        [one] { $arg2 } привязка
-        [few] { $arg2 } привязки
-        [many] { $arg2 } привязок
-       *[other] { $arg2 } привязки
-    } ({ $arg0 }).
+identity-admin-binding-unlinked = Выбранная привязка { $arg0 } игрока { $arg1 } удалена.
 identity-admin-command-description = Просмотреть или отозвать внешние привязки
 identity-admin-help = /bindadmin lookup <игрок-или-UUID>
-    /bindadmin unlink <игрок-или-UUID> <платформа> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Привязки этого игрока не найдены.
 identity-admin-lookup-title = Привязки игрока { $arg0 }:
+identity-binding-account = Весь аккаунт
 identity-binding-details = · { $arg0 } · область { $arg1 } · { $arg2 }
-identity-binding-not-owned = У вас нет привязок для этой платформы.
-identity-binding-unlinked = Удалено: { $arg1 ->
-        [one] { $arg1 } привязка
-        [few] { $arg1 } привязки
-        [many] { $arg1 } привязок
-       *[other] { $arg1 } привязки
-    } ({ $arg0 }).
+identity-binding-not-owned = Выбранная привязка больше не существует или принадлежит другому игроку.
+identity-binding-unlinked = Выбранная привязка { $arg0 } удалена.
 identity-bindings-empty = У вас нет привязанных учётных записей внешних платформ.
 identity-bindings-title = Привязанные внешние учётные записи:
-identity-bindings-unlink-hint = Используйте /bind unlink <платформа>, чтобы удалить все привязки платформы.
+identity-bindings-unlink-hint = Нажмите «Отвязать» рядом с нужной записью.
 identity-code-cancelled = Неиспользованный код привязки { $arg0 } отменён.
 identity-code-copy = Нажмите, чтобы скопировать полную команду привязки
-identity-code-expiry = Код действует 5 минут и используется один раз. Создание нового кода отменяет старый.
-identity-code-issued = Код привязки для { $arg0 } создан:
+identity-code-expiry = Срок действия кода: { $arg0 ->
+    [one] { $arg0 } минута
+    [few] { $arg0 } минуты
+    [many] { $arg0 } минут
+   *[other] { $arg0 } минуты
+    }
 identity-code-not-pending = Неиспользованного кода привязки { $arg0 } нет.
-identity-code-redeem = В нужной группе { $arg0 } упомяните бота и отправьте: { $arg1 }
+identity-code-redeem-rich = Отправьте боту своего сообщества в { $platform }: { $command }
 identity-command-description = Привязать Minecraft к учётной записи внешней платформы
+identity-community-join-rich = Присоединиться к сообществу: { $link }
 identity-help = Команды привязки учётной записи:
     /bind qq — быстро создать команду привязки QQ
     /bind <платформа> — создать одноразовый код
     /bind list — показать существующие привязки
     /bind cancel <платформа> — отменить неиспользованный код
-    /bind unlink <платформа> — удалить все привязки платформы
-identity-notify-linked = Ваша личность { $arg0 } подтверждена. Просмотр: /bind list; удаление: /bind unlink { $arg0 }.
+    /bind unlink — Выбрать одну привязку для удаления
+identity-notify-linked = Ваш аккаунт { $arg0 } привязан. Просмотр и управление привязками: /bind list.
 identity-notify-unlinked = Ваша привязка { $arg0 } удалена.
 identity-platform-none = нет
 identity-platforms = Поддерживаемые платформы: { $arg0 }
-identity-scope-notice = Эта платформа разделяет учётные записи по группам. Выполните привязку в нужной группе; каждую группу нужно привязать отдельно.
 identity-storage-error = Ошибка операции с базой привязок. Обратитесь к администратору.
 identity-unavailable = Привязка учётных записей сейчас недоступна. Обратитесь к администратору.
+identity-unlink-action = [Отвязать]
+identity-unlink-hint = Удалить только эту выбранную привязку.
 identity-unsupported-platform = Неподдерживаемая платформа: { $arg0 }
 social-admin-conversations-empty = Для { $arg0 } не обнаружено диалогов.
 social-admin-conversations-title = Обнаруженные диалоги для { $arg0 }:
 social-admin-help = /social platforms · /social status [платформа] · /social reload [платформа] · /social conversations <платформа>
+social-admin-metrics = Входящие { $arg0 } / повторы { $arg1 } · исходящие { $arg2 } / обратное давление { $arg3 } · сбои { $arg4 }
 social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
 social-admin-reloaded = Социальная платформа { $arg0 } перезагружена.
 social-admin-reloaded-all = Все социальные платформы перезагружены.
@@ -712,9 +732,9 @@ social-admin-status = { $arg0 } · { $arg1 } · поколение { $arg2 } · 
 social-admin-title = Социальные платформы
 social-admin-unknown = Неизвестная социальная платформа: { $arg0 }
 social-binding-already-linked = Эта личность уже привязана к игроку Minecraft { $arg0 }.
-social-binding-code-invalid = Код подтверждения неверен или истёк. Создайте новый командой /bind { $arg0 } в Minecraft.
+social-binding-code-invalid = Код неверен или истёк. Подключитесь снова для получения нового кода или используйте /bind { $arg0 } в игре.
 social-binding-external-in-use = Эта личность уже привязана к другому игроку Minecraft.
-social-binding-help = Выполните /bind { $arg0 } в Minecraft.
+social-binding-help = Попробуйте подключиться к серверу: код появится на экране входа. Если вы уже в игре, используйте /bind { $arg0 }.
     Скопируйте созданную полную команду.
     Отправьте эту команду сюда.
     Проверьте привязку командой /профиль.
@@ -722,18 +742,55 @@ social-binding-identity-missing = В этом сообщении нет надё
 social-binding-linked = Выполнена привязка к игроку Minecraft { $arg0 }.
 social-binding-not-bound = Эта платформенная личность не привязана.
 social-binding-platform-mismatch = Этот код подтверждения выдан для другой платформы.
-social-binding-player-scope-in-use = У этого игрока Minecraft в данном диалоге уже привязана другая личность.
+social-binding-player-scope-in-use = У этого игрока Minecraft уже есть другая привязка в той же области учётной записи платформы.
 social-binding-rate-limited = Слишком много неудачных попыток. Повторите примерно через { $arg0 ->
         [one] { $arg0 } минуту
         [few] { $arg0 } минуты
         [many] { $arg0 } минут
        *[other] { $arg0 } минуты
     }.
-social-binding-status-unbound = Эта личность не привязана. Используйте /привязать с кодом подтверждения.
 social-binding-unavailable = Привязка личности временно недоступна.
-social-binding-unlink-prompt = Отвязка удалит связь этой платформенной личности с Minecraft. Для продолжения отправьте /отвязать подтвердить.
+social-binding-unlink-prompt = Отвязка удалит связь этой платформенной личности с Minecraft. Для продолжения отправьте { $arg0 }.
 social-binding-unlinked = Привязка к игроку Minecraft { $arg0 } удалена.
 social-command-description = Управление адаптерами социальных платформ
+social-crypto-command-description = Управление проверкой устройств шифрования Matrix
+social-crypto-comparison-not-ready = Сравнение SAS ещё не готово.
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = Не удалось проверить устройство. См. журнал сервера.
+social-crypto-no-active = Нет активной проверки устройства.
+social-crypto-not-accepting = Эта проверка не ожидает принятия.
+social-crypto-not-running = Matrix не запущен.
+social-crypto-requested = Запрошена проверка: { $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] Инициализация
+    [verified] Подтверждено
+    [unverified] Не подтверждено
+    [no_cross_signing] Перекрёстная подпись отключена
+    [requested] Запрошено
+    [ready] Готово
+    [started] Начато
+    [comparison] Ожидание сравнения
+    [waiting] Ожидание завершения
+    [done] Завершено
+    [cancelled] Отменено
+   *[unknown] Неизвестно
+    [valid] Действительный ключ
+    [cross_signed] Перекрёстная подпись
+    [not_cross_signed] Без перекрёстной подписи
+    [blocked] Заблокировано
+    [invalid] Недействительный ключ
+    }
+social-crypto-status = Проверка: { $arg0 }
+    Версия резервной копии ключей: { $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = Укажите полный ID текущей транзакции проверки.
+social-crypto-unavailable = Недоступно
+social-crypto-updated = Проверка обновлена; используйте matrixcrypto status.
+social-crypto-usage = matrixcrypto status [ID-пользователя ID-устройства]
+    matrixcrypto verify <ID-пользователя> <ID-устройства>
+    matrixcrypto accept|confirm|cancel <ID-транзакции>
 social-duration-days = { $arg0 ->
         [one] { $arg0 } день
         [few] { $arg0 } дня
@@ -761,11 +818,16 @@ social-profile-presence-label = Статус
 social-profile-target-ambiguous = Выберите одну цель: имя игрока, одно упоминание или одного автора ответа.
 social-profile-target-unbound = Упомянутая личность или автор сообщения, на которое ответили, не привязаны к Minecraft.
 social-profile-uuid-label = UUID
-social-query-active-label = Активные
+social-query-metric = { $arg0 }
 social-query-no-players = Сейчас на сервере нет игроков.
 social-query-online-label = В сети
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (Отошли)
+   *[active] { $arg0 }
+    }
 social-query-players-label = Игроки
-social-query-unknown = Неизвестная команда. Отправьте /помощь, чтобы посмотреть доступные команды.
+social-query-population = В сети { $arg0 }/{ $arg1 } · Активные { $arg2 } · Отошли { $arg3 }
+social-query-unknown = Неизвестная команда. Отправьте { $arg0 }, чтобы посмотреть доступные команды.
 social-query-uptime-label = Время работы
 social-reply-hidden = Ответ скрыт политикой безопасности содержимого сервера.
 social-state-disabled = отключена
@@ -2102,16 +2164,6 @@ tpsbar-hidden = Строка TPS скрыта
 tpsbar-shown = Строка TPS показана
 tpsbar-tip-status-mm = Покажите или скройте панель <yellow>TPS, MSPT и пинга</yellow> командой <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Снять блокировку с сохранением истории
-whitelist-already-whitelisted = { $arg0 } уже в белом списке
-whitelist-invalid-name = Недопустимое имя игрока
-whitelist-kick-apply-rich = Подать заявку на добавление в белый список: { $site }
-whitelist-kick-title = Вас нет в белом списке
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = Игрок { $arg0 } временно добавлен в белый список на { $arg1 }
-whitelist-temp-added-rich = Игрок { $player } временно добавлен в белый список на { $duration }
-whitelist-temp-command-description = Временно добавить игрока в белый список на 1 час
-whitelist-temp-duration = 1 час
-whitelist-temp-usage-desc = Временно добавить игрока в белый список на 1 час
 
 ## Shell · Menus, server information and scripting
 

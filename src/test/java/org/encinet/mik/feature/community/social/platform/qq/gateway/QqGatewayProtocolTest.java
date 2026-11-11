@@ -2,7 +2,6 @@ package org.encinet.mik.feature.community.social.platform.qq.gateway;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -29,17 +28,28 @@ class QqGatewayProtocolTest {
     }
 
     @Test
+    void membershipEventsUseTheMemberIdentifierAndRejectMissingIds() {
+        var event = QqGatewayProtocol.memberEvent(QqGatewayProtocol.parse("""
+                {"op":0,"s":5,"t":"GROUP_MEMBER_REMOVE","d":{
+                 "group_openid":"group","member_openid":"member","user_openid":"different"}}
+                """).orElseThrow()).orElseThrow();
+        assertEquals("group", event.groupOpenId());
+        assertEquals("member", event.memberOpenId());
+        assertFalse(event.joined());
+        assertTrue(QqGatewayProtocol.memberEvent(QqGatewayProtocol.parse("""
+                {"op":0,"t":"GROUP_MEMBER_REMOVE","d":{"group_openid":"group","user_openid":"different"}}
+                """).orElseThrow()).isEmpty());
+    }
+
+    @Test
     void identifyAndResumeUseGatewayAuthenticationShape() {
         JsonObject identify = JsonParser.parseString(
-                QqGatewayProtocol.identify("access-token", false)).getAsJsonObject();
+                QqGatewayProtocol.identify("access-token")).getAsJsonObject();
         JsonObject identifyData = identify.getAsJsonObject("d");
 
         assertEquals(QqGatewayProtocol.OP_IDENTIFY, identify.get("op").getAsInt());
         assertEquals("QQBot access-token", identifyData.get("token").getAsString());
-        assertEquals(1 << 25, identifyData.get("intents").getAsInt());
-        assertEquals((1 << 25) | (1 << 24), JsonParser.parseString(
-                QqGatewayProtocol.identify("access-token", true)).getAsJsonObject()
-                .getAsJsonObject("d").get("intents").getAsInt());
+        assertEquals((1 << 25) | (1 << 24), identifyData.get("intents").getAsInt());
         assertEquals(0, identifyData.getAsJsonArray("shard").get(0).getAsInt());
         assertEquals(1, identifyData.getAsJsonArray("shard").get(1).getAsInt());
         assertEquals("mik", identifyData.getAsJsonObject("properties")
@@ -69,158 +79,21 @@ class QqGatewayProtocolTest {
     }
 
     @Test
-    void authenticatedGroupDispatchMapsToSharedInboundMessage() {
-        QqGatewayProtocol.Frame frame = QqGatewayProtocol.parse("""
-                {
-                  "op": 0,
-                  "id": "event-id",
-                  "s": 91,
-                  "t": "GROUP_AT_MESSAGE_CREATE",
-                  "d": {
-                    "id": "message-id",
-                    "group_openid": "group-id",
-                    "content": "  /状态\\n now  ",
-                    "author": {
-                      "username": "User\\nName",
-                      "member_openid": "member-id",
-                      "bot": false
-                    }
-                  }
-                }
-                """).orElseThrow();
-        QqGatewayGroupMessage group = QqGatewayProtocol.groupMessage(frame).orElseThrow();
-        SocialInboundMessage inbound = group.toInboundMessage(
-                "qq", "app-id", _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
-
-        assertEquals("event-id", inbound.eventId());
-        assertEquals("group-id", inbound.conversation().id());
-        assertEquals("/状态 now", ((SocialInboundMessage.Text) inbound.content()).body());
-        assertFalse(inbound.authorIsBot());
-        assertEquals("User Name", inbound.authenticatedIdentity().orElseThrow().displayName());
-        assertEquals("qq", inbound.authenticatedIdentity().orElseThrow().key().platform());
-        assertEquals("app-id", inbound.authenticatedIdentity().orElseThrow().key().issuer());
-        assertEquals("group-id", inbound.authenticatedIdentity().orElseThrow().key().scope());
-        assertEquals("member-id", inbound.authenticatedIdentity().orElseThrow().key().subject());
-    }
-
-    @Test
-    void fullGroupMessageWithoutMentionUsesTheSameInboundMapping() {
-        QqGatewayProtocol.Frame frame = QqGatewayProtocol.parse("""
-                {
-                  "op": 0,
-                  "id": "full-event-id",
-                  "s": 92,
-                  "t": "GROUP_MESSAGE_CREATE",
-                  "d": {
-                    "id": "full-message-id",
-                    "group_openid": "group-id",
-                    "content": "/在线",
-                    "author": {
-                      "member_openid": "member-id",
-                      "bot": false
-                    }
-                  }
-                }
-                """).orElseThrow();
-
-        QqGatewayGroupMessage group = QqGatewayProtocol.groupMessage(frame).orElseThrow();
-        SocialInboundMessage inbound = group.toInboundMessage(
-                "qq", "app-id", _ ->
-                        java.util.concurrent.CompletableFuture.completedFuture(null));
-
-        assertEquals("full-event-id", inbound.eventId());
-        assertEquals("full-message-id", group.messageId());
-        assertEquals("/在线", ((SocialInboundMessage.Text) inbound.content()).body());
-        assertEquals("member-id",
-                inbound.authenticatedIdentity().orElseThrow().key().subject());
-    }
-
-    @Test
-    void authenticatedMentionsAndReplyAuthorsBecomeTrustedSharedReferences() {
-        QqGatewayProtocol.Frame frame = QqGatewayProtocol.parse("""
-                {
-                  "op": 0,
-                  "id": "reference-event",
-                  "s": 93,
-                  "t": "GROUP_MESSAGE_CREATE",
-                  "d": {
-                    "id": "reference-message",
-                    "group_openid": "group-id",
-                    "content": "<@bot-token> /我的 <@target-token>",
-                    "author": {
-                      "username": "Caller",
-                      "member_openid": "caller-member",
-                      "bot": false
-                    },
-                    "mentions": [
-                      {
-                        "id": "bot-token", "username": "MIK", "bot": true,
-                        "is_you": true, "member_openid": "bot-member"
-                      },
-                      {
-                        "id": "target-token", "username": "Target", "bot": false,
-                        "is_you": false, "member_openid": "target-member"
-                      }
-                    ],
-                    "msg_elements": [{
-                      "msg_idx": "reply-id", "message_type": 103, "content": "hello",
-                      "author": {
-                        "username": "Target", "member_openid": "target-member",
-                        "bot": false
-                      }
-                    }]
-                  }
-                }
-                """).orElseThrow();
-
-        SocialInboundMessage inbound = QqGatewayProtocol.groupMessage(frame).orElseThrow()
-                .toInboundMessage("qq", "app-id", _ ->
-                        java.util.concurrent.CompletableFuture.completedFuture(null));
-
-        assertEquals("/我的 @Target",
-                ((SocialInboundMessage.Text) inbound.content()).commandBody());
-        assertTrue(((SocialInboundMessage.Text) inbound.content()).body().contains("↪ Target: hello"));
-        assertEquals(1, inbound.references().mentions().size());
-        assertEquals("target-member", inbound.references().mentions().getFirst()
-                .key().subject());
-        assertEquals("target-member", inbound.references().repliedAuthor().orElseThrow()
-                .key().subject());
-        assertEquals(1, inbound.references().targetIdentities().size());
-        assertEquals(1, inbound.references().mentionSpans().size());
-        assertEquals("@Target", ((SocialInboundMessage.Text) inbound.content()).body()
-                .substring(inbound.references().mentionSpans().getFirst().start(),
-                        inbound.references().mentionSpans().getFirst().end()));
-    }
-
-    @Test
-    void handwrittenMentionMarkupDoesNotBecomeATrustedReference() {
-        QqGatewayProtocol.Frame frame = QqGatewayProtocol.parse("""
-                {
-                  "op": 0,
-                  "id": "spoofed-mention-event",
-                  "s": 94,
-                  "t": "GROUP_MESSAGE_CREATE",
-                  "d": {
-                    "id": "spoofed-mention-message",
-                    "group_openid": "group-id",
-                    "content": "/我的 <@target-token>",
-                    "author": {
-                      "username": "Caller",
-                      "member_openid": "caller-member",
-                      "bot": false
-                    },
-                    "mentions": []
-                  }
-                }
-                """).orElseThrow();
-
-        SocialInboundMessage inbound = QqGatewayProtocol.groupMessage(frame).orElseThrow()
-                .toInboundMessage("qq", "app-id", _ ->
-                        java.util.concurrent.CompletableFuture.completedFuture(null));
-
-        assertEquals("/我的 <@target-token>",
-                ((SocialInboundMessage.Text) inbound.content()).body());
-        assertTrue(inbound.references().targetIdentities().isEmpty());
+    void bothGroupDispatchesDecodeProtocolFieldsWithoutAssigningAccountScope() {
+        for (String type : new String[]{"GROUP_AT_MESSAGE_CREATE", "GROUP_MESSAGE_CREATE"}) {
+            var frame = QqGatewayProtocol.parse("""
+                    {"op":0,"id":"event","s":91,"t":"%s","d":{
+                     "id":"message","group_openid":"group","content":"hello",
+                     "author":{"member_openid":"member","username":"Name"}}}
+                    """.formatted(type)).orElseThrow();
+            var group = QqGatewayProtocol.groupMessage(frame).orElseThrow();
+            assertEquals("event", group.eventId());
+            assertEquals("message", group.messageId());
+            assertEquals("group", group.groupOpenId());
+            assertEquals("member", group.memberOpenId());
+            assertEquals("Name", group.authorName());
+            assertFalse(group.authorIsBot());
+        }
     }
 
     @Test

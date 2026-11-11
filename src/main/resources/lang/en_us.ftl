@@ -535,6 +535,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [Audio]
+chat-content-card = [Card]
+chat-content-contact = [Contact]
+chat-content-emote = [Action]
+chat-content-face = [Emoji]
+chat-content-file = [File]
+chat-content-history = [Chat history]
+chat-content-image = [Image]
+chat-content-location = [Location]
+chat-content-message = [Message]
+chat-content-multiple = [Multiple messages]
+chat-content-music = [Music]
+chat-content-notice = [Notice]
+chat-content-reply = [Quoted message]
+chat-content-sticker = [Sticker]
+chat-content-video = [Video]
 chat-copy-hover = Left-click to copy message
 chat-delay-3s = 3 seconds
 chat-delay-5s = 5 seconds
@@ -606,50 +622,56 @@ announcement-view-command-description = View server announcements
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = No unambiguous player and platform link was found.
+identity-admission-bind-rich = { $platform }: { $command }
+identity-admission-instructions = Choose a platform and send its command to the community bot:
+identity-admission-pending = Your existing link cannot be verified yet. Retry later or link another platform account.
+identity-admission-reconnect = Reconnect to the server after linking.
+identity-admission-required = Link a community account to join.
+identity-admission-revoked = You no longer have a valid community link. Reconnect to get linking instructions.
+identity-admin-binding-not-found = The selected link no longer exists.
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = Removed { $arg2 ->
-        [one] { $arg2 } identity link
-       *[other] { $arg2 } identity links
-    } ({ $arg0 }) for player { $arg1 }.
+identity-admin-binding-unlinked = Removed the selected { $arg0 } link for { $arg1 }.
 identity-admin-command-description = Inspect or revoke external identity links
 identity-admin-help = /bindadmin lookup <player-or-UUID>
-    /bindadmin unlink <player-or-UUID> <platform> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = No identity links were found for that player.
 identity-admin-lookup-title = Identity links for { $arg0 }:
+identity-binding-account = Account-wide
 identity-binding-details = · { $arg0 } · scope { $arg1 } · { $arg2 }
-identity-binding-not-owned = You have no links for that platform.
-identity-binding-unlinked = Removed { $arg1 ->
-        [one] { $arg1 } identity link
-       *[other] { $arg1 } identity links
-    } ({ $arg0 }).
+identity-binding-not-owned = The selected link no longer exists or does not belong to you.
+identity-binding-unlinked = Removed the selected { $arg0 } link.
 identity-bindings-empty = You have not linked any external platform accounts.
 identity-bindings-title = Linked external identities:
-identity-bindings-unlink-hint = Use /bind unlink <platform> to remove all of your links for a platform.
+identity-bindings-unlink-hint = Click Unlink on the entry you want to remove.
 identity-code-cancelled = The unused { $arg0 } link code was cancelled.
 identity-code-copy = Click to copy the complete linking command
-identity-code-expiry = The code is valid for 5 minutes and can be used once. Generating another code invalidates it.
-identity-code-issued = { $arg0 } link code generated:
+identity-code-expiry = Code validity: { $arg0 ->
+    [one] { $arg0 } minute
+   *[other] { $arg0 } minutes
+    }
 identity-code-not-pending = There is no unused { $arg0 } link code.
-identity-code-redeem = In the target { $arg0 } group, mention the bot and send: { $arg1 }
+identity-code-redeem-rich = Send to the bot in your { $platform } community: { $command }
 identity-command-description = Link Minecraft to an external platform identity
+identity-community-join-rich = Join a community: { $link }
 identity-help = Identity linking commands:
     /bind qq — quickly generate a QQ linking command
     /bind <platform> — generate a one-time code
     /bind list — show existing links
     /bind cancel <platform> — cancel an unused code
-    /bind unlink <platform> — remove all links for a platform
-identity-notify-linked = Your { $arg0 } identity was verified. Use /bind list to inspect it or /bind unlink { $arg0 } to remove the platform links.
+    /bind unlink — Choose one link to remove
+identity-notify-linked = Your { $arg0 } identity is linked. Use /bind list to view and manage your links.
 identity-notify-unlinked = Your { $arg0 } identity link was removed.
 identity-platform-none = none
 identity-platforms = Supported platforms: { $arg0 }
-identity-scope-notice = This platform isolates identities by group. Link in the group where you will use the bot; each group must be linked separately.
 identity-storage-error = The identity-link database operation failed. Contact an administrator.
 identity-unavailable = Identity linking is currently unavailable. Contact an administrator.
+identity-unlink-action = [Unlink]
+identity-unlink-hint = Remove only this selected link.
 identity-unsupported-platform = Unsupported platform: { $arg0 }
 social-admin-conversations-empty = No conversations observed for { $arg0 }.
 social-admin-conversations-title = Observed conversations for { $arg0 }:
 social-admin-help = /social platforms · /social status [platform] · /social reload [platform] · /social conversations <platform>
+social-admin-metrics = Inbound { $arg0 } / retry { $arg1 } · outbound { $arg2 } / backpressure { $arg3 } · failures { $arg4 }
 social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
 social-admin-reloaded = Reloaded social platform { $arg0 }.
 social-admin-reloaded-all = Reloaded all social platforms.
@@ -657,9 +679,9 @@ social-admin-status = { $arg0 } · { $arg1 } · generation { $arg2 } · conversa
 social-admin-title = Social platforms
 social-admin-unknown = Unknown social platform: { $arg0 }
 social-binding-already-linked = This platform identity is already linked to Minecraft player { $arg0 }.
-social-binding-code-invalid = The verification code is invalid or expired. Generate a new one with /bind { $arg0 } in Minecraft.
+social-binding-code-invalid = The code is invalid or expired. Reconnect for a new code, or run /bind { $arg0 } in-game.
 social-binding-external-in-use = This social identity is already linked to another Minecraft player.
-social-binding-help = Run /bind { $arg0 } in Minecraft.
+social-binding-help = Try connecting to the server to get a code on the login screen, or run /bind { $arg0 } if already in-game.
     Copy the complete generated command.
     Send the command here.
     Use /profile to verify the link.
@@ -667,16 +689,53 @@ social-binding-identity-missing = This message has no trusted member identity, s
 social-binding-linked = Linked to Minecraft player { $arg0 }.
 social-binding-not-bound = This social identity is not linked.
 social-binding-platform-mismatch = This verification code was issued for another platform.
-social-binding-player-scope-in-use = That Minecraft player already has a different identity linked in this conversation.
+social-binding-player-scope-in-use = That Minecraft player already has another identity linked in the same platform account scope.
 social-binding-rate-limited = Too many failed attempts. Try again in about { $arg0 ->
         [one] { $arg0 } minute
        *[other] { $arg0 } minutes
     }.
-social-binding-status-unbound = This social identity is not linked. Use /bind with a verification code.
 social-binding-unavailable = Identity binding is temporarily unavailable.
-social-binding-unlink-prompt = Unlinking removes this social identity from Minecraft. Send /unbind confirm to continue.
+social-binding-unlink-prompt = Unlinking removes this social identity from Minecraft. Send { $arg0 } to continue.
 social-binding-unlinked = Unlinked from Minecraft player { $arg0 }.
 social-command-description = Manage social platform adapters
+social-crypto-command-description = Manage Matrix encryption device verification
+social-crypto-comparison-not-ready = SAS comparison is not ready.
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = Device verification failed. Check the server log.
+social-crypto-no-active = No device verification is in progress.
+social-crypto-not-accepting = This verification is not waiting for acceptance.
+social-crypto-not-running = Matrix is not running.
+social-crypto-requested = Verification requested: { $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] Initializing
+    [verified] Verified
+    [unverified] Unverified
+    [no_cross_signing] Cross-signing disabled
+    [requested] Requested
+    [ready] Ready
+    [started] Started
+    [comparison] Awaiting comparison
+    [waiting] Awaiting completion
+    [done] Done
+    [cancelled] Cancelled
+   *[unknown] Unknown
+    [valid] Valid key
+    [cross_signed] Cross-signed
+    [not_cross_signed] Not cross-signed
+    [blocked] Blocked
+    [invalid] Invalid key
+    }
+social-crypto-status = Verification: { $arg0 }
+    Key backup version: { $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = Specify the complete ID of the current verification transaction.
+social-crypto-unavailable = Unavailable
+social-crypto-updated = Verification updated; use matrixcrypto status to check it.
+social-crypto-usage = matrixcrypto status [user-id device-id]
+    matrixcrypto verify <user-id> <device-id>
+    matrixcrypto accept|confirm|cancel <transaction-id>
 social-duration-days = { $arg0 ->
         [one] { $arg0 } day
        *[other] { $arg0 } days
@@ -717,11 +776,16 @@ social-profile-presence-label = Presence
 social-profile-target-ambiguous = Choose exactly one target: a player name, one mention, or one replied-to user.
 social-profile-target-unbound = The mentioned or replied-to identity is not linked to Minecraft.
 social-profile-uuid-label = UUID
-social-query-active-label = Active
+social-query-metric = { $arg0 }
 social-query-no-players = No players are currently online.
 social-query-online-label = Online
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (Away)
+   *[active] { $arg0 }
+    }
 social-query-players-label = Players
-social-query-unknown = Unknown command. Send /help to view available commands.
+social-query-population = Online { $arg0 }/{ $arg1 } · Active { $arg2 } · Away { $arg3 }
+social-query-unknown = Unknown command. Send { $arg0 } to view available commands.
 social-query-uptime-label = Uptime
 social-reply-hidden = This reply was hidden by the server content-safety policy.
 social-state-disabled = disabled
@@ -2062,16 +2126,6 @@ tpsbar-hidden = TPS bar hidden
 tpsbar-shown = TPS bar shown
 tpsbar-tip-status-mm = Use <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> to toggle the <yellow>TPS, MSPT and ping</yellow> bar.
 unban-command-description = Pardon a player and keep the ban history
-whitelist-already-whitelisted = { $arg0 } is already whitelisted
-whitelist-invalid-name = Invalid player name format
-whitelist-kick-apply-rich = Apply at { $site } for whitelist
-whitelist-kick-title = You are not whitelisted
-whitelist-kick-website-rich = Website: { $site }
-whitelist-temp-added-plain = Added temporary whitelist for { $arg0 } for { $arg1 }
-whitelist-temp-added-rich = Added temporary whitelist for { $player } for { $duration }
-whitelist-temp-command-description = Add a 1-hour temporary whitelist entry
-whitelist-temp-duration = 1 hour
-whitelist-temp-usage-desc = Add a 1-hour temporary whitelist entry
 
 ## Shell · Menus, server information and scripting
 

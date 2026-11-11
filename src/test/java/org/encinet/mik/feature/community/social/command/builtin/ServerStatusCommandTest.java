@@ -1,8 +1,6 @@
 package org.encinet.mik.feature.community.social.command.builtin;
 
-import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
-import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.encinet.mik.feature.community.identity.IdentityBinding;
@@ -35,7 +33,7 @@ class ServerStatusCommandTest {
 
     @Test
     void usesFourCompactDynamicStatusRows() {
-        StubLanguageService languages = new StubLanguageService();
+        LanguageService languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
         EmptyBindingManager bindings = new EmptyBindingManager();
         ServerStatusCommand command = new ServerStatusCommand(new UnusedGameService(),
                 new SocialCommandLanguageResolver(bindings, languages), languages);
@@ -49,16 +47,15 @@ class ServerStatusCommandTest {
 
         assertEquals(TRUSTED, document.moderation());
         assertEquals(4, fields.fields().size());
-        assertEquals(Message.SOCIAL_QUERY_PLAYERS_LABEL.name(),
+        assertEquals("玩家",
                 fields.fields().get(0).label());
-        assertEquals("SOCIAL_QUERY_ONLINE_LABEL 12/100"
-                        + " · SOCIAL_QUERY_ACTIVE_LABEL 10 · AFK 2",
+        assertEquals("在线 12/100 · 活跃 10 · 挂机 2",
                 fields.fields().get(0).value());
         assertEquals("TPS", fields.fields().get(1).label());
-        assertEquals("20.00", fields.fields().get(1).value());
+        assertEquals("20", fields.fields().get(1).value());
         assertEquals("MSPT", fields.fields().get(2).label());
         assertEquals("12.34", fields.fields().get(2).value());
-        assertEquals(Message.SOCIAL_QUERY_UPTIME_LABEL.name(),
+        assertEquals("运行时间",
                 fields.fields().get(3).label());
         assertFalse(document.plainText().contains("1.21.8"));
         assertFalse(document.plainText().contains("19.98"));
@@ -72,17 +69,6 @@ class ServerStatusCommandTest {
                 Optional.empty(), "/状态", false,
                 _ -> CompletableFuture.completedFuture(null));
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message);
-    }
-
-    private static final class StubLanguageService extends LanguageService {
-        private StubLanguageService() {
-            super(null);
-        }
-
-        @Override
-        public String t(Language language, Message message, Object... args) {
-            return message.name();
-        }
     }
 
     private static final class EmptyBindingManager implements IdentityBindingManager {
@@ -102,7 +88,7 @@ class ServerStatusCommandTest {
         }
 
         @Override
-        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
+        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, org.encinet.mik.feature.community.identity.IdentityMemberships memberships) {
             throw new UnsupportedOperationException();
         }
 

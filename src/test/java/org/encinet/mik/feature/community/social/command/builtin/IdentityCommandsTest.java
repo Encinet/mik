@@ -114,8 +114,8 @@ class IdentityCommandsTest {
 
     private static IdentityBinding binding() {
         Instant now = Instant.parse("2026-08-12T00:00:00Z");
-        return new IdentityBinding(UUID.randomUUID(), "PlayerOne", KEY,
-                "QQ member", now, now);
+        return new IdentityBinding(UUID.randomUUID(), UUID.randomUUID(), "PlayerOne", KEY,
+                "QQ member", "", now, now);
     }
 
     private static final class StubLanguageService extends LanguageService {
@@ -165,7 +165,7 @@ class IdentityCommandsTest {
         }
 
         @Override
-        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
+        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, org.encinet.mik.feature.community.identity.IdentityMemberships memberships) {
             throw new UnsupportedOperationException();
         }
 

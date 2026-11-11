@@ -13,14 +13,11 @@ import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.feature.community.social.document.SocialTimeText;
 import org.encinet.mik.feature.community.social.game.SocialGameService;
 import org.encinet.mik.feature.community.social.game.SocialPlayerProfile;
 
-import java.time.Duration;
-import java.time.Instant;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -142,7 +139,7 @@ public final class PlayerProfileCommand
                     Message.SOCIAL_BINDING_IDENTITY_MISSING);
             case Result.Unbound _ -> message(
                     TRUSTED, language, SocialDocument.Tone.WARNING,
-                    Message.SOCIAL_BINDING_STATUS_UNBOUND);
+                    Message.SOCIAL_BINDING_NOT_BOUND);
             case Result.MemberRequired _ -> message(
                     TRUSTED, language, SocialDocument.Tone.WARNING,
                     Message.SOCIAL_PROFILE_MEMBER_REQUIRED);
@@ -196,13 +193,13 @@ public final class PlayerProfileCommand
         fields.add(field(language, Message.SOCIAL_PROFILE_PRESENCE_LABEL,
                 languages.t(language, presence)));
         fields.add(field(language, Message.SOCIAL_PROFILE_PLAY_TIME_LABEL,
-                duration(profile.playTime(), language)));
+                SocialTimeText.duration(languages, language, profile.playTime())));
         profile.firstJoined().ifPresent(firstJoined -> fields.add(field(language,
                 Message.SOCIAL_PROFILE_FIRST_JOINED_LABEL,
-                dateTime(firstJoined, language))));
+                SocialTimeText.dateTime(language, firstJoined, zone))));
         profile.lastSeen().ifPresent(lastSeen -> fields.add(field(language,
                 Message.SOCIAL_PROFILE_LAST_SEEN_LABEL,
-                dateTime(lastSeen, language))));
+                SocialTimeText.dateTime(language, lastSeen, zone))));
         fields.add(field(language, Message.SOCIAL_PROFILE_LANGUAGE_LABEL,
                 playerLanguage(profile.playerId(), platformDefault)));
         blocks.add(new SocialDocument.Fields(fields));
@@ -231,26 +228,6 @@ public final class PlayerProfileCommand
         return languages.preferredLanguage(playerId)
                 .orElse(platformDefault)
                 .displayName();
-    }
-
-    private String dateTime(Instant instant, Language language) {
-        return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT)
-                .withLocale(language.locale()).withZone(zone).format(instant);
-    }
-
-    private String duration(Duration duration, Language language) {
-        long seconds = Math.max(0, duration.toSeconds());
-        long days = seconds / 86_400;
-        long hours = seconds % 86_400 / 3_600;
-        long minutes = seconds % 3_600 / 60;
-        if (days > 0) {
-            return languages.t(language, Message.SOCIAL_DURATION_DAYS,
-                    days, hours, minutes);
-        }
-        if (hours > 0) {
-            return languages.t(language, Message.SOCIAL_DURATION_HOURS, hours, minutes);
-        }
-        return languages.t(language, Message.SOCIAL_DURATION_MINUTES, minutes);
     }
 
     private String title(Language language) {

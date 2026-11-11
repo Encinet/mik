@@ -7,11 +7,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Reply, thread and structured mention references retained across transports. */
+/** Reply, thread and trusted semantic source ranges retained across transports. */
 public record ChatReferences(
         Optional<Reference> replyTo,
         Optional<Reference> threadRoot,
-        List<Mention> mentions
+        List<Mention> mentions,
+        List<ChatPlaceholder.Span> placeholders
 ) {
     public ChatReferences {
         replyTo = replyTo == null ? Optional.empty() : replyTo;
@@ -19,6 +20,13 @@ public record ChatReferences(
         mentions = List.copyOf(Objects.requireNonNullElse(mentions, List.of()));
         if (mentions.size() > 64) {
             throw new IllegalArgumentException("too many chat references");
+        }
+        // The submission validates ranges against the actual source length.
+        placeholders = ChatPlaceholder.validate(placeholders, Integer.MAX_VALUE);
+        for (var span : placeholders) {
+            if (mentions.stream().anyMatch(mention -> span.start() < mention.end() && mention.start() < span.end())) {
+                throw new IllegalArgumentException("Content spans must not overlap mentions");
+            }
         }
         int previousEnd = -1;
         for (Mention mention : mentions) {
@@ -29,6 +37,21 @@ public record ChatReferences(
             }
             previousEnd = mention.end();
         }
+    }
+
+    public ChatReferences(Optional<Reference> replyTo, Optional<Reference> threadRoot, List<Mention> mentions) {
+        this(replyTo, threadRoot, mentions, List.of());
+    }
+
+    /** Relocate trusted source ranges together whenever a route selects part of the source. */
+    public ChatReferences within(int start, int end) {
+        if (start < 0 || end < start) throw new IllegalArgumentException("Invalid source selection");
+        return new ChatReferences(replyTo, threadRoot,
+                mentions.stream().filter(mention -> mention.start() >= start && mention.end() <= end)
+                        .map(mention -> new Mention(mention.start() - start, mention.end() - start,
+                                mention.externalIdentity(), mention.minecraftTarget())).toList(),
+                placeholders.stream().filter(span -> span.start() >= start && span.end() <= end)
+                        .map(span -> span.shifted(-start)).toList());
     }
 
     public static ChatReferences empty() {

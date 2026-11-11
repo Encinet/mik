@@ -475,6 +475,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [音声]
+chat-content-card = [カード]
+chat-content-contact = [連絡先]
+chat-content-emote = [アクション]
+chat-content-face = [絵文字]
+chat-content-file = [ファイル]
+chat-content-history = [チャット履歴]
+chat-content-image = [画像]
+chat-content-location = [位置情報]
+chat-content-message = [メッセージ]
+chat-content-multiple = [複数のメッセージ]
+chat-content-music = [音楽]
+chat-content-notice = [通知]
+chat-content-reply = [引用メッセージ]
+chat-content-sticker = [ステッカー]
+chat-content-video = [動画]
 chat-copy-hover = 左クリックしてメッセージをコピー
 chat-delay-3s = 3秒
 chat-delay-5s = 5秒
@@ -543,44 +559,53 @@ announcement-view-command-description = サーバーのお知らせを見る
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = プレイヤーとプラットフォームを一意に特定できませんでした。
+identity-admission-bind-rich = { $platform }：{ $command }
+identity-admission-instructions = プラットフォームを選び、そのコミュニティの Bot にコマンドを送信：
+identity-admission-pending = 現在の連携はまだ確認できません。後で再試行するか、別のプラットフォームのアカウントを連携してください
+identity-admission-reconnect = 連携後、サーバーに再接続してください
+identity-admission-required = コミュニティのアカウントを連携すると参加できます
+identity-admission-revoked = 有効なコミュニティ連携がなくなりました。再接続して連携手順を確認してください
+identity-admin-binding-not-found = 選択した連携は存在しません。
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = プレイヤー { $arg1 } の { $arg0 } 連携を { $arg2 } 件解除しました。
+identity-admin-binding-unlinked = { $arg1 } の選択した { $arg0 } の連携を解除しました。
 identity-admin-command-description = 外部 ID の連携を確認または解除する
 identity-admin-help = /bindadmin lookup <プレイヤーまたはUUID>
-    /bindadmin unlink <プレイヤーまたはUUID> <プラットフォーム> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = このプレイヤーの連携は見つかりませんでした。
 identity-admin-lookup-title = { $arg0 } の連携：
+identity-binding-account = アカウント共通
 identity-binding-details = · { $arg0 } · スコープ { $arg1 } · { $arg2 }
-identity-binding-not-owned = そのプラットフォームの連携はありません。
-identity-binding-unlinked = { $arg0 } の連携を { $arg1 } 件解除しました。
+identity-binding-not-owned = 選択した連携は存在しないか、あなたのものではありません。
+identity-binding-unlinked = 選択した { $arg0 } の連携を解除しました。
 identity-bindings-empty = 外部プラットフォームのアカウントは連携されていません。
 identity-bindings-title = 連携済みの外部 ID：
-identity-bindings-unlink-hint = /bind unlink <プラットフォーム> でそのプラットフォームの全連携を解除できます。
+identity-bindings-unlink-hint = 解除する項目の「連携解除」をクリックしてください。
 identity-code-cancelled = 未使用の { $arg0 } 連携コードを取り消しました。
 identity-code-copy = クリックして完全な連携コマンドをコピー
-identity-code-expiry = コードの有効期限は 5 分で、1 回だけ使用できます。再発行すると古いコードは無効になります。
-identity-code-issued = { $arg0 } の連携コードを発行しました：
+identity-code-expiry = コードの有効期間：{ $arg0 } 分
 identity-code-not-pending = 未使用の { $arg0 } 連携コードはありません。
-identity-code-redeem = 対象の { $arg0 } グループで Bot をメンションして送信：{ $arg1 }
+identity-code-redeem-rich = { $platform } のコミュニティで Bot に送信：{ $command }
 identity-command-description = Minecraft を外部プラットフォームの ID と連携する
+identity-community-join-rich = コミュニティに参加：{ $link }
 identity-help = ID 連携コマンド：
     /bind qq — QQ 連携コマンドをすぐに発行
     /bind <プラットフォーム> — 使い捨てコードを発行
     /bind list — 既存の連携を表示
     /bind cancel <プラットフォーム> — 未使用コードを取り消す
-    /bind unlink <プラットフォーム> — そのプラットフォームの全連携を解除
-identity-notify-linked = { $arg0 } の ID 連携を確認しました。/bind list で確認、/bind unlink { $arg0 } で解除できます。
+    /bind unlink — 解除する連携を1つ選ぶ
+identity-notify-linked = { $arg0 } のアカウントを連携しました。/bind list で連携の確認と管理ができます。
 identity-notify-unlinked = { $arg0 } の ID 連携を解除しました。
 identity-platform-none = なし
 identity-platforms = 対応プラットフォーム：{ $arg0 }
-identity-scope-notice = このプラットフォームの ID はグループごとに分離されています。利用するグループ内で連携し、別のグループでは再度連携してください。
 identity-storage-error = ID 連携データベースの処理に失敗しました。管理者に連絡してください。
 identity-unavailable = ID 連携は現在利用できません。管理者に連絡してください。
+identity-unlink-action = [連携解除]
+identity-unlink-hint = 選択したこの連携だけを解除します。
 identity-unsupported-platform = 未対応のプラットフォーム：{ $arg0 }
 social-admin-conversations-empty = { $arg0 } で確認された会話はありません。
 social-admin-conversations-title = { $arg0 } で確認された会話：
 social-admin-help = /social platforms · /social status [プラットフォーム] · /social reload [プラットフォーム] · /social conversations <プラットフォーム>
+social-admin-metrics = 受信 { $arg0 }／再試行 { $arg1 } · 送信 { $arg2 }／バックプレッシャー { $arg3 } · 失敗 { $arg4 }
 social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
 social-admin-reloaded = ソーシャルプラットフォーム { $arg0 } を再読み込みしました。
 social-admin-reloaded-all = すべてのソーシャルプラットフォームを再読み込みしました。
@@ -588,9 +613,9 @@ social-admin-status = { $arg0 } · { $arg1 } · 世代 { $arg2 } · 会話 { $ar
 social-admin-title = ソーシャルプラットフォーム
 social-admin-unknown = 不明なソーシャルプラットフォーム：{ $arg0 }
 social-binding-already-linked = この識別情報はすでに Minecraft プレイヤー { $arg0 } と連携されています。
-social-binding-code-invalid = 確認コードが無効または期限切れです。Minecraft で /bind { $arg0 } を実行して新しいコードを生成してください。
+social-binding-code-invalid = コードが無効または期限切れです。再接続して新しいコードを取得するか、ゲーム内で /bind { $arg0 } を実行してください。
 social-binding-external-in-use = この識別情報はすでに別の Minecraft プレイヤーと連携されています。
-social-binding-help = Minecraft で /bind { $arg0 } を実行します。
+social-binding-help = サーバーへの接続を試すとログイン画面にコードが表示されます。参加済みの場合は /bind { $arg0 } を実行してください。
     生成された完全なコマンドをコピーします。
     そのコマンドをここに送信します。
     /プロフィール で連携を確認します。
@@ -598,13 +623,50 @@ social-binding-identity-missing = このメッセージには信頼できるメ�
 social-binding-linked = Minecraft プレイヤー { $arg0 } と連携しました。
 social-binding-not-bound = このプラットフォーム識別情報は連携されていません。
 social-binding-platform-mismatch = この確認コードは別のプラットフォーム用です。
-social-binding-player-scope-in-use = その Minecraft プレイヤーは、この会話ですでに別の識別情報と連携されています。
+social-binding-player-scope-in-use = この Minecraft プレイヤーには、同じプラットフォームアカウントのスコープで別の ID が連携されています。
 social-binding-rate-limited = 失敗回数が多すぎます。約 { $arg0 } 分後に再試行してください。
-social-binding-status-unbound = この識別情報は連携されていません。確認コードを付けて /バインド を実行してください。
 social-binding-unavailable = 現在、識別情報の連携を利用できません。
-social-binding-unlink-prompt = 解除すると、このプラットフォーム識別情報と Minecraft の連携が削除されます。続行するには /解除 確認 を送信してください。
+social-binding-unlink-prompt = 解除すると、このプラットフォーム識別情報と Minecraft の連携が削除されます。続行するには { $arg0 } を送信してください。
 social-binding-unlinked = Minecraft プレイヤー { $arg0 } との連携を解除しました。
 social-command-description = ソーシャルプラットフォームアダプターを管理します
+social-crypto-command-description = Matrix 暗号化デバイスの検証を管理
+social-crypto-comparison-not-ready = SAS の比較はまだ準備できていません。
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = デバイスの検証に失敗しました。サーバーログを確認してください。
+social-crypto-no-active = 進行中のデバイス検証はありません。
+social-crypto-not-accepting = 現在の検証は承認待ちではありません。
+social-crypto-not-running = Matrix は起動していません。
+social-crypto-requested = 検証を要求しました：{ $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] 初期化中
+    [verified] 検証済み
+    [unverified] 未検証
+    [no_cross_signing] クロス署名無効
+    [requested] 要求済み
+    [ready] 準備完了
+    [started] 開始済み
+    [comparison] 比較待ち
+    [waiting] 完了待ち
+    [done] 完了
+    [cancelled] キャンセル済み
+   *[unknown] 不明
+    [valid] 有効な鍵
+    [cross_signed] クロス署名済み
+    [not_cross_signed] クロス署名なし
+    [blocked] ブロック済み
+    [invalid] 無効な鍵
+    }
+social-crypto-status = 検証：{ $arg0 }
+    鍵バックアップのバージョン：{ $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = 現在の検証トランザクションの完全な ID を指定してください。
+social-crypto-unavailable = 利用不可
+social-crypto-updated = 検証を更新しました。matrixcrypto status で確認してください。
+social-crypto-usage = matrixcrypto status [ユーザーID デバイスID]
+    matrixcrypto verify <ユーザーID> <デバイスID>
+    matrixcrypto accept|confirm|cancel <トランザクションID>
 social-duration-days = { $arg0 } 日 { $arg1 } 時間 { $arg2 } 分
 social-duration-hours = { $arg0 } 時間 { $arg1 } 分
 social-duration-minutes = { $arg0 } 分
@@ -627,11 +689,16 @@ social-profile-presence-label = 状態
 social-profile-target-ambiguous = プレイヤー名、1人へのメンション、または1人への返信のいずれか1つを指定してください。
 social-profile-target-unbound = メンションまたは返信先のユーザーは Minecraft と連携されていません。
 social-profile-uuid-label = UUID
-social-query-active-label = アクティブ
+social-query-metric = { $arg0 }
 social-query-no-players = 現在オンラインのプレイヤーはいません。
 social-query-online-label = オンライン
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (離席中)
+   *[active] { $arg0 }
+    }
 social-query-players-label = プレイヤー
-social-query-unknown = 不明なコマンドです。使用可能なコマンドは /ヘルプ で確認できます。
+social-query-population = オンライン { $arg0 }/{ $arg1 } · アクティブ { $arg2 } · 離席中 { $arg3 }
+social-query-unknown = 不明なコマンドです。使用可能なコマンドは { $arg0 } で確認できます。
 social-query-uptime-label = 稼働時間
 social-reply-hidden = この返信はサーバーのコンテンツ安全ポリシーにより非表示になりました。
 social-state-disabled = 無効
@@ -1801,16 +1868,6 @@ tpsbar-hidden = TPSバーを非表示にしました
 tpsbar-shown = TPSバーを表示しました
 tpsbar-tip-status-mm = <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> で<yellow>TPS・MSPT・Ping</yellow>バーの表示を切り替えられます。
 unban-command-description = BANを解除して履歴を保持
-whitelist-already-whitelisted = { $arg0 }はすでにホワイトリストに登録されています
-whitelist-invalid-name = プレイヤー名の形式が正しくありません
-whitelist-kick-apply-rich = { $site }でホワイトリストに申請してください
-whitelist-kick-title = ホワイトリストに登録されていません
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = { $arg0 }を一時ホワイトリストに追加しました（{ $arg1 }）
-whitelist-temp-added-rich = { $player }を一時ホワイトリストに追加しました（{ $duration }）
-whitelist-temp-command-description = 1時間有効な一時ホワイトリストを追加
-whitelist-temp-duration = 1時間
-whitelist-temp-usage-desc = 1時間有効な一時ホワイトリストを追加
 
 ## Shell · Menus, server information and scripting
 

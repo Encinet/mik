@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.community.chat.pipeline;
 
+import org.encinet.mik.feature.community.chat.model.ChatPlaceholder;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -27,7 +28,6 @@ import org.encinet.mik.feature.community.chat.modifier.MinecraftWikiModifier;
 import org.encinet.mik.feature.community.chat.modifier.MojiraModifier;
 import org.encinet.mik.feature.community.chat.modifier.PlayerMentionModifier;
 import org.encinet.mik.feature.community.chat.modifier.UrlModifier;
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -133,7 +133,7 @@ public final class ChatProcessor {
         boolean previousReplacementPaddedAfter = false;
         while (cursor < source.length()) {
             ChatReplacement replacement = nextReplacement(
-                    source, cursor, context, references.mentions(), candidates);
+                    source, cursor, context, references, candidates);
             if (replacement == null) {
                 nodes.addAll(renderTextSegment(source.substring(cursor), context));
                 break;
@@ -179,11 +179,19 @@ public final class ChatProcessor {
             String text,
             int fromIndex,
             ChatProcessingContext context,
-            List<ChatReferences.Mention> trustedMentions,
+            ChatReferences references,
             ChatReplacement[] candidates
     ) {
         ChatReplacement trusted = trustedReplacement(
-                text, fromIndex, trustedMentions);
+                text, fromIndex, references.mentions());
+        for (var span : references.placeholders()) {
+            if (span.start() >= fromIndex && span.end() <= text.length()
+                    && (trusted == null || span.start() < trusted.start())) {
+                trusted = new ChatReplacement(span.start(), span.end(),
+                        new ChatNode.Placeholder(span.kind(), ChatStyle.EMPTY));
+                break;
+            }
+        }
         ChatReplacement best = trusted;
         int bestPriority = Integer.MAX_VALUE;
         for (int index = 0; index < modifiers.size(); index++) {
@@ -195,7 +203,8 @@ public final class ChatProcessor {
                 candidates[index] = replacement;
             }
             if (replacement != null
-                    && !overlapsTrustedMention(replacement, trustedMentions)
+                    && !overlapsTrustedMention(replacement, references.mentions())
+                    && !overlapsPlaceholder(replacement, references.placeholders())
                     && (best == null
                     || replacement.start() < best.start()
                     || replacement.start() == best.start()
@@ -240,6 +249,11 @@ public final class ChatProcessor {
             }
         }
         return false;
+    }
+
+    private boolean overlapsPlaceholder(ChatReplacement replacement,
+                                        List<ChatPlaceholder.Span> spans) {
+        return spans.stream().anyMatch(span -> replacement.start() < span.end() && span.start() < replacement.end());
     }
 
     public static Set<ChatEffect> effects(ChatContent content) {

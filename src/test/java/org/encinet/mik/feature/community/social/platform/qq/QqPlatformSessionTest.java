@@ -17,9 +17,11 @@ import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinAppr
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinReconciler;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.encinet.mik.test.QqTestHttpClient;
 
 import java.net.http.HttpClient;
+import java.nio.file.Path;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
@@ -33,6 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QqPlatformSessionTest {
+    @TempDir Path temporary;
+
     @Test
     void sendsAnnouncementsAsProactiveDocumentsWithoutPlayerOrPassiveReplyFields() throws Exception {
         List<JsonObject> messages = new ArrayList<>();
@@ -49,16 +53,20 @@ class QqPlatformSessionTest {
         yaml.loadFromString("""
                 app-id: app
                 app-secret: secret
+                allowed-group-openids: [group-a, group-b]
                 """);
         QqPlatformConfig config = QqPlatformConfig.from(yaml);
         HttpClient client = QqTestHttpClient.create(server.getAddress().getPort());
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(client, config);
         QqOpenApiClient api = new QqOpenApiClient(client, config, tokens);
         QqGroupJoinApproval approvals = new QqGroupJoinApproval(config, api, Logger.getAnonymousLogger());
+        QqMembershipDirectory monitor = new QqMembershipDirectory(config,
+                temporary.resolve("memberships.json"), Logger.getAnonymousLogger());
         QqPlatformSession session = new QqPlatformSession(new QqGatewaySession(client, config, tokens,
                 _ -> SocialEventSink.Acceptance.IGNORED, _ -> SocialEventSink.Acceptance.IGNORED,
-                _ -> { }, Logger.getAnonymousLogger()), client, api, config,
-                approvals, new QqGroupJoinReconciler(config, api, approvals, Logger.getAnonymousLogger()));
+                _ -> SocialEventSink.Acceptance.IGNORED, _ -> { }, Logger.getAnonymousLogger()), client, api, config,
+                approvals, new QqGroupJoinReconciler(config, api, approvals, Logger.getAnonymousLogger()),
+                monitor);
         try {
             SocialDocument notice = SocialDocument.of(SocialDocument.Moderation.REQUIRED,
                     "Announcement", SocialDocument.Tone.INFO, SocialDocument.paragraph("First line\n<everyone> *text*"));
@@ -90,15 +98,20 @@ class QqPlatformSessionTest {
                 httpClient, config, tokens,
                 _ -> SocialEventSink.Acceptance.IGNORED,
                 _ -> SocialEventSink.Acceptance.IGNORED,
-                _ -> { }, Logger.getAnonymousLogger());
+                _ -> SocialEventSink.Acceptance.IGNORED, _ -> { }, Logger.getAnonymousLogger());
         QqGroupJoinApproval approvals = new QqGroupJoinApproval(config, api, Logger.getAnonymousLogger());
+        QqMembershipDirectory monitor = new QqMembershipDirectory(config,
+                temporary.resolve("memberships.json"), Logger.getAnonymousLogger());
+        monitor.gateway(org.encinet.mik.feature.community.social.api.SocialSessionStatus.ready("gateway"));
+        monitor.accept(new org.encinet.mik.feature.community.social.platform.qq.gateway.QqGroupMemberEvent("group-a", "current", true));
+        monitor.accept(new org.encinet.mik.feature.community.social.platform.qq.gateway.QqGroupMemberEvent("group-b", "wrong-group", true));
         QqPlatformSession session = new QqPlatformSession(
                 gateway, httpClient, api, config,
-                approvals, new QqGroupJoinReconciler(config, api, approvals, Logger.getAnonymousLogger()));
+                approvals, new QqGroupJoinReconciler(config, api, approvals, Logger.getAnonymousLogger()), monitor);
         UUID playerId = UUID.randomUUID();
-        ExternalIdentity current = identity("app", "group-a", "current");
-        ExternalIdentity wrongApp = identity("other-app", "group-a", "wrong-app");
-        ExternalIdentity wrongGroup = identity("app", "group-b", "wrong-group");
+        ExternalIdentity current = identity("app", "", "current");
+        ExternalIdentity wrongApp = identity("other-app", "", "current");
+        ExternalIdentity wrongGroup = identity("app", "", "wrong-group");
         ExternalIdentity wrongPlatform = new ExternalIdentity(
                 new ExternalIdentityKey("matrix", "server", "group-a", "wrong-platform"),
                 "Wrong platform");
@@ -111,6 +124,13 @@ class QqPlatformSessionTest {
                     List.of(new SocialChatMentionRequest(playerId, "Alex",
                             List.of(current, wrongApp, wrongGroup, wrongPlatform))))
                     .targetsFor(playerId));
+            var otherGroup = new SocialConversation("group-b", SocialConversation.Type.GROUP);
+            var request = List.of(new SocialChatMentionRequest(playerId, "Alex", List.of(current)));
+            assertTrue(session.resolveMentions(otherGroup, request).targetsFor(playerId).isEmpty());
+            monitor.accept(new org.encinet.mik.feature.community.social.platform.qq.gateway.QqGroupMemberEvent("group-b", "current", true));
+            assertEquals(List.of(current), session.resolveMentions(otherGroup, request).targetsFor(playerId));
+            session.close();
+            assertTrue(session.resolveMentions(otherGroup, request).targetsFor(playerId).isEmpty());
         } finally {
             session.close();
         }
@@ -127,6 +147,7 @@ class QqPlatformSessionTest {
                 enabled: false
                 app-id: app
                 app-secret: secret
+                allowed-group-openids: [group-a, group-b]
                 chat-bridge:
                   routes:
                     - group-openid: group-a

@@ -9,6 +9,8 @@ import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.IllegalPluginAccessException;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
@@ -21,7 +23,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.logging.Level;
+import java.util.function.Supplier;
+import java.util.function.Consumer;
 
 /** Declares and executes the complete Minecraft-side {@code /bind} command tree. */
 final class IdentityBindingCommandRegistrar {
@@ -32,17 +38,20 @@ final class IdentityBindingCommandRegistrar {
     private final LanguageService languages;
     private final IdentityBindingRuntime runtime;
     private final IdentityBindingCommandPresenter presenter;
+    private final Executor writes;
 
     IdentityBindingCommandRegistrar(
             JavaPlugin plugin,
             LanguageService languages,
             IdentityBindingRuntime runtime,
-            IdentityBindingCommandPresenter presenter
+            IdentityBindingCommandPresenter presenter,
+            Executor writes
     ) {
         this.plugin = plugin;
         this.languages = languages;
         this.runtime = runtime;
         this.presenter = presenter;
+        this.writes = writes;
     }
 
     void register(LifecycleEventManager<Plugin> manager) {
@@ -62,14 +71,13 @@ final class IdentityBindingCommandRegistrar {
                                                     StringArgumentType.getString(
                                                             context, "platform")))))
                             .then(Commands.literal("unlink")
-                                    .then(Commands.argument(
-                                                    "platform", StringArgumentType.word())
-                                            .suggests((_, builder) ->
-                                                    suggestPlatforms(builder))
+                                    .executes(context -> listOwn(context.getSource().getSender()))
+                                    .then(Commands.argument("binding", StringArgumentType.word())
+                                            .suggests((context, builder) -> suggestBindings(
+                                                    context.getSource().getSender(), builder))
                                             .executes(context -> unlinkOwn(
                                                     context.getSource().getSender(),
-                                                    StringArgumentType.getString(
-                                                            context, "platform")))))
+                                                    StringArgumentType.getString(context, "binding")))))
                             .then(Commands.argument("platform", StringArgumentType.word())
                                     .suggests((_, builder) ->
                                             suggestPlatforms(builder))
@@ -90,19 +98,11 @@ final class IdentityBindingCommandRegistrar {
                                                     StringArgumentType.getString(
                                                             context, "player")))))
                             .then(Commands.literal("unlink")
-                                    .then(Commands.argument("player", StringArgumentType.word())
-                                            .then(Commands.argument(
-                                                            "platform",
-                                                            StringArgumentType.word())
-                                                    .suggests((_, builder) ->
-                                                            suggestPlatforms(builder))
-                                                    .then(Commands.literal("confirm")
-                                                            .executes(context -> adminUnlink(
-                                                                    context.getSource().getSender(),
-                                                                    StringArgumentType.getString(
-                                                                            context, "player"),
-                                                                    StringArgumentType.getString(
-                                                                            context, "platform")))))))
+                                    .then(Commands.argument("binding", StringArgumentType.word())
+                                            .then(Commands.literal("confirm")
+                                                    .executes(context -> adminUnlink(
+                                                            context.getSource().getSender(),
+                                                            StringArgumentType.getString(context, "binding"))))))
                             .build(),
                     languages.t(Language.DEFAULT,
                             Message.IDENTITY_ADMIN_COMMAND_DESCRIPTION));
@@ -119,18 +119,12 @@ final class IdentityBindingCommandRegistrar {
             presenter.unsupportedPlatform(sender, requestedPlatform, true);
             return 0;
         }
-        try {
-            Optional<IdentityLinkCode> issued = runtime.issueCode(
-                    player.getUniqueId(), player.getName(), platform.id());
-            if (issued.isEmpty()) {
-                presenter.unsupportedPlatform(sender, requestedPlatform, false);
-                return 0;
-            }
-            presenter.codeIssued(sender, platform, issued.get());
-            return Command.SINGLE_SUCCESS;
-        } catch (IdentityBindingException error) {
-            return storageError(sender, error);
-        }
+        UUID playerId = player.getUniqueId();
+        String playerName = player.getName();
+        return mutate(sender, () -> runtime.issueCode(playerId, playerName, platform.id()), issued -> {
+            if (issued.isEmpty()) presenter.unsupportedPlatform(sender, requestedPlatform, false);
+            else presenter.codeIssued(sender, platform, issued.get());
+        });
     }
 
     private int listOwn(CommandSender sender) {
@@ -156,39 +150,27 @@ final class IdentityBindingCommandRegistrar {
             presenter.unsupportedPlatform(sender, requestedPlatform, false);
             return 0;
         }
-        try {
-            presenter.codeCancelled(sender,
-                    runtime.cancelCode(player.getUniqueId(), platform.id()), platform);
-            return Command.SINGLE_SUCCESS;
-        } catch (IdentityBindingException error) {
-            return storageError(sender, error);
-        }
+        UUID playerId = player.getUniqueId();
+        return mutate(sender, () -> runtime.cancelCode(playerId, platform.id()),
+                cancelled -> presenter.codeCancelled(sender, cancelled, platform));
     }
 
-    private int unlinkOwn(CommandSender sender, String platformId) {
+    private int unlinkOwn(CommandSender sender, String selection) {
         Player player = requirePlayer(sender);
-        if (player == null || !checkAvailable(sender)) {
+        if (player == null || !checkAvailable(sender)) return 0;
+        Optional<UUID> bindingId = parseUuid(selection);
+        if (bindingId.isEmpty()) {
+            presenter.bindingNotOwned(sender);
             return 0;
         }
-        final String platform;
-        try {
-            platform = ExternalIdentityKey.normalizePlatform(platformId);
-        } catch (IllegalArgumentException error) {
-            presenter.unsupportedPlatform(sender, platformId, false);
-            return 0;
-        }
-        try {
-            List<IdentityBinding> removed = runtime.unlinkPlayerPlatform(
-                    player.getUniqueId(), platform);
-            if (removed.isEmpty()) {
-                presenter.bindingNotOwned(sender);
-                return 0;
+        UUID playerId = player.getUniqueId();
+        return mutate(sender, () -> runtime.unlinkOwned(playerId, bindingId.get()), removed -> {
+            if (removed.isEmpty()) presenter.bindingNotOwned(sender);
+            else {
+                presenter.bindingUnlinked(sender, removed.get());
+                presenter.ownBindings(sender, runtime.findByPlayer(playerId));
             }
-            presenter.bindingUnlinked(sender, platform, removed.size());
-            return Command.SINGLE_SUCCESS;
-        } catch (IdentityBindingException error) {
-            return storageError(sender, error);
-        }
+        });
     }
 
     private int adminLookup(CommandSender sender, String playerName) {
@@ -206,40 +188,17 @@ final class IdentityBindingCommandRegistrar {
         }
     }
 
-    private int adminUnlink(CommandSender sender, String playerName, String platformId) {
-        if (!checkAvailable(sender)) {
+    private int adminUnlink(CommandSender sender, String selection) {
+        if (!checkAvailable(sender)) return 0;
+        Optional<UUID> bindingId = parseUuid(selection);
+        if (bindingId.isEmpty()) {
+            presenter.adminBindingMissing(sender);
             return 0;
         }
-        final String platform;
-        try {
-            platform = ExternalIdentityKey.normalizePlatform(platformId);
-        } catch (IllegalArgumentException error) {
-            presenter.unsupportedPlatform(sender, platformId, false);
-            return 0;
-        }
-        try {
-            List<IdentityBinding> matches = parseUuid(playerName)
-                    .map(runtime::findByPlayer)
-                    .orElseGet(() -> runtime.findByPlayerName(playerName)).stream()
-                    .filter(binding -> binding.externalKey().platform().equals(platform))
-                    .toList();
-            List<UUID> players = matches.stream().map(IdentityBinding::playerId).distinct().toList();
-            if (players.size() != 1) {
-                presenter.adminBindingMissing(sender);
-                return 0;
-            }
-            List<IdentityBinding> removed = runtime.unlinkPlayerPlatform(
-                    players.getFirst(), platform);
-            if (removed.isEmpty()) {
-                presenter.adminBindingMissing(sender);
-                return 0;
-            }
-            presenter.adminBindingUnlinked(sender, platform,
-                    removed.getFirst().playerName(), removed.size());
-            return Command.SINGLE_SUCCESS;
-        } catch (IdentityBindingException error) {
-            return storageError(sender, error);
-        }
+        return mutate(sender, () -> runtime.unlinkById(bindingId.get()), removed -> {
+            if (removed.isEmpty()) presenter.adminBindingMissing(sender);
+            else presenter.adminBindingUnlinked(sender, removed.get());
+        });
     }
 
     private int showHelp(CommandSender sender) {
@@ -257,6 +216,18 @@ final class IdentityBindingCommandRegistrar {
         return builder.buildFuture();
     }
 
+    private CompletableFuture<Suggestions> suggestBindings(CommandSender sender, SuggestionsBuilder builder) {
+        if (sender instanceof Player player && runtime.isAvailable()) {
+            String remaining = builder.getRemainingLowerCase();
+            for (IdentityBinding binding : runtime.findByPlayer(player.getUniqueId())) {
+                String id = binding.bindingId().toString();
+                if (id.startsWith(remaining)) builder.suggest(id,
+                        new com.mojang.brigadier.LiteralMessage(presenter.selectionLabel(binding)));
+            }
+        }
+        return builder.buildFuture();
+    }
+
     private Player requirePlayer(CommandSender sender) {
         if (sender instanceof Player player) {
             return player;
@@ -271,6 +242,33 @@ final class IdentityBindingCommandRegistrar {
         }
         presenter.unavailable(sender);
         return false;
+    }
+
+    private <T> int mutate(CommandSender sender, Supplier<T> operation, Consumer<T> response) {
+        try {
+            writes.execute(() -> {
+                try {
+                    T result = operation.get();
+                    replyOnMainThread(sender, () -> response.accept(result));
+                } catch (IdentityBindingException error) {
+                    replyOnMainThread(sender, () -> storageError(sender, error));
+                }
+            });
+            return Command.SINGLE_SUCCESS;
+        } catch (RejectedExecutionException ignored) {
+            presenter.unavailable(sender);
+            return 0;
+        }
+    }
+
+    private void replyOnMainThread(CommandSender sender, Runnable reply) {
+        try {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!(sender instanceof Player player) || player.isOnline()) reply.run();
+            });
+        } catch (IllegalPluginAccessException ignored) {
+            // Bukkit cancels plugin tasks on shutdown; completed database work stays committed.
+        }
     }
 
     private int storageError(CommandSender sender, IdentityBindingException error) {

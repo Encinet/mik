@@ -12,7 +12,7 @@ Paper 服务器插件，提供玩家工具、地段保护、载具、音乐与�
 
 地段批量编辑保护与 `/regen` 选区读取使用可选插件 **[FastAsyncWorldEdit 2.16.1](https://github.com/IntellectualSites/FastAsyncWorldEdit/releases/tag/2.16.1)**；安装时用它替换 WorldEdit。
 
-AI、QQ、Matrix 默认关闭，启用前需填写各自配置；操作与重载方式见对应手册。
+AI、QQ、Matrix 默认关闭，启用前需填写各自配置；操作与重载方式见对应手册。入服由[平台绑定与成员资格](docs/identity-binding.md#绑定白名单与成员退出)管理，至少启用一个平台并配置接入社区。首次连接的拒绝界面会提供绑定指令，原版白名单和 OP 不作为绕过入口。
 
 直连正版服务器自动启用[认证容灾](docs/authentication-fallback.md)：官方认证故障时，近期验证成功且 IP 相同的玩家可使用原正版 UUID 重连。
 

@@ -6,13 +6,8 @@ import java.util.Objects;
 public record IdentityPlatform(
         String id,
         String displayName,
-        String redemptionInstruction,
-        boolean scopeIsolated
+        String redemptionInstruction
 ) {
-
-    public IdentityPlatform(String id, String displayName, String redemptionInstruction) {
-        this(id, displayName, redemptionInstruction, false);
-    }
 
     public IdentityPlatform {
         id = ExternalIdentityKey.normalizePlatform(id);

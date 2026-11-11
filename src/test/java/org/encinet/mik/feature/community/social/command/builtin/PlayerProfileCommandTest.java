@@ -45,9 +45,9 @@ class PlayerProfileCommandTest {
     void commandOwnsTheProfileTitleAndStructuredSkinResponse() {
         UUID playerId = UUID.randomUUID();
         Instant verifiedAt = Instant.parse("2026-08-12T06:00:00Z");
-        IdentityBinding binding = new IdentityBinding(playerId, "PlayerOne",
+        IdentityBinding binding = new IdentityBinding(UUID.randomUUID(), playerId, "PlayerOne",
                 new ExternalIdentityKey("qq", "qq-official", "group", "member"),
-                "QQ member", verifiedAt, verifiedAt);
+                "QQ member", "", verifiedAt, verifiedAt);
         byte[] facePng = Base64.getDecoder().decode(
                 "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
         SocialPlayerProfile profile = new SocialPlayerProfile(playerId, "PlayerOne",
@@ -85,10 +85,10 @@ class PlayerProfileCommandTest {
     void commandKeepsPlatformIdentityOutOfOfflineProfiles() {
         UUID playerId = UUID.randomUUID();
         Instant boundAt = Instant.parse("2026-08-12T06:00:00Z");
-        IdentityBinding binding = new IdentityBinding(playerId, "PlayerTwo",
+        IdentityBinding binding = new IdentityBinding(UUID.randomUUID(), playerId, "PlayerTwo",
                 new ExternalIdentityKey(
                         "qq", "secret-app", "secret-group", "secret-member"),
-                "Secret QQ nickname", boundAt, boundAt);
+                "Secret QQ nickname", "", boundAt, boundAt);
         SocialPlayerProfile profile = new SocialPlayerProfile(playerId, "PlayerTwo",
                 SocialPlayerProfile.Presence.OFFLINE, Duration.ofHours(12),
                 Optional.empty(), Optional.empty(), Optional.empty());
@@ -112,9 +112,9 @@ class PlayerProfileCommandTest {
         UUID requesterId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
         Instant boundAt = Instant.parse("2026-08-12T06:00:00Z");
-        IdentityBinding requester = new IdentityBinding(requesterId, "Requester",
+        IdentityBinding requester = new IdentityBinding(UUID.randomUUID(), requesterId, "Requester",
                 new ExternalIdentityKey("qq", "app", "group", "requester"),
-                "Requester", boundAt, boundAt);
+                "Requester", "", boundAt, boundAt);
         SocialPlayerProfile target = new SocialPlayerProfile(targetId, "Target",
                 SocialPlayerProfile.Presence.ONLINE, Duration.ofHours(2),
                 Optional.empty(), Optional.empty(), Optional.empty());
@@ -140,9 +140,9 @@ class PlayerProfileCommandTest {
         UUID requesterId = UUID.randomUUID();
         UUID targetId = UUID.randomUUID();
         Instant boundAt = Instant.parse("2026-08-12T06:00:00Z");
-        IdentityBinding requester = new IdentityBinding(requesterId, "Requester",
+        IdentityBinding requester = new IdentityBinding(UUID.randomUUID(), requesterId, "Requester",
                 new ExternalIdentityKey("qq", "app", "group", "requester"),
-                "Requester", boundAt, boundAt);
+                "Requester", "", boundAt, boundAt);
         SocialPlayerProfile target = new SocialPlayerProfile(targetId, "Target",
                 SocialPlayerProfile.Presence.OFFLINE, Duration.ZERO,
                 Optional.empty(), Optional.empty(), Optional.empty());
@@ -221,7 +221,7 @@ class PlayerProfileCommandTest {
         }
 
         @Override
-        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
+        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, org.encinet.mik.feature.community.identity.IdentityMemberships memberships) {
             throw new UnsupportedOperationException();
         }
 

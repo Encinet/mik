@@ -530,6 +530,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [Audio]
+chat-content-card = [Karte]
+chat-content-contact = [Kontakt]
+chat-content-emote = [Aktion]
+chat-content-face = [Emoji]
+chat-content-file = [Datei]
+chat-content-history = [Chatverlauf]
+chat-content-image = [Bild]
+chat-content-location = [Standort]
+chat-content-message = [Nachricht]
+chat-content-multiple = [Mehrere Nachrichten]
+chat-content-music = [Musik]
+chat-content-notice = [Hinweis]
+chat-content-reply = [Zitierte Nachricht]
+chat-content-sticker = [Sticker]
+chat-content-video = [Video]
 chat-copy-hover = Linksklick zum Kopieren der Nachricht
 chat-delay-3s = 3 Sekunden
 chat-delay-5s = 5 Sekunden
@@ -601,50 +617,56 @@ announcement-view-command-description = Serverankündigungen ansehen
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = Keine eindeutige Spieler- und Plattformverknüpfung gefunden.
+identity-admission-bind-rich = { $platform }: { $command }
+identity-admission-instructions = Wähle eine Plattform und sende ihren Befehl an den Bot der Community:
+identity-admission-pending = Deine bestehende Verknüpfung lässt sich noch nicht prüfen. Versuche es später erneut oder verknüpfe ein anderes Plattformkonto.
+identity-admission-reconnect = Verbinde dich nach dem Verknüpfen erneut mit dem Server.
+identity-admission-required = Verknüpfe ein Community-Konto, um beizutreten.
+identity-admission-revoked = Du hast keine gültige Community-Verknüpfung mehr. Verbinde dich erneut, um die Anleitung zu erhalten.
+identity-admin-binding-not-found = Die ausgewählte Verknüpfung existiert nicht mehr.
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = Für { $arg1 } entfernt: { $arg2 ->
-        [one] { $arg2 } Identitätsverknüpfung
-       *[other] { $arg2 } Identitätsverknüpfungen
-    } ({ $arg0 }).
+identity-admin-binding-unlinked = Die ausgewählte { $arg0 }-Verknüpfung von { $arg1 } wurde entfernt.
 identity-admin-command-description = Externe Identitätsverknüpfungen prüfen oder aufheben
 identity-admin-help = /bindadmin lookup <Spieler-oder-UUID>
-    /bindadmin unlink <Spieler-oder-UUID> <Plattform> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Für diesen Spieler wurden keine Verknüpfungen gefunden.
 identity-admin-lookup-title = Verknüpfungen von { $arg0 }:
+identity-binding-account = Kontoweit
 identity-binding-details = · { $arg0 } · Bereich { $arg1 } · { $arg2 }
-identity-binding-not-owned = Du hast keine Verknüpfung für diese Plattform.
-identity-binding-unlinked = Entfernt: { $arg1 ->
-        [one] { $arg1 } Identitätsverknüpfung
-       *[other] { $arg1 } Identitätsverknüpfungen
-    } ({ $arg0 }).
+identity-binding-not-owned = Die ausgewählte Verknüpfung existiert nicht mehr oder gehört dir nicht.
+identity-binding-unlinked = Die ausgewählte { $arg0 }-Verknüpfung wurde entfernt.
 identity-bindings-empty = Du hast keine externen Plattformkonten verknüpft.
 identity-bindings-title = Verknüpfte externe Identitäten:
-identity-bindings-unlink-hint = Mit /bind unlink <Plattform> entfernst du alle Verknüpfungen einer Plattform.
+identity-bindings-unlink-hint = Klicke beim gewünschten Eintrag auf Trennen.
 identity-code-cancelled = Der ungenutzte Verknüpfungscode für { $arg0 } wurde verworfen.
 identity-code-copy = Klicken, um den vollständigen Verknüpfungsbefehl zu kopieren
-identity-code-expiry = Der Code ist 5 Minuten gültig und einmalig verwendbar. Ein neuer Code macht ihn ungültig.
-identity-code-issued = Verknüpfungscode für { $arg0 } erstellt:
+identity-code-expiry = Gültigkeit des Codes: { $arg0 ->
+    [one] { $arg0 } Minute
+   *[other] { $arg0 } Minuten
+    }
 identity-code-not-pending = Es gibt keinen ungenutzten Verknüpfungscode für { $arg0 }.
-identity-code-redeem = In der gewünschten { $arg0 }-Gruppe den Bot erwähnen und senden: { $arg1 }
+identity-code-redeem-rich = Sende in deiner { $platform }-Community an den Bot: { $command }
 identity-command-description = Minecraft mit einer externen Plattformidentität verknüpfen
+identity-community-join-rich = Einer Community beitreten: { $link }
 identity-help = Befehle zur Identitätsverknüpfung:
     /bind qq — schnell einen QQ-Verknüpfungsbefehl erzeugen
     /bind <Plattform> — einmaligen Code erzeugen
     /bind list — bestehende Verknüpfungen anzeigen
     /bind cancel <Plattform> — ungenutzten Code verwerfen
-    /bind unlink <Plattform> — alle Verknüpfungen einer Plattform entfernen
-identity-notify-linked = Deine { $arg0 }-Identität wurde bestätigt. Mit /bind list ansehen oder mit /bind unlink { $arg0 } entfernen.
+    /bind unlink — Eine Verknüpfung zum Entfernen auswählen
+identity-notify-linked = Deine { $arg0 }-Identität ist verknüpft. Mit /bind list kannst du deine Verknüpfungen ansehen und verwalten.
 identity-notify-unlinked = Deine { $arg0 }-Identitätsverknüpfung wurde entfernt.
 identity-platform-none = keine
 identity-platforms = Unterstützte Plattformen: { $arg0 }
-identity-scope-notice = Diese Plattform trennt Identitäten nach Gruppe. Verknüpfe das Konto in der gewünschten Gruppe; jede weitere Gruppe muss separat verknüpft werden.
 identity-storage-error = Der Datenbankvorgang für die Identitätsverknüpfung ist fehlgeschlagen. Wende dich an die Administration.
 identity-unavailable = Die Identitätsverknüpfung ist derzeit nicht verfügbar. Wende dich an die Administration.
+identity-unlink-action = [Trennen]
+identity-unlink-hint = Nur diese ausgewählte Verknüpfung entfernen.
 identity-unsupported-platform = Nicht unterstützte Plattform: { $arg0 }
 social-admin-conversations-empty = Für { $arg0 } wurden keine Konversationen erfasst.
 social-admin-conversations-title = Erfasste Konversationen für { $arg0 }:
 social-admin-help = /social platforms · /social status [Plattform] · /social reload [Plattform] · /social conversations <Plattform>
+social-admin-metrics = Eingang { $arg0 } / Wiederholungen { $arg1 } · Ausgang { $arg2 } / Rückstau { $arg3 } · Fehler { $arg4 }
 social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
 social-admin-reloaded = Soziale Plattform { $arg0 } wurde neu geladen.
 social-admin-reloaded-all = Alle sozialen Plattformen wurden neu geladen.
@@ -652,9 +674,9 @@ social-admin-status = { $arg0 } · { $arg1 } · Generation { $arg2 } · Konversa
 social-admin-title = Soziale Plattformen
 social-admin-unknown = Unbekannte soziale Plattform: { $arg0 }
 social-binding-already-linked = Diese Plattformidentität ist bereits mit Minecraft-Spieler { $arg0 } verknüpft.
-social-binding-code-invalid = Der Bestätigungscode ist ungültig oder abgelaufen. Erzeuge in Minecraft mit /bind { $arg0 } einen neuen.
+social-binding-code-invalid = Der Code ist ungültig oder abgelaufen. Verbinde dich für einen neuen Code erneut oder nutze im Spiel /bind { $arg0 }.
 social-binding-external-in-use = Diese Plattformidentität ist bereits mit einem anderen Minecraft-Spieler verknüpft.
-social-binding-help = Führe in Minecraft /bind { $arg0 } aus.
+social-binding-help = Verbinde dich für einen Code auf dem Anmeldebildschirm mit dem Server oder nutze im Spiel /bind { $arg0 }.
     Kopiere den erzeugten vollständigen Befehl.
     Sende den Befehl hier.
     Prüfe die Verknüpfung mit /profil.
@@ -662,16 +684,53 @@ social-binding-identity-missing = Diese Nachricht enthält keine vertrauenswürd
 social-binding-linked = Mit Minecraft-Spieler { $arg0 } verknüpft.
 social-binding-not-bound = Diese Plattformidentität ist nicht verknüpft.
 social-binding-platform-mismatch = Dieser Bestätigungscode wurde für eine andere Plattform ausgestellt.
-social-binding-player-scope-in-use = Dieser Minecraft-Spieler hat in dieser Konversation bereits eine andere Identität verknüpft.
+social-binding-player-scope-in-use = Dieser Minecraft-Spieler hat im selben Plattformkontobereich bereits eine andere Identität verknüpft.
 social-binding-rate-limited = Zu viele fehlgeschlagene Versuche. Versuche es in etwa { $arg0 ->
         [one] { $arg0 } Minute
        *[other] { $arg0 } Minuten
     } erneut.
-social-binding-status-unbound = Diese Plattformidentität ist nicht verknüpft. Verwende /binden mit einem Bestätigungscode.
 social-binding-unavailable = Die Identitätsverknüpfung ist vorübergehend nicht verfügbar.
-social-binding-unlink-prompt = Beim Trennen wird diese Plattformidentität von Minecraft gelöst. Sende zum Fortfahren /trennen bestätigen.
+social-binding-unlink-prompt = Beim Trennen wird diese Plattformidentität von Minecraft gelöst. Sende zum Fortfahren { $arg0 }.
 social-binding-unlinked = Verknüpfung mit Minecraft-Spieler { $arg0 } wurde entfernt.
 social-command-description = Adapter für soziale Plattformen verwalten
+social-crypto-command-description = Matrix-Geräteverschlüsselung und Verifizierung verwalten
+social-crypto-comparison-not-ready = Der SAS-Vergleich ist noch nicht bereit.
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = Geräteverifizierung fehlgeschlagen. Prüfe das Serverprotokoll.
+social-crypto-no-active = Es läuft keine Geräteverifizierung.
+social-crypto-not-accepting = Diese Verifizierung wartet nicht auf Annahme.
+social-crypto-not-running = Matrix läuft nicht.
+social-crypto-requested = Verifizierung angefordert: { $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] Initialisierung
+    [verified] Verifiziert
+    [unverified] Nicht verifiziert
+    [no_cross_signing] Cross-Signing deaktiviert
+    [requested] Angefordert
+    [ready] Bereit
+    [started] Gestartet
+    [comparison] Vergleich ausstehend
+    [waiting] Abschluss ausstehend
+    [done] Abgeschlossen
+    [cancelled] Abgebrochen
+   *[unknown] Unbekannt
+    [valid] Gültiger Schlüssel
+    [cross_signed] Cross-signiert
+    [not_cross_signed] Nicht cross-signiert
+    [blocked] Blockiert
+    [invalid] Ungültiger Schlüssel
+    }
+social-crypto-status = Verifizierung: { $arg0 }
+    Version der Schlüsselsicherung: { $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = Gib die vollständige ID des aktuellen Verifizierungsvorgangs an.
+social-crypto-unavailable = Nicht verfügbar
+social-crypto-updated = Verifizierung aktualisiert; prüfe sie mit matrixcrypto status.
+social-crypto-usage = matrixcrypto status [Benutzer-ID Geräte-ID]
+    matrixcrypto verify <Benutzer-ID> <Geräte-ID>
+    matrixcrypto accept|confirm|cancel <Vorgangs-ID>
 social-duration-days = { $arg0 ->
         [one] { $arg0 } Tag
        *[other] { $arg0 } Tage
@@ -712,11 +771,16 @@ social-profile-presence-label = Status
 social-profile-target-ambiguous = Wähle genau ein Ziel: einen Spielernamen, eine Erwähnung oder einen beantworteten Benutzer.
 social-profile-target-unbound = Die erwähnte oder beantwortete Identität ist nicht mit Minecraft verknüpft.
 social-profile-uuid-label = UUID
-social-query-active-label = Aktiv
+social-query-metric = { $arg0 }
 social-query-no-players = Derzeit sind keine Spieler online.
 social-query-online-label = Online
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (Abwesend)
+   *[active] { $arg0 }
+    }
 social-query-players-label = Spieler
-social-query-unknown = Unbekannter Befehl. Sende /hilfe, um die verfügbaren Befehle anzuzeigen.
+social-query-population = Online { $arg0 }/{ $arg1 } · Aktiv { $arg2 } · Abwesend { $arg3 }
+social-query-unknown = Unbekannter Befehl. Sende { $arg0 }, um die verfügbaren Befehle anzuzeigen.
 social-query-uptime-label = Laufzeit
 social-reply-hidden = Diese Antwort wurde durch die Inhaltsrichtlinie des Servers ausgeblendet.
 social-state-disabled = deaktiviert
@@ -2042,16 +2106,6 @@ tpsbar-hidden = TPS-Leiste ausgeblendet
 tpsbar-shown = TPS-Leiste angezeigt
 tpsbar-tip-status-mm = Schalte mit <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> die Anzeige für <yellow>TPS, MSPT und Ping</yellow> ein oder aus.
 unban-command-description = Spieler entsperren und Sperrverlauf behalten
-whitelist-already-whitelisted = { $arg0 } ist bereits auf der Whitelist
-whitelist-invalid-name = Ungültiges Spielernamenformat
-whitelist-kick-apply-rich = Bewirb dich unter { $site } für die Whitelist
-whitelist-kick-title = Du stehst nicht auf der Whitelist
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = { $arg0 } für { $arg1 } vorübergehend zur Whitelist hinzugefügt
-whitelist-temp-added-rich = { $player } für { $duration } vorübergehend zur Whitelist hinzugefügt
-whitelist-temp-command-description = Temporären Whitelist-Eintrag für eine Stunde hinzufügen
-whitelist-temp-duration = 1 Stunde
-whitelist-temp-usage-desc = Temporären Whitelist-Eintrag für eine Stunde hinzufügen
 
 ## Shell · Menus, server information and scripting
 

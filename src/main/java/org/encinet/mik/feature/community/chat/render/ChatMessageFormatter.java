@@ -74,11 +74,13 @@ public final class ChatMessageFormatter {
         return channelMessage(marker,
                 channelBody(channel, identity.chat(source(submission.origin(), viewer)),
                         target == null ? null : playerIdentity(target, viewer)),
-                standardSeparator(), body, submission.sourceText(), localized(viewer, Message.CHAT_COPY_HOVER), repeatIdentifier);
+                standardSeparator(), body, submission.references().placeholders().isEmpty() ? submission.sourceText()
+                        : message.content().localized(key -> localized(viewer, key)).plainText(),
+                localized(viewer, Message.CHAT_COPY_HOVER), repeatIdentifier);
     }
 
     public Component content(ChatContent content, Audience viewer) {
-        return contentRenderer.render(content, new MinecraftChatContentRenderer.Context(
+        return contentRenderer.render(content.localized(message -> localized(viewer, message)), new MinecraftChatContentRenderer.Context(
                 localized(viewer, Message.CHAT_ITEM_EMPTY_HOVER),
                 localized(viewer, Message.CHAT_MENTION_ALL_HOVER)));
     }

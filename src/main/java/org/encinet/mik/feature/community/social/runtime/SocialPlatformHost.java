@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.community.social.runtime;
 
+import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.feature.community.social.chat.SocialChatGateway;
@@ -11,7 +12,6 @@ import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
 import org.encinet.mik.shared.util.ShutdownSequence;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -36,6 +36,7 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
     private final SocialContentGuard contentGuard;
     private final SocialChatGateway chatGateway;
     private final SocialMentionBindingDirectory mentionBindings;
+    private final LanguageService languages;
     private final Logger logger;
     private boolean closed;
 
@@ -44,12 +45,13 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             SocialCommandDispatcher commands,
             SocialIdentityLeaseManager identityLeases,
             SocialContentGuard contentGuard,
+            LanguageService languages,
             Logger logger
     ) {
         this(adapters, commands, identityLeases, contentGuard,
                 _ ->
                         java.util.concurrent.CompletableFuture.completedFuture(null),
-                _ -> List.of(), logger);
+                _ -> List.of(), languages, logger);
     }
 
     public SocialPlatformHost(
@@ -58,10 +60,11 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             SocialIdentityLeaseManager identityLeases,
             SocialContentGuard contentGuard,
             SocialChatGateway chatGateway,
+            LanguageService languages,
             Logger logger
     ) {
         this(adapters, commands, identityLeases, contentGuard, chatGateway,
-                _ -> List.of(), logger);
+                _ -> List.of(), languages, logger);
     }
 
     public SocialPlatformHost(
@@ -71,6 +74,7 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             SocialContentGuard contentGuard,
             SocialChatGateway chatGateway,
             SocialMentionBindingDirectory mentionBindings,
+            LanguageService languages,
             Logger logger
     ) {
         this.commands = Objects.requireNonNull(commands, "commands");
@@ -79,6 +83,7 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
         this.chatGateway = Objects.requireNonNull(chatGateway, "chatGateway");
         this.mentionBindings = Objects.requireNonNull(
                 mentionBindings, "mentionBindings");
+        this.languages = Objects.requireNonNull(languages, "languages");
         this.logger = Objects.requireNonNull(logger, "logger");
         Objects.requireNonNull(adapters, "adapters").forEach(this::addAdapter);
     }
@@ -117,7 +122,7 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
         SocialPlatformDescriptor descriptor = adapter.descriptor();
         SocialPlatformGeneration next = new SocialPlatformGeneration(
                 descriptor, number, commands, identityLeases, contentGuard,
-                chatGateway, mentionBindings, logger);
+                chatGateway, mentionBindings, languages, logger);
         generations.put(id, next);
         try {
             Optional<SocialPlatformPlan> plan = adapter.prepare();

@@ -13,6 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QqPlatformConfigTest {
 
     @Test
+    void enabledBindingRequiresExplicitCommunityBoundaries() {
+        assertThrows(IllegalArgumentException.class, () -> QqPlatformConfig.from(yaml(
+                "enabled: true\napp-id: app\napp-secret: secret")));
+    }
+
+    @Test
     void joinReconciliationHasABoundedConfigurableInterval() throws Exception {
         assertEquals(30, QqPlatformConfig.from(yaml("")).groupJoinReconcileIntervalSeconds());
         for (long seconds : new long[]{10, 60, 3_600}) {

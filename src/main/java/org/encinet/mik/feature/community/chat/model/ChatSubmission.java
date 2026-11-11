@@ -26,6 +26,7 @@ public record ChatSubmission(
         conversation = Objects.requireNonNull(conversation, "conversation");
         sourceText = normalize(sourceText);
         references = Objects.requireNonNullElseGet(references, ChatReferences::empty);
+        ChatPlaceholder.validate(references.placeholders(), sourceText.length());
         receivedAt = Objects.requireNonNullElseGet(receivedAt, Instant::now);
         processingContext = Objects.requireNonNullElseGet(
                 processingContext, ChatProcessingContext::external);

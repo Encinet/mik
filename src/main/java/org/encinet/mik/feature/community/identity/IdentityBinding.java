@@ -6,10 +6,12 @@ import java.util.UUID;
 
 /** A durable association between a Minecraft account and one platform principal. */
 public record IdentityBinding(
+        UUID bindingId,
         UUID playerId,
         String playerName,
         ExternalIdentityKey externalKey,
         String externalDisplayName,
+        String scopeDisplayName,
         Instant createdAt,
         Instant verifiedAt
 ) {
@@ -17,11 +19,13 @@ public record IdentityBinding(
     private static final int MAX_PLAYER_NAME_LENGTH = 64;
 
     public IdentityBinding {
+        bindingId = Objects.requireNonNull(bindingId, "bindingId");
         playerId = Objects.requireNonNull(playerId, "playerId");
         playerName = requirePlayerName(playerName);
         externalKey = Objects.requireNonNull(externalKey, "externalKey");
-        externalDisplayName = new ExternalIdentity(
-                externalKey, externalDisplayName).displayName();
+        ExternalIdentity identity = new ExternalIdentity(externalKey, externalDisplayName, scopeDisplayName);
+        externalDisplayName = identity.displayName();
+        scopeDisplayName = identity.scopeDisplayName();
         createdAt = Objects.requireNonNull(createdAt, "createdAt");
         verifiedAt = Objects.requireNonNull(verifiedAt, "verifiedAt");
         if (verifiedAt.isBefore(createdAt)) {

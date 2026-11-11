@@ -32,7 +32,7 @@ class MatrixSyncProcessorTest {
                   }}}
                 }
                 """).getAsJsonObject());
-        processor.process(first);
+        processor.process(first, true);
 
         MatrixSyncProtocol.Batch second = MatrixSyncProtocol.parse(JsonParser.parseString("""
                 {
@@ -58,9 +58,11 @@ class MatrixSyncProcessorTest {
                 }
                 """).getAsJsonObject());
 
-        List<MatrixRoomMessage> messages = processor.process(second);
+        List<MatrixRoomMessage> messages = processor.process(second, false);
 
-        assertEquals(1, messages.size());
+        assertEquals(2, messages.size());
+        assertEquals("[image]", messages.get(1).body());
+        assertEquals("", messages.get(1).commandBody());
         MatrixRoomMessage message = messages.getFirst();
         assertEquals("$command", message.eventId());
         assertEquals("!room:example.org", message.roomId());
@@ -74,15 +76,28 @@ class MatrixSyncProcessorTest {
     }
 
     @Test
-    void malformedOrIncompleteSyncDataIsIgnoredButCursorIsRequired() {
+    void malformedSyncStructuresAreRejectedAndEmptyBatchesAreAllowed() {
         MatrixSyncProtocol.Batch batch = MatrixSyncProtocol.parse(
                 JsonParser.parseString("{\"next_batch\":\"cursor\",\"rooms\":{}}")
                         .getAsJsonObject());
 
-        assertEquals(List.of(), new MatrixSyncProcessor().process(batch));
+        assertEquals(List.of(), new MatrixSyncProcessor().process(batch, false));
         org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
                 () -> MatrixSyncProtocol.parse(JsonParser.parseString("{}")
                         .getAsJsonObject()));
+        for (String invalid : List.of(
+                "{\"rooms\":[]}",
+                "{\"rooms\":{\"join\":null}}",
+                "{\"rooms\":{\"join\":{\"!room:example.org\":{\"state_after\":[]}}}}",
+                "{\"rooms\":{\"join\":{\"!room:example.org\":{\"state\":{\"events\":{}}}}}}",
+                "{\"rooms\":{\"join\":{\"!room:example.org\":{\"state_after\":{\"events\":[null]}}}}}",
+                "{\"rooms\":{\"join\":{\"!room:example.org\":{\"state_after\":{\"events\":[{}]}}}}}",
+                "{\"rooms\":{\"join\":{\"!room:example.org\":{\"timeline\":{\"events\":[42]}}}}}")) {
+            var response = JsonParser.parseString(invalid).getAsJsonObject();
+            response.addProperty("next_batch", "next");
+            org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+                    () -> MatrixSyncProtocol.parse(response));
+        }
     }
 
     @Test
@@ -103,7 +118,8 @@ class MatrixSyncProcessorTest {
                                 "body":"hello @Bob and @Forged",
                                 "format":"org.matrix.custom.html",
                                 "formatted_body":"<mx-reply>old reply</mx-reply><p>hello <a href=\\\"https://matrix.to/#/@bob:example.org\\\">@Bob</a> and <a href=\\\"https://matrix.to/#/@forged:example.org\\\">@Forged</a></p>",
-                                "m.mentions":{"user_ids":["@bob:example.org"]}
+                                "m.mentions":{"user_ids":["@bob:example.org"]},
+                                "m.relates_to":{"m.in_reply_to":{"event_id":"$old"}}
                               }
                             }]}
                           }}}
@@ -111,7 +127,7 @@ class MatrixSyncProcessorTest {
                         """).getAsJsonObject());
 
         MatrixRoomMessage message = new MatrixSyncProcessor()
-                .process(batch).getFirst();
+                .process(batch, false).getFirst();
 
         assertEquals("hello @Bob and @Forged", message.body());
         assertEquals(1, message.mentions().size());
@@ -139,5 +155,35 @@ class MatrixSyncProcessorTest {
                 "", "m.room.member", "", "@user:example.org", join));
         assertTrue(directory.isJoined(
                 "!room:example.org", "@user:example.org"));
+        for (String invalid : java.util.List.of("{}", "{\"membership\":true}", "{\"membership\":\"unknown\"}")) {
+            directory.applyMember("!room:example.org", new MatrixSyncProtocol.Event(
+                    "", "m.room.member", "", "@user:example.org", JsonParser.parseString(invalid).getAsJsonObject()));
+            assertTrue(directory.isJoined("!room:example.org", "@user:example.org"));
+        }
+    }
+
+    @Test
+    void stateAfterIsAuthoritativeEvenWhenEmptyAndTimelineContainsOtherMembership() {
+        var members = new MatrixMemberDirectory();
+        members.replaceJoined("!room:example.org", java.util.Map.of("@alice:example.org", "Alice"));
+        var processor = new MatrixSyncProcessor(members);
+        var response = JsonParser.parseString("""
+                {"next_batch":"one","rooms":{"join":{"!room:example.org":{
+                  "state_after":{"events":[]},
+                  "timeline":{"events":[
+                    {"type":"m.room.member","state_key":"@alice:example.org","content":{"membership":"leave"}},
+                    {"type":"m.room.message","event_id":"$live","sender":"@alice:example.org",
+                     "content":{"msgtype":"m.text","body":"hello"}}
+                  ]}
+                }}}}
+                """).getAsJsonObject();
+        assertEquals(1, processor.process(MatrixSyncProtocol.parse(response), false).size());
+        assertTrue(members.isJoined("!room:example.org", "@alice:example.org"));
+        response.getAsJsonObject("rooms").getAsJsonObject("join").getAsJsonObject("!room:example.org")
+                .getAsJsonObject("state_after").add("events", JsonParser.parseString("""
+                        [{"type":"m.room.member","state_key":"@alice:example.org","content":{"membership":"leave"}}]
+                        """));
+        processor.process(MatrixSyncProtocol.parse(response), false);
+        assertFalse(members.isJoined("!room:example.org", "@alice:example.org"));
     }
 }

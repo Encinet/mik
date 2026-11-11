@@ -63,6 +63,14 @@ public record WebChatMessage(ChatMessage message, String requestId, ChatSender t
 
     /** Explicit wire fields prevent internal nodes, item snapshots or actions from leaking. */
     public JsonObject payload() {
+        return payload(content());
+    }
+
+    public JsonObject payload(java.util.function.Function<org.encinet.mik.shared.i18n.Message, String> text) {
+        return payload(content().localized(text));
+    }
+
+    private JsonObject payload(ChatContent presentation) {
         JsonObject payload = new JsonObject();
         payload.addProperty("kind", "user");
         payload.addProperty("id", id());
@@ -71,7 +79,7 @@ public record WebChatMessage(ChatMessage message, String requestId, ChatSender t
         payload.add("sender", sender());
         if (targetUuid() != null) payload.addProperty("targetUuid", targetUuid().toString());
         payload.addProperty("targetName", targetName());
-        payload.add("content", WebChatContentRenderer.render(content()));
+        payload.add("content", WebChatContentRenderer.render(presentation));
         payload.add("source", source());
         payload.addProperty("createdAt", createdAt());
         return payload;

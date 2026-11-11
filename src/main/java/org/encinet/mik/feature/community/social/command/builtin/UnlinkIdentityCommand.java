@@ -110,7 +110,8 @@ public final class UnlinkIdentityCommand
                     Message.SOCIAL_BINDING_IDENTITY_MISSING);
             case Result.Prompt _ -> document(
                     TRUSTED, language, SocialDocument.Tone.WARNING,
-                    Message.SOCIAL_BINDING_UNLINK_PROMPT);
+                    Message.SOCIAL_BINDING_UNLINK_PROMPT,
+                    context.syntax().displayPrefix() + SPEC.primaryAlias(language).orElseThrow() + " confirm");
             case Result.Unlinked unlinked -> unlinked.binding()
                     .map(binding -> document(REQUIRED, language, SocialDocument.Tone.SUCCESS,
                             Message.SOCIAL_BINDING_UNLINKED, binding.playerName()))

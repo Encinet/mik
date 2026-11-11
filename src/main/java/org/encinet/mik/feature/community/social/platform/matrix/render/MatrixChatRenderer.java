@@ -56,6 +56,7 @@ public final class MatrixChatRenderer {
                 break;
             }
             boolean complete = node.plain().length() <= remaining;
+            if (!complete && node.source() instanceof ChatNode.Placeholder) break;
             String text = limit(node.plain(), remaining);
             if (text.isEmpty()) {
                 continue;
@@ -149,7 +150,9 @@ public final class MatrixChatRenderer {
     }
 
     private static String matrixUri(String userId) {
-        return MatrixHtmlRenderer.escape("https://matrix.to/#/" + userId);
+        String encoded = java.net.URLEncoder.encode(userId, java.nio.charset.StandardCharsets.UTF_8)
+                .replace("+", "%20");
+        return MatrixHtmlRenderer.escape("https://matrix.to/#/" + encoded);
     }
 
     private static String externalName(ExternalIdentity identity) {
@@ -159,7 +162,7 @@ public final class MatrixChatRenderer {
 
     private static String applyStyle(String rendered, ChatStyle style) {
         if (style.color() != null) {
-            rendered = "<font color=\"#%06X\">%s</font>"
+            rendered = "<span data-mx-color=\"#%06X\">%s</span>"
                     .formatted(style.color(), rendered);
         }
         if (style.strikethrough()) {

@@ -31,18 +31,18 @@ final class MatrixInboundMapper {
     }
 
     SocialEventSink.Acceptance accept(MatrixRoomMessage event, String botUserId) {
-        if (!config.acceptsRoom(event.roomId())
+        if (!config.rooms().acceptsMessages(event.roomId())
                 || event.sender().userId().equals(botUserId)) {
             return SocialEventSink.Acceptance.IGNORED;
         }
-        Optional<ExternalIdentity> sender = identity(event.sender());
+        Optional<ExternalIdentity> sender = MatrixAccountIdentity.from(event.sender());
         LeadingBody leadingBody = stripLeadingBotMention(
                 event.body(), event.mentions(), botUserId);
         LinkedHashMap<ExternalIdentityKey, ExternalIdentity> mentions =
                 new LinkedHashMap<>();
         List<SocialMessageReferences.MentionSpan> mentionSpans =
                 leadingBody.mentions().stream()
-                        .map(mention -> identity(mention.member())
+                        .map(mention -> MatrixAccountIdentity.from(mention.member())
                                 .filter(_ -> !mention.member().userId()
                                         .equals(botUserId))
                                 .map(identity -> {
@@ -54,32 +54,19 @@ final class MatrixInboundMapper {
                         .toList();
         Optional<ExternalIdentity> repliedAuthor = event.repliedAuthor()
                 .filter(member -> !member.userId().equals(botUserId))
-                .flatMap(this::identity);
+                .flatMap(MatrixAccountIdentity::from);
+        String commandBody = config.rooms().commandRoomIds().contains(event.roomId()) && !event.commandBody().isEmpty()
+                ? stripLeadingBotMention(event.commandBody(), event.mentions(), botUserId).body() : "";
         return events.accept(new SocialInboundMessage(event.eventId(),
                 new SocialConversation(event.roomId(), SocialConversation.Type.GROUP),
                 sender, event.sender().displayName(),
-                new SocialInboundMessage.Text(leadingBody.body()), false,
+                new SocialInboundMessage.Text(leadingBody.body(), commandBody, event.placeholders().stream()
+                        .filter(span -> span.start() >= leadingBody.offset()
+                                && span.end() <= leadingBody.offset() + leadingBody.body().length())
+                        .map(span -> span.shifted(-leadingBody.offset())).toList()), false,
                 new SocialMessageReferences(List.copyOf(mentions.values()),
                         repliedAuthor, mentionSpans),
                 new MatrixReplyChannel(client, event, config.maxOutboundLength())));
-    }
-
-    private Optional<ExternalIdentity> identity(MatrixRoomMessage.MatrixMember member) {
-        String userId = member.userId();
-        int separator = userId.indexOf(':', 1);
-        if (!userId.startsWith("@") || separator < 2
-                || separator == userId.length() - 1 || userId.length() > 255
-                || userId.codePoints().anyMatch(Character::isISOControl)) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(new ExternalIdentity(new ExternalIdentityKey(
-                    MatrixPlatformConfig.PLATFORM_ID,
-                    userId.substring(separator + 1), "", userId),
-                    member.displayName()));
-        } catch (IllegalArgumentException ignored) {
-            return Optional.empty();
-        }
     }
 
     private static LeadingBody stripLeadingBotMention(
@@ -122,12 +109,13 @@ final class MatrixInboundMapper {
                         mention.member(), mention.start() - bodyOffset,
                         mention.end() - bodyOffset))
                 .toList();
-        return new LeadingBody(body.substring(bodyOffset, bodyEnd), adjusted);
+        return new LeadingBody(body.substring(bodyOffset, bodyEnd), adjusted, bodyOffset);
     }
 
     private record LeadingBody(
             String body,
-            List<MatrixRoomMessage.MatrixMention> mentions
+            List<MatrixRoomMessage.MatrixMention> mentions,
+            int offset
     ) {
     }
 }

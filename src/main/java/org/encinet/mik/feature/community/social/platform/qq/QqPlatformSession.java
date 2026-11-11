@@ -2,18 +2,19 @@ package org.encinet.mik.feature.community.social.platform.qq;
 
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
+import org.encinet.mik.feature.community.identity.IdentityMemberships;
 import org.encinet.mik.feature.community.social.api.SocialConversation;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionRequest;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionResolution;
 import org.encinet.mik.feature.community.social.chat.SocialChatPlatformSession;
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
+import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.feature.community.social.platform.qq.client.QqOpenApiClient;
 import org.encinet.mik.feature.community.social.platform.qq.gateway.QqGatewaySession;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinApproval;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinReconciler;
 import org.encinet.mik.feature.community.social.platform.qq.render.QqChatRenderer;
 import org.encinet.mik.feature.community.social.platform.qq.render.QqMarkdownRenderer;
-import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.net.http.HttpClient;
@@ -21,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -34,6 +36,7 @@ final class QqPlatformSession implements SocialChatPlatformSession {
     private final QqPlatformConfig config;
     private final QqGroupJoinApproval joinApproval;
     private final QqGroupJoinReconciler reconciler;
+    private final QqMembershipDirectory memberships;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     QqPlatformSession(
@@ -42,7 +45,8 @@ final class QqPlatformSession implements SocialChatPlatformSession {
             QqOpenApiClient api,
             QqPlatformConfig config,
             QqGroupJoinApproval joinApproval,
-            QqGroupJoinReconciler reconciler
+            QqGroupJoinReconciler reconciler,
+            QqMembershipDirectory memberships
     ) {
         this.gateway = Objects.requireNonNull(gateway, "gateway");
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
@@ -50,6 +54,7 @@ final class QqPlatformSession implements SocialChatPlatformSession {
         this.config = Objects.requireNonNull(config, "config");
         this.joinApproval = Objects.requireNonNull(joinApproval, "joinApproval");
         this.reconciler = Objects.requireNonNull(reconciler, "reconciler");
+        this.memberships = Objects.requireNonNull(memberships, "memberships");
     }
 
     @Override
@@ -58,6 +63,11 @@ final class QqPlatformSession implements SocialChatPlatformSession {
             reconciler.start();
             gateway.start();
         }
+    }
+
+    @Override
+    public Optional<IdentityMemberships> memberships() {
+        return Optional.of(memberships);
     }
 
     @Override
@@ -82,10 +92,7 @@ final class QqPlatformSession implements SocialChatPlatformSession {
         Map<UUID, List<ExternalIdentity>> resolved = new LinkedHashMap<>();
         for (SocialChatMentionRequest request : List.copyOf(requests)) {
             List<ExternalIdentity> targets = request.candidates().stream()
-                    .filter(identity -> identity.key().platform().equals(
-                            QqPlatformConfig.PLATFORM_ID))
-                    .filter(identity -> identity.key().issuer().equals(config.appId()))
-                    .filter(identity -> identity.key().scope().equals(conversation.id()))
+                    .filter(identity -> memberships.contains(conversation, identity.key()))
                     .toList();
             if (!targets.isEmpty()) {
                 resolved.put(request.playerId(), targets);
@@ -115,8 +122,11 @@ final class QqPlatformSession implements SocialChatPlatformSession {
         if (closed.get()) {
             return CompletableFuture.completedFuture(null);
         }
+        Map<UUID, List<ExternalIdentity>> currentTargets = new LinkedHashMap<>();
+        mentions.targets().forEach((playerId, identities) -> currentTargets.put(playerId,
+                identities.stream().filter(identity -> memberships.contains(conversation, identity.key())).toList()));
         QqChatRenderer.RenderedChat rendered = QqChatRenderer.render(
-                message, mentions, config.maxOutboundLength());
+                message, new SocialChatMentionResolution(currentTargets), config.maxOutboundLength());
         return api.sendMarkdown(conversation.id(), rendered.markdown());
     }
 
@@ -126,6 +136,7 @@ final class QqPlatformSession implements SocialChatPlatformSession {
             return;
         }
         ShutdownSequence shutdown = new ShutdownSequence();
+        shutdown.attempt("QQ membership monitoring", memberships::close);
         shutdown.attempt("QQ Gateway", gateway::close);
         shutdown.attempt("QQ group join reconciliation", reconciler::close);
         shutdown.attempt("QQ group join approval", joinApproval::close);

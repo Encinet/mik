@@ -3,6 +3,7 @@ package org.encinet.mik.feature.community.social.platform.matrix;
 import org.encinet.mik.feature.community.social.api.SocialReplyChannel;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.feature.community.social.platform.matrix.client.MatrixClient;
+import org.encinet.mik.feature.community.social.platform.matrix.client.MatrixFutures;
 import org.encinet.mik.feature.community.social.platform.matrix.render.MatrixHtmlRenderer;
 import org.encinet.mik.feature.community.social.platform.matrix.render.MatrixPlainTextRenderer;
 import org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomMessage;
@@ -41,10 +42,10 @@ final class MatrixReplyChannel implements SocialReplyChannel {
         SocialDocument.EmbeddedImage embedded =
                 (SocialDocument.EmbeddedImage) media.source();
         byte[] data = Base64.getDecoder().decode(embedded.base64Data());
-        return client.replyImage(event.roomId(), event.eventId(),
+        return MatrixFutures.recover(client.replyImage(event.roomId(), event.eventId(),
                         event.threadRootEventId(), embedded.mediaType(), data,
-                        media.width(), media.height(), media.alternativeText(), plain, html)
-                .exceptionallyCompose(_ -> textReply(plain, html));
+                        media.width(), media.height(), media.alternativeText(), plain, html),
+                _ -> textReply(plain, html));
     }
 
     private java.util.concurrent.CompletableFuture<Void> textReply(

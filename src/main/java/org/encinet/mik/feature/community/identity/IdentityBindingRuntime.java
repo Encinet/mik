@@ -1,9 +1,12 @@
 package org.encinet.mik.feature.community.identity;
 
+import org.encinet.mik.shared.util.ShutdownSequence;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 
 /** Application runtime for identity storage and installed platform leases. */
 final class IdentityBindingRuntime implements IdentityBindingManager {
@@ -11,16 +14,19 @@ final class IdentityBindingRuntime implements IdentityBindingManager {
     private final IdentityBindingService service;
     private final IdentityPlatformRegistry platforms;
     private final IdentityBindingNotifier notifier;
+    private final IdentityMembershipCoordinator memberships;
     private volatile boolean available;
 
     IdentityBindingRuntime(
             IdentityBindingService service,
             IdentityPlatformRegistry platforms,
-            IdentityBindingNotifier notifier
+            IdentityBindingNotifier notifier,
+            Executor writes
     ) {
         this.service = Objects.requireNonNull(service, "service");
         this.platforms = Objects.requireNonNull(platforms, "platforms");
         this.notifier = Objects.requireNonNull(notifier, "notifier");
+        memberships = new IdentityMembershipCoordinator(service, writes, notifier::unlinked);
     }
 
     void open() {
@@ -30,8 +36,11 @@ final class IdentityBindingRuntime implements IdentityBindingManager {
 
     void close() {
         available = false;
-        platforms.clear();
-        service.close();
+        var shutdown = new ShutdownSequence();
+        shutdown.attempt("membership subscriptions", memberships::close);
+        shutdown.attempt("identity platforms", platforms::clear);
+        shutdown.attempt("identity storage", service::close);
+        shutdown.finish("identity runtime");
     }
 
     boolean isAvailable() {
@@ -76,10 +85,15 @@ final class IdentityBindingRuntime implements IdentityBindingManager {
         return service.cancelCode(playerId, platformId);
     }
 
-    List<IdentityBinding> unlinkPlayerPlatform(UUID playerId, String platformId) {
+    Optional<IdentityBinding> unlinkOwned(UUID playerId, UUID bindingId) {
         ensureAvailable();
-        List<IdentityBinding> removed = service.unlinkPlayerPlatform(playerId, platformId);
-        removed.forEach(notifier::unlinked);
+        return service.unlinkOwned(playerId, bindingId);
+    }
+
+    Optional<IdentityBinding> unlinkById(UUID bindingId) {
+        ensureAvailable();
+        Optional<IdentityBinding> removed = service.unlinkById(bindingId);
+        removed.ifPresent(notifier::unlinked);
         return removed;
     }
 
@@ -94,14 +108,51 @@ final class IdentityBindingRuntime implements IdentityBindingManager {
     }
 
     @Override
-    public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
-        return platforms.register(platform);
+    public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, IdentityMemberships provider) {
+        ensureAvailable();
+        IdentityPlatformRegistration registration = platforms.register(platform);
+        final AutoCloseable subscription;
+        try { subscription = memberships.watch(Objects.requireNonNull(provider, "memberships")); }
+        catch (RuntimeException error) { registration.close(); throw error; }
+        return new IdentityPlatformRegistration() {
+            @Override public IdentityPlatform platform() { return registration.platform(); }
+            @Override public boolean isActive() { return registration.isActive(); }
+            @Override public void close() {
+                registration.close();
+                try { subscription.close(); }
+                catch (Exception error) { throw new IllegalStateException("Could not release platform memberships", error); }
+            }
+        };
+    }
+
+    void reconcileMemberships() { memberships.retry(); }
+
+    boolean canJoin(UUID playerId) {
+        return available && service.findByPlayer(playerId).stream().anyMatch(binding ->
+                memberships.state(binding.externalKey()) == IdentityMemberships.State.JOINED);
+    }
+
+    boolean hasBindings(UUID playerId) { return available && !service.findByPlayer(playerId).isEmpty(); }
+
+    boolean codeIsPending(UUID playerId, IdentityLinkCode code) { return service.codeIsPending(playerId, code); }
+
+    boolean mustDisconnect(UUID playerId) {
+        List<IdentityBinding> bindings = service.findByPlayer(playerId);
+        return bindings.isEmpty() || bindings.stream().allMatch(binding ->
+                memberships.state(binding.externalKey()) == IdentityMemberships.State.ABSENT);
     }
 
     @Override
     public IdentityLinkResult redeem(String code, ExternalIdentity identity) {
         ensureAvailable();
-        IdentityLinkResult result = service.redeem(code, identity);
+        IdentityLinkResult result;
+        synchronized (service) {
+            if (memberships.state(identity.key()) != IdentityMemberships.State.JOINED) {
+                throw new IdentityBindingException("Community membership is not verified",
+                        new IllegalStateException("membership unavailable"));
+            }
+            result = service.redeem(code, identity);
+        }
         if (result.status() == IdentityLinkResult.Status.LINKED && result.binding() != null) {
             notifier.linked(result.binding());
         }

@@ -475,6 +475,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [เสียง]
+chat-content-card = [การ์ด]
+chat-content-contact = [ผู้ติดต่อ]
+chat-content-emote = [การกระทำ]
+chat-content-face = [อีโมจิ]
+chat-content-file = [ไฟล์]
+chat-content-history = [ประวัติแชต]
+chat-content-image = [รูปภาพ]
+chat-content-location = [ตำแหน่ง]
+chat-content-message = [ข้อความ]
+chat-content-multiple = [หลายข้อความ]
+chat-content-music = [เพลง]
+chat-content-notice = [ประกาศ]
+chat-content-reply = [ข้อความอ้างอิง]
+chat-content-sticker = [สติกเกอร์]
+chat-content-video = [วิดีโอ]
 chat-copy-hover = คลิกซ้ายเพื่อคัดลอกข้อความ
 chat-delay-3s = 3 วินาที
 chat-delay-5s = 5 วินาที
@@ -543,44 +559,53 @@ announcement-view-command-description = ดูประกาศของเซ�
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = ไม่พบการเชื่อมผู้เล่นและแพลตฟอร์มที่ระบุได้แน่ชัด
+identity-admission-bind-rich = { $platform }: { $command }
+identity-admission-instructions = เลือกแพลตฟอร์มแล้วส่งคำสั่งให้บอตในชุมชนนั้น:
+identity-admission-pending = ยังตรวจสอบการผูกบัญชีเดิมไม่ได้ โปรดลองภายหลังหรือผูกบัญชีแพลตฟอร์มอื่น
+identity-admission-reconnect = เชื่อมต่อเซิร์ฟเวอร์อีกครั้งหลังผูกบัญชี
+identity-admission-required = ผูกบัญชีชุมชนเพื่อเข้าเซิร์ฟเวอร์
+identity-admission-revoked = คุณไม่มีการเชื่อมบัญชีชุมชนที่ใช้ได้แล้ว เชื่อมต่อใหม่เพื่อรับคำแนะนำ
+identity-admin-binding-not-found = ไม่พบการเชื่อมที่เลือกแล้ว
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = ลบการเชื่อม { $arg0 } ของผู้เล่น { $arg1 } แล้ว { $arg2 } รายการ
+identity-admin-binding-unlinked = ยกเลิกการเชื่อม { $arg0 } ที่เลือกของ { $arg1 } แล้ว
 identity-admin-command-description = ตรวจสอบหรือยกเลิกการเชื่อมตัวตนภายนอก
 identity-admin-help = /bindadmin lookup <ผู้เล่น-หรือ-UUID>
-    /bindadmin unlink <ผู้เล่น-หรือ-UUID> <แพลตฟอร์ม> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = ไม่พบการเชื่อมของผู้เล่นนี้
 identity-admin-lookup-title = การเชื่อมของ { $arg0 }:
+identity-binding-account = ทั้งบัญชี
 identity-binding-details = · { $arg0 } · ขอบเขต { $arg1 } · { $arg2 }
-identity-binding-not-owned = คุณไม่มีการเชื่อมสำหรับแพลตฟอร์มนี้
-identity-binding-unlinked = ลบการเชื่อม { $arg0 } แล้ว { $arg1 } รายการ
+identity-binding-not-owned = ไม่พบการเชื่อมที่เลือกหรือการเชื่อมนี้ไม่ใช่ของคุณ
+identity-binding-unlinked = ยกเลิกการเชื่อม { $arg0 } ที่เลือกแล้ว
 identity-bindings-empty = คุณยังไม่ได้เชื่อมบัญชีแพลตฟอร์มภายนอก
 identity-bindings-title = ตัวตนภายนอกที่เชื่อมแล้ว:
-identity-bindings-unlink-hint = ใช้ /bind unlink <แพลตฟอร์ม> เพื่อลบการเชื่อมทั้งหมดของแพลตฟอร์ม
+identity-bindings-unlink-hint = คลิกยกเลิกการเชื่อมที่รายการที่ต้องการลบ
 identity-code-cancelled = ยกเลิกรหัสเชื่อม { $arg0 } ที่ยังไม่ได้ใช้แล้ว
 identity-code-copy = คลิกเพื่อคัดลอกคำสั่งเชื่อมฉบับเต็ม
-identity-code-expiry = รหัสใช้ได้ 5 นาทีและใช้ได้ครั้งเดียว การสร้างรหัสใหม่จะทำให้รหัสเดิมใช้ไม่ได้
-identity-code-issued = สร้างรหัสเชื่อม { $arg0 } แล้ว:
+identity-code-expiry = รหัสมีอายุ { $arg0 } นาที
 identity-code-not-pending = ไม่มีรหัสเชื่อม { $arg0 } ที่ยังไม่ได้ใช้
-identity-code-redeem = ในกลุ่ม { $arg0 } เป้าหมาย ให้กล่าวถึงบอตแล้วส่ง: { $arg1 }
+identity-code-redeem-rich = ส่งให้บอตในชุมชน { $platform }: { $command }
 identity-command-description = เชื่อม Minecraft กับตัวตนบนแพลตฟอร์มภายนอก
+identity-community-join-rich = เข้าร่วมชุมชน: { $link }
 identity-help = คำสั่งเชื่อมตัวตน:
     /bind qq — สร้างคำสั่งเชื่อม QQ อย่างรวดเร็ว
     /bind <แพลตฟอร์ม> — สร้างรหัสใช้ครั้งเดียว
     /bind list — แสดงการเชื่อมที่มีอยู่
     /bind cancel <แพลตฟอร์ม> — ยกเลิกรหัสที่ยังไม่ได้ใช้
-    /bind unlink <แพลตฟอร์ม> — ลบการเชื่อมทั้งหมดของแพลตฟอร์ม
-identity-notify-linked = ยืนยันตัวตน { $arg0 } ของคุณแล้ว ใช้ /bind list เพื่อตรวจสอบ หรือ /bind unlink { $arg0 } เพื่อยกเลิก
+    /bind unlink — เลือกยกเลิกการเชื่อมหนึ่งรายการ
+identity-notify-linked = เชื่อมบัญชี { $arg0 } แล้ว ใช้ /bind list เพื่อดูและจัดการการเชื่อม
 identity-notify-unlinked = ยกเลิกการเชื่อมตัวตน { $arg0 } ของคุณแล้ว
 identity-platform-none = ไม่มี
 identity-platforms = แพลตฟอร์มที่รองรับ: { $arg0 }
-identity-scope-notice = ตัวตนของแพลตฟอร์มนี้แยกตามกลุ่ม โปรดเชื่อมในกลุ่มที่จะใช้บอต และเชื่อมแยกสำหรับแต่ละกลุ่ม
 identity-storage-error = การทำงานกับฐานข้อมูลการเชื่อมล้มเหลว โปรดติดต่อผู้ดูแล
 identity-unavailable = ขณะนี้ใช้บริการเชื่อมตัวตนไม่ได้ โปรดติดต่อผู้ดูแล
+identity-unlink-action = [ยกเลิกการเชื่อม]
+identity-unlink-hint = ยกเลิกเฉพาะการเชื่อมที่เลือกนี้เท่านั้น
 identity-unsupported-platform = ไม่รองรับแพลตฟอร์ม: { $arg0 }
 social-admin-conversations-empty = ไม่พบการสนทนาสำหรับ { $arg0 }
 social-admin-conversations-title = การสนทนาที่พบสำหรับ { $arg0 }:
 social-admin-help = /social platforms · /social status [แพลตฟอร์ม] · /social reload [แพลตฟอร์ม] · /social conversations <แพลตฟอร์ม>
+social-admin-metrics = รับเข้า { $arg0 } / ลองใหม่ { $arg1 } · ส่งออก { $arg2 } / แรงดันย้อนกลับ { $arg3 } · ล้มเหลว { $arg4 }
 social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
 social-admin-reloaded = โหลดแพลตฟอร์มโซเชียล { $arg0 } ใหม่แล้ว
 social-admin-reloaded-all = โหลดแพลตฟอร์มโซเชียลทั้งหมดใหม่แล้ว
@@ -588,9 +613,9 @@ social-admin-status = { $arg0 } · { $arg1 } · รุ่น { $arg2 } · กา
 social-admin-title = แพลตฟอร์มโซเชียล
 social-admin-unknown = ไม่รู้จักแพลตฟอร์มโซเชียล: { $arg0 }
 social-binding-already-linked = ตัวตนนี้ผูกกับผู้เล่น Minecraft { $arg0 } อยู่แล้ว
-social-binding-code-invalid = รหัสยืนยันไม่ถูกต้องหรือหมดอายุ สร้างรหัสใหม่ด้วย /bind { $arg0 } ใน Minecraft
+social-binding-code-invalid = รหัสไม่ถูกต้องหรือหมดอายุ เชื่อมต่อใหม่เพื่อรับรหัสใหม่ หรือใช้ /bind { $arg0 } ในเกม
 social-binding-external-in-use = ตัวตนนี้ผูกกับผู้เล่น Minecraft คนอื่นอยู่แล้ว
-social-binding-help = ใช้ /bind { $arg0 } ใน Minecraft
+social-binding-help = ลองเชื่อมต่อเซิร์ฟเวอร์เพื่อรับรหัสบนหน้าจอเข้าสู่ระบบ หรือใช้ /bind { $arg0 } หากอยู่ในเกมแล้ว
     คัดลอกคำสั่งเต็มที่สร้างขึ้น
     ส่งคำสั่งนั้นที่นี่
     ใช้ /โปรไฟล์ เพื่อตรวจสอบการผูก
@@ -598,13 +623,50 @@ social-binding-identity-missing = ข้อความนี้ไม่มี�
 social-binding-linked = ผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
 social-binding-not-bound = ตัวตนบนแพลตฟอร์มนี้ยังไม่ได้ผูก
 social-binding-platform-mismatch = รหัสยืนยันนี้ออกให้สำหรับแพลตฟอร์มอื่น
-social-binding-player-scope-in-use = ผู้เล่น Minecraft คนนั้นมีตัวตนอื่นที่ผูกไว้ในการสนทนานี้แล้ว
+social-binding-player-scope-in-use = ผู้เล่น Minecraft นี้ผูกตัวตนอื่นไว้แล้วในขอบเขตบัญชีแพลตฟอร์มเดียวกัน
 social-binding-rate-limited = ลองไม่สำเร็จหลายครั้งเกินไป โปรดลองอีกครั้งในประมาณ { $arg0 } นาที
-social-binding-status-unbound = ตัวตนนี้ยังไม่ได้ผูก ใช้ /ผูก พร้อมรหัสยืนยัน
 social-binding-unavailable = ระบบผูกตัวตนไม่พร้อมใช้งานชั่วคราว
-social-binding-unlink-prompt = การยกเลิกผูกจะลบความเชื่อมโยงระหว่างตัวตนนี้กับ Minecraft ส่ง /ยกเลิกผูก ยืนยัน เพื่อดำเนินการต่อ
+social-binding-unlink-prompt = การยกเลิกผูกจะลบความเชื่อมโยงระหว่างตัวตนนี้กับ Minecraft ส่ง { $arg0 } เพื่อดำเนินการต่อ
 social-binding-unlinked = ยกเลิกการผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
 social-command-description = จัดการอะแดปเตอร์แพลตฟอร์มโซเชียล
+social-crypto-command-description = จัดการการยืนยันอุปกรณ์เข้ารหัส Matrix
+social-crypto-comparison-not-ready = การเปรียบเทียบ SAS ยังไม่พร้อม
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = การยืนยันอุปกรณ์ล้มเหลว โปรดดูบันทึกเซิร์ฟเวอร์
+social-crypto-no-active = ไม่มีการยืนยันอุปกรณ์ที่กำลังดำเนินการ
+social-crypto-not-accepting = การยืนยันนี้ไม่ได้รอการยอมรับ
+social-crypto-not-running = Matrix ยังไม่ทำงาน
+social-crypto-requested = ส่งคำขอยืนยันแล้ว: { $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] กำลังเริ่มต้น
+    [verified] ยืนยันแล้ว
+    [unverified] ยังไม่ยืนยัน
+    [no_cross_signing] ปิดการลงนามไขว้
+    [requested] ร้องขอแล้ว
+    [ready] พร้อม
+    [started] เริ่มแล้ว
+    [comparison] รอการเปรียบเทียบ
+    [waiting] รอเสร็จสิ้น
+    [done] เสร็จแล้ว
+    [cancelled] ยกเลิกแล้ว
+   *[unknown] ไม่ทราบ
+    [valid] กุญแจใช้ได้
+    [cross_signed] ลงนามไขว้แล้ว
+    [not_cross_signed] ยังไม่ลงนามไขว้
+    [blocked] ถูกบล็อก
+    [invalid] กุญแจใช้ไม่ได้
+    }
+social-crypto-status = การยืนยัน: { $arg0 }
+    รุ่นข้อมูลสำรองกุญแจ: { $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = ระบุ ID แบบเต็มของธุรกรรมยืนยันปัจจุบัน
+social-crypto-unavailable = ไม่พร้อมใช้งาน
+social-crypto-updated = อัปเดตการยืนยันแล้ว ใช้ matrixcrypto status เพื่อตรวจสอบ
+social-crypto-usage = matrixcrypto status [IDผู้ใช้ IDอุปกรณ์]
+    matrixcrypto verify <IDผู้ใช้> <IDอุปกรณ์>
+    matrixcrypto accept|confirm|cancel <IDธุรกรรม>
 social-duration-days = { $arg0 } วัน { $arg1 } ชั่วโมง { $arg2 } นาที
 social-duration-hours = { $arg0 } ชั่วโมง { $arg1 } นาที
 social-duration-minutes = { $arg0 } นาที
@@ -627,11 +689,16 @@ social-profile-presence-label = สถานะ
 social-profile-target-ambiguous = เลือกเป้าหมายเพียงหนึ่งรายการ: ชื่อผู้เล่น การกล่าวถึงหนึ่งคน หรือผู้ใช้ที่ตอบกลับหนึ่งคน
 social-profile-target-unbound = ผู้ใช้ที่กล่าวถึงหรือตอบกลับยังไม่ได้ผูกกับ Minecraft
 social-profile-uuid-label = UUID
-social-query-active-label = กำลังใช้งาน
+social-query-metric = { $arg0 }
 social-query-no-players = ขณะนี้ไม่มีผู้เล่นออนไลน์
 social-query-online-label = ออนไลน์
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (ไม่อยู่)
+   *[active] { $arg0 }
+    }
 social-query-players-label = ผู้เล่น
-social-query-unknown = ไม่รู้จักคำสั่ง ส่ง /ช่วยเหลือ เพื่อดูคำสั่งที่ใช้ได้
+social-query-population = ออนไลน์ { $arg0 }/{ $arg1 } · กำลังใช้งาน { $arg2 } · ไม่อยู่ { $arg3 }
+social-query-unknown = ไม่รู้จักคำสั่ง ส่ง { $arg0 } เพื่อดูคำสั่งที่ใช้ได้
 social-query-uptime-label = เวลาทำงาน
 social-reply-hidden = คำตอบนี้ถูกซ่อนตามนโยบายความปลอดภัยของเนื้อหาเซิร์ฟเวอร์
 social-state-disabled = ปิดใช้งาน
@@ -1801,16 +1868,6 @@ tpsbar-hidden = ซ่อนแถบ TPS แล้ว
 tpsbar-shown = แสดงแถบ TPS แล้ว
 tpsbar-tip-status-mm = ใช้ <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> เพื่อเปิดหรือปิดแถบ <yellow>TPS, MSPT และค่า ping</yellow>
 unban-command-description = ปลดแบนผู้เล่นโดยเก็บประวัติ
-whitelist-already-whitelisted = { $arg0 } อยู่ในบัญชีขาวแล้ว
-whitelist-invalid-name = รูปแบบชื่อผู้เล่นไม่ถูกต้อง
-whitelist-kick-apply-rich = สมัครบัญชีขาวได้ที่ { $site }
-whitelist-kick-title = คุณไม่ได้อยู่ในบัญชีขาว
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = เพิ่ม { $arg0 } เข้าบัญชีขาวชั่วคราวเป็นเวลา { $arg1 } แล้ว
-whitelist-temp-added-rich = เพิ่ม { $player } เข้าบัญชีขาวชั่วคราวเป็นเวลา { $duration } แล้ว
-whitelist-temp-command-description = เพิ่มผู้เล่นในบัญชีขาวชั่วคราว 1 ชั่วโมง
-whitelist-temp-duration = 1 ชั่วโมง
-whitelist-temp-usage-desc = เพิ่มผู้เล่นในบัญชีขาวชั่วคราว 1 ชั่วโมง
 
 ## Shell · Menus, server information and scripting
 

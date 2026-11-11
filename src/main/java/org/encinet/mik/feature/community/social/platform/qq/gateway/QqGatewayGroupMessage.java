@@ -3,18 +3,12 @@ package org.encinet.mik.feature.community.social.platform.qq.gateway;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import org.encinet.mik.feature.community.identity.ExternalIdentity;
-import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
-import org.encinet.mik.feature.community.social.api.SocialConversation;
-import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
-import org.encinet.mik.feature.community.social.api.SocialMessageReferences;
-import org.encinet.mik.feature.community.social.api.SocialReplyChannel;
+import org.encinet.mik.feature.community.social.platform.qq.message.QqContentDecoder;
+import org.encinet.mik.feature.community.social.platform.qq.message.QqMessageContent;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Minimal trusted fields from a QQ Gateway group-message dispatch. */
 public record QqGatewayGroupMessage(
@@ -24,23 +18,17 @@ public record QqGatewayGroupMessage(
         String authorName,
         String memberOpenId,
         boolean authorIsBot,
-        String content,
-        String additionalContent,
-        boolean commandTextAllowed,
+        QqMessageContent content,
         List<MemberReference> mentions,
         Optional<MemberReference> repliedAuthor
 ) {
-    private static final Pattern MENTION_TOKEN = Pattern.compile(
-            "<@!?([^>\\s]+)>|<qqbot-at-user\\s+id=\"([^\"]+)\"\\s*/>");
-
     public QqGatewayGroupMessage {
-        content = java.util.Objects.requireNonNullElse(content, "");
-        additionalContent = java.util.Objects.requireNonNullElse(additionalContent, "");
+        java.util.Objects.requireNonNull(content, "content");
         mentions = List.copyOf(mentions);
         repliedAuthor = repliedAuthor == null ? Optional.empty() : repliedAuthor;
     }
 
-    static Optional<QqGatewayGroupMessage> from(JsonElement payload, String eventId) {
+    public static Optional<QqGatewayGroupMessage> from(JsonElement payload, String eventId) {
         if (payload == null || !payload.isJsonObject()) {
             return Optional.empty();
         }
@@ -57,68 +45,11 @@ public record QqGatewayGroupMessage(
         boolean authorIsBot = author != null && bool(author, "bot");
         List<MemberReference> mentions = mentions(data);
         Optional<MemberReference> repliedAuthor = repliedAuthor(data);
-        QqMessageContent.Projection projection = QqMessageContent.parse(data);
-        long messageType = messageType(data);
         String stableEventId = eventId == null || eventId.isBlank() ? messageId : eventId;
         return Optional.of(new QqGatewayGroupMessage(stableEventId, messageId,
                 groupOpenId, cleanSingleLine(authorName, 64), memberOpenId, authorIsBot,
-                boundedContent(projection.primaryText()), projection.additionalText(),
-                !data.has("message_type") || messageType == 0 || messageType == 103,
+                QqContentDecoder.decode(data),
                 mentions, repliedAuthor));
-    }
-
-    /** Maps authenticated Gateway fields into the platform-neutral inbound API. */
-    public SocialInboundMessage toInboundMessage(
-            String platformId,
-            String issuer,
-            SocialReplyChannel replyChannel
-    ) {
-        Optional<ExternalIdentity> identity = Optional.empty();
-        if (!memberOpenId.isBlank()) {
-            try {
-                identity = Optional.of(new ExternalIdentity(new ExternalIdentityKey(
-                        platformId, issuer, groupOpenId, memberOpenId), authorName));
-            } catch (IllegalArgumentException ignored) {
-                // Invalid protocol identifiers are not authenticated identities.
-            }
-        }
-        List<ExternalIdentity> mentionedIdentities = mentions.stream()
-                .filter(reference -> !reference.bot() && !reference.isYou())
-                .map(reference -> identity(platformId, issuer, reference))
-                .flatMap(Optional::stream).toList();
-        NormalizedContent normalized = normalizedContent(
-                platformId, issuer, content);
-        Optional<ExternalIdentity> repliedIdentity = repliedAuthor
-                .filter(reference -> !reference.bot() && !reference.isYou())
-                .filter(reference -> mentions.stream().noneMatch(mention ->
-                        mention.memberOpenId().equals(reference.memberOpenId())
-                                && (mention.bot() || mention.isYou())))
-                .flatMap(reference -> identity(platformId, issuer, reference));
-        return new SocialInboundMessage(eventId,
-                new SocialConversation(groupOpenId, SocialConversation.Type.GROUP),
-                identity, authorName.isBlank() ? memberOpenId : authorName,
-                new SocialInboundMessage.Text(joinContent(normalized.body(), additionalContent),
-                        commandTextAllowed ? normalized.body() : ""), authorIsBot,
-                new SocialMessageReferences(mentionedIdentities, repliedIdentity,
-                        normalized.mentions()),
-                replyChannel);
-    }
-
-    private Optional<ExternalIdentity> identity(
-            String platformId,
-            String issuer,
-            MemberReference reference
-    ) {
-        if (reference.memberOpenId().isBlank()) {
-            return Optional.empty();
-        }
-        try {
-            return Optional.of(new ExternalIdentity(new ExternalIdentityKey(
-                    platformId, issuer, groupOpenId, reference.memberOpenId()),
-                    reference.username()));
-        } catch (IllegalArgumentException ignored) {
-            return Optional.empty();
-        }
     }
 
     private static List<MemberReference> mentions(JsonObject data) {
@@ -149,8 +80,8 @@ public record QqGatewayGroupMessage(
         if (elements == null) {
             return Optional.empty();
         }
-        long messageType = messageType(data);
-        if (messageType == 101 || messageType == 102) return Optional.empty();
+        QqMessageContent.Type messageType = QqContentDecoder.messageType(data);
+        if (messageType.isCollection()) return Optional.empty();
         int inspected = 0;
         for (JsonElement value : elements) {
             if (++inspected > 32) break;
@@ -158,7 +89,8 @@ public record QqGatewayGroupMessage(
                 continue;
             }
             JsonObject element = value.getAsJsonObject();
-            if (messageType != 103 && messageType(element) != 103) continue;
+            if (messageType != QqMessageContent.Type.REPLY
+                    && QqContentDecoder.messageType(element) != QqMessageContent.Type.REPLY) continue;
             JsonObject author = object(element, "author");
             if (author == null || string(author, "member_openid").isBlank()) {
                 continue;
@@ -169,78 +101,6 @@ public record QqGatewayGroupMessage(
                     bool(author, "bot"), bool(author, "is_you")));
         }
         return Optional.empty();
-    }
-
-    private NormalizedContent normalizedContent(
-            String platformId,
-            String issuer,
-            String source
-    ) {
-        java.util.Map<String, MemberReference> byToken = new java.util.LinkedHashMap<>();
-        for (MemberReference reference : mentions) {
-            if (!reference.tokenId().isBlank()) byToken.putIfAbsent(reference.tokenId(), reference);
-            if (!reference.memberOpenId().isBlank()) byToken.putIfAbsent(reference.memberOpenId(), reference);
-        }
-        Matcher matcher = MENTION_TOKEN.matcher(source);
-        NormalizedBuilder result = new NormalizedBuilder();
-        List<SocialMessageReferences.MentionSpan> spans = new ArrayList<>();
-        int previous = 0;
-        while (matcher.find()) {
-            result.append(source.substring(previous, matcher.start()));
-            String id = matcher.group(1) == null ? matcher.group(2) : matcher.group(1);
-            MemberReference reference = byToken.get(id);
-            if (id.equals("all") && reference == null) {
-                result.append("@all");
-            } else if (reference == null) {
-                result.append(matcher.group());
-            } else if (!reference.bot() && !reference.isYou()) {
-                String label = reference.username().isBlank()
-                        ? (reference.memberOpenId().isBlank()
-                        ? reference.tokenId() : reference.memberOpenId())
-                        : reference.username();
-                int start = result.lengthAfterPendingWhitespace();
-                result.append("@" + label);
-                int end = result.length();
-                if (end > start) {
-                    identity(platformId, issuer, reference).ifPresent(identity ->
-                            spans.add(new SocialMessageReferences.MentionSpan(
-                                    start, end, identity)));
-                }
-            } else {
-                result.whitespace();
-            }
-            previous = matcher.end();
-        }
-        result.append(source.substring(previous));
-        return new NormalizedContent(result.body(), spans);
-    }
-
-    private static String boundedContent(String value) {
-        if (value == null || value.length() <= 8_000) {
-            return value == null ? "" : value;
-        }
-        int end = 8_000;
-        if (Character.isHighSurrogate(value.charAt(end - 1))) {
-            end--;
-        }
-        return value.substring(0, end);
-    }
-
-    private static String joinContent(String primary, String additional) {
-        if (additional.isBlank()) return primary;
-        // The primary normalizer and rich projection each reserve at most 2,000 characters.
-        String combined = primary.isBlank() ? additional : primary + " " + additional;
-        if (combined.length() <= 4_000) return combined;
-        int end = 3_999;
-        if (Character.isHighSurrogate(combined.charAt(end - 1))) end--;
-        return combined.substring(0, end) + "…";
-    }
-
-    private static long messageType(JsonObject data) {
-        JsonElement value = data.get("message_type");
-        if (value == null || !value.isJsonPrimitive() || !value.getAsJsonPrimitive().isNumber()) return -1;
-        try { return value.getAsBigDecimal().longValueExact(); }
-        catch (ArithmeticException | NumberFormatException invalid) { return -1; }
     }
 
     private static String cleanMessage(String value) {
@@ -313,64 +173,6 @@ public record QqGatewayGroupMessage(
     private static JsonArray array(JsonObject object, String name) {
         JsonElement value = object.get(name);
         return value != null && value.isJsonArray() ? value.getAsJsonArray() : null;
-    }
-
-    private record NormalizedContent(
-            String body,
-            List<SocialMessageReferences.MentionSpan> mentions
-    ) {
-    }
-
-    private static final class NormalizedBuilder {
-        private final StringBuilder value = new StringBuilder();
-        private boolean pendingWhitespace;
-
-        void append(String text) {
-            if (text == null) {
-                return;
-            }
-            for (int index = 0; index < text.length() && value.length() < 2_000;
-                 index++) {
-                char character = text.charAt(index);
-                if (Character.isISOControl(character)
-                        || Character.isWhitespace(character)) {
-                    pendingWhitespace = !value.isEmpty();
-                } else {
-                    flushWhitespace();
-                    if (value.length() < 2_000) {
-                        value.append(character);
-                    }
-                }
-            }
-        }
-
-        void whitespace() {
-            pendingWhitespace = !value.isEmpty();
-        }
-
-        int lengthAfterPendingWhitespace() {
-            flushWhitespace();
-            return value.length();
-        }
-
-        int length() {
-            return value.length();
-        }
-
-        String body() {
-            if (!value.isEmpty()
-                    && Character.isHighSurrogate(value.charAt(value.length() - 1))) {
-                value.setLength(value.length() - 1);
-            }
-            return value.toString();
-        }
-
-        private void flushWhitespace() {
-            if (pendingWhitespace && !value.isEmpty() && value.length() < 2_000) {
-                value.append(' ');
-            }
-            pendingWhitespace = false;
-        }
     }
 
     public record MemberReference(

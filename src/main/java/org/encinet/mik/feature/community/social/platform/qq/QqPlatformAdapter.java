@@ -14,7 +14,7 @@ import java.util.Optional;
 /** QQ protocol adapter: configuration, Gateway WebSocket, OpenAPI and Markdown only. */
 public final class QqPlatformAdapter implements SocialPlatformAdapter {
     public static final IdentityPlatform IDENTITY_PLATFORM = new IdentityPlatform(
-            QqPlatformConfig.PLATFORM_ID, "QQ", "/绑定 {code}", true);
+            QqPlatformConfig.PLATFORM_ID, "QQ", "/bind {code}");
     static final SocialPlatformDescriptor DESCRIPTOR =
             new SocialPlatformDescriptor(QqPlatformConfig.PLATFORM_ID, "QQ", 0xFFC0CB, IDENTITY_PLATFORM);
 
@@ -40,6 +40,7 @@ public final class QqPlatformAdapter implements SocialPlatformAdapter {
                 config.workerMaxConcurrentTasks(),
                 new SocialOutputPolicy(config.contentSafetyEnabled(),
                         config.maxOutboundLength()));
-        return Optional.of(new QqPlatformPlan(config, policy, plugin.getLogger()));
+        return Optional.of(new QqPlatformPlan(config, policy,
+                plugin.getDataFolder().toPath().resolve("social/qq-memberships.json"), plugin.getLogger()));
     }
 }

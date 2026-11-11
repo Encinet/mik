@@ -1,7 +1,7 @@
 package org.encinet.mik.feature.community.social.api;
 
+import org.encinet.mik.feature.community.chat.model.ChatPlaceholder;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
-
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -139,13 +139,23 @@ public final class SocialInboundMessage {
     }
 
     /** Display/bridge content can include quoted material; commands use only the author's own text. */
-    public record Text(String body, String commandBody) implements Content {
+    public record Text(String body, String commandBody,
+                       java.util.List<ChatPlaceholder.Span> placeholders) implements Content {
+        public Text(String body, String commandBody) {
+            this(body, commandBody, java.util.List.of());
+        }
         public Text(String body) {
             this(body, body);
         }
 
         public Text {
-            body = Objects.requireNonNullElse(body, "").strip();
+            body = Objects.requireNonNullElse(body, "");
+            placeholders = ChatPlaceholder.validate(placeholders, body.length());
+            int offset = body.length() - body.stripLeading().length();
+            body = body.strip();
+            int end = offset + body.length();
+            placeholders = placeholders.stream().filter(span -> span.start() >= offset && span.end() <= end)
+                    .map(span -> span.shifted(-offset)).toList();
             commandBody = Objects.requireNonNullElse(commandBody, "").strip();
         }
     }

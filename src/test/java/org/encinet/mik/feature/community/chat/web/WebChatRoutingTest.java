@@ -34,6 +34,28 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WebChatRoutingTest {
+    @Test void sharedMessageFramesKeepEachViewersLanguageWithoutTranslatingLiteralText() throws Exception {
+        try (Fixture f = new Fixture()) {
+            UUID chinese = f.account("Chinese", "member"), german = f.account("German", "member");
+            f.preferredLanguages.put(chinese, org.encinet.mik.shared.i18n.Language.ZH_CN);
+            f.preferredLanguages.put(german, org.encinet.mik.shared.i18n.Language.DE_DE);
+            Client cn = f.join(chinese, "c"), de = f.join(german, "d"); f.clearFrames();
+            String body = "[image] [image]";
+            f.chat.accept(new ChatSubmission(ChatMessageId.external("matrix", "room", "typed"),
+                    new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "typed"),
+                    new ChatSender("Guest", Optional.empty(), Optional.empty(), "", "", "", 0xFFFFFF),
+                    ChatConversation.minecraftPublic(), body,
+                    new ChatReferences(Optional.empty(), Optional.empty(), List.of(),
+                            List.of(new ChatPlaceholder.Span(0, 7, ChatPlaceholder.IMAGE))),
+                    Instant.now(), ChatProcessingContext.external()));
+            var cnMessage = cn.messages().getFirst();
+            var deMessage = de.messages().getFirst();
+            assertTrue(cnMessage.get("content").toString().contains("[图片] [image]"));
+            assertTrue(deMessage.get("content").toString().contains("[Bild] [image]"));
+            assertEquals(cnMessage.get("sequence"), deMessage.get("sequence"));
+        }
+    }
+
     @Test void socialAuthorsReachAuthorizedBrowsersWithoutAConnectedMinecraftSender() throws Exception {
         try (Fixture f = new Fixture()) {
             UUID observer = f.account("Observer", "member"), offline = f.account("Offline", "member");
@@ -591,6 +613,7 @@ class WebChatRoutingTest {
 
     private static final class Fixture implements AutoCloseable {
         final Map<UUID, String> names = new HashMap<>(), roles = new HashMap<>();
+        final Map<UUID, org.encinet.mik.shared.i18n.Language> preferredLanguages = new HashMap<>();
         final Map<UUID, Player> gamePlayers = new HashMap<>();
         final Set<UUID> banned = new HashSet<>();
         final Set<UUID> gameStaffDenied = new HashSet<>();
@@ -623,7 +646,14 @@ class WebChatRoutingTest {
                 if (method.getName().equals("getLogger")) return Logger.getAnonymousLogger();
                 throw new AssertionError(method.getName());
             });
+            var translated = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
             LanguageService language = new LanguageService(null) {
+                @Override public Optional<org.encinet.mik.shared.i18n.Language> preferredLanguage(UUID playerId) {
+                    return Optional.ofNullable(preferredLanguages.get(playerId));
+                }
+                @Override public String t(org.encinet.mik.shared.i18n.Language language, Message message, Object... args) {
+                    return translated.t(language, message, args);
+                }
                 @Override public String t(Player player, Message message, Object... args) { return message.name() + ":" + args[0]; }
             };
             java.util.function.BiConsumer<ChatDelivery, Set<UUID>> gameOutput = (delivery, ids) -> {

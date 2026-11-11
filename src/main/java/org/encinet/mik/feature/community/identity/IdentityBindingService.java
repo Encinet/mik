@@ -24,22 +24,17 @@ import java.util.UUID;
 final class IdentityBindingService implements ExternalIdentityLinker, AutoCloseable {
 
     static final Duration CODE_TTL = Duration.ofMinutes(5);
-    static final int CODE_LENGTH = 10;
     static final int MAX_FAILED_ATTEMPTS = 5;
     static final Duration FAILURE_WINDOW = Duration.ofMinutes(10);
     static final Duration LOCKOUT_DURATION = Duration.ofMinutes(15);
 
-    private static final char[] CODE_ALPHABET =
-            "ABCDEFGHJKLMNPQRSTUVWXYZ23456789".toCharArray();
+    private static final int MAX_CODE_GENERATION_ATTEMPTS = 32;
     private static final int MAX_ATTEMPT_STATES = 4_096;
     private final IdentityBindingRepository repository;
     private final Clock clock;
     private final SecureRandom random;
     private final Map<ExternalIdentityKey, AttemptState> attempts = new HashMap<>();
-    private List<IdentityBinding> bindings = List.of();
-    private Map<ExternalIdentityKey, IdentityBinding> bindingsByExternal = Map.of();
-    private Map<UUID, List<IdentityBinding>> bindingsByPlayer = Map.of();
-    private Map<String, List<IdentityBinding>> bindingsByPlayerName = Map.of();
+    private volatile BindingSnapshot snapshot = BindingSnapshot.empty();
 
     IdentityBindingService(IdentityBindingRepository repository) {
         this(repository, Clock.systemUTC(), new SecureRandom());
@@ -69,16 +64,17 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         String normalizedPlatform = ExternalIdentityKey.normalizePlatform(platform);
         Instant createdAt = clock.instant();
         Instant expiresAt = createdAt.plus(CODE_TTL);
-        String normalizedCode = generateCode();
-        PendingIdentityLink pending = new PendingIdentityLink(
-                hashCode(normalizedCode), playerId, playerName, normalizedPlatform,
-                createdAt, expiresAt);
         try {
-            repository.replaceCode(pending);
+            for (int attempt = 0; attempt < MAX_CODE_GENERATION_ATTEMPTS; attempt++) {
+                String code = generateCode();
+                PendingIdentityLink pending = new PendingIdentityLink(
+                        hashCode(code), playerId, playerName, normalizedPlatform, createdAt, expiresAt);
+                if (repository.tryReplaceCode(pending)) return new CodeIssue(code, expiresAt);
+            }
         } catch (SQLException error) {
             throw storageFailure("Could not save an identity link code", error);
         }
-        return new CodeIssue(formatCode(normalizedCode), expiresAt);
+        throw new IdentityBindingException("Could not allocate an unused identity link code", null);
     }
 
     synchronized boolean cancelCode(UUID playerId, String platform) {
@@ -90,6 +86,11 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         }
     }
 
+    synchronized boolean codeIsPending(UUID playerId, IdentityLinkCode code) {
+        try { return repository.codeIsPending(playerId, code.platform(), hashCode(code.code()), clock.instant()); }
+        catch (SQLException error) { throw storageFailure("Could not check an identity link code", error); }
+    }
+
     @Override
     public synchronized IdentityLinkResult redeem(String rawCode, ExternalIdentity identity) {
         Instant now = clock.instant();
@@ -99,7 +100,7 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
                     IdentityLinkResult.Status.RATE_LIMITED, null, retryAt);
         }
 
-        String normalizedCode = normalizeCode(rawCode);
+        String normalizedCode = IdentityLinkCode.normalizeCode(rawCode);
         if (normalizedCode == null) {
             return failedAttempt(identity.key(), now);
         }
@@ -130,24 +131,24 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
     }
 
     @Override
-    public synchronized Optional<IdentityBinding> find(ExternalIdentityKey key) {
-        return Optional.ofNullable(bindingsByExternal.get(
+    public Optional<IdentityBinding> find(ExternalIdentityKey key) {
+        return Optional.ofNullable(snapshot.byExternal().get(
                 Objects.requireNonNull(key, "key")));
     }
 
-    synchronized List<IdentityBinding> bindings() {
-        return bindings;
+    List<IdentityBinding> bindings() {
+        return snapshot.bindings();
     }
 
-    synchronized List<IdentityBinding> findByPlayer(UUID playerId) {
-        return bindingsByPlayer.getOrDefault(
+    List<IdentityBinding> findByPlayer(UUID playerId) {
+        return snapshot.byPlayer().getOrDefault(
                 Objects.requireNonNull(playerId, "playerId"), List.of());
     }
 
-    synchronized List<IdentityBinding> findByPlayerName(String playerName) {
+    List<IdentityBinding> findByPlayerName(String playerName) {
         String key = Objects.requireNonNull(playerName, "playerName")
                 .toLowerCase(java.util.Locale.ROOT);
-        return bindingsByPlayerName.getOrDefault(key, List.of());
+        return snapshot.byName().getOrDefault(key, List.of());
     }
 
     @Override
@@ -164,22 +165,30 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         }
     }
 
-    synchronized List<IdentityBinding> unlinkPlayerPlatform(
-            UUID playerId,
-            String platform
-    ) {
+    synchronized Optional<IdentityBinding> unlinkOwned(UUID playerId, UUID bindingId) {
         try {
-            List<IdentityBinding> removed = repository.unlinkPlayerPlatform(
+            return removed(repository.unlinkOwned(
                     Objects.requireNonNull(playerId, "playerId"),
-                    ExternalIdentityKey.normalizePlatform(platform));
-            removed.forEach(binding -> attempts.remove(binding.externalKey()));
-            if (!removed.isEmpty()) {
-                reloadBindings();
-            }
-            return removed;
+                    Objects.requireNonNull(bindingId, "bindingId")));
         } catch (SQLException error) {
-            throw storageFailure("Could not unlink player identities for a platform", error);
+            throw storageFailure("Could not unlink the selected identity", error);
         }
+    }
+
+    synchronized Optional<IdentityBinding> unlinkById(UUID bindingId) {
+        try {
+            return removed(repository.unlinkById(Objects.requireNonNull(bindingId, "bindingId")));
+        } catch (SQLException error) {
+            throw storageFailure("Could not unlink the selected identity", error);
+        }
+    }
+
+    private Optional<IdentityBinding> removed(Optional<IdentityBinding> removed) throws SQLException {
+        if (removed.isPresent()) {
+            attempts.remove(removed.get().externalKey());
+            reloadBindings();
+        }
+        return removed;
     }
 
     synchronized void updatePlayerName(UUID playerId, String playerName) {
@@ -257,49 +266,16 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
         }
         byPlayer.replaceAll((_, values) -> List.copyOf(values));
         byName.replaceAll((_, values) -> List.copyOf(values));
-        bindings = List.copyOf(loaded);
-        bindingsByExternal = Map.copyOf(external);
-        bindingsByPlayer = Map.copyOf(byPlayer);
-        bindingsByPlayerName = Map.copyOf(byName);
+        snapshot = new BindingSnapshot(List.copyOf(loaded), Map.copyOf(external),
+                Map.copyOf(byPlayer), Map.copyOf(byName));
     }
 
     private String generateCode() {
-        StringBuilder code = new StringBuilder(CODE_LENGTH);
-        for (int index = 0; index < CODE_LENGTH; index++) {
-            code.append(CODE_ALPHABET[random.nextInt(CODE_ALPHABET.length)]);
+        StringBuilder code = new StringBuilder(IdentityLinkCode.CODE_LENGTH);
+        for (int index = 0; index < IdentityLinkCode.CODE_LENGTH; index++) {
+            code.append((char) ('0' + random.nextInt(10)));
         }
         return code.toString();
-    }
-
-    static String normalizeCode(String rawCode) {
-        if (rawCode == null) {
-            return null;
-        }
-        StringBuilder normalized = new StringBuilder(CODE_LENGTH);
-        for (int index = 0; index < rawCode.length(); index++) {
-            char character = Character.toUpperCase(rawCode.charAt(index));
-            if (character == '-' || Character.isWhitespace(character)) {
-                continue;
-            }
-            if (!isCodeCharacter(character) || normalized.length() >= CODE_LENGTH) {
-                return null;
-            }
-            normalized.append(character);
-        }
-        return normalized.length() == CODE_LENGTH ? normalized.toString() : null;
-    }
-
-    private static boolean isCodeCharacter(char character) {
-        for (char accepted : CODE_ALPHABET) {
-            if (accepted == character) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static String formatCode(String normalizedCode) {
-        return normalizedCode.substring(0, 5) + '-' + normalizedCode.substring(5);
     }
 
     private static String hashCode(String normalizedCode) {
@@ -319,14 +295,22 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
     @Override
     public synchronized void close() {
         attempts.clear();
-        bindings = List.of();
-        bindingsByExternal = Map.of();
-        bindingsByPlayer = Map.of();
-        bindingsByPlayerName = Map.of();
+        snapshot = BindingSnapshot.empty();
         try {
             repository.close();
         } catch (SQLException error) {
             throw storageFailure("Could not close identity database", error);
+        }
+    }
+
+    private record BindingSnapshot(
+            List<IdentityBinding> bindings,
+            Map<ExternalIdentityKey, IdentityBinding> byExternal,
+            Map<UUID, List<IdentityBinding>> byPlayer,
+            Map<String, List<IdentityBinding>> byName
+    ) {
+        static BindingSnapshot empty() {
+            return new BindingSnapshot(List.of(), Map.of(), Map.of(), Map.of());
         }
     }
 

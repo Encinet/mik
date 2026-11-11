@@ -9,21 +9,17 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 final class IdentityBindingRepository implements AutoCloseable {
 
-    private static final Set<String> BINDING_COLUMNS = Set.of(
-            "player_uuid", "player_name", "platform", "issuer", "identity_scope", "subject",
-            "external_display_name", "created_at", "verified_at");
-    private static final Set<String> LINK_CODE_COLUMNS = Set.of(
-            "code_hash", "player_uuid", "player_name", "platform", "created_at", "expires_at");
-    private static final Set<String> IDENTITY_TABLES = Set.of(
-            "identity_bindings", "identity_link_codes");
+    private static final String BINDING_SELECT = """
+            SELECT binding_id, player_uuid, player_name, platform, issuer, identity_scope, subject,
+                   external_display_name, scope_display_name, created_at, verified_at
+            FROM identity_bindings
+            """;
 
     private final File databaseFile;
     private Connection connection;
@@ -51,9 +47,6 @@ final class IdentityBindingRepository implements AutoCloseable {
             statement.execute("PRAGMA synchronous=NORMAL");
             statement.execute("PRAGMA busy_timeout=5000");
             createTables(statement);
-            requireIdentityTables();
-            requireColumns("identity_bindings", BINDING_COLUMNS);
-            requireColumns("identity_link_codes", LINK_CODE_COLUMNS);
             createIndexes(statement);
         } catch (SQLException error) {
             closeAfterOpenFailure(error);
@@ -63,6 +56,7 @@ final class IdentityBindingRepository implements AutoCloseable {
     private void createTables(Statement statement) throws SQLException {
         statement.execute("""
                 CREATE TABLE IF NOT EXISTS identity_bindings (
+                    binding_id TEXT PRIMARY KEY,
                     player_uuid TEXT NOT NULL,
                     player_name TEXT NOT NULL,
                     platform TEXT NOT NULL,
@@ -70,9 +64,10 @@ final class IdentityBindingRepository implements AutoCloseable {
                     identity_scope TEXT NOT NULL,
                     subject TEXT NOT NULL,
                     external_display_name TEXT NOT NULL,
+                    scope_display_name TEXT NOT NULL,
                     created_at INTEGER NOT NULL,
                     verified_at INTEGER NOT NULL,
-                    PRIMARY KEY(platform, issuer, identity_scope, subject),
+                    UNIQUE(platform, issuer, identity_scope, subject),
                     UNIQUE(player_uuid, platform, issuer, identity_scope)
                 ) WITHOUT ROWID
                 """);
@@ -98,38 +93,8 @@ final class IdentityBindingRepository implements AutoCloseable {
                 + "ON identity_link_codes(expires_at)");
     }
 
-    private void requireColumns(String table, Set<String> expected) throws SQLException {
-        Set<String> actual = new LinkedHashSet<>();
-        try (Statement statement = connection.createStatement();
-             ResultSet columns = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
-            while (columns.next()) {
-                actual.add(columns.getString("name"));
-            }
-        }
-        if (!actual.equals(expected)) {
-            throw new SQLException("Unsupported identity database format for " + table
-                    + "; delete " + databaseFile.getName() + " and restart");
-        }
-    }
-
-    private void requireIdentityTables() throws SQLException {
-        Set<String> actual = new LinkedHashSet<>();
-        try (Statement statement = connection.createStatement();
-             ResultSet tables = statement.executeQuery("""
-                     SELECT name FROM sqlite_master
-                     WHERE type = 'table' AND name LIKE 'identity_%'
-                     """)) {
-            while (tables.next()) {
-                actual.add(tables.getString("name"));
-            }
-        }
-        if (!actual.equals(IDENTITY_TABLES)) {
-            throw new SQLException("Unsupported identity database format; delete "
-                    + databaseFile.getName() + " and restart");
-        }
-    }
-
-    synchronized void replaceCode(PendingIdentityLink pending) throws SQLException {
+    /** Reserve a globally unused code; collisions leave the player's current code untouched. */
+    synchronized boolean tryReplaceCode(PendingIdentityLink pending) throws SQLException {
         ensureOpen();
         try (PreparedStatement cleanup = connection.prepareStatement(
                 "DELETE FROM identity_link_codes WHERE expires_at <= ?");
@@ -137,6 +102,7 @@ final class IdentityBindingRepository implements AutoCloseable {
                      INSERT INTO identity_link_codes(
                          code_hash, player_uuid, player_name, platform, created_at, expires_at
                      ) VALUES (?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(code_hash) DO NOTHING
                      ON CONFLICT(player_uuid, platform) DO UPDATE SET
                          code_hash = excluded.code_hash,
                          player_name = excluded.player_name,
@@ -151,7 +117,7 @@ final class IdentityBindingRepository implements AutoCloseable {
             upsert.setString(4, pending.platform());
             upsert.setLong(5, pending.createdAt().toEpochMilli());
             upsert.setLong(6, pending.expiresAt().toEpochMilli());
-            upsert.executeUpdate();
+            return upsert.executeUpdate() == 1;
         }
     }
 
@@ -173,6 +139,13 @@ final class IdentityBindingRepository implements AutoCloseable {
             statement.setString(2, platform);
             return statement.executeUpdate() > 0;
         }
+    }
+
+    synchronized boolean codeIsPending(UUID playerId, String platform, String codeHash, Instant now) throws SQLException {
+        ensureOpen();
+        PendingIdentityLink pending = findPending(codeHash);
+        return pending != null && pending.playerId().equals(playerId) && pending.platform().equals(platform)
+                && now.isBefore(pending.expiresAt());
     }
 
     synchronized RepositoryLinkResult redeem(
@@ -208,7 +181,7 @@ final class IdentityBindingRepository implements AutoCloseable {
                             RepositoryLinkStatus.EXTERNAL_IDENTITY_IN_USE, externalBinding);
                 }
                 updateVerification(externalBinding.externalKey(), pending.playerName(),
-                        identity.displayName(), now);
+                        identity.displayName(), identity.scopeDisplayName(), now);
                 deleteCode(codeHash);
                 IdentityBinding refreshed = findByExternalInternal(externalBinding.externalKey());
                 connection.commit();
@@ -243,8 +216,7 @@ final class IdentityBindingRepository implements AutoCloseable {
 
     synchronized List<IdentityBinding> findByPlayer(UUID playerId) throws SQLException {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM identity_bindings
+        try (PreparedStatement statement = connection.prepareStatement(BINDING_SELECT + """
                 WHERE player_uuid = ?
                 ORDER BY platform, issuer, identity_scope, subject
                 """)) {
@@ -255,8 +227,7 @@ final class IdentityBindingRepository implements AutoCloseable {
 
     synchronized List<IdentityBinding> findAll() throws SQLException {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM identity_bindings
+        try (PreparedStatement statement = connection.prepareStatement(BINDING_SELECT + """
                 ORDER BY player_uuid, platform, issuer, identity_scope, subject
                 """)) {
             return readBindings(statement);
@@ -265,8 +236,7 @@ final class IdentityBindingRepository implements AutoCloseable {
 
     synchronized List<IdentityBinding> findByPlayerName(String playerName) throws SQLException {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM identity_bindings
+        try (PreparedStatement statement = connection.prepareStatement(BINDING_SELECT + """
                 WHERE player_name = ? COLLATE NOCASE
                 ORDER BY player_uuid, platform, issuer, identity_scope, subject
                 """)) {
@@ -283,30 +253,23 @@ final class IdentityBindingRepository implements AutoCloseable {
         return unlink(binding);
     }
 
-    synchronized List<IdentityBinding> unlinkPlayerPlatform(
-            UUID playerId,
-            String platform
-    ) throws SQLException {
+    synchronized Optional<IdentityBinding> unlinkOwned(UUID playerId, UUID bindingId) throws SQLException {
         ensureOpen();
-        List<IdentityBinding> bindings = findPlayerPlatformInternal(playerId, platform);
-        if (bindings.isEmpty()) {
-            return List.of();
-        }
-        boolean previousAutoCommit = connection.getAutoCommit();
-        connection.setAutoCommit(false);
-        try {
-            for (IdentityBinding binding : bindings) {
-                if (!deleteBinding(binding.externalKey())) {
-                    throw new SQLException("Identity binding disappeared during platform unlink");
-                }
-            }
-            connection.commit();
-            return bindings;
-        } catch (SQLException | RuntimeException error) {
-            connection.rollback();
-            throw error;
-        } finally {
-            connection.setAutoCommit(previousAutoCommit);
+        IdentityBinding binding = findById(bindingId);
+        if (binding == null || !binding.playerId().equals(playerId)) return Optional.empty();
+        return unlink(binding);
+    }
+
+    synchronized Optional<IdentityBinding> unlinkById(UUID bindingId) throws SQLException {
+        ensureOpen();
+        return unlink(findById(bindingId));
+    }
+
+    private IdentityBinding findById(UUID bindingId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                BINDING_SELECT + "WHERE binding_id = ?")) {
+            statement.setString(1, bindingId.toString());
+            return readSingleBinding(statement);
         }
     }
 
@@ -333,7 +296,7 @@ final class IdentityBindingRepository implements AutoCloseable {
         boolean previousAutoCommit = connection.getAutoCommit();
         connection.setAutoCommit(false);
         try {
-            if (!deleteBinding(binding.externalKey())) {
+            if (!deleteBinding(binding)) {
                 connection.rollback();
                 return Optional.empty();
             }
@@ -347,12 +310,12 @@ final class IdentityBindingRepository implements AutoCloseable {
         }
     }
 
-    private boolean deleteBinding(ExternalIdentityKey key) throws SQLException {
+    private boolean deleteBinding(IdentityBinding binding) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
-                DELETE FROM identity_bindings
-                WHERE platform = ? AND issuer = ? AND identity_scope = ? AND subject = ?
+                DELETE FROM identity_bindings WHERE binding_id = ? AND player_uuid = ?
                 """)) {
-            bindExternalKey(statement, key, 1);
+            statement.setString(1, binding.bindingId().toString());
+            statement.setString(2, binding.playerId().toString());
             return statement.executeUpdate() == 1;
         }
     }
@@ -379,27 +342,11 @@ final class IdentityBindingRepository implements AutoCloseable {
     }
 
     private IdentityBinding findByExternalInternal(ExternalIdentityKey key) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM identity_bindings
+        try (PreparedStatement statement = connection.prepareStatement(BINDING_SELECT + """
                 WHERE platform = ? AND issuer = ? AND identity_scope = ? AND subject = ?
                 """)) {
             bindExternalKey(statement, key, 1);
             return readSingleBinding(statement);
-        }
-    }
-
-    private List<IdentityBinding> findPlayerPlatformInternal(
-            UUID playerId,
-            String platform
-    ) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM identity_bindings
-                WHERE player_uuid = ? AND platform = ?
-                ORDER BY issuer, identity_scope, subject
-                """)) {
-            statement.setString(1, playerId.toString());
-            statement.setString(2, platform);
-            return readBindings(statement);
         }
     }
 
@@ -409,8 +356,7 @@ final class IdentityBindingRepository implements AutoCloseable {
             String issuer,
             String scope
     ) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM identity_bindings
+        try (PreparedStatement statement = connection.prepareStatement(BINDING_SELECT + """
                 WHERE player_uuid = ? AND platform = ? AND issuer = ? AND identity_scope = ?
                 """)) {
             statement.setString(1, playerId.toString());
@@ -429,19 +375,21 @@ final class IdentityBindingRepository implements AutoCloseable {
         ExternalIdentityKey key = identity.key();
         try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO identity_bindings(
-                    player_uuid, player_name, platform, issuer, identity_scope, subject,
-                    external_display_name, created_at, verified_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    binding_id, player_uuid, player_name, platform, issuer, identity_scope, subject,
+                    external_display_name, scope_display_name, created_at, verified_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
-            statement.setString(1, pending.playerId().toString());
-            statement.setString(2, pending.playerName());
-            statement.setString(3, key.platform());
-            statement.setString(4, key.issuer());
-            statement.setString(5, key.scope());
-            statement.setString(6, key.subject());
-            statement.setString(7, identity.displayName());
-            statement.setLong(8, now.toEpochMilli());
-            statement.setLong(9, now.toEpochMilli());
+            statement.setString(1, UUID.randomUUID().toString());
+            statement.setString(2, pending.playerId().toString());
+            statement.setString(3, pending.playerName());
+            statement.setString(4, key.platform());
+            statement.setString(5, key.issuer());
+            statement.setString(6, key.scope());
+            statement.setString(7, key.subject());
+            statement.setString(8, identity.displayName());
+            statement.setString(9, identity.scopeDisplayName());
+            statement.setLong(10, now.toEpochMilli());
+            statement.setLong(11, now.toEpochMilli());
             statement.executeUpdate();
             IdentityBinding binding = findByExternalInternal(key);
             if (binding == null) {
@@ -455,17 +403,19 @@ final class IdentityBindingRepository implements AutoCloseable {
             ExternalIdentityKey key,
             String playerName,
             String externalDisplayName,
+            String scopeDisplayName,
             Instant now
     ) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
                 UPDATE identity_bindings
-                SET player_name = ?, external_display_name = ?, verified_at = ?
+                SET player_name = ?, external_display_name = ?, scope_display_name = ?, verified_at = ?
                 WHERE platform = ? AND issuer = ? AND identity_scope = ? AND subject = ?
                 """)) {
             statement.setString(1, playerName);
             statement.setString(2, externalDisplayName);
-            statement.setLong(3, now.toEpochMilli());
-            bindExternalKey(statement, key, 4);
+            statement.setString(3, scopeDisplayName);
+            statement.setLong(4, now.toEpochMilli());
+            bindExternalKey(statement, key, 5);
             statement.executeUpdate();
         }
     }
@@ -509,6 +459,7 @@ final class IdentityBindingRepository implements AutoCloseable {
 
     private static IdentityBinding readBinding(ResultSet results) throws SQLException {
         return new IdentityBinding(
+                UUID.fromString(results.getString("binding_id")),
                 UUID.fromString(results.getString("player_uuid")),
                 results.getString("player_name"),
                 new ExternalIdentityKey(
@@ -517,6 +468,7 @@ final class IdentityBindingRepository implements AutoCloseable {
                         results.getString("identity_scope"),
                         results.getString("subject")),
                 results.getString("external_display_name"),
+                results.getString("scope_display_name"),
                 Instant.ofEpochMilli(results.getLong("created_at")),
                 Instant.ofEpochMilli(results.getLong("verified_at")));
     }

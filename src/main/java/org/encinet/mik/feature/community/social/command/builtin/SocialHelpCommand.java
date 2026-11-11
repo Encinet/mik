@@ -56,6 +56,10 @@ public final class SocialHelpCommand implements SocialCommand<NoArguments, NoArg
         this.commands = List.copyOf(Objects.requireNonNull(commands, "commands"));
     }
 
+    public static String invocation(SocialCommandContext context, Language language) {
+        return context.syntax().displayPrefix() + SPEC.primaryAlias(language).orElseThrow();
+    }
+
     @Override
     public SocialCommandSpec spec() {
         return SPEC;

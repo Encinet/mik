@@ -9,6 +9,7 @@ import java.util.Optional;
 public final class MatrixMemberDirectory {
     private final Map<String, Map<String, String>> joinedByRoom =
             new LinkedHashMap<>();
+    private final java.util.Set<String> completeRooms = new java.util.HashSet<>();
 
     public synchronized void replaceJoined(
             String roomId,
@@ -22,7 +23,28 @@ public final class MatrixMemberDirectory {
                         members.put(userId, cleanDisplayName(displayName, userId));
                     }
                 });
-        joinedByRoom.put(room, Map.copyOf(members));
+        joinedByRoom.put(room, members);
+        completeRooms.add(room);
+    }
+
+    public synchronized boolean hasCompleteRoster(String roomId) {
+        return completeRooms.contains(roomId);
+    }
+
+    /** A malformed full state cannot establish absence and revoke existing bindings. */
+    public static void validateFullState(MatrixSyncProtocol.RoomBatch room, String botUserId) {
+        boolean botJoined = false;
+        for (MatrixSyncProtocol.Event event : room.stateUpdates().toList()) {
+            if (!"m.room.member".equals(event.type())) continue;
+            String membership = MatrixSyncProtocol.string(event.content(), "membership");
+            if (event.stateKey().isBlank() || !validMembership(membership)) {
+                throw new IllegalArgumentException("Invalid Matrix member in full state for " + room.roomId());
+            }
+            if (botUserId.equals(event.stateKey())) botJoined = "join".equals(membership);
+        }
+        if (!botJoined) {
+            throw new IllegalArgumentException("Matrix full state omitted the joined bot member for " + room.roomId());
+        }
     }
 
     synchronized void applyMember(
@@ -32,9 +54,9 @@ public final class MatrixMemberDirectory {
         if (!"m.room.member".equals(event.type()) || event.stateKey().isBlank()) {
             return;
         }
-        Map<String, String> current = new LinkedHashMap<>(
-                joinedByRoom.getOrDefault(roomId, Map.of()));
         String membership = MatrixSyncProtocol.string(event.content(), "membership");
+        if (!validMembership(membership)) return;
+        Map<String, String> current = joinedByRoom.computeIfAbsent(roomId, _ -> new LinkedHashMap<>());
         if ("join".equals(membership)) {
             current.put(event.stateKey(), cleanDisplayName(
                     MatrixSyncProtocol.string(event.content(), "displayname"),
@@ -42,11 +64,14 @@ public final class MatrixMemberDirectory {
         } else {
             current.remove(event.stateKey());
         }
-        joinedByRoom.put(roomId, Map.copyOf(current));
     }
 
     public synchronized boolean isJoined(String roomId, String userId) {
         return joinedByRoom.getOrDefault(roomId, Map.of()).containsKey(userId);
+    }
+
+    public synchronized java.util.Set<String> joinedUserIds(String roomId) {
+        return java.util.Set.copyOf(joinedByRoom.getOrDefault(roomId, Map.of()).keySet());
     }
 
     public synchronized Optional<MatrixRoomMessage.MatrixMember> joinedMember(
@@ -68,6 +93,12 @@ public final class MatrixMemberDirectory {
 
     public synchronized void clear() {
         joinedByRoom.clear();
+        completeRooms.clear();
+    }
+
+    synchronized void removeRoom(String roomId) {
+        joinedByRoom.remove(roomId);
+        completeRooms.remove(roomId);
     }
 
     private static String cleanDisplayName(String value, String fallback) {
@@ -81,6 +112,13 @@ public final class MatrixMemberDirectory {
             result.append(Character.isISOControl(character) ? ' ' : character);
         }
         return result.toString().strip();
+    }
+
+    private static boolean validMembership(String membership) {
+        return switch (membership) {
+            case "join", "leave", "ban", "invite", "knock" -> true;
+            default -> false;
+        };
     }
 
     private static String requireText(String value, String field) {

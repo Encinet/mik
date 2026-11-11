@@ -40,6 +40,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
     private final Connector connector;
     private final Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events;
     private final Function<QqGroupJoinRequest, SocialEventSink.Acceptance> joinRequests;
+    private final Function<QqGroupMemberEvent, SocialEventSink.Acceptance> memberEvents;
     private final Consumer<SocialSessionStatus> statusUpdates;
     private final Logger logger;
     private final QqGatewayReconnectPolicy reconnectPolicy;
@@ -64,6 +65,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             QqAccessTokenProvider tokenProvider,
             Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events,
             Function<QqGroupJoinRequest, SocialEventSink.Acceptance> joinRequests,
+            Function<QqGroupMemberEvent, SocialEventSink.Acceptance> memberEvents,
             Consumer<SocialSessionStatus> statusUpdates,
             Logger logger
     ) {
@@ -77,6 +79,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
                         .buildAsync(uri, listener),
                 events,
                 joinRequests,
+                memberEvents,
                 statusUpdates,
                 logger);
     }
@@ -89,6 +92,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
             Connector connector,
             Function<QqGatewayGroupMessage, SocialEventSink.Acceptance> events,
             Function<QqGroupJoinRequest, SocialEventSink.Acceptance> joinRequests,
+            Function<QqGroupMemberEvent, SocialEventSink.Acceptance> memberEvents,
             Consumer<SocialSessionStatus> statusUpdates,
             Logger logger
     ) {
@@ -99,6 +103,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
         this.connector = Objects.requireNonNull(connector, "connector");
         this.events = Objects.requireNonNull(events, "events");
         this.joinRequests = Objects.requireNonNull(joinRequests, "joinRequests");
+        this.memberEvents = Objects.requireNonNull(memberEvents, "memberEvents");
         this.statusUpdates = Objects.requireNonNull(statusUpdates, "statusUpdates");
         this.logger = Objects.requireNonNull(logger, "logger");
         this.endpoint = QqApiEndpoints.GATEWAY.toString();
@@ -262,7 +267,7 @@ public final class QqGatewaySession implements SocialPlatformSession {
                 if (sessionId != null && sequence != null) {
                     command = QqGatewayProtocol.resume(token, sessionId, sequence);
                 } else {
-                    command = QqGatewayProtocol.identify(token, !config.groupJoinRules().isEmpty());
+                    command = QqGatewayProtocol.identify(token);
                 }
             }
             sendText(connectionGeneration, command);
@@ -312,12 +317,13 @@ public final class QqGatewaySession implements SocialPlatformSession {
         QqGatewayGroupMessage event = QqGatewayProtocol.groupMessage(frame).orElse(null);
         QqGroupJoinRequest joinRequest = QqGatewayProtocol.joinRequest(
                 frame, Instant.now()).orElse(null);
-        if (event == null && joinRequest == null) {
+        QqGroupMemberEvent memberEvent = QqGatewayProtocol.memberEvent(frame).orElse(null);
+        if (event == null && joinRequest == null && memberEvent == null) {
             return;
         }
         try {
-            SocialEventSink.Acceptance acceptance = joinRequest != null
-                    ? joinRequests.apply(joinRequest) : events.apply(event);
+            SocialEventSink.Acceptance acceptance = memberEvent != null ? memberEvents.apply(memberEvent)
+                    : joinRequest != null ? joinRequests.apply(joinRequest) : events.apply(event);
             if (acceptance == SocialEventSink.Acceptance.RETRY_LATER) {
                 retryEvent(connectionGeneration, previousSequence,
                         "QQ Gateway event could not enter the social work queue");

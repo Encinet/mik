@@ -12,11 +12,26 @@ import org.encinet.mik.feature.community.identity.ExternalIdentity;
 /** One platform-neutral semantic run in processed chat content. */
 public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
         ChatNode.PlayerMention, ChatNode.ExternalMention,
-        ChatNode.BroadcastMention, ChatNode.Item {
+        ChatNode.BroadcastMention, ChatNode.Item, ChatNode.Placeholder {
 
     String visibleText();
 
     ChatStyle style();
+
+    record Placeholder(ChatPlaceholder kind, String text, ChatStyle style) implements ChatNode {
+        public Placeholder {
+            kind = Objects.requireNonNull(kind, "kind");
+            text = safeText(text);
+            style = Objects.requireNonNullElse(style, ChatStyle.EMPTY);
+        }
+
+        @Override
+        public String visibleText() { return text; }
+
+        public Placeholder(ChatPlaceholder kind, ChatStyle style) {
+            this(kind, kind.fallback(), style);
+        }
+    }
 
     record Text(String text, ChatStyle style) implements ChatNode {
         public Text {

@@ -16,6 +16,32 @@ import java.nio.charset.StandardCharsets;
 public final class FluentTestSupport {
     private FluentTestSupport() { }
 
+    public static LanguageService languages() {
+        java.util.Map<Language, FluentBundle> bundles = new java.util.concurrent.ConcurrentHashMap<>();
+        return new LanguageService(null) {
+            @Override
+            public String t(Language language, Message message, Object... args) {
+                return FluentTestSupport.text(bundleFor(language), message, args);
+            }
+
+            @Override
+            public Component rich(Language language, Message message, NamedTextColor baseColor,
+                                  TextArg[] selectors, RichArg... values) {
+                var arguments = FluentArguments.rich(selectors, values);
+                String rendered = bundleFor(language).resolveMessage(message.key(), arguments.arguments(), StringResultFactory.construct())
+                        .map(Object::toString).orElseThrow(() -> new AssertionError("Unable to resolve " + message.key()));
+                return arguments.render(rendered, baseColor);
+            }
+
+            private FluentBundle bundleFor(Language language) {
+                return bundles.computeIfAbsent(language, value -> {
+                    try { return bundle(value); }
+                    catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
+                });
+            }
+        };
+    }
+
     public static String source(Language language) throws IOException {
         String path = "lang/" + language.id() + ".ftl";
         try (var input = FluentTestSupport.class.getClassLoader().getResourceAsStream(path)) {

@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class IdentityPlatformRegistryTest {
 
     private static final IdentityPlatform QQ = new IdentityPlatform(
-            "qq", "QQ", "/绑定 {code}", true);
+            "qq", "QQ", "/绑定 {code}");
 
     @Test
     void equalAdaptersHoldIndependentRegistrationLeases() {

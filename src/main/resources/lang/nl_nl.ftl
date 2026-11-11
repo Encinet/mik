@@ -535,6 +535,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [Audio]
+chat-content-card = [Kaart]
+chat-content-contact = [Contactpersoon]
+chat-content-emote = [Actie]
+chat-content-face = [Emoji]
+chat-content-file = [Bestand]
+chat-content-history = [Chatgeschiedenis]
+chat-content-image = [Afbeelding]
+chat-content-location = [Locatie]
+chat-content-message = [Bericht]
+chat-content-multiple = [Meerdere berichten]
+chat-content-music = [Muziek]
+chat-content-notice = [Melding]
+chat-content-reply = [Geciteerd bericht]
+chat-content-sticker = [Sticker]
+chat-content-video = [Video]
 chat-copy-hover = Linksklik om bericht te kopiëren
 chat-delay-3s = 3 seconden
 chat-delay-5s = 5 seconden
@@ -606,50 +622,56 @@ announcement-view-command-description = Serveraankondigingen bekijken
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = Geen eenduidige speler- en platformkoppeling gevonden.
+identity-admission-bind-rich = { $platform }: { $command }
+identity-admission-instructions = Kies een platform en stuur de bijbehorende opdracht naar de communitybot:
+identity-admission-pending = Je bestaande koppeling kan nog niet worden gecontroleerd. Probeer het later opnieuw of koppel een account van een ander platform.
+identity-admission-reconnect = Maak na het koppelen opnieuw verbinding met de server.
+identity-admission-required = Koppel een communityaccount om de server te betreden.
+identity-admission-revoked = Je hebt geen geldige communitykoppeling meer. Maak opnieuw verbinding voor de instructies.
+identity-admin-binding-not-found = De geselecteerde koppeling bestaat niet meer.
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = Voor { $arg1 } verwijderd: { $arg2 ->
-        [one] { $arg2 } identiteitskoppeling
-       *[other] { $arg2 } identiteitskoppelingen
-    } ({ $arg0 }).
+identity-admin-binding-unlinked = De geselecteerde { $arg0}-koppeling van { $arg1 } is verwijderd.
 identity-admin-command-description = Externe identiteitskoppelingen bekijken of intrekken
 identity-admin-help = /bindadmin lookup <speler-of-UUID>
-    /bindadmin unlink <speler-of-UUID> <platform> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Voor die speler zijn geen koppelingen gevonden.
 identity-admin-lookup-title = Koppelingen van { $arg0 }:
+identity-binding-account = Hele account
 identity-binding-details = · { $arg0 } · bereik { $arg1 } · { $arg2 }
-identity-binding-not-owned = Je hebt geen koppelingen voor dat platform.
-identity-binding-unlinked = Verwijderd: { $arg1 ->
-        [one] { $arg1 } identiteitskoppeling
-       *[other] { $arg1 } identiteitskoppelingen
-    } ({ $arg0 }).
+identity-binding-not-owned = De geselecteerde koppeling bestaat niet meer of is niet van jou.
+identity-binding-unlinked = De geselecteerde { $arg0}-koppeling is verwijderd.
 identity-bindings-empty = Je hebt geen externe platformaccounts gekoppeld.
 identity-bindings-title = Gekoppelde externe identiteiten:
-identity-bindings-unlink-hint = Gebruik /bind unlink <platform> om alle koppelingen van een platform te verwijderen.
+identity-bindings-unlink-hint = Klik op Ontkoppelen bij de koppeling die je wilt verwijderen.
 identity-code-cancelled = De ongebruikte koppelcode voor { $arg0 } is geannuleerd.
 identity-code-copy = Klik om de volledige koppelopdracht te kopiëren
-identity-code-expiry = De code is 5 minuten geldig en kan één keer worden gebruikt. Een nieuwe code maakt hem ongeldig.
-identity-code-issued = Koppelcode voor { $arg0 } aangemaakt:
+identity-code-expiry = Geldigheidsduur code: { $arg0 ->
+    [one] { $arg0 } minuut
+   *[other] { $arg0 } minuten
+    }
 identity-code-not-pending = Er is geen ongebruikte koppelcode voor { $arg0 }.
-identity-code-redeem = Vermeld de bot in de gekozen { $arg0 }-groep en stuur: { $arg1 }
+identity-code-redeem-rich = Stuur naar de bot van je { $platform }-community: { $command }
 identity-command-description = Minecraft aan een externe platformidentiteit koppelen
+identity-community-join-rich = Word lid van een community: { $link }
 identity-help = Opdrachten voor identiteitskoppeling:
     /bind qq — snel een QQ-koppelopdracht maken
     /bind <platform> — een eenmalige code maken
     /bind list — bestaande koppelingen tonen
     /bind cancel <platform> — een ongebruikte code annuleren
-    /bind unlink <platform> — alle koppelingen van een platform verwijderen
-identity-notify-linked = Je { $arg0}-identiteit is bevestigd. Bekijk haar met /bind list of verwijder haar met /bind unlink { $arg0 }.
+    /bind unlink — Kies één koppeling om te verwijderen
+identity-notify-linked = Je { $arg0}-identiteit is gekoppeld. Gebruik /bind list om je koppelingen te bekijken en te beheren.
 identity-notify-unlinked = Je { $arg0}-identiteitskoppeling is verwijderd.
 identity-platform-none = geen
 identity-platforms = Ondersteunde platforms: { $arg0 }
-identity-scope-notice = Dit platform scheidt identiteiten per groep. Koppel in de groep waar je de bot gebruikt; elke groep moet apart worden gekoppeld.
 identity-storage-error = De databasebewerking voor identiteitskoppeling is mislukt. Neem contact op met een beheerder.
 identity-unavailable = Identiteiten koppelen is momenteel niet beschikbaar. Neem contact op met een beheerder.
+identity-unlink-action = [Ontkoppelen]
+identity-unlink-hint = Verwijder alleen deze geselecteerde koppeling.
 identity-unsupported-platform = Niet-ondersteund platform: { $arg0 }
 social-admin-conversations-empty = Geen gesprekken waargenomen voor { $arg0 }.
 social-admin-conversations-title = Waargenomen gesprekken voor { $arg0 }:
 social-admin-help = /social platforms · /social status [platform] · /social reload [platform] · /social conversations <platform>
+social-admin-metrics = Inkomend { $arg0 } / herpogingen { $arg1 } · uitgaand { $arg2 } / tegendruk { $arg3 } · fouten { $arg4 }
 social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
 social-admin-reloaded = Sociaal platform { $arg0 } is opnieuw geladen.
 social-admin-reloaded-all = Alle sociale platforms zijn opnieuw geladen.
@@ -657,9 +679,9 @@ social-admin-status = { $arg0 } · { $arg1 } · generatie { $arg2 } · gesprekke
 social-admin-title = Sociale platforms
 social-admin-unknown = Onbekend sociaal platform: { $arg0 }
 social-binding-already-linked = Deze identiteit is al gekoppeld aan Minecraft-speler { $arg0 }.
-social-binding-code-invalid = De verificatiecode is ongeldig of verlopen. Genereer in Minecraft een nieuwe met /bind { $arg0 }.
+social-binding-code-invalid = De code is ongeldig of verlopen. Maak opnieuw verbinding voor een nieuwe code, of gebruik /bind { $arg0 } in het spel.
 social-binding-external-in-use = Deze identiteit is al gekoppeld aan een andere Minecraft-speler.
-social-binding-help = Voer in Minecraft /bind { $arg0 } uit.
+social-binding-help = Probeer verbinding te maken om een code op het inlogscherm te krijgen, of gebruik /bind { $arg0 } als je al in het spel bent.
     Kopieer de volledige gegenereerde opdracht.
     Stuur de opdracht hier.
     Gebruik /profiel om de koppeling te controleren.
@@ -667,16 +689,53 @@ social-binding-identity-missing = Dit bericht bevat geen betrouwbare ledenidenti
 social-binding-linked = Gekoppeld aan Minecraft-speler { $arg0 }.
 social-binding-not-bound = Deze platformidentiteit is niet gekoppeld.
 social-binding-platform-mismatch = Deze verificatiecode is voor een ander platform uitgegeven.
-social-binding-player-scope-in-use = Die Minecraft-speler heeft in dit gesprek al een andere gekoppelde identiteit.
+social-binding-player-scope-in-use = Deze Minecraft-speler heeft al een andere identiteit gekoppeld binnen hetzelfde platformaccountbereik.
 social-binding-rate-limited = Te veel mislukte pogingen. Probeer het over ongeveer { $arg0 ->
         [one] { $arg0 } minuut
        *[other] { $arg0 } minuten
     } opnieuw.
-social-binding-status-unbound = Deze identiteit is niet gekoppeld. Gebruik /koppelen met een verificatiecode.
 social-binding-unavailable = Identiteitskoppeling is tijdelijk niet beschikbaar.
-social-binding-unlink-prompt = Ontkoppelen verwijdert de relatie tussen deze platformidentiteit en Minecraft. Stuur /ontkoppelen bevestigen om door te gaan.
+social-binding-unlink-prompt = Ontkoppelen verwijdert de relatie tussen deze platformidentiteit en Minecraft. Stuur { $arg0 } om door te gaan.
 social-binding-unlinked = Ontkoppeld van Minecraft-speler { $arg0 }.
 social-command-description = Sociaalplatformadapters beheren
+social-crypto-command-description = Verificatie van versleutelde Matrix-apparaten beheren
+social-crypto-comparison-not-ready = De SAS-vergelijking is nog niet klaar.
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = Apparaatverificatie mislukt. Bekijk het serverlogboek.
+social-crypto-no-active = Er is geen apparaatverificatie bezig.
+social-crypto-not-accepting = Deze verificatie wacht niet op acceptatie.
+social-crypto-not-running = Matrix is niet actief.
+social-crypto-requested = Verificatie aangevraagd: { $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] Initialiseren
+    [verified] Geverifieerd
+    [unverified] Niet geverifieerd
+    [no_cross_signing] Kruisondertekening uitgeschakeld
+    [requested] Aangevraagd
+    [ready] Gereed
+    [started] Gestart
+    [comparison] Wacht op vergelijking
+    [waiting] Wacht op voltooiing
+    [done] Voltooid
+    [cancelled] Geannuleerd
+   *[unknown] Onbekend
+    [valid] Geldige sleutel
+    [cross_signed] Kruisondertekend
+    [not_cross_signed] Niet kruisondertekend
+    [blocked] Geblokkeerd
+    [invalid] Ongeldige sleutel
+    }
+social-crypto-status = Verificatie: { $arg0 }
+    Versie van de sleutelback-up: { $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = Geef de volledige ID van de huidige verificatietransactie op.
+social-crypto-unavailable = Niet beschikbaar
+social-crypto-updated = Verificatie bijgewerkt; bekijk matrixcrypto status.
+social-crypto-usage = matrixcrypto status [gebruikers-id apparaat-id]
+    matrixcrypto verify <gebruikers-id> <apparaat-id>
+    matrixcrypto accept|confirm|cancel <transactie-id>
 social-duration-days = { $arg0 ->
         [one] { $arg0 } dag
        *[other] { $arg0 } dagen
@@ -711,11 +770,16 @@ social-profile-presence-label = Status
 social-profile-target-ambiguous = Kies precies één doel: een spelersnaam, één vermelding of één beantwoorde gebruiker.
 social-profile-target-unbound = De genoemde of beantwoorde identiteit is niet aan Minecraft gekoppeld.
 social-profile-uuid-label = UUID
-social-query-active-label = Actief
+social-query-metric = { $arg0 }
 social-query-no-players = Er zijn momenteel geen spelers online.
 social-query-online-label = Online
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (Afwezig)
+   *[active] { $arg0 }
+    }
 social-query-players-label = Spelers
-social-query-unknown = Onbekende opdracht. Stuur /hulp om de beschikbare opdrachten te bekijken.
+social-query-population = Online { $arg0 }/{ $arg1 } · Actief { $arg2 } · Afwezig { $arg3 }
+social-query-unknown = Onbekende opdracht. Stuur { $arg0 } om de beschikbare opdrachten te bekijken.
 social-query-uptime-label = Bedrijfstijd
 social-reply-hidden = Dit antwoord is verborgen door het inhoudsveiligheidsbeleid van de server.
 social-state-disabled = uitgeschakeld
@@ -2044,16 +2108,6 @@ tpsbar-hidden = TPS-balk verborgen
 tpsbar-shown = TPS-balk getoond
 tpsbar-tip-status-mm = Toon of verberg de balk met <yellow>TPS, MSPT en ping</yellow> via <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Speler deblokkeren en de geschiedenis bewaren
-whitelist-already-whitelisted = { $arg0 } staat al op de witte lijst
-whitelist-invalid-name = Ongeldige spelersnaam
-whitelist-kick-apply-rich = Vraag toegang tot de witte lijst aan op { $site }
-whitelist-kick-title = Je staat niet op de witte lijst
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = Tijdelijk aan de witte lijst toegevoegd: { $arg0 } voor { $arg1 }
-whitelist-temp-added-rich = Tijdelijk aan de witte lijst toegevoegd: { $player } voor { $duration }
-whitelist-temp-command-description = Voeg een tijdelijke vermelding van 1 uur aan de witte lijst toe
-whitelist-temp-duration = 1 uur
-whitelist-temp-usage-desc = Voeg een tijdelijke vermelding van 1 uur aan de witte lijst toe
 
 ## Shell · Menus, server information and scripting
 

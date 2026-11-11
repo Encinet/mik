@@ -6,30 +6,40 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.encinet.mik.feature.community.social.platform.matrix.MatrixPlatformConfig;
+import org.encinet.mik.feature.community.social.platform.matrix.crypto.MatrixEncryption;
+import org.encinet.mik.feature.community.social.platform.matrix.crypto.MatrixEncryptedAttachment;
+import org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory.Security;
+import org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixSyncRequest;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /** Minimal authenticated Matrix Client-Server API client used by the adapter. */
 public final class MatrixClient {
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
+    private static final Duration DEFAULT_REQUEST_TIMEOUT = Duration.ofSeconds(20);
+    private final Duration requestTimeout;
 
     private final HttpClient httpClient;
     private final MatrixPlatformConfig config;
@@ -37,17 +47,33 @@ public final class MatrixClient {
     private final String transactionPrefix = "mik-" + UUID.randomUUID() + '-';
     private final AtomicLong transactionSequence = new AtomicLong();
     private final String syncFilter;
+    private final Function<String, CompletableFuture<Security>> security;
+    private final MatrixEncryption encryption;
 
-    public MatrixClient(HttpClient httpClient, MatrixPlatformConfig config) {
+    public MatrixClient(HttpClient httpClient, MatrixPlatformConfig config,
+                        Function<String, CompletableFuture<Security>> security, MatrixEncryption encryption) {
+        this(httpClient, config, security, encryption, DEFAULT_REQUEST_TIMEOUT);
+    }
+
+    MatrixClient(HttpClient httpClient, MatrixPlatformConfig config,
+                 Function<String, CompletableFuture<Security>> security, MatrixEncryption encryption, Duration requestTimeout) {
+        this.requestTimeout = Objects.requireNonNull(requestTimeout, "requestTimeout");
+        if (requestTimeout.isNegative() || requestTimeout.isZero()) {
+            throw new IllegalArgumentException("Matrix request timeout must be positive");
+        }
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.config = Objects.requireNonNull(config, "config");
-        syncFilter = createSyncFilter(config.allowedRoomIds());
+        this.encryption = Objects.requireNonNull(encryption, "encryption");
+        Objects.requireNonNull(security, "security");
+        this.security = roomId -> config.rooms().acceptsMessages(roomId) ? security.apply(roomId)
+                : CompletableFuture.completedFuture(Security.UNAVAILABLE);
+        syncFilter = createSyncFilter(config.rooms().observedRoomIds());
     }
 
     public String whoAmI() throws IOException, InterruptedException {
         HttpRequest request = authorizedRequest(
                 config.apiUri("/_matrix/client/v3/account/whoami"))
-                .timeout(REQUEST_TIMEOUT).GET().build();
+                .timeout(requestTimeout).GET().build();
         JsonObject body = sendJson(request, "Identify Matrix access token");
         String userId = string(body, "user_id");
         if (userId.isBlank()) {
@@ -56,48 +82,19 @@ public final class MatrixClient {
         return userId;
     }
 
-    public JsonObject sync(String since, long timeoutMillis)
+    public JsonObject sync(MatrixSyncRequest sync)
             throws IOException, InterruptedException {
         StringBuilder query = new StringBuilder("?timeout=")
-                .append(Math.max(0, timeoutMillis))
-                .append("&set_presence=offline&filter=")
+                .append(sync.timeoutMillis())
+                .append("&set_presence=offline&use_state_after=true&filter=")
                 .append(encode(syncFilter));
-        if (since != null && !since.isBlank()) {
-            query.append("&since=").append(encode(since));
-        }
+        if (sync.fullState()) query.append("&full_state=true");
+        sync.since().ifPresent(since -> query.append("&since=").append(encode(since)));
         HttpRequest request = authorizedRequest(config.apiUri(
                         "/_matrix/client/v3/sync" + query))
-                .timeout(Duration.ofMillis(Math.max(0, timeoutMillis) + 15_000L))
+                .timeout(Duration.ofMillis(sync.timeoutMillis()).plus(requestTimeout))
                 .GET().build();
         return sendJson(request, "Synchronize Matrix events");
-    }
-
-    /** Loads the authoritative joined-member set for one room. */
-    public Map<String, String> joinedMembers(String roomId)
-            throws IOException, InterruptedException {
-        HttpRequest request = authorizedRequest(config.apiUri(
-                        "/_matrix/client/v3/rooms/" + encode(
-                                requireText(roomId, "Matrix room ID"))
-                                + "/joined_members"))
-                .timeout(REQUEST_TIMEOUT).GET().build();
-        JsonObject body = sendJson(request, "Load joined Matrix members");
-        JsonObject joined = object(body, "joined");
-        if (joined == null) {
-            return Map.of();
-        }
-        Map<String, String> result = new LinkedHashMap<>();
-        joined.entrySet().forEach(entry -> {
-            if (!entry.getValue().isJsonObject()) {
-                return;
-            }
-            JsonObject member = entry.getValue().getAsJsonObject();
-            String displayName = string(member, "display_name");
-            if (displayName.isBlank()) {
-                displayName = string(member, "displayname");
-            }
-            result.put(entry.getKey(), displayName);
-        });
-        return Map.copyOf(result);
     }
 
     public CompletableFuture<Void> replyText(
@@ -186,24 +183,32 @@ public final class MatrixClient {
             default -> "png";
         };
         String fileName = fileName(alternativeText, extension);
-        return upload(mediaType, fileName, data).thenCompose(contentUri -> {
-            JsonObject body = new JsonObject();
-            body.addProperty("msgtype", "m.image");
-            body.addProperty("url", contentUri);
-            body.addProperty("filename", fileName);
-            body.addProperty("body", requireText(plainCaption, "Matrix image caption"));
-            body.addProperty("format", "org.matrix.custom.html");
-            body.addProperty("formatted_body",
-                    requireText(htmlCaption, "Matrix formatted image caption"));
-            JsonObject info = new JsonObject();
-            info.addProperty("mimetype", mediaType);
-            info.addProperty("size", data.length);
-            info.addProperty("w", width);
-            info.addProperty("h", height);
-            body.add("info", info);
-            body.add("m.mentions", new JsonObject());
-            body.add("m.relates_to", relation(repliedEventId, threadRootEventId));
-            return sendRoomMessage(roomId, body, "Send Matrix image");
+        return MatrixFutures.compose(security.apply(roomId), roomSecurity -> {
+            if (roomSecurity == Security.UNAVAILABLE) return unavailableRoom();
+            MatrixEncryptedAttachment attachment = roomSecurity == Security.ENCRYPTED ? MatrixEncryptedAttachment.encrypt(data) : null;
+            return MatrixFutures.compose(upload(attachment == null ? mediaType : "application/octet-stream",
+                    attachment == null ? fileName : "encrypted", attachment == null ? data : attachment.ciphertext()), contentUri ->
+                MatrixFutures.compose(security.apply(roomId), currentSecurity -> {
+                    if (roomSecurity != currentSecurity) return unavailableRoom();
+                    JsonObject body = new JsonObject();
+                    body.addProperty("msgtype", "m.image");
+                    if (attachment == null) body.addProperty("url", contentUri);
+                    else body.add("file", attachment.at(contentUri));
+                    body.addProperty("filename", fileName);
+                    body.addProperty("body", requireText(plainCaption, "Matrix image caption"));
+                    body.addProperty("format", "org.matrix.custom.html");
+                    body.addProperty("formatted_body",
+                            requireText(htmlCaption, "Matrix formatted image caption"));
+                    JsonObject info = new JsonObject();
+                    info.addProperty("mimetype", mediaType);
+                    info.addProperty("size", data.length);
+                    info.addProperty("w", width);
+                    info.addProperty("h", height);
+                    body.add("info", info);
+                    body.add("m.mentions", new JsonObject());
+                    body.add("m.relates_to", relation(repliedEventId, threadRootEventId));
+                    return sendRoomMessage(roomId, body, "Send Matrix image");
+                }));
         });
     }
 
@@ -215,17 +220,17 @@ public final class MatrixClient {
         URI endpoint = config.apiUri(
                 "/_matrix/media/v3/upload?filename=" + encode(fileName));
         HttpRequest request = authorizedRequest(endpoint)
-                .timeout(REQUEST_TIMEOUT)
+                .timeout(requestTimeout)
                 .header("Content-Type", mediaType)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(data))
                 .build();
-        return sendJsonAsync(request, "Upload Matrix image").thenApply(body -> {
+        return MatrixFutures.compose(sendJsonAsync(request, "Upload Matrix image"), body -> {
             String contentUri = string(body, "content_uri");
             if (!contentUri.startsWith("mxc://")) {
                 throw new IllegalStateException(
                         "Matrix media upload omitted a valid content_uri");
             }
-            return contentUri;
+            return CompletableFuture.completedFuture(contentUri);
         });
     }
 
@@ -235,20 +240,34 @@ public final class MatrixClient {
             String operation
     ) {
         requireText(roomId, "Matrix room ID");
+        return MatrixFutures.compose(security.apply(roomId), roomSecurity -> {
+            if (roomSecurity == Security.UNAVAILABLE) return unavailableRoom();
+            CompletableFuture<JsonObject> protectedContent = roomSecurity == Security.ENCRYPTED
+                    ? encryption.encrypt(roomId, body) : CompletableFuture.completedFuture(body);
+            return MatrixFutures.compose(protectedContent, content ->
+                    MatrixFutures.compose(security.apply(roomId), currentSecurity -> {
+                        if (roomSecurity != currentSecurity) return unavailableRoom();
+                        return sendRoomEvent(roomId, roomSecurity == Security.ENCRYPTED
+                                ? "m.room.encrypted" : "m.room.message", content, operation);
+                    }));
+        });
+    }
+
+    private CompletableFuture<Void> sendRoomEvent(String roomId, String type, JsonObject body, String operation) {
         String transactionId = transactionPrefix
                 + transactionSequence.incrementAndGet();
         URI endpoint = config.apiUri("/_matrix/client/v3/rooms/"
-                + encode(roomId) + "/send/m.room.message/" + encode(transactionId));
+                + encode(roomId) + "/send/" + encode(type) + "/" + encode(transactionId));
         HttpRequest request = authorizedRequest(endpoint)
-                .timeout(REQUEST_TIMEOUT)
+                .timeout(requestTimeout)
                 .header("Content-Type", "application/json; charset=utf-8")
                 .PUT(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
                 .build();
-        return sendJsonAsync(request, operation).thenApply(response -> {
+        return MatrixFutures.compose(sendJsonAsync(request, operation), response -> {
             if (string(response, "event_id").isBlank()) {
                 throw new IllegalStateException(operation + " response omitted event_id");
             }
-            return null;
+            return CompletableFuture.completedFuture(null);
         });
     }
 
@@ -259,57 +278,86 @@ public final class MatrixClient {
                 .header("User-Agent", "MIK Matrix bot");
     }
 
+    private static <T> CompletableFuture<T> unavailableRoom() {
+        return CompletableFuture.failedFuture(new IllegalStateException(
+                "Matrix room is unavailable or its encryption state changed during delivery"));
+    }
+
     private JsonObject sendJson(HttpRequest request, String operation)
             throws IOException, InterruptedException {
-        HttpResponse<InputStream> response = httpClient.send(
-                request, HttpResponse.BodyHandlers.ofInputStream());
-        String body = readBody(response);
-        return parseResponse(operation, response.statusCode(), body);
-    }
-
-    private CompletableFuture<JsonObject> sendJsonAsync(
-            HttpRequest request,
-            String operation
-    ) {
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-                .thenApply(response -> {
-                    try {
-                        return parseResponse(operation, response.statusCode(),
-                                readBody(response));
-                    } catch (IOException error) {
-                        throw new CompletionException(error);
-                    }
-                });
-    }
-
-    private String readBody(HttpResponse<InputStream> response) throws IOException {
-        long declaredLength = response.headers().firstValueAsLong("Content-Length")
-                .orElse(-1L);
-        if (declaredLength > config.syncMaxResponseBytes()) {
-            response.body().close();
-            throw new IOException("Matrix response exceeded the configured size limit");
-        }
-        try (InputStream input = response.body()) {
-            byte[] bytes = input.readNBytes(config.syncMaxResponseBytes() + 1);
-            if (bytes.length > config.syncMaxResponseBytes()) {
-                throw new IOException("Matrix response exceeded the configured size limit");
+        CompletableFuture<JsonObject> pending = sendJsonAsync(request, operation);
+        try {
+            return pending.get();
+        } catch (InterruptedException error) {
+            pending.cancel(true);
+            throw error;
+        } catch (ExecutionException error) {
+            Throwable cause = MatrixApiErrors.unwrap(error);
+            if (cause instanceof TimeoutException) {
+                HttpTimeoutException timeout = new HttpTimeoutException(operation + " timed out");
+                timeout.initCause(cause);
+                throw timeout;
             }
-            return new String(bytes, StandardCharsets.UTF_8);
+            if (cause instanceof IOException ioError) throw ioError;
+            if (cause instanceof RuntimeException runtimeError) throw runtimeError;
+            throw new IOException(operation + " failed", cause);
         }
+    }
+
+    private CompletableFuture<JsonObject> sendJsonAsync(HttpRequest request, String operation) {
+        var receiving = httpClient.sendAsync(request, HttpResponse.BodyHandlers.limiting(
+                HttpResponse.BodyHandlers.ofByteArray(), config.syncMaxResponseBytes()));
+        // The deadline covers the entire body. Cancel the original exchange, not just its result view.
+        var result = receiving.copy().orTimeout(
+                        request.timeout().orElse(requestTimeout).toMillis(), TimeUnit.MILLISECONDS)
+                .thenApply(response -> parseResponse(operation, response,
+                        new String(response.body(), StandardCharsets.UTF_8)));
+        result.whenComplete((_, error) -> {
+            if (error != null) receiving.cancel(true);
+        });
+        return result;
     }
 
     private static JsonObject parseResponse(
             String operation,
-            int statusCode,
+            HttpResponse<?> response,
             String responseBody
     ) {
-        JsonObject body = parseObject(responseBody);
+        int statusCode = response.statusCode();
         if (statusCode < 200 || statusCode >= 300) {
+            JsonObject body = parseObject(responseBody);
             throw new MatrixHttpException(operation, statusCode,
                     string(body, "errcode"), string(body, "error"),
-                    longValue(body, "retry_after_ms"));
+                    retryAfterMillis(response, body));
         }
-        return body;
+        try {
+            JsonElement parsed = JsonParser.parseString(responseBody);
+            if (parsed.isJsonObject()) return parsed.getAsJsonObject();
+        } catch (RuntimeException ignored) {
+            // A successful HTTP status cannot turn invalid JSON into an empty roster.
+        }
+        throw new IllegalStateException(operation + " returned an invalid JSON object");
+    }
+
+    private static long retryAfterMillis(HttpResponse<?> response, JsonObject body) {
+        String header = response.headers().firstValue("Retry-After").orElse("").strip();
+        if (header.matches("[0-9]+")) {
+            try {
+                return Math.multiplyExact(Long.parseLong(header), 1_000L);
+            } catch (ArithmeticException | NumberFormatException ignored) {
+                return Long.MAX_VALUE;
+            }
+        }
+        if (!header.isEmpty()) {
+            try {
+                Instant retryAt = ZonedDateTime.parse(header, DateTimeFormatter.RFC_1123_DATE_TIME)
+                        .toInstant();
+                return Math.max(0, Duration.between(Instant.now(), retryAt).toMillis());
+            } catch (DateTimeParseException | ArithmeticException ignored) {
+                // An invalid header cannot supply a delay; inspect the protocol error body instead.
+            }
+        }
+        return longValue(body, "retry_after_ms");
     }
 
     private static JsonObject parseObject(String value) {
@@ -343,30 +391,33 @@ public final class MatrixClient {
         return relation;
     }
 
-    private static String createSyncFilter(Set<String> allowedRoomIds) {
+    private static String createSyncFilter(Set<String> observedRoomIds) {
         JsonObject filter = new JsonObject();
         filter.add("presence", types());
-        filter.add("account_data", types());
+        // Secret storage, cross-signing and backup account data must reach the crypto SDK.
+        filter.add("account_data", new JsonObject());
 
         JsonObject room = new JsonObject();
         room.add("account_data", types());
         room.add("ephemeral", types());
-        if (!allowedRoomIds.isEmpty()) {
-            JsonArray rooms = new JsonArray();
-            allowedRoomIds.forEach(rooms::add);
-            room.add("rooms", rooms);
-        }
+        JsonArray rooms = new JsonArray();
+        observedRoomIds.forEach(rooms::add);
+        room.add("rooms", rooms);
+        room.addProperty("include_leave", true);
         JsonObject state = new JsonObject();
-        JsonArray stateTypes = new JsonArray();
-        stateTypes.add("m.room.member");
-        state.add("types", stateTypes);
-        state.addProperty("lazy_load_members", true);
+        // Every membership delta is required, including state changes in limited timeline gaps.
+        state.addProperty("lazy_load_members", false);
         room.add("state", state);
 
         JsonObject timeline = new JsonObject();
         JsonArray timelineTypes = new JsonArray();
         timelineTypes.add("m.room.message");
+        timelineTypes.add("m.room.encrypted");
+        timelineTypes.add("m.room.redaction");
+        timelineTypes.add("m.sticker");
         timelineTypes.add("m.room.member");
+        timelineTypes.add("m.room.encryption");
+        timelineTypes.add("m.room.create");
         timeline.add("types", timelineTypes);
         timeline.addProperty("limit", 100);
         room.add("timeline", timeline);
@@ -418,12 +469,6 @@ public final class MatrixClient {
         } catch (RuntimeException ignored) {
             return "";
         }
-    }
-
-    private static JsonObject object(JsonObject object, String name) {
-        JsonElement value = object.get(name);
-        return value != null && value.isJsonObject()
-                ? value.getAsJsonObject() : null;
     }
 
     private static long longValue(JsonObject object, String name) {

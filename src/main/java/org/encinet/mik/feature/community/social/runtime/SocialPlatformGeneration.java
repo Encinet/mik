@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.social.runtime;
 
+import org.encinet.mik.feature.community.chat.model.ChatPlaceholder;
+import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.feature.community.chat.model.ChatConversation;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
@@ -30,7 +32,6 @@ import org.encinet.mik.feature.community.social.chat.SocialDirectedNotice;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.shared.i18n.Language;
-
 import java.util.ArrayList;
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -44,7 +45,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.Logger;
 import java.util.function.Function;
-
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 
 
@@ -61,6 +61,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
     private final SocialChatGateway chatGateway;
     private final SocialMentionBindingDirectory mentionBindings;
     private final SocialCommandProcessor processor;
+    private final LanguageService languages;
     private final Logger logger;
     private final LinkedHashSet<String> conversations = new LinkedHashSet<>();
     private final LongAdder inboundAccepted = new LongAdder();
@@ -78,6 +79,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
     private SocialEventDeduplicator deduplicator;
     private AutoCloseable identityLease;
     private boolean closed;
+    private SocialSessionStatus pendingReady;
 
     SocialPlatformGeneration(
             SocialPlatformDescriptor descriptor,
@@ -87,6 +89,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
             SocialContentGuard contentGuard,
             SocialChatGateway chatGateway,
             SocialMentionBindingDirectory mentionBindings,
+            LanguageService languages,
             Logger logger
     ) {
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
@@ -98,6 +101,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
         this.mentionBindings = Objects.requireNonNull(
                 mentionBindings, "mentionBindings");
         this.processor = new SocialCommandProcessor(contentGuard, logger);
+        this.languages = Objects.requireNonNull(languages, "languages");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
 
@@ -136,9 +140,16 @@ final class SocialPlatformGeneration implements AutoCloseable {
             throw error;
         }
         boolean closeImmediately;
+        SocialSessionStatus deferredReady;
         synchronized (lock) {
             session = opened;
+            deferredReady = pendingReady;
+            pendingReady = null;
             closeImmediately = closed || terminalState();
+        }
+        if (deferredReady != null && !closeImmediately) {
+            updateStatus(deferredReady);
+            synchronized (lock) { if (closed || terminalState()) return; }
         }
         if (closeImmediately) {
             closeSession(opened);
@@ -390,7 +401,8 @@ final class SocialPlatformGeneration implements AutoCloseable {
                             .contains(descriptor.id())) {
                         continue;
                     }
-                    route.outbound().select(message.submission().sourceText()).ifPresent(body -> {
+                    route.outbound().selectRange(message.submission().sourceText()).ifPresent(selection -> {
+                        String body = selection.body();
                         var richBody = route.outbound().mode()
                                 == SocialChatPolicy.Mode.PREFIX
                                 && route.outbound().stripPrefix()
@@ -400,10 +412,10 @@ final class SocialPlatformGeneration implements AutoCloseable {
                         ChatSubmission original = message.submission();
                         ChatSubmission routed = new ChatSubmission(
                                 original.id(), original.origin(), original.sender(),
-                                original.conversation(), body, original.references(),
+                                original.conversation(), body, original.references().within(selection.start(), selection.end()),
                                 original.receivedAt(), original.processingContext());
                         ChatMessage selected = new ChatMessage(
-                                routed, richBody, message.effects());
+                                routed, richBody.localized(key -> languages.t(plan.commandSyntax().defaultLanguage(), key)), message.effects());
                         List<SocialChatMentionRequest> requests = mentionRequests(selected);
                         SocialChatMentionResolution mentions = Objects.requireNonNull(
                                 chatSession.resolveMentions(
@@ -492,11 +504,12 @@ final class SocialPlatformGeneration implements AutoCloseable {
                 .repliedAuthor().map(this::reference);
         List<ChatReferences.Mention> mentions = message.references()
                 .mentionSpans().stream()
-                .filter(span -> span.start() >= selection.start() && span.end() <= selection.end())
-                .map(span -> new ChatReferences.Mention(
-                        span.start() - selection.start(), span.end() - selection.start(), span.identity()))
+                .map(span -> new ChatReferences.Mention(span.start(), span.end(), span.identity()))
                 .toList();
-        return new ChatReferences(reply, Optional.empty(), mentions);
+        List<ChatPlaceholder.Span> placeholders =
+                ((SocialInboundMessage.Text) message.content()).placeholders();
+        return new ChatReferences(reply, Optional.empty(), mentions, placeholders)
+                .within(selection.start(), selection.end());
     }
 
     private ChatReferences.Reference reference(ExternalIdentity identity) {
@@ -522,6 +535,10 @@ final class SocialPlatformGeneration implements AutoCloseable {
         boolean terminal = false;
         synchronized (lock) {
             if (closed || terminalState()) {
+                return;
+            }
+            if (status.state() == SocialSessionStatus.State.READY && session == null) {
+                pendingReady = status;
                 return;
             }
             endpoint = status.endpoint();
@@ -578,7 +595,8 @@ final class SocialPlatformGeneration implements AutoCloseable {
     private void acquireIdentityLease() {
         if (identityLease == null) {
             descriptor.identityPlatform().ifPresent(platform ->
-                    identityLease = identityLeases.register(platform));
+                    identityLease = identityLeases.register(platform, session.memberships().orElseThrow(() ->
+                            new IllegalStateException("Identity binding requires community membership monitoring"))));
         }
     }
 

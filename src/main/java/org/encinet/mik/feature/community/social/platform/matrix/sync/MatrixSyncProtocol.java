@@ -26,14 +26,17 @@ public final class MatrixSyncProtocol {
                 if (room == null || roomId.isBlank()) {
                     continue;
                 }
-                JsonObject state = object(room, "state");
+                boolean stateAfter = room.has("state_after");
+                JsonObject state = object(room, stateAfter ? "state_after" : "state");
                 JsonObject timeline = object(room, "timeline");
                 rooms.add(new RoomBatch(roomId,
+                        stateAfter,
                         events(state == null ? null : array(state, "events")),
                         events(timeline == null ? null : array(timeline, "events"))));
             }
         }
-        return new Batch(nextBatch, rooms);
+        JsonObject left = roomGroups == null ? null : object(roomGroups, "leave");
+        return new Batch(nextBatch, rooms, left == null ? List.of() : List.copyOf(left.keySet()));
     }
 
     private static List<Event> events(JsonArray values) {
@@ -43,19 +46,23 @@ public final class MatrixSyncProtocol {
         List<Event> events = new ArrayList<>(values.size());
         for (JsonElement value : values) {
             if (!value.isJsonObject()) {
-                continue;
+                throw new IllegalArgumentException("Matrix event must be an object");
             }
             JsonObject event = value.getAsJsonObject();
             String type = string(event, "type");
             if (type.isBlank()) {
-                continue;
+                throw new IllegalArgumentException("Matrix event omitted type");
             }
-            JsonObject content = object(event, "content");
-            events.add(new Event(string(event, "event_id"), type,
-                    string(event, "sender"), string(event, "state_key"),
-                    content == null ? new JsonObject() : content.deepCopy()));
+            events.add(event(event));
         }
         return List.copyOf(events);
+    }
+
+    public static Event event(JsonObject value) {
+        JsonObject content = object(value, "content");
+        return new Event(string(value, "event_id"), string(value, "type"),
+                string(value, "sender"), string(value, "state_key"),
+                content == null ? new JsonObject() : content.deepCopy());
     }
 
     static String string(JsonObject object, String name) {
@@ -73,28 +80,39 @@ public final class MatrixSyncProtocol {
 
     static JsonObject object(JsonObject object, String name) {
         JsonElement value = object.get(name);
-        return value != null && value.isJsonObject() ? value.getAsJsonObject() : null;
+        if (value == null) return null;
+        if (value.isJsonObject()) return value.getAsJsonObject();
+        throw new IllegalArgumentException("Matrix " + name + " must be an object");
     }
 
     static JsonArray array(JsonObject object, String name) {
         JsonElement value = object.get(name);
-        return value != null && value.isJsonArray() ? value.getAsJsonArray() : null;
+        if (value == null) return null;
+        if (value.isJsonArray()) return value.getAsJsonArray();
+        throw new IllegalArgumentException("Matrix " + name + " must be an array");
     }
 
-    public record Batch(String nextBatch, List<RoomBatch> rooms) {
+    public record Batch(String nextBatch, List<RoomBatch> rooms, List<String> leftRooms) {
         public Batch {
             rooms = List.copyOf(rooms);
+            leftRooms = List.copyOf(leftRooms);
         }
     }
 
     public record RoomBatch(
             String roomId,
+            boolean stateAfter,
             List<Event> stateEvents,
             List<Event> timelineEvents
     ) {
         public RoomBatch {
             stateEvents = List.copyOf(stateEvents);
             timelineEvents = List.copyOf(timelineEvents);
+        }
+
+        public java.util.stream.Stream<Event> stateUpdates() {
+            return stateAfter ? stateEvents.stream()
+                    : java.util.stream.Stream.concat(stateEvents.stream(), timelineEvents.stream());
         }
     }
 

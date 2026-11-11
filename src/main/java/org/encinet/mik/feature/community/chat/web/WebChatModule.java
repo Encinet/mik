@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.chat.web;
 
+import org.encinet.mik.shared.i18n.Language;
+
 import com.google.gson.*;
 import io.netty.channel.Channel;
 import io.netty.handler.codec.http.websocketx.PingWebSocketFrame;
@@ -410,14 +412,15 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         if (connections.isEmpty()) return;
         ChatAudience audience = delivery.audience();
         WebChatMessage message = new WebChatMessage(delivery.message(), delivery.requestId(), delivery.target());
-        JsonObject payload = message.payload();
-        stamp(payload, ++messageSequence);
-        Map<Integer, String> frames = new HashMap<>();
+        long sequence = ++messageSequence;
+        Map<MessageVariant, String> frames = new HashMap<>();
         for (Connection c : connections.values()) if (active(c) && audience.includes(c.login.player, webStaff(c.login.player))) {
             boolean own = c.login.player.equals(message.senderUuid());
             boolean mentioned = !own && message.mentions(c.login.player);
-            String frame = frames.computeIfAbsent((own ? 1 : 0) | (mentioned ? 2 : 0), _ -> {
-                JsonObject recipientPayload = payload.deepCopy();
+            var viewerLanguage = language.preferredLanguage(c.login.player).orElse(Language.DEFAULT);
+            String frame = frames.computeIfAbsent(new MessageVariant(viewerLanguage, own, mentioned), _ -> {
+                JsonObject recipientPayload = message.payload(key -> language.t(viewerLanguage, key));
+                stamp(recipientPayload, sequence);
                 // Correlation IDs stay with the sender; mention status belongs to this viewer.
                 if (!own) recipientPayload.remove("requestId");
                 recipientPayload.addProperty("mentioned", mentioned);
@@ -427,6 +430,8 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             WebChatSocketServer.send(c.channel, frame);
         }
     }
+
+    private record MessageVariant(Language language, boolean own, boolean mentioned) { }
 
     @Override
     public void publish(ChatServerMessage message, Predicate<UUID> visibility) {

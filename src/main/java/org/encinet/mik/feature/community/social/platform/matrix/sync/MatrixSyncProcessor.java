@@ -1,12 +1,11 @@
 package org.encinet.mik.feature.community.social.platform.matrix.sync;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
+import org.encinet.mik.feature.community.social.platform.matrix.message.MatrixContentDecoder;
+import org.encinet.mik.feature.community.social.platform.matrix.message.MatrixContentProjector;
+import org.encinet.mik.feature.community.social.platform.matrix.message.MatrixMessageContent;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -14,7 +13,6 @@ import java.util.Optional;
 /** Maintains bounded event/member context while converting /sync batches into text messages. */
 public final class MatrixSyncProcessor {
     private static final int MAXIMUM_EVENT_SENDERS = 8_192;
-    private static final int MAXIMUM_MENTIONS = 32;
 
     private final Map<String, String> eventSenders = boundedMap(MAXIMUM_EVENT_SENDERS);
     private final MatrixMemberDirectory members;
@@ -27,13 +25,18 @@ public final class MatrixSyncProcessor {
         this.members = java.util.Objects.requireNonNull(members, "members");
     }
 
-    public List<MatrixRoomMessage> process(MatrixSyncProtocol.Batch batch) {
+    public List<MatrixRoomMessage> process(MatrixSyncProtocol.Batch batch, boolean completeState) {
+        for (String roomId : batch.leftRooms()) {
+            members.removeRoom(roomId);
+            eventSenders.keySet().removeIf(key -> key.startsWith(roomId + '\u0000'));
+        }
         List<MatrixRoomMessage> messages = new ArrayList<>();
         for (MatrixSyncProtocol.RoomBatch room : batch.rooms()) {
-            room.stateEvents().forEach(event -> members.applyMember(
-                    room.roomId(), event));
+            if (completeState) members.replaceJoined(room.roomId(), Map.of());
+            // state_after is the authoritative current view; state is the view before the timeline.
+            room.stateEvents().forEach(event -> members.applyMember(room.roomId(), event));
             for (MatrixSyncProtocol.Event event : room.timelineEvents()) {
-                members.applyMember(room.roomId(), event);
+                if (!room.stateAfter()) members.applyMember(room.roomId(), event);
                 message(room.roomId(), event).ifPresent(messages::add);
                 rememberEventSender(room.roomId(), event);
             }
@@ -46,85 +49,39 @@ public final class MatrixSyncProcessor {
         members.clear();
     }
 
-    private Optional<MatrixRoomMessage> message(
+    public Optional<MatrixRoomMessage> message(
             String roomId,
             MatrixSyncProtocol.Event event
     ) {
-        if (!"m.room.message".equals(event.type())
-                || event.eventId().isBlank() || event.sender().isBlank()) {
+        if (event.eventId().isBlank() || event.sender().isBlank()) {
             return Optional.empty();
         }
-        JsonObject content = event.content();
-        if (!"m.text".equals(MatrixSyncProtocol.string(content, "msgtype"))) {
+        MatrixMessageContent content = MatrixContentDecoder.decode(event.type(), event.content())
+                .orElse(null);
+        if (content == null || content.relation().replacement()) {
             return Optional.empty();
         }
-        JsonObject relation = MatrixSyncProtocol.object(content, "m.relates_to");
-        if (relation != null
-                && "m.replace".equals(MatrixSyncProtocol.string(relation, "rel_type"))) {
-            return Optional.empty();
-        }
-        List<MatrixRoomMessage.MatrixMember> mentionedMembers = mentions(
-                roomId, content);
-        MatrixFormattedTextParser.ParsedText parsed =
-                MatrixFormattedTextParser.parse(content, mentionedMembers);
+        Map<String, String> displayNames = new LinkedHashMap<>();
+        content.mentionedUserIds().forEach(userId -> displayNames.put(userId,
+                members.member(roomId, userId).displayName()));
+        MatrixContentProjector.Projection parsed = MatrixContentProjector.project(content, displayNames);
         if (parsed.body().isBlank()) {
             return Optional.empty();
         }
 
-        Optional<String> repliedEventId = repliedEventId(relation);
+        Optional<String> repliedEventId = content.relation().explicitReplyEventId();
         Optional<MatrixRoomMessage.MatrixMember> repliedAuthor = repliedEventId
                 .flatMap(eventId -> Optional.ofNullable(
                         eventSenders.get(eventKey(roomId, eventId))))
                 .map(userId -> members.member(roomId, userId));
-        Optional<String> threadRoot = Optional.empty();
-        if (relation != null
-                && "m.thread".equals(MatrixSyncProtocol.string(relation, "rel_type"))) {
-            String root = MatrixSyncProtocol.string(relation, "event_id");
-            if (!root.isBlank()) {
-                threadRoot = Optional.of(root);
-            }
-        }
         List<MatrixRoomMessage.MatrixMention> mentionSpans = parsed.mentions()
                 .stream()
                 .map(mention -> new MatrixRoomMessage.MatrixMention(
-                        mention.member(), mention.start(), mention.end()))
+                        members.member(roomId, mention.userId()), mention.start(), mention.end()))
                 .toList();
         return Optional.of(new MatrixRoomMessage(event.eventId(), roomId,
-                members.member(roomId, event.sender()), parsed.body(), mentionSpans,
-                repliedAuthor, threadRoot));
-    }
-
-    private List<MatrixRoomMessage.MatrixMember> mentions(
-            String roomId,
-            JsonObject content
-    ) {
-        JsonObject mentionData = MatrixSyncProtocol.object(content, "m.mentions");
-        JsonArray userIds = mentionData == null
-                ? null : MatrixSyncProtocol.array(mentionData, "user_ids");
-        if (userIds == null) {
-            return List.of();
-        }
-        LinkedHashSet<String> unique = new LinkedHashSet<>();
-        for (JsonElement value : userIds) {
-            if (unique.size() >= MAXIMUM_MENTIONS) {
-                break;
-            }
-            if (value.isJsonPrimitive() && value.getAsJsonPrimitive().isString()) {
-                String userId = value.getAsString();
-                if (!userId.isBlank()) {
-                    unique.add(userId);
-                }
-            }
-        }
-        return unique.stream().map(userId -> members.member(roomId, userId)).toList();
-    }
-
-    private Optional<String> repliedEventId(JsonObject relation) {
-        JsonObject reply = relation == null
-                ? null : MatrixSyncProtocol.object(relation, "m.in_reply_to");
-        String eventId = reply == null
-                ? "" : MatrixSyncProtocol.string(reply, "event_id");
-        return eventId.isBlank() ? Optional.empty() : Optional.of(eventId);
+                members.member(roomId, event.sender()), parsed.body(), parsed.commandBody(), mentionSpans,
+                repliedAuthor, content.relation().threadRootEventId(), parsed.placeholders()));
     }
 
     private void rememberEventSender(String roomId, MatrixSyncProtocol.Event event) {

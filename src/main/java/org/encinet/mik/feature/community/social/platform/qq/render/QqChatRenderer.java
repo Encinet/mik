@@ -54,6 +54,7 @@ public final class QqChatRenderer {
                 markdown.append(node.markdown());
                 continue;
             }
+            if (node.atomic()) break;
             appendEscaped(markdown, node.plain(), remaining);
             break;
         }
@@ -79,7 +80,7 @@ public final class QqChatRenderer {
             markdown = "[" + markdown + "](" + markdownLinkTarget(
                     link.target().toASCIIString()) + ")";
         }
-        return new RenderedNode(plain, applyStyle(markdown, node.style()));
+        return new RenderedNode(plain, applyStyle(markdown, node.style()), node instanceof ChatNode.Placeholder);
     }
 
     private static RenderedNode renderPlayerMention(
@@ -179,7 +180,8 @@ public final class QqChatRenderer {
         }
     }
 
-    private record RenderedNode(String plain, String markdown) {
+    private record RenderedNode(String plain, String markdown, boolean atomic) {
+        RenderedNode(String plain, String markdown) { this(plain, markdown, false); }
     }
 
     public record RenderedChat(String markdown) {

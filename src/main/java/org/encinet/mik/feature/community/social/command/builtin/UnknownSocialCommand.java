@@ -55,7 +55,7 @@ public final class UnknownSocialCommand implements SocialCommand<NoArguments, No
                 TITLE_ICON + " " + languages.t(language, TITLE),
                 SocialDocument.Tone.WARNING,
                 SocialDocument.paragraph(languages.t(
-                        language, Message.SOCIAL_QUERY_UNKNOWN)))
+                        language, Message.SOCIAL_QUERY_UNKNOWN, SocialHelpCommand.invocation(context, language))))
                 .localized(language);
     }
 }

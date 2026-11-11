@@ -45,8 +45,8 @@ class AiSocialCommandTest {
     void boundIdentitySuppliesMinecraftContextAndPreferredLanguage() {
         ExternalIdentity identity = identity("alice-social");
         UUID playerId = UUID.randomUUID();
-        IdentityBinding binding = new IdentityBinding(
-                playerId, "Alice", identity.key(), identity.displayName(),
+        IdentityBinding binding = new IdentityBinding(UUID.randomUUID(),
+                playerId, "Alice", identity.key(), identity.displayName(), "",
                 Instant.EPOCH, Instant.EPOCH);
         StubLanguages languages = new StubLanguages(Optional.of(Language.JA_JP));
         FakeGateway gateway = new FakeGateway();
@@ -214,7 +214,7 @@ class AiSocialCommandTest {
         }
 
         @Override
-        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform) {
+        public IdentityPlatformRegistration registerPlatform(IdentityPlatform platform, org.encinet.mik.feature.community.identity.IdentityMemberships memberships) {
             throw new UnsupportedOperationException();
         }
 

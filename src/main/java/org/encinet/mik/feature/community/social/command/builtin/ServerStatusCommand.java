@@ -10,11 +10,12 @@ import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.feature.community.social.document.SocialTimeText;
 import org.encinet.mik.feature.community.social.game.ServerSnapshot;
 import org.encinet.mik.feature.community.social.game.SocialGameService;
 
-import java.time.Duration;
-import java.util.Locale;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -88,19 +89,17 @@ public final class ServerStatusCommand implements SocialCommand<NoArguments, Ser
                         field(language, Message.SOCIAL_QUERY_PLAYERS_LABEL,
                                 population(snapshot, language)),
                         new SocialDocument.Field("TPS",
-                                number(snapshot.tpsOneMinute())),
+                                number(snapshot.tpsOneMinute(), language)),
                         new SocialDocument.Field("MSPT",
-                                number(snapshot.mspt())),
+                                number(snapshot.mspt(), language)),
                         field(language, Message.SOCIAL_QUERY_UPTIME_LABEL,
-                                duration(snapshot.uptime(), language))))
+                                SocialTimeText.duration(languages, language, snapshot.uptime()))))
                 .localized(language);
     }
 
     private String population(ServerSnapshot snapshot, Language language) {
-        return label(language, Message.SOCIAL_QUERY_ONLINE_LABEL) + ' '
-                + snapshot.onlinePlayers() + '/' + snapshot.maxPlayers()
-                + " · " + label(language, Message.SOCIAL_QUERY_ACTIVE_LABEL) + ' '
-                + snapshot.activePlayers() + " · AFK " + snapshot.afkPlayers();
+        return languages.t(language, Message.SOCIAL_QUERY_POPULATION,
+                snapshot.onlinePlayers(), snapshot.maxPlayers(), snapshot.activePlayers(), snapshot.afkPlayers());
     }
 
     private SocialDocument.Field field(Language language, Message label, String value) {
@@ -108,26 +107,11 @@ public final class ServerStatusCommand implements SocialCommand<NoArguments, Ser
     }
 
     private String label(Language language, Message label) {
-        return languages.t(language, label).replaceAll("[：:]\\s*$", "");
+        return languages.t(language, label);
     }
 
-    private String duration(Duration duration, Language language) {
-        long seconds = Math.max(0, duration.toSeconds());
-        long days = seconds / 86_400;
-        long hours = seconds % 86_400 / 3_600;
-        long minutes = seconds % 3_600 / 60;
-        if (days > 0) {
-            return languages.t(language, Message.SOCIAL_DURATION_DAYS,
-                    days, hours, minutes);
-        }
-        if (hours > 0) {
-            return languages.t(language, Message.SOCIAL_DURATION_HOURS, hours, minutes);
-        }
-        return languages.t(language, Message.SOCIAL_DURATION_MINUTES, minutes);
-    }
-
-    private static String number(double value) {
+    private String number(double value, Language language) {
         double safe = Double.isFinite(value) ? Math.max(0.0, value) : 0.0;
-        return String.format(Locale.ROOT, "%.2f", safe);
+        return languages.t(language, Message.SOCIAL_QUERY_METRIC, BigDecimal.valueOf(safe).setScale(2, RoundingMode.HALF_UP));
     }
 }

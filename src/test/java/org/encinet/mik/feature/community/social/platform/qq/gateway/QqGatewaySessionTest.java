@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QqGatewaySessionTest {
@@ -106,6 +107,36 @@ class QqGatewaySessionTest {
     }
 
     @Test
+    void memberDeparturesHaveTheirOwnCallbackAndRetryWithoutSkippingTheSequence() throws Exception {
+        var connector = new RecordingConnector();
+        var received = new AtomicReference<QqGroupMemberEvent>();
+        var platformConfig = config(3);
+        var session = tracked(statusUpdates -> new QqGatewaySession(platformConfig,
+                () -> CompletableFuture.completedFuture(URI.create("wss://gateway.example/socket")),
+                () -> CompletableFuture.completedFuture("access-token"), () -> { }, connector,
+                _ -> { throw new AssertionError("Member event entered chat"); },
+                _ -> { throw new AssertionError("Member event entered join approval"); },
+                event -> { received.set(event); return SocialEventSink.Acceptance.RETRY_LATER; },
+                statusUpdates, Logger.getAnonymousLogger()));
+        try {
+            session.start();
+            var first = connector.only();
+            first.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
+            first.emit("{\"op\":0,\"s\":10,\"t\":\"READY\",\"d\":{\"session_id\":\"members\"}}");
+            first.emit("""
+                    {"op":0,"s":11,"t":"GROUP_MEMBER_REMOVE","d":{"group_openid":"group","member_openid":"member"}}
+                    """);
+            assertEquals("member", received.get().memberOpenId());
+            assertFalse(received.get().joined());
+            await(() -> connector.connections.size() == 2);
+            var second = connector.connections.get(1);
+            second.emit("{\"op\":10,\"d\":{\"heartbeat_interval\":10000}}");
+            var resume = JsonParser.parseString(second.socket.sent.getFirst()).getAsJsonObject();
+            assertEquals(10L, resume.getAsJsonObject("d").get("seq").getAsLong());
+        } finally { session.close(); }
+    }
+
+    @Test
     void joinApplicationsUseTheirOwnCallbackAndBackpressureReplaysTheApplication() throws Exception {
         RecordingConnector connector = new RecordingConnector();
         AtomicReference<QqGroupJoinRequest> received = new AtomicReference<>();
@@ -117,7 +148,7 @@ class QqGatewaySessionTest {
                 request -> {
                     received.set(request);
                     return SocialEventSink.Acceptance.RETRY_LATER;
-                }, statusUpdates, Logger.getAnonymousLogger()));
+                }, _ -> SocialEventSink.Acceptance.IGNORED, statusUpdates, Logger.getAnonymousLogger()));
         try {
             session.start();
             Connection first = connector.only();
@@ -268,7 +299,7 @@ class QqGatewaySessionTest {
                     invalidations.incrementAndGet();
                     token.set("token-two");
                 }, connector, _ -> SocialEventSink.Acceptance.ACCEPTED,
-                _ -> SocialEventSink.Acceptance.IGNORED, statusUpdates,
+                _ -> SocialEventSink.Acceptance.IGNORED, _ -> SocialEventSink.Acceptance.IGNORED, statusUpdates,
                 Logger.getLogger("QqGatewaySessionTest")));
         session.start();
         Connection first = connector.only();
@@ -332,7 +363,7 @@ class QqGatewaySessionTest {
                         URI.create("wss://gateway.example/socket")),
                 () -> CompletableFuture.completedFuture("access-token"),
                 () -> { }, connector, _ -> SocialEventSink.Acceptance.ACCEPTED,
-                _ -> SocialEventSink.Acceptance.IGNORED,
+                _ -> SocialEventSink.Acceptance.IGNORED, _ -> SocialEventSink.Acceptance.IGNORED,
                 statusUpdates, Logger.getLogger("QqGatewaySessionTest")));
 
         session.start();
@@ -383,7 +414,7 @@ class QqGatewaySessionTest {
                 () -> CompletableFuture.completedFuture(
                         URI.create("wss://gateway.example/socket")),
                 () -> CompletableFuture.completedFuture("access-token"),
-                () -> { }, connector, events, _ -> SocialEventSink.Acceptance.IGNORED, statusUpdates,
+                () -> { }, connector, events, _ -> SocialEventSink.Acceptance.IGNORED, _ -> SocialEventSink.Acceptance.IGNORED, statusUpdates,
                 Logger.getLogger("QqGatewaySessionTest")));
     }
 
@@ -412,6 +443,7 @@ class QqGatewaySessionTest {
                 enabled: true
                 app-id: app
                 app-secret: secret
+                allowed-group-openids: [group-id, group, group-a]
                 gateway:
                   reconnect-base-delay-millis: 100
                   reconnect-max-delay-millis: 100

@@ -4,7 +4,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.encinet.mik.shared.i18n.Language;
@@ -48,7 +47,7 @@ final class IdentityBindingCommandPresenter {
                 .reduce((left, right) -> left + " · " + right)
                 .orElseGet(() -> languages.t(language, Message.IDENTITY_PLATFORM_NONE));
         sender.sendMessage(Component.text(languages.t(language,
-                Message.IDENTITY_PLATFORMS, supported), NamedTextColor.GRAY));
+                Message.IDENTITY_PLATFORMS, supported), NamedTextColor.WHITE));
     }
 
     void playerOnly(CommandSender sender) {
@@ -74,29 +73,10 @@ final class IdentityBindingCommandPresenter {
 
     void codeIssued(CommandSender sender, IdentityPlatform platform, IdentityLinkCode issue) {
         Language language = language(sender);
-        String instruction = platform.redemptionInstruction().replace("{code}", issue.code());
-        Component code = Component.text(issue.code(), NamedTextColor.GOLD)
-                .decorate(TextDecoration.BOLD)
-                .clickEvent(ClickEvent.copyToClipboard(instruction))
-                .hoverEvent(HoverEvent.showText(Component.text(
-                        languages.t(language, Message.IDENTITY_CODE_COPY))));
-        sender.sendMessage(Component.text(languages.t(language,
-                        Message.IDENTITY_CODE_ISSUED, platform.displayName()),
-                        NamedTextColor.GREEN)
-                .append(Component.space())
-                .append(code));
-        sender.sendMessage(Component.text(languages.t(language,
-                        Message.IDENTITY_CODE_REDEEM, platform.displayName(), instruction),
-                        NamedTextColor.AQUA)
-                .clickEvent(ClickEvent.copyToClipboard(instruction))
-                .hoverEvent(HoverEvent.showText(Component.text(
-                        languages.t(language, Message.IDENTITY_CODE_COPY)))));
-        sender.sendMessage(Component.text(languages.t(language,
-                Message.IDENTITY_CODE_EXPIRY), NamedTextColor.GRAY));
-        if (platform.scopeIsolated()) {
-            sender.sendMessage(Component.text(languages.t(language,
-                    Message.IDENTITY_SCOPE_NOTICE), NamedTextColor.YELLOW));
-        }
+        sender.sendMessage(IdentityBindingGuidance.community(languages, language));
+        sender.sendMessage(IdentityBindingGuidance.instruction(languages, language,
+                Message.IDENTITY_CODE_REDEEM_RICH, platform, issue));
+        sender.sendMessage(IdentityBindingGuidance.expiry(languages, language));
     }
 
     void ownBindings(CommandSender sender, List<IdentityBinding> bindings) {
@@ -108,9 +88,9 @@ final class IdentityBindingCommandPresenter {
         Language language = language(sender);
         sender.sendMessage(Component.text(languages.t(language,
                 Message.IDENTITY_BINDINGS_TITLE), NamedTextColor.AQUA));
-        bindings.forEach(binding -> sender.sendMessage(bindingLine(binding, language)));
+        bindings.forEach(binding -> sender.sendMessage(bindingLine(binding, language, false)));
         sender.sendMessage(Component.text(languages.t(language,
-                Message.IDENTITY_BINDINGS_UNLINK_HINT), NamedTextColor.GRAY));
+                Message.IDENTITY_BINDINGS_UNLINK_HINT), NamedTextColor.WHITE));
     }
 
     void codeCancelled(CommandSender sender, boolean cancelled, IdentityPlatform platform) {
@@ -126,9 +106,9 @@ final class IdentityBindingCommandPresenter {
                 NamedTextColor.RED));
     }
 
-    void bindingUnlinked(CommandSender sender, String platformId, int removedCount) {
+    void bindingUnlinked(CommandSender sender, IdentityBinding binding) {
         sender.sendMessage(text(sender, Message.IDENTITY_BINDING_UNLINKED,
-                NamedTextColor.GREEN, platformName(platformId), removedCount));
+                NamedTextColor.GREEN, platformName(binding.externalKey().platform())));
     }
 
     void adminLookup(CommandSender sender, String playerName,
@@ -142,12 +122,16 @@ final class IdentityBindingCommandPresenter {
         sender.sendMessage(Component.text(languages.t(language,
                 Message.IDENTITY_ADMIN_LOOKUP_TITLE, playerName), NamedTextColor.AQUA));
         for (IdentityBinding binding : bindings) {
-            sender.sendMessage(Component.text(languages.t(language,
+            Component row = Component.text(languages.t(language,
                             Message.IDENTITY_ADMIN_BINDING_OWNER, binding.playerName(),
                             binding.playerId().toString().substring(0, 8)),
                             NamedTextColor.WHITE)
                     .append(Component.space())
-                    .append(bindingLine(binding, language)));
+                    .append(bindingLine(binding, language, true));
+            if (!(sender instanceof Player)) {
+                row = row.append(Component.text(" · " + unlinkCommand(binding, true), NamedTextColor.WHITE));
+            }
+            sender.sendMessage(row);
         }
     }
 
@@ -156,14 +140,14 @@ final class IdentityBindingCommandPresenter {
                 NamedTextColor.RED));
     }
 
-    void adminBindingUnlinked(
-            CommandSender sender,
-            String platformId,
-            String playerName,
-            int removedCount
-    ) {
+    void adminBindingUnlinked(CommandSender sender, IdentityBinding binding) {
         sender.sendMessage(text(sender, Message.IDENTITY_ADMIN_BINDING_UNLINKED,
-                NamedTextColor.GREEN, platformName(platformId), playerName, removedCount));
+                NamedTextColor.GREEN, platformName(binding.externalKey().platform()), binding.playerName()));
+    }
+
+    String selectionLabel(IdentityBinding binding) {
+        return platformName(binding.externalKey().platform()) + " · " + binding.externalDisplayName()
+                + " · " + binding.scopeDisplayName() + " · " + scopeFingerprint(binding.externalKey());
     }
 
     String platformName(String platformId) {
@@ -172,7 +156,7 @@ final class IdentityBindingCommandPresenter {
                 .orElse(platformId);
     }
 
-    private Component bindingLine(IdentityBinding binding, Language language) {
+    Component bindingLine(IdentityBinding binding, Language language, boolean admin) {
         String displayName = binding.externalDisplayName().isBlank()
                 ? languages.t(language, Message.UNKNOWN)
                 : binding.externalDisplayName();
@@ -180,11 +164,24 @@ final class IdentityBindingCommandPresenter {
                 .withLocale(language.locale())
                 .withZone(ZoneId.systemDefault())
                 .format(binding.createdAt());
+        String scopeLabel = binding.externalKey().scope().isEmpty()
+                ? languages.t(language, Message.IDENTITY_BINDING_ACCOUNT)
+                : binding.scopeDisplayName();
+        String origin = (scopeLabel.isBlank() ? "" : scopeLabel + " · ") + scopeFingerprint(binding.externalKey());
+        Component unlink = Component.text(languages.t(language, Message.IDENTITY_UNLINK_ACTION), NamedTextColor.YELLOW)
+                .clickEvent(ClickEvent.runCommand(unlinkCommand(binding, admin)))
+                .hoverEvent(HoverEvent.showText(Component.text(languages.t(language, Message.IDENTITY_UNLINK_HINT))));
         return Component.text(platformName(binding.externalKey().platform()),
                         NamedTextColor.AQUA)
                 .append(Component.text(languages.t(language,
                         Message.IDENTITY_BINDING_DETAILS, displayName,
-                        scopeFingerprint(binding.externalKey()), date), NamedTextColor.GRAY));
+                        origin, date), NamedTextColor.WHITE))
+                .append(Component.space()).append(unlink);
+    }
+
+    static String unlinkCommand(IdentityBinding binding, boolean admin) {
+        return admin ? "/bindadmin unlink " + binding.bindingId() + " confirm"
+                : "/bind unlink " + binding.bindingId();
     }
 
     private static String scopeFingerprint(ExternalIdentityKey key) {

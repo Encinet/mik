@@ -43,6 +43,8 @@ def checks = sourceSets.collect { sources ->
         maxHeapSize = '1g'
         def arguments = objects.newInstance(JavaWarningArguments)
         arguments.compileClasspath.from(sources.compileClasspath)
+        // Mixed Java/Kotlin source sets need their compiled Kotlin symbols during the Java warning pass.
+        arguments.compileClasspath.from(sources.output.classesDirs)
         arguments.sources.from(sources.allJava)
         arguments.preferences.set(layout.projectDirectory.file('.settings/org.eclipse.jdt.core.prefs'))
         arguments.javaVersion.set(java.toolchain.languageVersion.map { it.asInt() })

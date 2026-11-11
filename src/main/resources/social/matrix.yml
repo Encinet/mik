@@ -1,8 +1,13 @@
-# Matrix Client-Server API bot adapter. Encrypted rooms are not supported.
+# Matrix Client-Server API bot with a persistent Olm/Megolm device.
 enabled: false
 homeserver-url: "https://matrix-client.matrix.org"
 access-token: ""
 default-language: "zh_cn"
+
+encryption:
+  # Optional account recovery key: restores cross-signing secrets and room-key backup.
+  # Use a dedicated device token; keep social/matrix-crypto together with its database.key files.
+  recovery-key: ""
 
 sync:
   timeout-millis: 30000
@@ -14,11 +19,22 @@ sync:
 worker:
   max-concurrent-tasks: 64
 
-# Empty accepts every unencrypted room joined by the bot.
-allowed-room-ids: []
+# Required when enabled: rooms or Spaces granting server admission.
+# Use the !room ID, not its #alias. The bot must join each source.
+# Joining a child chat room does not grant membership in its parent Space.
+membership:
+  room-ids: []
+  # - "!communitySpace:example.org"
+
+# Required when enabled: chat rooms accepting bot commands, encrypted or unencrypted.
+# This list does not grant server admission or enable chat interoperability.
+commands:
+  room-ids: []
+  # - "!botChat:example.org"
 
 # Empty disables chat interoperability. inbound = Matrix to Minecraft;
 # outbound = Minecraft to Matrix. Each omitted direction defaults to always.
+# Routes are independent of membership and command rooms; the bot must join each room.
 chat-bridge:
   routes: []
   # Full interoperability example:

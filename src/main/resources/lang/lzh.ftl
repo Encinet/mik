@@ -475,6 +475,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [聲]
+chat-content-card = [卡]
+chat-content-contact = [名刺]
+chat-content-emote = [動作]
+chat-content-face = [表情]
+chat-content-file = [檔]
+chat-content-history = [談錄]
+chat-content-image = [圖]
+chat-content-location = [所在]
+chat-content-message = [訊]
+chat-content-multiple = [諸訊]
+chat-content-music = [樂]
+chat-content-notice = [告]
+chat-content-reply = [引言]
+chat-content-sticker = [貼圖]
+chat-content-video = [影]
 chat-copy-hover = 擊左鍵以鈔其訊
 chat-delay-3s = 3 秒
 chat-delay-5s = 5 秒
@@ -543,44 +559,53 @@ announcement-view-command-description = 覽伺服器告示
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = 未得獨一之玩家與臺繫。
+identity-admission-bind-rich = { $platform }：{ $command }
+identity-admission-instructions = 擇一平台，於其社群發令予機器人：
+identity-admission-pending = 舊繫暫不可驗。稍候再試，或另繫一平台帳
+identity-admission-reconnect = 繫成後重連伺服器
+identity-admission-required = 繫社群帳後即可入服
+identity-admission-revoked = 社群之繫已盡失，請重連以取繫令
+identity-admin-binding-not-found = 所選之繫已無存。
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = 已解玩家 { $arg1 } 之 { $arg0 } 繫 { $arg2 }。
+identity-admin-binding-unlinked = 已解玩家 { $arg1 } 所選之 { $arg0 } 繫。
 identity-admin-command-description = 察或解外臺身份之繫
 identity-admin-help = /bindadmin lookup <玩家或UUID>
-    /bindadmin unlink <玩家或UUID> <臺> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 未得此玩家之繫錄。
 identity-admin-lookup-title = { $arg0 } 之繫：
+identity-binding-account = 帳號共用
 identity-binding-details = · { $arg0 } · 域 { $arg1 } · { $arg2 }
-identity-binding-not-owned = 君於此臺無繫。
-identity-binding-unlinked = 已解 { $arg0 } 之繫 { $arg1 }。
+identity-binding-not-owned = 此繫無存，或非君所有。
+identity-binding-unlinked = 已解所選之 { $arg0 } 繫。
 identity-bindings-empty = 今未繫外臺之號。
 identity-bindings-title = 已繫之外部身份：
-identity-bindings-unlink-hint = 以 /bind unlink <臺> 解此臺諸繫。
+identity-bindings-unlink-hint = 點所選之「解繫」，唯除此繫。
 identity-code-cancelled = 已廢未用之 { $arg0 } 驗碼。
 identity-code-copy = 點此抄完整繫定之令
-identity-code-expiry = 驗碼五分而廢，且僅可一用；再取則舊碼失效。
-identity-code-issued = { $arg0 } 繫驗碼既成：
+identity-code-expiry = 驗碼效期：{ $arg0 } 分
 identity-code-not-pending = 無待用之 { $arg0 } 驗碼。
-identity-code-redeem = 至所欲之 { $arg0 } 群，呼機關人而發：{ $arg1 }
+identity-code-redeem-rich = 於 { $platform } 社群發予機器人：{ $command }
 identity-command-description = 繫 Minecraft 與外臺之身份
+identity-community-join-rich = 入社群：{ $link }
 identity-help = 身份繫定之令：
     /bind qq — 速取 QQ 繫定之令
     /bind <臺> — 取一次驗碼
     /bind list — 察既有之繫
     /bind cancel <臺> — 廢待用驗碼
-    /bind unlink <臺> — 解此臺諸繫
-identity-notify-linked = { $arg0 } 身份已繫。可用 /bind list 察之，或用 /bind unlink { $arg0 } 解之。
+    /bind unlink — 擇一繫而解之
+identity-notify-linked = { $arg0 } 身份已繫。以 /bind list 察而理之。
 identity-notify-unlinked = 已解君之 { $arg0 } 身份繫。
 identity-platform-none = 無
 identity-platforms = 所納之臺：{ $arg0 }
-identity-scope-notice = 此臺身份以群為界；當於所欲之群繫之，異群須各繫。
 identity-storage-error = 身份繫庫行事敗，請告司者。
 identity-unavailable = 身份繫定之務今不可用，請告司者。
+identity-unlink-action = [解繫]
+identity-unlink-hint = 唯解此繫。
 identity-unsupported-platform = 此臺未納：{ $arg0 }
 social-admin-conversations-empty = 未見 { $arg0 } 之談。
 social-admin-conversations-title = 所見 { $arg0 } 之談：
 social-admin-help = /social platforms · /social status [臺] · /social reload [臺] · /social conversations <臺>
+social-admin-metrics = 入 { $arg0 }／重試 { $arg1 } · 出 { $arg2 }／背壓 { $arg3 } · 敗 { $arg4 }
 social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
 social-admin-reloaded = 社交臺 { $arg0 } 已重載。
 social-admin-reloaded-all = 社交諸臺皆已重載。
@@ -588,9 +613,9 @@ social-admin-status = { $arg0 } · { $arg1 } · 世 { $arg2 } · 談 { $arg3 }
 social-admin-title = 社交諸臺
 social-admin-unknown = 未識之社交臺：{ $arg0 }
 social-binding-already-linked = 此臺身分已繫 Minecraft 遊者 { $arg0 }。
-social-binding-code-invalid = 驗碼無效或已過期。請於 Minecraft 復行 /bind { $arg0 }。
+social-binding-code-invalid = 驗碼無效或已過期。請重連取新碼，或於遊戲中行 /bind { $arg0 }。
 social-binding-external-in-use = 此臺身分已繫他 Minecraft 遊者。
-social-binding-help = 於 Minecraft 行 /bind { $arg0 }。
+social-binding-help = 先嘗連服，於登入之示取驗碼；已入服者可行 /bind { $arg0 }。
     錄所得完整之令。
     發於此。
     以 /吾 驗之。
@@ -598,13 +623,50 @@ social-binding-identity-missing = 此訊無可信之臺員身分，故不可繫�
 social-binding-linked = 已繫 Minecraft 遊者 { $arg0 }。
 social-binding-not-bound = 此臺身分未繫 Minecraft 遊者。
 social-binding-platform-mismatch = 此驗碼乃為他臺所發。
-social-binding-player-scope-in-use = 此 Minecraft 遊者於本談已有他身分之繫。
+social-binding-player-scope-in-use = 此 Minecraft 玩家於同臺帳域已有他身。
 social-binding-rate-limited = 試驗碼過頻，請約 { $arg0 } 分後復試。
-social-binding-status-unbound = 此臺身分未繫。請用遊戲中所得驗碼行 /繫。
 social-binding-unavailable = 身分之繫暫不可用。
-social-binding-unlink-prompt = 解繫將去此臺身分與 Minecraft 之關聯。若決，請發 /解繫 確認。
+social-binding-unlink-prompt = 解繫將去此臺身分與 Minecraft 之關聯。若決，請發 { $arg0 }。
 social-binding-unlinked = 已解與 Minecraft 遊者 { $arg0 } 之繫。
 social-command-description = 治社交諸臺之接器
+social-crypto-command-description = 管理 Matrix 密鑰驗證
+social-crypto-comparison-not-ready = SAS 尚不可比。
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = 驗證未成，請閱伺服器日誌。
+social-crypto-no-active = 今無進行中之設備驗證。
+social-crypto-not-accepting = 今之驗證階段不可接受請求。
+social-crypto-not-running = Matrix 尚未運行。
+social-crypto-requested = 已請驗證：{ $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] 初備中
+    [verified] 已驗
+    [unverified] 未驗
+    [no_cross_signing] 未啟交叉簽章
+    [requested] 已請
+    [ready] 已備
+    [started] 已始
+    [comparison] 待比
+    [waiting] 待成
+    [done] 已成
+    [cancelled] 已撤
+   *[unknown] 未詳
+    [valid] 鑰有效
+    [cross_signed] 已交叉簽章
+    [not_cross_signed] 未交叉簽章
+    [blocked] 已屏
+    [invalid] 鑰無效
+    }
+social-crypto-status = 驗證：{ $arg0 }
+    密鑰備份版：{ $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = 請具目前驗證事務之全 ID。
+social-crypto-unavailable = 不可用
+social-crypto-updated = 驗證已更；以 matrixcrypto status 查之。
+social-crypto-usage = matrixcrypto status [用戶ID 設備ID]
+    matrixcrypto verify <用戶ID> <設備ID>
+    matrixcrypto accept|confirm|cancel <事務ID>
 social-duration-days = { $arg0 } 日 { $arg1 } 時 { $arg2 } 分
 social-duration-hours = { $arg0 } 時 { $arg1 } 分
 social-duration-minutes = { $arg0 } 分
@@ -627,11 +689,16 @@ social-profile-presence-label = 狀況
 social-profile-target-ambiguous = 惟可擇一：玩家名、提及一人、或覆一人。
 social-profile-target-unbound = 所提及或所覆之身份未繫 Minecraft 玩家。
 social-profile-uuid-label = UUID
-social-query-active-label = 活躍
+social-query-metric = { $arg0 }
 social-query-no-players = 今無遊者在綫。
 social-query-online-label = 在綫
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (暫離)
+   *[active] { $arg0 }
+    }
 social-query-players-label = 遊者
-social-query-unknown = 未識此令。請發 /助 以觀諸令。
+social-query-population = 在綫 { $arg0 }/{ $arg1 } · 活躍 { $arg2 } · 暫離 { $arg3 }
+social-query-unknown = 未識此令。請發 { $arg0 } 以觀諸令。
 social-query-uptime-label = 運行之時
 social-reply-hidden = 回覆犯伺服器內容安全之則，原文已隱。
 social-state-disabled = 已禁
@@ -1801,16 +1868,6 @@ tpsbar-hidden = TPS 之欄既隱
 tpsbar-shown = TPS 之欄既顯
 tpsbar-tip-status-mm = 以 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 啟閉<yellow>TPS、MSPT 與延遲</yellow>欄
 unban-command-description = 赦玩家而留封禁之錄
-whitelist-already-whitelisted = { $arg0 } 已在準簿中
-whitelist-invalid-name = 戲者之名式有誤
-whitelist-kick-apply-rich = 往 { $site } 求入準簿
-whitelist-kick-title = 君未在準簿中
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = { $arg0 } 既納暫準簿，限 { $arg1 }
-whitelist-temp-added-rich = { $player } 既納暫準簿，限 { $duration }
-whitelist-temp-command-description = 納一時之暫準簿
-whitelist-temp-duration = 1 時
-whitelist-temp-usage-desc = 納一時之暫準簿
 
 ## Shell · Menus, server information and scripting
 

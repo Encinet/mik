@@ -575,6 +575,22 @@ self-kick-without-reason = { $person ->
 
 ## Community · Chat and mentions
 
+chat-content-audio = [Аудіо]
+chat-content-card = [Картка]
+chat-content-contact = [Контакт]
+chat-content-emote = [Дія]
+chat-content-face = [Емодзі]
+chat-content-file = [Файл]
+chat-content-history = [Історія чату]
+chat-content-image = [Зображення]
+chat-content-location = [Місце]
+chat-content-message = [Повідомлення]
+chat-content-multiple = [Кілька повідомлень]
+chat-content-music = [Музика]
+chat-content-notice = [Сповіщення]
+chat-content-reply = [Цитоване повідомлення]
+chat-content-sticker = [Наліпка]
+chat-content-video = [Відео]
 chat-copy-hover = ЛКМ: скопіювати повідомлення
 chat-delay-3s = 3 секунди
 chat-delay-5s = 5 секунд
@@ -648,54 +664,58 @@ announcement-view-command-description = Переглянути оголошен�
 
 ## Community · Identity and social platforms
 
-identity-admin-binding-not-found = Однозначну прив’язку гравця й платформи не знайдено.
+identity-admission-bind-rich = { $platform }: { $command }
+identity-admission-instructions = Виберіть платформу й надішліть її команду боту спільноти:
+identity-admission-pending = Поки що не вдалося перевірити поточну прив’язку. Спробуйте пізніше або прив’яжіть обліковий запис іншої платформи.
+identity-admission-reconnect = Після прив’язування підключіться до сервера знову.
+identity-admission-required = Прив’яжіть обліковий запис спільноти, щоб увійти на сервер.
+identity-admission-revoked = У вас більше немає чинних прив’язок спільноти. Під’єднайтеся знову, щоб отримати інструкції.
+identity-admin-binding-not-found = Вибрана прив’язка більше не існує.
 identity-admin-binding-owner = { $arg0 } [{ $arg1 }]
-identity-admin-binding-unlinked = Для { $arg1 } видалено: { $arg2 ->
-        [one] { $arg2 } прив’язка
-        [few] { $arg2 } прив’язки
-        [many] { $arg2 } прив’язок
-       *[other] { $arg2 } прив’язки
-    } ({ $arg0 }).
+identity-admin-binding-unlinked = Вибрану прив’язку { $arg0 } гравця { $arg1 } видалено.
 identity-admin-command-description = Переглянути або відкликати зовнішні прив’язки
 identity-admin-help = /bindadmin lookup <гравець-або-UUID>
-    /bindadmin unlink <гравець-або-UUID> <платформа> confirm
+    /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Прив’язок цього гравця не знайдено.
 identity-admin-lookup-title = Прив’язки гравця { $arg0 }:
+identity-binding-account = Увесь обліковий запис
 identity-binding-details = · { $arg0 } · область { $arg1 } · { $arg2 }
-identity-binding-not-owned = У вас немає прив’язок для цієї платформи.
-identity-binding-unlinked = Видалено: { $arg1 ->
-        [one] { $arg1 } прив’язка
-        [few] { $arg1 } прив’язки
-        [many] { $arg1 } прив’язок
-       *[other] { $arg1 } прив’язки
-    } ({ $arg0 }).
+identity-binding-not-owned = Вибрана прив’язка більше не існує або належить іншому гравцеві.
+identity-binding-unlinked = Вибрану прив’язку { $arg0 } видалено.
 identity-bindings-empty = Ви не прив’язали жодного облікового запису зовнішньої платформи.
 identity-bindings-title = Прив’язані зовнішні облікові записи:
-identity-bindings-unlink-hint = Використайте /bind unlink <платформа>, щоб видалити всі прив’язки платформи.
+identity-bindings-unlink-hint = Натисніть «Відв’язати» біля потрібного запису.
 identity-code-cancelled = Невикористаний код прив’язки { $arg0 } скасовано.
 identity-code-copy = Натисніть, щоб скопіювати повну команду прив’язки
-identity-code-expiry = Код дійсний 5 хвилин і використовується один раз. Створення нового коду скасовує старий.
-identity-code-issued = Код прив’язки для { $arg0 } створено:
+identity-code-expiry = Термін дії коду: { $arg0 ->
+    [one] { $arg0 } хвилина
+    [few] { $arg0 } хвилини
+    [many] { $arg0 } хвилин
+   *[other] { $arg0 } хвилини
+    }
 identity-code-not-pending = Невикористаного коду прив’язки { $arg0 } немає.
-identity-code-redeem = У потрібній групі { $arg0 } згадайте бота й надішліть: { $arg1 }
+identity-code-redeem-rich = Надішліть боту своєї спільноти в { $platform }: { $command }
 identity-command-description = Прив’язати Minecraft до облікового запису зовнішньої платформи
+identity-community-join-rich = Приєднатися до спільноти: { $link }
 identity-help = Команди прив’язки облікового запису:
     /bind qq — швидко створити команду прив’язки QQ
     /bind <платформа> — створити одноразовий код
     /bind list — показати наявні прив’язки
     /bind cancel <платформа> — скасувати невикористаний код
-    /bind unlink <платформа> — видалити всі прив’язки платформи
-identity-notify-linked = Вашу особу { $arg0 } підтверджено. Перегляд: /bind list; видалення: /bind unlink { $arg0 }.
+    /bind unlink — Вибрати одну прив’язку для видалення
+identity-notify-linked = Ваш обліковий запис { $arg0 } прив’язано. Перегляд і керування прив’язками: /bind list.
 identity-notify-unlinked = Вашу прив’язку { $arg0 } видалено.
 identity-platform-none = немає
 identity-platforms = Підтримувані платформи: { $arg0 }
-identity-scope-notice = Ця платформа розділяє облікові записи за групами. Виконайте прив’язку в потрібній групі; кожну групу треба прив’язати окремо.
 identity-storage-error = Помилка операції з базою прив’язок. Зверніться до адміністратора.
 identity-unavailable = Прив’язка облікових записів зараз недоступна. Зверніться до адміністратора.
+identity-unlink-action = [Відв’язати]
+identity-unlink-hint = Видалити лише цю вибрану прив’язку.
 identity-unsupported-platform = Непідтримувана платформа: { $arg0 }
 social-admin-conversations-empty = Для { $arg0 } не виявлено розмов.
 social-admin-conversations-title = Виявлені розмови для { $arg0 }:
 social-admin-help = /social platforms · /social status [платформа] · /social reload [платформа] · /social conversations <платформа>
+social-admin-metrics = Вхідні { $arg0 } / повтори { $arg1 } · вихідні { $arg2 } / зворотний тиск { $arg3 } · збої { $arg4 }
 social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
 social-admin-reloaded = Соціальну платформу { $arg0 } перезавантажено.
 social-admin-reloaded-all = Усі соціальні платформи перезавантажено.
@@ -703,9 +723,9 @@ social-admin-status = { $arg0 } · { $arg1 } · покоління { $arg2 } · 
 social-admin-title = Соціальні платформи
 social-admin-unknown = Невідома соціальна платформа: { $arg0 }
 social-binding-already-linked = Цю особу вже прив’язано до гравця Minecraft { $arg0 }.
-social-binding-code-invalid = Код підтвердження недійсний або прострочений. Створіть новий командою /bind { $arg0 } у Minecraft.
+social-binding-code-invalid = Код недійсний або прострочений. Під’єднайтеся знову для отримання нового коду або скористайтеся /bind { $arg0 } у грі.
 social-binding-external-in-use = Цю особу вже прив’язано до іншого гравця Minecraft.
-social-binding-help = Виконайте /bind { $arg0 } у Minecraft.
+social-binding-help = Спробуйте під’єднатися до сервера: код з’явиться на екрані входу. Якщо ви вже в грі, скористайтеся /bind { $arg0 }.
     Скопіюйте створену повну команду.
     Надішліть цю команду сюди.
     Перевірте прив’язку командою /профіль.
@@ -713,18 +733,55 @@ social-binding-identity-missing = У цьому повідомленні нем�
 social-binding-linked = Прив’язано до гравця Minecraft { $arg0 }.
 social-binding-not-bound = Цю особу платформи не прив’язано.
 social-binding-platform-mismatch = Цей код підтвердження видано для іншої платформи.
-social-binding-player-scope-in-use = Цей гравець Minecraft уже має іншу прив’язану особу в цій розмові.
+social-binding-player-scope-in-use = Цей гравець Minecraft уже має іншу прив’язку в тій самій області облікового запису платформи.
 social-binding-rate-limited = Забагато невдалих спроб. Повторіть приблизно через { $arg0 ->
         [one] { $arg0 } хвилину
         [few] { $arg0 } хвилини
         [many] { $arg0 } хвилин
        *[other] { $arg0 } хвилини
     }.
-social-binding-status-unbound = Цю особу не прив’язано. Використайте /прив’язати з кодом підтвердження.
 social-binding-unavailable = Прив’язування особи тимчасово недоступне.
-social-binding-unlink-prompt = Відв’язування видалить зв’язок цієї особи з Minecraft. Щоб продовжити, надішліть /відв’язати підтвердити.
+social-binding-unlink-prompt = Відв’язування видалить зв’язок цієї особи з Minecraft. Щоб продовжити, надішліть { $arg0 }.
 social-binding-unlinked = Відв’язано від гравця Minecraft { $arg0 }.
 social-command-description = Керування адаптерами соціальних платформ
+social-crypto-command-description = Керування перевіркою пристроїв шифрування Matrix
+social-crypto-comparison-not-ready = Порівняння SAS ще не готове.
+social-crypto-device = { $arg0 } / { $arg1 }
+    Ed25519: { $arg2 }
+social-crypto-failed = Не вдалося перевірити пристрій. Перегляньте журнал сервера.
+social-crypto-no-active = Немає активної перевірки пристрою.
+social-crypto-not-accepting = Ця перевірка не очікує прийняття.
+social-crypto-not-running = Matrix не запущено.
+social-crypto-requested = Запитано перевірку: { $arg0 }
+social-crypto-state = { $arg0 ->
+    [initializing] Ініціалізація
+    [verified] Підтверджено
+    [unverified] Не підтверджено
+    [no_cross_signing] Перехресний підпис вимкнено
+    [requested] Запитано
+    [ready] Готово
+    [started] Розпочато
+    [comparison] Очікування порівняння
+    [waiting] Очікування завершення
+    [done] Завершено
+    [cancelled] Скасовано
+   *[unknown] Невідомо
+    [valid] Дійсний ключ
+    [cross_signed] Перехресний підпис
+    [not_cross_signed] Без перехресного підпису
+    [blocked] Заблоковано
+    [invalid] Недійсний ключ
+    }
+social-crypto-status = Перевірка: { $arg0 }
+    Версія резервної копії ключів: { $arg1 }
+social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
+social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
+social-crypto-transaction-required = Укажіть повний ID поточної транзакції перевірки.
+social-crypto-unavailable = Недоступно
+social-crypto-updated = Перевірку оновлено; скористайтеся matrixcrypto status.
+social-crypto-usage = matrixcrypto status [ID-користувача ID-пристрою]
+    matrixcrypto verify <ID-користувача> <ID-пристрою>
+    matrixcrypto accept|confirm|cancel <ID-транзакції>
 social-duration-days = { $arg0 ->
         [one] { $arg0 } день
         [few] { $arg0 } дні
@@ -752,11 +809,16 @@ social-profile-presence-label = Стан
 social-profile-target-ambiguous = Виберіть одну ціль: ім’я гравця, одну згадку або одного автора відповіді.
 social-profile-target-unbound = Згадану особу або автора повідомлення, на яке відповіли, не прив’язано до Minecraft.
 social-profile-uuid-label = UUID
-social-query-active-label = Активні
+social-query-metric = { $arg0 }
 social-query-no-players = Зараз немає гравців онлайн.
 social-query-online-label = Онлайн
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (Відійшли)
+   *[active] { $arg0 }
+    }
 social-query-players-label = Гравці
-social-query-unknown = Невідома команда. Надішліть /допомога, щоб переглянути доступні команди.
+social-query-population = Онлайн { $arg0 }/{ $arg1 } · Активні { $arg2 } · Відійшли { $arg3 }
+social-query-unknown = Невідома команда. Надішліть { $arg0 }, щоб переглянути доступні команди.
 social-query-uptime-label = Час роботи
 social-reply-hidden = Відповідь приховано політикою безпеки вмісту сервера.
 social-state-disabled = вимкнено
@@ -2093,16 +2155,6 @@ tpsbar-hidden = Панель TPS прихована
 tpsbar-shown = Панель TPS показана
 tpsbar-tip-status-mm = Покажіть або приховайте панель <yellow>TPS, MSPT і пінгу</yellow> командою <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Зняти блокування зі збереженням історії
-whitelist-already-whitelisted = { $arg0 } уже в білому списку
-whitelist-invalid-name = Неприпустимий формат імені гравця
-whitelist-kick-apply-rich = Подайте заявку до білого списку на { $site }
-whitelist-kick-title = Вас немає в білому списку
-whitelist-kick-website-rich = { main-website }: { $site }
-whitelist-temp-added-plain = Гравця { $arg0 } додано до білого списку на { $arg1 }
-whitelist-temp-added-rich = Гравця { $player } додано до білого списку на { $duration }
-whitelist-temp-command-description = Тимчасово додати гравця до білого списку на 1 годину
-whitelist-temp-duration = 1 година
-whitelist-temp-usage-desc = Тимчасово додати гравця до білого списку на 1 годину
 
 ## Shell · Menus, server information and scripting
 

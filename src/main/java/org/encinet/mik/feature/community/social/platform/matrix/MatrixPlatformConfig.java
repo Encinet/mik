@@ -3,24 +3,16 @@ package org.encinet.mik.feature.community.social.platform.matrix;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.Language;
-import org.encinet.mik.feature.community.social.api.SocialConversation;
-import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
-import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
 
 import java.io.File;
 import java.net.URI;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
 
 /** Validated Matrix Client-Server API configuration. */
 public record MatrixPlatformConfig(
         boolean enabled,
         URI homeserverUri,
         String accessToken,
+        String recoveryKey,
         long syncTimeoutMillis,
         int syncMaxResponseBytes,
         long reconnectBaseDelayMillis,
@@ -28,8 +20,7 @@ public record MatrixPlatformConfig(
         int maxReconnectAttempts,
         int workerMaxConcurrentTasks,
         Language defaultLanguage,
-        Set<String> allowedRoomIds,
-        List<SocialChatRoute> chatRoutes,
+        MatrixRoomPolicy rooms,
         boolean contentSafetyEnabled,
         int maxOutboundLength
 ) {
@@ -52,6 +43,8 @@ public record MatrixPlatformConfig(
                 "homeserver-url");
         String accessToken = configuredValue(yaml.getString("access-token", ""));
         requireNoControls(accessToken, "access-token");
+        String recoveryKey = configuredValue(yaml.getString("encryption.recovery-key", ""));
+        requireNoControls(recoveryKey, "encryption.recovery-key");
 
         long syncTimeoutMillis = requireRange(
                 yaml.getLong("sync.timeout-millis", 30_000L),
@@ -76,8 +69,7 @@ public record MatrixPlatformConfig(
                         configuredValue(yaml.getString("default-language", "zh_cn")))
                 .orElseThrow(() -> new IllegalArgumentException(
                         "default-language is not supported"));
-        Set<String> allowedRooms = roomIds(yaml, "allowed-room-ids");
-        List<SocialChatRoute> chatRoutes = chatRoutes(yaml, allowedRooms);
+        MatrixRoomPolicy rooms = MatrixRoomPolicy.from(yaml);
         boolean contentSafety = yaml.getBoolean("content-safety.enabled", true);
         int maxLength = (int) clamp(
                 yaml.getInt("reply.max-message-length", 4_000), 100, 8_000);
@@ -86,84 +78,23 @@ public record MatrixPlatformConfig(
             throw new IllegalArgumentException(
                     FILE_NAME + " is enabled, but access-token is missing");
         }
-        return new MatrixPlatformConfig(enabled, homeserver, accessToken,
+        if (enabled && rooms.membershipRoomIds().isEmpty()) {
+            throw new IllegalArgumentException("membership.room-ids must name the rooms or spaces granting server admission");
+        }
+        if (enabled && rooms.commandRoomIds().isEmpty()) {
+            throw new IllegalArgumentException("commands.room-ids must name the chat rooms accepting binding commands");
+        }
+        return new MatrixPlatformConfig(enabled, homeserver, accessToken, recoveryKey,
                 syncTimeoutMillis, syncMaxResponseBytes,
                 reconnectBaseDelayMillis, reconnectMaxDelayMillis,
                 maxReconnectAttempts, workerMaxConcurrentTasks,
-                defaultLanguage, allowedRooms, chatRoutes,
+                defaultLanguage, rooms,
                 contentSafety, maxLength);
-    }
-
-    public boolean acceptsRoom(String roomId) {
-        return allowedRoomIds.isEmpty() || allowedRoomIds.contains(roomId);
-    }
-
-    public Optional<SocialChatRoute> chatRoute(String roomId) {
-        return chatRoutes.stream()
-                .filter(route -> route.conversation().id().equals(roomId))
-                .findFirst();
     }
 
     public URI apiUri(String path) {
         String base = homeserverUri.toString();
         return URI.create(base + (path.startsWith("/") ? path : "/" + path));
-    }
-
-    private static Set<String> roomIds(YamlConfiguration yaml, String path) {
-        LinkedHashSet<String> values = new LinkedHashSet<>();
-        for (String value : yaml.getStringList(path)) {
-            String roomId = configuredValue(value);
-            if (roomId.isEmpty()) {
-                continue;
-            }
-            if (!roomId.startsWith("!") || roomId.length() > 255) {
-                throw new IllegalArgumentException(
-                        path + " entries must be Matrix room IDs beginning with '!'");
-            }
-            requireNoControls(roomId, path);
-            values.add(roomId);
-            if (values.size() > 256) {
-                throw new IllegalArgumentException(path + " supports at most 256 rooms");
-            }
-        }
-        return Collections.unmodifiableSet(values);
-    }
-
-    private static List<SocialChatRoute> chatRoutes(
-            YamlConfiguration yaml,
-            Set<String> allowedRooms
-    ) {
-        java.util.ArrayList<SocialChatRoute> routes = new java.util.ArrayList<>();
-        LinkedHashSet<String> roomIds = new LinkedHashSet<>();
-        for (Map<?, ?> entry : yaml.getMapList("chat-bridge.routes")) {
-            String roomId = configuredValue(string(entry.get("room-id")));
-            if (!roomId.startsWith("!") || roomId.length() > 255) {
-                throw new IllegalArgumentException(
-                        "chat-bridge.routes room-id must be a Matrix room ID beginning with '!'");
-            }
-            requireNoControls(roomId, "chat-bridge.routes room-id");
-            if (!allowedRooms.isEmpty() && !allowedRooms.contains(roomId)) {
-                throw new IllegalArgumentException(
-                        "chat-bridge.routes room-id must also appear in allowed-room-ids");
-            }
-            if (!roomIds.add(roomId)) {
-                throw new IllegalArgumentException(
-                        "chat-bridge.routes contains duplicate room-id " + roomId);
-            }
-            routes.add(new SocialChatRoute(
-                    new SocialConversation(roomId, SocialConversation.Type.GROUP),
-                    SocialChatPolicy.fromConfig(entry.get("inbound"), "chat-bridge.routes inbound"),
-                    SocialChatPolicy.fromConfig(entry.get("outbound"), "chat-bridge.routes outbound")));
-            if (routes.size() > 256) {
-                throw new IllegalArgumentException(
-                        "chat-bridge.routes supports at most 256 rooms");
-            }
-        }
-        return List.copyOf(routes);
-    }
-
-    private static String string(Object value) {
-        return value instanceof String text ? text : "";
     }
 
     private static URI parseHttpUri(String value, String field) {

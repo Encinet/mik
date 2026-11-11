@@ -99,6 +99,6 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
                                 binding.playerId(), binding.playerName()))
                         .orElse(mention)).toList();
         return new org.encinet.mik.feature.community.chat.model.ChatReferences(
-                references.replyTo(), references.threadRoot(), mentions);
+                references.replyTo(), references.threadRoot(), mentions, references.placeholders());
     }
 }

@@ -157,6 +157,7 @@ class QqGatewayDiscoveryTest {
                 enabled: true
                 app-id: app
                 app-secret: secret
+                allowed-group-openids: [group-id, group, group-a]
                 """);
         return QqPlatformConfig.from(yaml);
     }

@@ -3,7 +3,6 @@ package org.encinet.mik.bootstrap;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.server.access.MaintenanceModule;
 import org.encinet.mik.feature.server.access.RestrictionModule;
-import org.encinet.mik.feature.server.access.WhitelistModule;
 import org.encinet.mik.feature.server.auth.AuthenticationFallbackModule;
 import org.encinet.mik.feature.server.ban.BanModule;
 import org.encinet.mik.feature.server.performance.NetworkEgressModule;
@@ -73,10 +72,6 @@ record ServerFeatures(BanModule bans) {
 
         TrampleProtectionModule trampleProtectionModule = new TrampleProtectionModule(plugin);
         lifecycle.startManaged("trample-protection", trampleProtectionModule::enable, trampleProtectionModule::disable);
-
-        WhitelistModule whitelistModule = new WhitelistModule(plugin, languageService);
-        lifecycle.startListener("whitelist", whitelistModule, whitelistModule::enable);
-        whitelistModule.registerCommands(plugin.getLifecycleManager());
 
         MotdModule motdModule = new MotdModule(plugin, afkModule, languageService, playerAddressModule);
         lifecycle.startManaged("motd", motdModule::enable, motdModule::disable);

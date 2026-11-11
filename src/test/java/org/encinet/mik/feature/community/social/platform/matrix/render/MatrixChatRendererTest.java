@@ -48,7 +48,7 @@ class MatrixChatRendererTest {
         assertTrue(rendered.html().contains(
                 "<a href=\"https://zh.minecraft.wiki/w/%E9%92%BB%E7%9F%B3\">"));
         assertTrue(rendered.html().contains("<u>"));
-        assertTrue(rendered.html().contains("<font color=\"#4EA5FF\">"));
+        assertTrue(rendered.html().contains("<span data-mx-color=\"#4EA5FF\">"));
     }
 
     @Test
@@ -90,7 +90,7 @@ class MatrixChatRendererTest {
         String html = MatrixChatRenderer.render(
                 message("ignored", content), 4_000).html();
 
-        assertTrue(html.contains("<font color=\"#55D6FF\">"));
+        assertTrue(html.contains("<span data-mx-color=\"#55D6FF\">"));
         assertTrue(html.contains("href=\"https://example.org\""));
         assertFalse(html.contains("<u>"));
     }
@@ -171,7 +171,7 @@ class MatrixChatRendererTest {
         assertEquals(Set.of("@alex:one.example", "@alex:two.example"),
                 rendered.mentionedUserIds());
         assertTrue(rendered.html().contains(
-                "https://matrix.to/#/@alex:one.example"));
+                "https://matrix.to/#/%40alex%3Aone.example"));
         assertTrue(rendered.html().contains(">Alex One</a>"));
     }
 

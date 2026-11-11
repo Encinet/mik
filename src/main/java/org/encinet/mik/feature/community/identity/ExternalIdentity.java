@@ -3,13 +3,18 @@ package org.encinet.mik.feature.community.identity;
 import java.util.Objects;
 
 /** An authenticated identity supplied by a platform adapter. */
-public record ExternalIdentity(ExternalIdentityKey key, String displayName) {
+public record ExternalIdentity(ExternalIdentityKey key, String displayName, String scopeDisplayName) {
 
     private static final int MAX_DISPLAY_NAME_LENGTH = 64;
+
+    public ExternalIdentity(ExternalIdentityKey key, String displayName) {
+        this(key, displayName, "");
+    }
 
     public ExternalIdentity {
         key = Objects.requireNonNull(key, "key");
         displayName = cleanDisplayName(displayName);
+        scopeDisplayName = key.scope().isEmpty() ? "" : cleanDisplayName(scopeDisplayName);
     }
 
     private static String cleanDisplayName(String value) {
