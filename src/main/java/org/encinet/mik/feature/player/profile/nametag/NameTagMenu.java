@@ -162,7 +162,7 @@ final class NameTagMenu implements Listener, AutoCloseable {
             if (unavailable != null) confirm.disabled(unavailable);
             else if (!edit.canSave()) confirm.disabled(edit.saving() ? label(viewer, Message.NAMETAG_SAVING)
                     : !edit.valid() ? firstFailure(viewer, edit) : label(viewer, Message.NAMETAG_NO_CHANGES));
-            var cancel = menu.control("cancel", label(viewer, Message.NAMETAG_CANCEL)).region("edit-actions")
+            var cancel = menu.control("cancel", label(viewer, Message.CANCEL)).region("edit-actions")
                     .primary((player, _) -> {
                         if (closed || !workspaces.contains(workspace) || workspace.edit != edit || edit.saving()) return;
                         endEdit(workspace); workspace.notice = null; show(player, workspace);

@@ -14,6 +14,9 @@ ATTRIBUTE = re.compile(r"^\s+\.([a-z][a-z0-9-]*)\s*=", re.MULTILINE)
 VARIABLE = re.compile(r"\$([a-zA-Z][a-zA-Z0-9_]*)")
 REFERENCE = re.compile(r"\{\s*(-?[a-z][a-z0-9-]*)(?:\.([a-z][a-z0-9-]*))?(?=\s*(?:[}(]|->))")
 SELECTOR = re.compile(r"\{\s*\$([a-zA-Z][a-zA-Z0-9_]*)\s*->")
+TEXT_FRAGMENT = re.compile(
+    r"^\s*(\*?\[[^\]]+\]|\.[a-z][a-z0-9-]*\s*=)\s*(.*)$", re.MULTILINE
+)
 SHORTHAND = re.compile(r"\$\d+")
 PSEUDO_PLURAL = re.compile(r"\w+\((?:s|es|n|en|ов|ей|ів)\)|을\(를\)|이\(가\)|은\(는\)|와\(과\)|\(으\)로")
 TECHNICAL = re.compile(
@@ -23,7 +26,7 @@ TECHNICAL = re.compile(
 # These are also native French / Dutch, or consist entirely of actual command syntax.
 SHARED_PROSE = {
     "fr_fr": {"governance-minutes", "social-duration-minutes"},
-    "nl_nl": {"nametag-online-editor", "social-admin-help"},
+    "nl_nl": {"social-admin-help"},
 }
 
 
@@ -80,6 +83,13 @@ def english_words(body):
     body = re.sub(r"\{[^{}]*\}|<[^>]*>|\[.*?\]", " ", body)
     body = TECHNICAL.sub(" ", body)
     return re.findall(r"[A-Za-z]{2,}", body)
+
+
+def copied_english_fragments(reference, body):
+    """Find untranslated variants and attributes inside a partially translated entry."""
+    reference_text = {" ".join(text.split()) for _, text in TEXT_FRAGMENT.findall(reference)}
+    return [(label, text) for label, text in TEXT_FRAGMENT.findall(body)
+            if " ".join(text.split()) in reference_text and len(english_words(text)) >= 2]
 
 
 def audit():
@@ -139,11 +149,13 @@ def audit():
             person_messages += "person" in selectors
             if key in contracts and arguments(entries, key) != contracts[key]:
                 errors.append(f"{where}: arguments {sorted(arguments(entries, key))} differ from {sorted(contracts[key])}")
-            if (locale != "en_us" and key in reference
-                    and " ".join(entry.body.split()) == " ".join(reference[key].body.split())
-                    and key not in SHARED_PROSE.get(locale, set())
-                    and len(english_words(entry.body)) >= 2):
-                errors.append(f"{where}: unchanged multiword English text")
+            if locale != "en_us" and key in reference and key not in SHARED_PROSE.get(locale, set()):
+                if (" ".join(entry.body.split()) == " ".join(reference[key].body.split())
+                        and len(english_words(entry.body)) >= 2):
+                    errors.append(f"{where}: unchanged multiword English text")
+                else:
+                    for label, text in copied_english_fragments(reference[key].body, entry.body):
+                        errors.append(f"{where}: unchanged English in {label}: {text}")
 
         term_count = sum(key.startswith("-") for key in entries)
         print(f"{locale:7} {len(entries) - term_count:8} {term_count:6} {numeric_messages:17} {person_messages:16}")

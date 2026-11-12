@@ -213,7 +213,7 @@ password-invalid = Onjuist wachtwoord. Probeer opnieuw.
 password-keep-role = Moderators en beheerders kunnen hun wachtwoord niet verwijderen.
 password-login = Aanmelden
 password-login-expired = Je inlogverificatie is verlopen. Verbind opnieuw met de server.
-password-login-hint = Voer het serverwachtwoord in. Vergeten? Vraag het team om het opnieuw in te stellen.
+password-login-hint = Voer het wachtwoord van je account op deze server in. Ben je het vergeten? Vraag het team om het opnieuw in te stellen.
 password-mismatch = De nieuwe wachtwoorden komen niet overeen.
 password-new = Nieuw wachtwoord
 password-nomination-required = Stel een wachtwoord in voordat je solliciteert als moderator: /password set
@@ -239,7 +239,6 @@ password-title = Accountbeveiliging
 
 ## Player · Profile and tab list
 
-nametag-cancel = Annuleren
 nametag-clear = Wissen
 nametag-clear-hint = Verwijdert eigen waarden; overgenomen stijlen kunnen blijven.
 nametag-command-description = Pas naamlabels aan
@@ -323,14 +322,12 @@ home-action-delete = Thuislocatie verwijderen
 home-action-teleport = Teleporteren
 home-action-update = Locatie bijwerken
 home-already-exists = Er bestaat al een thuislocatie met deze naam
-home-back = Terug
 home-confirm-delete = Verwijderen bevestigen
 home-confirm-delete-detail-rich = Verwijder thuislocatie { $home }
 home-confirm-delete-warning = Dit kan niet ongedaan worden gemaakt
 home-confirm-update = Wijziging bevestigen
 home-confirm-update-detail-rich = Thuislocatie { $home } bijwerken naar deze locatie
 home-delete-command-description = Verwijder een thuislocatie
-home-delete-usage-desc = Verwijder een thuislocatie
 home-deleted-rich = Thuislocatie { $home } is verwijderd
 home-distance = Afstand: { $arg0 }
 home-distance-blocks = { $arg0 ->
@@ -344,7 +341,10 @@ home-invalid-name = Namen van thuislocaties mogen geen < > : bevatten
 home-list-rich = Thuislocaties: { $homes }
 home-location = Locatie: { $arg0 }, { $arg1 }, { $arg2 }
 home-location-invalid = De locatiegegevens van deze thuislocatie zijn ongeldig
-home-max-reached = Je kunt maximaal { $arg0 } thuislocaties instellen
+home-max-reached = Je kunt maximaal { $arg0 ->
+        [one] { $arg0 } thuislocatie
+       *[other] { $arg0 } thuislocaties
+    } instellen
 home-menu-title = Thuislocaties
 home-no-homes = Je hebt nog geen thuislocaties ingesteld
 home-not-found-rich = Thuislocatie { $home } bestaat niet
@@ -352,7 +352,6 @@ home-search-placeholder = Zoek huisnamen…
 home-search-empty = Geen overeenkomende thuislocaties
 home-set-command-description = Stel een thuislocatie in op je huidige locatie
 home-set-rich = Thuislocatie { $home } is ingesteld
-home-set-usage-desc = Stel een thuislocatie in op je huidige locatie
 home-summary-count = Ingesteld: { $arg0 } / { $arg1 }
 home-teleport-failed = Teleportatie mislukt. Probeer het opnieuw
 home-teleported-rich = Geteleporteerd naar thuislocatie { $home }
@@ -393,7 +392,6 @@ tpany-command-description = Teleporteer naar de locatie van een speler, online o
 tpany-done-offline-rich = Geteleporteerd naar de laatst bekende locatie van { $player }: { $world } { $location }
 tpany-done-online-rich = Geteleporteerd naar de huidige locatie van { $player }
 tpany-not-found-rich = Locatie van { $player } niet gevonden
-tpany-usage = Gebruik
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = Teleporteer naar de locatie van een speler, inclusief offlinecache
 
@@ -483,8 +481,11 @@ effect-cleanup-source = { $cause ->
 ## Player · Trash
 
 trash-clear = Legen
-trash-clear-hint = Klik om alle voorwerpen direct te verwijderen;
-    anders worden ze { $arg0 } seconden na het sluiten automatisch verwijderd.
+trash-clear-hint = Klik om alle voorwerpen direct te verwijderen.
+    Ze worden ook automatisch { $arg0 ->
+        [one] { $arg0 } seconde
+       *[other] { $arg0 } seconden
+    } na het sluiten verwijderd.
 trash-command-description = Open de prullenbak
 trash-sort = Sorteren
 trash-sort-hint = Gelijke stapels samenvoegen en voorwerpen op type sorteren
@@ -970,8 +971,6 @@ governance-kind-removal = Afzetting
 governance-legacy-ban-kick = Een eerdere bestuursstemming is aangenomen. Je hebt een ban voor { $arg0 }. Reden: { $arg1 }
 governance-menu-already-sponsored = Al gesteund
 governance-menu-application = Sollicitatiestatus
-governance-menu-back = Terug
-governance-menu-cancel = Annuleren
 governance-menu-completed = Afgerond
 governance-menu-confirm = Bevestigen
 governance-menu-confirm-nominate = Je sollicitatie start een stemming over je benoeming als moderator.
@@ -1095,7 +1094,6 @@ plot-area-replace-save = Grenzen vervangen en opslaan
 plot-area-save = Grenzen opslaan
 plot-area-saved = Grenzen van “{ $arg0 }” opgeslagen.
 plot-atmosphere-saved = Omgeving opgeslagen.
-plot-back = Terug
 plot-board-auto-notify-result = Meldingen voor { $arg0 ->
         [one] { $arg0 } speler
        *[other] { $arg0 } spelers
@@ -1202,11 +1200,9 @@ plot-menu-flag-container = Containers openen
 plot-menu-flag-entity = Entiteiten bedienen
 plot-menu-follow-parent = Hoofdperceel volgen
 plot-menu-follow-world = Wereld volgen
-plot-menu-group-admin = perceelbeheerder
 plot-menu-group-collaborator = Medewerkers
 plot-menu-group-member = Standaard voor leden
 plot-menu-group-newcomer = Standaard voor nieuwkomers
-plot-menu-group-owner = perceeleigenaar
 plot-menu-here = Huidige locatie
 plot-menu-manage = Percelen van spelers beheren
 plot-menu-managed-empty = Deze speler heeft nog geen percelen.
@@ -1226,7 +1222,6 @@ plot-menu-ruling = Licht het besluit toe (8–1000 tekens)
 plot-menu-set-role = Instellen als { $arg0 }
 plot-menu-settings = Projectinstellingen
 plot-menu-submit = Toepassen
-plot-menu-subplot-create = Deelperceel maken
 plot-menu-subplot-of = Onderdeel van { $arg0 }
 plot-menu-subplot-parent = Terug naar hoofdperceel: { $arg0 }
 plot-menu-subplots = Deelpercelen ({ $arg0 })
@@ -1572,7 +1567,6 @@ vehicle-model-corner-cancel = Lopend botsingsvak annuleren
 vehicle-model-corner-first = Eerste hoek bij mijn voeten markeren
 vehicle-model-corner-first-look = Eerste hoek op het gerichte oppervlak markeren
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Mijn voeten als tegenoverliggende hoek gebruiken en vak toevoegen
 vehicle-model-corner-second-look = Gericht oppervlak als tegenoverliggende hoek gebruiken
 vehicle-model-create = Model maken
@@ -1721,7 +1715,6 @@ async-regen-filter-all = alle bloktypen
 async-regen-invalid-blocks = Onbekende typen of geen bloktypen: { $arg0 }
 async-regen-not-running = Je hebt geen actieve regeneratie
 async-regen-nothing-to-apply = De selectie komt al overeen met dit plan; er hoeft niets te worden toegepast
-async-regen-plan-cancel = Annuleren
 async-regen-plan-dialog-title = Regeneratieplan toepassen
 async-regen-preview-cancelled = Voorbeeld geannuleerd; er zijn geen wereldgegevens gewijzigd
 async-regen-preview-started = Voorbeeld gestart: selectie { $arg0 ->
@@ -1841,7 +1834,6 @@ spawn-world-missing = Spawnwereld is niet beschikbaar
 
 music-album = Album: { $arg0 }
 music-artist = Artiest: { $arg0 }
-music-back = Terug
 music-command-description = Lokale, online en NBS-muziek voor platenspelers
 music-disc-left = Linksklik: pak de muziekplaat
 music-disc-right = Rechtsklik: speel af op de dichtstbijzijnde platenspeler
@@ -1863,24 +1855,23 @@ music-reload-started = Muziekbestanden en aangepaste bronnen opnieuw laden...
 music-rhythm-animation-offset = Animatieverschuiving { $arg0 } ms
 music-rhythm-calibration-accumulating = Stabiele timing wordt bevestigd… blijf meespelen
 music-rhythm-calibration-adapting = Ritme wordt afgestemd… blijf meespelen
+music-rhythm-calibration-audio-instruction = Druk op elke tel op een van de toetsen 1–4.
 music-rhythm-calibration-done = Latentietest voltooid · instellingen opgeslagen
 music-rhythm-calibration-failed = De audio van de test stopte onverwacht. De test is veilig gesloten; start hem opnieuw
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Toetsenbord visueel → Muis visueel
-music-rhythm-calibration-listen = Luister eenmaal naar het gemaakte ritme · druk nog niet
-music-rhythm-calibration-minecraft-instruction = Volg het Minecraft-ritme en druk 1–4
-music-rhythm-calibration-no-input = Geen invoer gedetecteerd. Controleer toetsen en volume en blijf meespelen
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = Luister eenmaal naar het volledige ritme. Druk nog geen toetsen in.
+music-rhythm-calibration-no-input = Geen geldige invoer herkend. Gebruik bij elk signaal de bediening die voor deze fase wordt getoond.
 music-rhythm-calibration-out-of-range = De gemeten vertraging valt buiten het ondersteunde bereik. Controleer de audio-instellingen
-music-rhythm-calibration-plasmo-instruction = Nu meedoen: herhaal het Plasmo Voice-ritme en druk 1–4 bij elke slag
 music-rhythm-calibration-plasmo-ready = Minecraft-test voltooid; luister eerst via Plasmo Voice naar hetzelfde ritme
 music-rhythm-calibration-pointer-instruction = Klik links of rechts wanneer de noot de lijn passeert.
 music-rhythm-calibration-realigning = De audiostream werd onderbroken. De demonstratie wordt herhaald en voltooide metingen blijven behouden
 music-rhythm-calibration-required = Voltooi de volledige latentietest voordat je het ritmespel start
 music-rhythm-calibration-reset-done = Latentiekalibratie is gereset
-music-rhythm-calibration-result-hold = Alle tests voltooid. Bekijk het resultaat; je keert daarna automatisch terug
+music-rhythm-calibration-result-hold = Test voltooid. Bekijk de resultaten; je keert zo automatisch terug.
 music-rhythm-calibration-stage-minecraft = Minecraft-nootblok
-music-rhythm-calibration-stage-plasmo = Plasmo Voice-audio- en invoertest
-music-rhythm-calibration-stage-pointer = Muis
-music-rhythm-calibration-stage-visual = Beeld- en invoertest
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = Beeld · muis
+music-rhythm-calibration-stage-visual = Beeld · toetsenbord
 music-rhythm-calibration-visual-instruction = Druk op 1–4 wanneer de noot de lijn passeert.
 music-rhythm-calibration-visual-preview = Bekijk één volledige reeks zonder invoer · begin zodra de instructie verandert
 music-rhythm-calibration-voice-required = De volledige test vereist een verbonden en ingeschakelde Plasmo Voice
@@ -2041,7 +2032,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Banbericht]
 ban-command-description = Verban een speler met een vast ernstniveau
 ban-database-error = Actie op de blokkeringsdatabase mislukt. Bekijk het serverlogboek.
-ban-menu-back = Terug
 ban-menu-confirm-action = Speler verbannen
 ban-menu-confirm-severity = Ernst
 ban-menu-confirm-title = Verbanning bevestigen
@@ -2221,26 +2211,26 @@ music-space-label =
         [restore-previous] Inhoud van vóór de groep herstellen
         [keep-group-content] Groepsinhoud behouden
         [queue] Wachtrij
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] De muziekopslag is niet beschikbaar
         [saving] Opslaan…
         [saved] Opgeslagen
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] Deze pagina selecteren
+        [select-all] Alle resultaten selecteren
+        [clear-tracks] Nummerselectie opheffen
         [add-playlist] Toevoegen
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] Privé maken
+        [publish] Openbaar maken
+        [delete] Afspeellijst verwijderen
+        [favorite] Favoriet in- of uitschakelen
+        [copy] Afspeellijst kopiëren
+        [share] Opdracht voor afspeellijst delen
         [recent] Recent afgespeeld
-        [favorites] Favorite playlists
+        [favorites] Favoriete afspeellijsten
         [public] Openbaar
         [private] Privé
         [new-playlist] Afspeellijst maken
@@ -2255,13 +2245,13 @@ music-space-label =
         [track-type] Type
         [type-online] Online
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] Geselecteerde vermeldingen verwijderen
+        [clear-recents] Mijn afspeelgeschiedenis wissen
+        [clear-entries] Selectie van vermeldingen opheffen
         [search-tracks] Zoek nummers, artiesten…
         [search-playlists] Zoek afspeellijsten…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] Openbare afspeellijsten
+        [searching] Zoeken…
         [insert] Invoegen en nu afspelen
         [append] Toevoegen aan wachtrij
         [choose-targets] Uitvoer kiezen
@@ -2272,11 +2262,11 @@ music-space-label =
         [empty] Geen nummers
         [queue-empty] Geen nummers in de wachtrij
         [queue-current] Huidig nummer in de digitale wachtrij
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] Pauzeren
+        [resume] Hervatten
+        [stop] Stoppen en afspeellijst bewaren
+        [previous] Vorig nummer / opnieuw beginnen
+        [clear] Wachtrij wissen; stoppen na huidig nummer
         [seek] Positie
         [more] Meer
         [volume-control] Volume
@@ -2302,21 +2292,21 @@ music-space-label =
         [no-rhythm-devices] Geen jukebox in de buurt. Sluip eerst en klik met een lege hand rechts op een jukebox.
         [calibration] Latentiekalibratie
         [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [range] Bereik (8–256 blokken)
         [mode] Afspeelmodus
         [save-queue] Wachtrij als afspeellijst opslaan
-        [sequential] Sequential
+        [sequential] Op volgorde
         [repeat-all] Lijst herhalen
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] Nummer herhalen
+        [shuffle] Willekeurig zonder herhalingen
         [import] Afspeellijst importeren
         [link] Afspeellijstlink
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] Slechts een deel van de afspeellijst is opgehaald. Sla dat deel op als je het wilt bewaren.
+        [import-preview] Voorbeeld van opgehaalde metadata; er is geen audio gedownload
         [import-new] Maken en openen
         [import-merge] Samenvoegen
         [stopped] Gestopt
-        [loading] Preparing audio
+        [loading] Audio voorbereiden
         [cancel-loading] Voorbereiding annuleren
         [playing] Wordt afgespeeld
         [paused] Gepauzeerd
@@ -2327,32 +2317,32 @@ music-space-label =
         [deselect] Dit item deselecteren
         [selected] Geselecteerd
         [place-before] Selectie vóór dit item plaatsen
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] Geplaatste plaat uitwerpen
+        [make-disc] Ondertekende muziekplaat maken
+        [gain] Groepsvolume (0–100)
+        [retry-import] Afspeellijst opnieuw ophalen
         [join-room] Deelnemen aan kamer
         [ready] Klaar
-        [waiting] Waiting
+        [waiting] Wachten
         [room-mode] Spelmodus
         [room-difficulty] Moeilijkheid
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] Deelnemen aan het lopende spel
+        [leave-room] Kamer verlaten
         [select-room-track] Geselecteerd nummer gebruiken
         [start-room] Spel starten
         [end-room] Kamer beëindigen
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] Basisafspeellijst
+        [priority-queue] Eenmalige verzoeknummers
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] Wachten tot spelers klaar zijn
+        [preparing] Audio en noten voorbereiden
+        [no-beats] Geen speelbare beats
         [catalog] Catalogus
         [my-playlists] Mijn afspeellijsten
         [playlist] Afspeellijst
@@ -2378,20 +2368,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] Muziek is niet beschikbaar. Open het menu later opnieuw.
         [INTERNAL] Interne muziekfout; vraag een beheerder het serverlogboek te bekijken
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] De geselecteerde vermelding bestaat niet meer.
+        [FORBIDDEN] Je hebt toestemming nodig om te bedienen of te bewerken.
+        [CONFLICT] De inhoud is gewijzigd. Vernieuw de weergave en selecteer opnieuw.
+        [LIMIT] De limiet voor muziekbronnen is bereikt.
+        [INVALID] Controleer de naam, selectie of het getalbereik.
+        [OFFLINE] Apparaat niet beschikbaar: laad de chunk of werp de geplaatste plaat uit.
+        [OVERLAP] Hoorbare gebieden overlappen. Stop een ander apparaat, verklein het bereik of maak een synchronisatiegroep.
+        [UNSUPPORTED] Dit medium ondersteunt die actie niet.
+        [BUSY] Het apparaat, het verzoek of de ritmekamer is bezet. Probeer het opnieuw zodra de taak is voltooid.
         [NO_SAFE_DESTINATION] Geen veilige plek naast deze jukebox gevonden
         [TELEPORT_FAILED] Teleportatie is mislukt of geblokkeerd
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] Actie mislukt
     }
 
 music-space-selected-tracks =

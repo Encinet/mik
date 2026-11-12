@@ -245,7 +245,7 @@ password-invalid = Неправильний пароль. Спробуйте щ�
 password-keep-role = Модератори й наглядачі не можуть видалити свій пароль.
 password-login = Увійти
 password-login-expired = Підтвердження входу втратило чинність. Підключіться знову.
-password-login-hint = Введіть пароль цього сервера. Якщо забули, попросіть адміністрацію скинути його.
+password-login-hint = Введіть пароль свого облікового запису на цьому сервері. Якщо забули його, попросіть адміністрацію скинути пароль.
 password-mismatch = Нові паролі не збігаються.
 password-new = Новий пароль
 password-nomination-required = Перед поданням заявки в модератори задайте пароль: /password set
@@ -271,7 +271,6 @@ password-title = Безпека облікового запису
 
 ## Player · Profile and tab list
 
-nametag-cancel = Скасувати
 nametag-clear = Очистити
 nametag-clear-hint = Видаляє власні значення; успадковані стилі можуть залишитися.
 nametag-command-description = Налаштувати теги імені
@@ -359,14 +358,12 @@ home-action-delete = Видалити дім
 home-action-teleport = Телепортуватися
 home-action-update = Оновити місце
 home-already-exists = Дім із такою назвою вже існує
-home-back = Назад
 home-confirm-delete = Підтвердити видалення
 home-confirm-delete-detail-rich = Видалити домівку { $home }
 home-confirm-delete-warning = Цю дію неможливо скасувати
 home-confirm-update = Підтвердити оновлення
 home-confirm-update-detail-rich = Оновити домівку { $home } до цієї позиції
 home-delete-command-description = Видалити домівку
-home-delete-usage-desc = Видалити домівку
 home-deleted-rich = Домівку { $home } видалено
 home-distance = Відстань: { $arg0 }
 home-distance-blocks = { $arg0 } бл.
@@ -377,7 +374,12 @@ home-invalid-name = Назва домівки не може містити си�
 home-list-rich = Домівки: { $homes }
 home-location = Координати: { $arg0 }, { $arg1 }, { $arg2 }
 home-location-invalid = Дані про розташування цієї домівки некоректні
-home-max-reached = Можна створити щонайбільше домівок: { $arg0 }
+home-max-reached = Можна створити щонайбільше { $arg0 ->
+        [one] { $arg0 } домівку
+        [few] { $arg0 } домівки
+        [many] { $arg0 } домівок
+       *[other] { $arg0 } домівки
+    }
 home-menu-title = Домівки
 home-no-homes = Ви ще не створили жодної домівки
 home-not-found-rich = Домівки { $home } не існує
@@ -385,7 +387,6 @@ home-search-placeholder = Пошук за назвою дому…
 home-search-empty = Відповідних домівок немає
 home-set-command-description = Створити домівку в поточному місці
 home-set-rich = Домівку { $home } створено
-home-set-usage-desc = Створити домівку в поточному місці
 home-summary-count = Створено: { $arg0 } / { $arg1 }
 home-teleport-failed = Не вдалося телепортуватися. Спробуйте ще раз
 home-teleported-rich = Ви телепортувалися до домівки { $home }
@@ -426,7 +427,6 @@ tpany-command-description = Телепортуватися до гравця в 
 tpany-done-offline-rich = Ви телепортувалися до останнього відомого розташування гравця { $player }: { $world } { $location }
 tpany-done-online-rich = Ви телепортувалися до поточного розташування гравця { $player }
 tpany-not-found-rich = Не вдалося знайти розташування гравця { $player }
-tpany-usage = Використання
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = Телепортуватися до гравця, використовуючи також збережене розташування
 
@@ -522,8 +522,13 @@ effect-cleanup-source = { $cause ->
 ## Player · Trash
 
 trash-clear = Очистити
-trash-clear-hint = Натисніть, щоб одразу видалити всі предмети;
-    інакше вони видаляться автоматично через { $arg0 } секунд після закриття.
+trash-clear-hint = Натисніть, щоб одразу видалити всі предмети.
+    Після закриття вони також видаляться автоматично через { $arg0 ->
+        [one] { $arg0 } секунду
+        [few] { $arg0 } секунди
+        [many] { $arg0 } секунд
+       *[other] { $arg0 } секунди
+    }.
 trash-command-description = Відкрити смітник
 trash-sort = Упорядкувати
 trash-sort-hint = Об’єднати однакові стопки та впорядкувати предмети за типом
@@ -1030,8 +1035,6 @@ governance-kind-removal = Усунення
 governance-legacy-ban-kick = Попереднє рішення спільноти забороняє вам вхід. Строк: { $arg0 }. Причина: { $arg1 }
 governance-menu-already-sponsored = Уже підтримано
 governance-menu-application = Стан заявки
-governance-menu-back = Назад
-governance-menu-cancel = Скасувати
 governance-menu-completed = Завершені
 governance-menu-confirm = Підтвердити
 governance-menu-confirm-nominate = Подання заявки розпочинає голосування про ваше призначення модератором.
@@ -1161,7 +1164,6 @@ plot-area-replace-save = Замінити межі та зберегти
 plot-area-save = Зберегти межі
 plot-area-saved = Межі «{ $arg0 }» збережено.
 plot-atmosphere-saved = Налаштування оточення збережено.
-plot-back = Назад
 plot-board-auto-notify-result = Сповіщення заплановано для { $arg0 ->
         [one] { $arg0 } гравця
         [few] { $arg0 } гравців
@@ -1273,11 +1275,9 @@ plot-menu-flag-container = Відкривати контейнери
 plot-menu-flag-entity = Взаємодіяти із сутностями
 plot-menu-follow-parent = Успадковувати від батьківської
 plot-menu-follow-world = Як у світі
-plot-menu-group-admin = керівник ділянки
 plot-menu-group-collaborator = Співавтори
 plot-menu-group-member = Доступ учасників
 plot-menu-group-newcomer = Доступ новачків
-plot-menu-group-owner = власник ділянки
 plot-menu-here = Поточне місце
 plot-menu-manage = Керувати ділянками гравців
 plot-menu-managed-empty = Цей гравець ще не має ділянок.
@@ -1297,7 +1297,6 @@ plot-menu-ruling = Поясніть рішення (8–1000 символів)
 plot-menu-set-role = Призначити роль { $arg0 }
 plot-menu-settings = Налаштування проєкту
 plot-menu-submit = Застосувати
-plot-menu-subplot-create = Створити підділянку
 plot-menu-subplot-of = Частина проєкту { $arg0 }
 plot-menu-subplot-parent = До батьківської ділянки: { $arg0 }
 plot-menu-subplots = Дочірні ділянки ({ $arg0 })
@@ -1647,7 +1646,6 @@ vehicle-model-corner-cancel = Скасувати незавершену обла
 vehicle-model-corner-first = Позначити перший кут біля моїх ніг
 vehicle-model-corner-first-look = Позначити перший кут на поверхні під прицілом
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Використати ноги як протилежний кут і додати область
 vehicle-model-corner-second-look = Використати поверхню під прицілом як протилежний кут
 vehicle-model-create = Створити { -vehicle-model(case: "accusative") }
@@ -1800,7 +1798,6 @@ async-regen-filter-all = усі типи блоків
 async-regen-invalid-blocks = Невідомі типи або не блоки: { $arg0 }
 async-regen-not-running = У вас немає активного відновлення
 async-regen-nothing-to-apply = Виділення вже відповідає цьому плану; застосовувати нічого
-async-regen-plan-cancel = Скасувати
 async-regen-plan-dialog-title = Застосувати план регенерації
 async-regen-preview-cancelled = Попередній перегляд скасовано; дані світу не змінювалися
 async-regen-preview-started = Перегляд розпочато: виділення { $arg0 ->
@@ -1886,7 +1883,6 @@ spawn-world-missing = Світ точки відродження недосту�
 
 music-album = Альбом: { $arg0 }
 music-artist = Виконавець: { $arg0 }
-music-back = Назад
 music-command-description = Локальна, онлайн- і NBS-музика для програвача
 music-disc-left = ЛКМ: узяти платівку
 music-disc-right = ПКМ: відтворити на найближчому програвачі
@@ -1910,24 +1906,23 @@ music-reload-started = Перезавантаження музичних фай�
 music-rhythm-animation-offset = Зсув анімації { $arg0 } мс
 music-rhythm-calibration-accumulating = Перевіряємо стабільність… продовжуйте грати
 music-rhythm-calibration-adapting = Підлаштовуємося під ритм… продовжуйте грати
+music-rhythm-calibration-audio-instruction = На кожен удар натискайте будь-яку клавішу від 1 до 4.
 music-rhythm-calibration-done = Тест затримки завершено · налаштування збережено
 music-rhythm-calibration-failed = Звук тесту перервався. Тест безпечно завершено; запустіть його знову
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Клавіатура візуально → Миша візуально
-music-rhythm-calibration-listen = Спочатку прослухайте створений ритм один раз · поки не натискайте
-music-rhythm-calibration-minecraft-instruction = Дотримуйтеся ритму Minecraft Note Block і натискайте 1–4
-music-rhythm-calibration-no-input = Ввід не виявлено. Перевірте клавіші й гучність та продовжуйте грати
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = Спочатку прослухайте ритм повністю. Поки не натискайте клавіші.
+music-rhythm-calibration-no-input = Немає допустимого вводу. На кожен сигнал виконуйте дію, вказану для цього етапу.
 music-rhythm-calibration-out-of-range = Виміряна затримка поза підтримуваним діапазоном. Перевірте налаштування звуку
-music-rhythm-calibration-plasmo-instruction = Тепер повторюйте: дотримуйтеся ритму Plasmo Voice і натискайте 1–4 на кожен удар
 music-rhythm-calibration-plasmo-ready = Тест Minecraft Note Block завершено; спочатку прослухайте той самий ритм через Plasmo Voice
 music-rhythm-calibration-pointer-instruction = Натискайте ліву або праву кнопку миші, коли нота перетинає лінію.
 music-rhythm-calibration-realigning = Звуковий потік перервався. Демонстрацію буде повторено, завершені вимірювання збережено
 music-rhythm-calibration-required = Перед запуском ритм-гри пройдіть повний тест затримки
 music-rhythm-calibration-reset-done = Калібрування затримки скинуто
-music-rhythm-calibration-result-hold = Усі тести завершено. Перевірте результат перед автоматичним поверненням
+music-rhythm-calibration-result-hold = Тест завершено. Перегляньте результати; повернення відбудеться автоматично за кілька секунд.
 music-rhythm-calibration-stage-minecraft = Нотний блок Minecraft
-music-rhythm-calibration-stage-plasmo = Тест звуку Plasmo Voice та вводу
-music-rhythm-calibration-stage-pointer = Миша
-music-rhythm-calibration-stage-visual = Тест зображення та вводу
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = Візуальний ритм · миша
+music-rhythm-calibration-stage-visual = Візуальний ритм · клавіатура
 music-rhythm-calibration-visual-instruction = Натисніть 1–4, коли нота перетинає лінію.
 music-rhythm-calibration-visual-preview = Перегляньте один повний цикл без вводу · почніть після зміни інструкції
 music-rhythm-calibration-voice-required = Для повного тесту Plasmo Voice має бути підключено й увімкнено
@@ -2089,7 +2084,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Повідомлення про блокування]
 ban-command-description = Заблокувати гравця за фіксованим рівнем порушення
 ban-database-error = Помилка бази блокувань. Перевірте журнал сервера.
-ban-menu-back = Назад
 ban-menu-confirm-action = Заблокувати гравця
 ban-menu-confirm-severity = Рівень
 ban-menu-confirm-title = Підтвердження блокування
@@ -2268,26 +2262,26 @@ music-space-label =
         [restore-previous] Відновити вміст до групи
         [keep-group-content] Зберегти вміст групи
         [queue] Черга відтворення
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] Сховище музики недоступне
         [saving] Збереження…
         [saved] Збережено
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] Вибрати всю сторінку
+        [select-all] Вибрати всі результати
+        [clear-tracks] Скасувати вибір пісень
         [add-playlist] Додати
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] Зробити приватним
+        [publish] Зробити загальнодоступним
+        [delete] Видалити плейлист
+        [favorite] Додати до обраного або прибрати
+        [copy] Копіювати плейлист
+        [share] Поділитися командою плейлиста
         [recent] Нещодавно відтворені
-        [favorites] Favorite playlists
+        [favorites] Обрані плейлисти
         [public] Публічний
         [private] Приватний
         [new-playlist] Створити список відтворення
@@ -2302,13 +2296,13 @@ music-space-label =
         [track-type] Тип
         [type-online] Онлайн
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] Видалити вибрані записи
+        [clear-recents] Очистити мою історію прослуховування
+        [clear-entries] Скасувати вибір записів
         [search-tracks] Пошук пісень, виконавців…
         [search-playlists] Пошук списків відтворення…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] Загальнодоступні плейлисти
+        [searching] Пошук…
         [insert] Вставити й відтворити зараз
         [append] Додати до черги
         [choose-targets] Вибрати вивід
@@ -2319,11 +2313,11 @@ music-space-label =
         [empty] Немає пісень
         [queue-empty] У черзі немає пісень
         [queue-current] Поточна пісня цифрової черги
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] Призупинити
+        [resume] Продовжити
+        [stop] Зупинити та зберегти список відтворення
+        [previous] Попередня пісня / спочатку
+        [clear] Очистити чергу; зупинити після поточної пісні
         [seek] Позиція
         [more] Ще
         [volume-control] Гучність
@@ -2348,22 +2342,22 @@ music-space-label =
         [create-room] Створити кімнату
         [no-rhythm-devices] Поруч немає програвачів. Спочатку присядьте й клацніть по програвачу правою кнопкою з порожньою рукою.
         [calibration] Калібрування затримки
-        [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [volume] Гучність (0–100)
+        [range] Радіус (8–256 блоків)
         [mode] Режим відтворення
         [save-queue] Зберегти чергу як список відтворення
-        [sequential] Sequential
+        [sequential] За порядком
         [repeat-all] Повтор списку
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] Повторювати пісню
+        [shuffle] У випадковому порядку без повторів
         [import] Імпортувати плейліст
         [link] Посилання на плейліст
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] Завантажено лише частину плейлиста. Збережіть її, якщо хочете залишити.
+        [import-preview] Попередній перегляд завантажених метаданих; аудіо не завантажувалося
         [import-new] Створити й відкрити
         [import-merge] Об’єднати зі списком
         [stopped] Зупинено
-        [loading] Preparing audio
+        [loading] Підготовка аудіо
         [cancel-loading] Скасувати підготовку
         [playing] Відтворюється
         [paused] Призупинено
@@ -2374,32 +2368,32 @@ music-space-label =
         [deselect] Зняти вибір цього запису
         [selected] Вибрано
         [place-before] Розмістити вибране перед цим записом
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] Вийняти вставлену платівку
+        [make-disc] Створити підписану музичну платівку
+        [gain] Гучність групи (0–100)
+        [retry-import] Завантажити плейлист знову
         [join-room] Приєднатися до кімнати
         [ready] Готовий
-        [waiting] Waiting
+        [waiting] Очікування
         [room-mode] Режим гри
         [room-difficulty] Складність
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] Приєднатися до поточної гри
+        [leave-room] Вийти з кімнати
         [select-room-track] Використати вибрану композицію
         [start-room] Почати гру
         [end-room] Завершити кімнату
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] Основний список відтворення
+        [priority-queue] Одноразові музичні заявки
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] Очікування готовності гравців
+        [preparing] Підготовка аудіо та нот
+        [no-beats] Немає доступних для гри ритмів
         [catalog] Каталог
         [my-playlists] Мої списки
         [playlist] Список відтворення
@@ -2425,20 +2419,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] Музика недоступна. Відкрийте меню пізніше.
         [INTERNAL] Внутрішня помилка музики; попросіть адміністратора перевірити журнал сервера
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] Вибраний запис більше не існує.
+        [FORBIDDEN] Потрібен дозвіл на керування або редагування.
+        [CONFLICT] Вміст змінився. Оновіть екран і виберіть знову.
+        [LIMIT] Досягнуто ліміту музичних ресурсів.
+        [INVALID] Перевірте ім’я, вибір або допустимий діапазон чисел.
+        [OFFLINE] Пристрій недоступний: завантажте його чанк або вийміть вставлену платівку.
+        [OVERLAP] Зони чутності перетинаються. Зупиніть інший пристрій, зменште радіус або створіть групу синхронізації.
+        [UNSUPPORTED] Цей медіаресурс не підтримує такої дії.
+        [BUSY] Пристрій, запит або ритм-кімната зайняті. Повторіть спробу після завершення операції.
         [NO_SAFE_DESTINATION] Поруч із цим програвачем немає безпечного місця
         [TELEPORT_FAILED] Телепортація не вдалася або її заблоковано
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] Не вдалося виконати дію
     }
 
 music-space-selected-tracks =

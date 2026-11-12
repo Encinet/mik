@@ -140,7 +140,7 @@ public final class PlotCommunityBoard {
                         .label(record -> Component.text(record.get("subject").getAsString(),NamedTextColor.WHITE)
                                 .append(Component.text(" · "+record.get("id").getAsString().substring(0,8),NamedTextColor.AQUA)))
                         .selected(this::openBoardEntry).build()));
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }
@@ -240,7 +240,7 @@ public final class PlotCommunityBoard {
                                 Component.text(t(p, Message.PLOT_MENU_WITHDRAW), NamedTextColor.RED),
                                 Component.text(t(p, Message.PLOT_MENU_CONFIRM_WITHDRAW), NamedTextColor.WHITE),
                                 Component.text(t(p, Message.PLOT_MENU_WITHDRAW), NamedTextColor.RED),
-                                Component.text(t(p, Message.PLOT_BACK), NamedTextColor.WHITE),
+                                Component.text(t(p, Message.BACK), NamedTextColor.WHITE),
                                 viewer -> { if (reader.actionable(state)) perform(viewer, () -> withdraw(viewer, id)); })));
             if (moderator && !ownDispute)
                 reader.control(state, menu, "rule", Component.text(t(player, Message.PLOT_MENU_RULE), NamedTextColor.YELLOW))
@@ -249,7 +249,7 @@ public final class PlotCommunityBoard {
                                 (viewer, value) -> { if (reader.actionable(state)) perform(viewer,
                                         () -> rule(viewer, id, value)); })));
         }
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu;
     }
@@ -558,7 +558,7 @@ public final class PlotCommunityBoard {
                            BiConsumer<Player, String> submit) {
         FloatingMenus.input(player, MenuInputForm.builder(Component.text(t(player, title), NamedTextColor.GOLD))
                 .field(MenuInputForm.Field.text("value", Component.text(t(player, label), NamedTextColor.WHITE), initial, maximumLength).multiline(multiline))
-                .cancel(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE))
+                .cancel(Component.text(t(player, Message.BACK), NamedTextColor.WHITE))
                 .submit(Component.text(t(player, Message.PLOT_MENU_SUBMIT), NamedTextColor.GREEN), (responder, inputValues) -> submit.accept(responder, inputValues.text("value").strip())).build());
     }
 

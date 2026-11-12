@@ -370,7 +370,7 @@ public final class PlotModule implements Listener {
                 .region("actions").primary((viewer, _) -> board.openMenu(viewer));
         menu.navigation("help", Component.text(t(player, Message.PLOT_HELP), NamedTextColor.YELLOW))
                 .region("navigation").primary((viewer, _) -> openGuide(viewer));
-        menu.dismiss(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.dismiss(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }
@@ -401,7 +401,7 @@ public final class PlotModule implements Listener {
                                 NamedTextColor.GREEN))
                 .region("actions")
                 .primary((viewer, _) -> beginCreate(viewer, target));
-        menu.back(Component.text(t(staff, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.back(Component.text(t(staff, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         FloatingMenus.present(staff, menu.build());
     }
@@ -513,7 +513,7 @@ public final class PlotModule implements Listener {
             if (task == PlotWorkspace.Task.AREA && !plot.world().equals(viewerWorld))
                 action.disabled(Component.text(t(player, Message.PLOT_WORKSPACE_OTHER_WORLD), NamedTextColor.WHITE));
         }
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN)).region("navigation").keepAccessible();
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN)).region("navigation").keepAccessible();
         return menu.build();
     }
 
@@ -574,7 +574,7 @@ public final class PlotModule implements Listener {
                 .region("ownership").primary((viewer, _) -> transferInput(viewer, plotId));
         addReleaseAction(player, menu, plot);
         menu.information("identifier", Component.text(t(player, Message.PLOT_WORKSPACE_ID, plotId.toString()), NamedTextColor.WHITE)).region("identifier");
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN)).region("navigation").keepAccessible();
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN)).region("navigation").keepAccessible();
         return menu.build();
     }
 
@@ -618,7 +618,7 @@ public final class PlotModule implements Listener {
     private void addSubPlotCreateAction(Player player, MenuScene.Builder menu, Plot parent,
                                        String region) {
         if (parent.subPlot()) return;
-        var create = menu.control("create-child", Component.text(t(player, Message.PLOT_MENU_SUBPLOT_CREATE), NamedTextColor.GREEN))
+        var create = menu.control("create-child", Component.text(t(player, Message.PLOT_PERMISSION_CREATE_SUBPLOT), NamedTextColor.GREEN))
                 .region(region).primary((viewer, _) -> beginSubPlot(viewer, parent.id()));
         if (!permitted(player, parent, PlotPermission.CREATE_SUBPLOT))
             create.disabled(Component.text(t(player, Message.PLOT_ERROR_OWNER_ONLY)));
@@ -711,7 +711,7 @@ public final class PlotModule implements Listener {
         PlotOwner creatingOwner = creationOwners.getOrDefault(player.getUniqueId(), new PlotOwner(player.getUniqueId(), player.getName()));
         menu.information("context", Component.text(plot == null ? t(player, Message.PLOT_MENU_OWNER, creatingOwner.name()) : plot.name(), NamedTextColor.AQUA)).region("context");
         menu.information("heading", Component.text(t(player, plot == null ? Message.PLOT_MENU_CREATE
-                        : context.subPlot() ? Message.PLOT_MENU_SUBPLOT_CREATE : Message.PLOT_WORKSPACE_AREA), NamedTextColor.GOLD))
+                        : context.subPlot() ? Message.PLOT_PERMISSION_CREATE_SUBPLOT : Message.PLOT_WORKSPACE_AREA), NamedTextColor.GOLD))
                 .region("heading").keepAccessible();
         menu.information("selection", selectionSummary(player, plot, failure))
                 .region("selection").textWidth(FloatingMenuTextWidth.WIDE);
@@ -754,7 +754,7 @@ public final class PlotModule implements Listener {
                     action.disabled(Component.text(t(player, Message.PLOT_SELECTION_EMPTY)));
             }
             if (context.subPlot()) {
-                var create = menu.control("create-child", Component.text(t(player, Message.PLOT_MENU_SUBPLOT_CREATE), NamedTextColor.GREEN))
+                var create = menu.control("create-child", Component.text(t(player, Message.PLOT_PERMISSION_CREATE_SUBPLOT), NamedTextColor.GREEN))
                         .region("commit").primary((viewer, _) -> perform(viewer,
                                 () -> createSubPlotInput(viewer, plotId)));
                 if (preflight == null) create.disabled(Component.text(t(player, Message.PLOT_SELECTION_VALIDATING)));
@@ -803,7 +803,7 @@ public final class PlotModule implements Listener {
                     selections.redo(viewer.getUniqueId());
                     openPlotEditor(viewer, plotId);
                 }));
-        menu.navigation("back", Component.text(t(player, scene.regions().editing() ? Message.PLOT_REGION_CANCEL : Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.navigation("back", Component.text(t(player, scene.regions().editing() ? Message.PLOT_REGION_CANCEL : Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible().primary((viewer, _) -> perform(viewer, () -> {
                     if (scene.regions().editing()) {
                         bindEditor(viewer, plotId);
@@ -882,7 +882,7 @@ public final class PlotModule implements Listener {
                                                 NamedTextColor.WHITE).append(Component.newline())
                                         .append(regionLabel(selected, regions.selectedNumber(), true)),
                                 Component.text(t(viewer, Message.PLOT_REGION_DELETE), NamedTextColor.RED),
-                                Component.text(t(viewer, Message.PLOT_BACK), NamedTextColor.WHITE), responder -> {
+                                Component.text(t(viewer, Message.BACK), NamedTextColor.WHITE), responder -> {
                                     perform(responder, () -> {
                                         bindEditor(responder, plotId);
                                         selections.deleteRegion(responder.getUniqueId(), responder.getWorld().getUID(),
@@ -946,7 +946,7 @@ public final class PlotModule implements Listener {
                 Component.text(t(player, Message.PLOT_AREA_SAVE), NamedTextColor.GREEN),
                 Component.text(t(player, Message.PLOT_AREA_CONFIRM, plot.name(), count), NamedTextColor.WHITE),
                 Component.text(t(player, Message.PLOT_AREA_SAVE), NamedTextColor.GREEN),
-                Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE), viewer -> {
+                Component.text(t(player, Message.BACK), NamedTextColor.WHITE), viewer -> {
                     perform(viewer, () -> {
                         UUID actor = viewer.getUniqueId();
                         selections.requireSubmission(actor, viewer.getWorld().getUID(), submitted);
@@ -1051,7 +1051,7 @@ public final class PlotModule implements Listener {
         menu.information("heading", Component.text(t(player, Message.PLOT_MENU_SUBPLOTS, children.size()), NamedTextColor.GOLD))
                 .region("heading").keepAccessible();
         if (mayCreate) addSubPlotCreateAction(player, menu, parent, "actions");
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         FloatingMenus.present(player, menu.build());
     }
@@ -1084,11 +1084,11 @@ public final class PlotModule implements Listener {
         if (preflight == null) throw new PlotProblem(Message.PLOT_SELECTION_VALIDATING);
         if (preflight.failure() != null) throw preflight.failure();
         selectionController.pause(player.getUniqueId());
-        FloatingMenus.input(player, MenuInputForm.builder(Component.text(t(player, Message.PLOT_MENU_SUBPLOT_CREATE), NamedTextColor.GOLD))
+        FloatingMenus.input(player, MenuInputForm.builder(Component.text(t(player, Message.PLOT_PERMISSION_CREATE_SUBPLOT), NamedTextColor.GOLD))
                 .field(MenuInputForm.Field.text("name", Component.text(t(player, Message.PLOT_MENU_NAME), NamedTextColor.WHITE), "", 48))
                 .field(MenuInputForm.Field.text("owner", Component.text(t(player, Message.PLOT_MENU_PLAYER), NamedTextColor.WHITE), memberName(parent.owner()), 36))
-                .cancel(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE))
-                .submit(Component.text(t(player, Message.PLOT_MENU_SUBPLOT_CREATE), NamedTextColor.GREEN), (viewer, values) -> {
+                .cancel(Component.text(t(player, Message.BACK), NamedTextColor.WHITE))
+                .submit(Component.text(t(player, Message.PLOT_PERMISSION_CREATE_SUBPLOT), NamedTextColor.GREEN), (viewer, values) -> {
                     perform(viewer, () -> {
                         selections.requireSubmission(viewer.getUniqueId(), viewer.getWorld().getUID(), area);
                         openPlotEditor(viewer, parentId);
@@ -1203,7 +1203,7 @@ public final class PlotModule implements Listener {
             var failure = Ui.text(Component.text(t(player, plot == null ? Message.PLOT_ERROR_ID : Message.PLOT_ERROR_OWNER_ONLY),
                     NamedTextColor.WHITE)).key("unavailable").singleLine().build();
             var menu = PlotMenuLayouts.screen("plot-atmosphere:" + plotId, FloatingMenuAppearance.DEFAULT, PlotMenuLayouts.help(failure));
-            menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN)).region("navigation");
+            menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN)).region("navigation");
             return menu.screen(PlotAtmosphereMenu.SCREEN_ID);
         }
         PlotAtmosphere setting = registry.atmosphere(plotId);
@@ -1305,7 +1305,7 @@ public final class PlotModule implements Listener {
                 Component.text(t(player, Message.PLOT_PERMISSION_CHANGE_TITLE), NamedTextColor.GOLD),
                 accessChangeBody(player, plan),
                 Component.text(t(player, Message.PLOT_PERMISSION_CHANGE_CONFIRM), NamedTextColor.YELLOW),
-                Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE),
+                Component.text(t(player, Message.BACK), NamedTextColor.WHITE),
                 responder -> perform(responder, () -> commitAccessChange(responder, plan, after)));
     }
 
@@ -1384,7 +1384,7 @@ public final class PlotModule implements Listener {
         if (failure != null) {
             var content = Ui.text(Component.text(t(context.player(), failure), NamedTextColor.WHITE)).key("unavailable").singleLine().build();
             var menu = PlotMenuLayouts.screen(target.scope(), FloatingMenuAppearance.DEFAULT, PlotMenuLayouts.help(content));
-            menu.back(Component.text(t(context.player(), Message.PLOT_BACK), NamedTextColor.GREEN)).region("navigation")
+            menu.back(Component.text(t(context.player(), Message.BACK), NamedTextColor.GREEN)).region("navigation")
                     .primary((_, _) -> reader.back(context));
             return menu;
         }
@@ -1431,7 +1431,7 @@ public final class PlotModule implements Listener {
             PlotProblem failure = accessProblem(player, plot, request);
             if (failure != null) option.disabled(problemLabel(player, failure));
         }
-        menu.navigation("return", Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.navigation("return", Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").primary((_, _) -> reader.back(context));
         return menu;
     }
@@ -1508,7 +1508,7 @@ public final class PlotModule implements Listener {
                 })));
         PlotProblem failure = accessProblem(player, plot, draft.request());
         if (failure != null) submit.disabled(problemLabel(player, failure));
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE)).region("navigation").keepAccessible();
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.WHITE)).region("navigation").keepAccessible();
         return menu.build();
     }
 
@@ -1604,7 +1604,7 @@ public final class PlotModule implements Listener {
                     .primary((viewer, handle) -> confirmPermissionReset(viewer, plotId, subject,
                             category, category, handle));
         }
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }
@@ -1653,7 +1653,7 @@ public final class PlotModule implements Listener {
                                         permissionListDefinition(responder, managed(responder, plotId.toString()), subject, category, context.state().parentPage()));
                             }))));
         }
-        menu.navigation("return", Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.navigation("return", Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible()
                 .primary((_, _) -> reader.back(context));
         return menu;
@@ -1679,8 +1679,8 @@ public final class PlotModule implements Listener {
     private static Message groupLabel(PlotAccessPolicy.Group group) {
         return switch (group) {
             case COLLABORATOR -> Message.PLOT_MENU_GROUP_COLLABORATOR;
-            case OWNER -> Message.PLOT_MENU_GROUP_OWNER;
-            case ADMIN -> Message.PLOT_MENU_GROUP_ADMIN;
+            case OWNER -> Message.PLOT_ROLE_OWNER;
+            case ADMIN -> Message.PLOT_ROLE_ADMIN;
             case NEWCOMER -> Message.PLOT_MENU_GROUP_NEWCOMER;
             case MEMBER -> Message.PLOT_MENU_GROUP_MEMBER;
         };
@@ -1718,7 +1718,7 @@ public final class PlotModule implements Listener {
                 Component.text(t(player, Message.PLOT_MENU_CONFIRM_DELETE,
                         fresh.name() + " · #" + plotId.toString().substring(0, 8)), NamedTextColor.WHITE),
                 Component.text(t(player, Message.PLOT_MENU_DELETE), NamedTextColor.RED),
-                Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE),
+                Component.text(t(player, Message.BACK), NamedTextColor.WHITE),
                 responder -> perform(responder, () -> delete(responder, plotId.toString())));
     }
 
@@ -1775,7 +1775,7 @@ public final class PlotModule implements Listener {
         if (permitted(player, plot, PlotPermission.MANAGE_MEMBERS))
             menu.control("invite", Component.text(t(player, Message.PLOT_MENU_ADD_MEMBER), NamedTextColor.GREEN))
                     .region("actions").primary((viewer, _) -> memberInput(viewer, plotId));
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }
@@ -1848,7 +1848,7 @@ public final class PlotModule implements Listener {
             PlotProblem failure = accessProblem(player, plot, new PlotAccessRequest.Remove(memberId));
             if (failure != null) remove.disabled(problemLabel(player, failure));
         }
-        menu.back(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.GREEN))
+        menu.back(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }
@@ -1930,7 +1930,7 @@ public final class PlotModule implements Listener {
                                 : Message.PLOT_MENU_CONFIRM_TRANSFER,
                         plot.name(), successor.name()), NamedTextColor.WHITE),
                 Component.text(t(player, Message.PLOT_MENU_TRANSFER), NamedTextColor.GOLD),
-                Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE),
+                Component.text(t(player, Message.BACK), NamedTextColor.WHITE),
                 viewer -> {
                     perform(viewer, () -> transfer(viewer, plotId, successor));
                     openMenu(viewer);
@@ -1942,7 +1942,7 @@ public final class PlotModule implements Listener {
                            java.util.function.BiConsumer<Player, String> submit) {
         FloatingMenus.input(player, MenuInputForm.builder(Component.text(t(player, title), NamedTextColor.GOLD))
                 .field(MenuInputForm.Field.text("value", Component.text(t(player, label), NamedTextColor.WHITE), initial, maximumLength).multiline(multiline))
-                .cancel(Component.text(t(player, Message.PLOT_BACK), NamedTextColor.WHITE))
+                .cancel(Component.text(t(player, Message.BACK), NamedTextColor.WHITE))
                 .submit(Component.text(t(player, Message.PLOT_MENU_SUBMIT), NamedTextColor.GREEN), (responder, inputValues) -> submit.accept(responder, inputValues.text("value").strip())).build());
     }
 

@@ -35,7 +35,7 @@ class PlotMenuPresentationTest {
                 }
                 for (var message : List.of(Message.PLOT_MENU_CREATE, Message.PLOT_BOARD_MENU, Message.PLOT_MENU_MANAGE))
                     builder.navigation(message.name(), text.apply(message, new Object[0])).region("actions");
-                builder.back(text.apply(Message.PLOT_BACK, new Object[0])).region("navigation");
+                builder.back(text.apply(Message.BACK, new Object[0])).region("navigation");
                 var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.measure(builder.build(), scale.factor()), language + " " + scale + " " + count);
                 assertDisjoint(frame);
                 assertEquals(2, frame.panels().size());
@@ -79,12 +79,12 @@ class PlotMenuPresentationTest {
                     } else {
                         builder.information("members-heading", text.apply(Message.PLOT_MENU_MEMBERS, new Object[]{1000})).region("members-heading");
                         builder.information("groups-heading", text.apply(Message.PLOT_WORKSPACE_GROUPS, new Object[0])).region("groups-heading");
-                        for (var label : List.of(Message.PLOT_MENU_GROUP_OWNER, Message.PLOT_MENU_GROUP_ADMIN, Message.PLOT_MENU_GROUP_COLLABORATOR,
+                        for (var label : List.of(Message.PLOT_ROLE_OWNER, Message.PLOT_ROLE_ADMIN, Message.PLOT_MENU_GROUP_COLLABORATOR,
                                 Message.PLOT_MENU_GROUP_NEWCOMER, Message.PLOT_MENU_GROUP_MEMBER)) builder.navigation(label.name(), text.apply(label, new Object[0])).region("groups");
                         builder.control("invite", text.apply(Message.PLOT_MENU_ADD_MEMBER, new Object[0])).region("actions");
                     }
                 }
-                builder.back(text.apply(Message.PLOT_BACK, new Object[0])).region("navigation");
+                builder.back(text.apply(Message.BACK, new Object[0])).region("navigation");
                 assertDisjoint(assertDoesNotThrow(() -> SceneGeometryTestSupport.measure(builder.build(), scale.factor()), language + " " + scale + " " + mode));
             }
         }
@@ -131,7 +131,7 @@ class PlotMenuPresentationTest {
                 if (mode != 2) builder.control("save", text.apply(Message.PLOT_AREA_REPLACE_SAVE, new Object[0])).region("commit");
                 builder.control("undo", text.apply(Message.PLOT_SELECTION_UNDO, new Object[0])).region("history");
                 builder.control("redo", text.apply(Message.PLOT_SELECTION_REDO, new Object[0])).region("history");
-                builder.navigation("back", text.apply(mode == 2 ? Message.PLOT_REGION_CANCEL : Message.PLOT_BACK, new Object[0])).region("navigation");
+                builder.navigation("back", text.apply(mode == 2 ? Message.PLOT_REGION_CANCEL : Message.BACK, new Object[0])).region("navigation");
                 var scene = builder.build();
                 var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.measure(scene, scale.factor()), language + " " + scale + " mode=" + mode);
                 assertDisjoint(frame);

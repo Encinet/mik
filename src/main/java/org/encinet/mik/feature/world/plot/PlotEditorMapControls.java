@@ -83,7 +83,7 @@ final class PlotEditorMapControls {
                                         return null;
                                     } catch (PlotProblem failure) { return problemLabel(responder, failure); }
                                 })
-                                .cancel(Component.text(t(viewer, Message.PLOT_BACK)))
+                                .cancel(Component.text(t(viewer, Message.BACK)))
                                 .submit(Component.text(t(viewer, Message.PLOT_MENU_SUBMIT)), (responder, values) -> perform(responder, () -> {
                                     requireEditorSnapshot(responder, context, world, draft.revision());
                                     PlotPosition parsed = cornerCoordinates(responder, world, values.text("coordinates"));

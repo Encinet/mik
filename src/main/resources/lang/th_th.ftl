@@ -180,7 +180,7 @@ password-invalid = รหัสผ่านไม่ถูกต้อง โป
 password-keep-role = ผู้ดูแลและผู้ดูแลระบบไม่สามารถลบรหัสผ่านของตนได้
 password-login = เข้าสู่ระบบ
 password-login-expired = การยืนยันเข้าสู่ระบบหมดอายุแล้ว โปรดเชื่อมต่อใหม่
-password-login-hint = ป้อนรหัสผ่านของเซิร์ฟเวอร์นี้ หากลืมให้ขอผู้ดูแลรีเซ็ต
+password-login-hint = ป้อนรหัสผ่านบัญชีที่คุณตั้งไว้บนเซิร์ฟเวอร์นี้ หากลืมให้ขอผู้ดูแลรีเซ็ต
 password-mismatch = รหัสผ่านใหม่ไม่ตรงกัน
 password-new = รหัสผ่านใหม่
 password-nomination-required = ตั้งรหัสผ่านก่อนสมัครเป็นผู้ดูแล: /password set
@@ -206,7 +206,6 @@ password-title = ความปลอดภัยบัญชี
 
 ## Player · Profile and tab list
 
-nametag-cancel = ยกเลิก
 nametag-clear = ล้าง
 nametag-clear-hint = ลบเฉพาะค่าที่กำหนดเอง รูปแบบที่สืบทอดอาจยังแสดงอยู่
 nametag-command-description = ปรับแต่งป้ายชื่อ
@@ -284,14 +283,12 @@ home-action-delete = ลบบ้าน
 home-action-teleport = เทเลพอร์ต
 home-action-update = อัปเดตตำแหน่ง
 home-already-exists = มีบ้านชื่อนี้อยู่แล้ว
-home-back = กลับ
 home-confirm-delete = ยืนยันการลบ
 home-confirm-delete-detail-rich = ลบบ้าน { $home }
 home-confirm-delete-warning = เมื่อลบแล้วจะย้อนคืนไม่ได้
 home-confirm-update = ยืนยันการอัปเดต
 home-confirm-update-detail-rich = อัปเดตบ้าน { $home } ไปยังตำแหน่งนี้
 home-delete-command-description = ลบบ้าน
-home-delete-usage-desc = ลบบ้าน
 home-deleted-rich = ลบบ้าน { $home } แล้ว
 home-distance = ระยะทาง: { $arg0 }
 home-distance-blocks = { $arg0 } บล็อก
@@ -310,7 +307,6 @@ home-search-placeholder = ค้นหาชื่อบ้าน…
 home-search-empty = ไม่พบบ้านที่ตรงกัน
 home-set-command-description = ตั้งบ้านที่ตำแหน่งปัจจุบันของคุณ
 home-set-rich = ตั้งบ้าน { $home } แล้ว
-home-set-usage-desc = ตั้งบ้านที่ตำแหน่งปัจจุบันของคุณ
 home-summary-count = ตั้งแล้ว: { $arg0 } / { $arg1 }
 home-teleport-failed = เทเลพอร์ตไม่สำเร็จ โปรดลองอีกครั้ง
 home-teleported-rich = เทเลพอร์ตไปยังบ้าน { $home } แล้ว
@@ -351,7 +347,6 @@ tpany-command-description = เทเลพอร์ตไปยังตำแ�
 tpany-done-offline-rich = เทเลพอร์ตไปยังตำแหน่งล่าสุดของ { $player } ใน { $world } { $location } แล้ว
 tpany-done-online-rich = เทเลพอร์ตไปยังตำแหน่งปัจจุบันของ { $player } แล้ว
 tpany-not-found-rich = ไม่พบตำแหน่งของ { $player }
-tpany-usage = วิธีใช้
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = เทเลพอร์ตไปยังตำแหน่งของผู้เล่น รวมถึงตำแหน่งที่บันทึกไว้ขณะออฟไลน์
 
@@ -865,8 +860,6 @@ governance-kind-removal = ถอดถอน
 governance-legacy-ban-kick = การลงคะแนนครั้งก่อนผ่านแล้ว คุณถูกแบนเป็นเวลา { $arg0 } เหตุผล: { $arg1 }
 governance-menu-already-sponsored = ลงชื่อสนับสนุนแล้ว
 governance-menu-application = สถานะการสมัคร
-governance-menu-back = กลับ
-governance-menu-cancel = ยกเลิก
 governance-menu-completed = สิ้นสุดแล้ว
 governance-menu-confirm = ยืนยัน
 governance-menu-confirm-nominate = การสมัครจะเริ่มโหวตแต่งตั้งคุณเป็นผู้ดูแล
@@ -981,7 +974,6 @@ plot-area-replace-save = แทนที่ขอบเขตและบัน�
 plot-area-save = บันทึกขอบเขต
 plot-area-saved = บันทึกขอบเขตของ “{ $arg0 }” แล้ว
 plot-atmosphere-saved = บันทึกบรรยากาศแล้ว
-plot-back = กลับ
 plot-board-auto-notify-result = กำหนดการแจ้งเตือนผู้เล่น { $arg0 } คนแล้ว
 plot-board-auto-registered-text = ลงทะเบียนแปลง “{ $arg0 }” แล้ว กรอบพิกัดของเซลล์ที่สร้างแล้ว: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }
 plot-board-detail = บันทึกของ { $arg0 } ที่ { $arg1 } { $arg2 }, { $arg3 }, { $arg4 }: { $arg5 }
@@ -1079,11 +1071,9 @@ plot-menu-flag-container = เปิดช่องเก็บของ
 plot-menu-flag-entity = โต้ตอบกับเอนทิตี
 plot-menu-follow-parent = ตามพื้นที่หลัก
 plot-menu-follow-world = ตามโลก
-plot-menu-group-admin = ผู้ดูแลแปลง
 plot-menu-group-collaborator = ผู้ร่วมงาน
 plot-menu-group-member = ค่าเริ่มต้นสำหรับสมาชิก
 plot-menu-group-newcomer = ค่าเริ่มต้นสำหรับผู้เล่นใหม่
-plot-menu-group-owner = เจ้าของพื้นที่
 plot-menu-here = ตำแหน่งปัจจุบัน
 plot-menu-manage = จัดการที่ดินของผู้เล่น
 plot-menu-managed-empty = ผู้เล่นนี้ยังไม่มีที่ดิน
@@ -1103,7 +1093,6 @@ plot-menu-ruling = อธิบายเหตุผลของคำตัด�
 plot-menu-set-role = ตั้งเป็น{ $arg0 }
 plot-menu-settings = การตั้งค่าโครงการ
 plot-menu-submit = ใช้
-plot-menu-subplot-create = สร้างแปลงย่อย
 plot-menu-subplot-of = ส่วนหนึ่งของ { $arg0 }
 plot-menu-subplot-parent = กลับไปพื้นที่หลัก: { $arg0 }
 plot-menu-subplots = พื้นที่ย่อย ({ $arg0 })
@@ -1443,7 +1432,6 @@ vehicle-model-corner-cancel = ยกเลิกกล่องชนที่�
 vehicle-model-corner-first = กำหนดมุมแรกของกล่องที่เท้าฉัน
 vehicle-model-corner-first-look = กำหนดมุมแรกบนพื้นผิวที่เล็ง
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = ใช้เท้าฉันเป็นมุมตรงข้ามแล้วเพิ่มกล่อง
 vehicle-model-corner-second-look = ใช้พื้นผิวที่เล็งเป็นมุมตรงข้าม
 vehicle-model-create = สร้างโมเดล
@@ -1568,7 +1556,6 @@ async-regen-filter-all = บล็อกทุกชนิด
 async-regen-invalid-blocks = ไม่รู้จักหรือไม่ใช่ชนิดบล็อก: { $arg0 }
 async-regen-not-running = คุณไม่มีงานสร้างใหม่ที่กำลังทำงานอยู่
 async-regen-nothing-to-apply = พื้นที่ที่เลือกตรงกับแผนนี้อยู่แล้ว จึงไม่มีสิ่งที่ต้องใช้
-async-regen-plan-cancel = ยกเลิก
 async-regen-plan-dialog-title = ใช้แผนสร้างใหม่
 async-regen-preview-cancelled = ยกเลิกการตรวจสอบแล้ว ไม่มีข้อมูลโลกถูกเปลี่ยนแปลง
 async-regen-preview-started = เริ่มตรวจสอบแล้ว: { $arg0 } บล็อกใน { $arg1 } ชังก์ โหมด: { $arg2 }
@@ -1619,7 +1606,6 @@ spawn-world-missing = โลกของจุดเกิดไม่พร้�
 
 music-album = อัลบั้ม: { $arg0 }
 music-artist = ศิลปิน: { $arg0 }
-music-back = กลับ
 music-command-description = เพลงในเครื่อง ออนไลน์ และ NBS สำหรับตู้เพลง
 music-disc-left = คลิกซ้าย: หยิบแผ่นเสียง
 music-disc-right = คลิกขวา: เล่นบนตู้เพลงที่ใกล้ที่สุด
@@ -1638,24 +1624,23 @@ music-reload-started = กำลังโหลดไฟล์เพลงแล
 music-rhythm-animation-offset = การชดเชยภาพเคลื่อนไหว { $arg0 } มิลลิวินาที
 music-rhythm-calibration-accumulating = กำลังยืนยันจังหวะที่นิ่ง…เล่นตามต่อไป
 music-rhythm-calibration-adapting = กำลังปรับตามจังหวะ…เล่นตามต่อไป
+music-rhythm-calibration-audio-instruction = กดปุ่มใดก็ได้ตั้งแต่ 1 ถึง 4 ให้ตรงกับจังหวะ
 music-rhythm-calibration-done = ทดสอบความหน่วงเสร็จแล้ว · บันทึกการตั้งค่าแล้ว
 music-rhythm-calibration-failed = เสียงทดสอบหยุดกะทันหัน ระบบปิดการทดสอบอย่างปลอดภัยแล้ว โปรดเริ่มใหม่
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → ภาพคีย์บอร์ด → ภาพเมาส์
-music-rhythm-calibration-listen = ฟังจังหวะที่สร้างขึ้นให้ครบหนึ่งรอบ · ยังไม่ต้องกดปุ่ม
-music-rhythm-calibration-minecraft-instruction = ทำตามจังหวะ Minecraft Note Block และกด 1–4
-music-rhythm-calibration-no-input = ไม่พบการกดปุ่ม โปรดตรวจสอบปุ่มและระดับเสียง แล้วเล่นตามต่อไป
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = ฟังจังหวะให้ครบหนึ่งรอบก่อน ยังไม่ต้องกดปุ่ม
+music-rhythm-calibration-no-input = ไม่พบอินพุตที่ใช้ได้ ให้ทำตามวิธีควบคุมที่แสดงสำหรับขั้นตอนนี้ในแต่ละจังหวะ
 music-rhythm-calibration-out-of-range = ค่าหน่วงที่วัดได้อยู่นอกช่วงที่รองรับ โปรดตรวจสอบการตั้งค่าเสียง
-music-rhythm-calibration-plasmo-instruction = เริ่มเล่นตาม: ทำซ้ำจังหวะ Plasmo Voice และกด 1–4 ทุกเสียงกลอง
 music-rhythm-calibration-plasmo-ready = ทดสอบ Minecraft Note Block เสร็จแล้ว ให้ฟังจังหวะเดิมผ่าน Plasmo Voice ก่อน
 music-rhythm-calibration-pointer-instruction = คลิกซ้ายหรือขวาเมื่อโน้ตผ่านเส้น
 music-rhythm-calibration-realigning = เสียงขาดช่วง กำลังสาธิตใหม่และจะเก็บข้อมูลที่เสร็จแล้วไว้
 music-rhythm-calibration-required = ทำการทดสอบความหน่วงให้ครบก่อนเริ่มเกมจังหวะ
 music-rhythm-calibration-reset-done = รีเซ็ตการปรับเทียบความหน่วงแล้ว
-music-rhythm-calibration-result-hold = การทดสอบทั้งหมดเสร็จแล้ว โปรดดูผลก่อนกลับอัตโนมัติ
+music-rhythm-calibration-result-hold = ทดสอบเสร็จแล้ว ตรวจสอบผลได้เลย ระบบจะพากลับโดยอัตโนมัติในอีกสักครู่
 music-rhythm-calibration-stage-minecraft = บล็อกตัวโน้ต Minecraft
-music-rhythm-calibration-stage-plasmo = ทดสอบเสียง Plasmo Voice และอินพุต
-music-rhythm-calibration-stage-pointer = เมาส์
-music-rhythm-calibration-stage-visual = ทดสอบภาพและอินพุต
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = ภาพ · เมาส์
+music-rhythm-calibration-stage-visual = ภาพ · แป้นพิมพ์
 music-rhythm-calibration-visual-instruction = กด 1–4 เมื่อโน้ตผ่านเส้น
 music-rhythm-calibration-visual-preview = ดูคิวให้ครบหนึ่งรอบโดยยังไม่ต้องกด · เริ่มเมื่อคำแนะนำเปลี่ยน
 music-rhythm-calibration-voice-required = การทดสอบเต็มต้องเชื่อมต่อและเปิด Plasmo Voice
@@ -1807,7 +1792,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [ประกาศการแบน]
 ban-command-description = แบนผู้เล่นตามระดับความรุนแรงที่กำหนด
 ban-database-error = ดำเนินการกับฐานข้อมูลแบนไม่สำเร็จ ตรวจบันทึกเซิร์ฟเวอร์
-ban-menu-back = ย้อนกลับ
 ban-menu-confirm-action = แบนผู้เล่น
 ban-menu-confirm-severity = ความรุนแรง
 ban-menu-confirm-title = ยืนยันการแบน
@@ -1981,26 +1965,26 @@ music-space-label =
         [restore-previous] คืนค่าเนื้อหาก่อนเข้ากลุ่ม
         [keep-group-content] เก็บเนื้อหาของกลุ่ม
         [queue] คิวการเล่น
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] ไม่สามารถใช้ที่จัดเก็บเพลงได้
         [saving] กำลังบันทึก…
         [saved] บันทึกแล้ว
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] เลือกทั้งหน้านี้
+        [select-all] เลือกผลลัพธ์ทั้งหมด
+        [clear-tracks] ยกเลิกการเลือกเพลง
         [add-playlist] เพิ่มในรายการ
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] ตั้งเป็นส่วนตัว
+        [publish] ตั้งเป็นสาธารณะ
+        [delete] ลบเพลย์ลิสต์
+        [favorite] เพิ่มหรือนำออกจากรายการโปรด
+        [copy] คัดลอกเพลย์ลิสต์
+        [share] แชร์คำสั่งของเพลย์ลิสต์
         [recent] เล่นล่าสุด
-        [favorites] Favorite playlists
+        [favorites] เพลย์ลิสต์โปรด
         [public] สาธารณะ
         [private] ส่วนตัว
         [new-playlist] สร้างเพลย์ลิสต์
@@ -2015,13 +1999,13 @@ music-space-label =
         [track-type] ประเภท
         [type-online] ออนไลน์
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] ลบรายการที่เลือก
+        [clear-recents] ล้างประวัติการเล่นของฉัน
+        [clear-entries] ยกเลิกการเลือกรายการ
         [search-tracks] ค้นหาเพลง ศิลปิน…
         [search-playlists] ค้นหาเพลย์ลิสต์…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] เพลย์ลิสต์สาธารณะ
+        [searching] กำลังค้นหา…
         [insert] แทรกและเล่นทันที
         [append] เพิ่มลงในคิว
         [choose-targets] เลือกอุปกรณ์
@@ -2032,11 +2016,11 @@ music-space-label =
         [empty] ไม่มีเพลง
         [queue-empty] ไม่มีเพลงในคิว
         [queue-current] เพลงปัจจุบันในคิวดิจิทัล
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] หยุดชั่วคราว
+        [resume] เล่นต่อ
+        [stop] หยุดและเก็บรายการเล่นไว้
+        [previous] เพลงก่อนหน้า / เริ่มใหม่
+        [clear] ล้างเพลงที่รอและหยุดหลังเพลงปัจจุบัน
         [seek] ตำแหน่ง
         [more] เพิ่มเติม
         [volume-control] ระดับเสียง
@@ -2061,22 +2045,22 @@ music-space-label =
         [create-room] สร้างห้อง
         [no-rhythm-devices] ไม่มีตู้เพลงอยู่ใกล้เคียง ให้ย่อตัวแล้วคลิกขวาที่ตู้เพลงด้วยมือเปล่าก่อน
         [calibration] ปรับเทียบความหน่วง
-        [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [volume] ระดับเสียง (0–100)
+        [range] ระยะเสียง (8–256 บล็อก)
         [mode] โหมดการเล่น
         [save-queue] บันทึกคิวเป็นเพลย์ลิสต์
-        [sequential] Sequential
+        [sequential] เล่นตามลำดับ
         [repeat-all] วนรายการ
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] เล่นเพลงซ้ำ
+        [shuffle] สุ่มแบบไม่ซ้ำ
         [import] นำเข้าเพลย์ลิสต์
         [link] ลิงก์เพลย์ลิสต์
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] ดึงเพลย์ลิสต์มาได้เพียงบางส่วน หากต้องการเก็บส่วนที่ดึงมาได้ให้กดบันทึก
+        [import-preview] แสดงตัวอย่างข้อมูลเพลงที่ดึงมา ยังไม่ได้ดาวน์โหลดเสียง
         [import-new] สร้างและเปิด
         [import-merge] รวมในรายการ
         [stopped] หยุดแล้ว
-        [loading] Preparing audio
+        [loading] กำลังเตรียมเสียง
         [cancel-loading] ยกเลิกการเตรียม
         [playing] กำลังเล่น
         [paused] หยุดชั่วคราว
@@ -2087,32 +2071,32 @@ music-space-label =
         [deselect] ยกเลิกการเลือกรายการนี้
         [selected] เลือกแล้ว
         [place-before] ย้ายรายการที่เลือกไปไว้ก่อนรายการนี้
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] นำแผ่นเสียงที่ใส่อยู่ออก
+        [make-disc] สร้างแผ่นเพลงที่มีลายเซ็น
+        [gain] ระดับเสียงกลุ่ม (0–100)
+        [retry-import] ดึงเพลย์ลิสต์อีกครั้ง
         [join-room] เข้าร่วมห้อง
         [ready] พร้อม
-        [waiting] Waiting
+        [waiting] กำลังรอ
         [room-mode] โหมดเกม
         [room-difficulty] ความยาก
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] เข้าร่วมเกมที่กำลังเล่นอยู่
+        [leave-room] ออกจากห้อง
         [select-room-track] ใช้เพลงที่เลือก
         [start-room] เริ่มเกม
         [end-room] สิ้นสุดห้อง
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] รายการเล่นหลัก
+        [priority-queue] เพลงที่ขอให้เล่นครั้งเดียว
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] รอผู้เล่นเตรียมพร้อม
+        [preparing] กำลังเตรียมเสียงและโน้ต
+        [no-beats] ไม่พบจังหวะที่เล่นได้
         [catalog] คลังเพลง
         [my-playlists] เพลย์ลิสต์ของฉัน
         [playlist] เพลย์ลิสต์
@@ -2138,20 +2122,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] ไม่สามารถใช้ระบบเพลงได้ โปรดเปิดเมนูใหม่ภายหลัง
         [INTERNAL] เกิดข้อผิดพลาดภายในระบบเพลง โปรดให้ผู้ดูแลตรวจสอบบันทึกของเซิร์ฟเวอร์
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] รายการที่เลือกไม่มีอยู่อีกต่อไป
+        [FORBIDDEN] ต้องมีสิทธิ์ควบคุมหรือแก้ไข
+        [CONFLICT] เนื้อหาเปลี่ยนแล้ว โปรดรีเฟรชและเลือกอีกครั้ง
+        [LIMIT] ใช้ทรัพยากรเพลงถึงขีดจำกัดแล้ว
+        [INVALID] ตรวจสอบชื่อ รายการที่เลือก หรือช่วงตัวเลข
+        [OFFLINE] อุปกรณ์ไม่พร้อมใช้งาน ให้โหลดชังก์ของอุปกรณ์หรือนำแผ่นเสียงที่ใส่อยู่ออก
+        [OVERLAP] พื้นที่ได้ยินเสียงทับซ้อนกัน ให้หยุดอุปกรณ์อื่น ลดระยะเสียง หรือสร้างกลุ่มซิงค์
+        [UNSUPPORTED] สื่อนี้ไม่รองรับการทำงานนี้
+        [BUSY] อุปกรณ์ คำขอ หรือห้องเกมจังหวะกำลังใช้งานอยู่ โปรดลองใหม่หลังการทำงานเสร็จสิ้น
         [NO_SAFE_DESTINATION] ไม่พบจุดปลอดภัยข้างตู้เพลงนี้
         [TELEPORT_FAILED] วาร์ปล้มเหลวหรือถูกบล็อก
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] ดำเนินการไม่สำเร็จ
     }
 
 music-space-selected-tracks = เลือกแล้ว { $arg0 } เพลง

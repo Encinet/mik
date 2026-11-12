@@ -91,7 +91,7 @@ final class PlotDestinationMenus {
                     .region("actions").primary((viewer, _) -> input(viewer, plot.id(), null));
             if (!controller.canSetHere(player, plot)) add.disabled(text(player, Message.PLOT_DESTINATION_ERROR_LOCATION, NamedTextColor.WHITE));
         }
-        menu.back(text(player, Message.PLOT_BACK, NamedTextColor.GREEN)).region("navigation");
+        menu.back(text(player, Message.BACK, NamedTextColor.GREEN)).region("navigation");
         return menu.build();
     }
 
@@ -141,7 +141,7 @@ final class PlotDestinationMenus {
         menu.control("teleport", text(player, Message.PLOT_DESTINATION_TELEPORT, NamedTextColor.GREEN))
                 .region("actions").primary((viewer, handle) -> teleport(viewer, handle, point.id()));
         if (!manage) {
-            menu.back(text(player,Message.PLOT_BACK,NamedTextColor.GREEN)).region("navigation");
+            menu.back(text(player,Message.BACK,NamedTextColor.GREEN)).region("navigation");
             return menu.build();
         }
         menu.control("edit", text(player, Message.PLOT_DESTINATION_EDIT, NamedTextColor.YELLOW))
@@ -161,9 +161,9 @@ final class PlotDestinationMenus {
                 .region("actions").primary((viewer, _) -> MenuDialogs.openConfirm(plugin, viewer,
                         text(viewer, Message.PLOT_DESTINATION_DELETE, NamedTextColor.GOLD),
                         text(viewer, Message.PLOT_DESTINATION_CONFIRM_DELETE, NamedTextColor.WHITE, point.name()),
-                        text(viewer, Message.PLOT_DESTINATION_DELETE, NamedTextColor.RED), text(viewer, Message.PLOT_BACK, NamedTextColor.WHITE),
+                        text(viewer, Message.PLOT_DESTINATION_DELETE, NamedTextColor.RED), text(viewer, Message.BACK, NamedTextColor.WHITE),
                         responder -> { if (perform(responder, () -> controller.delete(responder, point))) open(responder, plot.id(), 0); }));
-        menu.back(text(player, Message.PLOT_BACK, NamedTextColor.GREEN)).region("navigation");
+        menu.back(text(player, Message.BACK, NamedTextColor.GREEN)).region("navigation");
         return menu.build();
     }
 
@@ -201,7 +201,7 @@ final class PlotDestinationMenus {
                                 UiTemplates.focus(Ui.column().gap(UiLength.ui(12))
                                         .child(Ui.column().key("clear-centre").size(new UiSize(480,240)).build())
                                         .child(UiTemplates.toolbar("tools", UiTemplates.navigation("navigation"))).build(),UiKey.named("tools")));
-                        screen.back(text(viewer, Message.PLOT_BACK, NamedTextColor.GREEN)).region("navigation");
+                        screen.back(text(viewer, Message.BACK, NamedTextColor.GREEN)).region("navigation");
                         handle.openChild(screen.build());
                     }
                 });
@@ -269,7 +269,7 @@ final class PlotDestinationMenus {
                         return null;
                     } catch (PlotProblem failure) { return text(viewer, failure.message(), NamedTextColor.RED, failure.args()); }
                 })
-                .cancel(text(player, Message.PLOT_BACK, NamedTextColor.WHITE))
+                .cancel(text(player, Message.BACK, NamedTextColor.WHITE))
                 .submit(text(player, Message.PLOT_MENU_SUBMIT, NamedTextColor.GREEN), (viewer, values) -> {
                     if (perform(viewer, () -> {
                         if (expected == null) controller.create(viewer, plotId, values.text("name"), values.text("description"));

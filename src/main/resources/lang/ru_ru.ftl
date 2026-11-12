@@ -159,9 +159,9 @@ tip-label = ПОДСКАЗКА
 afk-already-afk-mm = <gray>Вы уже в режиме <gold>AFK</gold></gray>
 afk-command-description = Перейти в режим AFK
 afk-default-statuses =
-    .item-1 = отошёл от клавиатуры
-    .item-2 = перешёл в режим энергосбережения
-    .item-3 = свернул игру
+    .item-1 = не у клавиатуры
+    .item-2 = в режиме энергосбережения
+    .item-3 = в фоновом режиме
     .item-4 = смотрит в пустоту
 afk-display-title-mm = <gold><bold>AFK</bold></gold>
 afk-display-with-message-mm = <gold><bold>AFK</bold></gold> <gray>·</gray> <white><message></white>
@@ -244,7 +244,7 @@ password-invalid = Неверный пароль. Повторите попыт�
 password-keep-role = Модераторы и смотрители не могут удалить свой пароль.
 password-login = Войти
 password-login-expired = Подтверждение входа утратило силу. Подключитесь заново.
-password-login-hint = Введите пароль этого сервера. Если забыли, попросите администрацию сбросить его.
+password-login-hint = Введите пароль своей учётной записи на этом сервере. Если забыли его, попросите администрацию сбросить пароль.
 password-mismatch = Новые пароли не совпадают.
 password-new = Новый пароль
 password-nomination-required = Перед подачей заявки в модераторы задайте пароль: /password set
@@ -270,7 +270,6 @@ password-title = Безопасность учётной записи
 
 ## Player · Profile and tab list
 
-nametag-cancel = Отмена
 nametag-clear = Очистить
 nametag-clear-hint = Удаляет свои значения; унаследованные стили могут остаться.
 nametag-command-description = Настроить оформление имени
@@ -358,14 +357,12 @@ home-action-delete = Удалить дом
 home-action-teleport = Телепортироваться
 home-action-update = Обновить место
 home-already-exists = Дом с таким названием уже существует
-home-back = Назад
 home-confirm-delete = Подтверждение удаления
 home-confirm-delete-detail-rich = Удалить точку дома { $home }
 home-confirm-delete-warning = Это действие нельзя отменить
 home-confirm-update = Подтвердить обновление
 home-confirm-update-detail-rich = Обновить точку дома { $home } до этой позиции
 home-delete-command-description = Удалить точку дома
-home-delete-usage-desc = Удалить точку дома
 home-deleted-rich = Точка дома { $home } удалена
 home-distance = Расстояние: { $arg0 }
 home-distance-blocks = { $arg0 ->
@@ -381,7 +378,12 @@ home-invalid-name = Имя точки дома не может содержат�
 home-list-rich = Точки дома: { $homes }
 home-location = Координаты: { $arg0 }, { $arg1 }, { $arg2 }
 home-location-invalid = Данные о расположении этой точки дома повреждены
-home-max-reached = Можно установить не более { $arg0 } точек дома
+home-max-reached = Лимит: { $arg0 ->
+        [one] { $arg0 } точка дома
+        [few] { $arg0 } точки дома
+        [many] { $arg0 } точек дома
+       *[other] { $arg0 } точки дома
+    }
 home-menu-title = Точки дома
 home-no-homes = У вас пока нет точек дома
 home-not-found-rich = Точка дома { $home } не существует
@@ -389,7 +391,6 @@ home-search-placeholder = Поиск по названию дома…
 home-search-empty = Подходящие точки дома не найдены
 home-set-command-description = Установить точку дома в текущем месте
 home-set-rich = Точка дома { $home } установлена
-home-set-usage-desc = Установить точку дома в текущем месте
 home-summary-count = Установлено: { $arg0 } / { $arg1 }
 home-teleport-failed = Не удалось телепортироваться. Попробуйте ещё раз
 home-teleported-rich = Вы телепортированы к точке дома { $home }
@@ -430,7 +431,6 @@ tpany-command-description = Телепортироваться к игроку �
 tpany-done-offline-rich = Вы телепортированы к последнему известному расположению игрока { $player }: { $world } { $location }
 tpany-done-online-rich = Вы телепортированы к текущему расположению игрока { $player }
 tpany-not-found-rich = Не удалось найти расположение игрока { $player }
-tpany-usage = Использование
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = Телепортироваться к текущему или сохранённому расположению игрока
 
@@ -526,8 +526,13 @@ effect-cleanup-source = { $cause ->
 ## Player · Trash
 
 trash-clear = Очистить
-trash-clear-hint = Нажмите, чтобы сразу удалить все предметы;
-    иначе они удалятся автоматически через { $arg0 } секунд после закрытия.
+trash-clear-hint = Нажмите, чтобы сразу удалить все предметы.
+    После закрытия они также удалятся автоматически через { $arg0 ->
+        [one] { $arg0 } секунду
+        [few] { $arg0 } секунды
+        [many] { $arg0 } секунд
+       *[other] { $arg0 } секунды
+    }.
 trash-command-description = Открыть корзину
 trash-sort = Сортировать
 trash-sort-hint = Объединить одинаковые стопки и рассортировать предметы по типу
@@ -1039,8 +1044,6 @@ governance-kind-removal = Отстранение
 governance-legacy-ban-kick = Прежнее решение сообщества запрещает вам вход. Срок: { $arg0 }. Причина: { $arg1 }
 governance-menu-already-sponsored = Уже поддержано
 governance-menu-application = Статус заявки
-governance-menu-back = Назад
-governance-menu-cancel = Отмена
 governance-menu-completed = Завершённые
 governance-menu-confirm = Подтвердить
 governance-menu-confirm-nominate = Подача заявки запускает голосование о вашем назначении модератором.
@@ -1170,7 +1173,6 @@ plot-area-replace-save = Заменить границы и сохранить
 plot-area-save = Сохранить границы
 plot-area-saved = Границы «{ $arg0 }» сохранены.
 plot-atmosphere-saved = Настройки окружения сохранены.
-plot-back = Назад
 plot-board-auto-notify-result = Оповещения запланированы для { $arg0 ->
         [one] { $arg0 } игрока
         [few] { $arg0 } игроков
@@ -1282,11 +1284,9 @@ plot-menu-flag-container = Открывать контейнеры
 plot-menu-flag-entity = Взаимодействовать с сущностями
 plot-menu-follow-parent = Наследовать от родителя
 plot-menu-follow-world = Как в мире
-plot-menu-group-admin = управляющий участком
 plot-menu-group-collaborator = Соавторы
 plot-menu-group-member = Доступ участников
 plot-menu-group-newcomer = Доступ новичков
-plot-menu-group-owner = владелец участка
 plot-menu-here = Текущее местоположение
 plot-menu-manage = Управление участками игроков
 plot-menu-managed-empty = У этого игрока пока нет участков.
@@ -1306,7 +1306,6 @@ plot-menu-ruling = Объясните решение (8–1000 символов)
 plot-menu-set-role = Назначить роль { $arg0 }
 plot-menu-settings = Настройки проекта
 plot-menu-submit = Применить
-plot-menu-subplot-create = Создать подучасток
 plot-menu-subplot-of = Часть проекта { $arg0 }
 plot-menu-subplot-parent = К родительскому участку: { $arg0 }
 plot-menu-subplots = Дочерние участки ({ $arg0 })
@@ -1656,7 +1655,6 @@ vehicle-model-corner-cancel = Отменить незавершённую обл
 vehicle-model-corner-first = Отметить первый угол у моих ног
 vehicle-model-corner-first-look = Отметить первый угол на поверхности под прицелом
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Использовать ноги как противоположный угол и добавить область
 vehicle-model-corner-second-look = Использовать поверхность под прицелом как противоположный угол
 vehicle-model-create = Создать { -vehicle-model(case: "accusative") }
@@ -1809,7 +1807,6 @@ async-regen-filter-all = все типы блоков
 async-regen-invalid-blocks = Неизвестные типы или не блоки: { $arg0 }
 async-regen-not-running = У вас нет выполняющегося восстановления
 async-regen-nothing-to-apply = Выделение уже соответствует этому плану; применять нечего
-async-regen-plan-cancel = Отмена
 async-regen-plan-dialog-title = Применить план регенерации
 async-regen-preview-cancelled = Предпросмотр отменён; данные мира не изменялись
 async-regen-preview-started = Предпросмотр начат: выделение { $arg0 ->
@@ -1895,7 +1892,6 @@ spawn-world-missing = Мир спауна недоступен
 
 music-album = Альбом: { $arg0 }
 music-artist = Исполнитель: { $arg0 }
-music-back = Назад
 music-command-description = Локальная, онлайн- и NBS-музыка для проигрывателя
 music-disc-left = ЛКМ: взять пластинку
 music-disc-right = ПКМ: включить на ближайшем проигрывателе
@@ -1919,24 +1915,23 @@ music-reload-started = Перезагрузка музыкальных файл�
 music-rhythm-animation-offset = Сдвиг анимации { $arg0 } мс
 music-rhythm-calibration-accumulating = Проверяем стабильность… продолжайте играть
 music-rhythm-calibration-adapting = Подстраиваемся под ритм… продолжайте играть
+music-rhythm-calibration-audio-instruction = На каждый удар нажимайте любую клавишу от 1 до 4.
 music-rhythm-calibration-done = Тест задержки завершён · настройки сохранены
 music-rhythm-calibration-failed = Звук теста прервался. Тест безопасно завершён; запустите его снова
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Клавиатура визуально → Мышь визуально
-music-rhythm-calibration-listen = Сначала прослушайте созданный ритм один раз · пока не нажимайте
-music-rhythm-calibration-minecraft-instruction = Следуйте ритму Minecraft Note Block и нажимайте 1–4
-music-rhythm-calibration-no-input = Ввод не обнаружен. Проверьте клавиши и громкость и продолжайте играть
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = Сначала прослушайте ритм целиком. Пока не нажимайте клавиши.
+music-rhythm-calibration-no-input = Нет допустимого ввода. На каждый сигнал выполняйте действие, указанное для этого этапа.
 music-rhythm-calibration-out-of-range = Измеренная задержка вне поддерживаемого диапазона. Проверьте настройки звука
-music-rhythm-calibration-plasmo-instruction = Теперь повторяйте: следуйте ритму Plasmo Voice и нажимайте 1–4 на каждый удар
 music-rhythm-calibration-plasmo-ready = Тест Minecraft Note Block завершён; сначала прослушайте тот же ритм через Plasmo Voice
 music-rhythm-calibration-pointer-instruction = Нажимайте левую или правую кнопку мыши, когда нота пересекает линию.
 music-rhythm-calibration-realigning = Звуковой поток прервался. Демонстрация повторится, готовые измерения сохранятся
 music-rhythm-calibration-required = Перед запуском ритм-игры пройдите полный тест задержки
 music-rhythm-calibration-reset-done = Калибровка задержки сброшена
-music-rhythm-calibration-result-hold = Все тесты завершены. Проверьте результат перед автоматическим возвратом
+music-rhythm-calibration-result-hold = Тест завершён. Посмотрите результаты; возврат произойдёт автоматически через несколько секунд.
 music-rhythm-calibration-stage-minecraft = Нотный блок Minecraft
-music-rhythm-calibration-stage-plasmo = Тест звука Plasmo Voice и ввода
-music-rhythm-calibration-stage-pointer = Мышь
-music-rhythm-calibration-stage-visual = Тест изображения и ввода
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = Визуальный ритм · мышь
+music-rhythm-calibration-stage-visual = Визуальный ритм · клавиатура
 music-rhythm-calibration-visual-instruction = Нажимайте 1–4, когда нота пересекает линию.
 music-rhythm-calibration-visual-preview = Просмотрите один полный цикл без ввода · начните после смены инструкции
 music-rhythm-calibration-voice-required = Для полного теста Plasmo Voice должен быть подключён и включён
@@ -2098,7 +2093,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Бюллетень блокировки]
 ban-command-description = Заблокировать игрока по фиксированной степени нарушения
 ban-database-error = Ошибка базы блокировок. Проверьте журнал сервера.
-ban-menu-back = Назад
 ban-menu-confirm-action = Заблокировать игрока
 ban-menu-confirm-severity = Степень
 ban-menu-confirm-title = Подтверждение блокировки
@@ -2277,26 +2271,26 @@ music-space-label =
         [restore-previous] Восстановить содержимое до группы
         [keep-group-content] Сохранить содержимое группы
         [queue] Очередь воспроизведения
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] Хранилище музыки недоступно
         [saving] Сохранение…
         [saved] Сохранено
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] Выбрать всю страницу
+        [select-all] Выбрать все результаты
+        [clear-tracks] Снять выбор песен
         [add-playlist] Добавить
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] Сделать личным
+        [publish] Сделать общедоступным
+        [delete] Удалить плейлист
+        [favorite] Добавить в избранное или убрать
+        [copy] Копировать плейлист
+        [share] Поделиться командой плейлиста
         [recent] Недавно играли
-        [favorites] Favorite playlists
+        [favorites] Избранные плейлисты
         [public] Общий
         [private] Личный
         [new-playlist] Создать плейлист
@@ -2311,13 +2305,13 @@ music-space-label =
         [track-type] Тип
         [type-online] Онлайн
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] Удалить выбранные записи
+        [clear-recents] Очистить мою историю прослушивания
+        [clear-entries] Снять выбор записей
         [search-tracks] Поиск песен, исполнителей…
         [search-playlists] Поиск плейлистов…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] Общедоступные плейлисты
+        [searching] Поиск…
         [insert] Вставить и воспроизвести сейчас
         [append] Добавить в очередь
         [choose-targets] Выбрать вывод
@@ -2328,11 +2322,11 @@ music-space-label =
         [empty] Нет песен
         [queue-empty] В очереди нет песен
         [queue-current] Текущая песня цифровой очереди
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] Приостановить
+        [resume] Продолжить
+        [stop] Остановить и сохранить список воспроизведения
+        [previous] Предыдущая песня / сначала
+        [clear] Очистить очередь; остановить после текущей песни
         [seek] Позиция
         [more] Ещё
         [volume-control] Громкость
@@ -2357,22 +2351,22 @@ music-space-label =
         [create-room] Создать комнату
         [no-rhythm-devices] Рядом нет проигрывателей. Сначала присядьте и нажмите по проигрывателю правой кнопкой с пустой рукой.
         [calibration] Калибровка задержки
-        [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [volume] Громкость (0–100)
+        [range] Радиус (8–256 блоков)
         [mode] Режим воспроизведения
         [save-queue] Сохранить очередь как плейлист
-        [sequential] Sequential
+        [sequential] По порядку
         [repeat-all] Повтор списка
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] Повторять песню
+        [shuffle] В случайном порядке без повторов
         [import] Импортировать плейлист
         [link] Ссылка на плейлист
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] Загружена только часть плейлиста. Сохраните её, если хотите оставить.
+        [import-preview] Предпросмотр загруженных метаданных; аудио не скачивалось
         [import-new] Создать и открыть
         [import-merge] Объединить с плейлистом
         [stopped] Остановлено
-        [loading] Preparing audio
+        [loading] Подготовка аудио
         [cancel-loading] Отменить подготовку
         [playing] Воспроизводится
         [paused] Приостановлено
@@ -2383,32 +2377,32 @@ music-space-label =
         [deselect] Снять выбор этой записи
         [selected] Выбрано
         [place-before] Поместить выбранное перед этой записью
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] Извлечь вставленную пластинку
+        [make-disc] Создать подписанную музыкальную пластинку
+        [gain] Громкость группы (0–100)
+        [retry-import] Загрузить плейлист заново
         [join-room] Войти в комнату
         [ready] Готов
-        [waiting] Waiting
+        [waiting] Ожидание
         [room-mode] Режим игры
         [room-difficulty] Сложность
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] Присоединиться к текущей игре
+        [leave-room] Покинуть комнату
         [select-room-track] Использовать выбранную композицию
         [start-room] Начать игру
         [end-room] Завершить комнату
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] Основной список воспроизведения
+        [priority-queue] Одноразовые музыкальные заявки
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] Ожидание готовности игроков
+        [preparing] Подготовка аудио и нот
+        [no-beats] Нет доступных для игры ритмов
         [catalog] Каталог
         [my-playlists] Мои плейлисты
         [playlist] Плейлист
@@ -2434,20 +2428,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] Музыка недоступна. Откройте меню позже.
         [INTERNAL] Внутренняя ошибка музыки; попросите администратора проверить журнал сервера
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] Выбранная запись больше не существует.
+        [FORBIDDEN] Нужно разрешение на управление или редактирование.
+        [CONFLICT] Содержимое изменилось. Обновите экран и выберите заново.
+        [LIMIT] Достигнут лимит музыкальных ресурсов.
+        [INVALID] Проверьте имя, выбор или допустимый диапазон чисел.
+        [OFFLINE] Устройство недоступно: загрузите его чанк или извлеките вставленную пластинку.
+        [OVERLAP] Зоны слышимости пересекаются. Остановите другое устройство, уменьшите радиус или создайте группу синхронизации.
+        [UNSUPPORTED] Этот медиаресурс не поддерживает такое действие.
+        [BUSY] Устройство, запрос или ритм-комната заняты. Повторите попытку после завершения операции.
         [NO_SAFE_DESTINATION] Рядом с этим проигрывателем нет безопасного места
         [TELEPORT_FAILED] Телепортация не удалась или была заблокирована
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] Не удалось выполнить действие
     }
 
 music-space-selected-tracks =

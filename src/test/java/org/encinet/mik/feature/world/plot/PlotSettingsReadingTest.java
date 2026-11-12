@@ -33,7 +33,7 @@ class PlotSettingsReadingTest {
                         for (var task : ownership) builder.control(task.name(),Component.text(FluentTestSupport.text(text,task)))
                                 .region("ownership").primary((_,_) -> clicked.add(task));
                         builder.information("identifier",Component.text("12345678-1234-1234-1234-123456789012")).region("identifier");
-                        builder.back(Component.text(FluentTestSupport.text(text,Message.PLOT_BACK))).region("navigation");
+                        builder.back(Component.text(FluentTestSupport.text(text,Message.BACK))).region("navigation");
                         var frame = SceneGeometryTestSupport.readableFrame(builder.build(),font,new FloatingMenuFieldOfView(fov),scale);
                         assertDisjoint(frame);
                         var expected = general ? generalTasks : ownership;

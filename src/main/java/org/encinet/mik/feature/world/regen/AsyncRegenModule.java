@@ -589,7 +589,7 @@ public final class AsyncRegenModule implements AsyncRegenService.Listener {
                 135,
                 session.action((target, _) -> applyPlan(target, pending.token())));
         ActionButton cancel = ActionButton.create(
-                languageService.text(player, Message.ASYNC_REGEN_PLAN_CANCEL, NamedTextColor.YELLOW),
+                languageService.text(player, Message.CANCEL, NamedTextColor.YELLOW),
                 null,
                 100,
                 session.action((target, _) -> cancelPendingPlan(target, pending.token())));

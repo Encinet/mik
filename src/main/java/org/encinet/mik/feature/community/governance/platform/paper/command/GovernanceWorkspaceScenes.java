@@ -149,7 +149,7 @@ final class GovernanceWorkspaceScenes {
             if (name != null) blocks.add(info("subject",avatar(popup.subject()).append(Component.space()).append(Component.text(name)),UiTheme.HEADING));
             blocks.add(info("question",label(question)));
             var decisions = Ui.row().key("decision").gap(UiLength.ui(8))
-                    .child(button("cancel", label(Message.GOVERNANCE_MENU_CANCEL), CANCEL_CONFIRM).build())
+                    .child(button("cancel", label(Message.CANCEL), CANCEL_CONFIRM).build())
                     .child(button("confirm", label(confirmationLabel(popup.intent()), popup.intent() == Intent.SPONSOR ? YELLOW : RED), PERFORM).build()).build();
             return popupReading("confirmation",blocks,decisions);
         }

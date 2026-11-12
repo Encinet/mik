@@ -103,8 +103,8 @@ url-dialog-title = { $arg0 } 열기
 
 client-mods-undetected-rich = 추천 모드: { $mods }. 이름을 클릭해 다운로드하세요.
 client-tip-axiom-flight-speed-mm = <white><yellow>왼쪽 Alt</yellow>를 길게 눌러 <aqua>Axiom</aqua> 메뉴를 열고 오른쪽 세로 슬라이더를 드래그해 비행 속도를 조절하세요. <click:suggest_command:'/fly speed '><aqua><underlined>/fly speed</underlined></aqua></click> 명령어로도 조절할 수 있습니다.</white>
-client-tip-axiom-intro-rich = { $mod }으로 건축물을 복사해 붙여넣고, 지형과 디스플레이 엔티티를 편집할 수 있습니다. 이름을 클릭하면 다운로드할 수 있습니다.
-client-version-behind-mm = <white>클라이언트 <yellow>{ $clientVersion }</yellow>은 서버 <green>{ $serverVersion }</green>보다 오래된 버전입니다. 업데이트를 권장합니다.</white>
+client-tip-axiom-intro-rich = { $mod } 모드로 건축물을 복사해 붙여넣고, 지형과 디스플레이 엔티티를 편집할 수 있습니다. 이름을 클릭하면 다운로드할 수 있습니다.
+client-version-behind-mm = <white>현재 클라이언트 버전은 <yellow>{ $clientVersion }</yellow>이며, 서버 버전 <green>{ $serverVersion }</green>보다 오래되었습니다. 업데이트를 권장합니다.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>근처 플레이어 <gold>{ $count }</gold>명이 <gold>투명 상태</gold>입니다</yellow> <gray>·</gray> <gray>가장 가까운 플레이어 약 { $distance }블록</gray>
 player-bedrock-label = 베드락
@@ -180,7 +180,7 @@ password-invalid = 비밀번호가 틀렸습니다. 다시 시도하세요.
 password-keep-role = 관리자와 유지관리자는 비밀번호를 제거할 수 없습니다.
 password-login = 로그인
 password-login-expired = 로그인 인증이 만료되었습니다. 서버에 다시 접속하세요.
-password-login-hint = 이 서버의 비밀번호를 입력하세요. 잊었다면 관리자에게 초기화를 요청하세요.
+password-login-hint = 이 서버에서 설정한 계정 비밀번호를 입력하세요. 잊었다면 관리자에게 초기화를 요청하세요.
 password-mismatch = 새 비밀번호가 일치하지 않습니다.
 password-new = 새 비밀번호
 password-nomination-required = 관리자 신청 전에 계정 비밀번호를 설정하세요: /password set
@@ -206,7 +206,6 @@ password-title = 계정 보안
 
 ## Player · Profile and tab list
 
-nametag-cancel = 취소
 nametag-clear = 비우기
 nametag-clear-hint = 사용자 지정 값만 삭제하며 상속된 장식은 남을 수 있습니다.
 nametag-command-description = 이름표 꾸미기
@@ -284,14 +283,12 @@ home-action-delete = 집 삭제
 home-action-teleport = 순간이동
 home-action-update = 위치 업데이트
 home-already-exists = 같은 이름의 집이 이미 있습니다
-home-back = 뒤로
 home-confirm-delete = 삭제 확인
 home-confirm-delete-detail-rich = 홈 { $home } 삭제
 home-confirm-delete-warning = 삭제하면 되돌릴 수 없습니다
 home-confirm-update = 위치 변경 확인
 home-confirm-update-detail-rich = 홈 { $home } 위치를 다음으로 변경
 home-delete-command-description = 홈 삭제
-home-delete-usage-desc = 홈 삭제
 home-deleted-rich = 홈 삭제 완료: { $home }
 home-distance = 거리: { $arg0 }
 home-distance-blocks = { $arg0 }블록
@@ -310,12 +307,11 @@ home-search-placeholder = 집 이름 검색…
 home-search-empty = 일치하는 홈 없음
 home-set-command-description = 현재 위치에 홈 설정
 home-set-rich = 홈 설정 완료: { $home }
-home-set-usage-desc = 현재 위치에 홈 설정
 home-summary-count = 설정됨: { $arg0 } / { $arg1 }
 home-teleport-failed = 순간이동에 실패했습니다. 다시 시도해 주세요
 home-teleported-rich = 홈으로 순간이동했습니다: { $home }
 home-tip-create-mm = <green><u><click:suggest_command:'/sethome '>/sethome 이름</click></u></green>으로 현재 위치를 저장하고 <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>으로 돌아오세요.
-home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua>으로 집 메뉴를 열고 집을 선택한 다음 ‘{ home-action-teleport }’를 누르세요.
+home-tip-return-mm = <aqua><u><click:suggest_command:'/home'>/home</click></u></aqua> 명령어로 홈 메뉴를 열고 홈을 선택한 다음 ‘{ home-action-teleport }’ 버튼을 누르세요.
 home-updated-rich = 홈 { $home }의 위치를 변경했습니다
 home-usage-book = 명령어 도움말
 home-usage-delhome = /delhome <name>  홈 삭제
@@ -351,7 +347,6 @@ tpany-command-description = 온라인 또는 오프라인 플레이어의 위치
 tpany-done-offline-rich = { $player }님의 마지막 확인 위치로 순간이동했습니다 { $world } { $location }
 tpany-done-online-rich = { $player }님의 현재 위치로 순간이동했습니다
 tpany-not-found-rich = { $player }님의 위치를 찾을 수 없습니다
-tpany-usage = 사용법
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = 오프라인 위치 기록을 포함한 플레이어 위치로 순간이동
 
@@ -619,12 +614,12 @@ social-admin-status = { $arg0 } · { $arg1 } · 세대 { $arg2 } · 대화 { $ar
 social-admin-title = 소셜 플랫폼
 social-admin-unknown = 알 수 없는 소셜 플랫폼: { $arg0 }
 social-binding-already-linked = 이미 연결된 Minecraft 플레이어: { $arg0 }
-social-binding-code-invalid = 코드가 잘못되었거나 만료되었습니다. 다시 접속하여 새 코드를 받거나 게임에서 /bind { $arg0 }를 실행하세요.
+social-binding-code-invalid = 코드가 잘못되었거나 만료되었습니다. 다시 접속하여 새 코드를 받거나 게임에서 /bind { $arg0 } 명령어를 실행하세요.
 social-binding-external-in-use = 이 식별 정보는 이미 다른 Minecraft 플레이어와 연결되어 있습니다.
-social-binding-help = 서버 접속을 시도하면 로그인 화면에서 코드를 받을 수 있습니다. 이미 접속 중이라면 /bind { $arg0 }를 실행하세요.
-    생성된 전체 명령어를 복사합니다.
-    해당 명령어를 여기에 보냅니다.
-    /프로필로 연결을 확인합니다.
+social-binding-help = 서버 접속을 시도하면 로그인 화면에서 코드를 받을 수 있습니다. 이미 접속 중이라면 /bind { $arg0 } 명령어를 실행하세요.
+    생성된 명령어 전체를 복사하세요.
+    여기에 명령어를 보내세요.
+    /profile 명령어로 연결을 확인하세요.
 social-binding-identity-missing = 이 메시지에는 신뢰할 수 있는 멤버 식별 정보가 없어 연결할 수 없습니다.
 social-binding-linked = Minecraft 플레이어와 연결했습니다: { $arg0 }
 social-binding-membership-required = 이 플랫폼의 연동된 커뮤니티에 가입한 후 계정 연결을 다시 시도하세요
@@ -865,8 +860,6 @@ governance-kind-removal = 해임
 governance-legacy-ban-kick = 이전 운영 투표가 통과되었습니다. { $arg0 } 동안 차단됩니다. 사유: { $arg1 }
 governance-menu-already-sponsored = 이미 서명함
 governance-menu-application = 신청 상태
-governance-menu-back = 뒤로
-governance-menu-cancel = 취소
 governance-menu-completed = 종료됨
 governance-menu-confirm = 확인
 governance-menu-confirm-nominate = 신청하면 관리자 임명 투표가 시작됩니다.
@@ -981,7 +974,6 @@ plot-area-replace-save = 경계 교체 및 저장
 plot-area-save = 경계 저장
 plot-area-saved = 「{ $arg0 }」 경계를 저장했습니다.
 plot-atmosphere-saved = 환경 설정을 저장했습니다.
-plot-back = 뒤로
 plot-board-auto-notify-result = 플레이어 { $arg0 }명에게 알림을 예약했습니다.
 plot-board-auto-registered-text = 구역이 등록되었습니다: 「{ $arg0 }」. 건축 셀의 경계 좌표: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }.
 plot-board-detail = { $arg0 }의 기록: { $arg1 } { $arg2 }, { $arg3 }, { $arg4 } — { $arg5 }
@@ -1079,11 +1071,9 @@ plot-menu-flag-container = 보관함 열기
 plot-menu-flag-entity = 엔티티 상호작용
 plot-menu-follow-parent = 상위 구역 따르기
 plot-menu-follow-world = 월드 따라가기
-plot-menu-group-admin = 구역 관리자
 plot-menu-group-collaborator = 협력자
 plot-menu-group-member = 정식 구성원 기본 권한
 plot-menu-group-newcomer = 신규 플레이어 기본 권한
-plot-menu-group-owner = 구역 소유자
 plot-menu-here = 현재 위치
 plot-menu-manage = 회원 구역 관리
 plot-menu-managed-empty = 이 플레이어는 아직 구역이 없습니다.
@@ -1103,7 +1093,6 @@ plot-menu-ruling = 판정 이유 입력 (8~1000자)
 plot-menu-set-role = 역할 변경: { $arg0 }
 plot-menu-settings = 프로젝트 설정
 plot-menu-submit = 적용
-plot-menu-subplot-create = 하위 구역 만들기
 plot-menu-subplot-of = { $arg0 } 소속
 plot-menu-subplot-parent = 상위 구역으로: { $arg0 }
 plot-menu-subplots = 하위 구역 ({ $arg0 })
@@ -1182,14 +1171,14 @@ plot-region-apply = 직사각형 조정 완료
 plot-region-cancel = 직사각형 조정 취소
 plot-region-changed = 선택 영역이 변경되었습니다. 직사각형을 다시 선택하세요.
 plot-region-delete = 이 직사각형 삭제
-plot-region-delete-confirm = 초안에서 직사각형 #{ $arg0 }을 삭제할까요? 건물은 그대로이며, 구역을 저장해야 경계가 변경됩니다. 실행 취소할 수 있습니다.
+plot-region-delete-confirm = 초안에서 { $arg0 }번 직사각형을 삭제할까요? 건물은 그대로이며, 구역을 저장해야 경계가 변경됩니다. 실행 취소할 수 있습니다.
 plot-region-edit-hint = //pos1, //pos2로 현재 사각형을 조정한 뒤 저장하세요.
 plot-region-finish-first = 현재 직사각형 조정을 먼저 완료하거나 취소하세요.
 plot-region-open = 직사각형 관리 ({ $arg0 })
 plot-region-select-hint = 번호가 있는 직사각형을 선택하면 확대하고 강조합니다. 회색 선은 현재 페이지를 나타내며, 합치면 번호가 바뀔 수 있습니다.
 plot-renamed = 프로젝트 이름을 변경했습니다.
 plot-role-admin = 구역 관리자
-plot-role-changed-for-you = { $arg0 } 구역에서의 역할이 { $arg1 }으로 변경되었습니다.
+plot-role-changed-for-you = 구역 { $arg0 }에서 내 역할이 변경되었습니다: { $arg1 }
 plot-role-collaborator = 공동 작업자
 plot-role-owner = 구역 소유자
 plot-role-parent-owner = 상위 구역 소유자
@@ -1443,7 +1432,6 @@ vehicle-model-corner-cancel = 작성 중인 충돌 상자 취소
 vehicle-model-corner-first = 발 위치를 상자의 첫 모서리로 지정
 vehicle-model-corner-first-look = 겨냥한 표면을 첫 모서리로 지정
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = 발 위치를 반대 모서리로 삼아 상자 추가
 vehicle-model-corner-second-look = 겨냥한 표면을 반대 모서리로 지정
 vehicle-model-create = 모델 만들기
@@ -1568,7 +1556,6 @@ async-regen-filter-all = 모든 블록 종류
 async-regen-invalid-blocks = 알 수 없거나 블록이 아닌 종류: { $arg0 }
 async-regen-not-running = 실행 중인 재생성 작업이 없습니다
 async-regen-nothing-to-apply = 선택 영역이 이미 이 계획과 일치하여 적용할 변경 사항이 없습니다
-async-regen-plan-cancel = 취소
 async-regen-plan-dialog-title = 재생성 계획 적용
 async-regen-preview-cancelled = 미리보기를 취소했습니다. 월드 데이터는 변경되지 않았습니다
 async-regen-preview-started = 미리보기 시작: 선택 영역 { $arg0 }블록, { $arg1 }청크, 모드 { $arg2 }
@@ -1619,7 +1606,6 @@ spawn-world-missing = 스폰 세계를 사용할 수 없습니다
 
 music-album = 앨범: { $arg0 }
 music-artist = 아티스트: { $arg0 }
-music-back = 뒤로
 music-command-description = 주크박스용 로컬, 온라인 및 NBS 음악
 music-disc-left = 좌클릭: 음반 받기
 music-disc-right = 우클릭: 가장 가까운 주크박스에서 재생
@@ -1638,24 +1624,23 @@ music-reload-started = 음악 파일과 사용자 지정 음원을 다시 불러
 music-rhythm-animation-offset = 애니메이션 오프셋 { $arg0 } ms
 music-rhythm-calibration-accumulating = 안정적인 타이밍 확인 중…계속 따라 치세요
 music-rhythm-calibration-adapting = 리듬에 맞추는 중…계속 따라 치세요
+music-rhythm-calibration-audio-instruction = 박자에 맞춰 1~4 중 아무 키나 누르세요.
 music-rhythm-calibration-done = 지연 테스트 완료 · 설정 저장됨
 music-rhythm-calibration-failed = 지연 테스트 오디오가 중단되었습니다. 테스트를 안전하게 종료했으니 다시 시작해 주세요
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → 키보드 시각 → 마우스 시각
-music-rhythm-calibration-listen = 생성된 리듬을 한 번 들어보세요 · 아직 키를 누르지 마세요
-music-rhythm-calibration-minecraft-instruction = Minecraft Note Block 리듬을 따라 1–4를 누르세요
-music-rhythm-calibration-no-input = 입력이 감지되지 않았습니다. 키와 음량을 확인하고 계속 따라 치세요
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = 먼저 리듬을 한 번 끝까지 들어보세요. 아직 키를 누르지 마세요.
+music-rhythm-calibration-no-input = 유효한 입력이 감지되지 않았습니다. 신호에 맞춰 현재 단계에 안내된 조작을 해 주세요.
 music-rhythm-calibration-out-of-range = 측정된 지연이 지원 범위를 벗어났습니다. 오디오 설정을 확인하세요
-music-rhythm-calibration-plasmo-instruction = 이제 따라 치세요: 방금 들은 Plasmo Voice 리듬의 각 드럼에서 1–4를 누르세요
 music-rhythm-calibration-plasmo-ready = Minecraft Note Block 테스트 완료. 먼저 같은 리듬을 Plasmo Voice로 들어보세요
 music-rhythm-calibration-pointer-instruction = 노트가 히트 라인을 지날 때 왼쪽 또는 오른쪽 클릭하세요
 music-rhythm-calibration-realigning = 오디오가 중단되었습니다. 시범을 다시 재생하며 완료된 측정은 유지됩니다
 music-rhythm-calibration-required = 리듬 게임을 시작하기 전에 전체 지연 테스트를 완료하세요
 music-rhythm-calibration-reset-done = 지연 보정이 초기화되었습니다
-music-rhythm-calibration-result-hold = 모든 테스트가 완료되었습니다. 자동으로 돌아가기 전에 결과를 확인하세요
+music-rhythm-calibration-result-hold = 테스트가 완료되었습니다. 결과를 확인해 주세요. 잠시 후 자동으로 돌아갑니다.
 music-rhythm-calibration-stage-minecraft = Minecraft 소리 블록
-music-rhythm-calibration-stage-plasmo = Plasmo Voice 소리 및 입력 테스트
-music-rhythm-calibration-stage-pointer = 마우스
-music-rhythm-calibration-stage-visual = 화면 및 입력 테스트
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = 시각 · 마우스
+music-rhythm-calibration-stage-visual = 시각 · 키보드
 music-rhythm-calibration-visual-instruction = 노트가 히트 라인을 지날 때 1–4를 누르세요
 music-rhythm-calibration-visual-preview = 입력하지 말고 큐 한 구간을 지켜보세요 · 안내가 바뀌면 시작하세요
 music-rhythm-calibration-voice-required = 전체 지연 테스트에는 Plasmo Voice 연결과 활성화가 필요합니다
@@ -1796,7 +1781,7 @@ anniversary-second-round-hint = AFK가 아닌 온라인 시간이 총 8시간이
 anniversary-status-completed = 두 라운드를 모두 완료했습니다.
 anniversary-status-gift-pack-final = 선물 패키지에 당첨되었습니다. 최종 경품이 확정되어 남은 추첨이 모두 종료되었습니다.
 anniversary-status-progress = 완료: { $arg0 }/{ $arg1 }라운드, 유효 온라인 시간: { $arg2 }
-anniversary-status-remaining = { $arg0 }라운드까지 AFK가 아닌 온라인 시간 { $arg1 }이 더 필요합니다.
+anniversary-status-remaining = { $arg0 }라운드까지 필요한 추가 활동 시간: { $arg1 } (AFK 제외)
 anniversary-status-results = 추첨 결과: { $arg0 }
 anniversary-status-title = 5주년 추첨 진행도
 
@@ -1807,7 +1792,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [차단 공지]
 ban-command-description = 고정된 심각도로 플레이어 차단
 ban-database-error = 차단 데이터베이스 작업에 실패했습니다. 서버 로그를 확인하세요.
-ban-menu-back = 뒤로
 ban-menu-confirm-action = 플레이어 차단
 ban-menu-confirm-severity = 심각도
 ban-menu-confirm-title = 차단 확인
@@ -1981,26 +1965,26 @@ music-space-label =
         [restore-previous] 그룹 참여 전 내용 복원
         [keep-group-content] 그룹 내용 유지
         [queue] 재생 대기열
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] 음악 저장소를 사용할 수 없습니다
         [saving] 저장 중…
         [saved] 저장됨
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] 이 페이지 전체 선택
+        [select-all] 검색 결과 전체 선택
+        [clear-tracks] 곡 선택 해제
         [add-playlist] 목록에 추가
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] 비공개로 설정
+        [publish] 공개로 설정
+        [delete] 재생 목록 삭제
+        [favorite] 즐겨찾기 추가 또는 해제
+        [copy] 재생 목록 복사
+        [share] 재생 목록 공유 명령어
         [recent] 최근 재생
-        [favorites] Favorite playlists
+        [favorites] 즐겨찾는 재생 목록
         [public] 공개
         [private] 비공개
         [new-playlist] 재생목록 만들기
@@ -2015,13 +1999,13 @@ music-space-label =
         [track-type] 유형
         [type-online] 온라인
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] 선택한 항목 삭제
+        [clear-recents] 내 재생 기록 지우기
+        [clear-entries] 항목 선택 해제
         [search-tracks] 곡, 아티스트 검색…
         [search-playlists] 재생목록 검색…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] 공개 재생 목록
+        [searching] 검색 중…
         [insert] 끼워 넣고 바로 재생
         [append] 대기열에 추가
         [choose-targets] 출력 선택
@@ -2032,11 +2016,11 @@ music-space-label =
         [empty] 곡 없음
         [queue-empty] 대기 중인 곡 없음
         [queue-current] 디지털 대기열의 현재 곡
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] 일시 정지
+        [resume] 재개
+        [stop] 정지하고 재생 목록 유지
+        [previous] 이전 곡 / 처음부터 재생
+        [clear] 대기 곡을 지우고 현재 곡이 끝나면 정지
         [seek] 재생 위치
         [more] 더 보기
         [volume-control] 음량
@@ -2061,22 +2045,22 @@ music-space-label =
         [create-room] 방 만들기
         [no-rhythm-devices] 근처에 주크박스가 없습니다. 먼저 빈손으로 웅크린 채 주크박스를 우클릭하세요.
         [calibration] 지연 보정
-        [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [volume] 음량 (0~100)
+        [range] 범위 (8~256블록)
         [mode] 재생 모드
         [save-queue] 대기열을 재생 목록으로 저장
-        [sequential] Sequential
+        [sequential] 순서대로 재생
         [repeat-all] 목록 반복
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] 한 곡 반복
+        [shuffle] 중복 없이 무작위 재생
         [import] 재생목록 가져오기
         [link] 재생목록 링크
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] 재생 목록의 일부만 가져왔습니다. 가져온 부분을 보관하려면 저장해 주세요.
+        [import-preview] 가져온 곡 정보의 미리보기입니다. 오디오는 다운로드하지 않았습니다.
         [import-new] 만들고 열기
         [import-merge] 목록에 합치기
         [stopped] 중지됨
-        [loading] Preparing audio
+        [loading] 오디오 준비 중
         [cancel-loading] 준비 취소
         [playing] 재생 중
         [paused] 일시정지
@@ -2087,32 +2071,32 @@ music-space-label =
         [deselect] 이 항목 선택 해제
         [selected] 선택됨
         [place-before] 선택한 항목을 이 항목 앞으로 이동
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] 삽입된 음반 꺼내기
+        [make-disc] 서명된 음악 음반 만들기
+        [gain] 그룹 음량 (0~100)
+        [retry-import] 재생 목록 다시 가져오기
         [join-room] 방 참가
         [ready] 준비 완료
-        [waiting] Waiting
+        [waiting] 대기 중
         [room-mode] 게임 모드
         [room-difficulty] 난이도
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] 진행 중인 게임에 참가
+        [leave-room] 방 나가기
         [select-room-track] 선택한 곡 사용
         [start-room] 게임 시작
         [end-room] 방 종료
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] 기본 재생 목록
+        [priority-queue] 한 번만 재생할 신청곡
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] 플레이어 준비 대기 중
+        [preparing] 오디오와 채보 준비 중
+        [no-beats] 플레이할 수 있는 박자가 없습니다
         [catalog] 음악 목록
         [my-playlists] 내 재생목록
         [playlist] 재생목록
@@ -2138,20 +2122,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] 음악 기능을 사용할 수 없습니다. 나중에 다시 열어 주세요.
         [INTERNAL] 음악 기능에 내부 오류가 발생했습니다. 관리자에게 서버 로그 확인을 요청하세요
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] 선택한 항목이 더 이상 존재하지 않습니다.
+        [FORBIDDEN] 제어 또는 편집 권한이 필요합니다.
+        [CONFLICT] 내용이 변경되었습니다. 새로 고침한 뒤 다시 선택해 주세요.
+        [LIMIT] 음악 리소스 한도에 도달했습니다.
+        [INVALID] 이름, 선택 항목 또는 숫자 범위를 확인해 주세요.
+        [OFFLINE] 장치를 사용할 수 없습니다. 해당 청크를 불러오거나 삽입된 음반을 꺼내 주세요.
+        [OVERLAP] 소리가 들리는 범위가 겹칩니다. 다른 장치를 정지하거나, 범위를 줄이거나, 동기화 그룹을 만들어 주세요.
+        [UNSUPPORTED] 이 미디어는 해당 작업을 지원하지 않습니다.
+        [BUSY] 장치, 요청 또는 리듬 게임 방이 사용 중입니다. 작업이 끝난 뒤 다시 시도해 주세요.
         [NO_SAFE_DESTINATION] 주크박스 옆에 안전한 착지 지점이 없습니다
         [TELEPORT_FAILED] 순간이동에 실패했거나 차단되었습니다
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] 작업에 실패했습니다
     }
 
 music-space-selected-tracks = { $arg0 }곡 선택됨

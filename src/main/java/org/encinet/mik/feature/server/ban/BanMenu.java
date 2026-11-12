@@ -136,7 +136,7 @@ final class BanMenu {
         for (BanSeverity severity : BanSeverity.values())
             menu.control(severity.name(), label(language, severity.label())).region("actions")
                     .primary((viewer, _) -> openConfirmation(viewer, target, severity, ""));
-        menu.back(label(language, Message.BAN_MENU_BACK)).region("navigation");
+        menu.back(label(language, Message.BACK)).region("navigation");
         FloatingMenus.present(moderator, menu.build());
     }
 
@@ -154,7 +154,7 @@ final class BanMenu {
                 .field(MenuInputForm.Field.text("reason", label(language, Message.BANLIST_REASON), reason, 256))
                 .validate((viewer, values) -> BanReason.normalize(values.text("reason")).isPresent()
                         ? null : error(viewer, Message.BAN_REASON_REQUIRED))
-                .cancel(label(language, Message.BAN_MENU_BACK))
+                .cancel(label(language, Message.BACK))
                 .submit(label(language, Message.BAN_MENU_CONFIRM_ACTION), (viewer, values) ->
                         confirmOrWarn(viewer, target, severity, values.text("reason"))).build());
     }
@@ -182,7 +182,7 @@ final class BanMenu {
         menu.information("reason", renderer.labelLine(language, Message.BANLIST_REASON, reason)).region("details");
         menu.control("confirm", label(language, Message.BAN_MENU_NEVER_JOINED_CONFIRM_ACTION)).region("actions")
                 .primary((viewer, handle) -> { confirm(viewer, target, severity, reason); handle.back(); });
-        menu.control("edit", label(language, Message.BAN_MENU_BACK)).region("navigation")
+        menu.control("edit", label(language, Message.BACK)).region("navigation")
                 .primary((viewer, handle) -> { handle.back(); openConfirmation(viewer, target, severity, reason); });
         FloatingMenus.present(moderator, menu.build());
     }

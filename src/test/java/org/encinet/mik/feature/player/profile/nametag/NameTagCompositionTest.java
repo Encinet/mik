@@ -126,7 +126,7 @@ class NameTagCompositionTest {
         menu.information("current", label(bundle, Message.NAMETAG_CURRENT).append(Component.newline()).append(effect)).region("current");
         if (state != State.BROWSING) {
             menu.control("confirm",label(bundle,Message.NAMETAG_CONFIRM)).region("edit-actions").primary((_,_) -> {});
-            menu.control("cancel",label(bundle,Message.NAMETAG_CANCEL)).region("edit-actions").primary((_,_) -> {});
+            menu.control("cancel",label(bundle,Message.CANCEL)).region("edit-actions").primary((_,_) -> {});
             menu.information("preview", label(bundle, Message.NAMETAG_PREVIEW_LABEL).append(Component.newline()).append(effect)).region("current");
             menu.information("input-status", label(bundle, Message.NAMETAG_EDIT_PROMPT,
                     FluentTestSupport.text(bundle, Message.NAMETAG_LEADING_LABEL))).region("edit-status").textWidth(FloatingMenuTextWidth.EXPANDED);

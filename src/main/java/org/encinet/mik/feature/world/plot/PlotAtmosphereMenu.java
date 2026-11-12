@@ -86,7 +86,7 @@ final class PlotAtmosphereMenu implements AutoCloseable {
                         .region("options").primary((_, _) -> actions.weather().accept(weather));
             }
         }
-        menu.back(language.text(locale, Message.PLOT_BACK, NamedTextColor.GREEN)).region("navigation").keepAccessible();
+        menu.back(language.text(locale, Message.BACK, NamedTextColor.GREEN)).region("navigation").keepAccessible();
         return menu.screen(SCREEN_ID);
     }
 
@@ -100,7 +100,7 @@ final class PlotAtmosphereMenu implements AutoCloseable {
                     try { PlotAtmosphere.parseClock(values.text("value").strip()); return null; }
                     catch (PlotProblem invalid) { return language.text(locale, invalid.message(), NamedTextColor.RED, invalid.args()); }
                 })
-                .cancel(language.text(locale, Message.PLOT_BACK, NamedTextColor.WHITE))
+                .cancel(language.text(locale, Message.BACK, NamedTextColor.WHITE))
                 .submit(language.text(locale, Message.PLOT_MENU_SUBMIT, NamedTextColor.GREEN), (player, values) -> {
                     if (mayEdit.apply(player) == null) submit.accept(player, PlotAtmosphere.parseClock(values.text("value").strip()));
                 }).build();

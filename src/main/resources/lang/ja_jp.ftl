@@ -143,7 +143,7 @@ afk-enter-custom-templates =
 afk-enter-default-templates =
     .item-1 = <gray>*</gray> <player> <yellow><status></yellow>
 afk-exit-templates =
-    .item-1 = <gray>*</gray> <player> <green>が戻ってきました</green>
+    .item-1 = <gray>*</gray> <player> <green>がキーボードの前に戻りました</green>
     .item-2 = <gray>*</gray> <player> <green>が戻ってきました</green>
 afk-not-afk-mm = <gray>現在<gold>AFK</gold>ではありません</gray>
 afk-status-too-long-mm = <red>AFKステータスは最大<white>{ $arg0 }</white>文字までです</red>
@@ -180,7 +180,7 @@ password-invalid = パスワードが違います。再試行してください�
 password-keep-role = 管理・保守担当者はパスワードを削除できません。
 password-login = ログイン
 password-login-expired = ログイン認証が無効になりました。再接続してください。
-password-login-hint = 本サーバーのパスワードを入力してください。忘れた場合は管理者にリセットを依頼してください。
+password-login-hint = このサーバーで設定したアカウントのパスワードを入力してください。忘れた場合は管理者にリセットを依頼してください。
 password-mismatch = 新しいパスワードが一致しません。
 password-new = 新しいパスワード
 password-nomination-required = 管理者への立候補前にパスワードを設定してください：/password set
@@ -206,7 +206,6 @@ password-title = アカウント保護
 
 ## Player · Profile and tab list
 
-nametag-cancel = キャンセル
 nametag-clear = 消去
 nametag-clear-hint = カスタム設定のみ削除します。継承された装飾は残る場合があります。
 nametag-command-description = ネームタグをカスタマイズ
@@ -284,14 +283,12 @@ home-action-delete = ホームを削除
 home-action-teleport = テレポート
 home-action-update = 場所を更新
 home-already-exists = 同じ名前のホームが既にあります
-home-back = 戻る
 home-confirm-delete = 削除の確認
 home-confirm-delete-detail-rich = ホーム「{ $home }」を削除
 home-confirm-delete-warning = この操作は元に戻せません
 home-confirm-update = 更新を確認
 home-confirm-update-detail-rich = ホーム「{ $home }」を次の場所に更新
 home-delete-command-description = ホームを削除
-home-delete-usage-desc = ホームを削除
 home-deleted-rich = ホーム「{ $home }」を削除しました
 home-distance = 距離: { $arg0 }
 home-distance-blocks = { $arg0 }ブロック
@@ -310,7 +307,6 @@ home-search-placeholder = 家の名前を検索…
 home-search-empty = 該当するホームがありません
 home-set-command-description = 現在地をホームに設定
 home-set-rich = ホーム「{ $home }」を設定しました
-home-set-usage-desc = 現在地をホームに設定
 home-summary-count = 設定数: { $arg0 } / { $arg1 }
 home-teleport-failed = テレポートに失敗しました。もう一度お試しください
 home-teleported-rich = ホーム「{ $home }」へテレポートしました
@@ -351,7 +347,6 @@ tpany-command-description = オンラインまたはオフラインのプレイ�
 tpany-done-offline-rich = { $player }の最終確認地点へテレポートしました { $world } { $location }
 tpany-done-online-rich = { $player }の現在地へテレポートしました
 tpany-not-found-rich = { $player }の場所が見つかりませんでした
-tpany-usage = 使用法
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = オフライン時の記録を含むプレイヤーの場所へテレポート
 
@@ -865,8 +860,6 @@ governance-kind-removal = 解任
 governance-legacy-ban-kick = 以前の運営投票が可決されました。{ $arg0 } のBANです。理由：{ $arg1 }
 governance-menu-already-sponsored = 署名済み
 governance-menu-application = 申請状況
-governance-menu-back = 戻る
-governance-menu-cancel = キャンセル
 governance-menu-completed = 終了済み
 governance-menu-confirm = 確認
 governance-menu-confirm-nominate = 申請すると、あなたのモデレーター任命投票が始まります。
@@ -981,7 +974,6 @@ plot-area-replace-save = 範囲を置き換えて保存
 plot-area-save = 範囲を保存
 plot-area-saved = 「{ $arg0 }」の範囲を保存しました。
 plot-atmosphere-saved = 環境設定を保存しました。
-plot-back = 戻る
 plot-board-auto-notify-result = 通知を { $arg0 } 人分設定しました。
 plot-board-auto-registered-text = 区画「{ $arg0 }」を登録しました。建築済みセルの外接座標：X { $arg1 }–{ $arg2 }、Y { $arg3 }–{ $arg4 }、Z { $arg5 }–{ $arg6 }。
 plot-board-detail = { $arg0 } の記録：{ $arg1 } { $arg2 }, { $arg3 }, { $arg4 }。{ $arg5 }
@@ -1079,11 +1071,9 @@ plot-menu-flag-container = コンテナを開く
 plot-menu-flag-entity = エンティティ操作
 plot-menu-follow-parent = 親区画に合わせる
 plot-menu-follow-world = ワールドに合わせる
-plot-menu-group-admin = 区画管理者
 plot-menu-group-collaborator = 共同作業者
 plot-menu-group-member = メンバーの初期権限
 plot-menu-group-newcomer = 新人の初期権限
-plot-menu-group-owner = 区画の所有者
 plot-menu-here = 現在地
 plot-menu-manage = メンバーの区画を管理
 plot-menu-managed-empty = このプレイヤーの区画はまだありません。
@@ -1103,7 +1093,6 @@ plot-menu-ruling = 裁定理由を入力（8～1000 文字）
 plot-menu-set-role = { $arg0 }に変更
 plot-menu-settings = プロジェクト設定
 plot-menu-submit = 適用
-plot-menu-subplot-create = 子区画を作成
 plot-menu-subplot-of = { $arg0 } の一部
 plot-menu-subplot-parent = 親区画に戻る: { $arg0 }
 plot-menu-subplots = 子区画 ({ $arg0 })
@@ -1443,7 +1432,6 @@ vehicle-model-corner-cancel = 未確定の当たり判定を取り消す
 vehicle-model-corner-first = 足元をボックスの最初の角にする
 vehicle-model-corner-first-look = 見ている面を最初の角にする
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = 足元を対角にしてボックスを追加
 vehicle-model-corner-second-look = 見ている面を対角にする
 vehicle-model-create = モデルを作成
@@ -1568,7 +1556,6 @@ async-regen-filter-all = すべてのブロック種類
 async-regen-invalid-blocks = 不明、またはブロックではない種類：{ $arg0 }
 async-regen-not-running = 実行中の再生成タスクはありません
 async-regen-nothing-to-apply = 選択範囲はこのプランと一致しています。適用する変更はありません
-async-regen-plan-cancel = キャンセル
 async-regen-plan-dialog-title = 再生成プランを適用
 async-regen-preview-cancelled = プレビューを中止しました。ワールドデータは変更されていません
 async-regen-preview-started = プレビュー開始：選択 { $arg0 } ブロック、{ $arg1 } チャンク、モード { $arg2 }
@@ -1619,7 +1606,6 @@ spawn-world-missing = スポーンのワールドを利用できません
 
 music-album = アルバム: { $arg0 }
 music-artist = アーティスト: { $arg0 }
-music-back = 戻る
 music-command-description = ジュークボックス用のローカル、オンライン、NBS音楽
 music-disc-left = 左クリック: レコードを入手
 music-disc-right = 右クリック: 最寄りのジュークボックスで再生
@@ -1638,24 +1624,23 @@ music-reload-started = 音楽ファイルとカスタム音源を再読み込み
 music-rhythm-animation-offset = アニメーションのずれ { $arg0 } ms
 music-rhythm-calibration-accumulating = 安定したタイミングを確認中…そのまま続けてください
 music-rhythm-calibration-adapting = リズムに合わせています…そのまま続けてください
+music-rhythm-calibration-audio-instruction = リズムに合わせて、1～4のいずれかのキーを押してください。
 music-rhythm-calibration-done = 遅延テスト完了・設定を保存しました
 music-rhythm-calibration-failed = 遅延テストの音声が中断されました。テストを安全に終了したため、もう一度開始してください
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → キーボード視覚 → マウス視覚
-music-rhythm-calibration-listen = 生成されたリズムを一度聴いてください · まだ押さないでください
-music-rhythm-calibration-minecraft-instruction = Minecraft Note Block のリズムに合わせて1～4を押してください
-music-rhythm-calibration-no-input = 入力を検出できません。キーと音量を確認して続けてください
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = まずはリズムを一通り聴いてください。まだキーを押さないでください。
+music-rhythm-calibration-no-input = 有効な入力がありません。この段階で案内されている操作を、合図に合わせて行ってください。
 music-rhythm-calibration-out-of-range = 測定した遅延が対応範囲外です。音声設定を確認してください
-music-rhythm-calibration-plasmo-instruction = 今から合わせる：先ほどの Plasmo Voice リズムを繰り返し、各ドラムで1～4を押します
 music-rhythm-calibration-plasmo-ready = Minecraft Note Block テスト完了。まず同じリズムを Plasmo Voice で聴いてください
 music-rhythm-calibration-pointer-instruction = ノートがヒットラインを通過したら左または右クリック
 music-rhythm-calibration-realigning = 音声が中断しました。実演を再生し、完了済みの測定は保持します
 music-rhythm-calibration-required = リズムゲームを開始する前に完全な遅延テストを完了してください
 music-rhythm-calibration-reset-done = 遅延キャリブレーションをリセットしました
-music-rhythm-calibration-result-hold = すべてのテストが完了しました。自動で戻るまで結果を確認してください
+music-rhythm-calibration-result-hold = テストが完了しました。結果を確認してください。まもなく自動で戻ります。
 music-rhythm-calibration-stage-minecraft = Minecraftの音符ブロック
-music-rhythm-calibration-stage-plasmo = Plasmo Voice 音声・入力テスト
-music-rhythm-calibration-stage-pointer = マウス
-music-rhythm-calibration-stage-visual = 映像・入力テスト
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = 視覚・マウス
+music-rhythm-calibration-stage-visual = 視覚・キーボード
 music-rhythm-calibration-visual-instruction = ノートがヒットラインを通過したら1～4を押す
 music-rhythm-calibration-visual-preview = 入力せずにキューを1周観察してください · 指示が変わってから開始します
 music-rhythm-calibration-voice-required = 完全な遅延テストには Plasmo Voice の接続と有効化が必要です
@@ -1807,7 +1792,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [BAN公報]
 ban-command-description = 固定の重大度でプレイヤーをBAN
 ban-database-error = BANデータベースの操作に失敗しました。サーバーログを確認してください。
-ban-menu-back = 戻る
 ban-menu-confirm-action = プレイヤーをBAN
 ban-menu-confirm-severity = 重大度
 ban-menu-confirm-title = BANの確認
@@ -1981,26 +1965,26 @@ music-space-label =
         [restore-previous] 参加前の内容を復元
         [keep-group-content] グループの内容を保持
         [queue] 再生キュー
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] 音楽ストレージを利用できません
         [saving] 保存中…
         [saved] 保存しました
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] このページをすべて選択
+        [select-all] 検索結果をすべて選択
+        [clear-tracks] 曲の選択を解除
         [add-playlist] リストに追加
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] 非公開にする
+        [publish] 公開する
+        [delete] プレイリストを削除
+        [favorite] お気に入りを切り替え
+        [copy] プレイリストをコピー
+        [share] プレイリストの共有コマンド
         [recent] 最近の再生
-        [favorites] Favorite playlists
+        [favorites] お気に入りのプレイリスト
         [public] 公開
         [private] 非公開
         [new-playlist] プレイリストを作成
@@ -2015,13 +1999,13 @@ music-space-label =
         [track-type] 種類
         [type-online] オンライン
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] 選択した項目を削除
+        [clear-recents] 自分の再生履歴を消去
+        [clear-entries] 項目の選択を解除
         [search-tracks] 曲・アーティストを検索…
         [search-playlists] プレイリストを検索…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] 公開プレイリスト
+        [searching] 検索中…
         [insert] 割り込んですぐ再生
         [append] キューに追加
         [choose-targets] 出力先を選択
@@ -2032,11 +2016,11 @@ music-space-label =
         [empty] 曲がありません
         [queue-empty] 再生待ちの曲はありません
         [queue-current] デジタルキューの現在の曲
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] 一時停止
+        [resume] 再開
+        [stop] 停止して再生リストを保持
+        [previous] 前の曲 / 最初から再生
+        [clear] 再生待ちを消去し、現在の曲の後に停止
         [seek] 再生位置
         [more] その他
         [volume-control] 音量
@@ -2061,22 +2045,22 @@ music-space-label =
         [create-room] ルームを作成
         [no-rhythm-devices] 近くにジュークボックスがありません。まず空の手でスニークしながらジュークボックスを右クリックしてください。
         [calibration] 遅延キャリブレーション
-        [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [volume] 音量（0～100）
+        [range] 範囲（8～256ブロック）
         [mode] 再生モード
         [save-queue] キューをプレイリストに保存
-        [sequential] Sequential
+        [sequential] 順番に再生
         [repeat-all] リストをリピート
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] 1曲リピート
+        [shuffle] 重複なしのシャッフル
         [import] プレイリストをインポート
         [link] プレイリストのリンク
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] プレイリストの一部のみ取得できました。取得済みの部分を残すには保存してください。
+        [import-preview] 取得したメタデータのプレビューです。音声はダウンロードしていません。
         [import-new] 作成して開く
         [import-merge] リストに統合
         [stopped] 停止中
-        [loading] Preparing audio
+        [loading] 音声を準備中
         [cancel-loading] 準備をキャンセル
         [playing] 再生中
         [paused] 一時停止中
@@ -2087,32 +2071,32 @@ music-space-label =
         [deselect] この項目の選択を解除
         [selected] 選択済み
         [place-before] 選択した項目をこの項目の前に移動
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] 挿入したレコードを取り出す
+        [make-disc] 署名付き音楽ディスクを作成
+        [gain] グループ音量（0～100）
+        [retry-import] プレイリストを再取得
         [join-room] ルームに参加
         [ready] 準備完了
-        [waiting] Waiting
+        [waiting] 待機中
         [room-mode] ゲームモード
         [room-difficulty] 難易度
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] 進行中のゲームに参加
+        [leave-room] ルームから退出
         [select-room-track] 選択した曲を使用
         [start-room] ゲーム開始
         [end-room] ルームを終了
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] 基本の再生リスト
+        [priority-queue] 1回限りのリクエスト
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] プレイヤーの準備待ち
+        [preparing] 音声と譜面を準備中
+        [no-beats] プレイ可能なビートがありません
         [catalog] 楽曲一覧
         [my-playlists] 自分のプレイリスト
         [playlist] プレイリスト
@@ -2138,20 +2122,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] 音楽機能を利用できません。後でもう一度開いてください。
         [INTERNAL] 音楽機能で内部エラーが発生しました。管理者にサーバーログの確認を依頼してください
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] 選択した項目は存在しません。
+        [FORBIDDEN] 操作または編集の権限が必要です。
+        [CONFLICT] 内容が変更されました。更新して選び直してください。
+        [LIMIT] 音楽リソースの上限に達しました。
+        [INVALID] 名前、選択内容、数値の範囲を確認してください。
+        [OFFLINE] デバイスを利用できません。チャンクを読み込むか、挿入したレコードを取り出してください。
+        [OVERLAP] 音が聞こえる範囲が重なっています。別のデバイスを停止するか、範囲を狭めるか、同期グループを作成してください。
+        [UNSUPPORTED] このメディアはこの操作に対応していません。
+        [BUSY] デバイス、リクエスト、または音楽ゲームルームが使用中です。処理の完了後に再試行してください。
         [NO_SAFE_DESTINATION] ジュークボックスのそばに安全な移動先がありません
         [TELEPORT_FAILED] テレポートに失敗したか、移動が拒否されました
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] 操作に失敗しました
     }
 
 music-space-selected-tracks = { $arg0 } 曲を選択中

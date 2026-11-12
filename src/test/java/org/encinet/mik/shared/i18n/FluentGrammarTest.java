@@ -68,6 +68,28 @@ class FluentGrammarTest {
     }
 
     @Test
+    void homeLimitsAndTrashRetentionUseTheCountAndSentenceCase() throws IOException {
+        assertEquals("You can set at most 1 home", text(Language.EN_US, Message.HOME_MAX_REACHED, 1));
+        assertEquals("You can set at most 2 homes", text(Language.EN_US, Message.HOME_MAX_REACHED, 2));
+        assertEquals("Du kannst höchstens 1 Homepunkt setzen", text(Language.DE_DE, Message.HOME_MAX_REACHED, 1));
+        assertEquals("Du kannst höchstens 2 Homepunkte setzen", text(Language.DE_DE, Message.HOME_MAX_REACHED, 2));
+        assertEquals("Лимит: 21 точка дома", text(Language.RU_RU, Message.HOME_MAX_REACHED, 21));
+        assertEquals("Лимит: 22 точки дома", text(Language.RU_RU, Message.HOME_MAX_REACHED, 22));
+        assertEquals("Лимит: 25 точек дома", text(Language.RU_RU, Message.HOME_MAX_REACHED, 25));
+        assertTrue(text(Language.UK_UA, Message.HOME_MAX_REACHED, 21).contains("21 домівку"));
+        assertTrue(text(Language.EN_US, Message.TRASH_CLEAR_HINT, 1).contains("1 second after closing"));
+        assertTrue(text(Language.EN_US, Message.TRASH_CLEAR_HINT, 2).contains("2 seconds after closing"));
+        assertTrue(text(Language.FR_FR, Message.TRASH_CLEAR_HINT, 0).contains("0 seconde après"));
+        assertTrue(text(Language.FR_FR, Message.TRASH_CLEAR_HINT, 2).contains("2 secondes après"));
+        for (var example : Map.of(21, "21 секунду", 22, "22 секунды", 25, "25 секунд").entrySet()) {
+            assertTrue(text(Language.RU_RU, Message.TRASH_CLEAR_HINT, example.getKey()).contains(example.getValue()));
+        }
+        for (var example : Map.of(21, "21 секунду", 22, "22 секунди", 25, "25 секунд").entrySet()) {
+            assertTrue(text(Language.UK_UA, Message.TRASH_CLEAR_HINT, example.getKey()).contains(example.getValue()));
+        }
+    }
+
+    @Test
     void slavicCountsDistinguishOneFewManyAndFractions() throws IOException {
         Object[][] russian = {{0,"0 дней"},{1,"1 день"},{2,"2 дня"},{5,"5 дней"},
                 {11,"11 дней"},{21,"21 день"},{101,"101 день"},

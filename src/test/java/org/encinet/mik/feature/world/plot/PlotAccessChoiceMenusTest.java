@@ -35,7 +35,7 @@ class PlotAccessChoiceMenusTest {
                         labels.add(Component.text(status + "\n" + FluentTestSupport.text(bundle, Message.PLOT_PERMISSION_SOURCE_PARENT)
                                 + " · " + "Long inherited plot 👩‍👩‍👧‍👦 e\u0301 ".repeat(5)));
                     }
-                    else for (var message : List.of(Message.PLOT_MENU_GROUP_OWNER, Message.PLOT_MENU_GROUP_ADMIN, Message.PLOT_MENU_GROUP_COLLABORATOR,
+                    else for (var message : List.of(Message.PLOT_ROLE_OWNER, Message.PLOT_ROLE_ADMIN, Message.PLOT_MENU_GROUP_COLLABORATOR,
                             Message.PLOT_MENU_GROUP_NEWCOMER, Message.PLOT_MENU_GROUP_MEMBER, Message.PLOT_MENU_MEMBERS))
                         labels.add(Component.text(message == Message.PLOT_MENU_MEMBERS ? FluentTestSupport.text(bundle, message, 300)
                                 : FluentTestSupport.text(bundle, message)));
@@ -49,7 +49,7 @@ class PlotAccessChoiceMenusTest {
                                     .primary((_, _) -> invoked.set(choice));
                             if (index == 0) node.disabled(Component.text("Permission changed"));
                         }
-                        menu.back(Component.text(FluentTestSupport.text(bundle, Message.PLOT_BACK))).region("navigation");
+                        menu.back(Component.text(FluentTestSupport.text(bundle, Message.BACK))).region("navigation");
                         var scene = menu.build();
                         var frame = SceneGeometryTestSupport.readableFrame(scene, font, new FloatingMenuFieldOfView(fov), scale);
                         assertDisjoint(frame); assertNotNull(element(frame, "back"));

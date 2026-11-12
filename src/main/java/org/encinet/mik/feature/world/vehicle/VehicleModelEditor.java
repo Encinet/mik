@@ -154,7 +154,7 @@ final class VehicleModelEditor {
             result(player, language.t(player, Message.VEHICLE_MODEL_CORNER_HINT));
         } else {
             var first = corners.get(player.getUniqueId());
-            if (first == null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_CORNER_REQUIRED));
+            if (first == null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MODEL_CORNER_FIRST));
             draft(player).collider("add", -1, VehicleEditorGeometry.box(first.point(), point));
             corners.remove(player.getUniqueId()); changed(player);
         }

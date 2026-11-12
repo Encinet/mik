@@ -26,7 +26,7 @@ class RhythmSetupMenuTest {
                     var scene = RhythmSetupMenu.difficulty(Component.text("A long selected song and game mode ".repeat(8)),selected.get(),page.get(),page::set,
                             label,null,(_,value) -> selected.set(value),(_,value) -> started.set(value),
                             Component.text(FluentTestSupport.text(bundle,Message.MUSIC_RHYTHM_START)),
-                            Component.text(FluentTestSupport.text(bundle,Message.MUSIC_BACK))).build();
+                            Component.text(FluentTestSupport.text(bundle,Message.BACK))).build();
                     var frame = SceneGeometryTestSupport.readableFrame(scene,font,new FloatingMenuFieldOfView(fov),scale);
                     UiSceneTestSupport.assertDisjoint(frame);
                     var paging = frame.pagination().getFirst(); pages = paging.page().count(); assertEquals(index,paging.page().index());

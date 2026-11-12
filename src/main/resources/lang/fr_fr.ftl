@@ -42,7 +42,7 @@ interface-fov-apply = Appliquer le FOV
 interface-fov-custom = Personnalisé
 interface-fov-description = Renseignez le FOV du jeu pour positionner le menu.
 interface-fov-input = FOV du client : entier de 30 à 110
-interface-fov-invalid = Saisis un nombre entier de 30 à 110.
+interface-fov-invalid = Saisissez un nombre entier de 30 à 110.
 interface-fov-title = Champ de vision
 interface-reduced-motion = Réduire les mouvements
 interface-reduced-motion-hint = Réduit les déplacements et oscillations du menu.
@@ -139,9 +139,9 @@ tip-label = CONSEIL
 afk-already-afk-mm = <gray>Vous êtes déjà <gold>AFK</gold></gray>
 afk-command-description = Activer le statut AFK
 afk-default-statuses =
-    .item-1 = s'est éloigné du clavier
-    .item-2 = entré en mode d'économie d'énergie
-    .item-3 = passé à l'arrière-plan
+    .item-1 = s’éloigne du clavier
+    .item-2 = passe en mode économie d’énergie
+    .item-3 = passe à l’arrière-plan
     .item-4 = regarde dans le vide
 afk-display-title-mm = <gold><bold>AFK</bold></gold>
 afk-display-with-message-mm = <gold><bold>AFK</bold></gold> <gray>·</gray> <white><message></white>
@@ -193,53 +193,52 @@ player-association-time-today = aujourd'hui
 
 ## Player · Account security
 password-already-connected = Ce compte est déjà connecté.
-password-already-set = Un mot de passe est déjà défini. Utilise /password change pour le modifier.
-password-busy = Trop de tentatives. Réessaie dans un moment.
+password-already-set = Un mot de passe est déjà défini. Utilisez /password change pour le modifier.
+password-busy = Trop de tentatives. Réessayez dans un moment.
 password-change = Modifier le mot de passe
 password-change-done = Mot de passe modifié.
 password-checking = Vérification de la sécurité du compte…
 password-command-description = Gérer la protection du compte par mot de passe
 password-confirm = Confirmer le nouveau mot de passe
-password-conflict = La sécurité du compte a changé. Recommence l’opération.
-password-cooldown = La vérification du compte est temporairement limitée. Réessaie dans { $arg0 ->
+password-conflict = La sécurité du compte a changé. Recommencez l’opération.
+password-cooldown = La vérification du compte est temporairement limitée. Réessayez dans { $arg0 ->
         [one] { $arg0 } seconde
        *[other] { $arg0 } secondes
     }.
 password-current = Mot de passe actuel
-password-denied = Tu ne peux pas réinitialiser le mot de passe de ce compte.
+password-denied = Vous ne pouvez pas réinitialiser le mot de passe de ce compte.
 password-disabled = Mot de passe : non défini
 password-enabled = Mot de passe : défini
-password-invalid = Mot de passe incorrect. Réessaie.
+password-invalid = Mot de passe incorrect. Réessayez.
 password-keep-role = Les modérateurs et les responsables ne peuvent pas supprimer leur mot de passe.
 password-login = Se connecter
-password-login-expired = Ta vérification de connexion a expiré. Reconnecte-toi au serveur.
-password-login-hint = Saisis le mot de passe du serveur. En cas d’oubli, demande une réinitialisation à l’équipe.
+password-login-expired = Votre vérification de connexion a expiré. Reconnectez-vous au serveur.
+password-login-hint = Saisissez le mot de passe de votre compte sur ce serveur. En cas d’oubli, demandez une réinitialisation à l’équipe.
 password-mismatch = Les nouveaux mots de passe ne correspondent pas.
 password-new = Nouveau mot de passe
 password-nomination-required = Définis un mot de passe avant de postuler comme modérateur : /password set
-password-not-set = Aucun mot de passe défini. Utilise /password set pour en créer un.
+password-not-set = Aucun mot de passe défini. Utilisez /password set pour en créer un.
 password-remove = Supprimer le mot de passe
 password-remove-done = Mot de passe supprimé.
-password-remove-question = Après suppression, aucun mot de passe ne sera vérifié à la connexion. Saisis ton mot de passe actuel pour confirmer.
-password-required-application = Tu ne peux pas supprimer ton mot de passe pendant une candidature à l’équipe ou une nomination en attente.
+password-remove-question = Après suppression, aucun mot de passe ne sera vérifié à la connexion. Saisissez votre mot de passe actuel pour confirmer.
+password-required-application = Vous ne pouvez pas supprimer votre mot de passe pendant une candidature à l’équipe ou une nomination en attente.
 password-required-role = Les comptes de l’équipe nécessitent un mot de passe. Demande sa réinitialisation à une personne autorisée avant de te connecter.
 password-reset = Réinitialiser le mot de passe
 password-reset-console = Mot de passe de { $arg0 } réinitialisé : { $arg1 }. Transmets-le par un canal fiable après vérification de l’identité.
 password-reset-done = Mot de passe de { $arg0 } réinitialisé. Copie-le maintenant et transmets-le après vérification de l’identité ; il ne sera plus consultable.
-password-reset-question = Réinitialiser le mot de passe de { $arg0 } ? L’ancien sera invalidé et ses connexions seront fermées. Confirme avec ton propre mot de passe.
+password-reset-question = Réinitialiser le mot de passe de { $arg0 } ? L’ancien sera invalidé et ses connexions seront fermées. Confirmez avec votre propre mot de passe.
 password-retry = Réessayer
-password-rules = Utilise de { $arg0 } à { $arg1 } caractères. Les noms de joueur et les mots de passe courants sont interdits.
+password-rules = Utilisez de { $arg0 } à { $arg1 } caractères. Les noms de joueur et les mots de passe courants sont interdits.
 password-set = Définir le mot de passe
 password-set-done = Mot de passe défini.
 password-set-first = Définir un mot de passe avant de postuler
-password-storage = La sécurité des comptes est indisponible. Réessaie plus tard ou contacte le propriétaire.
-password-timeout = La vérification a été annulée ou a expiré. Reconnecte-toi pour réessayer.
+password-storage = La sécurité des comptes est indisponible. Réessayez plus tard ou contactez le propriétaire.
+password-timeout = La vérification a été annulée ou a expiré. Reconnectez-vous pour réessayer.
 password-tip-set-mm = Utilisez <gold><u>/password</u></gold> pour définir un <yellow>mot de passe de connexion</yellow> et protéger votre compte.
 password-title = Sécurité du compte
 
 ## Player · Profile and tab list
 
-nametag-cancel = Annuler
 nametag-clear = Effacer
 nametag-clear-hint = Supprime les valeurs personnalisées ; les styles hérités peuvent rester.
 nametag-command-description = Personnaliser les étiquettes
@@ -323,14 +322,12 @@ home-action-delete = Supprimer le domicile
 home-action-teleport = Se téléporter
 home-action-update = Mettre à jour la position
 home-already-exists = Un domicile porte déjà ce nom
-home-back = Retour
 home-confirm-delete = Confirmer la suppression
 home-confirm-delete-detail-rich = Supprimer la maison { $home }
 home-confirm-delete-warning = Cette action est irréversible
 home-confirm-update = Confirmer la modification
 home-confirm-update-detail-rich = Modifier la maison { $home } vers cet emplacement
 home-delete-command-description = Supprimer une maison
-home-delete-usage-desc = Supprimer une maison
 home-deleted-rich = Maison { $home } supprimée
 home-distance = Distance : { $arg0 }
 home-distance-blocks = { $arg0 ->
@@ -344,7 +341,10 @@ home-invalid-name = Les noms de maison ne peuvent pas contenir les caractères <
 home-list-rich = Maisons : { $homes }
 home-location = Localisation : { $arg0 }, { $arg1 }, { $arg2 }
 home-location-invalid = Les données de localisation de cette maison ne sont pas valides
-home-max-reached = Vous pouvez définir au maximum { $arg0 } maisons
+home-max-reached = Vous pouvez définir au maximum { $arg0 ->
+        [one] { $arg0 } maison
+       *[other] { $arg0 } maisons
+    }
 home-menu-title = Maisons
 home-no-homes = Vous n'avez pas encore défini de maisons
 home-not-found-rich = La maison { $home } n'existe pas
@@ -352,7 +352,6 @@ home-search-placeholder = Rechercher un nom de maison…
 home-search-empty = Aucune maison correspondante
 home-set-command-description = Définir une maison à votre emplacement actuel
 home-set-rich = Maison { $home } définie
-home-set-usage-desc = Définir une maison à votre emplacement actuel
 home-summary-count = Définies : { $arg0 } / { $arg1 }
 home-teleport-failed = La téléportation a échoué. Veuillez réessayer
 home-teleported-rich = Téléportation vers la maison { $home } effectuée
@@ -393,7 +392,6 @@ tpany-command-description = Se téléporter vers la position d'un joueur, en lig
 tpany-done-offline-rich = Téléportation vers la dernière position connue de { $player } effectuée { $world } { $location }
 tpany-done-online-rich = Téléportation vers la position actuelle de { $player } effectuée
 tpany-not-found-rich = Position de { $player } introuvable
-tpany-usage = Utilisation
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = Se téléporter vers la position d'un joueur, y compris sa position hors ligne enregistrée
 
@@ -483,8 +481,11 @@ effect-cleanup-source = { $cause ->
 ## Player · Trash
 
 trash-clear = Vider
-trash-clear-hint = Cliquez pour supprimer tous les objets immédiatement ;
-    sinon, ils seront supprimés automatiquement { $arg0 } secondes après la fermeture.
+trash-clear-hint = Cliquez pour supprimer tous les objets immédiatement.
+    Ils sont aussi supprimés automatiquement { $arg0 ->
+        [one] { $arg0 } seconde
+       *[other] { $arg0 } secondes
+    } après la fermeture.
 trash-command-description = Ouvrir la corbeille
 trash-sort = Trier
 trash-sort-hint = Fusionner les piles identiques et trier les objets par type
@@ -585,7 +586,7 @@ chat-staff-command-description = Changer de canal de discussion du personnel
 chat-staff-label = Équipe
 chat-staff-permission-missing = Permission de discussion de l'équipe manquante ; retour au chat public
 mention-action-bar = Notification dans la barre d'action
-mention-action-bar-text = { $sender } vous a mentionné
+mention-action-bar-text = Mention de { $sender }
 mention-alerts = Alertes de mention
 mention-menu-title = Alertes de mention
 mention-mute-afk = Couper pendant l'AFK
@@ -971,16 +972,14 @@ governance-hours = { $arg0 ->
        *[other] { $arg0 } heures
     }
 governance-inactive-removal = { $arg0 } a quitté automatiquement la modération après 180 jours sans connexion.
-governance-invalid-choice = Choisis yes, no ou abstain.
-governance-invalid-duration = Durée invalide. Utilise par exemple 30m, 12h ou 3d.
+governance-invalid-choice = Choisissez yes, no ou abstain.
+governance-invalid-duration = Durée invalide. Utilisez par exemple 30m, 12h ou 3d.
 governance-kind-appointment = Nomination
 governance-kind-ban = Exclusion
 governance-kind-removal = Révocation
 governance-legacy-ban-kick = Une ancienne décision de gouvernance vous interdit l’accès. Durée : { $arg0 }. Motif : { $arg1 }
 governance-menu-already-sponsored = Déjà soutenue
 governance-menu-application = État de la candidature
-governance-menu-back = Retour
-governance-menu-cancel = Annuler
 governance-menu-completed = Terminées
 governance-menu-confirm = Confirmer
 governance-menu-confirm-nominate = La candidature lance un vote sur votre nomination comme modérateur.
@@ -1027,13 +1026,13 @@ governance-minutes = { $arg0 ->
     }
 governance-no-active-ban = Aucune exclusion active
 governance-no-active-pause = Aucune suspension de promotion active
-governance-nomination-withdrawn = Ta candidature a été retirée. Le résultat sera annoncé automatiquement.
+governance-nomination-withdrawn = Votre candidature a été retirée. Le résultat sera annoncé automatiquement.
 governance-none = Aucun
 governance-not-member = Pas membre
 governance-not-moderator = Vous n’avez pas le rôle de modération actuellement.
-governance-operation-error = L'opération de gouvernance a échoué. Réessaie.
-governance-own-choice-closed = Ton choix : { $arg0 }
-governance-own-choice-open = Ton choix : { $arg0 } ; modifiable avant la clôture.
+governance-operation-error = L’opération de gouvernance a échoué. Réessayez.
+governance-own-choice-closed = Votre choix : { $arg0 }
+governance-own-choice-open = Votre choix : { $arg0 } ; modifiable avant la clôture.
 governance-own-not-voted = Vous aviez le droit de voter, mais vous n’avez pas voté.
 governance-own-not-voted-hint = Vous n’avez pas voté. Ouvrez la gouvernance et sélectionnez ce vote.
 governance-own-not-voter = Vous ne figurez pas sur la liste électorale de ce vote.
@@ -1042,7 +1041,7 @@ governance-pause-cleared = Suspension de promotion levée pour { $arg0 }.
 governance-pause-details = Suspension : { $arg0 } · Jusqu'au { $arg1 } · Recours : { $arg2 }
 governance-pause-fields-required = Indique un motif et une voie de recours.
 governance-pause-not-active = { $arg0 } n'a aucune suspension de promotion active.
-governance-pause-notice = Ta promotion est suspendue. Motif : { $arg0 } · Jusqu'au { $arg1 } · Recours : { $arg2 }
+governance-pause-notice = Votre promotion est suspendue. Motif : { $arg0 } · Jusqu’au { $arg1 } · Recours : { $arg2 }
 governance-pause-set = Promotion de { $arg0 } suspendue jusqu'au { $arg1 }.
 governance-petition-already-sponsored = Vous soutenez déjà cette révocation ({ $arg0 }/{ $arg1 }).
 governance-petition-row = { $arg0 } · { $arg1 }/{ $arg2 } soutiens · Jusqu'au { $arg3 }
@@ -1066,7 +1065,7 @@ governance-result-open = En cours
 governance-result-passed = Adopté
 governance-result-tally = { $arg0 } · Électeurs { $arg1 }, participation { $arg2 }, oui { $arg3 }, non { $arg4 }, abstention { $arg5 }
 governance-result-terminated = Terminé ({ $arg0 })
-governance-resume-notice = Ta suspension de promotion a été levée. Motif : { $arg0 }
+governance-resume-notice = Votre suspension de promotion a été levée. Motif : { $arg0 }
 governance-resume-reason-required = Indique pourquoi la suspension est levée.
 governance-role-lookup-error = Statut de modérateur non vérifiable. Contacte un responsable technique.
 governance-seconds = { $arg0 ->
@@ -1085,7 +1084,7 @@ governance-vote-header = ─── Vote #{ $arg0 } ───
 governance-vote-in-progress = En cours · { $arg0 } participants ; détail des voix publié après clôture.
 governance-vote-list-row = #{ $arg0 } { $arg1 } { $arg2 } · Clôture { $arg3 } · Électeurs { $arg4 } · Participation { $arg5 } · Quorum { $arg6 }{ $arg7 }
 governance-vote-period = Ouverture { $arg0 } · Clôture { $arg1 }
-governance-vote-started = Vote de { $arg1 } #{ $arg0 } ouvert : { $arg2 } ; électeurs { $arg3 }, quorum { $arg4 }, clôture { $arg5 }. Ouvre Gouvernance pour les détails.
+governance-vote-started = Vote de { $arg1 } #{ $arg0 } ouvert : { $arg2 } ; électeurs { $arg3 }, quorum { $arg4 }, clôture { $arg5 }. Ouvrez Gouvernance pour les détails.
 governance-vote-subject = { $arg0 } · { $arg1 }
 governance-votes-header = ─── Votes anonymes en cours ───
 
@@ -1104,7 +1103,6 @@ plot-area-replace-save = Remplacer les limites et enregistrer
 plot-area-save = Enregistrer les limites
 plot-area-saved = Limites de « { $arg0 } » enregistrées.
 plot-atmosphere-saved = Ambiance enregistrée.
-plot-back = Retour
 plot-board-auto-notify-result = Alertes prévues pour { $arg0 ->
         [one] { $arg0 } joueur
        *[other] { $arg0 } joueurs
@@ -1166,7 +1164,7 @@ plot-error-permission-owner-scope = Seuls le propriétaire, le propriétaire du 
 plot-error-player-unknown = Joueur inconnu. Vérifiez le nom ou UUID.
 plot-error-release-owner-only = désactivé · Supprimer la parcelle
 plot-error-selection = Marquez deux coins avec //pos1 et //pos2.
-plot-error-selection-changed = La sélection a changé. Confirme à nouveau.
+plot-error-selection-changed = La sélection a changé. Confirmez à nouveau.
 plot-error-staff-only = Seuls les modérateurs ou gardiens peuvent gérer ou enregistrer les parcelles des autres joueurs.
 plot-error-storage = Échec de l’opération. Réessayez plus tard ou contactez l’équipe du serveur.
 plot-error-subplot-children = Libérez les sous-parcelles avant de libérer la parcelle mère.
@@ -1215,11 +1213,9 @@ plot-menu-flag-container = Ouvrir les conteneurs
 plot-menu-flag-entity = Interagir avec les entités
 plot-menu-follow-parent = Suivre la parcelle mère
 plot-menu-follow-world = Suivre le monde
-plot-menu-group-admin = administrateur de parcelle
 plot-menu-group-collaborator = Collaborateurs
 plot-menu-group-member = Accès des membres
 plot-menu-group-newcomer = Accès des nouveaux
-plot-menu-group-owner = propriétaire de la parcelle
 plot-menu-here = Position actuelle
 plot-menu-manage = Gérer les parcelles des joueurs
 plot-menu-managed-empty = Ce joueur n'a pas encore de parcelle.
@@ -1239,7 +1235,6 @@ plot-menu-ruling = Motiver la décision (8 à 1000 caractères)
 plot-menu-set-role = Définir comme { $arg0 }
 plot-menu-settings = Paramètres du projet
 plot-menu-submit = Appliquer
-plot-menu-subplot-create = Créer une sous-parcelle
 plot-menu-subplot-of = Partie de { $arg0 }
 plot-menu-subplot-parent = Parcelle mère : { $arg0 }
 plot-menu-subplots = Sous-parcelles ({ $arg0 })
@@ -1585,7 +1580,6 @@ vehicle-model-corner-cancel = Annuler la boîte de collision en attente
 vehicle-model-corner-first = Marquer le premier coin à mes pieds
 vehicle-model-corner-first-look = Marquer le premier coin sur la surface visée
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Utiliser mes pieds comme coin opposé et ajouter la boîte
 vehicle-model-corner-second-look = Utiliser la surface visée comme coin opposé
 vehicle-model-create = Créer un modèle
@@ -1748,7 +1742,6 @@ async-regen-filter-all = tous les types de blocs
 async-regen-invalid-blocks = Types inconnus ou qui ne sont pas des blocs : { $arg0 }
 async-regen-not-running = Aucune régénération n'est en cours
 async-regen-nothing-to-apply = La sélection correspond déjà à ce plan ; rien n'est à appliquer
-async-regen-plan-cancel = Annuler
 async-regen-plan-dialog-title = Appliquer le plan de régénération
 async-regen-preview-cancelled = Aperçu annulé ; aucune donnée du monde n'a été modifiée
 async-regen-preview-started = Aperçu lancé : sélection { $arg0 ->
@@ -1765,7 +1758,7 @@ async-regen-progress = { $arg0 } · planification { $arg1 }/{ $arg2 ->
         [one] { $arg3 } changement
        *[other] { $arg3 } changements
     }
-async-regen-safety-note = Rien ne sera modifié hors de la sélection enregistrée. Les constructions à l'intérieur peuvent être écrasées et Vanilla n'identifie pas les blocs placés par les joueurs. Vérifie la visualisation et sauvegarde avant d'appliquer.
+async-regen-safety-note = Rien ne sera modifié hors de la sélection enregistrée. Les constructions à l’intérieur peuvent être écrasées et le jeu ne distingue pas les blocs placés par les joueurs. Vérifiez la visualisation et faites une sauvegarde avant d’appliquer.
 async-regen-scope-blocks = régénérer les blocs correspondant à { $arg0 }
 async-regen-selection-required = Termine d'abord une sélection FastAsyncWorldEdit
 async-regen-skipped-ungenerated = Chunks cibles jamais générés ignorés : { $arg0 ->
@@ -1843,8 +1836,8 @@ async-regen-upgrade-preview-summary = Aperçu : { $arg0 ->
 async-regen-upgrade-scope-biomes = biomes uniquement
 async-regen-upgrade-scope-terrain = terrain, structures et biomes
 async-regen-usage = Utilisation : /regen preview blocks [types...] | /regen preview upgrade | /regen preview biomes | /regen show | /regen apply | /regen status | /regen cancel
-async-regen-visualization-legend = Visualisation dans { $arg0 } : cyan = limite de sélection, orange = échantillon de blocs modifiés, rouge = entité de bloc à risque. Toi seul vois ces particules.
-async-regen-visualization-selection = Sélection dans { $arg0 } : les particules cyan indiquent sa limite. Toi seul les vois.
+async-regen-visualization-legend = Visualisation dans { $arg0 } : cyan = limite de sélection, orange = échantillon de blocs modifiés, rouge = entité de bloc à risque. Vous seul voyez ces particules.
+async-regen-visualization-selection = Sélection dans { $arg0 } : les particules cyan indiquent sa limite. Vous seul les voyez.
 async-regen-fawe-required = FastAsyncWorldEdit est requis pour lire la sélection
 building-map-layer = Constructions
 building-map-open = Voir la construction
@@ -1868,7 +1861,6 @@ spawn-world-missing = Le monde du point d'apparition n'est pas disponible
 
 music-album = Album : { $arg0 }
 music-artist = Artiste : { $arg0 }
-music-back = Retour
 music-command-description = Musique locale, en ligne et NBS pour jukebox
 music-disc-left = Clic gauche : prenez le disque
 music-disc-right = Clic droit : jouer sur le jukebox le plus proche
@@ -1890,25 +1882,24 @@ music-reload-started = Rechargement des fichiers musicaux et des sources personn
 music-rhythm-animation-offset = Décalage d’animation { $arg0 } ms
 music-rhythm-calibration-accumulating = Confirmation du rythme stable… continuez à jouer
 music-rhythm-calibration-adapting = Synchronisation en cours… continuez à suivre le rythme
+music-rhythm-calibration-audio-instruction = Appuyez sur une touche de 1 à 4 à chaque battement.
 music-rhythm-calibration-done = Test de latence terminé · réglages enregistrés
 music-rhythm-calibration-failed = L'audio du test s'est interrompu. Le test a été fermé en sécurité ; veuillez le relancer
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Clavier visuel → Souris visuelle
-music-rhythm-calibration-listen = Écoutez une fois le rythme généré · n'appuyez pas encore
-music-rhythm-calibration-minecraft-instruction = Répétez le rythme Minecraft Note Block et appuyez sur 1–4
-music-rhythm-calibration-no-input = Aucune entrée détectée. Vérifiez les touches et le volume, puis continuez
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = Écoutez le rythme complet une fois, sans appuyer sur les touches.
+music-rhythm-calibration-no-input = Aucune action valide détectée. À chaque signal, utilisez la commande indiquée pour cette étape.
 music-rhythm-calibration-out-of-range = Le délai mesuré dépasse la plage prise en charge. Vérifiez les réglages audio
-music-rhythm-calibration-plasmo-instruction = À vous : répétez le rythme Plasmo Voice et appuyez sur 1–4 à chaque battement
 music-rhythm-calibration-plasmo-ready = Test Minecraft Note Block terminé ; écoutez d'abord le même rythme via Plasmo Voice
-music-rhythm-calibration-pointer-instruction = Clique à gauche ou à droite quand la note franchit la ligne.
+music-rhythm-calibration-pointer-instruction = Faites un clic gauche ou droit quand la note franchit la ligne.
 music-rhythm-calibration-realigning = Le flux audio a été interrompu. La démonstration reprend et les mesures terminées sont conservées
 music-rhythm-calibration-required = Terminez le test complet de latence avant de lancer le jeu de rythme
 music-rhythm-calibration-reset-done = Le calibrage de latence a été réinitialisé
-music-rhythm-calibration-result-hold = Tous les tests sont terminés. Consultez le résultat avant le retour automatique
+music-rhythm-calibration-result-hold = Test terminé. Consultez les résultats ; le retour sera automatique dans un instant.
 music-rhythm-calibration-stage-minecraft = Bloc musical de Minecraft
-music-rhythm-calibration-stage-plasmo = Test audio Plasmo Voice et entrée
-music-rhythm-calibration-stage-pointer = Souris
-music-rhythm-calibration-stage-visual = Test visuel et d'entrée
-music-rhythm-calibration-visual-instruction = Appuie sur 1–4 quand la note franchit la ligne.
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = Visuel · souris
+music-rhythm-calibration-stage-visual = Visuel · clavier
+music-rhythm-calibration-visual-instruction = Appuyez sur une touche de 1 à 4 quand la note franchit la ligne.
 music-rhythm-calibration-visual-preview = Observez une séquence complète sans agir · commencez lorsque l'instruction change
 music-rhythm-calibration-voice-required = Le test complet nécessite Plasmo Voice connecté et activé
 music-rhythm-chart-preparing = Préparation de la partition complète…
@@ -1936,7 +1927,7 @@ music-rhythm-requires-playback = Lancez d'abord un morceau sur ce jukebox
 music-rhythm-results = Résultats
 music-rhythm-score = Score : { $arg0 }
 music-rhythm-spatial-no-room = Il n’y a pas assez d’espace pour la visée spatiale. Allez dans une zone plus ouverte.
-music-rhythm-spatial-slider-hint = Suis l’étoile mobile et clique chaque point · ne maintiens pas
+music-rhythm-spatial-slider-hint = Suivez l’étoile mobile et cliquez sur chaque point ; inutile de maintenir le bouton enfoncé.
 music-rhythm-start = Lancer la partie
 music-sample-rate = Taux d'échantillonnage : { $arg0 }
 music-size = Taille : { $arg0 }
@@ -1959,7 +1950,7 @@ anniversary-admin-audit-title = Audit de gestion de l'anniversaire ({ $arg0 }/{ 
 anniversary-admin-bonus-cancelled = Terminé par le coffret
 anniversary-admin-bonus-pending = Accordé, pas encore tiré
 anniversary-admin-bonus-used = Tiré
-anniversary-admin-boss = Gestion de l'anniversaire · Utilise { $arg0 } pour voir la progression
+anniversary-admin-boss = Gestion de l’anniversaire · Utilisez { $arg0 } pour voir la progression
 anniversary-admin-commands = Commandes : /anniversary winners [page] | /anniversary audit [joueur] | /anniversary bonus <joueur>
 anniversary-admin-control = Contrôle dynamique : libéré { $arg0 } ; disponible maintenant { $arg1 } ; probabilité de base { $arg2 } ; rythme récent { $arg3 }
 anniversary-admin-draw-bonus = Bonus de construction
@@ -1996,9 +1987,9 @@ anniversary-bag-item-locked = Le sac de l'événement est en lecture seule
 anniversary-bag-item-name = Lot du cinquième anniversaire · { $arg0 }
 anniversary-bag-not-participating = Vous ne participez pas encore. Utilisez d’abord { $arg0 }.
 anniversary-bag-title = Sac de l'événement du cinquième anniversaire
-anniversary-bag-updated = Ton lot est dans le sac de l'événement. Utilise { $arg0 } pour le voir.
+anniversary-bag-updated = Votre lot est dans le sac de l’événement. Utilisez { $arg0 } pour le voir.
 anniversary-bonus-already-granted = { $arg0 } a déjà reçu le tirage supplémentaire pour les constructions et ne peut pas le recevoir à nouveau.
-anniversary-bonus-boss-ready = Tirage bonus de construction prêt · Utilise { $arg0 } pour tirer
+anniversary-bonus-boss-ready = Tirage bonus de construction prêt · Utilisez { $arg0 } pour tirer
 anniversary-bonus-broadcast-won = [Tirage anniversaire] { $arg0 } a gagné { $arg1 } grâce au bonus de construction !
 anniversary-bonus-draw-not-won = Tirage bonus de construction : aucun lot cette fois-ci.
 anniversary-bonus-draw-sold-out = Tirage bonus de construction : aucun lot, car tous les lots ont été attribués.
@@ -2011,10 +2002,10 @@ anniversary-bonus-participant-not-found = Aucun participant nommé { $arg0 } n'a
 anniversary-bonus-status-ready = Bonus de construction : un tirage supplémentaire est prêt.
 anniversary-bonus-status-used = Bonus de construction : le tirage supplémentaire a été utilisé.
 anniversary-boss-completed = Tirage anniversaire · Deux manches terminées
-anniversary-boss-gift-pack-final = Coffret cadeau gagné · Utilise { $arg0 } pour voir le sac de l'événement
-anniversary-boss-invite = Tirage du cinquième anniversaire · Utilise { $arg0 } pour participer
+anniversary-boss-gift-pack-final = Coffret cadeau gagné · Utilisez { $arg0 } pour voir le sac de l’événement
+anniversary-boss-invite = Tirage du cinquième anniversaire · Utilisez { $arg0 } pour participer
 anniversary-boss-progress = Tirage anniversaire { $arg0 }/{ $arg1 } · Manche { $arg2 } dans { $arg3 }
-anniversary-boss-ready = Manche { $arg0 } prête · Utilise { $arg1 } pour tirer
+anniversary-boss-ready = Manche { $arg0 } prête · Utilisez { $arg1 } pour tirer
 anniversary-broadcast-won = [Tirage anniversaire] { $arg0 } a gagné { $arg2 } à la manche { $arg1 } !
 anniversary-cancel = Pas maintenant
 anniversary-command-description = Participer au tirage du cinquième anniversaire du serveur
@@ -2028,7 +2019,7 @@ anniversary-draw-not-won = Manche { $arg0 } : aucun lot cette fois-ci.
 anniversary-draw-sold-out = Manche { $arg0 } : aucun lot, car tous les lots ont été attribués.
 anniversary-draw-won = Manche { $arg0 } : félicitations, vous avez gagné { $arg1 } !
 anniversary-ended = Le tirage du cinquième anniversaire est terminé
-anniversary-ended-results = Tes résultats : { $arg0 }
+anniversary-ended-results = Vos résultats : { $arg0 }
 anniversary-gift-pack-final = Le coffret est votre lot final. Il a remplacé et remis en stock { $arg0 ->
         [one] { $arg0 } autre lot
        *[other] { $arg0 } autres lots
@@ -2068,7 +2059,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Bulletin de bannissement]
 ban-command-description = Bannir un joueur selon un niveau de gravité fixe
 ban-database-error = Échec de la base des exclusions. Consultez le journal du serveur.
-ban-menu-back = Retour
 ban-menu-confirm-action = Bannir le joueur
 ban-menu-confirm-severity = Gravité
 ban-menu-confirm-title = Confirmer le bannissement
@@ -2132,7 +2122,7 @@ maintenance-unchanged = Le mode maintenance est déjà { $arg0 }
 performance-kick-title = Le serveur subit de forts ralentissements
 performance-kick-reason = Vous avez été temporairement déconnecté pour permettre au serveur de récupérer
 restriction-entity-too-large-mm = <red>La taille de l'entité dépasse la limite de sécurité du serveur</red>
-restriction-foreign-uuid-mm = <red>Vous ne pouvez utiliser les UUID que pour les monstres que vous avez apprivoisés</red>
+restriction-foreign-uuid-mm = <red>Vous ne pouvez utiliser les UUID que pour les créatures que vous avez apprivoisées</red>
 restriction-no-kill-e-mm = <red>La commande <white>/kill @e</white> n'est pas autorisée</red>
 restriction-no-newline-mm = <red>Les messages ne peuvent pas contenir de sauts de ligne</red>
 restriction-no-run-command-mm = <red>Les messages ne peuvent pas inciter les joueurs à exécuter des commandes</red>
@@ -2248,26 +2238,26 @@ music-space-label =
         [restore-previous] Restaurer le contenu avant le groupe
         [keep-group-content] Conserver le contenu du groupe
         [queue] File de lecture
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] Le stockage de musique est indisponible
         [saving] Enregistrement…
         [saved] Enregistré
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] Sélectionner cette page
+        [select-all] Sélectionner tous les résultats
+        [clear-tracks] Désélectionner les morceaux
         [add-playlist] Ajouter
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] Rendre privée
+        [publish] Rendre publique
+        [delete] Supprimer la liste
+        [favorite] Ajouter ou retirer des favoris
+        [copy] Copier la liste
+        [share] Partager la commande de la liste
         [recent] Écoutés récemment
-        [favorites] Favorite playlists
+        [favorites] Listes favorites
         [public] Public
         [private] Privé
         [new-playlist] Créer une playlist
@@ -2282,13 +2272,13 @@ music-space-label =
         [track-type] Type
         [type-online] En ligne
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] Supprimer les entrées sélectionnées
+        [clear-recents] Effacer mon historique d’écoute
+        [clear-entries] Désélectionner les entrées
         [search-tracks] Rechercher titres, artistes…
         [search-playlists] Rechercher des playlists…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] Listes publiques
+        [searching] Recherche…
         [insert] Insérer et lire maintenant
         [append] Ajouter à la file
         [choose-targets] Choisir la sortie
@@ -2299,11 +2289,11 @@ music-space-label =
         [empty] Aucun titre
         [queue-empty] Aucun titre en attente
         [queue-current] Titre actuel de la file numérique
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] Mettre en pause
+        [resume] Reprendre
+        [stop] Arrêter et conserver la liste
+        [previous] Morceau précédent / recommencer
+        [clear] Vider les morceaux en attente ; arrêter après le morceau actuel
         [seek] Position
         [more] Plus
         [volume-control] Volume
@@ -2329,21 +2319,21 @@ music-space-label =
         [no-rhythm-devices] Aucun jukebox à proximité. Faites d’abord un clic droit accroupi sur un jukebox, la main vide.
         [calibration] Calibrage de la latence
         [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [range] Portée (8–256 blocs)
         [mode] Mode de lecture
         [save-queue] Enregistrer la file en playlist
-        [sequential] Sequential
+        [sequential] Dans l’ordre
         [repeat-all] Répéter la liste
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] Répéter le morceau
+        [shuffle] Aléatoire sans répétition
         [import] Importer une playlist
         [link] Lien de la playlist
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] Une partie de la liste seulement a été récupérée. Enregistrez-la si vous souhaitez la conserver.
+        [import-preview] Aperçu des métadonnées récupérées ; aucun fichier audio n’a été téléchargé
         [import-new] Créer et ouvrir
         [import-merge] Fusionner dans une playlist
         [stopped] Arrêté
-        [loading] Preparing audio
+        [loading] Préparation de l’audio
         [cancel-loading] Annuler la préparation
         [playing] En lecture
         [paused] En pause
@@ -2354,35 +2344,35 @@ music-space-label =
         [deselect] Désélectionner cette entrée
         [selected] Sélectionnée
         [place-before] Placer la sélection avant cette entrée
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] Éjecter le disque physique
+        [make-disc] Créer un disque de musique signé
+        [gain] Volume du groupe (0–100)
+        [retry-import] Récupérer la liste à nouveau
         [join-room] Rejoindre le salon
         [ready] Prêt
-        [waiting] Waiting
+        [waiting] En attente
         [room-mode] Mode de jeu
         [room-difficulty] Difficulté
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] Rejoindre la partie en cours
+        [leave-room] Quitter le salon
         [select-room-track] Utiliser le morceau sélectionné
         [start-room] Lancer la partie
         [end-room] Terminer le salon
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] Liste de lecture principale
+        [priority-queue] Demandes de lecture unique
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] En attente des joueurs
+        [preparing] Préparation de l’audio et des notes
+        [no-beats] Aucun rythme jouable
         [catalog] Catalogue
         [my-playlists] Mes playlists
-        [playlist] Playlist
+        [playlist] Liste de lecture
         [output] Sortie
         [close-panel] Fermer le panneau
         [playlist-settings] Réglages de playlist
@@ -2405,20 +2395,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] La musique est indisponible. Rouvrez le menu plus tard.
         [INTERNAL] Erreur interne de musique ; demande à un administrateur de consulter les journaux du serveur
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] L’entrée sélectionnée n’existe plus.
+        [FORBIDDEN] Une autorisation de contrôle ou de modification est nécessaire.
+        [CONFLICT] Le contenu a changé. Actualisez la vue et sélectionnez à nouveau.
+        [LIMIT] La limite de ressources musicales est atteinte.
+        [INVALID] Vérifiez le nom, la sélection ou la plage de valeurs.
+        [OFFLINE] Appareil indisponible : chargez son tronçon ou éjectez le disque physique.
+        [OVERLAP] Les zones d’écoute se chevauchent. Arrêtez un autre appareil, réduisez la portée ou créez un groupe synchronisé.
+        [UNSUPPORTED] Ce média ne prend pas en charge cette action.
+        [BUSY] L’appareil, la requête ou le salon de rythme est occupé. Réessayez après la fin de l’opération.
         [NO_SAFE_DESTINATION] Aucun emplacement sûr à côté de ce jukebox
         [TELEPORT_FAILED] La téléportation a échoué ou a été bloquée
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] Échec de l’opération
     }
 
 music-space-selected-tracks =

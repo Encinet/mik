@@ -122,7 +122,7 @@ public final class HomeModule implements Listener {
                             .executes(ctx -> {
                                 Player player = requirePlayer(ctx.getSource().getSender());
                                 if (player != null) {
-                                    sendUsage(player, "/sethome <name>", Message.HOME_SET_USAGE_DESC);
+                                    sendUsage(player, "/sethome <name>", Message.HOME_SET_COMMAND_DESCRIPTION);
                                 }
                                 return Command.SINGLE_SUCCESS;
                             })
@@ -183,7 +183,7 @@ public final class HomeModule implements Listener {
                             .executes(ctx -> {
                                 Player player = requirePlayer(ctx.getSource().getSender());
                                 if (player != null) {
-                                    sendUsage(player, "/delhome <name>", Message.HOME_DELETE_USAGE_DESC);
+                                    sendUsage(player, "/delhome <name>", Message.HOME_DELETE_COMMAND_DESCRIPTION);
                                     sendHomeList(player);
                                 }
                                 return Command.SINGLE_SUCCESS;
@@ -343,7 +343,7 @@ public final class HomeModule implements Listener {
         Location savedPosition = player.getLocation().clone();
         FloatingMenus.input(player, MenuInputForm.builder(Component.text(languageService.t(player, Message.HOME_ACTION_CREATE)))
                 .field(MenuInputForm.Field.text("name", Component.text(languageService.t(player, Message.HOME_USAGE_NAME_RULE)), "", 48))
-                .cancel(Component.text(languageService.t(player, Message.HOME_BACK)))
+                .cancel(Component.text(languageService.t(player, Message.BACK)))
                 .submit(Component.text(languageService.t(player, Message.HOME_ACTION_CREATE)), (responder, inputValues) -> {
                     String name = inputValues.text("name").strip();
                     HomeWriteResult result = saveHome(responder, name, savedPosition, true);

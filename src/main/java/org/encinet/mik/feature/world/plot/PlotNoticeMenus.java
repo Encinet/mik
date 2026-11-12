@@ -43,7 +43,7 @@ final class PlotNoticeMenus implements AutoCloseable {
                     if (fresh == null || fresh.body().isBlank()) fallback.accept(viewer, state.plotId());
                     else context.redraw();
                 });
-        menu.back(language.text(context.player(), Message.PLOT_BACK, NamedTextColor.GREEN)).region("navigation").keepAccessible();
+        menu.back(language.text(context.player(), Message.BACK, NamedTextColor.GREEN)).region("navigation").keepAccessible();
         return menu.build();
     }
 

@@ -63,7 +63,7 @@ final class GovernancePlayerScenes {
         menu.control("refresh",
                         label(language, Message.GOVERNANCE_MENU_REFRESH, NamedTextColor.AQUA))
                 .region("navigation").keepAccessible().primary((viewer, _) -> { actions.accept(viewer,Command.REFRESH); });
-        menu.back(label(language, Message.GOVERNANCE_MENU_BACK, NamedTextColor.GREEN))
+        menu.back(label(language, Message.BACK, NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }
@@ -79,7 +79,7 @@ final class GovernancePlayerScenes {
                 NamedTextColor.GOLD)).region("heading").keepAccessible();
         menu.information("status", label(language, Message.GOVERNANCE_MENU_LOADING,
                 NamedTextColor.WHITE)).region("status").keepAccessible();
-        menu.back(label(language, Message.GOVERNANCE_MENU_BACK, NamedTextColor.GREEN))
+        menu.back(label(language, Message.BACK, NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }
@@ -98,7 +98,7 @@ final class GovernancePlayerScenes {
         menu.control("refresh",
                         label(language, Message.GOVERNANCE_MENU_REFRESH, NamedTextColor.AQUA))
                 .region("navigation").keepAccessible().primary((viewer, _) -> { actions.accept(viewer,Command.REFRESH); });
-        menu.back(label(language, Message.GOVERNANCE_MENU_BACK, NamedTextColor.GREEN))
+        menu.back(label(language, Message.BACK, NamedTextColor.GREEN))
                 .region("navigation").keepAccessible();
         return menu.build();
     }

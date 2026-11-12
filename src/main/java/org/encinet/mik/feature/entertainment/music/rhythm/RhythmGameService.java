@@ -759,7 +759,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
             }
         }
         menu.back(languageService.text(player,
-                        Message.MUSIC_BACK, NamedTextColor.RED))
+                        Message.BACK, NamedTextColor.RED))
                 .region("navigation");
         return menu.build();
     }
@@ -790,7 +790,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                     selectorScreen.flow(viewer).ifPresent(FloatingMenuFlow::redraw);
                 }, (viewer, difficulty) -> start(viewer, view.target(), view.mode(), difficulty),
                 languageService.text(player, Message.MUSIC_RHYTHM_START, NamedTextColor.GREEN),
-                languageService.text(player, Message.MUSIC_BACK, NamedTextColor.WHITE))
+                languageService.text(player, Message.BACK, NamedTextColor.WHITE))
                 .refreshEvery(5, (viewer, _) -> selectorScreen.flow(viewer).ifPresent(FloatingMenuFlow::redraw)).build();
     }
 
@@ -858,7 +858,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                         .append(Component.text("  ·  1/4",
                                 NamedTextColor.WHITE));
                 instruction = languageService.text(player,
-                        Message.MUSIC_RHYTHM_CALIBRATION_MINECRAFT_INSTRUCTION,
+                        Message.MUSIC_RHYTHM_CALIBRATION_AUDIO_INSTRUCTION,
                         NamedTextColor.GOLD);
                 sampling = true;
             }
@@ -893,7 +893,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                         .append(Component.text("  ·  2/4",
                                 NamedTextColor.WHITE));
                 instruction = languageService.text(player,
-                        Message.MUSIC_RHYTHM_CALIBRATION_PLASMO_INSTRUCTION,
+                        Message.MUSIC_RHYTHM_CALIBRATION_AUDIO_INSTRUCTION,
                         NamedTextColor.LIGHT_PURPLE);
                 sampling = true;
             }
@@ -1090,7 +1090,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                         removeCalibration(closedPlayer, view.runId());
                     }
                 });
-        menu.back(languageService.text(player, Message.MUSIC_BACK,
+        menu.back(languageService.text(player, Message.BACK,
                 NamedTextColor.RED)).region("navigation");
         return menu.build();
     }
@@ -1206,7 +1206,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         menu.control("return-room", languageService.text(player, Message.MUSIC_SPACE_LABEL,
                         NamedTextColor.WHITE, "rhythm"))
                 .region("navigation").primary((viewer, _) -> roomReturn.accept(viewer));
-        menu.back(languageService.text(player, Message.MUSIC_BACK, NamedTextColor.WHITE)).region("navigation");
+        menu.back(languageService.text(player, Message.BACK, NamedTextColor.WHITE)).region("navigation");
         return menu.build();
     }
 

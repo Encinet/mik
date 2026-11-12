@@ -337,7 +337,7 @@ public class SimpleFeaturesModule implements Listener {
 
     private void sendTpanyUsage(CommandSender sender) {
         sender.sendMessage(Component.text()
-                .append(Component.text(t(sender, Message.TPANY_USAGE), NamedTextColor.YELLOW))
+                .append(Component.text(t(sender, Message.USAGE), NamedTextColor.YELLOW))
                 .append(Component.space())
                 .append(Component.text(t(sender, Message.TPANY_USAGE_COMMAND), NamedTextColor.AQUA))
                 .append(Component.text("  ", NamedTextColor.GRAY))

@@ -213,7 +213,7 @@ password-invalid = Contraseña incorrecta. Inténtalo de nuevo.
 password-keep-role = Los moderadores y custodios no pueden quitar su contraseña.
 password-login = Iniciar sesión
 password-login-expired = Tu verificación de inicio de sesión ha caducado. Vuelve a conectarte.
-password-login-hint = Introduce la contraseña del servidor. Si la olvidaste, pide al equipo que la restablezca.
+password-login-hint = Introduce la contraseña de tu cuenta en este servidor. Si la has olvidado, pide al equipo que la restablezca.
 password-mismatch = Las nuevas contraseñas no coinciden.
 password-new = Nueva contraseña
 password-nomination-required = Configura una contraseña antes de solicitar ser moderador: /password set
@@ -239,7 +239,6 @@ password-title = Seguridad de la cuenta
 
 ## Player · Profile and tab list
 
-nametag-cancel = Cancelar
 nametag-clear = Vaciar
 nametag-clear-hint = Elimina valores personalizados; los estilos heredados pueden permanecer.
 nametag-command-description = Personalizar etiquetas de nombre
@@ -323,14 +322,12 @@ home-action-delete = Eliminar hogar
 home-action-teleport = Teletransportarse
 home-action-update = Actualizar ubicación
 home-already-exists = Ya existe un hogar con este nombre
-home-back = Atrás
 home-confirm-delete = Confirmar eliminación
 home-confirm-delete-detail-rich = Eliminar hogar { $home }
 home-confirm-delete-warning = Esto no se puede deshacer
 home-confirm-update = Confirmar actualización
 home-confirm-update-detail-rich = Actualizar hogar { $home } a esta ubicación
 home-delete-command-description = Elimina un hogar
-home-delete-usage-desc = Elimina un hogar
 home-deleted-rich = Hogar { $home } eliminado
 home-distance = Distancia: { $arg0 }
 home-distance-blocks = { $arg0 ->
@@ -344,7 +341,10 @@ home-invalid-name = Los nombres de los hogares no pueden contener los caracteres
 home-list-rich = Hogares: { $homes }
 home-location = Ubicación: { $arg0 }, { $arg1 }, { $arg2 }
 home-location-invalid = Los datos de ubicación de este hogar no son válidos
-home-max-reached = Puedes establecer un máximo de { $arg0 } hogares
+home-max-reached = Puedes establecer un máximo de { $arg0 ->
+        [one] { $arg0 } hogar
+       *[other] { $arg0 } hogares
+    }
 home-menu-title = Hogares
 home-no-homes = Aún no has establecido ningún hogar
 home-not-found-rich = El hogar { $home } no existe
@@ -352,7 +352,6 @@ home-search-placeholder = Buscar nombres de casas…
 home-search-empty = No hay hogares coincidentes
 home-set-command-description = Establece un hogar en tu ubicación actual
 home-set-rich = Hogar { $home } establecido
-home-set-usage-desc = Establece un hogar en tu ubicación actual
 home-summary-count = Establecidos: { $arg0 } / { $arg1 }
 home-teleport-failed = No se ha podido teletransportar. Inténtalo de nuevo
 home-teleported-rich = Te has teletransportado al hogar { $home }
@@ -393,7 +392,6 @@ tpany-command-description = Teletransportarse a la ubicación de un jugador, en 
 tpany-done-offline-rich = Te has teletransportado a la última ubicación conocida de { $player } { $world } { $location }
 tpany-done-online-rich = Te has teletransportado a la ubicación actual de { $player }
 tpany-not-found-rich = No se ha podido encontrar la ubicación de { $player }
-tpany-usage = Uso
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = Teletranspórtate a la ubicación de un jugador, incluida su ubicación guardada si está desconectado
 
@@ -483,8 +481,11 @@ effect-cleanup-source = { $cause ->
 ## Player · Trash
 
 trash-clear = Vaciar
-trash-clear-hint = Haz clic para eliminar todos los objetos ahora;
-    si no, se eliminan automáticamente { $arg0 } segundos después de cerrar.
+trash-clear-hint = Haz clic para eliminar todos los objetos ahora.
+    También se eliminan automáticamente { $arg0 ->
+        [one] { $arg0 } segundo
+       *[other] { $arg0 } segundos
+    } después de cerrar.
 trash-command-description = Abrir la papelera
 trash-sort = Ordenar
 trash-sort-hint = Combinar pilas iguales y ordenar por tipo de objeto
@@ -979,8 +980,6 @@ governance-kind-removal = Destitución
 governance-legacy-ban-kick = Se aprobó una votación anterior. Has sido sancionado por { $arg0 }. Motivo: { $arg1 }
 governance-menu-already-sponsored = Ya apoyada
 governance-menu-application = Estado de la candidatura
-governance-menu-back = Volver
-governance-menu-cancel = Cancelar
 governance-menu-completed = Finalizados
 governance-menu-confirm = Confirmar
 governance-menu-confirm-nominate = Presentar la candidatura inicia una votación para tu nombramiento como moderador.
@@ -1104,7 +1103,6 @@ plot-area-replace-save = Sustituir límites y guardar
 plot-area-save = Guardar límites
 plot-area-saved = Límites de «{ $arg0 }» guardados.
 plot-atmosphere-saved = Ambiente guardado.
-plot-back = Volver
 plot-board-auto-notify-result = Avisos programados para { $arg0 ->
         [one] { $arg0 } jugador
        *[other] { $arg0 } jugadores
@@ -1215,11 +1213,9 @@ plot-menu-flag-container = Abrir contenedores
 plot-menu-flag-entity = Interacción con entidades
 plot-menu-follow-parent = Seguir a la parcela principal
 plot-menu-follow-world = Seguir al mundo
-plot-menu-group-admin = administrador de parcela
 plot-menu-group-collaborator = Colaboradores
 plot-menu-group-member = Acceso de miembros
 plot-menu-group-newcomer = Acceso de principiantes
-plot-menu-group-owner = dueño de la parcela
 plot-menu-here = Ubicación actual
 plot-menu-manage = Gestionar parcelas de jugadores
 plot-menu-managed-empty = Este jugador aún no tiene parcelas.
@@ -1239,7 +1235,6 @@ plot-menu-ruling = Explica la resolución (8–1000 caracteres)
 plot-menu-set-role = Establecer como { $arg0 }
 plot-menu-settings = Ajustes del proyecto
 plot-menu-submit = Aplicar
-plot-menu-subplot-create = Crear subparcela
 plot-menu-subplot-of = Parte de { $arg0 }
 plot-menu-subplot-parent = Volver a la parcela principal: { $arg0 }
 plot-menu-subplots = Subparcelas ({ $arg0 })
@@ -1585,7 +1580,6 @@ vehicle-model-corner-cancel = Cancelar caja de colisión pendiente
 vehicle-model-corner-first = Marcar primera esquina a mis pies
 vehicle-model-corner-first-look = Marcar primera esquina en la superficie apuntada
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Usar mis pies como esquina opuesta y añadir caja
 vehicle-model-corner-second-look = Usar la superficie apuntada como esquina opuesta
 vehicle-model-create = Crear modelo
@@ -1745,7 +1739,6 @@ async-regen-filter-all = todos los tipos de bloque
 async-regen-invalid-blocks = Tipos desconocidos o que no son bloques: { $arg0 }
 async-regen-not-running = No tienes ninguna regeneración en curso
 async-regen-nothing-to-apply = La selección ya coincide con este plan; no hay nada que aplicar
-async-regen-plan-cancel = Cancelar
 async-regen-plan-dialog-title = Aplicar plan de regeneración
 async-regen-preview-cancelled = Vista previa cancelada; no se modificaron datos del mundo
 async-regen-preview-started = Vista previa iniciada: selección { $arg0 ->
@@ -1853,7 +1846,6 @@ spawn-world-missing = El mundo del punto de aparición no está disponible
 
 music-album = Álbum: { $arg0 }
 music-artist = Artista: { $arg0 }
-music-back = Atrás
 music-command-description = Música local, en línea y NBS para tocadiscos
 music-disc-left = Clic izquierdo: tomar el disco
 music-disc-right = Clic derecho: reproducir en el tocadiscos más cercano
@@ -1875,24 +1867,23 @@ music-reload-started = Recargando archivos de música y fuentes personalizadas..
 music-rhythm-animation-offset = Desfase de animación { $arg0 } ms
 music-rhythm-calibration-accumulating = Confirmando un ritmo estable… sigue tocando
 music-rhythm-calibration-adapting = Ajustando el ritmo… sigue tocando
+music-rhythm-calibration-audio-instruction = Pulsa una de las teclas del 1 al 4 en cada golpe del ritmo.
 music-rhythm-calibration-done = Prueba de latencia completa · ajustes guardados
 music-rhythm-calibration-failed = El audio de la prueba se interrumpió. La prueba se cerró de forma segura; vuelve a iniciarla
-music-rhythm-calibration-intro = Minecraft Note Block → Plasmo Voice → Teclado visual → Ratón visual
-music-rhythm-calibration-listen = Escucha una vez el ritmo generado · todavía no pulses
-music-rhythm-calibration-minecraft-instruction = Repite el ritmo de Minecraft Note Block y pulsa 1–4
-music-rhythm-calibration-no-input = No se detectó ninguna entrada. Revisa las teclas y el volumen y sigue el ritmo
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = Escucha el ritmo completo una vez; todavía no pulses ninguna tecla.
+music-rhythm-calibration-no-input = No se ha detectado una entrada válida. Usa el control indicado para esta fase en cada señal.
 music-rhythm-calibration-out-of-range = El retraso medido está fuera del rango admitido. Revisa los ajustes de audio
-music-rhythm-calibration-plasmo-instruction = Sigue ahora: repite el ritmo de Plasmo Voice y pulsa 1–4 en cada golpe
 music-rhythm-calibration-plasmo-ready = Prueba Minecraft Note Block completa; primero escucha el mismo ritmo por Plasmo Voice
 music-rhythm-calibration-pointer-instruction = Haz clic izquierdo o derecho cuando la nota cruce la línea.
 music-rhythm-calibration-realigning = El audio se interrumpió. Se repetirá la demostración y se conservarán las muestras completas
 music-rhythm-calibration-required = Completa la prueba de latencia antes de iniciar el juego de ritmo
 music-rhythm-calibration-reset-done = Se reinició la calibración de latencia
-music-rhythm-calibration-result-hold = Todas las pruebas terminaron. Revisa el resultado antes de volver automáticamente
+music-rhythm-calibration-result-hold = Prueba completada. Revisa los resultados; volverás automáticamente en un momento.
 music-rhythm-calibration-stage-minecraft = Bloque musical de Minecraft
-music-rhythm-calibration-stage-plasmo = Prueba de audio Plasmo Voice y entrada
-music-rhythm-calibration-stage-pointer = Ratón
-music-rhythm-calibration-stage-visual = Prueba visual y de entrada
+music-rhythm-calibration-stage-plasmo = Plasmo Voice
+music-rhythm-calibration-stage-pointer = Visual · ratón
+music-rhythm-calibration-stage-visual = Visual · teclado
 music-rhythm-calibration-visual-instruction = Pulsa 1–4 cuando la nota cruce la línea.
 music-rhythm-calibration-visual-preview = Observa una secuencia completa sin introducir nada · empieza cuando cambie la instrucción
 music-rhythm-calibration-voice-required = La prueba completa requiere Plasmo Voice conectado y activado
@@ -2053,7 +2044,6 @@ ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Boletín de sanción]
 ban-command-description = Expulsar a un jugador con un nivel de gravedad fijo
 ban-database-error = Falló la operación de la base de sanciones. Revisa el registro del servidor.
-ban-menu-back = Atrás
 ban-menu-confirm-action = Expulsar jugador
 ban-menu-confirm-severity = Gravedad
 ban-menu-confirm-title = Confirmar expulsión
@@ -2233,26 +2223,26 @@ music-space-label =
         [restore-previous] Restaurar contenido anterior al grupo
         [keep-group-content] Conservar contenido del grupo
         [queue] Cola de reproducción
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
-        [unavailable] Music storage is unavailable
+        [unavailable] El almacenamiento de música no está disponible
         [saving] Guardando…
         [saved] Guardado
         [apply] { plot-menu-submit }
         [cancel] { cancel }
-        [select-page] Select this page
-        [select-all] Select all results
-        [clear-tracks] Clear song selection
+        [select-page] Seleccionar esta página
+        [select-all] Seleccionar todos los resultados
+        [clear-tracks] Quitar selección de canciones
         [add-playlist] Añadir a lista
         [description] { plot-menu-description }
-        [make-private] Make private
-        [publish] Make public
-        [delete] Delete playlist
-        [favorite] Toggle favorite
-        [copy] Copy playlist
-        [share] Share playlist command
+        [make-private] Hacer privada
+        [publish] Hacer pública
+        [delete] Eliminar lista
+        [favorite] Añadir o quitar de favoritos
+        [copy] Copiar lista
+        [share] Compartir comando de la lista
         [recent] Reproducidas recientemente
-        [favorites] Favorite playlists
+        [favorites] Listas favoritas
         [public] Pública
         [private] Privada
         [new-playlist] Crear lista
@@ -2267,13 +2257,13 @@ music-space-label =
         [track-type] Tipo
         [type-online] En línea
         [undo] { vehicle-model-undo }
-        [remove] Remove selected entries
-        [clear-recents] Clear my play history
-        [clear-entries] Clear entry selection
+        [remove] Eliminar entradas seleccionadas
+        [clear-recents] Borrar mi historial de reproducción
+        [clear-entries] Quitar selección de entradas
         [search-tracks] Buscar canciones, artistas…
         [search-playlists] Buscar listas…
-        [public-playlists] Public playlists
-        [searching] Searching…
+        [public-playlists] Listas públicas
+        [searching] Buscando…
         [insert] Insertar y reproducir ahora
         [append] Añadir a la cola
         [choose-targets] Elegir salida
@@ -2284,11 +2274,11 @@ music-space-label =
         [empty] Sin canciones
         [queue-empty] No hay canciones en cola
         [queue-current] Canción actual de la cola digital
-        [pause] Pause
-        [resume] Resume
-        [stop] Stop; keep playback list
-        [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [pause] Pausar
+        [resume] Reanudar
+        [stop] Detener y conservar la lista
+        [previous] Canción anterior / reiniciar
+        [clear] Vaciar pendientes; detener tras la canción actual
         [seek] Posición
         [more] Más
         [volume-control] Volumen
@@ -2313,22 +2303,22 @@ music-space-label =
         [create-room] Crear sala
         [no-rhythm-devices] No hay tocadiscos cerca. Primero haz clic derecho en uno mientras te agachas y con la mano vacía.
         [calibration] Calibración de latencia
-        [volume] Volume (0–100)
-        [range] Range (8–256 blocks)
+        [volume] Volumen (0–100)
+        [range] Alcance (8–256 bloques)
         [mode] Modo de reproducción
         [save-queue] Guardar cola como lista
-        [sequential] Sequential
+        [sequential] En orden
         [repeat-all] Repetir lista
-        [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [repeat-one] Repetir canción
+        [shuffle] Aleatorio sin repeticiones
         [import] Importar lista
         [link] Enlace de la lista
-        [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
-        [import-preview] Preview fetched metadata; no audio was downloaded
+        [partial-import] Solo se ha obtenido parte de la lista. Guarda esa parte si quieres conservarla.
+        [import-preview] Vista previa de los metadatos obtenidos; no se ha descargado audio
         [import-new] Crear y abrir
         [import-merge] Combinar con lista
         [stopped] Detenido
-        [loading] Preparing audio
+        [loading] Preparando audio
         [cancel-loading] Cancelar preparación
         [playing] Reproduciendo
         [paused] En pausa
@@ -2339,32 +2329,32 @@ music-space-label =
         [deselect] Deseleccionar esta entrada
         [selected] Seleccionada
         [place-before] Colocar la selección antes de esta entrada
-        [eject] Eject physical record
-        [make-disc] Create signed music disc
-        [gain] Group volume (0–100)
-        [retry-import] Fetch playlist again
+        [eject] Expulsar disco físico
+        [make-disc] Crear disco de música firmado
+        [gain] Volumen del grupo (0–100)
+        [retry-import] Volver a obtener la lista
         [join-room] Unirse a la sala
         [ready] Preparado
-        [waiting] Waiting
+        [waiting] En espera
         [room-mode] Modo de juego
         [room-difficulty] Dificultad
-        [late-join] Join the running game
-        [leave-room] Leave room
+        [late-join] Unirse a la partida en curso
+        [leave-room] Salir de la sala
         [select-room-track] Usar canción seleccionada
         [start-room] Iniciar partida
         [end-room] Terminar sala
-        [base-queue] Base playback list
-        [priority-queue] One-time requests
-        [falling] Falling lanes
-        [radial] Radial approach
-        [spatial-aim] Spatial aim
-        [easy] Easy
-        [normal] Normal
-        [hard] Hard
-        [expert] Expert
-        [waiting-for-player] Waiting for preparation
-        [preparing] Preparing audio and chart
-        [no-beats] No playable beats
+        [base-queue] Lista de reproducción principal
+        [priority-queue] Peticiones de una sola reproducción
+        [falling] { music-rhythm-mode-falling }
+        [radial] { music-rhythm-mode-radial }
+        [spatial-aim] { music-rhythm-mode-spatial-aim }
+        [easy] { music-rhythm-difficulty-easy }
+        [normal] { music-rhythm-difficulty-normal }
+        [hard] { music-rhythm-difficulty-hard }
+        [expert] { music-rhythm-difficulty-expert }
+        [waiting-for-player] Esperando a que los jugadores se preparen
+        [preparing] Preparando audio y mapa de notas
+        [no-beats] No hay ritmos jugables
         [catalog] Catálogo
         [my-playlists] Mis listas
         [playlist] Lista
@@ -2390,20 +2380,20 @@ music-space-label =
 
 music-space-error =
     { $arg0 ->
-        [UNAVAILABLE] Music is unavailable; reopen later
+        [UNAVAILABLE] La música no está disponible. Vuelve a abrirla más tarde.
         [INTERNAL] Error interno de música; pide a un administrador que revise el registro del servidor
-        [NOT_FOUND] The selected item no longer exists
-        [FORBIDDEN] Control or edit permission is required
-        [CONFLICT] Content changed; refresh and select again
-        [LIMIT] The music resource limit was reached
-        [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
-        [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
-        [UNSUPPORTED] This media does not support that action
-        [BUSY] Device, request or rhythm room is busy; retry after it finishes
+        [NOT_FOUND] La entrada seleccionada ya no existe.
+        [FORBIDDEN] Necesitas permiso para controlar o editar.
+        [CONFLICT] El contenido ha cambiado. Actualiza la vista y vuelve a seleccionar.
+        [LIMIT] Se ha alcanzado el límite de recursos de música.
+        [INVALID] Comprueba el nombre, la selección o el intervalo numérico.
+        [OFFLINE] Dispositivo no disponible: carga su chunk o expulsa el disco físico.
+        [OVERLAP] Las zonas de audición se solapan. Detén otro dispositivo, reduce el alcance o crea un grupo sincronizado.
+        [UNSUPPORTED] Este medio no admite esa acción.
+        [BUSY] El dispositivo, la solicitud o la sala de ritmo están ocupados. Inténtalo de nuevo cuando termine la operación.
         [NO_SAFE_DESTINATION] No hay un lugar seguro junto a este tocadiscos
         [TELEPORT_FAILED] El teletransporte falló o fue bloqueado
-       *[UNKNOWN] Operation failed
+       *[UNKNOWN] La operación ha fallado
     }
 
 music-space-selected-tracks =

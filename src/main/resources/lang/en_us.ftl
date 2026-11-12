@@ -213,7 +213,7 @@ password-invalid = Incorrect password. Try again.
 password-keep-role = Moderators and custodians cannot remove their passwords.
 password-login = Log in
 password-login-expired = Your login verification has expired. Reconnect to the server.
-password-login-hint = Enter this server’s password. Forgot it? Ask staff to reset it.
+password-login-hint = Enter your account password for this server. If you forgot it, ask staff to reset it.
 password-mismatch = The new passwords do not match.
 password-new = New password
 password-nomination-required = Set an account password before applying for moderator: /password set
@@ -239,7 +239,6 @@ password-title = Account security
 
 ## Player · Profile and tab list
 
-nametag-cancel = Cancel
 nametag-clear = Clear
 nametag-clear-hint = Removes custom values; inherited styles may remain.
 nametag-command-description = Customize name tags
@@ -323,14 +322,12 @@ home-action-delete = Delete home
 home-action-teleport = Teleport
 home-action-update = Update location
 home-already-exists = A home with this name already exists
-home-back = Back
 home-confirm-delete = Confirm Delete
 home-confirm-delete-detail-rich = Delete home { $home }
 home-confirm-delete-warning = This cannot be undone
 home-confirm-update = Confirm Update
 home-confirm-update-detail-rich = Update home { $home } to this location
 home-delete-command-description = Delete a home
-home-delete-usage-desc = Delete a home
 home-deleted-rich = Home { $home } has been deleted
 home-distance = Distance: { $arg0 }
 home-distance-blocks = { $arg0 ->
@@ -344,7 +341,10 @@ home-invalid-name = Home names cannot contain < > : characters
 home-list-rich = Homes: { $homes }
 home-location = Location: { $arg0 }, { $arg1 }, { $arg2 }
 home-location-invalid = This home's location data is invalid
-home-max-reached = You can set at most { $arg0 } homes
+home-max-reached = You can set at most { $arg0 ->
+        [one] { $arg0 } home
+       *[other] { $arg0 } homes
+    }
 home-menu-title = Homes
 home-no-homes = You have not set any homes yet
 home-not-found-rich = Home { $home } does not exist
@@ -352,7 +352,6 @@ home-search-placeholder = Search home names…
 home-search-empty = No matching homes
 home-set-command-description = Set a home at your current location
 home-set-rich = Home { $home } has been set
-home-set-usage-desc = Set a home at your current location
 home-summary-count = Set: { $arg0 } / { $arg1 }
 home-teleport-failed = Teleport failed. Please try again
 home-teleported-rich = Teleported to home { $home }
@@ -393,7 +392,6 @@ tpany-command-description = Teleport to a player location, online or offline
 tpany-done-offline-rich = Teleported to { $player }'s last known location { $world } { $location }
 tpany-done-online-rich = Teleported to { $player }'s current location
 tpany-not-found-rich = Could not find { $player }'s location
-tpany-usage = Usage
 tpany-usage-command = /tpany <player>
 tpany-usage-desc = Teleport to a player location, including offline cache
 
@@ -483,8 +481,11 @@ effect-cleanup-source = { $cause ->
 ## Player · Trash
 
 trash-clear = Clear
-trash-clear-hint = Click to clear all items now;
-    otherwise, they are cleared automatically { $arg0 } seconds after closing.
+trash-clear-hint = Click to clear all items now.
+    They are also cleared automatically { $arg0 ->
+        [one] { $arg0 } second
+       *[other] { $arg0 } seconds
+    } after closing.
 trash-command-description = Open trash
 trash-sort = Sort
 trash-sort-hint = Merge matching stacks and sort items by type
@@ -573,7 +574,7 @@ chat-private-self = You cannot start a private chat with yourself
 chat-private-target-not-found = Online player not found: { $arg0 }
 chat-private-target-offline = Your private chat partner is offline; wait for them or choose another channel
 chat-private-tip-channel-mm = Use <aqua><u><click:suggest_command:'/msg '>/msg player</click></u></aqua> to enter private chat; <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> returns to public chat.
-chat-public-command-description = Switch public chat channel
+chat-public-command-description = Switch to public chat
 chat-public-enter = Switched to public chat
 chat-reply-command-description = Reply to your latest private chat target
 chat-settings-menu-title = Chat Settings
@@ -581,7 +582,7 @@ chat-social-account-label = Platform account
 chat-social-bound-player-label = Linked player
 chat-social-name-label = Social name
 chat-social-unbound = Not linked to a Minecraft player
-chat-staff-command-description = Switch staff chat channel
+chat-staff-command-description = Switch to staff chat
 chat-staff-label = Staff
 chat-staff-permission-missing = Staff chat permission missing; returned to public chat
 mention-action-bar = Action bar prompt
@@ -979,8 +980,6 @@ governance-kind-removal = Removal
 governance-legacy-ban-kick = A previous governance vote passed. You are banned for { $arg0 }. Reason: { $arg1 }
 governance-menu-already-sponsored = Already sponsored
 governance-menu-application = Application status
-governance-menu-back = Back
-governance-menu-cancel = Cancel
 governance-menu-completed = Completed
 governance-menu-confirm = Confirm
 governance-menu-confirm-nominate = Applying starts a vote on your appointment as moderator.
@@ -1003,7 +1002,7 @@ governance-menu-pause-appeal = Appeal path
 governance-menu-pause-duration = Duration (e.g. 2d)
 governance-menu-pause-reason = Reason
 governance-menu-pause-until = Ends
-governance-menu-pending-application = Passed · awaiting application
+governance-menu-pending-application = Passed · awaiting implementation
 governance-menu-petition-row = { $arg0 } · { $arg1 }/{ $arg2 } supporters
 governance-menu-petitions = Removal petitions
 governance-menu-player-name = Player name
@@ -1104,7 +1103,6 @@ plot-area-replace-save = Replace boundaries and save
 plot-area-save = Save boundaries
 plot-area-saved = Saved boundaries for “{ $arg0 }”.
 plot-atmosphere-saved = Atmosphere saved.
-plot-back = Back
 plot-board-auto-notify-result = Alerts scheduled for { $arg0 ->
         [one] { $arg0 } player
        *[other] { $arg0 } players
@@ -1211,11 +1209,9 @@ plot-menu-flag-container = Open containers
 plot-menu-flag-entity = Entity interaction
 plot-menu-follow-parent = Follow parent
 plot-menu-follow-world = Follow world
-plot-menu-group-admin = plot admin
 plot-menu-group-collaborator = Collaborators
 plot-menu-group-member = Member defaults
 plot-menu-group-newcomer = Newcomer defaults
-plot-menu-group-owner = plot owner
 plot-menu-here = Current location
 plot-menu-manage = Manage member plots
 plot-menu-managed-empty = This player has no plots yet.
@@ -1235,7 +1231,6 @@ plot-menu-ruling = Explain the ruling (8–1000 characters)
 plot-menu-set-role = Set as { $arg0 }
 plot-menu-settings = Settings
 plot-menu-submit = Apply
-plot-menu-subplot-create = Create subplot
 plot-menu-subplot-of = Part of { $arg0 }
 plot-menu-subplot-parent = Parent project: { $arg0 }
 plot-menu-subplots = Subplots ({ $arg0 })
@@ -1581,7 +1576,6 @@ vehicle-model-corner-cancel = Cancel the pending collision box
 vehicle-model-corner-first = Mark first box corner at my feet
 vehicle-model-corner-first-look = Mark the first corner on the surface I look at
 vehicle-model-corner-hint = { vehicle-model-corner-first } → { vehicle-model-corner-second }
-vehicle-model-corner-required = { vehicle-model-corner-first }
 vehicle-model-corner-second = Use my feet as opposite corner and add box
 vehicle-model-corner-second-look = Use the surface I look at as opposite corner
 vehicle-model-create = Create { -vehicle-model }
@@ -1736,7 +1730,6 @@ async-regen-filter-all = all block types
 async-regen-invalid-blocks = Unknown or non-block types: { $arg0 }
 async-regen-not-running = You do not have a regeneration task running
 async-regen-nothing-to-apply = The selection already matches this plan; nothing needs to be applied
-async-regen-plan-cancel = Cancel
 async-regen-plan-dialog-title = Apply regeneration plan
 async-regen-preview-cancelled = Preview cancelled; no world data was changed
 async-regen-preview-started = Preview started: selection { $arg0 ->
@@ -1856,7 +1849,6 @@ spawn-world-missing = Spawn world is unavailable
 
 music-album = Album: { $arg0 }
 music-artist = Artist: { $arg0 }
-music-back = Back
 music-command-description = Local, online, and NBS jukebox music
 music-disc-left = Left click: take the disc
 music-disc-right = Right click: play on the nearest jukebox
@@ -1878,24 +1870,23 @@ music-reload-started = Reloading music files and custom sources...
 music-rhythm-animation-offset = Animation { $arg0 } ms
 music-rhythm-calibration-accumulating = Good, keep the same rhythm to keep collecting samples
 music-rhythm-calibration-adapting = Keep following the beat; confidence is still building
+music-rhythm-calibration-audio-instruction = Press any key from 1 to 4 on each beat.
 music-rhythm-calibration-done = Delay test complete
 music-rhythm-calibration-failed = The delay-test audio stopped unexpectedly. The test was safely closed; please start it again.
-music-rhythm-calibration-intro = Stage order: Minecraft Note Block → Plasmo Voice → Keyboard visual → Mouse visual
-music-rhythm-calibration-listen = Listen once to the pattern, then tap each cue consistently.
-music-rhythm-calibration-minecraft-instruction = Repeat the rhythm and press 1–4
+music-rhythm-calibration-intro = { music-rhythm-calibration-stage-minecraft } → { music-rhythm-calibration-stage-plasmo } → { music-rhythm-calibration-stage-visual } → { music-rhythm-calibration-stage-pointer }
+music-rhythm-calibration-listen = Listen to the full rhythm once; do not press any keys yet.
 music-rhythm-calibration-no-input = No valid input detected. Use the control shown for this stage on every cue.
 music-rhythm-calibration-out-of-range = The measured delay is outside the supported range. Check your audio setup or exit and retry.
-music-rhythm-calibration-plasmo-instruction = Continue the same rhythm on Plasmo Voice and keep your keying pattern stable; this stage filters unstable samples.
-music-rhythm-calibration-plasmo-ready = Minecraft Note Block stage done. Keep the same rhythm and continue on Plasmo Voice.
+music-rhythm-calibration-plasmo-ready = Note block stage complete. Next: listen to the same rhythm through Plasmo Voice.
 music-rhythm-calibration-pointer-instruction = Left- or right-click when blocks cross the hit line.
 music-rhythm-calibration-realigning = Voice stream dropped; replaying
 music-rhythm-calibration-required = Delay test required before starting
 music-rhythm-calibration-reset-done = Delay calibration reset
-music-rhythm-calibration-result-hold = Test complete, hold the line until results apply
+music-rhythm-calibration-result-hold = Test complete. Review your results; you will return automatically in a moment.
 music-rhythm-calibration-stage-minecraft = Minecraft Note Block
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
-music-rhythm-calibration-stage-pointer = Mouse
-music-rhythm-calibration-stage-visual = Visual
+music-rhythm-calibration-stage-pointer = Visual · mouse
+music-rhythm-calibration-stage-visual = Visual · keyboard
 music-rhythm-calibration-visual-instruction = Press 1–4 when blocks cross the hit line.
 music-rhythm-calibration-visual-preview = Watch one full cue pattern without input. Start only when the instruction changes.
 music-rhythm-calibration-voice-required = The complete delay test requires Plasmo Voice to be connected and enabled.
@@ -2056,7 +2047,6 @@ ban-broadcast-operator = Moderator
 ban-broadcast-prefix = [Ban bulletin]
 ban-command-description = Ban a player using a fixed severity level
 ban-database-error = The ban database operation failed. Check the server log
-ban-menu-back = Back
 ban-menu-confirm-action = Ban Player
 ban-menu-confirm-severity = Severity
 ban-menu-confirm-title = Confirm Ban
@@ -2095,7 +2085,7 @@ ban-system-source = System
 ban-unban-success = Pardoned { $arg0 }
 ban-unknown-reason = No reason provided
 ban-update-success = Updated { $arg0 } ban field: { $arg1 }
-banlist-command-description = View profile bans
+banlist-command-description = View player bans
 banlist-copy = Click to copy player name
 banlist-empty = There are no banned players
 banlist-expires = Expires
@@ -2239,7 +2229,7 @@ music-space-label =
         [restore-previous] Restore pre-group content
         [keep-group-content] Keep group content
         [queue] Playback queue
-        [back] { ban-menu-back }
+        [back] { back }
         [close] { close }
         [unavailable] Music storage is unavailable
         [saving] Saving…

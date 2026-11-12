@@ -94,7 +94,7 @@ final class GovernanceActivityScenes {
             body.child(Ui.text(label(Message.GOVERNANCE_ACTIVITY_CONFIRM_PETITION, WHITE)).key("confirmation")
                     .alignment(FloatingMenuDecoration.Alignment.LEFT).build());
             var confirm = Ui.button(action("confirm")).key("confirm-petition").primary((_,_) -> actions.join(matter));
-            var cancelButton = Ui.button(label(Message.GOVERNANCE_MENU_CANCEL, WHITE)).key("cancel-petition").primary((_,_) -> cancel.run());
+            var cancelButton = Ui.button(label(Message.CANCEL, WHITE)).key("cancel-petition").primary((_,_) -> cancel.run());
             if (busy) {
                 confirm.disabled(label(Message.GOVERNANCE_MENU_LOADING, YELLOW));
                 cancelButton.disabled(label(Message.GOVERNANCE_MENU_LOADING, YELLOW));

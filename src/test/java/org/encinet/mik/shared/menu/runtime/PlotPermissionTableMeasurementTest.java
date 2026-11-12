@@ -85,7 +85,7 @@ class PlotPermissionTableMeasurementTest {
                         .replace("{ $arg0 }", "A long player name 成员名称测试") : text(messages, Message.PLOT_WORKSPACE_PERMISSIONS)))
                 .region("heading").textWidth(FloatingMenuTextWidth.WIDE);
         builder.control("subject", Component.text((draft ? text(messages, Message.PLOT_MEMBER_DRAFT_ROLE)
-                        .replace("{ $arg0 }", text(messages, Message.PLOT_MENU_GROUP_ADMIN))
+                        .replace("{ $arg0 }", text(messages, Message.PLOT_ROLE_ADMIN))
                         : text(messages, Message.PLOT_MENU_GROUP_NEWCOMER)) + " ▾"))
                 .region("subject").textWidth(FloatingMenuTextWidth.COMPACT)
                 .alignment(FloatingMenuDecoration.Alignment.LEFT).primary((_, _) -> { });
@@ -133,7 +133,7 @@ class PlotPermissionTableMeasurementTest {
                 .region("navigation").primary((_, _) -> { });
         if (draft) builder.navigation("submit", Component.text(text(messages, Message.PLOT_MEMBER_DRAFT_SUBMIT)))
                 .region("navigation").primary((_, _) -> { });
-        builder.back(Component.text(text(messages, Message.PLOT_BACK))).region("navigation");
+        builder.back(Component.text(text(messages, Message.BACK))).region("navigation");
         return builder.build();
     }
 

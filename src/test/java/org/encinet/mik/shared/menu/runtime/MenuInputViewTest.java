@@ -196,7 +196,7 @@ class MenuInputViewTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             var builder = MenuInputForm.builder(Component.text(FluentTestSupport.text(bundle, Message.GOVERNANCE_MENU_PAUSE)))
-                    .cancel(Component.text(FluentTestSupport.text(bundle, Message.GOVERNANCE_MENU_CANCEL)))
+                    .cancel(Component.text(FluentTestSupport.text(bundle, Message.CANCEL)))
                     .submit(Component.text(FluentTestSupport.text(bundle, Message.GOVERNANCE_MENU_CONFIRM)), (_, _) -> { });
             var fields = new Message[] {Message.GOVERNANCE_MENU_PAUSE_DURATION, Message.GOVERNANCE_MENU_PAUSE_APPEAL,
                     Message.GOVERNANCE_MENU_PAUSE_REASON};

@@ -25,7 +25,7 @@ final class PlotNoticeForm {
                     try { PlotNoticeText.normalize(values.text("body")); return null; }
                     catch (PlotProblem problem) { return text.apply(problem.message(), problem.args()).color(NamedTextColor.RED); }
                 })
-                .cancel(text.apply(Message.PLOT_BACK, new Object[0]))
+                .cancel(text.apply(Message.BACK, new Object[0]))
                 .submit(text.apply(Message.PLOT_MENU_SUBMIT, new Object[0]).color(NamedTextColor.GREEN),
                         (player, values) -> saved.accept(player, PlotNoticeText.normalize(values.text("body"))))
                 .build();

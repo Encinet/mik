@@ -35,7 +35,7 @@ class PlotBoardPresentationTest {
                             Optional.of(Component.text(formattedRuling)), position.get(), position::set);
                     var menu = PlotMenuLayouts.screen("record:1", FloatingMenuAppearance.DEFAULT, PlotMenuLayouts.record(reading));
                     menu.control("feedback", Component.text(FluentTestSupport.text(bundle, Message.PLOT_MENU_FEEDBACK))).region("actions");
-                    menu.back(Component.text(FluentTestSupport.text(bundle, Message.PLOT_BACK))).region("navigation");
+                    menu.back(Component.text(FluentTestSupport.text(bundle, Message.BACK))).region("navigation");
                     var scene = menu.build();
                     var frame = SceneGeometryTestSupport.readableFrame(scene, font, new FloatingMenuFieldOfView(fov), scale);
                     assertDisjoint(frame); assertNotNull(element(frame, "feedback")); assertNotNull(element(frame, "back"));

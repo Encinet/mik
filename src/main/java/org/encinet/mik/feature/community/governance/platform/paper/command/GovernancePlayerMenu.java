@@ -165,7 +165,7 @@ final class GovernancePlayerMenu {
                             : values.text("appeal").isBlank() || values.text("reason").isBlank() ? Message.GOVERNANCE_PAUSE_FIELDS_REQUIRED : null;
                     return failure == null ? null : label(text.language(viewer),failure,NamedTextColor.RED);
                 })
-                .cancel(label(language, Message.GOVERNANCE_MENU_CANCEL, NamedTextColor.WHITE))
+                .cancel(label(language, Message.CANCEL, NamedTextColor.WHITE))
                 .submit(label(language, Message.GOVERNANCE_MENU_CONFIRM, NamedTextColor.GREEN), (viewer, values) -> {
                     if (!current(viewer,source) || !staff(viewer)) return;
                     commands.setPause(viewer, targetId, values.text("duration").strip(), values.text("appeal").strip(),
@@ -184,7 +184,7 @@ final class GovernancePlayerMenu {
                             : values.text("reason").isBlank() ? Message.GOVERNANCE_RESUME_REASON_REQUIRED : null;
                     return failure == null ? null : label(text.language(viewer),failure,NamedTextColor.RED);
                 })
-                .cancel(label(language, Message.GOVERNANCE_MENU_CANCEL, NamedTextColor.WHITE))
+                .cancel(label(language, Message.CANCEL, NamedTextColor.WHITE))
                 .submit(label(language, Message.GOVERNANCE_MENU_CONFIRM, NamedTextColor.GREEN), (viewer, inputValues) -> {
                     String reason = inputValues.text("reason").strip();
                     if (!current(viewer,source) || !staff(viewer)) return;

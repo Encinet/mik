@@ -58,7 +58,7 @@ final class GovernanceApplicationScenes {
         }
         if (view.data.canApply(view.viewer.id()) && view.viewer.password()) {
             blocks.add(view.info("application-explanation", view.label(Message.GOVERNANCE_MENU_CONFIRM_NOMINATE)));
-            actions.child(view.button("cancel",view.label(Message.GOVERNANCE_MENU_CANCEL),CANCEL_CONFIRM).build())
+            actions.child(view.button("cancel",view.label(Message.CANCEL),CANCEL_CONFIRM).build())
                     .child(view.button("apply",view.label(Message.GOVERNANCE_MENU_NOMINATE,GREEN),PERFORM).build());
         }
         blocks.addAll(missing);

@@ -38,7 +38,7 @@ final class PlotGuideMenu implements AutoCloseable {
                 .sizing(new UiSizing(UiSize.ZERO, new UiSize(600, 260))).build();
         var menu = PlotMenuLayouts.screen("plot-guide", FloatingMenuAppearance.DEFAULT, PlotMenuLayouts.help(reading));
         menu.information("heading", language.text(locale, Message.PLOT_HELP, NamedTextColor.GOLD)).region("heading").keepAccessible();
-        menu.back(language.text(locale, Message.PLOT_BACK, NamedTextColor.GREEN)).region("navigation").keepAccessible();
+        menu.back(language.text(locale, Message.BACK, NamedTextColor.GREEN)).region("navigation").keepAccessible();
         return menu;
     }
 }
