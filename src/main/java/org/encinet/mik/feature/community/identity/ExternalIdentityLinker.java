@@ -12,5 +12,5 @@ public interface ExternalIdentityLinker {
 
     Optional<IdentityBinding> find(ExternalIdentityKey key);
 
-    Optional<IdentityBinding> unlink(ExternalIdentityKey key);
+    Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId);
 }

@@ -16,11 +16,10 @@ record WorldFeatures(
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
-            PlayerFeatures players, CommunityFeatures community) {
+            PlayerFeatures players) {
         var languageService = shared.language();
         var axiomGizmoService = shared.axiom();
         var floatingMenuService = shared.menus();
-        var socialModule = community.social();
 
         AsyncRegenModule asyncRegenModule = new AsyncRegenModule(plugin, languageService);
         lifecycle.startManaged("async-regen", asyncRegenModule::enable, asyncRegenModule::disable);
@@ -30,7 +29,7 @@ record WorldFeatures(
         lifecycle.startManaged("non-euclidean-space", nonEuclideanSpaceModule::enable, nonEuclideanSpaceModule::disable);
         nonEuclideanSpaceModule.registerCommands(plugin.getLifecycleManager());
 
-        PlotModule plotModule = new PlotModule(plugin, languageService, socialModule::notifyPlayer);
+        PlotModule plotModule = new PlotModule(plugin, languageService);
         lifecycle.startManaged("plot", plotModule::enable, plotModule::disable);
         plotModule.registerCommands(plugin.getLifecycleManager());
 

@@ -613,25 +613,27 @@ social-admin-reloaded-all = 모든 소셜 플랫폼을 다시 불러왔습니다
 social-admin-status = { $arg0 } · { $arg1 } · 세대 { $arg2 } · 대화 { $arg3 }
 social-admin-title = 소셜 플랫폼
 social-admin-unknown = 알 수 없는 소셜 플랫폼: { $arg0 }
-social-binding-already-linked = 이미 연결된 Minecraft 플레이어: { $arg0 }
-social-binding-code-invalid = 코드가 잘못되었거나 만료되었습니다. 다시 접속하여 새 코드를 받거나 게임에서 /bind { $arg0 } 명령어를 실행하세요.
+social-binding-already-linked = 이미 { $arg0 } 계정과 연결되어 있어요. { $arg1 } 명령어로 프로필을 확인하세요.
+social-binding-confirmation-expired = 확인이 만료되었거나 연결된 계정이 변경되었습니다. 새 연결 해제 확인을 요청하세요:
+social-binding-code-invalid = 유효하지 않거나 만료된 코드예요. 다시 접속하거나 게임 안에서 { $arg0 } 명령어로 새 코드를 받으세요.
 social-binding-external-in-use = 이 식별 정보는 이미 다른 Minecraft 플레이어와 연결되어 있습니다.
-social-binding-help = 서버 접속을 시도하면 로그인 화면에서 코드를 받을 수 있습니다. 이미 접속 중이라면 /bind { $arg0 } 명령어를 실행하세요.
-    생성된 명령어 전체를 복사하세요.
-    여기에 명령어를 보내세요.
-    /profile 명령어로 연결을 확인하세요.
+social-binding-help = Minecraft 서버에 접속한 뒤 로그인 화면의 연결 명령어 전체를 여기에 보내세요. 이미 게임 안에 있다면 { $arg0 } 명령어로 받을 수 있어요.
 social-binding-identity-missing = 이 메시지에는 신뢰할 수 있는 멤버 식별 정보가 없어 연결할 수 없습니다.
-social-binding-linked = Minecraft 플레이어와 연결했습니다: { $arg0 }
+social-binding-link-completed = 계정 연결을 마쳤어요. 다시 접속하면 로그인을 계속할 수 있어요.
+social-binding-linked = 게임 계정 { $arg0 } 연결을 마쳤어요. 다시 접속하면 로그인을 계속할 수 있어요.
 social-binding-membership-required = 이 플랫폼의 연동된 커뮤니티에 가입한 후 계정 연결을 다시 시도하세요
 social-binding-membership-unavailable = 현재 커뮤니티 가입 여부를 확인할 수 없습니다. 나중에 다시 시도하거나 서버 관리자에게 문의하세요
-social-binding-not-bound = 이 플랫폼 식별 정보는 연결되어 있지 않습니다.
+social-binding-not-bound = 아직 게임 계정을 연결하지 않았어요.
 social-binding-platform-mismatch = 이 인증 코드는 다른 플랫폼용으로 발급되었습니다.
 social-binding-player-scope-in-use = 이 Minecraft 플레이어는 같은 플랫폼 계정 범위에 다른 신원이 이미 연결되어 있습니다.
 social-binding-rate-limited = 실패 횟수가 너무 많습니다. 약 { $arg0 }분 후 다시 시도하세요.
 social-binding-unavailable = 현재 식별 정보 연결을 사용할 수 없습니다.
-social-binding-unlink-prompt = 연결을 해제하면 이 플랫폼 식별 정보와 Minecraft의 연결이 삭제됩니다. 계속하려면 { $arg0 } 보내세요.
+social-binding-unlink-completed = 계정 연결을 해제했어요. 다른 유효한 커뮤니티 연결이 없으면 다시 연결한 뒤 입장하세요.
+social-binding-unlink-prompt = 이 플랫폼 계정과 { $arg0 } 연결을 해제해요. 다른 유효한 커뮤니티 연결이 없으면 서버에 들어갈 수 없으며, 접속 중이라면 연결이 끊겨요. 확인하려면 다음을 보내세요:
 social-binding-unlinked = Minecraft 플레이어 연결을 해제했습니다: { $arg0 }
 social-command-description = 소셜 플랫폼 어댑터 관리
+social-command-invalid-arguments = 인수가 올바르지 않습니다. 다음 형식으로 보내세요:
+social-command-usage = 이 명령어에는 인수가 필요 없어요. 다음을 보내세요:
 social-crypto-command-description = Matrix 암호화 기기 인증 관리
 social-crypto-comparison-not-ready = SAS 비교가 아직 준비되지 않았습니다.
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -675,10 +677,12 @@ social-duration-hours = { $arg0 }시간 { $arg1 }분
 social-duration-minutes = { $arg0 }분
 social-help-command-description = 이 명령어 목록 보기
 social-link-command-description = 게임 내 코드로 Minecraft 계정 연결
+social-link-command-parameters = <인증코드>
 social-online-command-description = 온라인 플레이어 보기
 social-profile-afk = 온라인 · AFK
 social-profile-avatar-alt = Minecraft 얼굴
 social-profile-command-description = 내 프로필 보기; 정식 멤버는 이름, 멘션 또는 답장으로 다른 플레이어 조회 가능
+social-profile-command-parameters = [플레이어명]
 social-profile-first-joined-label = 첫 접속
 social-profile-language-label = 언어
 social-profile-last-seen-label = 마지막 접속
@@ -694,16 +698,21 @@ social-profile-target-unbound = 멘션하거나 답장한 사용자는 Minecraft
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = 현재 온라인 플레이어가 없습니다.
-social-query-online-label = 온라인
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (자리 비움)
    *[active] { $arg0 }
+    }
+social-query-online-summary = 현재 { $arg0 }명이 접속 중이에요.{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }그중 { $arg1 }명은 자리 비움 상태예요.
     }
 social-query-players-label = 플레이어
 social-query-population = 온라인 { $arg0 }/{ $arg1 } · 활동 중 { $arg2 } · 자리 비움 { $arg3 }
 social-query-unknown = 알 수 없는 명령어입니다. { $arg0 } 보내 사용 가능한 명령어를 확인하세요.
 social-query-uptime-label = 가동 시간
+social-query-version-label = 버전
 social-reply-hidden = 서버 콘텐츠 안전 정책에 따라 이 답변을 숨겼습니다.
+social-reply-unavailable = 지금은 결과를 표시할 수 없어요. 계정 변경은 프로필 명령어로 확인한 뒤 다시 요청하세요.
 social-state-disabled = 비활성화됨
 social-state-failed = 실패
 social-state-ready = 준비됨
@@ -712,13 +721,11 @@ social-state-stopped = 중지됨
 social-status-command-description = 플레이어, TPS, MSPT, 가동 시간 보기
 social-title-command-help = 명령어 도움말
 social-title-content-hidden = 콘텐츠 숨김
-social-title-identity-linking = 계정 연결
-social-title-identity-unlinking = 계정 연결 해제
-social-title-online-players = 온라인 플레이어
 social-title-player-profile = 플레이어 프로필
 social-title-server-status = 서버 상태
-social-title-unknown-command = 알 수 없는 명령어
 social-unlink-command-description = 확인 후 현재 계정 연결 해제
+social-unlink-command-parameters = [{ social-unlink-confirmation } <확인코드>]
+social-unlink-confirmation = 확인
 
 ## Community · AI and knowledge
 
@@ -756,6 +763,7 @@ ai-reload-failed = AI 설정을 다시 불러오지 못했습니다: { $arg0 }
 ai-reloaded = AI 설정을 다시 불러왔습니다({ $arg0 })
 ai-request-failed = AI 요청에 실패했습니다. 나중에 다시 시도하세요
 ai-social-command-description = 공용 AI 도우미에게 질문하기
+ai-social-command-parameters = <질문>
 ai-social-question-required = AI 명령어 뒤에 질문을 입력하세요
 ai-status-disabled = AI가 비활성화되어 있습니다
 ai-status-enabled = AI 활성 · 제공자 { $arg0 } · 모델 { $arg1 } · 도구 { $arg2 }
@@ -772,7 +780,7 @@ governance-active-days-60 = 최근 60일 동안 유효 참여일 6일 이상 (�
 governance-active-header = ─── 활동 회원 자격 ───
 governance-active-member = 현재 회원임
 governance-active-member-age = 회원이 된 지 30일 이상
-governance-active-playtime = 최근 60일 유효 플레이 6시간 이상 (현재 { $arg0 })
+governance-active-playtime = 최근 60일 유효 플레이 { $arg1 } 이상 (현재 { $arg0 })
 governance-activity-action = { $arg0 ->
     [confirm] 동의 확정
     [vote] 내용 확인 후 투표
@@ -964,7 +972,6 @@ governance-votes-header = ─── 진행 중인 익명 투표 ───
 
 ## World · Plots
 
-plot-access-removed-for-you = { $arg0 } 구역의 접근 권한이 제거되었습니다.
 plot-admin-created = { $arg1 }의 구역 { $arg0 } 등록 완료 · { $arg2 }
 plot-allowed = 켜짐
 plot-area-changed = 확인 중 경계가 바뀌었습니다. 새로고침 후 다시 확인하세요.
@@ -974,36 +981,9 @@ plot-area-replace-save = 경계 교체 및 저장
 plot-area-save = 경계 저장
 plot-area-saved = 「{ $arg0 }」 경계를 저장했습니다.
 plot-atmosphere-saved = 환경 설정을 저장했습니다.
-plot-board-auto-notify-result = 플레이어 { $arg0 }명에게 알림을 예약했습니다.
-plot-board-auto-registered-text = 구역이 등록되었습니다: 「{ $arg0 }」. 건축 셀의 경계 좌표: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }.
-plot-board-detail = { $arg0 }의 기록: { $arg1 } { $arg2 }, { $arg3 }, { $arg4 } — { $arg5 }
-plot-board-empty = 아직 커뮤니티 기록이 없습니다.
-plot-board-header = 커뮤니티 공지와 의견 (최근 { $arg0 }건; 자세히: /plot board ID)
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = 공지
-plot-board-kind-objection = 이의
-plot-board-loading = 공시 기록을 불러오는 중…
-plot-board-menu = 커뮤니티 게시판
-plot-board-notice-alert = { $arg0 } 님이 공시를 게시했습니다: { $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } 님이 이의를 제기했습니다: { $arg1 } · { $arg2 }
-plot-board-rate-limited = 게시 횟수 제한에 도달했습니다. 잠시 후 다시 시도하세요.
-plot-board-record-invalid = 기록이 없거나 처리되었거나 이 작업을 할 권한이 없습니다.
-plot-board-registered-alert = { $arg0 } 님이 등록한 구역: 「{ $arg1 }」 · { $arg2 }
-plot-board-ruling-alert = { $arg0 } 님의 이의에 대한 결정이 게시되었습니다: { $arg1 } · { $arg2 }
-plot-board-ruling-detail = 판정: { $arg0 }
-plot-board-saved = 기록 { $arg0 } 저장됨.
-plot-board-status-elapsed = 게시 후 72시간 이상 경과
-plot-board-status-open = 처리 대기
-plot-board-status-ruled = 판정 완료
-plot-board-status-withdrawn = 이의 철회
-plot-board-text-invalid = 설명은 12~1000자, 판정 사유는 8자 이상 입력하세요.
-plot-board-unavailable = 게시판을 불러오지 못했습니다. 나중에 다시 시도하거나 https://mcmik.top/community/notices 를 확인하세요.
-plot-board-withdrawal-alert = { $arg0 } 님이 이의를 철회했습니다: { $arg1 } · { $arg2 }
-plot-board-write-failed = 게시판을 업데이트하지 못했습니다. 나중에 다시 시도하세요.
 plot-command-blocked = 구역 보호가 명령을 차단했습니다. 본인 구역 안에서 /fill 또는 /setblock을 직접 사용하세요. 복잡한 /execute 명령은 운영진의 검토가 필요합니다.
 plot-command-description = 건축 구역 관리
 plot-created = 구역 { $arg0 } 생성됨 · { $arg1 }
-plot-created-for-you = { $arg1 } 님이 새 구역을 등록해 주었습니다: { $arg0 }
 plot-deleted = 구역이 해제되었습니다. 건물은 그대로 남습니다.
 plot-denied = 꺼짐
 plot-error-admin-owner-only = 관리 능력이 있는 구성원을 변경하려면 구성원 관리와 권한 관리가 모두 필요합니다.
@@ -1013,7 +993,7 @@ plot-error-busy = 구역 데이터를 저장 중입니다. 이번 작업은 제�
 plot-error-flag = 지원하지 않는 권한입니다. 권한 목록에서 작업을 선택하세요.
 plot-error-id = 구역 ID를 찾지 못했거나 여러 구역과 일치합니다. /plot list를 사용하세요.
 plot-error-member-missing = 이 플레이어는 더 이상 구성원이 아닙니다.
-plot-error-member-required = 신규 플레이어는 구역 열람과 이의 제기를 할 수 있습니다. 프로젝트 생성에는 구성원 자격이 필요합니다.
+plot-error-member-required = 구역 생성에는 구성원 자격이 필요합니다.
 plot-error-name = 프로젝트 이름은 1~48자여야 합니다.
 plot-error-notice-text = 공지는 최대 { $arg0 }자이며 줄 수와 줄별 길이 제한은 없습니다. 제어 문자는 사용할 수 없습니다.
 plot-error-overlap = 건축 영역이 다른 구역과 겹칩니다.
@@ -1059,14 +1039,10 @@ plot-menu-clear = 맑음
 plot-menu-confirm-delete = { $arg0 }의 등록을 삭제할까요? 보호, 구성원 권한과 설정이 삭제되며 취소할 수 없습니다. 건물은 그대로 남습니다.
 plot-menu-confirm-subplot-transfer = 하위 구역을 양도할까요? 구역: { $arg0 } · 새 소유자: { $arg1 }. 상위 구역 소유자의 감독 권한은 유지됩니다.
 plot-menu-confirm-transfer = { $arg0 } 구역의 관리권을 { $arg1 } 님에게 이전할까요? 접근 권한을 잃으며 기존 작품의 저작자 표시는 유지됩니다.
-plot-menu-confirm-withdraw = 이 의견을 철회할까요? 철회 상태는 공개 기록에 남습니다.
 plot-menu-create = 구역 만들기
 plot-menu-create-for-player = 이 플레이어의 구역 등록
 plot-menu-custom-time = 사용자 지정 시간
 plot-menu-delete = 구역 등록 삭제
-plot-menu-description = 설명
-plot-menu-feedback = 이 공지에 이의 제기
-plot-menu-find-record = 기록 찾기
 plot-menu-flag-container = 보관함 열기
 plot-menu-flag-entity = 엔티티 상호작용
 plot-menu-follow-parent = 상위 구역 따르기
@@ -1084,12 +1060,8 @@ plot-menu-owner = 소유자: { $arg0 }
 plot-menu-parent-supervisor = 상위 구역 소유자: { $arg0 } · 감독 권한
 plot-menu-player = 플레이어 이름 또는 UUID
 plot-menu-rain = 비/눈
-plot-menu-record-search = 기록 ID 또는 제목
-plot-menu-related-notice = 관련 공지 보기
 plot-menu-remove-member = 구성원 제거
 plot-menu-rename = 프로젝트 이름 변경
-plot-menu-rule = 판정 기록
-plot-menu-ruling = 판정 이유 입력 (8~1000자)
 plot-menu-set-role = 역할 변경: { $arg0 }
 plot-menu-settings = 프로젝트 설정
 plot-menu-submit = 적용
@@ -1100,7 +1072,6 @@ plot-menu-time = 시간
 plot-menu-time-input = 시간 (HH:mm)
 plot-menu-transfer = 구역 소유권 이전
 plot-menu-weather = 날씨
-plot-menu-withdraw = 의견 철회
 plot-no-here = 이 위치에는 보호된 구역이 없습니다.
 plot-notice-board = 구역 게시판
 plot-notice-cleared = 게시판을 삭제했습니다
@@ -1178,7 +1149,6 @@ plot-region-open = 직사각형 관리 ({ $arg0 })
 plot-region-select-hint = 번호가 있는 직사각형을 선택하면 확대하고 강조합니다. 회색 선은 현재 페이지를 나타내며, 합치면 번호가 바뀔 수 있습니다.
 plot-renamed = 프로젝트 이름을 변경했습니다.
 plot-role-admin = 구역 관리자
-plot-role-changed-for-you = 구역 { $arg0 }에서 내 역할이 변경되었습니다: { $arg1 }
 plot-role-collaborator = 공동 작업자
 plot-role-owner = 구역 소유자
 plot-role-parent-owner = 상위 구역 소유자
@@ -1196,16 +1166,8 @@ plot-selection-stopped = 영역 선택을 종료했습니다. 초안은 지구�
 plot-selection-subtract = 현재 상자 빼기
 plot-selection-undo = 이전 단계 실행 취소
 plot-subplot-created = 하위 구역 { $arg0 } 생성 · { $arg1 }블록²
-plot-subplot-created-for-you = { $arg1 } 안의 하위 구역 { $arg0 } 소유자가 되었습니다.
-plot-subplot-owner-changed = 하위 구역 { $arg0 }의 새 소유자: { $arg1 }
-plot-subplot-parent-transferred = 하위 구역 { $arg0 }의 새 상위 구역 소유자: { $arg1 }
-plot-subplot-released = 하위 구역을 해제했습니다: { $arg0 }. 기존 영역은 상위 구역이 계속 보호합니다.
 plot-title = 토지
 plot-transferred = { $arg0 } 구역을 { $arg1 } 님에게 이전했습니다.
-plot-transferred-to-you = { $arg1 } 님이 { $arg0 } 구역을 당신에게 이전했습니다.
-
-## World · Vehicles
-
 vehicle-command-description = 표시 엔티티 차량 운전 및 관리
 vehicle-menu-label =
     { $arg0 ->
@@ -1976,7 +1938,7 @@ music-space-label =
         [select-all] 검색 결과 전체 선택
         [clear-tracks] 곡 선택 해제
         [add-playlist] 목록에 추가
-        [description] { plot-menu-description }
+        [description] 설명
         [make-private] 비공개로 설정
         [publish] 공개로 설정
         [delete] 재생 목록 삭제

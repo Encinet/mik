@@ -4,9 +4,12 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.social.command.NoArguments;
+import org.encinet.mik.feature.community.social.command.SocialArguments;
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.SocialCommandExecution;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
-import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
@@ -17,7 +20,6 @@ import org.encinet.mik.feature.community.social.game.SocialGameService;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Objects;
-import java.util.Optional;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
@@ -44,6 +46,12 @@ public final class ServerStatusCommand implements SocialCommand<NoArguments, Ser
             aliases(Language.RU_RU, "статус"),
             aliases(Language.TH_TH, "สถานะ"),
             aliases(Language.UK_UA, "стан"));
+    public static final SocialCommandDefinition<NoArguments> DEFINITION =
+            SocialCommandDefinition.visible(SPEC, Message.SOCIAL_STATUS_COMMAND_DESCRIPTION, SocialArguments.none());
+
+    @Override
+    public SocialCommandDefinition<NoArguments> definition() { return DEFINITION; }
+
 
     private final SocialGameService game;
     private final SocialCommandLanguageResolver languageResolver;
@@ -60,28 +68,17 @@ public final class ServerStatusCommand implements SocialCommand<NoArguments, Ser
     }
 
     @Override
-    public SocialCommandSpec spec() {
-        return SPEC;
+    public SocialCommandExecution<ServerSnapshot> execute(SocialCommandContext context, NoArguments argument) {
+        return SocialCommandExecution.result(perform(context, argument), languageResolver.target(context));
     }
 
-    @Override
-    public Optional<Message> description() {
-        return Optional.of(Message.SOCIAL_STATUS_COMMAND_DESCRIPTION);
-    }
-
-    @Override
-    public NoArguments decode(SocialCommandInput input) {
-        return NoArguments.decode(input);
-    }
-
-    @Override
-    public ServerSnapshot handle(SocialCommandContext context, NoArguments argument) {
+    private ServerSnapshot perform(SocialCommandContext context, NoArguments argument) {
         return game.serverSnapshot(false);
     }
 
     @Override
-    public SocialDocument present(SocialCommandContext context, ServerSnapshot snapshot) {
-        Language language = languageResolver.language(context);
+    public SocialDocument present(SocialPresentationContext context, ServerSnapshot snapshot) {
+        Language language = context.language();
         return SocialDocument.of(TRUSTED,
                 TITLE_ICON + " " + languages.t(language, TITLE),
                 SocialDocument.Tone.INFO,
@@ -93,7 +90,8 @@ public final class ServerStatusCommand implements SocialCommand<NoArguments, Ser
                         new SocialDocument.Field("MSPT",
                                 number(snapshot.mspt(), language)),
                         field(language, Message.SOCIAL_QUERY_UPTIME_LABEL,
-                                SocialTimeText.duration(languages, language, snapshot.uptime()))))
+                                SocialTimeText.duration(languages, language, snapshot.uptime())),
+                        field(language, Message.SOCIAL_QUERY_VERSION_LABEL, snapshot.version())))
                 .localized(language);
     }
 

@@ -37,8 +37,6 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.RolePermissions;
-import org.encinet.mik.feature.world.plot.board.PlotCommunityBoard;
-import org.encinet.mik.feature.world.plot.board.PlotBoardNotifications;
 import org.encinet.mik.feature.world.plot.integration.PlotAxiomHook;
 import org.encinet.mik.feature.world.plot.integration.PlotFaweHook;
 import org.encinet.mik.feature.world.plot.protection.PlotCommandGuard;
@@ -67,8 +65,6 @@ public final class PlotModule implements Listener {
     private final LanguageService language;
     private final PlotRepository store;
     private final FloatingMenuScreen<PlotDirectory> directoryScreen;
-    private final PlotCommunityBoard board;
-    private final PlotNoticePublisher notices;
     private final PlotRegistry registry;
     private final PlotEdits edits;
     private final PlotDestinationController destinations;
@@ -94,10 +90,9 @@ public final class PlotModule implements Listener {
     private PlotAxiomHook axiom;
     private final Map<UUID, PlotOwner> creationOwners = new HashMap<>();
 
-    public PlotModule(JavaPlugin plugin, LanguageService language, PlotNoticePublisher notices) {
+    public PlotModule(JavaPlugin plugin, LanguageService language) {
         this.plugin = plugin;
         this.language = language;
-        this.notices = notices;
         store = new PlotRepository(PlotDataPaths.in(plugin.getDataFolder().toPath()).plotsDatabase());
         registry = new PlotRegistry(store);
         directoryScreen = new FloatingMenuScreen<>("plots",context -> directoryDefinition(context.player(),context.state()));
@@ -109,9 +104,7 @@ public final class PlotModule implements Listener {
         accessChoices = new PlotAccessChoiceMenus(this::accessChoiceDefinition);
         atmosphereMenu = new PlotAtmosphereMenu(this::atmosphereDefinition);
         atmosphere = new PlotAtmosphereController(plugin, registry);
-        board = new PlotCommunityBoard(plugin, language, notices, registry);
-        creation = new PlotCreationController(plugin, language, notices, registry, selections,
-                board, this::createdPlot);
+        creation = new PlotCreationController(plugin, language, registry, selections, this::createdPlot);
         protection = new PlotProtection(registry);
         commandGuard = new PlotCommandGuard(registry, language);
         selectionController = new PlotSelectionController(selections,
@@ -130,7 +123,6 @@ public final class PlotModule implements Listener {
             store.open();
             registry.load();
             registry.enableAsyncWrites(action -> Bukkit.getScheduler().runTask(plugin, action));
-            board.open();
             atmosphere.enable();
             Bukkit.getPluginManager().registerEvents(this, plugin);
             selectionController.enable(plugin);
@@ -195,7 +187,6 @@ public final class PlotModule implements Listener {
         shutdown.attempt("plot protection", () -> HandlerList.unregisterAll(protection));
         shutdown.attempt("plot command guard", () -> HandlerList.unregisterAll(commandGuard));
         shutdown.attempt("plot listeners", () -> HandlerList.unregisterAll(this));
-        shutdown.attempt("plot board database", board::close);
         shutdown.attempt("plot database", store::close);
         shutdown.finish("plot module");
     }
@@ -216,14 +207,6 @@ public final class PlotModule implements Listener {
         creationOwners.remove(playerId);
         editorMap.forget(playerId);
         preflightCache.forget(playerId);
-    }
-
-    public String publicBoardListJson() throws SQLException {
-        return board.publicBoardListJson();
-    }
-
-    public String publicBoardDetailJson(String id) throws SQLException {
-        return board.publicBoardDetailJson(id);
     }
 
     /** Current protected plot, including its optional local notice. */
@@ -366,8 +349,6 @@ public final class PlotModule implements Listener {
                                     send(viewer, NamedTextColor.RED, error.message(), error.args());
                                 }
                             }).build()));
-        menu.navigation("board", Component.text(t(player, Message.PLOT_BOARD_MENU), NamedTextColor.AQUA))
-                .region("actions").primary((viewer, _) -> board.openMenu(viewer));
         menu.navigation("help", Component.text(t(player, Message.PLOT_HELP), NamedTextColor.YELLOW))
                 .region("navigation").primary((viewer, _) -> openGuide(viewer));
         menu.dismiss(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
@@ -959,8 +940,6 @@ public final class PlotModule implements Listener {
                             atmosphere.refreshAll();
                             Plot updated = registry.byId(plotId);
                             send(viewer, NamedTextColor.GREEN, Message.PLOT_AREA_SAVED, updated.name());
-                            if (!updated.owner().equals(actor))
-                                notifyPlayer(updated.owner(), Message.PLOT_AREA_SAVED, updated.name());
                             if (cleared && selections.context(actor).equals(submitted.context())
                                     && viewer.isOnline() && viewer.getWorld().getUID().equals(plot.world())) {
                                 selectionController.stop(actor);
@@ -1113,11 +1092,6 @@ public final class PlotModule implements Listener {
             boolean cleared = selections.clearIfMatches(actor, parentId, area);
             send(player, NamedTextColor.GREEN, Message.PLOT_SUBPLOT_CREATED,
                     child.name(), registry.horizontalArea(child));
-            if (!owner.id().equals(actor))
-                notifyPlayer(owner.id(), Message.PLOT_SUBPLOT_CREATED_FOR_YOU, child.name(), parent.name());
-            if (!parent.owner().equals(actor) && !parent.owner().equals(owner.id()))
-                notifyPlayer(parent.owner(), Message.PLOT_SUBPLOT_CREATED,
-                        child.name(), registry.horizontalArea(child));
             if (cleared && selections.context(actor).equals(area.context()) && player.isOnline()
                     && player.getWorld().getUID().equals(parent.world())) {
                 selectionController.stop(actor);
@@ -1503,7 +1477,6 @@ public final class PlotModule implements Listener {
                 .region("navigation").keepAccessible()
                 .primary((viewer, _) -> perform(viewer, () -> submitAccessChange(viewer, plotId, draft.request(), responder -> {
                     send(responder, NamedTextColor.GREEN, Message.PLOT_INVITED, t(responder, roleMessage(draft.role())));
-                    notifyRole(draft.player(), plot.name(), draft.role());
                     openPlotMembers(responder, plotId, 0);
                 })));
         PlotProblem failure = accessProblem(player, plot, draft.request());
@@ -1993,15 +1966,7 @@ public final class PlotModule implements Listener {
             case "rename" -> rename(player, arg(args, 1),
                     arg(args, 2) + (args.length > 3 ? " " + args[3] : ""));
             case "delete" -> confirmRelease(player, arg(args, 1));
-            case "object" -> board.postObjection(player, input.substring(args[0].length()).trim());
-            case "withdraw" -> board.withdraw(player, input.substring(args[0].length()).trim());
-            case "rule" -> board.ruleRaw(player, input.substring(args[0].length()).trim());
             case "list" -> list(player);
-            case "board" -> {
-                String id = input.substring(args[0].length()).trim();
-                if (id.isBlank()) board.openMenu(player);
-                else board.show(player, id);
-            }
             default -> usage(player);
         }
     }
@@ -2079,10 +2044,8 @@ public final class PlotModule implements Listener {
     }
 
     private void removeMember(Player player, UUID plotId, UUID memberId) throws SQLException {
-        Plot plot = managed(player, plotId.toString());
         submitAccessChange(player, plotId, new PlotAccessRequest.Remove(memberId), responder -> {
             send(responder, NamedTextColor.GREEN, Message.PLOT_MEMBER_REMOVED);
-            notifyPlayer(memberId, Message.PLOT_ACCESS_REMOVED_FOR_YOU, plot.name());
             openPlotMembers(responder, plotId, 0);
         });
     }
@@ -2093,7 +2056,6 @@ public final class PlotModule implements Listener {
         submitAccessChange(player, plotId, new PlotAccessRequest.Member(memberId, role,
                 PlotAccessPolicy.personalOverrides(plot, memberId)), responder -> {
             send(responder, NamedTextColor.GREEN, Message.PLOT_INVITED, t(responder, roleMessage(role)));
-            notifyRole(memberId, plot.name(), role);
             openPlotMember(responder, plotId, memberId, 0);
         });
     }
@@ -2104,47 +2066,7 @@ public final class PlotModule implements Listener {
         persist(player, staged -> { staged.transfer(plot, actor, RolePermissions.canModerate(player), successor.id()); return null; }, _ -> {
             send(player, NamedTextColor.GREEN, Message.PLOT_TRANSFERRED,
                     plot.name(), successor.name());
-            notifyPlayer(successor.id(), Message.PLOT_TRANSFERRED_TO_YOU, plot.name(), player.getName());
-            if (!plot.owner().equals(actor))
-                notifyPlayer(plot.owner(), Message.PLOT_SUBPLOT_OWNER_CHANGED, plot.name(), successor.name());
-            Plot parent = registry.parentOf(plot);
-            if (parent != null && !parent.owner().equals(actor) && !parent.owner().equals(successor.id()))
-                notifyPlayer(parent.owner(), Message.PLOT_SUBPLOT_OWNER_CHANGED, plot.name(), successor.name());
-            for (Plot child : registry.childrenOf(plot.id())) {
-                if (!child.owner().equals(successor.id()))
-                    notifyPlayer(child.owner(), Message.PLOT_SUBPLOT_PARENT_TRANSFERRED, child.name(), successor.name());
-            }
         });
-    }
-
-    private void notifyRole(UUID playerId, String plotName, Plot.Role role) {
-        Player online = Bukkit.getPlayer(playerId);
-        Language recipientLanguage = online == null
-                ? language.preferredLanguage(playerId).orElse(Language.DEFAULT)
-                : language.language(online);
-        notifyPlayer(playerId, Message.PLOT_ROLE_CHANGED_FOR_YOU,
-                plotName, language.t(recipientLanguage, roleMessage(role)));
-    }
-
-    private void notifyPlayer(UUID playerId, Message message, Object... args) {
-        Player online = Bukkit.getPlayer(playerId);
-        Language recipientLanguage = online == null
-                ? language.preferredLanguage(playerId).orElse(Language.DEFAULT)
-                : language.language(online);
-        Object[] safeArgs = args.clone();
-        for (int i = 0; i < safeArgs.length; i++) {
-            if (safeArgs[i] instanceof String value)
-                safeArgs[i] = PlotBoardNotifications.safeAlertText(value);
-        }
-        String notice = language.t(recipientLanguage, message, safeArgs);
-        if (online != null)
-            online.sendMessage(Component.text(notice, NamedTextColor.AQUA));
-        try {
-            notices.publish(playerId, online == null ? memberName(playerId) : online.getName(),
-                    notice);
-        } catch (RuntimeException error) {
-            plugin.getLogger().log(Level.WARNING, "Could not send plot permission notice", error);
-        }
     }
 
     private void flag(Player player, String plotId, String flag, boolean allowed) throws SQLException {
@@ -2177,12 +2099,6 @@ public final class PlotModule implements Listener {
             selections.removePlot(plot.id());
             atmosphere.refreshAll();
             send(player, NamedTextColor.GREEN, Message.PLOT_DELETED);
-            if (parent != null) {
-                if (!plot.owner().equals(player.getUniqueId()))
-                    notifyPlayer(plot.owner(), Message.PLOT_SUBPLOT_RELEASED, plot.name());
-                if (!parent.owner().equals(player.getUniqueId()) && !parent.owner().equals(plot.owner()))
-                    notifyPlayer(parent.owner(), Message.PLOT_SUBPLOT_RELEASED, plot.name());
-            }
             if (origin != null && player.isOnline() && FloatingMenus.current(player).map(handle -> handle.id().equals(origin)).orElse(false)) {
                 selectionController.stop(player.getUniqueId());
                 FloatingMenus.openRoot(player, directoryDefinition(player, PlotDirectory.initial()));

@@ -1,10 +1,6 @@
 package org.encinet.mik.feature.community.social.command;
 
-/** Non-null decoded value for commands without arguments. */
+/** Non-null value produced by the argument contract of a parameterless command. */
 public enum NoArguments {
-    INSTANCE;
-
-    public static NoArguments decode(SocialCommandInput ignored) {
-        return INSTANCE;
-    }
+    INSTANCE
 }

@@ -46,7 +46,7 @@ public final class ApiModule implements Listener {
 
     public ApiModule(JavaPlugin plugin, LanguageService languageService,
                      Supplier<List<BanRecord>> activeBans,
-                     Supplier<byte[]> announcementsJson, CommunityBoardView communityBoard,
+                     Supplier<byte[]> announcementsJson,
                      java.util.function.Function<Player, java.util.function.BooleanSupplier> authentication,
                      java.util.function.BiConsumer<Player, Runnable> confirmAuthentication,
                      java.util.function.Function<java.util.UUID, org.encinet.mik.feature.player.security.WebAccountPolicy> accountPolicy,
@@ -58,7 +58,7 @@ public final class ApiModule implements Listener {
         this.players = new ApiPlayerSnapshot(plugin.getDataFolder().toPath(), plugin.getLogger());
         this.webLoginChallenges = new WebLoginChallengeStore();
         this.http = new LocalApiServer(plugin, players, webLoginChallenges,
-                activeBans, announcementsJson, communityBoard, accountPolicy, accountAllowed);
+                activeBans, announcementsJson, accountPolicy, accountAllowed);
     }
 
     public void start(int port) {

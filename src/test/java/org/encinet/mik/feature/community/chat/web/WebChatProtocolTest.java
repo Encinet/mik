@@ -7,12 +7,15 @@ class WebChatProtocolTest {
     @Test void parsesOnlyOneFlatStringObject() throws Exception {
         var message = WebChatModule.readMessage("{\"type\":\"send\",\"requestId\":\"1234567890123456\",\"channel\":\"public\",\"text\":\"<script>plain text</script>\"}");
         assertEquals("<script>plain text</script>", message.get("text").getAsString());
+        var history = WebChatModule.readMessage("{\"type\":\"history\",\"requestId\":\"1234567890123456\",\"channel\":\"private\","
+                + "\"targetUuid\":\"11111111-1111-4111-8111-111111111111\",\"before\":\"100\",\"after\":\"1\"}");
+        assertEquals("100", history.get("before").getAsString());
     }
 
     @Test void rejectsNestedJsonDuplicateKeysAndTrailingDocuments() {
         assertThrows(Exception.class, () -> WebChatModule.readMessage("{\"text\":" + "[".repeat(3000) + "0" + "]".repeat(3000) + "}"));
         assertThrows(Exception.class, () -> WebChatModule.readMessage("{\"channel\":\"public\",\"channel\":\"staff\"}"));
         assertThrows(Exception.class, () -> WebChatModule.readMessage("{\"type\":\"send\"} {}"));
-        assertThrows(Exception.class, () -> WebChatModule.readMessage("{\"a\":\"1\",\"b\":\"2\",\"c\":\"3\",\"d\":\"4\",\"e\":\"5\",\"f\":\"6\"}"));
+        assertThrows(Exception.class, () -> WebChatModule.readMessage("{\"a\":\"1\",\"b\":\"2\",\"c\":\"3\",\"d\":\"4\",\"e\":\"5\",\"f\":\"6\",\"g\":\"7\"}"));
     }
 }

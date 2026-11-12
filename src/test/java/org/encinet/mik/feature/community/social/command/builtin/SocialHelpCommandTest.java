@@ -14,7 +14,6 @@ import org.encinet.mik.feature.community.social.api.SocialConversation;
 import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
 import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.feature.community.social.command.NoArguments;
-import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
 import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
@@ -27,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,27 +37,30 @@ class SocialHelpCommandTest {
         var languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
         var bindings = new EmptyBindings();
         var resolver = new SocialCommandLanguageResolver(bindings, languages);
-        String unknown = new UnknownSocialCommand(resolver, languages).present(context(), NoArguments.INSTANCE).plainText();
+        String unknown = new UnknownSocialCommand(resolver, languages).present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages), NoArguments.INSTANCE).plainText();
         assertTrue(unknown.contains("!ヘルプ"), unknown);
-        String unlink = new UnlinkIdentityCommand(bindings, resolver, languages)
-                .present(context(), new UnlinkIdentityCommand.Result.Prompt(Optional.empty())).plainText();
-        assertTrue(unlink.contains("!解除 confirm"), unlink);
+        String unlink = new UnlinkIdentityCommand(bindings, resolver, languages, new UnlinkConfirmations())
+                .present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages), new UnlinkIdentityCommand.Result.Prompt(Optional.of(new IdentityBinding(
+                        UUID.randomUUID(), UUID.randomUUID(), "Alice",
+                        new ExternalIdentityKey("matrix", "example.org", "", "@alice:example.org"),
+                        "Alice", "", java.time.Instant.EPOCH, java.time.Instant.EPOCH)), "confirmation-token")).plainText();
+        assertTrue(unlink.contains("!解除 確認 confirmation-token"), unlink);
     }
 
     @Test
     void commandBuildsHelpDirectlyFromInstalledCommandMetadata() {
         StubLanguageService languages = new StubLanguageService();
         EmptyBindings bindings = new EmptyBindings();
-        SocialCommand<?, ?> online = describedCommand(
+        var online = describedCommand(
                 SocialCommandSpec.localizedNatural("server.online",
                         SocialCommandSpec.aliases(Language.EN_US, "online"),
                         SocialCommandSpec.aliases(Language.JA_JP, "オンライン")),
                 Message.SOCIAL_ONLINE_COMMAND_DESCRIPTION);
         SocialHelpCommand help = new SocialHelpCommand(
                 new SocialCommandLanguageResolver(bindings, languages),
-                languages, List.of(online));
+                languages, List.of(online, SocialHelpCommand.DEFINITION));
 
-        SocialDocument document = help.present(context(), NoArguments.INSTANCE);
+        SocialDocument document = help.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages), NoArguments.INSTANCE);
         SocialDocument.ItemList list = (SocialDocument.ItemList) document.blocks().getFirst();
 
         assertEquals("📖 SOCIAL_TITLE_COMMAND_HELP", document.title());
@@ -69,43 +70,17 @@ class SocialHelpCommandTest {
         assertTrue(list.items().contains("!ヘルプ — SOCIAL_HELP_COMMAND_DESCRIPTION"));
     }
 
-    private static SocialCommand<NoArguments, NoArguments> describedCommand(
-            SocialCommandSpec spec,
-            Message description
-    ) {
-        return new SocialCommand<>() {
-            @Override
-            public SocialCommandSpec spec() {
-                return spec;
-            }
-
-            @Override
-            public Optional<Message> description() {
-                return Optional.of(description);
-            }
-
-            @Override
-            public NoArguments decode(SocialCommandInput input) {
-                return NoArguments.INSTANCE;
-            }
-
-            @Override
-            public NoArguments handle(SocialCommandContext context, NoArguments argument) {
-                return argument;
-            }
-
-            @Override
-            public SocialDocument present(SocialCommandContext context, NoArguments result) {
-                return SocialDocument.of(TRUSTED, "unused", SocialDocument.Tone.INFO);
-            }
-        };
+    private static org.encinet.mik.feature.community.social.command.SocialCommandDefinition<NoArguments> describedCommand(
+            SocialCommandSpec spec, Message description) {
+        return org.encinet.mik.feature.community.social.command.SocialCommandDefinition.visible(spec, description,
+                org.encinet.mik.feature.community.social.command.SocialArguments.none());
     }
 
     private static SocialCommandContext context() {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "!ヘルプ", false,
-                _ -> CompletableFuture.completedFuture(null));
+                org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
         SocialCommandInput input = new SocialCommandInput(
                 "ヘルプ", "", SocialCommandInput.InvocationType.EXPLICIT_TEXT,
                 Map.of(), Optional.of(Language.JA_JP));
@@ -137,7 +112,7 @@ class SocialHelpCommandTest {
         }
 
         @Override
-        public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+        public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
             return Optional.empty();
         }
 

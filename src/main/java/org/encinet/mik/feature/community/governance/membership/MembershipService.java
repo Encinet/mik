@@ -157,15 +157,16 @@ public final class MembershipService {
     public ActiveMemberEligibility activeMemberEligibility(UUID playerId)
             throws GovernanceException {
         Instant now = clock.instant();
+        LocalDate today = now.atZone(GOVERNANCE_ZONE).toLocalDate();
         try {
             PlayerProfile player = repository.player(playerId)
                     .orElseThrow(() -> new GovernanceException(GovernanceException.Code.PLAYER_UNKNOWN));
             ParticipationSummary participation = ParticipationPolicy.summarize(
-                    repository.participation(playerId), today());
+                    repository.participation(playerId), today);
             return ActiveMembershipPolicy.evaluate(
                     currentMembers.isCurrentlyMember(player.playerId(), player.playerName()),
                     player.memberSince(), participation,
-                    activeBans.isActivelyBanned(player.playerId(), player.playerName()), now);
+                    activeBans.isActivelyBanned(player.playerId(), player.playerName()), now, today);
         } catch (GovernanceException error) {
             throw error;
         } catch (GovernanceRepositoryException | RuntimeException error) {
@@ -180,7 +181,7 @@ public final class MembershipService {
 
     public List<PlayerProfile> activeMembers() throws GovernanceException {
         Instant now = clock.instant();
-        LocalDate today = today();
+        LocalDate today = now.atZone(GOVERNANCE_ZONE).toLocalDate();
         try {
             List<PlayerProfile> active = new ArrayList<>();
             for (PlayerProfile player : repository.players()) {
@@ -191,7 +192,7 @@ public final class MembershipService {
                         repository.participation(player.playerId()), today);
                 if (ActiveMembershipPolicy.evaluate(
                         true, player.memberSince(), participation,
-                        activeBans.isActivelyBanned(player.playerId(), player.playerName()), now)
+                        activeBans.isActivelyBanned(player.playerId(), player.playerName()), now, today)
                         .eligible()) {
                     active.add(player);
                 }

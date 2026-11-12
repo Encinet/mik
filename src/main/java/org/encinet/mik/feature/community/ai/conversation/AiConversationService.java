@@ -1,9 +1,14 @@
 package org.encinet.mik.feature.community.ai.conversation;
 
+import java.util.Locale;
+
+import com.google.gson.JsonArray;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParser;
 import org.encinet.mik.feature.community.ai.api.AiRequestException;
+import org.encinet.mik.feature.community.ai.api.AiInteractionContext;
 import org.encinet.mik.feature.community.ai.config.AiConfig;
 import org.encinet.mik.feature.community.ai.tool.AiTool;
 import org.encinet.mik.feature.community.ai.tool.AiToolTrace;
@@ -17,9 +22,9 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 
 /** Owns bounded conversations, concurrency, and the model/tool call loop. */
@@ -33,7 +38,7 @@ public final class AiConversationService implements AutoCloseable {
     private final Object historiesLock = new Object();
     private final LinkedHashMap<String, Deque<AiChatMessage>> histories =
             new LinkedHashMap<>(16, 0.75f, true);
-    private final Set<String> activeConversations = ConcurrentHashMap.newKeySet();
+    private final ConcurrentMap<String, ActiveTurn> activeConversations = new ConcurrentHashMap<>();
     private final Semaphore capacity;
     private volatile boolean closed;
 
@@ -73,8 +78,17 @@ public final class AiConversationService implements AutoCloseable {
             String memoryContext,
             AiToolCatalog tools
     ) {
+        return askDetailed(conversationId, requesterName, language, prompt, memoryContext, tools,
+                AiInteractionContext.game());
+    }
+
+    public CompletableFuture<AiTurnResult> askDetailed(
+            String conversationId, String requesterName, String language, String prompt,
+            String memoryContext, AiToolCatalog tools, AiInteractionContext interaction
+    ) {
         Objects.requireNonNull(conversationId, "conversationId");
         Objects.requireNonNull(tools, "tools");
+        Objects.requireNonNull(interaction, "interaction");
         String question = Objects.requireNonNullElse(prompt, "").strip();
         if (closed) {
             return rejected(AiRequestException.Reason.CLOSED, "AI service is closed");
@@ -86,28 +100,29 @@ public final class AiConversationService implements AutoCloseable {
             return rejected(AiRequestException.Reason.PROMPT_TOO_LONG,
                     "Prompt exceeds " + config.limits().maxPromptCharacters() + " characters");
         }
-        if (!activeConversations.add(conversationId)) {
+        ActiveTurn turn = new ActiveTurn();
+        if (activeConversations.putIfAbsent(conversationId, turn) != null) {
             return rejected(AiRequestException.Reason.CONVERSATION_BUSY,
                     "This conversation already has a request in progress");
         }
         if (!capacity.tryAcquire()) {
-            activeConversations.remove(conversationId);
+            activeConversations.remove(conversationId, turn);
             return rejected(AiRequestException.Reason.SERVER_BUSY,
                     "The AI request limit has been reached");
         }
 
         AiToolRegistry registry = new AiToolRegistry(tools,
                 config.limits().maxToolOutputCharacters());
-        List<AiChatMessage> messages = initialMessages(
-                conversationId, requesterName, language, question, memoryContext);
         CompletableFuture<AiTurnResult> request;
         try {
+            List<AiChatMessage> messages = initialMessages(
+                    conversationId, requesterName, language, question, memoryContext, interaction);
             request = continueConversation(messages, registry, 0)
                     .thenApply(this::normalizeAnswer)
                     .thenApply(answer -> appendKnowledgeSources(
                             answer, language, registry.trace()))
                     .thenApply(answer -> {
-                        remember(conversationId, question, answer);
+                        remember(conversationId, question, answer, turn);
                         return new AiTurnResult(question, answer, language, registry.trace(),
                                 memoryContext != null && !memoryContext.isBlank());
                     });
@@ -116,13 +131,15 @@ public final class AiConversationService implements AutoCloseable {
         }
         return request.whenComplete((_, _) -> {
             capacity.release();
-            activeConversations.remove(conversationId);
+            activeConversations.remove(conversationId, turn);
         });
     }
 
     public void clear(String conversationId) {
         synchronized (historiesLock) {
             histories.remove(Objects.requireNonNull(conversationId, "conversationId"));
+            ActiveTurn turn = activeConversations.get(conversationId);
+            if (turn != null) turn.historyAllowed = false;
         }
     }
 
@@ -137,7 +154,8 @@ public final class AiConversationService implements AutoCloseable {
             String requesterName,
             String language,
             String question,
-            String memoryContext
+            String memoryContext,
+            AiInteractionContext interaction
     ) {
         List<AiChatMessage> messages = new ArrayList<>();
         messages.add(AiChatMessage.system(config.systemPrompt(language)));
@@ -150,7 +168,23 @@ public final class AiConversationService implements AutoCloseable {
         requestContext.addProperty("requester", safeRequester);
         requestContext.addProperty("preferred_interface_language",
                 Objects.requireNonNullElse(language, "default"));
+        requestContext.addProperty("surface", interaction.surface());
+        requestContext.addProperty("account_binding", interaction.binding().name().toLowerCase(Locale.ROOT));
+        var operations = new JsonArray();
+        for (var operation : interaction.operations()) {
+            JsonObject entry = new JsonObject();
+            entry.addProperty("invocation", operation.invocation());
+            entry.addProperty("description", operation.description());
+            operations.add(entry);
+        }
+        requestContext.add("available_commands", operations);
         messages.add(AiChatMessage.system("REQUEST_CONTEXT_DATA " + requestContext));
+        messages.add(AiChatMessage.system("The request context identifies the current interaction surface. "
+                + "Use its available_commands verbatim when explaining actions on that surface. "
+                + "These are instructions for the user, not executable tools or additional permissions. "
+                + "Do not claim an account action was performed. Account binding marked unavailable is unknown, not unbound. "
+                + "Keep simple answers brief; add steps only when the user needs to act. "
+                + "Reply in the language of the latest question."));
         messages.add(AiChatMessage.system(AiKnowledgeInstructions.forLanguage(language)));
         synchronized (historiesLock) {
             Deque<AiChatMessage> history = histories.get(conversationId);
@@ -265,7 +299,7 @@ public final class AiConversationService implements AutoCloseable {
 
     private static String sourceHeader(String language) {
         String normalized = Objects.requireNonNullElse(language, "en_us")
-                .toLowerCase(java.util.Locale.ROOT).replace('-', '_');
+                .toLowerCase(Locale.ROOT).replace('-', '_');
         return switch (normalized) {
             case "zh_cn" -> "参考资料：";
             case "zh_hk", "zh_tw" -> "參考資料：";
@@ -285,12 +319,13 @@ public final class AiConversationService implements AutoCloseable {
         };
     }
 
-    private void remember(String conversationId, String question, String answer) {
+    private void remember(String conversationId, String question, String answer, ActiveTurn turn) {
         int maximum = config.limits().maxHistoryMessages();
         if (closed || maximum == 0) {
             return;
         }
         synchronized (historiesLock) {
+            if (closed || !turn.historyAllowed) return;
             Deque<AiChatMessage> history = histories.computeIfAbsent(
                     conversationId, _ -> new ArrayDeque<>());
             history.addLast(AiChatMessage.user(question));
@@ -304,6 +339,11 @@ public final class AiConversationService implements AutoCloseable {
                 oldest.remove();
             }
         }
+    }
+
+    private static final class ActiveTurn {
+        // Read and written under historiesLock, alongside history removal and insertion.
+        private boolean historyAllowed = true;
     }
 
     private static <T> CompletableFuture<T> rejected(

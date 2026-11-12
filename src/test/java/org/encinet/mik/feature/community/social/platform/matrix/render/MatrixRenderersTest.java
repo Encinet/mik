@@ -11,6 +11,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MatrixRenderersTest {
+    @Test
+    void shortActionsHaveMatchingPlainAndEscapedHtmlWithoutAnEmptyHeading() {
+        var reply = SocialDocument.message(TRUSTED, SocialDocument.Tone.INFO,
+                SocialDocument.instruction("Send this:", "!bind <code>"));
+        assertEquals("Send this:\n\n!bind <code>", MatrixPlainTextRenderer.render(reply, 100));
+        assertEquals("<p>Send this:</p><p><code>!bind &lt;code&gt;</code></p>", MatrixHtmlRenderer.render(reply));
+    }
+
 
     @Test
     void rendersEscapedStructuredHtmlAndPlainFallback() {

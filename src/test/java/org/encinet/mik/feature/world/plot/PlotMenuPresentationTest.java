@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PlotMenuPresentationTest {
     private static final String LONG_NAME = "庭院与地下铁路连接中心 A long project name";
 
-    @Test void directoryAndBoardListsFitEveryLanguageAndTextSize() throws Exception {
+    @Test void directoryAndManagedListsFitEveryLanguageAndTextSize() throws Exception {
         for (var language : Language.values()) {
             var text = text(language);
             for (var scale : FloatingMenuTextScale.values()) for (int count : new int[]{0, 6, 8}) {
@@ -33,7 +33,7 @@ class PlotMenuPresentationTest {
                     builder.control("search", text.apply(Message.PLOT_DIRECTORY_SEARCH_VALUE, new Object[]{LONG_NAME})).region("search");
                     builder.control("clear", text.apply(Message.PLOT_DIRECTORY_CLEAR_SEARCH, new Object[0])).region("search");
                 }
-                for (var message : List.of(Message.PLOT_MENU_CREATE, Message.PLOT_BOARD_MENU, Message.PLOT_MENU_MANAGE))
+                for (var message : List.of(Message.PLOT_MENU_CREATE, Message.PLOT_MENU_MANAGE))
                     builder.navigation(message.name(), text.apply(message, new Object[0])).region("actions");
                 builder.back(text.apply(Message.BACK, new Object[0])).region("navigation");
                 var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.measure(builder.build(), scale.factor()), language + " " + scale + " " + count);

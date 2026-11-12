@@ -38,8 +38,6 @@ final class LocalApiServer {
     static final String BIND_ADDRESS = "127.0.0.1";
     private static final long PLAYER_RESOLVE_TIMEOUT_SECONDS = 3;
     private static final Pattern PLAYER_NAME = Pattern.compile("^[a-zA-Z0-9_]{3,16}$");
-    private static final Pattern NOTICE_ID = Pattern.compile(
-            "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
     private static final byte[] NOT_FOUND = bytes("{\"error\":\"not_found\"}");
     private static final byte[] METHOD_NOT_ALLOWED = bytes("{\"error\":\"method_not_allowed\"}");
     private static final byte[] INTERNAL_ERROR = bytes("{\"error\":\"internal_error\"}");
@@ -50,7 +48,6 @@ final class LocalApiServer {
     private final WebLoginChallengeStore challenges;
     private final Supplier<List<BanRecord>> activeBans;
     private final Supplier<byte[]> announcementsJson;
-    private final CommunityBoardView communityBoard;
     private final java.util.function.Function<UUID, org.encinet.mik.feature.player.security.WebAccountPolicy> accountPolicy;
 
     private final java.util.function.BiPredicate<UUID, String> accountAllowed;
@@ -72,7 +69,7 @@ final class LocalApiServer {
 
     LocalApiServer(Plugin plugin, ApiPlayerSnapshot players,
                    WebLoginChallengeStore challenges, Supplier<List<BanRecord>> activeBans,
-                   Supplier<byte[]> announcementsJson, CommunityBoardView communityBoard,
+                   Supplier<byte[]> announcementsJson,
                    java.util.function.Function<UUID, org.encinet.mik.feature.player.security.WebAccountPolicy> accountPolicy,
                    java.util.function.BiPredicate<UUID, String> accountAllowed) {
         this.plugin = Objects.requireNonNull(plugin, "plugin");
@@ -80,7 +77,6 @@ final class LocalApiServer {
         this.challenges = Objects.requireNonNull(challenges, "challenges");
         this.activeBans = Objects.requireNonNull(activeBans, "activeBans");
         this.announcementsJson = Objects.requireNonNull(announcementsJson, "announcementsJson");
-        this.communityBoard = Objects.requireNonNull(communityBoard, "communityBoard");
         this.accountPolicy = Objects.requireNonNull(accountPolicy, "accountPolicy");
         this.accountAllowed = Objects.requireNonNull(accountAllowed, "accountAllowed");
     }
@@ -168,7 +164,6 @@ final class LocalApiServer {
                 sendJson(exchange, 200, bytes(body.toString()), "no-store");
             } catch (Exception error) { serveError(exchange, error); }
         });
-        createCommunityBoardContext(target);
         target.createContext("/", exchange -> {
             if (!isLocalRequest(exchange)) {
                 drop(exchange);
@@ -322,41 +317,6 @@ final class LocalApiServer {
             response.addProperty("confirmedAt", confirmation.confirmedAt());
         }
         return bytes(response.toString());
-    }
-
-    private void createCommunityBoardContext(HttpServer target) {
-        target.createContext("/api/community/notices", exchange -> {
-            try {
-                if (!isLocalRequest(exchange)) {
-                    drop(exchange);
-                    return;
-                }
-                if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
-                    sendJson(exchange, 405, METHOD_NOT_ALLOWED, "no-store");
-                    return;
-                }
-                String path = exchange.getRequestURI().getPath();
-                if (path.equals("/api/community/notices")) {
-                    sendJson(exchange, 200, bytes(communityBoard.listJson()), "no-store");
-                    return;
-                }
-                String prefix = "/api/community/notices/";
-                if (!path.startsWith(prefix)) {
-                    sendJson(exchange, 404, NOT_FOUND, "no-store");
-                    return;
-                }
-                String id = path.substring(prefix.length());
-                if (!NOTICE_ID.matcher(id).matches()) {
-                    sendJson(exchange, 404, NOT_FOUND, "no-store");
-                    return;
-                }
-                String detail = communityBoard.detailJson(id);
-                sendJson(exchange, detail == null ? 404 : 200,
-                        detail == null ? NOT_FOUND : bytes(detail), "no-store");
-            } catch (Exception error) {
-                serveError(exchange, error);
-            }
-        });
     }
 
     static byte[] bansJson(List<BanRecord> records) {

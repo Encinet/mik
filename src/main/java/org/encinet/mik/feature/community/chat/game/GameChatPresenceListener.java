@@ -27,6 +27,7 @@ public final class GameChatPresenceListener implements Listener {
     private final BiPredicate<UUID, Player> visible;
     private final Set<UUID> participants = new HashSet<>();
 
+    /** A null visibility viewer asks whether an offline account may see the subject. */
     public GameChatPresenceListener(Plugin plugin, ServerChatPublisher publisher,
                                     Predicate<Player> participates, BiPredicate<UUID, Player> visible) {
         this.plugin = plugin;
@@ -61,6 +62,7 @@ public final class GameChatPresenceListener implements Listener {
         var subject = new ChatServerMessage.Subject(player.getUniqueId(), player.getName());
         var body = new ChatServerMessage.Translation(joined ? ChatServerMessage.Template.GAME_JOINED
                 : ChatServerMessage.Template.GAME_LEFT, Map.of("name", subject.name()));
-        publisher.publish(ChatServerMessage.publicMessage(body, subject, false), viewer -> visible.test(viewer, player));
+        publisher.publish(ChatServerMessage.publicMessage(body, subject, false),
+                new ServerChatPublisher.Visibility(viewer -> visible.test(viewer, player), visible.test(null, player)));
     }
 }

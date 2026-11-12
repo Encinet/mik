@@ -70,7 +70,7 @@ final class IronElevatorView implements IronElevatorController.Presentation {
                     int first = Math.clamp(next * page.pageSize(),0,floors.size() - 1);
                     render(player,new Rendered(data,floors.get(first).level().height()));
                 })).build();
-        var scene = MenuScene.screen("iron-elevator").content(Ui.windowedGrid(items,16,UiLength.ui(58),UiLength.ui(8)))
+        var scene = MenuScene.screen("iron-elevator").content(Ui.windowedGrid(items,16,UiLength.ui(58),UiLength.ui(8)).centered(true))
                 .appearance(FloatingMenuAppearance.NO_BACKGROUNDS).animation(FloatingMenuAnimation.PLANAR)
                 .lifecycle((viewer,_,_,state,_) -> {
                     if (state == org.encinet.mik.shared.menu.FloatingMenuState.SUSPENDED

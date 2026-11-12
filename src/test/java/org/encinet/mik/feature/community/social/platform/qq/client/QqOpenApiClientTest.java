@@ -36,6 +36,27 @@ class QqOpenApiClientTest {
 
     private HttpServer server;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void imageFailureTracksWhetherAUserVisibleSendWasAttempted(boolean submitted) throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
+                "{\"access_token\":\"token\",\"expires_in\":7200}"));
+        server.createContext("/v2/groups/", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            if (exchange.getRequestURI().getPath().endsWith("/files") && submitted) {
+                respond(exchange, 200, "{\"file_info\":\"file\"}");
+            } else respond(exchange, 503, "{\"message\":\"unavailable\"}");
+        });
+        server.start();
+        try (HttpClient client = QqTestHttpClient.create(server.getAddress().getPort())) {
+            var result = new QqOpenApiClient(client, config()).replyRemoteImage("group", "message", 1,
+                    URI.create("https://example.org/image"), "caption").join();
+            assertEquals(submitted ? org.encinet.mik.feature.community.social.api.SocialDeliveryResult.Status.UNKNOWN
+                    : org.encinet.mik.feature.community.social.api.SocialDeliveryResult.Status.NOT_SENT, result.status());
+        }
+    }
+
     @Test
     void listsApplicationsUsingAuthorizedGetAndAnEncodedCursorWithOneTokenRefresh() throws Exception {
         AtomicInteger tokenRequests = new AtomicInteger();
@@ -154,7 +175,8 @@ class QqOpenApiClientTest {
                     api.listGroupJoinRequests("group", ""),
                     api.reviewGroupJoinRequest("group", "member", "request", true),
                     api.sendMarkdown("group", "private message"),
-                    api.replyRemoteImage("group", "message", 1, URI.create("https://example.com/image"), "caption"));
+                    api.replyRemoteImage("group", "message", 1, URI.create("https://example.com/image"), "caption")
+                            .thenApply(result -> { throw new java.util.concurrent.CompletionException(result.failure().orElseThrow()); }));
             for (CompletableFuture<?> operation : operations) {
                 var error = assertThrows(java.util.concurrent.CompletionException.class, operation::join);
                 QqHttpException httpError = org.junit.jupiter.api.Assertions.assertInstanceOf(QqHttpException.class, error.getCause());

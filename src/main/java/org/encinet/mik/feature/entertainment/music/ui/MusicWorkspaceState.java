@@ -147,6 +147,8 @@ public final class MusicWorkspaceState {
     MusicSubmission lastSubmission;
     UUID target() { return target; }
     Panel panel() { return panel; }
+    /** Creation tasks reserve the workspace for their own controls and reading content. */
+    boolean focusedTask() { return panel instanceof GroupEditor || panel instanceof Import; }
     void startPlaylistMove(MusicMove move) {
         if (page != WorkspacePage.LIBRARY || !new Collection(Source.PLAYLIST, move.owner()).equals(browser.collection))
             throw new MusicProblem(MusicProblem.Code.CONFLICT);

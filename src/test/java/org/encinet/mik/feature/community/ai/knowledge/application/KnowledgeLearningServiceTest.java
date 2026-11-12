@@ -79,8 +79,9 @@ class KnowledgeLearningServiceTest {
         }
     }
 
-    @Test
-    void privateMemoryTurnsCannotProducePublicKnowledge() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void personalContextAndMemoryCannotProducePublicKnowledge(boolean privateMemory) throws Exception {
         AiConfig config = config();
         UUID owner = UUID.randomUUID();
         AiCompletionClient client = (_, _) ->
@@ -99,9 +100,12 @@ class KnowledgeLearningServiceTest {
                      directory, knowledge, client, config.knowledge(),
                      Logger.getLogger("knowledge-test"))) {
             AiRequest request = new AiRequest("c", "Alice", "en_us",
-                    Optional.of(owner), "Remember how I like answers.");
+                    Optional.of(owner), "Remember how I like answers.",
+                    privateMemory ? org.encinet.mik.feature.community.ai.api.AiInteractionContext.game()
+                            : new org.encinet.mik.feature.community.ai.api.AiInteractionContext("Matrix",
+                            org.encinet.mik.feature.community.ai.api.AiInteractionContext.BindingStatus.BOUND, List.of()));
             AiTurnResult turn = new AiTurnResult(request.prompt(),
-                    "I will keep answers concise.", "en_us", List.of(), true);
+                    "I will keep answers concise.", "en_us", List.of(), privateMemory);
 
             assertTrue(learning.capture(request, turn));
             awaitCandidateCount(knowledge, 1);
@@ -121,6 +125,21 @@ class KnowledgeLearningServiceTest {
             Thread.sleep(10);
         }
         assertEquals(expected, knowledge.repository().candidateCount());
+    }
+
+    @Test
+    void unboundPersonalContextDoesNotStartAnExtractorWithNoEligibleKnowledgeScope() throws Exception {
+        AiCompletionClient client = (_, _) -> { throw new AssertionError("No extraction should be scheduled"); };
+        try (var knowledge = new KnowledgeService(directory, 1_000_000, 1_000, 100);
+             var learning = new KnowledgeLearningService(directory, knowledge, client,
+                     config().knowledge(), Logger.getLogger("knowledge-test"))) {
+            var request = new AiRequest("qq", "Alice", "en_us", Optional.empty(), "Am I linked?",
+                    new org.encinet.mik.feature.community.ai.api.AiInteractionContext("QQ",
+                            org.encinet.mik.feature.community.ai.api.AiInteractionContext.BindingStatus.UNBOUND, List.of()));
+            assertFalse(learning.capture(request, new AiTurnResult(request.prompt(), "Not linked.",
+                    "en_us", List.of(), false)));
+            assertEquals(0, knowledge.repository().candidateCount());
+        }
     }
 
     private static AiConfig config() throws Exception {

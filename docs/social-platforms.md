@@ -41,10 +41,10 @@ Matrix 加密管理返回 `MatrixCryptoResult`，分别区分自身验证、事�
 | `SocialPlatformSession.memberships()` | 暴露绑定入口时必须返回 `IdentityMemberships`，提供成员事实和退出监测；无法观测的状态返回 `UNKNOWN` |
 | `SocialPlatformSession.close()` | 关闭传输与资源；状态由专属 sink 推送 `STARTING/READY/FAILED/STOPPED` |
 | `SocialChatPlatformSession` | 提供聊天发送及目标会话提及解析 |
-| `SocialChatPlatformSession.sendNotice` | 向指定会话发送服务端文档，QQ 与 Matrix 各自渲染，不套用普通聊天前缀 |
+| `SocialChatPlatformSession.prepareNotice` | 向指定会话发送服务端文档，QQ 与 Matrix 各自渲染，不套用普通聊天前缀 |
 | `SocialChatRoute` | 会话的入站与出站各自使用 `ALWAYS` 或 `PREFIX`，可选择剥离前缀；入站同步调整可信提及范围 |
 
-Host 为每个平台独立维护运行代次（generation）、会话、身份平台注册租约、有界虚拟线程执行器、去重与会话快照。同会话按提交顺序处理，不同会话可并发。并发额度持续到异步回复结束；队列满时返回 `RETRY_LATER` 并撤销该次去重标记。Minecraft 发布端获得包含 accepted、unavailable、backpressured 数量的报告。
+Host 为每个平台独立维护运行代次（generation）、会话、身份平台注册租约、有界虚拟线程执行器、去重与会话快照。聊天按会话保持提交顺序，命令可并发执行；身份写入由 Identity 的事务队列串行维护。并发额度持续到异步回复结束；队列满时返回 `RETRY_LATER` 并撤销该次去重标记。Minecraft 发布端获得包含 accepted、unavailable、backpressured 数量的报告。
 
 重载只替换指定平台，旧代任务与结果失效。机器人消息、重复事件及生命周期拒绝不会作为普通聊天继续处理。
 
@@ -52,13 +52,23 @@ Host 为每个平台独立维护运行代次（generation）、会话、身份�
 
 ## 命令与回复
 
-每条 `SocialCommand<A, R>` 维护稳定 ID、文本别名、调用策略、描述、参数解析、业务处理、结果类型与回复布局。装配时显式创建不可变 dispatcher，帮助由已安装命令及当前平台前缀生成。平台 plan 只指定前缀和大小写规则；原生命令按稳定 ID 与结构化 options 调用。
+每条 `SocialCommand<A, R>` 只有定义、执行和呈现三个入口。`SocialCommandDefinition<A>` 将稳定 ID、文本别名、描述、参数解析与参数用法放在同一处；dispatcher 先解析并校验，参数错误作为数据生成用法指引，不进入业务执行。帮助和 AI 消费同一份不可变命令定义目录。平台 plan 只指定前缀和大小写规则；原生命令按稳定 ID 与结构化 options 调用。
 
-`SocialDocument.of(moderation, title, tone, blocks...)` 支持段落、字段、列表和远程或内嵌图片，`plainText()` 提供纯文本回退。renderer 负责转义、格式转换和长度限制。
+业务执行返回 `SocialCommandExecution<R>`，携带具体结果、回复语言的选择依据，以及已完成身份操作的固定回执标识。dispatcher 保存这份结果后才调用呈现函数。语言偏好在呈现开始时解析一次，主回复和所有恢复路径共用 `SocialPresentationContext`；绑定、解绑使用操作结果中的玩家身份选择偏好，AI 使用请求时已确定的语言。呈现函数只读取结果与语言上下文，不重新查询绑定或游戏状态。资料中的目标玩家语言也在执行阶段捕获。
+
+在线、状态与资料是单轮查询；绑定进度由 Identity 管理。Social 为解绑单独持有待确认操作：凭据绑定可信平台身份、会话、当前运行代次和目标 `bindingId`，有效期两分钟，只能消费一次。`/解绑` 返回说明和带确认码的完整指令。确认时 Identity 按外部身份和预期 `bindingId` 原子核验并删除；解绑后重新绑定、跨房间、换用户、平台重载、过期或已消费的确认均不能删除新关系。存储容量有界，功能关闭时清理。AI 历史由 AI 独立持有，不保存这些确认码。
+
+`SocialDocument.message(moderation, tone, blocks...)` 生成无标题的短回复；状态、资料与公告使用 `of(moderation, title, tone, blocks...)` 保留标题。内容支持段落、字段、列表、操作指引与远程或内嵌图片，`plainText()` 提供语义文本。`instruction(explanation, invocation)` 将说明与可复制的命令组成不可拆分的完整节点，只展示指引，不执行动作。
+
+绑定教程明确区分游戏内 `/bind <平台>` 和当前社交平台的资料命令。已经绑定时直接展示账号及资料入口；未绑定时不生成解绑确认。解绑确认说明账号对象，以及缺少其他有效社区绑定时的入服和在线连接影响。
+
+无前缀快捷查询只匹配完整别名，附带其他正文时作为普通聊天继续路由。显式在线、状态和帮助命令遇到多余参数时显示正确用法，不忽略剩余正文执行查询。引用或转发内容仍不进入参数解析。
+
+`SocialReplyChannel.prepare(document, maximumLength)` 在没有网络 I/O 的情况下生成 `SocialPreparedReply`。`SocialDocumentLayout` 根据平台各发送格式的实际编码长度选定同一份有界文档；操作指引整体保留或省略，字段和列表项不从中间截断，并保持原始节点顺序。QQ 的 Markdown、媒体说明和回退正文共用该布局，Matrix 的 HTML 与纯文本也共用该布局。运行时审核准备后的语义文本，审核后不再次裁剪或改写内容；公告同样先准备、再审核和发送。
 
 回复语言依次取绑定玩家的 Minecraft 偏好、命中的本地化别名、平台默认语言。所有语言别名同时有效；原生命令可用 `locale` option 指定标签。内容安全替换和截断保留已解析语言。
 
-每份回复在创建时必须显式传入 `SocialDocument.Moderation`，构造器和工厂都没有默认策略，也没有创建后修改策略的接口；未声明策略的调用无法编译。回复辅助方法同样传递必填策略。
+每份回复及其辅助方法在创建时显式传入不可变的 `SocialDocument.Moderation` 策略。
 
 ```java
 SocialDocument.of(TRUSTED, languages.t(language, Message.SOCIAL_TITLE_COMMAND_HELP),
@@ -66,16 +76,20 @@ SocialDocument.of(TRUSTED, languages.t(language, Message.SOCIAL_TITLE_COMMAND_HE
 SocialDocument.of(REQUIRED, "AI", Tone.INFO, paragraph(answer));
 ```
 
+身份变更完成后，执行结果携带 `SocialCompletionReceipt` 中固定、不含玩家名的回执标识。详细呈现失败、完整回复被审核拦截或审核服务不可用时，运行时可以用同一语言生成这份 `TRUSTED` 回执；未完成的操作不能携带完成回执。其他处理故障在当前代次仍有效且能够发送时提供固定恢复提示。
+
+`SocialPreparedReply.send()` 只启动一次投递，重复调用返回同一个 future。`SocialDeliveryResult` 区分平台已确认接受（`ACCEPTED`）、确定未发送（`NOT_SENT`）和结果未知（`UNKNOWN`）。媒体上传阶段失败尚未发送用户消息，可以回退为文字；发送阶段只有明确的拒绝才允许回退，超时、响应不完整和不确定的服务端故障保留为未知。取消传递到当前异步请求，不触发媒体回退。恢复沿用已完成的业务结果，结果未知的发送保持原状态。
+
 `TRUSTED` 用于本地模板和可信统计，直接发送；`REQUIRED` 用于含用户输入、玩家名称或 AI 生成文本的回复，在平台开启内容安全时送审。检查覆盖截断后的完整文档，保留标题、字段与正文语境。语言转换和截断始终保留原策略。
 
 | 回复内容 | 策略 |
 | --- | --- |
-| help、status、未知命令及固定说明、确认、错误提示 | `TRUSTED` |
+| help、status、未知命令及固定说明、不含动态内容的错误提示 | `TRUSTED` |
 | online | 有玩家名称时为 `REQUIRED`，空列表为 `TRUSTED` |
-| profile 查询成功、含玩家名称的绑定或解绑结果 | `REQUIRED` |
+| profile 查询成功、含玩家名称的绑定教程、解绑确认和操作结果 | `REQUIRED` |
 | AI 实际回答 | `REQUIRED`；清空、繁忙、失败等固定提示为 `TRUSTED` |
 
-聊天与社区公示提醒显式使用 `REQUIRED`，在路由选择和提及解析后检查出站语义文本，包含发送者、展开的可见提及和链接目标。同次发布的多个会话若产生相同文本，复用本次判定。社交入站到 Minecraft 的正文不执行出站审核。
+聊天显式使用 `REQUIRED`，在路由选择和提及解析后检查出站语义文本，包含发送者、展开的可见提及和链接目标。同次发布的多个会话若产生相同文本，复用本次判定。社交入站到 Minecraft 的正文不执行出站审核。
 
 ## 内容安全
 
@@ -106,7 +120,7 @@ OVH 仅完整的 `Safety: Safe` 且 `Categories: None` 结果放行，`Controver
 
 连接失败、超时、响应过大、结果无法解析、HTTP 408/425/429/5xx 会切换到尚未尝试的可用入口，每个入口每次最多尝试一次。429 默认冷却 60 秒，其余临时错误默认冷却 5 秒；HTTP 返回的有效 `Retry-After`（秒数或 HTTP 日期）优先使用，上限一天。冷却期间跳过该入口。401/402/403/404 将该入口停用到重载，并尝试其他入口；其他 HTTP 错误直接中止；无效结果对应的入口冷却 5 秒并继续尝试其他入口。所有入口不可用、重试耗尽或总超时后停止本次外发并记录错误。
 
-请求在有界 Social worker 中执行，`request-timeout-millis` 是包含故障切换和完整响应体的总预算；每次尝试按剩余入口数分配剩余时间，确保卡住的响应也能切换。执行 `/social reload` 或 `/social reload <platform>` 会重新读取共享配置、清除入口故障状态并关闭旧审核客户端，正在等待旧客户端的审核可能取消；指定平台的重载仍只重建该平台会话。停用 Social 时关闭共享客户端并取消请求。旧词库不再读取，可删除服务器上遗留的词库文件。
+请求在有界 Social worker 中执行，`request-timeout-millis` 是包含故障切换和完整响应体的总预算；每次尝试按剩余入口数分配剩余时间，确保卡住的响应也能切换。执行 `/social reload` 或 `/social reload <platform>` 会重新读取共享配置、清除入口故障状态并关闭旧审核客户端，正在等待旧客户端的审核可能取消；指定平台的重载仍只重建该平台会话。停用 Social 时关闭共享客户端并取消请求。
 
 ## 身份、提及与游戏数据
 
@@ -121,14 +135,6 @@ OVH 仅完整的 `Safety: Safe` 且 `Categories: None` 结果放行，`Controver
 入站聊天经共享 gateway 补充绑定及 LuckPerms 身份，再交给共享聊天服务，统一投递游戏、网页和其他 Social 平台的公共会话。作者没有 Minecraft 绑定或绑定玩家游戏离线时仍可在网页显示。已绑定身份使用游戏名字与前后缀，未绑定时使用平台昵称。Minecraft 内提及输入语法为 `@玩家名` 或 `@ 玩家名`，统一显示为 `@玩家名`；中日韩正文无需用空格隔开，例如 `你好@Alex在吗`，`@all` 使用相同边界。自然聊天只在 Paper 事件最终未取消后提交提醒、重复状态及社交发布。
 
 玩家提及使用不可变的名字哈希索引；在线玩家与绑定玩家分别维护，名字与候选集合不变时跨消息复用。每条消息只捕获频道可见的在线 UUID 并排除发送者，公共聊天额外查询无重名歧义的绑定玩家。解析按实际名字长度和完整边界查询，选择最长匹配；同名时优先使用当前频道内的在线身份。索引和玩家快照一起发布，异步聊天不读取 Bukkit 状态。
-
-## 社区公示提醒
-
-地段登记后选取附近已登记地段的主人，异议提醒公示作者，裁决和撤回提醒相关当事人；每人每小时最多提交 5 条异议，自动登记公示不占该额度。
-
-Social 按 UUID 和语言偏好，只向已确认收件人绑定账号在场的配置会话发送原生提及，每个平台选择首个匹配会话。普通聊天的前缀条件不限制系统提醒；无绑定或无法确认成员关系时不群发。
-
-在线玩家同时收到私有提示，离线玩家在 7 天内登录可收到一次。`plots/board-alerts.yml` 保存处理与游戏投递记录，启动只处理新事件。平台通知尽力发送，不代表收件、同意或正式裁决。
 
 ## 管理与扩展
 

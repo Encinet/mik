@@ -95,7 +95,7 @@ public final class UiSceneContent {
         }
         if (node instanceof UiWindowedGrid grid) {
             return new UiWindowedGrid((UiWindowedList) resolve(grid.items(),declarations,used),
-                    grid.maximumColumns(),grid.minimumColumnWidth(),grid.columnGap());
+                    grid.maximumColumns(),grid.minimumColumnWidth(),grid.columnGap(),grid.centered());
         }
         if (node instanceof UiWindowedList list) {
             // Deferred rows own typed content, never legacy declaration ports.

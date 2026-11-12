@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -44,7 +43,7 @@ class PlayerProfileCommandLookupTest {
         PlayerProfileCommand command = command(caller, List.of(), game);
 
         PlayerProfileCommand.Result.Found found = assertInstanceOf(
-                PlayerProfileCommand.Result.Found.class, command.handle(context(), ""));
+                PlayerProfileCommand.Result.Found.class, command.execute(context(), "").value());
 
         assertEquals(caller.playerId(), found.profile().playerId());
         assertEquals(0, game.otherQueries);
@@ -58,7 +57,7 @@ class PlayerProfileCommandLookupTest {
         PlayerProfileCommand command = command(caller, List.of(target), game);
 
         assertInstanceOf(PlayerProfileCommand.Result.MemberRequired.class,
-                command.handle(context(), "Target"));
+                command.execute(context(), "Target").value());
         assertEquals(0, game.otherQueries);
     }
 
@@ -71,8 +70,8 @@ class PlayerProfileCommandLookupTest {
         ExternalIdentity referenced = new ExternalIdentity(TARGET_KEY, "QQ Target");
 
         assertInstanceOf(PlayerProfileCommand.Result.MemberRequired.class,
-                command.handle(context(new SocialMessageReferences(
-                        List.of(referenced), Optional.empty())), ""));
+                command.execute(context(new SocialMessageReferences(
+                        List.of(referenced), Optional.empty())), "").value());
         assertEquals(0, game.otherQueries);
     }
 
@@ -86,7 +85,7 @@ class PlayerProfileCommandLookupTest {
 
         PlayerProfileCommand.Result.Found found = assertInstanceOf(
                 PlayerProfileCommand.Result.Found.class,
-                command.handle(context(), "target"));
+                command.execute(context(), "target").value());
 
         assertEquals(target.playerId(), found.profile().playerId());
         assertEquals(Optional.of(caller), found.languageBinding());
@@ -104,12 +103,12 @@ class PlayerProfileCommandLookupTest {
 
         PlayerProfileCommand.Result.Found mentioned = assertInstanceOf(
                 PlayerProfileCommand.Result.Found.class,
-                command.handle(context(new SocialMessageReferences(
-                        List.of(referenced), Optional.empty())), ""));
+                command.execute(context(new SocialMessageReferences(
+                        List.of(referenced), Optional.empty())), "").value());
         PlayerProfileCommand.Result.Found replied = assertInstanceOf(
                 PlayerProfileCommand.Result.Found.class,
-                command.handle(context(new SocialMessageReferences(
-                        List.of(), Optional.of(referenced))), ""));
+                command.execute(context(new SocialMessageReferences(
+                        List.of(), Optional.of(referenced))), "").value());
 
         assertEquals(target.playerId(), mentioned.profile().playerId());
         assertEquals(target.playerId(), replied.profile().playerId());
@@ -127,11 +126,11 @@ class PlayerProfileCommandLookupTest {
                 new ExternalIdentityKey("qq", "app", "group", "second"), "Second");
 
         assertInstanceOf(PlayerProfileCommand.Result.TargetUnbound.class,
-                command.handle(context(new SocialMessageReferences(
-                        List.of(first), Optional.empty())), ""));
+                command.execute(context(new SocialMessageReferences(
+                        List.of(first), Optional.empty())), "").value());
         assertInstanceOf(PlayerProfileCommand.Result.TargetAmbiguous.class,
-                command.handle(context(new SocialMessageReferences(
-                        List.of(first, second), Optional.empty())), ""));
+                command.execute(context(new SocialMessageReferences(
+                        List.of(first, second), Optional.empty())), "").value());
         assertEquals(0, game.otherQueries);
     }
 
@@ -143,7 +142,7 @@ class PlayerProfileCommandLookupTest {
         PlayerProfileCommand command = command(caller, List.of(), game);
 
         assertInstanceOf(PlayerProfileCommand.Result.PlayerNotFound.class,
-                command.handle(context(), "UnboundPlayer"));
+                command.execute(context(), "UnboundPlayer").value());
         assertEquals(1, game.otherQueries);
     }
 
@@ -156,7 +155,7 @@ class PlayerProfileCommandLookupTest {
         bindings.add(caller);
         bindings.addAll(targets);
         StubBindings bindingManager = new StubBindings(bindings);
-        LanguageService languages = new LanguageService(null);
+        LanguageService languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
         return new PlayerProfileCommand(bindingManager, game,
                 new SocialCommandLanguageResolver(bindingManager, languages),
                 languages, ZoneOffset.UTC);
@@ -171,7 +170,7 @@ class PlayerProfileCommandLookupTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.of(identity), new SocialInboundMessage.Text("/profile"), false,
-                references, _ -> CompletableFuture.completedFuture(null));
+                references, org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
         return new SocialCommandContext(
                 new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message);
     }
@@ -246,7 +245,7 @@ class PlayerProfileCommandLookupTest {
         }
 
         @Override
-        public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+        public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
             throw new UnsupportedOperationException();
         }
 

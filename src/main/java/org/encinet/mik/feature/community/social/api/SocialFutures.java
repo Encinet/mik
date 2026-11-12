@@ -1,4 +1,4 @@
-package org.encinet.mik.feature.community.social.platform.matrix.client;
+package org.encinet.mik.feature.community.social.api;
 
 import java.util.Objects;
 import java.util.concurrent.CancellationException;
@@ -8,22 +8,29 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /** Transfers cancellation to the active request when a Matrix operation has several HTTP stages. */
-public final class MatrixFutures {
-    private MatrixFutures() { }
+public final class SocialFutures {
+    private SocialFutures() { }
 
     public static <T, R> CompletableFuture<R> compose(
             CompletableFuture<T> source, Function<T, CompletableFuture<R>> next) {
         return continueWith(source, (value, error) -> error == null ? next.apply(value)
-                : CompletableFuture.failedFuture(MatrixApiErrors.unwrap(error)));
+                : CompletableFuture.failedFuture(unwrap(error)));
     }
 
     public static <T> CompletableFuture<T> recover(
             CompletableFuture<T> source, Function<Throwable, CompletableFuture<T>> recovery) {
         return continueWith(source, (value, error) -> {
             if (error == null) return CompletableFuture.completedFuture(value);
-            Throwable cause = MatrixApiErrors.unwrap(error);
+            Throwable cause = unwrap(error);
             return cause instanceof CancellationException ? CompletableFuture.failedFuture(cause) : recovery.apply(cause);
         });
+    }
+
+    public static Throwable unwrap(Throwable error) {
+        Throwable cause = error;
+        while ((cause instanceof java.util.concurrent.CompletionException
+                || cause instanceof java.util.concurrent.ExecutionException) && cause.getCause() != null) cause = cause.getCause();
+        return cause;
     }
 
     private static <T, R> CompletableFuture<R> continueWith(
@@ -49,7 +56,7 @@ public final class MatrixFutures {
             }
             next.whenComplete((answer, failure) -> {
                 if (failure == null) result.complete(answer);
-                else result.completeExceptionally(MatrixApiErrors.unwrap(failure));
+                else result.completeExceptionally(unwrap(failure));
             });
         });
         return result;

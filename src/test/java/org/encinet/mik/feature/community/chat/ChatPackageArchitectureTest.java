@@ -22,7 +22,7 @@ class ChatPackageArchitectureTest {
     // Include fully qualified uses as well as imports, so a qualified type cannot bypass a boundary.
     private static final Pattern REFERENCE = Pattern.compile(
             "\\b(?:org\\.encinet\\.mik|org\\.bukkit|io\\.papermc|net\\.kyori|com\\.google\\.gson|io\\.netty)\\.[\\w.*]+");
-    private static final Set<String> CORE = Set.of("model", "mention", "modifier", "pipeline", "bridge", "runtime");
+    private static final Set<String> CORE = Set.of("model", "mention", "modifier", "pipeline", "bridge", "runtime", "history");
     private static final Map<String, Set<String>> DEPENDENCIES = Map.ofEntries(
             Map.entry("", Set.of("bridge", "game", "runtime", "settings")),
             Map.entry("mention", Set.of()),
@@ -32,10 +32,11 @@ class ChatPackageArchitectureTest {
             Map.entry("bridge", Set.of("model")),
             Map.entry("runtime", Set.of("bridge", "model", "pipeline")),
             Map.entry("settings", Set.of()),
+            Map.entry("history", Set.of("model")),
             Map.entry("menu", Set.of("settings")),
             Map.entry("render", Set.of("model")),
             Map.entry("game", Set.of("bridge", "model", "mention", "pipeline", "runtime", "settings", "menu", "render")),
-            Map.entry("web", Set.of("bridge", "model", "mention", "runtime")));
+            Map.entry("web", Set.of("bridge", "model", "mention", "runtime", "history")));
 
     private static List<String> references(Path path) throws IOException {
         return REFERENCE.matcher(Files.readString(path)).results().map(match -> match.group()).toList();

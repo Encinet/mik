@@ -34,7 +34,6 @@ class PlotMenuLayoutsTest {
         check(PlotMenuLayouts.noticeBoard(UiTemplates.information("body")), "body", "navigation");
         check(PlotMenuLayouts.atmosphere(0, _ -> { }), "context", "heading", "sections", "options", "navigation");
         check(PlotMenuLayouts.member(), "context", "heading", "identity", "navigation", "actions");
-        check(PlotMenuLayouts.record(UiTemplates.information("record-reading")), "record-reading", "navigation", "actions");
     }
 
     @Test void editorKeepsTheMapBetweenToolsAndInspector() {

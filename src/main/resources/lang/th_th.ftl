@@ -613,25 +613,27 @@ social-admin-reloaded-all = โหลดแพลตฟอร์มโซเช�
 social-admin-status = { $arg0 } · { $arg1 } · รุ่น { $arg2 } · การสนทนา { $arg3 }
 social-admin-title = แพลตฟอร์มโซเชียล
 social-admin-unknown = ไม่รู้จักแพลตฟอร์มโซเชียล: { $arg0 }
-social-binding-already-linked = ตัวตนนี้ผูกกับผู้เล่น Minecraft { $arg0 } อยู่แล้ว
-social-binding-code-invalid = รหัสไม่ถูกต้องหรือหมดอายุ เชื่อมต่อใหม่เพื่อรับรหัสใหม่ หรือใช้ /bind { $arg0 } ในเกม
+social-binding-already-linked = บัญชีของคุณเชื่อมกับ { $arg0 } แล้ว ส่ง { $arg1 } เพื่อดูโปรไฟล์
+social-binding-confirmation-expired = การยืนยันหมดอายุหรือบัญชีที่ผูกไว้เปลี่ยนไปแล้ว โปรดขอยืนยันการยกเลิกผูกอีกครั้ง:
+social-binding-code-invalid = รหัสนี้ไม่ถูกต้องหรือหมดอายุแล้ว เชื่อมต่อใหม่หรือใช้ { $arg0 } ในเกมเพื่อรับรหัสใหม่
 social-binding-external-in-use = ตัวตนนี้ผูกกับผู้เล่น Minecraft คนอื่นอยู่แล้ว
-social-binding-help = ลองเชื่อมต่อเซิร์ฟเวอร์เพื่อรับรหัสบนหน้าจอเข้าสู่ระบบ หรือใช้ /bind { $arg0 } หากอยู่ในเกมแล้ว
-    คัดลอกคำสั่งเต็มที่สร้างขึ้น
-    ส่งคำสั่งนั้นที่นี่
-    ใช้ /โปรไฟล์ เพื่อตรวจสอบการผูก
+social-binding-help = เชื่อมต่อเซิร์ฟเวอร์ Minecraft แล้วส่งคำสั่งเชื่อมบัญชีฉบับเต็มจากหน้าล็อกอินมาที่นี่ หากอยู่ในเกมแล้ว ให้ใช้ { $arg0 } เพื่อรับคำสั่ง
 social-binding-identity-missing = ข้อความนี้ไม่มีข้อมูลสมาชิกที่เชื่อถือได้ จึงไม่สามารถผูกตัวตนได้
-social-binding-linked = ผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
+social-binding-link-completed = เชื่อมบัญชีเรียบร้อยแล้ว เชื่อมต่อใหม่เพื่อเข้าสู่ระบบต่อ
+social-binding-linked = เชื่อมบัญชีเกม { $arg0 } แล้ว เชื่อมต่อใหม่เพื่อเข้าสู่ระบบต่อ
 social-binding-membership-required = เข้าร่วมชุมชนที่เชื่อมต่อบนแพลตฟอร์มนี้ก่อน แล้วลองผูกบัญชีอีกครั้ง
 social-binding-membership-unavailable = ขณะนี้ไม่สามารถตรวจสอบการเป็นสมาชิกชุมชนได้ โปรดลองอีกครั้งภายหลังหรือติดต่อผู้ดูแลเซิร์ฟเวอร์
-social-binding-not-bound = ตัวตนบนแพลตฟอร์มนี้ยังไม่ได้ผูก
+social-binding-not-bound = คุณยังไม่ได้เชื่อมบัญชีเกม
 social-binding-platform-mismatch = รหัสยืนยันนี้ออกให้สำหรับแพลตฟอร์มอื่น
 social-binding-player-scope-in-use = ผู้เล่น Minecraft นี้ผูกตัวตนอื่นไว้แล้วในขอบเขตบัญชีแพลตฟอร์มเดียวกัน
 social-binding-rate-limited = ลองไม่สำเร็จหลายครั้งเกินไป โปรดลองอีกครั้งในประมาณ { $arg0 } นาที
 social-binding-unavailable = ระบบผูกตัวตนไม่พร้อมใช้งานชั่วคราว
-social-binding-unlink-prompt = การยกเลิกผูกจะลบความเชื่อมโยงระหว่างตัวตนนี้กับ Minecraft ส่ง { $arg0 } เพื่อดำเนินการต่อ
+social-binding-unlink-completed = ยกเลิกการเชื่อมบัญชีแล้ว หากไม่มีการเชื่อมชุมชนอื่นที่ใช้ได้ ต้องเชื่อมบัญชีอีกครั้งก่อนเข้าเซิร์ฟเวอร์
+social-binding-unlink-prompt = จะยกเลิกการเชื่อมบัญชีแพลตฟอร์มนี้กับ { $arg0 } หากไม่มีการเชื่อมชุมชนอื่นที่ใช้ได้ คุณจะเข้าเซิร์ฟเวอร์ไม่ได้และจะถูกตัดการเชื่อมต่อหากออนไลน์อยู่ หากยืนยัน ให้ส่ง:
 social-binding-unlinked = ยกเลิกการผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
 social-command-description = จัดการอะแดปเตอร์แพลตฟอร์มโซเชียล
+social-command-invalid-arguments = อาร์กิวเมนต์ไม่ถูกต้อง โปรดส่งตามรูปแบบนี้:
+social-command-usage = คำสั่งนี้ไม่ต้องมีอาร์กิวเมนต์ ส่ง:
 social-crypto-command-description = จัดการการยืนยันอุปกรณ์เข้ารหัส Matrix
 social-crypto-comparison-not-ready = การเปรียบเทียบ SAS ยังไม่พร้อม
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -675,10 +677,12 @@ social-duration-hours = { $arg0 } ชั่วโมง { $arg1 } นาที
 social-duration-minutes = { $arg0 } นาที
 social-help-command-description = แสดงรายการคำสั่งนี้
 social-link-command-description = ผูกบัญชี Minecraft ด้วยรหัสจากในเกม
+social-link-command-parameters = <รหัส>
 social-online-command-description = แสดงผู้เล่นออนไลน์
 social-profile-afk = ออนไลน์ · AFK
 social-profile-avatar-alt = ใบหน้า Minecraft
 social-profile-command-description = แสดงโปรไฟล์ตนเอง; สมาชิกเต็มรูปแบบค้นหาด้วยชื่อ การกล่าวถึง หรือการตอบกลับได้
+social-profile-command-parameters = [ชื่อผู้เล่น]
 social-profile-first-joined-label = เข้าครั้งแรก
 social-profile-language-label = ภาษา
 social-profile-last-seen-label = พบล่าสุด
@@ -694,16 +698,21 @@ social-profile-target-unbound = ผู้ใช้ที่กล่าวถึ
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = ขณะนี้ไม่มีผู้เล่นออนไลน์
-social-query-online-label = ออนไลน์
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (ไม่อยู่)
    *[active] { $arg0 }
+    }
+social-query-online-summary = ขณะนี้มีผู้เล่นออนไลน์ { $arg0 } คน{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }โดยมี { $arg1 } คนที่ไม่อยู่หน้าจอ
     }
 social-query-players-label = ผู้เล่น
 social-query-population = ออนไลน์ { $arg0 }/{ $arg1 } · กำลังใช้งาน { $arg2 } · ไม่อยู่ { $arg3 }
 social-query-unknown = ไม่รู้จักคำสั่ง ส่ง { $arg0 } เพื่อดูคำสั่งที่ใช้ได้
 social-query-uptime-label = เวลาทำงาน
+social-query-version-label = รุ่น
 social-reply-hidden = คำตอบนี้ถูกซ่อนตามนโยบายความปลอดภัยของเนื้อหาเซิร์ฟเวอร์
+social-reply-unavailable = ขณะนี้แสดงผลลัพธ์ไม่ได้ โปรดใช้คำสั่งโปรไฟล์ตรวจสอบการเปลี่ยนแปลงบัญชีก่อนส่งคำขอซ้ำ
 social-state-disabled = ปิดใช้งาน
 social-state-failed = ล้มเหลว
 social-state-ready = พร้อม
@@ -712,13 +721,11 @@ social-state-stopped = หยุดแล้ว
 social-status-command-description = แสดงผู้เล่น TPS, MSPT และเวลาทำงาน
 social-title-command-help = วิธีใช้คำสั่ง
 social-title-content-hidden = ซ่อนเนื้อหาแล้ว
-social-title-identity-linking = ผูกบัญชี
-social-title-identity-unlinking = ยกเลิกการผูกบัญชี
-social-title-online-players = ผู้เล่นออนไลน์
 social-title-player-profile = โปรไฟล์ผู้เล่น
 social-title-server-status = สถานะเซิร์ฟเวอร์
-social-title-unknown-command = คำสั่งที่ไม่รู้จัก
 social-unlink-command-description = ยกเลิกการผูกตัวตนนี้หลังยืนยัน
+social-unlink-command-parameters = [{ social-unlink-confirmation } <รหัสยืนยัน>]
+social-unlink-confirmation = ยืนยัน
 
 ## Community · AI and knowledge
 
@@ -756,6 +763,7 @@ ai-reload-failed = โหลดการตั้งค่า AI ใหม่ไ
 ai-reloaded = โหลดการตั้งค่า AI ใหม่แล้ว ({ $arg0 })
 ai-request-failed = คำขอ AI ล้มเหลว โปรดลองอีกครั้งภายหลัง
 ai-social-command-description = ถามผู้ช่วย AI ที่ใช้ร่วมกัน
+ai-social-command-parameters = <คำถาม>
 ai-social-question-required = โปรดใส่คำถามหลังคำสั่ง AI
 ai-status-disabled = AI ถูกปิดใช้งาน
 ai-status-enabled = AI เปิดใช้งาน · ผู้ให้บริการ { $arg0 } · โมเดล { $arg1 } · เครื่องมือ { $arg2 }
@@ -772,7 +780,7 @@ governance-active-days-60 = มีวันที่เข้าร่วมอ�
 governance-active-header = ─── คุณสมบัติสมาชิกที่ยังมีส่วนร่วม ───
 governance-active-member = เป็นสมาชิกอยู่ในปัจจุบัน
 governance-active-member-age = เป็นสมาชิกมาแล้วอย่างน้อย 30 วัน
-governance-active-playtime = เล่นอย่างมีผลอย่างน้อย 6 ชั่วโมงใน 60 วัน (ขณะนี้ { $arg0 })
+governance-active-playtime = เล่นอย่างมีผลอย่างน้อย { $arg1 } ใน 60 วัน (ขณะนี้ { $arg0 })
 governance-activity-action = { $arg0 ->
     [confirm] ยืนยันการสนับสนุน
     [vote] อ่านและลงคะแนน
@@ -964,7 +972,6 @@ governance-votes-header = ─── การลงคะแนนลับท�
 
 ## World · Plots
 
-plot-access-removed-for-you = สิทธิ์เข้าถึงแปลง { $arg0 } ของคุณถูกนำออกแล้ว
 plot-admin-created = ลงทะเบียน { $arg0 } ให้ { $arg1 } แล้ว · { $arg2 }
 plot-allowed = เปิด
 plot-area-changed = ขอบเขตเปลี่ยนระหว่างยืนยัน โปรดรีเฟรชและยืนยันอีกครั้ง
@@ -974,36 +981,9 @@ plot-area-replace-save = แทนที่ขอบเขตและบัน�
 plot-area-save = บันทึกขอบเขต
 plot-area-saved = บันทึกขอบเขตของ “{ $arg0 }” แล้ว
 plot-atmosphere-saved = บันทึกบรรยากาศแล้ว
-plot-board-auto-notify-result = กำหนดการแจ้งเตือนผู้เล่น { $arg0 } คนแล้ว
-plot-board-auto-registered-text = ลงทะเบียนแปลง “{ $arg0 }” แล้ว กรอบพิกัดของเซลล์ที่สร้างแล้ว: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }
-plot-board-detail = บันทึกของ { $arg0 } ที่ { $arg1 } { $arg2 }, { $arg3 }, { $arg4 }: { $arg5 }
-plot-board-empty = ยังไม่มีบันทึกชุมชน
-plot-board-header = ประกาศและข้อคิดเห็นชุมชน (ล่าสุด { $arg0 } รายการ; รายละเอียด: /plot board ID)
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = ประกาศ
-plot-board-kind-objection = ข้อคัดค้าน
-plot-board-loading = กำลังโหลดประกาศ…
-plot-board-menu = กระดานชุมชน
-plot-board-notice-alert = { $arg0 } ลงประกาศ: { $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } ยื่นข้อคัดค้าน: { $arg1 } · { $arg2 }
-plot-board-rate-limited = ถึงขีดจำกัดการโพสต์แล้ว โปรดลองภายหลัง
-plot-board-record-invalid = ไม่พบบันทึก ปิดเรื่องแล้ว หรือคุณไม่มีสิทธิ์ทำรายการนี้
-plot-board-registered-alert = { $arg0 } ลงทะเบียนแปลง “{ $arg1 }”: { $arg2 }
-plot-board-ruling-alert = มีคำตัดสินต่อข้อคัดค้านของ { $arg0 }: { $arg1 } · { $arg2 }
-plot-board-ruling-detail = คำตัดสิน: { $arg0 }
-plot-board-saved = บันทึกรายการ { $arg0 } แล้ว
-plot-board-status-elapsed = เผยแพร่แล้วอย่างน้อย 72 ชั่วโมง
-plot-board-status-open = รอพิจารณา
-plot-board-status-ruled = มีคำตัดสินแล้ว
-plot-board-status-withdrawn = ถอนแล้ว
-plot-board-text-invalid = คำอธิบายต้องมี 12–1000 อักขระ และเหตุผลคำตัดสินอย่างน้อย 8 อักขระ
-plot-board-unavailable = ยังโหลดกระดานไม่ได้ โปรดลองอีกครั้งหรือดู https://mcmik.top/community/notices
-plot-board-withdrawal-alert = { $arg0 } ถอนข้อคัดค้าน: { $arg1 } · { $arg2 }
-plot-board-write-failed = อัปเดตกระดานไม่ได้ โปรดลองภายหลัง
 plot-command-blocked = ระบบปกป้องแปลงบล็อกคำสั่งนี้ ใช้ /fill หรือ /setblock โดยตรงในแปลงตนเอง และให้ทีมงานตรวจคำสั่ง /execute ที่ซับซ้อน
 plot-command-description = จัดการแปลงก่อสร้าง
 plot-created = สร้างแปลง { $arg0 } แล้ว · { $arg1 }
-plot-created-for-you = { $arg1 } ลงทะเบียนที่ดิน { $arg0 } ให้คุณแล้ว
 plot-deleted = ปล่อยที่ดินแล้ว สิ่งปลูกสร้างยังอยู่
 plot-denied = ปิด
 plot-error-admin-owner-only = การเปลี่ยนสมาชิกที่มีสิทธิ์จัดการต้องมีทั้งสิทธิ์จัดการสมาชิกและจัดการสิทธิ์
@@ -1013,7 +993,7 @@ plot-error-busy = กำลังบันทึกข้อมูลแปล�
 plot-error-flag = ไม่รองรับสิทธิ์นี้ โปรดเลือกการดำเนินการจากรายการสิทธิ์
 plot-error-id = ไม่พบ ID แปลงหรือระบุไม่ชัดเจน ใช้ /plot list
 plot-error-member-missing = ผู้เล่นนี้ไม่ได้เป็นสมาชิกแล้ว
-plot-error-member-required = ผู้เล่นใหม่ดูแปลงและคัดค้านได้ ต้องมีสถานะสมาชิกจึงจะสร้างโครงการได้
+plot-error-member-required = ต้องมีสถานะสมาชิกจึงจะสร้างแปลงที่ดินได้
 plot-error-name = ชื่อโครงการต้องมี 1–48 อักขระ
 plot-error-notice-text = ประกาศมีความยาวได้สูงสุด { $arg0 } อักขระ โดยไม่จำกัดจำนวนบรรทัดหรือความยาวแต่ละบรรทัด และห้ามใช้อักขระควบคุม
 plot-error-overlap = พื้นที่ก่อสร้างทับซ้อนกับแปลงอื่น
@@ -1059,14 +1039,10 @@ plot-menu-clear = ฟ้าใส
 plot-menu-confirm-delete = ลบการลงทะเบียน { $arg0 } หรือไม่? การป้องกัน สิทธิ์สมาชิก และการตั้งค่าจะถูกลบและไม่สามารถย้อนกลับได้ สิ่งปลูกสร้างจะยังอยู่
 plot-menu-confirm-subplot-transfer = โอน { $arg0 } ให้ { $arg1 } หรือไม่? เจ้าของพื้นที่หลักยังดูแลได้
 plot-menu-confirm-transfer = โอนสิทธิ์จัดการแปลง { $arg0 } ให้ { $arg1 } หรือไม่? คุณจะเสียสิทธิ์เข้าถึง แต่ชื่อผู้สร้างผลงานเดิมไม่เปลี่ยน
-plot-menu-confirm-withdraw = ถอนความเห็นนี้หรือไม่? สถานะการถอนจะยังแสดงต่อสาธารณะ
 plot-menu-create = สร้างแปลง
 plot-menu-create-for-player = ลงทะเบียนที่ดินให้ผู้เล่นนี้
 plot-menu-custom-time = เวลากำหนดเอง
 plot-menu-delete = ลบการลงทะเบียนที่ดิน
-plot-menu-description = คำอธิบาย
-plot-menu-feedback = คัดค้านประกาศนี้
-plot-menu-find-record = ค้นหาบันทึก
 plot-menu-flag-container = เปิดช่องเก็บของ
 plot-menu-flag-entity = โต้ตอบกับเอนทิตี
 plot-menu-follow-parent = ตามพื้นที่หลัก
@@ -1084,12 +1060,8 @@ plot-menu-owner = เจ้าของ: { $arg0 }
 plot-menu-parent-supervisor = เจ้าของพื้นที่หลัก: { $arg0 } · ดูแล
 plot-menu-player = ชื่อผู้เล่นหรือ UUID
 plot-menu-rain = ฝนหรือหิมะ
-plot-menu-record-search = รหัสหรือหัวข้อ
-plot-menu-related-notice = ดูประกาศที่เกี่ยวข้อง
 plot-menu-remove-member = นำสมาชิกออก
 plot-menu-rename = เปลี่ยนชื่อโครงการ
-plot-menu-rule = บันทึกคำตัดสิน
-plot-menu-ruling = อธิบายเหตุผลของคำตัดสิน (8–1000 อักขระ)
 plot-menu-set-role = ตั้งเป็น{ $arg0 }
 plot-menu-settings = การตั้งค่าโครงการ
 plot-menu-submit = ใช้
@@ -1100,7 +1072,6 @@ plot-menu-time = เวลา
 plot-menu-time-input = เวลา (HH:mm)
 plot-menu-transfer = โอนแปลง
 plot-menu-weather = สภาพอากาศ
-plot-menu-withdraw = ถอนความเห็น
 plot-no-here = ตำแหน่งนี้ไม่มีแปลงที่ได้รับการปกป้อง
 plot-notice-board = ป้ายประกาศแปลง
 plot-notice-cleared = ลบป้ายประกาศแล้ว
@@ -1178,7 +1149,6 @@ plot-region-open = จัดการสี่เหลี่ยม ({ $arg0 })
 plot-region-select-hint = เลือกสี่เหลี่ยมตามหมายเลขเพื่อโฟกัสและเน้นเส้น เส้นสีเทาแสดงหน้าปัจจุบัน การรวมอาจเปลี่ยนหมายเลข
 plot-renamed = เปลี่ยนชื่อโครงการแล้ว
 plot-role-admin = ผู้ดูแลแปลง
-plot-role-changed-for-you = บทบาทของคุณในแปลง { $arg0 } เปลี่ยนเป็น{ $arg1 }แล้ว
 plot-role-collaborator = ผู้ร่วมงาน
 plot-role-owner = เจ้าของพื้นที่
 plot-role-parent-owner = เจ้าของพื้นที่หลัก
@@ -1196,16 +1166,8 @@ plot-selection-stopped = สิ้นสุดการเลือกพื้�
 plot-selection-subtract = ลบกรอบปัจจุบันออก
 plot-selection-undo = เลิกทำขั้นตอนล่าสุด
 plot-subplot-created = สร้างพื้นที่ย่อย { $arg0 } แล้ว · { $arg1 } บล็อก²
-plot-subplot-created-for-you = คุณเป็นเจ้าของพื้นที่ย่อย { $arg0 } ภายใน { $arg1 } แล้ว
-plot-subplot-owner-changed = เจ้าของพื้นที่ย่อย { $arg0 } เปลี่ยนเป็น { $arg1 } แล้ว
-plot-subplot-parent-transferred = เจ้าของพื้นที่หลักของพื้นที่ย่อย { $arg0 } เปลี่ยนเป็น { $arg1 } แล้ว
-plot-subplot-released = ปล่อยพื้นที่ย่อย { $arg0 } แล้ว แต่พื้นที่เดิมยังได้รับการคุ้มครองจากพื้นที่หลัก
 plot-title = ที่ดิน
 plot-transferred = โอนแปลง { $arg0 } ให้ { $arg1 } แล้ว
-plot-transferred-to-you = { $arg1 } โอนแปลง { $arg0 } ให้คุณแล้ว
-
-## World · Vehicles
-
 vehicle-command-description = ขับและจัดการยานพาหนะจากเอนทิตีแสดงผล
 vehicle-menu-label =
     { $arg0 ->
@@ -1976,7 +1938,7 @@ music-space-label =
         [select-all] เลือกผลลัพธ์ทั้งหมด
         [clear-tracks] ยกเลิกการเลือกเพลง
         [add-playlist] เพิ่มในรายการ
-        [description] { plot-menu-description }
+        [description] คำอธิบาย
         [make-private] ตั้งเป็นส่วนตัว
         [publish] ตั้งเป็นสาธารณะ
         [delete] ลบเพลย์ลิสต์

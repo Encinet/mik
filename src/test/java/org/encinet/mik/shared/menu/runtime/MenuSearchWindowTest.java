@@ -101,8 +101,7 @@ class MenuSearchWindowTest {
                     Component.text(FluentTestSupport.text(bundle,Message.MENU_SEARCH_RETRY)),Component.text(FluentTestSupport.text(bundle,Message.BACK)),
                     (shown,total) -> Component.text(FluentTestSupport.text(bundle,Message.MENU_SEARCH_LIMIT,shown,total)));
             for (var messages : List.of(List.of(Message.GOVERNANCE_MENU_PLAYERS,Message.GOVERNANCE_MENU_PLAYER_NAME),
-                    List.of(Message.BAN_MENU_SELECT_TITLE,Message.BAN_MENU_PLAYER_INPUT),List.of(Message.PLOT_MENU_MANAGE,Message.PLOT_MENU_PLAYER),
-                    List.of(Message.PLOT_MENU_FIND_RECORD,Message.PLOT_MENU_RECORD_SEARCH))) {
+                    List.of(Message.BAN_MENU_SELECT_TITLE,Message.BAN_MENU_PLAYER_INPUT),List.of(Message.PLOT_MENU_MANAGE,Message.PLOT_MENU_PLAYER))) {
                 var definition = definition(Component.text(FluentTestSupport.text(bundle,messages.getFirst())),
                         Component.text(FluentTestSupport.text(bundle,messages.getLast())),new AtomicInteger());
                 for (var phase : List.of(MenuQueryViewTestSupport.Phase.IDLE,MenuQueryViewTestSupport.Phase.EDITING)) {

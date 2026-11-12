@@ -6,6 +6,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.codec.http.websocketx.*;
 import io.netty.util.ReferenceCountUtil;
+import io.netty.util.AttributeKey;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.ClosedChannelException;
@@ -19,8 +20,9 @@ import java.util.concurrent.TimeUnit;
 
 /** Owns encryption, key generations and bounded exchange queues on the channel event loop. */
 final class WebChatCipher extends ChannelDuplexHandler {
+    static final AttributeKey<Boolean> COMPRESSION = AttributeKey.valueOf("mik.webchat.compression");
     static final int MAX_INBOUND_FRAME = 8192 + 1 + 16;
-    private static final byte APPLICATION = 0, KEY_EXCHANGE = 1;
+    private static final byte APPLICATION = WebChatPacket.APPLICATION, KEY_EXCHANGE = 1;
     static final int MAX_RECORDS = 16_384;
     static final Duration KEY_LIFETIME = Duration.ofMinutes(30);
     static final Duration EXCHANGE_TIMEOUT = Duration.ofSeconds(5);
@@ -28,7 +30,7 @@ final class WebChatCipher extends ChannelDuplexHandler {
     private enum State { HELLO, AUTHORIZATION, KEY, FINISH, READY, ROTATING, CLOSED }
     record Authorization(String clientPublicKey) { }
     enum InitialKeyConfirmed { INSTANCE }
-    private record Pending(byte[] clear, ChannelPromise promise) { }
+    private record Pending(byte[] clear, byte kind, ChannelPromise promise) { }
     private final WebChatEncryption encryption;
     private final ArrayDeque<Pending> pending = new ArrayDeque<>();
     private State state = State.HELLO;
@@ -37,6 +39,7 @@ final class WebChatCipher extends ChannelDuplexHandler {
     private ScheduledFuture<?> deadline, rotation;
     private int pendingBytes, readRecords, writtenRecords;
     private long establishedAt;
+    private boolean compression;
 
     WebChatCipher(WebChatEncryption encryption) { this.encryption = encryption; }
 
@@ -61,20 +64,26 @@ final class WebChatCipher extends ChannelDuplexHandler {
             promise.tryFailure(new IllegalArgumentException("Plain application frames are required internally"));
             terminate(context); return;
         }
-        if (!(message instanceof TextWebSocketFrame text)) { context.write(message, promise); return; }
+        if (!(message instanceof TextWebSocketFrame) && !(message instanceof WebChatPacket)) {
+            context.write(message, promise); return;
+        }
         byte[] clear = null;
         try {
-            clear = text.text().getBytes(StandardCharsets.UTF_8);
-            if (clear.length > 128 * 1024) throw new IllegalArgumentException("Chat frame too large");
+            var packet = message instanceof WebChatPacket prepared ? prepared
+                    : WebChatPacket.application(((TextWebSocketFrame) message).text(), false);
+            byte kind = packet.kind();
+            clear = packet.copyPayload();
+            if (clear.length > WebChatPacket.MAX_BYTES) throw new IllegalArgumentException("Chat frame too large");
             if (state == State.READY) {
                 maybeRotate(context);
                 if (state == State.READY) {
-                    writeProtected(context, clear, APPLICATION, promise);
+                    writeProtected(context, clear, kind, promise);
                     maybeRotate(context);
                     return;
                 }
             }
             if (state == State.HELLO) {
+                if (!(message instanceof TextWebSocketFrame text)) throw new IllegalArgumentException("Expected connection hello");
                 JsonObject body = JsonParser.parseString(text.text()).getAsJsonObject();
                 if (!body.keySet().equals(java.util.Set.of("type", "connectionId")) || !body.get("type").getAsString().equals("hello"))
                     throw new IllegalArgumentException("Expected connection hello");
@@ -87,7 +96,7 @@ final class WebChatCipher extends ChannelDuplexHandler {
             if (pending.size() >= 16 || pendingBytes + clear.length > 256 * 1024)
                 throw new IllegalArgumentException("Chat key exchange backpressure");
             if (state != State.KEY && state != State.FINISH && state != State.ROTATING) throw new ClosedChannelException();
-            pending.addLast(new Pending(clear, promise)); pendingBytes += clear.length;
+            pending.addLast(new Pending(clear, kind, promise)); pendingBytes += clear.length;
             clear = null; // The exchange queue now owns and erases this buffer.
         } catch (Exception invalid) { promise.tryFailure(invalid); terminate(context); }
         finally {
@@ -125,6 +134,8 @@ final class WebChatCipher extends ChannelDuplexHandler {
 
     private void writeProtected(ChannelHandlerContext context, byte[] clear, byte kind, ChannelPromise promise) throws Exception {
         checkBudget();
+        if (kind == WebChatPacket.COMPRESSED_APPLICATION && !compression)
+            throw new IllegalStateException("Compression was not negotiated");
         byte[] record = new byte[clear.length + 1];
         record[0] = kind;
         System.arraycopy(clear, 0, record, 1, clear.length);
@@ -161,7 +172,7 @@ final class WebChatCipher extends ChannelDuplexHandler {
         if (initial) context.fireUserEventTriggered(InitialKeyConfirmed.INSTANCE);
         while (!pending.isEmpty()) {
             Pending next = pending.removeFirst(); pendingBytes -= next.clear().length;
-            try { writeProtected(context, next.clear(), APPLICATION, next.promise()); }
+            try { writeProtected(context, next.clear(), next.kind(), next.promise()); }
             catch (Exception invalid) { next.promise().tryFailure(invalid); throw invalid; }
             finally { Arrays.fill(next.clear(), (byte) 0); }
         }
@@ -183,7 +194,17 @@ final class WebChatCipher extends ChannelDuplexHandler {
                 try {
                     if (clear.length < 2 || clear[0] != KEY_EXCHANGE) throw new IllegalArgumentException("Expected key confirmation");
                     String json = decodeRecord(clear);
-                    exchange.finish(JsonParser.parseString(json).getAsJsonObject());
+                    JsonObject finished = JsonParser.parseString(json).getAsJsonObject();
+                    boolean negotiated = finished.has("compression");
+                    if (negotiated) {
+                        var value = finished.remove("compression");
+                        if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+                                || !value.getAsString().equals("deflate")) throw new IllegalArgumentException("Unsupported compression");
+                    }
+                    exchange.finish(finished);
+                    if (session != null && negotiated != compression) throw new IllegalArgumentException("Changed compression capability");
+                    compression = negotiated;
+                    context.channel().attr(COMPRESSION).set(compression);
                     activateExchange(context);
                 } finally { Arrays.fill(clear, (byte) 0); }
             } else if ((state == State.READY || state == State.ROTATING) && message instanceof BinaryWebSocketFrame binary) {

@@ -1,22 +1,12 @@
 package org.encinet.mik.feature.community.social.command;
 
-import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
-
-import java.util.Optional;
 
 /** A complete shared command from input decoding through semantic presentation. */
 public interface SocialCommand<A, R> {
-    SocialCommandSpec spec();
+    SocialCommandDefinition<A> definition();
 
-    /** Localized through {@link Message}; empty commands are internal and hidden from help. */
-    default Optional<Message> description() {
-        return Optional.empty();
-    }
+    SocialCommandExecution<R> execute(SocialCommandContext context, A argument);
 
-    A decode(SocialCommandInput input);
-
-    R handle(SocialCommandContext context, A argument);
-
-    SocialDocument present(SocialCommandContext context, R result);
+    SocialDocument present(SocialPresentationContext context, R result);
 }

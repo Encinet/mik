@@ -1,16 +1,24 @@
 package org.encinet.mik.feature.community.social.command.builtin;
 
+import java.util.ArrayList;
+
+import java.util.List;
+
 import org.encinet.mik.feature.community.ai.api.AiGateway;
 import org.encinet.mik.feature.community.ai.api.AiRequest;
 import org.encinet.mik.feature.community.ai.api.AiRequestException;
+import org.encinet.mik.feature.community.ai.api.AiInteractionContext;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.encinet.mik.feature.community.identity.IdentityBinding;
+import org.encinet.mik.feature.community.social.command.SocialArguments;
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.SocialCommandExecution;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
-import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
@@ -60,49 +68,49 @@ public final class AiSocialCommand implements SocialCommand<String, AiSocialComm
             aliases(Language.RU_RU, "ии"),
             aliases(Language.TH_TH, "ถามai"),
             aliases(Language.UK_UA, "ші"));
+    public static final SocialCommandDefinition<String> DEFINITION =
+            SocialCommandDefinition.visible(SPEC, Message.AI_SOCIAL_COMMAND_DESCRIPTION, SocialArguments.text(Message.AI_SOCIAL_COMMAND_PARAMETERS));
+
+    @Override
+    public SocialCommandDefinition<String> definition() { return DEFINITION; }
+
 
     private final AiGateway ai;
     private final SocialCommandLanguageResolver languageResolver;
     private final LanguageService languages;
     private final Logger logger;
+    private final List<SocialCommandDefinition<?>> commands;
 
     public AiSocialCommand(
             AiGateway ai,
             SocialCommandLanguageResolver languageResolver,
             LanguageService languages,
-            Logger logger
+            Logger logger,
+            List<SocialCommandDefinition<?>> commands
     ) {
         this.ai = Objects.requireNonNull(ai, "ai");
         this.languageResolver = Objects.requireNonNull(languageResolver, "languageResolver");
         this.languages = Objects.requireNonNull(languages, "languages");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.commands = List.copyOf(commands);
     }
 
     @Override
-    public SocialCommandSpec spec() {
-        return SPEC;
+    public SocialCommandExecution<Result> execute(SocialCommandContext context, String argument) {
+        Result result = perform(context, argument);
+        return SocialCommandExecution.localized(result, result.language());
     }
 
-    @Override
-    public Optional<Message> description() {
-        return Optional.of(Message.AI_SOCIAL_COMMAND_DESCRIPTION);
-    }
-
-    @Override
-    public String decode(SocialCommandInput input) {
-        return input.rawArgument();
-    }
-
-    @Override
-    public Result handle(SocialCommandContext context, String argument) {
-        Optional<IdentityBinding> binding = languageResolver.binding(context);
+    private Result perform(SocialCommandContext context, String argument) {
+        var lookup = languageResolver.lookup(context);
+        Optional<IdentityBinding> binding = lookup.binding();
         Language language = languageResolver.language(binding, context);
         String prompt = Objects.requireNonNullElse(argument, "").strip();
         if (prompt.isEmpty()) {
             return new Result.QuestionRequired(language);
         }
 
-        String conversationId = conversationId(context);
+        String conversationId = conversationId(context, lookup);
         if (CLEAR_ARGUMENTS.contains(prompt.toLowerCase(Locale.ROOT))) {
             ai.clear(conversationId);
             return new Result.Cleared(language);
@@ -117,7 +125,8 @@ public final class AiSocialCommand implements SocialCommand<String, AiSocialComm
         CompletableFuture<String> request;
         try {
             request = ai.ask(new AiRequest(
-                    conversationId, requesterName, language.id(), playerId, prompt));
+                    conversationId, requesterName, language.id(), playerId, prompt,
+                    interaction(context, language, lookup)));
             String answer = request.orTimeout(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS).join();
             return new Result.Answer(language, answer);
         } catch (RuntimeException error) {
@@ -126,7 +135,7 @@ public final class AiSocialCommand implements SocialCommand<String, AiSocialComm
                 return switch (rejection.reason()) {
                     case DISABLED -> new Result.Disabled(language);
                     case PROMPT_EMPTY -> new Result.QuestionRequired(language);
-                    case PROMPT_TOO_LONG -> new Result.PromptTooLong(language);
+                    case PROMPT_TOO_LONG -> new Result.PromptTooLong(language, ai.maximumPromptCharacters());
                     case CONVERSATION_BUSY, SERVER_BUSY -> new Result.Busy(language);
                     case CLOSED, EMPTY_RESPONSE -> new Result.Failed(language);
                 };
@@ -138,21 +147,21 @@ public final class AiSocialCommand implements SocialCommand<String, AiSocialComm
     }
 
     @Override
-    public SocialDocument present(SocialCommandContext context, Result result) {
-        Language language = result.language();
+    public SocialDocument present(SocialPresentationContext context, Result result) {
+        Language language = context.language();
         return switch (result) {
             case Result.Answer answer -> document(REQUIRED, language, SocialDocument.Tone.INFO,
                     answer.text());
-            case Result.QuestionRequired _ -> document(
-                    TRUSTED, language, SocialDocument.Tone.WARNING,
-                    languages.t(language, Message.AI_SOCIAL_QUESTION_REQUIRED));
+            case Result.QuestionRequired _ -> SocialDocument.message(TRUSTED, SocialDocument.Tone.WARNING,
+                    SocialDocument.instruction(languages.t(language, Message.AI_SOCIAL_QUESTION_REQUIRED),
+                            definition().usage(context.syntax(), language, languages))).localized(language);
             case Result.Disabled _ -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     languages.t(language, Message.AI_DISABLED));
             case Result.Busy _ -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     languages.t(language, Message.AI_BUSY));
-            case Result.PromptTooLong _ -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
+            case Result.PromptTooLong tooLong -> document(TRUSTED, language, SocialDocument.Tone.WARNING,
                     languages.t(language, Message.AI_PROMPT_TOO_LONG,
-                            ai.maximumPromptCharacters()));
+                            tooLong.maximumCharacters()));
             case Result.Cleared _ -> document(TRUSTED, language, SocialDocument.Tone.SUCCESS,
                     languages.t(language, Message.AI_CLEARED));
             case Result.Failed _ -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
@@ -166,17 +175,33 @@ public final class AiSocialCommand implements SocialCommand<String, AiSocialComm
             SocialDocument.Tone tone,
             String text
     ) {
-        return SocialDocument.of(moderation, "✦ AI", tone, SocialDocument.paragraph(text))
+        return SocialDocument.message(moderation, tone, SocialDocument.paragraph(text))
                 .localized(language);
     }
 
-    private static String conversationId(SocialCommandContext context) {
+    private AiInteractionContext interaction(SocialCommandContext context, Language language,
+                                             SocialCommandLanguageResolver.BindingLookup lookup) {
+        var operations = new ArrayList<AiInteractionContext.Operation>();
+        for (var command : commands) {
+            command.description().ifPresent(description -> operations.add(new AiInteractionContext.Operation(
+                    command.usage(context.syntax(), language, languages), languages.t(language, description))));
+        }
+        var status = !lookup.available() ? AiInteractionContext.BindingStatus.UNAVAILABLE
+                : lookup.binding().isPresent() ? AiInteractionContext.BindingStatus.BOUND
+                : AiInteractionContext.BindingStatus.UNBOUND;
+        return new AiInteractionContext(context.platform().displayName(), status, operations);
+    }
+
+    private static String conversationId(SocialCommandContext context,
+                                         SocialCommandLanguageResolver.BindingLookup lookup) {
         String principal = context.message().authenticatedIdentity()
                 .map(identity -> identityKey(identity.key()))
                 .orElse("event\u0000" + context.message().eventId());
+        String account = lookup.binding().map(binding -> "binding\u0000" + binding.bindingId())
+                .orElse(lookup.available() ? "unbound" : "unavailable");
         String scope = context.platform().id() + '\u0000'
                 + context.message().conversation().type().name() + '\u0000'
-                + context.message().conversation().id() + '\u0000' + principal;
+                + context.message().conversation().id() + '\u0000' + principal + '\u0000' + account;
         return "social:" + Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(sha256(scope));
     }
@@ -233,7 +258,7 @@ public final class AiSocialCommand implements SocialCommand<String, AiSocialComm
             }
         }
 
-        record PromptTooLong(Language language) implements Result {
+        record PromptTooLong(Language language, int maximumCharacters) implements Result {
             public PromptTooLong {
                 Objects.requireNonNull(language, "language");
             }

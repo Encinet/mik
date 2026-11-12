@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.social.platform.matrix.client;
 
+import org.encinet.mik.feature.community.social.api.SocialFutures;
+
 import static org.encinet.mik.feature.community.social.platform.matrix.MatrixTestSupport.plaintextDevice;
 
 import com.google.gson.JsonObject;
@@ -35,6 +37,27 @@ class MatrixClientTest {
     void stopServer() {
         if (server != null) {
             server.stop(0);
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void imageFailureTracksWhetherAUserVisibleSendWasAttempted(boolean submitted) throws Exception {
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            if (exchange.getRequestURI().getPath().endsWith("/upload") && submitted) {
+                respond(exchange, 200, "{\"content_uri\":\"mxc://example.org/image\"}");
+            } else respond(exchange, 503, "{\"errcode\":\"M_UNKNOWN\",\"error\":\"unavailable\"}");
+        });
+        server.start();
+        try (HttpClient http = HttpClient.newHttpClient()) {
+            var client = new MatrixClient(http, config(), _ -> java.util.concurrent.CompletableFuture.completedFuture(
+                    org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory.Security.PLAINTEXT), plaintextDevice());
+            var result = client.replyImage("!room:example.org", "$reply", Optional.empty(), "image/png", new byte[]{1},
+                    1, 1, "image", "caption", "caption").join();
+            assertEquals(submitted ? org.encinet.mik.feature.community.social.api.SocialDeliveryResult.Status.UNKNOWN
+                    : org.encinet.mik.feature.community.social.api.SocialDeliveryResult.Status.NOT_SENT, result.status());
         }
     }
 
@@ -420,10 +443,11 @@ class MatrixClientTest {
         HttpClient http = HttpClient.newHttpClient();
         try {
             MatrixClient client = new MatrixClient(http, config(), _ -> java.util.concurrent.CompletableFuture.completedFuture(org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory.Security.PLAINTEXT), plaintextDevice());
-            var pending = MatrixFutures.recover(client.replyImage("!room:example.org", "$reply", Optional.empty(),
+            var pending = SocialFutures.recover(client.replyImage("!room:example.org", "$reply", Optional.empty(),
                     "image/png", new byte[]{1}, 1, 1, "image", "caption", "caption"), _ -> {
                 textRecovery.incrementAndGet();
-                return client.sendText("!room:example.org", "caption");
+                return org.encinet.mik.feature.community.social.api.SocialDeliveryResult.observe(client.sendText("!room:example.org", "caption"),
+                        _ -> org.encinet.mik.feature.community.social.api.SocialDeliveryResult.Status.UNKNOWN);
             });
             assertTrue(sending.await(3, TimeUnit.SECONDS));
             assertTrue(pending.cancel(true));

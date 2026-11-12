@@ -18,7 +18,6 @@ import org.encinet.mik.test.ChatTestMessages;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -353,6 +352,6 @@ class QqMessageContentTest {
         author.addProperty("username", "Author");
         payload.add("author", author);
         return QqInboundMapper.map(QqGatewayGroupMessage.from(payload, "event-id").orElseThrow(),
-                "app-id", _ -> CompletableFuture.completedFuture(null));
+                "app-id", org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
     }
 }

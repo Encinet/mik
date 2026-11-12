@@ -4,14 +4,11 @@ import org.encinet.mik.feature.community.chat.model.ChatPlaceholder;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.feature.community.chat.model.ChatConversation;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
-import org.encinet.mik.feature.community.chat.model.ChatContent;
 import org.encinet.mik.feature.community.chat.model.ChatMessageId;
 import org.encinet.mik.feature.community.chat.model.ChatOrigin;
 import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
 import org.encinet.mik.feature.community.chat.model.ChatReferences;
 import org.encinet.mik.feature.community.chat.model.ChatSender;
-import org.encinet.mik.feature.community.chat.model.ChatNode;
-import org.encinet.mik.feature.community.chat.model.ChatStyle;
 import org.encinet.mik.feature.community.chat.model.ChatSubmission;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.social.api.SocialEventSink;
@@ -28,7 +25,6 @@ import org.encinet.mik.feature.community.social.chat.SocialMentionBindingDirecto
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
 import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
-import org.encinet.mik.feature.community.social.chat.SocialDirectedNotice;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.shared.i18n.Language;
@@ -55,6 +51,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
     private final Object lock = new Object();
     private final SocialPlatformDescriptor descriptor;
     private final long number;
+    private final UUID invocationScope = UUID.randomUUID();
     private final SocialCommandDispatcher commands;
     private final SocialIdentityLeaseManager identityLeases;
     private final SocialContentGuard contentGuard;
@@ -100,7 +97,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
         this.chatGateway = Objects.requireNonNull(chatGateway, "chatGateway");
         this.mentionBindings = Objects.requireNonNull(
                 mentionBindings, "mentionBindings");
-        this.processor = new SocialCommandProcessor(contentGuard, logger);
+        this.processor = new SocialCommandProcessor(contentGuard, languages, logger);
         this.languages = Objects.requireNonNull(languages, "languages");
         this.logger = Objects.requireNonNull(logger, "logger");
     }
@@ -224,7 +221,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
                         () -> deliverChat(chat))
                         : executor.submit(() -> processor.execute(
                         descriptor, message, invocation,
-                        plan.runtimePolicy().output(), this::resultIsCurrent));
+                        plan.runtimePolicy().output(), this::resultIsCurrent, invocationScope));
             } catch (RuntimeException error) {
                 deduplicator.forget(deduplicationKey);
                 throw error;
@@ -258,24 +255,6 @@ final class SocialPlatformGeneration implements AutoCloseable {
         }
     }
 
-    SocialChatPublishReport.Admission publishDirectedNotice(SocialDirectedNotice notice) {
-        Objects.requireNonNull(notice, "notice");
-        synchronized (lock) {
-            if (closed || state != SocialPlatformState.READY
-                    || !(session instanceof SocialChatPlatformSession chatSession)) {
-                return SocialChatPublishReport.Admission.UNAVAILABLE;
-            }
-            boolean admitted = executor.submitOrdered("outbound-board-notice",
-                    () -> sendDirectedNotice(chatSession, notice));
-            if (admitted) {
-                outboundAccepted.increment();
-                return SocialChatPublishReport.Admission.ACCEPTED;
-            }
-            outboundBackpressured.increment();
-            return SocialChatPublishReport.Admission.BACKPRESSURED;
-        }
-    }
-
     SocialChatPublishReport.Admission publishNotice(Function<Language, SocialDocument> document) {
         synchronized (lock) {
             if (closed || state != SocialPlatformState.READY
@@ -296,20 +275,24 @@ final class SocialPlatformGeneration implements AutoCloseable {
         if (!chatSessionIsCurrent(chatSession)) return;
         try {
             SocialDocument notice = Objects.requireNonNull(document.apply(plan.commandSyntax().defaultLanguage()),
-                    "Social notice factory returned null").truncated(plan.runtimePolicy().output().maximumLength());
-            if (!contentGuard.allowsOutboundText(notice.plainText(), notice.moderation(), plan.runtimePolicy().output())) return;
+                    "Social notice factory returned null");
             List<CompletableFuture<Void>> sends = new ArrayList<>();
+            var reviewed = new java.util.HashMap<String, Boolean>();
             for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
                 if (!chatSessionIsCurrent(chatSession)) break;
                 try {
-                    sends.add(Objects.requireNonNull(chatSession.sendNotice(route.conversation(), notice),
-                            "Social notice sender returned null").toCompletableFuture().handle((_, error) -> {
+                    var prepared = chatSession.prepareNotice(route.conversation(), notice, plan.runtimePolicy().output().maximumLength());
+                    var visible = prepared.document();
+                    if (!reviewed.computeIfAbsent(visible.plainText(), text -> contentGuard.allowsOutboundText(
+                            text, visible.moderation(), plan.runtimePolicy().output()))) continue;
+                    if (!chatSessionIsCurrent(chatSession)) break;
+                    sends.add(prepared.send().handle((result, error) -> {
                         if (error != null) noticeFailed(chatSession, error);
+                        else if (result.status() != org.encinet.mik.feature.community.social.api.SocialDeliveryResult.Status.ACCEPTED)
+                            noticeFailed(chatSession, result.failure().orElseThrow());
                         return null;
                     }));
-                } catch (RuntimeException error) {
-                    noticeFailed(chatSession, error);
-                }
+                } catch (RuntimeException error) { noticeFailed(chatSession, error); }
             }
             CompletableFuture.allOf(sends.toArray(CompletableFuture[]::new)).join();
         } catch (RuntimeException error) {
@@ -322,50 +305,6 @@ final class SocialPlatformGeneration implements AutoCloseable {
         if (chatSessionIsCurrent(chatSession)) {
             logger.warning("Could not deliver a server notice to " + descriptor.displayName()
                     + ": " + SocialCommandProcessor.rootMessage(error));
-        }
-    }
-
-    private void sendDirectedNotice(SocialChatPlatformSession chatSession,
-                                    SocialDirectedNotice notice) {
-        if (!chatSessionIsCurrent(chatSession)) return;
-        try {
-            List<ExternalIdentity> candidates = mentionBindings.findByPlayer(notice.playerId())
-                    .stream()
-                    .filter(binding -> binding.externalKey().platform().equals(descriptor.id()))
-                    .map(binding -> new ExternalIdentity(binding.externalKey(),
-                            binding.externalDisplayName()))
-                    .toList();
-            if (candidates.isEmpty()) return;
-            ChatContent content = new ChatContent(List.of(
-                    new ChatNode.PlayerMention(notice.playerId(), notice.playerName(),
-                            ChatStyle.EMPTY),
-                    new ChatNode.Text(" " + notice.body(), ChatStyle.EMPTY)));
-            ChatSubmission submission = new ChatSubmission(
-                    ChatMessageId.random(), new ChatOrigin.Plugin("community-board", Set.of()),
-                    new ChatSender("Mik", Optional.empty(), Optional.empty(), "", "", "", 0xFFFFFF),
-                    ChatConversation.minecraftPublic(), content.plainText(),
-                    ChatReferences.empty(), Instant.now(), ChatProcessingContext.external());
-            ChatMessage message = new ChatMessage(submission, content, Set.of());
-            SocialChatMentionRequest request = new SocialChatMentionRequest(
-                    notice.playerId(), notice.playerName(), candidates);
-            for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
-                SocialChatMentionResolution resolution = chatSession.resolveMentions(
-                        route.conversation(), List.of(request));
-                if (resolution.targetsFor(notice.playerId()).isEmpty()) continue;
-                if (!contentGuard.allowsOutboundText(
-                        SocialContentGuard.outboundChatText(message, resolution),
-                        REQUIRED, plan.runtimePolicy().output())) return;
-                if (!chatSessionIsCurrent(chatSession)) return;
-                chatSession.sendChat(route.conversation(), message, resolution)
-                        .toCompletableFuture().join();
-                break;
-            }
-        } catch (RuntimeException error) {
-            deliveryFailures.increment();
-            if (chatSessionIsCurrent(chatSession))
-                logger.warning("Could not deliver a directed community notice to "
-                        + descriptor.displayName() + ": "
-                        + SocialCommandProcessor.rootMessage(error));
         }
     }
 

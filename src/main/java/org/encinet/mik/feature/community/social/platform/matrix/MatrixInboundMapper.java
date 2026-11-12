@@ -66,7 +66,7 @@ final class MatrixInboundMapper {
                         .map(span -> span.shifted(-leadingBody.offset())).toList()), false,
                 new SocialMessageReferences(List.copyOf(mentions.values()),
                         repliedAuthor, mentionSpans),
-                new MatrixReplyChannel(client, event, config.maxOutboundLength())));
+                new MatrixReplyChannel(client, event)));
     }
 
     private static LeadingBody stripLeadingBotMention(

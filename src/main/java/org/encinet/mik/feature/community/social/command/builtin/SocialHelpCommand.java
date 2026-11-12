@@ -4,9 +4,12 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.social.command.NoArguments;
+import org.encinet.mik.feature.community.social.command.SocialArguments;
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.SocialCommandExecution;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
-import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
@@ -14,7 +17,6 @@ import org.encinet.mik.feature.community.social.document.SocialDocument;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.encinet.mik.feature.community.social.command.SocialCommandSpec.aliases;
@@ -41,55 +43,50 @@ public final class SocialHelpCommand implements SocialCommand<NoArguments, NoArg
             aliases(Language.RU_RU, "помощь"),
             aliases(Language.TH_TH, "ช่วยเหลือ"),
             aliases(Language.UK_UA, "допомога"));
+    public static final SocialCommandDefinition<NoArguments> DEFINITION =
+            SocialCommandDefinition.visible(SPEC, Message.SOCIAL_HELP_COMMAND_DESCRIPTION, SocialArguments.none());
+
+    @Override
+    public SocialCommandDefinition<NoArguments> definition() { return DEFINITION; }
+
 
     private final SocialCommandLanguageResolver languageResolver;
     private final LanguageService languages;
-    private final List<SocialCommand<?, ?>> commands;
+    private final List<SocialCommandDefinition<?>> commands;
 
     public SocialHelpCommand(
             SocialCommandLanguageResolver languageResolver,
             LanguageService languages,
-            List<? extends SocialCommand<?, ?>> commands
+            List<SocialCommandDefinition<?>> commands
     ) {
         this.languageResolver = Objects.requireNonNull(languageResolver, "languageResolver");
         this.languages = Objects.requireNonNull(languages, "languages");
         this.commands = List.copyOf(Objects.requireNonNull(commands, "commands"));
     }
 
-    public static String invocation(SocialCommandContext context, Language language) {
-        return context.syntax().displayPrefix() + SPEC.primaryAlias(language).orElseThrow();
+    public static String invocation(org.encinet.mik.feature.community.social.command.SocialCommandSyntax syntax, Language language) {
+        return SPEC.invocation(syntax, language, "");
     }
 
     @Override
-    public SocialCommandSpec spec() {
-        return SPEC;
+    public SocialCommandExecution<NoArguments> execute(SocialCommandContext context, NoArguments argument) {
+        return SocialCommandExecution.result(perform(context, argument), languageResolver.target(context));
     }
 
-    @Override
-    public Optional<Message> description() {
-        return Optional.of(Message.SOCIAL_HELP_COMMAND_DESCRIPTION);
-    }
-
-    @Override
-    public NoArguments decode(SocialCommandInput input) {
-        return NoArguments.decode(input);
-    }
-
-    @Override
-    public NoArguments handle(SocialCommandContext context, NoArguments argument) {
+    private NoArguments perform(SocialCommandContext context, NoArguments argument) {
         return argument;
     }
 
     @Override
-    public SocialDocument present(SocialCommandContext context, NoArguments result) {
-        List<SocialCommand<?, ?>> visible = new ArrayList<>(commands);
-        visible.add(this);
-        Language language = languageResolver.language(context);
+    public SocialDocument present(SocialPresentationContext context, NoArguments result) {
+        List<SocialCommandDefinition<?>> visible = new ArrayList<>(commands);
+
+        Language language = context.language();
         List<String> items = new ArrayList<>();
-        for (SocialCommand<?, ?> command : visible) {
+        for (SocialCommandDefinition<?> command : visible) {
             command.description().ifPresent(description ->
-                    command.spec().primaryAlias(language).ifPresent(alias -> items.add(
-                            context.syntax().displayPrefix() + alias + " — "
+                    command.spec().primaryAlias(language).ifPresent(_ -> items.add(
+                            command.usage(context.syntax(), language, languages) + " — "
                                     + languages.t(language, description))));
         }
         return SocialDocument.of(TRUSTED,

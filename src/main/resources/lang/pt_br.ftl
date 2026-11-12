@@ -685,18 +685,17 @@ social-admin-reloaded-all = Todas as plataformas sociais foram recarregadas.
 social-admin-status = { $arg0 } · { $arg1 } · geração { $arg2 } · conversas { $arg3 }
 social-admin-title = Plataformas sociais
 social-admin-unknown = Plataforma social desconhecida: { $arg0 }
-social-binding-already-linked = Esta identidade já está associada ao jogador do Minecraft { $arg0 }.
-social-binding-code-invalid = O código é inválido ou expirou. Reconecte-se para obter outro, ou use /bind { $arg0 } no jogo.
+social-binding-already-linked = Sua conta já está vinculada a { $arg0 }. Envie { $arg1 } para ver seu perfil.
+social-binding-confirmation-expired = Esta confirmação expirou ou a conta vinculada mudou. Solicite uma nova confirmação:
+social-binding-code-invalid = Este código é inválido ou expirou. Reconecte ou execute { $arg0 } dentro do jogo.
 social-binding-external-in-use = Esta identidade já está associada a outro jogador do Minecraft.
-social-binding-help = Tente conectar-se ao servidor para obter um código na tela de entrada, ou use /bind { $arg0 } se já estiver no jogo.
-    Copie o comando completo gerado.
-    Envie o comando aqui.
-    Use /meuperfil para verificar a associação.
+social-binding-help = Conecte ao servidor Minecraft e envie aqui o comando completo de vinculação da tela de entrada. Se já estiver no jogo, obtenha-o com { $arg0 }.
 social-binding-identity-missing = Esta mensagem não contém uma identidade de membro confiável; por isso, a associação não está disponível.
-social-binding-linked = Associado ao jogador do Minecraft { $arg0 }.
+social-binding-link-completed = Sua conta foi vinculada. Reconecte para continuar a entrada.
+social-binding-linked = Sua conta de jogo { $arg0 } está vinculada. Reconecte para continuar a entrada.
 social-binding-membership-required = Entre em uma comunidade conectada nesta plataforma e tente vincular a conta novamente.
 social-binding-membership-unavailable = Não é possível verificar a participação na comunidade no momento. Tente novamente mais tarde ou entre em contato com a administração do servidor.
-social-binding-not-bound = Esta identidade da plataforma não está associada.
+social-binding-not-bound = Você ainda não vinculou uma conta de jogo.
 social-binding-platform-mismatch = Este código de verificação foi emitido para outra plataforma.
 social-binding-player-scope-in-use = Esse jogador do Minecraft já tem outra identidade vinculada no mesmo escopo de conta da plataforma.
 social-binding-rate-limited = Muitas tentativas falharam. Tente novamente em cerca de { $arg0 ->
@@ -704,9 +703,12 @@ social-binding-rate-limited = Muitas tentativas falharam. Tente novamente em cer
        *[other] { $arg0 } minutos
     }.
 social-binding-unavailable = A associação de identidade está temporariamente indisponível.
-social-binding-unlink-prompt = Desassociar remove a relação entre esta identidade e o Minecraft. Envie { $arg0 } para continuar.
+social-binding-unlink-completed = Sua conta foi desvinculada. Sem outro vínculo comunitário válido, vincule uma conta novamente antes de entrar.
+social-binding-unlink-prompt = Esta conta da plataforma será desvinculada de { $arg0 }. Sem outro vínculo comunitário válido, você perderá o acesso ao servidor e será desconectado se estiver online. Para confirmar, envie:
 social-binding-unlinked = Desassociado do jogador do Minecraft { $arg0 }.
 social-command-description = Gerenciar adaptadores de plataformas sociais
+social-command-invalid-arguments = Os argumentos são inválidos. Use:
+social-command-usage = Este comando não precisa de argumentos. Envie:
 social-crypto-command-description = Gerenciar a verificação de dispositivos criptografados do Matrix
 social-crypto-comparison-not-ready = A comparação SAS ainda não está pronta.
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -768,10 +770,12 @@ social-duration-minutes = { $arg0 ->
     }
 social-help-command-description = Mostrar esta lista de comandos
 social-link-command-description = Associar sua conta do Minecraft com um código do jogo
+social-link-command-parameters = <código>
 social-online-command-description = Mostrar jogadores online
 social-profile-afk = Online · AFK
 social-profile-avatar-alt = Rosto do Minecraft
 social-profile-command-description = Mostrar seu perfil; membros efetivos buscam por nome, menção ou resposta
+social-profile-command-parameters = [jogador]
 social-profile-first-joined-label = Primeiro acesso
 social-profile-language-label = Idioma
 social-profile-last-seen-label = Visto por último
@@ -787,16 +791,24 @@ social-profile-target-unbound = A identidade mencionada ou respondida não está
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = Nenhum jogador está online no momento.
-social-query-online-label = Online
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (Ausente)
    *[active] { $arg0 }
+    }
+social-query-online-summary = { $arg0 ->
+    [one] Há { $arg0 } jogador online agora.
+   *[other] Há { $arg0 } jogadores online agora.
+    }{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }Em AFK: { $arg1 }.
     }
 social-query-players-label = Jogadores
 social-query-population = Online { $arg0 }/{ $arg1 } · Ativos { $arg2 } · Ausente { $arg3 }
 social-query-unknown = Comando desconhecido. Envie { $arg0 } para ver os comandos disponíveis.
 social-query-uptime-label = Tempo de atividade
+social-query-version-label = Versão
 social-reply-hidden = Esta resposta foi ocultada pela política de segurança de conteúdo do servidor.
+social-reply-unavailable = Não é possível mostrar o resultado agora. Confira alterações de conta com o comando de perfil antes de solicitá-las novamente.
 social-state-disabled = desativada
 social-state-failed = falhou
 social-state-ready = pronta
@@ -805,13 +817,11 @@ social-state-stopped = parada
 social-status-command-description = Mostrar jogadores, TPS, MSPT e atividade
 social-title-command-help = Ajuda de comandos
 social-title-content-hidden = Conteúdo oculto
-social-title-identity-linking = Associar conta
-social-title-identity-unlinking = Desassociar conta
-social-title-online-players = Jogadores online
 social-title-player-profile = Perfil do jogador
 social-title-server-status = Status do servidor
-social-title-unknown-command = Comando desconhecido
 social-unlink-command-description = Remover esta associação após confirmação
+social-unlink-command-parameters = [{ social-unlink-confirmation } <confirmação>]
+social-unlink-confirmation = confirmar
 
 ## Community · AI and knowledge
 
@@ -867,6 +877,7 @@ ai-reload-failed = Falha ao recarregar a configuração da IA: { $arg0 }
 ai-reloaded = Configuração da IA recarregada ({ $arg0 })
 ai-request-failed = A solicitação à IA falhou; tente novamente mais tarde
 ai-social-command-description = Perguntar ao assistente de IA compartilhado
+ai-social-command-parameters = <pergunta>
 ai-social-question-required = Inclua uma pergunta após o comando de IA
 ai-status-disabled = A IA está desativada
 ai-status-enabled = IA ativa · provedor { $arg0 } · modelo { $arg1 } · ferramentas { $arg2 }
@@ -883,7 +894,7 @@ governance-active-days-60 = Pelo menos 6 dias ativos em 60 dias (atual: { $arg0 
 governance-active-header = ─── Elegibilidade de membro ativo ───
 governance-active-member = É membro atualmente
 governance-active-member-age = Membro há pelo menos 30 dias
-governance-active-playtime = Pelo menos 6 horas de jogo efetivo em 60 dias (atual: { $arg0 })
+governance-active-playtime = Pelo menos { $arg1 } de jogo efetivo em 60 dias (atual: { $arg0 })
 governance-activity-action = { $arg0 ->
     [confirm] Confirmar apoio
     [vote] Ler e votar
@@ -1090,7 +1101,6 @@ governance-votes-header = ─── Votações anônimas em andamento ───
 
 ## World · Plots
 
-plot-access-removed-for-you = Seu acesso ao terreno { $arg0 } foi removido.
 plot-admin-created = { $arg0 } registrado para { $arg1 } · { $arg2 }
 plot-allowed = ativado
 plot-area-changed = Os limites mudaram. Atualize e confirme novamente.
@@ -1103,35 +1113,6 @@ plot-area-replace-save = Substituir limites e salvar
 plot-area-save = Salvar limites
 plot-area-saved = Limites de “{ $arg0 }” salvos.
 plot-atmosphere-saved = Ambiente salvo.
-plot-board-auto-notify-result = Avisos programados para { $arg0 ->
-        [one] { $arg0 } jogador
-       *[other] { $arg0 } jogadores
-    }.
-plot-board-auto-registered-text = O terreno “{ $arg0 }” foi cadastrado. Coordenadas externas das células construídas: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }.
-plot-board-detail = Registro de { $arg0 } em { $arg1 } { $arg2 }, { $arg3 }, { $arg4 }: { $arg5 }
-plot-board-empty = Ainda não há registros da comunidade.
-plot-board-header = Avisos e comentários da comunidade (últimos { $arg0 }; detalhes: /plot board ID)
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = Aviso
-plot-board-kind-objection = Objeção
-plot-board-loading = Carregando publicação…
-plot-board-menu = Mural da comunidade
-plot-board-notice-alert = { $arg0 } publicou um aviso: { $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } apresentou uma objeção: { $arg1 } · { $arg2 }
-plot-board-rate-limited = Limite de publicações atingido. Tente mais tarde.
-plot-board-record-invalid = Registro inexistente, já resolvido ou ação não permitida.
-plot-board-registered-alert = { $arg0 } cadastrou o terreno “{ $arg1 }”: { $arg2 }
-plot-board-ruling-alert = Foi publicada uma decisão sobre a objeção de { $arg0 }: { $arg1 } · { $arg2 }
-plot-board-ruling-detail = Decisão: { $arg0 }
-plot-board-saved = Registro { $arg0 } salvo.
-plot-board-status-elapsed = Publicado há pelo menos 72 horas
-plot-board-status-open = Pendente
-plot-board-status-ruled = Decidido
-plot-board-status-withdrawn = Retirada
-plot-board-text-invalid = A descrição deve ter 12–1000 caracteres; a decisão, pelo menos 8.
-plot-board-unavailable = O mural não carregou. Tente mais tarde ou acesse https://mcmik.top/community/notices .
-plot-board-withdrawal-alert = { $arg0 } retirou uma objeção: { $arg1 } · { $arg2 }
-plot-board-write-failed = Não foi possível atualizar o mural. Tente mais tarde.
 plot-command-blocked = A proteção bloqueou este comando. Use /fill ou /setblock diretamente no seu terreno; peça à equipe que revise comandos /execute complexos.
 plot-command-description = Gerenciar terrenos de construção
 plot-created = { -plot.gender ->
@@ -1139,7 +1120,6 @@ plot-created = { -plot.gender ->
         [feminine] { -plot } { $arg0 } criada · { $arg1 }
        *[other] { -plot } { $arg0 } criado · { $arg1 }
     }
-plot-created-for-you = { $arg1 } registrou o terreno { $arg0 } para você.
 plot-deleted = Terreno liberado; a construção permanece.
 plot-denied = desativado
 plot-error-admin-owner-only = Alterar membros com capacidades de gestão exige gerenciar membros e permissões.
@@ -1149,7 +1129,7 @@ plot-error-busy = Os dados estão sendo salvos. Tente mais tarde; esta operaçã
 plot-error-flag = Permissão desconhecida. Escolha uma operação na lista de permissões.
 plot-error-id = ID do terreno inexistente ou ambíguo. Use /plot list.
 plot-error-member-missing = Este jogador não é mais membro.
-plot-error-member-required = Novos jogadores podem ver terrenos e apresentar objeções. É preciso ser membro para criar um projeto.
+plot-error-member-required = É preciso ser membro para criar um terreno.
 plot-error-name = O nome do projeto deve ter de 1 a 48 caracteres.
 plot-error-notice-text = Os avisos permitem até { $arg0 ->
         [one] { $arg0 } caractere
@@ -1201,14 +1181,10 @@ plot-menu-clear = Céu limpo
 plot-menu-confirm-delete = Excluir o registro de { $arg0 }? Proteção, permissões dos membros e configurações serão removidas sem possibilidade de desfazer. As construções permanecerão.
 plot-menu-confirm-subplot-transfer = Transferir { $arg0 } para { $arg1 }? O dono do terreno principal mantém a supervisão.
 plot-menu-confirm-transfer = Transferir a gestão de { $arg0 } para { $arg1 }? Você perderá o acesso; a autoria existente permanece.
-plot-menu-confirm-withdraw = Retirar esta resposta? A retirada continuará visível ao público.
 plot-menu-create = Criar terreno
 plot-menu-create-for-player = Registrar terreno para este jogador
 plot-menu-custom-time = Hora personalizada
 plot-menu-delete = Excluir registro do terreno
-plot-menu-description = Descrição
-plot-menu-feedback = Contestar este aviso
-plot-menu-find-record = Buscar registro
 plot-menu-flag-container = Abrir contêineres
 plot-menu-flag-entity = Interagir com entidades
 plot-menu-follow-parent = Seguir terreno principal
@@ -1226,12 +1202,8 @@ plot-menu-owner = Proprietário: { $arg0 }
 plot-menu-parent-supervisor = Dono do terreno principal: { $arg0 } · supervisão
 plot-menu-player = Nome do jogador ou UUID
 plot-menu-rain = Precipitação
-plot-menu-record-search = ID ou título
-plot-menu-related-notice = Ver aviso relacionado
 plot-menu-remove-member = Remover membro
 plot-menu-rename = Renomear projeto
-plot-menu-rule = Registrar decisão
-plot-menu-ruling = Explique a decisão (8–1000 caracteres)
 plot-menu-set-role = Definir como { $arg0 }
 plot-menu-settings = Configurações do projeto
 plot-menu-submit = Aplicar
@@ -1242,7 +1214,6 @@ plot-menu-time = Hora
 plot-menu-time-input = Hora (HH:mm)
 plot-menu-transfer = Transferir terreno
 plot-menu-weather = Clima
-plot-menu-withdraw = Retirar resposta
 plot-no-here = Não há terreno protegido neste local.
 plot-notice-board = Mural do terreno
 plot-notice-cleared = Mural limpo
@@ -1323,7 +1294,6 @@ plot-region-open = Gerenciar retângulos ({ $arg0 })
 plot-region-select-hint = Selecione um retângulo numerado para focar e destacar. Linhas cinzas mostram esta página; a união pode mudar os números.
 plot-renamed = Projeto renomeado.
 plot-role-admin = administrador do terreno
-plot-role-changed-for-you = Seu papel no terreno { $arg0 } agora é { $arg1 }.
 plot-role-collaborator = colaborador
 plot-role-owner = dono do terreno
 plot-role-parent-owner = dono do terreno principal
@@ -1341,16 +1311,8 @@ plot-selection-stopped = Seleção encerrada. Os rascunhos ficam salvos por terr
 plot-selection-subtract = Subtrair caixa atual
 plot-selection-undo = Desfazer último passo
 plot-subplot-created = Subterreno { $arg0 } criado · { $arg1 } bloco²
-plot-subplot-created-for-you = Você agora é dono do subterreno { $arg0 } dentro de { $arg1 }.
-plot-subplot-owner-changed = O subterreno { $arg0 } agora pertence a { $arg1 }.
-plot-subplot-parent-transferred = O terreno principal do seu subterreno { $arg0 } agora pertence a { $arg1 }.
-plot-subplot-released = O subterreno { $arg0 } foi liberado; a área continua protegida pelo terreno principal.
 plot-title = Terrenos
 plot-transferred = Terreno { $arg0 } transferido para { $arg1 }.
-plot-transferred-to-you = { $arg1 } transferiu o terreno { $arg0 } para você.
-
-## World · Vehicles
-
 vehicle-command-description = Dirigir e gerenciar veículos de entidades de exibição
 vehicle-menu-label =
     { $arg0 ->
@@ -2234,7 +2196,7 @@ music-space-label =
         [select-all] Selecionar todos os resultados
         [clear-tracks] Desmarcar músicas
         [add-playlist] Adicionar
-        [description] { plot-menu-description }
+        [description] Descrição
         [make-private] Tornar privada
         [publish] Tornar pública
         [delete] Excluir playlist

@@ -613,25 +613,27 @@ social-admin-reloaded-all = すべてのソーシャルプラットフォーム�
 social-admin-status = { $arg0 } · { $arg1 } · 世代 { $arg2 } · 会話 { $arg3 }
 social-admin-title = ソーシャルプラットフォーム
 social-admin-unknown = 不明なソーシャルプラットフォーム：{ $arg0 }
-social-binding-already-linked = この識別情報はすでに Minecraft プレイヤー { $arg0 } と連携されています。
-social-binding-code-invalid = コードが無効または期限切れです。再接続して新しいコードを取得するか、ゲーム内で /bind { $arg0 } を実行してください。
+social-binding-already-linked = すでに { $arg0 } と連携しています。{ $arg1 } でプロフィールを確認できます。
+social-binding-confirmation-expired = 確認の有効期限が切れたか、連携アカウントが変更されました。もう一度解除を要求してください：
+social-binding-code-invalid = このコードは無効か期限切れです。再接続するか、ゲーム内で { $arg0 } を実行して新しいコードを取得してください。
 social-binding-external-in-use = この識別情報はすでに別の Minecraft プレイヤーと連携されています。
-social-binding-help = サーバーへの接続を試すとログイン画面にコードが表示されます。参加済みの場合は /bind { $arg0 } を実行してください。
-    生成された完全なコマンドをコピーします。
-    そのコマンドをここに送信します。
-    /プロフィール で連携を確認します。
+social-binding-help = Minecraft サーバーに接続し、ログイン画面の連携コマンドをそのままここに送ってください。すでにゲーム内にいる場合は { $arg0 } で取得できます。
 social-binding-identity-missing = このメッセージには信頼できるメンバー識別情報がないため、連携できません。
-social-binding-linked = Minecraft プレイヤー { $arg0 } と連携しました。
+social-binding-link-completed = アカウントを連携しました。再接続するとログインを続けられます。
+social-binding-linked = ゲームアカウント { $arg0 } と連携しました。再接続するとログインを続けられます。
 social-binding-membership-required = このプラットフォームの連携コミュニティに参加してから、もう一度連携してください
 social-binding-membership-unavailable = コミュニティへの参加状況を確認できません。しばらくしてから再試行するか、サーバー管理者に連絡してください
-social-binding-not-bound = このプラットフォーム識別情報は連携されていません。
+social-binding-not-bound = まだゲームアカウントと連携していません。
 social-binding-platform-mismatch = この確認コードは別のプラットフォーム用です。
 social-binding-player-scope-in-use = この Minecraft プレイヤーには、同じプラットフォームアカウントのスコープで別の ID が連携されています。
 social-binding-rate-limited = 失敗回数が多すぎます。約 { $arg0 } 分後に再試行してください。
 social-binding-unavailable = 現在、識別情報の連携を利用できません。
-social-binding-unlink-prompt = 解除すると、このプラットフォーム識別情報と Minecraft の連携が削除されます。続行するには { $arg0 } を送信してください。
+social-binding-unlink-completed = 連携を解除しました。他に有効なコミュニティ連携がない場合、参加前に再度連携してください。
+social-binding-unlink-prompt = このプラットフォームのアカウントと { $arg0 } の連携を解除します。他に有効なコミュニティ連携がない場合、サーバーに参加できなくなり、接続中の場合は切断されます。確認するには次を送ってください：
 social-binding-unlinked = Minecraft プレイヤー { $arg0 } との連携を解除しました。
 social-command-description = ソーシャルプラットフォームアダプターを管理します
+social-command-invalid-arguments = 引数が正しくありません。次の形式で送信してください：
+social-command-usage = このコマンドに引数は不要です。次を送ってください：
 social-crypto-command-description = Matrix 暗号化デバイスの検証を管理
 social-crypto-comparison-not-ready = SAS の比較はまだ準備できていません。
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -675,10 +677,12 @@ social-duration-hours = { $arg0 } 時間 { $arg1 } 分
 social-duration-minutes = { $arg0 } 分
 social-help-command-description = このコマンド一覧を表示
 social-link-command-description = ゲーム内コードで Minecraft アカウントを連携
+social-link-command-parameters = <認証コード>
 social-online-command-description = オンラインプレイヤーを表示
 social-profile-afk = オンライン · AFK
 social-profile-avatar-alt = Minecraft の顔
 social-profile-command-description = 自分を表示；正式メンバーは名前、メンション、返信で他のプレイヤーを検索可能
+social-profile-command-parameters = [プレイヤー名]
 social-profile-first-joined-label = 初参加
 social-profile-language-label = 言語
 social-profile-last-seen-label = 最終オンライン
@@ -694,16 +698,21 @@ social-profile-target-unbound = メンションまたは返信先のユーザー
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = 現在オンラインのプレイヤーはいません。
-social-query-online-label = オンライン
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (離席中)
    *[active] { $arg0 }
+    }
+social-query-online-summary = 現在 { $arg0 } 人がオンラインです。{ $arg1 ->
+    [0] { "" }
+   *[other] うち { $arg1 } 人が離席中です。
     }
 social-query-players-label = プレイヤー
 social-query-population = オンライン { $arg0 }/{ $arg1 } · アクティブ { $arg2 } · 離席中 { $arg3 }
 social-query-unknown = 不明なコマンドです。使用可能なコマンドは { $arg0 } で確認できます。
 social-query-uptime-label = 稼働時間
+social-query-version-label = バージョン
 social-reply-hidden = この返信はサーバーのコンテンツ安全ポリシーにより非表示になりました。
+social-reply-unavailable = 現在、結果を表示できません。アカウントの変更はプロフィールコマンドで確認してから再実行してください。
 social-state-disabled = 無効
 social-state-failed = 失敗
 social-state-ready = 準備完了
@@ -712,13 +721,11 @@ social-state-stopped = 停止
 social-status-command-description = プレイヤー数、TPS、MSPT、稼働時間を表示
 social-title-command-help = コマンドヘルプ
 social-title-content-hidden = 内容を非表示
-social-title-identity-linking = アカウント連携
-social-title-identity-unlinking = アカウント連携解除
-social-title-online-players = オンラインプレイヤー
 social-title-player-profile = プレイヤープロフィール
 social-title-server-status = サーバー状態
-social-title-unknown-command = 不明なコマンド
 social-unlink-command-description = 確認後にこの連携を解除
+social-unlink-command-parameters = [{ social-unlink-confirmation } <確認コード>]
+social-unlink-confirmation = 確認
 
 ## Community · AI and knowledge
 
@@ -756,6 +763,7 @@ ai-reload-failed = AI 設定を再読み込みできませんでした: { $arg0 
 ai-reloaded = AI 設定を再読み込みしました（{ $arg0 }）
 ai-request-failed = AI リクエストに失敗しました。後でもう一度お試しください
 ai-social-command-description = 共通 AI アシスタントに質問する
+ai-social-command-parameters = <質問>
 ai-social-question-required = AI コマンドの後に質問を入力してください
 ai-status-disabled = AI は無効です
 ai-status-enabled = AI 有効 · プロバイダー { $arg0 } · モデル { $arg1 } · ツール { $arg2 }
@@ -772,7 +780,7 @@ governance-active-days-60 = 過去60日で有効な参加日が6日以上（現�
 governance-active-header = ─── 活動中のメンバー資格 ───
 governance-active-member = 現在メンバーである
 governance-active-member-age = メンバーになってから30日以上
-governance-active-playtime = 過去60日の有効プレイ時間が6時間以上（現在 { $arg0 }）
+governance-active-playtime = 過去60日の有効プレイ時間が{ $arg1 }以上（現在 { $arg0 }）
 governance-activity-action = { $arg0 ->
     [confirm] 賛同を確定
     [vote] 内容を読んで投票
@@ -964,7 +972,6 @@ governance-votes-header = ─── 進行中の匿名投票 ───
 
 ## World · Plots
 
-plot-access-removed-for-you = 区画「{ $arg0 }」へのアクセス権が削除されました。
 plot-admin-created = { $arg1 } の区画 { $arg0 } を登録しました · { $arg2 }
 plot-allowed = 有効
 plot-area-changed = 確認中に範囲が変更されました。更新して再確認してください。
@@ -974,36 +981,9 @@ plot-area-replace-save = 範囲を置き換えて保存
 plot-area-save = 範囲を保存
 plot-area-saved = 「{ $arg0 }」の範囲を保存しました。
 plot-atmosphere-saved = 環境設定を保存しました。
-plot-board-auto-notify-result = 通知を { $arg0 } 人分設定しました。
-plot-board-auto-registered-text = 区画「{ $arg0 }」を登録しました。建築済みセルの外接座標：X { $arg1 }–{ $arg2 }、Y { $arg3 }–{ $arg4 }、Z { $arg5 }–{ $arg6 }。
-plot-board-detail = { $arg0 } の記録：{ $arg1 } { $arg2 }, { $arg3 }, { $arg4 }。{ $arg5 }
-plot-board-empty = コミュニティの記録はまだありません。
-plot-board-header = コミュニティの告知と意見（最新 { $arg0 } 件。詳細は /plot board ID）
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = お知らせ
-plot-board-kind-objection = 異議
-plot-board-loading = 公示記録を読み込み中…
-plot-board-menu = コミュニティ掲示板
-plot-board-notice-alert = { $arg0 } が公示を投稿しました：{ $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } が異議を提出しました：{ $arg1 } · { $arg2 }
-plot-board-rate-limited = 投稿の回数制限です。時間をおいてください。
-plot-board-record-invalid = 記録がないか処理済み、または操作権限がありません。
-plot-board-registered-alert = { $arg0 } が区画「{ $arg1 }」を登録しました：{ $arg2 }
-plot-board-ruling-alert = { $arg0 } の異議に裁定が出ました：{ $arg1 } · { $arg2 }
-plot-board-ruling-detail = 裁定：{ $arg0 }
-plot-board-saved = 記録 { $arg0 } を保存しました。
-plot-board-status-elapsed = 公開から72時間以上経過
-plot-board-status-open = 未裁定
-plot-board-status-ruled = 裁定済み
-plot-board-status-withdrawn = 異議取下げ
-plot-board-text-invalid = 説明は12～1000文字、裁定理由は8文字以上にしてください。
-plot-board-unavailable = 掲示板を読み込めません。後で再試行するか https://mcmik.top/community/notices をご覧ください。
-plot-board-withdrawal-alert = { $arg0 } が異議を取り下げました：{ $arg1 } · { $arg2 }
-plot-board-write-failed = 掲示板を更新できませんでした。後でもう一度お試しください。
 plot-command-blocked = 区画保護によりこのコマンドをブロックしました。自分の区画内で/fillや/setblockを直接使ってください。複雑な/executeは管理者に確認を依頼してください。
 plot-command-description = 建築区画を管理
 plot-created = 区画{ $arg0 }を作成しました · { $arg1 }
-plot-created-for-you = { $arg1 } があなたの区画 { $arg0 } を登録しました。
 plot-deleted = 区画を解放しました。建物は残ります。
 plot-denied = 無効
 plot-error-admin-owner-only = 管理権限を持つメンバーの変更には、メンバー管理と権限管理の両方が必要です。
@@ -1013,7 +993,7 @@ plot-error-busy = 区画データを保存中です。この操作は送信さ�
 plot-error-flag = 不明な権限です。権限一覧から操作を選んでください。
 plot-error-id = 区画IDが見つからないか、複数に一致します。/plot listを使ってください。
 plot-error-member-missing = このプレイヤーは既にメンバーではありません。
-plot-error-member-required = 新規プレイヤーは区画の閲覧や異議申立てができます。プロジェクトの作成にはメンバー権限が必要です。
+plot-error-member-required = 区画の作成にはメンバー権限が必要です。
 plot-error-name = プロジェクト名は1～48文字で入力してください。
 plot-error-notice-text = 公告は最大 { $arg0 } 文字です。行数・1行の長さに制限はありません。制御文字は使用できません。
 plot-error-overlap = 建築範囲が別の区画と重なっています。
@@ -1059,14 +1039,10 @@ plot-menu-clear = 晴れ
 plot-menu-confirm-delete = { $arg0 } の登録を削除しますか？保護、メンバー権限、設定が削除され、元に戻せません。建物は残ります。
 plot-menu-confirm-subplot-transfer = { $arg0 } を { $arg1 } に譲渡しますか？親区画の所有者は管理権を保ちます。
 plot-menu-confirm-transfer = 「{ $arg0 }」の管理権を { $arg1 } に移しますか？あなたはアクセス権を失います。作品の既存の著作者表示は変わりません。
-plot-menu-confirm-withdraw = この意見を取り下げますか？取り下げた事実は公開記録に残ります。
 plot-menu-create = 区画を作成
 plot-menu-create-for-player = このプレイヤーの区画を登録
 plot-menu-custom-time = 時刻を指定
 plot-menu-delete = 区画の登録を削除
-plot-menu-description = 説明
-plot-menu-feedback = この告知に異議を申し立てる
-plot-menu-find-record = 記録を探す
 plot-menu-flag-container = コンテナを開く
 plot-menu-flag-entity = エンティティ操作
 plot-menu-follow-parent = 親区画に合わせる
@@ -1084,12 +1060,8 @@ plot-menu-owner = 所有者：{ $arg0 }
 plot-menu-parent-supervisor = 親区画の所有者: { $arg0 } · 監督権
 plot-menu-player = プレイヤー名またはUUID
 plot-menu-rain = 降水
-plot-menu-record-search = 記録IDまたは件名
-plot-menu-related-notice = 関連する告知を見る
 plot-menu-remove-member = メンバーを削除
 plot-menu-rename = プロジェクト名を変更
-plot-menu-rule = 裁定を記録
-plot-menu-ruling = 裁定理由を入力（8～1000 文字）
 plot-menu-set-role = { $arg0 }に変更
 plot-menu-settings = プロジェクト設定
 plot-menu-submit = 適用
@@ -1100,7 +1072,6 @@ plot-menu-time = 時刻
 plot-menu-time-input = 時刻（HH:mm）
 plot-menu-transfer = 区画の所有権を移転
 plot-menu-weather = 天候
-plot-menu-withdraw = 意見を取り下げる
 plot-no-here = ここには保護された区画がありません。
 plot-notice-board = 区画の掲示板
 plot-notice-cleared = 掲示板を消去しました
@@ -1178,7 +1149,6 @@ plot-region-open = 矩形を管理（{ $arg0 }）
 plot-region-select-hint = 番号付き矩形を選ぶと拡大して強調表示します。灰色の線はこのページの矩形です。結合後に番号が変わる場合があります。
 plot-renamed = プロジェクト名を変更しました。
 plot-role-admin = 区画管理者
-plot-role-changed-for-you = 区画「{ $arg0 }」での役割は{ $arg1 }になりました。
 plot-role-collaborator = 共同制作者
 plot-role-owner = 区画の所有者
 plot-role-parent-owner = 親区画の所有者
@@ -1196,16 +1166,8 @@ plot-selection-stopped = 範囲選択を終了しました。下書きは区画�
 plot-selection-subtract = 現在の範囲を削除
 plot-selection-undo = 直前の操作を戻す
 plot-subplot-created = 子区画 { $arg0 } を作成 · { $arg1 } ブロック²
-plot-subplot-created-for-you = { $arg1 } 内の子区画 { $arg0 } の所有者になりました。
-plot-subplot-owner-changed = 子区画 { $arg0 } の所有者が { $arg1 } に変わりました。
-plot-subplot-parent-transferred = あなたの子区画 { $arg0 } の親区画所有者が { $arg1 } に変わりました。
-plot-subplot-released = 子区画 { $arg0 } が解放されました。元の範囲は親区画で保護されます。
 plot-title = 土地
 plot-transferred = 区画「{ $arg0 }」を { $arg1 } に移転しました。
-plot-transferred-to-you = { $arg1 } が区画「{ $arg0 }」をあなたに移転しました。
-
-## World · Vehicles
-
 vehicle-command-description = 表示エンティティの車両を運転・管理
 vehicle-menu-label =
     { $arg0 ->
@@ -1976,7 +1938,7 @@ music-space-label =
         [select-all] 検索結果をすべて選択
         [clear-tracks] 曲の選択を解除
         [add-playlist] リストに追加
-        [description] { plot-menu-description }
+        [description] 説明
         [make-private] 非公開にする
         [publish] 公開する
         [delete] プレイリストを削除

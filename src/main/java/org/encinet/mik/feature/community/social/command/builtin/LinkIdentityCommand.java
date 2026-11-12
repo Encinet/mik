@@ -8,9 +8,13 @@ import org.encinet.mik.feature.community.identity.IdentityBinding;
 import org.encinet.mik.feature.community.identity.IdentityBindingException;
 import org.encinet.mik.feature.community.identity.IdentityBindingManager;
 import org.encinet.mik.feature.community.identity.IdentityLinkResult;
+import org.encinet.mik.feature.community.social.command.SocialArguments;
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.SocialCommandExecution;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
+import org.encinet.mik.feature.community.social.command.SocialCompletionReceipt;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
-import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
@@ -26,8 +30,6 @@ import static org.encinet.mik.feature.community.social.command.SocialCommandSpec
 
 /** Redeems an identity code and owns every response for the link command. */
 public final class LinkIdentityCommand implements SocialCommand<String, LinkIdentityCommand.Result> {
-    private static final String TITLE_ICON = "🔗";
-    private static final Message TITLE = Message.SOCIAL_TITLE_IDENTITY_LINKING;
     private static final SocialCommandSpec SPEC = SocialCommandSpec.localizedExplicit(
             "binding.link",
             aliases(Language.EN_US, "bind"),
@@ -46,6 +48,12 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
             aliases(Language.RU_RU, "привязать"),
             aliases(Language.TH_TH, "ผูก"),
             aliases(Language.UK_UA, "прив’язати"));
+    public static final SocialCommandDefinition<String> DEFINITION =
+            SocialCommandDefinition.visible(SPEC, Message.SOCIAL_LINK_COMMAND_DESCRIPTION, SocialArguments.text(Message.SOCIAL_LINK_COMMAND_PARAMETERS));
+
+    @Override
+    public SocialCommandDefinition<String> definition() { return DEFINITION; }
+
 
     private final IdentityBindingManager bindings;
     private final SocialCommandLanguageResolver languageResolver;
@@ -62,22 +70,14 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
     }
 
     @Override
-    public SocialCommandSpec spec() {
-        return SPEC;
+    public SocialCommandExecution<Result> execute(SocialCommandContext context, String code) {
+        Result result = perform(context, code);
+        var receipt = result instanceof Result.Linked linked && linked.result().bindingOptional().isPresent()
+                ? Optional.of(SocialCompletionReceipt.BINDING_LINKED) : Optional.<SocialCompletionReceipt>empty();
+        return new SocialCommandExecution<>(result, languageResolver.target(result.languageBinding(), context), receipt);
     }
 
-    @Override
-    public Optional<Message> description() {
-        return Optional.of(Message.SOCIAL_LINK_COMMAND_DESCRIPTION);
-    }
-
-    @Override
-    public String decode(SocialCommandInput input) {
-        return input.rawArgument();
-    }
-
-    @Override
-    public Result handle(SocialCommandContext context, String code) {
+    private Result perform(SocialCommandContext context, String code) {
         if (code == null || code.isBlank()) {
             return help(context);
         }
@@ -94,20 +94,20 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
     }
 
     @Override
-    public SocialDocument present(SocialCommandContext context, Result result) {
-        Language language = languageResolver.language(result.languageBinding(), context);
+    public SocialDocument present(SocialPresentationContext context, Result result) {
+        Language language = context.language();
         return switch (result) {
             case Result.IdentityMissing _ -> document(
                     TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_IDENTITY_MISSING);
             case Result.Linked linked -> link(
-                    linked.result(), language, context.platform().id());
-            case Result.Help _ -> SocialDocument.of(TRUSTED,
-                            title(language), SocialDocument.Tone.INFO,
-                            SocialDocument.orderedList(lines(languages.t(
-                                    language, Message.SOCIAL_BINDING_HELP,
-                                    context.platform().id()))))
-                    .localized(language);
+                    linked.result(), language, context);
+            case Result.Help help -> help.binding().isPresent()
+                    ? document(REQUIRED, language, SocialDocument.Tone.INFO,
+                            Message.SOCIAL_BINDING_ALREADY_LINKED, help.binding().orElseThrow().playerName(),
+                            PlayerProfileCommand.invocation(context.syntax(), language))
+                    : document(TRUSTED, language, SocialDocument.Tone.INFO,
+                            Message.SOCIAL_BINDING_HELP, "/bind " + context.platform().id());
             case Result.Unavailable _ -> document(
                     TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_UNAVAILABLE);
@@ -134,15 +134,16 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
     private SocialDocument link(
             IdentityLinkResult result,
             Language language,
-            String platformId
+            SocialPresentationContext context
     ) {
         return switch (result.status()) {
             case LINKED -> document(REQUIRED, language, SocialDocument.Tone.SUCCESS,
                     Message.SOCIAL_BINDING_LINKED, result.binding().playerName());
             case ALREADY_LINKED -> document(REQUIRED, language, SocialDocument.Tone.INFO,
-                    Message.SOCIAL_BINDING_ALREADY_LINKED, result.binding().playerName());
+                    Message.SOCIAL_BINDING_ALREADY_LINKED, result.binding().playerName(),
+                    PlayerProfileCommand.invocation(context.syntax(), language));
             case INVALID_OR_EXPIRED_CODE -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
-                    Message.SOCIAL_BINDING_CODE_INVALID, platformId);
+                    Message.SOCIAL_BINDING_CODE_INVALID, "/bind " + context.platform().id());
             case PLATFORM_MISMATCH -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
                     Message.SOCIAL_BINDING_PLATFORM_MISMATCH);
             case EXTERNAL_IDENTITY_IN_USE -> document(TRUSTED, language, SocialDocument.Tone.ERROR,
@@ -165,19 +166,10 @@ public final class LinkIdentityCommand implements SocialCommand<String, LinkIden
             Message message,
             Object... arguments
     ) {
-        return SocialDocument.of(moderation, title(language), tone,
+        return SocialDocument.message(moderation, tone,
                         SocialDocument.paragraph(languages.t(
                                 language, message, arguments)))
                 .localized(language);
-    }
-
-    private String title(Language language) {
-        return TITLE_ICON + " " + languages.t(language, TITLE);
-    }
-
-    private static String[] lines(String value) {
-        return value.lines().map(String::strip).filter(line -> !line.isEmpty())
-                .toArray(String[]::new);
     }
 
     private static long retryMinutes(Instant retryAt) {

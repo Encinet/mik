@@ -11,10 +11,13 @@ public final class MatrixHtmlRenderer {
 
     public static String render(SocialDocument document) {
         Objects.requireNonNull(document, "document");
-        StringBuilder html = new StringBuilder("<h3>")
-                .append(escape(document.title())).append("</h3>");
+        StringBuilder html = new StringBuilder();
+        if (!document.title().isEmpty()) html.append("<h3>").append(escape(document.title())).append("</h3>");
         for (SocialDocument.Block block : document.blocks()) {
             switch (block) {
+                case SocialDocument.Instruction instruction -> html.append("<p>")
+                        .append(multiline(instruction.explanation())).append("</p><p><code>")
+                        .append(escape(instruction.invocation())).append("</code></p>");
                 case SocialDocument.Paragraph paragraph -> html.append("<p>")
                         .append(multiline(paragraph.text())).append("</p>");
                 case SocialDocument.Fields fields -> {
@@ -24,6 +27,7 @@ public final class MatrixHtmlRenderer {
                                 .append(":</strong> ").append(multiline(field.value()))
                                 .append("</li>");
                     }
+                    if (fields.omitted()) html.append("<li>…</li>");
                     html.append("</ul>");
                 }
                 case SocialDocument.ItemList list -> {
@@ -43,7 +47,7 @@ public final class MatrixHtmlRenderer {
                 }
             }
         }
-        return html.toString();
+        return html.isEmpty() ? "<p>" + multiline(document.plainText()) + "</p>" : html.toString();
     }
 
     public static String escape(String value) {

@@ -20,6 +20,8 @@ import org.encinet.mik.feature.community.chat.model.*;
 import org.encinet.mik.feature.community.chat.runtime.ChatService;
 import org.encinet.mik.feature.community.chat.runtime.ChatSendLedger;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
+import org.encinet.mik.feature.community.chat.bridge.ServerChatPublisher;
+import org.encinet.mik.feature.community.chat.history.ChatHistoryStore;
 import org.encinet.mik.feature.community.chat.pipeline.ChatProcessor;
 import org.encinet.mik.feature.player.security.WebAccountPolicy;
 import org.encinet.mik.shared.i18n.LanguageService;
@@ -34,6 +36,155 @@ import java.util.logging.Logger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WebChatRoutingTest {
+    @Test void compressionNegotiationPreservesHistoryAndRejectsUnknownEncodings(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path temp) throws Exception {
+        try (Fixture f = new Fixture(); var history = new ChatHistoryStore(temp.resolve("compressed.db"))) {
+            set(f.module, "history", history);
+            UUID viewer = f.account("Viewer", "member");
+            Client client = f.join(viewer, "v");
+            f.module.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(ChatContent.plain("公共内容 🌍".repeat(500))), null, true));
+            var plain = f.history(client, history, "public", null);
+            assertEquals(WebChatPacket.APPLICATION, client.lastPacketKind);
+            client.channel.attr(WebChatCipher.COMPRESSION).set(true);
+            var compressed = f.history(client, history, "public", null);
+            assertEquals(WebChatPacket.COMPRESSED_APPLICATION, client.lastPacketKind);
+            assertEquals(plain.get("messages"), compressed.get("messages"));
+            var denied = f.history(client, history, "public", null, Map.of("unknown", "value"));
+            assertEquals("invalid_message", text(denied, "error"));
+        }
+    }
+
+    @Test void offlineAccountsRecoverPublicEventsWithoutGainingRestrictedOrConcealedEvents(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path temp) throws Exception {
+        try (Fixture f = new Fixture(); var history = new ChatHistoryStore(temp.resolve("history.db"))) {
+            set(f.module, "history", history);
+            UUID alice = f.account("Alice", "member"), bob = f.account("Bob", "member");
+            f.join(alice, "a"); f.game(alice);
+            Player subject = f.gamePlayers.get(alice);
+            var presence = f.gamePresence();
+            presence.onJoin(new PlayerJoinEvent(subject, Component.empty()));
+            f.module.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(ChatContent.plain("public subject update")),
+                    new ChatServerMessage.Subject(alice, "Alice"), true));
+            f.module.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(ChatContent.plain("restricted update")), null, true),
+                    new ServerChatPublisher.Visibility(alice::equals, false));
+            f.concealed.add(alice);
+            f.gamePlayers.remove(alice);
+            presence.onQuit(new PlayerQuitEvent(subject, Component.empty(), PlayerQuitEvent.QuitReason.DISCONNECTED));
+            Client b = f.join(bob, "b");
+            String messages = f.history(b, history, "public", null).get("messages").toString();
+            assertTrue(messages.contains("gameJoined"));
+            assertTrue(messages.contains("webJoined"));
+            assertTrue(messages.contains("public subject update"));
+            assertFalse(messages.contains("restricted update"));
+            assertFalse(messages.contains("gameLeft"));
+        }
+    }
+
+    @Test void privateHistoryAcceptsTargetAndBothCursorBounds(@org.junit.jupiter.api.io.TempDir java.nio.file.Path temp) throws Exception {
+        try (Fixture f = new Fixture(); var history = new ChatHistoryStore(temp.resolve("history.db"))) {
+            set(f.module, "history", history);
+            UUID alice = f.account("Alice", "member"), bob = f.account("Bob", "member");
+            Client a = f.join(alice, "a"), b = f.join(bob, "b");
+            f.send(a, "private", bob, UUID.randomUUID().toString(), "older private message");
+            f.send(a, "private", bob, UUID.randomUUID().toString(), "newer private message");
+            var rows = history.read(new ChatHistoryStore.Query(bob, false, ChatChannel.PRIVATE, alice, Long.MAX_VALUE)).join().rows();
+            assertEquals(2, rows.size());
+            var page = f.history(b, history, "private", alice, Map.of(
+                    "before", Long.toString(rows.getFirst().cursor()), "after", Long.toString(rows.getLast().cursor() - 1)));
+            assertEquals("history", text(page, "type"));
+            assertEquals(1, page.getAsJsonArray("messages").size());
+            assertTrue(page.get("messages").toString().contains("older private message"));
+        }
+    }
+
+    @Test void archivesWithoutBrowsersAndNeverArchivesRestrictedNativeRelays(@org.junit.jupiter.api.io.TempDir java.nio.file.Path temp) throws Exception {
+        try (Fixture f = new Fixture(); var history = new ChatHistoryStore(temp.resolve("history.db"))) {
+            set(f.module, "history", history);
+            UUID sender = f.account("Sender", "member"), observer = f.account("Observer", "member");
+            f.game(sender); f.game(observer);
+            for (String value : List.of("archived", "restricted")) {
+                ChatMessage message = f.chat.process(new ChatSubmission(ChatMessageId.random(), new ChatOrigin.Minecraft(sender),
+                        ChatSender.minecraft(sender, "Sender"), ChatConversation.minecraftPublic(), value, ChatReferences.empty(),
+                        Instant.now(), ChatProcessingContext.playerText(PlayerMentions.empty())));
+                f.relay(message, null, value.equals("restricted") ? Set.of(sender) : Set.of(sender, observer));
+            }
+            Client client = f.join(observer, "o"); f.clearFrames();
+            JsonObject page = f.history(client, history, "public", null);
+            String messages = page.getAsJsonArray("messages").toString();
+            assertTrue(messages.contains("archived")); assertFalse(messages.contains("restricted"));
+            assertFalse(page.get("hasMore").getAsBoolean());
+        }
+    }
+
+    @Test void historyRequiresCurrentStaffAndPrivateMembershipAndPreservesRestrictedServerViewers(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path temp) throws Exception {
+        try (Fixture f = new Fixture(); var history = new ChatHistoryStore(temp.resolve("history.db"))) {
+            set(f.module, "history", history);
+            UUID alice = f.account("Alice", "moderator"), bob = f.account("Bob", "member"), other = f.account("Other", "member");
+            Client a = f.join(alice, "a"), b = f.join(bob, "b"), o = f.join(other, "o"); f.clearFrames();
+            f.send(a, "staff", null, UUID.randomUUID().toString(), "staff secret");
+            f.send(a, "private", bob, UUID.randomUUID().toString(), "private secret");
+            f.module.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(ChatContent.plain("restricted notice")), null, true),
+                    new ServerChatPublisher.Visibility(alice::equals, false));
+            f.clearFrames();
+            assertTrue(f.history(b, history, "private", alice).toString().contains("private secret"));
+            assertFalse(f.history(o, history, "private", alice).toString().contains("private secret"));
+            assertTrue(f.history(a, history, "public", null).toString().contains("restricted notice"));
+            assertFalse(f.history(b, history, "public", null).toString().contains("restricted notice"));
+            f.roles.put(alice, "member");
+            f.module.invalidatePolicy(alice); f.flush();
+            var renewed = f.module.authorize(f.grant(a, alice, "a")); f.flush();
+            assertEquals(200, renewed.join().status()); f.clearFrames();
+            JsonObject denied = f.history(a, history, "staff", null);
+            assertEquals("error", text(denied, "type"));
+            assertEquals("staff_required", text(denied, "error"));
+        }
+    }
+
+    @Test void revocationDuringHistoryReadPreventsTheResponse(@org.junit.jupiter.api.io.TempDir java.nio.file.Path temp) throws Exception {
+        try (Fixture f = new Fixture(); var history = new ChatHistoryStore(temp.resolve("history.db"))) {
+            set(f.module, "history", history);
+            UUID alice = f.account("Alice", "member");
+            Client a = f.join(alice, "a"); f.clearFrames();
+            JsonObject request = new JsonObject(); request.addProperty("type", "history");
+            request.addProperty("requestId", UUID.randomUUID().toString()); request.addProperty("channel", "public");
+            Runnable release = f.blockHistory(history);
+            try {
+                f.module.message(a.channel, request.toString()); f.flush();
+                f.module.invalidatePlayer(alice); f.flush();
+            } finally { release.run(); }
+            history.maintain().join(); f.flush();
+            assertTrue(a.events().stream().noneMatch(event -> text(event, "type").equals("history")));
+        }
+    }
+
+    @Test void visibilityChangesDuringBackgroundProjectionDiscardTheCapturedResponse(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path temp) throws Exception {
+        try (Fixture f = new Fixture(); var history = new ChatHistoryStore(temp.resolve("visibility.db"))) {
+            set(f.module, "history", history);
+            UUID alice = f.account("Alice", "member"), bob = f.account("Bob", "member");
+            f.game(alice);
+            Client b = f.join(bob, "b");
+            f.module.publish(ChatServerMessage.publicMessage(new ChatServerMessage.RichText(ChatContent.plain("subject private after hiding")),
+                    new ChatServerMessage.Subject(alice, "Alice"), true));
+            f.clearFrames();
+            JsonObject request = new JsonObject(); request.addProperty("type", "history");
+            request.addProperty("requestId", UUID.randomUUID().toString()); request.addProperty("channel", "public");
+            Runnable release = f.blockHistory(history);
+            try {
+                f.module.message(b.channel, request.toString()); f.flush();
+                f.concealed.add(alice);
+            } finally { release.run(); }
+            history.maintain().get(5, java.util.concurrent.TimeUnit.SECONDS); f.flush();
+            var events = b.events();
+            assertTrue(events.stream().noneMatch(event -> text(event, "type").equals("history")));
+            assertTrue(events.stream().anyMatch(event -> text(event, "error").equals("history_unavailable")));
+            var retried = f.history(b, history, "public", null);
+            assertEquals("history", text(retried, "type"));
+            assertFalse(retried.get("messages").toString().contains("subject private after hiding"));
+        }
+    }
+
     @Test void sharedMessageFramesKeepEachViewersLanguageWithoutTranslatingLiteralText() throws Exception {
         try (Fixture f = new Fixture()) {
             UUID chinese = f.account("Chinese", "member"), german = f.account("German", "member");
@@ -292,7 +443,7 @@ class WebChatRoutingTest {
             assertEquals(alice.toString(), text(forBob, "targetUuid"));
             assertTrue(moderator.serverMessages().isEmpty());
 
-            f.module.publish(ChatServerMessage.publicMessage(body, null, false), viewer -> viewer.equals(alice));
+            f.module.publish(ChatServerMessage.publicMessage(body, null, false), new ServerChatPublisher.Visibility(alice::equals, false));
             assertEquals(1, a.serverMessages().size());
             assertTrue(b.serverMessages().isEmpty()); assertTrue(moderator.serverMessages().isEmpty());
 
@@ -597,11 +748,20 @@ class WebChatRoutingTest {
     private static final class Client {
         final EmbeddedChannel channel = new EmbeddedChannel();
         final String publicKey = WebChatEncryption.generate().publicKey();
+        byte lastPacketKind = -1;
         String id;
         List<JsonObject> events() {
             List<JsonObject> output = new ArrayList<>(); Object frame;
             while ((frame = channel.readOutbound()) != null) {
                 if (frame instanceof TextWebSocketFrame text) output.add(JsonParser.parseString(text.text()).getAsJsonObject());
+                else if (frame instanceof WebChatPacket packet) {
+                    lastPacketKind = packet.kind();
+                    try {
+                        String json = packet.kind() == WebChatPacket.COMPRESSED_APPLICATION ? WebChatPacketTest.expand(packet)
+                                : new String(packet.copyPayload(), java.nio.charset.StandardCharsets.UTF_8);
+                        output.add(JsonParser.parseString(json).getAsJsonObject());
+                    } catch (Exception invalid) { throw new AssertionError("Invalid prepared history", invalid); }
+                }
                 ReferenceCountUtil.release(frame);
             }
             return output;
@@ -612,6 +772,7 @@ class WebChatRoutingTest {
     }
 
     private static final class Fixture implements AutoCloseable {
+        final Thread gameThread = Thread.currentThread();
         final Map<UUID, String> names = new HashMap<>(), roles = new HashMap<>();
         final Map<UUID, org.encinet.mik.shared.i18n.Language> preferredLanguages = new HashMap<>();
         final Map<UUID, Player> gamePlayers = new HashMap<>();
@@ -630,15 +791,18 @@ class WebChatRoutingTest {
         final long authenticatedAt = System.currentTimeMillis() - 1000;
         boolean primaryThread = true;
         Fixture() throws Exception {
-            Server server = proxy(Server.class, (_, method, args) -> switch (method.getName()) {
-                case "isPrimaryThread" -> primaryThread;
-                case "getOnlinePlayers" -> gamePlayers.values();
-                case "getPlayer" -> gamePlayers.get(args[0]);
-                case "getOfflinePlayer" -> proxy(OfflinePlayer.class, (_, call, _) -> switch (call.getName()) {
-                    case "getName" -> names.get(args[0]);
-                    default -> throw new AssertionError(call.getName());
-                });
-                default -> throw new AssertionError(method.getName());
+            Server server = proxy(Server.class, (_, method, args) -> {
+                if (!method.getName().equals("isPrimaryThread")) requireGameThread();
+                return switch (method.getName()) {
+                    case "isPrimaryThread" -> primaryThread;
+                    case "getOnlinePlayers" -> gamePlayers.values();
+                    case "getPlayer" -> gamePlayers.get(args[0]);
+                    case "getOfflinePlayer" -> proxy(OfflinePlayer.class, (_, call, _) -> switch (call.getName()) {
+                        case "getName" -> names.get(args[0]);
+                        default -> throw new AssertionError(call.getName());
+                    });
+                    default -> throw new AssertionError(method.getName());
+                };
             });
             serverField = Bukkit.class.getDeclaredField("server"); serverField.setAccessible(true);
             previousServer = serverField.get(null); serverField.set(null, server);
@@ -649,9 +813,11 @@ class WebChatRoutingTest {
             var translated = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
             LanguageService language = new LanguageService(null) {
                 @Override public Optional<org.encinet.mik.shared.i18n.Language> preferredLanguage(UUID playerId) {
+                    requireGameThread();
                     return Optional.ofNullable(preferredLanguages.get(playerId));
                 }
                 @Override public String t(org.encinet.mik.shared.i18n.Language language, Message message, Object... args) {
+                    requireGameThread();
                     return translated.t(language, message, args);
                 }
                 @Override public String t(Player player, Message message, Object... args) { return message.name() + ":" + args[0]; }
@@ -671,6 +837,21 @@ class WebChatRoutingTest {
                     chat::process, chat::publish, new ChatSendLedger());
             chat.connect(module, gameOutput, module);
             set(module, "running", true); set(module, "maxPerPlayer", 8); set(module, "maxConnections", 32);
+        }
+        private void requireGameThread() {
+            if (Thread.currentThread() != gameThread) throw new IllegalStateException("Game or language state read from background worker");
+        }
+        Runnable blockHistory(ChatHistoryStore history) throws Exception {
+            var release = new java.util.concurrent.CountDownLatch(1);
+            var entered = new java.util.concurrent.CountDownLatch(1);
+            Field field = ChatHistoryStore.class.getDeclaredField("worker"); field.setAccessible(true);
+            ((java.util.concurrent.Executor) field.get(history)).execute(() -> {
+                entered.countDown();
+                try { release.await(5, java.util.concurrent.TimeUnit.SECONDS); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
+            });
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS));
+            return release::countDown;
         }
         UUID account(String name, String role) { UUID id = UUID.randomUUID(); names.put(id, name); roles.put(id, role); return id; }
         void game(UUID id) {
@@ -717,6 +898,22 @@ class WebChatRoutingTest {
         void send(Client client, String channel, UUID target, String request, String text) throws Exception {
             JsonObject body = new JsonObject(); body.addProperty("type", "send"); body.addProperty("requestId", request); body.addProperty("channel", channel); body.addProperty("text", text);
             if (target != null) body.addProperty("targetUuid", target.toString()); module.message(client.channel, body.toString()); flush();
+        }
+        JsonObject history(Client client, ChatHistoryStore history, String channel, UUID target) throws Exception {
+            return history(client, history, channel, target, Map.of());
+        }
+        JsonObject history(Client client, ChatHistoryStore history, String channel, UUID target, Map<String, String> bounds) throws Exception {
+            Field field = WebChatModule.class.getDeclaredField("connections"); field.setAccessible(true);
+            Object connection = ((Map<?, ?>) field.get(module)).get(client.channel);
+            set(connection, "lastHistoryRequest", 0L);
+            client.events();
+            JsonObject request = new JsonObject(); request.addProperty("type", "history");
+            request.addProperty("requestId", UUID.randomUUID().toString()); request.addProperty("channel", channel);
+            if (target != null) request.addProperty("targetUuid", target.toString());
+            bounds.forEach(request::addProperty);
+            module.message(client.channel, request.toString()); flush();
+            history.maintain().get(5, java.util.concurrent.TimeUnit.SECONDS); flush();
+            return client.events().stream().filter(event -> Set.of("history", "error").contains(text(event, "type"))).findFirst().orElseThrow();
         }
         void flush() throws Exception {
             set(module, "lastMaintenance", System.currentTimeMillis());

@@ -19,8 +19,11 @@ public final class SocialCommandDispatcher {
     private final Map<String, RegisteredCommand> foldedExplicitAliases;
     private final Map<String, RegisteredCommand> foldedNaturalAliases;
     private final RegisteredCommand unknownExplicit;
+    private final java.util.function.Function<SocialCommandContext, SocialCommandExecution.LanguageTarget> inputLanguage;
 
-    public SocialCommandDispatcher(Collection<? extends SocialCommand<?, ?>> commands) {
+    public SocialCommandDispatcher(Collection<? extends SocialCommand<?, ?>> commands,
+                                   java.util.function.Function<SocialCommandContext, SocialCommandExecution.LanguageTarget> inputLanguage) {
+        this.inputLanguage = Objects.requireNonNull(inputLanguage, "inputLanguage");
         Objects.requireNonNull(commands, "commands");
         Map<String, RegisteredCommand> byId = new LinkedHashMap<>();
         Map<String, RegisteredCommand> exactExplicit = new LinkedHashMap<>();
@@ -96,6 +99,9 @@ public final class SocialCommandDispatcher {
             SocialCommandSyntax syntax,
             SocialCommandInput input
     ) {
+        // Bare shortcuts are complete utterances, not the first word of ordinary chat.
+        if (input.invocationType() == SocialCommandInput.InvocationType.NATURAL_TEXT
+                && !input.rawArgument().isEmpty()) return Optional.empty();
         Map<String, RegisteredCommand> aliases;
         if (syntax.caseSensitiveAliases()) {
             aliases = input.invocationType() == SocialCommandInput.InvocationType.EXPLICIT_TEXT
@@ -136,16 +142,23 @@ public final class SocialCommandDispatcher {
         return value.toLowerCase(Locale.ROOT);
     }
 
-    private static <A, R> RegisteredCommand register(SocialCommand<A, R> command) {
+    private <A, R> RegisteredCommand register(SocialCommand<A, R> command) {
         SocialCommand<A, R> checked = Objects.requireNonNull(command, "command");
-        SocialCommandSpec spec = Objects.requireNonNull(checked.spec(), "command spec");
+        SocialCommandSpec spec = Objects.requireNonNull(checked.definition().spec(), "command spec");
         return new RegisteredCommand(spec, (context, input) -> {
-            A argument = Objects.requireNonNull(checked.decode(input),
-                    "Social command decoder returned null for " + spec.id());
-            R result = Objects.requireNonNull(checked.handle(context, argument),
-                    "Social command handler returned null for " + spec.id());
-            return Objects.requireNonNull(checked.present(context, result),
-                    "Social command presenter returned null for " + spec.id());
+            var parsed = Objects.requireNonNull(checked.definition().arguments().parser().apply(input), "parsed arguments");
+            return switch (parsed) {
+                case SocialArguments.Invalid<A> invalid -> new SocialCommandResult(inputLanguage.apply(context), Optional.empty(),
+                        presentation -> SocialDocument.message(SocialDocument.Moderation.TRUSTED, SocialDocument.Tone.WARNING,
+                                SocialDocument.instruction(presentation.t(invalid.explanation()),
+                                        checked.definition().usage(context.syntax(), presentation.language(), presentation.languages())))
+                                .localized(presentation.language()));
+                case SocialArguments.Valid<A> valid -> {
+                    SocialCommandExecution<R> execution = Objects.requireNonNull(checked.execute(context, valid.value()), "command execution");
+                    yield new SocialCommandResult(execution.language(), execution.receipt(),
+                            presentation -> checked.present(presentation, execution.value()));
+                }
+            };
         });
     }
 
@@ -176,10 +189,10 @@ public final class SocialCommandDispatcher {
             return syntax;
         }
 
-        public SocialDocument execute(SocialCommandContext context) {
+        public SocialCommandResult execute(SocialCommandContext context) {
             SocialCommandContext checked = Objects.requireNonNull(context, "context");
             return command.invoker().invoke(new SocialCommandContext(
-                    checked.platform(), checked.message(), input, syntax), input);
+                    checked.platform(), checked.message(), input, syntax, checked.generationId()), input);
         }
     }
 
@@ -188,6 +201,6 @@ public final class SocialCommandDispatcher {
 
     @FunctionalInterface
     private interface Invoker {
-        SocialDocument invoke(SocialCommandContext context, SocialCommandInput input);
+        SocialCommandResult invoke(SocialCommandContext context, SocialCommandInput input);
     }
 }

@@ -564,13 +564,13 @@ class MatrixPlatformSessionTest {
                 path.contains("%21prefix%3Aexample.org")).count() == 1);
         SocialDocument notice = SocialDocument.of(SocialDocument.Moderation.REQUIRED,
                 "Announcement", SocialDocument.Tone.INFO, SocialDocument.paragraph("First line\n<everyone> & text"));
-        session.sendNotice(config.rooms().chatRoutes().get(1).conversation(), notice).toCompletableFuture().join();
+        session.prepareNotice(config.rooms().chatRoutes().get(1).conversation(), notice, 2_000).send().join();
         assertEquals(3, bodies.size());
         assertEquals("Announcement\n\nFirst line\n<everyone> & text", bodies.getLast());
         assertEquals("<h3>Announcement</h3><p>First line<br>&lt;everyone&gt; &amp; text</p>", formattedBodies.getLast());
         holdSync.countDown();
         session.close();
-        session.sendNotice(config.rooms().chatRoutes().get(1).conversation(), notice).toCompletableFuture().join();
+        session.prepareNotice(config.rooms().chatRoutes().get(1).conversation(), notice, 2_000).send().join();
         assertEquals(3, bodies.size());
     }
 

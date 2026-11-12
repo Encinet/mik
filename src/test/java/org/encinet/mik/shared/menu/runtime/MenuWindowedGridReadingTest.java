@@ -66,11 +66,44 @@ class MenuWindowedGridReadingTest {
         assertEquals(0,empty.pagination().getFirst().page().itemCount());
     }
 
+    @Test void centeredShortPagesKeepTheirBodySizeAndCenterOnlyVisibleCards() {
+        var built = new ArrayList<Integer>();
+        var probe = frame(101,0,built,true);
+        int capacity = probe.pagination().getFirst().page().pageSize();
+        assertTrue(capacity > 1);
+        int count = capacity * 2 + 1;
+        var first = frame(count,0,built,true);
+        var cards = first.elements().stream().filter(e -> e.node().key().value().startsWith("object:")).toList();
+        var rows = cards.stream().collect(java.util.stream.Collectors.groupingBy(UiFrame.Element::y));
+        assertTrue(rows.values().stream().anyMatch(row -> row.size() == 2));
+        for (var row : rows.values()) {
+            var centers = row.stream().mapToDouble(e -> e.x() + e.size().width() / 2).summaryStatistics();
+            assertEquals(first.size().width(),centers.getMin() + centers.getMax(),1e-6);
+        }
+        double top = cards.stream().mapToDouble(UiFrame.Element::y).min().orElseThrow();
+        double bottom = cards.stream().mapToDouble(e -> e.y() + e.size().height()).max().orElseThrow();
+        built.clear();
+        var last = frame(count,Integer.MAX_VALUE,built,true);
+        assertEquals(first.pagination().getFirst().size(),last.pagination().getFirst().size());
+        assertEquals(java.util.Set.of(count - 1),new java.util.HashSet<>(built));
+        var finalCard = element(last,"object:" + (count - 1));
+        assertEquals(last.size().width() / 2,finalCard.x() + finalCard.size().width() / 2,1e-6);
+        assertEquals((top + bottom) / 2,finalCard.y() + finalCard.size().height() / 2,1e-6);
+        assertDisjoint(last);
+        built.clear();
+        assertTrue(frame(0,0,built,true).elements().isEmpty());
+        assertTrue(built.isEmpty());
+    }
+
     private static UiFrame frame(int count,int page,ArrayList<Integer> built) {
+        return frame(count,page,built,false);
+    }
+
+    private static UiFrame frame(int count,int page,ArrayList<Integer> built,boolean centered) {
         var list = Ui.windowedList(count,UiLength.ui(32),index -> {
             built.add(index); return Ui.button(Component.text(index)).key("object:" + index).singleLine().build();
         }).page(page,_ -> {}).build();
         return SceneGeometryTestSupport.measure(MenuScene.screen("grid").viewport(new UiSize(480,200))
-                .content(Ui.windowedGrid(list,2,UiLength.ui(180),UiLength.ui(12))).build(),1);
+                .content(Ui.windowedGrid(list,2,UiLength.ui(180),UiLength.ui(12)).centered(centered)).build(),1);
     }
 }

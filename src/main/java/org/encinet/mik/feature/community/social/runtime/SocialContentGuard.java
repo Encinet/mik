@@ -75,16 +75,19 @@ public final class SocialContentGuard implements AutoCloseable {
         return Optional.ofNullable(state.unavailable()).map(SocialCommandProcessor::rootMessage);
     }
 
-    public SocialDocument apply(SocialDocument document, SocialOutputPolicy policy) {
+    public Review review(SocialDocument document, SocialOutputPolicy policy) {
         Objects.requireNonNull(document, "document");
         Objects.requireNonNull(policy, "policy");
-        SocialDocument bounded = document.truncated(policy.maximumLength());
-        SocialDocument safe = !allowsOutboundText(bounded.plainText(), bounded.moderation(), policy)
+        SocialDocument bounded = document;
+        boolean allowed = allowsOutboundText(bounded.plainText(), bounded.moderation(), policy);
+        SocialDocument safe = !allowed
                 ? Objects.requireNonNull(blockedDocument.apply(document.language()),
                 "Blocked-document factory returned null").localized(document.language())
                 : bounded;
-        return safe.truncated(policy.maximumLength());
+        return new Review(safe, allowed);
     }
+
+    public record Review(SocialDocument document, boolean allowed) {}
 
     /** Applies platform-output safety rules; inbound social chat must not call this. */
     public boolean allowsOutboundText(

@@ -18,6 +18,40 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WebChatSocketServerTest {
+    private static final java.util.List<String> HISTORY = java.util.List.of("{\"type\":\"history\",\"messages\":[",
+            "{\"text\":\"" + "私聊 private message 🌍".repeat(300) + "\"}", "]}");
+    private static final String LIVE = "{\"type\":\"message\",\"text\":\"" + "较长的日常富文本 🌍".repeat(300) + "\"}";
+
+    @Test void ordinaryAndCompressedHistoryBothRoundTripThroughAnEncryptedSocket() throws Exception {
+        try (Fixture f = new Fixture(); HttpClient client = HttpClient.newHttpClient()) {
+            SocketListener listener = new SocketListener();
+            WebSocket socket = connect(client, f, listener);
+            try {
+                assertTrue(listener.hello.await(3, TimeUnit.SECONDS));
+                for (String request : java.util.List.of("history-plain", "history-compressed")) {
+                    listener.send(socket, request);
+                    assertEquals(String.join("", HISTORY), listener.responses.poll(3, TimeUnit.SECONDS));
+                }
+                listener.send(socket, "live-rich");
+                assertEquals(LIVE, listener.responses.poll(3, TimeUnit.SECONDS));
+                assertEquals(WebChatPacket.COMPRESSED_APPLICATION, listener.lastKind);
+            } finally { socket.abort(); }
+        }
+    }
+
+    @Test void clientsWithoutCompressionReceiveTheSameLargeLiveMessageUncompressed() throws Exception {
+        try (Fixture f = new Fixture(); HttpClient client = HttpClient.newHttpClient()) {
+            SocketListener listener = new SocketListener(false);
+            WebSocket socket = connect(client, f, listener);
+            try {
+                assertTrue(listener.hello.await(3, TimeUnit.SECONDS));
+                listener.send(socket, "live-rich");
+                assertEquals(LIVE, listener.responses.poll(3, TimeUnit.SECONDS));
+                assertEquals(WebChatPacket.APPLICATION, listener.lastKind);
+            } finally { socket.abort(); }
+        }
+    }
+
     @Test void anUnsupportedUpgradeCannotHoldAnUnauthenticatedConnectionOpen() throws Exception {
         try (Fixture f = new Fixture(); Socket socket = new Socket("127.0.0.1", URI.create(f.http).getPort())) {
             socket.setSoTimeout(6500);
@@ -88,9 +122,14 @@ class WebChatSocketServerTest {
                 .buildAsync(URI.create(f.ws + "/ws"), listener).get(3, TimeUnit.SECONDS);
     }
     private static final class SocketListener implements WebSocket.Listener {
+        final boolean compression;
+        volatile byte lastKind = -1;
+        SocketListener() { this(true); }
+        SocketListener(boolean compression) { this.compression = compression; }
         final CountDownLatch hello = new CountDownLatch(1), closed = new CountDownLatch(1);
         final StringBuilder text = new StringBuilder();
         final java.io.ByteArrayOutputStream binary = new java.io.ByteArrayOutputStream();
+        final BlockingQueue<String> responses = new LinkedBlockingQueue<>();
         String id;
         long generation;
         final AsymmetricCipherKeyPair reverse = WebChatEncryption.suite(HPKE.mode_base).generatePrivateKey();
@@ -121,6 +160,7 @@ class WebChatSocketServerTest {
                         try {
                             var finished = new JsonObject(); finished.addProperty("type", "finished"); finished.addProperty("generation", generation);
                             finished.addProperty("verify", WebChatEncryption.encode(proof));
+                            if (compression) finished.addProperty("compression", "deflate");
                             byte[] clear = ("\1" + finished).getBytes(java.nio.charset.StandardCharsets.UTF_8);
                             try { socket.sendBinary(ByteBuffer.wrap(outgoing.seal(WebChatEncryption.EMPTY, clear)), true); }
                             finally { java.util.Arrays.fill(clear, (byte) 0); }
@@ -135,9 +175,17 @@ class WebChatSocketServerTest {
             if (last) {
                 try {
                     byte[] clear = incoming.open(WebChatEncryption.EMPTY, binary.toByteArray());
-                    assertEquals(0, clear[0]);
-                    String body = new String(clear, 1, clear.length - 1, java.nio.charset.StandardCharsets.UTF_8);
-                    assertTrue(body.contains("authorized")); hello.countDown(); binary.reset();
+                    lastKind = clear[0];
+                    String body;
+                    if (clear[0] == WebChatPacket.COMPRESSED_APPLICATION)
+                        body = WebChatPacketTest.expand(java.util.Arrays.copyOfRange(clear, 1, clear.length));
+                    else {
+                        assertEquals(0, clear[0]);
+                        body = new String(clear, 1, clear.length - 1, java.nio.charset.StandardCharsets.UTF_8);
+                    }
+                    if (body.contains("authorized")) hello.countDown();
+                    else responses.add(body);
+                    binary.reset();
                 } catch (Exception invalid) { socket.abort(); closed.countDown(); }
             }
             socket.request(1); return CompletableFuture.completedFuture(null);
@@ -165,7 +213,12 @@ class WebChatSocketServerTest {
                     WebChatSocketServer.authorize(channel, authorizations.remove());
                 }
                 @Override public void ready(Channel channel) { WebChatSocketServer.send(channel, "{\"type\":\"authorized\"}"); }
-                @Override public void message(Channel channel, String text) { messages.add(text); }
+                @Override public void message(Channel channel, String text) {
+                    if (text.equals("history-plain") || text.equals("history-compressed"))
+                        WebChatSocketServer.send(channel, WebChatPacket.history(HISTORY, text.equals("history-compressed")));
+                    else if (text.equals("live-rich")) WebChatSocketServer.send(channel, LIVE);
+                    else messages.add(text);
+                }
                 @Override public void closed(Channel channel) { }
                 @Override public void pong(Channel channel) { }
             }, "https://mcmik.top", 8, WebChatEncryption.generate());

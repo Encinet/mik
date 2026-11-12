@@ -19,8 +19,7 @@
 
 ## 社区
 
-- [网页聊天](web-chat.md)：频道与私聊、Tunnel 路由、多网页连接、Tablist 和本机历史。
-
+- [网页聊天](web-chat.md)：频道与私聊、Tunnel 路由、多网页连接、Tablist、7 天历史与本机保存。
 - [公告](announcements.md)：目录与阅读面、连续翻页、阅读位置和文件重载。
 - [QQ](qq-bot.md)、[Matrix](matrix-bot.md)：机器人配置、命令与聊天互通。
 - [身份绑定](identity-binding.md)：验证码、账号作用域与解绑。
@@ -30,7 +29,7 @@
 ## 世界与建造
 
 - [建筑地图](building-map.md)：已收录建筑的 Pl3xMap 兴趣点、自动同步与网站详情。
-- [地段与公示板](plot-board.md)：创建、编辑、传送点、公告与存储。
+- [地段与公告板](plot-board.md)：创建、编辑、传送点、公告与存储。
 - [地段权限](plot-permissions.md)：操作目录、继承、成员与授权。
 - [选区与子地段](plot-subplots.md)：组合形状、手持原生地图、实地线框与矩形管理。
 - [世界更新](world-upgrade.md)：选区预检、重生成、升级与取消。

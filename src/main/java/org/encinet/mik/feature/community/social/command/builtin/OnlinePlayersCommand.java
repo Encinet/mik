@@ -4,9 +4,12 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.social.command.NoArguments;
+import org.encinet.mik.feature.community.social.command.SocialArguments;
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.SocialCommandExecution;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
-import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
@@ -16,7 +19,6 @@ import org.encinet.mik.feature.community.social.game.SocialGameService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
@@ -24,8 +26,6 @@ import static org.encinet.mik.feature.community.social.command.SocialCommandSpec
 
 /** Lists online players and owns its complete response layout. */
 public final class OnlinePlayersCommand implements SocialCommand<NoArguments, ServerSnapshot> {
-    private static final String TITLE_ICON = "👥";
-    private static final Message TITLE = Message.SOCIAL_TITLE_ONLINE_PLAYERS;
     private static final SocialCommandSpec SPEC = SocialCommandSpec.localizedNatural(
             "server.online",
             aliases(Language.EN_US, "online", "players", "who"),
@@ -44,6 +44,12 @@ public final class OnlinePlayersCommand implements SocialCommand<NoArguments, Se
             aliases(Language.RU_RU, "онлайн", "игроки"),
             aliases(Language.TH_TH, "ออนไลน์", "ผู้เล่น"),
             aliases(Language.UK_UA, "гравці"));
+    public static final SocialCommandDefinition<NoArguments> DEFINITION =
+            SocialCommandDefinition.visible(SPEC, Message.SOCIAL_ONLINE_COMMAND_DESCRIPTION, SocialArguments.none());
+
+    @Override
+    public SocialCommandDefinition<NoArguments> definition() { return DEFINITION; }
+
 
     private final SocialGameService game;
     private final SocialCommandLanguageResolver languageResolver;
@@ -60,49 +66,29 @@ public final class OnlinePlayersCommand implements SocialCommand<NoArguments, Se
     }
 
     @Override
-    public SocialCommandSpec spec() {
-        return SPEC;
+    public SocialCommandExecution<ServerSnapshot> execute(SocialCommandContext context, NoArguments argument) {
+        return SocialCommandExecution.result(perform(context, argument), languageResolver.target(context));
     }
 
-    @Override
-    public Optional<Message> description() {
-        return Optional.of(Message.SOCIAL_ONLINE_COMMAND_DESCRIPTION);
-    }
-
-    @Override
-    public NoArguments decode(SocialCommandInput input) {
-        return NoArguments.decode(input);
-    }
-
-    @Override
-    public ServerSnapshot handle(SocialCommandContext context, NoArguments argument) {
+    private ServerSnapshot perform(SocialCommandContext context, NoArguments argument) {
         return game.serverSnapshot(true);
     }
 
     @Override
-    public SocialDocument present(SocialCommandContext context, ServerSnapshot snapshot) {
-        Language language = languageResolver.language(context);
+    public SocialDocument present(SocialPresentationContext context, ServerSnapshot snapshot) {
+        Language language = context.language();
         List<String> displayedPlayerNames = snapshot.players().stream()
                 .map(player -> languages.t(language, Message.SOCIAL_QUERY_ONLINE_PLAYER, player.name(), player.afk() ? "afk" : "active"))
                 .toList();
-        List<SocialDocument.Field> fields = new ArrayList<>();
-        fields.add(new SocialDocument.Field(
-                label(language, Message.SOCIAL_QUERY_ONLINE_LABEL),
-                languages.t(language, Message.SOCIAL_QUERY_METRIC, snapshot.onlinePlayers()) + " / "
-                        + languages.t(language, Message.SOCIAL_QUERY_METRIC, snapshot.maxPlayers())));
-        fields.add(new SocialDocument.Field(
-                label(language, Message.SOCIAL_QUERY_PLAYERS_LABEL),
-                displayedPlayerNames.isEmpty()
-                        ? languages.t(language, Message.SOCIAL_QUERY_NO_PLAYERS)
-                        : String.join(", ", displayedPlayerNames)));
-        return new SocialDocument(
-                displayedPlayerNames.isEmpty() ? TRUSTED : REQUIRED,
-                TITLE_ICON + " " + languages.t(language, TITLE),
-                SocialDocument.Tone.INFO, List.of(new SocialDocument.Fields(fields)))
-                .localized(language);
+        List<SocialDocument.Block> blocks = new ArrayList<>();
+        blocks.add(SocialDocument.paragraph(snapshot.onlinePlayers() == 0
+                ? languages.t(language, Message.SOCIAL_QUERY_NO_PLAYERS)
+                : languages.t(language, Message.SOCIAL_QUERY_ONLINE_SUMMARY,
+                        snapshot.onlinePlayers(), snapshot.afkPlayers())));
+        if (!displayedPlayerNames.isEmpty()) blocks.add(
+                SocialDocument.unorderedList(displayedPlayerNames.toArray(String[]::new)));
+        return new SocialDocument(displayedPlayerNames.isEmpty() ? TRUSTED : REQUIRED,
+                "", SocialDocument.Tone.INFO, blocks).localized(language);
     }
 
-    private String label(Language language, Message message) {
-        return languages.t(language, message);
-    }
 }

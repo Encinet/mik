@@ -18,6 +18,61 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AiConversationServiceTest {
+    @Test
+    void clearingHistoryDuringARequestPreventsLateAnswersFromRestoringIt() throws Exception {
+        var delayed = new CompletableFuture<AiChatMessage>();
+        var step = new AtomicInteger();
+        AiCompletionClient client = (messages, _) -> switch (step.getAndIncrement()) {
+            case 0 -> CompletableFuture.completedFuture(AiChatMessage.assistant("previous answer"));
+            case 1 -> delayed;
+            case 2 -> {
+                var contents = messages.stream().map(AiChatMessage::content).toList();
+                assertFalse(contents.contains("previous question"));
+                assertFalse(contents.contains("previous answer"));
+                assertFalse(contents.contains("in-flight question"));
+                assertFalse(contents.contains("late answer"));
+                yield CompletableFuture.completedFuture(AiChatMessage.assistant("new answer"));
+            }
+            default -> throw new AssertionError("Unexpected request");
+        };
+        try (var service = new AiConversationService(client, config(2))) {
+            var tools = new AiToolCatalog(List.of());
+            service.ask("user", "Alice", "en_us", "previous question", tools).join();
+            assertEquals(1, service.conversationCount());
+            var inFlight = service.ask("user", "Alice", "en_us", "in-flight question", tools);
+            service.clear("user");
+            delayed.complete(AiChatMessage.assistant("late answer"));
+            assertEquals("late answer", inFlight.join());
+            assertEquals(0, service.conversationCount());
+            service.ask("user", "Alice", "en_us", "new question", tools).join();
+            assertEquals(1, service.conversationCount());
+        }
+        assertEquals(3, step.get());
+    }
+
+    @Test
+    void suppliesTrustedEntryPointCommandsWithoutChangingTheQuestionOrToolPermissions() throws Exception {
+        var interaction = new org.encinet.mik.feature.community.ai.api.AiInteractionContext("Matrix",
+                org.encinet.mik.feature.community.ai.api.AiInteractionContext.BindingStatus.UNAVAILABLE,
+                List.of(new org.encinet.mik.feature.community.ai.api.AiInteractionContext.Operation(
+                        "!綁定 <驗證碼>", "Link a game account")));
+        AiCompletionClient client = (messages, tools) -> {
+            var context = com.google.gson.JsonParser.parseString(messages.get(1).content()
+                    .substring("REQUEST_CONTEXT_DATA ".length())).getAsJsonObject();
+            assertEquals("Matrix", context.get("surface").getAsString());
+            assertEquals("unavailable", context.get("account_binding").getAsString());
+            assertEquals("!綁定 <驗證碼>", context.getAsJsonArray("available_commands").get(0)
+                    .getAsJsonObject().get("invocation").getAsString());
+            assertEquals("How do I join?", messages.getLast().content());
+            assertTrue(tools.isEmpty());
+            return CompletableFuture.completedFuture(AiChatMessage.assistant("Use the login command."));
+        };
+        try (var service = new AiConversationService(client, config(2))) {
+            service.askDetailed("matrix", "Alice", "zh_tw", "How do I join?", null,
+                    new AiToolCatalog(List.of()), interaction).join();
+        }
+    }
+
 
     @Test
     void runsDiscoveryThenAConcreteToolAndUsesTheLocalizedSystemPrompt() throws Exception {

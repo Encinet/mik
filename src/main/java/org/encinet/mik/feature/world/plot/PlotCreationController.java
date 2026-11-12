@@ -4,41 +4,32 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
-import org.encinet.mik.feature.world.plot.board.PlotBoardNotifications;
-import org.encinet.mik.feature.world.plot.board.PlotCommunityBoard;
 import org.encinet.mik.shared.role.RolePermissions;
 
 import java.sql.SQLException;
 import java.util.UUID;
 import java.util.function.BiConsumer;
-import java.util.logging.Level;
 
 final class PlotCreationController {
     private final JavaPlugin plugin;
     private final LanguageService language;
-    private final PlotNoticePublisher notices;
     private final PlotEdits edits;
     private final PlotRegistry registry;
     private final PlotSelectionState selections;
-    private final PlotCommunityBoard board;
     private final BiConsumer<Player, UUID> showDetail;
 
-    PlotCreationController(JavaPlugin plugin, LanguageService language, PlotNoticePublisher notices,
-                           PlotRegistry registry, PlotSelectionState selections, PlotCommunityBoard board,
+    PlotCreationController(JavaPlugin plugin, LanguageService language,
+                           PlotRegistry registry, PlotSelectionState selections,
                            BiConsumer<Player, UUID> showDetail) {
         this.plugin = plugin;
         this.language = language;
-        this.notices = notices;
         this.edits = new PlotEdits(registry);
         this.registry = registry;
         this.selections = selections;
-        this.board = board;
         this.showDetail = showDetail;
     }
 
@@ -70,13 +61,13 @@ final class PlotCreationController {
         PlotWriteFeedback.finish(plugin, language, registry, player,
                 edits.writeAsync(staged -> staged.create(target.id(), name, world, submitted.shape())), plot -> {
                     boolean cleared = selections.clearIfMatches(actor, null, submitted);
-                    announceCreated(player, plot, new CreateRequest(target, name, assisted),
+                    announceCreated(player, plot, new CreateRequest(target, assisted),
                             cleared && selections.context(actor).equals(submitted.context()) && player.isOnline()
                                     && player.getWorld().getUID().equals(world));
                 });
     }
 
-    private record CreateRequest(PlotOwner target, String name, boolean assisted) { }
+    private record CreateRequest(PlotOwner target, boolean assisted) { }
 
     private void announceCreated(Player player, Plot plot, CreateRequest request, boolean navigate) {
         if (request.assisted()) {
@@ -84,28 +75,9 @@ final class PlotCreationController {
                     + plot.id() + " for " + plot.owner() + " in world " + plot.world());
             send(player, NamedTextColor.GREEN, Message.PLOT_ADMIN_CREATED,
                     plot.name(), request.target().name(), plot.id());
-            if (!plot.owner().equals(player.getUniqueId())) {
-                Player owner = Bukkit.getPlayer(plot.owner());
-                if (owner != null)
-                    send(owner, NamedTextColor.GREEN, Message.PLOT_CREATED_FOR_YOU,
-                            plot.name(), player.getName());
-                Language ownerLanguage = owner == null
-                        ? language.preferredLanguage(plot.owner()).orElse(Language.DEFAULT)
-                        : language.language(owner);
-                try {
-                    notices.publish(plot.owner(), request.target().name(),
-                            language.t(ownerLanguage, Message.PLOT_CREATED_FOR_YOU,
-                            PlotBoardNotifications.safeAlertText(plot.name()), player.getName()));
-                } catch (RuntimeException error) {
-                    plugin.getLogger().log(Level.WARNING,
-                            "Could not send assisted plot registration notice", error);
-                }
-            }
         } else {
             send(player, NamedTextColor.GREEN, Message.PLOT_CREATED, plot.name(), plot.id());
         }
-        World world = Bukkit.getWorld(plot.world());
-        if (world != null) board.publishRegistration(player, plot, request.target().name(), world);
         if (navigate) showDetail.accept(player, plot.id());
     }
 

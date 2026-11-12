@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.social.platform.qq.client;
 
+import org.encinet.mik.feature.community.social.api.SocialDeliveryResult;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -55,6 +57,13 @@ public final class QqApiErrors {
                 longValue(body, "code", 0),
                 longValue(body, "err_code", 0),
                 message, trace, retryAfterMillis(response));
+    }
+
+    public static SocialDeliveryResult.Status deliveryStatus(Throwable error) {
+        Throwable cause = unwrap(error);
+        return cause instanceof QqHttpException http && http.statusCode() >= 400
+                && http.statusCode() < 500 && http.statusCode() != 408
+                ? SocialDeliveryResult.Status.NOT_SENT : SocialDeliveryResult.Status.UNKNOWN;
     }
 
     public static Throwable unwrap(Throwable error) {

@@ -92,7 +92,7 @@ class IdentityAdmissionTest {
         assertEquals(text, denial(retry));
         runtime.redeem(code, account);
         assertTrue(runtime.canJoin(player));
-        runtime.unlink(account.key());
+        runtime.unlink(account.key(), runtime.find(account.key()).orElseThrow().bindingId());
         var afterUnlink = login();
         admission.configure(afterUnlink);
         String renewed = code(denial(afterUnlink));

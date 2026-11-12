@@ -23,6 +23,15 @@ final class WebChatContentRenderer {
     private WebChatContentRenderer() { }
 
     static JsonArray render(ChatContent content) {
+        return render(content, false);
+    }
+
+    /** Archive-only markers keep transport placeholders localizable without reinterpreting user text. */
+    static JsonArray archive(ChatContent content) {
+        return render(content, true);
+    }
+
+    private static JsonArray render(ChatContent content, boolean archive) {
         JsonArray parts = new JsonArray();
         StringBuilder plain = new StringBuilder();
         int hrefLength = 0;
@@ -36,7 +45,8 @@ final class WebChatContentRenderer {
             JsonObject style = style(node.style());
             // Reserve JSON structure, a preceding plain run and worst-case HTML escaping of URLs.
             int bytes = 64 + style.toString().length() + (href == null ? 0 : href.length() * 6);
-            if ((href != null || mention || !style.isEmpty())
+            boolean placeholder = archive && node instanceof ChatNode.Placeholder;
+            if ((href != null || mention || !style.isEmpty() || placeholder)
                     && parts.size() + (plain.isEmpty() ? 0 : 1) < MAX_PARTS - 1
                     && bytes <= presentationBudget) {
                 flush(parts, plain);
@@ -45,6 +55,7 @@ final class WebChatContentRenderer {
                 if (href != null) part.addProperty("href", href);
                 if (mention) part.addProperty("mention", true);
                 if (!style.isEmpty()) part.add("style", style);
+                if (placeholder) part.addProperty("placeholder", ((ChatNode.Placeholder) node).kind().name());
                 parts.add(part);
                 if (href != null) hrefLength += href.length();
                 presentationBudget -= bytes;

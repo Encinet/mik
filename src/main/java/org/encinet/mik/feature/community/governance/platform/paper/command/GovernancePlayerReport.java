@@ -74,7 +74,8 @@ final class GovernancePlayerReport {
         blocks.add(new Block("active-heading",Component.text(text.t(language,Message.GOVERNANCE_ACTIVE_HEADER),NamedTextColor.GOLD)));
         blocks.add(new Block("current-member",text.line(language,active.currentMember(),Message.GOVERNANCE_ACTIVE_MEMBER)));
         blocks.add(new Block("member-age",text.line(language,active.memberAgeMet(),Message.GOVERNANCE_ACTIVE_MEMBER_AGE)));
-        blocks.add(new Block("recent-playtime",text.line(language,active.playtimeMet(),Message.GOVERNANCE_ACTIVE_PLAYTIME,text.hours(language,participation.secondsLast60Days()))));
+        blocks.add(new Block("recent-playtime",text.line(language,active.playtimeMet(),Message.GOVERNANCE_ACTIVE_PLAYTIME,
+                text.hours(language,participation.secondsLast60Days()),text.hours(language,active.requiredPlaytime().toSeconds()))));
         blocks.add(new Block("participation-days-60",text.line(language,active.participationDaysMet(),Message.GOVERNANCE_ACTIVE_DAYS_60,participation.participationDaysLast60())));
         blocks.add(new Block("participation-days-30",text.line(language,active.recentDaysMet(),Message.GOVERNANCE_ACTIVE_DAYS_30,participation.participationDaysLast30())));
         blocks.add(new Block("no-active-ban",text.line(language,active.noActiveBan(),Message.GOVERNANCE_NO_ACTIVE_BAN)));

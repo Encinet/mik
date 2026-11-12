@@ -22,26 +22,27 @@ public final class SocialCommandLanguageResolver {
         this.languages = Objects.requireNonNull(languages, "languages");
     }
 
-    public Optional<IdentityBinding> binding(SocialCommandContext context) {
+    public BindingLookup lookup(SocialCommandContext context) {
         try {
-            return context.message().authenticatedIdentity()
-                    .flatMap(identity -> bindings.find(identity.key()));
+            return new BindingLookup(context.message().authenticatedIdentity()
+                    .flatMap(identity -> bindings.find(identity.key())), true);
         } catch (IdentityBindingException error) {
-            return Optional.empty();
+            return new BindingLookup(Optional.empty(), false);
         }
     }
 
-    public Language language(SocialCommandContext context) {
-        return language(binding(context), context);
+    public record BindingLookup(Optional<IdentityBinding> binding, boolean available) {}
+
+    public SocialCommandExecution.LanguageTarget target(SocialCommandContext context) {
+        return target(lookup(context).binding(), context);
     }
 
-    public Language language(
-            Optional<IdentityBinding> binding,
-            SocialCommandContext context
-    ) {
-        Optional<Language> preferred = binding.flatMap(
-                value -> languages.preferredLanguage(value.playerId()));
-        return preferred.or(() -> context.input().languageHint())
-                .orElse(context.syntax().defaultLanguage());
+    public SocialCommandExecution.LanguageTarget target(Optional<IdentityBinding> binding, SocialCommandContext context) {
+        return new SocialCommandExecution.LanguageTarget(context.input().languageHint()
+                .orElse(context.syntax().defaultLanguage()), binding.map(IdentityBinding::playerId));
+    }
+
+    public Language language(Optional<IdentityBinding> binding, SocialCommandContext context) {
+        return target(binding, context).resolve(languages);
     }
 }

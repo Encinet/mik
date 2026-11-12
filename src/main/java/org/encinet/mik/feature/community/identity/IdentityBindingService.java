@@ -152,14 +152,10 @@ final class IdentityBindingService implements ExternalIdentityLinker, AutoClosea
     }
 
     @Override
-    public synchronized Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+    public synchronized Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
         try {
-            Optional<IdentityBinding> removed = repository.unlinkExternal(key);
-            attempts.remove(key);
-            if (removed.isPresent()) {
-                reloadBindings();
-            }
-            return removed;
+            return removed(repository.unlinkExternal(Objects.requireNonNull(key, "key"),
+                    Objects.requireNonNull(expectedBindingId, "expectedBindingId")));
         } catch (SQLException error) {
             throw storageFailure("Could not unlink an external identity", error);
         }

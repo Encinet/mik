@@ -9,6 +9,7 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.encinet.mik.feature.community.identity.IdentityBinding;
+import org.encinet.mik.feature.community.identity.IdentityBindingException;
 import org.encinet.mik.feature.community.identity.IdentityBindingManager;
 import org.encinet.mik.feature.community.identity.IdentityLinkResult;
 import org.encinet.mik.feature.community.identity.IdentityPlatform;
@@ -38,6 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class AiSocialCommandTest {
 
@@ -53,17 +56,22 @@ class AiSocialCommandTest {
         AiSocialCommand command = command(
                 gateway, new StubBindings(Optional.of(binding)), languages);
 
-        AiSocialCommand.Result result = command.handle(
+        AiSocialCommand.Result result = command.execute(
                 context(identity, "event-1", "サーバーの状態は？", Language.EN_US),
-                "サーバーの状態は？");
-        SocialDocument document = command.present(
-                context(identity, "event-1", "サーバーの状態は？", Language.EN_US), result);
+                "サーバーの状態は？").value();
+        SocialDocument document = command.present(new org.encinet.mik.feature.community.social.command.SocialPresentationContext(
+                        context(identity, "event-1", "サーバーの状態は？", Language.EN_US), Language.JA_JP, languages), result);
 
         assertInstanceOf(AiSocialCommand.Result.Answer.class, result);
         AiRequest request = gateway.requests.getFirst();
         assertEquals("Alice", request.requesterName());
         assertEquals("ja_jp", request.language());
         assertEquals(Optional.of(playerId), request.playerId());
+        assertEquals("QQ", request.interaction().surface());
+        assertEquals(org.encinet.mik.feature.community.ai.api.AiInteractionContext.BindingStatus.BOUND,
+                request.interaction().binding());
+        assertTrue(request.interaction().operations().stream()
+                .anyMatch(operation -> operation.invocation().equals("/ヘルプ")));
         assertEquals(REQUIRED, document.moderation());
         assertEquals(Language.JA_JP, document.language());
     }
@@ -77,9 +85,9 @@ class AiSocialCommandTest {
         ExternalIdentity first = identity("first-user");
         ExternalIdentity second = identity("second-user");
 
-        command.handle(context(first, "event-1", "one", Language.EN_US), "one");
-        command.handle(context(first, "event-2", "two", Language.EN_US), "two");
-        command.handle(context(second, "event-3", "three", Language.EN_US), "three");
+        command.execute(context(first, "event-1", "one", Language.EN_US), "one").value();
+        command.execute(context(first, "event-2", "two", Language.EN_US), "two").value();
+        command.execute(context(second, "event-3", "three", Language.EN_US), "three").value();
 
         assertEquals(gateway.requests.get(0).conversationId(),
                 gateway.requests.get(1).conversationId());
@@ -87,6 +95,42 @@ class AiSocialCommandTest {
                 gateway.requests.get(2).conversationId());
         assertTrue(gateway.requests.getFirst().conversationId().startsWith("social:"));
         assertTrue(gateway.requests.getFirst().conversationId().length() < 64);
+    }
+
+    @Test
+    void bindingChangesAndUnavailableLookupsCannotReuseAnotherAccountsHistory() {
+        var identity = identity("same-social-account");
+        var alice = new IdentityBinding(UUID.randomUUID(), UUID.randomUUID(), "Alice", identity.key(),
+                identity.displayName(), "", Instant.EPOCH, Instant.EPOCH);
+        var bindings = new StubBindings(Optional.of(alice));
+        var gateway = new FakeGateway();
+        var command = command(gateway, bindings, new StubLanguages(Optional.empty()));
+        var context = context(identity, "event", "question", Language.EN_US);
+        command.execute(context, "alice question").value();
+        bindings.binding = Optional.of(new IdentityBinding(alice.bindingId(), alice.playerId(), "AliceRenamed",
+                alice.externalKey(), alice.externalDisplayName(), "", Instant.EPOCH, Instant.EPOCH.plusSeconds(1)));
+        command.execute(context, "same binding").value();
+        bindings.binding = Optional.empty();
+        command.execute(context, "unbound question").value();
+        bindings.binding = Optional.of(new IdentityBinding(UUID.randomUUID(), UUID.randomUUID(), "Bob", identity.key(),
+                identity.displayName(), "", Instant.EPOCH, Instant.EPOCH));
+        command.execute(context, "bob question").value();
+        bindings.binding = Optional.of(new IdentityBinding(UUID.randomUUID(), alice.playerId(), "Alice", identity.key(),
+                identity.displayName(), "", Instant.EPOCH, Instant.EPOCH));
+        command.execute(context, "rebound alice question").value();
+        command.execute(context, "clear").value();
+        var unavailableBindings = mock(IdentityBindingManager.class);
+        when(unavailableBindings.find(identity.key())).thenThrow(IdentityBindingException.class);
+        command(gateway, unavailableBindings, new StubLanguages(Optional.empty()))
+                .execute(context, "lookup unavailable").value();
+
+        var ids = gateway.requests.stream().map(AiRequest::conversationId).toList();
+        assertEquals(ids.get(0), ids.get(1));
+        assertEquals(5, ids.stream().distinct().count());
+        assertEquals(List.of(ids.get(4)), gateway.cleared);
+        assertEquals(Optional.empty(), gateway.requests.get(5).playerId());
+        assertEquals(org.encinet.mik.feature.community.ai.api.AiInteractionContext.BindingStatus.UNAVAILABLE,
+                gateway.requests.get(5).interaction().binding());
     }
 
     @Test
@@ -100,13 +144,13 @@ class AiSocialCommandTest {
         SocialCommandContext context = context(
                 identity("user"), "event-1", "long", Language.ZH_CN);
 
-        AiSocialCommand.Result rejected = command.handle(context, "long");
-        SocialDocument rejection = command.present(context, rejected);
+        AiSocialCommand.Result rejected = command.execute(context, "long").value();
+        SocialDocument rejection = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context, languages), rejected);
 
         assertInstanceOf(AiSocialCommand.Result.PromptTooLong.class, rejected);
         assertTrue(rejection.plainText().contains("AI_PROMPT_TOO_LONG[64]"));
 
-        AiSocialCommand.Result cleared = command.handle(context, "清空");
+        AiSocialCommand.Result cleared = command.execute(context, "清空").value();
         assertInstanceOf(AiSocialCommand.Result.Cleared.class, cleared);
         assertEquals(1, gateway.cleared.size());
     }
@@ -118,7 +162,7 @@ class AiSocialCommandTest {
     ) {
         return new AiSocialCommand(gateway,
                 new SocialCommandLanguageResolver(bindings, languages), languages,
-                Logger.getAnonymousLogger());
+                Logger.getAnonymousLogger(), List.of(AiSocialCommand.DEFINITION, SocialHelpCommand.DEFINITION));
     }
 
     private static SocialCommandContext context(
@@ -130,7 +174,7 @@ class AiSocialCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 eventId, new SocialConversation("shared-room", SocialConversation.Type.GROUP),
                 Optional.of(identity), "/ai " + argument, false,
-                _ -> CompletableFuture.completedFuture(null));
+                org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
         SocialCommandInput input = new SocialCommandInput(
                 "ai", argument, SocialCommandInput.InvocationType.EXPLICIT_TEXT,
                 Map.of(), Optional.of(language));
@@ -192,7 +236,7 @@ class AiSocialCommandTest {
     }
 
     private static final class StubBindings implements IdentityBindingManager {
-        private final Optional<IdentityBinding> binding;
+        private Optional<IdentityBinding> binding;
 
         private StubBindings(Optional<IdentityBinding> binding) {
             this.binding = binding;
@@ -209,7 +253,7 @@ class AiSocialCommandTest {
         }
 
         @Override
-        public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+        public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
             throw new UnsupportedOperationException();
         }
 

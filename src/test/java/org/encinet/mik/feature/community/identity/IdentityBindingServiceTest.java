@@ -51,6 +51,20 @@ class IdentityBindingServiceTest {
     }
 
     @Test
+    void externalUnlinkCannotRemoveAReplacementBinding() {
+        var identity = qqIdentity("app", "group", "member", "AliceQQ");
+        var first = service.redeem(service.issueCode(UUID.randomUUID(), "Alice", "qq").code(), identity).binding();
+        assertTrue(service.unlink(identity.key(), UUID.randomUUID()).isEmpty());
+        assertEquals(first, service.find(identity.key()).orElseThrow());
+        assertEquals(first, service.unlink(identity.key(), first.bindingId()).orElseThrow());
+        var replacement = service.redeem(service.issueCode(UUID.randomUUID(), "Bob", "qq").code(), identity).binding();
+        assertTrue(service.unlink(identity.key(), first.bindingId()).isEmpty());
+        assertEquals(replacement, service.find(identity.key()).orElseThrow());
+        assertEquals(replacement, service.unlink(identity.key(), replacement.bindingId()).orElseThrow());
+        assertTrue(service.unlink(identity.key(), replacement.bindingId()).isEmpty());
+    }
+
+    @Test
     void codeCreatesDurableBindingAndCanOnlyBeConsumedOnce() throws Exception {
         UUID playerId = UUID.randomUUID();
         var issue = service.issueCode(playerId, "Alice", "QQ");

@@ -23,7 +23,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class ServerStatusCommandTest {
 
     @Test
-    void usesFourCompactDynamicStatusRows() {
+    void includesTheServerVersionWithCompactDynamicStatusRows() {
         LanguageService languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
         EmptyBindingManager bindings = new EmptyBindingManager();
         ServerStatusCommand command = new ServerStatusCommand(new UnusedGameService(),
@@ -42,11 +41,11 @@ class ServerStatusCommandTest {
                 20.0, 19.98, 19.95, 12.34,
                 Duration.ofHours(3), "1.21.8");
 
-        SocialDocument document = command.present(context(), snapshot);
+        SocialDocument document = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages), snapshot);
         SocialDocument.Fields fields = (SocialDocument.Fields) document.blocks().getFirst();
 
         assertEquals(TRUSTED, document.moderation());
-        assertEquals(4, fields.fields().size());
+        assertEquals(5, fields.fields().size());
         assertEquals("玩家",
                 fields.fields().get(0).label());
         assertEquals("在线 12/100 · 活跃 10 · 挂机 2",
@@ -57,7 +56,8 @@ class ServerStatusCommandTest {
         assertEquals("12.34", fields.fields().get(2).value());
         assertEquals("运行时间",
                 fields.fields().get(3).label());
-        assertFalse(document.plainText().contains("1.21.8"));
+        assertEquals("版本", fields.fields().get(4).label());
+        assertEquals("1.21.8", fields.fields().get(4).value());
         assertFalse(document.plainText().contains("19.98"));
         assertFalse(document.plainText().contains("19.95"));
         assertFalse(document.plainText().contains("12.34 ms"));
@@ -67,7 +67,7 @@ class ServerStatusCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/状态", false,
-                _ -> CompletableFuture.completedFuture(null));
+                org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message);
     }
 
@@ -83,7 +83,7 @@ class ServerStatusCommandTest {
         }
 
         @Override
-        public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+        public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
             throw new UnsupportedOperationException();
         }
 

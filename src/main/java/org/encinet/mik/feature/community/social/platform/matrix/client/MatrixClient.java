@@ -1,5 +1,10 @@
 package org.encinet.mik.feature.community.social.platform.matrix.client;
 
+import org.encinet.mik.feature.community.social.api.SocialDeliveryResult;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.encinet.mik.feature.community.social.api.SocialFutures;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -157,7 +162,7 @@ public final class MatrixClient {
         return sendRoomMessage(roomId, body, "Send formatted Matrix chat");
     }
 
-    public CompletableFuture<Void> replyImage(
+    public CompletableFuture<SocialDeliveryResult> replyImage(
             String roomId,
             String repliedEventId,
             Optional<String> threadRootEventId,
@@ -183,12 +188,13 @@ public final class MatrixClient {
             default -> "png";
         };
         String fileName = fileName(alternativeText, extension);
-        return MatrixFutures.compose(security.apply(roomId), roomSecurity -> {
+        var submitting = new AtomicBoolean();
+        var request = SocialFutures.compose(security.apply(roomId), roomSecurity -> {
             if (roomSecurity == Security.UNAVAILABLE) return unavailableRoom();
             MatrixEncryptedAttachment attachment = roomSecurity == Security.ENCRYPTED ? MatrixEncryptedAttachment.encrypt(data) : null;
-            return MatrixFutures.compose(upload(attachment == null ? mediaType : "application/octet-stream",
+            return SocialFutures.compose(upload(attachment == null ? mediaType : "application/octet-stream",
                     attachment == null ? fileName : "encrypted", attachment == null ? data : attachment.ciphertext()), contentUri ->
-                MatrixFutures.compose(security.apply(roomId), currentSecurity -> {
+                SocialFutures.compose(security.apply(roomId), currentSecurity -> {
                     if (roomSecurity != currentSecurity) return unavailableRoom();
                     JsonObject body = new JsonObject();
                     body.addProperty("msgtype", "m.image");
@@ -207,9 +213,12 @@ public final class MatrixClient {
                     body.add("info", info);
                     body.add("m.mentions", new JsonObject());
                     body.add("m.relates_to", relation(repliedEventId, threadRootEventId));
+                    submitting.set(true);
                     return sendRoomMessage(roomId, body, "Send Matrix image");
                 }));
         });
+        return SocialDeliveryResult.observe(request, error -> submitting.get()
+                ? MatrixApiErrors.deliveryStatus(error) : SocialDeliveryResult.Status.NOT_SENT);
     }
 
     private CompletableFuture<String> upload(
@@ -224,7 +233,7 @@ public final class MatrixClient {
                 .header("Content-Type", mediaType)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(data))
                 .build();
-        return MatrixFutures.compose(sendJsonAsync(request, "Upload Matrix image"), body -> {
+        return SocialFutures.compose(sendJsonAsync(request, "Upload Matrix image"), body -> {
             String contentUri = string(body, "content_uri");
             if (!contentUri.startsWith("mxc://")) {
                 throw new IllegalStateException(
@@ -240,12 +249,12 @@ public final class MatrixClient {
             String operation
     ) {
         requireText(roomId, "Matrix room ID");
-        return MatrixFutures.compose(security.apply(roomId), roomSecurity -> {
+        return SocialFutures.compose(security.apply(roomId), roomSecurity -> {
             if (roomSecurity == Security.UNAVAILABLE) return unavailableRoom();
             CompletableFuture<JsonObject> protectedContent = roomSecurity == Security.ENCRYPTED
                     ? encryption.encrypt(roomId, body) : CompletableFuture.completedFuture(body);
-            return MatrixFutures.compose(protectedContent, content ->
-                    MatrixFutures.compose(security.apply(roomId), currentSecurity -> {
+            return SocialFutures.compose(protectedContent, content ->
+                    SocialFutures.compose(security.apply(roomId), currentSecurity -> {
                         if (roomSecurity != currentSecurity) return unavailableRoom();
                         return sendRoomEvent(roomId, roomSecurity == Security.ENCRYPTED
                                 ? "m.room.encrypted" : "m.room.message", content, operation);
@@ -263,7 +272,7 @@ public final class MatrixClient {
                 .header("Content-Type", "application/json; charset=utf-8")
                 .PUT(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
                 .build();
-        return MatrixFutures.compose(sendJsonAsync(request, operation), response -> {
+        return SocialFutures.compose(sendJsonAsync(request, operation), response -> {
             if (string(response, "event_id").isBlank()) {
                 throw new IllegalStateException(operation + " response omitted event_id");
             }

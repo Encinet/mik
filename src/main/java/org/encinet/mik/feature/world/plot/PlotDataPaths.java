@@ -14,8 +14,4 @@ public record PlotDataPaths(Path directory) {
     }
 
     public Path plotsDatabase() { return directory.resolve("plots.db"); }
-
-    public Path boardDatabase() { return directory.resolve("board.db"); }
-
-    public Path boardAlerts() { return directory.resolve("board-alerts.yml"); }
 }

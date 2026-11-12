@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.community.social.platform.qq.render;
 
 import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.feature.community.social.document.SocialDocumentLayout;
 
 import java.util.Objects;
 
@@ -16,13 +17,20 @@ public final class QqMarkdownRenderer {
         if (maximumLength < 16) {
             throw new IllegalArgumentException("maximumLength must be at least 16");
         }
-        StringBuilder markdown = new StringBuilder("## ").append(escape(document.title()));
+        return encode(SocialDocumentLayout.fit(document, maximumLength, value -> encode(value).length()));
+    }
+
+    public static String encode(SocialDocument document) {
+        StringBuilder markdown = new StringBuilder();
+        if (!document.title().isEmpty()) markdown.append("## ").append(escape(document.title()));
         for (SocialDocument.Block block : document.blocks()) {
             if (block instanceof SocialDocument.Image) {
                 continue;
             }
-            markdown.append("\n\n");
+            if (!markdown.isEmpty()) markdown.append("\n\n");
             switch (block) {
+                case SocialDocument.Instruction instruction -> markdown.append(escapeMultiline(instruction.explanation()))
+                        .append("\n\n").append(escape(instruction.invocation()));
                 case SocialDocument.Paragraph paragraph ->
                         markdown.append(escapeMultiline(paragraph.text()));
                 case SocialDocument.Fields fields -> {
@@ -34,6 +42,7 @@ public final class QqMarkdownRenderer {
                         markdown.append("- **").append(escape(field.label()))
                                 .append("：** ").append(escapeMultiline(field.value()));
                     }
+                    if (fields.omitted()) markdown.append("\n- …");
                 }
                 case SocialDocument.ItemList list -> {
                     for (int index = 0; index < list.items().size(); index++) {
@@ -49,7 +58,7 @@ public final class QqMarkdownRenderer {
                 }
             }
         }
-        return limit(markdown.toString(), maximumLength);
+        return markdown.isEmpty() ? escapeMultiline(document.plainText()) : markdown.toString();
     }
 
     public static String escape(String value) {
@@ -76,21 +85,4 @@ public final class QqMarkdownRenderer {
         return result.toString();
     }
 
-    private static String limit(String value, int maximumLength) {
-        if (value.length() <= maximumLength) {
-            return value;
-        }
-        int end = maximumLength - 1;
-        if (Character.isHighSurrogate(value.charAt(end - 1))) {
-            end--;
-        }
-        int backslashes = 0;
-        while (end - backslashes - 1 >= 0 && value.charAt(end - backslashes - 1) == '\\') {
-            backslashes++;
-        }
-        if ((backslashes & 1) == 1) {
-            end--;
-        }
-        return value.substring(0, Math.max(0, end)).stripTrailing() + '…';
-    }
 }

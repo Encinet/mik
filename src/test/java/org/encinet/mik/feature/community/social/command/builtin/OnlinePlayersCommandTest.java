@@ -23,12 +23,39 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OnlinePlayersCommandTest {
+    @Test
+    void explicitExtraArgumentsShowUsageBeforeReadingGameState() {
+        var languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
+        var game = org.mockito.Mockito.mock(SocialGameService.class);
+        var command = new OnlinePlayersCommand(game,
+                new SocialCommandLanguageResolver(new EmptyBindingManager(), languages), languages);
+        var original = context();
+        var inbound = new SocialInboundMessage("extra", original.message().conversation(), Optional.empty(),
+                "/在线 extra", false, org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
+        var context = new SocialCommandContext(original.platform(), inbound);
+        var dispatcher = org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.dispatcher(List.of(command));
+        var result = dispatcher.resolve(context.syntax(), context.message()).orElseThrow().execute(context);
+        var reply = result.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context, languages));
+        assertTrue(reply.plainText().contains("/在线"));
+        org.mockito.Mockito.verifyNoInteractions(game);
+    }
+
+    @Test
+    void anUnavailableNameListDoesNotMeanTheServerIsEmpty() {
+        var languages = org.encinet.mik.shared.i18n.FluentTestSupport.languages();
+        var command = new OnlinePlayersCommand(new UnusedGameService(),
+                new SocialCommandLanguageResolver(new EmptyBindingManager(), languages), languages);
+        var document = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages), new ServerSnapshot(3, 100, List.of(), 0,
+                20, 20, 20, 5, Duration.ofHours(1), "26.3"));
+        assertTrue(document.plainText().contains("3"));
+        assertTrue(!document.plainText().contains("没有玩家"));
+    }
 
     @Test
     void marksAfkPlayersInTheDisplayedPlayerList() {
@@ -43,10 +70,11 @@ class OnlinePlayersCommandTest {
                 1, 20.0, 20.0, 20.0, 5.0,
                 Duration.ofHours(1), "1.21.8");
 
-        SocialDocument document = command.present(context(), snapshot);
-        SocialDocument.Fields fields = (SocialDocument.Fields) document.blocks().getFirst();
+        SocialDocument document = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages), snapshot);
+        SocialDocument.ItemList players = (SocialDocument.ItemList) document.blocks().get(1);
 
-        assertEquals("Alice, Bob (挂机), Carol", fields.fields().get(1).value());
+        assertEquals(List.of("Alice", "Bob (挂机)", "Carol"), players.items());
+        assertEquals("", document.title());
         assertEquals(REQUIRED, document.moderation());
     }
 
@@ -54,7 +82,7 @@ class OnlinePlayersCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/online", false,
-                _ -> CompletableFuture.completedFuture(null));
+                org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message);
     }
 
@@ -70,7 +98,7 @@ class OnlinePlayersCommandTest {
         }
 
         @Override
-        public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+        public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
             throw new UnsupportedOperationException();
         }
 

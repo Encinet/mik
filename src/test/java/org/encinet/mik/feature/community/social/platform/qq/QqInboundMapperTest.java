@@ -32,7 +32,7 @@ class QqInboundMapperTest {
         author.addProperty("username", "Name");
         payload.add("author", author);
         return QqInboundMapper.map(QqGatewayGroupMessage.from(payload, "event").orElseThrow(),
-                appId, _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
+                appId, org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
     }
 
     @Test
@@ -55,7 +55,7 @@ class QqInboundMapperTest {
                   }
                 }
                 """);
-        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", _ -> java.util.concurrent.CompletableFuture.completedFuture(null));
+        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
 
         assertEquals("event-id", inbound.eventId());
         assertEquals("group-id", inbound.conversation().id());
@@ -88,8 +88,7 @@ class QqInboundMapperTest {
                 }
                 """);
 
-        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", _ ->
-                        java.util.concurrent.CompletableFuture.completedFuture(null));
+        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
 
         assertEquals("full-event-id", inbound.eventId());
         assertEquals("full-message-id", group.messageId());
@@ -136,8 +135,7 @@ class QqInboundMapperTest {
                 }
                 """);
 
-        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", _ ->
-                        java.util.concurrent.CompletableFuture.completedFuture(null));
+        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
 
         assertEquals("/我的 @Target",
                 ((SocialInboundMessage.Text) inbound.content()).commandBody());
@@ -176,8 +174,7 @@ class QqInboundMapperTest {
                 }
                 """);
 
-        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", _ ->
-                        java.util.concurrent.CompletableFuture.completedFuture(null));
+        SocialInboundMessage inbound = QqInboundMapper.map(group, "app-id", org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
 
         assertEquals("/我的 @target-token",
                 ((SocialInboundMessage.Text) inbound.content()).body());

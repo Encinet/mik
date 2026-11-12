@@ -60,14 +60,10 @@ class LocalApiServerTest {
         players.bootstrap(List.of(), Instant.parse("2026-09-27T00:00:00Z"));
         WebLoginChallengeStore challenges = new WebLoginChallengeStore();
         challenges.confirm("123456", UUID.randomUUID(), "Player", "member", () -> true);
-        CommunityBoardView board = new CommunityBoardView() {
-            @Override public String listJson() { return "{\"notices\":[]}"; }
-            @Override public String detailJson(String id) { return null; }
-        };
         var currentPolicy = new java.util.concurrent.atomic.AtomicReference<>(new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L));
         var banned = new java.util.concurrent.atomic.AtomicBoolean(false);
         LocalApiServer server = new LocalApiServer(plugin(logger), players, challenges,
-                List::of, () -> "[]".getBytes(StandardCharsets.UTF_8), board, _ -> currentPolicy.get(), (_, _) -> !banned.get());
+                List::of, () -> "[]".getBytes(StandardCharsets.UTF_8), _ -> currentPolicy.get(), (_, _) -> !banned.get());
 
         server.start(0);
         try (HttpClient client = HttpClient.newHttpClient()) {
@@ -78,7 +74,6 @@ class LocalApiServerTest {
             assertEquals(200, request(client, server, "GET", "/api/announcements").statusCode());
             assertEquals(405, request(client, server, "POST", "/api/announcements").statusCode());
             assertEquals(404, request(client, server, "GET", "/api/announcements/extra").statusCode());
-            assertEquals(200, request(client, server, "GET", "/api/community/notices").statusCode());
             assertEquals("confirmed", JsonParser.parseString(request(client, server, "GET",
                     "/api/auth/challenges/123456").body()).getAsJsonObject()
                     .get("status").getAsString());
@@ -114,14 +109,10 @@ class LocalApiServerTest {
         ApiPlayerSnapshot players = new ApiPlayerSnapshot(directory, logger);
         players.load();
         players.bootstrap(List.of(), Instant.parse("2026-09-27T00:00:00Z"));
-        CommunityBoardView board = new CommunityBoardView() {
-            @Override public String listJson() { return "{}"; }
-            @Override public String detailJson(String id) { return null; }
-        };
         LocalApiServer first = new LocalApiServer(plugin(logger), players,
-                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, board, _ -> new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L), (_, _) -> true);
+                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, _ -> new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L), (_, _) -> true);
         LocalApiServer second = new LocalApiServer(plugin(logger), players,
-                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, board, _ -> new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L), (_, _) -> true);
+                new WebLoginChallengeStore(), List::of, () -> new byte[]{'[', ']'}, _ -> new org.encinet.mik.feature.player.security.WebAccountPolicy("member", 1234L), (_, _) -> true);
         first.start(0);
         try {
             assertThrows(IOException.class, () -> second.start(first.port()));

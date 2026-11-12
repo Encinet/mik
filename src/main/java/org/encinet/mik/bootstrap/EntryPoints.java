@@ -2,7 +2,6 @@ package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shell.api.ApiModule;
-import org.encinet.mik.shell.api.CommunityBoardView;
 import org.encinet.mik.shell.menu.LanguageMenu;
 import org.encinet.mik.shell.menu.MainMenuModule;
 import org.encinet.mik.shell.menu.SettingsMenu;
@@ -53,17 +52,7 @@ final class EntryPoints {
         ApiModule apiModule = new ApiModule(plugin, languageService,
                 banModule.manager()::activeRecords,
                 announcementModule::getAnnouncementsJsonBytes,
-                new CommunityBoardView() {
-                    @Override
-                    public String listJson() throws java.sql.SQLException {
-                        return plotModule.publicBoardListJson();
-                    }
-
-                    @Override
-                    public String detailJson(String id) throws java.sql.SQLException {
-                        return plotModule.publicBoardDetailJson(id);
-                    }
-                }, players.security()::authentication,
+                players.security()::authentication,
                 players.security()::confirmWebLogin,
                 players.security()::webAccountPolicy,
                 (id, name) -> banModule.manager().active(id, name).isEmpty());

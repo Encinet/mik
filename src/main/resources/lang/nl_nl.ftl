@@ -685,18 +685,17 @@ social-admin-reloaded-all = Alle sociale platforms zijn opnieuw geladen.
 social-admin-status = { $arg0 } · { $arg1 } · generatie { $arg2 } · gesprekken { $arg3 }
 social-admin-title = Sociale platforms
 social-admin-unknown = Onbekend sociaal platform: { $arg0 }
-social-binding-already-linked = Deze identiteit is al gekoppeld aan Minecraft-speler { $arg0 }.
-social-binding-code-invalid = De code is ongeldig of verlopen. Maak opnieuw verbinding voor een nieuwe code, of gebruik /bind { $arg0 } in het spel.
+social-binding-already-linked = Je account is al gekoppeld aan { $arg0 }. Stuur { $arg1 } om je profiel te bekijken.
+social-binding-confirmation-expired = Deze bevestiging is verlopen of het gekoppelde account is gewijzigd. Vraag een nieuwe bevestiging aan:
+social-binding-code-invalid = Deze code is ongeldig of verlopen. Verbind opnieuw of voer { $arg0 } uit in het spel.
 social-binding-external-in-use = Deze identiteit is al gekoppeld aan een andere Minecraft-speler.
-social-binding-help = Probeer verbinding te maken om een code op het inlogscherm te krijgen, of gebruik /bind { $arg0 } als je al in het spel bent.
-    Kopieer de volledige gegenereerde opdracht.
-    Stuur de opdracht hier.
-    Gebruik /profiel om de koppeling te controleren.
+social-binding-help = Verbind met de Minecraft-server en stuur hier de volledige koppelopdracht van het aanmeldscherm. Als je al speelt, haal je die op met { $arg0 }.
 social-binding-identity-missing = Dit bericht bevat geen betrouwbare ledenidentiteit; koppelen is daarom niet mogelijk.
-social-binding-linked = Gekoppeld aan Minecraft-speler { $arg0 }.
+social-binding-link-completed = Je account is gekoppeld. Verbind opnieuw om verder in te loggen.
+social-binding-linked = Je spelaccount { $arg0 } is gekoppeld. Verbind opnieuw om verder in te loggen.
 social-binding-membership-required = Word lid van een aangesloten community op dit platform en probeer je account opnieuw te koppelen.
 social-binding-membership-unavailable = Het communitylidmaatschap kan momenteel niet worden gecontroleerd. Probeer het later opnieuw of neem contact op met de serverbeheerder.
-social-binding-not-bound = Deze platformidentiteit is niet gekoppeld.
+social-binding-not-bound = Je hebt nog geen spelaccount gekoppeld.
 social-binding-platform-mismatch = Deze verificatiecode is voor een ander platform uitgegeven.
 social-binding-player-scope-in-use = Deze Minecraft-speler heeft al een andere identiteit gekoppeld binnen hetzelfde platformaccountbereik.
 social-binding-rate-limited = Te veel mislukte pogingen. Probeer het over ongeveer { $arg0 ->
@@ -704,9 +703,12 @@ social-binding-rate-limited = Te veel mislukte pogingen. Probeer het over ongeve
        *[other] { $arg0 } minuten
     } opnieuw.
 social-binding-unavailable = Identiteitskoppeling is tijdelijk niet beschikbaar.
-social-binding-unlink-prompt = Ontkoppelen verwijdert de relatie tussen deze platformidentiteit en Minecraft. Stuur { $arg0 } om door te gaan.
+social-binding-unlink-completed = Je account is losgekoppeld. Zonder andere geldige communitykoppeling moet je opnieuw een account koppelen voordat je kunt deelnemen.
+social-binding-unlink-prompt = Dit platformaccount wordt losgekoppeld van { $arg0 }. Zonder andere geldige communitykoppeling verlies je servertoegang en word je losgekoppeld als je online bent. Stuur ter bevestiging:
 social-binding-unlinked = Ontkoppeld van Minecraft-speler { $arg0 }.
 social-command-description = Sociaalplatformadapters beheren
+social-command-invalid-arguments = De argumenten zijn ongeldig. Gebruik:
+social-command-usage = Deze opdracht heeft geen argumenten nodig. Stuur:
 social-crypto-command-description = Verificatie van versleutelde Matrix-apparaten beheren
 social-crypto-comparison-not-ready = De SAS-vergelijking is nog niet klaar.
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -762,10 +764,12 @@ social-duration-minutes = { $arg0 ->
     }
 social-help-command-description = Deze opdrachtenlijst tonen
 social-link-command-description = Je Minecraft-account met een spelcode koppelen
+social-link-command-parameters = <code>
 social-online-command-description = Online spelers tonen
 social-profile-afk = Online · AFK
 social-profile-avatar-alt = Minecraft-gezicht
 social-profile-command-description = Je profiel tonen; volwaardige leden zoeken op naam, vermelding of antwoord
+social-profile-command-parameters = [speler]
 social-profile-first-joined-label = Eerste deelname
 social-profile-language-label = Taal
 social-profile-last-seen-label = Laatst gezien
@@ -781,16 +785,24 @@ social-profile-target-unbound = De genoemde of beantwoorde identiteit is niet aa
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = Er zijn momenteel geen spelers online.
-social-query-online-label = Online
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (Afwezig)
    *[active] { $arg0 }
+    }
+social-query-online-summary = { $arg0 ->
+    [one] Er is nu { $arg0 } speler online.
+   *[other] Er zijn nu { $arg0 } spelers online.
+    }{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }Daarvan AFK: { $arg1 }.
     }
 social-query-players-label = Spelers
 social-query-population = Online { $arg0 }/{ $arg1 } · Actief { $arg2 } · Afwezig { $arg3 }
 social-query-unknown = Onbekende opdracht. Stuur { $arg0 } om de beschikbare opdrachten te bekijken.
 social-query-uptime-label = Bedrijfstijd
+social-query-version-label = Versie
 social-reply-hidden = Dit antwoord is verborgen door het inhoudsveiligheidsbeleid van de server.
+social-reply-unavailable = Het resultaat kan nu niet worden weergegeven. Controleer accountwijzigingen met de profielopdracht voordat je ze opnieuw aanvraagt.
 social-state-disabled = uitgeschakeld
 social-state-failed = mislukt
 social-state-ready = gereed
@@ -799,13 +811,11 @@ social-state-stopped = gestopt
 social-status-command-description = Spelers, TPS, MSPT en looptijd tonen
 social-title-command-help = Opdrachthulp
 social-title-content-hidden = Inhoud verborgen
-social-title-identity-linking = Account koppelen
-social-title-identity-unlinking = Account ontkoppelen
-social-title-online-players = Online spelers
 social-title-player-profile = Spelersprofiel
 social-title-server-status = Serverstatus
-social-title-unknown-command = Onbekende opdracht
 social-unlink-command-description = Deze identiteitskoppeling na bevestiging verwijderen
+social-unlink-command-parameters = [{ social-unlink-confirmation } <bevestiging>]
+social-unlink-confirmation = bevestigen
 
 ## Community · AI and knowledge
 
@@ -861,6 +871,7 @@ ai-reload-failed = AI-configuratie kon niet worden herladen: { $arg0 }
 ai-reloaded = AI-configuratie herladen ({ $arg0 })
 ai-request-failed = De AI-aanvraag is mislukt; probeer het later opnieuw
 ai-social-command-description = De gedeelde AI-assistent iets vragen
+ai-social-command-parameters = <vraag>
 ai-social-question-required = Zet een vraag achter de AI-opdracht
 ai-status-disabled = AI is uitgeschakeld
 ai-status-enabled = AI actief · aanbieder { $arg0 } · model { $arg1 } · hulpmiddelen { $arg2 }
@@ -877,7 +888,7 @@ governance-active-days-60 = Minstens 6 actieve dagen in 60 dagen (nu { $arg0 })
 governance-active-header = ─── Voorwaarden voor actief lid ───
 governance-active-member = Momenteel lid
 governance-active-member-age = Minstens 30 dagen lid
-governance-active-playtime = Minstens 6 uur effectieve speeltijd in 60 dagen (nu { $arg0 })
+governance-active-playtime = Minstens { $arg1 } effectieve speeltijd in 60 dagen (nu { $arg0 })
 governance-activity-action = { $arg0 ->
     [confirm] Steun bevestigen
     [vote] Lezen en stemmen
@@ -1081,7 +1092,6 @@ governance-votes-header = ─── Lopende anonieme stemmingen ───
 
 ## World · Plots
 
-plot-access-removed-for-you = Je toegang tot perceel { $arg0 } is verwijderd.
 plot-admin-created = { $arg0 } geregistreerd voor { $arg1 } · { $arg2 }
 plot-allowed = ingeschakeld
 plot-area-changed = De grenzen zijn gewijzigd. Vernieuw en bevestig opnieuw.
@@ -1094,39 +1104,9 @@ plot-area-replace-save = Grenzen vervangen en opslaan
 plot-area-save = Grenzen opslaan
 plot-area-saved = Grenzen van “{ $arg0 }” opgeslagen.
 plot-atmosphere-saved = Omgeving opgeslagen.
-plot-board-auto-notify-result = Meldingen voor { $arg0 ->
-        [one] { $arg0 } speler
-       *[other] { $arg0 } spelers
-    } ingepland.
-plot-board-auto-registered-text = Perceel „{ $arg0 }” is geregistreerd. Buitenste coördinaten van bebouwde cellen: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }.
-plot-board-detail = Bericht van { $arg0 } bij { $arg1 } { $arg2 }, { $arg3 }, { $arg4 }: { $arg5 }
-plot-board-empty = Er zijn nog geen gemeenschapsberichten.
-plot-board-header = Berichten en reacties van de gemeenschap (laatste { $arg0 }; details: /plot board ID)
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = Mededeling
-plot-board-kind-objection = Bezwaar
-plot-board-loading = Bericht wordt geladen…
-plot-board-menu = Gemeenschapsbord
-plot-board-notice-alert = { $arg0 } heeft een kennisgeving geplaatst: { $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } heeft bezwaar gemaakt: { $arg1 } · { $arg2 }
-plot-board-rate-limited = Limiet voor berichten bereikt. Probeer het later opnieuw.
-plot-board-record-invalid = Bericht niet gevonden, al afgehandeld of handeling niet toegestaan.
-plot-board-registered-alert = { $arg0 } heeft perceel „{ $arg1 }” geregistreerd: { $arg2 }
-plot-board-ruling-alert = Er is beslist over het bezwaar van { $arg0 }: { $arg1 } · { $arg2 }
-plot-board-ruling-detail = Besluit: { $arg0 }
-plot-board-saved = Bericht { $arg0 } opgeslagen.
-plot-board-status-elapsed = Minstens 72 uur geleden gepubliceerd
-plot-board-status-open = Openstaand
-plot-board-status-ruled = Beslist
-plot-board-status-withdrawn = Ingetrokken
-plot-board-text-invalid = Beschrijving: 12–1000 tekens; besluit: minimaal 8 tekens.
-plot-board-unavailable = Berichten zijn nog niet geladen. Probeer later opnieuw of ga naar https://mcmik.top/community/notices .
-plot-board-withdrawal-alert = { $arg0 } heeft een bezwaar ingetrokken: { $arg1 } · { $arg2 }
-plot-board-write-failed = Het bord kon niet worden bijgewerkt. Probeer het later opnieuw.
 plot-command-blocked = Perceelbeveiliging blokkeerde dit commando. Gebruik /fill of /setblock rechtstreeks in je eigen perceel; laat ingewikkelde /execute-commando’s door het serverteam beoordelen.
 plot-command-description = Bouwpercelen beheren
 plot-created = Perceel { $arg0 } aangemaakt · { $arg1 }
-plot-created-for-you = { $arg1 } heeft perceel { $arg0 } voor je geregistreerd.
 plot-deleted = Perceel vrijgegeven; het bouwwerk blijft staan.
 plot-denied = uitgeschakeld
 plot-error-admin-owner-only = Leden met beheermogelijkheden wijzigen vereist leden- en rechtenbeheer.
@@ -1136,7 +1116,7 @@ plot-error-busy = Perceelgegevens worden opgeslagen. Probeer het later opnieuw; 
 plot-error-flag = Onbekend recht. Kies een actie uit de rechtenlijst.
 plot-error-id = Perceel-ID ontbreekt of is dubbelzinnig. Gebruik /plot list.
 plot-error-member-missing = Deze speler is geen lid meer.
-plot-error-member-required = Nieuwe spelers kunnen percelen bekijken en bezwaar maken. Word lid om een project te maken.
+plot-error-member-required = Je moet lid zijn om een perceel te maken.
 plot-error-name = Projectnamen moeten 1–48 tekens bevatten.
 plot-error-notice-text = Mededelingen mogen maximaal { $arg0 ->
         [one] { $arg0 } teken
@@ -1188,14 +1168,10 @@ plot-menu-clear = Helder
 plot-menu-confirm-delete = De registratie van { $arg0 } verwijderen? Bescherming, ledenrechten en instellingen worden onherroepelijk verwijderd. Bouwwerken blijven staan.
 plot-menu-confirm-subplot-transfer = { $arg0 } overdragen aan { $arg1 }? De eigenaar van het hoofdperceel houdt toezicht.
 plot-menu-confirm-transfer = Het beheer van { $arg0 } overdragen aan { $arg1 }? Je verliest toegang; bestaand auteurschap blijft ongewijzigd.
-plot-menu-confirm-withdraw = Deze reactie intrekken? De intrekking blijft openbaar zichtbaar.
 plot-menu-create = Perceel maken
 plot-menu-create-for-player = Perceel voor deze speler registreren
 plot-menu-custom-time = Eigen tijd
 plot-menu-delete = Perceelregistratie verwijderen
-plot-menu-description = Beschrijving
-plot-menu-feedback = Bezwaar maken tegen dit bericht
-plot-menu-find-record = Zoek een bericht
 plot-menu-flag-container = Containers openen
 plot-menu-flag-entity = Entiteiten bedienen
 plot-menu-follow-parent = Hoofdperceel volgen
@@ -1213,12 +1189,8 @@ plot-menu-owner = Eigenaar: { $arg0 }
 plot-menu-parent-supervisor = Eigenaar hoofdperceel: { $arg0 } · toezicht
 plot-menu-player = Spelersnaam of UUID
 plot-menu-rain = Neerslag
-plot-menu-record-search = Nummer of titel
-plot-menu-related-notice = Bijbehorend bericht bekijken
 plot-menu-remove-member = Lid verwijderen
 plot-menu-rename = Project hernoemen
-plot-menu-rule = Besluit vastleggen
-plot-menu-ruling = Licht het besluit toe (8–1000 tekens)
 plot-menu-set-role = Instellen als { $arg0 }
 plot-menu-settings = Projectinstellingen
 plot-menu-submit = Toepassen
@@ -1229,7 +1201,6 @@ plot-menu-time = Tijd
 plot-menu-time-input = Tijd (HH:mm)
 plot-menu-transfer = Perceel overdragen
 plot-menu-weather = Weer
-plot-menu-withdraw = Reactie intrekken
 plot-no-here = Hier is geen beschermd perceel.
 plot-notice-board = Perceelbord
 plot-notice-cleared = Perceelbord gewist
@@ -1310,7 +1281,6 @@ plot-region-open = Rechthoeken beheren ({ $arg0 })
 plot-region-select-hint = Selecteer een genummerde rechthoek om erop te focussen en deze te markeren. Grijze lijnen tonen deze pagina; samenvoegen kan de nummers veranderen.
 plot-renamed = Project hernoemd.
 plot-role-admin = perceelbeheerder
-plot-role-changed-for-you = Je rol op perceel { $arg0 } is nu { $arg1 }.
 plot-role-collaborator = medewerker
 plot-role-owner = perceeleigenaar
 plot-role-parent-owner = eigenaar van het hoofdperceel
@@ -1328,16 +1298,8 @@ plot-selection-stopped = Selectie beëindigd. Concepten blijven per perceel bewa
 plot-selection-subtract = Huidige doos aftrekken
 plot-selection-undo = Laatste stap ongedaan
 plot-subplot-created = Deelperceel { $arg0 } gemaakt · { $arg1 } blok²
-plot-subplot-created-for-you = Je bent nu eigenaar van deelperceel { $arg0 } binnen { $arg1 }.
-plot-subplot-owner-changed = Deelperceel { $arg0 } is nu van { $arg1 }.
-plot-subplot-parent-transferred = Het hoofdperceel van jouw deelperceel { $arg0 } is nu van { $arg1 }.
-plot-subplot-released = Deelperceel { $arg0 } is vrijgegeven; het gebied blijft beschermd door het hoofdperceel.
 plot-title = Percelen
 plot-transferred = Perceel { $arg0 } overgedragen aan { $arg1 }.
-plot-transferred-to-you = { $arg1 } heeft perceel { $arg0 } aan jou overgedragen.
-
-## World · Vehicles
-
 vehicle-command-description = Voertuigen van weergave-entiteiten besturen en beheren
 vehicle-menu-label =
     { $arg0 ->
@@ -2222,7 +2184,7 @@ music-space-label =
         [select-all] Alle resultaten selecteren
         [clear-tracks] Nummerselectie opheffen
         [add-playlist] Toevoegen
-        [description] { plot-menu-description }
+        [description] Beschrijving
         [make-private] Privé maken
         [publish] Openbaar maken
         [delete] Afspeellijst verwijderen

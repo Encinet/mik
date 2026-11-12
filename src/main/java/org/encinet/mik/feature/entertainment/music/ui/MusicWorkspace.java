@@ -221,7 +221,7 @@ public final class MusicWorkspace implements AutoCloseable {
         UiNode windowTools = tools("window-tools")
                 .child(Ui.button(UiIcons.CROSS, label(player, "close")).key("close").primary((_, handle) -> handle.close()).build()).build();
         locator.decorate(player,state,builder);
-        UiNode content = MusicWorkspaceComposition.content(state.panel() instanceof GroupEditor ? null : library.navigation(player, state), browser, auxiliary,
+        UiNode content = MusicWorkspaceComposition.content(state.focusedTask() ? null : library.navigation(player, state), browser, auxiliary,
                 queries.ready() ? this.transport.content(player, state) : info("waiting", label(player, "unavailable")), windowTools);
         if (forms.containsKey(player.getUniqueId()) || searchInputs.containsKey(player.getUniqueId())) {
             boolean[] visible = {false, false};

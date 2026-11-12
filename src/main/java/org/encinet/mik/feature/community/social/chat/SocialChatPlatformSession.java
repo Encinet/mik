@@ -13,7 +13,8 @@ public interface SocialChatPlatformSession extends SocialPlatformSession {
     List<SocialChatRoute> chatRoutes();
 
     /** Sends a server notice independently of the ordinary-chat routing policy. */
-    CompletionStage<Void> sendNotice(SocialConversation conversation, SocialDocument document);
+    org.encinet.mik.feature.community.social.api.SocialPreparedReply prepareNotice(
+            SocialConversation conversation, SocialDocument document, int maximumLength);
 
     CompletionStage<Void> sendChat(
             SocialConversation conversation,

@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.identity;
 
+import java.util.Objects;
+
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -246,11 +248,12 @@ final class IdentityBindingRepository implements AutoCloseable {
     }
 
     synchronized Optional<IdentityBinding> unlinkExternal(
-            ExternalIdentityKey key
+            ExternalIdentityKey key, UUID expectedBindingId
     ) throws SQLException {
         ensureOpen();
         IdentityBinding binding = findByExternalInternal(key);
-        return unlink(binding);
+        return binding == null || !binding.bindingId().equals(Objects.requireNonNull(expectedBindingId, "expectedBindingId"))
+                ? Optional.empty() : unlink(binding);
     }
 
     synchronized Optional<IdentityBinding> unlinkOwned(UUID playerId, UUID bindingId) throws SQLException {

@@ -19,7 +19,7 @@ final class GovernancePlayerTestSupport {
     static GovernancePlayerReport.Data data(UUID id,int mode) {
         var profile = new PlayerProfile(id,"Long_Player_Name",NOW.minusSeconds(86400L * 500),mode == 2 ? NOW.minusSeconds(86400L * 365) : null,NOW);
         var participation = new ParticipationSummary(360000,100,72000,60,30);
-        if (mode == 2) return GovernancePlayerReport.Data.active(profile,participation,new ActiveMemberEligibility(true,true,true,true,true,true));
+        if (mode == 2) return GovernancePlayerReport.Data.active(profile,participation,new ActiveMemberEligibility(true,true,true,true,true,true,java.time.Duration.ofHours(6)));
         var pause = mode == 1 ? new PromotionPause(1,"reason-".repeat(20) + " 👩‍👩‍👧‍👦 e\u0301",NOW.minusSeconds(60),NOW.plusSeconds(86400),
                 "https://example.invalid/appeal/" + "申诉路径".repeat(20),"Staff") : null;
         return GovernancePlayerReport.Data.promoting(profile,participation,new PromotionEligibility(true,true,true,true,pause == null,pause));

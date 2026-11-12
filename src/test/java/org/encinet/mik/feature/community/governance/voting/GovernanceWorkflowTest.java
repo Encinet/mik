@@ -23,6 +23,8 @@ import org.encinet.mik.feature.community.governance.voting.model.VoteTally;
 import org.encinet.mik.feature.community.governance.voting.model.VoteTerminationReason;
 import org.encinet.mik.feature.community.governance.voting.model.VotingPolicy;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
@@ -46,6 +48,39 @@ class GovernanceWorkflowTest {
 
     @TempDir
     Path temporaryDirectory;
+
+    @ParameterizedTest
+    @CsvSource({
+            "2026-12-31T15:59:59Z, 6, 12",
+            "2026-03-15T15:59:59Z, 12, 6",
+            "2026-06-24T15:59:59Z, 6, 12",
+            "2026-09-15T15:59:59Z, 12, 6"
+    })
+    void activeMembershipAndVoterRollChangeAtUtcPlusEightMidnight(
+            String beforeMidnight, int beforeHours, int afterHours
+    ) throws Exception {
+        MutableClock clock = new MutableClock(Instant.parse(beforeMidnight));
+        try (TestContext context = context(clock)) {
+            MembershipService membership = context.membership();
+            membership.observeLogin(PLAYER, "Alex", clock.instant().minus(Duration.ofDays(100)), true);
+            for (int day = 1; day <= 6; day++) {
+                Instant start = clock.instant().minus(Duration.ofDays(day)).minus(Duration.ofHours(6));
+                membership.recordEligibleInterval(PLAYER, start, start.plus(Duration.ofHours(1)));
+            }
+
+            var before = membership.activeMemberEligibility(PLAYER);
+            assertEquals(Duration.ofHours(beforeHours), before.requiredPlaytime());
+            assertEquals(beforeHours == 6, before.eligible());
+            assertEquals(beforeHours == 6 ? 1 : 0, membership.activeMembers().size());
+
+            clock.advance(Duration.ofSeconds(1));
+
+            var after = membership.activeMemberEligibility(PLAYER);
+            assertEquals(Duration.ofHours(afterHours), after.requiredPlaytime());
+            assertEquals(afterHours == 6, after.eligible());
+            assertEquals(afterHours == 6 ? 1 : 0, membership.activeMembers().size());
+        }
+    }
 
     @Test
     void effectiveTimeIsPersistedAcrossUtcPlusEightMidnight() throws Exception {
@@ -325,7 +360,7 @@ class GovernanceWorkflowTest {
         for (int day = 0; day < 6; day++) {
             Instant start = clock.instant().minus(Duration.ofDays(day + dayOffset))
                     .minus(Duration.ofHours(2));
-            membership.recordEligibleInterval(playerId, start, start.plus(Duration.ofHours(1)));
+            membership.recordEligibleInterval(playerId, start, start.plus(Duration.ofHours(2)));
         }
         return membership.player(playerId).orElseThrow();
     }

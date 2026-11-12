@@ -18,7 +18,7 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GovernanceIdentityPanelTest {
-    private static final ActiveMemberEligibility ACTIVE = new ActiveMemberEligibility(true, true, true, true, true, true);
+    private static final ActiveMemberEligibility ACTIVE = new ActiveMemberEligibility(true, true, true, true, true, true, java.time.Duration.ofHours(6));
 
     @Test void identityAndProgressUseTheSameLoadedSnapshotWhenPermissionsChange() throws Exception {
         var text = text(Language.ZH_CN);

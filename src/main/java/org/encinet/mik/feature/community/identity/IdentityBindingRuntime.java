@@ -178,9 +178,9 @@ final class IdentityBindingRuntime implements IdentityBindingManager {
     }
 
     @Override
-    public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+    public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
         ensureAvailable();
-        Optional<IdentityBinding> removed = service.unlink(key);
+        Optional<IdentityBinding> removed = service.unlink(key, expectedBindingId);
         removed.ifPresent(notifier::unlinked);
         return removed;
     }

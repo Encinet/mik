@@ -20,12 +20,12 @@ public record SocialDocument(
     public SocialDocument {
         moderation = Objects.requireNonNull(moderation, "moderation");
         title = singleLine(Objects.requireNonNull(title, "title"));
-        if (title.isEmpty()) {
-            throw new IllegalArgumentException("title must not be blank");
-        }
         tone = Objects.requireNonNull(tone, "tone");
         blocks = List.copyOf(Objects.requireNonNull(blocks, "blocks"));
         language = Objects.requireNonNull(language, "language");
+        if (title.isEmpty() && blocks.stream().allMatch(block -> block.plainText().isBlank())) {
+            throw new IllegalArgumentException("document must contain visible content");
+        }
     }
 
     public SocialDocument(Moderation moderation, String title, Tone tone, List<Block> blocks) {
@@ -38,6 +38,15 @@ public record SocialDocument(
 
     public static Paragraph paragraph(String text) {
         return new Paragraph(text);
+    }
+
+    /** A short reply has no decorative heading. */
+    public static SocialDocument message(Moderation moderation, Tone tone, Block... blocks) {
+        return of(moderation, "", tone, blocks);
+    }
+
+    public static Instruction instruction(String explanation, String invocation) {
+        return new Instruction(explanation, invocation);
     }
 
     public static Fields fields(Field... fields) {
@@ -82,30 +91,11 @@ public record SocialDocument(
         for (Block block : blocks) {
             String text = block.plainText();
             if (!text.isBlank()) {
-                result.append("\n\n").append(text);
+                if (!result.isEmpty()) result.append("\n\n");
+                result.append(text);
             }
         }
         return result.toString();
-    }
-
-    /** Bounds the semantic result before a platform adds its own markup. */
-    public SocialDocument truncated(int maximumLength) {
-        if (maximumLength < 16) {
-            throw new IllegalArgumentException("maximumLength must be at least 16");
-        }
-        String plain = plainText();
-        if (plain.length() <= maximumLength) {
-            return this;
-        }
-        String boundedTitle = limit(title, maximumLength);
-        int remaining = maximumLength - boundedTitle.length() - 2;
-        if (remaining < 2) {
-            return new SocialDocument(
-                    moderation, boundedTitle, tone, List.of(), language);
-        }
-        String body = plain.substring(Math.min(plain.length(), title.length())).strip();
-        return new SocialDocument(moderation, boundedTitle, tone,
-                List.of(new Paragraph(limit(body, remaining))), language);
     }
 
     /** Every reply declares its trust at creation; there is no default or later override. */
@@ -122,8 +112,27 @@ public record SocialDocument(
         ERROR
     }
 
-    public sealed interface Block permits Paragraph, Fields, ItemList, Image {
+    public sealed interface Block permits Paragraph, Fields, ItemList, Image, Instruction {
         String plainText();
+    }
+
+    /** Display-only instruction: explanation and invocation must remain together. */
+    public record Instruction(String explanation, String invocation) implements Block {
+        public Instruction {
+            explanation = normalizeMultiline(Objects.requireNonNull(explanation, "explanation"));
+            invocation = Objects.requireNonNull(invocation, "invocation").strip();
+            if (explanation.isBlank()) {
+                throw new IllegalArgumentException("instruction must explain the command");
+            }
+            if (invocation.isEmpty() || invocation.chars().anyMatch(Character::isISOControl)) {
+                throw new IllegalArgumentException("command must be a nonempty single line");
+            }
+        }
+
+        @Override
+        public String plainText() {
+            return explanation + "\n\n" + invocation;
+        }
     }
 
     public record Paragraph(String text) implements Block {
@@ -147,7 +156,11 @@ public record SocialDocument(
         }
     }
 
-    public record Fields(List<Field> fields) implements Block {
+    public record Fields(List<Field> fields, boolean omitted) implements Block {
+        public Fields(List<Field> fields) {
+            this(fields, false);
+        }
+
         public Fields {
             fields = List.copyOf(Objects.requireNonNull(fields, "fields"));
             if (fields.isEmpty()) {
@@ -161,6 +174,7 @@ public record SocialDocument(
             for (Field field : fields) {
                 lines.add(field.label() + ": " + field.value());
             }
+            if (omitted) lines.add("…");
             return String.join("\n", lines);
         }
     }
@@ -261,14 +275,4 @@ public record SocialDocument(
         return value.replace("\r\n", "\n").replace('\r', '\n').strip();
     }
 
-    private static String limit(String value, int maximumLength) {
-        if (value.length() <= maximumLength) {
-            return value;
-        }
-        int end = Math.max(0, maximumLength - 1);
-        if (end > 0 && Character.isHighSurrogate(value.charAt(end - 1))) {
-            end--;
-        }
-        return value.substring(0, end).stripTrailing() + '…';
-    }
 }

@@ -15,6 +15,54 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WebChatCipherTest {
+    private static WebChatPacket packet(String text, boolean compression) {
+        return WebChatPacket.history(java.util.List.of(text), compression);
+    }
+
+    @Test void compressionCapabilityCannotChangeDuringKeyRotation() throws Exception {
+        try (var fixture = new Fixture(true)) {
+            fixture.establish(); fixture.read();
+            assertTrue(WebChatSocketServer.compression(fixture.channel));
+            fixture.rotate();
+            var next = fixture.nextClient();
+            fixture.send(next.initial().toString(), 1);
+            next.confirm(fixture.readControl());
+            fixture.client = next;
+            fixture.send(next.finished().toString(), 1);
+            assertFalse(fixture.channel.isActive());
+        }
+    }
+
+    @Test void preparedHistoryStaysEncryptedAndPreservesCompressionWhileWaitingForKeys() throws Exception {
+        try (var fixture = new Fixture(true)) {
+            String page = "{\"type\":\"history\",\"messages\":[\"" + "私聊 secret".repeat(500) + "\"]}";
+            var packet = packet(page, true);
+            fixture.channel.writeOutbound(packet);
+            assertNull(fixture.channel.readOutbound());
+            fixture.establish();
+            fixture.read();
+            BinaryWebSocketFrame encrypted = fixture.channel.readOutbound();
+            try {
+                byte[] bytes = new byte[encrypted.content().readableBytes()];
+                encrypted.content().readBytes(bytes);
+                byte[] clear = fixture.client.recipient.open(WebChatEncryption.EMPTY, bytes);
+                assertEquals(WebChatPacket.COMPRESSED_APPLICATION, clear[0]);
+                assertArrayEquals(packet.copyPayload(), java.util.Arrays.copyOfRange(clear, 1, clear.length));
+            } finally { encrypted.release(); }
+            fixture.channel.writeOutbound(packet(page, false));
+            assertEquals(page, fixture.read());
+        }
+    }
+
+    @Test void clientCompressedRecordsAreRejectedBeforeReachingBusinessCode() throws Exception {
+        try (var fixture = new Fixture()) {
+            fixture.establish(); fixture.read();
+            fixture.send("compressed input is never accepted", WebChatPacket.COMPRESSED_APPLICATION);
+            assertFalse(fixture.channel.isActive());
+            assertNull(fixture.channel.readInbound());
+        }
+    }
+
     @Test void authorizationAndQueuedMessagesReachTheWireOnlyAfterEncryption() throws Exception {
         try (var fixture = new Fixture()) {
             fixture.channel.writeOutbound(new TextWebSocketFrame("{\"type\":\"message\",\"text\":\"staff secret\"}"));
@@ -73,8 +121,11 @@ class WebChatCipherTest {
             }
         });
         WebChatEncryptionTest.Client client;
+        final boolean compression;
 
-        Fixture() {
+        Fixture() { this(false); }
+        Fixture(boolean compression) {
+            this.compression = compression;
             channel.freezeTime();
             channel.writeOutbound(new TextWebSocketFrame("{\"type\":\"hello\",\"connectionId\":\"" + WebChatEncryptionTest.ID + "\"}"));
             TextWebSocketFrame hello = channel.readOutbound();
@@ -93,7 +144,7 @@ class WebChatCipherTest {
             TextWebSocketFrame confirmation = channel.readOutbound();
             try { client.confirm(JsonParser.parseString(confirmation.text()).getAsJsonObject()); }
             finally { confirmation.release(); }
-            send(client.finished().toString(), 1);
+            finish();
         }
 
         String read() throws Exception {
@@ -133,7 +184,12 @@ class WebChatCipherTest {
             send(next.initial().toString(), 1);
             next.confirm(readControl());
             client = next;
-            send(next.finished().toString(), 1);
+            finish();
+        }
+        void finish() throws Exception {
+            var finished = client.finished();
+            if (compression) finished.addProperty("compression", "deflate");
+            send(finished.toString(), 1);
         }
         void send(String data, int kind) throws Exception {
             byte[] body = data.getBytes(StandardCharsets.UTF_8), record = new byte[body.length + 1];

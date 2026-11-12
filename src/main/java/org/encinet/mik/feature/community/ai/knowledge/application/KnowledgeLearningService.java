@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.ai.knowledge.application;
 
+import org.encinet.mik.feature.community.ai.api.AiInteractionContext.BindingStatus;
+
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -105,6 +107,9 @@ public final class KnowledgeLearningService implements AutoCloseable {
         if (closed || !config.learning().enabled()) {
             return false;
         }
+        if (request.playerId().isEmpty() && !publicLearningAllowed(request, turn)) {
+            return false;
+        }
         return extractors.tryExecute(() -> extract(request, turn));
     }
 
@@ -131,7 +136,7 @@ public final class KnowledgeLearningService implements AutoCloseable {
         try {
             JsonObject input = new JsonObject();
             input.addProperty("has_bound_player", request.playerId().isPresent());
-            input.addProperty("public_learning_allowed", publicLearningAllowed(turn));
+            input.addProperty("public_learning_allowed", publicLearningAllowed(request, turn));
             input.addProperty("request_language", turn.language());
             input.addProperty("question", bounded(turn.question(), 4_000));
             input.addProperty("answer", bounded(turn.answer(), 12_000));
@@ -177,7 +182,7 @@ public final class KnowledgeLearningService implements AutoCloseable {
     ) {
         List<KnowledgeDocument> result = new ArrayList<>();
         int maximum = config.learning().maxCandidatesPerTurn();
-        boolean publicAllowed = publicLearningAllowed(turn);
+        boolean publicAllowed = publicLearningAllowed(request, turn);
         for (AiToolCall call : calls) {
             if (!call.name().equals("submit_learning_candidates")) {
                 continue;
@@ -234,8 +239,11 @@ public final class KnowledgeLearningService implements AutoCloseable {
         return List.copyOf(result);
     }
 
-    private static boolean publicLearningAllowed(AiTurnResult turn) {
-        return !turn.privateMemoryUsed() && turn.tools().stream()
+    private static boolean publicLearningAllowed(AiRequest request, AiTurnResult turn) {
+        var binding = request.interaction().binding();
+        boolean personalContext = binding == BindingStatus.BOUND
+                || binding == BindingStatus.UNBOUND;
+        return !personalContext && !turn.privateMemoryUsed() && turn.tools().stream()
                 .map(AiToolTrace::tool).noneMatch(PRIVATE_EVIDENCE_TOOLS::contains);
     }
 

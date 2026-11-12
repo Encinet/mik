@@ -1,5 +1,12 @@
 package org.encinet.mik.feature.community.social.runtime;
 
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.SocialCommandExecution;
+import org.encinet.mik.feature.community.social.command.SocialArguments;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
+import org.encinet.mik.feature.community.social.api.SocialPreparedReply;
+import org.encinet.mik.feature.community.social.SocialTestReplies;
+
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.feature.community.identity.IdentityPlatform;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
@@ -22,7 +29,6 @@ import org.encinet.mik.feature.community.social.api.SocialSessionStatus;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
-import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.command.SocialCommandSyntax;
 import org.encinet.mik.feature.community.social.chat.SocialChatPlatformSession;
@@ -30,7 +36,6 @@ import org.encinet.mik.feature.community.social.chat.SocialChatPolicy;
 import org.encinet.mik.feature.community.social.chat.SocialChatRoute;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionRequest;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionResolution;
-import org.encinet.mik.feature.community.social.chat.SocialDirectedNotice;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.test.ChatTestMessages;
 import org.junit.jupiter.api.Test;
@@ -120,42 +125,6 @@ class SocialPlatformHostTest {
     }
 
     @Test
-    void directedNoticeMentionsOnlyBoundPlayersInJoinedConversations() throws Exception {
-        MemoryAdapter adapter = new MemoryAdapter("matrix", "!", 4);
-        adapter.chatRoutes = List.of(
-                new SocialChatRoute(new SocialConversation("absent", SocialConversation.Type.GROUP),
-                        SocialChatPolicy.always(), SocialChatPolicy.always()),
-                new SocialChatRoute(new SocialConversation("joined", SocialConversation.Type.GROUP),
-                        SocialChatPolicy.always(), SocialChatPolicy.prefixed("#", true)));
-        UUID player = UUID.randomUUID();
-        IdentityBinding binding = new IdentityBinding(UUID.randomUUID(), player, "Alex",
-                new ExternalIdentityKey("matrix", "example.org", "", "@alex:example.org"),
-                "Alex", "", java.time.Instant.EPOCH, java.time.Instant.EPOCH);
-        adapter.mentionResolver = (conversation, requests) ->
-                conversation.id().equals("joined")
-                        ? new SocialChatMentionResolution(Map.of(player,
-                        requests.getFirst().candidates()))
-                        : SocialChatMentionResolution.empty();
-        try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
-                dispatcher(echoCommand(argument -> argument)),
-                SocialIdentityLeaseManager.unavailable(), guard(),
-                _ -> CompletableFuture.completedFuture(null),
-                id -> id.equals(player) ? List.of(binding) : List.of(),
-                new org.encinet.mik.shared.i18n.LanguageService(null), Logger.getAnonymousLogger())) {
-            host.start();
-            host.publishDirectedNotice(new SocialDirectedNotice(player, "Alex", "Read the notice"));
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-            while (adapter.outgoingChat.isEmpty() && System.nanoTime() < deadline) Thread.sleep(10);
-            assertEquals(1, adapter.outgoingChat.size());
-            assertTrue(adapter.outgoingChat.getFirst().content().nodes().getFirst()
-                    instanceof ChatNode.PlayerMention);
-            assertEquals(List.of("@alex:example.org"), adapter.outgoingMentionResolutions
-                    .getFirst().targetsFor(player).stream()
-                    .map(identity -> identity.key().subject()).toList());
-        }
-    }
-
-    @Test
     void twoPlatformsShareCommandsButKeepPrefixesAndDeduplicationIndependent()
             throws Exception {
         MemoryAdapter first = new MemoryAdapter("first", "!", 4);
@@ -225,10 +194,10 @@ class SocialPlatformHostTest {
         MemoryAdapter adapter = new MemoryAdapter("one", "/", 1);
         CompletableFuture<Void> pendingReply = new CompletableFuture<>();
         CountDownLatch replyStarted = new CountDownLatch(1);
-        SocialReplyChannel slowReply = _ -> {
+        SocialReplyChannel slowReply = SocialTestReplies.channel(_ -> {
             replyStarted.countDown();
             return pendingReply;
-        };
+        });
         try (SocialPlatformHost host = host(List.of(adapter),
                 echoCommand(argument -> argument))) {
             host.start();
@@ -349,9 +318,8 @@ class SocialPlatformHostTest {
                     adapter.emit("handler", "/echo handler-failure", new Capture()));
             assertTrue(failedHandlerEntered.await(2, TimeUnit.SECONDS));
 
-            SocialReplyChannel failedReply = _ ->
-                    CompletableFuture.failedFuture(
-                            new IllegalStateException("expected reply failure"));
+            SocialReplyChannel failedReply = SocialTestReplies.channel(_ ->
+                    CompletableFuture.failedFuture(new IllegalStateException("expected reply failure")));
             assertEquals(SocialEventSink.Acceptance.ACCEPTED,
                     admitEventually(adapter, "reply", "/echo reply-failure", failedReply));
 
@@ -839,31 +807,22 @@ class SocialPlatformHostTest {
             private final SocialCommandSpec spec =
                     SocialCommandSpec.explicit("test.echo", "echo");
 
-            @Override
-            public SocialCommandSpec spec() {
-                return spec;
+            @Override public SocialCommandDefinition<String> definition() {
+                return new SocialCommandDefinition<>(spec, Optional.empty(),
+                        SocialArguments.text(org.encinet.mik.shared.i18n.Message.AI_SOCIAL_COMMAND_PARAMETERS));
             }
-
-            @Override
-            public String decode(SocialCommandInput input) {
-                return input.rawArgument();
+            @Override public SocialCommandExecution<String> execute(SocialCommandContext context, String argument) {
+                return SocialCommandExecution.localized(handler.apply(argument), context.syntax().defaultLanguage());
             }
-
-            @Override
-            public String handle(SocialCommandContext context, String argument) {
-                return handler.apply(argument);
-            }
-
-            @Override
-            public SocialDocument present(SocialCommandContext context, String result) {
+            @Override public SocialDocument present(SocialPresentationContext context, String result) {
                 return SocialDocument.of(TRUSTED, context.platform().displayName() + ':' + result,
-                        SocialDocument.Tone.INFO);
+                        SocialDocument.Tone.INFO).localized(context.language());
             }
         };
     }
 
     private static SocialCommandDispatcher dispatcher(SocialCommand<?, ?> command) {
-        return new SocialCommandDispatcher(List.of(command));
+        return org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.dispatcher(List.of(command));
     }
 
     private static SocialPlatformHost host(
@@ -902,10 +861,12 @@ class SocialPlatformHostTest {
         private final CountDownLatch sent = new CountDownLatch(1);
 
         @Override
-        public java.util.concurrent.CompletionStage<Void> send(SocialDocument document) {
-            documents.add(document);
-            sent.countDown();
-            return CompletableFuture.completedFuture(null);
+        public SocialPreparedReply prepare(SocialDocument document, int maximumLength) {
+            return SocialTestReplies.channel(value -> {
+                documents.add(value);
+                sent.countDown();
+                return CompletableFuture.completedFuture(null);
+            }).prepare(document, maximumLength);
         }
     }
 
@@ -992,11 +953,12 @@ class SocialPlatformHostTest {
                         }
 
                         @Override
-                        public java.util.concurrent.CompletionStage<Void> sendNotice(
-                                SocialConversation conversation, SocialDocument document) {
-                            NoticeCapture notice = new NoticeCapture(conversation, document);
-                            outgoingNotices.add(notice);
-                            return noticeSender.apply(notice);
+                        public SocialPreparedReply prepareNotice(SocialConversation conversation, SocialDocument document, int maximumLength) {
+                            return SocialTestReplies.channel(value -> {
+                                NoticeCapture notice = new NoticeCapture(conversation, value);
+                                outgoingNotices.add(notice);
+                                return noticeSender.apply(notice);
+                            }).prepare(document, maximumLength);
                         }
 
                         @Override

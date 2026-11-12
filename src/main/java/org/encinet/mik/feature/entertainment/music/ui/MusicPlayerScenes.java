@@ -50,7 +50,7 @@ final class MusicPlayerScenes implements AutoCloseable {
                         net.kyori.adventure.text.format.NamedTextColor.WHITE,w.outputs.name(player,state.target()));
         var target = Ui.button(targetLabel).key(TARGET).summaryLines(1).textWidth(240)
                 .primary((_, handle) -> handle.openPopover(TARGET, redraw -> w.outputs.picker(player, state, redraw))).build();
-        if (state.panel() instanceof GroupEditor) {
+        if (state.focusedTask()) {
             release(player.getUniqueId());
             return MusicPlayerComposition.context(target, null);
         }

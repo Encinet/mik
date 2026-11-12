@@ -27,7 +27,7 @@ class IronElevatorViewTest {
             public void pause(Player player,Object visit) { }
         });
         var player = player(world,world.origin(20));
-        for (int count : List.of(2,20,100)) {
+        for (int count : List.of(2,3,5,20,100)) {
             var data = snapshot(source,floors(world,count));
             int reads = world.blockReads;
             panel.panel(player,data);
@@ -37,6 +37,13 @@ class IronElevatorViewTest {
                 assertTrue(frame.size().width() <= surface.viewport().width() + 1e-6);
                 assertTrue(frame.size().height() <= surface.viewport().height() + 1e-6);
                 assertTrue(frame.elements().size() < 30,"The shared grid constructs only a bounded page");
+                var rows = frame.elements().stream().filter(e -> e.node().key().value().startsWith("floor:"))
+                        .collect(java.util.stream.Collectors.groupingBy(UiFrame.Element::y));
+                for (var row : rows.values()) {
+                    var centers = row.stream().mapToDouble(e -> e.x() + e.size().width() / 2).summaryStatistics();
+                    assertEquals(frame.size().width(),centers.getMin() + centers.getMax(),1e-6,
+                            "Each floor row, including an incomplete row, must stay centered on its mount");
+                }
                 assertTrue(frame.elements().stream().filter(e -> e.node().key().value().startsWith("floor:"))
                         .allMatch(e -> e.node().input().pointerBehavior() != UiPointerBehavior.OPERATE),"Unavailable and current floors stay quiet");
                 for (var element : frame.elements()) for (var state : FloatingMenuElementState.values())

@@ -685,18 +685,17 @@ social-admin-reloaded-all = Reloaded all social platforms.
 social-admin-status = { $arg0 } · { $arg1 } · generation { $arg2 } · conversations { $arg3 }
 social-admin-title = Social platforms
 social-admin-unknown = Unknown social platform: { $arg0 }
-social-binding-already-linked = This platform identity is already linked to Minecraft player { $arg0 }.
-social-binding-code-invalid = The code is invalid or expired. Reconnect for a new code, or run /bind { $arg0 } in-game.
+social-binding-already-linked = You are already linked to { $arg0 }. Send { $arg1 } to view your profile.
+social-binding-confirmation-expired = This confirmation has expired or the linked account has changed. Request a new confirmation:
+social-binding-code-invalid = This code is invalid or expired. Reconnect for a new code, or run { $arg0 } in-game.
 social-binding-external-in-use = This social identity is already linked to another Minecraft player.
-social-binding-help = Try connecting to the server to get a code on the login screen, or run /bind { $arg0 } if already in-game.
-    Copy the complete generated command.
-    Send the command here.
-    Use /profile to verify the link.
+social-binding-help = Connect to the Minecraft server and send the complete linking command from the login screen here. If you are already in-game, run { $arg0 } to get it.
 social-binding-identity-missing = This message has no trusted member identity, so identity binding is unavailable.
-social-binding-linked = Linked to Minecraft player { $arg0 }.
+social-binding-link-completed = Your account has been linked. Reconnect to continue logging in.
+social-binding-linked = Linked to your game account { $arg0 }. Reconnect to continue logging in.
 social-binding-membership-required = Join a connected community on this platform, then try linking again.
 social-binding-membership-unavailable = Community membership cannot currently be verified. Try again later or contact a server administrator.
-social-binding-not-bound = This social identity is not linked.
+social-binding-not-bound = You have not linked a game account yet.
 social-binding-platform-mismatch = This verification code was issued for another platform.
 social-binding-player-scope-in-use = That Minecraft player already has another identity linked in the same platform account scope.
 social-binding-rate-limited = Too many failed attempts. Try again in about { $arg0 ->
@@ -704,9 +703,12 @@ social-binding-rate-limited = Too many failed attempts. Try again in about { $ar
        *[other] { $arg0 } minutes
     }.
 social-binding-unavailable = Identity binding is temporarily unavailable.
-social-binding-unlink-prompt = Unlinking removes this social identity from Minecraft. Send { $arg0 } to continue.
+social-binding-unlink-completed = Your account has been unlinked. Without another valid community binding, link an account again before joining.
+social-binding-unlink-prompt = This will unlink this platform account from { $arg0 }. Without another valid community binding, you will lose server access and be disconnected if online. To confirm, send:
 social-binding-unlinked = Unlinked from Minecraft player { $arg0 }.
 social-command-description = Manage social platform adapters
+social-command-invalid-arguments = The arguments are invalid. Use:
+social-command-usage = This command takes no arguments. Send:
 social-crypto-command-description = Manage Matrix encryption device verification
 social-crypto-comparison-not-ready = SAS comparison is not ready.
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -768,10 +770,12 @@ social-duration-minutes = { $arg0 ->
     }
 social-help-command-description = Show this command list
 social-link-command-description = Link your Minecraft account with an in-game code
+social-link-command-parameters = <code>
 social-online-command-description = Show online players
 social-profile-afk = Online · AFK
 social-profile-avatar-alt = Minecraft face
 social-profile-command-description = Show your profile; full members can query by player name, mention, or reply
+social-profile-command-parameters = [player]
 social-profile-first-joined-label = First joined
 social-profile-language-label = Language
 social-profile-last-seen-label = Last seen
@@ -787,16 +791,24 @@ social-profile-target-unbound = The mentioned or replied-to identity is not link
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = No players are currently online.
-social-query-online-label = Online
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (Away)
    *[active] { $arg0 }
+    }
+social-query-online-summary = { $arg0 ->
+    [one] There is { $arg0 } player online.
+   *[other] There are { $arg0 } players online.
+    }{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }AFK: { $arg1 }.
     }
 social-query-players-label = Players
 social-query-population = Online { $arg0 }/{ $arg1 } · Active { $arg2 } · Away { $arg3 }
 social-query-unknown = Unknown command. Send { $arg0 } to view available commands.
 social-query-uptime-label = Uptime
+social-query-version-label = Version
 social-reply-hidden = This reply was hidden by the server content-safety policy.
+social-reply-unavailable = The result cannot be displayed right now. Check account changes with the profile command before submitting them again.
 social-state-disabled = disabled
 social-state-failed = failed
 social-state-ready = ready
@@ -805,13 +817,11 @@ social-state-stopped = stopped
 social-status-command-description = Show players, TPS, MSPT and uptime
 social-title-command-help = Command help
 social-title-content-hidden = Content hidden
-social-title-identity-linking = Link account
-social-title-identity-unlinking = Unlink account
-social-title-online-players = Online players
 social-title-player-profile = Player profile
 social-title-server-status = Server status
-social-title-unknown-command = Unknown command
 social-unlink-command-description = Remove this identity link after confirmation
+social-unlink-command-parameters = [{ social-unlink-confirmation } <confirmation>]
+social-unlink-confirmation = confirm
 
 ## Community · AI and knowledge
 
@@ -867,6 +877,7 @@ ai-reload-failed = Failed to reload AI configuration: { $arg0 }
 ai-reloaded = AI configuration reloaded ({ $arg0 })
 ai-request-failed = The AI request failed; try again later
 ai-social-command-description = Ask the shared AI assistant
+ai-social-command-parameters = <question>
 ai-social-question-required = Include a question after the AI command
 ai-status-disabled = AI is disabled
 ai-status-enabled = AI enabled · provider { $arg0 } · model { $arg1 } · tools { $arg2 }
@@ -883,7 +894,7 @@ governance-active-days-60 = At least 6 active days in 60 days ({ $arg0 })
 governance-active-header = ─── Active member eligibility ───
 governance-active-member = Currently a member
 governance-active-member-age = Member for at least 30 days
-governance-active-playtime = At least 6 hours of effective play in 60 days ({ $arg0 })
+governance-active-playtime = At least { $arg1 } of effective play in 60 days ({ $arg0 })
 governance-activity-action = { $arg0 ->
     [confirm] Confirm sponsorship
     [vote] Read and vote
@@ -1090,7 +1101,6 @@ governance-votes-header = ─── Open anonymous votes ───
 
 ## World · Plots
 
-plot-access-removed-for-you = Your access to plot { $arg0 } was removed.
 plot-admin-created = Registered { $arg0 } for { $arg1 } · { $arg2 }
 plot-allowed = enabled
 plot-area-changed = The boundaries changed while confirming. Refresh and try again.
@@ -1103,39 +1113,9 @@ plot-area-replace-save = Replace boundaries and save
 plot-area-save = Save boundaries
 plot-area-saved = Saved boundaries for “{ $arg0 }”.
 plot-atmosphere-saved = Atmosphere saved.
-plot-board-auto-notify-result = Alerts scheduled for { $arg0 ->
-        [one] { $arg0 } player
-       *[other] { $arg0 } players
-    }.
-plot-board-auto-registered-text = Plot "{ $arg0 }" was registered. Built-cell bounding coordinates: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }.
-plot-board-detail = Board record by { $arg0 } at { $arg1 } { $arg2 }, { $arg3 }, { $arg4 }: { $arg5 }
-plot-board-empty = No community records yet.
-plot-board-header = Community notices and feedback (latest { $arg0 }; use /plot board ID for details)
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = Notice
-plot-board-kind-objection = Objection
-plot-board-loading = Loading board record…
-plot-board-menu = Community board
-plot-board-notice-alert = { $arg0 } posted a notice: { $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } raised an objection: { $arg1 } · { $arg2 }
-plot-board-rate-limited = Board posting limit reached. Try again later.
-plot-board-record-invalid = Record not found, already resolved, or this action is not allowed.
-plot-board-registered-alert = { $arg0 } registered plot "{ $arg1 }": { $arg2 }
-plot-board-ruling-alert = A ruling was posted on { $arg0 }’s objection: { $arg1 } · { $arg2 }
-plot-board-ruling-detail = Ruling: { $arg0 }
-plot-board-saved = Record { $arg0 } saved.
-plot-board-status-elapsed = Posted at least 72 hours ago
-plot-board-status-open = Open
-plot-board-status-ruled = Ruled
-plot-board-status-withdrawn = Withdrawn
-plot-board-text-invalid = Write 12–1000 characters (a ruling needs at least 8).
-plot-board-unavailable = Board records have not loaded. Retry later or visit https://mcmik.top/community/notices .
-plot-board-withdrawal-alert = { $arg0 } withdrew an objection: { $arg1 } · { $arg2 }
-plot-board-write-failed = Could not update the board. Try again later.
 plot-command-blocked = Plot protection blocked this command. Use /fill or /setblock directly inside your own plot; ask staff to review complex /execute commands.
 plot-command-description = Manage building plots
 plot-created = Created plot { $arg0 } · { $arg1 }
-plot-created-for-you = { $arg1 } registered plot { $arg0 } for you.
 plot-deleted = Plot released; the building itself was not deleted.
 plot-denied = disabled
 plot-error-admin-owner-only = Changing members with management abilities requires member and permission management.
@@ -1145,7 +1125,7 @@ plot-error-busy = Plot data is being saved. Please retry later; this operation w
 plot-error-flag = Unknown permission. Choose an operation from the permission list.
 plot-error-id = Plot ID was not found or is ambiguous. Use /plot list.
 plot-error-member-missing = This player is no longer a member.
-plot-error-member-required = New players can view plots and raise objections. Become a Member to create a project.
+plot-error-member-required = Member status is required to create a plot.
 plot-error-name = Project names must contain 1–48 characters.
 plot-error-notice-text = Notices allow up to { $arg0 ->
         [one] { $arg0 } character
@@ -1197,14 +1177,10 @@ plot-menu-clear = Clear
 plot-menu-confirm-delete = Delete the registration for { $arg0 }? Protection, member permissions and settings will be removed. This cannot be undone; buildings will remain.
 plot-menu-confirm-subplot-transfer = Transfer { $arg0 } to { $arg1 }? The parent owner keeps oversight.
 plot-menu-confirm-transfer = Transfer control of { $arg0 } to { $arg1 }? You will lose access. Existing authorship stays unchanged.
-plot-menu-confirm-withdraw = Withdraw this feedback? Its withdrawn status will remain visible.
 plot-menu-create = Create { -plot }
 plot-menu-create-for-player = Register a plot for this player
 plot-menu-custom-time = Custom time
 plot-menu-delete = Delete plot registration
-plot-menu-description = Description
-plot-menu-feedback = Object to this notice
-plot-menu-find-record = Find a record
 plot-menu-flag-container = Open containers
 plot-menu-flag-entity = Entity interaction
 plot-menu-follow-parent = Follow parent
@@ -1222,12 +1198,8 @@ plot-menu-owner = Owner: { $arg0 }
 plot-menu-parent-supervisor = Parent owner: { $arg0 } · oversight
 plot-menu-player = Player name or UUID
 plot-menu-rain = Precipitation
-plot-menu-record-search = Record ID or title
-plot-menu-related-notice = View related notice
 plot-menu-remove-member = Remove member
 plot-menu-rename = Rename project
-plot-menu-rule = Record ruling
-plot-menu-ruling = Explain the ruling (8–1000 characters)
 plot-menu-set-role = Set as { $arg0 }
 plot-menu-settings = Settings
 plot-menu-submit = Apply
@@ -1238,7 +1210,6 @@ plot-menu-time = Time
 plot-menu-time-input = Time (HH:mm)
 plot-menu-transfer = Transfer plot ownership
 plot-menu-weather = Weather
-plot-menu-withdraw = Withdraw feedback
 plot-no-here = No protected plot at this location.
 plot-notice-board = Plot notice board
 plot-notice-cleared = Plot notice cleared
@@ -1319,7 +1290,6 @@ plot-region-open = Manage rectangles ({ $arg0 })
 plot-region-select-hint = Select a rectangle to edit.
 plot-renamed = Project renamed.
 plot-role-admin = plot admin
-plot-role-changed-for-you = Your role on plot { $arg0 } is now { $arg1 }.
 plot-role-collaborator = collaborator
 plot-role-owner = plot owner
 plot-role-parent-owner = parent owner
@@ -1337,16 +1307,8 @@ plot-selection-stopped = World selection ended. Your selection drafts remain sav
 plot-selection-subtract = Subtract current box
 plot-selection-undo = Undo last step
 plot-subplot-created = Created subplot { $arg0 } · { $arg1 } block²
-plot-subplot-created-for-you = You now own subplot { $arg0 } within { $arg1 }.
-plot-subplot-owner-changed = The owner of subplot { $arg0 } is now { $arg1 }.
-plot-subplot-parent-transferred = The parent owner supervising your subplot { $arg0 } is now { $arg1 }.
-plot-subplot-released = Subplot { $arg0 } was released; its area remains protected by the parent project.
 plot-title = Plots
 plot-transferred = Transferred plot { $arg0 } to { $arg1 }.
-plot-transferred-to-you = { $arg1 } transferred plot { $arg0 } to you.
-
-## World · Vehicles
-
 vehicle-command-description = Drive and manage display-entity vehicles
 vehicle-menu-label =
     { $arg0 ->
@@ -2240,7 +2202,7 @@ music-space-label =
         [select-all] Select all results
         [clear-tracks] Clear song selection
         [add-playlist] Add to playlist
-        [description] { plot-menu-description }
+        [description] Description
         [make-private] Make private
         [publish] Make public
         [delete] Delete playlist

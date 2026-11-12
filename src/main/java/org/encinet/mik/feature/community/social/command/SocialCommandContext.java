@@ -11,13 +11,20 @@ public record SocialCommandContext(
         SocialPlatformDescriptor platform,
         SocialInboundMessage message,
         SocialCommandInput input,
-        SocialCommandSyntax syntax
+        SocialCommandSyntax syntax,
+        java.util.UUID generationId
 ) {
     public SocialCommandContext {
         platform = Objects.requireNonNull(platform, "platform");
         message = Objects.requireNonNull(message, "message");
         input = Objects.requireNonNull(input, "input");
         syntax = Objects.requireNonNull(syntax, "syntax");
+        generationId = Objects.requireNonNull(generationId, "generationId");
+    }
+
+    public SocialCommandContext(SocialPlatformDescriptor platform, SocialInboundMessage message,
+                                SocialCommandInput input, SocialCommandSyntax syntax) {
+        this(platform, message, input, syntax, new java.util.UUID(0, 0));
     }
 
     public SocialCommandContext(

@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,8 +58,8 @@ class PlayerProfileCommandTest {
         StubLanguageService languages = new StubLanguageService();
         PlayerProfileCommand command = command(languages);
 
-        SocialDocument document = command.present(context(),
-                new PlayerProfileCommand.Result.Found(binding, profile));
+        SocialDocument document = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages),
+                new PlayerProfileCommand.Result.Found(binding, profile, Language.ZH_CN));
 
         assertEquals("👤 SOCIAL_TITLE_PLAYER_PROFILE · PlayerOne", document.title());
         SocialDocument.Image image = assertInstanceOf(
@@ -94,8 +93,8 @@ class PlayerProfileCommandTest {
                 Optional.empty(), Optional.empty(), Optional.empty());
         StubLanguageService languages = new StubLanguageService();
 
-        SocialDocument document = command(languages).present(context(),
-                new PlayerProfileCommand.Result.Found(binding, profile));
+        SocialDocument document = command(languages).present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(), languages),
+                new PlayerProfileCommand.Result.Found(binding, profile, Language.ZH_CN));
         SocialDocument.Fields fields = assertInstanceOf(
                 SocialDocument.Fields.class, document.blocks().getFirst());
 
@@ -122,8 +121,8 @@ class PlayerProfileCommandTest {
                 requesterId, Language.EN_US,
                 targetId, Language.JA_JP));
 
-        SocialDocument document = command(languages).present(context(),
-                new PlayerProfileCommand.Result.Found(requester, target));
+        SocialDocument document = command(languages).present(new org.encinet.mik.feature.community.social.command.SocialPresentationContext(context(), Language.EN_US, languages),
+                new PlayerProfileCommand.Result.Found(requester, target, Language.JA_JP));
         SocialDocument.Fields fields = assertInstanceOf(
                 SocialDocument.Fields.class, document.blocks().getFirst());
         SocialDocument.Field language = fields.fields().stream()
@@ -149,8 +148,8 @@ class PlayerProfileCommandTest {
         StubLanguageService languages = new StubLanguageService(
                 Map.of(requesterId, Language.EN_US));
 
-        SocialDocument document = command(languages).present(context(Language.FR_FR),
-                new PlayerProfileCommand.Result.Found(requester, target));
+        SocialDocument document = command(languages).present(new org.encinet.mik.feature.community.social.command.SocialPresentationContext(context(Language.FR_FR), Language.EN_US, languages),
+                new PlayerProfileCommand.Result.Found(requester, target, Language.FR_FR));
 
         assertTrue(document.plainText().contains(Language.FR_FR.displayName()));
         assertFalse(document.plainText().contains(Language.EN_US.displayName()));
@@ -173,7 +172,7 @@ class PlayerProfileCommandTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 Optional.empty(), "/我的", false,
-                _ -> CompletableFuture.completedFuture(null));
+                org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
         return new SocialCommandContext(new SocialPlatformDescriptor("qq", "QQ", 0xFFC0CB), message,
                 org.encinet.mik.feature.community.social.command.SocialCommandInput.nativeCommand(
                         "binding.profile", "", Map.of()),
@@ -216,7 +215,7 @@ class PlayerProfileCommandTest {
         }
 
         @Override
-        public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+        public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
             return Optional.empty();
         }
 

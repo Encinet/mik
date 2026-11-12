@@ -733,18 +733,17 @@ social-admin-reloaded-all = Усі соціальні платформи пер�
 social-admin-status = { $arg0 } · { $arg1 } · покоління { $arg2 } · розмови { $arg3 }
 social-admin-title = Соціальні платформи
 social-admin-unknown = Невідома соціальна платформа: { $arg0 }
-social-binding-already-linked = Цю особу вже прив’язано до гравця Minecraft { $arg0 }.
-social-binding-code-invalid = Код недійсний або прострочений. Під’єднайтеся знову для отримання нового коду або скористайтеся /bind { $arg0 } у грі.
+social-binding-already-linked = Обліковий запис уже прив’язано до { $arg0 }. Надішліть { $arg1 }, щоб переглянути профіль.
+social-binding-confirmation-expired = Підтвердження застаріло або прив’язаний обліковий запис змінився. Запросіть нове підтвердження:
+social-binding-code-invalid = Цей код недійсний або прострочений. Підключіться знову або виконайте { $arg0 } у грі.
 social-binding-external-in-use = Цю особу вже прив’язано до іншого гравця Minecraft.
-social-binding-help = Спробуйте під’єднатися до сервера: код з’явиться на екрані входу. Якщо ви вже в грі, скористайтеся /bind { $arg0 }.
-    Скопіюйте створену повну команду.
-    Надішліть цю команду сюди.
-    Перевірте прив’язку командою /профіль.
+social-binding-help = Підключіться до сервера Minecraft і надішліть сюди повну команду прив’язування з екрана входу. Якщо ви вже у грі, отримайте її командою { $arg0 }.
 social-binding-identity-missing = У цьому повідомленні немає надійного ідентифікатора учасника, тому прив’язування недоступне.
-social-binding-linked = Прив’язано до гравця Minecraft { $arg0 }.
+social-binding-link-completed = Прив’язування завершено. Підключіться знову, щоб продовжити вхід.
+social-binding-linked = Ваш ігровий обліковий запис { $arg0 } прив’язано. Підключіться знову, щоб продовжити вхід.
 social-binding-membership-required = Приєднайтеся до підключеної спільноти на цій платформі й повторіть прив’язування.
 social-binding-membership-unavailable = Зараз не вдається перевірити участь у спільноті. Спробуйте пізніше або зверніться до адміністратора сервера.
-social-binding-not-bound = Цю особу платформи не прив’язано.
+social-binding-not-bound = Ви ще не прив’язали ігровий обліковий запис.
 social-binding-platform-mismatch = Цей код підтвердження видано для іншої платформи.
 social-binding-player-scope-in-use = Цей гравець Minecraft уже має іншу прив’язку в тій самій області облікового запису платформи.
 social-binding-rate-limited = Забагато невдалих спроб. Повторіть приблизно через { $arg0 ->
@@ -754,9 +753,12 @@ social-binding-rate-limited = Забагато невдалих спроб. По
        *[other] { $arg0 } хвилини
     }.
 social-binding-unavailable = Прив’язування особи тимчасово недоступне.
-social-binding-unlink-prompt = Відв’язування видалить зв’язок цієї особи з Minecraft. Щоб продовжити, надішліть { $arg0 }.
+social-binding-unlink-completed = Обліковий запис відв’язано. Без іншої чинної прив’язки до спільноти потрібно знову прив’язати обліковий запис перед входом.
+social-binding-unlink-prompt = Цей обліковий запис платформи буде відв’язано від { $arg0 }. Без іншої чинної прив’язки до спільноти ви втратите доступ до сервера; поточне з’єднання буде закрито. Для підтвердження надішліть:
 social-binding-unlinked = Відв’язано від гравця Minecraft { $arg0 }.
 social-command-description = Керування адаптерами соціальних платформ
+social-command-invalid-arguments = Неправильні аргументи. Використовуйте:
+social-command-usage = Ця команда не приймає аргументів. Надішліть:
 social-crypto-command-description = Керування перевіркою пристроїв шифрування Matrix
 social-crypto-comparison-not-ready = Порівняння SAS ще не готове.
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -805,10 +807,12 @@ social-duration-hours = { $arg0 } год. { $arg1 } хв.
 social-duration-minutes = { $arg0 } хв.
 social-help-command-description = Показати цей список команд
 social-link-command-description = Прив’язати обліковий запис Minecraft кодом із гри
+social-link-command-parameters = <код>
 social-online-command-description = Показати гравців онлайн
 social-profile-afk = Онлайн · AFK
 social-profile-avatar-alt = Обличчя Minecraft
 social-profile-command-description = Показати свій профіль; повні учасники шукають за ім’ям, згадкою або відповіддю
+social-profile-command-parameters = [гравець]
 social-profile-first-joined-label = Перший вхід
 social-profile-language-label = Мова
 social-profile-last-seen-label = Останній вхід
@@ -824,16 +828,21 @@ social-profile-target-unbound = Згадану особу або автора п
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = Зараз немає гравців онлайн.
-social-query-online-label = Онлайн
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (Відійшли)
    *[active] { $arg0 }
+    }
+social-query-online-summary = Зараз онлайн: { $arg0 }.{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }Серед них AFK: { $arg1 }.
     }
 social-query-players-label = Гравці
 social-query-population = Онлайн { $arg0 }/{ $arg1 } · Активні { $arg2 } · Відійшли { $arg3 }
 social-query-unknown = Невідома команда. Надішліть { $arg0 }, щоб переглянути доступні команди.
 social-query-uptime-label = Час роботи
+social-query-version-label = Версія
 social-reply-hidden = Відповідь приховано політикою безпеки вмісту сервера.
+social-reply-unavailable = Зараз результат неможливо показати. Перевірте зміни облікового запису командою профілю, перш ніж повторювати запит.
 social-state-disabled = вимкнено
 social-state-failed = помилка
 social-state-ready = готово
@@ -842,13 +851,11 @@ social-state-stopped = зупинено
 social-status-command-description = Показати гравців, TPS, MSPT та час роботи
 social-title-command-help = Довідка команд
 social-title-content-hidden = Вміст приховано
-social-title-identity-linking = Прив’язування облікового запису
-social-title-identity-unlinking = Відв’язування облікового запису
-social-title-online-players = Гравці онлайн
 social-title-player-profile = Профіль гравця
 social-title-server-status = Стан сервера
-social-title-unknown-command = Невідома команда
 social-unlink-command-description = Видалити це прив’язування після підтвердження
+social-unlink-command-parameters = [{ social-unlink-confirmation } <код-підтвердження>]
+social-unlink-confirmation = підтвердити
 
 ## Community · AI and knowledge
 
@@ -916,6 +923,7 @@ ai-reload-failed = Не вдалося перезавантажити налаш
 ai-reloaded = Налаштування ШІ перезавантажено ({ $arg0 })
 ai-request-failed = Запит до ШІ завершився помилкою; спробуйте пізніше
 ai-social-command-description = Поставити запитання спільному ШІ-помічнику
+ai-social-command-parameters = <запитання>
 ai-social-question-required = Додайте запитання після команди ШІ
 ai-status-disabled = ШІ вимкнено
 ai-status-enabled = ШІ увімкнено · провайдер { $arg0 } · модель { $arg1 } · інструменти { $arg2 }
@@ -932,7 +940,7 @@ governance-active-days-60 = Щонайменше 6 активних днів з�
 governance-active-header = ─── Умови активного учасника ───
 governance-active-member = Зараз учасник
 governance-active-member-age = Учасник щонайменше 30 днів
-governance-active-playtime = Щонайменше 6 годин корисної гри за 60 днів (зараз { $arg0 })
+governance-active-playtime = Щонайменше { $arg1 } корисної гри за 60 днів (зараз { $arg0 })
 governance-activity-action = { $arg0 ->
     [confirm] Підтвердити підтримку
     [vote] Прочитати й проголосувати
@@ -1149,7 +1157,6 @@ governance-votes-header = ─── Поточні таємні голосува
 
 ## World · Plots
 
-plot-access-removed-for-you = Ваш доступ до ділянки { $arg0 } вилучено.
 plot-admin-created = Ділянку { $arg0 } зареєстровано для { $arg1 } · { $arg2 }
 plot-allowed = увімкнено
 plot-area-changed = Межі змінилися. Оновіть і підтвердьте знову.
@@ -1164,37 +1171,6 @@ plot-area-replace-save = Замінити межі та зберегти
 plot-area-save = Зберегти межі
 plot-area-saved = Межі «{ $arg0 }» збережено.
 plot-atmosphere-saved = Налаштування оточення збережено.
-plot-board-auto-notify-result = Сповіщення заплановано для { $arg0 ->
-        [one] { $arg0 } гравця
-        [few] { $arg0 } гравців
-        [many] { $arg0 } гравців
-       *[other] { $arg0 } гравця
-    }.
-plot-board-auto-registered-text = Ділянку «{ $arg0 }» зареєстровано. Зовнішні координати забудованих клітин: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }.
-plot-board-detail = Запис { $arg0 }: { $arg1 } { $arg2 }, { $arg3 }, { $arg4 } — { $arg5 }
-plot-board-empty = Записів спільноти поки немає.
-plot-board-header = Оголошення та відгуки (останні { $arg0 }; докладніше: /plot board ID)
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = Оголошення
-plot-board-kind-objection = Заперечення
-plot-board-loading = Завантаження запису оголошення…
-plot-board-menu = Дошка спільноти
-plot-board-notice-alert = { $arg0 } опублікував оголошення: { $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } подав заперечення: { $arg1 } · { $arg2 }
-plot-board-rate-limited = Ліміт публікацій досягнуто. Спробуйте пізніше.
-plot-board-record-invalid = Запис не знайдено, уже вирішено або дія недоступна.
-plot-board-registered-alert = { $arg0 }: реєстрація ділянки «{ $arg1 }»: { $arg2 }
-plot-board-ruling-alert = Щодо заперечення { $arg0 } ухвалено рішення: { $arg1 } · { $arg2 }
-plot-board-ruling-detail = Рішення: { $arg0 }
-plot-board-saved = Запис { $arg0 } збережено.
-plot-board-status-elapsed = Опубліковано щонайменше 72 години тому
-plot-board-status-open = Відкрито
-plot-board-status-ruled = Рішення ухвалено
-plot-board-status-withdrawn = Відкликано
-plot-board-text-invalid = Опис: 12–1000 символів; рішення: щонайменше 8.
-plot-board-unavailable = Записи не завантажилися. Спробуйте пізніше або відкрийте https://mcmik.top/community/notices .
-plot-board-withdrawal-alert = { $arg0 } відкликав заперечення: { $arg1 } · { $arg2 }
-plot-board-write-failed = Не вдалося оновити дошку. Спробуйте пізніше.
 plot-command-blocked = Захист ділянки заблокував команду. Використовуйте /fill або /setblock безпосередньо на своїй ділянці; складні команди /execute має перевірити адміністрація.
 plot-command-description = Керувати ділянками
 plot-created = { -plot.gender ->
@@ -1202,7 +1178,6 @@ plot-created = { -plot.gender ->
         [feminine] { -plot } { $arg0 } створена · { $arg1 }
        *[other] { -plot } { $arg0 } створене · { $arg1 }
     }
-plot-created-for-you = Для вас зареєстровано ділянку { $arg0 }. Реєстрація: { $arg1 }.
 plot-deleted = Ділянку звільнено; споруда залишилася.
 plot-denied = вимкнено
 plot-error-admin-owner-only = Зміна учасників із повноваженнями керування вимагає керування учасниками та правами.
@@ -1212,7 +1187,7 @@ plot-error-busy = Дані ділянки зберігаються. Повтор
 plot-error-flag = Невідоме право. Оберіть дію зі списку прав.
 plot-error-id = ID ділянки не знайдено або він неоднозначний. Використайте /plot list.
 plot-error-member-missing = Цей гравець уже не учасник.
-plot-error-member-required = Нові гравці можуть переглядати ділянки та подавати заперечення. Для створення проєкту потрібен статус учасника.
+plot-error-member-required = Для створення ділянки потрібен статус учасника.
 plot-error-name = Назва проєкту має містити від 1 до 48 символів.
 plot-error-notice-text = Оголошення допускають до { $arg0 ->
         [one] { $arg0 } символу
@@ -1263,14 +1238,10 @@ plot-menu-clear = Ясно
 plot-menu-confirm-delete = Видалити реєстрацію { $arg0 }? Захист, права учасників і налаштування буде видалено без можливості скасування. Споруди залишаться.
 plot-menu-confirm-subplot-transfer = Передати { $arg0 } гравцеві { $arg1 }? Власник батьківської ділянки збереже нагляд.
 plot-menu-confirm-transfer = Передати керування ділянкою { $arg0 } гравцеві { $arg1 }? Ви втратите доступ; авторство робіт не зміниться.
-plot-menu-confirm-withdraw = Відкликати цей відгук? Позначка про відкликання залишиться публічною.
 plot-menu-create = Створити { -plot(case: "accusative") }
 plot-menu-create-for-player = Зареєструвати ділянку гравцю
 plot-menu-custom-time = Власний час
 plot-menu-delete = Видалити реєстрацію ділянки
-plot-menu-description = Опис
-plot-menu-feedback = Заперечити проти цього оголошення
-plot-menu-find-record = Знайти запис
 plot-menu-flag-container = Відкривати контейнери
 plot-menu-flag-entity = Взаємодіяти із сутностями
 plot-menu-follow-parent = Успадковувати від батьківської
@@ -1288,12 +1259,8 @@ plot-menu-owner = Власник: { $arg0 }
 plot-menu-parent-supervisor = Власник батьківської ділянки: { $arg0 } · нагляд
 plot-menu-player = Ім’я гравця або UUID
 plot-menu-rain = Опади
-plot-menu-record-search = Номер або заголовок
-plot-menu-related-notice = Відкрити пов’язане повідомлення
 plot-menu-remove-member = Видалити учасника
 plot-menu-rename = Перейменувати проєкт
-plot-menu-rule = Записати рішення
-plot-menu-ruling = Поясніть рішення (8–1000 символів)
 plot-menu-set-role = Призначити роль { $arg0 }
 plot-menu-settings = Налаштування проєкту
 plot-menu-submit = Застосувати
@@ -1304,7 +1271,6 @@ plot-menu-time = Час
 plot-menu-time-input = Час (HH:mm)
 plot-menu-transfer = Передати ділянку
 plot-menu-weather = Погода
-plot-menu-withdraw = Відкликати відгук
 plot-no-here = Тут немає захищеної { -plot(case: "genitive") }.
 plot-notice-board = Дошка ділянки
 plot-notice-cleared = Дошку очищено
@@ -1387,7 +1353,6 @@ plot-region-open = Керування прямокутниками ({ $arg0 })
 plot-region-select-hint = Виберіть прямокутник за номером для фокуса й виділення. Сірі лінії показують поточну сторінку; після об’єднання номери можуть змінитися.
 plot-renamed = Проєкт перейменовано.
 plot-role-admin = керівник ділянки
-plot-role-changed-for-you = Ваша роль на ділянці { $arg0 } тепер: { $arg1 }.
 plot-role-collaborator = співавтор
 plot-role-owner = власник { -plot(case: "genitive") }
 plot-role-parent-owner = власник батьківської ділянки
@@ -1405,16 +1370,8 @@ plot-selection-stopped = Виділення завершено. Чернетки
 plot-selection-subtract = Відняти поточний паралелепіпед
 plot-selection-undo = Скасувати останній крок
 plot-subplot-created = Створено дочірню ділянку { $arg0 } · { $arg1 } блоків²
-plot-subplot-created-for-you = Тепер ви власник ділянки { $arg0 } у { $arg1 }.
-plot-subplot-owner-changed = Ділянка { $arg0 } тепер належить { $arg1 }.
-plot-subplot-parent-transferred = Власником батьківської ділянки для вашої ділянки { $arg0 } тепер є { $arg1 }.
-plot-subplot-released = Дочірню ділянку { $arg0 } звільнено; її територію й надалі захищає батьківська ділянка.
 plot-title = Ділянки
 plot-transferred = Ділянку { $arg0 } передано гравцеві { $arg1 }.
-plot-transferred-to-you = Ділянку { $arg0 } передано вам. Відправник: { $arg1 }.
-
-## World · Vehicles
-
 vehicle-command-description = Керувати транспортом із сутностей відображення
 vehicle-menu-label =
     { $arg0 ->
@@ -2273,7 +2230,7 @@ music-space-label =
         [select-all] Вибрати всі результати
         [clear-tracks] Скасувати вибір пісень
         [add-playlist] Додати
-        [description] { plot-menu-description }
+        [description] Опис
         [make-private] Зробити приватним
         [publish] Зробити загальнодоступним
         [delete] Видалити плейлист

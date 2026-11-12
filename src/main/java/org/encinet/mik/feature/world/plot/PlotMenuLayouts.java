@@ -120,10 +120,4 @@ public final class PlotMenuLayouts {
                 UiTemplates.toolbar("tools", UiTemplates.menu(UiTemplates.actions("actions", 2), UiTemplates.navigation("navigation"))));
     }
 
-    public static UiNode record(UiNode reading) {
-        return UiTemplates.sheet(UiTemplates.window("record", UiTemplates.reading(reading.key(),
-                        UiTemplates.information("status").withSummaryLines(1), reading)),
-                UiTemplates.toolbar("tools", UiTemplates.menu(UiTemplates.actions("actions", 2).withSummaryLines(1),
-                        UiTemplates.navigation("navigation"))));
-    }
 }

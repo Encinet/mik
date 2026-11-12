@@ -19,7 +19,7 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GovernanceApplicationScenesTest {
-    private static final ActiveMemberEligibility INACTIVE = new ActiveMemberEligibility(true, false, false, false, false, false);
+    private static final ActiveMemberEligibility INACTIVE = new ActiveMemberEligibility(true, false, false, false, false, false, java.time.Duration.ofHours(6));
 
     @Test void anIneligibleApplicantCanOpenTheEntryAndSeeOnlyTheMissingRequirements() throws Exception {
         var state = new GovernanceWorkspaceState();

@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.community.social.platform.qq.render;
 
 import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.feature.community.social.document.SocialDocumentLayout;
 
 import java.util.Objects;
 
@@ -14,6 +15,10 @@ public final class QqPlainTextRenderer {
         if (maximumLength < 16) {
             throw new IllegalArgumentException("maximumLength must be at least 16");
         }
+        return encode(SocialDocumentLayout.fit(document, maximumLength, value -> encode(value).length()));
+    }
+
+    public static String encode(SocialDocument document) {
         StringBuilder text = new StringBuilder(document.title());
         for (SocialDocument.Block block : document.blocks()) {
             if (block instanceof SocialDocument.Image) {
@@ -21,20 +26,11 @@ public final class QqPlainTextRenderer {
             }
             String value = block.plainText();
             if (!value.isBlank()) {
-                text.append("\n\n").append(value);
+                if (!text.isEmpty()) text.append("\n\n");
+                text.append(value);
             }
         }
-        return limit(text.toString(), maximumLength);
+        return text.isEmpty() ? document.plainText() : text.toString();
     }
 
-    private static String limit(String value, int maximumLength) {
-        if (value.length() <= maximumLength) {
-            return value;
-        }
-        int end = maximumLength - 1;
-        if (Character.isHighSurrogate(value.charAt(end - 1))) {
-            end--;
-        }
-        return value.substring(0, Math.max(0, end)).stripTrailing() + '…';
-    }
 }

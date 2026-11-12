@@ -10,14 +10,21 @@ public record AiRequest(
         String requesterName,
         String language,
         Optional<UUID> playerId,
-        String prompt
+        String prompt,
+        AiInteractionContext interaction
 ) {
+    public AiRequest(String conversationId, String requesterName, String language,
+                     Optional<UUID> playerId, String prompt) {
+        this(conversationId, requesterName, language, playerId, prompt, AiInteractionContext.game());
+    }
+
     public AiRequest {
         conversationId = requireText(conversationId, "conversationId");
         requesterName = requireText(requesterName, "requesterName");
         language = requireText(language, "language");
         playerId = Objects.requireNonNull(playerId, "playerId");
         prompt = Objects.requireNonNullElse(prompt, "");
+        interaction = Objects.requireNonNull(interaction, "interaction");
     }
 
     private static String requireText(String value, String field) {

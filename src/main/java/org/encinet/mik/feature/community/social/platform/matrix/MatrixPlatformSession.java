@@ -1,5 +1,8 @@
 package org.encinet.mik.feature.community.social.platform.matrix;
 
+import org.encinet.mik.feature.community.social.api.SocialPreparedReply;
+import org.encinet.mik.feature.community.social.api.SocialDeliveryResult;
+
 import com.google.gson.JsonObject;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
@@ -296,17 +299,18 @@ final class MatrixPlatformSession implements SocialChatPlatformSession {
     }
 
     @Override
-    public CompletionStage<Void> sendNotice(SocialConversation conversation, SocialDocument document) {
+    public SocialPreparedReply prepareNotice(SocialConversation conversation, SocialDocument document, int maximumLength) {
         Objects.requireNonNull(conversation, "conversation");
-        Objects.requireNonNull(document, "document");
-        synchronized (lock) {
-            if (closed || state != SocialSessionStatus.State.READY) {
-                return CompletableFuture.completedFuture(null);
+        var bounded = MatrixReplyChannel.layout(document, Math.min(maximumLength, config.maxOutboundLength()));
+        String plain = MatrixPlainTextRenderer.encode(bounded);
+        String html = MatrixHtmlRenderer.render(bounded);
+        return new SocialPreparedReply(bounded, () -> {
+            synchronized (lock) {
+                if (closed || state != SocialSessionStatus.State.READY) return CompletableFuture.completedFuture(
+                        SocialDeliveryResult.notSent(new IllegalStateException("Matrix session not ready")));
             }
-        }
-        SocialDocument bounded = document.truncated(config.maxOutboundLength());
-        return client.sendFormattedText(conversation.id(),
-                MatrixPlainTextRenderer.render(bounded, config.maxOutboundLength()), MatrixHtmlRenderer.render(bounded));
+            return SocialDeliveryResult.observe(client.sendFormattedText(conversation.id(), plain, html), MatrixApiErrors::deliveryStatus);
+        });
     }
 
     @Override

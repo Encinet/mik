@@ -15,6 +15,7 @@ import org.encinet.mik.feature.community.chat.bridge.ChatParticipants;
 import org.encinet.mik.feature.community.chat.bridge.ChatMessagePublisher;
 import org.encinet.mik.feature.community.chat.model.ChatDelivery;
 import org.encinet.mik.feature.community.chat.runtime.ChatSendLedger;
+import org.encinet.mik.feature.community.chat.history.ChatHistoryStore;
 import org.encinet.mik.feature.community.chat.bridge.ServerChatPublisher;
 import org.encinet.mik.feature.community.chat.model.ChatServerMessage;
 import org.encinet.mik.feature.community.chat.model.ChatParticipant;
@@ -26,6 +27,7 @@ import org.encinet.mik.feature.community.chat.model.ChatOrigin;
 import org.encinet.mik.feature.community.chat.model.ChatReferences;
 import org.encinet.mik.feature.community.chat.model.ChatConversation;
 import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
+import org.encinet.mik.feature.community.chat.model.ChatPlaceholder;
 import org.encinet.mik.feature.community.chat.mention.PlayerMentions;
 import org.encinet.mik.feature.player.security.WebAccountPolicy;
 import org.encinet.mik.shared.i18n.LanguageService;
@@ -73,9 +75,11 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
     private final Map<UUID, String> announced = new HashMap<>();
     private WebChatSocketServer socket;
     private ThreadPoolExecutor policies;
+    private ChatHistoryStore history;
     private BukkitTask task;
     private volatile boolean running;
     private long lastMaintenance;
+    private long lastHistoryMaintenance;
     private final String streamId = UUID.randomUUID().toString();
     private long messageSequence;
     private volatile Map<UUID, ChatParticipant> peerSnapshot = Map.of();
@@ -94,6 +98,8 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         String clientPublicKey;
         long lastPong, lastPing;
         String lastPresence = "";
+        boolean historyLoading;
+        long lastHistoryRequest;
         Connection(Channel channel, String id, String address, long now) {
             this.channel = channel; this.id = id; this.address = address;
             this.openedAt = now; this.lastPong = now;
@@ -135,6 +141,8 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         maxConnections = Math.clamp(plugin.getConfig().getInt("web-chat.max-connections", 32), 1, 256);
         policies = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(64),
                 runnable -> { Thread thread = new Thread(runnable, "mik-chat-policy"); thread.setDaemon(true); return thread; });
+        history = new ChatHistoryStore(plugin.getDataFolder().toPath().resolve("chat-history.db"));
+        observeHistory(history.maintain());
         try {
             var encryption = WebChatEncryption.load(plugin.getDataFolder().toPath().resolve("web-chat.key"));
             socket = new WebChatSocketServer(this, "https://mcmik.top", maxConnections, encryption);
@@ -151,6 +159,17 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         if (task != null) task.cancel();
         if (socket != null) socket.close();
         if (policies != null) policies.shutdownNow();
+        if (history != null) {
+            history.close();
+            try { history.stopped().get(5, TimeUnit.SECONDS); }
+            catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                plugin.getLogger().warning("Interrupted while draining chat history");
+            } catch (ExecutionException | TimeoutException failure) {
+                plugin.getLogger().warning("Could not finish draining chat history: " + failure.getClass().getSimpleName());
+            }
+            history = null;
+        }
         inbox.clear(); queued.set(0);
         connections.clear(); byId.clear(); logins.clear(); accounts.clear(); revoked.clear();
         hidden.clear(); announced.clear(); revisions.clear(); authorizations.clear();
@@ -293,7 +312,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         account.approvedRevision = approval.revision();
         for (Connection peer : connections.values()) if (peer.login == login) {
             send(peer, Map.of("type", "authorized", "playerUuid", player.toString(), "name", account.name,
-                    "staff", staff(account.policy), "expiresAt", login.expiresAt));
+                    "staff", staff(account.policy), "expiresAt", login.expiresAt, "history", history != null));
         }
         if (first) { presenceChanged(player); sendPresence(c); }
     }
@@ -349,7 +368,9 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             long now = System.currentTimeMillis();
             JsonObject body = readMessage(text);
             request = string(body, "requestId");
-            if (!request.matches("[A-Za-z0-9_-]{16,64}") || !string(body, "type").equals("send")
+            if (!request.matches("[A-Za-z0-9_-]{16,64}")) throw new IllegalArgumentException();
+            if (string(body, "type").equals("history")) { receiveHistory(c, body, request); return; }
+            if (!string(body, "type").equals("send")
                     || !Set.of("type", "requestId", "channel", "targetUuid", "text").containsAll(body.keySet())) throw new IllegalArgumentException();
             ChatChannel kind = ChatChannel.valueOf(string(body, "channel").toUpperCase(Locale.ROOT));
             String value = string(body, "text").strip();
@@ -389,6 +410,70 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         } catch (Exception invalid) { error(c, request, "invalid_message"); }
     }
 
+    private void receiveHistory(Connection c, JsonObject body, String request) {
+        updateHidden();
+        if (!Set.of("type", "requestId", "channel", "targetUuid", "before", "after").containsAll(body.keySet()))
+            throw new IllegalArgumentException();
+        boolean compression = WebChatSocketServer.compression(c.channel);
+        ChatChannel channel = ChatChannel.valueOf(string(body, "channel").toUpperCase(Locale.ROOT));
+        UUID target = body.has("targetUuid") ? UUID.fromString(string(body, "targetUuid")) : null;
+        long before = body.has("before") ? Long.parseLong(string(body, "before")) : Long.MAX_VALUE;
+        long after = body.has("after") ? Long.parseLong(string(body, "after")) : 0;
+        boolean staff = webStaff(c.login.player);
+        if (channel == ChatChannel.STAFF && !staff) { error(c, request, "staff_required"); return; }
+        ChatHistoryStore.Query query = new ChatHistoryStore.Query(c.login.player, staff, channel, target, before, after);
+        if (history == null) { error(c, request, "history_unavailable"); return; }
+        long now = System.currentTimeMillis();
+        if (c.historyLoading || now - c.lastHistoryRequest < 200) { error(c, request, "rate_limited"); return; }
+        c.lastHistoryRequest = now;
+        WebChatHistory.Viewer viewer;
+        try { viewer = historyViewer(c.login.player); }
+        catch (RuntimeException failure) { error(c, request, "history_unavailable"); return; }
+        c.historyLoading = true;
+        history.read(query, page -> WebChatPacket.history(WebChatHistory.responseParts(page, channel, request, viewer), compression))
+                .whenComplete((response, failure) -> {
+            if (!enqueue(() -> {
+                c.historyLoading = false;
+                if (connections.get(c.channel) != c) return;
+                if (!active(c)) { close(c, "authorization_expired"); return; }
+                if (channel == ChatChannel.STAFF && !webStaff(c.login.player)) { error(c, request, "staff_required"); return; }
+                if (failure != null) { error(c, request, "history_unavailable"); return; }
+                updateHidden();
+                if (!viewer.hidden().equals(historyHidden(c.login.player))) { error(c, request, "history_unavailable"); return; }
+                WebChatSocketServer.send(c.channel, response);
+            })) c.channel.close();
+        });
+    }
+
+    private void observeHistory(CompletableFuture<Void> operation) {
+        operation.whenComplete((_, failure) -> {
+            if (failure != null) plugin.getLogger().warning("Chat history operation failed: " + failure.getClass().getSimpleName());
+        });
+    }
+
+    private WebChatHistory.Viewer historyViewer(UUID viewer) {
+        var viewerLanguage = language.preferredLanguage(viewer).orElse(Language.DEFAULT);
+        Map<Message, String> descriptions = new EnumMap<>(Message.class);
+        for (var placeholder : ChatPlaceholder.values())
+            descriptions.put(placeholder.message(), language.t(viewerLanguage, placeholder.message()));
+        return new WebChatHistory.Viewer(viewer, historyHidden(viewer), descriptions);
+    }
+
+    private Set<UUID> historyHidden(UUID viewer) {
+        Set<UUID> denied = new HashSet<>(hidden);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID id = player.getUniqueId();
+            if (visible(viewer, id)) denied.remove(id); else denied.add(id);
+        }
+        denied.remove(viewer);
+        return Set.copyOf(denied);
+    }
+
+    private void appendHistory(Supplier<ChatHistoryStore.Entry> snapshot) {
+        if (history == null) return;
+        observeHistory(history.append(snapshot));
+    }
+
     /** Main-thread output of an already accepted message; its sender need not have a game connection. */
     @Override public void publish(ChatDelivery delivery) {
         if (!running) return;
@@ -409,10 +494,13 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
     }
 
     private void distribute(ChatDelivery delivery) {
-        if (connections.isEmpty()) return;
         ChatAudience audience = delivery.audience();
         WebChatMessage message = new WebChatMessage(delivery.message(), delivery.requestId(), delivery.target());
         long sequence = ++messageSequence;
+        if (history != null) {
+            var snapshot = WebChatHistory.snapshot(delivery);
+            appendHistory(() -> WebChatHistory.user(snapshot, streamId, sequence));
+        }
         Map<MessageVariant, String> frames = new HashMap<>();
         for (Connection c : connections.values()) if (active(c) && audience.includes(c.login.player, webStaff(c.login.player))) {
             boolean own = c.login.player.equals(message.senderUuid());
@@ -434,9 +522,9 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
     private record MessageVariant(Language language, boolean own, boolean mentioned) { }
 
     @Override
-    public void publish(ChatServerMessage message, Predicate<UUID> visibility) {
-        Objects.requireNonNull(message, "message");
+    public void publish(ChatServerMessage message, ServerChatPublisher.Visibility visibility) {
         Objects.requireNonNull(visibility, "visibility");
+        Objects.requireNonNull(message, "message");
         Runnable action = () -> {
             if (!running) return;
             updateHidden();
@@ -445,19 +533,29 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         if (Bukkit.isPrimaryThread()) action.run(); else enqueue(action);
     }
 
-    private void distributeServerMessage(ChatServerMessage message, Predicate<UUID> visibility) {
-        if (connections.isEmpty()) return;
+    private void distributeServerMessage(ChatServerMessage message, ServerChatPublisher.Visibility visibility) {
         ChatAudience audience = message.audience();
         long sequence = ++messageSequence;
+        if (history != null) {
+            Set<UUID> candidates = new HashSet<>(message.participants().keySet());
+            Bukkit.getOnlinePlayers().stream().filter(this::gameEligible).map(Player::getUniqueId).forEach(candidates::add);
+            connections.values().stream().filter(this::active).map(c -> c.login.player).forEach(candidates::add);
+            Set<UUID> viewers = candidates.stream().filter(viewer -> serverVisible(message, viewer, visibility))
+                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
+            boolean offlineVisible = visibility.includesOffline()
+                    && message.audience().participants().stream().allMatch(id -> visible(null, id))
+                    && message.subject().map(subject -> visible(null, subject.playerUuid())).orElse(true);
+            Optional<Set<UUID>> restriction = offlineVisible && viewers.size() == candidates.size()
+                    ? Optional.empty() : Optional.of(viewers);
+            var snapshot = WebChatHistory.snapshot(message);
+            appendHistory(() -> WebChatHistory.server(snapshot, restriction, streamId, sequence));
+        }
         Map<UUID, String> frames = new HashMap<>();
         for (Connection c : connections.values()) {
-            if (!active(c) || !visibility.test(c.login.player)) continue;
+            if (!active(c)) continue;
             UUID viewer = c.login.player;
             if (!audience.includes(viewer, webStaff(viewer))) continue;
-            if (audience.channel() == ChatChannel.PRIVATE
-                    && !audience.participants().stream().allMatch(id -> visible(viewer, id))) continue;
-            var subject = message.subject().orElse(null);
-            if (subject != null && !visible(viewer, subject.playerUuid())) continue;
+            if (!serverVisible(message, viewer, visibility)) continue;
             UUID frameOwner = message.conversation().channel() == ChatChannel.PRIVATE ? viewer : null;
             String frame = frames.computeIfAbsent(frameOwner, _ -> {
                 JsonObject payload = WebChatServerMessage.payload(message, viewer);
@@ -469,6 +567,12 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             });
             WebChatSocketServer.send(c.channel, frame);
         }
+    }
+
+    private boolean serverVisible(ChatServerMessage message, UUID viewer, ServerChatPublisher.Visibility visibility) {
+        return visibility.includes().test(viewer)
+                && message.audience().participants().stream().allMatch(id -> visible(viewer, id))
+                && message.subject().map(subject -> visible(viewer, subject.playerUuid())).orElse(true);
     }
 
     private void stamp(JsonObject message, long sequence) {
@@ -565,6 +669,10 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         long now = System.currentTimeMillis();
         if (now - lastMaintenance < 1000) return;
         lastMaintenance = now;
+        if (history != null && now - lastHistoryMaintenance >= 3_600_000) {
+            lastHistoryMaintenance = now;
+            observeHistory(history.maintain());
+        }
         revoked.entrySet().removeIf(entry -> entry.getValue() <= now);
         for (Connection c : List.copyOf(connections.values())) {
             if (!c.channel.isActive()) { remove(c.channel); continue; }
@@ -656,7 +764,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         var subject = new ChatServerMessage.Subject(id, name);
         var body = new ChatServerMessage.Translation(present ? ChatServerMessage.Template.WEB_JOINED
                 : ChatServerMessage.Template.WEB_LEFT, Map.of("name", name));
-        distributeServerMessage(ChatServerMessage.publicMessage(body, subject, false), _ -> true);
+        distributeServerMessage(ChatServerMessage.publicMessage(body, subject, false), new ServerChatPublisher.Visibility(_ -> true, true));
     }
     private void remove(Channel channel) {
         Connection c = connections.remove(channel); if (c == null) return;
@@ -691,7 +799,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             JsonObject object = new JsonObject();
             reader.beginObject();
             while (reader.hasNext()) {
-                if (object.size() >= 5) throw new IllegalArgumentException("too_many_fields");
+                if (object.size() >= 6) throw new IllegalArgumentException("too_many_fields");
                 String key = reader.nextName();
                 if (object.has(key) || reader.peek() != com.google.gson.stream.JsonToken.STRING) throw new IllegalArgumentException("invalid_field");
                 object.addProperty(key, reader.nextString());

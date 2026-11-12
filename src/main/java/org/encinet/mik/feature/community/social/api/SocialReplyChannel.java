@@ -2,10 +2,8 @@ package org.encinet.mik.feature.community.social.api;
 
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 
-import java.util.concurrent.CompletionStage;
-
 /** A platform-captured capability for replying to exactly one inbound event. */
 @FunctionalInterface
 public interface SocialReplyChannel {
-    CompletionStage<Void> send(SocialDocument document);
+    SocialPreparedReply prepare(SocialDocument document, int maximumLength);
 }

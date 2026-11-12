@@ -258,7 +258,7 @@ public final class AiModule implements Listener, AiGateway {
             }
             return selected.conversations().askDetailed(
                     request.conversationId(), request.requesterName(), request.language(),
-                    request.prompt(), context.memory(), context.tools())
+                    request.prompt(), context.memory(), context.tools(), request.interaction())
                     .thenApply(turn -> {
                         if (selected.learning() != null && runtime == selected) {
                             selected.learning().capture(request, turn);

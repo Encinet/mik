@@ -71,7 +71,7 @@ class QqPlatformSessionTest {
             SocialDocument notice = SocialDocument.of(SocialDocument.Moderation.REQUIRED,
                     "Announcement", SocialDocument.Tone.INFO, SocialDocument.paragraph("First line\n<everyone> *text*"));
             SocialConversation group = new SocialConversation("group-a", SocialConversation.Type.GROUP);
-            session.sendNotice(group, notice).toCompletableFuture().join();
+            session.prepareNotice(group, notice, 2_000).send().join();
             assertEquals(1, messages.size());
             JsonObject message = messages.getFirst();
             assertFalse(message.has("msg_id"));
@@ -80,7 +80,7 @@ class QqPlatformSessionTest {
             assertTrue(markdown.startsWith("## Announcement"));
             assertEquals("## Announcement\n\nFirst line  \n\\<everyone\\> \\*text\\*", markdown);
             session.close();
-            session.sendNotice(group, notice).toCompletableFuture().join();
+            session.prepareNotice(group, notice, 2_000).send().join();
             assertEquals(1, messages.size());
         } finally {
             session.close();

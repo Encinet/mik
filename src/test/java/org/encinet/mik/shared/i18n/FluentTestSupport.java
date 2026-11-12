@@ -20,6 +20,11 @@ public final class FluentTestSupport {
         java.util.Map<Language, FluentBundle> bundles = new java.util.concurrent.ConcurrentHashMap<>();
         return new LanguageService(null) {
             @Override
+            public java.util.Optional<Language> preferredLanguage(java.util.UUID playerId) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
             public String t(Language language, Message message, Object... args) {
                 return FluentTestSupport.text(bundleFor(language), message, args);
             }

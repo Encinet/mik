@@ -27,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -41,6 +40,50 @@ class IdentityCommandsTest {
             new ExternalIdentityKey("qq", "app", "group", "member");
 
     @Test
+    void alreadyBoundHelpShowsTheAccountAndResolvedProfileInvocation() {
+        var binding = binding();
+        var bindings = new StubBindings(binding);
+        var languages = FluentTestSupport.languages();
+        var command = new LinkIdentityCommand(bindings, new SocialCommandLanguageResolver(bindings, languages), languages);
+        var original = context(true, "matrix");
+        var context = new SocialCommandContext(original.platform(), original.message(), original.input(),
+                SocialCommandSyntax.caseInsensitive(Language.ZH_CN, "!"));
+        String reply = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context, languages), command.execute(context, "").value()).plainText();
+        assertTrue(reply.contains("PlayerOne"), reply);
+        assertTrue(reply.contains("!我的"), reply);
+        assertTrue(!reply.contains("验证码"), reply);
+        assertEquals(0, bindings.redeemCalls);
+    }
+
+    @Test
+    void unboundAccountHasNoUnlinkConfirmationOrRemoval() {
+        var languages = FluentTestSupport.languages();
+        var bindings = mock(IdentityBindingManager.class);
+        when(bindings.find(KEY)).thenReturn(Optional.empty());
+        var command = new UnlinkIdentityCommand(bindings, new SocialCommandLanguageResolver(bindings, languages), languages, new UnlinkConfirmations());
+        String reply = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(true), languages), command.execute(context(true),
+                new UnlinkIdentityCommand.Request(Optional.empty())).value()).plainText();
+        assertTrue(reply.contains("还没有绑定"), reply);
+        org.mockito.Mockito.verify(bindings, org.mockito.Mockito.never()).unlink(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void localizedConfirmationParametersAreAcceptedInEveryLanguage() {
+        var languages = FluentTestSupport.languages();
+        var bindings = new StubBindings(binding());
+        var command = new UnlinkIdentityCommand(bindings,
+                new SocialCommandLanguageResolver(bindings, languages), languages, new UnlinkConfirmations());
+        for (var language : Language.values()) {
+            String token = languages.t(language, Message.SOCIAL_UNLINK_CONFIRMATION);
+            String complete = token + " confirmation-token";
+            var parsed = command.definition().arguments().parser().apply(
+                    org.encinet.mik.feature.community.social.command.SocialCommandInput.explicit("unbind", complete));
+            var valid = assertInstanceOf(org.encinet.mik.feature.community.social.command.SocialArguments.Valid.class, parsed);
+            assertEquals(Optional.of("confirmation-token"), ((UnlinkIdentityCommand.Request) valid.value()).token());
+        }
+    }
+
+    @Test
     void linkCommandOwnsHelpRedemptionAndPresentation() {
         IdentityBinding binding = binding();
         StubBindings bindings = new StubBindings(binding);
@@ -49,17 +92,17 @@ class IdentityCommandsTest {
                 new SocialCommandLanguageResolver(bindings, languages), languages);
 
         assertInstanceOf(LinkIdentityCommand.Result.Help.class,
-                command.handle(context(true), ""));
+                command.execute(context(true), "").value());
         LinkIdentityCommand.Result.Linked linked = assertInstanceOf(
                 LinkIdentityCommand.Result.Linked.class,
-                command.handle(context(true), "ABCDE-ABCDE"));
-        SocialDocument document = command.present(context(true), linked);
+                command.execute(context(true), "ABCDE-ABCDE").value());
+        SocialDocument document = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(true), languages), linked);
 
-        assertEquals("🔗 SOCIAL_TITLE_IDENTITY_LINKING", document.title());
+        assertEquals("", document.title());
         assertEquals(REQUIRED, document.moderation());
         assertEquals(1, bindings.redeemCalls);
         assertInstanceOf(LinkIdentityCommand.Result.IdentityMissing.class,
-                command.handle(context(false), "ABCDE-ABCDE"));
+                command.execute(context(false), "ABCDE-ABCDE").value());
     }
 
     @Test
@@ -68,16 +111,16 @@ class IdentityCommandsTest {
         StubBindings bindings = new StubBindings(binding);
         StubLanguageService languages = new StubLanguageService();
         UnlinkIdentityCommand command = new UnlinkIdentityCommand(bindings,
-                new SocialCommandLanguageResolver(bindings, languages), languages);
+                new SocialCommandLanguageResolver(bindings, languages), languages, new UnlinkConfirmations());
 
-        assertInstanceOf(UnlinkIdentityCommand.Result.Prompt.class,
-                command.handle(context(true), new UnlinkIdentityCommand.Request(false)));
+        var prompt = assertInstanceOf(UnlinkIdentityCommand.Result.Prompt.class,
+                command.execute(context(true), new UnlinkIdentityCommand.Request(Optional.empty())).value());
         UnlinkIdentityCommand.Result.Unlinked unlinked = assertInstanceOf(
                 UnlinkIdentityCommand.Result.Unlinked.class,
-                command.handle(context(true), new UnlinkIdentityCommand.Request(true)));
-        SocialDocument document = command.present(context(true), unlinked);
+                command.execute(context(true), new UnlinkIdentityCommand.Request(Optional.of(prompt.token()))).value());
+        SocialDocument document = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context(true), languages), unlinked);
 
-        assertEquals("🔓 SOCIAL_TITLE_IDENTITY_UNLINKING", document.title());
+        assertEquals("", document.title());
         assertEquals(REQUIRED, document.moderation());
         assertEquals(1, bindings.unlinkCalls);
     }
@@ -90,15 +133,15 @@ class IdentityCommandsTest {
                 new SocialCommandLanguageResolver(bindings, languages), languages);
         SocialCommandContext matrix = context(true, "matrix");
 
-        command.present(matrix, new LinkIdentityCommand.Result.Help(Optional.empty()));
-        command.present(matrix, new LinkIdentityCommand.Result.Linked(
+        command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(matrix, languages), new LinkIdentityCommand.Result.Help(Optional.empty()));
+        command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(matrix, languages), new LinkIdentityCommand.Result.Linked(
                 new IdentityLinkResult(
                         IdentityLinkResult.Status.INVALID_OR_EXPIRED_CODE, null, null),
                 Optional.empty()));
 
-        assertEquals(List.of("matrix"),
+        assertEquals(List.of("/bind matrix"),
                 languages.arguments.get(Message.SOCIAL_BINDING_HELP));
-        assertEquals(List.of("matrix"),
+        assertEquals(List.of("/bind matrix"),
                 languages.arguments.get(Message.SOCIAL_BINDING_CODE_INVALID));
     }
 
@@ -117,7 +160,7 @@ class IdentityCommandsTest {
                     IdentityLinkResult.Status.MEMBERSHIP_UNAVAILABLE)) {
                 when(bindings.redeem("123456", context.message().authenticatedIdentity().orElseThrow()))
                         .thenReturn(new IdentityLinkResult(status, null, null));
-                var document = command.present(context, command.handle(context, "123456"));
+                var document = command.present(org.encinet.mik.feature.community.social.command.SocialCommandTestSupport.presentation(context, languages), command.execute(context, "123456").value());
                 String expected = switch (status) {
                     case MEMBERSHIP_REQUIRED -> language == Language.EN_US ? "Join a connected community" : "请先加入";
                     case MEMBERSHIP_UNAVAILABLE -> language == Language.EN_US ? "membership cannot currently be verified" : "成员资格暂时无法核验";
@@ -139,7 +182,7 @@ class IdentityCommandsTest {
         SocialInboundMessage message = new SocialInboundMessage(
                 "event", new SocialConversation("group", SocialConversation.Type.GROUP),
                 identity, "/绑定", false,
-                _ -> CompletableFuture.completedFuture(null));
+                org.encinet.mik.feature.community.social.SocialTestReplies::accepted);
         return new SocialCommandContext(
                 new SocialPlatformDescriptor(platformId, platformId, 0x55FFFF), message);
     }
@@ -191,7 +234,7 @@ class IdentityCommandsTest {
         }
 
         @Override
-        public Optional<IdentityBinding> unlink(ExternalIdentityKey key) {
+        public Optional<IdentityBinding> unlink(ExternalIdentityKey key, java.util.UUID expectedBindingId) {
             unlinkCalls++;
             return find(key);
         }

@@ -1,97 +1,115 @@
 package org.encinet.mik.feature.community.social.runtime;
 
+import org.encinet.mik.feature.community.social.api.SocialDeliveryResult;
 import org.encinet.mik.feature.community.social.api.SocialInboundMessage;
 import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
+import org.encinet.mik.feature.community.social.api.SocialPreparedReply;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
+import org.encinet.mik.feature.community.social.command.SocialCommandResult;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
+import org.encinet.mik.shared.i18n.Language;
+import org.encinet.mik.shared.i18n.LanguageService;
+import org.encinet.mik.shared.i18n.Message;
 
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/** Executes a prepared command and applies the shared outbound pipeline. */
+/** Execution facts survive presentation, moderation and delivery failures. */
 final class SocialCommandProcessor {
     private final SocialContentGuard contentGuard;
     private final Logger logger;
+    private final LanguageService languages;
 
-    SocialCommandProcessor(SocialContentGuard contentGuard, Logger logger) {
+    SocialCommandProcessor(SocialContentGuard contentGuard, LanguageService languages, Logger logger) {
         this.contentGuard = Objects.requireNonNull(contentGuard, "contentGuard");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.languages = Objects.requireNonNull(languages, "languages");
     }
 
-    void execute(
-            SocialPlatformDescriptor platform,
-            SocialInboundMessage message,
-            SocialCommandDispatcher.PreparedInvocation invocation,
-            SocialOutputPolicy outputPolicy,
-            BooleanSupplier resultIsCurrent
-    ) {
+    void execute(SocialPlatformDescriptor platform, SocialInboundMessage message,
+                 SocialCommandDispatcher.PreparedInvocation invocation, SocialOutputPolicy outputPolicy,
+                 BooleanSupplier resultIsCurrent, UUID generationId) {
+        if (!resultIsCurrent.getAsBoolean()) return;
+        var context = new SocialCommandContext(platform, message, invocation.input(), invocation.syntax(), generationId);
+        final SocialCommandResult result;
         try {
-            if (!resultIsCurrent.getAsBoolean()) {
-                return;
-            }
-            SocialDocument document = invocation.execute(
-                    new SocialCommandContext(
-                            platform, message, invocation.input(), invocation.syntax()));
-            if (!resultIsCurrent.getAsBoolean()) {
-                return;
-            }
-            document = contentGuard.apply(document, outputPolicy);
-            if (!resultIsCurrent.getAsBoolean()) {
-                return;
-            }
-            CompletionStage<Void> reply = Objects.requireNonNull(
-                    message.replyChannel().send(document),
-                    "Social reply channel returned null");
-            awaitReply(platform, reply, resultIsCurrent);
+            result = invocation.execute(context);
         } catch (RuntimeException error) {
             if (resultIsCurrent.getAsBoolean()) {
-                logger.log(Level.SEVERE,
-                        "Social command " + invocation.commandId()
-                                + " failed on platform " + platform.id(), error);
+                logger.log(Level.SEVERE, "Social command " + invocation.commandId() + " failed on " + platform.id(), error);
+                deliver(platform, message, unavailable(context.input().languageHint().orElse(context.syntax().defaultLanguage())),
+                        outputPolicy, resultIsCurrent);
             }
+            return;
         }
+        if (!resultIsCurrent.getAsBoolean()) return;
+        Language language = result.language().fallback();
+        try { language = result.language().resolve(languages); }
+        catch (RuntimeException error) { logger.warning("Could not resolve social response language: " + rootMessage(error)); }
+        var presentation = new SocialPresentationContext(context, language, languages);
+        SocialDocument receipt = result.receipt().map(value -> value.document(presentation)).orElse(null);
+        SocialDocument document;
+        try { document = result.present(presentation); }
+        catch (RuntimeException error) {
+            logger.log(Level.WARNING, "Could not present social command " + invocation.commandId(), error);
+            document = receipt == null ? unavailable(language) : receipt;
+        }
+        if (!resultIsCurrent.getAsBoolean()) return;
+        SocialPreparedReply prepared;
+        try {
+            prepared = message.replyChannel().prepare(document, outputPolicy.maximumLength());
+            var review = contentGuard.review(prepared.document(), outputPolicy);
+            if (!review.allowed()) prepared = message.replyChannel().prepare(
+                    receipt == null ? review.document() : receipt, outputPolicy.maximumLength());
+        } catch (RuntimeException error) {
+            logger.warning("Could not prepare social response on " + platform.id() + ": " + rootMessage(error));
+            deliver(platform, message, receipt == null ? unavailable(language) : receipt, outputPolicy, resultIsCurrent);
+            return;
+        }
+        send(platform, prepared, resultIsCurrent);
     }
 
-    /**
-     * Keeps the worker admission permit until the platform has completed its reply. This makes
-     * the configured concurrency limit cover the whole command, rather than allowing an
-     * unbounded number of HTTP replies to accumulate after fast handlers return.
-     */
-    private void awaitReply(
-            SocialPlatformDescriptor platform,
-            CompletionStage<Void> reply,
-            BooleanSupplier resultIsCurrent
-    ) {
-        var future = reply.toCompletableFuture();
+    private SocialDocument unavailable(Language language) {
+        return SocialDocument.message(SocialDocument.Moderation.TRUSTED, SocialDocument.Tone.WARNING,
+                SocialDocument.paragraph(languages.t(language, Message.SOCIAL_REPLY_UNAVAILABLE))).localized(language);
+    }
+
+    private void deliver(SocialPlatformDescriptor platform, SocialInboundMessage message, SocialDocument document,
+                         SocialOutputPolicy policy, BooleanSupplier current) {
+        if (!current.getAsBoolean()) return;
+        try { send(platform, message.replyChannel().prepare(document, policy.maximumLength()), current); }
+        catch (RuntimeException error) { logger.warning("Could not prepare social recovery on " + platform.id() + ": " + rootMessage(error)); }
+    }
+
+    /** Admission stays held until the platform acknowledges, rejects or loses certainty. */
+    private void send(SocialPlatformDescriptor platform, SocialPreparedReply prepared, BooleanSupplier current) {
+        if (!current.getAsBoolean()) return;
+        var future = prepared.send();
         try {
-            future.get();
+            SocialDeliveryResult result = future.get();
+            if (result.status() != SocialDeliveryResult.Status.ACCEPTED && current.getAsBoolean()) {
+                logger.warning("Social delivery " + result.status() + " on " + platform.id()
+                        + ": " + rootMessage(result.failure().orElseThrow()));
+            }
         } catch (InterruptedException error) {
             future.cancel(true);
             Thread.currentThread().interrupt();
         } catch (CancellationException error) {
-            // Closing or replacing a generation intentionally cancels pending replies.
+            // Closing the generation intentionally cancels pending delivery.
         } catch (ExecutionException error) {
-            if (resultIsCurrent.getAsBoolean()) {
-                logger.warning("Could not reply on social platform " + platform.id()
-                        + ": " + rootMessage(error));
-            }
+            if (current.getAsBoolean()) logger.warning("Social delivery UNKNOWN on " + platform.id() + ": " + rootMessage(error));
         }
     }
 
     static String rootMessage(Throwable error) {
-        Throwable cause = error;
-        while ((cause instanceof java.util.concurrent.CompletionException
-                || cause instanceof java.util.concurrent.ExecutionException)
-                && cause.getCause() != null) {
-            cause = cause.getCause();
-        }
-        return cause.getMessage() == null || cause.getMessage().isBlank()
-                ? cause.getClass().getSimpleName() : cause.getMessage();
+        Throwable cause = org.encinet.mik.feature.community.social.api.SocialFutures.unwrap(error);
+        return cause.getMessage() == null || cause.getMessage().isBlank() ? cause.getClass().getSimpleName() : cause.getMessage();
     }
 }

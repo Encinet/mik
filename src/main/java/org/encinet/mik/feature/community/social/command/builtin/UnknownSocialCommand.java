@@ -1,12 +1,17 @@
 package org.encinet.mik.feature.community.social.command.builtin;
 
+import java.util.Optional;
+
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.social.command.NoArguments;
+import org.encinet.mik.feature.community.social.command.SocialArguments;
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.SocialCommandExecution;
+import org.encinet.mik.feature.community.social.command.SocialPresentationContext;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
 import org.encinet.mik.feature.community.social.command.SocialCommandContext;
-import org.encinet.mik.feature.community.social.command.SocialCommandInput;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.SocialCommandSpec;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
@@ -17,10 +22,14 @@ import static org.encinet.mik.feature.community.social.document.SocialDocument.M
 
 /** Handles unknown explicitly prefixed commands. */
 public final class UnknownSocialCommand implements SocialCommand<NoArguments, NoArguments> {
-    private static final String TITLE_ICON = "❓";
-    private static final Message TITLE = Message.SOCIAL_TITLE_UNKNOWN_COMMAND;
     private static final SocialCommandSpec SPEC =
             SocialCommandSpec.unknownExplicit("server.unknown");
+    public static final SocialCommandDefinition<NoArguments> DEFINITION =
+            new SocialCommandDefinition<>(SPEC, Optional.empty(), SocialArguments.ignored());
+
+    @Override
+    public SocialCommandDefinition<NoArguments> definition() { return DEFINITION; }
+
 
     private final SocialCommandLanguageResolver languageResolver;
     private final LanguageService languages;
@@ -34,28 +43,20 @@ public final class UnknownSocialCommand implements SocialCommand<NoArguments, No
     }
 
     @Override
-    public SocialCommandSpec spec() {
-        return SPEC;
+    public SocialCommandExecution<NoArguments> execute(SocialCommandContext context, NoArguments argument) {
+        return SocialCommandExecution.result(perform(context, argument), languageResolver.target(context));
     }
 
-    @Override
-    public NoArguments decode(SocialCommandInput input) {
-        return NoArguments.decode(input);
-    }
-
-    @Override
-    public NoArguments handle(SocialCommandContext context, NoArguments argument) {
+    private NoArguments perform(SocialCommandContext context, NoArguments argument) {
         return argument;
     }
 
     @Override
-    public SocialDocument present(SocialCommandContext context, NoArguments result) {
-        Language language = languageResolver.language(context);
-        return SocialDocument.of(TRUSTED,
-                TITLE_ICON + " " + languages.t(language, TITLE),
-                SocialDocument.Tone.WARNING,
+    public SocialDocument present(SocialPresentationContext context, NoArguments result) {
+        Language language = context.language();
+        return SocialDocument.message(TRUSTED, SocialDocument.Tone.WARNING,
                 SocialDocument.paragraph(languages.t(
-                        language, Message.SOCIAL_QUERY_UNKNOWN, SocialHelpCommand.invocation(context, language))))
+                        language, Message.SOCIAL_QUERY_UNKNOWN, SocialHelpCommand.invocation(context.syntax(), language))))
                 .localized(language);
     }
 }

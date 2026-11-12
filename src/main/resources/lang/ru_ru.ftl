@@ -742,18 +742,17 @@ social-admin-reloaded-all = Все социальные платформы пе�
 social-admin-status = { $arg0 } · { $arg1 } · поколение { $arg2 } · диалоги { $arg3 }
 social-admin-title = Социальные платформы
 social-admin-unknown = Неизвестная социальная платформа: { $arg0 }
-social-binding-already-linked = Эта личность уже привязана к игроку Minecraft { $arg0 }.
-social-binding-code-invalid = Код неверен или истёк. Подключитесь снова для получения нового кода или используйте /bind { $arg0 } в игре.
+social-binding-already-linked = Аккаунт уже привязан к { $arg0 }. Отправьте { $arg1 }, чтобы посмотреть профиль.
+social-binding-confirmation-expired = Подтверждение устарело или привязанный аккаунт изменился. Запросите новое подтверждение:
+social-binding-code-invalid = Код недействителен или просрочен. Подключитесь заново или выполните { $arg0 } в игре.
 social-binding-external-in-use = Эта личность уже привязана к другому игроку Minecraft.
-social-binding-help = Попробуйте подключиться к серверу: код появится на экране входа. Если вы уже в игре, используйте /bind { $arg0 }.
-    Скопируйте созданную полную команду.
-    Отправьте эту команду сюда.
-    Проверьте привязку командой /профиль.
+social-binding-help = Подключитесь к серверу Minecraft и отправьте сюда полную команду привязки с экрана входа. Если вы уже в игре, получите её командой { $arg0 }.
 social-binding-identity-missing = В этом сообщении нет надёжного идентификатора участника, поэтому привязка недоступна.
-social-binding-linked = Выполнена привязка к игроку Minecraft { $arg0 }.
+social-binding-link-completed = Привязка аккаунта завершена. Подключитесь заново, чтобы продолжить вход.
+social-binding-linked = Ваш игровой аккаунт { $arg0 } привязан. Подключитесь заново, чтобы продолжить вход.
 social-binding-membership-required = Вступите в подключённое сообщество на этой платформе и повторите привязку.
 social-binding-membership-unavailable = Сейчас не удаётся проверить участие в сообществе. Повторите попытку позже или обратитесь к администратору сервера.
-social-binding-not-bound = Эта платформенная личность не привязана.
+social-binding-not-bound = Вы ещё не привязали игровой аккаунт.
 social-binding-platform-mismatch = Этот код подтверждения выдан для другой платформы.
 social-binding-player-scope-in-use = У этого игрока Minecraft уже есть другая привязка в той же области учётной записи платформы.
 social-binding-rate-limited = Слишком много неудачных попыток. Повторите примерно через { $arg0 ->
@@ -763,9 +762,12 @@ social-binding-rate-limited = Слишком много неудачных по�
        *[other] { $arg0 } минуты
     }.
 social-binding-unavailable = Привязка личности временно недоступна.
-social-binding-unlink-prompt = Отвязка удалит связь этой платформенной личности с Minecraft. Для продолжения отправьте { $arg0 }.
+social-binding-unlink-completed = Аккаунт отвязан. Без другой действующей привязки к сообществу нужно снова привязать аккаунт перед входом.
+social-binding-unlink-prompt = Этот аккаунт платформы будет отвязан от { $arg0 }. Без другой действующей привязки к сообществу вы потеряете доступ к серверу; текущее подключение будет закрыто. Для подтверждения отправьте:
 social-binding-unlinked = Привязка к игроку Minecraft { $arg0 } удалена.
 social-command-description = Управление адаптерами социальных платформ
+social-command-invalid-arguments = Неверные аргументы. Используйте:
+social-command-usage = Эта команда не принимает аргументы. Отправьте:
 social-crypto-command-description = Управление проверкой устройств шифрования Matrix
 social-crypto-comparison-not-ready = Сравнение SAS ещё не готово.
 social-crypto-device = { $arg0 } / { $arg1 }
@@ -814,10 +816,12 @@ social-duration-hours = { $arg0 } ч. { $arg1 } мин.
 social-duration-minutes = { $arg0 } мин.
 social-help-command-description = Показать этот список команд
 social-link-command-description = Привязать учётную запись Minecraft кодом из игры
+social-link-command-parameters = <код>
 social-online-command-description = Показать игроков онлайн
 social-profile-afk = В сети · AFK
 social-profile-avatar-alt = Лицо Minecraft
 social-profile-command-description = Показать свой профиль; полные участники ищут по имени, упоминанию или ответу
+social-profile-command-parameters = [игрок]
 social-profile-first-joined-label = Первый вход
 social-profile-language-label = Язык
 social-profile-last-seen-label = Последний вход
@@ -833,16 +837,21 @@ social-profile-target-unbound = Упомянутая личность или а�
 social-profile-uuid-label = UUID
 social-query-metric = { $arg0 }
 social-query-no-players = Сейчас на сервере нет игроков.
-social-query-online-label = В сети
 social-query-online-player = { $arg1 ->
     [afk] { $arg0 } (Отошли)
    *[active] { $arg0 }
+    }
+social-query-online-summary = Сейчас онлайн: { $arg0 }.{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }Из них AFK: { $arg1 }.
     }
 social-query-players-label = Игроки
 social-query-population = В сети { $arg0 }/{ $arg1 } · Активные { $arg2 } · Отошли { $arg3 }
 social-query-unknown = Неизвестная команда. Отправьте { $arg0 }, чтобы посмотреть доступные команды.
 social-query-uptime-label = Время работы
+social-query-version-label = Версия
 social-reply-hidden = Ответ скрыт политикой безопасности содержимого сервера.
+social-reply-unavailable = Результат пока нельзя показать. Проверьте изменения аккаунта командой профиля, прежде чем запрашивать их повторно.
 social-state-disabled = отключена
 social-state-failed = ошибка
 social-state-ready = готова
@@ -851,13 +860,11 @@ social-state-stopped = остановлена
 social-status-command-description = Показать игроков, TPS, MSPT и время работы
 social-title-command-help = Справка по командам
 social-title-content-hidden = Содержимое скрыто
-social-title-identity-linking = Привязка аккаунта
-social-title-identity-unlinking = Отвязка аккаунта
-social-title-online-players = Игроки онлайн
 social-title-player-profile = Профиль игрока
 social-title-server-status = Состояние сервера
-social-title-unknown-command = Неизвестная команда
 social-unlink-command-description = Удалить эту привязку после подтверждения
+social-unlink-command-parameters = [{ social-unlink-confirmation } <код-подтверждения>]
+social-unlink-confirmation = подтвердить
 
 ## Community · AI and knowledge
 
@@ -925,6 +932,7 @@ ai-reload-failed = Не удалось перезагрузить настрой
 ai-reloaded = Настройки ИИ перезагружены ({ $arg0 })
 ai-request-failed = Ошибка запроса к ИИ; повторите попытку позже
 ai-social-command-description = Задать вопрос общему ИИ-помощнику
+ai-social-command-parameters = <вопрос>
 ai-social-question-required = Добавьте вопрос после команды ИИ
 ai-status-disabled = ИИ отключён
 ai-status-enabled = ИИ включён · провайдер { $arg0 } · модель { $arg1 } · инструменты { $arg2 }
@@ -941,7 +949,7 @@ governance-active-days-60 = Не менее 6 дней активности за
 governance-active-header = ─── Условия активного участника ───
 governance-active-member = Сейчас участник
 governance-active-member-age = Участник не менее 30 дней
-governance-active-playtime = Не менее 6 часов полезной игры за 60 дней (сейчас { $arg0 })
+governance-active-playtime = Не менее { $arg1 } полезной игры за 60 дней (сейчас { $arg0 })
 governance-activity-action = { $arg0 ->
     [confirm] Подтвердить поддержку
     [vote] Прочитать и проголосовать
@@ -1158,7 +1166,6 @@ governance-votes-header = ─── Текущие тайные голосова
 
 ## World · Plots
 
-plot-access-removed-for-you = Ваш доступ к участку { $arg0 } удалён.
 plot-admin-created = Участок { $arg0 } зарегистрирован для { $arg1 } · { $arg2 }
 plot-allowed = включено
 plot-area-changed = Границы изменились. Обновите и подтвердите снова.
@@ -1173,37 +1180,6 @@ plot-area-replace-save = Заменить границы и сохранить
 plot-area-save = Сохранить границы
 plot-area-saved = Границы «{ $arg0 }» сохранены.
 plot-atmosphere-saved = Настройки окружения сохранены.
-plot-board-auto-notify-result = Оповещения запланированы для { $arg0 ->
-        [one] { $arg0 } игрока
-        [few] { $arg0 } игроков
-        [many] { $arg0 } игроков
-       *[other] { $arg0 } игрока
-    }.
-plot-board-auto-registered-text = Участок «{ $arg0 }» зарегистрирован. Внешние координаты застроенных ячеек: X { $arg1 }–{ $arg2 }, Y { $arg3 }–{ $arg4 }, Z { $arg5 }–{ $arg6 }.
-plot-board-detail = Запись { $arg0 }: { $arg1 } { $arg2 }, { $arg3 }, { $arg4 } — { $arg5 }
-plot-board-empty = Записей сообщества пока нет.
-plot-board-header = Объявления и отзывы (последние { $arg0 }; подробнее: /plot board ID)
-plot-board-item = { $arg0 } { $arg1 } · { $arg2 } · { $arg3 }
-plot-board-kind-notice = Объявление
-plot-board-kind-objection = Возражение
-plot-board-loading = Загрузка записи объявления…
-plot-board-menu = Доска сообщества
-plot-board-notice-alert = { $arg0 } опубликовал уведомление: { $arg1 } · { $arg2 }
-plot-board-objection-alert = { $arg0 } подал возражение: { $arg1 } · { $arg2 }
-plot-board-rate-limited = Лимит публикаций исчерпан. Попробуйте позже.
-plot-board-record-invalid = Запись не найдена, уже закрыта или действие недоступно.
-plot-board-registered-alert = { $arg0 }: регистрация участка «{ $arg1 }»: { $arg2 }
-plot-board-ruling-alert = По возражению { $arg0 } вынесено решение: { $arg1 } · { $arg2 }
-plot-board-ruling-detail = Решение: { $arg0 }
-plot-board-saved = Запись { $arg0 } сохранена.
-plot-board-status-elapsed = Опубликовано не менее 72 часов назад
-plot-board-status-open = Открыто
-plot-board-status-ruled = Решение вынесено
-plot-board-status-withdrawn = Отозвано
-plot-board-text-invalid = Описание: 12–1000 символов; решение: не менее 8.
-plot-board-unavailable = Записи не загрузились. Повторите позже или откройте https://mcmik.top/community/notices .
-plot-board-withdrawal-alert = { $arg0 } отозвал возражение: { $arg1 } · { $arg2 }
-plot-board-write-failed = Не удалось обновить доску. Попробуйте позже.
 plot-command-blocked = Защита участка заблокировала команду. Используйте /fill или /setblock прямо на своём участке; сложные команды /execute должна проверить администрация.
 plot-command-description = Управлять участками
 plot-created = { -plot.gender ->
@@ -1211,7 +1187,6 @@ plot-created = { -plot.gender ->
         [feminine] { -plot } { $arg0 } создана · { $arg1 }
        *[other] { -plot } { $arg0 } создано · { $arg1 }
     }
-plot-created-for-you = Для вас зарегистрирован участок { $arg0 }. Регистрация: { $arg1 }.
 plot-deleted = Участок освобождён; постройка осталась.
 plot-denied = выключено
 plot-error-admin-owner-only = Изменение участников с полномочиями управления требует управления участниками и правами.
@@ -1221,7 +1196,7 @@ plot-error-busy = Данные участка сохраняются. Повто
 plot-error-flag = Неизвестное право. Выберите действие из списка прав.
 plot-error-id = ID участка не найден или неоднозначен. Используйте /plot list.
 plot-error-member-missing = Этот игрок уже не участник.
-plot-error-member-required = Новые игроки могут просматривать участки и подавать возражения. Для создания проекта нужен статус участника.
+plot-error-member-required = Для создания участка нужен статус участника.
 plot-error-name = Название проекта должно содержать от 1 до 48 символов.
 plot-error-notice-text = Объявления допускают до { $arg0 ->
         [one] { $arg0 } символа
@@ -1272,14 +1247,10 @@ plot-menu-clear = Ясно
 plot-menu-confirm-delete = Удалить регистрацию { $arg0 }? Защита, права участников и настройки будут удалены без возможности отмены. Постройки останутся.
 plot-menu-confirm-subplot-transfer = Передать { $arg0 } игроку { $arg1 }? Владелец родительского участка сохранит надзор.
 plot-menu-confirm-transfer = Передать управление участком { $arg0 } игроку { $arg1 }? Вы потеряете доступ; авторство построек не изменится.
-plot-menu-confirm-withdraw = Отозвать этот отзыв? Отметка об отзыве останется публичной.
 plot-menu-create = Создать { -plot(case: "accusative") }
 plot-menu-create-for-player = Зарегистрировать участок игроку
 plot-menu-custom-time = Своё время
 plot-menu-delete = Удалить регистрацию участка
-plot-menu-description = Описание
-plot-menu-feedback = Оспорить это объявление
-plot-menu-find-record = Найти запись
 plot-menu-flag-container = Открывать контейнеры
 plot-menu-flag-entity = Взаимодействовать с сущностями
 plot-menu-follow-parent = Наследовать от родителя
@@ -1297,12 +1268,8 @@ plot-menu-owner = Владелец: { $arg0 }
 plot-menu-parent-supervisor = Владелец родительского участка: { $arg0 } · надзор
 plot-menu-player = Имя игрока или UUID
 plot-menu-rain = Осадки
-plot-menu-record-search = Номер или заголовок
-plot-menu-related-notice = Открыть связанное уведомление
 plot-menu-remove-member = Удалить участника
 plot-menu-rename = Переименовать проект
-plot-menu-rule = Записать решение
-plot-menu-ruling = Объясните решение (8–1000 символов)
 plot-menu-set-role = Назначить роль { $arg0 }
 plot-menu-settings = Настройки проекта
 plot-menu-submit = Применить
@@ -1313,7 +1280,6 @@ plot-menu-time = Время
 plot-menu-time-input = Время (HH:mm)
 plot-menu-transfer = Передать участок
 plot-menu-weather = Погода
-plot-menu-withdraw = Отозвать отзыв
 plot-no-here = Здесь нет защищённого { -plot(case: "genitive") }.
 plot-notice-board = Доска участка
 plot-notice-cleared = Доска очищена
@@ -1396,7 +1362,6 @@ plot-region-open = Управление прямоугольниками ({ $arg
 plot-region-select-hint = Выберите прямоугольник по номеру для фокуса и выделения. Серые линии показывают текущую страницу; после объединения номера могут измениться.
 plot-renamed = Проект переименован.
 plot-role-admin = управляющий участком
-plot-role-changed-for-you = Ваша роль на участке { $arg0 } теперь: { $arg1 }.
 plot-role-collaborator = соавтор
 plot-role-owner = владелец { -plot(case: "genitive") }
 plot-role-parent-owner = владелец родительского участка
@@ -1414,16 +1379,8 @@ plot-selection-stopped = Выделение завершено. Черновик
 plot-selection-subtract = Вычесть текущий параллелепипед
 plot-selection-undo = Отменить последний шаг
 plot-subplot-created = Создан дочерний участок { $arg0 } · { $arg1 } блоков²
-plot-subplot-created-for-you = Теперь вы владелец участка { $arg0 } внутри { $arg1 }.
-plot-subplot-owner-changed = Участок { $arg0 } теперь принадлежит { $arg1 }.
-plot-subplot-parent-transferred = Владелец родительского участка для вашего участка { $arg0 } сменился на { $arg1 }.
-plot-subplot-released = Дочерний участок { $arg0 } освобождён; его область по-прежнему защищена родительским участком.
 plot-title = Участки
 plot-transferred = Участок { $arg0 } передан игроку { $arg1 }.
-plot-transferred-to-you = Участок { $arg0 } передан вам. Отправитель: { $arg1 }.
-
-## World · Vehicles
-
 vehicle-command-description = Управлять транспортом из сущностей отображения
 vehicle-menu-label =
     { $arg0 ->
@@ -2282,7 +2239,7 @@ music-space-label =
         [select-all] Выбрать все результаты
         [clear-tracks] Снять выбор песен
         [add-playlist] Добавить
-        [description] { plot-menu-description }
+        [description] Описание
         [make-private] Сделать личным
         [publish] Сделать общедоступным
         [delete] Удалить плейлист

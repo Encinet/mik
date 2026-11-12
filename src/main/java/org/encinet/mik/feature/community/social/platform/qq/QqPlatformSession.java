@@ -1,5 +1,8 @@
 package org.encinet.mik.feature.community.social.platform.qq;
 
+import org.encinet.mik.feature.community.social.api.SocialPreparedReply;
+import org.encinet.mik.feature.community.social.api.SocialDeliveryResult;
+
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.identity.IdentityMemberships;
@@ -76,11 +79,14 @@ final class QqPlatformSession implements SocialChatPlatformSession {
     }
 
     @Override
-    public CompletionStage<Void> sendNotice(SocialConversation conversation, SocialDocument document) {
+    public SocialPreparedReply prepareNotice(SocialConversation conversation, SocialDocument document, int maximumLength) {
         Objects.requireNonNull(conversation, "conversation");
-        Objects.requireNonNull(document, "document");
-        if (closed.get()) return CompletableFuture.completedFuture(null);
-        return api.sendMarkdown(conversation.id(), QqMarkdownRenderer.render(document, config.maxOutboundLength()));
+        var bounded = QqReplyChannel.layout(document, Math.min(maximumLength, config.maxOutboundLength()));
+        String markdown = QqMarkdownRenderer.encode(bounded);
+        return new SocialPreparedReply(bounded, () -> closed.get()
+                ? CompletableFuture.completedFuture(SocialDeliveryResult.notSent(new IllegalStateException("QQ session closed")))
+                : SocialDeliveryResult.observe(api.sendMarkdown(conversation.id(), markdown),
+                        org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors::deliveryStatus));
     }
 
     @Override

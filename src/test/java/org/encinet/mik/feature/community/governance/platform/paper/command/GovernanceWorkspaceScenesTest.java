@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class GovernanceWorkspaceScenesTest {
     static final UUID VIEWER = new UUID(0,99), STAFF = new UUID(0,1);
     static final Instant NOW = Instant.parse("2026-10-29T00:00:00Z");
-    static final ActiveMemberEligibility ACTIVE = new ActiveMemberEligibility(true,true,true,true,true,true);
+    static final ActiveMemberEligibility ACTIVE = new ActiveMemberEligibility(true,true,true,true,true,true,java.time.Duration.ofHours(6));
 
     @Test void deferredRowsKeepTheirDeclaredInteractionSnapshotAfterTheOwnerChanges() throws Exception {
         var state = new GovernanceWorkspaceState();

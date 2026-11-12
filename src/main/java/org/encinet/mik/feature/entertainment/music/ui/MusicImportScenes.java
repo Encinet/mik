@@ -10,6 +10,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.encinet.mik.feature.entertainment.music.application.MusicProblem;
 import org.encinet.mik.shared.menu.MenuInputForm;
+import org.encinet.mik.shared.menu.FloatingMenuTextWidth;
 import org.encinet.mik.shared.menu.ui.*;
 
 /** A single import task: link, preview, then create or merge. The browser stays in place. */
@@ -59,14 +60,15 @@ final class MusicImportScenes {
                     list -> (_,_) -> { if (active.getAsBoolean()) w.browse(player,new Collection(Source.PLAYLIST,list.id())); }));
         } else {
             var preview = task.preview();
-            body.child(w.field(player, "import-name:" + preview.request(), "name", preview.name(), 64,
+            if (task.page() != ImportPage.MERGE) body.child(w.field(player, "import-name:" + preview.request(), "name", preview.name(), 64,
                     name -> {
                         if (!owned.getAsBoolean()) return;
                         if (state.busy(TaskKey.of(Work.IMPORT))) throw new MusicProblem(MusicProblem.Code.BUSY);
                         var current = (Import) state.panel(); var before = current.preview();
                         state.panel(new Import(new Imported(before.source(), before.reference(), name, before.tracks(),
                             before.total(), before.request()), current.page())); w.redraw(player); }));
-            if (preview.tracks().size() < preview.total()) body.child(info("partial", w.label(player, "partial-import")));
+            if (preview.tracks().size() < preview.total()) body.child(Ui.text(w.label(player,"partial-import"))
+                    .key(UiKey.item("partial")).summaryLines(2).textWidth(FloatingMenuTextWidth.CONTENT).build());
             if (task.page() == ImportPage.MERGE) {
                 var lists = w.playlists.owned(player.getUniqueId());
                 if (lists.isEmpty()) body.child(UiKey.named("import-content"),info("no-playlists", w.label(player, "no-playlists")));
@@ -84,22 +86,27 @@ final class MusicImportScenes {
                 }
                 body.child(UiKey.named("import-content"),MusicTaskEntries.content("import-preview", entries, w.label(player,"empty"), position, browse, null));
             }
-            boolean busy = state.busy(TaskKey.of(Work.IMPORT));
-            var create = Ui.button(w.label(player,"import-new")).key("import-new")
-                    .primary((_,_) -> { if (owned.getAsBoolean()) w.safe(player,() -> save(player,(Import) state.panel(),null)); });
-            var toggle = Ui.button(w.label(player,task.page() == ImportPage.MERGE ? "import-preview" : "import-merge")).key("import-view")
-                    .primary((_,_) -> { if (owned.getAsBoolean() && !state.busy(TaskKey.of(Work.IMPORT))) {
-                        var current = (Import) state.panel();
-                        w.panel(player,new Import(current.preview(),current.page() == ImportPage.MERGE ? ImportPage.SOURCE : ImportPage.MERGE));
-                    } });
-            var retry = Ui.button(w.label(player,"retry-import")).key("retry-import")
-                    .primary((_,_) -> { if (owned.getAsBoolean()) w.safe(player,() -> {
-                        var current = ((Import) state.panel()).preview(); load(player,current.source(),current.reference());
-                    }); });
-            if (busy) { create.disabled(w.label(player,"saving")); toggle.disabled(w.label(player,"saving")); retry.disabled(w.label(player,"saving")); }
-            body.child(tools("import-actions").child(create.build()).child(toggle.build()).child(retry.build()).build());
+            var actions = tools("import-actions");
+            if (!state.busy(TaskKey.of(Work.IMPORT))) {
+                var create = Ui.button(w.label(player,"import-new")).key("import-new")
+                        .primary((_,_) -> { if (owned.getAsBoolean()) w.safe(player,() -> save(player,(Import) state.panel(),null)); });
+                var toggle = (task.page() == ImportPage.MERGE
+                        ? Ui.button(UiIcons.CHEVRON_LEFT,w.label(player,"import-preview"))
+                        : Ui.button(w.label(player,"import-merge"))).key("import-view")
+                        .primary((_,_) -> { if (owned.getAsBoolean() && !state.busy(TaskKey.of(Work.IMPORT))) {
+                            var current = (Import) state.panel();
+                            w.panel(player,new Import(current.preview(),current.page() == ImportPage.MERGE ? ImportPage.SOURCE : ImportPage.MERGE));
+                        } });
+                var retry = Ui.button(UiIcons.REFRESH,w.label(player,"retry-import")).key("retry-import")
+                        .primary((_,_) -> { if (owned.getAsBoolean()) w.safe(player,() -> {
+                            var current = ((Import) state.panel()).preview(); load(player,current.source(),current.reference());
+                        }); });
+                actions.child(create.build()).child(toggle.build()).child(retry.build());
+            }
+            body.child(actions.children(w.taskStatus(player,state,TaskKey.of(Work.IMPORT))).build());
         }
-        return UiTemplates.reading(body.children(w.taskStatus(player, state, TaskKey.of(Work.IMPORT))).build(),UiKey.named("import-content"),UiLength.ui(8));
+        if (task.preview() == null) body.children(w.taskStatus(player,state,TaskKey.of(Work.IMPORT)));
+        return UiTemplates.reading(body.build(),UiKey.named("import-content"),UiLength.ui(8));
     }
     void load(Player player, String source, String reference) {
         var state = w.state(player);

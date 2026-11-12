@@ -14,7 +14,7 @@
 | 局部测量结果 | `UiFrame` |
 | 页面、嵌入与导航 | `MenuScene`、`MenuPanel`、`FloatingMenuHandle`、`FloatingMenuFlow` |
 
-`MenuScene.Entry` 是组件投影后的索引，不是另一套坐标声明。内容类型与交互语义分开：物品可以是按钮，只读文字不持有业务动作；`selected(false)` 和 `selected(true)` 都表示选择控件。禁用项保留原因和可指向区域。
+`MenuScene.Entry` 是组件投影后的索引。内容类型与交互语义分开：物品可以是按钮，只读文字不持有业务动作；`selected(false)` 和 `selected(true)` 都表示选择控件。禁用项保留原因和可指向区域。
 
 ## 直接组合
 
@@ -63,7 +63,7 @@ FloatingMenuHandle handle = panels.show(player, UiKey.named("controls"), surface
 
 场景使用 `IN_FRONT` 平面内容，标题放在内容树中，不声明场景外标题、世界锚定装饰或 Popover。`handle.openChild(scene)` 可打开普通详情／编辑页面；关闭前台后恢复固定面板。`handle.update`、`refresh`、`close` 与现有句柄共用语义，`reanchor` 重用固定表面；暂停显示时句柄状态为 `SUSPENDED`。可用条件用于输入复核，不负责业务提交验证。
 
-`panels.clear(player, key)` 清除一个槽位，`clear(playerId)` 清除本作用域中该玩家的全部展示，之后仍可重新展示；`close()` 清除并永久关闭整个作用域。服务的 `closeAllImmediately()` 只清空当前展示，服务停用才撤销所有作用域。上述操作、`show` 和挂点状态检查在主线程执行；业务应在来源消失或不再需要展示时及时清理。玩家生命周期清理与服务关闭由共享层兜底。
+`panels.clear(player, key)` 清除一个槽位，`clear(playerId)` 清除本作用域中该玩家的全部展示，之后仍可重新展示；`close()` 清除并永久关闭整个作用域。服务的 `closeAllImmediately()` 只清空当前展示，服务停用才撤销所有作用域。上述操作、`show` 和挂点状态检查在主线程执行；业务应在来源消失或不再需要展示时及时清理。共享层在玩家会话结束和服务关闭时释放剩余展示。
 
 ## 身份、尺寸与父级参数
 
@@ -290,7 +290,7 @@ UiNode catalogue = Ui.windowedList(snapshot.size(), rowTemplate, index -> {
 
 ### 表格
 
-等高卡片可通过 `Ui.windowedGrid(windowedList, maximumColumns, minimumColumnWidth, columnGap)` 复用同一窗口与源位置。最小列宽决定增加列数的阈值，窄宿主至少保留一列；每页最多 256 项，按完整行计算容量，末页保留正文高度。模板在实际列宽下测量，只有可见卡片被创建；卡片键仍使用对象身份，行列序号只用于摆放。地段、公示板和成员目录采用此方式，并提供双行卡片到单行卡片的同键回退。
+等高卡片可通过 `Ui.windowedGrid(windowedList, maximumColumns, minimumColumnWidth, columnGap)` 复用同一窗口与源位置。最小列宽决定增加列数的阈值，窄宿主至少保留一列；每页最多 256 项，按完整行计算容量，末页保留正文高度。`.centered(true)` 将卡片在列内居中、短行水平居中，并将末页内容在预留正文高度内垂直居中。模板在实际列宽下测量，只有可见卡片被创建；卡片键仍使用对象身份，行列序号只用于摆放。地段和成员目录采用此方式，并提供双行卡片到单行卡片的同键回退。
 
 单元格是普通子树，可组合文字、图片、状态和按钮。表格默认沿行垂直居中，可用 `.verticalAlignment(START/END)` 改变；普通网格用 `.horizontalAlignment(...)` 控制列内位置。
 
@@ -549,4 +549,4 @@ FloatingMenus.search(player, MenuSearch.<Entry>builder(title, placeholder)
 | 避障射线长度／附近普通实体查询半径 | 至多 64 方块；展示模型另按实际变换范围过滤 |
 | 每视图文字测量缓存 | 至多 2048 项、131072 权重单位；权重包含文本、字体键及节点开销 |
 
-父页与浮层共用实际实体计数，分别计算文字、模型、控件表面、装饰及可操作节点的点击辅助实体；只读提示不预留点击实体。结构或实体超预算在创建实体前报告，功能通过分页、分组或替代布局缩减当前内容。避障遇到未加载区块、采样预算不足或没有安全空间时保守地停止发布显示与命中；保留会话，空间恢复后重新测量，不为检查加载区块。
+父页与浮层共用实际实体计数，分别计算文字、模型、控件表面、装饰及可操作节点的点击辅助实体；只读提示不预留点击实体。结构或实体超预算在创建实体前报告，功能通过分页、分组或替代布局缩减当前内容。遇到未加载区块、采样预算不足或没有可用空间时暂停显示与命中，保留会话并在空间恢复后重测；检查只访问已加载区块。

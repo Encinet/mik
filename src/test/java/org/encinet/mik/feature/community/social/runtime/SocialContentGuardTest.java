@@ -29,7 +29,7 @@ class SocialContentGuardTest {
                 SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("blocked phrase in localized system prose"));
 
-        assertSame(trusted, guard.apply(trusted, ENABLED));
+        assertSame(trusted, guard.review(trusted, ENABLED).document());
     }
 
     @Test
@@ -43,10 +43,11 @@ class SocialContentGuardTest {
         SocialDocument document = SocialDocument.of(REQUIRED, "Players", SocialDocument.Tone.INFO,
                         SocialDocument.paragraph("Player: blocked phrase " + "context ".repeat(30)));
 
-        assertEquals(blocked, guard.apply(document, ENABLED));
+        assertEquals(blocked, guard.review(document, ENABLED).document());
         assertEquals(document.plainText(), submitted.get());
-        guard.apply(document, new SocialOutputPolicy(true, 100));
-        assertEquals(document.truncated(100).plainText(), submitted.get());
+        var prepared = org.encinet.mik.feature.community.social.document.SocialDocumentLayout.limit(document, 100);
+        guard.review(prepared, new SocialOutputPolicy(true, 100));
+        assertEquals(org.encinet.mik.feature.community.social.document.SocialDocumentLayout.limit(document, 100).plainText(), submitted.get());
     }
 
     @Test
@@ -59,7 +60,7 @@ class SocialContentGuardTest {
                         SocialDocument.paragraph("blocked phrase"))
                 .localized(Language.JA_JP);
 
-        SocialDocument result = guard.apply(japanese, ENABLED);
+        SocialDocument result = guard.review(japanese, ENABLED).document();
 
         assertEquals(Language.JA_JP, result.language());
         assertEquals("JA_JP", result.title());
@@ -108,8 +109,8 @@ class SocialContentGuardTest {
             assertEquals(2, closed.get());
             SocialDocument trusted = SocialDocument.of(TRUSTED, "Help", SocialDocument.Tone.INFO);
             SocialDocument required = SocialDocument.of(REQUIRED, "User text", SocialDocument.Tone.INFO);
-            assertSame(trusted, guard.apply(trusted, ENABLED));
-            assertThrows(IllegalStateException.class, () -> guard.apply(required, ENABLED));
+            assertSame(trusted, guard.review(trusted, ENABLED).document());
+            assertThrows(IllegalStateException.class, () -> guard.review(required, ENABLED));
             assertThrows(IllegalStateException.class,
                     () -> guard.allowsOutboundText("hello", REQUIRED, ENABLED));
             assertTrue(guard.allowsOutboundText("hello", REQUIRED, new SocialOutputPolicy(false, 100)));

@@ -128,13 +128,13 @@ public final class UiCompiler {
             } else if (node instanceof UiPagedList list) {
                 result = measureList(list, path, parent, depth, inheritedTextScale);
             } else if (node instanceof UiWindowedList list) {
-                result = measureWindow(list, path, parent, depth, inheritedTextScale,1,0);
+                result = measureWindow(list, path, parent, depth, inheritedTextScale,1,0,false);
             } else if (node instanceof UiWindowedGrid grid) {
                 double width = grid.sizing().within(parent).inset(grid.style().padding()).maxWidth();
                 int columns = Math.max(1,Math.min(grid.maximumColumns(),(int) Math.floor(
                         (width + grid.columnGap().value()) / (grid.minimumColumnWidth().value() + grid.columnGap().value()))));
                 columns = Math.min(columns,Math.max(1,grid.items().itemCount()));
-                result = measureWindow(grid.items(),path,parent,depth,inheritedTextScale,columns,grid.columnGap().value());
+                result = measureWindow(grid.items(),path,parent,depth,inheritedTextScale,columns,grid.columnGap().value(),grid.centered());
             } else if (node instanceof UiDocument document) {
                 result = measureDocument(document, path, parent, depth, inheritedTextScale);
             } else if (node instanceof UiPagedLayout paged) {
@@ -550,7 +550,7 @@ public final class UiCompiler {
     }
 
     private Measured measureWindow(UiWindowedList list, String path, UiConstraints parent, int depth, double inheritedTextScale,
-                                   int columns, double columnGap) {
+                                   int columns, double columnGap, boolean centered) {
         UiConstraints limits = list.sizing().within(parent).inset(list.style().padding());
         double scale = inheritedTextScale * list.style().textScale(), gap = list.gap().value();
         var header = measure(list.header(), path + "/header", UiConstraints.bounded(limits.maxWidth(), limits.maxHeight()), depth + 1, scale);
@@ -581,10 +581,25 @@ public final class UiCompiler {
         // Reserve a full page even on its last, short window. No off-screen rows are constructed.
         double bodyHeight = UiWindowPacking.height((Math.min(list.itemCount(), page.pageSize()) + columns - 1) / columns, rowHeight, gap);
         UiLayout bodyLayout = UiLayouts.column(list.gap());
-        if (columns > 1) {
-            var grid = new UiGridLayout(columns,UiLength.ui(columnGap),list.gap(),UiLayouts.GridAlignment.START,UiLayouts.GridAlignment.START);
+        if (columns > 1 || centered) {
+            var grid = new UiGridLayout(columns,UiLength.ui(columnGap),list.gap(),
+                    centered ? UiLayouts.GridAlignment.CENTER : UiLayouts.GridAlignment.START,UiLayouts.GridAlignment.START);
             var widths = new double[columns]; java.util.Arrays.fill(widths,columnWidth);
-            bodyLayout = (scope,constraints) -> grid.arrange(scope,constraints,grid.cells(scope),widths);
+            bodyLayout = (scope,constraints) -> {
+                var result = grid.arrange(scope,constraints,grid.cells(scope),widths);
+                if (!centered) return result;
+                double height = UiWindowPacking.height((scope.count() + columns - 1) / columns,rowHeight,gap);
+                double top = (result.size().height() - height) / 2;
+                var positions = new ArrayList<UiLayout.Position>(scope.count());
+                for (int index = 0; index < scope.count(); index++) {
+                    int rowStart = index / columns * columns;
+                    int rowCount = Math.min(columns,scope.count() - rowStart);
+                    var position = result.positions().get(index);
+                    positions.add(new UiLayout.Position(position.x() + (columns - rowCount) * (columnWidth + columnGap) / 2,
+                            position.y() + top));
+                }
+                return new UiLayout.Result(result.size(),positions);
+            };
         }
         UiNode body = new UiContainer(UiKey.named("items"), bodyLayout, rows, UiStyle.PLAIN,
                 new UiSizing(new UiSize(page.count() > 1 ? limits.maxWidth() : 0, bodyHeight),

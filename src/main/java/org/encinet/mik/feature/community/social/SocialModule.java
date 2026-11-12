@@ -12,8 +12,9 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.community.identity.IdentityBindingManager;
 import org.encinet.mik.feature.community.social.chat.SocialChatGateway;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublisher;
-import org.encinet.mik.feature.community.social.chat.SocialDirectedNotice;
 import org.encinet.mik.feature.community.social.command.SocialCommand;
+import org.encinet.mik.feature.community.social.command.SocialCommandDefinition;
+import org.encinet.mik.feature.community.social.command.builtin.UnlinkConfirmations;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
 import org.encinet.mik.feature.community.social.command.SocialCommandLanguageResolver;
 import org.encinet.mik.feature.community.social.command.builtin.AiSocialCommand;
@@ -42,12 +43,12 @@ import org.encinet.mik.feature.community.social.safety.SocialContentSafetyConfig
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
 
 /** Bukkit composition root for shared social features and platform adapters. */
 public final class SocialModule {
+    private final UnlinkConfirmations unlinkConfirmations = new UnlinkConfirmations();
     private final SocialPlatformHost host;
     private final SocialManagementCommandRegistrar managementCommands;
     private final MatrixCryptoCommandRegistrar matrixCryptoCommands;
@@ -70,18 +71,23 @@ public final class SocialModule {
         SocialGameService game = new BukkitSocialGameService(plugin, afkService,
                 new BukkitMainThreadGateway(plugin));
 
-        List<SocialCommand<?, ?>> featureCommands = List.of(
-                new AiSocialCommand(ai, languageResolver, languages, plugin.getLogger()),
+        List<SocialCommand<?, ?>> utilityCommands = List.of(
                 new OnlinePlayersCommand(game, languageResolver, languages),
                 new ServerStatusCommand(game, languageResolver, languages),
                 new LinkIdentityCommand(identityBindings, languageResolver, languages),
                 new PlayerProfileCommand(identityBindings, game, languageResolver, languages,
                         ZoneId.systemDefault()),
-                new UnlinkIdentityCommand(identityBindings, languageResolver, languages));
-        List<SocialCommand<?, ?>> commands = new java.util.ArrayList<>(featureCommands);
-        commands.add(new SocialHelpCommand(languageResolver, languages, featureCommands));
+                new UnlinkIdentityCommand(identityBindings, languageResolver, languages, unlinkConfirmations));
+        List<SocialCommandDefinition<?>> catalog = new java.util.ArrayList<>();
+        utilityCommands.forEach(command -> catalog.add(command.definition()));
+        catalog.add(AiSocialCommand.DEFINITION);
+        catalog.add(SocialHelpCommand.DEFINITION);
+        var visibleCommands = List.copyOf(catalog);
+        List<SocialCommand<?, ?>> commands = new java.util.ArrayList<>(utilityCommands);
+        commands.addFirst(new AiSocialCommand(ai, languageResolver, languages, plugin.getLogger(), visibleCommands));
+        commands.add(new SocialHelpCommand(languageResolver, languages, visibleCommands));
         commands.add(new UnknownSocialCommand(languageResolver, languages));
-        SocialCommandDispatcher dispatcher = new SocialCommandDispatcher(commands);
+        SocialCommandDispatcher dispatcher = new SocialCommandDispatcher(commands, languageResolver::target);
 
         java.util.function.Function<Language, SocialDocument> blockedDocument = language ->
                 SocialDocument.of(TRUSTED, "🛡 " + languages.t(
@@ -118,6 +124,7 @@ public final class SocialModule {
 
     public void disable() {
         host.close();
+        unlinkConfirmations.close();
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
@@ -131,11 +138,6 @@ public final class SocialModule {
 
     public AnnouncementPublisher announcementPublisher() {
         return announcements;
-    }
-
-    /** Tries a native mention in a configured conversation linked to the player. */
-    public void notifyPlayer(UUID playerId, String playerName, String body) {
-        host.publishDirectedNotice(new SocialDirectedNotice(playerId, playerName, body));
     }
 
 }

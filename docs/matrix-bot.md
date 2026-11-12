@@ -14,7 +14,7 @@ commands:
     - "!botChat:example.org"
 ```
 
-`homeserver-url` 必须是实际提供 Client-Server API 的地址，不是 Element 等网页客户端地址。access token 只从此文件读取，并通过 `Authorization: Bearer` 请求头发送。
+`homeserver-url` 填写提供 Client-Server API 的服务器地址。access token 从此文件读取，通过 `Authorization: Bearer` 请求头发送。
 
 | 配置 | 授予的能力 |
 | --- | --- |
@@ -33,8 +33,12 @@ commands:
 !状态
 !绑定 123456
 !我的
-!解绑 确认
+!解绑 确认 <确认码>
 ```
+
+短回复直接展示结果，状态与资料保留结构化信息；`!帮助` 展示当前语言下带参数的实际用法。绑定教程中标明的 `/bind matrix` 在游戏内执行，Matrix 房间中的操作使用 `!` 前缀。
+
+解绑时先发送不带参数的解绑指令，再复制机器人给出的完整确认指令。确认码有效期为两分钟，只适用于当前账号、房间和提示中的绑定关系，平台重载后需要重新确认。
 
 `!ai <问题>` 使用与游戏和 QQ 共用的 AI 助手；`!ai clear` 清除当前 Matrix 用户在本房间的对话历史。AI 提供商、网页搜索、游戏查询、能力包和多语言 prompt 统一由 `plugins/mik/ai.yml` 配置，详见 [AI 助手](ai.md)。
 
@@ -87,7 +91,7 @@ encryption:
 
 默认关闭，修改后执行 `/social reload matrix`。这是加密房间的发送策略，覆盖命令回复、聊天、公告和图片说明及附件密钥；明文房间无法按设备限制接收者。房间仍会收到密文，机器人只向自己信任的设备分发解密密钥，与 Element 的 [OnlyTrustedDevices](https://matrix-org.github.io/matrix-rust-sdk/matrix_sdk_crypto/enum.CollectStrategy.html#variant.OnlyTrustedDevices) 策略对应。
 
-允许直接通过 SAS 验证的设备，以及由机器人已信任的账号交叉签名的设备；当前机器人设备自身也可接收。未知、尚未受信任、签名无效或已阻止的其他设备不接收密钥。直接验证按确切设备签名密钥判断，设备换钥后不会沿用旧验证。成员在自己的客户端验证设备，不等于机器人已信任该账号；可通过上述 `matrixcrypto verify` 和 `matrixcrypto status <用户ID> <设备ID>` 建立并检查信任。
+允许直接通过 SAS 验证的设备，以及由机器人已信任的账号交叉签名的设备；当前机器人设备自身也可接收。未知、尚未受信任、签名无效或已阻止的其他设备不接收密钥。直接验证按确切设备签名密钥判断，设备换钥后不会沿用旧验证。使用 `matrixcrypto verify` 建立机器人信任，再用 `matrixcrypto status <用户ID> <设备ID>` 检查。
 
 开启后的首次发送会淘汰已有发送会话；可信设备集合或设备密钥变化时再次轮换，重启也重新建立受此策略保护的会话。信任变化发生在加密过程中时，会丢弃本次密文并重新加密，持续变化则本次发送失败。保持相同可信接收者时继续复用会话。密钥初次分发、历史密钥包和密钥转发共用相同检查；被拒绝的单个会话发送标准 [`m.room_key.withheld`](https://spec.matrix.org/v1.19/client-server-api/#mroom_keywithheld) 通知，原因为 `m.unverified`。
 
@@ -156,7 +160,7 @@ mention 在每个出站房间分别解析，显示规则如下：
 
 若一个 Minecraft 玩家绑定了多个 Matrix 账号，MIK 会只选择当前目标房间内处于 `join` 状态的账号，并全部显示、全部写入 Matrix 原生 `m.mentions.user_ids`。例如 `@Alex(Alex One, Alex Two)`。未加入该房间的绑定账号不会收到通知；没有可用目标账号时仍保留可读的 mention 文本，但不会生成原生通知。消息被长度限制截断到 mention 中间时同样不会误发通知。
 
-连接使用 Matrix Client-Server API 的增量 `/sync` 长轮询：首次请求建立房间状态并保存 `next_batch`，之后请求携带 `since`，不是固定间隔轮询，因此房间事件通常会由 homeserver 立即返回。成员名单按[成员资格](#成员资格)中的流程建立，mention 始终按确切目标房间判断。MIK 在每个 Matrix 房间内按顺序处理事件，不同房间可并发；出站也使用异步 HTTP，不占用 Minecraft 主线程。`sync.timeout-millis` 只是空闲长轮询保持时间，不是消息等待时间。
+连接使用 Matrix Client-Server API 的增量 `/sync` 长轮询：首次建立房间状态并保存 `next_batch`，之后携带 `since`，homeserver 在有事件时返回。成员名单按[成员资格](#成员资格)中的流程建立，mention 始终按确切目标房间判断。MIK 在每个 Matrix 房间内按顺序处理事件，不同房间可并发；出站也使用异步 HTTP，不占用 Minecraft 主线程。`sync.timeout-millis` 指定空闲长轮询的保持时间。
 
 同步请求使用 `use_state_after=true`。响应包含 `state_after` 时，只使用这份最终状态更新成员和房间属性，空列表也具有同样语义；普通 `state` 响应则按状态和时间线的顺序应用。`MatrixSyncRequest` 将请求游标与完整状态标志一起传给状态处理，重试不会把新房间的历史消息视为新命令。
 

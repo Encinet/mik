@@ -120,6 +120,11 @@ public record SocialCommandSpec(
                 .or(() -> aliases.stream().findFirst());
     }
 
+    public String invocation(SocialCommandSyntax syntax, Language language, String arguments) {
+        String command = syntax.displayPrefix() + primaryAlias(language).orElseThrow();
+        return arguments.isBlank() ? command : command + " " + arguments;
+    }
+
     static String requireId(String value) {
         String id = Objects.requireNonNull(value, "id").strip()
                 .toLowerCase(Locale.ROOT);

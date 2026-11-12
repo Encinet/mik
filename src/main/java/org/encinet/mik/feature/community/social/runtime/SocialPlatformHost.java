@@ -5,7 +5,6 @@ import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.social.api.SocialPlatformDescriptor;
 import org.encinet.mik.feature.community.social.chat.SocialChatGateway;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublisher;
-import org.encinet.mik.feature.community.social.chat.SocialDirectedNotice;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
 import org.encinet.mik.feature.community.social.chat.SocialMentionBindingDirectory;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
@@ -178,16 +177,6 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
         SocialChatPublishReport report = SocialChatPublishReport.empty();
         for (SocialPlatformGeneration generation : generations.values()) {
             report = report.plus(generation.publishChat(message));
-        }
-        return report;
-    }
-
-    public synchronized SocialChatPublishReport publishDirectedNotice(SocialDirectedNotice notice) {
-        Objects.requireNonNull(notice, "notice");
-        if (closed) return SocialChatPublishReport.empty();
-        SocialChatPublishReport report = SocialChatPublishReport.empty();
-        for (SocialPlatformGeneration generation : generations.values()) {
-            report = report.plus(generation.publishDirectedNotice(notice));
         }
         return report;
     }

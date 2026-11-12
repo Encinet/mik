@@ -12,6 +12,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QqMarkdownRendererTest {
     @Test
+    void shortRepliesFitEncodedLengthWithoutCuttingMarkupOrAnAction() {
+        var document = SocialDocument.message(TRUSTED, SocialDocument.Tone.INFO,
+                SocialDocument.fields(new SocialDocument.Field("_label_", "*value*".repeat(50))),
+                SocialDocument.instruction("Send this to bind:", "/绑定 <验证码>"));
+        for (int limit = 16; limit <= 200; limit++) {
+            String rendered = QqMarkdownRenderer.render(document, limit);
+            assertTrue(rendered.length() <= limit);
+            assertFalse(rendered.startsWith("##"));
+            assertEquals(0, (rendered.split("\\*\\*", -1).length - 1) % 2);
+            assertTrue(!rendered.contains("/绑定") || rendered.contains("/绑定 \\<验证码\\>"), rendered);
+            assertTrue(!rendered.contains("/绑定") || rendered.contains("Send this to bind:"), rendered);
+        }
+    }
+
+    @Test
+    void markupBudgetKeepsAnEscapedWarningAndItsConfirmationTogether() {
+        String warning = "Unbind Alice_*. Server access will be lost. Confirm:";
+        var document = SocialDocument.message(TRUSTED, SocialDocument.Tone.WARNING,
+                SocialDocument.instruction(warning, "/unbind confirm"));
+        for (int limit = 16; limit < 150; limit++) {
+            String rendered = QqMarkdownRenderer.render(document, limit);
+            assertTrue(rendered.length() <= limit);
+            assertTrue(!rendered.contains("/unbind") || rendered.contains(QqMarkdownRenderer.escape(warning)), rendered);
+        }
+    }
+
+    @Test
     void rendersEveryStructuredBlockAndEscapesDynamicText() {
         SocialDocument document = SocialDocument.of(TRUSTED, "📊 Minecraft", SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("server_*[]"),
@@ -56,6 +83,7 @@ class QqMarkdownRendererTest {
         String markdown = QqMarkdownRenderer.render(document, 100);
 
         assertTrue(markdown.length() <= 100);
+        assertTrue(markdown.contains("\\_"), markdown);
         assertTrue(markdown.endsWith("…"));
         assertFalse(Character.isHighSurrogate(markdown.charAt(markdown.length() - 2)));
         assertFalse(markdown.endsWith("\\…"));

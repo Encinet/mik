@@ -42,7 +42,7 @@ final class QqInboundMapper {
         SocialEventSink.Acceptance observed = memberships.accept(event);
         if (observed != SocialEventSink.Acceptance.ACCEPTED) return observed;
         SocialInboundMessage message = map(event, config.appId(),
-                new QqReplyChannel(api, event, config.maxOutboundLength()));
+                new QqReplyChannel(api, event));
         return events.accept(message);
     }
 

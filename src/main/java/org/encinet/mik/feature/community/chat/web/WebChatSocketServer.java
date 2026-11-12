@@ -9,6 +9,9 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http.websocketx.*;
 import io.netty.util.AttributeKey;
+import io.netty.util.concurrent.DefaultEventExecutorGroup;
+import io.netty.util.concurrent.EventExecutorGroup;
+import io.netty.util.concurrent.RejectedExecutionHandlers;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,6 +35,7 @@ final class WebChatSocketServer implements AutoCloseable {
     private final Set<Channel> channels = ConcurrentHashMap.newKeySet();
     private EventLoopGroup acceptors;
     private EventLoopGroup workers;
+    private EventExecutorGroup codecs;
     private Channel listener;
 
     WebChatSocketServer(Events events, String origin, int maxConnections, WebChatEncryption encryption) {
@@ -44,10 +48,16 @@ final class WebChatSocketServer implements AutoCloseable {
     void start(int port) throws InterruptedException {
         acceptors = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
         workers = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
+        codecs = new DefaultEventExecutorGroup(2, Thread.ofPlatform().daemon().name("mik-webchat-codec-", 0).factory(),
+                256, RejectedExecutionHandlers.reject());
         listener = new ServerBootstrap().group(acceptors, workers).channel(NioServerSocketChannel.class)
                 .option(ChannelOption.SO_BACKLOG, 32)
                 .childOption(ChannelOption.TCP_NODELAY, true)
                 .childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, new WriteBufferWaterMark(32 * 1024, 256 * 1024))
+                .childOption(ChannelOption.MESSAGE_SIZE_ESTIMATOR, (MessageSizeEstimator) () -> {
+                    var fallback = DefaultMessageSizeEstimator.DEFAULT.newHandle();
+                    return message -> message instanceof WebChatPacket packet ? packet.size() + 17 : fallback.size(message);
+                })
                 .childHandler(new ChannelInitializer<SocketChannel>() {
                     @Override protected void initChannel(SocketChannel channel) {
                         // Bound raw TCP connections as well as completed WebSocket upgrades.
@@ -77,6 +87,7 @@ final class WebChatSocketServer implements AutoCloseable {
                                         .withUTF8Validator(true).dropPongFrames(false).build()));
                         channel.pipeline().addLast(new WebSocketFrameAggregator(WebChatCipher.MAX_INBOUND_FRAME));
                         channel.pipeline().addLast(new WebChatCipher(encryption));
+                        channel.pipeline().addLast(new WebChatPacketEncoder(codecs));
                         channel.pipeline().addLast(new Frames());
                         channel.eventLoop().schedule(() -> {
                             if (!Boolean.TRUE.equals(channel.attr(UPGRADED).get())) channel.close();
@@ -150,13 +161,22 @@ final class WebChatSocketServer implements AutoCloseable {
     static void send(Channel channel, String json) {
         if (!channel.isActive()) return;
         if (!channel.isWritable()) { channel.close(); return; }
-        try { channel.writeAndFlush(new TextWebSocketFrame(json)); }
+        try { channel.writeAndFlush(new TextWebSocketFrame(json)).addListener(ChannelFutureListener.CLOSE_ON_FAILURE); }
         catch (RuntimeException closed) { channel.close(); }
     }
+
+    static void send(Channel channel, WebChatPacket packet) {
+        if (!channel.isActive()) return;
+        if (!channel.isWritable()) { channel.close(); return; }
+        channel.writeAndFlush(packet).addListener(ChannelFutureListener.CLOSE_ON_FAILURE);
+    }
+
+    static boolean compression(Channel channel) { return Boolean.TRUE.equals(channel.attr(WebChatCipher.COMPRESSION).get()); }
 
     @Override public void close() {
         if (listener != null) listener.close();
         for (Channel channel : channels) channel.close();
+        if (codecs != null) codecs.shutdownGracefully(0, 2, java.util.concurrent.TimeUnit.SECONDS);
         if (workers != null) workers.shutdownGracefully(0, 2, java.util.concurrent.TimeUnit.SECONDS);
         if (acceptors != null) acceptors.shutdownGracefully(0, 2, java.util.concurrent.TimeUnit.SECONDS);
         channels.clear();

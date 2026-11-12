@@ -19,7 +19,7 @@ public final class GovernanceIdentityTestSupport {
     public static UiNode content(Language language, BiFunction<Message,Object[],String> translate, boolean member) {
         return content(language,translate,new GovernanceIdentityPanel.IdentityView(member ? PlayerRole.MEMBER : PlayerRole.DEFAULT,
                 new ParticipationSummary(99_999,30,80_000,18,9),member ? null : new PromotionEligibility(true,true,true,true,true,null),
-                member ? new ActiveMemberEligibility(true,true,true,true,true,true) : null));
+                member ? new ActiveMemberEligibility(true,true,true,true,true,true,java.time.Duration.ofHours(6)) : null));
     }
     public static UiNode pausedContent(Language language, BiFunction<Message,Object[],String> translate) {
         var start = Instant.parse("2026-10-28T00:00:00Z");

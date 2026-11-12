@@ -1,5 +1,9 @@
 package org.encinet.mik.feature.community.social.platform.qq.client;
 
+import org.encinet.mik.feature.community.social.api.SocialDeliveryResult;
+import org.encinet.mik.feature.community.social.api.SocialFutures;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
@@ -139,7 +143,7 @@ public final class QqOpenApiClient {
     }
 
     /** Uploads a remote image without sending it, then attaches it to one passive reply. */
-    public CompletableFuture<Void> replyRemoteImage(
+    public CompletableFuture<SocialDeliveryResult> replyRemoteImage(
             String groupOpenId,
             String messageId,
             int messageSequence,
@@ -158,12 +162,14 @@ public final class QqOpenApiClient {
         }
         JsonObject source = new JsonObject();
         source.addProperty("url", imageUrl.normalize().toASCIIString());
-        return sendImage(groupOpenId, messageId, messageSequence,
-                source, content, false);
+        var submitting = new AtomicBoolean();
+        return SocialDeliveryResult.observe(sendImage(groupOpenId, messageId, messageSequence,
+                source, content, false, submitting), error -> submitting.get()
+                ? QqApiErrors.deliveryStatus(error) : SocialDeliveryResult.Status.NOT_SENT);
     }
 
     /** Uploads Base64-encoded image bytes, then attaches them to one passive reply. */
-    public CompletableFuture<Void> replyBase64Image(
+    public CompletableFuture<SocialDeliveryResult> replyBase64Image(
             String groupOpenId,
             String messageId,
             int messageSequence,
@@ -184,8 +190,10 @@ public final class QqOpenApiClient {
         }
         JsonObject source = new JsonObject();
         source.addProperty("file_data", base64Data);
-        return sendImage(groupOpenId, messageId, messageSequence,
-                source, content, false);
+        var submitting = new AtomicBoolean();
+        return SocialDeliveryResult.observe(sendImage(groupOpenId, messageId, messageSequence,
+                source, content, false, submitting), error -> submitting.get()
+                ? QqApiErrors.deliveryStatus(error) : SocialDeliveryResult.Status.NOT_SENT);
     }
 
     private CompletableFuture<Void> sendMarkdown(String groupOpenId, String content,
@@ -201,18 +209,16 @@ public final class QqOpenApiClient {
             body.addProperty("msg_seq", messageSequence);
         }
 
-        return tokenProvider.accessToken()
-                .thenCompose(token -> sendAuthorizedMessage(groupOpenId, body, token))
-                .exceptionallyCompose(error -> {
-                    Throwable cause = QqApiErrors.unwrap(error);
-                    if (!retriedAuthentication && cause instanceof QqHttpException httpError
-                            && httpError.statusCode() == 401) {
-                        tokenProvider.invalidate();
-                        return sendMarkdown(groupOpenId, content, messageId,
-                                messageSequence, true);
-                    }
-                    return CompletableFuture.failedFuture(cause);
-                });
+        var request = SocialFutures.compose(tokenProvider.accessToken(),
+                token -> sendAuthorizedMessage(groupOpenId, body, token));
+        return SocialFutures.recover(request, error -> {
+            Throwable cause = QqApiErrors.unwrap(error);
+            if (!retriedAuthentication && cause instanceof QqHttpException httpError && httpError.statusCode() == 401) {
+                tokenProvider.invalidate();
+                return sendMarkdown(groupOpenId, content, messageId, messageSequence, true);
+            }
+            return CompletableFuture.failedFuture(cause);
+        });
     }
 
     private CompletableFuture<Void> sendImage(
@@ -221,20 +227,20 @@ public final class QqOpenApiClient {
             int messageSequence,
             JsonObject imageSource,
             String content,
-            boolean retriedAuthentication
+            boolean retriedAuthentication, AtomicBoolean submitting
     ) {
-        return tokenProvider.accessToken()
-                .thenCompose(token -> uploadImage(groupOpenId, imageSource, token)
-                        .thenCompose(fileInfo -> sendAuthorizedMessage(groupOpenId,
-                                imageMessageBody(messageId, messageSequence,
-                                        fileInfo, content), token)))
-                .exceptionallyCompose(error -> {
+        var request = SocialFutures.compose(tokenProvider.accessToken(), token -> SocialFutures.compose(uploadImage(groupOpenId, imageSource, token), fileInfo -> {
+                    submitting.set(true);
+                    return sendAuthorizedMessage(groupOpenId, imageMessageBody(messageId, messageSequence, fileInfo, content), token);
+                }));
+        return SocialFutures.recover(request, error -> {
                     Throwable cause = QqApiErrors.unwrap(error);
                     if (!retriedAuthentication && cause instanceof QqHttpException httpError
                             && httpError.statusCode() == 401) {
                         tokenProvider.invalidate();
+                        submitting.set(false);
                         return sendImage(groupOpenId, messageId, messageSequence,
-                                imageSource, content, true);
+                                imageSource, content, true, submitting);
                     }
                     return CompletableFuture.failedFuture(cause);
                 });
@@ -253,8 +259,8 @@ public final class QqOpenApiClient {
         HttpRequest request = requestBuilder(groupOpenId, "/files", accessToken)
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
                 .build();
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
+        var receiving = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        var result = receiving.thenApply(response -> {
                     JsonObject responseBody = QqApiErrors.parseObject(response.body());
                     String fileInfo = QqApiErrors.string(responseBody, "file_info");
                     if (response.statusCode() < 200 || response.statusCode() >= 300
@@ -264,6 +270,8 @@ public final class QqOpenApiClient {
                     }
                     return fileInfo;
                 });
+        result.whenComplete((_, error) -> { if (error != null) receiving.cancel(true); });
+        return result;
     }
 
     private static JsonObject imageMessageBody(
@@ -300,8 +308,8 @@ public final class QqOpenApiClient {
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(body)))
                 .build();
 
-        return httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(response -> {
+        var receiving = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        CompletableFuture<Void> result = receiving.thenApply(response -> {
                     JsonObject responseBody = QqApiErrors.parseObject(response.body());
                     if (response.statusCode() < 200 || response.statusCode() >= 300
                             || QqApiErrors.hasError(responseBody)) {
@@ -310,6 +318,8 @@ public final class QqOpenApiClient {
                     }
                     return null;
                 });
+        result.whenComplete((_, error) -> { if (error != null) receiving.cancel(true); });
+        return result;
     }
 
     private HttpRequest.Builder requestBuilder(

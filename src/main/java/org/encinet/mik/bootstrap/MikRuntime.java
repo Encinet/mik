@@ -35,7 +35,7 @@ public final class MikRuntime {
             PlayerFeatures players = PlayerFeatures.enable(plugin, lifecycle, shared, voiceServer);
             ServerFeatures server = ServerFeatures.enable(plugin, lifecycle, shared, players, resumeFromCrash);
             CommunityFeatures community = CommunityFeatures.enable(plugin, lifecycle, shared, players, server);
-            WorldFeatures world = WorldFeatures.enable(plugin, lifecycle, shared, players, community);
+            WorldFeatures world = WorldFeatures.enable(plugin, lifecycle, shared, players);
             EntertainmentFeatures.enable(plugin, lifecycle, shared, players, world, voiceServer);
             EntryPoints.enable(plugin, lifecycle, shared, players, server, community, world);
 
