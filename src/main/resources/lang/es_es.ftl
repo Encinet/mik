@@ -113,7 +113,9 @@ invisibility-nearby-mm = <yellow>Hay { $count ->
         [one] { $distance } bloque
        *[other] { $distance } bloques
     }</gray>
+player-afk-label = Ausente
 player-bedrock-label = Bedrock
+player-monitor-label = Supervisión
 player-web-label = Web
 presence-join-templates =
     .item-1 = ¡Din, don! ¡{ $player } está en línea!
@@ -624,7 +626,7 @@ announcement-view-command-description = Ver anuncios del servidor
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Elige una plataforma y envía su comando al bot de la comunidad:
+identity-admission-instructions = Elige una plataforma y envía el comando correspondiente:
 identity-admission-pending = Tu vínculo actual aún no se puede verificar. Inténtalo más tarde o vincula una cuenta de otra plataforma.
 identity-admission-reconnect = Vuelve a conectarte al servidor tras vincular la cuenta.
 identity-admission-required = Vincula una cuenta de la comunidad para entrar.
@@ -2066,6 +2068,14 @@ maintenance-state-disabled = desactivado
 maintenance-state-enabled = activado
 maintenance-status = Modo de mantenimiento: { $arg0 }
 maintenance-unchanged = El modo de mantenimiento ya está { $arg0 }
+monitor-command-description = Supervisa jugadores al azar o a uno indicado; stop termina
+monitor-return-failed = No se pudo regresar. La vigilancia sigue activa; usa /monitor stop para reintentar.
+monitor-returning = Regresando a tu ubicación original…
+monitor-started = Vigilancia activada. Usa /monitor para terminar.
+monitor-stopped = Vigilancia terminada; has regresado a tu ubicación original.
+monitor-unavailable = No se puede iniciar la vigilancia. Sal del vehículo y comprueba que se permita el modo Espectador.
+monitor-waiting = Vigilancia: esperando a un jugador disponible…
+monitor-watching = Vigilancia: { $arg0 }
 performance-kick-title = El servidor está sufriendo un retraso grave
 performance-kick-reason = Se te ha desconectado temporalmente para ayudar al servidor a recuperarse
 restriction-entity-too-large-mm = <red>El tamaño de la entidad supera el límite de seguridad del servidor</red>

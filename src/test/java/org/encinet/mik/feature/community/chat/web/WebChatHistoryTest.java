@@ -23,12 +23,12 @@ class WebChatHistoryTest {
         var ids = new java.util.ArrayList<String>();
         for (int i = 1; i <= 3; i++) {
             var message = ChatServerMessage.publicMessage(new ChatServerMessage.RichText(ChatContent.plain("message " + i + " 界".repeat(800))), null, true);
-            var entry = WebChatHistory.server(message, Optional.empty(), UUID.randomUUID().toString(), i);
+            var entry = WebChatHistory.server(message, Optional.empty());
             rows.addFirst(new ChatHistoryStore.Row(i, entry.payload(), System.currentTimeMillis() + 60_000,
                     i == 1 ? "restricted:1" : "public"));
             ids.add(entry.id());
         }
-        var parts = WebChatHistory.responseParts(new ChatHistoryStore.Page(rows, false, 1, UUID.randomUUID().toString(), 3),
+        var parts = WebChatHistory.responseParts(new ChatHistoryStore.SyncPage(new ChatHistoryStore.Page(rows, false, 1, UUID.randomUUID().toString(), 3), "a".repeat(91), _ -> "b".repeat(91), false),
                 ChatChannel.PUBLIC, "0123456789abcdef", new WebChatHistory.Viewer(viewer, Set.of(), Map.of()));
         assertTrue(parts.stream().anyMatch(part -> part.contains(ids.get(1)) && part.contains(ids.get(2))));
         for (String part : parts) if (part.contains(ids.getFirst())) {
@@ -77,7 +77,7 @@ class WebChatHistoryTest {
         try (var store = new ChatHistoryStore(temp.resolve("localized.db"))) {
             for (int i = 1; i <= 40; i++) {
                 var message = ChatServerMessage.publicMessage(new ChatServerMessage.RichText(content), null, true);
-                store.append(WebChatHistory.server(message, Optional.empty(), UUID.randomUUID().toString(), i)).join();
+                store.append(WebChatHistory.server(message, Optional.empty())).join();
             }
             UUID viewer = UUID.randomUUID();
             var first = store.read(new ChatHistoryStore.Query(viewer, false, ChatChannel.PUBLIC, null, Long.MAX_VALUE)).join();
@@ -105,7 +105,7 @@ class WebChatHistoryTest {
         var nodes = java.util.stream.IntStream.range(0, 256)
                 .mapToObj(_ -> (ChatNode) new ChatNode.Placeholder(ChatPlaceholder.REPLY, style)).toList();
         var message = ChatServerMessage.publicMessage(new ChatServerMessage.RichText(new ChatContent(nodes)), null, true);
-        var entry = WebChatHistory.server(message, Optional.empty(), UUID.randomUUID().toString(), 1);
+        var entry = WebChatHistory.server(message, Optional.empty());
         String translated = "&".repeat(62);
         var restored = WebChatHistory.present(new ChatHistoryStore.Row(1, entry.payload()), UUID.randomUUID(),
                 _ -> true, _ -> translated).orElseThrow();
@@ -124,7 +124,7 @@ class WebChatHistoryTest {
                 ChatSender.minecraft(alice, "Alice"), ChatConversation.minecraftPublic(), content.plainText(), ChatReferences.empty(),
                 Instant.now(), ChatProcessingContext.external());
         ChatMessage message = new ChatMessage(submission, content, Set.of(new ChatEffect.Mentions(Set.of(bob), false)));
-        var entry = WebChatHistory.user(ChatDelivery.managed(message, null, "secret-request-id"), UUID.randomUUID().toString(), 9);
+        var entry = WebChatHistory.user(ChatDelivery.managed(message, null, "secret-request-id"));
         var languages = FluentTestSupport.languages();
         var restored = WebChatHistory.present(new ChatHistoryStore.Row(10, entry.payload()), bob, _ -> true,
                 key -> languages.t(Language.DE_DE, key)).orElseThrow();
@@ -135,7 +135,7 @@ class WebChatHistoryTest {
         assertTrue(restored.get("content").toString().contains(" [image] "));
         assertTrue(restored.get("content").toString().contains("https://example.org"));
         assertFalse(restored.toString().contains("placeholder"));
-        assertEquals(9, restored.get("sequence").getAsInt());
+        assertEquals(7, UUID.fromString(restored.get("order").getAsString()).version());
     }
 
     @Test void reconstructsPrivateServerMessagesForEachParticipantAndHonorsCurrentVisibility() {
@@ -143,7 +143,7 @@ class WebChatHistoryTest {
         var message = new ChatServerMessage(ChatMessageId.random(), ChatConversation.minecraftPrivate(alice, bob),
                 new ChatServerMessage.RichText(ChatContent.plain("private notice")), Optional.empty(),
                 Map.of(alice, "Alice", bob, "Bob"), true, Instant.now());
-        var entry = WebChatHistory.server(message, Optional.empty(), UUID.randomUUID().toString(), 1);
+        var entry = WebChatHistory.server(message, Optional.empty());
         var row = new ChatHistoryStore.Row(1, entry.payload());
         for (UUID viewer : List.of(alice, bob)) {
             var restored = WebChatHistory.present(row, viewer, _ -> true, Enum::name).orElseThrow();

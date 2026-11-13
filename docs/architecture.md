@@ -103,9 +103,10 @@ Identity 独占绑定数据库与查询快照，用完整外部身份键去重�
 | `access/` | 维护模式和使用限制；绑定准入由社区 Identity 管理 |
 | `auth/` | 正版认证容灾、已验证身份与来源地址缓存、Paper 认证服务接入与恢复；见[认证容灾](authentication-fallback.md) |
 | `ban/` | 封禁规则、记录、准入检查和 Paper 封禁同步 |
+| `monitor/` | 管理员随机轮换旁观、附近跟随、退出恢复与隐身通知排除能力；见[管理员监控](server-monitor.md) |
 | `performance/` | 性能信息、网络反馈限流与跑图保护；见[网络出口](network-egress.md) |
 | `presentation/` | 服务器品牌、MOTD、服务器列表和链接 |
-| `safety/` | 物品与书页限值、实体大小、末影珍珠、踩踏和异常保护 |
+| `safety/` | 物品与书页限值、实体大小、末影珍珠、踩踏、液体、爆炸、危险实体和异常保护；见[世界安全保护](server-safety.md) |
 
 社区治理可以调用封禁能力交付结果，但封禁功能不依赖治理。物品事件拦截和网络包处理共用同一套限值规则，各自处理所属协议或事件格式。
 
@@ -130,7 +131,7 @@ Identity 独占绑定数据库与查询快照，用完整外部身份键去重�
 1. `MikRuntime` 启用品牌监听并写入异常退出标记。
 2. `SharedServices` 创建 Axiom、Geyser、语言服务与菜单运行时。
 3. `PlayerFeatures` 首先启用账号密码准入，再创建玩家状态、地址、身份展示和个人功能；独立创建客户端检测能力，再启用场景提示服务并注入检测查询，为客户端、家园等场景托管提示作用域。
-4. `ServerFeatures` 接入正版认证容灾，创建封禁、准入、安全、性能和服务器展示；发现旧标记时恢复维护模式。
+4. `ServerFeatures` 接入正版认证容灾，创建封禁、监控、准入、安全、性能和服务器展示；将监控会话查询注入隐身通知，发现旧标记时恢复维护模式。
 5. `CommunityFeatures` 创建 AI、绑定、聊天、Social、治理与公告。
 6. `WorldFeatures` 创建世界功能，为铁块电梯注入固定面板和场景提示作用域。
 7. `EntertainmentFeatures` 创建活动和音乐，接入语音、AFK 与只读地段授权能力。
@@ -146,7 +147,7 @@ Identity 独占绑定数据库与查询快照，用完整外部身份键去重�
 
 先创建 Social 并取得发布能力，再创建 Chat、连接双向桥，依次启用 Chat 和 Social。源码依赖由 `chat/bridge` 的能力接口隔离。
 
-`ChatModule` 拥有生命周期，`game/` 处理 Paper 事件、命令与延迟发送，`runtime/ChatService` 处理各来源消息并投递。`ChatAudience` 维护频道成员规则，`ChatSendLedger` 维护游戏与网页共用的发言额度和请求去重。来源入口负责鉴权和输入校验。
+`ChatModule` 拥有生命周期，`game/` 处理 Paper 事件、命令与延迟发送，`runtime/ChatService` 处理各来源消息并投递。`ChatAudience` 维护频道成员规则，`ChatSendLedger` 维护游戏与网页共用的发言额度；`ChatHistoryStore` 在事务中维护网页请求去重和持久化顺序。来源入口负责鉴权和输入校验。
 
 `ChatSubmission` 组合来源、作者和会话，`ChatContent`、`ChatStyle` 保存语义正文；各端分别渲染。Paper 原生消息在正文与接收范围最终确定后提交跨端输出，受限范围随投递保存。各输出独立报告失败。服务端事件通过 `ServerChatPublisher` 使用同一投递流程。
 

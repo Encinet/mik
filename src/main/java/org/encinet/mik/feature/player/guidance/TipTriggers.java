@@ -33,6 +33,7 @@ public final class TipTriggers {
     }
 
     private static boolean changesBlock(PlayerTeleportEvent event) {
-        return event.getTo() != null && !LocationUtil.sameBlock(event.getFrom(), event.getTo());
+        return event.getCause() != PlayerTeleportEvent.TeleportCause.SPECTATE
+                && event.getTo() != null && !LocationUtil.sameBlock(event.getFrom(), event.getTo());
     }
 }

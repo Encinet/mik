@@ -113,7 +113,9 @@ invisibility-nearby-mm = <yellow>{ $count ->
         [one] { $distance } bloco
        *[other] { $distance } blocos
     }</gray>
+player-afk-label = Ausente
 player-bedrock-label = Bedrock
+player-monitor-label = Monitoramento
 player-web-label = Web
 presence-join-templates =
     .item-1 = Trim! { $player } tá online!
@@ -624,7 +626,7 @@ announcement-view-command-description = Ver avisos do servidor
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Escolha uma plataforma e envie o comando ao bot da comunidade:
+identity-admission-instructions = Escolha uma plataforma e envie o comando correspondente:
 identity-admission-pending = Seu vínculo atual ainda não pode ser verificado. Tente mais tarde ou vincule uma conta de outra plataforma.
 identity-admission-reconnect = Reconecte ao servidor após vincular a conta.
 identity-admission-required = Vincule uma conta da comunidade para entrar.
@@ -2066,6 +2068,14 @@ maintenance-state-disabled = desativado
 maintenance-state-enabled = ativado
 maintenance-status = Modo de manutenção: { $arg0 }
 maintenance-unchanged = O modo de manutenção já está { $arg0 }
+monitor-command-description = Monitora jogadores aleatórios ou um jogador específico; stop encerra
+monitor-return-failed = Falha ao retornar. O monitoramento continua ativo; use /monitor stop para tentar novamente.
+monitor-returning = Retornando à sua localização original…
+monitor-started = Monitoramento ativado. Use /monitor para encerrar.
+monitor-stopped = Monitoramento encerrado; você retornou à sua localização original.
+monitor-unavailable = Monitoramento indisponível. Saia do veículo e verifique se o modo Espectador é permitido.
+monitor-waiting = Monitoramento: aguardando um jogador disponível…
+monitor-watching = Monitoramento: { $arg0 }
 performance-kick-title = O servidor está com atraso severo
 performance-kick-reason = Você foi desconectado temporariamente para ajudar o servidor a se recuperar
 restriction-entity-too-large-mm = <red>O tamanho da entidade excede o limite de segurança do servidor</red>

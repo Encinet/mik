@@ -139,6 +139,7 @@ public class BackModule implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerTeleport(PlayerTeleportEvent event) {
+        if (event.getCause() == PlayerTeleportEvent.TeleportCause.SPECTATE) return;
         if (event.getTo() == null) return;
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
@@ -170,7 +171,7 @@ public class BackModule implements Listener {
         pendingBackTeleports.remove(playerId);
     }
 
-    private void runBack(Player player, int times) {
+    void runBack(Player player, int times) {
         UUID playerId = player.getUniqueId();
         if (pendingBackTeleports.containsKey(playerId)) {
             player.sendMessage(message(player, Message.BACK_PENDING_MM));

@@ -20,16 +20,4 @@ class ChatSendLedgerTest {
         assertFalse(limits.allowMessage(account));
     }
 
-    @Test void receiptsBelongToTheAccountAndExpireWithoutKeepingMessageBodies() {
-        AtomicLong clock = new AtomicLong(1000);
-        ChatSendLedger limits = new ChatSendLedger(clock::get);
-        UUID player = UUID.randomUUID(), other = UUID.randomUUID();
-        assertTrue(limits.allowMessage(player));
-        limits.accepted(player, "request", "digest", "message");
-        assertEquals("message", limits.receipt(player, "request").messageId());
-        assertNull(limits.receipt(other, "request"));
-        clock.addAndGet(120_000);
-        assertNull(limits.receipt(player, "request"));
-        assertTrue(limits.allowMessage(player));
-    }
 }

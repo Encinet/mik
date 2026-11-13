@@ -107,7 +107,9 @@ client-tip-axiom-intro-rich = { $mod } 可複製建築、修地形、編展示�
 client-version-behind-mm = <white>客端 <yellow>{ $clientVersion }</yellow> 舊於伺服端 <green>{ $serverVersion }</green>，宜更新</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>近有 <gold>{ $count }</gold> 戲者 <gold>隱身</gold></yellow> <gray>·</gray> <gray>至近約去 { $distance } 方</gray>
+player-afk-label = 暫離
 player-bedrock-label = 基岩
+player-monitor-label = 監察
 player-web-label = 網頁
 presence-join-templates =
     .item-1 = 叮咚，{ $player } 入服矣！
@@ -555,7 +557,7 @@ announcement-view-command-description = 覽伺服器告示
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }：{ $command }
-identity-admission-instructions = 擇一平台，於其社群發令予機器人：
+identity-admission-instructions = 擇一平台，發相應指令：
 identity-admission-pending = 舊繫暫不可驗。稍候再試，或另繫一平台帳
 identity-admission-reconnect = 繫成後重連伺服器
 identity-admission-required = 繫社群帳後即可入服
@@ -1808,6 +1810,14 @@ maintenance-state-disabled = 閉
 maintenance-state-enabled = 啟
 maintenance-status = 維護之式：{ $arg0 }
 maintenance-unchanged = 維護之式已{ $arg0 }，無所更
+monitor-command-description = 隨巡或指定玩家監察；stop 止
+monitor-return-failed = 歸返未成，巡察尚啟；以 /monitor stop 重試。
+monitor-returning = 正返故地……
+monitor-started = 巡察已啟，以 /monitor 止。
+monitor-stopped = 巡察已畢，已返故地。
+monitor-unavailable = 未能巡察，請先離載具，並確認可入旁觀模式。
+monitor-waiting = 巡察：待可觀之人……
+monitor-watching = 巡察：{ $arg0 }
 performance-kick-title = 伺服遲滯甚重
 performance-kick-reason = 暫斷連線，以待恢復
 restriction-entity-too-large-mm = <red>生靈之形過伺服器所容</red>

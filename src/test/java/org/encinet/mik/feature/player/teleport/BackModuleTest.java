@@ -16,6 +16,7 @@ import org.encinet.mik.shared.i18n.Message;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,6 +27,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class BackModuleTest {
     private static final LanguageService LANGUAGES = new LanguageService(null) {
         @Override
+        public String t(Player player, Message message, Object... args) {
+            return message.key();
+        }
+
+        @Override
         public Component text(Language language, Message message, TextColor color, Object... args) {
             return Component.text(message.key(), color);
         }
@@ -33,13 +39,30 @@ class BackModuleTest {
     private final World world = world();
     private final AtomicReference<Location> position = new AtomicReference<>(new Location(world, 1, 64, 1));
     private final UUID id = UUID.randomUUID();
+    private final List<Component> messages = new ArrayList<>();
     private final Player player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(),
-            new Class<?>[]{Player.class}, (_, method, _) -> switch (method.getName()) {
+            new Class<?>[]{Player.class}, (_, method, args) -> switch (method.getName()) {
                 case "getUniqueId" -> id;
                 case "hasPermission" -> true;
                 case "getLocation" -> position.get().clone();
+                case "sendMessage" -> { messages.add((Component) args[0]); yield null; }
                 default -> throw new AssertionError(method.getName());
             });
+
+    @Test
+    void spectatorFollowingDoesNotRecordBackHistoryOrOfferTeleportTips() {
+        TipTestScope tips = new TipTestScope(() -> { throw new AssertionError("Spectator movement is not travel"); });
+        BackModule module = new BackModule(null, LANGUAGES, tips);
+        PlayerTeleportEvent event = new PlayerTeleportEvent(player, position.get().clone(),
+                new Location(world, 100, 70, 100), PlayerTeleportEvent.TeleportCause.SPECTATE);
+        tips.teleport(event);
+        module.onPlayerTeleport(event);
+        position.set(event.getTo());
+        tips.flush();
+        assertTrue(tips.collect(player, 2000).isEmpty());
+        module.runBack(player, 1);
+        assertEquals(List.of("back-empty-mm"), messages.stream().map(BackModuleTest::plain).toList());
+    }
 
     @Test
     void teleportSamplesBothRemindersIndependentlyAndUsesClickableCommands() {

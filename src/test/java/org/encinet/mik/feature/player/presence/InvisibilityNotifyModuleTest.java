@@ -20,7 +20,7 @@ class InvisibilityNotifyModuleTest {
         var world = new TestWorld();
         for (int index = 0; index < 500; index++) world.add(index, 64, 0, false);
 
-        assertTrue(InvisibilityNotifyModule.detectNearbyInvisiblePlayers(world.players()).isEmpty());
+        assertTrue(InvisibilityNotifyModule.detectNearbyInvisiblePlayers(world.players(), _ -> false).isEmpty());
         assertEquals(0, world.spatialQueries);
         assertEquals(0, world.locationReads);
     }
@@ -44,7 +44,7 @@ class InvisibilityNotifyModuleTest {
             players.addAll(world.players());
         }
 
-        var detections = InvisibilityNotifyModule.detectNearbyInvisiblePlayers(players);
+        var detections = InvisibilityNotifyModule.detectNearbyInvisiblePlayers(players, _ -> false);
         for (TestWorld world : worlds) {
             assertEquals(world.entries.stream().filter(entry -> entry.invisible).count(), world.spatialQueries);
             for (TestPlayer viewer : world.entries) {
@@ -67,6 +67,25 @@ class InvisibilityNotifyModuleTest {
                 }
             }
         }
+    }
+
+    @Test
+    void monitoringStaffAreExcludedWithoutExemptingOtherInvisiblePlayers() {
+        var world = new TestWorld();
+        world.add(0, 64, 0, false);
+        world.add(1, 64, 0, true);
+        world.add(12, 64, 0, true);
+        Player viewer = world.players().getFirst();
+        Player monitor = world.players().get(1);
+
+        var detections = InvisibilityNotifyModule.detectNearbyInvisiblePlayers(world.players(), monitor::equals);
+        assertEquals(1, detections.get(viewer).count());
+        assertEquals(12, detections.get(viewer).nearestDistance());
+        assertEquals(1, world.spatialQueries, "excluded monitors must not query their neighbourhood");
+
+        detections = InvisibilityNotifyModule.detectNearbyInvisiblePlayers(world.players(), _ -> false);
+        assertEquals(2, detections.get(viewer).count());
+        assertEquals(1, detections.get(viewer).nearestDistance());
     }
 
     private static final class TestWorld {

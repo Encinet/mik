@@ -107,7 +107,9 @@ client-tip-axiom-intro-rich = { $mod } で建築のコピー・貼り付けや�
 client-version-behind-mm = <white>クライアント <yellow>{ $clientVersion }</yellow> はサーバー <green>{ $serverVersion }</green> より古いバージョンです。更新をおすすめします。</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>近くに<gold>{ $count }人</gold>の<gold>透明化</gold>したプレイヤーがいます</yellow> <gray>·</gray> <gray>最寄りまで約{ $distance }ブロック</gray>
+player-afk-label = 離席
 player-bedrock-label = 統合版
+player-monitor-label = 監視
 player-web-label = ウェブ
 presence-join-templates =
     .item-1 = ピンポーン、{ $player } がログインしたよ！
@@ -555,7 +557,7 @@ announcement-view-command-description = サーバーのお知らせを見る
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }：{ $command }
-identity-admission-instructions = プラットフォームを選び、そのコミュニティの Bot にコマンドを送信：
+identity-admission-instructions = プラットフォームを選び、対応するコマンドを送信：
 identity-admission-pending = 現在の連携はまだ確認できません。後で再試行するか、別のプラットフォームのアカウントを連携してください
 identity-admission-reconnect = 連携後、サーバーに再接続してください
 identity-admission-required = コミュニティのアカウントを連携すると参加できます
@@ -1808,6 +1810,14 @@ maintenance-state-disabled = 無効
 maintenance-state-enabled = 有効
 maintenance-status = メンテナンスモード: { $arg0 }
 maintenance-unchanged = メンテナンスモードはすでに{ $arg0 }です
+monitor-command-description = ランダム巡回または指定プレイヤーを監視。stop で終了
+monitor-return-failed = 帰還に失敗しました。監視は継続中です。/monitor stop で再試行してください。
+monitor-returning = 元の場所に戻っています…
+monitor-started = 監視を開始しました。/monitor で終了します。
+monitor-stopped = 監視を終了し、元の場所に戻りました。
+monitor-unavailable = 監視を開始できません。乗り物から降り、スペクテイターモードに切り替えられるか確認してください。
+monitor-waiting = 監視：対象のプレイヤーを待っています…
+monitor-watching = 監視：{ $arg0 }
 performance-kick-title = サーバーに深刻な遅延が発生しています
 performance-kick-reason = サーバーの復旧のため、一時的に接続を切断しました
 restriction-entity-too-large-mm = <red>エンティティの大きさがサーバーの安全上限を超えています</red>

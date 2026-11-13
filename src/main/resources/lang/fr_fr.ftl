@@ -113,7 +113,9 @@ invisibility-nearby-mm = <yellow>{ $count ->
         [one] { $distance } bloc
        *[other] { $distance } blocs
     }</gray>
+player-afk-label = Absent
 player-bedrock-label = Bedrock
+player-monitor-label = Surveillance
 player-web-label = Web
 presence-join-templates =
     .item-1 = Ding dong ! { $player } est en ligne !
@@ -624,7 +626,7 @@ announcement-view-command-description = Voir les annonces du serveur
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform } : { $command }
-identity-admission-instructions = Choisissez une plateforme et envoyez sa commande au bot de la communauté :
+identity-admission-instructions = Choisissez une plateforme et envoyez la commande correspondante :
 identity-admission-pending = Votre liaison actuelle ne peut pas encore être vérifiée. Réessayez plus tard ou liez un compte d’une autre plateforme.
 identity-admission-reconnect = Reconnectez-vous au serveur après la liaison.
 identity-admission-required = Liez un compte communautaire pour rejoindre le serveur.
@@ -2081,6 +2083,14 @@ maintenance-state-disabled = désactivé
 maintenance-state-enabled = activé
 maintenance-status = Mode maintenance : { $arg0 }
 maintenance-unchanged = Le mode maintenance est déjà { $arg0 }
+monitor-command-description = Surveiller des joueurs au hasard ou un joueur nommé ; stop termine
+monitor-return-failed = Retour impossible. La surveillance reste active ; réessayez avec /monitor stop.
+monitor-returning = Retour à votre position initiale…
+monitor-started = Surveillance activée. Utilisez /monitor pour terminer.
+monitor-stopped = Surveillance terminée ; retour à votre position initiale effectué.
+monitor-unavailable = Surveillance indisponible. Quittez votre véhicule et vérifiez que le mode Spectateur est autorisé.
+monitor-waiting = Surveillance : en attente d’un joueur disponible…
+monitor-watching = Surveillance : { $arg0 }
 performance-kick-title = Le serveur subit de forts ralentissements
 performance-kick-reason = Vous avez été temporairement déconnecté pour permettre au serveur de récupérer
 restriction-entity-too-large-mm = <red>La taille de l'entité dépasse la limite de sécurité du serveur</red>

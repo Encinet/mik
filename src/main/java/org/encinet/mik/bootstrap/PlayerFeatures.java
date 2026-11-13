@@ -17,7 +17,6 @@ import org.encinet.mik.feature.player.mode.GameModeSwitchModule;
 import org.encinet.mik.feature.player.movement.FlightModule;
 import org.encinet.mik.feature.player.movement.FlightSpeedControl;
 import org.encinet.mik.feature.player.movement.PlayerBoundaryModule;
-import org.encinet.mik.feature.player.presence.InvisibilityNotifyModule;
 import org.encinet.mik.feature.player.presence.PlayerPresenceModule;
 import org.encinet.mik.feature.player.presence.WelcomeModule;
 import org.encinet.mik.feature.player.profile.nametag.NameTagModule;
@@ -154,10 +153,6 @@ record PlayerFeatures(
                 lifecycle.own("name-tag-tips", tipModule.scope()));
         lifecycle.startManaged("name-tag", nameTagModule::enable, nameTagModule::disable);
         nameTagModule.registerCommands(plugin.getLifecycleManager());
-
-        InvisibilityNotifyModule invisibilityNotifyModule =
-                new InvisibilityNotifyModule(plugin, languageService);
-        lifecycle.startManaged("invisibility-notify", invisibilityNotifyModule::enable, invisibilityNotifyModule::disable);
 
         return new PlayerFeatures(passwords, afkModule, playerAddressModule, playerNameTags, nameTagModule, playerSources,
                 pvpModule, teleportPreferenceModule, clientVersions, tipModule, tabListModule, flightModule);

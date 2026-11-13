@@ -1,10 +1,12 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.player.presence.InvisibilityNotifyModule;
 import org.encinet.mik.feature.server.access.MaintenanceModule;
 import org.encinet.mik.feature.server.access.RestrictionModule;
 import org.encinet.mik.feature.server.auth.AuthenticationFallbackModule;
 import org.encinet.mik.feature.server.ban.BanModule;
+import org.encinet.mik.feature.server.monitor.MonitorModule;
 import org.encinet.mik.feature.server.performance.NetworkEgressModule;
 import org.encinet.mik.feature.server.performance.PerformanceModule;
 import org.encinet.mik.feature.server.performance.TPSBarModule;
@@ -12,7 +14,9 @@ import org.encinet.mik.feature.server.presentation.MotdModule;
 import org.encinet.mik.feature.server.presentation.ServerLinksModule;
 import org.encinet.mik.feature.server.safety.BanItemGuardModule;
 import org.encinet.mik.feature.server.safety.EnderPearlGuard;
+import org.encinet.mik.feature.server.safety.ExplosionProtectionModule;
 import org.encinet.mik.feature.server.safety.FixBugModule;
+import org.encinet.mik.feature.server.safety.FluidProtectionModule;
 import org.encinet.mik.feature.server.safety.OversizedEntityGuard;
 import org.encinet.mik.feature.server.safety.TrampleProtectionModule;
 
@@ -31,6 +35,18 @@ record ServerFeatures(BanModule bans) {
         BanModule banModule = new BanModule(plugin, languageService, playerAddressModule);
         lifecycle.startManaged("ban", banModule::enable, banModule::disable);
         banModule.registerCommands(plugin.getLifecycleManager());
+
+        MonitorModule monitorModule = new MonitorModule(plugin, languageService, afkModule);
+        lifecycle.startManaged("monitor", monitorModule::enable, monitorModule::disable);
+        monitorModule.registerCommands(plugin.getLifecycleManager());
+        players.tabList().retainedEntries(monitorModule::retainsTabEntry);
+        players.tabList().gameBadge(monitorModule::tabBadge);
+        monitorModule.onTabChange(players.tabList()::refreshPlayerName);
+        players.teleports().commandAccess(monitorModule::allowCommand);
+
+        InvisibilityNotifyModule invisibilityNotifyModule =
+                new InvisibilityNotifyModule(plugin, languageService, monitorModule::isMonitoring);
+        lifecycle.startManaged("invisibility-notify", invisibilityNotifyModule::enable, invisibilityNotifyModule::disable);
 
         PerformanceModule performanceModule = new PerformanceModule(plugin, languageService);
         lifecycle.startManaged("performance", performanceModule::start, performanceModule::stop);
@@ -72,6 +88,12 @@ record ServerFeatures(BanModule bans) {
 
         TrampleProtectionModule trampleProtectionModule = new TrampleProtectionModule(plugin);
         lifecycle.startManaged("trample-protection", trampleProtectionModule::enable, trampleProtectionModule::disable);
+
+        FluidProtectionModule fluidProtectionModule = new FluidProtectionModule(plugin);
+        lifecycle.startListener("fluid-protection", fluidProtectionModule, fluidProtectionModule::enable);
+
+        ExplosionProtectionModule explosionProtectionModule = new ExplosionProtectionModule(plugin);
+        lifecycle.startListener("explosion-protection", explosionProtectionModule, explosionProtectionModule::enable);
 
         MotdModule motdModule = new MotdModule(plugin, afkModule, languageService, playerAddressModule);
         lifecycle.startManaged("motd", motdModule::enable, motdModule::disable);

@@ -107,7 +107,9 @@ client-tip-axiom-intro-rich = { $mod } ช่วยคัดลอกและ�
 client-version-behind-mm = <white>ไคลเอนต์ <yellow>{ $clientVersion }</yellow> เก่ากว่าเซิร์ฟเวอร์ <green>{ $serverVersion }</green> แนะนำให้อัปเดต</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>ผู้เล่น <gold>ล่องหน</gold> ใกล้คุณจำนวน <gold>{ $count }</gold> คน</yellow> <gray>·</gray> <gray>คนที่ใกล้ที่สุดห่างประมาณ { $distance } บล็อก</gray>
+player-afk-label = ไม่อยู่
 player-bedrock-label = Bedrock
+player-monitor-label = เฝ้าดู
 player-web-label = เว็บ
 presence-join-templates =
     .item-1 = ติ๊งต่อง! { $player } ออนไลน์แล้ว!
@@ -555,7 +557,7 @@ announcement-view-command-description = ดูประกาศของเซ�
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = เลือกแพลตฟอร์มแล้วส่งคำสั่งให้บอตในชุมชนนั้น:
+identity-admission-instructions = เลือกแพลตฟอร์มแล้วส่งคำสั่งที่ตรงกัน:
 identity-admission-pending = ยังตรวจสอบการผูกบัญชีเดิมไม่ได้ โปรดลองภายหลังหรือผูกบัญชีแพลตฟอร์มอื่น
 identity-admission-reconnect = เชื่อมต่อเซิร์ฟเวอร์อีกครั้งหลังผูกบัญชี
 identity-admission-required = ผูกบัญชีชุมชนเพื่อเข้าเซิร์ฟเวอร์
@@ -1808,6 +1810,14 @@ maintenance-state-disabled = ปิดใช้งาน
 maintenance-state-enabled = เปิดใช้งาน
 maintenance-status = โหมดบำรุงรักษา: { $arg0 }
 maintenance-unchanged = โหมดบำรุงรักษาอยู่ในสถานะ{ $arg0 }แล้ว
+monitor-command-description = เฝ้าดูผู้เล่นแบบสุ่มหรือระบุชื่อ ใช้ stop เพื่อออก
+monitor-return-failed = กลับไม่สำเร็จ โหมดตรวจตรายังทำงาน ใช้ /monitor stop เพื่อลองอีกครั้ง
+monitor-returning = กำลังกลับไปยังตำแหน่งเดิม…
+monitor-started = เปิดโหมดตรวจตราแล้ว ใช้ /monitor เพื่อออก
+monitor-stopped = สิ้นสุดการตรวจตราและกลับไปยังตำแหน่งเดิมแล้ว
+monitor-unavailable = ไม่สามารถเริ่มตรวจตราได้ โปรดลงจากพาหนะและตรวจสอบว่าสามารถใช้โหมดผู้ชมได้
+monitor-waiting = ตรวจตรา: กำลังรอผู้เล่นที่สังเกตการณ์ได้…
+monitor-watching = ตรวจตรา: { $arg0 }
 performance-kick-title = เซิร์ฟเวอร์มีอาการหน่วงอย่างรุนแรง
 performance-kick-reason = ตัดการเชื่อมต่อชั่วคราวเพื่อให้เซิร์ฟเวอร์ฟื้นตัว
 restriction-entity-too-large-mm = <red>ขนาดเอนทิตีเกินขีดจำกัดความปลอดภัยของเซิร์ฟเวอร์</red>

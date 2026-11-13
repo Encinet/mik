@@ -32,7 +32,7 @@ import java.util.Set;
 final class WebChatEncryption {
     static final byte[] EMPTY = new byte[0];
     static final byte[] READY = "ready".getBytes(StandardCharsets.UTF_8);
-    private static final String PROTOCOL = "mik-chat-hpke-2026-11-08\0https://mcmik.top\0";
+    private static final String PROTOCOL = "mik-chat-hpke-2026-11-13\0https://mcmik.top\0";
     private final ECPrivateKeyParameters identity;
 
     private WebChatEncryption(ECPrivateKeyParameters identity) { this.identity = identity; }

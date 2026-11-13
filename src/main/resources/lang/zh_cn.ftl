@@ -107,7 +107,9 @@ client-tip-axiom-intro-rich = { $mod } 可以复制粘贴建筑、修改地形�
 client-version-behind-mm = <white>你的客户端版本 <yellow>{ $clientVersion }</yellow> 低于服务器版本 <green>{ $serverVersion }</green>，建议更新</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>附近有 <gold>{ $count }</gold> 名玩家处于 <gold>隐身</gold> 状态</yellow> <gray>·</gray> <gray>最近约 { $distance } 格</gray>
+player-afk-label = 挂机
 player-bedrock-label = 基岩
+player-monitor-label = 监控
 player-web-label = 网页
 presence-join-templates =
     .item-1 = 叮咚，{ $player } 上线啦！
@@ -555,7 +557,7 @@ announcement-view-command-description = 查看服务器公告
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }：{ $command }
-identity-admission-instructions = 选择一个平台，向社区机器人发送对应指令：
+identity-admission-instructions = 选择一个平台，发送对应指令：
 identity-admission-pending = 现有绑定暂时无法验证，请稍后重试或绑定其他平台账号
 identity-admission-reconnect = 绑定后重新连接服务器
 identity-admission-required = 绑定社区账号后即可入服
@@ -1808,6 +1810,14 @@ maintenance-state-disabled = 关闭
 maintenance-state-enabled = 开启
 maintenance-status = 维护模式：{ $arg0 }
 maintenance-unchanged = 维护模式已处于{ $arg0 }状态
+monitor-command-description = 随机轮播或指定玩家监控；stop 退出
+monitor-return-failed = 返回失败，监控仍开启；用 /monitor stop 重试。
+monitor-returning = 正在返回原位置……
+monitor-started = 监控已开启，用 /monitor 退出。
+monitor-stopped = 监控已结束，已返回原位置。
+monitor-unavailable = 暂时无法开启监控，请先离开载具并确认可切换到旁观模式。
+monitor-waiting = 监控：等待可观察的玩家……
+monitor-watching = 监控：{ $arg0 }
 performance-kick-title = 服务器出现严重卡顿
 performance-kick-reason = 为帮助服务器恢复，暂时断开连接
 restriction-entity-too-large-mm = <red>实体尺寸超过服务器安全限制</red>

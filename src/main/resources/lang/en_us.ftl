@@ -113,7 +113,9 @@ invisibility-nearby-mm = <yellow>{ $count ->
         [one] { $distance } block
        *[other] { $distance } blocks
     }</gray>
+player-afk-label = AFK
 player-bedrock-label = Bedrock
+player-monitor-label = Monitor
 player-web-label = Web
 presence-join-templates =
     .item-1 = Ding-dong! { $player } is online!
@@ -624,7 +626,7 @@ announcement-view-command-description = View server announcements
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Choose a platform and send its command to the community bot:
+identity-admission-instructions = Choose a platform and send the corresponding command:
 identity-admission-pending = Your existing link cannot be verified yet. Retry later or link another platform account.
 identity-admission-reconnect = Reconnect to the server after linking.
 identity-admission-required = Link a community account to join.
@@ -2072,6 +2074,14 @@ maintenance-state-disabled = disabled
 maintenance-state-enabled = enabled
 maintenance-status = Maintenance mode: { $arg0 }
 maintenance-unchanged = Maintenance mode is already { $arg0 }
+monitor-command-description = Monitor random players or a named player; stop exits
+monitor-return-failed = Return failed. Monitoring remains active; use /monitor stop to retry.
+monitor-returning = Returning to your original location…
+monitor-started = Monitoring enabled. Use /monitor to exit.
+monitor-stopped = Monitoring ended; you have returned to your original location.
+monitor-unavailable = Monitoring is unavailable. Leave your vehicle and make sure Spectator mode is allowed.
+monitor-waiting = Monitoring: waiting for an eligible player…
+monitor-watching = Monitoring: { $arg0 }
 performance-kick-title = The server is experiencing severe lag
 performance-kick-reason = You have been temporarily disconnected to help the server recover
 restriction-entity-too-large-mm = <red>Entity size exceeds the server safety limit</red>

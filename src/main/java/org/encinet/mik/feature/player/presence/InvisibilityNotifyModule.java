@@ -14,6 +14,7 @@ import org.encinet.mik.shared.i18n.TextArg;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public class InvisibilityNotifyModule {
 
@@ -24,11 +25,14 @@ public class InvisibilityNotifyModule {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
+    private final Predicate<Player> excludedPlayers;
     private BukkitTask notifyTask;
 
-    public InvisibilityNotifyModule(JavaPlugin plugin, LanguageService languageService) {
+    public InvisibilityNotifyModule(JavaPlugin plugin, LanguageService languageService,
+                                    Predicate<Player> excludedPlayers) {
         this.plugin = plugin;
         this.languageService = languageService;
+        this.excludedPlayers = excludedPlayers;
     }
 
     public void enable() {
@@ -45,14 +49,15 @@ public class InvisibilityNotifyModule {
     }
 
     private void notifyNearbyPlayers() {
-        detectNearbyInvisiblePlayers(Bukkit.getOnlinePlayers()).forEach((viewer, detection) ->
+        detectNearbyInvisiblePlayers(Bukkit.getOnlinePlayers(), excludedPlayers).forEach((viewer, detection) ->
                 viewer.sendActionBar(actionBarMessage(viewer, detection)));
     }
 
-    static Map<Player, Detection> detectNearbyInvisiblePlayers(Collection<? extends Player> players) {
+    static Map<Player, Detection> detectNearbyInvisiblePlayers(Collection<? extends Player> players,
+                                                              Predicate<Player> excludedPlayers) {
         Map<Player, Detection> detections = new HashMap<>();
         for (Player target : players) {
-            if (!target.isInvisible()) continue;
+            if (excludedPlayers.test(target) || !target.isInvisible()) continue;
             Location location = target.getLocation();
             // Ask the world's entity index only around invisible players. With
             // none present, the pass needs no location or neighbourhood queries.

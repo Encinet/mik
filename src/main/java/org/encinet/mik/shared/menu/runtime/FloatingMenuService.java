@@ -1085,7 +1085,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             if (protectsWorldBehindMenu(event.getPlayer())) event.setCancelled(true);
             return;
         }
-        if (routePointerClick(event.getPlayer(), event.getAction().isLeftClick())) event.setCancelled(true);
+        if (routePointerClick(event.getPlayer(), event.getAction().isLeftClick())
+                || protectsWorldBehindMenu(event.getPlayer())) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)

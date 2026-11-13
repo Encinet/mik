@@ -113,7 +113,9 @@ invisibility-nearby-mm = <yellow>{ $count ->
         [one] { $distance } blocco
        *[other] { $distance } blocchi
     }</gray>
+player-afk-label = Assente
 player-bedrock-label = Bedrock
+player-monitor-label = Monitoraggio
 player-web-label = Web
 presence-join-templates =
     .item-1 = Din don! { $player } è online!
@@ -615,7 +617,7 @@ announcement-view-command-description = Vedi gli annunci del server
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Scegli una piattaforma e invia il suo comando al bot della comunità:
+identity-admission-instructions = Scegli una piattaforma e invia il comando corrispondente:
 identity-admission-pending = Il collegamento esistente non può ancora essere verificato. Riprova più tardi o collega un account di un’altra piattaforma.
 identity-admission-reconnect = Riconnettiti al server dopo il collegamento.
 identity-admission-required = Collega un account della comunità per entrare.
@@ -2048,6 +2050,14 @@ maintenance-state-disabled = disattivata
 maintenance-state-enabled = attivata
 maintenance-status = Modalità manutenzione: { $arg0 }
 maintenance-unchanged = La modalità manutenzione è già { $arg0 }
+monitor-command-description = Osserva giocatori casuali o un giocatore indicato; stop termina
+monitor-return-failed = Ritorno fallito. La sorveglianza resta attiva; riprova con /monitor stop.
+monitor-returning = Ritorno alla posizione originale…
+monitor-started = Sorveglianza attivata. Usa /monitor per terminare.
+monitor-stopped = Sorveglianza terminata; ritorno alla posizione originale completato.
+monitor-unavailable = Sorveglianza non disponibile. Esci dal veicolo e verifica che la modalità Spettatore sia consentita.
+monitor-waiting = Sorveglianza: in attesa di un giocatore disponibile…
+monitor-watching = Sorveglianza: { $arg0 }
 performance-kick-title = Il server sta subendo forti rallentamenti
 performance-kick-reason = Sei stato disconnesso temporaneamente per consentire al server di riprendersi
 restriction-entity-too-large-mm = <red>La dimensione dell'entità supera il limite di sicurezza del server</red>

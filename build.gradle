@@ -206,3 +206,14 @@ processResources {
         expand props
     }
 }
+
+// Explicit integration check against the paired web client, separate from the default JVM build.
+tasks.register('chatInterop', JavaExec) {
+    group = 'verification'
+    description = 'Exercise the real web-client HPKE handshake, history compression and key rotation.'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.encinet.mik.feature.community.chat.web.WebChatInteropHarness'
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+    args file("${providers.gradleProperty('webChatProject').getOrElse('../mikweb')}/tools/chat/interop-client.mjs").absolutePath
+}

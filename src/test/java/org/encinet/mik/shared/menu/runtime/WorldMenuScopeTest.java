@@ -80,6 +80,68 @@ class WorldMenuScopeTest {
         }
     }
 
+    @Test void foregroundReadOnlyTextTitlesAndBackgroundsShieldBlockClicksWithoutAnActionTarget() throws Exception {
+        var scenes = java.util.List.of(
+                MenuScene.screen("reading").content(Ui.text(Component.text("Read only")).build()).build(),
+                MenuScene.screen("title",Component.text("Title only")).build(),
+                MenuScene.screen("background").decoration(new FloatingMenuDecoration("panel",FloatingMenuPoint.ORIGIN,
+                        new FloatingMenuDecoration.Surface(3,2,0xFF333333),FloatingMenuDecoration.Motion.NONE)).build());
+        try (var f = new Fixture()) {
+            for (var scene : scenes) {
+                var menu = f.service.openRoot(f.player,scene.toBuilder().animation(FloatingMenuAnimation.DEFAULT.reduced()).build());
+                f.tick();
+                assertEquals(FloatingMenuState.ACTIVE,menu.state());
+                for (var action : java.util.List.of(Action.LEFT_CLICK_BLOCK,Action.RIGHT_CLICK_BLOCK)) {
+                    for (var hand : java.util.List.of(EquipmentSlot.HAND,EquipmentSlot.OFF_HAND)) {
+                        var click = f.blockClick(action,hand);
+                        f.service.onWorldClick(click);
+                        assertEquals(Event.Result.DENY,click.useInteractedBlock(),scene.screenId());
+                        assertEquals(Event.Result.DENY,click.useItemInHand(),scene.screenId());
+                    }
+                }
+            }
+        }
+    }
+
+    @Test void foregroundRenderingShieldsNearbyClicksAndReleasesOutsideItsRangeOrAfterClose() throws Exception {
+        try (var f = new Fixture()) {
+            f.service.openRoot(f.player,MenuScene.screen("reading").animation(FloatingMenuAnimation.DEFAULT.reduced())
+                    .content(Ui.text(Component.text("Read only")).build()).build());
+            f.tick();
+            f.eye.setYaw(210);
+            var nearby = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
+            f.service.onWorldClick(nearby);
+            assertEquals(Event.Result.DENY,nearby.useInteractedBlock());
+            f.eye.setYaw(270);
+            var outside = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
+            f.service.onWorldClick(outside);
+            assertNotEquals(Event.Result.DENY,outside.useInteractedBlock());
+            f.service.closeAllImmediately();
+            f.eye.setYaw(180);
+            var closed = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
+            f.service.onWorldClick(closed);
+            assertNotEquals(Event.Result.DENY,closed.useInteractedBlock());
+        }
+    }
+
+    @Test void foregroundRenderingRemainsProtectedDuringOpeningAndClosing() throws Exception {
+        try (var f = new Fixture()) {
+            var menu = f.service.openRoot(f.player,MenuScene.screen("reading")
+                    .content(Ui.text(Component.text("Read only")).build()).build());
+            assertEquals(FloatingMenuState.OPENING,menu.state());
+            var opening = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
+            f.service.onWorldClick(opening);
+            assertEquals(Event.Result.DENY,opening.useInteractedBlock());
+            for (int tick=0;tick<10;tick++) f.tick();
+            assertEquals(FloatingMenuState.ACTIVE,menu.state());
+            menu.close();
+            assertEquals(FloatingMenuState.CLOSING,menu.state());
+            var closing = f.blockClick(Action.LEFT_CLICK_BLOCK,EquipmentSlot.HAND);
+            f.service.onWorldClick(closing);
+            assertEquals(Event.Result.DENY,closing.useInteractedBlock());
+        }
+    }
+
     @Test void boundedSlotsCleanupAndFailedRedrawLeaveOtherPanelsIntact() throws Exception {
         try (var f = new Fixture()) {
             var scope = f.service.worldPanels();
@@ -178,6 +240,7 @@ class WorldMenuScopeTest {
 
     private final class Fixture implements AutoCloseable {
         final FloatingMenuTestWorld world = new FloatingMenuTestWorld();
+        final Location eye = new Location(world.world(),0,64,2,180,0);
         final Player player = mock(Player.class);
         final AxiomGizmoService.Scope gizmoScope = mock(AxiomGizmoService.Scope.class);
         final AxiomImageService imageService = mock(AxiomImageService.class);
@@ -192,7 +255,6 @@ class WorldMenuScopeTest {
         Fixture() {
             try {
                 UUID id = UUID.randomUUID();
-                var eye = new Location(world.world(),0,64,2,180,0);
                 when(player.getUniqueId()).thenReturn(id); when(player.getWorld()).thenReturn(world.world());
                 when(player.getLocation()).thenAnswer(_ -> eye.clone().subtract(0,1.62,0));
                 when(player.getEyeLocation()).thenAnswer(_ -> eye.clone());
@@ -211,6 +273,9 @@ class WorldMenuScopeTest {
                     .content(Ui.button(Component.text("Go")).primary((_,_) -> clicks.incrementAndGet()).build()).build();
         }
         PlayerInteractEvent click(Action action,EquipmentSlot hand) { return new PlayerInteractEvent(player,action,null,null,org.bukkit.block.BlockFace.SELF,hand); }
+        PlayerInteractEvent blockClick(Action action,EquipmentSlot hand) {
+            return new PlayerInteractEvent(player,action,null,FloatingMenuTestWorld.air(),org.bukkit.block.BlockFace.SOUTH,hand);
+        }
         void tick() throws Exception { var method = FloatingMenuService.class.getDeclaredMethod("tick"); method.setAccessible(true); method.invoke(service); }
         void closeMocks() { settings.close(); status.close(); sounds.close(); renderer.close(); entityIds.close(); bukkit.close(); }
         @Override public void close() {

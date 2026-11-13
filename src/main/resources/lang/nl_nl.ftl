@@ -113,7 +113,9 @@ invisibility-nearby-mm = <yellow>{ $count ->
         [one] { $distance } blok
        *[other] { $distance } blokken
     } afstand</gray>
+player-afk-label = Afwezig
 player-bedrock-label = Bedrock
+player-monitor-label = Toezicht
 player-web-label = Web
 presence-join-templates =
     .item-1 = Dingdong! { $player } is online!
@@ -624,7 +626,7 @@ announcement-view-command-description = Serveraankondigingen bekijken
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Kies een platform en stuur de bijbehorende opdracht naar de communitybot:
+identity-admission-instructions = Kies een platform en stuur de bijbehorende opdracht:
 identity-admission-pending = Je bestaande koppeling kan nog niet worden gecontroleerd. Probeer het later opnieuw of koppel een account van een ander platform.
 identity-admission-reconnect = Maak na het koppelen opnieuw verbinding met de server.
 identity-admission-required = Koppel een communityaccount om de server te betreden.
@@ -2054,6 +2056,14 @@ maintenance-state-disabled = uitgeschakeld
 maintenance-state-enabled = ingeschakeld
 maintenance-status = Onderhoudsmodus: { $arg0 }
 maintenance-unchanged = De onderhoudsmodus is al { $arg0 }
+monitor-command-description = Observeer willekeurige spelers of een gekozen speler; stop beëindigt
+monitor-return-failed = Terugkeren mislukt. Toezicht blijft actief; probeer opnieuw met /monitor stop.
+monitor-returning = Terugkeren naar je oorspronkelijke locatie…
+monitor-started = Toezicht ingeschakeld. Gebruik /monitor om het te beëindigen.
+monitor-stopped = Toezicht beëindigd; je bent terug op je oorspronkelijke locatie.
+monitor-unavailable = Toezicht niet beschikbaar. Verlaat je voertuig en controleer of toeschouwermodus is toegestaan.
+monitor-waiting = Toezicht: wachten op een beschikbare speler…
+monitor-watching = Toezicht: { $arg0 }
 performance-kick-title = De server is ernstig vertraagd
 performance-kick-reason = Je verbinding is tijdelijk verbroken om de server te laten herstellen
 restriction-entity-too-large-mm = <red>De entiteitsgrootte overschrijdt de veiligheidslimiet van de server</red>

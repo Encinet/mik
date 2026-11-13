@@ -55,11 +55,11 @@ final class WebChatHistory {
                 ? new ChatNode.Item(item.fallback(), Optional.empty(), item.style()) : node).toList());
     }
 
-    static ChatHistoryStore.Entry user(ChatDelivery delivery, String streamId, long sequence) {
+    static ChatHistoryStore.Entry user(ChatDelivery delivery) {
         WebChatMessage message = new WebChatMessage(delivery.message(), null, delivery.target());
         JsonObject payload = message.payload();
         payload.add("content", WebChatContentRenderer.archive(delivery.message().content()));
-        JsonObject snapshot = snapshot(payload, streamId, sequence);
+        JsonObject snapshot = snapshot(payload);
         var mentions = new com.google.gson.JsonArray();
         for (ChatEffect effect : delivery.message().effects()) {
             if (effect instanceof ChatEffect.Mentions mention) {
@@ -71,13 +71,12 @@ final class WebChatHistory {
         return new ChatHistoryStore.Entry(message.id(), delivery.audience(), Optional.empty(), serialize(snapshot, delivery.message().content()));
     }
 
-    static ChatHistoryStore.Entry server(ChatServerMessage message, Optional<Set<UUID>> viewers,
-                                         String streamId, long sequence) {
+    static ChatHistoryStore.Entry server(ChatServerMessage message, Optional<Set<UUID>> viewers) {
         UUID first = message.participants().keySet().stream().findFirst().orElse(null);
         JsonObject payload = WebChatServerMessage.payload(message, first);
         if (message.content() instanceof ChatServerMessage.RichText text)
             payload.add("content", WebChatContentRenderer.archive(text.content()));
-        JsonObject snapshot = snapshot(payload, streamId, sequence);
+        JsonObject snapshot = snapshot(payload);
         JsonObject names = new JsonObject();
         message.participants().forEach((id, name) -> names.addProperty(id.toString(), name));
         snapshot.add("participants", names);
@@ -95,9 +94,7 @@ final class WebChatHistory {
         return encoded;
     }
 
-    private static JsonObject snapshot(JsonObject payload, String streamId, long sequence) {
-        payload.addProperty("streamId", streamId);
-        payload.addProperty("sequence", sequence);
+    private static JsonObject snapshot(JsonObject payload) {
         JsonObject snapshot = new JsonObject();
         snapshot.addProperty("version", 1);
         snapshot.add("message", payload);
@@ -116,18 +113,16 @@ final class WebChatHistory {
     }
 
     /** Metadata and different access scopes never share a compression dictionary. */
-    static java.util.List<String> responseParts(ChatHistoryStore.Page page, ChatChannel channel, String request, Viewer viewer) {
+    static java.util.List<String> responseParts(ChatHistoryStore.SyncPage result, ChatChannel channel, String request, Viewer viewer) {
+        var page = result.page();
         var presented = presentPage(page, viewer.id(), id -> !viewer.hidden().contains(id), viewer.descriptions()::get);
         JsonObject response = new JsonObject();
         response.addProperty("type", "history");
         response.addProperty("requestId", request);
         response.addProperty("channel", channel.name().toLowerCase(Locale.ROOT));
-        response.addProperty("hasMore", presented.hasMore());
-        response.addProperty("nextBefore", Long.toString(presented.nextBefore()));
-        response.addProperty("databaseId", page.databaseId());
-        response.addProperty("head", Long.toString(page.head()));
-        String denied = viewer.hidden().stream().map(UUID::toString).sorted().collect(java.util.stream.Collectors.joining("\n"));
-        response.addProperty("visibilityScope", UUID.nameUUIDFromBytes(denied.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString());
+        response.addProperty("checkpoint", result.checkpoint());
+        if (presented.hasMore()) response.addProperty("nextPage", result.continuation().apply(presented.nextBefore()));
+        response.addProperty("reset", result.reset());
         String metadata = JSON.toJson(response);
         var parts = new ArrayList<String>();
         parts.add(metadata.substring(0, metadata.length() - 1) + ",\"messages\":[");
@@ -181,6 +176,7 @@ final class WebChatHistory {
         JsonObject snapshot = JsonParser.parseString(row.payload()).getAsJsonObject();
         if (snapshot.get("version").getAsInt() != 1) throw new IllegalArgumentException("Unsupported history snapshot");
         JsonObject payload = snapshot.getAsJsonObject("message");
+        payload.addProperty("order", row.order());
         payload.addProperty("expiresAt", row.expiresAt());
         if (payload.has("subject") && !visible.test(UUID.fromString(
                 payload.getAsJsonObject("subject").get("playerUuid").getAsString()))) return Optional.empty();

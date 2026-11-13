@@ -64,6 +64,8 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
     private final ChatSendLedger ledger;
     private final ConcurrentLinkedQueue<Runnable> inbox = new ConcurrentLinkedQueue<>();
     private final AtomicInteger queued = new AtomicInteger();
+    private final ConcurrentLinkedQueue<Runnable> updates = new ConcurrentLinkedQueue<>();
+    private final AtomicInteger queuedUpdates = new AtomicInteger();
     private final Map<Channel, Connection> connections = new HashMap<>();
     private final ConcurrentHashMap<String, Connection> byId = new ConcurrentHashMap<>();
     private final Map<String, Login> logins = new HashMap<>();
@@ -80,8 +82,17 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
     private volatile boolean running;
     private long lastMaintenance;
     private long lastHistoryMaintenance;
-    private final String streamId = UUID.randomUUID().toString();
-    private long messageSequence;
+    private record SendKey(UUID player, String request) { }
+    private record PendingSend(String fingerprint, Set<Connection> waiters) {
+        PendingSend(String fingerprint, Connection connection) {
+            this(fingerprint, ConcurrentHashMap.newKeySet()); waiters.add(connection);
+        }
+    }
+    private final Map<SendKey, PendingSend> pendingSends = new ConcurrentHashMap<>();
+    private record CompletedSend(String fingerprint, String messageId) { }
+    private final LinkedHashMap<SendKey, CompletedSend> completedSends = new LinkedHashMap<>();
+    private final Map<String, String> committedWeb = new HashMap<>();
+    private long lastHistoryFailure;
     private volatile Map<UUID, ChatParticipant> peerSnapshot = Map.of();
     private volatile Map<UUID, Set<UUID>> visibilitySnapshot = Map.of();
     private volatile Set<UUID> staffSnapshot = Set.of();
@@ -170,21 +181,24 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             }
             history = null;
         }
-        inbox.clear(); queued.set(0);
+        inbox.clear(); queued.set(0); updates.clear(); queuedUpdates.set(0);
+        pendingSends.clear(); committedWeb.clear(); completedSends.clear();
         connections.clear(); byId.clear(); logins.clear(); accounts.clear(); revoked.clear();
         hidden.clear(); announced.clear(); revisions.clear(); authorizations.clear();
         peerSnapshot = Map.of(); visibilitySnapshot = Map.of(); staffSnapshot = Set.of(); gameStaffSnapshot = Set.of();
         tabUpdate.accept(List.of());
     }
 
-    private boolean enqueue(Runnable action) {
+    private boolean enqueueUpdate(Runnable action) { return queue(updates, queuedUpdates, 512, action); }
+    private boolean enqueue(Runnable action) { return queue(inbox, queued, 128, action); }
+    private boolean queue(ConcurrentLinkedQueue<Runnable> target, AtomicInteger size, int capacity, Runnable action) {
         if (!running) return false;
-        if (queued.incrementAndGet() > 128) { queued.decrementAndGet(); return false; }
-        inbox.add(action); return true;
+        if (size.incrementAndGet() > capacity) { size.decrementAndGet(); return false; }
+        target.add(action); return true;
     }
 
     @Override public void opened(Channel channel, String address) {
-        if (!enqueue(() -> {
+        if (!enqueueUpdate(() -> {
             long now = System.currentTimeMillis();
             long pending = connections.values().stream().filter(c -> c.login == null && c.pending == null).count();
             long sameIp = connections.values().stream().filter(c -> c.login == null && c.pending == null && c.address.equals(address)).count();
@@ -201,7 +215,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         if (!enqueue(() -> receive(channel, text))) channel.close();
     }
     @Override public void ready(Channel channel) {
-        if (!enqueue(() -> {
+        if (!enqueueUpdate(() -> {
             Connection c = connections.get(channel);
             if (c == null) { channel.close(); return; }
             PendingAuthorization pending = c.pending;
@@ -211,9 +225,9 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             applyAuthorization(c, pending);
         })) channel.close();
     }
-    @Override public void closed(Channel channel) { enqueue(() -> remove(channel)); }
+    @Override public void closed(Channel channel) { enqueueUpdate(() -> remove(channel)); }
     @Override public void pong(Channel channel) {
-        if (!enqueue(() -> { Connection c = connections.get(channel); if (c != null) c.lastPong = System.currentTimeMillis(); })) channel.close();
+        if (!enqueueUpdate(() -> { Connection c = connections.get(channel); if (c != null) c.lastPong = System.currentTimeMillis(); })) channel.close();
     }
 
     /** Called exclusively by the private loopback API, never by the public WebSocket listener. */
@@ -237,7 +251,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             WebAccountPolicy initialPolicy = policyReader.apply(player);
             long revision = revisions.get(player).get();
             WebAccountPolicy policy = revision == revisionBefore ? initialPolicy : policyReader.apply(player);
-            if (!enqueue(() -> {
+            if (!enqueueUpdate(() -> {
                 try {
                 if (result.isCancelled()) return;
                 Connection c = byId.get(id);
@@ -331,7 +345,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
 
     public CompletableFuture<ControlResult> revoke(List<String> refs) {
         CompletableFuture<ControlResult> result = new CompletableFuture<>();
-        if (!enqueue(() -> {
+        if (!enqueueUpdate(() -> {
             long until = System.currentTimeMillis() + 120_000;
             for (String ref : refs) {
                 if (!ref.matches("[A-Za-z0-9_-]{43}")) continue;
@@ -345,7 +359,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
 
     public void invalidatePlayer(UUID player) {
         revisions.computeIfAbsent(player, _ -> new AtomicLong()).incrementAndGet();
-        enqueue(() -> {
+        enqueueUpdate(() -> {
             for (Connection c : List.copyOf(connections.values())) if (player.equals(connectionPlayer(c))) {
                 revoked.put(connectionSession(c), System.currentTimeMillis() + 120_000); close(c, "credentials_changed");
             }
@@ -356,7 +370,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         AtomicLong revision = revisions.get(player);
         if (revision == null) return;
         revision.incrementAndGet();
-        enqueue(() -> { Account account = accounts.get(player); if (account != null) { account.policy = null; refreshPolicy(player, account); } });
+        enqueueUpdate(() -> { Account account = accounts.get(player); if (account != null) { account.policy = null; refreshPolicy(player, account); } });
     }
 
     private void receive(Channel channel, String text) {
@@ -380,11 +394,18 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             if (kind != ChatChannel.PRIVATE && body.has("targetUuid")) throw new IllegalArgumentException();
             String fingerprint = kind + ":" + target + ":" + value;
             String digest = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(fingerprint.getBytes(StandardCharsets.UTF_8)));
-            ChatSendLedger.Receipt previous = ledger.receipt(c.login.player, request);
+            SendKey sendKey = new SendKey(c.login.player, request);
+            CompletedSend completed = completedSends.get(sendKey);
+            if (completed != null) {
+                if (!completed.fingerprint().equals(digest)) { error(c, request, "request_conflict"); return; }
+                send(c, Map.of("type", "accepted", "requestId", request, "messageId", completed.messageId())); return;
+            }
+            PendingSend previous = pendingSends.get(sendKey);
             if (previous != null) {
                 if (!previous.fingerprint().equals(digest)) { error(c, request, "request_conflict"); return; }
-                send(c, Map.of("type", "accepted", "requestId", request, "messageId", previous.messageId())); return;
+                previous.waiters().add(c); return;
             }
+            if (history == null) { error(c, request, "chat_unavailable"); return; }
             if (!ledger.allowMessage(c.login.player)) { error(c, request, "rate_limited"); return; }
             if (kind == ChatChannel.STAFF && !staff(actor.policy)) { error(c, request, "staff_required"); return; }
             ChatParticipant peer = target == null ? null : peer(c.login.player, target);
@@ -403,25 +424,54 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             ChatMessage accepted = processMessage.apply(submission);
             ChatDelivery delivery = ChatDelivery.managed(accepted,
                     peer == null ? null : ChatSender.minecraft(peer.playerUuid(), peer.name()), request);
-            c.login.lastActivityAt = now;
-            ledger.accepted(c.login.player, request, digest, accepted.submission().id().value());
-            acceptedMessages.accept(delivery);
-            send(c, Map.of("type", "accepted", "requestId", request, "messageId", accepted.submission().id().value()));
+            var snapshot = WebChatHistory.snapshot(delivery);
+            var pending = new PendingSend(digest, c);
+            pendingSends.put(sendKey, pending);
+            var receipt = new ChatHistoryStore.Request(c.login.player, request, digest);
+            String acceptedRequest = request;
+            history.append(() -> WebChatHistory.user(snapshot), receipt).whenComplete((saved, failure) -> {
+                if (!enqueueUpdate(() -> {
+                    if (pendingSends.remove(sendKey) != pending) return;
+                    if (failure != null) {
+                        Throwable reason = failure;
+                        while (reason.getCause() != null) reason = reason.getCause();
+                        String code = "request_conflict".equals(reason.getMessage()) ? "request_conflict" : "chat_unavailable";
+                        reportHistoryFailure(failure);
+                        for (Connection waiter : pending.waiters()) if (active(waiter)) error(waiter, acceptedRequest, code);
+                        return;
+                    }
+                    completedSends.put(sendKey, new CompletedSend(digest, saved.id()));
+                    while (completedSends.size() > 512) completedSends.pollFirstEntry();
+                    if (saved.inserted()) {
+                        committedWeb.put(saved.id(), saved.order());
+                        try { acceptedMessages.accept(delivery); }
+                        finally { committedWeb.remove(saved.id()); }
+                    }
+                    for (Connection waiter : pending.waiters()) if (active(waiter)) {
+                        waiter.login.lastActivityAt = System.currentTimeMillis();
+                        send(waiter, Map.of("type", "accepted", "requestId", acceptedRequest, "messageId", saved.id()));
+                    }
+                })) {
+                    pendingSends.remove(sendKey, pending);
+                    for (Connection waiter : pending.waiters()) waiter.channel.close();
+                }
+            });
         } catch (Exception invalid) { error(c, request, "invalid_message"); }
     }
 
     private void receiveHistory(Connection c, JsonObject body, String request) {
         updateHidden();
-        if (!Set.of("type", "requestId", "channel", "targetUuid", "before", "after").containsAll(body.keySet()))
+        if (!Set.of("type", "requestId", "channel", "targetUuid", "since", "page").containsAll(body.keySet()))
             throw new IllegalArgumentException();
         boolean compression = WebChatSocketServer.compression(c.channel);
         ChatChannel channel = ChatChannel.valueOf(string(body, "channel").toUpperCase(Locale.ROOT));
         UUID target = body.has("targetUuid") ? UUID.fromString(string(body, "targetUuid")) : null;
-        long before = body.has("before") ? Long.parseLong(string(body, "before")) : Long.MAX_VALUE;
-        long after = body.has("after") ? Long.parseLong(string(body, "after")) : 0;
+        String since = body.has("since") ? string(body, "since") : null;
+        String continuation = body.has("page") ? string(body, "page") : null;
+        if ((since != null && !since.matches("[A-Za-z0-9_-]{91}")) || (continuation != null && !continuation.matches("[A-Za-z0-9_-]{91}")))
+            throw new IllegalArgumentException();
         boolean staff = webStaff(c.login.player);
         if (channel == ChatChannel.STAFF && !staff) { error(c, request, "staff_required"); return; }
-        ChatHistoryStore.Query query = new ChatHistoryStore.Query(c.login.player, staff, channel, target, before, after);
         if (history == null) { error(c, request, "history_unavailable"); return; }
         long now = System.currentTimeMillis();
         if (c.historyLoading || now - c.lastHistoryRequest < 200) { error(c, request, "rate_limited"); return; }
@@ -430,9 +480,10 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         try { viewer = historyViewer(c.login.player); }
         catch (RuntimeException failure) { error(c, request, "history_unavailable"); return; }
         c.historyLoading = true;
-        history.read(query, page -> WebChatPacket.history(WebChatHistory.responseParts(page, channel, request, viewer), compression))
+        var query = new ChatHistoryStore.SyncQuery(c.login.player, staff, channel, target, since, continuation, viewer.hidden());
+        history.sync(query, page -> WebChatPacket.history(WebChatHistory.responseParts(page, channel, request, viewer), compression))
                 .whenComplete((response, failure) -> {
-            if (!enqueue(() -> {
+            if (!enqueueUpdate(() -> {
                 c.historyLoading = false;
                 if (connections.get(c.channel) != c) return;
                 if (!active(c)) { close(c, "authorization_expired"); return; }
@@ -445,10 +496,20 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         });
     }
 
-    private void observeHistory(CompletableFuture<Void> operation) {
-        operation.whenComplete((_, failure) -> {
-            if (failure != null) plugin.getLogger().warning("Chat history operation failed: " + failure.getClass().getSimpleName());
-        });
+    private void observeHistory(CompletableFuture<?> operation) {
+        operation.whenComplete((_, failure) -> { if (failure != null) reportHistoryFailure(failure); });
+    }
+
+    private synchronized void reportHistoryFailure(Throwable failure) {
+        long now = System.currentTimeMillis();
+        if (now - lastHistoryFailure < 30_000) return;
+        lastHistoryFailure = now;
+        while (failure.getCause() != null) failure = failure.getCause();
+        var health = history == null ? null : history.health();
+        plugin.getLogger().warning("Chat history unavailable: " + failure.getClass().getSimpleName() + ": " + failure.getMessage()
+                + (health == null ? "" : " (queued writes=" + health.queuedWrites() + ", pending reads=" + health.pendingReads()
+                + ", failed writes=" + health.failedWrites() + ", rejected reads=" + health.rejectedReads()
+                + ", last commit=" + health.lastCommitAt() + ")"));
     }
 
     private WebChatHistory.Viewer historyViewer(UUID viewer) {
@@ -469,16 +530,23 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
         return Set.copyOf(denied);
     }
 
-    private void appendHistory(Supplier<ChatHistoryStore.Entry> snapshot) {
-        if (history == null) return;
-        observeHistory(history.append(snapshot));
-    }
-
-    /** Main-thread output of an already accepted message; its sender need not have a game connection. */
+    /** Captures on the main thread; durable assignment completes before any web publication. */
     @Override public void publish(ChatDelivery delivery) {
         if (!running) return;
         if (!Bukkit.isPrimaryThread()) throw new IllegalStateException("Web chat delivery requires the primary thread");
-        distribute(delivery);
+        String committed = committedWeb.get(delivery.message().submission().id().value());
+        if (committed != null) { distribute(delivery, committed); return; }
+        if (history == null) return;
+        var snapshot = WebChatHistory.snapshot(delivery);
+        persist(() -> WebChatHistory.user(snapshot), saved -> distribute(delivery, saved.order()));
+    }
+
+    private void persist(Supplier<ChatHistoryStore.Entry> snapshot, Consumer<ChatHistoryStore.Saved> publish) {
+        if (history == null) return;
+        history.append(snapshot).whenComplete((saved, failure) -> {
+            if (failure != null) { reportHistoryFailure(failure); return; }
+            if (saved.inserted()) enqueueUpdate(() -> { if (running) publish.accept(saved); });
+        });
     }
 
     @Override public Set<UUID> gameRecipients(ChatAudience audience) {
@@ -493,14 +561,9 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
                 .map(Player::getUniqueId).collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 
-    private void distribute(ChatDelivery delivery) {
+    private void distribute(ChatDelivery delivery, String order) {
         ChatAudience audience = delivery.audience();
         WebChatMessage message = new WebChatMessage(delivery.message(), delivery.requestId(), delivery.target());
-        long sequence = ++messageSequence;
-        if (history != null) {
-            var snapshot = WebChatHistory.snapshot(delivery);
-            appendHistory(() -> WebChatHistory.user(snapshot, streamId, sequence));
-        }
         Map<MessageVariant, String> frames = new HashMap<>();
         for (Connection c : connections.values()) if (active(c) && audience.includes(c.login.player, webStaff(c.login.player))) {
             boolean own = c.login.player.equals(message.senderUuid());
@@ -508,7 +571,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             var viewerLanguage = language.preferredLanguage(c.login.player).orElse(Language.DEFAULT);
             String frame = frames.computeIfAbsent(new MessageVariant(viewerLanguage, own, mentioned), _ -> {
                 JsonObject recipientPayload = message.payload(key -> language.t(viewerLanguage, key));
-                stamp(recipientPayload, sequence);
+                stamp(recipientPayload, order);
                 // Correlation IDs stay with the sender; mention status belongs to this viewer.
                 if (!own) recipientPayload.remove("requestId");
                 recipientPayload.addProperty("mentioned", mentioned);
@@ -530,12 +593,10 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             updateHidden();
             distributeServerMessage(message, visibility);
         };
-        if (Bukkit.isPrimaryThread()) action.run(); else enqueue(action);
+        if (Bukkit.isPrimaryThread()) action.run(); else enqueueUpdate(action);
     }
 
     private void distributeServerMessage(ChatServerMessage message, ServerChatPublisher.Visibility visibility) {
-        ChatAudience audience = message.audience();
-        long sequence = ++messageSequence;
         if (history != null) {
             Set<UUID> candidates = new HashSet<>(message.participants().keySet());
             Bukkit.getOnlinePlayers().stream().filter(this::gameEligible).map(Player::getUniqueId).forEach(candidates::add);
@@ -548,8 +609,13 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             Optional<Set<UUID>> restriction = offlineVisible && viewers.size() == candidates.size()
                     ? Optional.empty() : Optional.of(viewers);
             var snapshot = WebChatHistory.snapshot(message);
-            appendHistory(() -> WebChatHistory.server(snapshot, restriction, streamId, sequence));
+            persist(() -> WebChatHistory.server(snapshot, restriction), saved -> deliverServerMessage(message, visibility, saved.order()));
         }
+    }
+
+    private void deliverServerMessage(ChatServerMessage message, ServerChatPublisher.Visibility visibility, String order) {
+        updateHidden();
+        ChatAudience audience = message.audience();
         Map<UUID, String> frames = new HashMap<>();
         for (Connection c : connections.values()) {
             if (!active(c)) continue;
@@ -559,7 +625,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             UUID frameOwner = message.conversation().channel() == ChatChannel.PRIVATE ? viewer : null;
             String frame = frames.computeIfAbsent(frameOwner, _ -> {
                 JsonObject payload = WebChatServerMessage.payload(message, viewer);
-                stamp(payload, sequence);
+                stamp(payload, order);
                 JsonObject event = new JsonObject();
                 event.addProperty("type", "message");
                 event.add("message", payload);
@@ -575,10 +641,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
                 && message.subject().map(subject -> visible(viewer, subject.playerUuid())).orElse(true);
     }
 
-    private void stamp(JsonObject message, long sequence) {
-        message.addProperty("streamId", streamId);
-        message.addProperty("sequence", sequence);
-    }
+    private static void stamp(JsonObject message, String order) { message.addProperty("order", order); }
 
     /** Visible online channel participants, shared by presence and both message pipelines. */
     @Override
@@ -661,11 +724,16 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
     private static boolean eligible(WebAccountPolicy policy) { return policy != null && Set.of("default", "member", "moderator", "custodian").contains(policy.role()); }
     private static boolean staff(WebAccountPolicy policy) { return policy != null && Set.of("moderator", "custodian").contains(policy.role()); }
 
-    private void tick() {
+    private void drain(ConcurrentLinkedQueue<Runnable> source, AtomicInteger size) {
         for (int i = 0; i < 64; i++) {
-            Runnable action = inbox.poll(); if (action == null) break; queued.decrementAndGet();
+            Runnable action = source.poll(); if (action == null) break; size.decrementAndGet();
             try { action.run(); } catch (RuntimeException error) { plugin.getLogger().warning("Web chat operation failed: " + error.getClass().getSimpleName()); }
         }
+    }
+
+    private void tick() {
+        drain(updates, queuedUpdates);
+        drain(inbox, queued);
         long now = System.currentTimeMillis();
         if (now - lastMaintenance < 1000) return;
         lastMaintenance = now;
@@ -736,7 +804,7 @@ public final class WebChatModule implements WebChatSocketServer.Events, ChatPart
             WebAccountPolicy policy;
             try { prepareIdentity.accept(id); policy = policyReader.apply(id); } catch (RuntimeException error) { policy = null; }
             WebAccountPolicy loaded = policy;
-            if (!enqueue(() -> {
+            if (!enqueueUpdate(() -> {
                 if (accounts.get(id) != account) return;
                 account.loading.set(false);
                 AtomicLong latest = revisions.get(id);

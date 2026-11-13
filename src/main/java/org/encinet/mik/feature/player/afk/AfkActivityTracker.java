@@ -44,6 +44,7 @@ final class AfkActivityTracker {
     private final Deque<TimedAction> recentOutcomes = new ArrayDeque<>();
     private final Deque<TimedAction> actionDeduplicationHistory = new ArrayDeque<>();
     private long lastObservedAt;
+    private long lastInputAt;
     private long lastSubstantialAt;
     private long lastIntentionalActivityAt;
     private long lastCountedActionAt = Long.MIN_VALUE;
@@ -69,7 +70,17 @@ final class AfkActivityTracker {
         reset(now, worldId, x, y, z);
     }
 
+    /** Raw input continues while AFK; it never grants activity or reward eligibility. */
+    void recordObservedInput(long now) {
+        lastInputAt = now;
+    }
+
+    boolean isIdle(long now) {
+        return elapsed(now, lastInputAt) >= policy.idleTimeoutMillis();
+    }
+
     void recordLightActivity(long now) {
+        recordObservedInput(now);
         if (suspendedAt == Long.MIN_VALUE) {
             lastObservedAt = now;
         }
@@ -274,6 +285,7 @@ final class AfkActivityTracker {
     }
 
     void recordTrustedActivity(long now) {
+        recordObservedInput(now);
         if (suspendedAt == Long.MIN_VALUE) {
             lastObservedAt = now;
         }
@@ -310,6 +322,7 @@ final class AfkActivityTracker {
     }
 
     void reset(long now, UUID worldId, double x, double y, double z) {
+        lastInputAt = now;
         lastObservedAt = now;
         lastSubstantialAt = now;
         lastIntentionalActivityAt = now;
@@ -347,6 +360,7 @@ final class AfkActivityTracker {
     }
 
     void resumeSession(long now, UUID worldId, double x, double y, double z) {
+        recordObservedInput(now);
         long pausedFor = suspendedAt == Long.MIN_VALUE ? 0L : elapsed(now, suspendedAt);
         if (pausedFor > 0L) {
             lastObservedAt += pausedFor;
@@ -365,6 +379,7 @@ final class AfkActivityTracker {
     }
 
     void resumeFromAfk(long now, UUID worldId, double x, double y, double z) {
+        recordObservedInput(now);
         long pausedFor = suspendedAt == Long.MIN_VALUE ? 0L : elapsed(now, suspendedAt);
         if (pausedFor > 0L) {
             if (!substantialActivityWhileSuspended) {

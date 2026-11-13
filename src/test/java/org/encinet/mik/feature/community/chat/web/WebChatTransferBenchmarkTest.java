@@ -22,22 +22,21 @@ class WebChatTransferBenchmarkTest {
     @Test void transfersSevenDaysOfMixedTrafficThroughRealHistoryPages(@org.junit.jupiter.api.io.TempDir Path temp) throws Exception {
         UUID viewer = UUID.randomUUID();
         var peers = java.util.stream.IntStream.range(0, 5).mapToObj(_ -> UUID.randomUUID()).toList();
-        String stream = UUID.randomUUID().toString();
         int total = 7 * 1000;
         try (var store = new ChatHistoryStore(temp.resolve("seven-days.db"))) {
             for (int index = 0; index < total; index++) {
                 var channel = index % 20 < 16 ? ChatChannel.PUBLIC : index % 20 == 16 ? ChatChannel.STAFF : ChatChannel.PRIVATE;
-                store.append(entry(index, viewer, peers.get((index / 10) % peers.size()), channel, stream)).join();
+                store.append(entry(index, viewer, peers.get((index / 10) % peers.size()), channel)).join();
             }
             int pages = 0, count = 0;
             long raw = 0, encoded = 0;
             long start = System.nanoTime();
             for (var channel : ChatChannel.values()) {
-                long before = Long.MAX_VALUE;
+                String continuation = null;
                 for (;;) {
-                    var page = store.read(new ChatHistoryStore.Query(viewer, true, channel, null, before)).join();
-                    var parts = WebChatHistory.responseParts(page, channel, "0123456789abcdef",
-                            new WebChatHistory.Viewer(viewer, Set.of(), Map.of()));
+                    var query = new ChatHistoryStore.SyncQuery(viewer, true, channel, null, null, continuation, Set.of());
+                    var parts = store.sync(query, page -> WebChatHistory.responseParts(page, channel, "0123456789abcdef",
+                            new WebChatHistory.Viewer(viewer, Set.of(), Map.of()))).join();
                     String json = String.join("", parts);
                     var response = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
                     var packet = WebChatPacket.history(parts, true);
@@ -45,10 +44,10 @@ class WebChatTransferBenchmarkTest {
                     encoded += packet.size();
                     count += response.getAsJsonArray("messages").size();
                     pages++;
-                    if (!response.get("hasMore").getAsBoolean()) break;
-                    long next = Long.parseLong(response.get("nextBefore").getAsString());
-                    assertTrue(next < before);
-                    before = next;
+                    if (!response.has("nextPage")) break;
+                    String next = response.get("nextPage").getAsString();
+                    assertNotEquals(continuation, next);
+                    continuation = next;
                 }
             }
             assertEquals(total, count);
@@ -61,13 +60,12 @@ class WebChatTransferBenchmarkTest {
     @Test void preparesAnIsolatedHundredMessagePageAndExportsABrowserInteropVector() throws Exception {
         var rows = new ArrayList<ChatHistoryStore.Row>();
         UUID viewer = UUID.randomUUID(), peer = UUID.randomUUID();
-        String stream = UUID.randomUUID().toString();
         for (int index = 0; index < 100; index++) {
-            var entry = entry(index, viewer, peer, ChatChannel.PRIVATE, stream);
+            var entry = entry(index, viewer, peer, ChatChannel.PRIVATE);
             rows.addFirst(new ChatHistoryStore.Row(index + 1, entry.payload(), 1_800_604_800_000L + index * 1000,
                     "private:" + peer + ":" + viewer));
         }
-        var parts = WebChatHistory.responseParts(new ChatHistoryStore.Page(rows, false, 1, UUID.randomUUID().toString(), 100),
+        var parts = WebChatHistory.responseParts(new ChatHistoryStore.SyncPage(new ChatHistoryStore.Page(rows, false, 1, UUID.randomUUID().toString(), 100), "a".repeat(91), _ -> "b".repeat(91), false),
                 ChatChannel.PRIVATE, "0123456789abcdef", new WebChatHistory.Viewer(viewer, Set.of(), Map.of()));
         byte[] original = String.join("", parts).getBytes(StandardCharsets.UTF_8);
         for (int i = 0; i < 200; i++) WebChatPacket.history(parts, true);
@@ -100,7 +98,7 @@ class WebChatTransferBenchmarkTest {
                 + "',liveClear:'" + Base64.getEncoder().encodeToString(richJson.getBytes(StandardCharsets.UTF_8)) + "'};", StandardCharsets.UTF_8);
     }
 
-    private static ChatHistoryStore.Entry entry(int index, UUID viewer, UUID peer, ChatChannel channel, String stream) {
+    private static ChatHistoryStore.Entry entry(int index, UUID viewer, UUID peer, ChatChannel channel) {
         String text = index + " 今天一起完成建筑，Meet at " + index * 12 + ", 64, -300 🌍";
         var conversation = switch (channel) {
             case PUBLIC -> ChatConversation.minecraftPublic();
@@ -110,6 +108,6 @@ class WebChatTransferBenchmarkTest {
         var submission = new ChatSubmission(ChatMessageId.random(), new ChatOrigin.Web(peer), ChatSender.minecraft(peer, "Alex"),
                 conversation, text, ChatReferences.empty(), Instant.ofEpochMilli(1_800_000_000_000L + index * 1000), ChatProcessingContext.external());
         var message = new ChatMessage(submission, ChatContent.plain(text), Set.of());
-        return WebChatHistory.user(ChatDelivery.managed(message, channel == ChatChannel.PRIVATE ? ChatSender.minecraft(viewer, "Viewer") : null, null), stream, index + 1);
+        return WebChatHistory.user(ChatDelivery.managed(message, channel == ChatChannel.PRIVATE ? ChatSender.minecraft(viewer, "Viewer") : null, null));
     }
 }

@@ -82,6 +82,34 @@ class TeleportPreferenceModuleTest {
         }
     }
 
+    @Test
+    void accessIsCheckedBeforeConsentAndAgainWhenAnExistingRequestIsAccepted() throws Exception {
+        try (Fixture fixture = new Fixture(PlayerRole.MEMBER, TeleportPolicy.REQUIRE_CONSENT, false, false)) {
+            fixture.module.commandAccess((_, _) -> false);
+            assertTrue(fixture.command("tp").isCancelled());
+            assertTrue(fixture.target.messages.isEmpty());
+            fixture.module.commandAccess((_, _) -> true);
+            assertTrue(fixture.command("tp").isCancelled());
+            assertEquals(1, fixture.target.messages.size());
+            fixture.module.commandAccess((_, _) -> false);
+            var accept = TeleportPreferenceModule.class.getDeclaredMethod("respondToRequest", org.bukkit.command.CommandSender.class, boolean.class);
+            accept.setAccessible(true);
+            assertEquals(0, accept.invoke(fixture.module, fixture.target.player, true));
+            assertTrue(fixture.target.messages.contains("teleport-request-failed"));
+        }
+    }
+
+    @Test
+    void hiddenVictimsAreRejectedBeforeAnyConsentRequestOrTargetNotification() throws Exception {
+        try (Fixture fixture = new Fixture(PlayerRole.MEMBER, TeleportPolicy.REQUIRE_CONSENT, false, false)) {
+            fixture.sender.canSee = false;
+            assertTrue(fixture.command("tp").isCancelled());
+            assertTrue(fixture.target.messages.isEmpty());
+            assertEquals(1, fixture.sender.messages.size());
+            assertFalse(fixture.sender.messages.contains("teleport-request-sent"));
+        }
+    }
+
     @ParameterizedTest
     @EnumSource(value = PlayerRole.class, names = {"MEMBER", "MODERATOR", "CUSTODIAN"})
     void consentIsRequestedForEveryRole(PlayerRole role) throws Exception {
@@ -190,6 +218,7 @@ class TeleportPreferenceModuleTest {
             Server server = (Server) Proxy.newProxyInstance(Server.class.getClassLoader(),
                     new Class<?>[]{Server.class}, (_, method, _) -> switch (method.getName()) {
                         case "getPlayerExact" -> target.player;
+                        case "getPlayer" -> sender.player;
                         case "getScheduler" -> scheduler;
                         default -> throw new AssertionError(method.getName());
                     });
@@ -219,11 +248,13 @@ class TeleportPreferenceModuleTest {
         private final UUID id = UUID.randomUUID();
         private final List<String> messages = new ArrayList<>();
         private final Player player;
+        private boolean canSee = true;
 
         TestPlayer(String name, PlayerRole role) {
             player = (Player) Proxy.newProxyInstance(Player.class.getClassLoader(), new Class<?>[]{Player.class},
                     (proxy, method, args) -> switch (method.getName()) {
                         case "getUniqueId" -> id;
+                        case "canSee" -> canSee;
                         case "getName" -> name;
                         case "displayName" -> Component.text(name);
                         case "hasPermission" -> role.permission().equals(args[0]);

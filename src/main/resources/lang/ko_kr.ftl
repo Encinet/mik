@@ -107,7 +107,9 @@ client-tip-axiom-intro-rich = { $mod } 모드로 건축물을 복사해 붙여�
 client-version-behind-mm = <white>현재 클라이언트 버전은 <yellow>{ $clientVersion }</yellow>이며, 서버 버전 <green>{ $serverVersion }</green>보다 오래되었습니다. 업데이트를 권장합니다.</white>
 # $count, $distance (Number): nearby players and rounded distance in blocks.
 invisibility-nearby-mm = <yellow>근처 플레이어 <gold>{ $count }</gold>명이 <gold>투명 상태</gold>입니다</yellow> <gray>·</gray> <gray>가장 가까운 플레이어 약 { $distance }블록</gray>
+player-afk-label = 자리 비움
 player-bedrock-label = 베드락
+player-monitor-label = 모니터링
 player-web-label = 웹
 presence-join-templates =
     .item-1 = 딩동! { $player } 님이 접속했어요!
@@ -555,7 +557,7 @@ announcement-view-command-description = 서버 공지 보기
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = 플랫폼을 선택하고 해당 커뮤니티 봇에게 명령어를 보내세요:
+identity-admission-instructions = 플랫폼을 선택하고 해당 명령어를 보내세요:
 identity-admission-pending = 기존 연결을 아직 확인할 수 없습니다. 나중에 다시 시도하거나 다른 플랫폼 계정을 연결하세요
 identity-admission-reconnect = 계정 연결 후 서버에 다시 접속하세요
 identity-admission-required = 커뮤니티 계정을 연결하면 서버에 접속할 수 있습니다
@@ -1808,6 +1810,14 @@ maintenance-state-disabled = 비활성화
 maintenance-state-enabled = 활성화
 maintenance-status = 유지보수 모드: { $arg0 }
 maintenance-unchanged = 유지보수 모드는 이미 { $arg0 } 상태입니다
+monitor-command-description = 무작위 순찰 또는 지정 플레이어 모니터링; stop으로 종료
+monitor-return-failed = 복귀에 실패했습니다. 관찰은 유지됩니다. /monitor stop으로 다시 시도하세요.
+monitor-returning = 원래 위치로 돌아가는 중…
+monitor-started = 관찰을 시작했습니다. /monitor로 종료합니다.
+monitor-stopped = 관찰을 종료하고 원래 위치로 돌아왔습니다.
+monitor-unavailable = 관찰을 시작할 수 없습니다. 탈것에서 내리고 관전자 모드로 전환할 수 있는지 확인하세요.
+monitor-waiting = 관찰: 관찰할 플레이어를 기다리는 중…
+monitor-watching = 관찰: { $arg0 }
 performance-kick-title = 서버에 심각한 지연이 발생했습니다
 performance-kick-reason = 서버 복구를 위해 연결이 일시적으로 끊어졌습니다
 restriction-entity-too-large-mm = <red>엔티티 크기가 서버 안전 제한을 초과했습니다</red>

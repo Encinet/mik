@@ -99,6 +99,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
     private final Queue<UUID> pendingTrustedActivity = new ConcurrentLinkedQueue<>();
     private final List<AfkStateListener> listeners = new CopyOnWriteArrayList<>();
     private final AfkSuppressionRegistry suppressions = new AfkSuppressionRegistry();
+    private final AfkSuppressionRegistry observations = new AfkSuppressionRegistry();
     private final AfkViewingController viewingController;
     private final AfkDisplayController displayController;
     private final AfkCollisionController collisionController = new AfkCollisionController();
@@ -141,6 +142,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         pendingAsyncActivity.clear();
         pendingTrustedActivity.clear();
         suppressions.clear();
+        observations.clear();
         displayController.disable();
     }
 
@@ -166,8 +168,14 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
     }
 
     @Override
+    public boolean isIdleAfk(UUID playerId) {
+        AfkPlayerSession session = playerSessions.get(playerId);
+        return isAfk(playerId) && session != null && session.activity().isIdle(activityTimeMillis());
+    }
+
+    @Override
     public boolean isActivityEligible(UUID playerId) {
-        if (isAfk(playerId)) {
+        if (isAfk(playerId) || observations.isSuppressed(playerId)) {
             return false;
         }
         AfkPlayerSession session = playerSessions.get(playerId);
@@ -185,6 +193,32 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
             String reason
     ) {
         return suppressions.acquire(playerId, reason);
+    }
+
+    @Override
+    public AfkActivityService.ActivityLease beginPassiveObservation(Player player) {
+        UUID id = player.getUniqueId();
+        var observation = observations.acquire(id, "passive observation");
+        var automatic = suppressions.acquire(id, "passive observation");
+        try {
+            // Starting an explicit observation session replaces existing AFK protection,
+            // but must not award gameplay activity or shift the age of prior outcomes.
+            if (states.remove(id) != null) {
+                Location location = player.getLocation();
+                session(player, activityTimeMillis()).exitAfkForViewing(
+                        worldId(location), location.getX(), location.getY(), location.getZ(),
+                        hasMovementInput(player.getCurrentInput()));
+                finishAfkRemoval(player);
+            }
+        } catch (RuntimeException | Error failure) {
+            automatic.close();
+            observation.close();
+            throw failure;
+        }
+        return () -> {
+            automatic.close();
+            observation.close();
+        };
     }
 
     @Override
@@ -261,6 +295,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         pendingAsyncActivity.removeIf(playerId::equals);
         pendingTrustedActivity.removeIf(playerId::equals);
         suppressions.clear(playerId);
+        observations.clear(playerId);
         restoreAfkProtection(player);
         collisionController.forgetViewer(player);
         displayController.remove(playerId);
@@ -274,6 +309,9 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         if (!isAfk(player.getUniqueId())) {
             return;
         }
+        if (event instanceof PlayerTeleportEvent teleport
+                && teleport.getCause() == PlayerTeleportEvent.TeleportCause.SPECTATE
+                && observations.isSuppressed(player.getUniqueId())) return;
         if (event instanceof PlayerTeleportEvent
                 && isPositionChange(event.getFrom(), event.getTo())) {
             event.setCancelled(true);
@@ -360,6 +398,10 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
     public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
         if (!isAfkCommand(event.getMessage())) {
             recordLightActivity(event.getPlayer());
+        } else {
+            // Repeated status commands are input, but must not renew gameplay activity or rewards.
+            long now = activityTimeMillis();
+            tracker(event.getPlayer(), now).recordObservedInput(now);
         }
     }
 

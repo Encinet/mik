@@ -123,7 +123,9 @@ invisibility-nearby-mm = <yellow>{ $count ->
         [one] { $distance } Block
        *[other] { $distance } Blöcke
     } entfernt</gray>
+player-afk-label = Abwesend
 player-bedrock-label = Bedrock
+player-monitor-label = Überwachung
 player-web-label = Web
 presence-join-templates =
     .item-1 = Ding-dong! { $player } ist online!
@@ -619,7 +621,7 @@ announcement-view-command-description = Serverankündigungen ansehen
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Wähle eine Plattform und sende ihren Befehl an den Bot der Community:
+identity-admission-instructions = Wähle eine Plattform und sende den entsprechenden Befehl:
 identity-admission-pending = Deine bestehende Verknüpfung lässt sich noch nicht prüfen. Versuche es später erneut oder verknüpfe ein anderes Plattformkonto.
 identity-admission-reconnect = Verbinde dich nach dem Verknüpfen erneut mit dem Server.
 identity-admission-required = Verknüpfe ein Community-Konto, um beizutreten.
@@ -2055,6 +2057,14 @@ maintenance-state-disabled = deaktiviert
 maintenance-state-enabled = aktiviert
 maintenance-status = Wartungsmodus: { $arg0 }
 maintenance-unchanged = Der Wartungsmodus ist bereits { $arg0 }
+monitor-command-description = Zufällige oder gezielte Spielerüberwachung; stop beendet sie
+monitor-return-failed = Rückkehr fehlgeschlagen. Die Beobachtung bleibt aktiv; mit /monitor stop erneut versuchen.
+monitor-returning = Rückkehr zum ursprünglichen Ort…
+monitor-started = Beobachtung aktiviert. Mit /monitor beenden.
+monitor-stopped = Beobachtung beendet; du bist zum ursprünglichen Ort zurückgekehrt.
+monitor-unavailable = Beobachtung nicht verfügbar. Verlasse dein Fahrzeug und prüfe, ob der Zuschauermodus erlaubt ist.
+monitor-waiting = Beobachtung: Warten auf eine geeignete Person…
+monitor-watching = Beobachtung: { $arg0 }
 performance-kick-title = Der Server ist stark überlastet
 performance-kick-reason = Du wurdest vorübergehend getrennt, damit sich der Server erholen kann
 restriction-entity-too-large-mm = <red>Die Größe der Entität überschreitet das Sicherheitslimit des Servers</red>

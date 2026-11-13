@@ -131,7 +131,9 @@ invisibility-nearby-mm = <yellow>Рядом: { $count ->
         [many] { $distance } блоков
        *[other] { $distance } блока
     }</gray>
+player-afk-label = Отошёл
 player-bedrock-label = Bedrock
+player-monitor-label = Наблюдение
 player-web-label = Веб
 presence-join-templates =
     .item-1 = Динь-дон! { $player } в сети!
@@ -679,7 +681,7 @@ announcement-view-command-description = Просмотреть объявлен�
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Выберите платформу и отправьте её команду боту сообщества:
+identity-admission-instructions = Выберите платформу и отправьте соответствующую команду:
 identity-admission-pending = Проверить текущую привязку пока не удалось. Повторите попытку позже или привяжите аккаунт другой платформы.
 identity-admission-reconnect = После привязки подключитесь к серверу снова.
 identity-admission-required = Привяжите аккаунт сообщества, чтобы войти на сервер.
@@ -2109,6 +2111,14 @@ maintenance-state-disabled = выключен
 maintenance-state-enabled = включён
 maintenance-status = Режим технического обслуживания: { $arg0 }
 maintenance-unchanged = Режим технического обслуживания уже { $arg0 }
+monitor-command-description = Наблюдение за случайными или указанным игроком; stop завершает
+monitor-return-failed = Не удалось вернуться. Наблюдение продолжается; повторите командой /monitor stop.
+monitor-returning = Возвращение на исходное место…
+monitor-started = Наблюдение включено. Для завершения используйте /monitor.
+monitor-stopped = Наблюдение завершено; вы вернулись на исходное место.
+monitor-unavailable = Наблюдение недоступно. Покиньте транспорт и проверьте, разрешён ли режим наблюдателя.
+monitor-waiting = Наблюдение: ожидание доступного игрока…
+monitor-watching = Наблюдение: { $arg0 }
 performance-kick-title = На сервере наблюдаются серьёзные задержки
 performance-kick-reason = Вы временно отключены, чтобы сервер мог восстановить работу
 restriction-entity-too-large-mm = <red>Размер сущности превышает безопасный предел сервера</red>

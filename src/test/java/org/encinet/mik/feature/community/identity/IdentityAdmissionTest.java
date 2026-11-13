@@ -68,7 +68,7 @@ class IdentityAdmissionTest {
         assertTrue(text.indexOf("https://mcmik.top/join") < text.indexOf("/bind "), text);
         assertTrue(text.contains("!bind "), text);
         assertFalse(text.contains("/绑定"), text);
-        assertTrue(text.contains("\n\nChoose a platform and send its command to the community bot:\n"), text);
+        assertTrue(text.contains("\n\nChoose a platform and send the corresponding command:\n"), text);
         assertTrue(text.endsWith("\n\nCode validity: 5 minutes\nReconnect to the server after linking."), text);
         var chinese = login("zh_cn");
         admission.configure(chinese);
@@ -76,7 +76,7 @@ class IdentityAdmissionTest {
         String localized = PlainTextComponentSerializer.plainText().serialize(chinesePrompt);
         IdentityPromptAssertions.assertCodeEmphasis(chinesePrompt, 2);
         assertTrue(localized.contains("加入社区"), localized);
-        assertTrue(localized.contains("\n\n选择一个平台，向社区机器人发送对应指令：\n"), localized);
+        assertTrue(localized.contains("\n\n选择一个平台，发送对应指令：\n"), localized);
         assertTrue(localized.endsWith("\n\n验证码有效期：5 分钟\n绑定后重新连接服务器"), localized);
         assertEquals(code(text), code(localized));
     }

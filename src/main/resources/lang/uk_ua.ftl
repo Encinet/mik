@@ -131,7 +131,9 @@ invisibility-nearby-mm = <yellow>Поблизу: { $count ->
         [many] { $distance } блоків
        *[other] { $distance } блока
     }</gray>
+player-afk-label = Відійшов
 player-bedrock-label = Bedrock
+player-monitor-label = Спостереження
 player-web-label = Веб
 presence-join-templates =
     .item-1 = Дінь-дон! { $player } у мережі!
@@ -670,7 +672,7 @@ announcement-view-command-description = Переглянути оголошен�
 ## Community · Identity and social platforms
 
 identity-admission-bind-rich = { $platform }: { $command }
-identity-admission-instructions = Виберіть платформу й надішліть її команду боту спільноти:
+identity-admission-instructions = Виберіть платформу й надішліть відповідну команду:
 identity-admission-pending = Поки що не вдалося перевірити поточну прив’язку. Спробуйте пізніше або прив’яжіть обліковий запис іншої платформи.
 identity-admission-reconnect = Після прив’язування підключіться до сервера знову.
 identity-admission-required = Прив’яжіть обліковий запис спільноти, щоб увійти на сервер.
@@ -2100,6 +2102,14 @@ maintenance-state-disabled = вимкнено
 maintenance-state-enabled = увімкнено
 maintenance-status = Режим технічного обслуговування: { $arg0 }
 maintenance-unchanged = Режим технічного обслуговування вже { $arg0 }
+monitor-command-description = Спостерігати за випадковими або вказаним гравцем; stop завершує
+monitor-return-failed = Не вдалося повернутися. Спостереження триває; повторіть командою /monitor stop.
+monitor-returning = Повернення на початкове місце…
+monitor-started = Спостереження ввімкнено. Для завершення використайте /monitor.
+monitor-stopped = Спостереження завершено; ви повернулися на початкове місце.
+monitor-unavailable = Спостереження недоступне. Залиште транспорт і перевірте, чи дозволено режим спостерігача.
+monitor-waiting = Спостереження: очікування доступного гравця…
+monitor-watching = Спостереження: { $arg0 }
 performance-kick-title = На сервері спостерігаються значні затримки
 performance-kick-reason = Вас тимчасово відключено, щоб сервер міг відновити роботу
 restriction-entity-too-large-mm = <red>Розмір сутності перевищує безпечне обмеження сервера</red>

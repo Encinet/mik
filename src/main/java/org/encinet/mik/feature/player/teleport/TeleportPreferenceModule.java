@@ -58,6 +58,12 @@ public class TeleportPreferenceModule implements Listener {
     private final Map<UUID, TeleportRequest> pendingRequests = new ConcurrentHashMap<>();
     private final Set<TeleportAuthorization> authorizations = ConcurrentHashMap.newKeySet();
 
+    private java.util.function.BiPredicate<Player, String> commandAccess = (_, _) -> true;
+
+    public void commandAccess(java.util.function.BiPredicate<Player, String> access) {
+        commandAccess = Objects.requireNonNull(access, "access");
+    }
+
     private File settingsFile;
     private YamlConfiguration settingsData;
 
@@ -120,6 +126,11 @@ public class TeleportPreferenceModule implements Listener {
             return;
         }
 
+        if (!commandAccess.test(sender, event.getMessage().substring(1))) {
+            event.setCancelled(true);
+            return;
+        }
+
         String[] args = command[1].split("\\s+");
         if (args.length < 2) return;
 
@@ -128,6 +139,11 @@ public class TeleportPreferenceModule implements Listener {
 
         Player victim = Bukkit.getPlayerExact(victimArg);
         if (victim != null && !victim.equals(sender)) {
+            if (!sender.canSee(victim)) {
+                event.setCancelled(true);
+                sender.sendMessage(Component.translatable("argument.entity.notfound.entity").color(NamedTextColor.RED));
+                return;
+            }
             TeleportAuthorization authorization = new TeleportAuthorization(
                     sender.getUniqueId(), victim.getUniqueId(), event.getMessage());
             if (authorizations.remove(authorization)) {
@@ -398,6 +414,12 @@ public class TeleportPreferenceModule implements Listener {
         }
 
         if (requester == null) {
+            target.sendMessage(Component.text(languageService.t(target,
+                    Message.TELEPORT_REQUEST_FAILED), NamedTextColor.RED));
+            return 0;
+        }
+
+        if (!commandAccess.test(requester, request.command().substring(1))) {
             target.sendMessage(Component.text(languageService.t(target,
                     Message.TELEPORT_REQUEST_FAILED), NamedTextColor.RED));
             return 0;

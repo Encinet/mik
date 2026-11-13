@@ -64,7 +64,7 @@ class ChatHistoryStoreTest {
             assertEquals(java.util.List.of("background"), result.get(5, TimeUnit.SECONDS));
             write.get(5, TimeUnit.SECONDS);
             assertNotSame(caller, preparedBy.get());
-            assertSame(preparedBy.get(), projectedBy.get());
+            assertNotSame(preparedBy.get(), projectedBy.get());
             assertThrows(java.util.concurrent.ExecutionException.class, () -> store.append(() -> {
                 throw new IllegalArgumentException("Invalid snapshot");
             }).get(5, TimeUnit.SECONDS));

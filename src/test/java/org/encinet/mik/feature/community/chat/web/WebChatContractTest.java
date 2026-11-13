@@ -31,8 +31,8 @@ class WebChatContractTest {
                         ? ChatMessageId.external(social.platformId(), social.conversationId(), "event".repeat(100)) : ChatMessageId.random(),
                         origin, sender, ChatConversation.minecraftPublic(), "<script>safe text</script> https://example.org", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external());
                 JsonObject payload = new WebChatMessage(new ChatProcessor().process(submission), null, null).payload();
-                payload.addProperty("mentioned", false); payload.addProperty("sequence", frames.size() + 1);
-                payload.addProperty("streamId", "44444444-4444-4444-8444-444444444444");
+                payload.addProperty("mentioned", false);
+                payload.addProperty("order", "00000000-0000-7000-8000-000000000001");
                 assertEquals("user", payload.get("kind").getAsString());
                 assertFalse(payload.has("senderUuid"));
                 assertEquals(bound, payload.getAsJsonObject("sender").has("playerUuid"));

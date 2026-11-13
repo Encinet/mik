@@ -27,6 +27,7 @@ import org.encinet.mik.shared.i18n.LanguageChangeListener;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
+import org.encinet.mik.shared.util.TextBadge;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -42,6 +43,15 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
 
     public record WebPlayer(UUID playerUuid, String name, int connections) { }
     private List<WebPlayer> webPlayers = List.of();
+    private BiPredicate<Player, Player> retainedEntries = (_, _) -> false;
+    private java.util.function.BiFunction<Player, Player, Component> gameBadge = (_, _) -> Component.empty();
+
+    public void gameBadge(java.util.function.BiFunction<Player, Player, Component> badge) {
+        gameBadge = java.util.Objects.requireNonNull(badge, "badge");
+    }
+
+    public void retainedEntries(BiPredicate<Player, Player> visibility) { retainedEntries = visibility; }
+
     private BiPredicate<UUID, UUID> webVisibility = (_, _) -> true;
     private final WebTabList webTabList = new WebTabList();
     private final Map<UUID, PlayerProfile> webProfiles = new HashMap<>();
@@ -261,7 +271,7 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
                 .render(subject, Component.text(subject.getName()))
                 .tabList(sources.game(subject, language));
         return afkService.isAfk(subject.getUniqueId())
-                ? identity.append(renderAfkBadge())
+                ? identity.append(renderAfkBadge(language))
                 : identity;
     }
 
@@ -279,7 +289,7 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
             if (displayName == null) {
                 continue;
             }
-            entries.add(playerInfo(subject, displayName));
+            entries.add(playerInfo(subject, displayName.append(gameBadge.apply(viewer, subject))));
         }
         sendPlayerListNames(viewer, entries);
     }
@@ -319,7 +329,8 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
 
     private boolean canSee(Player viewer, Player subject) {
         return subject.isOnline()
-                && (viewer.getUniqueId().equals(subject.getUniqueId()) || viewer.canSee(subject));
+                && (viewer.getUniqueId().equals(subject.getUniqueId()) || viewer.canSee(subject)
+                || retainedEntries.test(viewer, subject));
     }
 
     private void updateAllHeadersAndFooters() {
@@ -441,7 +452,7 @@ public class TabListModule implements Listener, AfkStateListener, LanguageChange
         return nonAfkPlayers <= nonAfkThreshold;
     }
 
-    private Component renderAfkBadge() {
-        return MINI_MESSAGE.deserialize(" <gray>[</gray><gold>AFK</gold><gray>]</gray>");
+    private Component renderAfkBadge(Language language) {
+        return TextBadge.suffix(languageService.t(language, Message.PLAYER_AFK_LABEL), NamedTextColor.GOLD);
     }
 }
