@@ -21,8 +21,6 @@ final class MonitorCamera {
     private static final double CLEARANCE = MonitorSight.MARGIN;
     private static final double RADIUS = 0.25;
     private static final double WALL_MARGIN = 0.12;
-    private static final double FOLLOW_DAMPING = 0.5;
-    private static final double MAX_FOLLOW_LAG = 0.75;
     private static final int LOOK_STABILITY_FRAMES = 5;
     private static final double OPERATION_REACH = 3;
     private static final double[] ANGLES = {70, -70, 90, -90, 110, -110, 35, -35, 0, 180};
@@ -33,18 +31,17 @@ final class MonitorCamera {
     private static final double TRANSITION_STEP = 0.25;
     private static final int MAX_TRANSITION_STEPS = 128;
     private static final double MINIMUM_AIM_DOT = Math.cos(Math.toRadians(12));
+    private static final double MINIMUM_BODY_DOT = Math.cos(Math.toRadians(10));
 
     private final Predicate<Location> solidRender;
     private final MonitorFraming framing = new MonitorFraming();
     private final MonitorOperation operations = new MonitorOperation();
+    private final MonitorTransition transition = new MonitorTransition();
     private double minimumFrameDot = Math.cos(Math.toRadians(30));
 
     private UUID subject;
     private Location previousTarget;
-    private Location previousFocus;
-    private Location previousAim;
-    private MonitorOperation.Focus previousOperation;
-    private final Vector velocity = new Vector();
+    private Composition previousComposition;
     private double heading;
     private double pitch;
     private double desiredHeading;
@@ -83,10 +80,8 @@ final class MonitorCamera {
         operations.reset();
         subject = null;
         previousTarget = null;
-        previousFocus = null;
-        previousAim = null;
-        previousOperation = null;
-        velocity.zero();
+        previousComposition = null;
+        transition.reset();
         firstPerson = false;
         clearFrames = 0;
         pending = -1;
@@ -118,7 +113,7 @@ final class MonitorCamera {
             lastPitch = targetEye.getPitch();
             yawFrames = 0;
             pitchFrames = 0;
-            velocity.zero();
+            transition.reset();
             preferred = 0;
             firstPerson = false;
             clearFrames = 0;
@@ -137,10 +132,8 @@ final class MonitorCamera {
         Composition composition = new Composition(focus, operation, observed, minimumFrameDot);
         Vector movement = cut ? new Vector() : targetEye.toVector().subtract(previousTarget.toVector());
         MonitorFraming.Frame motion = framing.update(movement);
-        Location oldFocus = previousFocus;
-        Location oldAim = previousAim;
+        Composition oldComposition = previousComposition;
         previousTarget = targetEye.clone();
-        previousFocus = focus.clone();
 
         Location best = candidate(targetEye, composition, preferred, motion);
         int winner = preferred;
@@ -174,8 +167,8 @@ final class MonitorCamera {
             pendingFrames = 0;
         }
         if (best == null) {
-            velocity.zero();
-            previousOperation = null;
+            transition.reset();
+            previousComposition = null;
             firstPerson = true;
             clearFrames = 0;
             return null;
@@ -194,8 +187,9 @@ final class MonitorCamera {
             Location carried = currentEye.clone().add(movement);
             double maximumReach = MonitorFraming.MAX_DISTANCE + MonitorFraming.MAX_COMPENSATION + 2;
             if (carried.distanceSquared(targetEye) <= maximumReach * maximumReach) {
-                Location blended = smooth(currentEye, best, motion.retracting());
-                Location clipped = clip(focus, blended);
+                Location blended = transition.position(currentEye, targetEye, movement, best, motion.retracting(),
+                        (from, to) -> clearRoute(from, to, composition));
+                Location clipped = blended == null ? null : clip(focus, blended);
                 if (clipped != null && clipped.distanceSquared(blended) < 0.01
                         && usable(clipped, composition)) eye = clipped;
                 else cut = true;
@@ -207,12 +201,25 @@ final class MonitorCamera {
         }
         Location aim = composition.aim(eye);
         eye.setDirection(aim.toVector().subtract(eye.toVector()));
-        if (!cut) eye.setYaw((float) (currentEye.getYaw() + wrap(eye.getYaw() - currentEye.getYaw())));
+        if (!cut) {
+            Vector ideal = eye.getDirection();
+            Location next = eye;
+            Vector bodyDirection = focus.toVector().subtract(eye.toVector()).normalize();
+            double minimumBodyDot = Math.min(MINIMUM_BODY_DOT, ideal.dot(bodyDirection));
+            transition.aim(currentEye, eye, direction -> direction.dot(ideal) >= MINIMUM_AIM_DOT
+                    && (observed != null || direction.dot(bodyDirection) >= minimumBodyDot - 1.0e-7)
+                    && composition.fitsAim(next, direction, ideal));
+        }
         // Check both occlusion and the aim produced by interpolating position and rotation.
-        if (!cut && !visibleTransition(currentEye, eye, oldFocus, focus, oldAim, aim, observed)) cut = true;
-        previousAim = aim;
-        previousOperation = observed;
-        if (cut) velocity.zero();
+        if (!cut && !visibleTransition(currentEye, eye, oldComposition, composition)) {
+            // Never retain a partially advanced or eased pose when the path needs a cut.
+            eye = best;
+            aim = composition.aim(eye);
+            eye.setDirection(aim.toVector().subtract(eye.toVector()));
+            cut = true;
+        }
+        previousComposition = composition;
+        if (cut) transition.reset();
         return new Frame(eye.subtract(0, eyeHeight, 0), cut);
     }
 
@@ -234,21 +241,6 @@ final class MonitorCamera {
         double desiredTilt = Math.clamp((desiredPitch - pitch) * 0.12, -3, 3);
         pitchVelocity += (desiredTilt - pitchVelocity) * 0.25;
         pitch = Math.clamp(pitch + pitchVelocity, -90, 90);
-    }
-
-    private Location smooth(Location current, Location desired, boolean retracting) {
-        Vector error = current.toVector().subtract(desired.toVector());
-        // Keep inertia local to the subject, even when a fast vehicle moves many blocks per tick.
-        if (error.lengthSquared() > MAX_FOLLOW_LAG * MAX_FOLLOW_LAG) error.normalize().multiply(MAX_FOLLOW_LAG);
-        // Integrate a critically damped spring over one monitor tick, retaining its velocity
-        // between frames so acceleration and braking settle without oscillation.
-        double damping = retracting ? FOLLOW_DAMPING * 1.1 : FOLLOW_DAMPING;
-        Vector step = velocity.clone().add(error.clone().multiply(damping));
-        double decay = Math.exp(-damping);
-        Vector nextError = error.add(step).multiply(decay);
-        if (nextError.lengthSquared() > MAX_FOLLOW_LAG * MAX_FOLLOW_LAG) nextError.normalize().multiply(MAX_FOLLOW_LAG);
-        velocity.subtract(step.multiply(damping)).multiply(decay);
-        return desired.clone().add(nextError);
     }
 
     private double score(Location eye, Location focus, int index, double distance) {
@@ -305,28 +297,41 @@ final class MonitorCamera {
         return eye.getWorld().rayTraceBlocks(eye, direction, distance, FluidCollisionMode.NEVER, true) == null;
     }
 
-    private boolean visibleTransition(Location fromEye, Location toEye, Location fromFocus, Location toFocus,
-                                      Location fromAim, Location toAim, @Nullable MonitorOperation.Focus observed) {
-        if (fromFocus == null || fromAim == null || !fromEye.getWorld().equals(fromFocus.getWorld())) return false;
+    private boolean clearRoute(Location from, Location to, Composition composition) {
+        if (!usable(from, composition) || !usable(to, composition)) return false;
+        Location fromAim = composition.aim(from);
+        Location toAim = composition.aim(to);
+        from.setDirection(fromAim.toVector().subtract(from.toVector()));
+        to.setDirection(toAim.toVector().subtract(to.toVector()));
+        return visibleTransition(from, to, composition, composition);
+    }
+
+    private boolean visibleTransition(Location fromEye, Location toEye, @Nullable Composition from, Composition to) {
+        if (from == null || !fromEye.getWorld().equals(from.body().getWorld())) return false;
         int steps = Math.max(1, (int) Math.ceil(Math.max(fromEye.distance(toEye),
-                fromFocus.distance(toFocus)) / TRANSITION_STEP));
+                from.body().distance(to.body())) / TRANSITION_STEP));
+        steps = Math.max(steps, (int) Math.ceil(Math.max(Math.abs(wrap(toEye.getYaw() - fromEye.getYaw())),
+                Math.abs(toEye.getPitch() - fromEye.getPitch())) / 2));
         // Bound main-thread work. An unusually long unexplained displacement cuts without changing sides.
         if (steps > MAX_TRANSITION_STEPS) return false;
+        Location fromAim = from.aim(fromEye);
+        Location toAim = to.aim(toEye);
         Location previous = null;
         boolean previousSolid = false;
         for (int step = 0; step <= steps; step++) {
             double fraction = (double) step / steps;
             Location eye = interpolate(fromEye, toEye, fraction);
-            Location focus = interpolate(fromFocus, toFocus, fraction);
+            Location focus = interpolate(from.body(), to.body(), fraction);
             Location aim = interpolate(fromAim, toAim, fraction);
             if (!visible(eye, focus)) return false;
-            MonitorOperation.Focus during = observed == null ? null : observed.during(previousOperation,
-                    focus.toVector().subtract(toFocus.toVector()), fraction);
+            MonitorOperation.Focus during = to.observed() == null ? null : to.observed().during(from.observed(),
+                    focus.toVector().subtract(to.body().toVector()), fraction);
             if (!operationVisible(eye, during)) return false;
             eye.setYaw((float) (fromEye.getYaw() + wrap(toEye.getYaw() - fromEye.getYaw()) * fraction));
             eye.setPitch((float) (fromEye.getPitch() + (toEye.getPitch() - fromEye.getPitch()) * fraction));
             if (eye.getDirection().dot(aim.toVector().subtract(eye.toVector()).normalize()) < MINIMUM_AIM_DOT) return false;
-            if (during != null && !new Composition(focus, focus, during, minimumFrameDot).fits(eye, eye.getDirection())) return false;
+            Location estimated = interpolate(from.estimated(), to.estimated(), fraction);
+            if (!new Composition(focus, estimated, during, minimumFrameDot).fits(eye, eye.getDirection())) return false;
             boolean solid = solidRender.test(eye);
             if (previous != null) {
                 // Cut at exposed wall surfaces and thin obstructions between visibility samples.
@@ -463,9 +468,23 @@ final class MonitorCamera {
         }
 
         boolean fits(Location eye, Vector direction) {
+            return fits(eye, direction, null);
+        }
+
+        boolean fitsAim(Location eye, Vector direction, Vector ideal) {
+            return fits(eye, direction, ideal);
+        }
+
+        private boolean fits(Location eye, Vector direction, @Nullable Vector ideal) {
+            // Leave room for curvature between packet endpoints without making a tight
+            // but valid ideal composition impossible to reach.
+            double inset = ideal == null ? minimumDot : Math.cos(Math.max(0, Math.acos(minimumDot) - Math.toRadians(2)));
             for (Vector point : points) {
                 Vector ray = point.clone().subtract(eye.toVector());
-                if (ray.lengthSquared() < 0.01 || direction.dot(ray.normalize()) < minimumDot) return false;
+                if (ray.lengthSquared() < 0.01) return false;
+                ray.normalize();
+                double required = ideal == null ? minimumDot : Math.min(inset, ideal.dot(ray)) - 1.0e-7;
+                if (direction.dot(ray) < required) return false;
             }
             return true;
         }

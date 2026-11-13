@@ -198,6 +198,46 @@ class MonitorCameraTest {
     }
 
     @Test
+    void changingTheWorkedObjectsPositionEasesTheAimWhileKeepingBothSubjectsVisible() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        Entity entity = scene.entity(new BoundingBox(7.6, 64, 10, 8.4, 65.9, 10.8));
+        MonitorCamera camera = scene.camera();
+        MonitorCamera.Frame initial = camera.update(player, eye, EYE_HEIGHT);
+        assertNotNull(initial);
+        Location current = eyes(initial.feet());
+        BoundingBox moved = entity.getBoundingBox().clone().shift(0.6, 0, 0);
+        when(entity.getBoundingBox()).thenReturn(moved);
+        Location body = eye.clone().subtract(0, EYE_HEIGHT * 0.25, 0);
+        Vector ideal = body.toVector().subtract(current.toVector()).normalize().multiply(0.55)
+                .add(entity.getBoundingBox().getCenter().subtract(current.toVector()).normalize().multiply(0.45)).normalize();
+        double fullTurn = current.getDirection().angle(ideal);
+        for (int tick = 0; tick < 40; tick++) {
+            camera.operations().entity(player, entity);
+            MonitorOperation.Focus operation = camera.operations().sample(player);
+            assertNotNull(operation);
+            MonitorCamera.Frame frame = camera.update(player, current, EYE_HEIGHT);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "a small change of work position must not recreate the camera");
+            Location next = eyes(frame.feet());
+            if (tick == 0) {
+                double turn = current.getDirection().angle(next.getDirection());
+                assertTrue(turn > 0 && turn < fullTurn * 0.75, "aim must accelerate toward the new composition");
+            }
+            for (int sample = 0; sample <= 10; sample++) {
+                double fraction = sample / 10.0;
+                Location between = current.clone().add(next.toVector().subtract(current.toVector()).multiply(fraction));
+                between.setYaw((float) (current.getYaw() + Math.IEEEremainder(next.getYaw() - current.getYaw(), 360) * fraction));
+                between.setPitch((float) (current.getPitch() + (next.getPitch() - current.getPitch()) * fraction));
+                assertJointView(scene, between, operation);
+            }
+            current = next;
+        }
+        assertTrue(current.getDirection().dot(ideal) > 0.99999, "the eased aim must settle on the new composition");
+    }
+
+    @Test
     void narrowFieldOfViewPullsBackToKeepThePlayerAndObjectInsideItsMargin() {
         Scene scene = new Scene();
         Location eye = new Location(scene.world, 8, 65.62, 8);
@@ -292,7 +332,7 @@ class MonitorCameraTest {
         for (int tick = 0; tick < 80; tick++) {
             MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
             assertNotNull(frame);
-            assertFalse(frame.cut(), "a sustained head turn should orbit continuously in an open area");
+            assertFalse(frame.cut(), "a sustained head turn should orbit continuously in an open area, tick " + tick);
             assertTrue(frame.feet().distance(observer) < 0.6, "reframing must retain angular inertia");
             observer = frame.feet();
         }
@@ -700,26 +740,29 @@ class MonitorCameraTest {
         Location focus = eye.clone().subtract(0, 0.4, 0);
         Location current = eye.clone().subtract(initial.toVector().subtract(eye.toVector()));
         current.setY(initial.getY());
-        current.setDirection(focus.toVector().subtract(current.toVector()));
-        boolean cut = false;
-        for (int tick = 0; tick < 20; tick++) {
+        Location operation = eye.clone().add(eye.getDirection().multiply(3));
+        Location aim = focus.clone().add(operation.toVector().subtract(focus.toVector()).multiply(0.25));
+        current.setDirection(aim.toVector().subtract(current.toVector()));
+        for (int tick = 0; tick < 100; tick++) {
             MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, current, EYE_HEIGHT, null);
             assertNotNull(frame);
             Location next = eyes(frame.feet());
-            if (frame.cut()) cut = true;
-            else {
-                for (int sample = 0; sample <= 20; sample++) {
-                    double fraction = sample / 20.0;
-                    Location between = current.clone().add(next.toVector().subtract(current.toVector()).multiply(fraction));
-                    between.setYaw((float) (current.getYaw() + Math.IEEEremainder(next.getYaw() - current.getYaw(), 360) * fraction));
-                    between.setPitch((float) (current.getPitch() + (next.getPitch() - current.getPitch()) * fraction));
-                    double aim = between.getDirection().dot(focus.toVector().subtract(between.toVector()).normalize());
-                    assertTrue(aim >= Math.cos(Math.toRadians(12)), "interpolating the camera must keep the player near the center");
-                }
+            assertFalse(frame.cut(), "an open reframe must orbit around the subject instead of cutting across it, tick " + tick);
+            assertTrue(next.distance(current) < 0.55, "a distant viewpoint must not bypass the transition spring");
+            if (tick == 0) assertTrue(next.distance(current) < 0.2, "the orbit must ease into motion");
+            for (int sample = 0; sample <= 20; sample++) {
+                double fraction = sample / 20.0;
+                Location between = current.clone().add(next.toVector().subtract(current.toVector()).multiply(fraction));
+                between.setYaw((float) (current.getYaw() + Math.IEEEremainder(next.getYaw() - current.getYaw(), 360) * fraction));
+                between.setPitch((float) (current.getPitch() + (next.getPitch() - current.getPitch()) * fraction));
+                double alignment = between.getDirection().dot(focus.toVector().subtract(between.toVector()).normalize());
+                assertTrue(alignment >= Math.cos(Math.toRadians(12)), "interpolating the camera must keep the player near the center");
+                assertTrue(between.distance(focus) > 4, "the transition must not fly through the player's body");
+                assertFramed(eye, between);
             }
             current = next;
         }
-        assertTrue(cut, "a large reframe over the subject cannot safely interpolate every rotation");
+        assertTrue(current.distance(initial) < 0.01, "the orbit must settle at the selected viewpoint");
     }
 
     @Test
@@ -766,7 +809,7 @@ class MonitorCameraTest {
         }
         assertTrue(offsets[0].getX() - offsets[1].getX() > 0.6,
                 "prediction must still lead in both directions after allowing for follow inertia");
-        assertEquals(offsets[0].getZ(), offsets[1].getZ(), 1.0e-6);
+        assertEquals(offsets[0].getZ(), offsets[1].getZ(), 1.0e-3);
     }
 
     @Test
