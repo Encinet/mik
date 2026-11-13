@@ -3,6 +3,11 @@ package org.encinet.mik.feature.entertainment.music.disc;
 import org.bukkit.inventory.ItemStack;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicLibrary;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
+import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
+import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
+import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import java.time.Duration;
 
 import java.util.Objects;
 import java.util.function.Function;
@@ -23,6 +28,18 @@ public final class MusicDiscResolver {
     }
 
     public MusicTrack resolve(ItemStack disc) {
+        if (disc == null || disc.getType().isAir()) return null;
+        if (!MusicDiscKeys.isCustomDisc(disc)) {
+            var playable = disc.getData(DataComponentTypes.JUKEBOX_PLAYABLE);
+            if (playable == null) return null;
+            var song = playable.jukeboxSong();
+            var sound = org.bukkit.Registry.SOUNDS.getKey(song.getSound());
+            if (sound == null) return null;
+            return new MusicTrack("record:"+song.key().asString(),
+                    new TrackDetails(song.key().value().replace('_',' '),null,null,"record",
+                            new AudioProperties(null,null,Duration.ofMillis(Math.round(song.getLengthInSeconds()*1000D)))),
+                    new TrackTarget.NativeRecord(sound.asString()));
+        }
         return resolve(MusicDiscKeys.trackId(disc), MusicDiscKeys.trackData(disc),
                 MusicDiscKeys.trackSignature(disc));
     }

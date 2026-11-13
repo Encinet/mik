@@ -2202,6 +2202,7 @@ music-space-label =
         [device-actions] Действия
         [device-status] Состояние
         [sync-group] Группа синхронизации
+        [group-control-help] Воспроизведение и извлечение пластинки действуют на всю группу. Громкость и дальность настраиваются для каждого устройства.
         [single-device] Проигрыватель
         [device-location] Расположение
         [visit-device] Телепортироваться рядом

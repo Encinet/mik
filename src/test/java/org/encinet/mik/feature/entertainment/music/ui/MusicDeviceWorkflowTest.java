@@ -33,6 +33,62 @@ import org.mockito.MockedStatic;
 
 /** Exercise the actual host: an auxiliary task used to hide every member selection control. */
 class MusicDeviceWorkflowTest {
+    @Test void groupDetailsExplainSharedControlsAndEjectThroughTheGroupAcrossLanguages() throws Exception {
+        for (var locale : Language.values()) try (var h = new Harness(locale)) {
+            var group = UUID.randomUUID();
+            h.data.devices.replaceAll((_,device) -> device.grouped(group));
+            h.data.groups.put(group,new MusicState.Group(group,"Garden speakers",List.of(h.first,h.second),Map.of(),100,0));
+            var target = new DeviceTarget(group,"Garden speakers",List.copyOf(h.data.devices.values()));
+            doReturn(target).when(h.registry).target(group);
+            doReturn("Garden speakers").when(h.registry).name(h.player,group);
+            h.open(); h.workspace.panel(h.player,new DevicePanel(group,DeviceSection.SETTINGS));
+            for (double font : new double[]{.7,1,1.8}) {
+                var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.readableFrame(h.scene,font,
+                        new FloatingMenuFieldOfView(70),1),locale+" font="+font);
+                assertDisjoint(frame);
+            }
+            boolean help = false;
+            boolean ejected = false;
+            for (int pass=0;pass<12;pass++) {
+                var frame = h.frame();
+                help |= frame.elements().stream().anyMatch(item -> item.node().key().equals(UiKey.item("group-control-help")));
+                var eject = frame.elements().stream().filter(item -> item.node().key().value().equals("eject")).findFirst();
+                if (!ejected && eject.isPresent()) { h.click(eject.get()); ejected = true; }
+                var page = frame.pagination().stream().filter(item -> item.path().contains("/task:")).findFirst();
+                if (page.isEmpty() || !page.get().page().hasNext()) break;
+                page.get().selectPage().accept(page.get().page().next().index());
+            }
+            assertTrue(help,locale.toString());
+            assertTrue(ejected,locale.toString());
+            verify(h.playback).eject(h.player,group);
+        }
+    }
+
+    @Test void nearbyMarkersInvalidateTheWorkspaceWhenRangeOrAccessChangesOutsideTheDeviceDirectory() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            when(h.registry.targets(h.player)).thenReturn(List.of());
+            when(h.menus.queryInput(eq(h.player),any(),anyInt(),any(),any())).thenAnswer(_ -> {
+                var input = mock(MenuQuerySession.class);
+                when(input.content(anyString())).thenReturn(Ui.column().build());
+                return input;
+            });
+            var edge = new MusicDevice(UUID.randomUUID(),h.worldId,"world",64,64,0,"Nearby",100,64,null,0);
+            h.data.devices.put(edge.id(),edge);
+            var refresh = h.scene.refresh();
+            Object outside = refresh.revision(h.player);
+            var world = h.player.getWorld();
+            when(h.player.getLocation()).thenReturn(new Location(world,1,64,0));
+            Object inside = refresh.revision(h.player);
+            assertNotEquals(outside,inside);
+            refresh.action().execute(h.player,h.handle);
+            assertTrue(h.scene.decorations().containsKey("mark:"+edge.id()));
+            when(h.registry.mayLocate(h.player,edge)).thenReturn(false);
+            assertNotEquals(inside,refresh.revision(h.player));
+            refresh.action().execute(h.player,h.handle);
+            assertFalse(h.scene.decorations().containsKey("mark:"+edge.id()));
+        }
+    }
+
     @Test void editingThePersonalDeviceAliasFitsInsideTheActualSettingsPage() throws Exception {
         for (Language locale : Language.values()) try (var h = new Harness(locale)) {
             when(h.registry.bound(h.player.getUniqueId(),h.second)).thenReturn(true);
@@ -286,6 +342,7 @@ class MusicDeviceWorkflowTest {
                 when(registry.alias(eq(player),any())).thenAnswer(call -> call.<MusicDevice>getArgument(1).name());
                 when(registry.online(any())).thenReturn(true);
                 when(registry.mayControl(eq(player),any())).thenReturn(true);
+                when(registry.mayLocate(eq(player),any())).thenReturn(true);
                 when(registry.location(any())).thenAnswer(call -> { var device = call.<MusicDevice>getArgument(0); return new Location(world,device.x(),device.y(),device.z()); });
                 when(registry.bind(eq(player),any(),eq(""))).thenReturn(CompletableFuture.completedFuture(null));
                 when(groups.create(eq(player),anySet(),any(),anyString())).thenReturn(new CompletableFuture<>());

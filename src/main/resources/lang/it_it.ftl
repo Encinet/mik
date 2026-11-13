@@ -2141,6 +2141,7 @@ music-space-label =
         [device-actions] Azioni
         [device-status] Stato
         [sync-group] Gruppo sincronizzato
+        [group-control-help] Riproduzione ed espulsione del disco riguardano tutto il gruppo. Volume e raggio si impostano per dispositivo.
         [single-device] Jukebox
         [device-location] Posizione
         [visit-device] Teletrasportati accanto

@@ -2165,6 +2165,7 @@ music-space-label =
         [device-actions] Actions
         [device-status] Status
         [sync-group] Sync group
+        [group-control-help] Playback and disc ejection affect the whole group. Member volume and range are set separately.
         [single-device] Jukebox
         [device-location] Location
         [visit-device] Teleport nearby

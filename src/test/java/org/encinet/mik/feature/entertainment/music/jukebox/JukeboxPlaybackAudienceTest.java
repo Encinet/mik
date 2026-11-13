@@ -16,6 +16,9 @@ class JukeboxPlaybackAudienceTest {
         assertTrue(JukeboxPlaybackAudience.canHearBackend(
                 new TrackTarget.NbsFile(Path.of("song.nbs")), false));
     }
+    @Test void nativeRecordsRemainAvailableWithoutPlasmoVoice() {
+        assertTrue(JukeboxPlaybackAudience.canHearBackend(new TrackTarget.NativeRecord("minecraft:music_disc.cat"),false));
+    }
 
     @Test
     void ordinaryAndOnlineAudioRequireAvailablePlasmoVoice() {

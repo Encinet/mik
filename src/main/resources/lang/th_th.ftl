@@ -1901,6 +1901,7 @@ music-space-label =
         [device-actions] การดำเนินการ
         [device-status] สถานะ
         [sync-group] กลุ่มซิงค์
+        [group-control-help] การเล่นและนำแผ่นเสียงออกมีผลกับทั้งกลุ่ม ส่วนระดับเสียงและระยะกำหนดแยกแต่ละเครื่องได้
         [single-device] ตู้เพลง
         [device-location] ตำแหน่ง
         [visit-device] วาร์ปไปข้าง ๆ

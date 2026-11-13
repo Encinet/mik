@@ -16,8 +16,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
-import org.encinet.mik.feature.entertainment.music.disc.MusicDiscKeys;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscResolver;
+import org.encinet.mik.feature.entertainment.music.disc.MusicDiscKeys;
 import org.encinet.mik.feature.entertainment.music.lyrics.LyricDisplayService;
 import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
 import org.encinet.mik.feature.entertainment.music.online.OnlineMusicRequestLimiter;
@@ -42,6 +42,7 @@ public class JukeboxPlaybackService
     private final JukeboxAudioAudience audioAudience = new JukeboxAudioAudience();
     private final AudioPlaybackEngine audioEngine;
     private final NbsPlaybackEngine nbsEngine;
+    private final NativeRecordPlaybackEngine nativeEngine;
     private final LyricDisplayService lyricDisplay;
     private final OnlineMusicRequestLimiter requestLimiter;
     private final Consumer<MusicTrack> playbackRecorder;
@@ -79,13 +80,23 @@ public class JukeboxPlaybackService
     public void setOutputAudience(java.util.function.BiPredicate<Location, UUID> filter) {
         audioEngine.setOutputAudience(filter);
         nbsEngine.setOutputAudience(filter);
+        nativeEngine.setOutputAudience(filter);
     }
     public boolean playProgram(
             Player player, Jukebox jukebox, MusicTrack track, UUID clock, Runnable started) {
+        return playManaged(player,jukebox,track,clock,true,PlaybackOrigin.AUTOMATIC,started);
+    }
+    /** The source keeps its one real disc; other outputs share its clock with empty slots. */
+    public boolean playRecordOutput(Player player, Jukebox jukebox, MusicTrack track, UUID clock,
+                                    boolean source, PlaybackOrigin origin) {
+        return playManaged(player,jukebox,track,clock,!source,origin,() -> {});
+    }
+    private boolean playManaged(Player player, Jukebox jukebox, MusicTrack track, UUID clock,
+                                boolean replaceRecord, PlaybackOrigin origin, Runnable started) {
         JukeboxKey key = JukeboxKey.of(jukebox.getLocation());
         managedGroups.put(key, programClocks.computeIfAbsent(clock, _ -> new JukeboxPlaybackGroup()));
         try {
-            return startTrack(player, jukebox, track, true, PlaybackOrigin.AUTOMATIC, started);
+            return startTrack(player, jukebox, track, replaceRecord, origin, started);
         } finally {
             managedGroups.remove(key);
             programClocks.values().removeIf(
@@ -109,6 +120,7 @@ public class JukeboxPlaybackService
 
         this.audioEngine = new AudioPlaybackEngine(plugin, voiceServer, audioCache, audioAudience::canHear);
         this.nbsEngine = new NbsPlaybackEngine(plugin, audioAudience::canHear);
+        this.nativeEngine = new NativeRecordPlaybackEngine(plugin,audioAudience::canHear);
     }
 
     public void enable() {
@@ -138,7 +150,7 @@ public class JukeboxPlaybackService
             return false;
         Location location = jukebox.getLocation().clone();
         JukeboxKey key = JukeboxKey.of(location);
-        if (!replaceRecord && !music.id().equals(MusicDiscKeys.trackId(jukebox.getRecord()))) {
+        if (!replaceRecord && !matchesRecord(jukebox,music.id())) {
             return false;
         }
         JukeboxSoundSettings settings = settingsStore.read(jukebox);
@@ -290,6 +302,8 @@ public class JukeboxPlaybackService
         try {
             attempt.prepare(() -> {
                 PlaybackCallbacks callbacks = callbacks(playback, attempt);
+                if (playback.music.target() instanceof TrackTarget.NativeRecord)
+                    return nativeEngine.create(playback.location,playback.music,playback.settings,callbacks,attempt.group());
                 return playback.music.target() instanceof TrackTarget.NbsFile nbs
                         ? nbsEngine.create(playback.location, nbs, playback.settings, callbacks,
                                   playback.rhythmTimeline, attempt.group())
@@ -420,6 +434,7 @@ public class JukeboxPlaybackService
         }
         finishedPlaybacks.clear();
         shutdown.attempt("NBS backend", nbsEngine::close);
+        shutdown.attempt("native records", nativeEngine::close);
         shutdown.attempt("audio backend", audioEngine::close);
         shutdown.finish("jukebox playback service");
     }
@@ -492,7 +507,7 @@ public class JukeboxPlaybackService
     /** Pauses or resumes all jukeboxes sharing this song clock. */
     public boolean setPaused(Block block, String trackId, boolean paused) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
-        if (playback == null || !playback.music.id().equals(trackId)
+        if (playback == null || playback.music.target() instanceof TrackTarget.NativeRecord || !playback.music.id().equals(trackId)
                 || playback.experienceMode != JukeboxExperienceMode.MUSIC || playback.stopped.get()
                 || playback.finishing.get())
             return false;
@@ -519,7 +534,7 @@ public class JukeboxPlaybackService
         if (playback == null || playback.stopped.get()) {
             FinishedPlayback finished = finishedPlaybacks.get(key);
             if (finished != null && block.getState() instanceof Jukebox jukebox
-                    && finished.trackId().equals(MusicDiscKeys.trackId(jukebox.getRecord()))) {
+                    && matchesRecord(jukebox,finished.trackId())) {
                 return new JukeboxPlaybackSnapshot(PlaybackStatus.FINISHED, finished.positionMillis());
             }
             finishedPlaybacks.remove(key);
@@ -678,8 +693,15 @@ public class JukeboxPlaybackService
     }
 
     private boolean hasPlaybackDisc(Jukebox jukebox, Playback playback) {
-        return playback.digital ? !jukebox.hasRecord()
-                                : playback.music.id().equals(MusicDiscKeys.trackId(jukebox.getRecord()));
+        return playback.digital ? !jukebox.hasRecord() : matchesRecord(jukebox,playback.music.id());
+    }
+
+    private boolean matchesRecord(Jukebox jukebox, String track) {
+        var record = jukebox.getRecord();
+        String custom = MusicDiscKeys.trackId(record);
+        if (custom != null) return custom.equals(track);
+        var playable = record.getData(io.papermc.paper.datacomponent.DataComponentTypes.JUKEBOX_PLAYABLE);
+        return playable != null && track.equals("record:"+playable.jukeboxSong().key().asString());
     }
 
     private static void removeFailedDisc(Jukebox jukebox) {

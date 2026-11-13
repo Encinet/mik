@@ -2147,6 +2147,7 @@ music-space-label =
         [device-actions] Acties
         [device-status] Status
         [sync-group] Synchronisatiegroep
+        [group-control-help] Afspelen en uitwerpen gelden voor de hele groep. Volume en bereik stel je per apparaat in.
         [single-device] Jukebox
         [device-location] Locatie
         [visit-device] Ernaast teleporteren

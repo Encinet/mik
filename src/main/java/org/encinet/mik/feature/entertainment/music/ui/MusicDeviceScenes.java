@@ -185,6 +185,7 @@ final class MusicDeviceScenes {
         var body = Ui.layout(UiLayouts.contentColumn(UiKey.named("device-section"),UiLength.ui(8))).key("device-inspector").child(w.panelHeading(player, w.targetSummary(player, id), actions.toArray(UiNode[]::new)));
         body.child(w.deviceLocation(player,id));
         body.child(info("device-status", failure == null ? w.label(player,"available") : w.problem(player,failure)));
+        if (group != null) body.child(info("group-control-help",w.label(player,"group-control-help")));
         var tabs = tools("device-tabs");
         for (var section : DeviceSection.values()) {
             if (section == DeviceSection.MEMBERS && group == null) continue;
@@ -253,9 +254,10 @@ final class MusicDeviceScenes {
         }
         var actions = tools("device-actions");
         if (bound) actions.child(w.button(player, "forget", () -> w.run(player, key(id), () -> w.registry.unbind(player.getUniqueId(), id), _ -> {})));
-        if (group == null && editable) {
+        if (editable) {
             actions.child(w.button(player, "eject", () -> w.devices.eject(player, id)));
-        } else if (group != null && editable) actions.child(groups.removal(player, state, group, null));
+            if (group != null) actions.child(groups.removal(player, state, group, null));
+        }
         return body.child(actions.build()).build();
     }
     static UiNode identityFields(java.util.List<UiNode> fields) {
@@ -268,7 +270,8 @@ final class MusicDeviceScenes {
         var member = group.members().stream().filter(device -> device.id().equals(panel.member())).findFirst()
                 .orElseThrow(() -> new MusicProblem(MusicProblem.Code.NOT_FOUND));
         var failure = w.registry.controlFailure(player, member.id());
-        var body = column("member-output").child(w.panelHeading(player, w.raw(name(player, member.id())),
+        var body = column("member-output").child(w.panelHeading(player, w.targetSummary(player,group.id()).append(w.raw(" · "))
+                        .append(w.locator.name(player,member)),
                         w.button(player, "back", () -> w.returnToMembers(player,state,panel))))
                 .child(w.deviceLocation(player,member.id()))
                 .child(failure == null ? outputSettings(player, member) : info("unavailable", w.problem(player, failure)));

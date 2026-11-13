@@ -4,16 +4,28 @@ import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterAll;
+import org.encinet.mik.shared.util.PaperTestRegistries;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -21,6 +33,287 @@ import static org.mockito.Mockito.*;
 
 class MonitorCameraTest {
     private static final double EYE_HEIGHT = 1.62;
+    private static PaperTestRegistries registries;
+    @BeforeAll static void openRegistries() { registries = new PaperTestRegistries(); }
+    @AfterAll static void closeRegistries() { registries.close(); }
+
+    @Test
+    void actualInteractionSurfacesAndWholeObjectsStayVisible() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        Block block = scene.block(new BoundingBox(7.5, 65, 12, 8.5, 66, 13));
+        MonitorOperation.Focus operation = new MonitorOperation().sample(player);
+        assertNotNull(operation);
+        assertEquals(block.getBoundingBox(), operation.bounds());
+        assertEquals(11.96, operation.point().getZ(), 1.0e-6, "focus must stay just outside the actual worked face");
+        MonitorCamera.Frame frame = scene.camera().update(player, eye, EYE_HEIGHT);
+        assertNotNull(frame);
+        assertJointView(scene, eyes(frame.feet()), operation);
+    }
+
+    @Test
+    void aWallThatOnlyHidesTheOperationInvalidatesTheOldViewAndCutsToAClearOne() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        scene.block(new BoundingBox(7.5, 65, 12, 8.5, 66, 13));
+        MonitorOperation.Focus operation = new MonitorOperation().sample(player);
+        assertNotNull(operation);
+        MonitorCamera camera = scene.camera();
+        MonitorCamera.Frame initial = camera.update(player, eye, EYE_HEIGHT);
+        assertNotNull(initial);
+        Location oldEye = eyes(initial.feet());
+        scene.solids.add(new BoundingBox(9.5, 60, 9.8, 9.7, 70, 11.8));
+        assertClear(scene, oldEye, eye.clone().subtract(0, 0.4, 0));
+        Vector delta = operation.point().toVector().subtract(oldEye.toVector());
+        assertNotNull(scene.trace(oldEye.toVector(), delta.clone().normalize(), delta.length()));
+        MonitorCamera.Frame frame = camera.update(player, oldEye, EYE_HEIGHT);
+        assertNotNull(frame);
+        assertTrue(frame.cut(), "the spring must not coast through a view that hides the interaction surface");
+        assertJointView(scene, eyes(frame.feet()), operation);
+    }
+
+    @Test
+    void thePlayersBodyCannotHideTheWorkedSurface() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8, -70, 25);
+        Player player = scene.player(eye);
+        Block block = scene.block(new BoundingBox(7.5, 63, 10.5, 8.5, 64, 11.5));
+        MonitorOperation operations = new MonitorOperation();
+        operations.block(player, block, new Location(scene.world, 8, 64, 11), BlockFace.UP);
+        MonitorOperation.Focus operation = operations.sample(player);
+        assertNotNull(operation);
+        MonitorCamera.Frame frame = scene.camera().update(player.getUniqueId(), eye, EYE_HEIGHT, eye, EYE_HEIGHT, operation);
+        assertNotNull(frame);
+        assertTrue(Math.abs(frame.feet().getX() - eye.getX()) > 1,
+                "a rear view that puts the player in front of the work must give way to a side view");
+        assertJointView(scene, eyes(frame.feet()), operation);
+    }
+
+    @Test
+    void extendedReachFramesTheRealObjectInsteadOfTheOldThreeBlockEstimate() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        AttributeInstance reach = mock(AttributeInstance.class);
+        when(reach.getValue()).thenReturn(16.0);
+        when(player.getAttribute(Attribute.BLOCK_INTERACTION_RANGE)).thenReturn(reach);
+        scene.block(new BoundingBox(7.5, 65, 20, 8.5, 66, 21));
+        MonitorOperation.Focus operation = new MonitorOperation().sample(player);
+        assertNotNull(operation);
+        assertEquals(19.96, operation.point().getZ(), 1.0e-6);
+        MonitorCamera.Frame frame = scene.camera().update(player, eye, EYE_HEIGHT);
+        assertNotNull(frame);
+        assertJointView(scene, eyes(frame.feet()), operation);
+    }
+
+    @Test
+    void entitySensingRespectsBlockingWallsAndItsOwnInteractionRange() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        AttributeInstance reach = mock(AttributeInstance.class);
+        when(reach.getValue()).thenReturn(8.0);
+        when(player.getAttribute(Attribute.ENTITY_INTERACTION_RANGE)).thenReturn(reach);
+        Entity entity = scene.entity(new BoundingBox(7.7, 64, 14, 8.3, 66, 14.6));
+        MonitorOperation operations = new MonitorOperation();
+        MonitorOperation.Focus target = operations.sample(player);
+        assertNotNull(target);
+        assertEquals(entity.getBoundingBox(), target.bounds());
+        Block wall = scene.block(new BoundingBox(7.5, 64, 10, 8.5, 67, 11));
+        target = operations.sample(player);
+        assertNotNull(target);
+        assertEquals(wall.getBoundingBox(), target.bounds(), "an entity beyond the blocking wall is not the operation target");
+    }
+
+    @Test
+    void recentInteractionsFollowMovingEntitiesThenExpire() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        Entity entity = scene.entity(new BoundingBox(8.5, 64, 10, 9.1, 66, 10.6));
+        MonitorOperation operations = new MonitorOperation();
+        operations.entity(player, entity);
+        when(entity.getBoundingBox()).thenReturn(new BoundingBox(9, 64, 10, 9.6, 66, 10.6));
+        for (int tick = 0; tick < 12; tick++) {
+            MonitorOperation.Focus focus = operations.sample(player);
+            assertNotNull(focus);
+            assertEquals(entity.getBoundingBox(), focus.bounds());
+            assertTrue(focus.point().getX() >= 9 && focus.point().getX() <= 9.6);
+        }
+        assertNull(operations.sample(player), "old interactions must not pin the camera after the player looks elsewhere");
+        operations.entity(player, entity);
+        operations.reset();
+        assertNull(operations.sample(player), "teleporting or changing subjects must discard the old work");
+    }
+
+    @Test
+    void operationSensingStopsAtUnloadedBoundaries() {
+        Scene scene = new Scene();
+        scene.unloaded.add(new Chunk(1, 0));
+        Location eye = new Location(scene.world, 15.5, 65.62, 8, -90, 0);
+        Player player = scene.player(eye);
+        assertNull(new MonitorOperation().sample(player));
+        verify(scene.world, never()).getChunkAt(anyInt(), anyInt());
+    }
+
+    @Test
+    void realSurfacesAboveAndBelowThePlayerStayInFrame() {
+        for (boolean above : new boolean[]{false, true}) {
+            Scene scene = new Scene();
+            Location eye = new Location(scene.world, 8, 65.62, 8, 0, above ? -80 : 80);
+            Player player = scene.player(eye);
+            scene.block(new BoundingBox(7.5, above ? 69 : 61, 8, 8.5, above ? 70 : 62, 9));
+            MonitorOperation.Focus operation = new MonitorOperation().sample(player);
+            assertNotNull(operation);
+            MonitorCamera.Frame frame = scene.camera().update(player, eye, EYE_HEIGHT);
+            assertNotNull(frame);
+            assertJointView(scene, eyes(frame.feet()), operation);
+        }
+    }
+
+    @Test
+    void movingEntitiesAndPlayersRetainAContinuousJointView() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        Entity entity = scene.entity(new BoundingBox(7.6, 64, 10, 8.4, 65.9, 10.8));
+        MonitorCamera camera = scene.camera();
+        MonitorCamera.Frame frame = camera.update(player, eye, EYE_HEIGHT);
+        assertNotNull(frame);
+        Location observerEye = eyes(frame.feet());
+        for (int tick = 0; tick < 30; tick++) {
+            eye.add(0.2, 0, 0);
+            BoundingBox moved = entity.getBoundingBox().clone().shift(0.2, 0, 0);
+            when(entity.getBoundingBox()).thenReturn(moved);
+            frame = camera.update(player, observerEye, EYE_HEIGHT);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "moving the player and their interaction target together must retain inertia and interpolation");
+            observerEye = eyes(frame.feet());
+            MonitorOperation.Focus operation = new MonitorOperation().sample(player);
+            assertNotNull(operation);
+            assertJointView(scene, observerEye, operation);
+        }
+    }
+
+    @Test
+    void narrowFieldOfViewPullsBackToKeepThePlayerAndObjectInsideItsMargin() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        scene.block(new BoundingBox(7.5, 65, 10, 8.5, 66, 11));
+        MonitorOperation.Focus operation = new MonitorOperation().sample(player);
+        assertNotNull(operation);
+        MonitorCamera camera = scene.camera();
+        camera.fieldOfView(40);
+        MonitorCamera.Frame frame = camera.update(player, eye, EYE_HEIGHT);
+        assertNotNull(frame);
+        assertJointView(scene, eyes(frame.feet()), operation, 15);
+    }
+
+    @Test
+    void switchingSubjectsDiscardsRecentInteractions() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player first = scene.player(eye);
+        Player second = scene.player(eye);
+        Block block = scene.block(new BoundingBox(10, 64, 10, 11, 65, 11));
+        MonitorCamera camera = scene.camera();
+        assertNotNull(camera.update(first, eye, EYE_HEIGHT));
+        camera.operations().block(first, block, null, null);
+        assertNotNull(camera.operations().sample(first));
+        assertNotNull(camera.update(second, eye, EYE_HEIGHT));
+        assertNull(camera.operations().sample(second));
+    }
+
+    @Test
+    void movingTheAimPointDoesNotTranslateAStationaryObjectsBoundsDuringInterpolation() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Player player = scene.player(eye);
+        Entity entity = scene.entity(new BoundingBox(7.5, 64, 10, 8.5, 66, 10.6));
+        MonitorOperation operations = new MonitorOperation();
+        MonitorOperation.Focus previous = operations.sample(player);
+        eye.add(0.2, 0, 0);
+        MonitorOperation.Focus current = operations.sample(player);
+        assertNotNull(previous);
+        assertNotNull(current);
+        assertNotEquals(previous.point(), current.point());
+        MonitorOperation.Focus during = current.during(previous, new Vector(), 0.5);
+        assertEquals(entity.getBoundingBox(), during.bounds(), "an aim change is not object motion");
+    }
+
+    @Test
+    void followingAcceleratesAndCoastsToAStopInsteadOfCopyingEveryStep() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        Location initial = observer.clone();
+        double firstStep = 0;
+        double lastStep = 0;
+        for (int tick = 0; tick < 20; tick++) {
+            eye.add(0.2, 0, 0);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "starting to walk must keep one continuous camera");
+            double step = frame.feet().getX() - observer.getX();
+            if (tick == 0) firstStep = step;
+            lastStep = step;
+            observer = frame.feet();
+            assertFramed(eye, eyes(observer));
+        }
+        assertTrue(firstStep > 0 && firstStep < 0.05, "the rig should ease into movement");
+        assertTrue(lastStep > firstStep * 3 && lastStep <= 0.21, "the rig should accelerate to the walking speed");
+        double previousStep = lastStep;
+        for (int tick = 0; tick < 40; tick++) {
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "braking must retain client interpolation");
+            double step = frame.feet().getX() - observer.getX();
+            if (tick == 0) assertTrue(step > 0.05 && step < lastStep, "the camera should keep moving as it brakes");
+            assertTrue(step >= -1.0e-6 && step <= previousStep + 1.0e-6, "braking must settle without oscillation");
+            previousStep = step;
+            observer = frame.feet();
+        }
+        assertEquals(initial.getX() + 4, observer.getX(), 1.0e-5);
+    }
+
+    @Test
+    void sustainedTurnsGraduallyReframeThePlayersOperatingDirection() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        eye.setYaw(180);
+        for (int tick = 0; tick < 80; tick++) {
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "a sustained head turn should orbit continuously in an open area");
+            assertTrue(frame.feet().distance(observer) < 0.6, "reframing must retain angular inertia");
+            observer = frame.feet();
+        }
+        Vector offset = eyes(observer).toVector().subtract(eye.toVector());
+        assertTrue(offset.dot(eye.getDirection()) < 0, "the rig must settle behind the new operating direction");
+        assertFramed(eye, eyes(observer));
+    }
+
+    @Test
+    void sustainedLookingUpAndDownKeepsTheOperationInFrame() {
+        for (float pitch : new float[]{-80, 80}) {
+            Scene scene = new Scene();
+            MonitorCamera camera = scene.camera();
+            UUID target = UUID.randomUUID();
+            Location eye = new Location(scene.world, 8, 65.62, 8);
+            Location observer = view(camera, target, eye, eye);
+            eye.setPitch(pitch);
+            for (int tick = 0; tick < 80; tick++) observer = view(camera, target, eye, eyes(observer));
+            assertFramed(eye, eyes(observer));
+        }
+    }
 
     @Test
     void standingHeadTurnsDoNotOrbitTheCamera() {
@@ -38,17 +331,15 @@ class MonitorCameraTest {
     }
 
     @Test
-    void aimsFromTheObserversActualEyeHeightAtThePlayersTorso() {
+    void framesTheBodyAndOperationFromTheObserversActualEyeHeight() {
         Scene scene = new Scene();
         MonitorCamera camera = scene.camera();
         Location targetEye = new Location(scene.world, 8, 65.27, 8, 45, 50);
-        MonitorCamera.Frame frame = camera.update(UUID.randomUUID(), targetEye, EYE_HEIGHT, targetEye, 0.9);
+        MonitorCamera.Frame frame = camera.update(UUID.randomUUID(), targetEye, EYE_HEIGHT, targetEye, 0.9, null);
         assertNotNull(frame);
         Location feet = frame.feet();
         assertNotNull(feet);
-        Vector focus = targetEye.toVector().subtract(new Vector(0, 0.4, 0));
-        Vector expected = focus.subtract(feet.toVector().add(new Vector(0, 0.9, 0))).normalize();
-        assertEquals(1, feet.getDirection().dot(expected), 1.0e-6);
+        assertFramed(targetEye, feet.clone().add(0, 0.9, 0));
     }
 
     @Test
@@ -66,8 +357,9 @@ class MonitorCameraTest {
             assertTrue(eyes(next).distance(eye) < 6);
             observer = next;
         }
-        assertEquals(0, offset.distance(eyes(observer).toVector().subtract(eye.toVector())), 1.0e-8,
-                "walking must translate the view without changing the observation side");
+        Vector followed = eyes(observer).toVector().subtract(eye.toVector());
+        assertTrue(offset.distance(followed) < 0.75, "walking may trail the subject within the inertia limit");
+        assertTrue(followed.dot(offset) > 0, "inertia must retain the observation side");
     }
 
     @Test
@@ -78,16 +370,16 @@ class MonitorCameraTest {
         Location eye = new Location(scene.world, 8, 65.62, 8);
         Location observer = view(camera, target, eye, eye);
         Vector offset = eyes(observer).toVector().subtract(eye.toVector());
-        float yaw = observer.getYaw();
-        float pitch = observer.getPitch();
+        Location initial = observer.clone();
         for (int index = 0; index < 100; index++) {
             eye.add(index % 2 == 0 ? 0.25 : -0.25, 0, 0);
             eye.setYaw(index % 2 == 0 ? 90 : -90);
             eye.setPitch(index % 2 == 0 ? 80 : -80);
-            observer = view(camera, target, eye, eyes(observer));
-            assertEquals(0, offset.distance(eyes(observer).toVector().subtract(eye.toVector())), 1.0e-8);
-            assertEquals(yaw, observer.getYaw(), 1.0e-4);
-            assertEquals(pitch, observer.getPitch(), 1.0e-4);
+            Location next = view(camera, target, eye, eyes(observer));
+            assertTrue(next.distance(observer) < 0.1, "alternating steps must be absorbed by the follow inertia");
+            assertTrue(next.distance(initial) < 0.25);
+            assertTrue(offset.dot(eyes(next).toVector().subtract(eye.toVector())) > 0);
+            observer = next;
         }
     }
 
@@ -105,9 +397,7 @@ class MonitorCameraTest {
             Vector relative = eyes(observer).toVector().subtract(eye.toVector());
             assertTrue(relative.length() < 9.3, "speed adaptation must stay bounded instead of accumulating lag");
             assertTrue(relative.dot(offset) > 0, "ascent, descent and reversals must preserve the observation side");
-            Vector focus = eye.toVector().subtract(new Vector(0, 0.4, 0));
-            assertEquals(1, observer.getDirection().dot(focus.subtract(eyes(observer).toVector()).normalize()), 1.0e-6,
-                    "the view must aim at the subject immediately instead of converging from an old rotation");
+            assertFramed(eye, eyes(observer));
         }
     }
 
@@ -207,14 +497,14 @@ class MonitorCameraTest {
         MonitorCamera camera = scene.camera();
         UUID target = UUID.randomUUID();
         Location eye = new Location(scene.world, 8, 65.62, 8);
-        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
+        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT, null));
         scene.solids.clear();
-        for (int index = 0; index < 19; index++) assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
-        assertNotNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
+        for (int index = 0; index < 19; index++) assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT, null));
+        assertNotNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT, null));
         scene.enclose(8, 65.62, 8);
-        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
+        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT, null));
         scene.solids.clear();
-        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT), "one clear frame must not flicker back");
+        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT, null), "one clear frame must not flicker back");
     }
 
     @Test
@@ -234,7 +524,7 @@ class MonitorCameraTest {
         scene.unloaded.add(new Chunk(1, 0));
         scene.unloaded.add(new Chunk(0, 1));
         Location eye = new Location(scene.world, 15.8, 65.62, 15.8);
-        assertNull(scene.camera().update(UUID.randomUUID(), eye, EYE_HEIGHT, eye, EYE_HEIGHT));
+        assertNull(scene.camera().update(UUID.randomUUID(), eye, EYE_HEIGHT, eye, EYE_HEIGHT, null));
         assertEquals(0, scene.rays);
     }
 
@@ -286,7 +576,7 @@ class MonitorCameraTest {
         for (int tick = 0; tick < 12; tick++) {
             eye.add(tick < 6 ? 20 : -20, 0, tick < 6 ? 20 : -20);
             eye.setYaw(tick % 2 == 0 ? 180 : 0);
-            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
             assertNotNull(frame);
             assertFalse(frame.cut(), "speed alone must not cut or reset the observation heading");
             observer = frame.feet();
@@ -327,7 +617,7 @@ class MonitorCameraTest {
         Location eye = new Location(scene.world, 8, 65.62, 8);
         Location observer = view(camera, target, eye, eye);
         scene.solids.add(new BoundingBox(8.5, 60, -100, 8.7, 80, 100));
-        MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+        MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
         assertNotNull(frame);
         assertTrue(frame.feet().getX() < 8.5);
         assertClear(scene, eye.clone().subtract(0, 0.4, 0), eyes(frame.feet()));
@@ -348,10 +638,11 @@ class MonitorCameraTest {
     void swimmingFocusStaysInsideTheBodyInsteadOfBelowThePlayer() {
         Scene scene = new Scene();
         Location eye = new Location(scene.world, 8, 65.4, 8);
-        MonitorCamera.Frame frame = scene.camera().update(UUID.randomUUID(), eye, 0.4, eye, EYE_HEIGHT);
+        MonitorCamera.Frame frame = scene.camera().update(UUID.randomUUID(), eye, 0.4, eye, EYE_HEIGHT, null);
         assertNotNull(frame);
-        Vector focus = eye.toVector().subtract(new Vector(0, 0.1, 0));
-        assertEquals(1, frame.feet().getDirection().dot(focus.subtract(eyes(frame.feet()).toVector()).normalize()), 1.0e-6);
+        Vector head = eye.toVector().subtract(eyes(frame.feet()).toVector()).normalize();
+        assertTrue(frame.feet().getDirection().dot(head) > Math.cos(Math.toRadians(20)),
+                "a swimming player's head must stay close to the center while framing the operation");
     }
 
     @Test
@@ -364,7 +655,7 @@ class MonitorCameraTest {
         Location observer = view(camera, target, eye, eye);
         for (int tick = 0; tick < 40; tick++) {
             eye.add(0.15, 0, 0);
-            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
             assertNotNull(frame);
             assertFalse(frame.cut(), "adjoining solid blocks must share one continuous wall interior");
             observer = frame.feet();
@@ -383,7 +674,7 @@ class MonitorCameraTest {
         Location current = new Location(scene.world, 8, 66.82, 4);
         boolean cut = false;
         for (int tick = 0; tick < 20; tick++) {
-            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, current, EYE_HEIGHT);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, current, EYE_HEIGHT, null);
             assertNotNull(frame);
             Location next = eyes(frame.feet());
             if (frame.cut()) cut = true;
@@ -412,7 +703,7 @@ class MonitorCameraTest {
         current.setDirection(focus.toVector().subtract(current.toVector()));
         boolean cut = false;
         for (int tick = 0; tick < 20; tick++) {
-            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, current, EYE_HEIGHT);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, current, EYE_HEIGHT, null);
             assertNotNull(frame);
             Location next = eyes(frame.feet());
             if (frame.cut()) cut = true;
@@ -442,7 +733,7 @@ class MonitorCameraTest {
         Vector previousOffset = normalOffset.clone();
         for (int tick = 0; tick < 35; tick++) {
             eye.add(3, 0, 0);
-            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
             assertNotNull(frame);
             assertFalse(frame.cut(), "accelerating in an open area should widen the view continuously");
             observer = frame.feet();
@@ -469,13 +760,12 @@ class MonitorCameraTest {
             for (int tick = 0; tick < 40; tick++) {
                 eye.add(direction == 0 ? 3 : -3, 0, 0);
                 observer = view(camera, target, eye, eyes(observer));
-                Vector focus = eye.toVector().subtract(new Vector(0, 0.4, 0));
-                assertEquals(1, observer.getDirection().dot(focus.subtract(eyes(observer).toVector()).normalize()), 1.0e-6);
+                assertFramed(eye, eyes(observer));
             }
             offsets[direction] = eyes(observer).toVector().subtract(eye.toVector());
         }
-        assertTrue(offsets[0].getX() - offsets[1].getX() > 1.8,
-                "compensation must lead motion toward and away from the fixed observation side");
+        assertTrue(offsets[0].getX() - offsets[1].getX() > 0.6,
+                "prediction must still lead in both directions after allowing for follow inertia");
         assertEquals(offsets[0].getZ(), offsets[1].getZ(), 1.0e-6);
     }
 
@@ -509,7 +799,7 @@ class MonitorCameraTest {
             observer = view(camera, target, eye, eyes(observer));
         }
         assertTrue(eyes(observer).distance(eye) > 6);
-        MonitorCamera.Frame switched = camera.update(UUID.randomUUID(), eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+        MonitorCamera.Frame switched = camera.update(UUID.randomUUID(), eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
         assertNotNull(switched);
         assertTrue(switched.cut());
         assertTrue(eyes(switched.feet()).distance(eye) < 5);
@@ -518,7 +808,7 @@ class MonitorCameraTest {
             observer = view(camera, target, eye, eyes(observer));
         }
         camera.reset();
-        MonitorCamera.Frame reset = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+        MonitorCamera.Frame reset = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT, null);
         assertNotNull(reset);
         assertTrue(reset.cut());
         assertTrue(eyes(reset.feet()).distance(eye) < 5, "teleport reset must not reuse pre-teleport prediction");
@@ -541,8 +831,8 @@ class MonitorCameraTest {
         observer = view(camera, target, eye, eyes(observer));
         assertTrue(eyes(observer).getX() <= nominalX + 0.01, "prediction must not place the view across the approaching wall");
         Vector offset = eyes(observer).toVector().subtract(eye.toVector());
-        assertTrue(Math.hypot(offset.getX(), offset.getZ()) > 7.99,
-                "blocked prediction should preserve the available wide base view instead of shortening it");
+        assertTrue(Math.hypot(offset.getX(), offset.getZ()) > 7,
+                "blocked prediction should retain a wide view while allowing for follow inertia");
         assertClear(scene, eye.clone().subtract(0, 0.4, 0), eyes(observer));
     }
 
@@ -564,12 +854,44 @@ class MonitorCameraTest {
     }
 
     private static Location view(MonitorCamera camera, UUID target, Location eye, Location observerEye) {
-        MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, observerEye, EYE_HEIGHT);
+        MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, observerEye, EYE_HEIGHT, null);
         assertNotNull(frame, "a clear nearby third-person view should be available");
         return frame.feet();
     }
 
     private static Location eyes(Location feet) { return feet.clone().add(0, EYE_HEIGHT, 0); }
+
+    private static void assertJointView(Scene scene, Location eye, MonitorOperation.Focus operation) {
+        assertJointView(scene, eye, operation, 30);
+    }
+
+    private static void assertJointView(Scene scene, Location eye, MonitorOperation.Focus operation, double halfAngle) {
+        Vector delta = operation.point().toVector().subtract(eye.toVector());
+        assertNull(scene.trace(eye.toVector(), delta.clone().normalize(), delta.length()), "the actual worked face must be unobstructed");
+        assertNull(operation.subjectBounds().rayTrace(eye.toVector(), delta.clone().normalize(), delta.length() - 0.04),
+                "the player must not hide the interaction point");
+        for (BoundingBox bounds : List.of(operation.bounds(), operation.subjectBounds())) {
+            for (double x : new double[]{bounds.getMinX(), bounds.getMaxX()}) {
+                for (double y : new double[]{bounds.getMinY(), bounds.getMaxY()}) {
+                    for (double z : new double[]{bounds.getMinZ(), bounds.getMaxZ()}) {
+                        Vector direction = new Vector(x, y, z).subtract(eye.toVector()).normalize();
+                        assertTrue(eye.getDirection().dot(direction) >= Math.cos(Math.toRadians(halfAngle)),
+                                "the whole player and operation object must fit inside the viewing area");
+                    }
+                }
+            }
+        }
+    }
+
+    private static void assertFramed(Location targetEye, Location observerEye) {
+        Vector body = targetEye.toVector().subtract(new Vector(0, 0.4, 0));
+        Vector operation = targetEye.toVector().add(targetEye.getDirection().multiply(3));
+        Vector direction = observerEye.getDirection();
+        assertTrue(direction.dot(body.subtract(observerEye.toVector()).normalize()) >= Math.cos(Math.toRadians(30)),
+                "the player's body must remain in the central viewing area");
+        assertTrue(direction.dot(operation.subtract(observerEye.toVector()).normalize()) >= Math.cos(Math.toRadians(30)),
+                "the area in the player's operating direction must also fit in the view");
+    }
 
     private static void assertClear(Scene scene, Location from, Location to) {
         Vector delta = to.toVector().subtract(from.toVector());
@@ -581,6 +903,8 @@ class MonitorCameraTest {
     private static final class Scene {
         final World world = mock(World.class);
         final List<BoundingBox> solids = new ArrayList<>();
+        final Map<BoundingBox, Block> blocks = new HashMap<>();
+        final List<Entity> entities = new ArrayList<>();
         final Set<Chunk> unloaded = new HashSet<>();
         double borderMaxX = 1000;
         int rays;
@@ -592,7 +916,7 @@ class MonitorCameraTest {
             when(world.isChunkLoaded(anyInt(), anyInt())).thenAnswer(call ->
                     !unloaded.contains(new Chunk(call.getArgument(0), call.getArgument(1))));
             when(world.rayTraceBlocks(any(Location.class), any(Vector.class), anyDouble(),
-                    eq(FluidCollisionMode.NEVER), eq(true))).thenAnswer(call -> {
+                    eq(FluidCollisionMode.NEVER), anyBoolean())).thenAnswer(call -> {
                 Location from = call.getArgument(0);
                 Vector direction = call.getArgument(1);
                 double length = call.getArgument(2);
@@ -607,6 +931,56 @@ class MonitorCameraTest {
                 rays++;
                 return trace(from.toVector(), direction, length);
             });
+            when(world.rayTraceEntities(any(Location.class), any(Vector.class), anyDouble(), eq(0.1), any())).thenAnswer(call -> {
+                Location from = call.getArgument(0);
+                Vector direction = call.getArgument(1);
+                double reach = call.getArgument(2);
+                Predicate<Entity> filter = call.getArgument(4);
+                RayTraceResult nearest = null;
+                double distance = Double.POSITIVE_INFINITY;
+                for (Entity entity : entities) {
+                    if (!filter.test(entity)) continue;
+                    RayTraceResult hit = entity.getBoundingBox().clone().expand(0.1).rayTrace(from.toVector(), direction, reach);
+                    if (hit != null && hit.getHitPosition().distanceSquared(from.toVector()) < distance) {
+                        nearest = new RayTraceResult(hit.getHitPosition(), entity);
+                        distance = hit.getHitPosition().distanceSquared(from.toVector());
+                    }
+                }
+                return nearest;
+            });
+        }
+
+        Player player(Location eye) {
+            Player player = mock(Player.class);
+            when(player.getUniqueId()).thenReturn(UUID.randomUUID());
+            when(player.getEyeLocation()).thenAnswer(_ -> eye.clone());
+            when(player.getEyeHeight()).thenReturn(EYE_HEIGHT);
+            when(player.getWorld()).thenAnswer(_ -> eye.getWorld());
+            when(player.getGameMode()).thenReturn(org.bukkit.GameMode.SURVIVAL);
+            when(player.getBoundingBox()).thenAnswer(_ -> new BoundingBox(eye.getX() - 0.3, eye.getY() - EYE_HEIGHT,
+                    eye.getZ() - 0.3, eye.getX() + 0.3, eye.getY() + 0.18, eye.getZ() + 0.3));
+            when(player.canSee(any(Entity.class))).thenReturn(true);
+            return player;
+        }
+
+        Block block(BoundingBox bounds) {
+            Block block = mock(Block.class);
+            when(block.getBoundingBox()).thenReturn(bounds);
+            when(block.getWorld()).thenReturn(world);
+            when(block.getLocation()).thenReturn(bounds.getMin().toLocation(world));
+            blocks.put(bounds, block);
+            solids.add(bounds);
+            return block;
+        }
+
+        Entity entity(BoundingBox bounds) {
+            Entity entity = mock(Entity.class);
+            when(entity.getUniqueId()).thenReturn(UUID.randomUUID());
+            when(entity.getBoundingBox()).thenReturn(bounds);
+            when(entity.getWorld()).thenReturn(world);
+            when(entity.isValid()).thenReturn(true);
+            entities.add(entity);
+            return entity;
         }
 
         RayTraceResult trace(Vector start, Vector direction, double length) {
@@ -615,7 +989,8 @@ class MonitorCameraTest {
             for (BoundingBox solid : solids) {
                 RayTraceResult hit = solid.rayTrace(start, direction, length);
                 if (hit != null && hit.getHitPosition().distanceSquared(start) < distance) {
-                    nearest = hit;
+                    Block block = blocks.get(solid);
+                    nearest = block == null ? hit : new RayTraceResult(hit.getHitPosition(), block, hit.getHitBlockFace());
                     distance = hit.getHitPosition().distanceSquared(start);
                 }
             }

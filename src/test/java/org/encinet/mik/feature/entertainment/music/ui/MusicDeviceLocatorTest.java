@@ -4,7 +4,7 @@ import java.util.*;
 import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.feature.entertainment.music.application.MusicDeviceRegistry;
-import org.encinet.mik.feature.entertainment.music.jukebox.DeviceTarget;
+import org.encinet.mik.feature.entertainment.music.storage.MusicState;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.ui.UiTextMetrics;
 import org.bukkit.Location;
@@ -41,9 +41,9 @@ class MusicDeviceLocatorTest {
         var registry = mock(MusicDeviceRegistry.class);
         var id = UUID.randomUUID();
         var device = new MusicDevice(id,worldId,"world",2,64,3,"Device",100,64,null,0);
-        when(registry.target(id)).thenReturn(new DeviceTarget(id,"Device",List.of(device)));
-        when(registry.online(device)).thenReturn(true);
-        when(registry.mayControl(player,id)).thenReturn(true);
+        var data = MusicState.empty().edit(); data.devices.put(id,device);
+        when(registry.snapshot()).thenAnswer(_ -> data.snapshot());
+        when(registry.mayLocate(player,device)).thenReturn(true);
         when(registry.alias(player,device)).thenReturn("很长的个人别名 Long name\n".repeat(20));
         when(registry.location(device)).thenAnswer(_ -> new Location(world,2,64,3));
         var state = new MusicWorkspaceState(); state.target(id);
@@ -68,9 +68,96 @@ class MusicDeviceLocatorTest {
             if (previous != null) assertEquals(previous,markers,"Client billboards must not require server yaw updates");
             previous = markers;
         }
-        when(registry.mayControl(player,id)).thenReturn(false);
+        when(registry.mayLocate(player,device)).thenReturn(false);
         var removed = MenuScene.screen("markers"); locator.decorate(player,state,removed);
         assertTrue(removed.build().decorations().isEmpty());
+    }
+
+    @Test void marksAllNearbyDevicesAndOtherGroupsWithoutChoosingAPlaybackTarget() {
+        var h = new Harness();
+        var group = UUID.randomUUID();
+        for (int i=0;i<16;i++) {
+            var device = h.add(i*3,64,0);
+            if (i>=8) h.data.devices.put(device.id(),device.grouped(group));
+        }
+        assertNull(h.state.target());
+        h.data.groups.put(group,new MusicState.Group(group,"Garden speakers",List.of(),Map.of(),100,0));
+        when(h.registry.name(h.player,group)).thenReturn("Garden speakers");
+        assertEquals(16,h.locator.visible(h.player,h.state).size());
+        var builder = MenuScene.screen("nearby"); h.locator.decorate(h.player,h.state,builder);
+        var decorations = builder.build().decorations();
+        assertEquals(32,decorations.size());
+        for (UUID id : h.data.devices.keySet()) {
+            assertTrue(decorations.containsKey("mark:"+id));
+            assertTrue(decorations.containsKey("outline:"+id));
+            if (h.data.devices.get(id).group() != null) {
+                var label = assertInstanceOf(FloatingMenuDecoration.Text.class,decorations.get("mark:"+id).content());
+                assertTrue(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                        .serialize(label.text()).contains("Garden speakers"));
+            }
+        }
+    }
+
+    @Test void rangeUsesTheBlockCenterAndRefreshesAcrossItsBoundaryWithoutCheckingDistantBlocks() {
+        var h = new Harness();
+        var edge = h.add(64,64,0);
+        var outside = h.add(65,64,0);
+        var above = h.add(0,129,0);
+        var otherWorld = new MusicDevice(UUID.randomUUID(),UUID.randomUUID(),"other",0,64,0,"Other",100,64,null,0);
+        h.data.devices.put(otherWorld.id(),otherWorld);
+        assertEquals(List.of(edge),h.locator.visible(h.player,h.state).stream().map(MusicDeviceLocator.Marker::device).toList());
+        verify(h.registry,never()).mayLocate(h.player,outside);
+        verify(h.registry,never()).mayLocate(h.player,above);
+        verify(h.registry,never()).mayLocate(h.player,otherWorld);
+        when(h.player.getLocation()).thenReturn(new Location(h.world,.49,64.5,.5));
+        assertTrue(h.locator.visible(h.player,h.state).isEmpty());
+        when(h.player.getLocation()).thenReturn(new Location(h.world,1.5,64.5,.5));
+        assertEquals(List.of(edge,outside),h.locator.visible(h.player,h.state).stream().map(MusicDeviceLocator.Marker::device).toList());
+    }
+
+    @Test void denseAreasKeepTheManagedMemberAndDraftSelectionsBeforeTheNearestDevices() {
+        var h = new Harness();
+        for (int i=0;i<70;i++) h.add(i%10,64,i/10);
+        var focus = h.add(50,64,0);
+        assertEquals(64,h.locator.visible(h.player,h.state).size());
+        assertFalse(h.locator.visible(h.player,h.state).stream().anyMatch(marker -> marker.device().equals(focus)));
+        h.state.panel(new MusicWorkspaceState.MemberOutput(UUID.randomUUID(),focus.id(),MusicSourcePosition.START));
+        var markers = h.locator.visible(h.player,h.state);
+        assertEquals(64,markers.size());
+        assertEquals(focus,markers.getFirst().device()); assertTrue(markers.getFirst().focused());
+        var draft = new MusicWorkspaceState.GroupDraft(null,null); draft.members.add(focus.id());
+        h.state.panel(new MusicWorkspaceState.GroupEditor(draft));
+        assertEquals(focus,h.locator.visible(h.player,h.state).getFirst().device());
+        when(h.registry.mayLocate(h.player,focus)).thenReturn(false);
+        assertEquals(64,h.locator.visible(h.player,h.state).size());
+        assertFalse(h.locator.visible(h.player,h.state).stream().anyMatch(marker -> marker.device().equals(focus)));
+    }
+
+    private static final class Harness {
+        final UUID worldId = UUID.randomUUID();
+        final World world = mock(World.class);
+        final Player player = mock(Player.class);
+        final MusicDeviceRegistry registry = mock(MusicDeviceRegistry.class);
+        final MusicState.Editor data = MusicState.empty().edit();
+        final MusicWorkspaceState state = new MusicWorkspaceState();
+        final MusicDeviceLocator locator = new MusicDeviceLocator(registry,mock(LanguageService.class));
+        Harness() {
+            when(world.getUID()).thenReturn(worldId);
+            when(player.getWorld()).thenReturn(world);
+            when(player.getLocation()).thenReturn(new Location(world,.5,64.5,.5));
+            when(registry.snapshot()).thenAnswer(_ -> data.snapshot());
+            when(registry.mayLocate(eq(player),any())).thenReturn(true);
+            when(registry.alias(eq(player),any())).thenAnswer(call -> call.<MusicDevice>getArgument(1).name());
+            when(registry.location(any())).thenAnswer(call -> {
+                var device = call.<MusicDevice>getArgument(0);
+                return new Location(world,device.x(),device.y(),device.z());
+            });
+        }
+        MusicDevice add(int x, int y, int z) {
+            var device = new MusicDevice(UUID.randomUUID(),worldId,"world",x,y,z,"Device",100,64,null,0);
+            data.devices.put(device.id(),device);
+            return device;
+        }
     }
 
     @Test void locationAndElevationMessagesFormatRealValuesInEveryLanguage() throws Exception {

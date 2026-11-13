@@ -19,6 +19,7 @@ import org.encinet.mik.feature.server.safety.FixBugModule;
 import org.encinet.mik.feature.server.safety.FluidProtectionModule;
 import org.encinet.mik.feature.server.safety.OversizedEntityGuard;
 import org.encinet.mik.feature.server.safety.TrampleProtectionModule;
+import org.encinet.mik.shared.menu.FloatingMenus;
 
 record ServerFeatures(BanModule bans) {
 
@@ -37,6 +38,7 @@ record ServerFeatures(BanModule bans) {
         banModule.registerCommands(plugin.getLifecycleManager());
 
         MonitorModule monitorModule = new MonitorModule(plugin, languageService, afkModule);
+        monitorModule.fieldOfView(player -> FloatingMenus.preferences(player).fieldOfView().degrees());
         lifecycle.startManaged("monitor", monitorModule::enable, monitorModule::disable);
         monitorModule.registerCommands(plugin.getLifecycleManager());
         players.tabList().retainedEntries(monitorModule::retainsTabEntry);

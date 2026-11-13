@@ -7,7 +7,12 @@ import java.util.Objects;
 
 /** Describes where a track's media can be obtained without preparing or playing it. */
 public sealed interface TrackTarget
-        permits TrackTarget.LocalFile, TrackTarget.NbsFile, TrackTarget.Lx {
+        permits TrackTarget.LocalFile, TrackTarget.NbsFile, TrackTarget.Lx, TrackTarget.NativeRecord {
+
+    /** A client resource-pack sound; the vanilla protocol cannot seek within it. */
+    record NativeRecord(String sound) implements TrackTarget {
+        public NativeRecord { sound = requireText(sound, "sound"); }
+    }
 
     record LocalFile(Path path, Path root) implements TrackTarget {
         public LocalFile(Path path) {

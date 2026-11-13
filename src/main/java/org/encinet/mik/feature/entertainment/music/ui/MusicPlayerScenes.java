@@ -93,8 +93,9 @@ final class MusicPlayerScenes implements AutoCloseable {
                                 throw new MusicProblem(MusicProblem.Code.CONFLICT);
                             timeline(player, state).close();
                             w.redraw(player);
-                        } else control(player, state, snapshot, controls.primary() == MusicPlayerControls.Primary.PAUSE
-                                ? MusicPlaybackController.Action.PAUSE : MusicPlaybackController.Action.RESUME);
+                        } else control(player, state, snapshot, controls.primary() == MusicPlayerControls.Primary.STOP
+                                ? MusicPlaybackController.Action.STOP : controls.primary() == MusicPlayerControls.Primary.PAUSE
+                                        ? MusicPlaybackController.Action.PAUSE : MusicPlaybackController.Action.RESUME);
                     }), editable && controls.enabled() ? null : reason != null ? reason
                             : snapshot.status() == PlaybackStatus.LOADING ? w.label(player, "saving")
                             : snapshot.track() == null ? w.label(player, "empty") : w.problem(player, MusicProblem.Code.UNSUPPORTED));

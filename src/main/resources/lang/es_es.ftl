@@ -2159,6 +2159,7 @@ music-space-label =
         [device-actions] Acciones
         [device-status] Estado
         [sync-group] Grupo sincronizado
+        [group-control-help] La reproducción y la expulsión del disco afectan a todo el grupo. El volumen y el alcance se ajustan por dispositivo.
         [single-device] Tocadiscos
         [device-location] Ubicación
         [visit-device] Teletransportarse al lado

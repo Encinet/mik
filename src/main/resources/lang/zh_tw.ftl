@@ -1901,6 +1901,7 @@ music-space-label =
         [device-actions] 操作
         [device-status] 狀態
         [sync-group] 同步組
+        [group-control-help] 播放與取出唱片會套用至整個同步群組；成員音量與範圍可個別設定。
         [single-device] 唱片機
         [device-location] 位置
         [visit-device] 傳送到旁邊

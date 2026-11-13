@@ -2148,6 +2148,7 @@ music-space-label =
         [device-actions] Aktionen
         [device-status] Status
         [sync-group] Synchronisierte Gruppe
+        [group-control-help] Wiedergabe und Auswerfen gelten für die ganze Gruppe. Lautstärke und Reichweite sind pro Gerät einstellbar.
         [single-device] Plattenspieler
         [device-location] Standort
         [visit-device] Dorthin teleportieren

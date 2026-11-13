@@ -20,7 +20,7 @@ final class JukeboxPlaybackAudience {
     boolean canHearBackend(Player player, MusicTrack track) {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(track, "track");
-        if (track.target() instanceof TrackTarget.NbsFile) {
+        if (track.target() instanceof TrackTarget.NbsFile || track.target() instanceof TrackTarget.NativeRecord) {
             return true;
         }
         VoiceServerPlayer voicePlayer = voiceServer.getPlayerManager()
@@ -31,6 +31,6 @@ final class JukeboxPlaybackAudience {
 
     static boolean canHearBackend(TrackTarget target, boolean plasmoVoiceAvailable) {
         Objects.requireNonNull(target, "target");
-        return target instanceof TrackTarget.NbsFile || plasmoVoiceAvailable;
+        return target instanceof TrackTarget.NbsFile || target instanceof TrackTarget.NativeRecord || plasmoVoiceAvailable;
     }
 }

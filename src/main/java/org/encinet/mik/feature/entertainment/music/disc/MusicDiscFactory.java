@@ -63,6 +63,16 @@ public class MusicDiscFactory {
 
     private ItemStack createMusicDisc(
             MusicTrack music, boolean detailed, Language language, boolean persistent) {
+        if (persistent && music.target() instanceof org.encinet.mik.feature.entertainment.music.catalog.TrackTarget.NativeRecord) {
+            var key = org.bukkit.NamespacedKey.fromString(music.id().substring("record:".length()));
+            var song = io.papermc.paper.registry.RegistryAccess.registryAccess()
+                    .getRegistry(io.papermc.paper.registry.RegistryKey.JUKEBOX_SONG).getOrThrow(key);
+            Material material = Material.matchMaterial("MUSIC_DISC_"+key.value().toUpperCase(java.util.Locale.ROOT));
+            var record = new ItemStack(material != null && material.isItem() ? material : Material.MUSIC_DISC_13);
+            record.setData(DataComponentTypes.JUKEBOX_PLAYABLE,
+                    io.papermc.paper.datacomponent.item.JukeboxPlayable.jukeboxPlayable(song).build());
+            return record;
+        }
         int hash = music.id().hashCode();
         TrackDetails details = music.details();
         AudioProperties audio = details.audio();

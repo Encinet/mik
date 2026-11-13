@@ -135,6 +135,45 @@ class MusicDeviceRegistryTest {
         assertFalse(registry.mayControl(player, deviceId));
     }
     @Test
+    void nearbyWayfindingDoesNotRequireOrCreateARemoteRecordAndRechecksTheBlock() {
+        var device = device(deviceId, 0);
+        playerX = 50;
+        assertFalse(registry.mayControl(player, deviceId));
+        assertTrue(registry.mayLocate(player, device));
+        assertFalse(registry.bound(actor, deviceId));
+        assertFalse(registry.mayControl(player, deviceId));
+        allowed = false;
+        assertFalse(registry.mayLocate(player, device));
+        allowed = true;
+        data.put(new NamespacedKey("mik", "music_device_id"), UUID.randomUUID().toString());
+        assertFalse(registry.mayLocate(player, device));
+        data.put(new NamespacedKey("mik", "music_device_id"), deviceId.toString());
+        loaded = false;
+        int reads = blockReads;
+        assertFalse(registry.mayLocate(player, device));
+        assertEquals(reads, blockReads, "Wayfinding cannot read or load an unloaded chunk");
+        loaded = true;
+        assertTrue(registry.mayLocate(player, device));
+    }
+    @Test void standingAtOneMemberAuthorizesTheWholeGroupButStillChecksEveryMembersPlot() {
+        var group = UUID.randomUUID(); var remote = UUID.randomUUID();
+        store.transact(editor -> {
+            editor.devices.put(deviceId,device(deviceId,0).grouped(group));
+            editor.devices.put(remote,device(remote,40).grouped(group));
+            editor.groups.put(group,new MusicState.Group(group,"Room",java.util.List.of(deviceId,remote),Map.of(),100,0));
+            return null;
+        }).join();
+        var checked = new java.util.ArrayList<Integer>();
+        var onsiteRegistry = new MusicDeviceRegistry(store,new JukeboxSettingsStore(),(_,at) -> {
+            checked.add(at.getBlockX()); return at.getBlockX() != 40 || allowed;
+        },_ -> world);
+        assertTrue(onsiteRegistry.mayControl(player,group));
+        assertTrue(checked.contains(40)); assertFalse(onsiteRegistry.bound(actor,group));
+        allowed = false; assertFalse(onsiteRegistry.mayControl(player,group));
+        allowed = true; playerX = 100;
+        assertFalse(onsiteRegistry.mayControl(player,group));
+    }
+    @Test
     void offlineQueriesNeverReadOrLoadBlock() {
         loaded = false;
         blockReads = 0;

@@ -57,4 +57,14 @@ class MusicPlayerControlsTest {
             assertFalse(busy.enabled()); assertFalse(busy.previous()); assertFalse(busy.next());
         }
     }
+    @Test void nativeRecordsOfferStopInsteadOfAnUnsupportedPause() {
+        var track = new org.encinet.mik.feature.entertainment.music.catalog.MusicTrack("record:minecraft:cat",
+                MusicWorkspaceStateTest.track("song").details(),
+                new org.encinet.mik.feature.entertainment.music.catalog.TrackTarget.NativeRecord("minecraft:music_disc.cat"));
+        var snapshot = new MusicPlaybackSnapshot(target,null,run,track,PlaybackStatus.PLAYING,0,1,false,null);
+        var controls = MusicPlayerControls.sample(snapshot,PlaybackProgram.empty(),false);
+        assertEquals(MusicPlayerControls.Primary.STOP,controls.primary()); assertTrue(controls.enabled());
+        assertFalse(controls.previous()); assertFalse(controls.next());
+        assertEquals(track,org.encinet.mik.feature.entertainment.music.storage.StoredTrack.of(track).track());
+    }
 }

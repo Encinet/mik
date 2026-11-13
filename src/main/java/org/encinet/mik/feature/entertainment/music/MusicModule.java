@@ -104,7 +104,7 @@ public final class MusicModule {
         var registry = new MusicDeviceRegistry(store, settings, permission);
         mainThread = new MusicMainThread(plugin);
         travel = new MusicDeviceTravel(registry,mainThread);
-        devices = new MusicPlaybackController(plugin, store, playbackService, settings, registry, mainThread);
+        devices = new MusicPlaybackController(plugin, store, playbackService, settings, registry, mainThread, resolver);
         var pool = new MusicTrackPool(musicLibrary::tracks, audioCache::cachedTracks);
         var groups = new MusicGroupService(store, registry, devices, mainThread);
         rooms = new MusicRooms(devices, registry, playbackService, settings, rhythmGameService, permission);

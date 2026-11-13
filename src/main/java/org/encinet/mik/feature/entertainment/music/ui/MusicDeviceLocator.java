@@ -17,8 +17,8 @@ import net.kyori.adventure.text.format.TextDecoration;
 
 /** Private, stable wayfinding rendered and cleaned up with the owning menu scene. */
 final class MusicDeviceLocator {
-    static final int MAX_MARKERS = 4;
-    static final double RANGE = 32;
+    static final int MAX_MARKERS = 64;
+    static final double RANGE = 64;
     private static final int[] COLORS = {0x70D7FF,0xD4A4FF,0xFFB4DE,0x8FE8D0,0xADBFFF,0xFFE4A3,0xB9EAFF,0xD9EFA0};
     record Marker(MusicDevice device, String code, int color, boolean focused) { }
     private final MusicDeviceRegistry registry;
@@ -70,37 +70,29 @@ final class MusicDeviceLocator {
     }
 
     List<Marker> visible(Player player, MusicWorkspaceState state) {
-        var candidates = new LinkedHashMap<UUID,MusicDevice>();
-        if (state.panel() instanceof MusicWorkspaceState.GroupEditor editor)
-            for (UUID id : editor.draft().members) {
-                var device = registry.snapshot().devices().get(id);
-                if (device != null) candidates.put(id,device);
-            }
-        else if (state.panel() instanceof MusicWorkspaceState.DevicePanel panel) add(candidates,panel.target());
-        else if (state.panel() instanceof MusicWorkspaceState.MemberOutput member) add(candidates,member.group());
-        else add(candidates,state.target());
         var viewer = player.getLocation();
+        var selected = state.panel() instanceof MusicWorkspaceState.GroupEditor editor ? editor.draft().members : Set.<UUID>of();
         var focus = state.panel() instanceof MusicWorkspaceState.MemberOutput member ? member.member()
-                : state.panel() instanceof MusicWorkspaceState.DevicePanel panel ? panel.target() : state.target();
-        return candidates.values().stream().filter(device -> device.world().equals(player.getWorld().getUID())
+                : state.panel() instanceof MusicWorkspaceState.DevicePanel panel ? panel.target()
+                : state.panel() instanceof MusicWorkspaceState.GroupEditor ? null : state.target();
+        return registry.snapshot().devices().values().stream().filter(device -> device.world().equals(player.getWorld().getUID())
                         && distanceSquared(viewer,device) <= RANGE*RANGE)
-                .map(device -> marker(device,device.id().equals(focus)))
-                .sorted(Comparator.comparing(Marker::focused).reversed().thenComparingDouble(marker -> distanceSquared(viewer,marker.device())))
-                .filter(marker -> registry.online(marker.device()) && registry.mayControl(player,marker.device().id()))
+                .map(device -> marker(device,selected.contains(device.id()) || device.id().equals(focus)
+                        || device.group() != null && device.group().equals(focus)))
+                .sorted(Comparator.comparing(Marker::focused).reversed().thenComparingDouble(marker -> distanceSquared(viewer,marker.device()))
+                        .thenComparing(marker -> marker.device().id()))
+                .filter(marker -> registry.mayLocate(player,marker.device()))
                 .limit(MAX_MARKERS).toList();
-    }
-
-    private void add(Map<UUID,MusicDevice> candidates, UUID target) {
-        if (target == null) return;
-        try { registry.target(target).members().forEach(device -> candidates.putIfAbsent(device.id(),device)); }
-        catch (MusicProblem removed) { }
     }
 
     void decorate(Player player, MusicWorkspaceState state, MenuScene.Builder scene) {
         for (var marker : visible(player,state)) {
             var device = marker.device();
             var at = registry.location(device).add(.5,1.25,.5);
-            var label = UiTextMetrics.fitSingleLine(name(player,device).decorate(TextDecoration.BOLD),192);
+            Component title = name(player,device);
+            var group = device.group() == null ? null : registry.snapshot().groups().get(device.group());
+            if (group != null) title = Component.text(registry.name(player,group.id())+" · ",TextColor.color(marker.color())).append(title);
+            var label = UiTextMetrics.fitSingleLine(title.decorate(TextDecoration.BOLD),192);
             scene.decoration(FloatingMenuDecoration.worldText("mark:"+device.id(),at,0,0,label,0xE8181B22,3,.5f,
                     marker.focused() ? .8f : .7f,FloatingMenuDecoration.Alignment.CENTER).billboard());
             // Keep the copied block just inside the real one: its ordinary texture is hidden,

@@ -19,6 +19,10 @@ public record StoredTrack(String id, String title, String artist, String author,
                provider = null;
         List<String> qualities = List.of();
         switch (track.target()) {
+            case TrackTarget.NativeRecord f -> {
+                kind = "record";
+                song = f.sound();
+            }
             case TrackTarget.LocalFile f -> {
                 kind = "audio";
                 path = f.path().toString();
@@ -44,6 +48,7 @@ public record StoredTrack(String id, String title, String artist, String author,
     }
     public MusicTrack track() {
         TrackTarget target = switch (kind) {
+            case "record" -> new TrackTarget.NativeRecord(song);
             case "audio" -> new TrackTarget.LocalFile(Path.of(path), Path.of(root));
             case "nbs" -> new TrackTarget.NbsFile(Path.of(path), Path.of(root));
             case "lx" -> new TrackTarget.Lx(source, song, qualities, info, provider);

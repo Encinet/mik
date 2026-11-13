@@ -81,27 +81,39 @@ public final class MusicDeviceListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        if (MusicDiscKeys.isCustomDisc(item) && !box.hasRecord()) {
+        boolean managed = MusicDiscKeys.isCustomDisc(item) || devices.grouped(box) && item != null
+                && item.hasData(io.papermc.paper.datacomponent.DataComponentTypes.JUKEBOX_PLAYABLE);
+        if (managed && !box.hasRecord()) {
             event.setCancelled(true);
-            devices.unavailable(box.getLocation(), false);
             silencer.suppress(box.getBlock());
+            boolean accepted = false;
             try {
                 box.setRecord(item.asOne());
                 box.stopPlaying();
                 box.update(true, false);
-                if (backend.playInsertedDisc(player, box)) {
+                if (devices.playInsertedDisc(player, box, PlaybackOrigin.PLAYER)) {
+                    accepted = true;
                     if (player.getGameMode() != GameMode.CREATIVE)
                         player.getInventory().setItemInMainHand(item.getAmount() == 1
                                         ? new ItemStack(Material.AIR)
                                         : item.asQuantity(item.getAmount() - 1));
-                } else {
+                }
+            } catch (Exception error) {
+                workspace.error(player,error);
+            } finally {
+                if (!accepted) {
                     box.setRecord(new ItemStack(Material.AIR));
                     box.update(true, false);
+                    devices.recordRemoved(box);
                 }
-            } finally {
                 silencer.release(box.getBlock());
             }
             return;
+        }
+        try {
+            if (devices.ejectInsertedDisc(player,box)) { event.setCancelled(true); return; }
+        } catch (Exception error) {
+            event.setCancelled(true); workspace.error(player,error); return;
         }
         if (MusicDiscKeys.isCustomDisc(box.getRecord())) {
             event.setCancelled(true);
@@ -164,7 +176,9 @@ public final class MusicDeviceListener implements Listener {
                 e.setCancelled(true);
                 return;
             }
-            if (MusicDiscKeys.isCustomDisc(e.getItem())) {
+            boolean managed = MusicDiscKeys.isCustomDisc(e.getItem()) || devices.grouped(box)
+                    && e.getItem().hasData(io.papermc.paper.datacomponent.DataComponentTypes.JUKEBOX_PLAYABLE);
+            if (managed) {
                 e.setCancelled(true);
                 if (!box.hasRecord())
                     automated(e.getSource(), box, e.getItem(), true);
@@ -180,7 +194,7 @@ public final class MusicDeviceListener implements Listener {
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (source.isChunkLoaded() && source.getBlock().getState() instanceof Jukebox box
                         && !box.hasRecord())
-                    backend.stop(source.getBlock());
+                    devices.recordRemoved(box);
             });
     }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -205,7 +219,7 @@ public final class MusicDeviceListener implements Listener {
         if (box.hasRecord())
             return;
         event.setCancelled(true);
-        automated(source.getInventory(), box, event.getItem(), custom);
+        automated(source.getInventory(), box, event.getItem(), custom || devices.grouped(box));
     }
     private void automated(
             org.bukkit.inventory.Inventory source, Jukebox box, ItemStack requested, boolean custom) {
@@ -220,7 +234,7 @@ public final class MusicDeviceListener implements Listener {
         if (slot < 0 || box.hasRecord())
             return;
         ItemStack original = source.getItem(slot).clone();
-        devices.unavailable(box.getLocation(), false);
+        if (!custom) devices.unavailable(box.getLocation(), false);
         if (custom)
             silencer.suppress(box.getBlock());
         boolean committed = false;
@@ -229,7 +243,7 @@ public final class MusicDeviceListener implements Listener {
             if (custom) {
                 box.stopPlaying();
                 box.update(true, false);
-                if (!backend.playInsertedDisc(null, box, PlaybackOrigin.AUTOMATIC))
+                if (!devices.playInsertedDisc(null, box, PlaybackOrigin.AUTOMATIC))
                     return;
             }
             ItemStack remaining = source.getItem(slot);
@@ -239,15 +253,16 @@ public final class MusicDeviceListener implements Listener {
             source.setItem(
                     slot, original.getAmount() == 1 ? null : original.asQuantity(original.getAmount() - 1));
             committed = true;
-            if (source instanceof org.bukkit.inventory.JukeboxInventory jukebox)
-                backend.stop(jukebox.getLocation().getBlock());
+            if (source instanceof org.bukkit.inventory.JukeboxInventory jukebox
+                    && jukebox.getLocation().getBlock().getState() instanceof Jukebox sourceBox && !sourceBox.hasRecord())
+                devices.recordRemoved(sourceBox);
         } catch (RuntimeException error) {
             plugin.getLogger().warning("Music record insertion failed: " + error.getMessage());
         } finally {
             if (!committed) {
-                backend.stop(box.getBlock());
                 box.setRecord(new ItemStack(Material.AIR));
                 box.update(true, false);
+                devices.recordRemoved(box);
             }
             if (custom)
                 silencer.release(box.getBlock());

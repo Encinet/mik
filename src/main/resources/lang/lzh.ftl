@@ -1901,6 +1901,7 @@ music-space-label =
         [device-actions] 用事
         [device-status] 狀態
         [sync-group] 同步組
+        [group-control-help] 播曲、退碟皆及全組；各機音量、範圍可分設。
         [single-device] 唱片機
         [device-location] 所在
         [visit-device] 移至旁側

@@ -17,6 +17,13 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
@@ -48,6 +55,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import java.util.function.ToDoubleFunction;
 
 /** Staff patrols with automatic camera placement and target rotation. */
 public final class MonitorModule implements Listener {
@@ -64,6 +72,7 @@ public final class MonitorModule implements Listener {
     private final Supplier<MonitorCameraView> views;
     private final Map<UUID, Session> sessions = new HashMap<>();
     private Consumer<UUID> tabRefresh = _ -> { };
+    private ToDoubleFunction<Player> fieldOfView = _ -> 70;
     private BukkitTask task;
     private volatile boolean running = true;
 
@@ -89,6 +98,10 @@ public final class MonitorModule implements Listener {
 
     public void onTabChange(Consumer<UUID> refresh) {
         tabRefresh = java.util.Objects.requireNonNull(refresh, "refresh");
+    }
+
+    public void fieldOfView(ToDoubleFunction<Player> configured) {
+        fieldOfView = java.util.Objects.requireNonNull(configured, "configured");
     }
 
     /** Per-viewer badge; ordinary players receive no monitoring state. */
@@ -189,6 +202,7 @@ public final class MonitorModule implements Listener {
             }
             session.observation = afk.beginPassiveObservation(player);
             refreshVisibility(session);
+            refreshViewer(player);
             // Permissions are now cached for every recipient; refresh the initial mode accordingly.
             tab.refreshMode(player);
             tabRefresh.accept(player.getUniqueId());
@@ -224,9 +238,18 @@ public final class MonitorModule implements Listener {
             Player observer = session.observer;
             refreshVisibility(session);
             if (session.returning) continue;
-            if (!RolePermissions.canModerate(observer) || observer.getGameMode() != GameMode.SPECTATOR
-                    || afk.isAfk(observer.getUniqueId())) {
-                if (observer.getGameMode() != GameMode.SPECTATOR) session.exitMode = observer.getGameMode();
+            boolean canContinue = RolePermissions.canModerate(observer) && !afk.isAfk(observer.getUniqueId());
+            // World managers may apply the destination's game mode during a cross-world teleport.
+            // Reassert spectator once after that transition, while honoring explicit mode changes.
+            if (canContinue && session.worldChanged && !session.modeChangeRequested
+                    && observer.getGameMode() != GameMode.SPECTATOR) {
+                observer.setGameMode(GameMode.SPECTATOR);
+            }
+            session.worldChanged = false;
+            if (!canContinue || session.modeChangeRequested || observer.getGameMode() != GameMode.SPECTATOR) {
+                if (!session.modeChangeRequested && observer.getGameMode() != GameMode.SPECTATOR) {
+                    session.exitMode = observer.getGameMode();
+                }
                 stop(session);
                 continue;
             }
@@ -290,8 +313,8 @@ public final class MonitorModule implements Listener {
             session.targetTeleported = false;
             session.camera.reset();
         }
-        MonitorCamera.Frame frame = session.camera.update(session.target.getUniqueId(), session.target.getEyeLocation(),
-                session.target.getEyeHeight(), observer.getEyeLocation(), observer.getEyeHeight());
+        session.camera.fieldOfView(fieldOfView.applyAsDouble(observer));
+        MonitorCamera.Frame frame = session.camera.update(session.target, observer.getEyeLocation(), observer.getEyeHeight());
         boolean watching;
         if (frame == null) {
             session.view.clear(observer);
@@ -364,6 +387,7 @@ public final class MonitorModule implements Listener {
         }
         sessions.remove(observer.getUniqueId());
         reveal(session);
+        refreshViewer(observer);
         if (session.exitMode == session.originalMode) {
             observer.setAllowFlight(session.allowFlight);
             observer.setFlying(session.allowFlight && session.flying);
@@ -378,6 +402,61 @@ public final class MonitorModule implements Listener {
         for (Session session : sessions.values()) {
             if (session.target != null && targetId.equals(session.target.getUniqueId())) session.targetTeleported = true;
         }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onInteract(PlayerInteractEvent event) {
+        var block = event.getClickedBlock();
+        if (block != null) recordOperation(event.getPlayer(), operation -> operation.block(
+                event.getPlayer(), block, event.getInteractionPoint(), event.getBlockFace()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBreak(BlockBreakEvent event) {
+        recordOperation(event.getPlayer(), operation -> operation.block(event.getPlayer(), event.getBlock(), null, null));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlace(BlockPlaceEvent event) {
+        recordOperation(event.getPlayer(), operation -> operation.block(event.getPlayer(), event.getBlockPlaced(), null, null));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityInteract(PlayerInteractEntityEvent event) {
+        recordOperation(event.getPlayer(), operation -> operation.entity(event.getPlayer(), event.getRightClicked()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onEntityDamage(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player player) {
+            recordOperation(player, operation -> operation.entity(player, event.getEntity()));
+        }
+    }
+
+    private void recordOperation(Player player, Consumer<MonitorOperation> record) {
+        for (Session session : sessions.values()) {
+            if (!session.returning && session.target != null && session.target.getUniqueId().equals(player.getUniqueId())) {
+                record.accept(session.camera.operations());
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onWorldChange(PlayerChangedWorldEvent event) {
+        Session session = sessions.get(event.getPlayer().getUniqueId());
+        if (session == null || session.returning) return;
+        session.worldChanged = true;
+        session.camera.reset();
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onGameModeChange(PlayerGameModeChangeEvent event) {
+        Session session = sessions.get(event.getPlayer().getUniqueId());
+        if (session == null || session.returning) return;
+        if (event.getCause() != PlayerGameModeChangeEvent.Cause.COMMAND
+                && event.getCause() != PlayerGameModeChangeEvent.Cause.GAMEMODE_SWITCHER) return;
+        session.modeChangeRequested = event.getNewGameMode() != GameMode.SPECTATOR;
+        if (session.modeChangeRequested) session.exitMode = event.getNewGameMode();
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -402,12 +481,21 @@ public final class MonitorModule implements Listener {
         for (Player viewer : onlinePlayers.get()) updateVisibility(session, viewer);
     }
 
+    private void refreshViewer(Player viewer) {
+        for (Session session : sessions.values()) {
+            if (session.observer.equals(viewer)) continue;
+            updateVisibility(session, viewer);
+            tabRefresh.accept(session.observer.getUniqueId());
+        }
+    }
+
     private void updateVisibility(Session session, Player viewer) {
         boolean staff = RolePermissions.canModerate(viewer);
         tab.staff(viewer.getUniqueId(), staff);
         if (viewer.equals(session.observer)) return;
         UUID id = viewer.getUniqueId();
-        if (staff) {
+        // Spectator heads from another patrol can overlap the same viewer-only camera.
+        if (staff && !isMonitoring(viewer)) {
             session.tabViewers.remove(id);
             if (session.hiddenFrom.remove(id)) viewer.showPlayer(plugin, session.observer);
         } else if (session.hiddenFrom.add(id)) {
@@ -476,6 +564,8 @@ public final class MonitorModule implements Listener {
         long selectedAt;
         boolean returning;
         boolean targetTeleported;
+        boolean worldChanged;
+        boolean modeChangeRequested;
 
         Session(Player observer, MonitorCamera camera, MonitorCameraView view) {
             this.observer = observer;

@@ -241,6 +241,7 @@ public final class MusicWorkspace implements AutoCloseable {
         var statuses = new ArrayList<Object>();
         statuses.add(language.language(player));
         statuses.add(queries.revision());
+        statuses.add(locator.visible(player,state));
         if (state.target() != null) {
             UUID id = state.target();
             statuses.add(Optional.ofNullable(registry.controlFailure(player, id)));

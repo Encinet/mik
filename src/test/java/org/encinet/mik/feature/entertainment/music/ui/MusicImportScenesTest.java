@@ -54,6 +54,7 @@ class MusicImportScenesTest {
             when(player.getLocation()).thenReturn(new Location(world,0,64,0));
             var playback = mock(MusicPlaybackController.class);
             var registry = mock(MusicDeviceRegistry.class);
+            when(registry.snapshot()).thenReturn(MusicState.empty());
             var target = UUID.randomUUID();
             var device = new MusicDevice(target,UUID.randomUUID(),"world",0,64,0,"Living room 客厅",100,64,null,0);
             when(playback.snapshot(target)).thenReturn(new MusicPlaybackSnapshot(target,UUID.randomUUID(),UUID.randomUUID(),tracks.getFirst(),PlaybackStatus.PLAYING,0,0,false,null));

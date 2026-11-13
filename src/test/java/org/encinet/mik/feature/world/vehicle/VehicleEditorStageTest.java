@@ -7,9 +7,11 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 
 class VehicleEditorStageTest {
+    // Bukkit locations retain worlds weakly; keep the simulated world alive for each test.
+    private final World world = mock(World.class);
     @Test void fittingCreatesAnElevatedMiniatureWithoutChangingAuthoredGeometry() {
         var draft = new VehicleModelDraft(VehicleFixtures.definition(VehicleDefinition.Kind.CAR));
-        var before = draft.validate(); var viewer = new Location(mock(World.class), 20, 64, -10, 37, 89);
+        var before = draft.validate(); var viewer = new Location(world, 20, 64, -10, 37, 89);
         var stage = VehicleEditorStage.fit(draft, viewer);
         assertTrue(stage.scale() < 1); assertTrue(stage.origin().getY() > viewer.getY());
         assertEquals(before, draft.validate()); assertFalse(draft.canUndo());
@@ -18,7 +20,6 @@ class VehicleEditorStageTest {
         assertEquals(3.5, Math.hypot(floating.getX() - viewer.getX(), floating.getZ() - viewer.getZ()), 1.0E-8);
     }
     @Test void inverseCoordinatesAndFrameChangesRemainExactAtDifferentScalesAndHeadings() {
-        var world = mock(World.class);
         for (double scale : new double[]{.02, .1, .6, 1, 2}) for (float yaw : new float[]{0, 37, 90, 180, -170}) {
             var draft = new VehicleModelDraft(VehicleFixtures.definition(VehicleDefinition.Kind.CAR));
             var stage = VehicleEditorStage.place(draft, new Location(world, 9, 72, 15, yaw, 0), scale);
@@ -33,7 +34,7 @@ class VehicleEditorStageTest {
     }
     @Test void zoomKeepsTheModelCenterFixedAfterChoosingANewFront() {
         var draft = new VehicleModelDraft(VehicleFixtures.definition(VehicleDefinition.Kind.CAR));
-        var stage = VehicleEditorStage.fit(draft, new Location(mock(World.class), 10, 64, 20, 37, 0));
+        var stage = VehicleEditorStage.fit(draft, new Location(world, 10, 64, 20, 37, 0));
         draft.front(1);
         var center = VehicleModel.bounds(draft.parts()).center();
         var before = stage.world(draft, center);

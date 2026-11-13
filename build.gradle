@@ -76,6 +76,9 @@ dependencies {
     compileOnly('net.luckperms:api:5.5')
     compileOnly("net.quickwrite:fluent-builder:1.0.0")
     compileOnly("su.plo.voice.server:paper:2.1.13")
+    ['server', 'server-proxy-common', 'common'].each { module ->
+        testRuntimeOnly("su.plo.voice.api:${module}:2.1.13") { transitive = false }
+    }
     compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.21")
     compileOnly("dev.arbjerg:lavaplayer:2.2.7")
     compileOnly("net.jthink:jaudiotagger:3.0.1")

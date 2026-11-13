@@ -2193,6 +2193,7 @@ music-space-label =
         [device-actions] Дії
         [device-status] Стан
         [sync-group] Група синхронізації
+        [group-control-help] Відтворення та виймання платівки діють на всю групу. Гучність і дальність налаштовуються для кожного пристрою.
         [single-device] Програвач
         [device-location] Розташування
         [visit-device] Телепортуватися поруч

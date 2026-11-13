@@ -64,6 +64,10 @@ public final class MusicDeviceRegistry {
     public boolean online(MusicDevice device) {
         return block(device) != null;
     }
+    /** Nearby wayfinding needs a loaded, authorized block, but does not grant remote control. */
+    public boolean mayLocate(Player player, MusicDevice device) {
+        return store.ready() && online(device) && permission.test(player, location(device));
+    }
     public boolean local(Player player, MusicDevice device) {
         Location l = location(device);
         return l != null && l.getWorld().equals(player.getWorld())
@@ -169,8 +173,9 @@ public final class MusicDeviceRegistry {
             throw new MusicProblem(MusicProblem.Code.NOT_FOUND);
         if (target.members().stream().noneMatch(this::online))
             throw new MusicProblem(MusicProblem.Code.OFFLINE);
+        boolean onsite = target.members().stream().anyMatch(device -> local(player,device));
         for (MusicDevice d : target.members()) {
-            authorizeAccess(player,d,target.id());
+            authorizeAccess(player,d,target.id(),onsite);
             Jukebox box = block(d);
             if (box != null && settings.readExperienceMode(box) == JukeboxExperienceMode.RHYTHM
                     && target.members().size() == 1)
@@ -188,9 +193,12 @@ public final class MusicDeviceRegistry {
     }
 
     private void authorizeAccess(Player player, MusicDevice device, UUID target) {
+        authorizeAccess(player,device,target,false);
+    }
+    private void authorizeAccess(Player player, MusicDevice device, UUID target, boolean onsite) {
         Location at = location(device);
         if (at == null) throw new MusicProblem(MusicProblem.Code.OFFLINE);
-        if (!bound(player.getUniqueId(),target) && !bound(player.getUniqueId(),device.id())
+        if (!onsite && !bound(player.getUniqueId(),target) && !bound(player.getUniqueId(),device.id())
                 && (device.group() == null || !bound(player.getUniqueId(),device.group())) && !local(player,device))
             throw new MusicProblem(MusicProblem.Code.FORBIDDEN);
         if (!permission.test(player,at)) throw new MusicProblem(MusicProblem.Code.FORBIDDEN);

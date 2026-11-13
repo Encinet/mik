@@ -1901,6 +1901,7 @@ music-space-label =
         [device-actions] 操作
         [device-status] 状態
         [sync-group] 同期グループ
+        [group-control-help] 再生とディスクの取り出しはグループ全体に適用されます。音量と範囲は各機器で調整できます。
         [single-device] ジュークボックス
         [device-location] 場所
         [visit-device] そばにテレポート

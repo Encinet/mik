@@ -134,6 +134,8 @@ public final class MusicRooms implements AutoCloseable {
         games.openCalibration(player, registry.location(d));
     }
     public void select(Player player, UUID device, MusicTrack track) {
+        if (track.target() instanceof org.encinet.mik.feature.entertainment.music.catalog.TrackTarget.NativeRecord)
+            throw new MusicProblem(MusicProblem.Code.UNSUPPORTED);
         RhythmRoom room = required(device);
         controller(player, room);
         if (room.members().stream().anyMatch(RhythmRoom.Member::playing))

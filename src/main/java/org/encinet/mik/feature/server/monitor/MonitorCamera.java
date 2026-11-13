@@ -2,12 +2,14 @@ package org.encinet.mik.feature.server.monitor;
 
 import org.bukkit.FluidCollisionMode;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.craftbukkit.block.CraftBlock;
+import org.bukkit.entity.Player;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
 
@@ -16,10 +18,13 @@ final class MonitorCamera {
     static final long UPDATE_TICKS = 1L;
     private static final double MINIMUM_DISTANCE = 1.25;
     private static final double COMFORTABLE_DISTANCE = 3.5;
-    private static final double CLEARANCE = 0.35;
+    private static final double CLEARANCE = MonitorSight.MARGIN;
     private static final double RADIUS = 0.25;
     private static final double WALL_MARGIN = 0.12;
-    private static final double BLEND = 0.2;
+    private static final double FOLLOW_DAMPING = 0.5;
+    private static final double MAX_FOLLOW_LAG = 0.75;
+    private static final int LOOK_STABILITY_FRAMES = 5;
+    private static final double OPERATION_REACH = 3;
     private static final double[] ANGLES = {70, -70, 90, -90, 110, -110, 35, -35, 0, 180};
     private static final double[] HEIGHTS = {1.2, 0.15};
     private static final int RECOVERY_FRAMES = 20;
@@ -31,11 +36,25 @@ final class MonitorCamera {
 
     private final Predicate<Location> solidRender;
     private final MonitorFraming framing = new MonitorFraming();
+    private final MonitorOperation operations = new MonitorOperation();
+    private double minimumFrameDot = Math.cos(Math.toRadians(30));
 
     private UUID subject;
     private Location previousTarget;
     private Location previousFocus;
-    private double heading; // Keep one observation side; strafing or reversing must not orbit the camera.
+    private Location previousAim;
+    private MonitorOperation.Focus previousOperation;
+    private final Vector velocity = new Vector();
+    private double heading;
+    private double pitch;
+    private double desiredHeading;
+    private double desiredPitch;
+    private double headingVelocity;
+    private double pitchVelocity;
+    private float lastYaw;
+    private float lastPitch;
+    private int yawFrames;
+    private int pitchFrames;
     private int preferred;
     private int pending = -1;
     private int pendingFrames;
@@ -54,10 +73,20 @@ final class MonitorCamera {
 
     record Frame(Location feet, boolean cut) { }
 
+    MonitorOperation operations() { return operations; }
+
+    void fieldOfView(double degrees) {
+        minimumFrameDot = Math.cos(Math.toRadians(Math.clamp(degrees, 30, 110) / 2 - 5));
+    }
+
     void reset() {
+        operations.reset();
         subject = null;
         previousTarget = null;
         previousFocus = null;
+        previousAim = null;
+        previousOperation = null;
+        velocity.zero();
         firstPerson = false;
         clearFrames = 0;
         pending = -1;
@@ -66,36 +95,61 @@ final class MonitorCamera {
     }
 
     /** Returns an explicit continuous/cut frame, or null for native first-person spectating. */
+    @Nullable Frame update(Player target, Location currentEye, double eyeHeight) {
+        Location targetEye = target.getEyeLocation();
+        if (!target.getUniqueId().equals(subject) || previousTarget == null
+                || !targetEye.getWorld().equals(previousTarget.getWorld())) operations.reset();
+        return update(target.getUniqueId(), targetEye, target.getEyeHeight(), currentEye, eyeHeight, operations.sample(target));
+    }
+
     @Nullable Frame update(UUID targetId, Location targetEye, double targetEyeHeight,
-                           Location currentEye, double eyeHeight) {
+                           Location currentEye, double eyeHeight, @Nullable MonitorOperation.Focus observed) {
         boolean cut = !targetId.equals(subject) || previousTarget == null
                 || !targetEye.getWorld().equals(previousTarget.getWorld());
         if (cut) {
             subject = targetId;
             heading = targetEye.getYaw();
+            pitch = targetEye.getPitch();
+            desiredHeading = heading;
+            desiredPitch = pitch;
+            headingVelocity = 0;
+            pitchVelocity = 0;
+            lastYaw = targetEye.getYaw();
+            lastPitch = targetEye.getPitch();
+            yawFrames = 0;
+            pitchFrames = 0;
+            velocity.zero();
             preferred = 0;
             firstPerson = false;
             clearFrames = 0;
             pending = -1;
             pendingFrames = 0;
             framing.reset();
+        } else {
+            updateLook(targetEye);
         }
         // Keep the focus inside a swimming/flying player's body as well as a standing one.
         Location focus = targetEye.clone().subtract(0, Math.min(0.4, targetEyeHeight * 0.25), 0);
+        Location look = targetEye.clone();
+        look.setYaw((float) heading);
+        look.setPitch((float) pitch);
+        Location operation = targetEye.clone().add(look.getDirection().multiply(OPERATION_REACH));
+        Composition composition = new Composition(focus, operation, observed, minimumFrameDot);
         Vector movement = cut ? new Vector() : targetEye.toVector().subtract(previousTarget.toVector());
         MonitorFraming.Frame motion = framing.update(movement);
         Location oldFocus = previousFocus;
+        Location oldAim = previousAim;
         previousTarget = targetEye.clone();
         previousFocus = focus.clone();
 
-        Location best = candidate(targetEye, focus, preferred, motion);
+        Location best = candidate(targetEye, composition, preferred, motion);
         int winner = preferred;
         Location alternative = best;
         double bestScore = best == null ? Double.NEGATIVE_INFINITY : score(best, focus, preferred, motion.distance());
         if (best == null || best.distance(focus) < COMFORTABLE_DISTANCE) {
             for (int index = 0; index < ANGLES.length * HEIGHTS.length; index++) {
                 if (index == preferred) continue;
-                Location candidate = candidate(targetEye, focus, index, motion);
+                Location candidate = candidate(targetEye, composition, index, motion);
                 if (candidate == null) continue;
                 double candidateScore = score(candidate, focus, index, motion.distance()) - SWITCH_ADVANTAGE;
                 if (candidateScore > bestScore) {
@@ -120,6 +174,8 @@ final class MonitorCamera {
             pendingFrames = 0;
         }
         if (best == null) {
+            velocity.zero();
+            previousOperation = null;
             firstPerson = true;
             clearFrames = 0;
             return null;
@@ -134,14 +190,14 @@ final class MonitorCamera {
 
         Location eye = best;
         if (!cut && currentEye.getWorld().equals(targetEye.getWorld())) {
-            // Carry the full displacement first, so high speed never becomes world-space lag.
+            // Check the translated rig before applying its bounded inertia.
             Location carried = currentEye.clone().add(movement);
             double maximumReach = MonitorFraming.MAX_DISTANCE + MonitorFraming.MAX_COMPENSATION + 2;
             if (carried.distanceSquared(targetEye) <= maximumReach * maximumReach) {
-                double blend = motion.retracting() ? 0.65 : BLEND;
-                Location blended = carried.add(best.toVector().subtract(carried.toVector()).multiply(blend));
+                Location blended = smooth(currentEye, best, motion.retracting());
                 Location clipped = clip(focus, blended);
-                if (clipped != null && clipped.distanceSquared(blended) < 0.01) eye = clipped;
+                if (clipped != null && clipped.distanceSquared(blended) < 0.01
+                        && usable(clipped, composition)) eye = clipped;
                 else cut = true;
             } else {
                 cut = true;
@@ -149,11 +205,50 @@ final class MonitorCamera {
         } else {
             cut = true;
         }
-        eye.setDirection(focus.toVector().subtract(eye.toVector()));
+        Location aim = composition.aim(eye);
+        eye.setDirection(aim.toVector().subtract(eye.toVector()));
         if (!cut) eye.setYaw((float) (currentEye.getYaw() + wrap(eye.getYaw() - currentEye.getYaw())));
         // Check both occlusion and the aim produced by interpolating position and rotation.
-        if (!cut && !visibleTransition(currentEye, eye, oldFocus, focus)) cut = true;
+        if (!cut && !visibleTransition(currentEye, eye, oldFocus, focus, oldAim, aim, observed)) cut = true;
+        previousAim = aim;
+        previousOperation = observed;
+        if (cut) velocity.zero();
         return new Frame(eye.subtract(0, eyeHeight, 0), cut);
+    }
+
+    private void updateLook(Location targetEye) {
+        // Brief glances and alternating inputs do not swing the rig around the player.
+        yawFrames = Math.abs(wrap(targetEye.getYaw() - lastYaw)) <= 15
+                ? Math.min(LOOK_STABILITY_FRAMES, yawFrames + 1) : 0;
+        pitchFrames = Math.abs(targetEye.getPitch() - lastPitch) <= 15
+                ? Math.min(LOOK_STABILITY_FRAMES, pitchFrames + 1) : 0;
+        lastYaw = targetEye.getYaw();
+        lastPitch = targetEye.getPitch();
+        if (yawFrames >= LOOK_STABILITY_FRAMES && Math.abs(wrap(lastYaw - desiredHeading)) > 20) {
+            desiredHeading = heading + wrap(lastYaw - heading);
+        }
+        if (pitchFrames >= LOOK_STABILITY_FRAMES && Math.abs(lastPitch - desiredPitch) > 10) desiredPitch = lastPitch;
+        double desiredTurn = Math.clamp(wrap(desiredHeading - heading) * 0.12, -5, 5);
+        headingVelocity += (desiredTurn - headingVelocity) * 0.25;
+        heading += headingVelocity;
+        double desiredTilt = Math.clamp((desiredPitch - pitch) * 0.12, -3, 3);
+        pitchVelocity += (desiredTilt - pitchVelocity) * 0.25;
+        pitch = Math.clamp(pitch + pitchVelocity, -90, 90);
+    }
+
+    private Location smooth(Location current, Location desired, boolean retracting) {
+        Vector error = current.toVector().subtract(desired.toVector());
+        // Keep inertia local to the subject, even when a fast vehicle moves many blocks per tick.
+        if (error.lengthSquared() > MAX_FOLLOW_LAG * MAX_FOLLOW_LAG) error.normalize().multiply(MAX_FOLLOW_LAG);
+        // Integrate a critically damped spring over one monitor tick, retaining its velocity
+        // between frames so acceleration and braking settle without oscillation.
+        double damping = retracting ? FOLLOW_DAMPING * 1.1 : FOLLOW_DAMPING;
+        Vector step = velocity.clone().add(error.clone().multiply(damping));
+        double decay = Math.exp(-damping);
+        Vector nextError = error.add(step).multiply(decay);
+        if (nextError.lengthSquared() > MAX_FOLLOW_LAG * MAX_FOLLOW_LAG) nextError.normalize().multiply(MAX_FOLLOW_LAG);
+        velocity.subtract(step.multiply(damping)).multiply(decay);
+        return desired.clone().add(nextError);
     }
 
     private double score(Location eye, Location focus, int index, double distance) {
@@ -162,14 +257,29 @@ final class MonitorCamera {
                 - (index >= ANGLES.length ? 0.3 : 0);
     }
 
-    private @Nullable Location candidate(Location targetEye, Location focus, int index, MonitorFraming.Frame motion) {
+    private @Nullable Location candidate(Location targetEye, Composition composition, int index, MonitorFraming.Frame motion) {
+        double previousDistance = -1;
+        for (int attempt = 0; attempt < (composition.observed() == null ? 1 : 3); attempt++) {
+            double distance = Math.min(MonitorFraming.MAX_DISTANCE, motion.distance() + attempt * 1.75);
+            if (distance == previousDistance) continue;
+            previousDistance = distance;
+            Location candidate = candidateAt(targetEye, composition, index, distance, motion.compensation());
+            if (candidate != null) return candidate;
+        }
+        return null;
+    }
+
+    private @Nullable Location candidateAt(Location targetEye, Composition composition, int index, double distance, Vector compensation) {
+        Location focus = composition.body();
         double angle = Math.toRadians(heading + ANGLES[index % ANGLES.length]);
-        Location desired = targetEye.clone().add(Math.sin(angle) * motion.distance(),
-                HEIGHTS[index / ANGLES.length], -Math.cos(angle) * motion.distance());
+        Location desired = targetEye.clone().add(Math.sin(angle) * distance,
+                HEIGHTS[index / ANGLES.length], -Math.cos(angle) * distance);
         Location base = clip(focus, desired);
-        if (motion.compensation().lengthSquared() < 1.0e-8) return base;
-        Location predictedEye = desired.clone().add(motion.compensation());
+        if (base != null && !usable(base, composition)) base = null;
+        if (compensation.lengthSquared() < 1.0e-8) return base;
+        Location predictedEye = desired.clone().add(compensation);
         Location predicted = clip(focus, predictedEye);
+        if (predicted != null && !usable(predicted, composition)) predicted = null;
         // Compare lost reach against each requested point, not their distances to the subject:
         // compensation toward the subject is legitimate when both requested views are clear.
         if (predicted == null) return base;
@@ -177,8 +287,27 @@ final class MonitorCamera {
         return predicted;
     }
 
-    private boolean visibleTransition(Location fromEye, Location toEye, Location fromFocus, Location toFocus) {
-        if (fromFocus == null || !fromEye.getWorld().equals(fromFocus.getWorld())) return false;
+    private boolean usable(Location eye, Composition composition) {
+        return composition.fits(eye) && operationVisible(eye, composition.observed());
+    }
+
+    private boolean operationVisible(Location eye, @Nullable MonitorOperation.Focus observed) {
+        if (observed == null) return true;
+        Location point = observed.point();
+        if (!MonitorSight.loaded(eye, point)) return false;
+        Vector delta = point.toVector().subtract(eye.toVector());
+        double distance = delta.length();
+        if (distance < 0.05) return false;
+        Vector direction = delta.multiply(1 / distance);
+        // Seeing the player does not imply seeing what is hidden behind their body.
+        if (observed.subjectBounds().rayTrace(eye.toVector(), direction, distance - 0.04) != null) return false;
+        if (solidRender.test(eye)) return insideWall(eye) && visibleFromInside(eye, point);
+        return eye.getWorld().rayTraceBlocks(eye, direction, distance, FluidCollisionMode.NEVER, true) == null;
+    }
+
+    private boolean visibleTransition(Location fromEye, Location toEye, Location fromFocus, Location toFocus,
+                                      Location fromAim, Location toAim, @Nullable MonitorOperation.Focus observed) {
+        if (fromFocus == null || fromAim == null || !fromEye.getWorld().equals(fromFocus.getWorld())) return false;
         int steps = Math.max(1, (int) Math.ceil(Math.max(fromEye.distance(toEye),
                 fromFocus.distance(toFocus)) / TRANSITION_STEP));
         // Bound main-thread work. An unusually long unexplained displacement cuts without changing sides.
@@ -189,10 +318,15 @@ final class MonitorCamera {
             double fraction = (double) step / steps;
             Location eye = interpolate(fromEye, toEye, fraction);
             Location focus = interpolate(fromFocus, toFocus, fraction);
+            Location aim = interpolate(fromAim, toAim, fraction);
             if (!visible(eye, focus)) return false;
+            MonitorOperation.Focus during = observed == null ? null : observed.during(previousOperation,
+                    focus.toVector().subtract(toFocus.toVector()), fraction);
+            if (!operationVisible(eye, during)) return false;
             eye.setYaw((float) (fromEye.getYaw() + wrap(toEye.getYaw() - fromEye.getYaw()) * fraction));
             eye.setPitch((float) (fromEye.getPitch() + (toEye.getPitch() - fromEye.getPitch()) * fraction));
-            if (eye.getDirection().dot(focus.toVector().subtract(eye.toVector()).normalize()) < MINIMUM_AIM_DOT) return false;
+            if (eye.getDirection().dot(aim.toVector().subtract(eye.toVector()).normalize()) < MINIMUM_AIM_DOT) return false;
+            if (during != null && !new Composition(focus, focus, during, minimumFrameDot).fits(eye, eye.getDirection())) return false;
             boolean solid = solidRender.test(eye);
             if (previous != null) {
                 // Cut at exposed wall surfaces and thin obstructions between visibility samples.
@@ -209,7 +343,7 @@ final class MonitorCamera {
     }
 
     private boolean visible(Location eye, Location focus) {
-        if (!eye.getWorld().getWorldBorder().isInside(eye) || !loaded(eye, focus)) return false;
+        if (!eye.getWorld().getWorldBorder().isInside(eye) || !MonitorSight.loaded(eye, focus)) return false;
         Vector ray = focus.toVector().subtract(eye.toVector());
         double length = ray.length();
         if (length < MINIMUM_DISTANCE) return false;
@@ -230,7 +364,7 @@ final class MonitorCamera {
         // Shrink before ray tracing so neither the ray nor its camera margin enters an unloaded chunk.
         while (length >= MINIMUM_DISTANCE) {
             desired = start.clone().add(direction.clone().multiply(length));
-            if (start.getWorld().getWorldBorder().isInside(desired) && loaded(start, desired)) break;
+            if (start.getWorld().getWorldBorder().isInside(desired) && MonitorSight.loaded(start, desired)) break;
             length -= 0.5;
         }
         if (length < MINIMUM_DISTANCE) return null;
@@ -308,18 +442,50 @@ final class MonitorCamera {
         return ((direction > 0 ? Math.floor(coordinate) + 1 : Math.floor(coordinate)) - coordinate) / direction;
     }
 
-    private static boolean loaded(Location from, Location to) {
-        World world = from.getWorld();
-        int minX = (int) Math.floor((Math.min(from.getX(), to.getX()) - CLEARANCE) / 16);
-        int maxX = (int) Math.floor((Math.max(from.getX(), to.getX()) + CLEARANCE) / 16);
-        int minZ = (int) Math.floor((Math.min(from.getZ(), to.getZ()) - CLEARANCE) / 16);
-        int maxZ = (int) Math.floor((Math.max(from.getZ(), to.getZ()) + CLEARANCE) / 16);
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                if (!world.isChunkLoaded(x, z)) return false;
+    private record Composition(Location body, Location estimated, @Nullable MonitorOperation.Focus observed,
+                               double minimumDot, List<Vector> points) {
+        Composition(Location body, Location estimated, @Nullable MonitorOperation.Focus observed, double minimumDot) {
+            this(body, estimated, observed, minimumDot, samples(body, estimated, observed));
+        }
+
+        Location aim(Location eye) {
+            if (observed == null) return body.clone().add(estimated.toVector().subtract(body.toVector()).multiply(0.25));
+            Vector player = body.toVector().subtract(eye.toVector()).normalize();
+            Vector object = observed.bounds().getCenter().subtract(eye.toVector()).normalize();
+            // Balance their screen angles rather than interpolating world distances, which
+            // would let a distant object push the player to the edge of the image.
+            return eye.clone().add(player.multiply(0.55).add(object.multiply(0.45)).normalize());
+        }
+
+        boolean fits(Location eye) {
+            Vector direction = aim(eye).toVector().subtract(eye.toVector()).normalize();
+            return fits(eye, direction);
+        }
+
+        boolean fits(Location eye, Vector direction) {
+            for (Vector point : points) {
+                Vector ray = point.clone().subtract(eye.toVector());
+                if (ray.lengthSquared() < 0.01 || direction.dot(ray.normalize()) < minimumDot) return false;
+            }
+            return true;
+        }
+
+        private static List<Vector> samples(Location body, Location estimated, @Nullable MonitorOperation.Focus observed) {
+            if (observed == null) return List.of(body.toVector(), estimated.toVector());
+            List<Vector> result = new ArrayList<>();
+            corners(result, observed.subjectBounds());
+            corners(result, observed.bounds());
+            result.add(observed.point().toVector());
+            return result;
+        }
+
+        private static void corners(List<Vector> result, org.bukkit.util.BoundingBox bounds) {
+            for (double x : new double[]{bounds.getMinX(), bounds.getMaxX()}) {
+                for (double y : new double[]{bounds.getMinY(), bounds.getMaxY()}) {
+                    for (double z : new double[]{bounds.getMinZ(), bounds.getMaxZ()}) result.add(new Vector(x, y, z));
+                }
             }
         }
-        return true;
     }
 
     private static double wrap(double degrees) {

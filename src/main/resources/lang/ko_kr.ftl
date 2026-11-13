@@ -1901,6 +1901,7 @@ music-space-label =
         [device-actions] 작업
         [device-status] 상태
         [sync-group] 동기화 그룹
+        [group-control-help] 재생과 음반 꺼내기는 그룹 전체에 적용됩니다. 음량과 범위는 기기별로 설정합니다.
         [single-device] 주크박스
         [device-location] 위치
         [visit-device] 옆으로 순간이동

@@ -13,8 +13,15 @@ import org.bukkit.Server;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
 import org.bukkit.command.CommandSender;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Entity;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
+import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
@@ -24,10 +31,14 @@ import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
+import org.bukkit.util.BoundingBox;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.PlayerRole;
+import org.encinet.mik.shared.util.PaperTestRegistries;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -44,6 +55,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -51,6 +63,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class MonitorModuleTest {
+    private static PaperTestRegistries registries;
+    @BeforeAll static void openRegistries() { registries = new PaperTestRegistries(); }
+    @AfterAll static void closeRegistries() { registries.close(); }
     private static final LanguageService LANGUAGES = new LanguageService(null) {
         @Override public Language language(Player player) { return Language.EN_US; }
         @Override public String t(Language language, Message message, Object... args) {
@@ -108,6 +123,62 @@ class MonitorModuleTest {
         verify(member.player).hidePlayer(any(), eq(f.observer.player));
         verify(f.tab, never()).showTab(member.player, f.observer.player);
         assertFalse(f.module.retainsTabEntry(member.player, f.observer.player));
+    }
+
+    @Test
+    void monitorsHideEachOtherImmediatelyWhileSharingATargetAndKeepTheirTabEntries() throws Exception {
+        Fixture f = new Fixture();
+        State second = f.add("SecondStaff");
+        second.role = PlayerRole.CUSTODIAN;
+        State offDuty = f.add("OffDutyStaff");
+        offDuty.role = PlayerRole.MODERATOR;
+        f.add("Target");
+        f.run("monitor Target");
+        assertTrue(second.player.canSee(f.observer.player));
+        f.runAs(second, "monitor Target");
+        assertFalse(second.player.canSee(f.observer.player));
+        assertFalse(f.observer.player.canSee(second.player));
+        assertTrue(offDuty.player.canSee(f.observer.player));
+        assertTrue(offDuty.player.canSee(second.player));
+        assertTrue(f.module.retainsTabEntry(second.player, f.observer.player));
+        assertTrue(f.module.retainsTabEntry(f.observer.player, second.player));
+        verify(f.tab).showTab(second.player, f.observer.player);
+        verify(f.tab).showTab(f.observer.player, second.player);
+        assertNotEquals(Component.empty(), f.module.tabBadge(second.player, f.observer.player));
+        assertEquals("monitor-watching [Target]", second.actionBar);
+        assertEquals("monitor-watching [Target]", f.observer.actionBar);
+        f.module.tick();
+        verify(second.player, times(1)).hidePlayer(any(), eq(f.observer.player));
+        verify(f.observer.player, times(1)).hidePlayer(any(), eq(second.player));
+        f.runAs(second, "monitor stop");
+        assertTrue(second.player.canSee(f.observer.player));
+        assertTrue(f.observer.player.canSee(second.player));
+        assertFalse(f.module.retainsTabEntry(second.player, f.observer.player));
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertFalse(f.module.isMonitoring(second.player));
+    }
+
+    @Test
+    void failedReturnsAndTargetChangesKeepOtherMonitorsHidden() throws Exception {
+        Fixture f = new Fixture();
+        State second = f.add("SecondStaff");
+        second.role = PlayerRole.MODERATOR;
+        f.add("FirstTarget");
+        f.add("OtherTarget");
+        f.run("monitor FirstTarget");
+        f.runAs(second, "monitor FirstTarget");
+        f.runAs(second, "monitor OtherTarget");
+        assertFalse(second.player.canSee(f.observer.player));
+        assertFalse(f.observer.player.canSee(second.player));
+        second.teleportAllowed = false;
+        f.runAs(second, "monitor stop");
+        assertTrue(f.module.isMonitoring(second.player));
+        assertFalse(second.player.canSee(f.observer.player));
+        assertFalse(f.observer.player.canSee(second.player));
+        second.teleportAllowed = true;
+        f.runAs(second, "monitor stop");
+        assertTrue(second.player.canSee(f.observer.player));
+        assertTrue(f.observer.player.canSee(second.player));
     }
 
     @Test
@@ -303,6 +374,27 @@ class MonitorModuleTest {
     }
 
     @Test
+    void interactingWithAnOffCentreBlockReframesTheMonitorsView() throws Exception {
+        Fixture f = new Fixture();
+        State target = f.add("Target");
+        f.run("monitor Target");
+        Block block = mock(Block.class);
+        when(block.getWorld()).thenReturn(f.world);
+        when(block.getLocation()).thenReturn(new Location(f.world, 2, 64, 2));
+        when(block.getBoundingBox()).thenReturn(new BoundingBox(2, 64, 2, 3, 65, 3));
+        Location operation = new Location(f.world, 2.5, 64.5, 1.96);
+        Vector before = operation.toVector().subtract(f.observer.player.getEyeLocation().toVector()).normalize();
+        assertTrue(f.observer.location.getDirection().dot(before) < Math.cos(Math.toRadians(30)));
+        f.module.onInteract(new PlayerInteractEvent(target.player, Action.RIGHT_CLICK_BLOCK, null, block,
+                BlockFace.NORTH, EquipmentSlot.HAND, new Vector(0.5, 0.5, 0)));
+        f.module.tick();
+        Vector after = operation.toVector().subtract(f.observer.player.getEyeLocation().toVector()).normalize();
+        assertTrue(f.observer.location.getDirection().dot(after) >= Math.cos(Math.toRadians(30)),
+                "the monitor must include the block the watched player actually used");
+        assertTrue(f.module.isMonitoring(f.observer.player));
+    }
+
+    @Test
     void aStationaryViewDoesNotKeepSendingIdenticalTeleports() throws Exception {
         Fixture f = new Fixture();
         f.add("Target");
@@ -328,7 +420,7 @@ class MonitorModuleTest {
         assertTrue(f.observer.location.getX() < target.location.getX(), "short teleports must reset the old observation heading");
         var focus = target.player.getEyeLocation().subtract(0, 0.4, 0).toVector();
         var direction = focus.subtract(f.observer.player.getEyeLocation().toVector()).normalize();
-        assertEquals(1, f.observer.location.getDirection().dot(direction), 1.0e-6);
+        assertTrue(f.observer.location.getDirection().dot(direction) > Math.cos(Math.toRadians(20)));
         verify(f.view).move(eq(f.observer.player), any(Location.class), eq(true));
         verify(f.view, never()).clear(f.observer.player);
     }
@@ -343,6 +435,82 @@ class MonitorModuleTest {
         f.module.tick();
         assertSame(other, f.observer.location.getWorld());
         assertTrue(f.observer.location.getY() > target.location.getY());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void worldGameModeChangesDoNotEndMonitoringOrReplaceTheReturnState(boolean modeChangesBeforeEvent) throws Exception {
+        Fixture f = new Fixture();
+        State target = f.add("Target");
+        f.run("monitor Target");
+        Consumer<World> worldChanged = f.observer.worldChanged;
+        f.observer.worldChanged = from -> {
+            if (modeChangesBeforeEvent) f.observer.player.setGameMode(GameMode.SURVIVAL);
+            worldChanged.accept(from);
+            if (!modeChangesBeforeEvent) f.observer.player.setGameMode(GameMode.SURVIVAL);
+        };
+        World other = world();
+        target.location = new Location(other, 0, 70, 0);
+        f.module.tick();
+        assertSame(other, f.observer.location.getWorld());
+        assertEquals(GameMode.SURVIVAL, f.observer.mode, "the world manager applied its destination mode");
+        f.module.tick();
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.SPECTATOR, f.observer.mode);
+        assertEquals("monitor-watching [Target]", f.observer.actionBar);
+        assertFalse(f.observer.messages.contains("monitor-stopped"));
+        verify(f.observation, never()).close();
+
+        f.run("monitor stop");
+        assertFalse(f.module.isMonitoring(f.observer.player));
+        assertEquals(f.origin, f.observer.location);
+        assertEquals(GameMode.CREATIVE, f.observer.mode);
+        verify(f.observation).close();
+    }
+
+    @Test
+    void anObserverWorldChangeKeepsThePinnedTarget() throws Exception {
+        Fixture f = new Fixture();
+        State target = f.add("Target");
+        f.run("monitor Target");
+        f.observer.player.teleport(new Location(world(), 0, 70, 0), TeleportCause.COMMAND);
+        f.observer.player.setGameMode(GameMode.SURVIVAL);
+        f.module.tick();
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.SPECTATOR, f.observer.mode);
+        assertSame(target.location.getWorld(), f.observer.location.getWorld());
+        assertEquals("monitor-watching [Target]", f.observer.actionBar);
+    }
+
+    @Test
+    void modeChangesAfterTheWorldTransitionStillEndMonitoring() throws Exception {
+        Fixture f = new Fixture();
+        State target = f.add("Target");
+        f.run("monitor Target");
+        target.location = new Location(world(), 0, 70, 0);
+        f.module.tick();
+        f.module.tick();
+        f.observer.player.setGameMode(GameMode.ADVENTURE);
+        f.module.tick();
+        assertFalse(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.ADVENTURE, f.observer.mode);
+        assertEquals(f.origin, f.observer.location);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PlayerGameModeChangeEvent.Cause.class, names = {"COMMAND", "GAMEMODE_SWITCHER"})
+    void explicitModeChangesStillEndMonitoringAfterChangingWorlds(PlayerGameModeChangeEvent.Cause cause) throws Exception {
+        Fixture f = new Fixture();
+        State target = f.add("Target");
+        f.run("monitor Target");
+        target.location = new Location(world(), 0, 70, 0);
+        f.module.tick();
+        f.module.onGameModeChange(new PlayerGameModeChangeEvent(f.observer.player, GameMode.ADVENTURE, cause, null));
+        f.observer.mode = GameMode.ADVENTURE;
+        f.module.tick();
+        assertFalse(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.ADVENTURE, f.observer.mode);
+        assertEquals(f.origin, f.observer.location);
     }
 
     @Test
@@ -690,6 +858,7 @@ class MonitorModuleTest {
             when(afk.beginPassiveObservation(observer.player)).thenReturn(observation);
             module = new MonitorModule(plugin, LANGUAGES, afk, () -> online, () -> now, mainTasks::add,
                     () -> new MonitorCamera(eye -> solidAt.test(eye)), tab, () -> view);
+            observer.worldChanged = from -> module.onWorldChange(new PlayerChangedWorldEvent(observer.player, from));
             module.enable();
             commands.register(module.command());
         }
@@ -701,6 +870,14 @@ class MonitorModuleTest {
         }
 
         int run(String command) throws CommandSyntaxException { return commands.execute(command, source); }
+
+        int runAs(State actor, String command) throws CommandSyntaxException {
+            CommandSourceStack actorSource = mock(CommandSourceStack.class);
+            when(actorSource.getSender()).thenReturn(actor.player);
+            when(afk.beginPassiveObservation(actor.player)).thenReturn(
+                    mock(org.encinet.mik.feature.player.afk.AfkActivityService.ActivityLease.class));
+            return commands.execute(command, actorSource);
+        }
 
         void unloadOrigin() {
             when(world.isChunkLoaded(62, 62)).thenReturn(false);
@@ -718,6 +895,7 @@ class MonitorModuleTest {
         final List<Location> moves = new ArrayList<>();
         final List<TeleportCause> causes = new ArrayList<>();
         final List<String> messages = new ArrayList<>();
+        final Set<UUID> hiddenPlayers = new HashSet<>();
         GameMode mode = GameMode.SURVIVAL;
         PlayerRole role = PlayerRole.MEMBER;
         Location location;
@@ -730,6 +908,7 @@ class MonitorModuleTest {
         boolean teleportAllowed = true;
         boolean detachAllowed = true;
         Entity spectatorTarget;
+        Consumer<World> worldChanged = _ -> { };
         String actionBar;
 
         State(String name, World world) {
@@ -739,6 +918,8 @@ class MonitorModuleTest {
             when(player.getLocation()).thenAnswer(_ -> location.clone());
             when(player.getEyeLocation()).thenAnswer(_ -> location.clone().add(0, 1.62, 0));
             when(player.getEyeHeight()).thenReturn(1.62);
+            when(player.getBoundingBox()).thenAnswer(_ -> new BoundingBox(location.getX() - 0.3, location.getY(),
+                    location.getZ() - 0.3, location.getX() + 0.3, location.getY() + 1.8, location.getZ() + 0.3));
             when(player.getSpectatorTarget()).thenAnswer(_ -> spectatorTarget);
             doAnswer(call -> {
                 Entity requested = call.getArgument(0);
@@ -752,7 +933,15 @@ class MonitorModuleTest {
             when(player.isInsideVehicle()).thenAnswer(_ -> vehicle);
             when(player.getAllowFlight()).thenAnswer(_ -> allowFlight);
             when(player.isFlying()).thenAnswer(_ -> flying);
-            when(player.canSee(any(Player.class))).thenReturn(true);
+            when(player.canSee(any(Player.class))).thenAnswer(call -> !hiddenPlayers.contains(((Player) call.getArgument(0)).getUniqueId()));
+            doAnswer(call -> {
+                hiddenPlayers.add(((Player) call.getArgument(1)).getUniqueId());
+                return null;
+            }).when(player).hidePlayer(any(org.bukkit.plugin.Plugin.class), any(Player.class));
+            doAnswer(call -> {
+                hiddenPlayers.remove(((Player) call.getArgument(1)).getUniqueId());
+                return null;
+            }).when(player).showPlayer(any(org.bukkit.plugin.Plugin.class), any(Player.class));
             doAnswer(call -> {
                 if (modeAllowed) mode = call.getArgument(0);
                 return null;
@@ -761,9 +950,11 @@ class MonitorModuleTest {
             doAnswer(call -> { flying = call.getArgument(0); return null; }).when(player).setFlying(anyBoolean());
             when(player.teleport(any(Location.class), any(TeleportCause.class))).thenAnswer(call -> {
                 if (!teleportAllowed) return false;
+                World from = location.getWorld();
                 location = ((Location) call.getArgument(0)).clone();
                 moves.add(location);
                 causes.add(call.getArgument(1));
+                if (!from.equals(location.getWorld())) worldChanged.accept(from);
                 return true;
             });
             doAnswer(call -> {
