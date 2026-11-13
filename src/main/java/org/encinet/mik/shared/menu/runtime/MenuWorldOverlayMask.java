@@ -45,6 +45,16 @@ final class MenuWorldOverlayMask implements Predicate<Location> {
                 .anyMatch(region -> region.intersectionArea(projected.rect()) > 0)).orElse(false);
     }
 
+    boolean overlapsText(Location at, float yaw, float pitch, FloatingMenuDecoration.Text text) {
+        return overlaps(textSurface(at,text.billboard() ? (float) rotation.angles().yaw() : yaw,
+                text.billboard() ? 0 : pitch,text));
+    }
+
+    boolean overlapsOutline(Location at, FloatingMenuDecoration.BlockOutline outline) {
+        return overlaps(new MenuSurfaceAttachment.Surface(MenuSurfaceAttachment.point(at.toVector()),UiRotation.IDENTITY,
+                new FloatingMenuSize(outline.size(),outline.size()),1,outline.size()));
+    }
+
     /** TextDisplay is bottom anchored; its culling width/height are not the painted text bounds. */
     static MenuSurfaceAttachment.Surface textSurface(Location at, float yaw, float pitch, FloatingMenuDecoration.Text text) {
         var extent = UiTextMetrics.measure(text.text(), Math.max(80,Math.round(text.displayWidth()*64)));

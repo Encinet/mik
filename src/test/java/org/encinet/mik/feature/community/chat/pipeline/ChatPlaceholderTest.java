@@ -42,7 +42,7 @@ class ChatPlaceholderTest {
                 .localized(key -> languages.t(Language.FR_FR, key));
         var message = ChatTestMessages.minecraft("Alice", "[history]", content);
         String matrix = org.encinet.mik.feature.community.social.platform.matrix.render.MatrixChatRenderer.render(message, 16).plainText();
-        String qq = org.encinet.mik.feature.community.social.platform.qq.render.QqChatRenderer.render(message, 16).markdown();
+        String qq = org.encinet.mik.feature.community.social.platform.qq.render.QqChatRenderer.render(message, 16).content();
         assertEquals("Alice: …", matrix);
         assertEquals("Alice: …", qq);
     }

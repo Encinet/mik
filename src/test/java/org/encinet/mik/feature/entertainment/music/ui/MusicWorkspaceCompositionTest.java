@@ -105,7 +105,7 @@ class MusicWorkspaceCompositionTest {
             }
         }
     }
-    @Test void auxiliaryHeadingsKeepLocalActionsAndDismissalOnOneRowWhenSpaceAllows() throws Exception {
+    @Test void auxiliaryHeadingsStayCenteredWithoutMirroringTheirLocalActionGroup() throws Exception {
         for (Language language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             Function<String, Component> label = key -> Component.text(FluentTestSupport.text(bundle, Message.MUSIC_SPACE_LABEL, key));
@@ -119,14 +119,20 @@ class MusicWorkspaceCompositionTest {
                 assertTrue(frame.size().width() <= width + 1e-6);
                 var title = element(frame, "title");
                 var dismiss = element(frame, "close-panel");
-                assertEquals(frame.size().width()/2, title.x()+title.size().width()/2, 1e-6);
-                var tools = frame.elements().stream().filter(element -> element.path().contains("/actions/")).toList();
+                assertEquals(frame.size().width()/2,title.x()+title.size().width()/2,1e-6);
+                var tools = frame.elements().stream().filter(element -> element.path().contains("/title-bar/actions")).toList();
                 double toolsLeft = tools.stream().mapToDouble(UiFrame.Element::x).min().orElseThrow();
+                double toolsRight = tools.stream().mapToDouble(element -> element.x()+element.size().width()).max().orElseThrow();
                 double toolsTop = tools.stream().mapToDouble(UiFrame.Element::y).min().orElseThrow();
                 double toolsBottom = tools.stream().mapToDouble(element -> element.y()+element.size().height()).max().orElseThrow();
                 boolean inline = Math.abs(title.y()+title.size().height()/2-(toolsTop+toolsBottom)/2) < 1e-6;
                 if (inline) assertTrue(toolsLeft >= title.x()+title.size().width()-1e-6);
                 else assertTrue(toolsTop >= title.y()+title.size().height()-1e-6);
+                if (recording) {
+                    var record = element(frame,"record");
+                    assertTrue(record.y() >= Math.max(title.y()+title.size().height(),toolsBottom));
+                    if (inline) assertEquals(Math.max(title.size().width()+2*(toolsRight-toolsLeft+8),record.size().width()),frame.size().width(),1e-6);
+                }
                 if (width == 1280) {
                     if (!recording) {
                         assertEquals(title.y() + title.size().height()/2, dismiss.y() + dismiss.size().height()/2, 1e-6);

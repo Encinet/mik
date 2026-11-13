@@ -71,11 +71,12 @@ class MonitorPlayerPackets extends PacketListenerAbstract {
     }
 
     void refreshMode(Player subject) {
-        var entry = new WrapperPlayServerPlayerInfoUpdate.PlayerInfo(subject.getUniqueId());
-        entry.setGameMode(com.github.retrooper.packetevents.protocol.player.GameMode.valueOf(subject.getGameMode().name()));
-        var packet = new WrapperPlayServerPlayerInfoUpdate(
-                WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_GAME_MODE, List.of(entry));
         for (Player viewer : org.bukkit.Bukkit.getOnlinePlayers()) {
+            // Listeners rewrite modes per recipient; never reuse a rewritten entry for staff or self.
+            var entry = new WrapperPlayServerPlayerInfoUpdate.PlayerInfo(subject.getUniqueId());
+            entry.setGameMode(com.github.retrooper.packetevents.protocol.player.GameMode.valueOf(subject.getGameMode().name()));
+            var packet = new WrapperPlayServerPlayerInfoUpdate(
+                    WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_GAME_MODE, List.of(entry));
             PacketEvents.getAPI().getPlayerManager().sendPacket(viewer, packet);
         }
     }
@@ -90,13 +91,16 @@ class MonitorPlayerPackets extends PacketListenerAbstract {
     public void onPacketSend(PacketSendEvent event) {
         if (modes.isEmpty() || event.getPacketType() != PacketType.Play.Server.PLAYER_INFO_UPDATE) return;
         var packet = new WrapperPlayServerPlayerInfoUpdate(event);
-        if (maskModes(packet)) event.markForReEncode(true);
+        if (maskModes(event.getUser().getUUID(), packet)) event.markForReEncode(true);
     }
 
-    boolean maskModes(WrapperPlayServerPlayerInfoUpdate packet) {
+    boolean maskModes(UUID viewer, WrapperPlayServerPlayerInfoUpdate packet) {
+        if (staff.contains(viewer)) return false;
         if (!packet.getActions().contains(WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_GAME_MODE)) return false;
         boolean changed = false;
         for (var entry : packet.getEntries()) {
+            // Camera wall culling reads LocalPlayer.isSpectator() through its own PlayerInfo.
+            if (entry.getProfileId().equals(viewer)) continue;
             var mode = modes.get(entry.getProfileId());
             if (mode != null) {
                 entry.setGameMode(mode);

@@ -17,7 +17,7 @@ import org.encinet.mik.feature.community.social.platform.qq.gateway.QqGatewaySes
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinApproval;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinReconciler;
 import org.encinet.mik.feature.community.social.platform.qq.render.QqChatRenderer;
-import org.encinet.mik.feature.community.social.platform.qq.render.QqMarkdownRenderer;
+import org.encinet.mik.feature.community.social.platform.qq.render.QqDocumentRenderer;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.net.http.HttpClient;
@@ -81,11 +81,10 @@ final class QqPlatformSession implements SocialChatPlatformSession {
     @Override
     public SocialPreparedReply prepareNotice(SocialConversation conversation, SocialDocument document, int maximumLength) {
         Objects.requireNonNull(conversation, "conversation");
-        var bounded = QqReplyChannel.layout(document, Math.min(maximumLength, config.maxOutboundLength()));
-        String markdown = QqMarkdownRenderer.encode(bounded);
-        return new SocialPreparedReply(bounded, () -> closed.get()
+        var rendered = QqDocumentRenderer.prepare(document, Math.min(maximumLength, config.maxOutboundLength()));
+        return new SocialPreparedReply(rendered.document(), () -> closed.get()
                 ? CompletableFuture.completedFuture(SocialDeliveryResult.notSent(new IllegalStateException("QQ session closed")))
-                : SocialDeliveryResult.observe(api.sendMarkdown(conversation.id(), markdown),
+                : SocialDeliveryResult.observe(api.sendMessage(conversation.id(), rendered.message()),
                         org.encinet.mik.feature.community.social.platform.qq.client.QqApiErrors::deliveryStatus));
     }
 
@@ -131,9 +130,9 @@ final class QqPlatformSession implements SocialChatPlatformSession {
         Map<UUID, List<ExternalIdentity>> currentTargets = new LinkedHashMap<>();
         mentions.targets().forEach((playerId, identities) -> currentTargets.put(playerId,
                 identities.stream().filter(identity -> memberships.contains(conversation, identity.key())).toList()));
-        QqChatRenderer.RenderedChat rendered = QqChatRenderer.render(
+        var rendered = QqChatRenderer.render(
                 message, new SocialChatMentionResolution(currentTargets), config.maxOutboundLength());
-        return api.sendMarkdown(conversation.id(), rendered.markdown());
+        return api.sendMessage(conversation.id(), rendered);
     }
 
     @Override

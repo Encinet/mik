@@ -313,6 +313,27 @@ class MonitorModuleTest {
     }
 
     @Test
+    void evenAShortTargetTeleportRebuildsTheViewAndImmediatelyFacesTheNewTarget() throws Exception {
+        Fixture f = new Fixture();
+        State target = f.add("Target");
+        f.run("monitor Target");
+        assertTrue(f.observer.location.getX() > target.location.getX());
+        clearInvocations(f.view);
+        Location from = target.location.clone();
+        target.location = target.location.clone().add(1, 0, 0);
+        target.location.setYaw(180);
+        f.module.onTargetTeleport(new org.bukkit.event.player.PlayerTeleportEvent(
+                target.player, from, target.location, TeleportCause.COMMAND));
+        f.module.tick();
+        assertTrue(f.observer.location.getX() < target.location.getX(), "short teleports must reset the old observation heading");
+        var focus = target.player.getEyeLocation().subtract(0, 0.4, 0).toVector();
+        var direction = focus.subtract(f.observer.player.getEyeLocation().toVector()).normalize();
+        assertEquals(1, f.observer.location.getDirection().dot(direction), 1.0e-6);
+        verify(f.view).move(eq(f.observer.player), any(Location.class), eq(true));
+        verify(f.view, never()).clear(f.observer.player);
+    }
+
+    @Test
     void followsTargetAcrossWorldsUsingTheCurrentLocation() throws Exception {
         Fixture f = new Fixture();
         State target = f.add("Target");

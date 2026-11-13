@@ -20,7 +20,7 @@ class QqPlainTextRendererTest {
                         new SocialDocument.Field("玩家", "PlayerOne"),
                         new SocialDocument.Field("状态", "在线")));
 
-        String text = QqPlainTextRenderer.render(document, 500);
+        String text = QqDocumentRenderer.prepare(document, 500).caption();
 
         assertEquals("👤 Minecraft\n\n玩家: PlayerOne\n状态: 在线", text);
         assertFalse(text.contains("textures.minecraft.net"));
@@ -31,7 +31,7 @@ class QqPlainTextRendererTest {
         SocialDocument document = SocialDocument.of(TRUSTED, "Profile", SocialDocument.Tone.INFO,
                 SocialDocument.paragraph("😀".repeat(100)));
 
-        String text = QqPlainTextRenderer.render(document, 80);
+        String text = QqDocumentRenderer.prepare(document, 80).caption();
 
         assertTrue(text.length() <= 80);
         assertTrue(text.endsWith("…"));

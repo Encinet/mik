@@ -453,6 +453,10 @@ details.sharedElement(object, UiKey.named("heading"));
 
 `worldTextDecoration` 的 `seeThrough` 保留世界穿墙行为，但与菜单、Popover 或 Tooltip 投影重叠时整条隐藏，移开后恢复。透明面板也保留阅读区域。
 
+通过 `scene.decoration(FloatingMenuDecoration.worldText(...).billboard())` 让世界名牌由客户端绕竖轴朝向视角，免去服务端定期更新朝向。普通菜单文字仍保持所在面板的朝向。
+
+`FloatingMenuDecoration.worldOutline(id, center, material, size, rgb)` 在指定世界中心放置客户端专用的发光方块副本。标记已有方块时，使用相同材质和略小于 1 的尺寸，将副本藏在原方块内部，只显示可穿墙的轮廓。描边与菜单共享资源预算、遮挡规则和清理生命周期，不创建服务器世界实体。
+
 粒子每次更新可重新取得 `FloatingMenus.worldOverlayVisibility(player)`，用其 `Predicate<Location>` 过滤被界面遮盖的位置。快照不查方块，已发送粒子由原版生命周期消退。
 
 ## 输入、返回与异步回调

@@ -44,12 +44,20 @@ final class MusicPlayerScenes implements AutoCloseable {
         return snapshot;
     }
 
-    UiNode content(Player player, MusicWorkspaceState state) {
+    private UiNode targetControl(Player player, MusicWorkspaceState state) {
         var targetLabel = state.target() == null ? w.label(player,"choose-targets")
                 : w.language.text(player, org.encinet.mik.shared.i18n.Message.MUSIC_SPACE_PLAYBACK_TARGET,
                         net.kyori.adventure.text.format.NamedTextColor.WHITE,w.outputs.name(player,state.target()));
-        var target = Ui.button(targetLabel).key(TARGET).summaryLines(1).textWidth(240)
+        return Ui.button(targetLabel).key(TARGET).summaryLines(1).textWidth(240)
                 .primary((_, handle) -> handle.openPopover(TARGET, redraw -> w.outputs.picker(player, state, redraw))).build();
+    }
+
+    UiNode compact(Player player, MusicWorkspaceState state) {
+        return MusicPlayerComposition.context(targetControl(player,state),null);
+    }
+
+    UiNode content(Player player, MusicWorkspaceState state) {
+        var target = targetControl(player,state);
         if (state.focusedTask()) {
             release(player.getUniqueId());
             return MusicPlayerComposition.context(target, null);

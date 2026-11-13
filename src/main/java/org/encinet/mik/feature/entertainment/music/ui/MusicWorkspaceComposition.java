@@ -25,8 +25,12 @@ final class MusicWorkspaceComposition {
     }
 
     static UiNode panelHeading(Component title, UiNode close, UiNode... actions) {
-        return UiTemplates.titleBar(Ui.heading(title).key("title").summaryLines(1).textWidth(320).build(),
-                MusicWorkspace.tools("panel-actions").children(List.of(actions)).child(close).build());
+        var header = Ui.column().key("panel-heading").gap(UiLength.ui(6))
+                .child(UiTemplates.titleBar(Ui.heading(title).key("title").summaryLines(1).textWidth(320).build(),
+                        Ui.row().child(close).build()),
+                        LinearSlot.stretch());
+        if (actions.length > 0) header.child(MusicWorkspace.tools("panel-actions").children(List.of(actions)).build());
+        return header.build();
     }
 
     /** The query and its local actions stay compact and centered independently of the results' width. */
@@ -42,6 +46,7 @@ final class MusicWorkspaceComposition {
         var workbench = UiTemplates.focus(Ui.layout(UiLayouts.contentColumn(UiKey.named("reading"),UiLength.ui(12))).key("workbench")
                         .child(UiKey.named("reading"), reading)
                         .child(UiTemplates.toolbar("transport", transport)).child(windowTools).build(), UiKey.named("reading"));
-        return navigation == null ? workbench : UiTemplates.split(UiTemplates.sidebar("collections", navigation),workbench);
+        var workspace = navigation == null ? workbench : (UiContainer) UiTemplates.split(UiTemplates.sidebar("collections", navigation),workbench);
+        return new UiContainer(UiKey.named("music-workspace"),workspace.layout(),workspace.children(),workspace.style(),workspace.sizing());
     }
 }

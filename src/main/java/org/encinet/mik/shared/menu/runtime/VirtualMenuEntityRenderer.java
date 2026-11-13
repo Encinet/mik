@@ -151,10 +151,18 @@ final class VirtualMenuEntityRenderer {
     void text(Player viewer, int entityId, Component text, int background,
               float displayWidth, float displayHeight, int lineWidthPixels, float scale,
               FloatingMenuDecoration.Alignment alignment, boolean seeThrough, double reveal, double textAlpha, UiRotation rotation) {
+        text(viewer,entityId,text,background,displayWidth,displayHeight,lineWidthPixels,scale,alignment,seeThrough,reveal,textAlpha,rotation,false);
+    }
+
+    void text(Player viewer, int entityId, Component text, int background,
+              float displayWidth, float displayHeight, int lineWidthPixels, float scale,
+              FloatingMenuDecoration.Alignment alignment, boolean seeThrough, double reveal, double textAlpha, UiRotation rotation,
+              boolean billboard) {
         if (lineWidthPixels < 1) throw new IllegalArgumentException("Line width must be positive");
         Entity entity = virtualEntity(viewer, Kind.TEXT, entityId);
         TextDisplay display = (TextDisplay) entity.getBukkitEntity();
         configureDisplay(display, displayWidth, displayHeight);
+        if (billboard) display.setBillboard(Display.Billboard.VERTICAL);
         display.setTransformation(MenuDisplayTransforms.text(scale, rotation));
         display.text(FloatingMenuText.readableOnDark(text));
         display.setLineWidth(lineWidthPixels);
@@ -224,11 +232,17 @@ final class VirtualMenuEntityRenderer {
     }
 
     void volume(Player viewer, int entityId, BlockData block, float width, float height, float depth, UiRotation rotation) {
+        volume(viewer,entityId,block,width,height,depth,rotation,null);
+    }
+
+    void volume(Player viewer, int entityId, BlockData block, float width, float height, float depth, UiRotation rotation, Integer glow) {
         Entity entity = virtualEntity(viewer, Kind.BLOCK, entityId);
         BlockDisplay display = (BlockDisplay) entity.getBukkitEntity();
         configureDisplay(display, Math.max(width, depth), height);
         display.setTransformation(MenuDisplayTransforms.volume(width, height, depth, rotation));
         display.setBlock(block);
+        display.setGlowing(glow != null);
+        display.setGlowColorOverride(glow == null ? null : Color.fromRGB(glow));
         metadata(viewer, entityId, entity);
         var drawing = drawing(viewer,entityId);
         if (drawing != null) drawing.paint = new MenuVisualSnapshot.Volume(block,width,height,depth,rotation);

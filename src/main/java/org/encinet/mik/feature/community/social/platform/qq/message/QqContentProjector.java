@@ -18,12 +18,12 @@ public final class QqContentProjector {
     public static Projection project(QqMessageContent message, Map<String, MentionTarget> mentions) {
         Buffer primary = new Buffer(2_000);
         List<SocialMessageReferences.MentionSpan> spans = new ArrayList<>();
-        inline(primary, message.text(), mentions, spans);
+        if (message.type() != Type.HISTORY) inline(primary, message.text(), mentions, spans);
         String ownText = primary.finish();
 
         Buffer additional = new Buffer(1_999);
         if (message.type().isCollection()) additional.marker(label(message.type()));
-        elements(additional, message);
+        if (message.type() != Type.HISTORY) elements(additional, message);
         if (ownText.isBlank() && additional.isEmpty() && message.type() != Type.TEXT) {
             additional.marker(label(message.type()));
         }
@@ -72,6 +72,10 @@ public final class QqContentProjector {
                 }
                 case Nested nested -> {
                     QqMessageContent child = nested.message();
+                    if (child.type() == Type.HISTORY) {
+                        output.marker(ChatPlaceholder.HISTORY);
+                        continue;
+                    }
                     if (child.type().isCollection()) output.marker(label(child.type()));
                     else output.marker(message.type() == Type.REPLY || child.type() == Type.REPLY ? "↪" : "💬");
                     if (!nested.author().isBlank()) {

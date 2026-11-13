@@ -89,6 +89,7 @@ public record QqGatewayGroupMessage(
                 continue;
             }
             JsonObject element = value.getAsJsonObject();
+            if (QqContentDecoder.isHistoryElement(element)) continue;
             if (messageType != QqMessageContent.Type.REPLY
                     && QqContentDecoder.messageType(element) != QqMessageContent.Type.REPLY) continue;
             JsonObject author = object(element, "author");

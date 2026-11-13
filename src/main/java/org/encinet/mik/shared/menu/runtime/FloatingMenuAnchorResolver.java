@@ -412,9 +412,11 @@ final class FloatingMenuAnchorResolver {
             case FloatingMenuDecoration.RangePart range -> new FloatingMenuSize(range.geometry().width(), range.geometry().height());
             case FloatingMenuDecoration.IconPart icon -> new FloatingMenuSize(icon.size(), icon.size());
             case FloatingMenuDecoration.BlockVolume volume -> new FloatingMenuSize(volume.width(), volume.height());
+            case FloatingMenuDecoration.BlockOutline outline -> new FloatingMenuSize(outline.size(),outline.size());
         };
         double depth = switch (decoration.content()) {
             case FloatingMenuDecoration.BlockVolume volume -> volume.depth();
+            case FloatingMenuDecoration.BlockOutline outline -> outline.size();
             case FloatingMenuDecoration.Visual _ -> size.width();
             default -> 0;
         };

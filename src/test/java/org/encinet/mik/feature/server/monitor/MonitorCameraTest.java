@@ -42,7 +42,9 @@ class MonitorCameraTest {
         Scene scene = new Scene();
         MonitorCamera camera = scene.camera();
         Location targetEye = new Location(scene.world, 8, 65.27, 8, 45, 50);
-        Location feet = camera.update(UUID.randomUUID(), targetEye, targetEye, 0.9);
+        MonitorCamera.Frame frame = camera.update(UUID.randomUUID(), targetEye, EYE_HEIGHT, targetEye, 0.9);
+        assertNotNull(frame);
+        Location feet = frame.feet();
         assertNotNull(feet);
         Vector focus = targetEye.toVector().subtract(new Vector(0, 0.4, 0));
         Vector expected = focus.subtract(feet.toVector().add(new Vector(0, 0.9, 0))).normalize();
@@ -90,12 +92,32 @@ class MonitorCameraTest {
     }
 
     @Test
+    void fastThreeDimensionalFlightDoesNotAccumulateLagAndKeepsTheSubjectCentered() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        Vector offset = eyes(observer).toVector().subtract(eye.toVector());
+        for (int index = 0; index < 100; index++) {
+            eye.add(index < 50 ? 3 : -3, index < 50 ? 2 : -2, index < 50 ? 4 : -4);
+            observer = view(camera, target, eye, eyes(observer));
+            Vector relative = eyes(observer).toVector().subtract(eye.toVector());
+            assertTrue(relative.length() < 9.3, "speed adaptation must stay bounded instead of accumulating lag");
+            assertTrue(relative.dot(offset) > 0, "ascent, descent and reversals must preserve the observation side");
+            Vector focus = eye.toVector().subtract(new Vector(0, 0.4, 0));
+            assertEquals(1, observer.getDirection().dot(focus.subtract(eyes(observer).toVector()).normalize()), 1.0e-6,
+                    "the view must aim at the subject immediately instead of converging from an old rotation");
+        }
+    }
+
+    @Test
     void lowCeilingsSelectAViewBelowTheRoof() {
         Scene scene = new Scene();
         scene.solids.add(new BoundingBox(-100, 66.2, -100, 100, 67, 100));
         Location eye = new Location(scene.world, 8, 65.62, 8);
         Location observer = view(scene.camera(), UUID.randomUUID(), eye, eye);
-        assertTrue(eyes(observer).getY() < 66.2 - 0.25);
+        assertTrue(eyes(observer).getY() < 66.2 - 0.25, () -> "camera eye must stay below the roof: " + eyes(observer));
         assertClear(scene, eye, eyes(observer));
     }
 
@@ -185,14 +207,14 @@ class MonitorCameraTest {
         MonitorCamera camera = scene.camera();
         UUID target = UUID.randomUUID();
         Location eye = new Location(scene.world, 8, 65.62, 8);
-        assertNull(camera.update(target, eye, eye, EYE_HEIGHT));
+        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
         scene.solids.clear();
-        for (int index = 0; index < 19; index++) assertNull(camera.update(target, eye, eye, EYE_HEIGHT));
-        assertNotNull(camera.update(target, eye, eye, EYE_HEIGHT));
+        for (int index = 0; index < 19; index++) assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
+        assertNotNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
         scene.enclose(8, 65.62, 8);
-        assertNull(camera.update(target, eye, eye, EYE_HEIGHT));
+        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT));
         scene.solids.clear();
-        assertNull(camera.update(target, eye, eye, EYE_HEIGHT), "one clear frame must not flicker back");
+        assertNull(camera.update(target, eye, EYE_HEIGHT, eye, EYE_HEIGHT), "one clear frame must not flicker back");
     }
 
     @Test
@@ -212,7 +234,7 @@ class MonitorCameraTest {
         scene.unloaded.add(new Chunk(1, 0));
         scene.unloaded.add(new Chunk(0, 1));
         Location eye = new Location(scene.world, 15.8, 65.62, 15.8);
-        assertNull(scene.camera().update(UUID.randomUUID(), eye, eye, EYE_HEIGHT));
+        assertNull(scene.camera().update(UUID.randomUUID(), eye, EYE_HEIGHT, eye, EYE_HEIGHT));
         assertEquals(0, scene.rays);
     }
 
@@ -253,10 +275,298 @@ class MonitorCameraTest {
         assertTrue(Math.abs(next.getYaw() - observer.getYaw()) < 2);
     }
 
+    @Test
+    void veryFastFlightKeepsItsSideEvenWhenThePlayerTurnsAndReverses() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        Vector offset = eyes(observer).toVector().subtract(eye.toVector());
+        for (int tick = 0; tick < 12; tick++) {
+            eye.add(tick < 6 ? 20 : -20, 0, tick < 6 ? 20 : -20);
+            eye.setYaw(tick % 2 == 0 ? 180 : 0);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "speed alone must not cut or reset the observation heading");
+            observer = frame.feet();
+            Vector relative = eyes(observer).toVector().subtract(eye.toVector());
+            assertTrue(relative.length() < 9.3);
+            assertTrue(relative.dot(offset) > 0, "turning the player's head at high speed must not change observation side");
+        }
+    }
+
+    @Test
+    void aBriefCrampedViewDoesNotSwitchSidesButASustainedOneDoes() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        BoundingBox obstruction = new BoundingBox(10, 60, -100, 10.2, 80, 100);
+        for (int tick = 0; tick < 20; tick++) {
+            scene.solids.clear();
+            if (tick % 2 == 0) scene.solids.add(obstruction);
+            observer = view(camera, target, eye, eyes(observer));
+            assertTrue(observer.getX() > eye.getX(), "intermittent obstructions must not make the view alternate sides");
+        }
+        scene.solids.add(obstruction);
+        for (int tick = 0; tick < 4; tick++) {
+            observer = view(camera, target, eye, eyes(observer));
+            assertTrue(observer.getX() > eye.getX(), "a usable current view should wait for a stable improvement");
+        }
+        for (int tick = 0; tick < 12; tick++) observer = view(camera, target, eye, eyes(observer));
+        assertTrue(eyes(observer).distance(eye) > 3.5, "a sustained better view must eventually be selected");
+    }
+
+    @Test
+    void losingTheCurrentViewSwitchesImmediatelyWithoutWaitingForTheStabilityWindow() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        scene.solids.add(new BoundingBox(8.5, 60, -100, 8.7, 80, 100));
+        MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+        assertNotNull(frame);
+        assertTrue(frame.feet().getX() < 8.5);
+        assertClear(scene, eye.clone().subtract(0, 0.4, 0), eyes(frame.feet()));
+        assertTrue(frame.cut(), "an occluded old view must not interpolate across the obstruction");
+    }
+
+    @Test
+    void checksTheBodyFocusEvenWhenTheHeadCanSeeOverAnObstruction() {
+        Scene scene = new Scene();
+        scene.solids.add(new BoundingBox(8.3, 60, -100, 8.5, 65.55, 100));
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(scene.camera(), UUID.randomUUID(), eye, eye);
+        assertClear(scene, eye.clone().subtract(0, 0.4, 0), eyes(observer));
+        assertTrue(observer.getX() <= eye.getX());
+    }
+
+    @Test
+    void swimmingFocusStaysInsideTheBodyInsteadOfBelowThePlayer() {
+        Scene scene = new Scene();
+        Location eye = new Location(scene.world, 8, 65.4, 8);
+        MonitorCamera.Frame frame = scene.camera().update(UUID.randomUUID(), eye, 0.4, eye, EYE_HEIGHT);
+        assertNotNull(frame);
+        Vector focus = eye.toVector().subtract(new Vector(0, 0.1, 0));
+        assertEquals(1, frame.feet().getDirection().dot(focus.subtract(eyes(frame.feet()).toVector()).normalize()), 1.0e-6);
+    }
+
+    @Test
+    void followingInsideAContinuousRoofDoesNotCutAtInternalBlockBoundaries() {
+        Scene scene = new Scene();
+        scene.solids.add(new BoundingBox(-100, 66, -100, 100, 68, 100));
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        for (int tick = 0; tick < 40; tick++) {
+            eye.add(0.15, 0, 0);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "adjoining solid blocks must share one continuous wall interior");
+            observer = frame.feet();
+            assertTrue(scene.solidAt(eyes(observer)));
+        }
+    }
+
+    @Test
+    void aClearDestinationCutsWhenTheIntermediateViewWouldBeOccluded() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        view(camera, target, eye, eye);
+        scene.solids.add(new BoundingBox(10, 60, 5, 10.2, 80, 6.3));
+        Location current = new Location(scene.world, 8, 66.82, 4);
+        boolean cut = false;
+        for (int tick = 0; tick < 20; tick++) {
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, current, EYE_HEIGHT);
+            assertNotNull(frame);
+            Location next = eyes(frame.feet());
+            if (frame.cut()) cut = true;
+            else {
+                for (int sample = 0; sample <= 20; sample++) {
+                    Location between = current.clone().add(next.toVector().subtract(current.toVector()).multiply(sample / 20.0));
+                    assertClear(scene, eye.clone().subtract(0, 0.4, 0), between);
+                }
+            }
+            current = next;
+        }
+        assertTrue(cut, "unsafe intermediate views require a real camera cut");
+        assertTrue(current.getX() > 10.2);
+    }
+
+    @Test
+    void continuousFramesKeepTheInterpolatedAimOnTheSubjectDuringALargeReframe() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location initial = eyes(view(camera, target, eye, eye));
+        Location focus = eye.clone().subtract(0, 0.4, 0);
+        Location current = eye.clone().subtract(initial.toVector().subtract(eye.toVector()));
+        current.setY(initial.getY());
+        current.setDirection(focus.toVector().subtract(current.toVector()));
+        boolean cut = false;
+        for (int tick = 0; tick < 20; tick++) {
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, current, EYE_HEIGHT);
+            assertNotNull(frame);
+            Location next = eyes(frame.feet());
+            if (frame.cut()) cut = true;
+            else {
+                for (int sample = 0; sample <= 20; sample++) {
+                    double fraction = sample / 20.0;
+                    Location between = current.clone().add(next.toVector().subtract(current.toVector()).multiply(fraction));
+                    between.setYaw((float) (current.getYaw() + Math.IEEEremainder(next.getYaw() - current.getYaw(), 360) * fraction));
+                    between.setPitch((float) (current.getPitch() + (next.getPitch() - current.getPitch()) * fraction));
+                    double aim = between.getDirection().dot(focus.toVector().subtract(between.toVector()).normalize());
+                    assertTrue(aim >= Math.cos(Math.toRadians(12)), "interpolating the camera must keep the player near the center");
+                }
+            }
+            current = next;
+        }
+        assertTrue(cut, "a large reframe over the subject cannot safely interpolate every rotation");
+    }
+
+    @Test
+    void sustainedSpeedGraduallyWidensTheViewAndStoppingQuicklyRestoresNormalFraming() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        Vector normalOffset = eyes(observer).toVector().subtract(eye.toVector());
+        Vector previousOffset = normalOffset.clone();
+        for (int tick = 0; tick < 35; tick++) {
+            eye.add(3, 0, 0);
+            MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+            assertNotNull(frame);
+            assertFalse(frame.cut(), "accelerating in an open area should widen the view continuously");
+            observer = frame.feet();
+            Vector offset = eyes(observer).toVector().subtract(eye.toVector());
+            assertTrue(offset.distance(previousOffset) < 0.8, "zoom changes must not jump the relative camera position");
+            assertTrue(offset.length() < 9.3);
+            previousOffset = offset;
+        }
+        assertTrue(previousOffset.length() > normalOffset.length() + 2, "sustained fast travel needs a wider view");
+        for (int tick = 0; tick < 10; tick++) observer = view(camera, target, eye, eyes(observer));
+        Vector stopped = eyes(observer).toVector().subtract(eye.toVector());
+        assertTrue(stopped.distance(normalOffset) < 0.15, "stopping must retract both zoom and predictive offset promptly");
+    }
+
+    @Test
+    void compensationWorksInBothDirectionsWhileKeepingThePlayerCentered() {
+        Vector[] offsets = new Vector[2];
+        for (int direction = 0; direction < 2; direction++) {
+            Scene scene = new Scene();
+            MonitorCamera camera = scene.camera();
+            UUID target = UUID.randomUUID();
+            Location eye = new Location(scene.world, 8, 65.62, 8);
+            Location observer = view(camera, target, eye, eye);
+            for (int tick = 0; tick < 40; tick++) {
+                eye.add(direction == 0 ? 3 : -3, 0, 0);
+                observer = view(camera, target, eye, eyes(observer));
+                Vector focus = eye.toVector().subtract(new Vector(0, 0.4, 0));
+                assertEquals(1, observer.getDirection().dot(focus.subtract(eyes(observer).toVector()).normalize()), 1.0e-6);
+            }
+            offsets[direction] = eyes(observer).toVector().subtract(eye.toVector());
+        }
+        assertTrue(offsets[0].getX() - offsets[1].getX() > 1.8,
+                "compensation must lead motion toward and away from the fixed observation side");
+        assertEquals(offsets[0].getZ(), offsets[1].getZ(), 1.0e-6);
+    }
+
+    @Test
+    void speedExpansionAndCompensationRespectNarrowPassages() {
+        Scene scene = new Scene();
+        scene.solids.add(new BoundingBox(-100, 60, 5, 100, 80, 5.2));
+        scene.solids.add(new BoundingBox(-100, 60, 10.8, 100, 80, 11));
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        for (int tick = 0; tick < 25; tick++) {
+            eye.add(2, 0, 0);
+            observer = view(camera, target, eye, eyes(observer));
+            assertTrue(eyes(observer).getZ() > 5.2 && eyes(observer).getZ() < 10.8);
+            assertTrue(eyes(observer).distance(eye) < 9.3);
+            assertClear(scene, eye.clone().subtract(0, 0.4, 0), eyes(observer));
+        }
+    }
+
+    @Test
+    void switchingSubjectsAndExplicitResetDiscardTheOldTargetsSpeed() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        for (int tick = 0; tick < 25; tick++) {
+            eye.add(3, 1, 0);
+            observer = view(camera, target, eye, eyes(observer));
+        }
+        assertTrue(eyes(observer).distance(eye) > 6);
+        MonitorCamera.Frame switched = camera.update(UUID.randomUUID(), eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+        assertNotNull(switched);
+        assertTrue(switched.cut());
+        assertTrue(eyes(switched.feet()).distance(eye) < 5);
+        for (int tick = 0; tick < 25; tick++) {
+            eye.add(3, 1, 0);
+            observer = view(camera, target, eye, eyes(observer));
+        }
+        camera.reset();
+        MonitorCamera.Frame reset = camera.update(target, eye, EYE_HEIGHT, eyes(observer), EYE_HEIGHT);
+        assertNotNull(reset);
+        assertTrue(reset.cut());
+        assertTrue(eyes(reset.feet()).distance(eye) < 5, "teleport reset must not reuse pre-teleport prediction");
+    }
+
+    @Test
+    void blockedPredictionUsesTheUncompensatedWideView() {
+        Scene scene = new Scene();
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        for (int tick = 0; tick < 40; tick++) {
+            eye.add(4, 0, 0);
+            observer = view(camera, target, eye, eyes(observer));
+        }
+        eye.add(4, 0, 0);
+        double nominalX = eye.getX() + Math.sin(Math.toRadians(70)) * 8;
+        scene.solids.add(new BoundingBox(nominalX + 0.2, 60, -100, nominalX + 0.4, 80, 100));
+        observer = view(camera, target, eye, eyes(observer));
+        assertTrue(eyes(observer).getX() <= nominalX + 0.01, "prediction must not place the view across the approaching wall");
+        Vector offset = eyes(observer).toVector().subtract(eye.toVector());
+        assertTrue(Math.hypot(offset.getX(), offset.getZ()) > 7.99,
+                "blocked prediction should preserve the available wide base view instead of shortening it");
+        assertClear(scene, eye.clone().subtract(0, 0.4, 0), eyes(observer));
+    }
+
+    @Test
+    void expandingNearAnUnloadedChunkNeverReadsOrTracesIntoIt() {
+        Scene scene = new Scene();
+        for (int z = -1; z <= 4; z++) scene.unloaded.add(new Chunk(1, z));
+        MonitorCamera camera = scene.camera();
+        UUID target = UUID.randomUUID();
+        Location eye = new Location(scene.world, 8.5, 65.62, 8);
+        Location observer = view(camera, target, eye, eye);
+        for (int tick = 0; tick < 15; tick++) {
+            eye.add(0, 0, 3);
+            observer = view(camera, target, eye, eyes(observer));
+            assertTrue(eyes(observer).getX() + 0.35 < 16, "expansion must leave a loaded margin around the camera");
+            assertClear(scene, eye.clone().subtract(0, 0.4, 0), eyes(observer));
+        }
+        verify(scene.world, never()).getChunkAt(anyInt(), anyInt());
+    }
+
     private static Location view(MonitorCamera camera, UUID target, Location eye, Location observerEye) {
-        Location feet = camera.update(target, eye, observerEye, EYE_HEIGHT);
-        assertNotNull(feet, "a clear nearby third-person view should be available");
-        return feet;
+        MonitorCamera.Frame frame = camera.update(target, eye, EYE_HEIGHT, observerEye, EYE_HEIGHT);
+        assertNotNull(frame, "a clear nearby third-person view should be available");
+        return frame.feet();
     }
 
     private static Location eyes(Location feet) { return feet.clone().add(0, EYE_HEIGHT, 0); }

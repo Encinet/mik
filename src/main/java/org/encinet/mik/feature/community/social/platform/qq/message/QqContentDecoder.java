@@ -20,8 +20,14 @@ public final class QqContentDecoder {
     private static final int MAXIMUM_ELEMENTS = 64;
     private static final int MAXIMUM_DEPTH = 4;
     private static final int MAXIMUM_INLINE_ELEMENTS = 512;
+    // GROUP_MESSAGE_CREATE's official example serializes forwarded records inside
+    // a reply element, without message_type=102. Recognize its envelope only in
+    // structured context; a user's ordinary message with this text stays literal.
+    private static final Pattern SERIALIZED_HISTORY = Pattern.compile(
+            "\\A\\s*=== 消息 \\d+ ===\\h*\\R\\h*\\[(?:消息内容|发送者|附件\\d+)\\]");
     private static final Pattern INLINE = Pattern.compile(
             "<@!?([^>\\s]+)>|<qqbot-at-user\\s+id=\"([^\"]+)\"\\s*/>"
+                    + "|(<qqbot-at-everyone\\s*/>)"
                     + "|<faceType=\\d+,faceId=\"\\d*\"(?:,ext=\"[^\"<>]*\")?>|<emoji:[A-Za-z0-9_]+>");
 
     private int elements;
@@ -47,8 +53,17 @@ public final class QqContentDecoder {
         return Type.UNKNOWN;
     }
 
+    public static boolean isHistoryElement(JsonObject data) {
+        return messageType(data) == Type.HISTORY
+                || SERIALIZED_HISTORY.matcher(string(data, "content")).find();
+    }
+
     private QqMessageContent message(JsonObject data, int depth) {
         elements++;
+        Type type = messageType(data);
+        if (type == Type.HISTORY || depth > 0 && isHistoryElement(data)) {
+            return new QqMessageContent(Type.HISTORY, List.of(), List.of(), false);
+        }
         String content = string(data, "content");
         if (content.isBlank()) content = string(object(data, "markdown"), "content");
         List<Inline> text = inline(content);
@@ -68,7 +83,7 @@ public final class QqContentDecoder {
             children.add(new Nested(string(object(child, "author"), "username"),
                     message(child, depth + 1)));
         }
-        return new QqMessageContent(messageType(data), text, children, false);
+        return new QqMessageContent(type, text, children, false);
     }
 
     private boolean take() {
@@ -85,6 +100,7 @@ public final class QqContentDecoder {
             if (!text(result, source.substring(previous, matcher.start()))) return result;
             if (inlineElements++ >= MAXIMUM_INLINE_ELEMENTS) { truncated = true; return result; }
             String id = matcher.group(1) == null ? matcher.group(2) : matcher.group(1);
+            if (matcher.group(3) != null) id = "all";
             result.add(id == null ? new Placeholder(Kind.FACE) : new Mention(id));
             previous = matcher.end();
         }

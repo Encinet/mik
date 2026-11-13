@@ -21,6 +21,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
+import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
@@ -188,6 +189,8 @@ public final class MonitorModule implements Listener {
             }
             session.observation = afk.beginPassiveObservation(player);
             refreshVisibility(session);
+            // Permissions are now cached for every recipient; refresh the initial mode accordingly.
+            tab.refreshMode(player);
             tabRefresh.accept(player.getUniqueId());
             player.setSpectatorTarget(null);
             send(player, Message.MONITOR_STARTED, NamedTextColor.GREEN);
@@ -197,7 +200,6 @@ public final class MonitorModule implements Listener {
         } else if (requestedTarget != null) {
             session.pinnedTarget = requestedTarget.getUniqueId();
             session.camera.reset();
-            session.view.clear(player);
             selectTarget(session);
         } else {
             stop(session);
@@ -284,19 +286,24 @@ public final class MonitorModule implements Listener {
             observer.sendActionBar(languages.text(observer, Message.MONITOR_WAITING, NamedTextColor.YELLOW));
             return;
         }
-        Location camera = session.camera.update(session.target.getUniqueId(), session.target.getEyeLocation(),
-                observer.getEyeLocation(), observer.getEyeHeight());
+        if (session.targetTeleported) {
+            session.targetTeleported = false;
+            session.camera.reset();
+        }
+        MonitorCamera.Frame frame = session.camera.update(session.target.getUniqueId(), session.target.getEyeLocation(),
+                session.target.getEyeHeight(), observer.getEyeLocation(), observer.getEyeHeight());
         boolean watching;
-        if (camera == null) {
+        if (frame == null) {
             session.view.clear(observer);
             if (observer.getSpectatorTarget() != session.target) observer.setSpectatorTarget(session.target);
             watching = observer.getSpectatorTarget() == session.target;
         } else {
+            Location camera = frame.feet();
             if (observer.getSpectatorTarget() != null) observer.setSpectatorTarget(null);
             // A cancelled detach leaves the native camera attached; do not teleport it out of sync.
             watching = observer.getSpectatorTarget() == null
                     && (sameView(observer.getLocation(), camera) || observer.teleport(camera, TeleportCause.SPECTATE));
-            if (watching) session.view.move(observer, camera);
+            if (watching) session.view.move(observer, camera, frame.cut());
         }
         if (watching) {
             observer.sendActionBar(languages.text(observer, Message.MONITOR_WATCHING, NamedTextColor.AQUA,
@@ -363,6 +370,14 @@ public final class MonitorModule implements Listener {
         }
         observer.sendActionBar(Component.empty());
         return true;
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTargetTeleport(PlayerTeleportEvent event) {
+        UUID targetId = event.getPlayer().getUniqueId();
+        for (Session session : sessions.values()) {
+            if (session.target != null && targetId.equals(session.target.getUniqueId())) session.targetTeleported = true;
+        }
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
@@ -460,6 +475,7 @@ public final class MonitorModule implements Listener {
         UUID pinnedTarget;
         long selectedAt;
         boolean returning;
+        boolean targetTeleported;
 
         Session(Player observer, MonitorCamera camera, MonitorCameraView view) {
             this.observer = observer;

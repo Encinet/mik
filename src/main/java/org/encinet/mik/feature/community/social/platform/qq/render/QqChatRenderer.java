@@ -5,21 +5,22 @@ import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatStyle;
 import org.encinet.mik.feature.community.identity.ExternalIdentity;
 import org.encinet.mik.feature.community.social.chat.SocialChatMentionResolution;
+import org.encinet.mik.feature.community.social.platform.qq.message.QqOutgoingMessage;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** Renders platform-neutral chat as bounded QQ Markdown with native mentions. */
+/** Renders platform-neutral chat as bounded QQ text or Markdown with native mentions. */
 public final class QqChatRenderer {
     private QqChatRenderer() {
     }
 
-    public static RenderedChat render(ChatMessage message, int maximumLength) {
+    public static QqOutgoingMessage render(ChatMessage message, int maximumLength) {
         return render(message, SocialChatMentionResolution.empty(), maximumLength);
     }
 
-    public static RenderedChat render(
+    public static QqOutgoingMessage render(
             ChatMessage message,
             SocialChatMentionResolution mentions,
             int maximumLength
@@ -30,37 +31,41 @@ public final class QqChatRenderer {
             throw new IllegalArgumentException("maximumLength must be at least 16");
         }
 
-        String prefix = QqMarkdownRenderer.escape(
-                message.submission().sender().displayName()) + ": ";
+        String plainPrefix = message.submission().sender().displayName() + ": ";
         List<RenderedNode> nodes = message.content().nodes().stream()
                 .map(node -> renderNode(node, mentions)).toList();
+        boolean markdown = QqText.containsInteractionSyntax(plainPrefix + message.content().plainText())
+                || nodes.stream().anyMatch(RenderedNode::formatted);
+        var format = markdown ? QqOutgoingMessage.Format.MARKDOWN : QqOutgoingMessage.Format.TEXT;
+        String prefix = markdown ? QqText.markdownLiteral(plainPrefix) : plainPrefix;
         int fullLength = prefix.length()
-                + nodes.stream().mapToInt(node -> node.markdown().length()).sum();
+                + nodes.stream().mapToInt(node -> node.content(markdown).length()).sum();
         if (fullLength <= maximumLength) {
             StringBuilder complete = new StringBuilder(prefix);
-            nodes.forEach(node -> complete.append(node.markdown()));
-            return new RenderedChat(complete.toString());
+            nodes.forEach(node -> complete.append(node.content(markdown)));
+            return new QqOutgoingMessage(format, complete.toString());
         }
 
         int contentLimit = maximumLength - 1;
-        StringBuilder markdown = new StringBuilder(maximumLength);
-        appendEscapedPrefix(markdown, prefix, contentLimit);
+        StringBuilder result = new StringBuilder(maximumLength);
+        if (!appendText(result, plainPrefix, contentLimit, markdown)) {
+            return new QqOutgoingMessage(format, result.append('…').toString());
+        }
         for (RenderedNode node : nodes) {
-            int remaining = contentLimit - markdown.length();
+            int remaining = contentLimit - result.length();
             if (remaining <= 0) {
                 break;
             }
-            if (node.markdown().length() <= remaining) {
-                markdown.append(node.markdown());
+            if (node.content(markdown).length() <= remaining) {
+                result.append(node.content(markdown));
                 continue;
             }
             if (node.atomic()) break;
-            appendEscaped(markdown, node.plain(), remaining);
+            appendText(result, node.plain(), remaining, markdown);
             break;
         }
-        trimTrailingEscape(markdown);
-        markdown.append('…');
-        return new RenderedChat(markdown.toString());
+        result.append('…');
+        return new QqOutgoingMessage(format, result.toString());
     }
 
     private static RenderedNode renderNode(
@@ -75,12 +80,15 @@ public final class QqChatRenderer {
             }
         }
         String plain = node.visibleText();
-        String markdown = QqMarkdownRenderer.escape(plain);
+        String markdown = QqText.markdownLiteral(plain);
         if (node instanceof ChatNode.Link link) {
             markdown = "[" + markdown + "](" + markdownLinkTarget(
                     link.target().toASCIIString()) + ")";
         }
-        return new RenderedNode(plain, applyStyle(markdown, node.style()), node instanceof ChatNode.Placeholder);
+        return new RenderedNode(plain, applyStyle(markdown, node.style()),
+                node instanceof ChatNode.Placeholder || node instanceof ChatNode.PlayerMention
+                        || node instanceof ChatNode.ExternalMention || node instanceof ChatNode.BroadcastMention,
+                node instanceof ChatNode.Link || hasStyle(node.style()));
     }
 
     private static RenderedNode renderPlayerMention(
@@ -88,43 +96,53 @@ public final class QqChatRenderer {
             List<ExternalIdentity> targets
     ) {
         List<String> tokens = targets.stream()
-                .map(target -> "<@!" + target.key().subject() + ">")
+                .map(target -> "<qqbot-at-user id=\"" + target.key().subject() + "\" />")
                 .toList();
         String markdown;
         if (mention.sourceIdentity().isEmpty()) {
-            markdown = QqMarkdownRenderer.escape(
+            markdown = QqText.markdownLiteral(
                     "@" + mention.playerName() + "(")
                     + String.join(", ", tokens)
-                    + QqMarkdownRenderer.escape(")");
+                    + QqText.markdownLiteral(")");
         } else {
             List<String> markdownMentions = new ArrayList<>();
             for (int index = 0; index < targets.size(); index++) {
                 markdownMentions.add(tokens.get(index)
-                        + QqMarkdownRenderer.escape(
+                        + QqText.markdownLiteral(
                         "(" + mention.playerName() + ")"));
             }
             markdown = String.join(", ", markdownMentions);
         }
         return new RenderedNode(SocialChatMentionResolution.playerMentionText(mention, targets),
-                applyStyle(markdown, mention.style()));
+                applyStyle(markdown, mention.style()), true, true);
     }
 
     private static boolean hasSafeMentionToken(ExternalIdentity identity) {
         String subject = identity.key().subject();
-        return !subject.isBlank() && subject.length() <= 256
-                && subject.codePoints().noneMatch(character ->
-                Character.isWhitespace(character) || Character.isISOControl(character)
-                        || character == '<' || character == '>');
+        return identity.key().platform().equals("qq") && subject.length() <= 256
+                && subject.matches("[A-Za-z0-9_-]+");
     }
 
     private static String markdownLinkTarget(String target) {
         return target.replace("\\", "%5C")
+                .replace("[", "%5B")
+                .replace("]", "%5D")
                 .replace("(", "%28")
                 .replace(")", "%29");
     }
 
+    private static boolean hasStyle(ChatStyle style) {
+        // QQ's __text__ means bold, so Minecraft underline has no equivalent.
+        return style.bold() || style.italic() || style.strikethrough();
+    }
+
     private static String applyStyle(String markdown, ChatStyle style) {
-        String rendered = markdown;
+        int start = 0;
+        int end = markdown.length();
+        while (start < end && Character.isWhitespace(markdown.charAt(start))) start++;
+        while (end > start && Character.isWhitespace(markdown.charAt(end - 1))) end--;
+        if (start == end) return markdown;
+        String rendered = markdown.substring(start, end);
         if (style.strikethrough()) {
             rendered = "~~" + rendered + "~~";
         }
@@ -134,59 +152,30 @@ public final class QqChatRenderer {
         if (style.bold()) {
             rendered = "**" + rendered + "**";
         }
-        return rendered;
+        return markdown.substring(0, start) + rendered + markdown.substring(end);
     }
 
-    private static void appendEscapedPrefix(
-            StringBuilder target,
-            String escapedPrefix,
-            int limit
-    ) {
-        int end = Math.min(escapedPrefix.length(), limit);
-        if (end > 0 && end < escapedPrefix.length()
-                && Character.isHighSurrogate(escapedPrefix.charAt(end - 1))) {
-            end--;
-        }
-        target.append(escapedPrefix, 0, end);
-        trimTrailingEscape(target);
-    }
-
-    private static void appendEscaped(
+    private static boolean appendText(
             StringBuilder target,
             String value,
-            int maximumAdditionalLength
+            int maximumAdditionalLength,
+            boolean markdown
     ) {
         int endLength = target.length() + maximumAdditionalLength;
         for (int offset = 0; offset < value.length();) {
             int codePoint = value.codePointAt(offset);
             String character = new String(Character.toChars(codePoint));
-            String escaped = QqMarkdownRenderer.escape(character);
+            String escaped = markdown ? QqText.markdownLiteral(character) : character;
             if (target.length() + escaped.length() > endLength) {
-                break;
+                return false;
             }
             target.append(escaped);
             offset += Character.charCount(codePoint);
         }
+        return true;
     }
 
-    private static void trimTrailingEscape(StringBuilder value) {
-        int backslashes = 0;
-        for (int index = value.length() - 1;
-             index >= 0 && value.charAt(index) == '\\'; index--) {
-            backslashes++;
-        }
-        if ((backslashes & 1) == 1) {
-            value.setLength(value.length() - 1);
-        }
-    }
-
-    private record RenderedNode(String plain, String markdown, boolean atomic) {
-        RenderedNode(String plain, String markdown) { this(plain, markdown, false); }
-    }
-
-    public record RenderedChat(String markdown) {
-        public RenderedChat {
-            markdown = Objects.requireNonNull(markdown, "markdown");
-        }
+    private record RenderedNode(String plain, String markdown, boolean atomic, boolean formatted) {
+        String content(boolean useMarkdown) { return useMarkdown ? markdown : plain; }
     }
 }

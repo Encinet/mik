@@ -14,7 +14,6 @@ import java.util.function.Predicate;
 /** Main-thread camera placement and collision queries for one patrol session. */
 final class MonitorCamera {
     static final long UPDATE_TICKS = 1L;
-    private static final double DISTANCE = 4.5;
     private static final double MINIMUM_DISTANCE = 1.25;
     private static final double COMFORTABLE_DISTANCE = 3.5;
     private static final double CLEARANCE = 0.35;
@@ -24,13 +23,22 @@ final class MonitorCamera {
     private static final double[] ANGLES = {70, -70, 90, -90, 110, -110, 35, -35, 0, 180};
     private static final double[] HEIGHTS = {1.2, 0.15};
     private static final int RECOVERY_FRAMES = 20;
+    private static final int SWITCH_FRAMES = 5;
+    private static final double SWITCH_ADVANTAGE = 0.6;
+    private static final double TRANSITION_STEP = 0.25;
+    private static final int MAX_TRANSITION_STEPS = 128;
+    private static final double MINIMUM_AIM_DOT = Math.cos(Math.toRadians(12));
 
     private final Predicate<Location> solidRender;
+    private final MonitorFraming framing = new MonitorFraming();
 
     private UUID subject;
     private Location previousTarget;
+    private Location previousFocus;
     private double heading; // Keep one observation side; strafing or reversing must not orbit the camera.
     private int preferred;
+    private int pending = -1;
+    private int pendingFrames;
     private boolean firstPerson;
     private int clearFrames;
 
@@ -44,86 +52,174 @@ final class MonitorCamera {
         this.solidRender = solidRender;
     }
 
+    record Frame(Location feet, boolean cut) { }
+
     void reset() {
         subject = null;
         previousTarget = null;
+        previousFocus = null;
         firstPerson = false;
         clearFrames = 0;
+        pending = -1;
+        pendingFrames = 0;
+        framing.reset();
     }
 
-    /** Returns a feet position aimed from the actual eye, or null for native first-person spectating. */
-    @Nullable Location update(UUID targetId, Location targetEye, Location currentEye, double eyeHeight) {
-        boolean snap = !targetId.equals(subject) || previousTarget == null
-                || !targetEye.getWorld().equals(previousTarget.getWorld())
-                || targetEye.distanceSquared(previousTarget) > 16 * 16;
-        if (snap) {
+    /** Returns an explicit continuous/cut frame, or null for native first-person spectating. */
+    @Nullable Frame update(UUID targetId, Location targetEye, double targetEyeHeight,
+                           Location currentEye, double eyeHeight) {
+        boolean cut = !targetId.equals(subject) || previousTarget == null
+                || !targetEye.getWorld().equals(previousTarget.getWorld());
+        if (cut) {
             subject = targetId;
             heading = targetEye.getYaw();
             preferred = 0;
             firstPerson = false;
             clearFrames = 0;
+            pending = -1;
+            pendingFrames = 0;
+            framing.reset();
         }
-        Vector movement = snap ? new Vector() : targetEye.toVector().subtract(previousTarget.toVector());
+        // Keep the focus inside a swimming/flying player's body as well as a standing one.
+        Location focus = targetEye.clone().subtract(0, Math.min(0.4, targetEyeHeight * 0.25), 0);
+        Vector movement = cut ? new Vector() : targetEye.toVector().subtract(previousTarget.toVector());
+        MonitorFraming.Frame motion = framing.update(movement);
+        Location oldFocus = previousFocus;
         previousTarget = targetEye.clone();
+        previousFocus = focus.clone();
 
-        int previousView = preferred;
-        Location best = candidate(targetEye, preferred);
-        if (best == null || best.distance(targetEye) < COMFORTABLE_DISTANCE) {
-            double score = best == null ? -1 : best.distance(targetEye);
+        Location best = candidate(targetEye, focus, preferred, motion);
+        int winner = preferred;
+        Location alternative = best;
+        double bestScore = best == null ? Double.NEGATIVE_INFINITY : score(best, focus, preferred, motion.distance());
+        if (best == null || best.distance(focus) < COMFORTABLE_DISTANCE) {
             for (int index = 0; index < ANGLES.length * HEIGHTS.length; index++) {
                 if (index == preferred) continue;
-                Location alternative = candidate(targetEye, index);
-                if (alternative == null) continue;
-                double alternativeScore = alternative.distance(targetEye) - 0.6
-                        - (index >= ANGLES.length ? 0.3 : 0);
-                if (alternativeScore > score) {
-                    best = alternative;
-                    score = alternativeScore;
-                    preferred = index;
+                Location candidate = candidate(targetEye, focus, index, motion);
+                if (candidate == null) continue;
+                double candidateScore = score(candidate, focus, index, motion.distance()) - SWITCH_ADVANTAGE;
+                if (candidateScore > bestScore) {
+                    alternative = candidate;
+                    bestScore = candidateScore;
+                    winner = index;
                 }
             }
+        }
+        if (winner != preferred) {
+            pendingFrames = pending == winner ? pendingFrames + 1 : 1;
+            pending = winner;
+            // A valid but cramped view can wait; losing sight of the subject cannot.
+            if (cut || best == null || pendingFrames >= SWITCH_FRAMES) {
+                preferred = winner;
+                best = alternative;
+                pending = -1;
+                pendingFrames = 0;
+            }
+        } else {
+            pending = -1;
+            pendingFrames = 0;
         }
         if (best == null) {
             firstPerson = true;
             clearFrames = 0;
             return null;
         }
-        if (preferred != previousView) snap = true;
         if (firstPerson) {
-            clearFrames = best.distance(targetEye) >= 2.5 ? clearFrames + 1 : 0;
+            clearFrames = best.distance(focus) >= 2.5 ? clearFrames + 1 : 0;
             if (clearFrames < RECOVERY_FRAMES) return null;
             firstPerson = false;
             clearFrames = 0;
-            snap = true;
+            cut = true;
         }
 
         Location eye = best;
-        if (!snap && currentEye.getWorld().equals(targetEye.getWorld())
-                && currentEye.distanceSquared(targetEye) <= 8 * 8) {
-            // Carry horizontal target movement directly; smooth only orbit corrections and vertical bob.
-            // Chasing the previous world position creates lag and then a repeated catch-up wobble.
-            Location carried = currentEye.clone().add(movement.getX(), 0, movement.getZ());
-            Location blended = carried.add(best.toVector().subtract(carried.toVector()).multiply(BLEND));
-            Location clipped = clip(targetEye, blended);
-            // Spectators may cross walls when relocating. Validate the new view, not the travel path.
-            if (clipped != null && clipped.distanceSquared(blended) < 0.01) eye = clipped;
-            else snap = true;
+        if (!cut && currentEye.getWorld().equals(targetEye.getWorld())) {
+            // Carry the full displacement first, so high speed never becomes world-space lag.
+            Location carried = currentEye.clone().add(movement);
+            double maximumReach = MonitorFraming.MAX_DISTANCE + MonitorFraming.MAX_COMPENSATION + 2;
+            if (carried.distanceSquared(targetEye) <= maximumReach * maximumReach) {
+                double blend = motion.retracting() ? 0.65 : BLEND;
+                Location blended = carried.add(best.toVector().subtract(carried.toVector()).multiply(blend));
+                Location clipped = clip(focus, blended);
+                if (clipped != null && clipped.distanceSquared(blended) < 0.01) eye = clipped;
+                else cut = true;
+            } else {
+                cut = true;
+            }
         } else {
-            snap = true;
+            cut = true;
         }
-        Location focus = targetEye.clone().subtract(0, 0.4, 0);
         eye.setDirection(focus.toVector().subtract(eye.toVector()));
-        if (!snap) {
-            eye.setYaw((float) (currentEye.getYaw() + wrap(eye.getYaw() - currentEye.getYaw()) * BLEND));
-            eye.setPitch((float) (currentEye.getPitch() + (eye.getPitch() - currentEye.getPitch()) * BLEND));
-        }
-        return eye.subtract(0, eyeHeight, 0);
+        if (!cut) eye.setYaw((float) (currentEye.getYaw() + wrap(eye.getYaw() - currentEye.getYaw())));
+        // Check both occlusion and the aim produced by interpolating position and rotation.
+        if (!cut && !visibleTransition(currentEye, eye, oldFocus, focus)) cut = true;
+        return new Frame(eye.subtract(0, eyeHeight, 0), cut);
     }
 
-    private @Nullable Location candidate(Location targetEye, int index) {
+    private double score(Location eye, Location focus, int index, double distance) {
+        double turn = Math.abs(wrap(ANGLES[index % ANGLES.length] - ANGLES[preferred % ANGLES.length]));
+        return Math.min(distance, eye.distance(focus)) - turn * 0.002
+                - (index >= ANGLES.length ? 0.3 : 0);
+    }
+
+    private @Nullable Location candidate(Location targetEye, Location focus, int index, MonitorFraming.Frame motion) {
         double angle = Math.toRadians(heading + ANGLES[index % ANGLES.length]);
-        return clip(targetEye, targetEye.clone().add(Math.sin(angle) * DISTANCE,
-                HEIGHTS[index / ANGLES.length], -Math.cos(angle) * DISTANCE));
+        Location desired = targetEye.clone().add(Math.sin(angle) * motion.distance(),
+                HEIGHTS[index / ANGLES.length], -Math.cos(angle) * motion.distance());
+        Location base = clip(focus, desired);
+        if (motion.compensation().lengthSquared() < 1.0e-8) return base;
+        Location predictedEye = desired.clone().add(motion.compensation());
+        Location predicted = clip(focus, predictedEye);
+        // Compare lost reach against each requested point, not their distances to the subject:
+        // compensation toward the subject is legitimate when both requested views are clear.
+        if (predicted == null) return base;
+        if (base != null && predicted.distanceSquared(predictedEye) > base.distanceSquared(desired) + 0.01) return base;
+        return predicted;
+    }
+
+    private boolean visibleTransition(Location fromEye, Location toEye, Location fromFocus, Location toFocus) {
+        if (fromFocus == null || !fromEye.getWorld().equals(fromFocus.getWorld())) return false;
+        int steps = Math.max(1, (int) Math.ceil(Math.max(fromEye.distance(toEye),
+                fromFocus.distance(toFocus)) / TRANSITION_STEP));
+        // Bound main-thread work. An unusually long unexplained displacement cuts without changing sides.
+        if (steps > MAX_TRANSITION_STEPS) return false;
+        Location previous = null;
+        boolean previousSolid = false;
+        for (int step = 0; step <= steps; step++) {
+            double fraction = (double) step / steps;
+            Location eye = interpolate(fromEye, toEye, fraction);
+            Location focus = interpolate(fromFocus, toFocus, fraction);
+            if (!visible(eye, focus)) return false;
+            eye.setYaw((float) (fromEye.getYaw() + wrap(toEye.getYaw() - fromEye.getYaw()) * fraction));
+            eye.setPitch((float) (fromEye.getPitch() + (toEye.getPitch() - fromEye.getPitch()) * fraction));
+            if (eye.getDirection().dot(focus.toVector().subtract(eye.toVector()).normalize()) < MINIMUM_AIM_DOT) return false;
+            boolean solid = solidRender.test(eye);
+            if (previous != null) {
+                // Cut at exposed wall surfaces and thin obstructions between visibility samples.
+                if (solid != previousSolid) return false;
+                Vector travel = eye.toVector().subtract(previous.toVector());
+                double length = travel.length();
+                if (!solid && length > 1.0e-8 && eye.getWorld().rayTraceBlocks(previous,
+                        travel.multiply(1 / length), length, FluidCollisionMode.NEVER, true) != null) return false;
+            }
+            previous = eye;
+            previousSolid = solid;
+        }
+        return true;
+    }
+
+    private boolean visible(Location eye, Location focus) {
+        if (!eye.getWorld().getWorldBorder().isInside(eye) || !loaded(eye, focus)) return false;
+        Vector ray = focus.toVector().subtract(eye.toVector());
+        double length = ray.length();
+        if (length < MINIMUM_DISTANCE) return false;
+        if (solidRender.test(eye)) return insideWall(eye) && visibleFromInside(eye, focus);
+        return eye.getWorld().rayTraceBlocks(eye, ray.multiply(1 / length), length,
+                FluidCollisionMode.NEVER, true) == null;
+    }
+
+    private static Location interpolate(Location from, Location to, double fraction) {
+        return from.clone().add(to.toVector().subtract(from.toVector()).multiply(fraction));
     }
 
     private @Nullable Location clip(Location start, Location desired) {
@@ -174,12 +270,17 @@ final class MonitorCamera {
     }
 
     private boolean insideWall(Location eye) {
-        return inset(eye.getX()) && inset(eye.getY()) && inset(eye.getZ()) && solidRender.test(eye);
-    }
-
-    private static boolean inset(double coordinate) {
-        double fraction = coordinate - Math.floor(coordinate);
-        return fraction >= WALL_MARGIN && fraction <= 1 - WALL_MARGIN;
+        if (!solidRender.test(eye)) return false;
+        // Only exposed faces need a margin. Crossing between adjoining solid blocks is stable.
+        double x = eye.getX() - Math.floor(eye.getX());
+        double y = eye.getY() - Math.floor(eye.getY());
+        double z = eye.getZ() - Math.floor(eye.getZ());
+        return (x >= WALL_MARGIN || solidRender.test(eye.clone().add(-1, 0, 0)))
+                && (x <= 1 - WALL_MARGIN || solidRender.test(eye.clone().add(1, 0, 0)))
+                && (y >= WALL_MARGIN || solidRender.test(eye.clone().add(0, -1, 0)))
+                && (y <= 1 - WALL_MARGIN || solidRender.test(eye.clone().add(0, 1, 0)))
+                && (z >= WALL_MARGIN || solidRender.test(eye.clone().add(0, 0, -1)))
+                && (z <= 1 - WALL_MARGIN || solidRender.test(eye.clone().add(0, 0, 1)));
     }
 
     private boolean visibleFromInside(Location eye, Location target) {

@@ -9,6 +9,18 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class UiSplitLayoutTest {
+    @Test void failingBothDirectionsPreservesTheOriginalOverflowForDiagnosis() {
+        for (var preferred : UiLayouts.Axis.values()) {
+            var scene = MenuScene.screen("split").viewport(new UiSize(300,200)).content(UiTemplates.split(
+                    panel("navigation",new UiSize(180,140)),panel("reading",new UiSize(240,160)),preferred)).build();
+            var error = assertThrows(UiOverflowException.class,() -> SceneGeometryTestSupport.naturalFrame(scene,1));
+            var original = assertInstanceOf(UiOverflowException.class,error.getCause());
+            assertEquals(1,original.getSuppressed().length);
+            assertInstanceOf(UiOverflowException.class,original.getSuppressed()[0]);
+            assertNotEquals(original.getMessage(),original.getSuppressed()[0].getMessage());
+        }
+    }
+
     @Test void aPreferredDirectionUsesAvailableSpaceAndReflowsTheSameControlsWhenItCannotFit() {
         for (var preferred : UiLayouts.Axis.values()) for (var viewport : new UiSize[]{new UiSize(700,500),new UiSize(700,200),new UiSize(300,500)}) {
             var navigation = panel("navigation",new UiSize(180,140));

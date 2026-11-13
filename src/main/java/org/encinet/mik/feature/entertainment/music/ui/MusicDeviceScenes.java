@@ -192,11 +192,28 @@ final class MusicDeviceScenes {
                     panel.section() == section, () -> w.panel(player, new DevicePanel(panel.target(), section))));
         }
         body.child(tabs.build());
-        return body.child(UiKey.named("device-section"),switch (panel.section()) {
+        var section = switch (panel.section()) {
             case QUEUE -> queue.content(player, state, panel.target());
             case MEMBERS -> group == null ? info("no-group", w.label(player, "single-device")) : groups.members(player, state, group);
             case SETTINGS -> settings(player, state, target);
-        }).children(w.taskStatus(player, state, key(id))).build();
+        };
+        var full = body.child(UiKey.named("device-section"),section).children(w.taskStatus(player,state,key(id))).build();
+        var items = new ArrayList<UiChild>();
+        items.add(UiChild.of(tools("device-management").children(actions).build()));
+        for (var child : full.children().subList(1,full.children().size())) {
+            if (child.scope().equals(UiKey.named("device-section")) && panel.section() == DeviceSection.SETTINGS)
+                items.addAll(((UiContainer) section).children());
+            else items.add(child);
+        }
+        java.util.function.IntConsumer select = page -> {
+            if (w.active(player,state) && state.panel() == panel) {
+                state.panelPage = page;
+                w.redraw(player);
+            }
+        };
+        var compact = new UiPagedList(full.key(),w.panelHeading(player,w.targetSummary(player,id)),items,UiLength.ui(8),state.panelPage,
+                page -> UiTemplates.pager(page,select),select,full.style(),full.sizing());
+        return Ui.alternative(full,compact);
     }
     private UiNode settings(Player player, MusicWorkspaceState state, DeviceTarget target) {
         UUID id = target.id();
@@ -205,7 +222,10 @@ final class MusicDeviceScenes {
         var failure = w.registry.controlFailure(player, id);
         boolean editable = failure == null;
         if (failure != null) body.child(info("unavailable", w.problem(player, failure)));
-        if (group == null && editable) body.child(outputSettings(player, target.members().getFirst()));
+        if (group == null && editable) {
+            body.child(UiKey.named("volume"),w.sound.fields(player,id,Parameter.VOLUME));
+            body.child(UiKey.named("range"),w.sound.fields(player,id,Parameter.RANGE));
+        }
         else if (group != null && editable) body.child(w.sound.fields(player, id, Parameter.GAIN));
         boolean bound = w.registry.bound(player.getUniqueId(), id);
         if (editable || bound) {

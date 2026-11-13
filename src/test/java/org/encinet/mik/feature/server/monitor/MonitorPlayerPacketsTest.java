@@ -39,12 +39,18 @@ class MonitorPlayerPacketsTest {
             other.setGameMode(GameMode.SPECTATOR);
             var packet = new WrapperPlayServerPlayerInfoUpdate(
                     WrapperPlayServerPlayerInfoUpdate.Action.UPDATE_GAME_MODE, List.of(monitor, other));
-            assertTrue(tab.maskModes(packet));
+            UUID viewer = UUID.randomUUID();
+            assertFalse(tab.maskModes(id, packet));
+            assertEquals(GameMode.SPECTATOR, monitor.getGameMode(), "Self must retain spectator wall visibility");
+            tab.staff(viewer, true);
+            assertFalse(tab.maskModes(viewer, packet));
+            assertEquals(GameMode.SPECTATOR, monitor.getGameMode());
+            tab.staff(viewer, false);
+            assertTrue(tab.maskModes(viewer, packet));
             assertEquals(GameMode.CREATIVE, monitor.getGameMode());
             assertEquals(GameMode.SPECTATOR, other.getGameMode());
             assertTrue(monitor.isListed());
             assertEquals(Component.text("Staff"), monitor.getDisplayName());
-            UUID viewer = UUID.randomUUID();
             assertTrue(tab.blocksSpectate(viewer, id));
             assertFalse(tab.blocksSpectate(viewer, UUID.randomUUID()));
             tab.staff(viewer, true);
@@ -54,7 +60,7 @@ class MonitorPlayerPacketsTest {
             tab.end(player);
             assertFalse(tab.blocksSpectate(viewer, id));
             monitor.setGameMode(GameMode.SPECTATOR);
-            assertFalse(tab.maskModes(packet));
+            assertFalse(tab.maskModes(viewer, packet));
             assertEquals(GameMode.SPECTATOR, monitor.getGameMode());
         } finally {
             PacketEvents.setAPI(previous);

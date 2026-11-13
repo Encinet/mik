@@ -25,6 +25,8 @@ Minecraft 公共聊天 → ChatSubmission → ChatProcessor → ChatMessage
 
 协议解码保留平台内容类型，投影层输出稳定正文、独立命令正文和生成说明的精确范围。QQ 与 Matrix 将图片、表情、聊天记录等映射到共享的 `ChatPlaceholder`；`ChatProcessor` 按可信范围构造 `ChatNode.Placeholder`。用户原文中手写的 `[image]` 等文字保持字面内容，不按文本匹配翻译。路由剥离前缀时同时调整提及和内容说明的位置；被截断的节点不产生残缺范围。
 
+QQ 将显式聊天记录和官方引用元素中序列化的转发记录归一化为 `HISTORY`，投影时只产生聊天记录说明，不递归读取内部消息。游戏、网页和其他平台接收同一份折叠结果。普通正文中手写的类似分隔行仍作为文字；记录内部作者不进入引用身份解析。
+
 `ChatContent.localized` 只解析内容说明节点，保留节点类型、样式、链接、提及与原始内容。游戏在渲染时采用接收玩家语言；网页采用绑定账号保存的语言，并按语言、发送者身份与提及状态复用消息帧；其他 Social 平台采用目标平台的 `default-language`，在内容审核之前解析展示文本。没有翻译上下文的日志或协议回退使用稳定的类型说明，例如 `[image]`。QQ 和 Matrix 的长度限制将内容说明作为整体保留或省略。
 
 命令业务结果与语言资源分离。`SocialCommandLanguageResolver` 统一选择回复语言；帮助与动作提示从注册的命令别名和实际前缀生成，翻译只安排完整句子。计数、总体人数和指标以数值交给 Fluent，挂机状态以语义条件选择分支；`SocialTimeText` 统一日期与时长格式，公告由 `SocialAnnouncementPresenter` 按目标语言生成文档。全部公开文案同步维护 `Message` 和所有 FTL。
@@ -64,7 +66,7 @@ Host 为每个平台独立维护运行代次（generation）、会话、身份�
 
 无前缀快捷查询只匹配完整别名，附带其他正文时作为普通聊天继续路由。显式在线、状态和帮助命令遇到多余参数时显示正确用法，不忽略剩余正文执行查询。引用或转发内容仍不进入参数解析。
 
-`SocialReplyChannel.prepare(document, maximumLength)` 在没有网络 I/O 的情况下生成 `SocialPreparedReply`。`SocialDocumentLayout` 根据平台各发送格式的实际编码长度选定同一份有界文档；操作指引整体保留或省略，字段和列表项不从中间截断，并保持原始节点顺序。QQ 的 Markdown、媒体说明和回退正文共用该布局，Matrix 的 HTML 与纯文本也共用该布局。运行时审核准备后的语义文本，审核后不再次裁剪或改写内容；公告同样先准备、再审核和发送。
+`SocialReplyChannel.prepare(document, maximumLength)` 在没有网络 I/O 的情况下生成 `SocialPreparedReply`。`SocialDocumentLayout` 根据平台各发送格式的实际编码长度选定同一份有界文档；操作指引整体保留或省略，字段和列表项不从中间截断，并保持原始节点顺序。QQ 的 `QqDocumentRenderer` 为回复和公告统一选择纯文本或 Markdown，并同时约束媒体说明和回退正文；`QqChatRenderer` 使用相同的字面文本规则。两者产出带格式的 `QqOutgoingMessage`，OpenAPI 客户端集中生成互斥的 `content` 或 `markdown` 字段。Matrix 的 HTML 与纯文本也共用该布局。运行时审核准备后的语义文本，审核后不再次裁剪或改写内容；公告同样先准备、再审核和发送。
 
 回复语言依次取绑定玩家的 Minecraft 偏好、命中的本地化别名、平台默认语言。所有语言别名同时有效；原生命令可用 `locale` option 指定标签。内容安全替换和截断保留已解析语言。
 

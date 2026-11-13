@@ -174,13 +174,28 @@ public record FloatingMenuDecoration(
                         Transition.TRACKING);
     }
 
+    /** World labels turn on the client without waiting for a server-side scene refresh. */
+    public FloatingMenuDecoration billboard() {
+        if (!worldAnchored() || !(content instanceof Text text))
+            throw new IllegalStateException("Billboards require world text");
+        return new FloatingMenuDecoration(id,placement,new Text(text.text(),text.backgroundColor(),text.displayWidth(),
+                text.displayHeight(),text.scale(),text.alignment(),text.seeThrough(),true),motion,transition);
+    }
+
+    /** A client-only glowing copy inside an existing block; dimensions are centered on the world position. */
+    public static FloatingMenuDecoration worldOutline(String id, Location center, org.bukkit.Material material,
+                                                       float size, int color) {
+        return new FloatingMenuDecoration(id,FloatingMenuPlacement.world(center,0,0),
+                new BlockOutline(material,size,color),Motion.NONE).tracking();
+    }
+
     public static FloatingMenuDecoration volume(String id, FloatingMenuPose pose, BlockData block,
                                                  float width, float height, float depth) {
         return new FloatingMenuDecoration(id, FloatingMenuPlacement.local(pose),
                 new BlockVolume(block, width, height, depth), Motion.NONE).tracking();
     }
 
-    public sealed interface Content permits Text, Visual, BlockVolume, Surface, Image, RangePart, IconPart {
+    public sealed interface Content permits Text, Visual, BlockVolume, BlockOutline, Surface, Image, RangePart, IconPart {
     }
 
     /** Stable local paint identity; the owning control supplies transforms, state and input. */
@@ -234,9 +249,22 @@ public record FloatingMenuDecoration(
         @Override public BlockData block() { return block.clone(); }
     }
 
+    public record BlockOutline(org.bukkit.Material material, float size, int color) implements Content {
+        public BlockOutline {
+            Objects.requireNonNull(material);
+            // Resolve block data in the renderer, keeping scene construction independent of native registries.
+            if (!positiveFinite(size) || color < 0 || color > 0xFFFFFF)
+                throw new IllegalArgumentException("Invalid block outline");
+        }
+    }
+
     public record Text(Component text, UiColor backgroundColor, float displayWidth,
                        float displayHeight, float scale, Alignment alignment,
-                       boolean seeThrough) implements Content {
+                       boolean seeThrough, boolean billboard) implements Content {
+        public Text(Component text, UiColor backgroundColor, float displayWidth, float displayHeight,
+                    float scale, Alignment alignment, boolean seeThrough) {
+            this(text,backgroundColor,displayWidth,displayHeight,scale,alignment,seeThrough,false);
+        }
         public Text(Component text, int background, float displayWidth, float displayHeight,
                     float scale, Alignment alignment, boolean seeThrough) {
             this(text, UiColor.fromArgb(background),

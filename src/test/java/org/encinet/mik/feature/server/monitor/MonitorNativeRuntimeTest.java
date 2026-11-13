@@ -89,6 +89,12 @@ class MonitorNativeRuntimeTest {
     }
 
     private static void checkSpectatorCamera() {
+        var api = mock(com.github.retrooper.packetevents.PacketEventsAPI.class);
+        var manager = mock(com.github.retrooper.packetevents.manager.server.ServerManager.class);
+        when(api.getServerManager()).thenReturn(manager);
+        when(manager.getVersion()).thenReturn(com.github.retrooper.packetevents.manager.server.ServerVersion.V_1_21_4);
+        com.github.retrooper.packetevents.PacketEvents.setAPI(api);
+        var wrapped = new java.util.ArrayList<com.github.retrooper.packetevents.wrapper.PacketWrapper<?>>();
         var packets = new java.util.ArrayList<net.minecraft.network.protocol.Packet<?>>();
         var cameras = new java.util.ArrayList<Integer>();
         var ids = new java.util.concurrent.atomic.AtomicInteger(100);
@@ -97,14 +103,16 @@ class MonitorNativeRuntimeTest {
         when(viewer.getEntityId()).thenReturn(7);
         when(viewer.getEyeHeight()).thenReturn(0.9);
         var world = mock(org.bukkit.World.class);
-        var view = new MonitorCameraView((_, packet) -> packets.add(packet), (_, id) -> cameras.add(id),
-                _ -> ids.incrementAndGet());
+        var view = new MonitorCameraView((_, packet) -> packets.add(packet), (_, packet) -> {
+            wrapped.add(packet);
+            if (packet instanceof com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerCamera camera) cameras.add(camera.getCameraId());
+        }, _ -> ids.incrementAndGet());
         var feet = new org.bukkit.Location(world, 4, 65, 8, 45, 10);
-        view.move(viewer, feet);
+        view.move(viewer, feet, false);
         var info = assertInstanceOf(net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.class, packets.get(0));
         var profile = info.entries().getFirst();
         assertEquals(net.minecraft.world.level.GameType.SPECTATOR, profile.gameMode(),
-                "the client camera itself must be a spectator player to keep inside-wall visibility");
+                "the unlisted camera retains spectator behavior");
         assertFalse(profile.listed());
         assertEquals("", java.util.Objects.requireNonNull(profile.profile()).name());
         assertNotEquals(viewer.getUniqueId(), profile.profileId());
@@ -112,18 +120,43 @@ class MonitorNativeRuntimeTest {
         assertSame(net.minecraft.world.entity.EntityTypes.PLAYER, spawn.getType());
         assertEquals(65.9, spawn.getY() + net.minecraft.world.entity.EntityTypes.PLAYER.getDimensions().eyeHeight(), 1.0e-6);
         assertEquals(java.util.List.of(101), cameras);
-        view.move(viewer, feet.clone());
+        var initialHead = assertInstanceOf(com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityHeadLook.class, wrapped.getFirst());
+        assertEquals(101, initialHead.getEntityId());
+        assertEquals(45, initialHead.getHeadYaw(), 1.0e-6);
+        assertInstanceOf(com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerCamera.class, wrapped.get(1),
+                "initialize head direction before attaching the viewer's camera");
+        view.move(viewer, feet.clone(), false);
         assertEquals(2, packets.size(), "a stationary camera must not restart interpolation or respawn");
-        view.move(viewer, feet.clone().add(0.25, 0, 0));
+        assertEquals(2, wrapped.size(), "stationary views must not resend head rotation or reattach the camera");
+        view.move(viewer, feet.clone().add(0.25, 0, 0), false);
         var movement = assertInstanceOf(net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket.class, packets.get(2));
         assertEquals(4.25, movement.position().endPosition().x(), 1.0e-6);
         assertEquals(1, cameras.size(), "ordinary movement must keep the same interpolated camera entity");
-        view.move(viewer, new org.bukkit.Location(mock(org.bukkit.World.class), 0, 70, 0));
-        assertEquals(java.util.List.of(101, 7, 102), cameras);
-        var removed = assertInstanceOf(net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket.class, packets.get(4));
+        var rotated = feet.clone().add(0.25, 0, 0);
+        rotated.setYaw(-135);
+        view.move(viewer, rotated, false);
+        var head = assertInstanceOf(com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityHeadLook.class, wrapped.getLast());
+        assertEquals(101, head.getEntityId());
+        assertEquals(-135, head.getHeadYaw(), 1.0e-6, "body rotation alone cannot steer a spectator player's camera");
+        view.move(viewer, rotated.clone().add(100, 80, 100), false);
+        assertInstanceOf(net.minecraft.network.protocol.game.ClientboundEntityPositionSyncPacket.class, packets.getLast());
+        assertEquals(java.util.List.of(101), cameras, "high speed alone must not destroy and recreate the camera every tick");
+        int beforeRelocation = packets.size();
+        var nextWorld = mock(org.bukkit.World.class);
+        view.move(viewer, new org.bukkit.Location(nextWorld, 0, 70, 0), false);
+        assertEquals(java.util.List.of(101, 102), cameras);
+        var removed = assertInstanceOf(net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket.class, packets.get(beforeRelocation + 3));
         assertEquals(java.util.List.of(profile.profileId()), removed.profileIds());
+        int beforeCut = packets.size();
+        view.move(viewer, new org.bukkit.Location(nextWorld, 4, 65, 8), true);
+        assertInstanceOf(net.minecraft.network.protocol.game.ClientboundAddEntityPacket.class, packets.get(beforeCut + 1));
+        assertEquals(java.util.List.of(101, 102, 103), cameras,
+                "a cut must attach a fresh camera without briefly returning to the viewer's own camera");
+        var cutRemoval = assertInstanceOf(net.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacket.class,
+                packets.get(beforeCut + 2));
+        assertEquals(102, cutRemoval.entityIds().getInt(0));
         view.clear(viewer);
-        assertEquals(java.util.List.of(101, 7, 102, 7), cameras);
+        assertEquals(java.util.List.of(101, 102, 103, 7), cameras);
         assertInstanceOf(net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket.class, packets.getLast());
         int count = packets.size();
         view.clear(viewer);

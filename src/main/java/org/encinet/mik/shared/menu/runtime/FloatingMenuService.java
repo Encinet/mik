@@ -436,10 +436,13 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         return new MenuWorldOverlayMask(player.getEyeLocation(),surfaces);
     }
 
-    private static void maskWorldText(Decoration decoration, Location at, float yaw, float pitch, MenuWorldOverlayMask mask) {
+    private static void maskWorldOverlay(Decoration decoration, Location at, float yaw, float pitch, MenuWorldOverlayMask mask) {
         boolean covered = mask != null && decoration.definition.worldAnchored()
-                && decoration.definition.content() instanceof FloatingMenuDecoration.Text text
-                && mask.overlaps(MenuWorldOverlayMask.textSurface(at,yaw,pitch,text));
+                && switch (decoration.definition.content()) {
+                    case FloatingMenuDecoration.Text text -> mask.overlapsText(at,yaw,pitch,text);
+                    case FloatingMenuDecoration.BlockOutline outline -> mask.overlapsOutline(at,outline);
+                    default -> false;
+                };
         if (covered != decoration.interfaceOccluded) {
             decoration.interfaceOccluded = covered;
             decoration.metadata.invalidate();
@@ -1344,7 +1347,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             virtualEntities.track(player,decoration.entityId);
         FloatingMenuDecoration.Content content = decoration.definition.content();
         VirtualMenuEntityRenderer.Kind kind = decorationKind(content);
-        Location spawnAt = decoration.definition.worldAnchored()
+        Location spawnAt = decoration.definition.worldAnchored() && !(content instanceof FloatingMenuDecoration.BlockOutline)
                 ? session.position(decoration).subtract(0.0, 0.18, 0.0)
                 : session.position(decoration);
         float spawnYaw = decoration.definition.placement() instanceof FloatingMenuPlacement.World world
@@ -1354,8 +1357,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         virtualEntities.spawn(player, decoration.entityId, decoration.uuid, kind,
                 spawnAt, spawnYaw, spawnPitch);
         decoration.visualRotation = decoration.definition.worldAnchored() ? UiRotation.IDENTITY : session.orientation.compose(decoration.renderedPose.rotation());
-        if (decoration.definition.worldAnchored() && content instanceof FloatingMenuDecoration.Text)
-            maskWorldText(decoration,spawnAt,spawnYaw,spawnPitch,worldOverlayMask(session,player));
+        if (decoration.definition.worldAnchored())
+            maskWorldOverlay(decoration,spawnAt,spawnYaw,spawnPitch,worldOverlayMask(session,player));
         updateDecoration(session, player, decoration);
     }
 
@@ -1388,7 +1391,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         text.displayWidth(), text.displayHeight(),
                         Math.max(80, Math.round(text.displayWidth() * 64.0F)),
                         (float) (text.scale() * coordinateScale * typographyScale),
-                        text.alignment(), text.seeThrough(), 1, 1, context.rotation());
+                        text.alignment(), text.seeThrough(), 1, 1, context.rotation(),text.billboard());
                 case FloatingMenuDecoration.Visual visual -> virtualEntities.visual(
                         player, decoration.entityId, visual.item(), visual.block(),
                         (float) (visual.scale() * coordinateScale), context.rotation());
@@ -1397,6 +1400,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         (float) (volume.width() * coordinateScale),
                         (float) (volume.height() * coordinateScale),
                         (float) (volume.depth() * coordinateScale), context.rotation());
+                case FloatingMenuDecoration.BlockOutline outline -> virtualEntities.volume(player,decoration.entityId,
+                        outline.material().createBlockData(),outline.size(),outline.size(),outline.size(),context.rotation(),
+                        decoration.interfaceOccluded ? null : outline.color());
             }
         });
     }
@@ -1417,6 +1423,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             case FloatingMenuDecoration.Visual visual -> visual.block()
                     ? VirtualMenuEntityRenderer.Kind.BLOCK : VirtualMenuEntityRenderer.Kind.ITEM;
             case FloatingMenuDecoration.BlockVolume _ -> VirtualMenuEntityRenderer.Kind.BLOCK;
+            case FloatingMenuDecoration.BlockOutline _ -> VirtualMenuEntityRenderer.Kind.BLOCK;
         };
     }
 
@@ -1788,7 +1795,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         String animatedIcon = MenuIconRenderer.animationOwner(session.layoutSnapshot.icons());
         Map<UUID, AxiomImage> imageFrame = new HashMap<>();
         MenuWorldOverlayMask worldOverlays = session.decorations.stream().anyMatch(decoration -> decoration.definition.worldAnchored()
-                && decoration.definition.content() instanceof FloatingMenuDecoration.Text) ? worldOverlayMask(session,player) : null;
+                && (decoration.definition.content() instanceof FloatingMenuDecoration.Text
+                || decoration.definition.content() instanceof FloatingMenuDecoration.BlockOutline)) ? worldOverlayMask(session,player) : null;
         for (Decoration decoration : session.decorations) {
             if (decoration.definition.placement() instanceof FloatingMenuPlacement.Local) {
                 FloatingMenuPose projected = decorationPose(decoration.definition, session.layoutSnapshot,
@@ -1815,7 +1823,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             float yaw;
             float pitch;
             if (decoration.definition.placement() instanceof FloatingMenuPlacement.World world) {
-                at = target.clone().subtract(0.0, session.preferences.reducedMotion() ? 0 : 0.18 * (1.0 - decorationProgress), 0.0);
+                at = target.clone().subtract(0.0, session.preferences.reducedMotion()
+                        || decoration.definition.content() instanceof FloatingMenuDecoration.BlockOutline ? 0 : 0.18 * (1.0 - decorationProgress), 0.0);
                 yaw = (float) world.yawDegrees();
                 pitch = (float) world.pitchDegrees();
             } else {
@@ -1907,7 +1916,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         (float) angles.roll()).multiply(anchorDown));
             }
             if (!decoration.definition.worldAnchored()) { yaw = 0; pitch = 0; }
-            maskWorldText(decoration,at,yaw,pitch,worldOverlays);
+            maskWorldOverlay(decoration,at,yaw,pitch,worldOverlays);
             boolean metadataChanged = decoration.metadata.needsUpdate(decorationContext(session, decoration));
             if (metadataChanged) updateDecoration(session, player, decoration);
             boolean moved = decoration.shouldTeleport(at, yaw, pitch);

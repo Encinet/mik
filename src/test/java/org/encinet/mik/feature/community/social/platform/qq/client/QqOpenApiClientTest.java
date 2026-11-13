@@ -9,6 +9,8 @@ import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.junit.jupiter.api.AfterEach;
 import org.encinet.mik.test.QqTestHttpClient;
 import org.junit.jupiter.api.Test;
+import static org.encinet.mik.feature.community.social.platform.qq.message.QqOutgoingMessage.markdown;
+import static org.encinet.mik.feature.community.social.platform.qq.message.QqOutgoingMessage.text;
 
 import java.io.IOException;
 import java.net.URI;
@@ -174,7 +176,7 @@ class QqOpenApiClientTest {
             List<CompletableFuture<?>> operations = List.of(
                     api.listGroupJoinRequests("group", ""),
                     api.reviewGroupJoinRequest("group", "member", "request", true),
-                    api.sendMarkdown("group", "private message"),
+                    api.sendMessage("group", markdown("private message")),
                     api.replyRemoteImage("group", "message", 1, URI.create("https://example.com/image"), "caption")
                             .thenApply(result -> { throw new java.util.concurrent.CompletionException(result.failure().orElseThrow()); }));
             for (CompletableFuture<?> operation : operations) {
@@ -209,7 +211,7 @@ class QqOpenApiClientTest {
         try (HttpClient client = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort())) {
             QqOpenApiClient api = new QqOpenApiClient(client, config());
             var error = assertThrows(java.util.concurrent.CompletionException.class,
-                    () -> api.sendMarkdown("group", content).join());
+                    () -> api.sendMessage("group", markdown(content)).join());
             java.io.StringWriter stack = new java.io.StringWriter();
             error.printStackTrace(new java.io.PrintWriter(stack));
             for (String sensitive : List.of(content, "secret-token", "005924")) assertFalse(stack.toString().contains(sensitive));
@@ -272,8 +274,8 @@ class QqOpenApiClientTest {
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(httpClient, config);
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokens);
 
-        api.replyMarkdown("group-id", "incoming-one", 1, "## first").join();
-        api.replyMarkdown("group-id", "incoming-two", 2, "**second**").join();
+        api.replyMessage("group-id", "incoming-one", 1, markdown("## first")).join();
+        api.replyMessage("group-id", "incoming-two", 2, markdown("**second**")).join();
 
         assertEquals(1, tokenRequests.get());
         assertEquals(List.of("QQBot test-token", "QQBot test-token"), authorizations);
@@ -321,7 +323,7 @@ class QqOpenApiClientTest {
         QqAccessTokenProvider tokens = new QqAccessTokenProvider(httpClient, config);
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokens);
 
-        api.replyMarkdown("group-id", "incoming-id", 1, "## hello").join();
+        api.replyMessage("group-id", "incoming-id", 1, markdown("## hello")).join();
 
         assertEquals(2, tokenRequests.get());
         assertEquals(List.of("QQBot token-1", "QQBot token-2"), authorizations);
@@ -389,7 +391,7 @@ class QqOpenApiClientTest {
     }
 
     @Test
-    void proactiveGroupMarkdownOmitsPassiveReplyFields() throws Exception {
+    void textAndMarkdownUseExclusiveFieldsAndOnlyRepliesCarryPassiveIds() throws Exception {
         List<String> bodies = new ArrayList<>();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/app/getAppAccessToken", exchange -> respond(exchange, 200,
@@ -405,7 +407,7 @@ class QqOpenApiClientTest {
         HttpClient httpClient = QqTestHttpClient.create(server == null ? 1 : server.getAddress().getPort());
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config);
 
-        api.sendMarkdown("group-id", "Alex: hello").join();
+        api.sendMessage("group-id", markdown("Alex: hello")).join();
 
         JsonObject body = JsonParser.parseString(bodies.getFirst()).getAsJsonObject();
         assertEquals(2, body.get("msg_type").getAsInt());
@@ -413,6 +415,23 @@ class QqOpenApiClientTest {
                 .get("content").getAsString());
         assertFalse(body.has("msg_id"));
         assertFalse(body.has("msg_seq"));
+        assertFalse(body.has("content"));
+
+        String literal = "(hello) [item] C:\\temp 20.00";
+        api.sendMessage("group-id", text(literal)).join();
+        api.replyMessage("group-id", "incoming", 1, text(literal)).join();
+        for (int index = 1; index <= 2; index++) {
+            JsonObject plain = JsonParser.parseString(bodies.get(index)).getAsJsonObject();
+            assertEquals(0, plain.get("msg_type").getAsInt());
+            assertEquals(literal, plain.get("content").getAsString());
+            assertFalse(plain.has("markdown"));
+            assertEquals(index == 2, plain.has("msg_id"));
+            assertEquals(index == 2, plain.has("msg_seq"));
+            if (index == 2) {
+                assertEquals("incoming", plain.get("msg_id").getAsString());
+                assertEquals(1, plain.get("msg_seq").getAsInt());
+            }
+        }
         httpClient.shutdownNow();
     }
 
@@ -506,8 +525,8 @@ class QqOpenApiClientTest {
         QqOpenApiClient api = new QqOpenApiClient(httpClient, config, tokens);
         List<CompletableFuture<Void>> replies = new ArrayList<>();
         for (int index = 0; index < 20; index++) {
-            replies.add(api.replyMarkdown(
-                    "group-id", "incoming-" + index, 1, "## hello"));
+            replies.add(api.replyMessage(
+                    "group-id", "incoming-" + index, 1, markdown("## hello")));
         }
 
         try {
@@ -530,17 +549,17 @@ class QqOpenApiClientTest {
                 new QqAccessTokenProvider(httpClient, config));
 
         assertThrows(IllegalArgumentException.class,
-                () -> api.replyMarkdown("group-id", "", 1, "## message"));
+                () -> api.replyMessage("group-id", "", 1, markdown("## message")));
         assertThrows(IllegalArgumentException.class,
-                () -> api.replyMarkdown("group-id", "incoming-id", 0, "## message"));
+                () -> api.replyMessage("group-id", "incoming-id", 0, markdown("## message")));
         assertThrows(IllegalArgumentException.class,
-                () -> api.replyMarkdown("group-id", "incoming-id", 6, "## message"));
+                () -> api.replyMessage("group-id", "incoming-id", 6, markdown("## message")));
         assertThrows(IllegalArgumentException.class,
-                () -> api.replyMarkdown("group-id", "incoming-id", 1, " "));
+                () -> api.replyMessage("group-id", "incoming-id", 1, markdown(" ")));
         assertThrows(IllegalArgumentException.class,
-                () -> api.sendMarkdown("", "message"));
+                () -> api.sendMessage("", markdown("message")));
         assertThrows(IllegalArgumentException.class,
-                () -> api.sendMarkdown("group-id", " "));
+                () -> api.sendMessage("group-id", markdown(" ")));
         httpClient.shutdownNow();
     }
 

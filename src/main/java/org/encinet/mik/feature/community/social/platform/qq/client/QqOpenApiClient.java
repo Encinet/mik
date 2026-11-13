@@ -9,6 +9,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import org.encinet.mik.feature.community.social.platform.qq.QqPlatformConfig;
 import org.encinet.mik.feature.community.social.platform.qq.join.QqGroupJoinPage;
+import org.encinet.mik.feature.community.social.platform.qq.message.QqOutgoingMessage;
 
 import java.net.URLEncoder;
 import java.net.URI;
@@ -19,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public final class QqOpenApiClient {
@@ -41,29 +43,17 @@ public final class QqOpenApiClient {
         this.tokenProvider = tokenProvider;
     }
 
-    public CompletableFuture<Void> replyMarkdown(String groupOpenId, String messageId,
-                                                  int messageSequence, String content) {
-        if (messageId == null || messageId.isBlank()) {
-            throw new IllegalArgumentException("A passive QQ reply requires msg_id");
-        }
-        if (messageSequence < 1 || messageSequence > 5) {
-            throw new IllegalArgumentException("QQ msg_seq must be between 1 and 5");
-        }
-        if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("QQ Markdown content must not be blank");
-        }
-        return sendMarkdown(groupOpenId, content, messageId, messageSequence, false);
+    public CompletableFuture<Void> replyMessage(String groupOpenId, String messageId,
+                                                 int messageSequence, QqOutgoingMessage message) {
+        validateReply(messageId, messageSequence);
+        validateMessage(groupOpenId, message);
+        return sendMessage(groupOpenId, message, messageId, messageSequence, false);
     }
 
-    /** Sends one proactive Markdown message to a configured QQ group. */
-    public CompletableFuture<Void> sendMarkdown(String groupOpenId, String content) {
-        if (groupOpenId == null || groupOpenId.isBlank()) {
-            throw new IllegalArgumentException("QQ group OpenID must not be blank");
-        }
-        if (content == null || content.isBlank()) {
-            throw new IllegalArgumentException("QQ Markdown content must not be blank");
-        }
-        return sendMarkdown(groupOpenId, content, null, 0, false);
+    /** Sends one proactive text or Markdown message to a configured QQ group. */
+    public CompletableFuture<Void> sendMessage(String groupOpenId, QqOutgoingMessage message) {
+        validateMessage(groupOpenId, message);
+        return sendMessage(groupOpenId, message, null, 0, false);
     }
 
     /** Reviews the exact application identified by an authenticated event or pending-list response. */
@@ -196,14 +186,19 @@ public final class QqOpenApiClient {
                 ? QqApiErrors.deliveryStatus(error) : SocialDeliveryResult.Status.NOT_SENT);
     }
 
-    private CompletableFuture<Void> sendMarkdown(String groupOpenId, String content,
+    private CompletableFuture<Void> sendMessage(String groupOpenId, QqOutgoingMessage message,
                                                  String messageId, int messageSequence,
                                                  boolean retriedAuthentication) {
         JsonObject body = new JsonObject();
-        body.addProperty("msg_type", 2);
-        JsonObject markdown = new JsonObject();
-        markdown.addProperty("content", content);
-        body.add("markdown", markdown);
+        body.addProperty("msg_type", message.format().code());
+        switch (message.format()) {
+            case TEXT -> body.addProperty("content", message.content());
+            case MARKDOWN -> {
+                JsonObject markdown = new JsonObject();
+                markdown.addProperty("content", message.content());
+                body.add("markdown", markdown);
+            }
+        }
         if (messageId != null) {
             body.addProperty("msg_id", messageId);
             body.addProperty("msg_seq", messageSequence);
@@ -215,7 +210,7 @@ public final class QqOpenApiClient {
             Throwable cause = QqApiErrors.unwrap(error);
             if (!retriedAuthentication && cause instanceof QqHttpException httpError && httpError.statusCode() == 401) {
                 tokenProvider.invalidate();
-                return sendMarkdown(groupOpenId, content, messageId, messageSequence, true);
+                return sendMessage(groupOpenId, message, messageId, messageSequence, true);
             }
             return CompletableFuture.failedFuture(cause);
         });
@@ -347,6 +342,13 @@ public final class QqOpenApiClient {
         if (messageSequence < 1 || messageSequence > 5) {
             throw new IllegalArgumentException("QQ msg_seq must be between 1 and 5");
         }
+    }
+
+    private static void validateMessage(String groupOpenId, QqOutgoingMessage message) {
+        if (groupOpenId == null || groupOpenId.isBlank()) {
+            throw new IllegalArgumentException("QQ group OpenID must not be blank");
+        }
+        Objects.requireNonNull(message, "message");
     }
 
 }

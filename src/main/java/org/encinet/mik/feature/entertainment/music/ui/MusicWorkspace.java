@@ -40,10 +40,9 @@ public final class MusicWorkspace implements AutoCloseable {
     final MusicRooms rooms;
     final MusicDiscFactory discs;
     private final Map<UUID, FloatingMenuFlow<MusicWorkspaceState>> flows = new HashMap<>();
-    private record Input(String field, MenuFormSession session) { }
     private static final UiKey INPUT_EDITOR = UiKey.named("music-input-editor");
     private static final UiKey SEARCH_EDITOR = UiKey.named("music-search-field");
-    private final Map<UUID, Input> forms = new HashMap<>();
+    private final Map<UUID, MenuFormSession> forms = new HashMap<>();
     private final Map<UUID, MenuQuerySession> searchInputs = new HashMap<>();
     final MusicLibraryScenes library = new MusicLibraryScenes(this);
     final MusicPlaylistPicker playlistPicker = new MusicPlaylistPicker(this);
@@ -53,7 +52,6 @@ public final class MusicWorkspace implements AutoCloseable {
     final MusicPlayerScenes transport = new MusicPlayerScenes(this);
     final MusicImportScenes imports = new MusicImportScenes(this);
     final MusicDeviceLocator locator;
-    private final org.bukkit.scheduler.BukkitTask indicatorTask;
     private boolean closed;
 
     public MusicWorkspace(JavaPlugin plugin, LanguageService language, MusicQueries queries,
@@ -67,7 +65,6 @@ public final class MusicWorkspace implements AutoCloseable {
         this.sources = sources; this.limiter = limiter; this.settings = settings;
         this.rooms = rooms; this.discs = discs;
         locator = new MusicDeviceLocator(registry,language);
-        indicatorTask = Bukkit.getScheduler().runTaskTimer(plugin,this::indicators,10,10);
         rooms.setReturnToRoom((player, id) -> { open(player); panel(player, new Room(id)); });
     }
 
@@ -190,7 +187,8 @@ public final class MusicWorkspace implements AutoCloseable {
     static Ui.LinearBuilder column(String key) { return Ui.column().key(key).gap(UiLength.ui(8)); }
     static Ui.ContainerBuilder tools(String key) { return Ui.layout(UiLayouts.wrap(UiLength.ui(6), UiLength.ui(6))).key(key); }
     UiNode panelHeading(Player player, Component title, UiNode... actions) {
-        return MusicWorkspaceComposition.panelHeading(title, button(player, "close-panel", () -> panel(player, new NoPanel())), actions);
+        return MusicWorkspaceComposition.panelHeading(title, Ui.button(UiIcons.CROSS,label(player,"close-panel"))
+                .key("close-panel").primary((_,_) -> panel(player,new NoPanel())).build(), actions);
     }
 
     MenuScene render(Player player, MusicWorkspaceState state) {
@@ -212,7 +210,7 @@ public final class MusicWorkspace implements AutoCloseable {
         if (queries.ready()) {
             try {
                 var input = forms.get(player.getUniqueId());
-                auxiliary = input != null && input.field() == null ? inputContent(input) : auxiliary(player, state);
+                auxiliary = input != null ? inputContent(input) : auxiliary(player, state);
             } catch (MusicProblem problem) {
                 auxiliary = column("problem").child(panelHeading(player, problem(player, problem.code()))).build();
             }
@@ -223,6 +221,10 @@ public final class MusicWorkspace implements AutoCloseable {
         locator.decorate(player,state,builder);
         UiNode content = MusicWorkspaceComposition.content(state.focusedTask() ? null : library.navigation(player, state), browser, auxiliary,
                 queries.ready() ? this.transport.content(player, state) : info("waiting", label(player, "unavailable")), windowTools);
+        if (auxiliary != null && !state.focusedTask()) {
+            content = Ui.alternative(content,MusicWorkspaceComposition.content(null,browser,auxiliary,
+                    this.transport.compact(player,state),windowTools));
+        }
         if (forms.containsKey(player.getUniqueId()) || searchInputs.containsKey(player.getUniqueId())) {
             boolean[] visible = {false, false};
             UiTree.visit(content, (_, node) -> {
@@ -261,15 +263,6 @@ public final class MusicWorkspace implements AutoCloseable {
             statuses.add(List.of(rooms.get(room.device()).members(), rooms.readiness(room.device())));
         if (state.panel() instanceof RoomPicker) statuses.add(rooms.nearby(player));
         return statuses;
-    }
-
-    private void indicators() {
-        for (var entry : flows.entrySet()) {
-            var flow = entry.getValue();
-            if (flow.handle().state() != FloatingMenuState.ACTIVE) continue;
-            var player = Bukkit.getPlayer(entry.getKey());
-            if (player != null && player.isOnline()) locator.pulse(player,flow.state());
-        }
     }
 
     private UiNode auxiliary(Player player, MusicWorkspaceState state) {
@@ -347,32 +340,30 @@ public final class MusicWorkspace implements AutoCloseable {
         redraw(player);
     }
     void input(Player player, MenuInputForm form) {
-        input(player, null, form, form.fields().getFirst().key());
+        input(player, form, form.fields().getFirst().key());
     }
-    private void input(Player player, String field, MenuInputForm form, String focus) {
+    private void input(Player player, MenuInputForm form, String focus) {
         closeForm(player.getUniqueId());
         var session = FloatingMenus.inlineInput(player, form, () -> redraw(player), () -> {
             forms.remove(player.getUniqueId());
             redraw(player);
         });
-        forms.put(player.getUniqueId(), new Input(field, session));
+        forms.put(player.getUniqueId(), session);
         session.focus(focus);
     }
     UiNode field(Player player, String id, String key, String value, int maximum, Consumer<String> apply) {
         return form(player, id, inputForm(player, key, value, maximum, apply));
     }
     UiNode form(Player player, String id, MenuInputForm form) {
-        var input = forms.get(player.getUniqueId());
-        if (input != null && id.equals(input.field())) return column(id).child(inputContent(input)).build();
         var fields = Ui.form().key(id);
         for (var field : form.fields()) fields.field(field.key(), field.label(), Ui.textField(field.initial()).preview(field.preview())
                 .key(field.key()).placeholder(language.text(player, Message.MENU_INPUT_EMPTY, NamedTextColor.AQUA))
                 .maxLines(field.multiline() ? 4 : 1)
-                .primary((viewer, _) -> safe(viewer, () -> input(viewer, id, form, field.key()))).build());
+                .primary((viewer, _) -> safe(viewer, () -> input(viewer, form, field.key()))).build());
         return fields.build();
     }
-    private static UiNode inputContent(Input input) {
-        return Ui.column().key(INPUT_EDITOR).child(input.session().content()).build();
+    private static UiNode inputContent(MenuFormSession input) {
+        return Ui.column().key(INPUT_EDITOR).child(input.content()).build();
     }
     void input(Player player, String key, String initial, int maximum, Consumer<String> apply) {
         input(player, inputForm(player, key, initial, maximum, apply));
@@ -390,7 +381,7 @@ public final class MusicWorkspace implements AutoCloseable {
                 .cancel(label(player, "cancel")).submit(label(player, "apply"),
                         (viewer, values) -> safe(viewer, () -> apply.accept(values.text("value").strip()))).build();
     }
-    private void closeForm(UUID player) { var input = forms.remove(player); if (input != null) input.session().close(); }
+    private void closeForm(UUID player) { var input = forms.remove(player); if (input != null) input.close(); }
 
     UiNode searchInput(Player player, String query, Component placeholder) {
         var input = searchInputs.computeIfAbsent(player.getUniqueId(), _ -> FloatingMenus.queryInput(player,
@@ -568,7 +559,6 @@ public final class MusicWorkspace implements AutoCloseable {
     }
     @Override public void close() {
         closed = true;
-        indicatorTask.cancel();
         sound.close();
         transport.close();
         List.copyOf(forms.keySet()).forEach(this::closeForm);

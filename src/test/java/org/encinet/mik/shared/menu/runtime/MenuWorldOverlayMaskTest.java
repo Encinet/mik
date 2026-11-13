@@ -14,6 +14,23 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MenuWorldOverlayMaskTest {
+    @Test void billboardTextMaskFollowsTheCameraInsteadOfItsUnchangingSpawnYaw() {
+        var marker = label(new Location(WORLD,0,0,8)).billboard();
+        var text = assertInstanceOf(FloatingMenuDecoration.Text.class,marker.content());
+        var at = ((org.encinet.mik.shared.menu.FloatingMenuPlacement.World)marker.placement()).location();
+        var mask = new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1)));
+        assertTrue(mask.overlaps(MenuWorldOverlayMask.textSurface(at,180,0,text)));
+        for (float yaw : new float[]{0,90,180,270}) assertTrue(mask.overlapsText(at,yaw,30,text));
+    }
+
+    @Test void blockOutlinesYieldToMenuSurfacesAndReappearWhenTheMenuMovesAway() {
+        var cube = new FloatingMenuDecoration.BlockOutline(org.bukkit.Material.JUKEBOX,.998f,0x70D7FF);
+        var at = new Location(WORLD,0,0,8);
+        assertTrue(new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1))).overlapsOutline(at,cube));
+        assertFalse(new MenuWorldOverlayMask(EYE,List.of(panel(3,0,2,2,1))).overlapsOutline(at,cube));
+        assertFalse(new MenuWorldOverlayMask(EYE,List.of()).overlapsOutline(at,cube));
+    }
+
     private static final World WORLD = world();
     private static final Location EYE = new Location(WORLD,0,0,0);
 

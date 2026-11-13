@@ -12,7 +12,11 @@ final class UiSplitLayout implements UiLayout {
     @Override public Result layout(MeasureScope scope, UiConstraints constraints) {
         try { return arrange(preferred,scope,constraints); }
         catch (UiOverflowException unavailable) {
-            return arrange(preferred == UiLayouts.Axis.HORIZONTAL ? UiLayouts.Axis.VERTICAL : UiLayouts.Axis.HORIZONTAL,scope,constraints);
+            try { return arrange(preferred == UiLayouts.Axis.HORIZONTAL ? UiLayouts.Axis.VERTICAL : UiLayouts.Axis.HORIZONTAL,scope,constraints); }
+            catch (UiOverflowException fallback) {
+                fallback.addSuppressed(unavailable);
+                throw fallback;
+            }
         }
     }
 

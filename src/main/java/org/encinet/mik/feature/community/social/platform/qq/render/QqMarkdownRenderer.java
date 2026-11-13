@@ -1,28 +1,15 @@
 package org.encinet.mik.feature.community.social.platform.qq.render;
 
 import org.encinet.mik.feature.community.social.document.SocialDocument;
-import org.encinet.mik.feature.community.social.document.SocialDocumentLayout;
 
-import java.util.Objects;
-
-/** Escapes and renders a platform-neutral document as bounded QQ Markdown. */
-public final class QqMarkdownRenderer {
-    private static final String SPECIAL_CHARACTERS = "\\\\`*_{}[]<>()#+-.!|>~";
-
+/** Encodes a bounded document using QQ Markdown; layout belongs to QqDocumentRenderer. */
+final class QqMarkdownRenderer {
     private QqMarkdownRenderer() {
     }
 
-    public static String render(SocialDocument document, int maximumLength) {
-        Objects.requireNonNull(document, "document");
-        if (maximumLength < 16) {
-            throw new IllegalArgumentException("maximumLength must be at least 16");
-        }
-        return encode(SocialDocumentLayout.fit(document, maximumLength, value -> encode(value).length()));
-    }
-
-    public static String encode(SocialDocument document) {
+    static String encode(SocialDocument document) {
         StringBuilder markdown = new StringBuilder();
-        if (!document.title().isEmpty()) markdown.append("## ").append(escape(document.title()));
+        if (!document.title().isEmpty()) markdown.append("## ").append(QqText.markdownLiteral(document.title()));
         for (SocialDocument.Block block : document.blocks()) {
             if (block instanceof SocialDocument.Image) {
                 continue;
@@ -30,7 +17,7 @@ public final class QqMarkdownRenderer {
             if (!markdown.isEmpty()) markdown.append("\n\n");
             switch (block) {
                 case SocialDocument.Instruction instruction -> markdown.append(escapeMultiline(instruction.explanation()))
-                        .append("\n\n").append(escape(instruction.invocation()));
+                        .append("\n\n").append(QqText.markdownLiteral(instruction.invocation()));
                 case SocialDocument.Paragraph paragraph ->
                         markdown.append(escapeMultiline(paragraph.text()));
                 case SocialDocument.Fields fields -> {
@@ -39,7 +26,7 @@ public final class QqMarkdownRenderer {
                         if (index > 0) {
                             markdown.append('\n');
                         }
-                        markdown.append("- **").append(escape(field.label()))
+                        markdown.append("- **").append(QqText.markdownLiteral(field.label()))
                                 .append("：** ").append(escapeMultiline(field.value()));
                     }
                     if (fields.omitted()) markdown.append("\n- …");
@@ -61,18 +48,6 @@ public final class QqMarkdownRenderer {
         return markdown.isEmpty() ? escapeMultiline(document.plainText()) : markdown.toString();
     }
 
-    public static String escape(String value) {
-        StringBuilder escaped = new StringBuilder(value.length());
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            if (SPECIAL_CHARACTERS.indexOf(character) >= 0) {
-                escaped.append('\\');
-            }
-            escaped.append(character);
-        }
-        return escaped.toString();
-    }
-
     private static String escapeMultiline(String value) {
         String[] lines = value.replace("\r\n", "\n").replace('\r', '\n').split("\n", -1);
         StringBuilder result = new StringBuilder(value.length());
@@ -80,7 +55,7 @@ public final class QqMarkdownRenderer {
             if (index > 0) {
                 result.append("  \n");
             }
-            result.append(escape(lines[index]));
+            result.append(QqText.markdownLiteral(lines[index]));
         }
         return result.toString();
     }

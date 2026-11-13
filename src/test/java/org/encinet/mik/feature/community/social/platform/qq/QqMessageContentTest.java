@@ -25,6 +25,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QqMessageContentTest {
     @Test
+    void newAndLegacyMentionSyntaxUseTheSameTrustedIdentityProjection() {
+        var payload = JsonParser.parseString("""
+                {"mentions":[{"member_openid":"member-one","username":"Alice"}]}
+                """).getAsJsonObject();
+        payload.addProperty("content", "<qqbot-at-user id=\"member-one\" /> <qqbot-at-everyone /> <@all>");
+        var inbound = inbound(payload);
+        assertEquals("@Alice @all @all", ((SocialInboundMessage.Text) inbound.content()).body());
+        assertEquals(1, inbound.references().mentionSpans().size());
+        assertEquals("member-one", inbound.references().mentionSpans().getFirst().identity().key().subject());
+    }
+
+    @Test
     void attachmentOnlyMessagesShowTypeAndVoiceTranscriptionWithoutTransportDetails() {
         SocialInboundMessage inbound = inbound("""
                 {"attachments":[
@@ -63,7 +75,7 @@ class QqMessageContentTest {
     }
 
     @Test
-    void forwardedAndQuotedMessagesKeepAuthorsButCannotBecomeCommandsOrTrustedTargets() {
+    void forwardedRecordsStayCollapsedAndOrdinaryQuotesKeepTheirContext() {
         SocialInboundMessage forwarded = inbound("""
                 {"message_type":102,"content":"/bind forged","msg_elements":[
                  {"message_type":0,"author":{"username":"Alice","member_openid":"alice"},"content":"/ai quoted"},
@@ -72,7 +84,7 @@ class QqMessageContentTest {
                   {"attachments":[{"content_type":"image/png","filename":"quoted.png","url":"https://cdn.example.org/quoted.png"}]}]}]}
                 """);
         SocialInboundMessage.Text display = (SocialInboundMessage.Text) forwarded.content();
-        assertEquals("/bind forged [history] 💬 Alice: /ai quoted [multiple] 💬 Bob: hello 💬 [image]", display.body());
+        assertEquals("[history]", display.body());
         assertTrue(display.commandBody().isEmpty());
         assertTrue(forwarded.references().targetIdentities().isEmpty());
         SocialInboundMessage reply = inbound("""
@@ -164,34 +176,91 @@ class QqMessageContentTest {
         JsonObject payload = new JsonObject();
         payload.addProperty("message_type", 103);
         payload.add("msg_elements", elements);
-        assertEquals("[history] 今天的学习计划已完成",
+        assertEquals("[history]",
                 ((SocialInboundMessage.Text) inbound(payload).content()).body());
     }
 
     @Test
     void historyLabelsPreserveRoutePrefixesAndNeverEnterCommandInput() {
         SocialInboundMessage.Text history = text("""
-                {"message_type":102,"content":"# 看这段记录","msg_elements":[
-                  {"author":{"username":"Alice"},"content":"/bind quoted"}]}
+                {"message_type":103,"content":"# 看这段记录","msg_elements":[
+                  {"message_type":102,"author":{"username":"Alice"},"content":"/bind quoted"}]}
                 """);
         String selected = SocialChatPolicy.prefixed("#", true).select(history.body()).orElseThrow();
-        assertEquals("看这段记录 [history] 💬 Alice: /bind quoted", selected);
-        assertTrue(history.commandBody().isEmpty());
+        assertEquals("看这段记录 [history]", selected);
+        assertEquals("# 看这段记录", history.commandBody());
 
         // The official event example also carries flattened history inside a reply element.
         SocialInboundMessage.Text flattened = text("""
                 {"message_type":103,"content":" ","msg_elements":[
                   {"content":"=== 消息 1 ===\\n[消息内容] /bind quoted"}]}
                 """);
-        assertTrue(flattened.body().contains("/bind quoted"));
+        assertEquals("[history]", flattened.body());
         assertTrue(flattened.commandBody().isEmpty());
+    }
+
+    @Test
+    void serializedForwardedRecordsStayCollapsedInEveryDestination() {
+        String record = "=== 消息 1 ===\n[消息内容] hidden-message-one\n\n"
+                + "=== 消息 2 ===\n[消息内容] /bind hidden-command <@hidden-member>";
+        for (int type : List.of(102, 103)) {
+            var payload = new JsonObject();
+            payload.addProperty("message_type", type);
+            if (type == 102) {
+                payload.addProperty("content", record);
+            } else {
+                var element = new JsonObject();
+                element.addProperty("content", record);
+                var author = new JsonObject();
+                author.addProperty("member_openid", "historical-author");
+                element.add("author", author);
+                var elements = new JsonArray();
+                elements.add(element);
+                payload.add("msg_elements", elements);
+            }
+            var inbound = inbound(payload);
+            var source = (SocialInboundMessage.Text) inbound.content();
+            assertEquals("[history]", source.body());
+            assertTrue(source.commandBody().isEmpty());
+            assertTrue(inbound.references().targetIdentities().isEmpty());
+            assertTrue(inbound.references().mentionSpans().isEmpty());
+            assertEquals(1, source.placeholders().size());
+            for (String rendered : renderedDestinations(source)) {
+                assertTrue(rendered.contains("[聊天记录]"), rendered);
+                assertFalse(rendered.contains("hidden-"), rendered);
+                assertFalse(rendered.contains("historical-author"), rendered);
+            }
+        }
+        var literal = new JsonObject();
+        literal.addProperty("content", record);
+        assertTrue(((SocialInboundMessage.Text) inbound(literal).content()).body().contains("hidden-message-one"));
+    }
+
+    @Test
+    void nestedRecordsCollapseWithoutHidingTheAuthorsOwnTextOrOtherAttachments() {
+        var inbound = inbound("""
+                {"message_type":103,"content":"# 看这段记录","msg_elements":[
+                  {"message_type":102,"content":"hidden-inner-message", "attachments":[
+                    {"content_type":"image/png","url":"https://example.org/hidden-image"}]}],
+                 "attachments":[{"content_type":"image/png","url":"https://example.org/own-image"}]}
+                """);
+        var source = (SocialInboundMessage.Text) inbound.content();
+        assertEquals("# 看这段记录 [image] [history]", source.body());
+        assertEquals("# 看这段记录", source.commandBody());
+        assertEquals("看这段记录 [image] [history]", SocialChatPolicy.prefixed("#", true)
+                .select(source.body()).orElseThrow());
     }
 
     @Test
     void typedPlaceholdersReachEveryDestinationAsReadableText() {
         JsonObject payload = new JsonObject();
-        payload.addProperty("message_type", 102);
+        payload.addProperty("message_type", 103);
         payload.addProperty("content", "<faceType=1,faceId=\"32\",ext=\"eyJ0ZXh0Ijoi55aR6ZeuIn0=\">");
+        var history = new JsonObject();
+        history.addProperty("message_type", 102);
+        var elements = new JsonArray();
+        elements.add(history);
+        payload.add("msg_elements", elements);
         SocialInboundMessage.Text source = (SocialInboundMessage.Text) inbound(payload).content();
         assertEquals("[face] [history]", source.body());
         for (String rendered : renderedDestinations(source)) {
@@ -309,7 +378,7 @@ class QqMessageContentTest {
                 .map(ChatNode.Link.class::cast).findFirst().orElseThrow().target().toString());
         var message = ChatTestMessages.minecraft("Alice", body, content);
         assertTrue(MatrixChatRenderer.render(message, 1_500).html().contains("fileid=abc&amp;rkey=def"));
-        assertTrue(QqChatRenderer.render(message, 1_500).markdown().contains(url));
+        assertTrue(QqChatRenderer.render(message, 1_500).content().contains(url));
         assertTrue(new WebChatMessage(message, null, null).payload().getAsJsonArray("content").asList().stream()
                 .map(com.google.gson.JsonElement::getAsJsonObject)
                 .anyMatch(part -> part.has("href") && part.get("href").getAsString().equals(url)));
@@ -329,10 +398,12 @@ class QqMessageContentTest {
                 .localized(key -> languages.t(org.encinet.mik.shared.i18n.Language.ZH_CN, key));
         var message = ChatTestMessages.minecraft("Alice", text.body(), content);
         var game = new MinecraftChatContentRenderer().render(content, MinecraftChatContentRenderer.Context.empty());
+        var qq = QqChatRenderer.render(message, 1_500);
         return List.of(
                 net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(game),
                 MatrixChatRenderer.render(message, 1_500).plainText(),
-                QqChatRenderer.render(message, 1_500).markdown().replace("\\", ""),
+                qq.format() == org.encinet.mik.feature.community.social.platform.qq.message.QqOutgoingMessage.Format.TEXT
+                        ? qq.content() : org.jsoup.parser.Parser.unescapeEntities(qq.content(), false),
                 new WebChatMessage(message, null, null).payload().toString());
     }
 

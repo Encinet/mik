@@ -4,24 +4,23 @@ import java.util.*;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
-import org.bukkit.Color;
 import org.bukkit.Location;
-import org.bukkit.Particle;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.encinet.mik.feature.entertainment.music.application.MusicDeviceRegistry;
 import org.encinet.mik.feature.entertainment.music.application.MusicProblem;
 import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.*;
-import org.encinet.mik.shared.menu.ui.UiText;
+import org.encinet.mik.shared.menu.ui.UiTextMetrics;
+import net.kyori.adventure.text.format.TextDecoration;
 
-/** Personal wayfinding for the current control target. The workspace owns its pulse and lifetime. */
+/** Private, stable wayfinding rendered and cleaned up with the owning menu scene. */
 final class MusicDeviceLocator {
     static final int MAX_MARKERS = 4;
     static final double RANGE = 32;
     private static final int[] COLORS = {0x70D7FF,0xD4A4FF,0xFFB4DE,0x8FE8D0,0xADBFFF,0xFFE4A3,0xB9EAFF,0xD9EFA0};
     record Marker(MusicDevice device, String code, int color, boolean focused) { }
-    record Point(double x, double y, double z) { }
     private final MusicDeviceRegistry registry;
     private final LanguageService language;
 
@@ -98,41 +97,17 @@ final class MusicDeviceLocator {
     }
 
     void decorate(Player player, MusicWorkspaceState state, MenuScene.Builder scene) {
-        var eye = player.getEyeLocation();
         for (var marker : visible(player,state)) {
             var device = marker.device();
-            var at = registry.location(device).add(.5,1.7,.5);
-            float yaw = (float)Math.toDegrees(Math.atan2(at.getX()-eye.getX(),eye.getZ()-at.getZ()));
-            var label = UiText.abbreviate(name(player,device),40,1).append(Component.newline()).append(Component.text("↓",NamedTextColor.WHITE));
-            scene.worldTextDecoration("mark:"+device.id(),at,yaw,0,label,0xD0181B22,3,1.4f,.6f,FloatingMenuDecoration.Alignment.CENTER);
+            var at = registry.location(device).add(.5,1.25,.5);
+            var label = UiTextMetrics.fitSingleLine(name(player,device).decorate(TextDecoration.BOLD),192);
+            scene.decoration(FloatingMenuDecoration.worldText("mark:"+device.id(),at,0,0,label,0xE8181B22,3,.5f,
+                    marker.focused() ? .8f : .7f,FloatingMenuDecoration.Alignment.CENTER).billboard());
+            // Keep the copied block just inside the real one: its ordinary texture is hidden,
+            // while the client's glowing pass draws the silhouette through walls.
+            scene.decoration(FloatingMenuDecoration.worldOutline("outline:"+device.id(),registry.location(device).add(.5,.5,.5),
+                    Material.JUKEBOX,.998f,marker.color()));
         }
-    }
-
-    void pulse(Player player, MusicWorkspaceState state) {
-        boolean reduced = FloatingMenus.preferences(player).reducedMotion();
-        var worldVisible = FloatingMenus.worldOverlayVisibility(player);
-        for (var marker : visible(player,state)) {
-            var device = marker.device();
-            var dust = new Particle.DustOptions(Color.fromRGB(marker.color()),marker.focused() ? .9f : .65f);
-            for (var point : outline(marker.focused() && !reduced)) {
-                var at = new Location(player.getWorld(),device.x()+point.x(),device.y()+point.y(),device.z()+point.z());
-                if (worldVisible.test(at)) player.spawnParticle(Particle.DUST,at,1,0,0,0,0,dust);
-            }
-        }
-    }
-
-    /** Sparse corners identify every member; a focused device gains edge midpoints and a short beacon. */
-    static List<Point> outline(boolean focused) {
-        var points = new ArrayList<Point>();
-        for (double x : new double[]{-.04,1.04}) for (double y : new double[]{-.04,1.04})
-            for (double z : new double[]{-.04,1.04}) points.add(new Point(x,y,z));
-        if (focused) {
-            for (double a : new double[]{-.04,1.04}) for (double b : new double[]{-.04,1.04}) {
-                points.add(new Point(.5,a,b)); points.add(new Point(a,.5,b)); points.add(new Point(a,b,.5));
-            }
-            for (double y : new double[]{1.35,1.65,1.95}) points.add(new Point(.5,y,.5));
-        }
-        return List.copyOf(points);
     }
 
     private static double distanceSquared(Location viewer, MusicDevice device) {

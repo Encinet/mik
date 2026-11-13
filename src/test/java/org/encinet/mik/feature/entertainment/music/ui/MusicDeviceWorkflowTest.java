@@ -16,6 +16,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.entertainment.music.application.*;
+import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
+import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
 import org.encinet.mik.feature.entertainment.music.jukebox.*;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.playback.QueueEntry;
@@ -23,6 +25,7 @@ import org.encinet.mik.feature.entertainment.music.storage.MusicState;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.runtime.FloatingMenuService;
+import org.encinet.mik.shared.menu.runtime.MenuInputViewTestSupport;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
 import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
@@ -30,6 +33,101 @@ import org.mockito.MockedStatic;
 
 /** Exercise the actual host: an auxiliary task used to hide every member selection control. */
 class MusicDeviceWorkflowTest {
+    @Test void editingThePersonalDeviceAliasFitsInsideTheActualSettingsPage() throws Exception {
+        for (Language locale : Language.values()) try (var h = new Harness(locale)) {
+            when(h.registry.bound(h.player.getUniqueId(),h.second)).thenReturn(true);
+            doAnswer(call -> {
+                var session = mock(MenuFormSession.class);
+                when(session.content()).thenReturn(MenuInputViewTestSupport.content(
+                        call.getArgument(1),Component.text("Empty"),Component.text("Clear")));
+                doAnswer(_ -> { call.getArgument(2,Runnable.class).run(); return null; }).when(session).focus(anyString());
+                return session;
+            }).when(h.menus).inlineInput(eq(h.player),any(),any(),any());
+            h.open(); h.state().target(h.first);
+            h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.SETTINGS));
+            h.click("toggle");
+            var alias = h.frame().elements().stream().filter(item -> item.path().contains("/device-alias/")
+                    && item.node().key().value().equals("preview")).findFirst().orElseThrow();
+            h.click(alias);
+            for (double font : new double[]{.7,1,1.8}) for (double scale : new double[]{.7,1,1.2,1.3})
+                for (int fov : new int[]{30,70,110}) {
+                    var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.readableFrame(h.scene,font,
+                            new FloatingMenuFieldOfView(fov),scale),locale+" font="+font+" scale="+scale+" fov="+fov);
+                    assertDisjoint(frame);
+                    for (String key : List.of("confirm","cancel","player-target","close"))
+                        assertNotNull(element(frame,key));
+                    assertTrue(frame.elements().stream().noneMatch(item -> item.path().contains("/sound-settings/")));
+                }
+        }
+    }
+
+    @Test void reopeningWithLongPlayingMetadataKeepsTheTaskAndPlayerVisible() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.open(); h.state().target(h.first);
+            boolean compact = false;
+            for (int lines : new int[]{1,4,12,24,48}) {
+                var source = MusicWorkspaceStateTest.track("Song 歌曲");
+                var song = new MusicTrack(source.id(),new TrackDetails(source.details().title(),
+                                "Artist 歌手\n".repeat(lines),null,"mp3",source.details().audio()),source.target());
+                doAnswer(call -> new MusicPlaybackSnapshot(call.getArgument(0),new UUID(2,1),new UUID(2,2),
+                        song,PlaybackStatus.PLAYING,0,180000,true,null)).when(h.playback).snapshot(any());
+                h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.QUEUE));
+                h.handle.close(); h.workspace.open(h.player);
+                var frame = SceneGeometryTestSupport.readableFrame(h.scene,.7,new FloatingMenuFieldOfView(70),1.2);
+                assertDisjoint(frame);
+                for (String key : List.of("close-panel","player-target","close")) assertNotNull(element(frame,key));
+                compact |= frame.elements().stream().noneMatch(item -> item.node().key().value().equals("source:CATALOG"));
+            }
+            assertTrue(compact,"Overflowing playback metadata must leave room for the restored task");
+        }
+    }
+
+    @Test void auxiliaryTasksFitWithNavigationAndTransportAtReadingBoundaries() throws Exception {
+        for (Language locale : Language.values()) try (var h = new Harness(locale)) {
+            h.open(); h.state().target(h.first);
+            for (Panel panel : List.of(new DevicePanel(h.second,DeviceSection.SETTINGS),
+                    new DevicePanel(h.second,DeviceSection.QUEUE),
+                    new Track(List.of(MusicWorkspaceStateTest.track("Song 歌曲"))),
+                    new Import(null,ImportPage.SOURCE),new Import(null,ImportPage.PLATFORMS),new RoomPicker())) {
+                h.workspace.panel(h.player,panel);
+                for (double font : new double[]{.7,1,1.8}) for (double scale : new double[]{.7,1,1.3})
+                    for (int fov : new int[]{30,70,110}) {
+                        var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.readableFrame(h.scene,font,
+                                new FloatingMenuFieldOfView(fov),scale),locale+" "+panel+" font="+font+" scale="+scale+" fov="+fov);
+                        assertDisjoint(frame);
+                        assertNotNull(element(frame,"close-panel"));
+                        assertNotNull(element(frame,"player-target"));
+                        assertNotNull(element(frame,"close"));
+                    }
+            }
+        }
+    }
+
+    @Test void compactDevicePagesKeepEverySettingReachableAndRejectOldPageCallbacks() throws Exception {
+        try (var h = new Harness(Language.RU_RU)) {
+            h.open(); h.state().target(h.first);
+            h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.SETTINGS));
+            var seen = new HashSet<String>();
+            java.util.function.IntConsumer previous = null;
+            for (int pass = 0; pass < 12; pass++) {
+                var frame = SceneGeometryTestSupport.readableFrame(h.scene,1.8,new FloatingMenuFieldOfView(30),1.3);
+                assertDisjoint(frame);
+                for (var item : frame.elements()) seen.add(item.node().key().value());
+                var page = frame.pagination().stream().filter(item -> item.path().contains("/task:")).findFirst().orElseThrow();
+                assertTrue(page.page().count() > 1);
+                previous = page.selectPage();
+                if (!page.page().hasNext()) break;
+                previous.accept(page.page().next().index());
+            }
+            assertTrue(seen.containsAll(List.of("back-devices","use-device","group-with-devices","toggle","eject",
+                    "sound:"+h.second+":volume","sound:"+h.second+":range")),seen.toString());
+            h.workspace.panel(h.player,new DevicePanel(h.first,DeviceSection.SETTINGS));
+            assertNotNull(previous);
+            previous.accept(1);
+            assertEquals(0,h.state().panelPage);
+        }
+    }
+
     @Test void managementAndPlaybackSelectionAreIndependentAndTheDirectoryRemainsReachable() throws Exception {
         try (var h = new Harness(Language.DEFAULT)) {
             h.open();
