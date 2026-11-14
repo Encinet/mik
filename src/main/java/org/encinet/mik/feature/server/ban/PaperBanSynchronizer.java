@@ -73,6 +73,10 @@ final class PaperBanSynchronizer implements BanMirror {
         requireMainThread();
         BanEntry<PlayerProfile> existing = findPaperEntry(record);
         if (existing == null) {
+            // Name-only bans are enforced by MIK; Paper requires a real UUID.
+            if (record.playerUuid() == null) {
+                return;
+            }
             PlayerProfile profile = profile(record.playerUuid(), record.playerName());
             profileBanList().addBan(profile, record.reason(), record.expiresAt(), record.source());
         } else {
@@ -88,9 +92,7 @@ final class PaperBanSynchronizer implements BanMirror {
     public void pardon(BanRecord record) {
         requireMainThread();
         BanEntry<PlayerProfile> existing = findPaperEntry(record);
-        if (existing == null) {
-            profileBanList().pardon(profile(record.playerUuid(), record.playerName()));
-        } else {
+        if (existing != null) {
             existing.remove();
         }
         persistCurrentPaperState();
@@ -142,13 +144,19 @@ final class PaperBanSynchronizer implements BanMirror {
                 PaperBanSnapshot previous = find(previousPaper, paper);
                 if (paper.samePaperEntry(previous)
                         && service.active(paper.playerUuid(), paper.playerName()).isEmpty()) {
-                    profileBanList().pardon(profile(paper.playerUuid(), paper.playerName()));
+                    BanEntry<PlayerProfile> entry = findPaperEntry(paper);
+                    if (entry != null) {
+                        entry.remove();
+                    }
                 }
             }
 
             currentPaper = index(readPaperBans());
             for (BanRecord active : service.activeRecords()) {
                 PaperBanSnapshot paper = find(currentPaper, active);
+                if (paper == null && active.playerUuid() == null) {
+                    continue;
+                }
                 if (paper == null || !paper.sameContent(active)) {
                     service.restorePaperBan(active);
                 }
@@ -273,15 +281,23 @@ final class PaperBanSynchronizer implements BanMirror {
     }
 
     private BanEntry<PlayerProfile> findPaperEntry(BanRecord record) {
+        return findPaperEntry(record.playerUuid(), record.playerName());
+    }
+
+    private BanEntry<PlayerProfile> findPaperEntry(PaperBanSnapshot snapshot) {
+        return findPaperEntry(snapshot.playerUuid(), snapshot.playerName());
+    }
+
+    private BanEntry<PlayerProfile> findPaperEntry(UUID uuid, String name) {
         for (BanEntry<PlayerProfile> entry : profileBanList().<BanEntry<PlayerProfile>>getEntries()) {
             PlayerProfile target = entry.getBanTarget();
-            if (record.playerUuid() != null && target.getId() != null) {
-                if (record.playerUuid().equals(target.getId())) {
+            if (uuid != null && target.getId() != null) {
+                if (uuid.equals(target.getId())) {
                     return entry;
                 }
                 continue;
             }
-            if (target.getName() != null && record.playerName().equalsIgnoreCase(target.getName())) {
+            if (target.getName() != null && name.equalsIgnoreCase(target.getName())) {
                 return entry;
             }
         }

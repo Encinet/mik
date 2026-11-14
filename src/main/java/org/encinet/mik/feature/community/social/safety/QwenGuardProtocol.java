@@ -27,7 +27,7 @@ enum QwenGuardProtocol {
         }
 
         @Override
-        boolean parse(JsonObject root) {
+        SocialContentModerator.Verdict parse(JsonObject root) {
             JsonArray choices = root.getAsJsonArray("choices");
             if (choices.size() != 1) throw new IllegalArgumentException();
             JsonObject choice = choices.get(0).getAsJsonObject();
@@ -39,7 +39,8 @@ enum QwenGuardProtocol {
             if ("Safe".equals(verdict.group(1)) && !"None".equals(verdict.group(2).strip())) {
                 throw new IllegalArgumentException();
             }
-            return "Safe".equals(verdict.group(1));
+            return "Safe".equals(verdict.group(1)) ? SocialContentModerator.Verdict.accepted()
+                    : SocialContentModerator.Verdict.rejected(verdict.group(1) + ": " + verdict.group(2).strip());
         }
     },
     EDEN {
@@ -54,7 +55,7 @@ enum QwenGuardProtocol {
         }
 
         @Override
-        boolean parse(JsonObject root) {
+        SocialContentModerator.Verdict parse(JsonObject root) {
             if (!"success".equals(string(root.get("status")))
                     || !"ovhcloud".equals(string(root.get("provider")))
                     || !"text".equals(string(root.get("feature")))
@@ -64,15 +65,20 @@ enum QwenGuardProtocol {
             JsonObject output = root.getAsJsonObject("output");
             // Eden normalizes provider verdicts to likelihoods. Accept only its lowest risk level.
             boolean safe = lowestRisk(output, "nsfw_likelihood", "nsfw_likelihood_score");
+            java.util.List<String> risks = new java.util.ArrayList<>();
             JsonElement items = output.get("items");
             if (items != null && !items.isJsonNull()) {
                 for (JsonElement element : items.getAsJsonArray()) {
                     JsonObject item = element.getAsJsonObject();
                     if (string(item.get("label")).isBlank()) throw new IllegalArgumentException();
-                    safe &= lowestRisk(item, "likelihood", "likelihood_score");
+                    boolean itemSafe = lowestRisk(item, "likelihood", "likelihood_score");
+                    safe &= itemSafe;
+                    if (!itemSafe) risks.add(string(item.get("label")));
                 }
             }
-            return safe;
+            return safe ? SocialContentModerator.Verdict.accepted()
+                    : SocialContentModerator.Verdict.rejected(risks.isEmpty()
+                            ? "NSFW" : String.join(", ", risks));
         }
     };
 
@@ -82,9 +88,9 @@ enum QwenGuardProtocol {
 
     abstract String requestBody(String model, String text);
 
-    abstract boolean parse(JsonObject root);
+    abstract SocialContentModerator.Verdict parse(JsonObject root);
 
-    final boolean allows(String body) {
+    final SocialContentModerator.Verdict review(String body) {
         try {
             return parse(JsonParser.parseString(body).getAsJsonObject());
         } catch (RuntimeException error) {

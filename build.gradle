@@ -64,7 +64,7 @@ dependencies {
     testImplementation("org.bouncycastle:bcprov-jdk18on:1.86")
     paperweight.paperDevBundle("26.3.build.206-stable")
     compileOnly("net.raphimc:NoteBlockLib:3.3.0")
-    compileOnly("com.github.retrooper:packetevents-spigot:2.13.0")
+    compileOnly("com.github.retrooper:packetevents-spigot:2.14.0")
     compileOnly("com.viaversion:viaversion-api:5.11.0")
     compileOnly("com.google.code.gson:gson:2.14.0")
     compileOnly("maven.modrinth:34T8oVNY:26.3-557")

@@ -48,7 +48,7 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
             Logger logger
     ) {
         this(adapters, commands, identityLeases, contentGuard,
-                _ ->
+                (_, _) ->
                         java.util.concurrent.CompletableFuture.completedFuture(null),
                 _ -> List.of(), languages, logger);
     }
@@ -169,14 +169,14 @@ public final class SocialPlatformHost implements SocialPlatformAdmin,
     }
 
     @Override
-    public synchronized SocialChatPublishReport publish(ChatMessage message) {
+    public synchronized SocialChatPublishReport publish(ChatMessage message, java.util.function.Consumer<org.encinet.mik.feature.community.chat.bridge.SocialChatFailure> feedback) {
         Objects.requireNonNull(message, "message");
         if (closed) {
             return SocialChatPublishReport.empty();
         }
         SocialChatPublishReport report = SocialChatPublishReport.empty();
         for (SocialPlatformGeneration generation : generations.values()) {
-            report = report.plus(generation.publishChat(message));
+            report = report.plus(generation.publishChat(message, feedback));
         }
         return report;
     }

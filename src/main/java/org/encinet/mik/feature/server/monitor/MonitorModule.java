@@ -38,11 +38,11 @@ import org.encinet.mik.feature.player.afk.AfkActivityService;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.RolePermissions;
+import org.encinet.mik.shared.role.PlayerRole;
 import org.encinet.mik.shared.util.ShutdownSequence;
 import org.encinet.mik.shared.util.TextBadge;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -51,7 +51,6 @@ import java.util.Map;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
@@ -59,7 +58,7 @@ import java.util.function.ToDoubleFunction;
 
 /** Staff patrols with automatic camera placement and target rotation. */
 public final class MonitorModule implements Listener {
-    private static final long ROTATION_NANOS = Duration.ofSeconds(30).toNanos();
+    private static final long ROTATION_NANOS = Duration.ofSeconds(15).toNanos();
 
     private final JavaPlugin plugin;
     private final LanguageService languages;
@@ -71,6 +70,7 @@ public final class MonitorModule implements Listener {
     private final MonitorPlayerPackets tab;
     private final Supplier<MonitorCameraView> views;
     private final Map<UUID, Session> sessions = new HashMap<>();
+    private final MonitorScheduler scheduler = new MonitorScheduler();
     private Consumer<UUID> tabRefresh = _ -> { };
     private ToDoubleFunction<Player> fieldOfView = _ -> 70;
     private BukkitTask task;
@@ -138,6 +138,7 @@ public final class MonitorModule implements Listener {
             });
         }
         sessions.clear();
+        scheduler.clear();
         shutdown.attempt("monitor tab", tab::disable);
         shutdown.finish("monitor mode");
     }
@@ -149,8 +150,8 @@ public final class MonitorModule implements Listener {
 
     LiteralArgumentBuilder<CommandSourceStack> command() {
         return Commands.literal("monitor")
-                .requires(source -> source.getSender() instanceof Player
-                        && RolePermissions.canModerate(source.getSender()))
+                .requires(source -> source.getSender() instanceof Player player
+                        && (RolePermissions.canModerate(player) || isMonitoring(player)))
                 .executes(context -> execute(context.getSource().getSender(), false, null))
                 .then(Commands.literal("stop")
                         .executes(context -> execute(context.getSource().getSender(), true, null)))
@@ -181,9 +182,10 @@ public final class MonitorModule implements Listener {
 
     private int execute(CommandSender sender, boolean stopRequested, Player requestedTarget) {
         // Recheck at execution: a previously parsed command may outlive a role grant.
-        if (!running || !(sender instanceof Player player) || !RolePermissions.canModerate(player)) return 0;
+        if (!running || !(sender instanceof Player player)) return 0;
         Session session = sessions.get(player.getUniqueId());
         if (session == null) {
+            if (!RolePermissions.canModerate(player)) return 0;
             if (stopRequested) return Command.SINGLE_SUCCESS;
             if (player.isDead() || player.isInsideVehicle()) {
                 send(player, Message.MONITOR_UNAVAILABLE, NamedTextColor.YELLOW);
@@ -208,12 +210,14 @@ public final class MonitorModule implements Listener {
             tabRefresh.accept(player.getUniqueId());
             player.setSpectatorTarget(null);
             send(player, Message.MONITOR_STARTED, NamedTextColor.GREEN);
+            refreshSchedule();
             selectTarget(session);
         } else if (session.returning) {
             send(player, Message.MONITOR_RETURNING, NamedTextColor.YELLOW);
         } else if (requestedTarget != null) {
             session.pinnedTarget = requestedTarget.getUniqueId();
             session.camera.reset();
+            refreshSchedule();
             selectTarget(session);
         } else {
             stop(session);
@@ -234,27 +238,28 @@ public final class MonitorModule implements Listener {
 
     void tick() {
         if (!running || sessions.isEmpty()) return;
+        refreshSchedule();
         for (Session session : List.copyOf(sessions.values())) {
             Player observer = session.observer;
             refreshVisibility(session);
             if (session.returning) continue;
-            boolean canContinue = RolePermissions.canModerate(observer) && !afk.isAfk(observer.getUniqueId());
-            // World managers may apply the destination's game mode during a cross-world teleport.
-            // Reassert spectator once after that transition, while honoring explicit mode changes.
-            if (canContinue && session.worldChanged && !session.modeChangeRequested
-                    && observer.getGameMode() != GameMode.SPECTATOR) {
-                observer.setGameMode(GameMode.SPECTATOR);
-            }
-            session.worldChanged = false;
-            if (!canContinue || session.modeChangeRequested || observer.getGameMode() != GameMode.SPECTATOR) {
-                if (!session.modeChangeRequested && observer.getGameMode() != GameMode.SPECTATOR) {
-                    session.exitMode = observer.getGameMode();
-                }
+            if (session.modeChangeRequested) {
                 stop(session);
                 continue;
             }
+            // Plugin/world defaults do not express an explicit request to end the patrol.
+            if (observer.getGameMode() != GameMode.SPECTATOR) observer.setGameMode(GameMode.SPECTATOR);
+            if (observer.getGameMode() != GameMode.SPECTATOR) {
+                // A plugin may reject restoration. Keep the session, but do not follow in a normal game mode.
+                scheduler.release(observer.getUniqueId(), clock.getAsLong());
+                tab.followTarget(observer, null);
+                session.view.clear(observer);
+                session.camera.reset();
+                continue;
+            }
             if (session.target == null || !eligible(session, session.target)
-                    || (session.pinnedTarget == null && clock.getAsLong() - session.selectedAt >= ROTATION_NANOS)) {
+                    || (session.pinnedTarget == null && (clock.getAsLong() - session.selectedAt >= ROTATION_NANOS
+                    || scheduler.occupiedByOther(observer.getUniqueId(), session.target.getUniqueId())))) {
                 selectTarget(session);
             } else {
                 follow(session);
@@ -282,27 +287,28 @@ public final class MonitorModule implements Listener {
             follow(session);
             return;
         }
-        Set<UUID> eligibleIds = new HashSet<>();
-        candidates.forEach(player -> eligibleIds.add(player.getUniqueId()));
-        session.visited.retainAll(eligibleIds);
-        List<Player> unvisited = new ArrayList<>(candidates.stream()
-                .filter(player -> !session.visited.contains(player.getUniqueId())).toList());
-        if (unvisited.isEmpty()) {
-            session.visited.clear();
-            unvisited.addAll(candidates);
-            // Start a new shuffled round without watching the same player twice in a row.
-            if (unvisited.size() > 1) unvisited.remove(session.target);
-        }
-        session.target = unvisited.isEmpty() ? null
-                : unvisited.get(ThreadLocalRandom.current().nextInt(unvisited.size()));
+        UUID selected = scheduler.select(session.observer.getUniqueId(), candidates.stream()
+                .map(MonitorModule::scheduledCandidate).toList(), clock.getAsLong());
+        session.target = candidates.stream().filter(player -> player.getUniqueId().equals(selected)).findFirst().orElse(null);
         session.selectedAt = clock.getAsLong();
-        if (session.target != null) session.visited.add(session.target.getUniqueId());
         follow(session);
+    }
+
+    private void refreshSchedule() {
+        scheduler.refresh(onlinePlayers.get().stream().filter(player -> sessions.values().stream()
+                .anyMatch(session -> !session.returning && session.pinnedTarget == null && eligible(session, player)))
+                .map(MonitorModule::scheduledCandidate).toList(), clock.getAsLong());
+    }
+
+    private static MonitorScheduler.Candidate scheduledCandidate(Player player) {
+        return new MonitorScheduler.Candidate(player.getUniqueId(), PlayerRole.resolve(player));
     }
 
     private void follow(Session session) {
         Player observer = session.observer;
         if (session.target == null) {
+            scheduler.release(observer.getUniqueId(), clock.getAsLong());
+            tab.followTarget(observer, null);
             session.view.clear(observer);
             observer.setSpectatorTarget(null);
             session.camera.reset();
@@ -317,6 +323,7 @@ public final class MonitorModule implements Listener {
         MonitorCamera.Frame frame = session.camera.update(session.target, observer.getEyeLocation(), observer.getEyeHeight());
         boolean watching;
         if (frame == null) {
+            tab.followTarget(observer, null);
             session.view.clear(observer);
             if (observer.getSpectatorTarget() != session.target) observer.setSpectatorTarget(session.target);
             watching = observer.getSpectatorTarget() == session.target;
@@ -326,8 +333,10 @@ public final class MonitorModule implements Listener {
             // A cancelled detach leaves the native camera attached; do not teleport it out of sync.
             watching = observer.getSpectatorTarget() == null
                     && (sameView(observer.getLocation(), camera) || observer.teleport(camera, TeleportCause.SPECTATE));
+            tab.followTarget(observer, watching && !session.target.isInsideVehicle() ? session.target : null);
             if (watching) session.view.move(observer, camera, frame.cut());
         }
+        scheduler.watching(observer.getUniqueId(), scheduledCandidate(session.target), watching, clock.getAsLong());
         if (watching) {
             observer.sendActionBar(languages.text(observer, Message.MONITOR_WATCHING, NamedTextColor.AQUA,
                     session.target.getName()));
@@ -341,6 +350,8 @@ public final class MonitorModule implements Listener {
     }
 
     private void stop(Session session) {
+        scheduler.release(session.observer.getUniqueId(), clock.getAsLong());
+        tab.followTarget(session.observer, null);
         session.returning = true;
         send(session.observer, Message.MONITOR_RETURNING, NamedTextColor.YELLOW);
         Location origin = session.origin;
@@ -373,6 +384,8 @@ public final class MonitorModule implements Listener {
 
     private boolean restore(Session session) {
         Player observer = session.observer;
+        scheduler.release(observer.getUniqueId(), clock.getAsLong());
+        tab.followTarget(observer, null);
         session.view.clear(observer);
         if (observer.getGameMode() == GameMode.SPECTATOR) observer.setSpectatorTarget(null);
         if (observer.getSpectatorTarget() != null) return false;
@@ -445,7 +458,6 @@ public final class MonitorModule implements Listener {
     public void onWorldChange(PlayerChangedWorldEvent event) {
         Session session = sessions.get(event.getPlayer().getUniqueId());
         if (session == null || session.returning) return;
-        session.worldChanged = true;
         session.camera.reset();
     }
 
@@ -552,7 +564,6 @@ public final class MonitorModule implements Listener {
         final GameMode originalMode;
         final boolean allowFlight;
         final boolean flying;
-        final Set<UUID> visited = new HashSet<>();
         final Set<UUID> hiddenFrom = new HashSet<>();
         final Set<UUID> tabViewers = new HashSet<>();
         final MonitorCamera camera;
@@ -564,7 +575,6 @@ public final class MonitorModule implements Listener {
         long selectedAt;
         boolean returning;
         boolean targetTeleported;
-        boolean worldChanged;
         boolean modeChangeRequested;
 
         Session(Player observer, MonitorCamera camera, MonitorCameraView view) {

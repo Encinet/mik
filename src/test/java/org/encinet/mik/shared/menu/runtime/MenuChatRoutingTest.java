@@ -41,7 +41,7 @@ class MenuChatRoutingTest {
         try (var tips = new TipTestScope()) {
             // The null channel dependencies deliberately fail if editing text escapes the ingress branch.
             var chat = new ChatModule(plugin, null, new LanguageService(null), null, new PlayerNameTagRenderer(plugin), null,
-                    _ -> { throw new AssertionError("Editor text reached the social bridge"); }, null, tips, inputs::offerText);
+                    (_, _) -> { throw new AssertionError("Editor text reached the social bridge"); }, null, tips, inputs::offerText);
             String raw = "<gradient:red:blue>%player_name% </gradient>";
             var event = new AsyncChatEvent(true, player, new HashSet<>(Set.of(Audience.empty())), ChatRenderer.defaultRenderer(),
                     Component.text("already processed elsewhere"), Component.text(raw), SignedMessage.system(raw, Component.text(raw)));

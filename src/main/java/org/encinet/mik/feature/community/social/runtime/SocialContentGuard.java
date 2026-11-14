@@ -9,7 +9,7 @@ import org.encinet.mik.shared.i18n.Language;
 
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -18,13 +18,13 @@ import java.util.concurrent.Executors;
 /** Shared moderation lifecycle and the common blocked-output document. */
 public final class SocialContentGuard implements AutoCloseable {
     private final Supplier<? extends SocialContentModerator> loader;
-    private final Function<Language, SocialDocument> blockedDocument;
+    private final BiFunction<Language, String, SocialDocument> blockedDocument;
     private volatile State state;
     private boolean closed;
 
     private SocialContentGuard(
             Supplier<? extends SocialContentModerator> loader,
-            Function<Language, SocialDocument> blockedDocument,
+            BiFunction<Language, String, SocialDocument> blockedDocument,
             State state
     ) {
         this.loader = loader;
@@ -37,12 +37,12 @@ public final class SocialContentGuard implements AutoCloseable {
             SocialDocument blockedDocument
     ) {
         Objects.requireNonNull(blockedDocument, "blockedDocument");
-        return available(moderator, _ -> blockedDocument);
+        return available(moderator, (_, _) -> blockedDocument);
     }
 
     public static SocialContentGuard available(
             SocialContentModerator moderator,
-            Function<Language, SocialDocument> blockedDocument
+            BiFunction<Language, String, SocialDocument> blockedDocument
     ) {
         return new SocialContentGuard(null, blockedDocument,
                 new State(Objects.requireNonNull(moderator, "moderator"), null));
@@ -50,7 +50,7 @@ public final class SocialContentGuard implements AutoCloseable {
 
     public static SocialContentGuard reloadable(
             Supplier<? extends SocialContentModerator> loader,
-            Function<Language, SocialDocument> blockedDocument
+            BiFunction<Language, String, SocialDocument> blockedDocument
     ) {
         return new SocialContentGuard(Objects.requireNonNull(loader, "loader"),
                 blockedDocument, new State(null,
@@ -79,9 +79,10 @@ public final class SocialContentGuard implements AutoCloseable {
         Objects.requireNonNull(document, "document");
         Objects.requireNonNull(policy, "policy");
         SocialDocument bounded = document;
-        boolean allowed = allowsOutboundText(bounded.plainText(), bounded.moderation(), policy);
+        var verdict = reviewOutboundText(bounded.plainText(), bounded.moderation(), policy);
+        boolean allowed = verdict.allowed();
         SocialDocument safe = !allowed
-                ? Objects.requireNonNull(blockedDocument.apply(document.language()),
+                ? Objects.requireNonNull(blockedDocument.apply(document.language(), verdict.reason()),
                 "Blocked-document factory returned null").localized(document.language())
                 : bounded;
         return new Review(safe, allowed);
@@ -95,13 +96,19 @@ public final class SocialContentGuard implements AutoCloseable {
             SocialDocument.Moderation moderation,
             SocialOutputPolicy policy
     ) {
+        return reviewOutboundText(text, moderation, policy).allowed();
+    }
+
+    SocialContentModerator.Verdict reviewOutboundText(
+            String text, SocialDocument.Moderation moderation, SocialOutputPolicy policy
+    ) {
         Objects.requireNonNull(text, "text");
         Objects.requireNonNull(moderation, "moderation");
         Objects.requireNonNull(policy, "policy");
         if (moderation == SocialDocument.Moderation.TRUSTED
-                || !policy.contentSafetyEnabled()) return true;
+                || !policy.contentSafetyEnabled()) return SocialContentModerator.Verdict.accepted();
         SocialContentModerator moderator = state.requireModerator();
-        return text.isBlank() || moderator.allows(text);
+        return text.isBlank() ? SocialContentModerator.Verdict.accepted() : moderator.review(text);
     }
 
     /** Natural text with sender, expanded mentions and link destinations. */

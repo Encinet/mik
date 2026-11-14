@@ -66,7 +66,7 @@ class AfkPassiveObservationTest {
     }
 
     @Test
-    void manualAfkAllowsOnlyTheObservationReturnAndNormalProtectionResumesAfterClosing() throws Exception {
+    void manualAfkAllowsObservationTeleportsAndNormalProtectionResumesAfterClosing() throws Exception {
         Fixture f = new Fixture();
         var lease = f.module.beginPassiveObservation(f.player);
         f.states().put(f.id, new AfkState(f.id, null, AfkSource.MANUAL, 0));

@@ -26,11 +26,11 @@ class ChatServiceTest {
         List<ChatDelivery> game = new ArrayList<>(), web = new ArrayList<>();
         List<ChatMessage> social = new ArrayList<>();
         ChatService service = new ChatService(_ -> { throw new AssertionError("Social identity is already resolved"); }, Runnable::run,
-                message -> { social.add(message); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
+                (message, _) -> { social.add(message); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
         service.connect(participants(Set.of(BOB)),
-                (delivery, recipients) -> { assertEquals(Set.of(BOB), recipients); game.add(delivery); }, web::add);
-        service.accept(social(Optional.empty()));
-        service.accept(social(Optional.of(ALICE)));
+                (delivery, recipients) -> { assertEquals(Set.of(BOB), recipients); game.add(delivery); }, web::add, (_, _) -> {});
+        service.accept(social(Optional.empty()), _ -> {});
+        service.accept(social(Optional.of(ALICE)), _ -> {});
         assertEquals(2, game.size()); assertEquals(2, web.size()); assertEquals(2, social.size());
         assertTrue(web.getFirst().message().submission().sender().minecraftId().isEmpty());
         assertEquals(Optional.of(ALICE), web.getLast().message().submission().sender().minecraftId());
@@ -38,8 +38,8 @@ class ChatServiceTest {
     @Test void restrictedNativeAudienceNeverExpandsButACompleteAudienceRelays() {
         List<ChatDelivery> web = new ArrayList<>(); List<ChatMessage> social = new ArrayList<>();
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(), Runnable::run,
-                message -> { social.add(message); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
-        service.connect(participants(Set.of(ALICE, BOB)), (_, _) -> {}, web::add);
+                (message, _) -> { social.add(message); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
+        service.connect(participants(Set.of(ALICE, BOB)), (_, _) -> {}, web::add, (_, _) -> {});
         ChatMessage message = service.process(new ChatSubmission(ChatMessageId.random(), new ChatOrigin.Minecraft(ALICE),
                 ChatSender.minecraft(ALICE, "Alice"), ChatConversation.minecraftPublic(), "hello", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external()));
         service.publish(ChatDelivery.nativeGame(message, null, Set.of(ALICE), Set.of(ALICE, BOB)));
@@ -50,8 +50,8 @@ class ChatServiceTest {
     @Test void aGameSenderLosingAdmissionCannotRelayUsingItsEarlierSnapshot() {
         List<ChatDelivery> web = new ArrayList<>(); List<ChatMessage> social = new ArrayList<>();
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(), Runnable::run,
-                message -> { social.add(message); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
-        service.connect(participants(Set.of(BOB)), (_, _) -> {}, web::add);
+                (message, _) -> { social.add(message); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
+        service.connect(participants(Set.of(BOB)), (_, _) -> {}, web::add, (_, _) -> {});
         ChatMessage message = service.process(new ChatSubmission(ChatMessageId.random(), new ChatOrigin.Minecraft(ALICE),
                 ChatSender.minecraft(ALICE, "Alice"), ChatConversation.minecraftPublic(), "revoked", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external()));
         service.publish(ChatDelivery.nativeGame(message, null, Set.of(ALICE, BOB), Set.of(ALICE, BOB)));
@@ -61,8 +61,8 @@ class ChatServiceTest {
     @Test void aRecipientLeavingCannotTurnRestrictedNativeChatIntoABroadcast() {
         List<ChatDelivery> web = new ArrayList<>();
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(), Runnable::run,
-                _ -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
-        service.connect(participants(Set.of(ALICE)), (_, _) -> {}, web::add);
+                (_, _) -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
+        service.connect(participants(Set.of(ALICE)), (_, _) -> {}, web::add, (_, _) -> {});
         ChatMessage message = service.process(new ChatSubmission(ChatMessageId.random(), new ChatOrigin.Minecraft(ALICE),
                 ChatSender.minecraft(ALICE, "Alice"), ChatConversation.minecraftPublic(), "restricted", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external()));
         service.publish(ChatDelivery.nativeGame(message, null, Set.of(ALICE), Set.of(ALICE, BOB)));
@@ -72,54 +72,84 @@ class ChatServiceTest {
     @Test void oneOutputFailureDoesNotPreventOtherOutputsOrChangeAcceptance() {
         List<String> failures = new ArrayList<>(); List<ChatMessage> social = new ArrayList<>();
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(), Runnable::run,
-                message -> { social.add(message); return SocialChatPublishReport.empty(); }, (output, _) -> failures.add(output));
+                (message, _) -> { social.add(message); return SocialChatPublishReport.empty(); }, (output, _) -> failures.add(output));
         service.connect(participants(Set.of()), (_, _) -> { throw new IllegalStateException("game failure"); },
-                _ -> { throw new IllegalStateException("web failure"); });
-        assertDoesNotThrow(() -> service.accept(social(Optional.empty())));
+                _ -> { throw new IllegalStateException("web failure"); }, (_, _) -> {});
+        assertDoesNotThrow(() -> service.accept(social(Optional.empty()), _ -> {}));
         assertEquals(List.of("game", "web"), failures); assertEquals(1, social.size());
     }
     @Test void shutdownDiscardsPreviouslyQueuedDeliveries() {
         List<Runnable> queued = new ArrayList<>(); List<ChatDelivery> web = new ArrayList<>();
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(), queued::add,
-                _ -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
-        service.connect(participants(Set.of()), (_, _) -> {}, web::add);
+                (_, _) -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
+        service.connect(participants(Set.of()), (_, _) -> {}, web::add, (_, _) -> {});
         ChatMessage message = service.process(social(Optional.empty()));
         service.publish(ChatDelivery.managed(message, null, null));
-        service.disconnect(); service.connect(participants(Set.of()), (_, _) -> {}, web::add); queued.forEach(Runnable::run); assertTrue(web.isEmpty());
+        service.disconnect(); service.connect(participants(Set.of()), (_, _) -> {}, web::add, (_, _) -> {}); queued.forEach(Runnable::run); assertTrue(web.isEmpty());
     }
     @Test void invalidReconnectCannotPartiallyReplaceTheCurrentRouting() {
         List<String> outputs = new ArrayList<>();
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(), Runnable::run,
-                _ -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
-        service.connect(participants(Set.of()), (_, _) -> outputs.add("game"), _ -> outputs.add("web"));
+                (_, _) -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
+        service.connect(participants(Set.of()), (_, _) -> outputs.add("game"), _ -> outputs.add("web"), (_, _) -> {});
         assertThrows(NullPointerException.class, () -> service.connect(participants(Set.of()),
-                (_, _) -> outputs.add("replacement"), null));
-        service.accept(social(Optional.empty()));
+                (_, _) -> outputs.add("replacement"), null, (_, _) -> {}));
+        service.accept(social(Optional.empty()), _ -> {});
         assertEquals(List.of("game", "web"), outputs);
     }
     @Test void disconnectedIngressDoesNotScheduleWorkOnAStoppedHost() {
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(),
                 _ -> { throw new IllegalStateException("Host is stopped"); },
-                _ -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
+                (_, _) -> SocialChatPublishReport.empty(), (_, error) -> fail(error));
         ChatSubmission submission = social(Optional.empty());
         ChatMessage message = service.process(submission);
-        assertDoesNotThrow(() -> service.accept(submission));
+        assertDoesNotThrow(() -> service.accept(submission, _ -> {}));
         assertDoesNotThrow(() -> service.publish(ChatDelivery.managed(message, null, null)));
     }
     @Test void disablingDuringOneOutputStopsRemainingOutputsFromThatRouting() {
         List<String> outputs = new ArrayList<>();
         ChatService service = new ChatService(java.util.function.UnaryOperator.identity(), Runnable::run,
-                _ -> { outputs.add("social"); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
+                (_, _) -> { outputs.add("social"); return SocialChatPublishReport.empty(); }, (_, error) -> fail(error));
         service.connect(participants(Set.of()), (_, _) -> {
             outputs.add("game");
             service.disconnect();
-            service.connect(participants(Set.of()), (_, _) -> outputs.add("new-game"), _ -> outputs.add("new-web"));
-        }, _ -> outputs.add("old-web"));
-        service.accept(social(Optional.empty()));
+            service.connect(participants(Set.of()), (_, _) -> outputs.add("new-game"), _ -> outputs.add("new-web"), (_, _) -> {});
+        }, _ -> outputs.add("old-web"), (_, _) -> {});
+        service.accept(social(Optional.empty()), _ -> {});
         assertEquals(List.of("game"), outputs);
-        service.accept(social(Optional.empty()));
+        service.accept(social(Optional.empty()), _ -> {});
         assertEquals(List.of("game", "new-game", "new-web", "social"), outputs);
     }
+    @Test void playerChatReturnsAsynchronousModerationFeedbackForGameAndWebWithoutRebroadcastingIt() {
+        for (ChatOrigin origin : List.of(new ChatOrigin.Minecraft(ALICE), new ChatOrigin.Web(ALICE))) {
+            var pending = new java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<SocialChatFailure>>();
+            List<Runnable> primary = new ArrayList<>();
+            List<ChatMessage> published = new ArrayList<>();
+            List<SocialChatFailure> notices = new ArrayList<>();
+            var service = new ChatService(java.util.function.UnaryOperator.identity(), primary::add,
+                    (message, feedback) -> { published.add(message); pending.set(feedback); return SocialChatPublishReport.empty(); },
+                    (_, error) -> fail(error));
+            service.connect(participants(Set.of(ALICE)), (_, _) -> {}, _ -> {}, (message, failure) -> {
+                assertEquals(origin, message.submission().origin());
+                notices.add(failure);
+            });
+            var submission = new ChatSubmission(ChatMessageId.random(), origin, ChatSender.minecraft(ALICE, "Alice"),
+                    ChatConversation.minecraftPublic(), "hello", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external());
+            service.publish(ChatDelivery.managed(service.process(submission), null, null));
+            primary.removeFirst().run();
+            var failure = new SocialChatFailure("qq", "QQ", "Unsafe: Violent", false);
+            pending.get().accept(failure);
+            assertTrue(notices.isEmpty(), "Worker feedback must return through the primary thread");
+            primary.removeFirst().run();
+            assertEquals(List.of(failure), notices);
+            assertEquals(1, published.size(), "Feedback must not be published as another ordinary chat message");
+            service.disconnect();
+            pending.get().accept(failure);
+            primary.removeFirst().run();
+            assertEquals(1, notices.size(), "Feedback for a disconnected routing must be discarded");
+        }
+    }
+
     @Test void externalMessageIdsAreBoundedAndIncludeConversationScope() {
         ChatMessageId first = ChatMessageId.external("matrix", "room-one", "event".repeat(100));
         ChatMessageId second = ChatMessageId.external("matrix", "room-two", "event".repeat(100));

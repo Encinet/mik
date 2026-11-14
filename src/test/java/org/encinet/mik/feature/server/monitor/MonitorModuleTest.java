@@ -227,13 +227,17 @@ class MonitorModuleTest {
     }
 
     @Test
-    void manualAfkEndsMonitoringAndReleasesObservationAfterReturning() throws Exception {
+    void manualAfkKeepsMonitoringUntilExplicitlyStopped() throws Exception {
         Fixture f = new Fixture();
         f.add("Target");
         f.run("monitor");
         verify(f.afk).beginPassiveObservation(f.observer.player);
         when(f.afk.isAfk(f.observer.player.getUniqueId())).thenReturn(true);
         f.module.tick();
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.SPECTATOR, f.observer.mode);
+        verify(f.observation, never()).close();
+        f.run("monitor stop");
         assertFalse(f.module.isMonitoring(f.observer.player));
         assertEquals(f.origin, f.observer.location);
         verify(f.observation).close();
@@ -334,8 +338,9 @@ class MonitorModuleTest {
         assertThrows(CommandSyntaxException.class, () -> f.commands.execute("monitor", source));
     }
 
-    @Test
-    void permissionIsRecheckedAfterParsingAndDuringMonitoring() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"monitor", "monitor stop"})
+    void permissionChangesDoNotEndExistingSessionsOrBlockManualExit(String exitCommand) throws Exception {
         Fixture f = new Fixture();
         var parsed = f.commands.parse("monitor", f.source);
         f.observer.role = PlayerRole.MEMBER;
@@ -347,6 +352,9 @@ class MonitorModuleTest {
         f.run("monitor");
         f.observer.role = PlayerRole.MEMBER;
         f.module.tick();
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.SPECTATOR, f.observer.mode);
+        f.run(exitCommand);
         assertFalse(f.module.isMonitoring(f.observer.player));
         assertEquals(f.origin, f.observer.location);
         assertEquals(GameMode.CREATIVE, f.observer.mode);
@@ -371,6 +379,37 @@ class MonitorModuleTest {
         assertTrue(f.observer.location.distance(target.location) < 6);
         assertTrue(f.observer.location.getX() > target.location.getX());
         assertTrue(f.observer.causes.stream().allMatch(cause -> cause == TeleportCause.SPECTATE));
+    }
+
+    @Test
+    void targetMovementSmoothingFollowsTargetChangesAndStopsWhenFollowingFailsOrEnds() throws Exception {
+        Fixture f = new Fixture();
+        State a = f.add("A");
+        State b = f.add("B");
+        var order = inOrder(f.tab);
+        f.run("monitor A");
+        order.verify(f.tab).followTarget(f.observer.player, a.player);
+        f.run("monitor B");
+        order.verify(f.tab).followTarget(f.observer.player, b.player);
+        b.location.add(20, 0, 0);
+        f.observer.teleportAllowed = false;
+        f.module.tick();
+        order.verify(f.tab).followTarget(f.observer.player, null);
+        f.observer.teleportAllowed = true;
+        f.module.tick();
+        order.verify(f.tab).followTarget(f.observer.player, b.player);
+        f.run("monitor stop");
+        order.verify(f.tab, atLeastOnce()).followTarget(f.observer.player, null);
+    }
+
+    @Test
+    void ridingTargetsKeepVanillaMovementSynchronization() throws Exception {
+        Fixture f = new Fixture();
+        State target = f.add("Target");
+        target.vehicle = true;
+        f.run("monitor Target");
+        verify(f.tab).followTarget(f.observer.player, null);
+        verify(f.tab, never()).followTarget(f.observer.player, target.player);
     }
 
     @Test
@@ -483,7 +522,7 @@ class MonitorModuleTest {
     }
 
     @Test
-    void modeChangesAfterTheWorldTransitionStillEndMonitoring() throws Exception {
+    void passiveModeChangesAfterTheWorldTransitionKeepMonitoring() throws Exception {
         Fixture f = new Fixture();
         State target = f.add("Target");
         f.run("monitor Target");
@@ -492,8 +531,10 @@ class MonitorModuleTest {
         f.module.tick();
         f.observer.player.setGameMode(GameMode.ADVENTURE);
         f.module.tick();
-        assertFalse(f.module.isMonitoring(f.observer.player));
-        assertEquals(GameMode.ADVENTURE, f.observer.mode);
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.SPECTATOR, f.observer.mode);
+        f.run("monitor stop");
+        assertEquals(GameMode.CREATIVE, f.observer.mode);
         assertEquals(f.origin, f.observer.location);
     }
 
@@ -514,7 +555,7 @@ class MonitorModuleTest {
     }
 
     @Test
-    void randomRoundsVisitEveryoneWithoutAnImmediateRepeat() throws Exception {
+    void sharedQueueVisitsEqualWeightPlayersEvenlyWithoutAnImmediateRepeat() throws Exception {
         Fixture f = new Fixture();
         f.add("A");
         f.add("B");
@@ -536,13 +577,13 @@ class MonitorModuleTest {
     }
 
     @Test
-    void automaticallyRotatesAtThirtySecondsAndKeepsSingleTarget() throws Exception {
+    void automaticallyRotatesAtFifteenSecondsAndKeepsSingleTarget() throws Exception {
         Fixture f = new Fixture();
         f.add("A");
         f.add("B");
         f.run("monitor");
         String first = f.observer.actionBar;
-        f.now = Duration.ofSeconds(30).toNanos() - 1;
+        f.now = Duration.ofSeconds(15).toNanos() - 1;
         f.module.tick();
         assertEquals(first, f.observer.actionBar);
         f.now++;
@@ -555,6 +596,65 @@ class MonitorModuleTest {
         single.now = Duration.ofMinutes(1).toNanos();
         single.module.tick();
         assertEquals("monitor-watching [Only]", single.observer.actionBar);
+    }
+
+    @Test
+    void concurrentAutomaticObserversCoverDifferentPlayers() throws Exception {
+        Fixture f = new Fixture();
+        State second = f.add("SecondStaff");
+        second.role = PlayerRole.MODERATOR;
+        f.add("A");
+        f.add("B");
+        f.add("C");
+        f.run("monitor");
+        f.runAs(second, "monitor");
+        for (int i = 0; i < 30; i++) {
+            f.now += Duration.ofSeconds(15).toNanos();
+            f.module.tick();
+            assertNotEquals("monitor-waiting", second.actionBar);
+            assertNotEquals(f.observer.actionBar, second.actionBar);
+        }
+    }
+
+    @Test
+    void manualPinDisplacesAutomaticCoverageAndReleasesItOnStop() throws Exception {
+        Fixture f = new Fixture();
+        f.add("A");
+        f.add("B");
+        f.run("monitor");
+        State second = f.add("SecondStaff");
+        second.role = PlayerRole.MODERATOR;
+        String name = f.observer.actionBar.contains("[A]") ? "A" : "B";
+        f.runAs(second, "monitor " + name);
+        f.module.tick();
+        assertNotEquals(f.observer.actionBar, second.actionBar);
+        f.runAs(second, "monitor stop");
+        second.online = false;
+        f.now += Duration.ofSeconds(15).toNanos();
+        f.module.tick();
+        assertEquals("monitor-watching [" + name + "]", f.observer.actionBar);
+    }
+
+    @Test
+    void excessAutomaticObserversWaitUntilCoverageIsReleased() throws Exception {
+        Fixture f = new Fixture();
+        State second = f.add("SecondStaff");
+        second.role = PlayerRole.MODERATOR;
+        f.run("monitor");
+        f.runAs(second, "monitor");
+        f.add("Only");
+        f.module.tick();
+        boolean firstWaiting = "monitor-waiting".equals(f.observer.actionBar);
+        assertNotEquals(firstWaiting, "monitor-waiting".equals(second.actionBar));
+        if (firstWaiting) {
+            f.runAs(second, "monitor stop");
+            second.online = false;
+        } else {
+            f.run("monitor stop");
+            f.observer.online = false;
+        }
+        f.module.tick();
+        assertEquals("monitor-watching [Only]", firstWaiting ? f.observer.actionBar : second.actionBar);
     }
 
     @Test
@@ -631,6 +731,8 @@ class MonitorModuleTest {
         f.run("monitor");
         assertSame(target.player, f.observer.spectatorTarget);
         assertTrue(f.observer.moves.isEmpty());
+        verify(f.tab).followTarget(f.observer.player, null);
+        verify(f.tab, never()).followTarget(f.observer.player, target.player);
         verify(f.world, never()).getChunkAtAsync(anyInt(), anyInt());
     }
 
@@ -714,16 +816,57 @@ class MonitorModuleTest {
         assertEquals(moves, f.observer.moves.size());
     }
 
-    @Test
-    void manualGameModeChangeEndsPatrolAndPreservesTheChosenMode() throws Exception {
+    @ParameterizedTest
+    @EnumSource(value = PlayerGameModeChangeEvent.Cause.class, names = {"COMMAND", "GAMEMODE_SWITCHER"})
+    void manualGameModeChangeEndsPatrolAndPreservesTheChosenMode(PlayerGameModeChangeEvent.Cause cause) throws Exception {
         Fixture f = new Fixture();
         f.add("Target");
         f.run("monitor");
+        f.module.onGameModeChange(new PlayerGameModeChangeEvent(f.observer.player, GameMode.ADVENTURE, cause, null));
         f.observer.mode = GameMode.ADVENTURE;
         f.module.tick();
         assertFalse(f.module.isMonitoring(f.observer.player));
         assertEquals(GameMode.ADVENTURE, f.observer.mode);
         assertEquals(f.origin, f.observer.location);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PlayerGameModeChangeEvent.Cause.class, mode = EnumSource.Mode.EXCLUDE,
+            names = {"COMMAND", "GAMEMODE_SWITCHER"})
+    void passiveModeChangesRestoreSpectatorWithoutEndingMonitoring(PlayerGameModeChangeEvent.Cause cause) throws Exception {
+        Fixture f = new Fixture();
+        f.add("Target");
+        f.run("monitor");
+        f.module.onGameModeChange(new PlayerGameModeChangeEvent(f.observer.player, GameMode.ADVENTURE, cause, null));
+        f.observer.mode = GameMode.ADVENTURE;
+        f.module.tick();
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.SPECTATOR, f.observer.mode);
+        f.run("monitor stop");
+        assertEquals(GameMode.CREATIVE, f.observer.mode);
+        assertEquals(f.origin, f.observer.location);
+    }
+
+    @Test
+    void rejectedSpectatorRestorationKeepsTheSessionAndResumesFollowingWhenAllowed() throws Exception {
+        Fixture f = new Fixture();
+        f.add("Target");
+        f.run("monitor");
+        f.observer.mode = GameMode.ADVENTURE;
+        f.observer.modeAllowed = false;
+        int moves = f.observer.moves.size();
+        for (int i = 0; i < 3; i++) f.module.tick();
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals(GameMode.ADVENTURE, f.observer.mode);
+        assertEquals(moves, f.observer.moves.size());
+        verify(f.observation, never()).close();
+        f.observer.modeAllowed = true;
+        f.module.tick();
+        assertEquals(GameMode.SPECTATOR, f.observer.mode);
+        assertTrue(f.module.isMonitoring(f.observer.player));
+        assertEquals("monitor-watching [Target]", f.observer.actionBar);
+        f.run("monitor stop");
+        assertEquals(GameMode.CREATIVE, f.observer.mode);
     }
 
     @ParameterizedTest

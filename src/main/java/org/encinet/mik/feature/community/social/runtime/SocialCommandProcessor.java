@@ -65,9 +65,18 @@ final class SocialCommandProcessor {
         SocialPreparedReply prepared;
         try {
             prepared = message.replyChannel().prepare(document, outputPolicy.maximumLength());
-            var review = contentGuard.review(prepared.document(), outputPolicy);
-            if (!review.allowed()) prepared = message.replyChannel().prepare(
-                    receipt == null ? review.document() : receipt, outputPolicy.maximumLength());
+            SocialDocument fallback = null;
+            try {
+                var review = contentGuard.review(prepared.document(), outputPolicy);
+                if (!review.allowed()) fallback = review.document();
+            } catch (RuntimeException error) {
+                logger.warning("Could not review social response on " + platform.id() + ": " + rootMessage(error));
+                fallback = SocialDocument.message(SocialDocument.Moderation.TRUSTED, SocialDocument.Tone.WARNING,
+                        SocialDocument.paragraph(languages.t(language, Message.SOCIAL_REPLY_REVIEW_FAILED,
+                                rootMessage(error)))).localized(language);
+            }
+            if (fallback != null) prepared = message.replyChannel().prepare(
+                    withReceipt(fallback, receipt), outputPolicy.maximumLength());
         } catch (RuntimeException error) {
             logger.warning("Could not prepare social response on " + platform.id() + ": " + rootMessage(error));
             deliver(platform, message, receipt == null ? unavailable(language) : receipt, outputPolicy, resultIsCurrent);
@@ -76,12 +85,20 @@ final class SocialCommandProcessor {
         send(platform, prepared, resultIsCurrent);
     }
 
+    private static SocialDocument withReceipt(SocialDocument notice, SocialDocument receipt) {
+        if (receipt == null) return notice;
+        var blocks = new java.util.ArrayList<SocialDocument.Block>(receipt.blocks());
+        blocks.add(SocialDocument.paragraph(notice.plainText()));
+        return SocialDocument.message(SocialDocument.Moderation.TRUSTED, SocialDocument.Tone.WARNING,
+                blocks.toArray(SocialDocument.Block[]::new)).localized(notice.language());
+    }
+
     private SocialDocument unavailable(Language language) {
         return SocialDocument.message(SocialDocument.Moderation.TRUSTED, SocialDocument.Tone.WARNING,
                 SocialDocument.paragraph(languages.t(language, Message.SOCIAL_REPLY_UNAVAILABLE))).localized(language);
     }
 
-    private void deliver(SocialPlatformDescriptor platform, SocialInboundMessage message, SocialDocument document,
+    void deliver(SocialPlatformDescriptor platform, SocialInboundMessage message, SocialDocument document,
                          SocialOutputPolicy policy, BooleanSupplier current) {
         if (!current.getAsBoolean()) return;
         try { send(platform, message.replyChannel().prepare(document, policy.maximumLength()), current); }

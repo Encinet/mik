@@ -43,7 +43,8 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
     }
 
     @Override
-    public CompletionStage<Void> deliver(ChatSubmission submission) {
+    public CompletionStage<Void> deliver(ChatSubmission submission,
+            java.util.function.Consumer<org.encinet.mik.feature.community.chat.bridge.SocialChatFailure> feedback) {
         Objects.requireNonNull(submission, "submission");
         ChatSender original = submission.sender();
         ChatSender sender = original.externalIdentity()
@@ -71,7 +72,7 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
                     throw new IllegalStateException(
                             "Social chat ingress has not been bound");
                 }
-                sink.accept(enriched);
+                sink.accept(enriched, feedback);
                 delivered.complete(null);
             } catch (RuntimeException error) {
                 delivered.completeExceptionally(error);

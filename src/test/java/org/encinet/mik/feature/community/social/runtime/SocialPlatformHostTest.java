@@ -53,6 +53,8 @@ import java.util.UUID;
 import java.util.Map;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
+import static org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict.accepted;
+import static org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict.rejected;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -85,7 +87,7 @@ class SocialPlatformHostTest {
                             org.encinet.mik.feature.community.chat.model.ChatPlaceholder.IMAGE)));
             var source = new ChatSubmission(original.id(), original.origin(), original.sender(), original.conversation(),
                     original.sourceText(), metadata, original.receivedAt(), original.processingContext());
-            host.publish(new ChatMessage(source, content, java.util.Set.of()));
+            host.publish(new ChatMessage(source, content, java.util.Set.of()), _ -> {});
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             while ((chinese.outgoingChat.isEmpty() || german.outgoingChat.isEmpty()) && System.nanoTime() < deadline) Thread.sleep(10);
             assertEquals("[image] [图片]", chinese.outgoingChat.getFirst().content().plainText());
@@ -101,7 +103,7 @@ class SocialPlatformHostTest {
         adapter.contentSafetyEnabled = true;
         SocialContentGuard unavailable = SocialContentGuard.reloadable(() -> {
             throw new IllegalArgumentException("Invalid moderation configuration");
-        }, _ -> SocialDocument.of(TRUSTED, "Hidden", SocialDocument.Tone.WARNING));
+        }, (_, _) -> SocialDocument.of(TRUSTED, "Hidden", SocialDocument.Tone.WARNING));
         try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(_ -> "Trusted help")),
                 SocialIdentityLeaseManager.unavailable(), unavailable,
@@ -347,7 +349,7 @@ class SocialPlatformHostTest {
         SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(argument -> argument)),
                 SocialIdentityLeaseManager.unavailable(), guard(),
-                message -> {
+                (message, _) -> {
                     assertEquals("bridge", ((org.encinet.mik.feature.community.chat.model.ChatOrigin.Social) message.origin()).platformId());
                     incoming.add(message);
                     delivered.countDown();
@@ -378,7 +380,7 @@ class SocialPlatformHostTest {
                     adapter.emit("chat-event", "always", "Alice",
                             "hello Minecraft", new Capture()));
 
-            host.publish(ChatTestMessages.minecraft("Steve", "#hello Matrix"));
+            host.publish(ChatTestMessages.minecraft("Steve", "#hello Matrix"), _ -> {});
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             while (adapter.outgoingChat.isEmpty()
                     && System.nanoTime() < deadline) {
@@ -387,6 +389,45 @@ class SocialPlatformHostTest {
             assertEquals(List.of("#hello Matrix", "hello Matrix"),
                     adapter.outgoingChat.stream()
                             .map(message -> message.submission().sourceText()).toList());
+        }
+    }
+
+    @Test
+    void ordinarySocialChatReportsRejectionAndServiceFailureToItsOriginalReplyChannel() throws Exception {
+        for (boolean unavailable : List.of(false, true)) {
+            MemoryAdapter source = new MemoryAdapter("matrix", "!", 4);
+            MemoryAdapter target = new MemoryAdapter("qq", "/", 4);
+            target.contentSafetyEnabled = true;
+            target.chatRoutes = List.of(
+                    new SocialChatRoute(new SocialConversation("one", SocialConversation.Type.GROUP), SocialChatPolicy.always(), SocialChatPolicy.always()),
+                    new SocialChatRoute(new SocialConversation("two", SocialConversation.Type.GROUP), SocialChatPolicy.always(), SocialChatPolicy.always()));
+            var reviews = new java.util.concurrent.atomic.AtomicInteger();
+            var guard = SocialContentGuard.available(_ -> {
+                reviews.incrementAndGet();
+                if (unavailable) throw new IllegalStateException("Qwen Guard returned HTTP 429");
+                return rejected("Unsafe: Violent");
+            }, SocialDocument.of(TRUSTED, "Blocked", SocialDocument.Tone.WARNING));
+            var owner = new java.util.concurrent.atomic.AtomicReference<SocialPlatformHost>();
+            Capture reply = new Capture();
+            try (var host = new SocialPlatformHost(List.of(source, target), dispatcher(echoCommand(value -> value)),
+                    SocialIdentityLeaseManager.unavailable(), guard, (submission, feedback) -> {
+                        owner.get().publish(new ChatMessage(submission, ChatContent.plain(submission.sourceText()), java.util.Set.of()), feedback);
+                        return CompletableFuture.completedFuture(null);
+                    }, org.encinet.mik.shared.i18n.FluentTestSupport.languages(), Logger.getAnonymousLogger())) {
+                owner.set(host);
+                host.start();
+                assertEquals(SocialEventSink.Acceptance.ACCEPTED, source.emit("event", "room", "Alice", "ordinary text", reply));
+                assertTrue(reply.sent.await(3, TimeUnit.SECONDS));
+            }
+            assertEquals(1, reviews.get());
+            assertTrue(target.outgoingChat.isEmpty());
+            assertEquals(1, reply.documents.size());
+            String notice = reply.documents.getFirst().plainText();
+            assertTrue(notice.contains(target.descriptor.displayName()), notice);
+            assertTrue(notice.contains(unavailable ? "HTTP 429" : "Unsafe: Violent"));
+            assertTrue(notice.contains(unavailable ? "内容审查失败" : "消息未通过内容审查，原因:"));
+            assertFalse(notice.contains("ordinary text"));
+            assertEquals(TRUSTED, reply.documents.getFirst().moderation());
         }
     }
 
@@ -400,13 +441,13 @@ class SocialPlatformHostTest {
         SocialContentGuard directionalGuard = SocialContentGuard.available(
                 text -> {
                     moderated.add(text);
-                    return !text.contains("js");
+                    return text.contains("js") ? rejected("Unsafe: Violent") : accepted();
                 },
                 SocialDocument.of(TRUSTED, "Blocked", SocialDocument.Tone.WARNING));
         SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(argument -> argument)),
                 SocialIdentityLeaseManager.unavailable(), directionalGuard,
-                message -> {
+                (message, _) -> {
                     incoming.add(message);
                     delivered.countDown();
                     return CompletableFuture.completedFuture(null);
@@ -420,10 +461,10 @@ class SocialPlatformHostTest {
             assertEquals(List.of("js"), incoming.stream()
                     .map(ChatSubmission::sourceText).toList());
 
-            host.publish(ChatTestMessages.minecraft("Steve", "js"));
+            host.publish(ChatTestMessages.minecraft("Steve", "js"), _ -> {});
             host.publish(ChatTestMessages.minecraft("Steve", "safe source",
-                    ChatContent.plain("expanded js")));
-            host.publish(ChatTestMessages.minecraft("Steve", "safe"));
+                    ChatContent.plain("expanded js")), _ -> {});
+            host.publish(ChatTestMessages.minecraft("Steve", "safe"), _ -> {});
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             while (adapter.outgoingChat.isEmpty()
                     && System.nanoTime() < deadline) {
@@ -463,7 +504,7 @@ class SocialPlatformHostTest {
         LinkedBlockingQueue<ChatSubmission> incoming = new LinkedBlockingQueue<>();
         try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(argument -> argument)), SocialIdentityLeaseManager.unavailable(),
-                guard(), message -> {
+                guard(), (message, _) -> {
                     incoming.add(message);
                     return CompletableFuture.completedFuture(null);
                 }, new org.encinet.mik.shared.i18n.LanguageService(null), Logger.getAnonymousLogger())) {
@@ -492,8 +533,8 @@ class SocialPlatformHostTest {
             assertEquals("Qq:works", command.documents.getFirst().title());
             assertTrue(incoming.isEmpty());
 
-            host.publish(ChatTestMessages.minecraft("Steve", "ordinary outbound"));
-            host.publish(ChatTestMessages.minecraft("Steve", ">selected outbound"));
+            host.publish(ChatTestMessages.minecraft("Steve", "ordinary outbound"), _ -> {});
+            host.publish(ChatTestMessages.minecraft("Steve", ">selected outbound"), _ -> {});
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             while (adapter.outgoingChat.size() < 3 && System.nanoTime() < deadline) Thread.sleep(10);
             assertEquals(List.of("ordinary outbound", ">selected outbound", "selected outbound"),
@@ -513,7 +554,7 @@ class SocialPlatformHostTest {
         LinkedBlockingQueue<ChatSubmission> incoming = new LinkedBlockingQueue<>();
         try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(argument -> argument)), SocialIdentityLeaseManager.unavailable(),
-                guard(), message -> {
+                guard(), (message, _) -> {
                     incoming.add(message);
                     return CompletableFuture.completedFuture(null);
                 }, new org.encinet.mik.shared.i18n.LanguageService(null), Logger.getAnonymousLogger())) {
@@ -544,7 +585,7 @@ class SocialPlatformHostTest {
         LinkedBlockingQueue<ChatSubmission> incoming = new LinkedBlockingQueue<>();
         try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(_ -> { throw new AssertionError("Quoted commands must not execute"); })),
-                SocialIdentityLeaseManager.unavailable(), guard(), message -> {
+                SocialIdentityLeaseManager.unavailable(), guard(), (message, _) -> {
                     incoming.add(message);
                     return CompletableFuture.completedFuture(null);
                 }, new org.encinet.mik.shared.i18n.LanguageService(null), Logger.getAnonymousLogger())) {
@@ -634,7 +675,7 @@ class SocialPlatformHostTest {
         List<String> checks = new CopyOnWriteArrayList<>();
         SocialContentGuard rejecting = SocialContentGuard.available(text -> {
             checks.add(text);
-            return false;
+            return rejected("Unsafe: Violent");
         }, SocialDocument.of(TRUSTED, "Blocked", SocialDocument.Tone.WARNING));
         try (SocialPlatformHost host = new SocialPlatformHost(List.of(guarded, unguarded),
                 dispatcher(echoCommand(argument -> argument)), SocialIdentityLeaseManager.unavailable(),
@@ -694,14 +735,14 @@ class SocialPlatformHostTest {
                 new SocialConversation("prefix", SocialConversation.Type.GROUP),
                 SocialChatPolicy.always(), SocialChatPolicy.prefixed("trigger", true)));
         SocialContentGuard directionalGuard = SocialContentGuard.available(
-                text -> !text.contains("trigger"),
+                text -> text.contains("trigger") ? rejected("Unsafe: Violent") : accepted(),
                 SocialDocument.of(TRUSTED, "Blocked", SocialDocument.Tone.WARNING));
         try (SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(argument -> argument)),
                 SocialIdentityLeaseManager.unavailable(), directionalGuard,
                 new org.encinet.mik.shared.i18n.LanguageService(null), Logger.getAnonymousLogger())) {
             host.start();
-            host.publish(ChatTestMessages.minecraft("Steve", "trigger safe"));
+            host.publish(ChatTestMessages.minecraft("Steve", "trigger safe"), _ -> {});
 
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             while (adapter.outgoingChat.isEmpty()
@@ -735,7 +776,7 @@ class SocialPlatformHostTest {
                             org.encinet.mik.feature.community.chat.model.ChatProcessingContext.external());
 
             host.publish(new ChatMessage(
-                    submission, ChatContent.plain("hello"), java.util.Set.of()));
+                    submission, ChatContent.plain("hello"), java.util.Set.of()), _ -> {});
             Thread.sleep(50);
 
             assertTrue(adapter.outgoingChat.isEmpty());
@@ -771,7 +812,7 @@ class SocialPlatformHostTest {
         SocialPlatformHost host = new SocialPlatformHost(List.of(adapter),
                 dispatcher(echoCommand(argument -> argument)),
                 SocialIdentityLeaseManager.unavailable(), guard(),
-                _ -> CompletableFuture.completedFuture(null),
+                (_, _) -> CompletableFuture.completedFuture(null),
                 playerId -> playerId.equals(target)
                         ? List.of(matrixBinding, otherPlatform) : List.of(),
                 new org.encinet.mik.shared.i18n.LanguageService(null), Logger.getAnonymousLogger());
@@ -779,7 +820,7 @@ class SocialPlatformHostTest {
             host.start();
             host.publish(ChatTestMessages.minecraft("Steve", "@Alex",
                     new ChatContent(List.of(new ChatNode.PlayerMention(
-                            target, "Alex", ChatStyle.EMPTY)))));
+                            target, "Alex", ChatStyle.EMPTY)))), _ -> {});
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
             while (adapter.outgoingMentionResolutions.size() < 2
                     && System.nanoTime() < deadline) {
@@ -834,7 +875,7 @@ class SocialPlatformHostTest {
     }
 
     private static SocialContentGuard guard() {
-        return SocialContentGuard.available(_ -> true,
+        return SocialContentGuard.available(_ -> accepted(),
                 SocialDocument.of(TRUSTED, "Blocked", SocialDocument.Tone.WARNING));
     }
 

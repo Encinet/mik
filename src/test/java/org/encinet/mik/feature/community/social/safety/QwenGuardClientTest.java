@@ -45,7 +45,7 @@ class QwenGuardClientTest {
     void healthyOvh8bAlwaysWinsWithoutEden() throws Exception {
         startServer(_ -> OVH_SAFE);
         try (var client = client(false)) {
-            for (int i = 0; i < 6; i++) assertTrue(client.allows("hello"));
+            for (int i = 0; i < 6; i++) assertTrue(client.review("hello").allowed());
         }
         assertEquals(java.util.Collections.nCopies(6, OVH_8B), models);
     }
@@ -54,7 +54,7 @@ class QwenGuardClientTest {
     void healthy8bRoutesShareTrafficWithoutUsingFallback() throws Exception {
         startServer(QwenGuardClientTest::safe);
         try (var client = client(true)) {
-            for (int i = 0; i < 6; i++) assertTrue(client.allows("hello"));
+            for (int i = 0; i < 6; i++) assertTrue(client.review("hello").allowed());
         }
         assertEquals(List.of(OVH_8B, EDEN_8B, OVH_8B, EDEN_8B, OVH_8B, EDEN_8B), models);
     }
@@ -64,8 +64,8 @@ class QwenGuardClientTest {
     void another8bIsTriedBeforeFallbackAndFailedRoutesAreSkipped(int status) throws Exception {
         startServer(model -> OVH_8B.equals(model) ? new Reply(status, "invalid result") : safe(model));
         try (var client = client(true)) {
-            assertTrue(client.allows("hello"));
-            assertTrue(client.allows("hello again"));
+            assertTrue(client.review("hello").allowed());
+            assertTrue(client.review("hello again").allowed());
         }
         assertEquals(List.of(OVH_8B, EDEN_8B, EDEN_8B), models);
     }
@@ -74,8 +74,8 @@ class QwenGuardClientTest {
     void fallbackIsUsedOnlyAfterBoth8bRoutesFail() throws Exception {
         startServer(model -> FALLBACK.equals(model) ? OVH_SAFE : new Reply(503, "unavailable"));
         try (var client = client(true)) {
-            assertTrue(client.allows("hello"));
-            assertTrue(client.allows("hello again"));
+            assertTrue(client.review("hello").allowed());
+            assertTrue(client.review("hello again").allowed());
         }
         assertEquals(List.of(OVH_8B, EDEN_8B, FALLBACK, FALLBACK), models);
     }
@@ -86,13 +86,13 @@ class QwenGuardClientTest {
         startServer(model -> OVH_8B.equals(model) && limited.get()
                 ? new Reply(429, "limited") : OVH_SAFE);
         try (var client = client(false)) {
-            assertTrue(client.allows("hello"));
-            assertTrue(client.allows("during cooldown"));
+            assertTrue(client.review("hello").allowed());
+            assertTrue(client.review("during cooldown").allowed());
             limited.set(false);
             // The test server supplies a one-second Retry-After for rate limits.
             Thread.sleep(1_100);
-            assertTrue(client.allows("after cooldown"));
-            assertTrue(client.allows("still healthy"));
+            assertTrue(client.review("after cooldown").allowed());
+            assertTrue(client.review("still healthy").allowed());
         }
         assertEquals(List.of(OVH_8B, FALLBACK, FALLBACK, OVH_8B, OVH_8B), models);
     }
@@ -104,17 +104,46 @@ class QwenGuardClientTest {
                  "message":{"content":"Safety: Unsafe\\nCategories: Violent"}}]}
                 """));
         try (var client = client(true)) {
-            assertFalse(client.allows("unsafe"));
+            var verdict = client.review("unsafe");
+            assertFalse(verdict.allowed());
+            assertEquals("Unsafe: Violent", verdict.reason());
         }
         assertEquals(List.of(OVH_8B), models);
+    }
+
+    @Test
+    void edenRejectionRetainsEveryRiskLabel() throws Exception {
+        startServer(model -> EDEN_8B.equals(model) ? new Reply(200, """
+                {"status":"success","provider":"ovhcloud","feature":"text","subfeature":"moderation",
+                 "output":{"nsfw_likelihood":3,"nsfw_likelihood_score":0.5,"items":[
+                   {"label":"violence","likelihood":4,"likelihood_score":0.8},
+                   {"label":"hate","likelihood":2,"likelihood_score":0.2},
+                   {"label":"safe category","likelihood":1,"likelihood_score":0}]}}
+                """) : OVH_SAFE);
+        try (var client = client(true)) {
+            assertTrue(client.review("first route").allowed());
+            assertEquals(new SocialContentModerator.Verdict(false, "violence, hate"), client.review("risk"));
+        }
+        assertEquals(List.of(OVH_8B, EDEN_8B), models);
+    }
+
+    @Test
+    void overBudgetContentExplainsTheLimitWithoutCallingAModel() throws Exception {
+        startServer(_ -> OVH_SAFE);
+        try (var client = client(false)) {
+            var verdict = client.review("字".repeat(10_001));
+            assertFalse(verdict.allowed());
+            assertTrue(verdict.reason().contains("context limit"));
+        }
+        assertTrue(models.isEmpty());
     }
 
     @Test
     void allRoutesUnavailableStopsSendingRequests() throws Exception {
         startServer(_ -> new Reply(429, "limited"));
         try (var client = client(true)) {
-            assertThrows(IllegalStateException.class, () -> client.allows("hello"));
-            assertThrows(IllegalStateException.class, () -> client.allows("during cooldown"));
+            assertThrows(IllegalStateException.class, () -> client.review("hello").allowed());
+            assertThrows(IllegalStateException.class, () -> client.review("during cooldown").allowed());
         }
         assertEquals(List.of(OVH_8B, EDEN_8B, FALLBACK), models);
     }

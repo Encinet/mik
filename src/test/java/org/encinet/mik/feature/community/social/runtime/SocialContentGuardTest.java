@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
+import static org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict.accepted;
+import static org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict.rejected;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -38,7 +40,7 @@ class SocialContentGuardTest {
         AtomicReference<String> submitted = new AtomicReference<>();
         SocialContentGuard guard = SocialContentGuard.available(text -> {
             submitted.set(text);
-            return false;
+            return rejected("Unsafe: Violent");
         }, blocked);
         SocialDocument document = SocialDocument.of(REQUIRED, "Players", SocialDocument.Tone.INFO,
                         SocialDocument.paragraph("Player: blocked phrase " + "context ".repeat(30)));
@@ -53,8 +55,9 @@ class SocialContentGuardTest {
     @Test
     void blockedReplyUsesTheLanguageCarriedByTheOriginalDocument() {
         SocialContentGuard guard = SocialContentGuard.available(
-                _ -> false,
-                language -> SocialDocument.of(TRUSTED, language.name(), SocialDocument.Tone.WARNING)
+                _ -> rejected("Unsafe: Violent"),
+                (language, reason) -> SocialDocument.of(TRUSTED, language.name(), SocialDocument.Tone.WARNING,
+                        SocialDocument.paragraph(reason))
                         .localized(language));
         SocialDocument japanese = SocialDocument.of(REQUIRED, "Players", SocialDocument.Tone.INFO,
                         SocialDocument.paragraph("blocked phrase"))
@@ -64,6 +67,8 @@ class SocialContentGuardTest {
 
         assertEquals(Language.JA_JP, result.language());
         assertEquals("JA_JP", result.title());
+        assertTrue(result.plainText().contains("Unsafe: Violent"));
+        assertEquals(TRUSTED, result.moderation());
     }
 
     @Test
@@ -71,7 +76,7 @@ class SocialContentGuardTest {
         AtomicInteger calls = new AtomicInteger();
         SocialContentGuard guard = SocialContentGuard.available(text -> {
             calls.incrementAndGet();
-            return !text.contains("blocked");
+            return text.contains("blocked") ? rejected("Unsafe: Violent") : accepted();
         }, SocialDocument.of(TRUSTED, "Hidden", SocialDocument.Tone.WARNING));
 
         assertTrue(guard.allowsOutboundText("ordinary chat", REQUIRED, ENABLED));
@@ -82,7 +87,7 @@ class SocialContentGuardTest {
     }
 
     private static SocialContentGuard guard(SocialDocument blocked) {
-        return SocialContentGuard.available(text -> !text.contains("blocked"), blocked);
+        return SocialContentGuard.available(text -> text.contains("blocked") ? rejected("Unsafe: Violent") : accepted(), blocked);
     }
 
     @Test
@@ -94,10 +99,10 @@ class SocialContentGuardTest {
             if (broken.get()) throw new IllegalArgumentException("Invalid configuration");
             int generation = loaded.incrementAndGet();
             return new SocialContentModerator() {
-                @Override public boolean allows(String text) { return generation == 1; }
+                @Override public Verdict review(String text) { return generation == 1 ? accepted() : rejected("Unsafe"); }
                 @Override public void close() { closed.incrementAndGet(); }
             };
-        }, _ -> SocialDocument.of(TRUSTED, "Hidden", SocialDocument.Tone.WARNING));
+        }, (_, _) -> SocialDocument.of(TRUSTED, "Hidden", SocialDocument.Tone.WARNING));
         try (guard) {
             guard.reload();
             assertTrue(guard.allowsOutboundText("hello", REQUIRED, ENABLED));

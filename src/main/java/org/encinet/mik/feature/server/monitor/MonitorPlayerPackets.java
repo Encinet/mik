@@ -9,6 +9,13 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSp
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientSpectateEntity;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerInfoUpdate;
+import com.github.retrooper.packetevents.wrapper.PacketWrapper;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMove;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRelativeMoveAndRotation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityPositionSync;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRotation;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
+import com.github.retrooper.packetevents.util.Vector3d;
 import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
 import org.bukkit.GameMode;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
@@ -25,6 +32,8 @@ class MonitorPlayerPackets extends PacketListenerAbstract {
 
     private final java.util.Set<UUID> staff = ConcurrentHashMap.newKeySet();
     private final Map<Integer, UUID> entityIds = new ConcurrentHashMap<>();
+    private final MonitorTargetPackets targets = new MonitorTargetPackets();
+    private final Map<UUID, FollowTarget> following = new java.util.HashMap<>();
 
     MonitorPlayerPackets() {
         super(PacketListenerPriority.HIGH);
@@ -37,6 +46,8 @@ class MonitorPlayerPackets extends PacketListenerAbstract {
         modes.clear();
         staff.clear();
         entityIds.clear();
+        following.clear();
+        targets.clear();
     }
 
     void begin(Player player, GameMode original) {
@@ -46,9 +57,46 @@ class MonitorPlayerPackets extends PacketListenerAbstract {
     }
 
     void end(Player player) {
+        followTarget(player, null);
         modes.remove(player.getUniqueId());
         entityIds.remove(player.getEntityId(), player.getUniqueId());
     }
+
+    /** Main-thread capture; enqueue after previous writes so the decoder starts at their final base. */
+    void followTarget(Player viewer, @org.jetbrains.annotations.Nullable Player subject) {
+        UUID viewerId = viewer.getUniqueId();
+        FollowTarget next = subject == null ? null : new FollowTarget(subject.getUniqueId(), subject.getWorld().getUID(), subject.getEntityId());
+        if (java.util.Objects.equals(following.get(viewerId), next)) return;
+        if (subject == null) {
+            following.remove(viewerId);
+            enqueueTarget(viewer, () -> targets.end(viewerId));
+            return;
+        }
+        var handle = ((CraftPlayer) subject).getHandle();
+        var tracker = handle.moonrise$getTrackedEntity();
+        if (tracker == null) return;
+        var base = tracker.serverEntity.getPositionBase();
+        var position = new Vector3d(base.x, base.y, base.z);
+        int entity = subject.getEntityId();
+        float yaw = handle.getYRot();
+        float pitch = handle.getXRot();
+        following.put(viewerId, next);
+        enqueueTarget(viewer, () -> {
+            if (modes.containsKey(viewerId)) targets.begin(viewerId, entity, position, yaw, pitch);
+        });
+    }
+
+    private void enqueueTarget(Player viewer, Runnable update) {
+        var channel = ((CraftPlayer) viewer).getHandle().connection.connection.channel;
+        try {
+            channel.eventLoop().execute(update);
+        } catch (java.util.concurrent.RejectedExecutionException ignored) {
+            // Disconnect may already have shut down the connection's event loop.
+            targets.end(viewer.getUniqueId());
+        }
+    }
+
+    private record FollowTarget(UUID player, UUID world, int entity) { }
 
     void staff(UUID id, boolean permitted) {
         if (permitted) staff.add(id); else staff.remove(id);
@@ -60,10 +108,14 @@ class MonitorPlayerPackets extends PacketListenerAbstract {
 
     @Override
     public void onPacketReceive(PacketReceiveEvent event) {
-        if (modes.isEmpty() || staff.contains(event.getUser().getUUID())) return;
+        if (modes.isEmpty() || event.isCancelled()) return;
+        if (event.getPacketType() != PacketType.Play.Client.SPECTATE
+                && event.getPacketType() != PacketType.Play.Client.SPECTATE_ENTITY) return;
+        UUID viewer = event.getUser().getUUID();
+        if (viewer == null || staff.contains(viewer)) return;
         if (event.getPacketType() == PacketType.Play.Client.SPECTATE) {
             UUID target = new WrapperPlayClientSpectate(event).getTargetUUID();
-            if (blocksSpectate(event.getUser().getUUID(), target)) event.setCancelled(true);
+            if (blocksSpectate(viewer, target)) event.setCancelled(true);
         } else if (event.getPacketType() == PacketType.Play.Client.SPECTATE_ENTITY) {
             var packet = new WrapperPlayClientSpectateEntity(event);
             if (packet.hasEntityId() && entityIds.containsKey(packet.getEntityId())) event.setCancelled(true);
@@ -89,9 +141,29 @@ class MonitorPlayerPackets extends PacketListenerAbstract {
 
     @Override
     public void onPacketSend(PacketSendEvent event) {
-        if (modes.isEmpty() || event.getPacketType() != PacketType.Play.Server.PLAYER_INFO_UPDATE) return;
+        if (modes.isEmpty() || event.isCancelled()) return;
+        UUID viewer = event.getUser().getUUID();
+        if (viewer == null) return;
+        if (targets.active(viewer)) {
+            PacketWrapper<?> movement = switch (event.getPacketType()) {
+                case PacketType.Play.Server.ENTITY_RELATIVE_MOVE -> new WrapperPlayServerEntityRelativeMove(event);
+                case PacketType.Play.Server.ENTITY_RELATIVE_MOVE_AND_ROTATION -> new WrapperPlayServerEntityRelativeMoveAndRotation(event);
+                case PacketType.Play.Server.ENTITY_POSITION_SYNC -> new WrapperPlayServerEntityPositionSync(event);
+                case PacketType.Play.Server.ENTITY_ROTATION -> new WrapperPlayServerEntityRotation(event);
+                case PacketType.Play.Server.SPAWN_ENTITY -> new WrapperPlayServerSpawnEntity(event);
+                default -> null;
+            };
+            if (movement != null) {
+                PacketWrapper<?> replacement = targets.rewrite(viewer, movement);
+                if (replacement != movement) {
+                    event.setCancelled(true);
+                    event.getUser().sendPacketSilently(replacement);
+                }
+            }
+        }
+        if (event.getPacketType() != PacketType.Play.Server.PLAYER_INFO_UPDATE) return;
         var packet = new WrapperPlayServerPlayerInfoUpdate(event);
-        if (maskModes(event.getUser().getUUID(), packet)) event.markForReEncode(true);
+        if (maskModes(viewer, packet)) event.markForReEncode(true);
     }
 
     boolean maskModes(UUID viewer, WrapperPlayServerPlayerInfoUpdate packet) {

@@ -62,13 +62,13 @@ public final class QwenGuardClient implements SocialContentModerator {
     }
 
     @Override
-    public boolean allows(String text) {
+    public Verdict review(String text) {
         Objects.requireNonNull(text, "text");
         checkActive();
-        if (text.isBlank()) return true;
+        if (text.isBlank()) return Verdict.accepted();
         if (text.length() > MAXIMUM_INPUT_BYTES
                 || text.getBytes(StandardCharsets.UTF_8).length > MAXIMUM_INPUT_BYTES) {
-            return false;
+            return Verdict.rejected("Input exceeds the moderation context limit");
         }
         long deadline = System.nanoTime() + config.requestTimeout().toNanos();
         List<Route> candidates = candidates();
@@ -94,7 +94,7 @@ public final class QwenGuardClient implements SocialContentModerator {
             if (status == 200) {
                 // A valid rejection is final; never seek another model's approval.
                 try {
-                    return route.protocol.allows(new String(response.body(), StandardCharsets.UTF_8));
+                    return route.protocol.review(new String(response.body(), StandardCharsets.UTF_8));
                 } catch (IllegalStateException error) {
                     route.coolDown(FAILURE_COOLDOWN);
                     failure = error.getMessage();

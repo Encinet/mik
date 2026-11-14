@@ -4,7 +4,7 @@ Paper 服务器插件，提供玩家工具、地段保护、载具、音乐与�
 
 ## 运行与安装
 
-当前构建目标为 **Java 25、Paper 26.3**，必需插件为 **PacketEvents、LuckPerms、Plasmo Voice**。其他集成按功能选装，依赖声明见 [paper-plugin.yml](src/main/resources/paper-plugin.yml)。
+当前构建目标为 **Java 25、Paper 26.3**，必需插件为 **PacketEvents 2.14.0 或更高版本、LuckPerms、Plasmo Voice**。其他集成按功能选装，依赖声明见 [paper-plugin.yml](src/main/resources/paper-plugin.yml)。
 
 1. 按下方[构建命令](#构建与验证)生成插件，将 `build/libs/mik-1.0.jar` 与必需插件放入服务器的 `plugins/` 目录。
 2. 启动服务器，检查 MIK 是否正常启用。配置与存档位于 `plugins/mik/`。

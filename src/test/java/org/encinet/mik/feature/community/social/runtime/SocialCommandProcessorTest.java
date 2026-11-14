@@ -23,17 +23,31 @@ import java.util.logging.Logger;
 
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.REQUIRED;
 import static org.encinet.mik.feature.community.social.document.SocialDocument.Moderation.TRUSTED;
+import static org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict.accepted;
+import static org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict.rejected;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class SocialCommandProcessorTest {
     @Test void completedActionKeepsItsReceiptWhenReviewIsBlockedOrUnavailable() {
-        verifyReceipt(_ -> false, false, false);
+        verifyReceipt(_ -> rejected("Unsafe: Violent"), false, false);
         verifyReceipt(_ -> { throw new IllegalStateException("offline"); }, false, false);
     }
-    @Test void presentationFailureDoesNotLoseTheCommittedAction() { verifyReceipt(_ -> true, true, false); }
-    @Test void failedDeliveryDoesNotRetryTheMessageOrTheAction() { verifyReceipt(_ -> true, false, true); }
+    @Test void presentationFailureDoesNotLoseTheCommittedAction() { verifyReceipt(_ -> accepted(), true, false); }
+    @Test void failedDeliveryDoesNotRetryTheMessageOrTheAction() { verifyReceipt(_ -> accepted(), false, true); }
+
+    @Test void rejectionAndServiceFailureExplainWhyWithoutACompletionReceipt() {
+        verifyResult(_ -> rejected("Unsafe: Violent"), false, false, false);
+        verifyResult(_ -> { throw new IllegalStateException("Qwen Guard returned HTTP 429"); }, false, false, false);
+    }
 
     private static void verifyReceipt(SocialContentModerator moderator, boolean presentationFails, boolean deliveryFails) {
+        verifyResult(moderator, presentationFails, deliveryFails, true);
+    }
+
+    private static void verifyResult(SocialContentModerator moderator, boolean presentationFails,
+                                     boolean deliveryFails, boolean hasReceipt) {
         var actions = new AtomicInteger();
         var languageLookups = new AtomicInteger();
         var delivered = new ArrayList<SocialDocument>();
@@ -51,7 +65,7 @@ class SocialCommandProcessorTest {
             @Override public SocialCommandExecution<Boolean> execute(SocialCommandContext context, NoArguments input) {
                 actions.incrementAndGet();
                 return new SocialCommandExecution<>(true, new SocialCommandExecution.LanguageTarget(Language.ZH_CN, Optional.of(UUID.randomUUID())),
-                        Optional.of(SocialCompletionReceipt.BINDING_LINKED));
+                        hasReceipt ? Optional.of(SocialCompletionReceipt.BINDING_LINKED) : Optional.empty());
             }
             @Override public SocialDocument present(SocialPresentationContext context, Boolean result) {
                 if (presentationFails) throw new IllegalStateException("renderer failed");
@@ -67,7 +81,9 @@ class SocialCommandProcessorTest {
                 }));
         var dispatcher = SocialCommandTestSupport.dispatcher(List.of(command));
         var invocation = dispatcher.resolve(SocialCommandSyntax.caseInsensitive(Language.ZH_CN, "/"), message).orElseThrow();
-        try (var guard = SocialContentGuard.available(moderator, SocialDocument.of(TRUSTED, "Hidden", SocialDocument.Tone.WARNING))) {
+        try (var guard = SocialContentGuard.available(moderator, (language, reason) -> SocialDocument.message(TRUSTED,
+                SocialDocument.Tone.WARNING, SocialDocument.paragraph(fluent.t(language, Message.SOCIAL_REPLY_HIDDEN, reason)))
+                .localized(language))) {
             new SocialCommandProcessor(guard, languages, Logger.getAnonymousLogger()).execute(
                     new SocialPlatformDescriptor("qq", "QQ", 0x55FFFF), message, invocation,
                     new SocialOutputPolicy(true, 1_000), () -> true, UUID.randomUUID());
@@ -76,6 +92,18 @@ class SocialCommandProcessorTest {
         assertEquals(1, languageLookups.get(), "the receipt and main response must share one language snapshot");
         assertEquals(1, delivered.size());
         assertEquals(Language.EN_US, delivered.getFirst().language());
-        if (!deliveryFails) assertEquals(fluent.t(Language.EN_US, Message.SOCIAL_BINDING_LINK_COMPLETED), delivered.getFirst().plainText());
+        String response = delivered.getFirst().plainText();
+        if (deliveryFails) {
+            assertEquals(REQUIRED, delivered.getFirst().moderation());
+            assertTrue(response.contains("dynamic name"));
+            return;
+        }
+        if (hasReceipt) assertTrue(response.startsWith(fluent.t(Language.EN_US, Message.SOCIAL_BINDING_LINK_COMPLETED)));
+        else assertFalse(response.contains(fluent.t(Language.EN_US, Message.SOCIAL_BINDING_LINK_COMPLETED)));
+        assertEquals(TRUSTED, delivered.getFirst().moderation());
+        if (!presentationFails && !deliveryFails) {
+            assertFalse(response.contains("dynamic name"));
+            assertTrue(response.contains("Unsafe: Violent") || response.contains("offline") || response.contains("HTTP 429"));
+        }
     }
 }

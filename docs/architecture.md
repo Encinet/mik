@@ -83,6 +83,7 @@ Identity 独占绑定数据库与查询快照，用完整外部身份键去重�
 | `space/` | 非欧几里得空间、表面、连接、穿越与索引 |
 | `elevator/` | 物理平台与楼层、共享目录发现、玩家访问与群组移动、固定面板安放及呈现 |
 | `vehicle/` | 载具定义、模型编辑、物理、驾驶与仪表盘 |
+| `riding/` | 潜行交互骑乘生物、方向键驾驶与生物自主行为恢复 |
 | `spawn/` | 出生点信标颜色设置 |
 
 世界功能维护自己的编辑草稿、预览和运行资源，操作提交时复核目标与权限。具体结构见[铁电梯](iron-elevator.md)、[载具](vehicles.md)、[地段工作区](plot-board.md)与[选区编辑](plot-subplots.md)。载具专用 Axiom 适配位于 `vehicle/integration/axiom/`，共用的 Gizmo 和图片注解适配位于全局 `integration/axiom/`。
@@ -103,7 +104,7 @@ Identity 独占绑定数据库与查询快照，用完整外部身份键去重�
 | `access/` | 维护模式和使用限制；绑定准入由社区 Identity 管理 |
 | `auth/` | 正版认证容灾、已验证身份与来源地址缓存、Paper 认证服务接入与恢复；见[认证容灾](authentication-fallback.md) |
 | `ban/` | 封禁规则、记录、准入检查和 Paper 封禁同步 |
-| `monitor/` | 管理员随机轮换旁观、附近跟随、退出恢复与隐身通知排除能力；见[管理员监控](server-monitor.md) |
+| `monitor/` | 管理员加权公平轮换旁观、附近跟随、退出恢复与隐身通知排除能力；见[管理员监控](server-monitor.md) |
 | `performance/` | 性能信息、网络反馈限流与跑图保护；见[网络出口](network-egress.md) |
 | `presentation/` | 服务器品牌、MOTD、服务器列表和链接 |
 | `safety/` | 物品与书页限值、实体大小、末影珍珠、踩踏、液体、爆炸、危险实体和异常保护；见[世界安全保护](server-safety.md) |

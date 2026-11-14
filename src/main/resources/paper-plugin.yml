@@ -5,6 +5,9 @@ loader: org.encinet.mik.MikLoader
 api-version: '26.3'
 authors: [ Noctiro, Aeolic ]
 permissions:
+  mik.riding.use:
+    default: true
+    description: Mount and steer mobs by sneaking and right-clicking
   mik.vehicle.use:
     default: true
     description: Ride and operate accessible vehicles

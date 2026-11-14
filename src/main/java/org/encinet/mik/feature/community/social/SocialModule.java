@@ -89,12 +89,12 @@ public final class SocialModule {
         commands.add(new UnknownSocialCommand(languageResolver, languages));
         SocialCommandDispatcher dispatcher = new SocialCommandDispatcher(commands, languageResolver::target);
 
-        java.util.function.Function<Language, SocialDocument> blockedDocument = language ->
+        java.util.function.BiFunction<Language, String, SocialDocument> blockedDocument = (language, reason) ->
                 SocialDocument.of(TRUSTED, "🛡 " + languages.t(
                                 language, Message.SOCIAL_TITLE_CONTENT_HIDDEN),
                         SocialDocument.Tone.WARNING,
                                 SocialDocument.paragraph(languages.t(
-                                        language, Message.SOCIAL_REPLY_HIDDEN)))
+                                        language, Message.SOCIAL_REPLY_HIDDEN, reason)))
                         .localized(language);
         SocialContentGuard contentGuard = SocialContentGuard.reloadable(
                 () -> new QwenGuardClient(SocialContentSafetyConfig.load(plugin)),

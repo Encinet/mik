@@ -246,6 +246,14 @@ public final class PlotModule implements Listener {
                 org.encinet.mik.shared.role.RolePermissions.canModerate(player), "music_control");
     }
 
+    /** Read-only authorization for mounting and steering mobs at their current position. */
+    public boolean mayRide(Player player, org.bukkit.Location location) {
+        return location.getWorld() != null && registry.allowed(location.getWorld().getUID(),
+                location.getBlockX(), location.getBlockY(), location.getBlockZ(), player.getUniqueId(),
+                org.encinet.mik.shared.role.RolePermissions.isMember(player),
+                org.encinet.mik.shared.role.RolePermissions.canModerate(player), "ride");
+    }
+
     public void openCurrentPlot(Player player) {
         PlotNoticeBoard current = noticeBoardAt(player);
         if (current == null) openMenu(player);

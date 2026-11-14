@@ -28,6 +28,9 @@ import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
 import org.encinet.mik.feature.community.social.command.SocialCommandDispatcher;
 import org.encinet.mik.feature.community.social.document.SocialDocument;
 import org.encinet.mik.shared.i18n.Language;
+import org.encinet.mik.shared.i18n.Message;
+import org.encinet.mik.feature.community.chat.bridge.SocialChatFailure;
+import java.util.function.Consumer;
 import java.util.ArrayList;
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -218,7 +221,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
                 submitted = invocation == null
                         ? executor.submitOrdered(
                         "inbound-chat\u0000" + message.conversation().id(),
-                        () -> deliverChat(chat))
+                        () -> deliverChat(chat, message))
                         : executor.submit(() -> processor.execute(
                         descriptor, message, invocation,
                         plan.runtimePolicy().output(), this::resultIsCurrent, invocationScope));
@@ -236,7 +239,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
         return SocialEventSink.Acceptance.ACCEPTED;
     }
 
-    SocialChatPublishReport.Admission publishChat(ChatMessage message) {
+    SocialChatPublishReport.Admission publishChat(ChatMessage message, Consumer<SocialChatFailure> feedback) {
         Objects.requireNonNull(message, "message");
         synchronized (lock) {
             if (closed || state != SocialPlatformState.READY
@@ -245,7 +248,7 @@ final class SocialPlatformGeneration implements AutoCloseable {
             }
             boolean admitted = executor.submitOrdered(
                     "outbound\u0000" + message.submission().conversation().id(),
-                    () -> sendChat(chatSession, message));
+                    () -> sendChat(chatSession, message, feedback));
             if (admitted) {
                 outboundAccepted.increment();
                 return SocialChatPublishReport.Admission.ACCEPTED;
@@ -308,9 +311,9 @@ final class SocialPlatformGeneration implements AutoCloseable {
         }
     }
 
-    private void deliverChat(ChatSubmission message) {
+    private void deliverChat(ChatSubmission message, SocialInboundMessage original) {
         try {
-            Objects.requireNonNull(chatGateway.deliver(message),
+            Objects.requireNonNull(chatGateway.deliver(message, failure -> queueChatFailure(original, failure)),
                     "Social chat gateway returned null").toCompletableFuture().join();
         } catch (RuntimeException error) {
             deliveryFailures.increment();
@@ -322,18 +325,38 @@ final class SocialPlatformGeneration implements AutoCloseable {
         }
     }
 
+    private void queueChatFailure(SocialInboundMessage original, SocialChatFailure failure) {
+        synchronized (lock) {
+            if (!resultIsCurrent()) return;
+            if (!executor.submitOrdered("chat-feedback\u0000" + original.conversation().id(),
+                    () -> replyChatFailure(original, failure))) outboundBackpressured.increment();
+        }
+    }
+
+    private void replyChatFailure(SocialInboundMessage original, SocialChatFailure failure) {
+        if (!resultIsCurrent()) return;
+        Language language = plan.commandSyntax().defaultLanguage();
+        var document = SocialDocument.message(SocialDocument.Moderation.TRUSTED, SocialDocument.Tone.WARNING,
+                SocialDocument.paragraph(languages.t(language, failure.unavailable()
+                                ? Message.CHAT_SOCIAL_REVIEW_FAILED : Message.CHAT_SOCIAL_REVIEW_REJECTED,
+                        failure.reason(), failure.platformName()))).localized(language);
+        processor.deliver(descriptor, original, document, plan.runtimePolicy().output(), this::resultIsCurrent);
+    }
+
     private void sendChat(
             SocialChatPlatformSession chatSession,
-            ChatMessage message
+            ChatMessage message,
+            Consumer<SocialChatFailure> feedback
     ) {
         if (!chatSessionIsCurrent(chatSession)) {
             return;
         }
+        boolean[] reported = {false};
         try {
             List<CompletableFuture<Void>> sends = new ArrayList<>();
             try {
                 // Reuse a verdict when different routes produce the same outgoing text.
-                java.util.Map<String, Boolean> verdicts = new java.util.HashMap<>();
+                java.util.Map<String, org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict> verdicts = new java.util.HashMap<>();
                 for (SocialChatRoute route : List.copyOf(chatSession.chatRoutes())) {
                     if (!chatSessionIsCurrent(chatSession)) break;
                     if (message.submission().origin().visitedPlatforms()
@@ -361,9 +384,25 @@ final class SocialPlatformGeneration implements AutoCloseable {
                                         route.conversation(), requests),
                                 "Social chat session returned null mention resolution");
                         String moderationText = SocialContentGuard.outboundChatText(selected, mentions);
-                        if (!verdicts.computeIfAbsent(moderationText,
-                                text -> contentGuard.allowsOutboundText(
-                                        text, REQUIRED, plan.runtimePolicy().output()))) return;
+                        final org.encinet.mik.feature.community.social.safety.SocialContentModerator.Verdict verdict;
+                        try {
+                            verdict = verdicts.computeIfAbsent(moderationText,
+                                    text -> contentGuard.reviewOutboundText(text, REQUIRED, plan.runtimePolicy().output()));
+                        } catch (RuntimeException error) {
+                            if (!reported[0] && chatSessionIsCurrent(chatSession)) {
+                                reported[0] = true;
+                                feedback.accept(new SocialChatFailure(descriptor.id(), descriptor.displayName(),
+                                        SocialCommandProcessor.rootMessage(error), true));
+                            }
+                            throw error;
+                        }
+                        if (!verdict.allowed()) {
+                            if (!reported[0] && chatSessionIsCurrent(chatSession)) {
+                                reported[0] = true;
+                                feedback.accept(new SocialChatFailure(descriptor.id(), descriptor.displayName(), verdict.reason(), false));
+                            }
+                            return;
+                        }
                         if (!chatSessionIsCurrent(chatSession)) return;
                         sends.add(Objects.requireNonNull(
                                 chatSession.sendChat(

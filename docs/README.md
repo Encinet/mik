@@ -4,7 +4,7 @@
 
 ## 服务器
 
-- [管理员监控](server-monitor.md)：随机轮换旁观、自动跟随与隐身统计豁免。
+- [管理员监控](server-monitor.md)：加权公平轮换旁观、自动跟随与隐身统计豁免。
 - [世界安全保护](server-safety.md)：液体冲刷与倒桶、岩浆引燃、爆炸和危险实体生成保护。
 - [正版认证容灾](authentication-fallback.md)：官方认证故障时保留正版 UUID，按最近认证的 IP 与有效期回退。
 - [网络出口与自适应视距](network-egress.md)：AFK 优先、剩余压力反馈、高速跑图区块预算与飞行限速。
@@ -38,6 +38,7 @@
 - [非欧几里得空间](non-euclidean-spaces.md)：接缝配置、连接与穿越。
 - [铁块电梯](iron-elevator.md)：平台、选层、同行与楼层编号。
 - [载具](vehicles.md)：控件工作台、浮空 3D 编辑、驾驶、维护与保存。
+- [生物骑乘](mob-riding.md)：潜行右键骑乘、方向键控制、跳跃与飞行。
 
 ## 音乐与娱乐
 

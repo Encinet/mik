@@ -4,6 +4,7 @@ import org.encinet.mik.feature.community.chat.bridge.ChatIngress;
 import org.encinet.mik.feature.community.chat.bridge.ChatMessagePublisher;
 import org.encinet.mik.feature.community.chat.bridge.ChatParticipants;
 import org.encinet.mik.feature.community.chat.bridge.SocialChatPublisher;
+import org.encinet.mik.feature.community.chat.bridge.SocialChatFailure;
 import org.encinet.mik.feature.community.chat.model.*;
 import org.encinet.mik.feature.community.chat.pipeline.ChatProcessor;
 import java.util.Objects;
@@ -23,11 +24,12 @@ public final class ChatService implements ChatIngress, ChatMessagePublisher {
     private volatile Routing routing;
 
     private record Routing(ChatParticipants participants, BiConsumer<ChatDelivery, Set<UUID>> gameOutput,
-                           ChatMessagePublisher webOutput) {
+                           ChatMessagePublisher webOutput, BiConsumer<ChatMessage, SocialChatFailure> feedback) {
         private Routing {
             Objects.requireNonNull(participants);
             Objects.requireNonNull(gameOutput);
             Objects.requireNonNull(webOutput);
+            Objects.requireNonNull(feedback);
         }
     }
 
@@ -40,8 +42,8 @@ public final class ChatService implements ChatIngress, ChatMessagePublisher {
         this.failure = Objects.requireNonNull(failure);
     }
     public void connect(ChatParticipants participants, BiConsumer<ChatDelivery, Set<UUID>> gameOutput,
-            ChatMessagePublisher webOutput) {
-        routing = new Routing(participants, gameOutput, webOutput);
+            ChatMessagePublisher webOutput, BiConsumer<ChatMessage, SocialChatFailure> feedback) {
+        routing = new Routing(participants, gameOutput, webOutput, feedback);
     }
     public void disconnect() { routing = null; }
     public ChatMessage process(ChatSubmission submission) {
@@ -61,14 +63,14 @@ public final class ChatService implements ChatIngress, ChatMessagePublisher {
     public ChatMessage acceptFinalContent(ChatMessage prepared, ChatContent finalContent) {
         return processor.acceptFinalContent(prepared, finalContent);
     }
-    @Override public void accept(ChatSubmission submission) {
+    @Override public void accept(ChatSubmission submission, Consumer<SocialChatFailure> feedback) {
         if (!(submission.origin() instanceof ChatOrigin.Social))
             throw new IllegalArgumentException("External ingress requires a verified social source");
         Routing admitted = routing;
         if (admitted == null) return;
         primaryThread.accept(() -> {
             if (routing == admitted)
-                commit(ChatDelivery.managed(process(submission), null, null), admitted);
+                commit(ChatDelivery.managed(process(submission), null, null), admitted, feedback);
         });
     }
     @Override public void publish(ChatDelivery delivery) {
@@ -76,10 +78,10 @@ public final class ChatService implements ChatIngress, ChatMessagePublisher {
         Routing admitted = routing;
         if (admitted == null) return;
         primaryThread.accept(() -> {
-            if (routing == admitted) commit(delivery, admitted);
+            if (routing == admitted) commit(delivery, admitted, report -> admitted.feedback().accept(delivery.message(), report));
         });
     }
-    private void commit(ChatDelivery delivery, Routing admitted) {
+    private void commit(ChatDelivery delivery, Routing admitted, Consumer<SocialChatFailure> feedback) {
         if (routing != admitted) return;
         Set<UUID> expected = Set.copyOf(admitted.participants().gameRecipients(delivery.audience()));
         // A native sender must still pass game authentication and channel permissions.
@@ -97,7 +99,9 @@ public final class ChatService implements ChatIngress, ChatMessagePublisher {
         if (routing != admitted) return;
         if (delivery.message().submission().conversation().channel() == ChatChannel.PUBLIC) {
             attempt("social", () -> {
-                var report = socialOutput.publish(delivery.message());
+                var report = socialOutput.publish(delivery.message(), rejection -> primaryThread.accept(() -> {
+                    if (routing == admitted) attempt("social-feedback", () -> feedback.accept(rejection));
+                }));
                 if (report.backpressured() > 0)
                     failure.accept("social", new IllegalStateException("Backpressured for " + report.backpressured() + " platform(s)"));
             });

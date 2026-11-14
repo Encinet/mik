@@ -5,6 +5,7 @@ import org.encinet.mik.feature.world.buildings.BuildingMapModule;
 import org.encinet.mik.feature.world.elevator.IronElevatorModule;
 import org.encinet.mik.feature.world.plot.PlotModule;
 import org.encinet.mik.feature.world.regen.AsyncRegenModule;
+import org.encinet.mik.feature.world.riding.MobRidingModule;
 import org.encinet.mik.feature.world.space.NonEuclideanSpaceModule;
 import org.encinet.mik.feature.world.spawn.SpawnBeaconColorModule;
 import org.encinet.mik.feature.world.vehicle.VehicleModule;
@@ -32,6 +33,9 @@ record WorldFeatures(
         PlotModule plotModule = new PlotModule(plugin, languageService);
         lifecycle.startManaged("plot", plotModule::enable, plotModule::disable);
         plotModule.registerCommands(plugin.getLifecycleManager());
+
+        MobRidingModule mobRidingModule = new MobRidingModule(plugin, plotModule::mayRide);
+        lifecycle.startManaged("mob-riding", mobRidingModule::enable, mobRidingModule::disable);
 
         IronElevatorModule ironElevatorModule = new IronElevatorModule(
                 plugin, languageService, lifecycle.own("iron-elevator-panels", floatingMenuService.worldPanels()),

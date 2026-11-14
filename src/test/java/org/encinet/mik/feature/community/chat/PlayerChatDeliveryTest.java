@@ -148,7 +148,7 @@ class PlayerChatDeliveryTest {
                         "Alice", "<gold>[Member] </gold>", "<green> [Tag]</green>", 0xFFFFFF);
                 f.chat.messages().accept(new ChatSubmission(ChatMessageId.random(), origin, sender,
                         ChatConversation.minecraftPublic(), "external", ChatReferences.empty(), Instant.EPOCH,
-                        ChatProcessingContext.external()));
+                        ChatProcessingContext.external()), _ -> {});
                 assertEquals(origin.sourceColor(), namedText(f.consoleComponents.getLast(),
                         "[" + origin.platformName() + "]").color().value());
             }
@@ -156,7 +156,7 @@ class PlayerChatDeliveryTest {
             f.chat.messages().accept(new ChatSubmission(ChatMessageId.random(),
                     new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "unbound"), unbound,
                     ChatConversation.minecraftPublic(), "guest", ChatReferences.empty(), Instant.EPOCH,
-                    ChatProcessingContext.external()));
+                    ChatProcessingContext.external()), _ -> {});
 
             assertEquals(List.of("[QQ] [Member] Alice [Tag] » external",
                     "[Matrix] [Member] Alice [Tag] » external",
@@ -168,7 +168,7 @@ class PlayerChatDeliveryTest {
             assertThrows(IllegalArgumentException.class, () -> f.chat.messages().accept(new ChatSubmission(
                     ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "bad"), unbound,
                     ChatConversation.minecraftStaff(), "restricted", ChatReferences.empty(), Instant.EPOCH,
-                    ChatProcessingContext.external())));
+                    ChatProcessingContext.external()), _ -> {}));
             assertEquals(4, f.social.size());
         }
     }
@@ -408,7 +408,7 @@ class PlayerChatDeliveryTest {
                 return bedrock.contains(id);
             }, language);
             chat = new ChatModule(plugin, new GameMentionNotifier(plugin, null, language, null), language,
-                    new ChatSettingsStore(null), tags, sources, message -> { social.add(message); return SocialChatPublishReport.empty(); }, null, tips, (_, _) -> false);
+                    new ChatSettingsStore(null), tags, sources, (message, _) -> { social.add(message); return SocialChatPublishReport.empty(); }, null, tips, (_, _) -> false);
             ChatParticipants directory = proxy(ChatParticipants.class, (_, m, a) -> switch (m.getName()) {
                 case "channelPeers" -> List.of();
                 case "peer" -> {
@@ -430,7 +430,7 @@ class PlayerChatDeliveryTest {
                 published.add(delivery.message());
                 publishedViewers.add(delivery.game() instanceof ChatDelivery.Native nativeGame ? nativeGame.viewers()
                         : directory.gameRecipients(delivery.audience()));
-            });
+            }, (_, _) -> {});
         }
 
         UUID account(String name) { UUID id = UUID.randomUUID(); names.put(id, name); return id; }

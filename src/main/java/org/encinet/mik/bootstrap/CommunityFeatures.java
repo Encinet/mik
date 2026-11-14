@@ -62,7 +62,7 @@ record CommunityFeatures(
                         new TabListModule.WebPlayer(peer.playerUuid(), peer.name(), peer.webConnections())).toList()),
                 chatModule.messages()::process, chatModule.messages()::publish, chatModule.ledger());
         players.tabList().webVisibility(webChat::canSee);
-        lifecycle.startManaged("chat", () -> chatModule.enable(webChat, webChat), chatModule::disable);
+        lifecycle.startManaged("chat", () -> chatModule.enable(webChat, webChat, webChat), chatModule::disable);
         chatModule.registerCommands(plugin.getLifecycleManager());
         lifecycle.startManaged("web-chat", webChat::enable, webChat::disable);
         GameChatPresenceListener gameChatPresence = new GameChatPresenceListener(plugin, webChat, player -> {

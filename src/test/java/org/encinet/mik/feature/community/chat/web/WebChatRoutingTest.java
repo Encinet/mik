@@ -221,7 +221,7 @@ class WebChatRoutingTest {
                     ChatConversation.minecraftPublic(), body,
                     new ChatReferences(Optional.empty(), Optional.empty(), List.of(),
                             List.of(new ChatPlaceholder.Span(0, 7, ChatPlaceholder.IMAGE))),
-                    Instant.now(), ChatProcessingContext.external()));
+                    Instant.now(), ChatProcessingContext.external()), _ -> {});
             var cnMessage = cn.messages().getFirst();
             var deMessage = de.messages().getFirst();
             assertTrue(cnMessage.get("content").toString().contains("[图片] [image]"));
@@ -239,7 +239,7 @@ class WebChatRoutingTest {
                         Optional.empty(), bound ? "Offline" : "", "", "", 0xFFFFFF);
                 f.chat.accept(new ChatSubmission(ChatMessageId.external("matrix", "room", "event-" + bound),
                         new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "event-" + bound), sender,
-                        ChatConversation.minecraftPublic(), "from social", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external()));
+                        ChatConversation.minecraftPublic(), "from social", ChatReferences.empty(), Instant.now(), ChatProcessingContext.external()), _ -> {});
                 List<JsonObject> entries = browser.messages(); assertEquals(1, entries.size());
                 assertEquals("social", text(entries.getFirst().getAsJsonObject("source"), "kind"));
                 assertEquals("Matrix", text(entries.getFirst().getAsJsonObject("source"), "platformName"));
@@ -859,11 +859,11 @@ class WebChatRoutingTest {
                         });
                     };
             chat = new ChatService(java.util.function.UnaryOperator.identity(), Runnable::run,
-                    _ -> SocialChatPublishReport.empty(), (_, error) -> { throw new AssertionError(error); });
+                    (_, _) -> SocialChatPublishReport.empty(), (_, error) -> { throw new AssertionError(error); });
             module = new WebChatModule(plugin, language, _ -> () -> true,
                     id -> new WebAccountPolicy(roles.getOrDefault(id, "default"), 0), _ -> {}, (id, _) -> !banned.contains(id), _ -> {},
                     chat::process, chat::publish, new ChatSendLedger());
-            chat.connect(module, gameOutput, module);
+            chat.connect(module, gameOutput, module, (_, _) -> {});
             set(module, "history", ownedHistory);
             set(module, "running", true); set(module, "maxPerPlayer", 8); set(module, "maxConnections", 32);
         }

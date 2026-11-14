@@ -7,5 +7,6 @@ import java.util.concurrent.CompletionStage;
 /** Platform-neutral boundary used to deliver external chat into the game. */
 @FunctionalInterface
 public interface SocialChatGateway {
-    CompletionStage<Void> deliver(ChatSubmission submission);
+    CompletionStage<Void> deliver(ChatSubmission submission,
+            java.util.function.Consumer<org.encinet.mik.feature.community.chat.bridge.SocialChatFailure> feedback);
 }

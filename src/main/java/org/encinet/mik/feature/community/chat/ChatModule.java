@@ -1,7 +1,11 @@
 package org.encinet.mik.feature.community.chat;
 
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
+import org.encinet.mik.feature.community.chat.bridge.ServerChatPublisher;
+import java.util.UUID;
+
 import org.encinet.mik.feature.community.chat.game.GameChatController;
+import org.encinet.mik.feature.community.chat.game.GameChatReviewFeedback;
 import org.encinet.mik.feature.community.chat.game.GameChatIdentityResolver;
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
 import org.bukkit.Bukkit;
@@ -23,6 +27,7 @@ import java.util.function.BiPredicate;
 
 /** Owns chat lifecycle and exposes its application and game adapters to bootstrap. */
 public final class ChatModule {
+    private final LanguageService languages;
     private final GameChatController game;
     private final ChatService messages;
     private final ChatSendLedger ledger = new ChatSendLedger();
@@ -30,7 +35,8 @@ public final class ChatModule {
     public ChatModule(Plugin plugin, GameMentionNotifier mentionNotifier, LanguageService language,
             ChatSettingsStore settings, PlayerNameTagRenderer names, PlayerSourceRenderer sources,
             SocialChatPublisher social, IdentityBindingManager identities, TipScope tips,
-            BiPredicate<java.util.UUID, String> menuChatInput) {
+            BiPredicate<UUID, String> menuChatInput) {
+        languages = language;
         GameChatIdentityResolver playerNames = new GameChatIdentityResolver(names);
         messages = new ChatService(playerNames, action -> {
             if (Bukkit.isPrimaryThread()) action.run();
@@ -43,8 +49,9 @@ public final class ChatModule {
     public ChatService messages() { return messages; }
     public GameChatController game() { return game; }
     public ChatSendLedger ledger() { return ledger; }
-    public void enable(ChatParticipants participants, ChatMessagePublisher web) {
-        messages.connect(participants, game::deliver, web);
+    public void enable(ChatParticipants participants, ChatMessagePublisher web,
+            ServerChatPublisher notices) {
+        messages.connect(participants, game::deliver, web, new GameChatReviewFeedback(languages, participants, notices));
         game.enable(participants, ledger);
     }
     public void disable() {
