@@ -8,7 +8,12 @@ import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEn
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerEntityRotation;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerSpawnEntity;
 import com.github.retrooper.packetevents.protocol.vector.positionpath.LinearPositionPath;
+import com.github.retrooper.packetevents.protocol.vector.positionpath.PositionPath;
+import com.github.retrooper.packetevents.protocol.vector.positionpath.SteppedPositionPath;
+import com.github.retrooper.packetevents.protocol.vector.vecdelta.SteppedVecDelta;
+import com.github.retrooper.packetevents.protocol.vector.vecdelta.VecDelta;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,11 +52,14 @@ final class MonitorTargetPackets {
 
         synchronized PacketWrapper<?> rewrite(PacketWrapper<?> packet) {
             boolean grounded;
+            int ticks;
             if (packet instanceof WrapperPlayServerEntityRelativeMove movement && movement.getEntityId() == entity) {
                 base = movement.getDelta().apply(base);
+                ticks = duration(movement.getDelta());
                 grounded = movement.isOnGround();
             } else if (packet instanceof WrapperPlayServerEntityRelativeMoveAndRotation movement && movement.getEntityId() == entity) {
                 base = movement.getDelta().apply(base);
+                ticks = duration(movement.getDelta());
                 yaw = movement.getYaw();
                 pitch = movement.getPitch();
                 grounded = movement.isOnGround();
@@ -61,6 +69,8 @@ final class MonitorTargetPackets {
                 pitch = movement.getXRot();
                 grounded = movement.isOnGround();
                 if (movement.getPosition() instanceof LinearPositionPath) return packet;
+                ticks = ((SteppedPositionPath) movement.getPosition()).getSteps().stream()
+                        .mapToInt(SteppedPositionPath.Step::tickOffset).sum();
             } else {
                 if (packet instanceof WrapperPlayServerSpawnEntity spawn && spawn.getEntityId() == entity) {
                     base = spawn.getPosition();
@@ -74,7 +84,16 @@ final class MonitorTargetPackets {
             }
             // Absolute endpoints also handle a stepped delta whose total exceeds the relative short range.
             // Keeping the original decoded endpoint preserves the next vanilla relative packet's base.
-            return new WrapperPlayServerEntityPositionSync(entity, new LinearPositionPath(base), yaw, pitch, grounded);
+            // Flatten spatial samples, but retain their duration instead of substituting the player's
+            // default two ticks. Short updates and batched updates must not change playback speed.
+            PositionPath path = ticks > 0 ? new SteppedPositionPath(List.of(new SteppedPositionPath.Step(base, ticks)))
+                    : new LinearPositionPath(base);
+            return new WrapperPlayServerEntityPositionSync(entity, path, yaw, pitch, grounded);
+        }
+
+        private static int duration(VecDelta delta) {
+            return delta instanceof SteppedVecDelta stepped
+                    ? stepped.steps().stream().mapToInt(SteppedVecDelta.DeltaStep::ticks).sum() : 0;
         }
     }
 }
