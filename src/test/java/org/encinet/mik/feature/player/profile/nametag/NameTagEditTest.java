@@ -99,12 +99,39 @@ class NameTagEditTest {
     }
 
     @Test void unicodeSourceLengthCountsCodePointsAndKeepsIntentionalSpacing() {
-        assertTrue(NameTagFormat.validate("😀".repeat(200)).isEmpty());
-        assertEquals(NameTagFormat.Problem.TOO_LONG, NameTagFormat.validate("😀".repeat(201)).orElseThrow().problem());
-        assertTrue(NameTagFormat.validate(" <rainbow>Prefix </rainbow> ").isEmpty());
-        assertTrue(NameTagFormat.validate("").isEmpty());
-        assertEquals(NameTagFormat.Problem.INVALID, NameTagFormat.validate("   ").orElseThrow().problem());
-        assertEquals(NameTagFormat.Problem.INVALID, NameTagFormat.validate("a\nb").orElseThrow().problem());
-        assertTrue(NameTagFormat.validate("<color:not-a-color>bad").isEmpty(), "unrecognized tags follow the renderer's literal-text behavior");
+        assertTrue(NameTagFormat.validate(PREFIX, "😀".repeat(200)).isEmpty());
+        assertEquals(NameTagFormat.Problem.TOO_LONG, NameTagFormat.validate(PREFIX, "😀".repeat(201)).orElseThrow().problem());
+        assertTrue(NameTagFormat.validate(PREFIX, " <rainbow>Prefix </rainbow> ").isEmpty());
+        assertTrue(NameTagFormat.validate(PREFIX, "").isEmpty());
+        assertEquals(NameTagFormat.Problem.INVALID, NameTagFormat.validate(PREFIX, "   ").orElseThrow().problem());
+        assertEquals(NameTagFormat.Problem.INVALID, NameTagFormat.validate(PREFIX, "a\nb").orElseThrow().problem());
+        assertTrue(NameTagFormat.validate(PREFIX, "<color:not-a-color>bad").isEmpty(), "unrecognized tags follow the renderer's literal-text behavior");
+    }
+
+    @Test void usernameColorAcceptsOneColorOrRainbowAndCanBeClearedToInherit() {
+        var stored = usernameColor("<yellow>");
+        var effective = new PlayerNameTag("Prefix", "Suffix", NamedTextColor.YELLOW);
+        var edit = new NameTagEdit(USERNAME_COLOR, NameTagStore.snapshot(Set.of(stored)), effective);
+        assertEquals("<" + NamedTextColor.YELLOW.asHexString() + ">", edit.value(USERNAME_COLOR));
+        edit.input("<rainbow>");
+        assertTrue(edit.canSave());
+        assertTrue(edit.preview(effective).rainbowUsername());
+        edit.input("<gradient:red:blue>");
+        assertEquals("<rainbow>", edit.value(USERNAME_COLOR));
+        assertEquals(NameTagFormat.Problem.INVALID, edit.failure().problem());
+        assertFalse(edit.canSave());
+        edit.input("");
+        assertTrue(edit.canSave());
+        assertTrue(edit.removesCustomValue());
+        assertEquals(Set.of(stored), edit.changes().get(USERNAME_COLOR).expected());
+    }
+
+    @Test void usernameColorValidationRejectsMulticolorStyles() {
+        assertTrue(NameTagFormat.validate(USERNAME_COLOR, "<rainbow>").isEmpty());
+        assertTrue(NameTagFormat.validate(USERNAME_COLOR, "<#55AAFF>").isEmpty());
+        assertEquals(NameTagFormat.Problem.INVALID,
+                NameTagFormat.validate(USERNAME_COLOR, "<gradient:red:blue>").orElseThrow().problem());
+        assertEquals(NameTagFormat.Problem.INVALID,
+                NameTagFormat.validate(USERNAME_COLOR, "<yellow>text").orElseThrow().problem());
     }
 }

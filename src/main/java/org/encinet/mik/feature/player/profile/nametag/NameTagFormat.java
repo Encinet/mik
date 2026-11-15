@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.player.profile.nametag;
 
+import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.shared.util.NameMetaRenderer;
 
 import java.util.Optional;
@@ -12,7 +13,11 @@ final class NameTagFormat {
 
     private NameTagFormat() { }
 
-    static Optional<Failure> validate(String raw) {
+    static Optional<Failure> validate(NameTagField field, String raw) {
+        if (field == NameTagField.USERNAME_COLOR) {
+            return raw.isEmpty() || PlayerNameTagRenderer.parseUsernameStyle(raw).isPresent()
+                    ? Optional.empty() : Optional.of(new Failure(Problem.INVALID, ""));
+        }
         if (raw.codePointCount(0, raw.length()) > MAX_LENGTH)
             return Optional.of(new Failure(Problem.TOO_LONG, ""));
         if ((!raw.isEmpty() && raw.isBlank()) || raw.indexOf('\n') >= 0 || raw.indexOf('\r') >= 0)

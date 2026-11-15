@@ -242,6 +242,7 @@ password-title = Account security
 
 nametag-clear = Clear
 nametag-clear-hint = Removes custom values; inherited styles may remain.
+nametag-color-hint = Use one color tag such as <yellow>, <#55AAFF>, or <rainbow>. Clear to use the inherited color.
 nametag-command-description = Customize name tags
 nametag-confirm = Confirm
 nametag-conflict = The current value changed. Compare the current effect, then confirm again to replace it.
@@ -255,6 +256,7 @@ nametag-finish-field = Confirm or cancel the field you are editing first.
 nametag-input-invalid = Invalid format. Send single-line MiniMessage or select Clear.
 nametag-leading-label = Name prefix
 nametag-mine = My name tag
+nametag-name-color-label = Name color
 nametag-next = Next
 nametag-no-changes = No changes
 nametag-no-permission = Members and staff can edit name tags. You can still view styles.

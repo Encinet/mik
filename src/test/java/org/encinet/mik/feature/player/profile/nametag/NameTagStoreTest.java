@@ -153,4 +153,30 @@ class NameTagStoreTest {
         replace(nodes(values), PREFIX, before.version(PREFIX), null);
         assertEquals(Set.of(suffix, role), Set.copyOf(values));
     }
+
+    @Test void usernameColorSaveAndClearPreserveContextualMetadata() throws Exception {
+        var current = usernameColor("<yellow>");
+        var contextual = decoration(USERNAME_COLOR, "<red>", 0, true, false, true);
+        var backend = new Backend(List.of(current, contextual));
+        try (var _ = provider(backend.api); var store = new NameTagStore(backend.api)) {
+            var before = store.read(backend.playerId).orElseThrow();
+            assertEquals(Set.of(current), before.version(USERNAME_COLOR));
+            var save = save(store, backend.playerId, USERNAME_COLOR, before.version(USERNAME_COLOR), "<rainbow>");
+            var request = backend.pending.getFirst();
+            request.mutation().accept(backend.user);
+            request.saved().complete(null);
+            save.join();
+            var saved = store.read(backend.playerId).orElseThrow();
+            assertEquals("<rainbow>", customValue(saved, USERNAME_COLOR));
+            assertTrue(backend.values.contains(contextual));
+
+            var clear = save(store, backend.playerId, USERNAME_COLOR, saved.version(USERNAME_COLOR), "");
+            var clearRequest = backend.pending.get(1);
+            clearRequest.mutation().accept(backend.user);
+            clearRequest.saved().complete(null);
+            clear.join();
+            assertTrue(store.read(backend.playerId).orElseThrow().version(USERNAME_COLOR).isEmpty());
+            assertTrue(backend.values.contains(contextual));
+        }
+    }
 }

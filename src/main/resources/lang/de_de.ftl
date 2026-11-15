@@ -243,6 +243,7 @@ password-title = Kontosicherheit
 
 nametag-clear = Leeren
 nametag-clear-hint = Entfernt eigene Werte; geerbte Stile können bleiben.
+nametag-color-hint = Nutze ein einzelnes Farb-Tag wie <yellow>, <#55AAFF> oder <rainbow>. Leeren verwendet die geerbte Farbe.
 nametag-command-description = Namensschilder individuell anpassen
 nametag-confirm = Bestätigen
 nametag-conflict = Der aktuelle Wert wurde geändert. Vergleiche die aktuelle Anzeige und bestätige erneut zum Ersetzen.
@@ -256,6 +257,7 @@ nametag-finish-field = Bestätige zuerst das bearbeitete Feld oder brich es ab.
 nametag-input-invalid = Ungültiges Format. Sende einzeiliges MiniMessage oder wähle Leeren.
 nametag-leading-label = Namenspräfix
 nametag-mine = Mein Namensschild
+nametag-name-color-label = Namensfarbe
 nametag-next = Weiter
 nametag-no-changes = Keine Änderungen
 nametag-no-permission = Mitglieder und Teammitglieder können Namensschilder bearbeiten. Ansehen ist weiterhin möglich.

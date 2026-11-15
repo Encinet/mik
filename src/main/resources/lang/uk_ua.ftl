@@ -274,6 +274,7 @@ password-title = Безпека облікового запису
 
 nametag-clear = Очистити
 nametag-clear-hint = Видаляє власні значення; успадковані стилі можуть залишитися.
+nametag-color-hint = Введіть один тег кольору, наприклад <yellow>, <#55AAFF> або <rainbow>. Очистьте поле, щоб використовувати успадкований колір.
 nametag-command-description = Налаштувати теги імені
 nametag-confirm = Підтвердити
 nametag-conflict = Поточне значення змінилося. Порівняйте поточний вигляд і підтвердьте ще раз для заміни.
@@ -287,6 +288,7 @@ nametag-finish-field = Спочатку підтвердьте або скасу
 nametag-input-invalid = Неправильний формат. Надішліть MiniMessage одним рядком або виберіть «Очистити».
 nametag-leading-label = Префікс імені
 nametag-mine = Моя іменна мітка
+nametag-name-color-label = Колір імені
 nametag-next = Далі
 nametag-no-changes = Немає змін
 nametag-no-permission = Редагування доступне учасникам і адміністрації. Перегляд стилів доступний і вам.

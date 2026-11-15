@@ -24,7 +24,7 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class NameTagCompositionTest {
-    private enum State { BROWSING, EDITING }
+    private enum State { BROWSING, EDITING, COLOR_EDITING }
 
     @Test void stylesFieldControlsAndAllTranslationsFitAtEveryTextPreference() throws IOException {
         for (Language language : Language.values()) {
@@ -40,11 +40,12 @@ class NameTagCompositionTest {
                         language.id() + " settings scale=" + scale + " state=" + state);
                 assertDisjoint(hostedFrame);
                 assertFullTextAvailable(entry(hosted,"copy-style").label(),element(hostedFrame,"copy-style"));
-                if (state == State.EDITING) {
+                if (state != State.BROWSING) {
                     assertNotNull(element(frame, "confirm"));
                     assertNotNull(element(frame, "cancel"));
                     assertTrue(entry(scene, "confirm").enabled());
                 }
+                assertNotNull(entry(scene, "username-color"));
             }
         }
     }
@@ -67,17 +68,19 @@ class NameTagCompositionTest {
                 "there is no separate player-name selection control");
     }
 
-    @Test void bothFieldsAndTheDraftConfirmationRemainVisibleAcrossReadingPreferences() throws Exception {
+    @Test void allFieldsAndTheDraftConfirmationRemainVisibleAcrossReadingPreferences() throws Exception {
         var bundle = FluentTestSupport.bundle(Language.EN_US);
         for (double typography : new double[]{.7,1.8})
-            for (int degrees : new int[]{30,110}) for (double scale : new double[]{.7,1.3}) {
-                var scene = scene(bundle,State.EDITING);
+            for (int degrees : new int[]{30,110}) for (double scale : new double[]{.7,1.3})
+                for (State state : List.of(State.EDITING, State.COLOR_EDITING)) {
+                var scene = scene(bundle,state);
                 var frame = SceneGeometryTestSupport.readableFrame(scene,typography,
                         new org.encinet.mik.shared.menu.FloatingMenuFieldOfView(degrees),scale);
                 assertDisjoint(frame);
                 assertTrue(frame.readingRegion().path().contains("/field-editor"));
-                assertEquals(NameTagField.values().length,frame.elements().stream().filter(element ->
+                assertEquals(2,frame.elements().stream().filter(element ->
                         element.node().key().value().equals("preview") && element.node().role().supportsActions()).count());
+                assertNotNull(entry(scene,"username-color"));
                 assertNotNull(element(frame,"confirm"));
                 assertNotNull(element(frame,"cancel"));
                 assertTrue(entry(scene,"confirm").enabled());
@@ -101,17 +104,21 @@ class NameTagCompositionTest {
         String raw = "<gradient:red:blue>" + "长名字😀".repeat(40) + "</gradient>";
         Component effect = MiniMessage.miniMessage().deserialize(raw);
         var fields = Ui.form().key("fields");
-        for (NameTagField field : NameTagField.values()) {
+        for (NameTagField field : List.of(NameTagField.PREFIX, NameTagField.SUFFIX)) {
             var input = Ui.textField(raw).preview(_ -> effect).key("value").editing(state == State.EDITING && field == NameTagField.PREFIX)
                     .primary((_, _) -> { });
             var clear = Ui.button(label(bundle, Message.NAMETAG_CLEAR)).key("clear").primary((_, _) -> { });
-            if (state == State.EDITING && field == NameTagField.SUFFIX) {
+            if (state == State.EDITING && field == NameTagField.SUFFIX
+                    || state == State.COLOR_EDITING) {
                 var reason = label(bundle, Message.NAMETAG_FINISH_FIELD);
                 input.disabled(reason);
                 clear.disabled(reason);
             }
-            fields.field(field.name().toLowerCase(java.util.Locale.ROOT), label(bundle, field == NameTagField.PREFIX
-                    ? Message.NAMETAG_LEADING_LABEL : Message.NAMETAG_TRAILING_LABEL),
+            fields.field(field.name().toLowerCase(java.util.Locale.ROOT), label(bundle, switch (field) {
+                case PREFIX -> Message.NAMETAG_LEADING_LABEL;
+                case SUFFIX -> Message.NAMETAG_TRAILING_LABEL;
+                case USERNAME_COLOR -> Message.NAMETAG_NAME_COLOR_LABEL;
+            }),
                     input.actions(clear.build()).build());
         }
         var rows = new ArrayList<NameTagComposition.Row>();
@@ -122,6 +129,10 @@ class NameTagCompositionTest {
                                 label(bundle, Message.NAMETAG_PAGE, page.index() + 1, page.count()),
                                 label(bundle, Message.NAMETAG_NEXT), _ -> { }).build().content(), _ -> { });
         var menu = MenuScene.screen("fixture").content(NameTagComposition.content(fields.build(), gallery, Ui.button(UiIcons.REFRESH, label(bundle, Message.NAMETAG_REFRESH)).key("refresh").build()));
+        menu.control("username-color", Component.text("Aa", net.kyori.adventure.text.format.NamedTextColor.AQUA))
+                .region("username-color").tooltip(label(bundle, Message.NAMETAG_NAME_COLOR_LABEL)
+                        .append(Component.space()).append(Component.text("<#55AAFF>"))
+                        .append(Component.newline()).append(label(bundle, Message.NAMETAG_COLOR_HINT))).primary((_, _) -> { });
         menu.information("mine", label(bundle, Message.NAMETAG_MINE)).region("heading");
         menu.information("current", label(bundle, Message.NAMETAG_CURRENT).append(Component.newline()).append(effect)).region("current");
         if (state != State.BROWSING) {
@@ -129,7 +140,9 @@ class NameTagCompositionTest {
             menu.control("cancel",label(bundle,Message.CANCEL)).region("edit-actions").primary((_,_) -> {});
             menu.information("preview", label(bundle, Message.NAMETAG_PREVIEW_LABEL).append(Component.newline()).append(effect)).region("current");
             menu.information("input-status", label(bundle, Message.NAMETAG_EDIT_PROMPT,
-                    FluentTestSupport.text(bundle, Message.NAMETAG_LEADING_LABEL))).region("edit-status").textWidth(FloatingMenuTextWidth.EXPANDED);
+                    FluentTestSupport.text(bundle, state == State.COLOR_EDITING
+                            ? Message.NAMETAG_NAME_COLOR_LABEL : Message.NAMETAG_LEADING_LABEL)))
+                    .region("edit-status").textWidth(FloatingMenuTextWidth.EXPANDED);
             menu.information("notice", label(bundle, Message.NAMETAG_CONFLICT)).region("edit-status").textWidth(FloatingMenuTextWidth.EXPANDED);
         }
         menu.information("players", label(bundle, Message.NAMETAG_PLAYERS)).region("players-heading");

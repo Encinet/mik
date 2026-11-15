@@ -209,6 +209,7 @@ password-title = 계정 보안
 
 nametag-clear = 비우기
 nametag-clear-hint = 사용자 지정 값만 삭제하며 상속된 장식은 남을 수 있습니다.
+nametag-color-hint = <yellow>, <#55AAFF>, <rainbow> 같은 색상 태그 하나를 입력하세요. 비우면 상속된 색상을 사용합니다.
 nametag-command-description = 이름표 꾸미기
 nametag-confirm = 확인
 nametag-conflict = 현재 값이 변경되었습니다. 현재 표시를 비교한 뒤 바꾸려면 다시 확인하세요.
@@ -222,6 +223,7 @@ nametag-finish-field = 먼저 편집 중인 항목을 확인하거나 취소하�
 nametag-input-invalid = 잘못된 형식입니다. 한 줄의 MiniMessage를 보내거나 비우기를 선택하세요.
 nametag-leading-label = 이름 앞부분
 nametag-mine = 내 이름표
+nametag-name-color-label = 이름 색상
 nametag-next = 다음
 nametag-no-changes = 변경 사항 없음
 nametag-no-permission = 정식 멤버 이상이 이름표를 편집할 수 있습니다. 스타일 확인은 계속 가능합니다.

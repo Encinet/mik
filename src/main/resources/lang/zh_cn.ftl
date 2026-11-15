@@ -209,6 +209,7 @@ password-title = 账号安全
 
 nametag-clear = 清空
 nametag-clear-hint = 清空自定义内容后，继承的样式仍可能显示
+nametag-color-hint = 可输入单个颜色标签，例如 <yellow>、<#55AAFF> 或 <rainbow>。清空字段即可使用继承的颜色。
 nametag-command-description = 自定义名牌
 nametag-confirm = 确定
 nametag-conflict = 当前内容已被修改。请比较当前效果，再次确定以替换。
@@ -222,6 +223,7 @@ nametag-finish-field = 请先确定或取消当前字段的编辑
 nametag-input-invalid = 格式无效，请发送单行 MiniMessage，或点击清空
 nametag-leading-label = 名称前缀
 nametag-mine = 我的名牌
+nametag-name-color-label = 名称颜色
 nametag-next = 下一页
 nametag-no-changes = 内容未改变
 nametag-no-permission = 正式成员及以上可编辑名牌；你仍可查看样式

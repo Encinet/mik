@@ -9,6 +9,7 @@ import net.luckperms.api.model.data.DataMutateResult;
 import net.luckperms.api.model.data.NodeMap;
 import net.luckperms.api.node.Node;
 import net.luckperms.api.node.NodeBuilderRegistry;
+import net.luckperms.api.node.types.MetaNode;
 import net.luckperms.api.node.types.PrefixNode;
 import net.luckperms.api.node.types.SuffixNode;
 import net.luckperms.api.node.types.ChatMetaNode;
@@ -28,7 +29,8 @@ final class NameTagTestData {
     private NameTagTestData() { }
 
     static String customValue(NameTagStore.Snapshot snapshot, NameTagField field) {
-        return snapshot.version(field).stream().map(node -> ((ChatMetaNode<?, ?>) node).getMetaValue()).sorted().findFirst().orElse("");
+        return snapshot.version(field).stream().map(node -> node instanceof MetaNode metadata
+                ? metadata.getMetaValue() : ((ChatMetaNode<?, ?>) node).getMetaValue()).sorted().findFirst().orElse("");
     }
 
     static CompletableFuture<Void> save(NameTagStore store, UUID id, NameTagField field, Set<Node> expected, String value) {
@@ -75,6 +77,7 @@ final class NameTagTestData {
                     (_, method, _) -> switch (method.getName()) {
                         case "forPrefix" -> builder(NameTagField.PREFIX);
                         case "forSuffix" -> builder(NameTagField.SUFFIX);
+                        case "forMeta" -> builder(NameTagField.USERNAME_COLOR);
                         default -> throw new UnsupportedOperationException(method.getName());
                     });
             api = (LuckPerms) Proxy.newProxyInstance(LuckPerms.class.getClassLoader(), new Class<?>[]{LuckPerms.class},
@@ -98,11 +101,18 @@ final class NameTagTestData {
     private static Object builder(NameTagField field) {
         final class Draft { String raw; int priority; }
         var draft = new Draft();
-        Class<?> type = field == NameTagField.PREFIX ? PrefixNode.Builder.class : SuffixNode.Builder.class;
+        Class<?> type = switch (field) {
+            case PREFIX -> PrefixNode.Builder.class;
+            case SUFFIX -> SuffixNode.Builder.class;
+            case USERNAME_COLOR -> MetaNode.Builder.class;
+        };
         return Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type}, (proxy, method, args) -> switch (method.getName()) {
             case "prefix", "suffix" -> { draft.raw = (String) args[0]; yield proxy; }
+            case "key" -> proxy;
+            case "value" -> { draft.raw = (String) args[0]; yield proxy; }
             case "priority" -> { draft.priority = (int) args[0]; yield proxy; }
-            case "build" -> decoration(field, draft.raw, draft.priority, false, false, true);
+            case "build" -> field == NameTagField.USERNAME_COLOR ? usernameColor(draft.raw)
+                    : decoration(field, draft.raw, draft.priority, false, false, true);
             default -> throw new UnsupportedOperationException(method.getName());
         });
     }
@@ -114,6 +124,18 @@ final class NameTagTestData {
                 new Class<?>[]{ImmutableContextSet.class}, (_, method, _) -> {
                     if (method.getName().equals("isEmpty")) return !scoped;
                     throw new UnsupportedOperationException(method.getName());
+                });
+        if (field == NameTagField.USERNAME_COLOR) return (Node) Proxy.newProxyInstance(Node.class.getClassLoader(),
+                new Class<?>[]{MetaNode.class}, (proxy, method, args) -> switch (method.getName()) {
+                    case "getMetaKey" -> "username-color";
+                    case "getMetaValue" -> raw;
+                    case "getValue" -> positive;
+                    case "hasExpiry" -> temporary;
+                    case "getContexts" -> contexts;
+                    case "equals" -> proxy == args[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" -> "username-color:" + raw;
+                    default -> throw new UnsupportedOperationException(method.getName());
                 });
         return (Node) Proxy.newProxyInstance(Node.class.getClassLoader(),
                 new Class<?>[]{field == NameTagField.PREFIX ? PrefixNode.class : SuffixNode.class}, (proxy, method, args) -> switch (method.getName()) {
@@ -128,6 +150,8 @@ final class NameTagTestData {
                     default -> throw new UnsupportedOperationException(method.getName());
                 });
     }
+
+    static Node usernameColor(String raw) { return decoration(NameTagField.USERNAME_COLOR, raw, 0, false, false, true); }
 
     static NodeMap nodes(List<Node> values) {
         return (NodeMap) Proxy.newProxyInstance(NodeMap.class.getClassLoader(), new Class<?>[]{NodeMap.class},

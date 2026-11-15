@@ -42,7 +42,7 @@ final class NameTagEdit {
 
     void input(String raw) {
         if (saving) return;
-        failure = NameTagFormat.validate(raw).orElse(null);
+        failure = NameTagFormat.validate(field, raw).orElse(null);
         if (failure == null) value = raw;
     }
 

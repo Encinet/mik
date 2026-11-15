@@ -242,6 +242,7 @@ password-title = Seguridad de la cuenta
 
 nametag-clear = Vaciar
 nametag-clear-hint = Elimina valores personalizados; los estilos heredados pueden permanecer.
+nametag-color-hint = Usa una sola etiqueta de color, como <yellow>, <#55AAFF> o <rainbow>. Borra el campo para usar el color heredado.
 nametag-command-description = Personalizar etiquetas de nombre
 nametag-confirm = Confirmar
 nametag-conflict = El valor actual ha cambiado. Compara el efecto actual y confirma de nuevo para sustituirlo.
@@ -255,6 +256,7 @@ nametag-finish-field = Primero confirma o cancela el campo que estás editando.
 nametag-input-invalid = Formato no válido. Envía MiniMessage en una sola línea o selecciona Vaciar.
 nametag-leading-label = Prefijo de nombre
 nametag-mine = Mi etiqueta
+nametag-name-color-label = Color del nombre
 nametag-next = Siguiente
 nametag-no-changes = Sin cambios
 nametag-no-permission = Los miembros y el equipo pueden editar etiquetas. Puedes seguir viendo estilos.

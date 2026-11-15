@@ -4,6 +4,7 @@ import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.data.NodeMap;
 import net.luckperms.api.node.Node;
 import net.luckperms.api.node.types.ChatMetaNode;
+import net.luckperms.api.node.types.MetaNode;
 import net.luckperms.api.node.types.PrefixNode;
 import net.luckperms.api.node.types.SuffixNode;
 
@@ -18,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/** Owns only permanent, positive, unscoped user decorations at the feature's priority. */
+/** Owns permanent, positive, unscoped user decorations and username-color metadata. */
 final class NameTagStore implements AutoCloseable {
     private static final int PRIORITY = 10_000;
     private final LuckPerms luckPerms;
@@ -60,7 +61,8 @@ final class NameTagStore implements AutoCloseable {
     CompletableFuture<Void> save(UUID playerId, Map<NameTagField, Change> changes) {
         if (closed) return CompletableFuture.failedFuture(new IllegalStateException("Name tags are disabled"));
         Map<NameTagField, Change> frozen = Map.copyOf(changes);
-        if (frozen.isEmpty() || frozen.values().stream().anyMatch(change -> NameTagFormat.validate(change.value()).isPresent()))
+        if (frozen.isEmpty() || frozen.entrySet().stream().anyMatch(entry ->
+                NameTagFormat.validate(entry.getKey(), entry.getValue().value()).isPresent()))
             return CompletableFuture.failedFuture(new IllegalArgumentException("Invalid name decoration"));
         if (!saving.add(playerId)) return CompletableFuture.failedFuture(new IllegalStateException("A save is already pending"));
         try {
@@ -69,6 +71,7 @@ final class NameTagStore implements AutoCloseable {
                 if (!change.value().isEmpty()) replacements.put(field, switch (field) {
                     case PREFIX -> PrefixNode.builder(change.value(), PRIORITY).build();
                     case SUFFIX -> SuffixNode.builder(change.value(), PRIORITY).build();
+                    case USERNAME_COLOR -> MetaNode.builder("username-color", change.value()).build();
                 });
             });
             return luckPerms.getUserManager().modifyUser(playerId, user -> {
@@ -83,14 +86,18 @@ final class NameTagStore implements AutoCloseable {
     }
 
     static Snapshot snapshot(Collection<Node> nodes) {
-        return new Snapshot(nodes.stream().filter(node -> owns(node, NameTagField.PREFIX) || owns(node, NameTagField.SUFFIX))
+        return new Snapshot(nodes.stream().filter(node -> owns(node, NameTagField.PREFIX)
+                || owns(node, NameTagField.SUFFIX) || owns(node, NameTagField.USERNAME_COLOR))
                 .collect(Collectors.toSet()));
     }
 
     static boolean owns(Node node, NameTagField field) {
+        if (!node.getValue() || node.hasExpiry() || !node.getContexts().isEmpty()) return false;
+        if (field == NameTagField.USERNAME_COLOR) {
+            return node instanceof MetaNode metadata && metadata.getMetaKey().equals("username-color");
+        }
         boolean type = field == NameTagField.PREFIX ? node instanceof PrefixNode : node instanceof SuffixNode;
-        return type && ((ChatMetaNode<?, ?>) node).getPriority() == PRIORITY && node.getValue()
-                && !node.hasExpiry() && node.getContexts().isEmpty();
+        return type && ((ChatMetaNode<?, ?>) node).getPriority() == PRIORITY;
     }
 
     private static Set<Node> owned(Collection<Node> nodes, NameTagField field) {

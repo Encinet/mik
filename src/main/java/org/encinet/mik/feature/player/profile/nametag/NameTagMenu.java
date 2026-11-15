@@ -12,6 +12,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.player.profile.PlayerNameTag;
 import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
+import org.encinet.mik.feature.player.profile.PlayerNameRenderer;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
@@ -128,7 +129,7 @@ final class NameTagMenu implements Listener, AutoCloseable {
                                 text.text(language, Message.NAMETAG_PAGE, NamedTextColor.WHITE, page.index() + 1, page.count()), nextPage,
                                 selectPage).build().content(), selectPage);
         var fields = Ui.form().key("fields");
-        for (NameTagField field : NameTagField.values()) fields.field(field.name().toLowerCase(java.util.Locale.ROOT),
+        for (NameTagField field : List.of(NameTagField.PREFIX, NameTagField.SUFFIX)) fields.field(field.name().toLowerCase(java.util.Locale.ROOT),
                 Component.text(fieldLabel(viewer, field), NamedTextColor.AQUA), field(viewer, workspace, own, effective, field));
         var refresh = Ui.button(loadingStyles ? UiIcons.LOADING : UiIcons.REFRESH, label(viewer, Message.NAMETAG_REFRESH)).key("refresh")
                 .primary((player, _) -> { refreshStyles(true); show(player, workspace); });
@@ -150,6 +151,20 @@ final class NameTagMenu implements Listener, AutoCloseable {
                             RolePermissions.isMember(player), nameTags.current(player), store.read(player.getUniqueId()));
                 },
                         (player, _) -> show(player, workspace));
+        String colorValue = workspace.edit != null && workspace.edit.field() == NameTagField.USERNAME_COLOR
+                ? workspace.edit.value(NameTagField.USERNAME_COLOR) : NameTagField.USERNAME_COLOR.value(effective);
+        PlayerNameTag colorPreview = workspace.edit != null && workspace.edit.field() == NameTagField.USERNAME_COLOR
+                ? workspace.edit.preview(effective) : effective;
+        Component colorLabel = PlayerNameRenderer.withUsernameStyle(Component.text("Aa"),
+                colorPreview.usernameColor(), colorPreview.rainbowUsername());
+        Component colorTooltip = label(viewer, Message.NAMETAG_NAME_COLOR_LABEL)
+                .append(Component.space()).append(Component.text(colorValue))
+                .append(Component.newline()).append(label(viewer, Message.NAMETAG_COLOR_HINT));
+        var colorButton = menu.control("username-color", colorLabel)
+                .region("username-color").tooltip(colorTooltip);
+        Component colorUnavailable = unavailable(viewer, workspace, own, NameTagField.USERNAME_COLOR);
+        if (colorUnavailable != null) colorButton.disabled(colorUnavailable);
+        else colorButton.primary((player, _) -> begin(player, workspace, NameTagField.USERNAME_COLOR, null));
         menu.information("mine", label(viewer, Message.NAMETAG_MINE)).region("heading");
         Component current = nameTags.render(viewer, baseName.apply(viewer), effective).component();
         menu.information("current", label(viewer, Message.NAMETAG_CURRENT).append(Component.newline())
@@ -162,6 +177,14 @@ final class NameTagMenu implements Listener, AutoCloseable {
             if (unavailable != null) confirm.disabled(unavailable);
             else if (!edit.canSave()) confirm.disabled(edit.saving() ? label(viewer, Message.NAMETAG_SAVING)
                     : !edit.valid() ? firstFailure(viewer, edit) : label(viewer, Message.NAMETAG_NO_CHANGES));
+            if (edit.field() == NameTagField.USERNAME_COLOR && !edit.value(NameTagField.USERNAME_COLOR).isEmpty()
+                    && own.map(snapshot -> !snapshot.version(NameTagField.USERNAME_COLOR).isEmpty()).orElse(false)) {
+                var clearColor = menu.control("clear-color", label(viewer, Message.NAMETAG_CLEAR)).region("edit-actions")
+                        .primary((player, _) -> {
+                            if (workspace.edit == edit) begin(player, workspace, NameTagField.USERNAME_COLOR, "");
+                        });
+                if (unavailable != null) clearColor.disabled(unavailable);
+            }
             var cancel = menu.control("cancel", label(viewer, Message.CANCEL)).region("edit-actions")
                     .primary((player, _) -> {
                         if (closed || !workspaces.contains(workspace) || workspace.edit != edit || edit.saving()) return;
@@ -193,7 +216,8 @@ final class NameTagMenu implements Listener, AutoCloseable {
         NameTagEdit edit = workspace.edit;
         boolean editing = edit != null && edit.field() == field;
         String raw = editing ? edit.value(field) : field.value(effective);
-        var input = Ui.textField(raw).preview(value -> render(viewer, value)).placeholder(label(viewer, Message.NAMETAG_UNSET))
+        var input = Ui.textField(raw).preview(value -> render(viewer, value))
+                .placeholder(label(viewer, Message.NAMETAG_UNSET))
                 .key("value").editing(editing)
                 .primary((player, _) -> { if (workspace.edit == edit) begin(player, workspace, field, null); });
         Component unavailable = unavailable(viewer, workspace, own, field);
@@ -222,7 +246,7 @@ final class NameTagMenu implements Listener, AutoCloseable {
 
     void sendStyle(Player viewer, NameTagStyle profile) {
         viewer.sendMessage(label(viewer, Message.NAMETAG_COPY_SENT, profile.name()));
-        for (NameTagField field : NameTagField.values()) {
+        for (NameTagField field : List.of(NameTagField.PREFIX, NameTagField.SUFFIX)) {
             String raw = field.value(profile.tag());
             viewer.sendMessage(Component.text(fieldLabel(viewer, field), NamedTextColor.AQUA).append(Component.space())
                     .append(raw.isEmpty() ? label(viewer, Message.NAMETAG_UNSET) : rawWithCopy(viewer, raw)));
@@ -400,7 +424,11 @@ final class NameTagMenu implements Listener, AutoCloseable {
     }
 
     private String fieldLabel(Player viewer, NameTagField field) {
-        return text.t(viewer, field == NameTagField.PREFIX ? Message.NAMETAG_LEADING_LABEL : Message.NAMETAG_TRAILING_LABEL);
+        return text.t(viewer, switch (field) {
+            case PREFIX -> Message.NAMETAG_LEADING_LABEL;
+            case SUFFIX -> Message.NAMETAG_TRAILING_LABEL;
+            case USERNAME_COLOR -> Message.NAMETAG_NAME_COLOR_LABEL;
+        });
     }
 
     private Component label(Player viewer, Message message, Object... args) { return text.text(viewer, message, NamedTextColor.WHITE, args); }

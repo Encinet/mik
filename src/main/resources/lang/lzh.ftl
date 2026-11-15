@@ -209,6 +209,7 @@ password-title = 帳號安防
 
 nametag-clear = 清除
 nametag-clear-hint = 除自設之飾，承繼之飾或仍顯
+nametag-color-hint = 可用單色籤，如 <yellow>、<#55AAFF>、<rainbow>。清空則承繼原色。
 nametag-command-description = 自定名籤
 nametag-confirm = 確定
 nametag-conflict = 今值已變。請比對現貌，再按確定以易之。
@@ -222,6 +223,7 @@ nametag-finish-field = 請先確定或取消此項
 nametag-input-invalid = 格式有誤，請傳單行 MiniMessage，或按清除
 nametag-leading-label = 名籤之首綴
 nametag-mine = 吾之名牌
+nametag-name-color-label = 名色
 nametag-next = 次頁
 nametag-no-changes = 內容未變
 nametag-no-permission = 正式成員以上可改名牌；仍可觀覽樣式

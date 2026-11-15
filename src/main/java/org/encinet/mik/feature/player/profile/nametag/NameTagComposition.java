@@ -26,8 +26,9 @@ final class NameTagComposition {
                 .child(UiKey.named("fields"), fields, new LinearSlot(0, LinearSlot.Alignment.START))
                 .child(details, new LinearSlot(0, LinearSlot.Alignment.START)).build(), UiKey.named("fields"));
         var mine = UiTemplates.window("mine", UiTemplates.focus(
-                Ui.layout(UiLayouts.contentColumn(UiKey.named("field-editor"), UiLength.ui(12)))
-                .child(UiTemplates.heading("heading").withSummaryLines(1))
+                Ui.layout(UiLayouts.contentColumn(UiKey.named("field-editor"), UiLength.ui(10)))
+                .child(UiTemplates.titleBar(UiTemplates.heading("heading").withSummaryLines(1),
+                        Ui.port("username-color", UiLayouts.row(UiLength.ui(4)))))
                 .child(UiKey.named("field-editor"), editor, LinearSlot.stretch()).build(), UiKey.named("field-editor")));
         var gallery = UiTemplates.window("players", Ui.layout(UiLayouts.contentColumn(players.key(), UiLength.ui(12)))
                 .child(UiTemplates.titleBar(UiTemplates.heading("players-heading").withSummaryLines(1), refresh))

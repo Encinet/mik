@@ -209,6 +209,7 @@ password-title = アカウント保護
 
 nametag-clear = 消去
 nametag-clear-hint = カスタム設定のみ削除します。継承された装飾は残る場合があります。
+nametag-color-hint = <yellow>、<#55AAFF>、<rainbow> のような色タグを1つ指定してください。消去すると継承した色を使用します。
 nametag-command-description = ネームタグをカスタマイズ
 nametag-confirm = 確定
 nametag-conflict = 現在の値が変更されました。現在の表示を確認し、置き換える場合はもう一度確定してください。
@@ -222,6 +223,7 @@ nametag-finish-field = 先に編集中の項目を確定またはキャンセル
 nametag-input-invalid = 形式が無効です。1 行の MiniMessage を送信するか、消去を選んでください。
 nametag-leading-label = 名前の前
 nametag-mine = 自分のネームタグ
+nametag-name-color-label = 名前の色
 nametag-next = 次へ
 nametag-no-changes = 変更なし
 nametag-no-permission = メンバー以上がネームタグを編集できます。スタイルの確認は引き続き可能です。

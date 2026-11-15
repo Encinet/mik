@@ -29,6 +29,10 @@ public record PlayerNameTag(
         this(prefix, suffix, usernameColor, false);
     }
 
+    public String usernameColorValue() {
+        return rainbowUsername ? "<rainbow>" : "<" + usernameColor.asHexString() + ">";
+    }
+
     public static PlayerNameTag empty() {
         return EMPTY;
     }

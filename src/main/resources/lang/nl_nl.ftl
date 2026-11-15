@@ -242,6 +242,7 @@ password-title = Accountbeveiliging
 
 nametag-clear = Wissen
 nametag-clear-hint = Verwijdert eigen waarden; overgenomen stijlen kunnen blijven.
+nametag-color-hint = Gebruik één kleurtag, zoals <yellow>, <#55AAFF> of <rainbow>. Wis het veld om de overgenomen kleur te gebruiken.
 nametag-command-description = Pas naamlabels aan
 nametag-confirm = Bevestigen
 nametag-conflict = De huidige waarde is gewijzigd. Vergelijk de huidige weergave en bevestig opnieuw om deze te vervangen.
@@ -255,6 +256,7 @@ nametag-finish-field = Bevestig of annuleer eerst het veld dat je bewerkt.
 nametag-input-invalid = Ongeldige opmaak. Stuur MiniMessage op één regel of kies Wissen.
 nametag-leading-label = Naamvoorvoegsel
 nametag-mine = Mijn naamlabel
+nametag-name-color-label = Naamkleur
 nametag-next = Volgende
 nametag-no-changes = Geen wijzigingen
 nametag-no-permission = Leden en beheerders kunnen naamlabels bewerken. Stijlen bekijken blijft mogelijk.

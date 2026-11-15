@@ -209,6 +209,7 @@ password-title = ความปลอดภัยบัญชี
 
 nametag-clear = ล้าง
 nametag-clear-hint = ลบเฉพาะค่าที่กำหนดเอง รูปแบบที่สืบทอดอาจยังแสดงอยู่
+nametag-color-hint = ใช้แท็กสีเดียว เช่น <yellow>, <#55AAFF> หรือ <rainbow> ล้างช่องเพื่อใช้สีที่สืบทอดมา
 nametag-command-description = ปรับแต่งป้ายชื่อ
 nametag-confirm = ยืนยัน
 nametag-conflict = ค่าปัจจุบันเปลี่ยนแล้ว โปรดเปรียบเทียบผลปัจจุบัน แล้วยืนยันอีกครั้งเพื่อแทนที่
@@ -222,6 +223,7 @@ nametag-finish-field = โปรดยืนยันหรือยกเลิ
 nametag-input-invalid = รูปแบบไม่ถูกต้อง ส่ง MiniMessage บรรทัดเดียว หรือเลือกล้าง
 nametag-leading-label = คำนำหน้าชื่อ
 nametag-mine = ป้ายชื่อของฉัน
+nametag-name-color-label = สีชื่อ
 nametag-next = ถัดไป
 nametag-no-changes = ไม่มีการเปลี่ยนแปลง
 nametag-no-permission = สมาชิกและทีมงานแก้ไขป้ายชื่อได้ คุณยังดูรูปแบบได้

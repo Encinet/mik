@@ -17,6 +17,7 @@ import org.bukkit.plugin.Plugin;
 import org.encinet.mik.shared.util.NameMetaRenderer;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -146,29 +147,32 @@ public final class PlayerNameTagRenderer {
 
     private static PlayerNameTag snapshot(User user) {
         CachedMetaData metadata = user.getCachedData().getMetaData();
-        UsernameStyle usernameStyle = parseUsernameStyle(
-                metadata.getMetaValue("username-color"));
+        UsernameStyle usernameStyle = parseUsernameStyle(metadata.getMetaValue("username-color"))
+                .orElse(new UsernameStyle(NamedTextColor.WHITE, false));
         return new PlayerNameTag(metadata.getPrefix(), metadata.getSuffix(),
                 usernameStyle.color(), usernameStyle.rainbow());
     }
 
-    static UsernameStyle parseUsernameStyle(String value) {
-        if (value != null && "<rainbow>".equalsIgnoreCase(value.strip())) {
-            return new UsernameStyle(NamedTextColor.WHITE, true);
+    public static Optional<UsernameStyle> parseUsernameStyle(String value) {
+        if (value == null || value.isBlank() || value.length() > 64) return Optional.empty();
+        String trimmed = value.strip();
+        if ("<rainbow>".equalsIgnoreCase(trimmed)) {
+            return Optional.of(new UsernameStyle(NamedTextColor.WHITE, true));
         }
-        return new UsernameStyle(parseUsernameColor(value), false);
-    }
-
-    static TextColor parseUsernameColor(String value) {
-        if (value == null || value.isBlank() || value.length() > 64) return NamedTextColor.WHITE;
         try {
-            Component parsed = USERNAME_COLOR.deserialize(value.strip() + "x");
+            Component parsed = USERNAME_COLOR.deserialize(trimmed + "x");
             if (parsed instanceof TextComponent text && text.content().equals("x")
-                    && parsed.children().isEmpty() && parsed.color() != null) return parsed.color();
+                    && parsed.children().isEmpty() && parsed.color() != null) {
+                return Optional.of(new UsernameStyle(parsed.color(), false));
+            }
         } catch (RuntimeException ignored) {
             // Invalid metadata must not prevent chat or tab-list rendering.
         }
-        return NamedTextColor.WHITE;
+        return Optional.empty();
+    }
+
+    static TextColor parseUsernameColor(String value) {
+        return parseUsernameStyle(value).map(UsernameStyle::color).orElse(NamedTextColor.WHITE);
     }
 
     public PlayerIdentityComponent render(Player player, Component baseName) {
@@ -230,6 +234,9 @@ public final class PlayerNameTagRenderer {
     private record CachedNameTag(PlayerNameTag nameTag, Instant expiresAt) {
     }
 
-    record UsernameStyle(TextColor color, boolean rainbow) {
+    public record UsernameStyle(TextColor color, boolean rainbow) {
+        public UsernameStyle {
+            Objects.requireNonNull(color, "color");
+        }
     }
 }

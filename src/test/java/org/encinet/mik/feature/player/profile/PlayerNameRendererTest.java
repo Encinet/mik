@@ -25,11 +25,11 @@ class PlayerNameRendererTest {
 
     @Test
     void usernameColorCanRequestRainbowWithoutAnimating() {
-        assertEquals(new PlayerNameTagRenderer.UsernameStyle(NamedTextColor.WHITE, true),
+        assertEquals(java.util.Optional.of(new PlayerNameTagRenderer.UsernameStyle(NamedTextColor.WHITE, true)),
                 PlayerNameTagRenderer.parseUsernameStyle("<rainbow>"));
-        assertEquals(new PlayerNameTagRenderer.UsernameStyle(NamedTextColor.YELLOW, false),
+        assertEquals(java.util.Optional.of(new PlayerNameTagRenderer.UsernameStyle(NamedTextColor.YELLOW, false)),
                 PlayerNameTagRenderer.parseUsernameStyle("<yellow>"));
-        assertEquals(new PlayerNameTagRenderer.UsernameStyle(NamedTextColor.WHITE, false),
+        assertEquals(java.util.Optional.empty(),
                 PlayerNameTagRenderer.parseUsernameStyle("<gradient:red:blue>"));
     }
 
