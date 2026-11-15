@@ -30,6 +30,8 @@ public final class UiTextField extends Ui.Builder<UiTextField> {
     }
 
     @Override protected UiTextField self() { return this; }
+    /** Gives the clickable preview a unique identity when it anchors a companion window. */
+    public UiTextField previewKey(UiKey source) { control.key(Objects.requireNonNull(source)); return this; }
     /** Renders nonempty source text without changing its value or empty state. */
     public UiTextField preview(Function<String, Component> renderer) { preview = Objects.requireNonNull(renderer); return this; }
     public UiTextField placeholder(Component text) { placeholder = Objects.requireNonNull(text); return this; }

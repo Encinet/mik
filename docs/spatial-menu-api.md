@@ -495,7 +495,7 @@ Ui.form().key("playlist")
     .feedback(status).actions(buttons).build();
 ```
 
-`Ui.form()` 共享标签列，窄处将标签移到控件上方；`field(key, control)` 省略已有标题说明的标签。底栏提示靠左、动作靠右，均可省略。`Ui.textField(String)` 接收原文快照，默认按字面显示；可用 `.preview(Function<String, Component>)` 提供富文本效果。占位只依据原文是否为空，非空原文即使预览没有字形也保留其真实状态；空原文直接使用占位，不调用预览函数。尾部 `actions(node)` 放清空等局部操作；默认宽度 240 UI、最小 160 UI，仍受宿主约束。
+`Ui.form()` 共享标签列，窄处将标签移到控件上方；`field(key, control)` 省略已有标题说明的标签。底栏提示靠左、动作靠右，均可省略。`Ui.textField(String)` 接收原文快照，默认按字面显示；可用 `.preview(Function<String, Component>)` 提供富文本效果。占位只依据原文是否为空，非空原文即使预览没有字形也保留其真实状态；空原文直接使用占位，不调用预览函数。`.previewKey(UiKey)` 为可点击预览指定唯一键，可作为浮窗来源；`.key(...)` 仍标识整个字段容器。尾部 `actions(node)` 放清空等局部操作；默认宽度 240 UI、最小 160 UI，仍受宿主约束。
 
 `editing(...)` 只呈现宿主提供的编辑态，点击后的输入会话仍由宿主开启和结束，原值、草稿和保存规则也由宿主管理。`disabled(reason)` 禁用值的编辑入口，复制、清空等辅助操作由宿主分别设置可用性。
 

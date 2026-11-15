@@ -67,7 +67,7 @@ final class MusicLibraryScenes {
         if (playlist != null) {
             UUID id = playlist.id();
             headingActions.child(w.button(player, "back", () -> w.browse(player, browser.parent)))
-                    .child(w.button(player, "playlist-settings", () -> w.panel(player, new PlaylistSettings(id))));
+                    .child(w.button(player, "playlist-settings", () -> settings(player, state, id)));
         }
         var actions = headingActions.build();
         var heading = UiTemplates.titleBar(Ui.heading(title).summaryLines(1).key("title").build(),
@@ -94,7 +94,7 @@ final class MusicLibraryScenes {
             controls.child(w.button(player, "undo", () -> w.run(player, new TaskKey(Work.LIBRARY, list.id()),
                     () -> w.playlists.undo(player.getUniqueId(), list.id()), _ -> {})));
         }
-        if (!browser.selecting && browser.collection.source() == Source.RECENT && !tracks.isEmpty()) controls.child(w.button(player, "clear-recents", () -> w.confirm(player, new ClearRecents())));
+        if (!browser.selecting && browser.collection.source() == Source.RECENT && !tracks.isEmpty()) controls.child(w.button(player, "clear-recents", () -> w.confirm(player, UiKey.named("clear-recents"), new ClearRecents())));
         var collectionTools = controls.build();
         if (!collectionTools.children().isEmpty()) body.child(collectionTools);
         if (tracks.isEmpty()) body.child(info("empty", w.label(player, "empty")));
@@ -108,9 +108,10 @@ final class MusicLibraryScenes {
                                 browser.toggle(track.id()); w.redraw(player);
                             }) : null;
             var table = MusicTrackTable.builder(tracks,interaction,key -> w.label(player,key),
-                    track -> (_, _) -> w.panel(player, new Track(List.of(track))),
+                    track -> (_, _) -> w.window(player, MusicTrackTable.detailSource(track), window -> track(player, state, track, window)),
                     (songs, placement) -> w.safe(player, () -> w.submit(player, songs, placement)),
                     track -> w.playlistPicker.button(player,state,List.of(track),UiKey.item("save-track:" + track.id())))
+                    .detailKeys(MusicTrackTable::detailSource)
                     .page(browser.page,index -> { if (browser.page(revision,index)) w.redraw(player); }).containing(browser.trackFocus);
             if (browser.selecting && browser.move == null) table.pager(MusicTrackTable.selectionControls(tracks,selected,key -> w.label(player,key),visible -> {
                 if (browser.revision != revision || !browser.selecting || browser.move != null) return;
@@ -211,35 +212,43 @@ final class MusicLibraryScenes {
         return body.child(actions.build()).build();
     }
 
-    UiNode track(Player player, MusicWorkspaceState state, Track selection) {
-        var songs = selection.tracks();
-        var body = column("track").child(w.panelHeading(player, w.label(player, "track-details")));
-        for (var track : songs.stream().limit(2).toList()) body.child(info("track:" + track.id(), w.raw(track.details().title())).withSummaryLines(2));
-        body.child(info("output", w.targetSummary(player, state.target())).withSummaryLines(1));
-        var actions = tools("track-actions");
-        actions.child(playbackActions(player, songs));
-        actions.child(w.playlistPicker.button(player, state, songs, UiKey.named("save-details")));
-        if (songs.size() == 1) {
-            var track = songs.getFirst();
-            var snapshot = w.queries.snapshot(player.getUniqueId());
+    private MenuPanel track(Player player, MusicWorkspaceState state, MusicTrack track, MusicTaskWindow window) {
+        // A detail window holds the clicked song even if playback advances underneath it.
+        return () -> {
+            var owned = window.current();
+            var body = column("track").child(info("song", w.raw(track.details().title())).withSummaryLines(3));
+            body.child(info("artist", w.raw(track.details().artist() == null ? "—" : track.details().artist())));
+            body.child(info("duration", w.label(player,"duration").append(w.raw(" · " + (track.details().audio().duration() == null
+                    ? "—" : MusicTime.format(track.details().audio().duration().toMillis()))))));
+            body.child(info("type", w.label(player,"track-type").append(w.raw(" · " + track.details().format().toUpperCase(Locale.ROOT)))));
+            body.child(info("output", w.targetSummary(player, state.target())).withSummaryLines(1));
+            var actions = tools("track-actions").child(MusicPlaybackActions.buttons(List.of(track), key -> w.label(player,key),
+                    (songs,placement) -> { if (owned.getAsBoolean()) w.safe(player,() -> w.submit(player,songs,placement)); }));
+            actions.child(Ui.button(w.label(player,"add-playlist")).key("save-details")
+                    .primary((_,_) -> { if (owned.getAsBoolean()) window.push(w.playlistPicker.panel(player,state,List.of(track),window)); }).build());
             actions.child(w.button(player, "make-disc", () -> {
+                if (!owned.getAsBoolean()) return;
                 if (player.getInventory().firstEmpty() < 0) throw new MusicProblem(MusicProblem.Code.LIMIT);
                 player.getInventory().addItem(w.discs.createPersistentDisc(track, player));
             }));
-            if (state.panel() instanceof Track && state.browser.collection.source() == Source.RECENT) {
-                if (snapshot.recents().values().stream().anyMatch(mark -> mark.track().equals(track.id())))
-                    actions.child(w.button(player, "remove", () -> w.run(player, new TaskKey(Work.LIBRARY, player.getUniqueId()),
-                            () -> w.playlists.forgetRecent(player.getUniqueId(), track.id()), _ -> {})));
-            }
+            var snapshot = w.queries.snapshot(player.getUniqueId());
+            if (state.browser.collection.source() == Source.RECENT
+                    && snapshot.recents().values().stream().anyMatch(mark -> mark.track().equals(track.id())))
+                actions.child(w.button(player,"remove",() -> {
+                    if (owned.getAsBoolean()) w.run(player,new TaskKey(Work.LIBRARY,player.getUniqueId()),
+                            () -> w.playlists.forgetRecent(player.getUniqueId(),track.id()),_ -> {});
+                }));
             if (state.target() != null) {
                 var target = w.registry.target(state.target());
-                var local = target.members().stream().filter(device -> w.registry.local(player, device)).findFirst();
-                local.ifPresent(device -> actions.child(w.button(player, "select-room-track", () -> {
-                    w.rooms.open(player, device.id()); w.rooms.select(player, device.id(), track); w.panel(player, new Room(device.id()));
-                })));
+                target.members().stream().filter(device -> w.registry.local(player,device)).findFirst().ifPresent(device ->
+                        actions.child(w.button(player,"select-room-track",() -> {
+                            if (!owned.getAsBoolean()) return;
+                            w.rooms.open(player,device.id()); w.rooms.select(player,device.id(),track); w.panel(player,new Room(device.id()));
+                        })));
             }
-        }
-        return body.child(actions.build()).children(w.taskStatus(player, state, new TaskKey(Work.LIBRARY, player.getUniqueId()))).build();
+            return MenuScene.screen("music-track",w.label(player,"track-details")).content(body.child(actions.build())
+                    .children(w.taskStatus(player,state,new TaskKey(Work.LIBRARY,player.getUniqueId()))).build()).build();
+        };
     }
     private UiNode playbackActions(Player player, List<MusicTrack> tracks) {
         return MusicPlaybackActions.buttons(tracks, key -> w.label(player, key),
@@ -247,49 +256,92 @@ final class MusicLibraryScenes {
     }
 
     void create(Player player, List<MusicTrack> tracks) {
-        w.input(player, "name", "", 64, name -> w.run(player, new TaskKey(Work.LIBRARY, player.getUniqueId()),
+        w.input(player, UiKey.named("new-playlist"), "name", "", 64, name -> w.run(player, new TaskKey(Work.LIBRARY, player.getUniqueId()),
                 () -> w.playlists.create(player.getUniqueId(), name, tracks), openSavedPlaylist(player)));
     }
     Consumer<Playlist> openSavedPlaylist(Player player) {
-        return openSavedPlaylist(w.state(player), id -> w.browsePlaylist(player, id, Source.OWNED));
+        var state = w.state(player);
+        return openSavedPlaylist(state, id -> { if (w.active(player,state)) w.browsePlaylist(player, id, Source.OWNED); });
     }
     static Consumer<Playlist> openSavedPlaylist(MusicWorkspaceState state, Consumer<UUID> open) {
         long revision = state.browser.revision;
         Panel panel = state.panel();
+        long window = state.windowGeneration;
         return list -> {
-            if (state.page == WorkspacePage.LIBRARY && state.browser.revision == revision && state.panel() == panel)
+            if (state.windowGeneration == window && state.page == WorkspacePage.LIBRARY && state.browser.revision == revision && state.panel() == panel)
                 open.accept(list.id());
         };
     }
-    UiNode settings(Player player, MusicWorkspaceState state, PlaylistSettings settings) {
-        var list = w.playlists.visible(player.getUniqueId(), settings.playlist());
-        boolean editable = list.author().equals(player.getUniqueId());
-        var body = column("playlist-settings").child(w.panelHeading(player, editable ? w.label(player, "playlist-settings") : w.raw(list.name())));
-        var actions = tools("playlist-actions");
-        var key = new TaskKey(Work.LIBRARY, list.id());
-        if (editable) {
-            body.child(w.form(player, "playlist-details:" + list.id(), MenuInputForm.builder(w.label(player, "playlist-settings"))
-                    .field(MenuInputForm.Field.text("name", w.label(player, "name"), list.name(), 64))
-                    .field(MenuInputForm.Field.text("description", w.label(player, "description"), list.description(), 512).multiline(true))
-                    .validate((viewer, values) -> {
-                        try { Playlist.text(values.text("name"), 64); return null; }
-                        catch (IllegalArgumentException invalid) { return w.problem(viewer, MusicProblem.Code.INVALID); }
-                    })
-                    .cancel(w.label(player, "cancel")).submit(w.label(player, "apply"), (_, values) -> w.run(player, key,
-                            () -> w.playlists.update(player.getUniqueId(), list.id(), list.version(), values.text("name").strip(),
-                                    values.text("description").strip(), list.icon(), list.published()), _ -> {})).build()));
-            actions.child(w.button(player, list.published() ? "make-private" : "publish", () -> w.run(player, key,
-                    () -> w.playlists.update(player.getUniqueId(), list.id(), list.version(), list.name(), list.description(), list.icon(), !list.published()), _ -> {})));
-            actions.child(w.button(player, "delete", () -> w.confirm(player, new DeletePlaylist(list.id(), list.version(), list.name()))));
-        }
-        boolean favorite = w.queries.snapshot(player.getUniqueId()).favorites().containsKey(MusicState.key(player.getUniqueId(), list.id()));
-        actions.child(w.choice(player, "favorite", w.label(player, "favorite"), favorite,
-                () -> w.run(player, key, () -> w.playlists.favorite(player.getUniqueId(), list.id(), !favorite), _ -> {})))
-                .child(w.button(player, "copy", () -> w.input(player, "name", list.name(), 64, name -> w.run(player, key,
-                        () -> w.playlists.copy(player.getUniqueId(), list.id(), name), openSavedPlaylist(player)))));
-        if (list.published()) actions.child(w.button(player, "share", () -> player.sendMessage(w.raw("/music playlist " + list.id())
-                .clickEvent(ClickEvent.copyToClipboard("/music playlist " + list.id())))));
-        return body.child(info("visibility", w.label(player, list.published() ? "public" : "private")))
-                .child(actions.build()).children(w.taskStatus(player, state, key)).build();
+    private void settings(Player player, MusicWorkspaceState state, UUID id) {
+        w.window(player,UiKey.named("playlist-settings"), window -> settingsPanel(player,state,id,window));
+    }
+    private MenuPanel settingsPanel(Player player, MusicWorkspaceState state, UUID id, MusicTaskWindow window) {
+        // Keep submitted candidates available for retry when persistence fails.
+        String[] draft = {null,null}, copyName = {null};
+        return () -> {
+            var owned = window.current();
+            Playlist list;
+            try { list = w.playlists.visible(player.getUniqueId(),id); }
+            catch (MusicProblem unavailable) {
+                return MenuScene.screen("music-playlist-settings",w.label(player,"playlist-settings"))
+                        .content(info("unavailable",w.problem(player,unavailable.code()))).build();
+            }
+            boolean editable = list.author().equals(player.getUniqueId());
+            var body = column("playlist-settings").child(info("name",w.raw(list.name())).withSummaryLines(2));
+            if (!list.description().isBlank()) body.child(info("description",w.raw(list.description())).withSummaryLines(3));
+            body.child(info("visibility",w.label(player,list.published() ? "public" : "private")));
+            var actions = tools("playlist-actions");
+            var key = new TaskKey(Work.LIBRARY,id);
+            if (editable) {
+                actions.child(w.button(player,"edit-playlist",w.language.text(player,Message.MUSIC_SPACE_EDIT_PLAYLIST,NamedTextColor.WHITE),() -> {
+                    if (!owned.getAsBoolean() || state.busy(key)) return;
+                    var form = MenuInputForm.builder(w.label(player,"playlist-settings"))
+                            .field(MenuInputForm.Field.text("name",w.label(player,"name"),draft[0] == null ? list.name() : draft[0],64))
+                            .field(MenuInputForm.Field.text("description",w.label(player,"description"),draft[1] == null ? list.description() : draft[1],512).multiline(true))
+                            .validate((viewer,values) -> {
+                                try { Playlist.text(values.text("name"),64); return null; }
+                                catch (IllegalArgumentException invalid) { return w.problem(viewer,MusicProblem.Code.INVALID); }
+                            }).cancel(w.label(player,"cancel")).submit(w.label(player,"apply"),(_,values) -> {
+                                draft[0] = values.text("name").strip(); draft[1] = values.text("description").strip();
+                                w.run(player,key,() -> w.playlists.update(player.getUniqueId(),id,list.version(),draft[0],draft[1],list.icon(),list.published()),
+                                        _ -> { draft[0] = null; draft[1] = null; });
+                            }).build();
+                    window.input(player,form,"name");
+                }));
+                actions.child(w.button(player,list.published() ? "make-private" : "publish",() -> {
+                    if (owned.getAsBoolean()) w.run(player,key,() -> w.playlists.update(player.getUniqueId(),id,list.version(),
+                            list.name(),list.description(),list.icon(),!list.published()),_ -> {});
+                }));
+                actions.child(w.button(player,"delete",() -> {
+                    if (owned.getAsBoolean()) w.confirm(player,UiKey.named("playlist-settings"),new DeletePlaylist(id,list.version(),list.name()),
+                            () -> settings(player,state,id));
+                }));
+            }
+            boolean favorite = w.queries.snapshot(player.getUniqueId()).favorites().containsKey(MusicState.key(player.getUniqueId(),id));
+            actions.child(w.choice(player,"favorite",w.label(player,"favorite"),favorite,() -> {
+                if (owned.getAsBoolean()) w.run(player,key,() -> w.playlists.favorite(player.getUniqueId(),id,!favorite),_ -> {});
+            })).child(w.button(player,"copy",() -> {
+                if (!owned.getAsBoolean()) return;
+                var form = MenuInputForm.builder(w.label(player,"copy"))
+                        .field(MenuInputForm.Field.text("name",w.label(player,"name"),copyName[0] == null ? list.name() : copyName[0],64))
+                        .validate((viewer,values) -> {
+                            try { Playlist.text(values.text("name"),64); return null; }
+                            catch (IllegalArgumentException invalid) { return w.problem(viewer,MusicProblem.Code.INVALID); }
+                        }).cancel(w.label(player,"cancel")).submit(w.label(player,"apply"),(_,values) -> {
+                            copyName[0] = values.text("name");
+                            var current = window.current();
+                            var open = openSavedPlaylist(player);
+                            w.run(player,key,() -> w.playlists.copy(player.getUniqueId(),id,values.text("name")),
+                                    saved -> { if (current.getAsBoolean()) open.accept(saved); });
+                        }).build();
+                window.input(player,form,"name");
+            }));
+            if (list.published()) actions.child(w.button(player,"share",() -> {
+                if (owned.getAsBoolean()) player.sendMessage(w.raw("/music playlist " + id)
+                        .clickEvent(ClickEvent.copyToClipboard("/music playlist " + id)));
+            }));
+            return MenuScene.screen("music-playlist-settings",w.label(player,"playlist-settings"))
+                    .content(body.child(actions.build()).children(w.taskStatus(player,state,key)).build()).build();
+        };
     }
 }

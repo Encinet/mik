@@ -40,9 +40,7 @@ public final class MusicWorkspace implements AutoCloseable {
     final MusicRooms rooms;
     final MusicDiscFactory discs;
     private final Map<UUID, FloatingMenuFlow<MusicWorkspaceState>> flows = new HashMap<>();
-    private static final UiKey INPUT_EDITOR = UiKey.named("music-input-editor");
     private static final UiKey SEARCH_EDITOR = UiKey.named("music-search-field");
-    private final Map<UUID, MenuFormSession> forms = new HashMap<>();
     private final Map<UUID, MenuQuerySession> searchInputs = new HashMap<>();
     final MusicLibraryScenes library = new MusicLibraryScenes(this);
     final MusicPlaylistPicker playlistPicker = new MusicPlaylistPicker(this);
@@ -75,7 +73,7 @@ public final class MusicWorkspace implements AutoCloseable {
                 || previous.handle().state() == FloatingMenuState.OPENING)) { previous.redraw(); return; }
         MusicWorkspaceState state = previous == null ? new MusicWorkspaceState() : previous.state();
         if (state.panel() instanceof GroupEditor editor) editor.draft().pickingInWorld = false;
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         closeSearch(player.getUniqueId());
         if (previous != null) previous.close();
         flows.put(player.getUniqueId(), FloatingMenuFlow.openRoot(player, state, context -> render(context.player(), context.state())));
@@ -199,7 +197,6 @@ public final class MusicWorkspace implements AutoCloseable {
                             || current == FloatingMenuState.CLOSED) {
                         state.cancelMoves();
                         travel.cancel(viewer.getUniqueId());
-                        closeForm(viewer.getUniqueId());
                         closeSearch(viewer.getUniqueId());
                         this.transport.release(viewer.getUniqueId());
                     } else if (current == FloatingMenuState.OPENING && previous == FloatingMenuState.SUSPENDED) redraw(viewer);
@@ -209,8 +206,7 @@ public final class MusicWorkspace implements AutoCloseable {
         UiNode auxiliary = null;
         if (queries.ready()) {
             try {
-                var input = forms.get(player.getUniqueId());
-                auxiliary = input != null ? inputContent(input) : auxiliary(player, state);
+                auxiliary = auxiliary(player, state);
             } catch (MusicProblem problem) {
                 auxiliary = column("problem").child(panelHeading(player, problem(player, problem.code()))).build();
             }
@@ -225,14 +221,10 @@ public final class MusicWorkspace implements AutoCloseable {
             content = Ui.alternative(content,MusicWorkspaceComposition.content(null,browser,auxiliary,
                     this.transport.compact(player,state),windowTools));
         }
-        if (forms.containsKey(player.getUniqueId()) || searchInputs.containsKey(player.getUniqueId())) {
-            boolean[] visible = {false, false};
-            UiTree.visit(content, (_, node) -> {
-                if (node.key().equals(INPUT_EDITOR)) visible[0] = true;
-                if (node.key().equals(SEARCH_EDITOR)) visible[1] = true;
-            });
-            if (!visible[0]) closeForm(player.getUniqueId());
-            if (!visible[1]) closeSearch(player.getUniqueId());
+        if (searchInputs.containsKey(player.getUniqueId())) {
+            boolean[] visible = {false};
+            UiTree.visit(content, (_, node) -> { if (node.key().equals(SEARCH_EDITOR)) visible[0] = true; });
+            if (!visible[0]) closeSearch(player.getUniqueId());
         }
         return builder.content(content).build();
     }
@@ -271,37 +263,33 @@ public final class MusicWorkspace implements AutoCloseable {
         if (panel instanceof NoPanel) return null;
         return switch (panel) {
             case Outputs picker -> outputs.directory(player, state, picker.pending());
-            case Track track -> library.track(player, state, track);
             case DevicePanel device -> outputs.details(player, state, device);
             case MemberOutput member -> outputs.memberOutput(player, state, member);
             case GroupEditor editor -> outputs.groupEditor(player, state, editor.draft());
-            case PlaylistSettings list -> library.settings(player, state, list);
             case Import task -> imports.content(player, state, task);
             case RoomPicker _ -> games.picker(player, state);
             case Room room -> games.room(player, state, room);
-            case Confirmation decision -> confirmation(player, state, decision);
             case NoPanel _ -> throw new IllegalStateException();
         };
     }
 
     void panel(Player player, Panel next) {
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         var state = state(player);
         state.panel(next);
         redraw(player);
     }
     void returnToMembers(Player player, MusicWorkspaceState state, MemberOutput source) {
         if (!active(player,state) || state.panel() != source) return;
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         if (state.returnToMembers(source)) redraw(player);
     }
-    boolean editing(Player player) { return forms.containsKey(player.getUniqueId()); }
     void toggleDeviceIdentity(Player player, MusicWorkspaceState state, Panel owner, DeviceIdentityView view) {
-        if (!active(player,state) || editing(player) || !state.toggleDeviceIdentity(owner,view)) return;
+        if (!active(player,state) || !state.toggleDeviceIdentity(owner,view)) return;
         redraw(player);
     }
     void showRooms(Player player) {
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         closeSearch(player.getUniqueId());
         var room = rooms.current(player.getUniqueId());
         state(player).rooms(room == null ? null : room.device());
@@ -309,13 +297,13 @@ public final class MusicWorkspace implements AutoCloseable {
     }
     void showDevices(Player player) {
         var state = state(player);
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         closeSearch(player.getUniqueId());
         state.devices();
         redraw(player);
     }
     void showDevices(Player player, Panel next) {
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         closeSearch(player.getUniqueId());
         var state = state(player);
         state.devices();
@@ -323,7 +311,7 @@ public final class MusicWorkspace implements AutoCloseable {
         redraw(player);
     }
     void browse(Player player, Collection collection) {
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         closeSearch(player.getUniqueId());
         var state = state(player);
         state.searchGeneration++;
@@ -332,7 +320,7 @@ public final class MusicWorkspace implements AutoCloseable {
         redraw(player);
     }
     void browsePlaylist(Player player, UUID id, Source source) {
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         closeSearch(player.getUniqueId());
         var state = state(player);
         state.searchGeneration++;
@@ -340,34 +328,32 @@ public final class MusicWorkspace implements AutoCloseable {
         state.browsePlaylist(id, source);
         redraw(player);
     }
-    void input(Player player, MenuInputForm form) {
-        input(player, form, form.fields().getFirst().key());
+    void window(Player player, UiKey source, Function<MusicTaskWindow, MenuPanel> root) {
+        var flow = flows.get(player.getUniqueId());
+        if (flow == null || !active(player, flow.state())) return;
+        flow.state().windowGeneration++;
+        flow.handle().openPopover(source, redraw -> new MusicTaskWindow(redraw, label(player, "back"), root));
     }
-    private void input(Player player, MenuInputForm form, String focus) {
-        closeForm(player.getUniqueId());
-        var session = FloatingMenus.inlineInput(player, form, () -> redraw(player), () -> {
-            forms.remove(player.getUniqueId());
-            redraw(player);
-        });
-        forms.put(player.getUniqueId(), session);
-        session.focus(focus);
+    void input(Player player, UiKey source, MenuInputForm form, String focus) {
+        window(player, source, _ -> new MusicInputPanel(player, form, focus, MenuFormSession.Actions.SUBMIT_AND_CANCEL,
+                () -> redraw(player), FloatingMenuHandle::closePopover));
     }
     UiNode field(Player player, String id, String key, String value, int maximum, Consumer<String> apply) {
         return form(player, id, inputForm(player, key, value, maximum, apply));
     }
     UiNode form(Player player, String id, MenuInputForm form) {
         var fields = Ui.form().key(id);
-        for (var field : form.fields()) fields.field(field.key(), field.label(), Ui.textField(field.initial()).preview(field.preview())
-                .key(field.key()).placeholder(language.text(player, Message.MENU_INPUT_EMPTY, NamedTextColor.AQUA))
-                .maxLines(field.multiline() ? 4 : 1)
-                .primary((viewer, _) -> safe(viewer, () -> input(viewer, form, field.key()))).build());
+        for (var field : form.fields()) {
+            var source = UiKey.item(id + ":" + field.key());
+            fields.field(field.key(), field.label(), Ui.textField(field.initial()).preview(field.preview())
+                    .key(field.key()).previewKey(source).placeholder(language.text(player, Message.MENU_INPUT_EMPTY, NamedTextColor.AQUA))
+                    .maxLines(field.multiline() ? 4 : 1)
+                    .primary((viewer, _) -> safe(viewer, () -> input(viewer, source, form, field.key()))).build());
+        }
         return fields.build();
     }
-    private static UiNode inputContent(MenuFormSession input) {
-        return Ui.column().key(INPUT_EDITOR).child(input.content()).build();
-    }
-    void input(Player player, String key, String initial, int maximum, Consumer<String> apply) {
-        input(player, inputForm(player, key, initial, maximum, apply));
+    void input(Player player, UiKey source, String key, String initial, int maximum, Consumer<String> apply) {
+        input(player, source, inputForm(player, key, initial, maximum, apply), "value");
     }
     private MenuInputForm inputForm(Player player, String key, String initial, int maximum, Consumer<String> apply) {
         return MenuInputForm.builder(label(player, key))
@@ -382,7 +368,13 @@ public final class MusicWorkspace implements AutoCloseable {
                 .cancel(label(player, "cancel")).submit(label(player, "apply"),
                         (viewer, values) -> safe(viewer, () -> apply.accept(values.text("value").strip()))).build();
     }
-    private void closeForm(UUID player) { var input = forms.remove(player); if (input != null) input.close(); }
+    private void closeCompanion(Player player) {
+        var flow = flows.get(player.getUniqueId());
+        if (flow != null) {
+            flow.state().windowGeneration++;
+            if (flow.handle().state() == FloatingMenuState.ACTIVE) flow.handle().closePopover();
+        }
+    }
 
     UiNode searchInput(Player player, String query, Component placeholder) {
         var input = searchInputs.computeIfAbsent(player.getUniqueId(), _ -> FloatingMenus.queryInput(player,
@@ -458,27 +450,43 @@ public final class MusicWorkspace implements AutoCloseable {
         state.lastSubmission = request;
         run(player, new TaskKey(Work.PLAYBACK, request.target()), () -> devices.submit(player, request), _ -> {});
     }
-    void confirm(Player player, Decision decision) { panel(player, new Confirmation(decision, state(player).panel())); }
-    private UiNode confirmation(Player player, MusicWorkspaceState state, Confirmation confirmation) {
-        String key = switch (confirmation.decision()) {
+    void confirm(Player player, UiKey source, Decision decision) { confirm(player, source, decision, () -> {}); }
+    void confirm(Player player, UiKey source, Decision decision, Runnable returnTo) {
+        String key = switch (decision) {
             case DeletePlaylist _ -> "delete";
             case ClearRecents _ -> "clear-recents";
             case EndRoom _ -> "end-room";
         };
-        var body = column("confirmation").child(panelHeading(player, label(player, key)));
-        if (confirmation.decision() instanceof DeletePlaylist list) body.child(info("scope", raw(list.name())));
-        if (confirmation.decision() instanceof EndRoom) body.child(info("scope", label(player, "room-end-confirmation")));
-        return body.child(tools("decision").child(button(player, "apply", label(player, key), () -> decide(player, confirmation)))
-                        .child(button(player, "cancel", () -> panel(player, confirmation.returnTo()))).build()).build();
-    }
-    private void decide(Player player, Confirmation confirmation) {
         var state = state(player);
-        panel(player, confirmation.returnTo());
-        switch (confirmation.decision()) {
+        var scope = state.panelScope;
+        long revision = state.browser.revision;
+        long window = ++state.windowGeneration;
+        boolean[] applied = {false}, showing = {true};
+        var body = column("confirmation");
+        if (decision instanceof DeletePlaylist list) body.child(info("scope",language.text(player,Message.MUSIC_SPACE_DELETE_CONFIRMATION,NamedTextColor.YELLOW,list.name())));
+        if (decision instanceof ClearRecents) body.child(info("scope",language.text(player,Message.MUSIC_SPACE_CLEAR_RECENTS_CONFIRMATION,NamedTextColor.YELLOW)));
+        if (decision instanceof EndRoom) body.child(info("scope", label(player, "room-end-confirmation")));
+        body.child(Ui.button(label(player, key)).key("apply").primary((_, handle) -> {
+            if (!showing[0] || state.windowGeneration != window) return;
+            applied[0] = true;
+            handle.closePopover();
+            if (active(player, state) && scope.equals(state.panelScope) && revision == state.browser.revision)
+                safe(player, () -> { returnTo.run(); decide(player, decision); });
+        }).build());
+        body.child(Ui.button(label(player, "cancel")).key("cancel").primary((_, handle) -> {
+            if (showing[0] && state.windowGeneration == window) handle.closePopover();
+        }).build());
+        flows.get(player.getUniqueId()).handle().openPopover(MenuPopover.attached(source, label(player, key), body.build(), label(player, "cancel"), (_,_) -> {
+            showing[0] = false;
+            if (!applied[0] && state.windowGeneration == window && active(player,state) && scope.equals(state.panelScope) && revision == state.browser.revision) returnTo.run();
+        }).exclusive());
+    }
+    private void decide(Player player, Decision decision) {
+        var state = state(player);
+        switch (decision) {
             case DeletePlaylist list -> run(player, new TaskKey(Work.LIBRARY, list.id()),
                     () -> playlists.delete(player.getUniqueId(), list.id(), list.version()), _ -> {
                         if (list.id().equals(state.browser.collection.playlist())) browse(player, state.browser.parent);
-                        if (state.panel() instanceof PlaylistSettings current && current.playlist().equals(list.id())) panel(player, new NoPanel());
                     });
             case ClearRecents _ -> run(player, new TaskKey(Work.LIBRARY, player.getUniqueId()),
                     () -> playlists.clearRecents(player.getUniqueId()), _ -> {});
@@ -491,7 +499,7 @@ public final class MusicWorkspace implements AutoCloseable {
         var state = state(player);
         String clean = cleanQuery(query);
         if (!clean.isBlank()) acquire(player);
-        closeForm(player.getUniqueId());
+        closeCompanion(player);
         closeSearch(player.getUniqueId());
         state.browse(Collection.of(Source.CATALOG));
         searchCatalog(player, state, clean);
@@ -546,7 +554,6 @@ public final class MusicWorkspace implements AutoCloseable {
     }
     public void quit(UUID player) {
         this.transport.release(player);
-        closeForm(player);
         closeSearch(player);
         var flow = flows.remove(player); if (flow != null) flow.close();
         sound.forget(player);
@@ -562,7 +569,6 @@ public final class MusicWorkspace implements AutoCloseable {
         closed = true;
         sound.close();
         transport.close();
-        List.copyOf(forms.keySet()).forEach(this::closeForm);
         List.copyOf(searchInputs.keySet()).forEach(this::closeSearch);
         List.copyOf(flows.values()).forEach(FloatingMenuFlow::close);
         flows.clear();

@@ -91,7 +91,6 @@ interface-theme-title = Тема меню
 interface-theme-warm = Тёплая
 menu-collapse = Свернуть
 menu-expand = Развернуть
-menu-finish-editing = Сначала завершите ввод.
 menu-input-clear = Очистить
 menu-input-done = Готово
 menu-input-empty = (пусто)
@@ -2396,6 +2395,10 @@ music-space-label =
         [playlist-id] ID плейлиста
        *[unknown] Музыкальное пространство
     }
+
+music-space-edit-playlist = Изменить название и описание
+music-space-delete-confirmation = Удалить «{ $arg0 }» и список композиций? Это действие нельзя отменить.
+music-space-clear-recents-confirmation = Очистить всю вашу историю прослушивания? Это действие нельзя отменить.
 
 music-space-error =
     { $arg0 ->

@@ -77,7 +77,6 @@ interface-theme-title = Menu theme
 interface-theme-warm = Warm
 menu-collapse = Collapse
 menu-expand = Expand
-menu-finish-editing = Finish editing first.
 menu-input-clear = Clear
 menu-input-done = Done
 menu-input-empty = (empty)
@@ -2359,6 +2358,10 @@ music-space-label =
         [playlist-id] Playlist ID
        *[unknown] Music
     }
+
+music-space-edit-playlist = Edit name and description
+music-space-delete-confirmation = Delete “{ $arg0 }” and its track list? This cannot be undone.
+music-space-clear-recents-confirmation = Clear your entire listening history? This cannot be undone.
 
 music-space-error =
     { $arg0 ->

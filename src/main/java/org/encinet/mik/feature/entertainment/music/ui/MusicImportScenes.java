@@ -44,7 +44,7 @@ final class MusicImportScenes {
                 var platforms = tools("platforms");
                 String[][] sources = {{"wy", "网易云音乐"}, {"tx", "QQ Music"}, {"kg", "Kugou"}, {"kw", "Kuwo"}, {"mg", "Migu"}};
                 for (var source : sources) platforms.child(w.button(player, "platform:" + source[0], w.raw(source[1]),
-                        () -> { if (owned.getAsBoolean()) w.input(player, "playlist-id", "", 128, id -> { if (owned.getAsBoolean()) load(player, source[0], id); }); }));
+                        () -> { if (owned.getAsBoolean()) w.input(player, UiKey.named("platform:" + source[0]), "playlist-id", "", 128, id -> { if (owned.getAsBoolean()) load(player, source[0], id); }); }));
                 body.child(platforms.build());
             }
             var snapshot = w.queries.snapshot(player.getUniqueId());

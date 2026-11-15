@@ -88,7 +88,7 @@ class MusicWorkspaceStateTest {
         state.browse(new Collection(Source.PLAYLIST,UUID.randomUUID()));
         state.browser.trackFocus = "moved-song";
         long revision = state.browser.revision;
-        state.panel(new Track(List.of(track("details"))));
+        state.panel(new DevicePanel(UUID.randomUUID(),DeviceSection.SETTINGS));
         assertEquals("moved-song",state.browser.trackFocus);
         assertFalse(state.browser.page(revision - 1,3)); assertEquals("moved-song",state.browser.trackFocus);
         assertTrue(state.browser.page(revision,1)); assertNull(state.browser.trackFocus);
@@ -169,7 +169,6 @@ class MusicWorkspaceStateTest {
             state.browse(Collection.of(source));
             state.browse(new Collection(Source.PLAYLIST, UUID.randomUUID()));
             assertEquals(source, state.browser.navigationSource());
-            state.panel(new PlaylistSettings(state.browser.collection.playlist()));
             state.browsePlaylist(UUID.randomUUID(), Source.OWNED);
             assertEquals(Source.OWNED, state.browser.navigationSource());
             assertEquals(Collection.of(Source.OWNED), state.browser.parent);
@@ -181,9 +180,7 @@ class MusicWorkspaceStateTest {
 
     @Test void collectionNavigationClosesOnlyLibraryTasksAndInvalidatesAClosingImport() {
         UUID id = UUID.randomUUID();
-        for (Panel panel : List.of(new Track(List.of(track("a"))), new PlaylistSettings(id),
-                new Import(null, ImportPage.SOURCE), new Confirmation(new DeletePlaylist(id, 0, "Name"), new NoPanel()),
-                new Confirmation(new ClearRecents(), new NoPanel()))) {
+        for (Panel panel : List.of(new Import(null, ImportPage.SOURCE),new GroupEditor(new GroupDraft(null,null)))) {
             var state = new MusicWorkspaceState();
             state.target(id);
             state.panel(panel);
@@ -211,10 +208,9 @@ class MusicWorkspaceStateTest {
         var state = new MusicWorkspaceState();
         state.browser.query("piano"); state.browser.page = 4;
         var songs = new ArrayList<>(List.of(track("a")));
-        state.panel(new Track(songs));
-        songs.add(track("b"));
-        assertEquals(List.of(track("a")), ((Track) state.panel()).tracks());
         state.panel(new Outputs(new PendingPlay(songs, PlaybackProgram.Submission.APPEND)));
+        songs.add(track("b"));
+        assertEquals(List.of(track("a")), ((Outputs) state.panel()).pending().tracks());
         state.panel(new NoPanel());
         assertEquals("piano", state.browser.query); assertEquals(4, state.browser.page);
     }
@@ -303,8 +299,7 @@ class MusicWorkspaceStateTest {
         var draft = new GroupDraft(null, null);
         draft.name = "Living room";
         draft.toggle(UUID.randomUUID());
-        for (var task : List.of(new GroupEditor(draft), new Import(null, ImportPage.SOURCE),
-                new PlaylistSettings(UUID.randomUUID()), new Track(List.of(track("a"))))) {
+        for (var task : List.of(new GroupEditor(draft), new Import(null, ImportPage.SOURCE), new Room(UUID.randomUUID()))) {
             var state = new MusicWorkspaceState();
             state.target(a);
             state.panel(task);

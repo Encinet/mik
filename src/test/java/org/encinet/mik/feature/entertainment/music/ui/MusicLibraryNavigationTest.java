@@ -76,7 +76,7 @@ class MusicLibraryNavigationTest {
 
     @Test void creationOrImportOpensTheSavedSongsAndReturnsToMyPlaylists() {
         Playlist saved = new Playlist(UUID.randomUUID(), UUID.randomUUID(), "New playlist", "", "MUSIC_DISC_CAT", false, 0, List.of());
-        for (Panel task : List.of(new NoPanel(), new Track(List.of(MusicWorkspaceStateTest.track("a"))), new Import(null, ImportPage.SOURCE))) {
+        for (Panel task : List.of(new NoPanel(), new Import(null,ImportPage.PLATFORMS), new Import(null, ImportPage.SOURCE))) {
             var state = new MusicWorkspaceState();
             state.panel(task);
             var finished = MusicLibraryScenes.openSavedPlaylist(state, id -> state.browsePlaylist(id, Source.OWNED));
@@ -90,7 +90,7 @@ class MusicLibraryNavigationTest {
 
     @Test void lateSaveCompletionDoesNotReplaceANewerCollectionTaskOrSearch() {
         Playlist saved = new Playlist(UUID.randomUUID(), UUID.randomUUID(), "Saved", "", "MUSIC_DISC_CAT", false, 0, List.of());
-        for (int change = 0; change < 6; change++) {
+        for (int change = 0; change < 7; change++) {
             var state = new MusicWorkspaceState();
             if (change == 3) state.browsePlaylist(UUID.randomUUID(), Source.OWNED);
             if (change >= 4) {
@@ -103,12 +103,13 @@ class MusicLibraryNavigationTest {
             if (change == 0) {
                 state.browse(Collection.of(Source.OWNED));
                 state.browse(Collection.of(Source.CATALOG));
-            } else if (change == 1) state.panel(new Track(List.of(MusicWorkspaceStateTest.track("other"))));
+            } else if (change == 1) state.panel(new Import(null,ImportPage.SOURCE));
             else if (change == 2) state.browser.query("another search");
             else if (change == 3) {
                 UUID first = UUID.randomUUID(), last = UUID.randomUUID();
                 state.startPlaylistMove(new MusicMove(state.browser.collection.playlist(), 0, List.of(first, last), Set.of(first)));
-            } else {
+            } else if (change == 6) state.windowGeneration++;
+            else {
                 state.devices();
                 if (change == 5) state.browse(Collection.of(Source.CATALOG));
                 assertInstanceOf(NoPanel.class,state.panel(), "the devices entry opens the directory");

@@ -17,6 +17,8 @@ import org.encinet.mik.shared.menu.ui.*;
 final class MusicTrackTable {
     private MusicTrackTable() { }
 
+    static UiKey detailSource(MusicTrack track) { return UiKey.item("track-details:" + track.id()); }
+
     private record Paging(int page, java.util.function.IntConsumer select, String anchor, UiPageControls controls) { }
 
     static Builder builder(List<MusicTrack> tracks, MusicTableSelection<MusicTrack> selection, Function<String,Component> label,
@@ -44,6 +46,7 @@ final class MusicTrackTable {
         private final Function<MusicTrack,FloatingMenuCommand> inspect;
         private final BiConsumer<List<MusicTrack>,PlaybackProgram.Submission> submit;
         private final Function<MusicTrack,UiElement> save;
+        private Function<MusicTrack,UiKey> detailKeys = _ -> UiKey.named("details");
         private int page;
         private java.util.function.IntConsumer select = _ -> {};
         private String anchor;
@@ -55,16 +58,18 @@ final class MusicTrackTable {
             this.tracks = List.copyOf(tracks); this.selection = selection; this.label = label;
             this.inspect = inspect; this.submit = submit; this.save = save;
         }
+        /** Detail controls can anchor companions independently of the surrounding table row. */
+        Builder detailKeys(Function<MusicTrack,UiKey> keys) { detailKeys = java.util.Objects.requireNonNull(keys); return this; }
         Builder page(int index, java.util.function.IntConsumer read) { page = index; select = java.util.Objects.requireNonNull(read); anchor = null; return this; }
         Builder containing(String track) { anchor = track; return this; }
         Builder pager(UiPageControls pager) { controls = java.util.Objects.requireNonNull(pager); return this; }
-        UiNode build() { return content(tracks,selection,label,inspect,submit,save,new Paging(page,select,anchor,controls)); }
+        UiNode build() { return content(tracks,selection,label,inspect,submit,save,detailKeys,new Paging(page,select,anchor,controls)); }
     }
 
     private static UiNode content(List<MusicTrack> tracks, MusicTableSelection<MusicTrack> selection, Function<String, Component> label,
                           Function<MusicTrack, FloatingMenuCommand> inspect,
                           BiConsumer<List<MusicTrack>, PlaybackProgram.Submission> submit,
-                          Function<MusicTrack, UiElement> save, Paging paging) {
+                          Function<MusicTrack, UiElement> save, Function<MusicTrack,UiKey> detailKeys, Paging paging) {
         var table = Ui.<MusicTrack>table().key(UiKey.named("tracks")).gaps(UiLength.ui(6),UiLength.ui(4))
                 .sizing(new UiSizing(UiSize.ZERO,new UiSize(UiSizing.CONTENT.maximum().width(),260)));
         if (selection != null) {
@@ -74,7 +79,7 @@ final class MusicTrackTable {
         table.column(new UiTable.Column<>(UiKey.named("name"), heading(label.apply("song-title")),
                         UiTrack.intrinsic(), track -> {
                     var name = title(track,selection,inspect,label)
-                            .singleLine().key("details")
+                            .singleLine().key(detailKeys.apply(track))
                             .textWidth(FloatingMenuTextWidth.CONTENT).alignment(FloatingMenuDecoration.Alignment.LEFT);
                     return name.build();
                 }))
@@ -98,17 +103,17 @@ final class MusicTrackTable {
         if (selection == null) table.column(new UiTable.Column<>(UiKey.named("add"), Ui.text(Component.empty()).build(),
                 UiTrack.content(UiLength.ui(24), UiLength.ui(110)),
                 track -> completeLabel(save.apply(track))));
-        return Ui.alternative(pages(table,tracks,paging),pages(compact(selection,label,inspect,submit,save),tracks,paging));
+        return Ui.alternative(pages(table,tracks,paging),pages(compact(selection,label,inspect,submit,save,detailKeys),tracks,paging));
     }
 
     private static UiTable<MusicTrack> compact(MusicTableSelection<MusicTrack> selection, Function<String,Component> label,
                                                Function<MusicTrack,FloatingMenuCommand> inspect,
                                                BiConsumer<List<MusicTrack>,PlaybackProgram.Submission> submit,
-                                               Function<MusicTrack,UiElement> save) {
+                                               Function<MusicTrack,UiElement> save, Function<MusicTrack,UiKey> detailKeys) {
         return Ui.<MusicTrack>table().key(UiKey.named("tracks")).gaps(UiLength.ui(4),UiLength.ui(4))
                 .sizing(new UiSizing(UiSize.ZERO,new UiSize(UiSizing.CONTENT.maximum().width(),260)))
                 .column(new UiTable.Column<>(UiKey.named("card"),heading(label.apply("song-title")),UiTrack.fraction(1),track -> {
-                    var name = title(track,selection,inspect,label).key("details").singleLine()
+                    var name = title(track,selection,inspect,label).key(detailKeys.apply(track)).singleLine()
                             .textWidth(FloatingMenuTextWidth.CONTENT).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
                     UiNode title = selection == null ? name : Ui.row().gap(UiLength.ui(4))
                             .child(selection.marker(track,label)).child(name).build();

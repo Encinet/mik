@@ -237,7 +237,6 @@ final class MusicDeviceScenes {
             var toggle = Ui.button(view.expanded() ? UiIcons.CHEVRON_UP : UiIcons.CHEVRON_DOWN,action)
                     .key("toggle").selected(view.expanded()).tooltip(title.append(Component.newline()).append(action))
                     .primary((_,_) -> w.toggleDeviceIdentity(player,state,owner,view));
-            if (w.editing(player)) toggle.disabled(w.language.text(player,Message.MENU_FINISH_EDITING,NamedTextColor.AQUA));
             body.child(UiTemplates.disclosure(UiKey.named("device-identity"),Ui.text(title).key("summary").summaryLines(1).tooltip(title).build(),
                     toggle.build(),view.expanded(),() -> {
                         var fields = new java.util.ArrayList<UiNode>();

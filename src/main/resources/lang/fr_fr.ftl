@@ -77,7 +77,6 @@ interface-theme-title = Thème du menu
 interface-theme-warm = Chaud
 menu-collapse = Réduire
 menu-expand = Développer
-menu-finish-editing = Terminez d’abord la saisie.
 menu-input-clear = Vider
 menu-input-done = Terminé
 menu-input-empty = (vide)
@@ -2368,6 +2367,10 @@ music-space-label =
         [playlist-id] ID de playlist
        *[unknown] Espace musical
     }
+
+music-space-edit-playlist = Modifier le nom et la description
+music-space-delete-confirmation = Supprimer « { $arg0 } » et sa liste de morceaux ? Cette action est irréversible.
+music-space-clear-recents-confirmation = Effacer tout votre historique de lecture ? Cette action est irréversible.
 
 music-space-error =
     { $arg0 ->

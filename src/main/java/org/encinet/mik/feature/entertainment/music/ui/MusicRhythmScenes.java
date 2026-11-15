@@ -85,7 +85,7 @@ final class MusicRhythmScenes {
         actions.add(w.button(player,"leave-room",() -> {
             if (active.getAsBoolean()) { w.rooms.leave(player); w.panel(player,new NoPanel()); }
         }));
-        if (controller) actions.add(w.button(player,"end-room",() -> { if (active.getAsBoolean()) w.confirm(player,new EndRoom(id)); }));
+        if (controller) actions.add(w.button(player,"end-room",() -> { if (active.getAsBoolean()) w.confirm(player,UiKey.named("end-room"),new EndRoom(id)); }));
         return MusicRhythmComposition.content(heading,summary,roster,preparation,actions);
     }
 

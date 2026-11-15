@@ -68,10 +68,9 @@ public final class MusicWorkspaceState {
     record PendingPlay(List<MusicTrack> tracks, PlaybackProgram.Submission placement) {
         PendingPlay { tracks = List.copyOf(tracks); Objects.requireNonNull(placement); }
     }
-    sealed interface Panel permits NoPanel, Outputs, Track, DevicePanel, MemberOutput, GroupEditor, PlaylistSettings, Import, RoomPicker, Room, Confirmation { }
+    sealed interface Panel permits NoPanel, Outputs, DevicePanel, MemberOutput, GroupEditor, Import, RoomPicker, Room { }
     record NoPanel() implements Panel { }
     record Outputs(PendingPlay pending) implements Panel { }
-    record Track(List<MusicTrack> tracks) implements Panel { Track { tracks = List.copyOf(tracks); } }
     enum DeviceSection { QUEUE, MEMBERS, SETTINGS }
     record DevicePanel(UUID target, DeviceSection section) implements Panel {
         DevicePanel { Objects.requireNonNull(target); Objects.requireNonNull(section); }
@@ -106,7 +105,6 @@ public final class MusicWorkspaceState {
         }
     }
     record GroupEditor(GroupDraft draft) implements Panel { }
-    record PlaylistSettings(UUID playlist) implements Panel { }
     record Imported(String source, String reference, String name, List<MusicTrack> tracks, int total, UUID request) {
         Imported { tracks = List.copyOf(tracks); }
     }
@@ -118,7 +116,6 @@ public final class MusicWorkspaceState {
     record DeletePlaylist(UUID id, long version, String name) implements Decision { }
     record ClearRecents() implements Decision { }
     record EndRoom(UUID device) implements Decision { }
-    record Confirmation(Decision decision, Panel returnTo) implements Panel { }
 
     enum Work { SEARCH, IMPORT, LIBRARY, QUEUE, DEVICE, PLAYBACK }
     record TaskKey(Work work, UUID subject) { static TaskKey of(Work work) { return new TaskKey(work, null); } }
@@ -144,6 +141,7 @@ public final class MusicWorkspaceState {
     long importGeneration;
     String importLink = "";
     long sequence;
+    long windowGeneration;
     MusicSubmission lastSubmission;
     UUID target() { return target; }
     Panel panel() { return panel; }
@@ -165,9 +163,7 @@ public final class MusicWorkspaceState {
     void browse(Collection collection) {
         page = WorkspacePage.LIBRARY;
         browser.open(collection);
-        boolean dismissTask = panel instanceof GroupEditor || panel instanceof Track || panel instanceof PlaylistSettings || panel instanceof Import
-                || panel instanceof Confirmation confirmation && (confirmation.decision() instanceof DeletePlaylist
-                        || confirmation.decision() instanceof ClearRecents);
+        boolean dismissTask = panel instanceof GroupEditor || panel instanceof Import;
         if (dismissTask) panel(new NoPanel());
     }
     void browsePlaylist(UUID id, Source source) {

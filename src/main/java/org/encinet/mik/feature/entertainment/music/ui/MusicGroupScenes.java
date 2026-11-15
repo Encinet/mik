@@ -51,7 +51,7 @@ final class MusicGroupScenes {
             var name = Ui.button(w.label(player,"name").append(w.raw(" · ")).append(w.raw(draft.name)))
                 .key("group-name").summaryLines(1).textWidth(200).primary((_,_) -> {
                     if (!owned.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
-                    w.input(player,"name",draft.name,64,value -> {
+                    w.input(player,UiKey.named("group-name"),"name",draft.name,64,value -> {
                         if (!owned.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
                         draft.name = value; w.redraw(player);
                     });

@@ -77,7 +77,6 @@ interface-theme-title = 界面主题
 interface-theme-warm = 暖棕
 menu-collapse = 收起
 menu-expand = 展开
-menu-finish-editing = 请先结束当前输入。
 menu-input-clear = 清空
 menu-input-done = 完成
 menu-input-empty = （空）
@@ -2095,6 +2094,10 @@ music-space-label =
         [playlist-id] 歌单 ID
        *[unknown] 音乐
     }
+
+music-space-edit-playlist = 编辑名称与描述
+music-space-delete-confirmation = 删除「{ $arg0 }」及其曲目列表？删除后无法撤销。
+music-space-clear-recents-confirmation = 清空你的全部播放记录？清空后无法恢复。
 
 music-space-error =
     { $arg0 ->

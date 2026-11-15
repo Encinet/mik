@@ -77,7 +77,6 @@ interface-theme-title = Menuthema
 interface-theme-warm = Warm
 menu-collapse = Inklappen
 menu-expand = Uitklappen
-menu-finish-editing = Rond eerst het bewerken af.
 menu-input-clear = Leegmaken
 menu-input-done = Gereed
 menu-input-empty = (leeg)
@@ -2341,6 +2340,10 @@ music-space-label =
         [playlist-id] Afspeellijst-ID
        *[unknown] Muziekruimte
     }
+
+music-space-edit-playlist = Naam en beschrijving bewerken
+music-space-delete-confirmation = ‘{ $arg0 }’ en de bijbehorende nummers verwijderen? Dit kan niet ongedaan worden gemaakt.
+music-space-clear-recents-confirmation = Je volledige luistergeschiedenis wissen? Dit kan niet ongedaan worden gemaakt.
 
 music-space-error =
     { $arg0 ->

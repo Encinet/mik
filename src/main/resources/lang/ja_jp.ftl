@@ -77,7 +77,6 @@ interface-theme-title = メニューテーマ
 interface-theme-warm = ウォーム
 menu-collapse = 折りたたむ
 menu-expand = 展開
-menu-finish-editing = 先に入力を完了してください。
 menu-input-clear = クリア
 menu-input-done = 完了
 menu-input-empty = （空）
@@ -2095,6 +2094,10 @@ music-space-label =
         [playlist-id] プレイリストID
        *[unknown] 音楽空間
     }
+
+music-space-edit-playlist = 名前と説明を編集
+music-space-delete-confirmation = 「{ $arg0 }」とその曲リストを削除しますか？この操作は取り消せません。
+music-space-clear-recents-confirmation = 再生履歴をすべて消去しますか？この操作は取り消せません。
 
 music-space-error =
     { $arg0 ->

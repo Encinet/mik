@@ -77,7 +77,6 @@ interface-theme-title = ธีมเมนู
 interface-theme-warm = โทนอุ่น
 menu-collapse = ยุบ
 menu-expand = ขยาย
-menu-finish-editing = แก้ไขให้เสร็จก่อน
 menu-input-clear = ล้าง
 menu-input-done = เสร็จสิ้น
 menu-input-empty = (ว่าง)
@@ -2095,6 +2094,10 @@ music-space-label =
         [playlist-id] ID เพลย์ลิสต์
        *[unknown] พื้นที่ดนตรี
     }
+
+music-space-edit-playlist = แก้ไขชื่อและคำอธิบาย
+music-space-delete-confirmation = ลบ “{ $arg0 }” และรายการเพลงหรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้
+music-space-clear-recents-confirmation = ล้างประวัติการฟังทั้งหมดของคุณหรือไม่? การดำเนินการนี้ไม่สามารถย้อนกลับได้
 
 music-space-error =
     { $arg0 ->

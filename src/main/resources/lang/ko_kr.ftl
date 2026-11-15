@@ -77,7 +77,6 @@ interface-theme-title = 메뉴 테마
 interface-theme-warm = 웜
 menu-collapse = 접기
 menu-expand = 펼치기
-menu-finish-editing = 먼저 편집을 완료하세요.
 menu-input-clear = 비우기
 menu-input-done = 완료
 menu-input-empty = (비어 있음)
@@ -2095,6 +2094,10 @@ music-space-label =
         [playlist-id] 재생목록 ID
        *[unknown] 음악 공간
     }
+
+music-space-edit-playlist = 이름과 설명 편집
+music-space-delete-confirmation = “{ $arg0 }” 및 곡 목록을 삭제할까요? 이 작업은 되돌릴 수 없습니다.
+music-space-clear-recents-confirmation = 재생 기록을 모두 삭제할까요? 이 작업은 되돌릴 수 없습니다.
 
 music-space-error =
     { $arg0 ->

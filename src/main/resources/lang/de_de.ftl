@@ -87,7 +87,6 @@ interface-theme-title = Menüdesign
 interface-theme-warm = Warm
 menu-collapse = Zuklappen
 menu-expand = Aufklappen
-menu-finish-editing = Schließe zuerst die Eingabe ab.
 menu-input-clear = Leeren
 menu-input-done = Fertig
 menu-input-empty = (leer)
@@ -2342,6 +2341,10 @@ music-space-label =
         [playlist-id] Playlist-ID
        *[unknown] Musikraum
     }
+
+music-space-edit-playlist = Name und Beschreibung bearbeiten
+music-space-delete-confirmation = „{ $arg0 }“ und die zugehörige Titelliste löschen? Dies kann nicht rückgängig gemacht werden.
+music-space-clear-recents-confirmation = Deinen gesamten Wiedergabeverlauf löschen? Dies kann nicht rückgängig gemacht werden.
 
 music-space-error =
     { $arg0 ->

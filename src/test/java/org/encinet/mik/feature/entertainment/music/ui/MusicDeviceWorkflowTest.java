@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
 import static org.encinet.mik.feature.entertainment.music.ui.MusicWorkspaceState.*;
+import org.encinet.mik.feature.entertainment.music.ui.MusicWorkspaceState.Collection;
 import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -89,12 +90,12 @@ class MusicDeviceWorkflowTest {
         }
     }
 
-    @Test void editingThePersonalDeviceAliasFitsInsideTheActualSettingsPage() throws Exception {
+    @Test void editingThePersonalDeviceAliasKeepsSettingsVisibleAndDisposesTheInput() throws Exception {
         for (Language locale : Language.values()) try (var h = new Harness(locale)) {
             when(h.registry.bound(h.player.getUniqueId(),h.second)).thenReturn(true);
             doAnswer(call -> {
                 var session = mock(MenuFormSession.class);
-                when(session.content()).thenReturn(MenuInputViewTestSupport.content(
+                when(session.content(any())).thenReturn(MenuInputViewTestSupport.content(
                         call.getArgument(1),Component.text("Empty"),Component.text("Clear")));
                 doAnswer(_ -> { call.getArgument(2,Runnable.class).run(); return null; }).when(session).focus(anyString());
                 return session;
@@ -103,17 +104,22 @@ class MusicDeviceWorkflowTest {
             h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.SETTINGS));
             h.click("toggle");
             var alias = h.frame().elements().stream().filter(item -> item.path().contains("/device-alias/")
-                    && item.node().key().value().equals("preview")).findFirst().orElseThrow();
+                    && item.node().key().equals(UiKey.item("device-alias:value"))).findFirst().orElseThrow();
             h.click(alias);
             for (double font : new double[]{.7,1,1.8}) for (double scale : new double[]{.7,1,1.2,1.3})
                 for (int fov : new int[]{30,70,110}) {
                     var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.readableFrame(h.scene,font,
                             new FloatingMenuFieldOfView(fov),scale),locale+" font="+font+" scale="+scale+" fov="+fov);
                     assertDisjoint(frame);
-                    for (String key : List.of("confirm","cancel","player-target","close"))
-                        assertNotNull(element(frame,key));
-                    assertTrue(frame.elements().stream().noneMatch(item -> item.path().contains("/sound-settings/")));
+                    for (String key : List.of("player-target","close")) assertNotNull(element(frame,key));
+                    assertEquals(new DevicePanel(h.second,DeviceSection.SETTINGS),h.state().panel());
+                    var popup = SceneGeometryTestSupport.readableFrame(h.popover.render(),font,new FloatingMenuFieldOfView(fov),scale);
+                    assertDisjoint(popup);
+                    for (String key : List.of("confirm","cancel")) assertNotNull(element(popup,key));
                 }
+            var input = h.popover;
+            h.workspace.panel(h.player,new DevicePanel(h.first,DeviceSection.QUEUE));
+            assertNotSame(input,h.popover);
         }
     }
 
@@ -143,7 +149,6 @@ class MusicDeviceWorkflowTest {
             h.open(); h.state().target(h.first);
             for (Panel panel : List.of(new DevicePanel(h.second,DeviceSection.SETTINGS),
                     new DevicePanel(h.second,DeviceSection.QUEUE),
-                    new Track(List.of(MusicWorkspaceStateTest.track("Song 歌曲"))),
                     new Import(null,ImportPage.SOURCE),new Import(null,ImportPage.PLATFORMS),new RoomPicker())) {
                 h.workspace.panel(h.player,panel);
                 for (double font : new double[]{.7,1,1.8}) for (double scale : new double[]{.7,1,1.3})
@@ -305,11 +310,102 @@ class MusicDeviceWorkflowTest {
         }
     }
 
+    @Test void playlistSettingsReturnFromEditingAndDeletionAndRetireOldConfirmations() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            var id = UUID.randomUUID();
+            var list = new org.encinet.mik.feature.entertainment.music.playlist.Playlist(id,h.player.getUniqueId(),"Piano", "Quiet songs", "MUSIC_DISC_CAT",false,7,List.of());
+            when(h.playlists.visible(h.player.getUniqueId(),id)).thenReturn(list);
+            when(h.playlists.delete(h.player.getUniqueId(),id,list.version())).thenReturn(
+                    CompletableFuture.failedFuture(new MusicProblem(MusicProblem.Code.CONFLICT)));
+            h.workspace.browsePlaylist(h.player,id,Source.OWNED);
+            h.click("playlist-settings");
+            var settings = h.popover.render().title();
+            var input = mock(MenuFormSession.class);
+            var draft = new java.util.concurrent.atomic.AtomicReference<MenuInputForm>();
+            var finished = new java.util.concurrent.atomic.AtomicReference<Runnable>();
+            doAnswer(call -> {
+                draft.set(call.getArgument(1)); finished.set(call.getArgument(3));
+                when(input.content(any())).thenReturn(MenuInputViewTestSupport.content(draft.get(),Component.text("Empty"),Component.text("Clear")));
+                return input;
+            }).when(h.menus).inlineInput(eq(h.player),any(),any(),any());
+            h.popupClick("edit-playlist");
+            assertNotNull(entry(h.popover.render(),"confirm"));
+            assertInstanceOf(NoPanel.class,h.state().panel());
+            assertEquals(id,h.state().browser.collection.playlist());
+            var back = MenuScene.screen("tools").content(h.popover.headerActions()).build();
+            entry(back,"back-task").trigger(FloatingMenuInteraction.PRIMARY).execute(h.player,h.handle,FloatingMenuInteraction.PRIMARY);
+            verify(input).close();
+            assertEquals(settings,h.popover.render().title());
+            when(h.playlists.update(h.player.getUniqueId(),id,list.version(),"New name","Draft description",list.icon(),list.published()))
+                    .thenReturn(CompletableFuture.failedFuture(new MusicProblem(MusicProblem.Code.CONFLICT)));
+            h.popupClick("edit-playlist");
+            var submitted = draft.get();
+            finished.get().run();
+            submitted.onSubmit().accept(h.player,new MenuInputForm.Values(Map.of("name","New name","description","Draft description")));
+            h.popupClick("edit-playlist");
+            assertEquals("New name",draft.get().fields().getFirst().initial());
+            assertEquals("Draft description",draft.get().fields().get(1).initial());
+            back = MenuScene.screen("tools").content(h.popover.headerActions()).build();
+            entry(back,"back-task").trigger(FloatingMenuInteraction.PRIMARY).execute(h.player,h.handle,FloatingMenuInteraction.PRIMARY);
+            h.popupClick("delete");
+            assertTrue(h.decision.modal());
+            var oldApply = entry(h.popupScene(),"apply").trigger(FloatingMenuInteraction.PRIMARY);
+            h.popupClick("cancel");
+            assertEquals(settings,h.popover.render().title());
+            oldApply.execute(h.player,h.handle,FloatingMenuInteraction.PRIMARY);
+            verify(h.playlists,never()).delete(any(),any(),anyLong());
+            assertEquals(settings,h.popover.render().title());
+            h.popupClick("delete"); h.popupClick("apply");
+            verify(h.playlists).delete(h.player.getUniqueId(),id,list.version());
+            assertEquals(settings,h.popover.render().title(),"A failed deletion keeps settings and its recovery actions available");
+            assertEquals(id,h.state().browser.collection.playlist());
+            assertTrue(h.popover.render().entries().keySet().stream().anyMatch(key -> key.contains("task-status")));
+        }
+    }
+
+    @Test void songDetailsKeepTheCollectionAndReturnThroughPlaylistDestinations() throws Exception {
+        for (var locale : Language.values()) try (var h = new Harness(locale)) {
+            h.workspace.browse(h.player,Collection.of(Source.CATALOG));
+            var browser = h.state().browser;
+            browser.query("song");
+            h.state().results = List.of(MusicWorkspaceStateTest.track("song:first"),MusicWorkspaceStateTest.track("song:second"));
+            h.workspace.redraw(h.player);
+            var song = MusicWorkspaceStateTest.track("song:first");
+            h.click(MusicTrackTable.detailSource(song).value());
+            assertInstanceOf(NoPanel.class,h.state().panel());
+            assertEquals("song",browser.query);
+            var details = h.popover.render();
+            var save = entry(details,"save-details").trigger(FloatingMenuInteraction.PRIMARY);
+            for (double font : new double[]{.7,1.8}) for (int fov : new int[]{30,110}) {
+                var popup = details.toBuilder().content(details.content()).build();
+                var host = h.scene.toBuilder().popover(MenuPopover.attached(h.popoverSource,popup.title(),popup.content(),Component.text("Close"))
+                        .withActions(h.popover.headerActions() == null ? Ui.column().build() : h.popover.headerActions())).build();
+                var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.popoverFrame(host,font,new FloatingMenuFieldOfView(fov)),locale.toString());
+                assertNotNull(frame); assertDisjoint(frame);
+                assertNotNull(element(frame,"save-details"));
+            }
+            save.execute(h.player,h.handle,FloatingMenuInteraction.PRIMARY);
+            assertNotEquals(details.title(),h.popover.render().title());
+            var destinations = h.popover.render().title();
+            save.execute(h.player,h.handle,FloatingMenuInteraction.PRIMARY);
+            assertEquals(destinations,h.popover.render().title(),"A previous detail action cannot navigate the current window");
+            var back = MenuScene.screen("tools").content(h.popover.headerActions()).build();
+            entry(back,"back-task").trigger(FloatingMenuInteraction.PRIMARY).execute(h.player,h.handle,FloatingMenuInteraction.PRIMARY);
+            assertEquals(details.title(),h.popover.render().title());
+            assertEquals("song",browser.query);
+            assertInstanceOf(NoPanel.class,h.state().panel());
+            h.handle.closePopover();
+            save.execute(h.player,h.handle,FloatingMenuInteraction.PRIMARY);
+            assertNull(h.popover);
+        }
+    }
+
     private static final class Harness implements AutoCloseable {
         final UUID first = new UUID(1,1), second = new UUID(1,2), worldId = UUID.randomUUID();
         final Player player = mock(Player.class);
         final MusicDeviceRegistry registry = mock(MusicDeviceRegistry.class);
         final MusicGroupService groups = mock(MusicGroupService.class);
+        final PlaylistService playlists = mock(PlaylistService.class);
         final MusicPlaybackController playback = mock(MusicPlaybackController.class);
         final MusicWorkspace workspace;
         final MusicState.Editor data = MusicState.empty().edit();
@@ -317,6 +413,8 @@ class MusicDeviceWorkflowTest {
         final FloatingMenuService menus = mock(FloatingMenuService.class);
         FloatingMenuHandle handle;
         MenuPanel popover;
+        UiKey popoverSource;
+        MenuPopover decision;
         MenuScene scene;
 
         Harness(Language locale) throws Exception {
@@ -361,19 +459,42 @@ class MusicDeviceWorkflowTest {
                     scene = call.getArgument(1); handle = mock(FloatingMenuHandle.class);
                     when(handle.state()).thenReturn(FloatingMenuState.ACTIVE);
                     doAnswer(update -> { scene = update.getArgument(0); return null; }).when(handle).update(any());
-                    doAnswer(open -> { popover = open.<java.util.function.Function<Runnable,MenuPanel>>getArgument(1).apply(() -> {}); return null; })
+                    doAnswer(open -> { if (popover != null) popover.close(); decision = null; popoverSource = open.getArgument(0); popover = open.<java.util.function.Function<Runnable,MenuPanel>>getArgument(1).apply(() -> {}); popover.attach(handle); return null; })
                             .when(handle).openPopover(any(UiKey.class),any());
-                    doAnswer(_ -> { if (popover != null) popover.close(); return null; }).when(handle).closePopover();
+                    doAnswer(open -> {
+                        if (popover != null) { popover.close(); popover = null; }
+                        decision = open.getArgument(0); popoverSource = decision.source(); return null;
+                    }).when(handle).openPopover(any(MenuPopover.class));
+                    doAnswer(_ -> {
+                        if (popover != null) { popover.close(); popover = null; }
+                        var previous = decision; decision = null;
+                        if (previous != null) previous.dismissed().execute(player,handle);
+                        return null;
+                    }).when(handle).closePopover();
                     doAnswer(_ -> { when(handle.state()).thenReturn(FloatingMenuState.CLOSED); return null; }).when(handle).close();
                     return handle;
                 });
+                doAnswer(_ -> {
+                    var input = mock(MenuQuerySession.class);
+                    when(input.content(anyString())).thenAnswer(value -> Ui.text(Component.text(value.<String>getArgument(0))).key("query").build());
+                    return input;
+                }).when(menus).queryInput(eq(player),any(),anyInt(),any(),any());
                 doAnswer(call -> { call.getArgument(0,Runnable.class).run(); return null; }).when(menus).execute(any());
                 FloatingMenus.install(menus);
-                workspace = new MusicWorkspace(plugin,language,queries,mock(PlaylistService.class),playback,registry,mock(MusicDeviceTravel.class),
-                        groups,List::of,null,null,null,mock(MusicRooms.class),null);
+                workspace = new MusicWorkspace(plugin,language,queries,playlists,playback,registry,mock(MusicDeviceTravel.class),
+                        groups,() -> List.of(MusicWorkspaceStateTest.track("song:first"),MusicWorkspaceStateTest.track("song:second")),null,null,null,mock(MusicRooms.class),null);
                 workspace.open(player);
                 when(queries.ready()).thenReturn(true);
             } catch (Exception | Error failure) { FloatingMenus.uninstall(); bukkit.close(); throw failure; }
+        }
+        MenuScene popupScene() {
+            return decision == null ? popover.render() : MenuScene.screen("confirmation",decision.title()).content(decision.content()).build();
+        }
+        void popupClick(String key) {
+            var popup = popupScene();
+            var frame = SceneGeometryTestSupport.measure(popup,1);
+            org.encinet.mik.shared.menu.ui.UiSceneTestSupport.entry(popup.measured(frame),frame,key)
+                    .trigger(FloatingMenuInteraction.PRIMARY).execute(player,handle,FloatingMenuInteraction.PRIMARY);
         }
         MusicDevice device(UUID id) { return Objects.requireNonNull(data.devices.get(id)); }
         MusicWorkspaceState state() { return workspace.state(player); }

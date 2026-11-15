@@ -15,13 +15,12 @@ class MusicDeviceDisclosureTest {
         for (var locale : Language.values()) {
             var bundle = FluentTestSupport.bundle(locale);
             java.util.function.Function<String,Component> label = key -> Component.text(FluentTestSupport.text(bundle,Message.MUSIC_SPACE_LABEL,key));
-            for (boolean expanded : new boolean[]{false,true}) for (boolean editing : new boolean[]{false,true})
+            for (boolean expanded : new boolean[]{false,true})
                 for (double font : new double[]{.7,1.8}) for (double scale : new double[]{.7,1.3}) for (int fov : new int[]{30,110}) {
                     Component title = label.apply("name").append(Component.text(" · ")).append(label.apply("alias"));
                     Component action = Component.text(FluentTestSupport.text(bundle,expanded ? Message.MENU_COLLAPSE : Message.MENU_EXPAND));
                     var toggle = Ui.button(expanded ? UiIcons.CHEVRON_UP : UiIcons.CHEVRON_DOWN,action).key("toggle").selected(expanded)
                             .primary((_,_) -> fail("Measurement must not change expansion"));
-                    if (editing) toggle.disabled(Component.text(FluentTestSupport.text(bundle,Message.MENU_FINISH_EDITING)));
                     var identity = UiTemplates.disclosure(UiKey.named("device-identity"),Ui.text(title).key("summary").singleLine().build(),
                             toggle.build(),expanded,() -> {
                                 var fields = new java.util.ArrayList<UiNode>();
@@ -44,7 +43,7 @@ class MusicDeviceDisclosureTest {
                     assertDisjoint(frame);
                     for (String key : List.of("volume","range","forget","eject","close-panel","toggle")) assertNotNull(element(frame,key));
                     assertEquals(expanded,element(frame,"toggle").node().input().selected());
-                    assertEquals(editing,element(frame,"toggle").node().input().disabledReason().isPresent());
+                    assertTrue(element(frame,"toggle").node().input().disabledReason().isEmpty());
                     assertEquals(expanded,frame.elements().stream().anyMatch(item -> item.path().contains("/device-name/")));
                     assertEquals(expanded,frame.elements().stream().anyMatch(item -> item.path().contains("/device-alias/")));
                 }

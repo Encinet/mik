@@ -27,16 +27,17 @@ final class MusicPlaylistPicker {
     FloatingMenuCommand action(Player player, MusicWorkspaceState state, List<MusicTrack> tracks, UiKey source) {
         var songs = List.copyOf(tracks);
         if (songs.isEmpty()) throw new IllegalArgumentException("No songs to save");
-        return (_, handle) -> handle.openPopover(source, redraw -> panel(player, state, songs, source, redraw));
+        return (_, _) -> w.window(player, source, window -> panel(player, state, songs, window));
     }
 
-    private MenuPanel panel(Player player, MusicWorkspaceState state, List<MusicTrack> songs, UiKey source, Runnable redraw) {
+    MenuPanel panel(Player player, MusicWorkspaceState state, List<MusicTrack> songs, MusicTaskWindow window) {
         return new MenuPanel() {
             private int page;
             private boolean active = true;
             private java.util.UUID lastSelection;
             @Override public MenuScene render() {
                 if (!active) return MenuScene.screen("music-playlist-picker-closed").content(Ui.column().build()).build();
+                var owned = window.current();
                 var lists = w.playlists.owned(player.getUniqueId());
                 var body = column("destinations");
                 if (songs.size() == 1) body.child(info("song", w.raw(songs.getFirst().details().title())).withSummaryLines(2));
@@ -51,15 +52,15 @@ final class MusicPlaylistPicker {
                 if (rows.isEmpty()) body.child(info("no-playlists", w.label(player, "no-playlists")));
                 else body.child(MusicPlaylistTable.content(rows, key -> w.label(player, key), count -> w.trackCount(player, count),
                         list -> (_, _) -> {
-                            if (!active) return;
+                            if (!active || !owned.getAsBoolean()) return;
                             lastSelection = list.id();
                             w.safe(player,() -> w.run(player,new TaskKey(Work.LIBRARY,list.id()),
-                                    () -> w.playlists.add(player.getUniqueId(),list.id(),list.version(),songs),_ -> { if (active) redraw.run(); }));
-                        },page,next -> { if (active) { page = next; redraw.run(); } }));
+                                    () -> w.playlists.add(player.getUniqueId(),list.id(),list.version(),songs),_ -> {}));
+                        },page,next -> { if (active && owned.getAsBoolean()) { page = next; w.redraw(player); } }));
                 if (lastSelection != null) body.children(w.taskStatus(player,state,new TaskKey(Work.LIBRARY,lastSelection)));
                 var key = new TaskKey(Work.LIBRARY, player.getUniqueId());
                 var create = Ui.button(w.label(player, "new-playlist")).key("new-playlist")
-                        .primary((_, current) -> { if (active) current.openPopover(source,refresh -> create(player,state,songs,source,refresh)); });
+                        .primary((_, _) -> { if (active && owned.getAsBoolean()) create(player,state,songs,window); });
                 if (state.busy(key)) create.disabled(w.label(player, "saving"));
                 body.child(create.build()).children(w.taskStatus(player, state, key));
                 return MenuScene.screen("music-playlist-picker",w.label(player,"add-playlist"))
@@ -69,7 +70,7 @@ final class MusicPlaylistPicker {
         };
     }
 
-    private MenuPanel create(Player player, MusicWorkspaceState state, List<MusicTrack> tracks, UiKey source, Runnable redraw) {
+    private void create(Player player, MusicWorkspaceState state, List<MusicTrack> tracks, MusicTaskWindow window) {
         var form = MenuInputForm.builder(w.label(player, "new-playlist"))
                 .field(MenuInputForm.Field.text("name", w.label(player, "name"), "", 64))
                 .validate((_, values) -> {
@@ -78,7 +79,6 @@ final class MusicPlaylistPicker {
                 }).cancel(w.label(player, "cancel")).submit(w.label(player, "apply"), (_, values) -> w.safe(player,
                         () -> w.run(player, new TaskKey(Work.LIBRARY, player.getUniqueId()),
                                 () -> w.playlists.create(player.getUniqueId(), values.text("name"), tracks), _ -> {}))).build();
-        return new MusicInputPanel(player, form, "name", MenuFormSession.Actions.SUBMIT_AND_CANCEL, redraw,
-                handle -> handle.openPopover(source, refresh -> panel(player, state, tracks, source, refresh)));
+        window.input(player,form,"name");
     }
 }
