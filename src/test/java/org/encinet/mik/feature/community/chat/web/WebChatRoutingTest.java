@@ -529,15 +529,32 @@ class WebChatRoutingTest {
         }
     }
 
-    @Test void rejectedParsingDoesNotExtendLoginActivity() throws Exception {
+    @Test void rejectedMessageDoesNotExtendLoginActivity() throws Exception {
         try (Fixture f = new Fixture()) {
             UUID alice = f.account("Alice", "member"), bob = f.account("Bob", "member");
             Client a = f.join(alice, "a"), b = f.join(bob, "b"); f.clearFrames();
-            f.send(a, "public", null, UUID.randomUUID().toString(), "https://github.com/encinet/%zz");
+            f.send(a, "public", null, UUID.randomUUID().toString(), "");
             assertTrue(b.messages().isEmpty());
             assertTrue(a.events().stream().anyMatch(event -> text(event, "error").equals("invalid_message")));
             var renewal = f.module.authorize(f.grant(a, alice, "a")); f.flush();
             assertEquals(0, renewal.join().lastActivityAt());
+        }
+    }
+
+    @Test void malformedUrlIsDeliveredAsPlainTextAndExtendsLoginActivity() throws Exception {
+        try (Fixture f = new Fixture()) {
+            UUID alice = f.account("Alice", "member"), bob = f.account("Bob", "member");
+            Client a = f.join(alice, "a"), b = f.join(bob, "b"); f.clearFrames();
+            String link = "https://github.com/encinet/%zz";
+            f.send(a, "public", null, UUID.randomUUID().toString(), link);
+            var received = b.messages();
+            assertEquals(1, received.size());
+            var content = received.getFirst().getAsJsonArray("content");
+            assertEquals(1, content.size());
+            assertEquals(link, text(content.get(0).getAsJsonObject(), "text"));
+            assertFalse(a.events().stream().anyMatch(event -> text(event, "type").equals("error")));
+            var renewal = f.module.authorize(f.grant(a, alice, "a")); f.flush();
+            assertTrue(renewal.join().lastActivityAt() > 0);
         }
     }
 

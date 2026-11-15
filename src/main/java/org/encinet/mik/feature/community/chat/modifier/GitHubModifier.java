@@ -42,20 +42,24 @@ public final class GitHubModifier implements ChatModifier {
             String text, int fromIndex, ChatProcessingContext context
     ) {
         Matcher matcher = URL_PATTERN.matcher(text);
-        if (!matcher.find(fromIndex)) {
-            return null;
+        int searchIndex = fromIndex;
+        while (matcher.find(searchIndex)) {
+            String token = matcher.group();
+            int linkLength = ChatUrlSupport.visibleUrlEnd(token);
+            String link = token.substring(0, linkLength);
+            URI target = ChatUrlSupport.httpTarget(link);
+            if (target == null) {
+                searchIndex = matcher.end();
+                continue;
+            }
+            return new ChatReplacement(
+                    matcher.start(),
+                    matcher.start() + linkLength,
+                    ChatLinkPresentation.link(labelFor(link), target,
+                            ChatLinkPalette.GITHUB)
+            );
         }
-
-        String token = matcher.group();
-        int linkLength = ChatUrlSupport.visibleUrlEnd(token);
-        String link = token.substring(0, linkLength);
-        String url = ChatUrlSupport.normalizedHttpUrl(link);
-        return new ChatReplacement(
-                matcher.start(),
-                matcher.start() + linkLength,
-                ChatLinkPresentation.link(labelFor(link), URI.create(url),
-                        ChatLinkPalette.GITHUB)
-        );
+        return null;
     }
 
     private String labelFor(String link) {

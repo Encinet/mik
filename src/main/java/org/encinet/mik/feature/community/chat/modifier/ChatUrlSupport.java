@@ -20,12 +20,24 @@ final class ChatUrlSupport {
 
     static CanonicalHttpLink canonicalHttpLink(String token) {
         String displayText = stripTrackingParameters(token);
-        return new CanonicalHttpLink(
-                displayText, URI.create(normalizedHttpUrl(displayText)));
+        URI target = httpTarget(displayText);
+        return target == null ? null : new CanonicalHttpLink(displayText, target);
     }
 
-    static String normalizedHttpUrl(String token) {
-        return hasHttpScheme(token) ? token : "https://" + token;
+    /** Invalid candidates remain plain text instead of interrupting chat processing. */
+    static URI httpTarget(String token) {
+        String url = hasHttpScheme(token) ? token : "https://" + token;
+        int fragmentStart = url.indexOf('#');
+        if (fragmentStart >= 0 && url.indexOf('#', fragmentStart + 1) >= 0) {
+            // Only the first '#' is a delimiter; subsequent ones are fragment data.
+            url = url.substring(0, fragmentStart + 1)
+                    + url.substring(fragmentStart + 1).replace("#", "%23");
+        }
+        try {
+            return URI.create(url);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     static boolean hasHttpScheme(String token) {

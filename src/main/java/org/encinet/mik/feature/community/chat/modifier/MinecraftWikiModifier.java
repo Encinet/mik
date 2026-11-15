@@ -34,20 +34,24 @@ public final class MinecraftWikiModifier implements ChatModifier {
             String text, int fromIndex, ChatProcessingContext context
     ) {
         Matcher matcher = URL_PATTERN.matcher(text);
-        if (!matcher.find(fromIndex)) {
-            return null;
+        int searchIndex = fromIndex;
+        while (matcher.find(searchIndex)) {
+            String token = matcher.group();
+            int linkLength = ChatUrlSupport.visibleUrlEnd(token);
+            String link = token.substring(0, linkLength);
+            URI target = ChatUrlSupport.httpTarget(link);
+            if (target == null) {
+                searchIndex = matcher.end();
+                continue;
+            }
+            return new ChatReplacement(
+                    matcher.start(),
+                    matcher.start() + linkLength,
+                    ChatLinkPresentation.serviceLink(LABEL_PREFIX, pageTitle(link),
+                            target, ChatLinkPalette.MINECRAFT_WIKI)
+            );
         }
-
-        String token = matcher.group();
-        int linkLength = urlEnd(token);
-        String link = token.substring(0, linkLength);
-        return new ChatReplacement(
-                matcher.start(),
-                matcher.start() + linkLength,
-                ChatLinkPresentation.serviceLink(LABEL_PREFIX, pageTitle(link),
-                        URI.create(ChatUrlSupport.normalizedHttpUrl(link)),
-                        ChatLinkPalette.MINECRAFT_WIKI)
-        );
+        return null;
     }
 
     private String pageTitle(String link) {
@@ -115,9 +119,5 @@ public final class MinecraftWikiModifier implements ChatModifier {
             return secondIndex < 0 ? value.length() : secondIndex;
         }
         return secondIndex < 0 ? firstIndex : Math.min(firstIndex, secondIndex);
-    }
-
-    private int urlEnd(String token) {
-        return ChatUrlSupport.visibleUrlEnd(token);
     }
 }

@@ -89,6 +89,10 @@ public final class UrlModifier implements ChatModifier {
             }
             ChatUrlSupport.CanonicalHttpLink canonical =
                     ChatUrlSupport.canonicalHttpLink(link);
+            if (canonical == null) {
+                searchIndex = matcher.end();
+                continue;
+            }
             return new ChatReplacement(
                     matcher.start(), matcher.start() + linkLength,
                     ChatLinkPresentation.urlLink(canonical,

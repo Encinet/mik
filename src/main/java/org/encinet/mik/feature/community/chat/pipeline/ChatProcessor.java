@@ -37,6 +37,7 @@ import java.util.UUID;
 
 /** The single semantic parsing and effect-derivation pipeline for every origin. */
 public final class ChatProcessor {
+    private static final System.Logger LOGGER = System.getLogger(ChatProcessor.class.getName());
     private static final ChatStyle TRUSTED_MENTION_STYLE = new ChatStyle(
             0xFFD166, null, false, false, false, false);
     private static final MiniMessage SAFE_MINI_MESSAGE = MiniMessage.builder()
@@ -124,9 +125,7 @@ public final class ChatProcessor {
         ChatReplacement[] candidates = new ChatReplacement[modifiers.size()];
         for (int index = 0; index < modifiers.size(); index++) {
             ChatModifier modifier = modifiers.get(index);
-            if (modifier.supports(context)) {
-                candidates[index] = modifier.find(source, 0, context);
-            }
+            candidates[index] = findReplacement(modifier, source, 0, context);
         }
         List<ChatNode> nodes = new ArrayList<>();
         int cursor = 0;
@@ -199,7 +198,7 @@ public final class ChatProcessor {
             ChatReplacement replacement = candidates[index];
             // Future matches and exhausted searches stay valid as the cursor advances.
             if (replacement != null && replacement.start() < fromIndex) {
-                replacement = modifier.find(text, fromIndex, context);
+                replacement = findReplacement(modifier, text, fromIndex, context);
                 candidates[index] = replacement;
             }
             if (replacement != null
@@ -215,6 +214,31 @@ public final class ChatProcessor {
             }
         }
         return best;
+    }
+
+    private ChatReplacement findReplacement(
+            ChatModifier modifier,
+            String text,
+            int fromIndex,
+            ChatProcessingContext context
+    ) {
+        try {
+            if (!modifier.supports(context)) {
+                return null;
+            }
+            ChatReplacement replacement = modifier.find(text, fromIndex, context);
+            if (replacement != null && (replacement.start() < fromIndex
+                    || replacement.end() > text.length())) {
+                throw new IllegalArgumentException("Chat modifier returned an invalid replacement range");
+            }
+            return replacement;
+        } catch (RuntimeException error) {
+            // A null candidate disables this modifier for the rest of this message.
+            LOGGER.log(System.Logger.Level.WARNING,
+                    "Chat modifier " + modifier.getClass().getName()
+                            + " failed; skipping its remaining replacements for this message", error);
+            return null;
+        }
     }
 
     private ChatReplacement trustedReplacement(
