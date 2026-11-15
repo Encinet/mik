@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.encinet.mik.shared.menu.runtime.MenuPopoverInput.Activation.*;
 
 class MenuPopoverInputTest {
-    @Test void explicitLayersConsumeBlankClicksAndPermitVisibleParentActionsExactlyOnce() {
+    @Test void dismissingALayerConsumesTheOriginalInputBeforeTheParentCanAct() {
         var scope = new MenuPopoverInput("person-a", false);
         assertFalse(scope.allows("covered-parent", true));
         assertTrue(scope.allows("person-b", false));
@@ -15,7 +15,7 @@ class MenuPopoverInputTest {
         assertEquals(CONSUME, scope.activation(null, true, false));
         assertEquals(DISMISS, scope.activation(null, false, false));
         assertEquals(DISMISS, scope.activation("person-a", false, false));
-        assertEquals(DISMISS_AND_ACT, scope.activation("person-b", false, false));
+        assertEquals(DISMISS, scope.activation("person-b", false, false));
         assertEquals(ACT, scope.activation(MenuPopover.scoped("action"), true, false));
 
         var time = new AtomicLong();
@@ -43,7 +43,7 @@ class MenuPopoverInputTest {
         assertEquals(MenuPopoverInput.ScrollScope.POPOVER,scope.scrollScope(null,true));
         assertEquals(MenuPopoverInput.ScrollScope.POPOVER,scope.scrollScope(MenuPopover.scoped("next"),false));
         assertEquals(MenuPopoverInput.ScrollScope.PARENT,scope.scrollScope(null,false));
-        assertEquals(DISMISS_AND_ACT,scope.activation(null,false,true));
+        assertEquals(DISMISS,scope.activation(null,false,true));
         var modal = new MenuPopoverInput("delete",true);
         assertEquals(MenuPopoverInput.ScrollScope.BLOCKED,modal.scrollScope(null,false));
         assertEquals(CONSUME,modal.activation(null,false,true));

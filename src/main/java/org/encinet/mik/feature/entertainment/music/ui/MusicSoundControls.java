@@ -3,7 +3,6 @@ package org.encinet.mik.feature.entertainment.music.ui;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.encinet.mik.feature.entertainment.music.application.MusicProblem;
@@ -27,7 +26,7 @@ final class MusicSoundControls implements AutoCloseable {
             var source = UiKey.named("sound:" + id + ":" + parameter.key);
             fields.field(parameter.key, w.label(player, parameter.key),
                     control(player, id, parameter, source, () -> w.redraw(player), (_, handle) ->
-                            handle.openPopover(source, redraw -> precise(player, id, parameter, redraw, FloatingMenuHandle::closePopover))));
+                            precise(player, id, parameter, handle)));
         }
         return fields.build();
     }
@@ -45,15 +44,17 @@ final class MusicSoundControls implements AutoCloseable {
         return field.build();
     }
 
-    MenuPanel precise(Player player, UUID id, Parameter parameter, Runnable redraw, Consumer<FloatingMenuHandle> finished) {
+    void precise(Player player, UUID id, Parameter parameter, FloatingMenuHandle owner) {
         var form = MenuInputForm.builder(w.label(player, parameter.key))
                 .field(MenuInputForm.Field.text("value", w.label(player, parameter.key), Integer.toString(edits(player, id).value(parameter)), 3))
                 .validate((viewer, values) -> {
                     try { parameter.parse(values.text("value")); return null; }
                     catch (IllegalArgumentException invalid) { return w.problem(viewer, MusicProblem.Code.INVALID); }
-                }).cancel(w.label(player, "cancel")).submit(w.label(player, "apply"),
-                        (viewer, values) -> change(viewer, id, parameter, parameter.parse(values.text("value")), redraw)).build();
-        return new MusicInputPanel(player, form, "value", MenuFormSession.Actions.SUBMIT_AND_CANCEL, redraw, finished);
+                }).cancel(w.label(player, "cancel")).submitAsync(w.label(player, "apply"),
+                        (viewer, values,done) -> w.persist(viewer,new TaskKey(Work.DEVICE,id),
+                                () -> edits(viewer,id).change(parameter,parameter.parse(values.text("value"))),_ -> {},done)).build();
+        owner.closePopover();
+        MenuFormPanel.open(owner,UiKey.named("precise:" + parameter.key),player,form,"value",true);
     }
 
     private void change(Player player, UUID id, Parameter parameter, int value, Runnable redraw) {

@@ -26,7 +26,7 @@ final class MusicGroupScenes {
         draft.name = w.text(player,"sync-group");
         draft.returnTo = state.panel();
         if (seed != null && !w.registry.snapshot().groups().containsKey(seed) && w.registry.mayControl(player, seed)) draft.toggle(seed);
-        w.showDevices(player,new GroupEditor(draft));
+        w.panel(player,state,new GroupEditor(draft));
     }
     private record SourceChoice(UUID device, boolean removed) { }
 
@@ -37,13 +37,13 @@ final class MusicGroupScenes {
         boolean creating = draft.group == null;
         var group = creating ? null : w.registry.snapshot().groups().get(draft.group);
         if (!creating && group == null) return column("missing-group")
-                .child(w.panelHeading(player, w.label(player, "add-members")))
+                .child(w.panelHeading(player,state, w.label(player, "add-members")))
                 .child(info("missing", w.problem(player, MusicProblem.Code.NOT_FOUND))).build();
         long version = group == null ? 0 : group.version();
         boolean busy = state.busy(new TaskKey(Work.DEVICE,draft.group));
         var body = Ui.layout(UiLayouts.contentColumn(UiKey.named("member-selection"),UiLength.ui(8))).key("group-editor")
                 .child(MusicWorkspaceComposition.panelHeading(w.label(player, creating ? "create-group" : "add-members"),
-                        w.button(player,"cancel",() -> { if (owned.getAsBoolean()) w.panel(player,draft.returnTo); })));
+                        w.button(player,"cancel",() -> { if (owned.getAsBoolean()) w.panel(player,state,draft.returnTo); })));
         if (group != null) body.child(info("group", w.targetSummary(player, group.id())).withSummaryLines(1));
         var selectionTools = tools("member-selection-tools")
                 .child(info("count", w.language.text(player, Message.MUSIC_SPACE_DEVICE_COUNT, NamedTextColor.AQUA, draft.members.size())));
@@ -60,11 +60,9 @@ final class MusicGroupScenes {
             selectionTools.child(name.build());
         }
         var pick = Ui.button(w.label(player,"pick-world-member")).key("pick-world-member")
-                .tooltip(w.label(player,"group-selection-help")).primary((_,handle) -> {
+                .tooltip(w.label(player,"group-selection-help")).primary((_,_) -> {
             if (!owned.getAsBoolean() || state.busy(new TaskKey(Work.DEVICE,draft.group))) return;
-            draft.pickingInWorld = true;
-            handle.close();
-            player.sendActionBar(w.label(player,"group-world-pick-hint"));
+            w.pickMember(player,state,draft);
         });
         if (busy) pick.disabled(w.label(player,"saving"));
         else if (draft.members.size() + (group == null ? 0 : group.members().size()) >= MAX_MEMBERS)
@@ -165,7 +163,7 @@ final class MusicGroupScenes {
         if (draft.group != null) {
             w.run(player, new TaskKey(Work.DEVICE, draft.group), () -> w.groups.addMembers(player, draft.group, version, members), _ -> {
                 if (state.panel() instanceof GroupEditor current && current.draft() == draft) {
-                    w.panel(player, new DevicePanel(draft.group, DeviceSection.MEMBERS));
+                    w.panel(player,state, new DevicePanel(draft.group, DeviceSection.MEMBERS));
                 }
             });
             return;
@@ -175,7 +173,7 @@ final class MusicGroupScenes {
         w.run(player, TaskKey.of(Work.DEVICE), () -> w.groups.create(player, members, source, name), id -> {
             if (state.panel() instanceof GroupEditor current && current.draft() == draft) {
                 w.selectTarget(player, id);
-                w.panel(player, new DevicePanel(id, DeviceSection.MEMBERS));
+                w.panel(player,state, new DevicePanel(id, DeviceSection.MEMBERS));
             }
             if (draft.pending != null) w.submit(player, new MusicSubmission(player.getUniqueId(), id, draft.pending.tracks(), draft.pending.placement()));
             else if (play) w.run(player, new TaskKey(Work.PLAYBACK, id), () -> w.devices.control(player, id, MusicPlaybackController.Action.RESUME), _ -> {});
@@ -191,7 +189,7 @@ final class MusicGroupScenes {
         for (var device : devices) {
             var actions = new ArrayList<UiNode>();
             actions.add(w.button(player,"sound",() -> {
-                if (active.getAsBoolean()) w.panel(player,new MemberOutput(group.id(),device.id(),state.sourcePosition));
+                if (active.getAsBoolean()) w.panel(player,state,new MemberOutput(group.id(),device.id(),state.sourcePosition));
             }));
             if (w.registry.mayControl(player,group.id())) actions.add(removal(player,state,group,device));
             var restriction = w.registry.controlFailure(player,device.id());
@@ -210,22 +208,40 @@ final class MusicGroupScenes {
         return Ui.button(w.label(player, action)).key(anchor).primary((_, handle) -> {
             String title = member == null ? group.name() : group.members().size() == 1
                     ? group.name() + " · " + w.registry.name(player, member.id()) : w.registry.name(player, member.id());
-            var content = column("group-content-policy")
-                    .child(info("target", w.raw(title))).child(info("effect", w.label(player, "removed-stopped")));
-            for (var policy : MusicGroupService.ContentPolicy.values()) content.child(Ui.button(w.label(player,
-                    policy == MusicGroupService.ContentPolicy.RESTORE_PREVIOUS ? "restore-previous" : "keep-group-content"))
-                    .key(policy.name()).primary((_, popup) -> {
-                        popup.closePopover();
-                        w.run(player, new TaskKey(Work.DEVICE, group.id()), () -> member == null
-                                ? w.groups.dissolve(player, group.id(), group.version(), policy)
-                                : w.groups.removeMember(player, group.id(), group.version(), member.id(), policy), _ -> {
+            handle.openWindow(MenuWindowSpec.task(anchor), context -> new MenuPanel() {
+                private boolean busy, disposed;
+                private Component failure;
+                public MenuScene render() {
+                    var content = column("group-content-policy").child(info("target",w.raw(title)))
+                            .child(info("effect",w.label(player,"removed-stopped")));
+                    if (failure != null) content.child(info("failure",failure));
+                    for (var policy : MusicGroupService.ContentPolicy.values()) {
+                        var choose = Ui.button(w.label(player,policy == MusicGroupService.ContentPolicy.RESTORE_PREVIOUS ? "restore-previous" : "keep-group-content"))
+                                .key(policy.name()).primary((_,_) -> apply(policy));
+                        if (busy) choose.disabled(w.label(player,"saving"));
+                        content.child(choose.build());
+                    }
+                    return MenuScene.screen("music-group-removal",w.label(player,action)).content(content.build()).build();
+                }
+                private void apply(MusicGroupService.ContentPolicy policy) {
+                    if (busy || disposed) return;
+                    busy = true; failure = null; context.redraw().run();
+                    w.persist(player,new TaskKey(Work.DEVICE,group.id()),() -> member == null
+                            ? w.groups.dissolve(player,group.id(),group.version(),policy)
+                            : w.groups.removeMember(player,group.id(),group.version(),member.id(),policy),_ -> {},new MenuInputForm.Completion() {
+                        public void success() {
+                            if (disposed) return;
+                            context.handle().close();
                             if (!w.registry.snapshot().groups().containsKey(group.id())) {
-                                if (Objects.equals(state.target(), group.id())) w.selectTarget(player, null);
-                                if (state.panel() instanceof DevicePanel panel && panel.target().equals(group.id())) w.panel(player, new NoPanel());
+                                if (Objects.equals(w.state(player).target(),group.id())) w.selectTarget(player,null);
+                                if (state.panel() instanceof DevicePanel panel && panel.target().equals(group.id())) w.panel(player,state,new NoPanel());
                             }
-                        });
-                    }).build());
-            handle.openPopover(MenuPopover.attached(anchor, w.label(player, action), content.build(), w.label(player, "close")).exclusive());
+                        }
+                        public void failure(Component problem) { if (!disposed) { busy = false; failure = problem; context.redraw().run(); } }
+                    });
+                }
+                public void close() { disposed = true; }
+            });
         }).build();
     }
 }

@@ -55,6 +55,30 @@ class VehicleMenuTest {
             menu.close();
         }
     }
+    @Test void worldSelectionSuspendsAndResumesTheSameWorkspaceAndDropsExpiredSelections() throws Exception {
+        try (var h = new VehicleEditorHarness();
+             var surfaces = new org.encinet.mik.shared.menu.runtime.MenuWorkspaceTestSupport(h.player.getUniqueId(),
+                     org.encinet.mik.shared.menu.MenuScene.screen("empty").build())) {
+            when(h.menus.open(eq(h.player),any())).thenAnswer(call -> {
+                surfaces.root().update(call.getArgument(1)); return surfaces.root();
+            });
+            when(h.module.selected(h.player)).thenReturn(VehicleSelection.manual(List.of()));
+            when(h.module.selectedOrigin(h.player)).thenReturn(h.feet.get());
+            var menu = new VehicleMenu(h.plugin,h.language,h.module);
+            menu.selection(h.player);
+            var before = surfaces.root().id();
+            var frame = SceneGeometryTestSupport.measure(surfaces.rootScene(),1);
+            UiSceneTestSupport.entry(surfaces.rootScene().measured(frame),frame,"group")
+                    .trigger(FloatingMenuInteraction.PRIMARY).execute(h.player,surfaces.root(),FloatingMenuInteraction.PRIMARY);
+            assertTrue(surfaces.paused());
+            for (int index = 0; index < 6; index++) menu.tick();
+            assertTrue(menu.place(h.player));
+            assertFalse(surfaces.paused()); assertEquals(before,surfaces.root().id());
+            verify(h.module).selectLookGroup(h.player);
+            menu.close();
+            assertFalse(menu.place(h.player));
+        }
+    }
     private static void check(VehicleEditorHarness h) {
         for (int fov : new int[]{30, 110}) {
             var frame = SceneGeometryTestSupport.readableFrame(h.scene, 1.8, new FloatingMenuFieldOfView(fov), 1);

@@ -52,6 +52,7 @@
 - [设计准则](design-principles.md)：界面、内容、工程与验证。
 - [项目架构](architecture.md)：目录归属、依赖与生命周期。
 - [空间菜单架构](spatial-menu-design.md)：布局、输入、生命周期、能力边界与动画。
+- [空间菜单窗口管理设计](spatial-menu-windows.md)：独立前景窗口、所有权、焦点、模态、空间摆放与跨功能复用。
 - [空间菜单图标](spatial-menu-icons.md)：样式、含义、动作与绘制预算。
 - [空间菜单 API](spatial-menu-api.md)：组件声明、约束、布局、输入与浮层示例。
 - [音乐架构](music-architecture.md)：曲库、唱片、播放运行、音游与校准的职责及资源归属。

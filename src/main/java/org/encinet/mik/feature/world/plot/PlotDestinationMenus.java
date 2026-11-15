@@ -256,7 +256,7 @@ final class PlotDestinationMenus {
                 .field(MenuInputForm.Field.text("name", text(player, Message.PLOT_DESTINATION_NAME, NamedTextColor.WHITE),
                         expected == null ? "" : expected.name(), PlotDestination.NAME_LIMIT * 2))
                 .field(MenuInputForm.Field.text("description", text(player, Message.PLOT_DESTINATION_DESCRIPTION, NamedTextColor.WHITE),
-                        expected == null ? "" : expected.description(), PlotDestination.DESCRIPTION_LIMIT * 2).multiline(true))
+                        expected == null ? "" : expected.description(), PlotDestination.DESCRIPTION_LIMIT * 2).multiline(true).inputMethod(MenuInputForm.InputMethod.DIALOG))
                 .validate((viewer, values) -> {
                     try {
                         Plot current = controller.managed(plotId, viewer.getUniqueId(), RolePermissions.canModerate(viewer));
@@ -270,12 +270,17 @@ final class PlotDestinationMenus {
                     } catch (PlotProblem failure) { return text(viewer, failure.message(), NamedTextColor.RED, failure.args()); }
                 })
                 .cancel(text(player, Message.BACK, NamedTextColor.WHITE))
-                .submit(text(player, Message.PLOT_MENU_SUBMIT, NamedTextColor.GREEN), (viewer, values) -> {
-                    if (perform(viewer, () -> {
+                .submitAsync(text(player, Message.PLOT_MENU_SUBMIT, NamedTextColor.GREEN), (viewer, values,done) -> {
+                    try {
                         if (expected == null) controller.create(viewer, plotId, values.text("name"), values.text("description"));
                         else controller.edit(viewer, expected, values.text("name"), values.text("description"));
-                    })) {
-                        if (expected == null) open(viewer, plotId, 0); else openDetail(viewer, expected.id());
+                        done.success();
+                        if (expected == null) open(viewer,plotId,0); else openDetail(viewer,expected.id());
+                    } catch (PlotProblem failure) {
+                        done.failure(text(viewer,failure.message(),NamedTextColor.RED,failure.args()));
+                    } catch (SQLException failure) {
+                        plugin.getLogger().log(java.util.logging.Level.WARNING,"Could not change plot destination",failure);
+                        done.failure(text(viewer,Message.PLOT_ERROR_STORAGE,NamedTextColor.RED));
                     }
                 }).build());
     }

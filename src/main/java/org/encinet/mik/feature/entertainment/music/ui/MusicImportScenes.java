@@ -26,7 +26,7 @@ final class MusicImportScenes {
         java.util.function.Consumer<MusicSourcePosition> browse = next -> {
             if (active.getAsBoolean() && state.readPanel(task,position,next)) w.redraw(player);
         };
-        var body = column("import").child(w.panelHeading(player, w.label(player, "import")));
+        var body = column("import").child(w.panelHeading(player,state, w.label(player, "import")));
         if (task.preview() == null) {
             body.child(w.form(player, "import-link", MenuInputForm.builder(w.label(player, "import"))
                     .field(MenuInputForm.Field.text("link", w.label(player, "link"), state.importLink, 512))
@@ -39,12 +39,12 @@ final class MusicImportScenes {
                                 state.importLink = values.text("link").strip();
                                 load(viewer, MusicPlaylistLink.source(state.importLink), state.importLink);
                             }).build()));
-            if (task.page() != ImportPage.PLATFORMS) body.child(w.button(player, "import-by-id", () -> { if (owned.getAsBoolean()) w.panel(player, new Import(null, ImportPage.PLATFORMS)); }));
+            if (task.page() != ImportPage.PLATFORMS) body.child(w.button(player, "import-by-id", () -> { if (owned.getAsBoolean()) w.panel(player,state, new Import(null, ImportPage.PLATFORMS)); }));
             else {
                 var platforms = tools("platforms");
                 String[][] sources = {{"wy", "网易云音乐"}, {"tx", "QQ Music"}, {"kg", "Kugou"}, {"kw", "Kuwo"}, {"mg", "Migu"}};
                 for (var source : sources) platforms.child(w.button(player, "platform:" + source[0], w.raw(source[1]),
-                        () -> { if (owned.getAsBoolean()) w.input(player, UiKey.named("platform:" + source[0]), "playlist-id", "", 128, id -> { if (owned.getAsBoolean()) load(player, source[0], id); }); }));
+                        () -> { if (owned.getAsBoolean()) w.input(player, UiKey.named("platform:" + source[0]), "playlist-id", "", 128, id -> { if (owned.getAsBoolean()) load(player,state, source[0], id); }); }));
                 body.child(platforms.build());
             }
             var snapshot = w.queries.snapshot(player.getUniqueId());
@@ -75,7 +75,7 @@ final class MusicImportScenes {
                 else body.child(UiKey.named("import-content"),MusicPlaylistTable.content(lists.stream()
                                 .map(list -> new MusicPlaylistTable.Row(list, false, state.busy(TaskKey.of(Work.IMPORT)) ? w.label(player, "saving") : null)).toList(),
                         key -> w.label(player, key), count -> w.trackCount(player, count),
-                        list -> (_, _) -> { if (active.getAsBoolean()) save(player, task, list.id()); },state.panelPage,
+                        list -> (_, _) -> { if (active.getAsBoolean()) save(player,state, task, list.id()); },state.panelPage,
                         page -> { if (active.getAsBoolean()) { state.panelPage = page; w.redraw(player); } }));
             } else {
                 var entries = new ArrayList<MusicTaskEntries.Row<org.encinet.mik.feature.entertainment.music.catalog.MusicTrack>>();
@@ -89,17 +89,17 @@ final class MusicImportScenes {
             var actions = tools("import-actions");
             if (!state.busy(TaskKey.of(Work.IMPORT))) {
                 var create = Ui.button(w.label(player,"import-new")).key("import-new")
-                        .primary((_,_) -> { if (owned.getAsBoolean()) w.safe(player,() -> save(player,(Import) state.panel(),null)); });
+                        .primary((_,_) -> { if (owned.getAsBoolean()) w.safe(player,() -> save(player,state,(Import) state.panel(),null)); });
                 var toggle = (task.page() == ImportPage.MERGE
                         ? Ui.button(UiIcons.CHEVRON_LEFT,w.label(player,"import-preview"))
                         : Ui.button(w.label(player,"import-merge"))).key("import-view")
                         .primary((_,_) -> { if (owned.getAsBoolean() && !state.busy(TaskKey.of(Work.IMPORT))) {
                             var current = (Import) state.panel();
-                            w.panel(player,new Import(current.preview(),current.page() == ImportPage.MERGE ? ImportPage.SOURCE : ImportPage.MERGE));
+                            w.panel(player,state,new Import(current.preview(),current.page() == ImportPage.MERGE ? ImportPage.SOURCE : ImportPage.MERGE));
                         } });
                 var retry = Ui.button(UiIcons.REFRESH,w.label(player,"retry-import")).key("retry-import")
                         .primary((_,_) -> { if (owned.getAsBoolean()) w.safe(player,() -> {
-                            var current = ((Import) state.panel()).preview(); load(player,current.source(),current.reference());
+                            var current = ((Import) state.panel()).preview(); load(player,state,current.source(),current.reference());
                         }); });
                 actions.child(create.build()).child(toggle.build()).child(retry.build());
             }
@@ -109,18 +109,20 @@ final class MusicImportScenes {
         return UiTemplates.reading(body.build(),UiKey.named("import-content"),UiLength.ui(8));
     }
     void load(Player player, String source, String reference) {
-        var state = w.state(player);
+        var state = w.panel(player,w.state(player),new Import(null,ImportPage.SOURCE));
+        load(player,state,source,reference);
+    }
+    private void load(Player player, MusicWorkspaceState state, String source, String reference) {
         if (state.busy(TaskKey.of(Work.IMPORT))) return;
         w.acquire(player);
-        w.panel(player, new Import(null, ImportPage.SOURCE));
+        state.panel(new Import(null, ImportPage.SOURCE));
         long generation = ++state.importGeneration;
         w.run(player, TaskKey.of(Work.IMPORT), () -> w.sources.importPlaylist(source, reference), result -> {
-            if (state.importGeneration != generation || !(state.panel() instanceof Import)) return;
+            if (!w.owns(player,state) || state.importGeneration != generation || !(state.panel() instanceof Import)) return;
             state.panel(new Import(new Imported(result.source(), reference, result.name(), result.tracks(), result.total(), UUID.randomUUID()), ImportPage.SOURCE));
         });
     }
-    private void save(Player player, Import task, UUID destination) {
-        var state = w.state(player);
+    private void save(Player player, MusicWorkspaceState state, Import task, UUID destination) {
         if (!w.active(player,state) || state.panel() != task || state.busy(TaskKey.of(Work.IMPORT))) return;
         var preview = task.preview();
         String name = preview.name();

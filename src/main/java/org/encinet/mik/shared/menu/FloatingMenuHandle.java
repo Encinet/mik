@@ -31,6 +31,19 @@ public interface FloatingMenuHandle {
 
     FloatingMenuHandle openChild(MenuScene definition);
 
+    /** Opens or activates an owned independent foreground window without replacing this page. */
+    default MenuWindowHandle<Void> openWindow(MenuWindowSpec spec, Function<MenuWindowContext<Void>, MenuPanel> content) {
+        return openWindow(spec, Void.class, content, _ -> {});
+    }
+
+    default <T> MenuWindowHandle<T> openWindow(MenuWindowSpec spec, Class<T> resultType, Function<MenuWindowContext<T>, MenuPanel> content,
+                                             java.util.function.Consumer<MenuWindowResult<T>> result) {
+        throw new UnsupportedOperationException("This host does not support independent windows");
+    }
+
+    /** Temporarily yields menu interaction; restoring a closed or replaced scope has no effect. */
+    default MenuInputLease suspend() { throw new UnsupportedOperationException("This host cannot be suspended"); }
+
     /** A lightweight companion retained across host redraws; rendering uses the panel's embeddable content. */
     void openPopover(UiKey source, Function<Runnable, MenuPanel> content);
 

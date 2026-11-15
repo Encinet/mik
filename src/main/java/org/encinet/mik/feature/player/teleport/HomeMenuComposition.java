@@ -58,7 +58,7 @@ final class HomeMenuComposition {
                 .child(Ui.text(question).key("question").alignment(FloatingMenuDecoration.Alignment.LEFT).build())
                 .child(Ui.row().key("actions").gap(UiLength.ui(8))
                         .child(Ui.button(confirm).key("confirm").primary((p,h) -> {
-                            h.closePopover(); apply.execute(p,h);
+                            apply.execute(p,h); h.close();
                         }).build()).build()).build();
     }
 }

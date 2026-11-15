@@ -25,7 +25,7 @@ record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, FloatingMe
                      Map<String, FloatingMenuDecoration.IconPart> icons,
                      List<MenuPaginationInput.Region> pagination,
                      Map<String, UiStyle> styles, Set<String> panelContents, Set<String> transformedContents,
-                     FloatingMenuAnchorResolver.SceneBounds bounds, UiFrame frame, MenuScene definition, MenuPopoverGeometry popover) {
+                     FloatingMenuAnchorResolver.SceneBounds bounds, List<MenuWindowInput.Surface> panels, UiFrame frame, MenuScene definition, MenuPopoverGeometry popover) {
     static SceneGeometry measure(MenuScene definition, double typography, FloatingMenuFieldOfView fov, double scale) {
         return measure(definition, typography, fov, scale, UiPalette.DEFAULT);
     }
@@ -70,7 +70,7 @@ record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, FloatingMe
         requireEntityBudget(definition,styles,result.generatedDecorations().size());
         var bounds = FloatingMenuAnchorResolver.measure(definition, result.poses(), result.sizes(), typography, fov, scale, result.surfaceBounds());
         var base = new SceneGeometry(result.poses(), result.sizes(), Map.copyOf(labels), result.measurements(), result.generatedDecorations(), result.ranges(), result.icons(), result.pagination(),
-                Map.copyOf(styles), Set.copyOf(panelContents), Set.copyOf(transformedContents), bounds, result.frame(), definition, null);
+                Map.copyOf(styles), Set.copyOf(panelContents), Set.copyOf(transformedContents), bounds, result.panels(), result.frame(), definition, null);
         return base;
     }
 
@@ -99,7 +99,7 @@ record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, FloatingMe
         requireEntityBudget(realized,allStyles,generated.size());
         return new SceneGeometry(merge(base.poses(), layer.poses()), merge(base.sizes(), layer.sizes()), merge(base.labels(), layer.labels()),
                 merge(base.measurements(), layer.measurements()), Map.copyOf(generated), merge(base.ranges(), layer.ranges()), merge(base.icons(), layer.icons()), base.pagination(), allStyles, Set.copyOf(allPanelContents),
-                Set.copyOf(allTransformed), base.bounds(), base.frame(), realized, companion);
+                Set.copyOf(allTransformed), base.bounds(), base.panels(), base.frame(), realized, companion);
     }
 
     private static <T> Map<String, T> merge(Map<String, T> base, Map<String, T> layer) {

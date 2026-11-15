@@ -190,7 +190,7 @@ class FloatingMenuSettingsMenuTest {
         oldLayout.execute(null,null,FloatingMenuInteraction.PRIMARY); assertEquals(before,reads.get());
     }
 
-    private static final class NativeForm implements FloatingMenuSettingsPanel.FormFactory {
+    private static final class FormHost implements FloatingMenuSettingsPanel.FormFactory {
         MenuInputForm form;
         Runnable finished;
         int closes;
@@ -200,18 +200,19 @@ class FloatingMenuSettingsMenuTest {
             return new MenuFormSession() {
                 @Override public UiNode content(Actions actions) { return Ui.column().build(); }
                 @Override public void focus(String field) { focused = field; }
+                @Override public void edit(String field) { fail("Opening settings must only reveal the field"); }
                 @Override public void close() { closes++; finished.run(); }
             };
         }
         void submit(java.util.Map<String,String> values) {
-            // Native field editing releases its display before the form delivers the accepted values.
+            // Form submission releases its display before delivering the accepted values.
             finished.run(); form.onSubmit().accept(null, new MenuInputForm.Values(values));
         }
     }
 
-    @Test void nativeSubmissionsCommitOnceAfterDisplayRetirementAndUseTheLatestIndependentPreferences() {
+    @Test void formSubmissionsCommitOnceAfterDisplayRetirementAndUseTheLatestIndependentPreferences() {
         var preferences = new AtomicReference<>(FloatingMenuPreferences.DEFAULT.withTheme(UiCustomTheme.copyOf(UiPalette.WARM)));
-        var writes = new AtomicInteger(); var forms = new NativeForm();
+        var writes = new AtomicInteger(); var forms = new FormHost();
         var language = new LanguageService(null) {
             @Override public String t(Player player, Message key, Object... args) { return key.key(); }
         };
@@ -240,7 +241,7 @@ class FloatingMenuSettingsMenuTest {
 
     @Test void ownerSuspensionAndClosingInvalidateNativeResultsAndRetireTheirSessionOnce() {
         for (var state : List.of(FloatingMenuState.SUSPENDED,FloatingMenuState.CLOSING,FloatingMenuState.CLOSED)) {
-            var preferences = new AtomicReference<>(FloatingMenuPreferences.DEFAULT); var forms = new NativeForm();
+            var preferences = new AtomicReference<>(FloatingMenuPreferences.DEFAULT); var forms = new FormHost();
             var language = new LanguageService(null) {
                 @Override public String t(Player player, Message key, Object... args) { return key.key(); }
             };

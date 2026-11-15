@@ -14,7 +14,8 @@ record MenuPopoverGeometry(String sourceId, SceneGeometry content) {
                                        FloatingMenuFieldOfView fov, double interfaceScale, UiThemeColors theme, MenuReadingParameters reading,
                                        org.encinet.mik.shared.menu.runtime.layout.MenuTextMeasurementCache measurements) {
         if (popover == null) return null;
-        var sources = parent.frame().elements().stream().filter(element -> element.node().key().equals(popover.source())).toList();
+        var sources = parent.frame().elements().stream().filter(element -> element.node().key().equals(popover.source()))
+                .filter(element -> popover.sourceScope() == null || MenuWorkspaceSession.segment(element.path(), popover.sourceScope())).toList();
         if (sources.isEmpty()) return null;
         if (sources.size() != 1) throw new IllegalArgumentException("Ambiguous popover source: " + popover.source());
         String source = sources.getFirst().path();

@@ -12,7 +12,13 @@ import java.util.function.IntConsumer;
 /** Field tools stay with their preview; shared feedback and submission use one adaptive footer. */
 final class MenuInputView {
     enum Presentation { WINDOW, INLINE }
-    record Labels(Component empty, Component clear, Component problem) { }
+    record Labels(Component empty, Component clear, Component problem, Component blocked) {
+        Labels(Component empty, Component clear, Component problem) { this(empty, clear, problem, problem); }
+    }
+    record Editing(int field, Component prompt, Component cancelLabel, Runnable cancel, boolean blocked) {
+        Editing(int field,Component prompt,Component cancelLabel,Runnable cancel) { this(field,prompt,cancelLabel,cancel,false); }
+        static final Editing IDLE = new Editing(-1,null,null,() -> {});
+    }
 
     static UiNode content(Presentation presentation, MenuInputForm form, MenuInputDraft draft, Labels labels, IntConsumer select,
                           IntConsumer browse, IntConsumer clear, Runnable confirm, Runnable cancel) {
@@ -23,6 +29,12 @@ final class MenuInputView {
     static UiNode content(Presentation presentation, MenuInputForm form, MenuInputDraft draft, Labels labels, IntConsumer select,
                           IntConsumer browse, IntConsumer clear, Runnable confirm, Runnable cancel,
                           org.encinet.mik.shared.menu.MenuFormSession.Actions actions) {
+        return content(presentation,form,draft,labels,select,browse,clear,confirm,cancel,actions,Editing.IDLE);
+    }
+
+    static UiNode content(Presentation presentation, MenuInputForm form, MenuInputDraft draft, Labels labels, IntConsumer select,
+                          IntConsumer browse, IntConsumer clear, Runnable confirm, Runnable cancel,
+                          org.encinet.mik.shared.menu.MenuFormSession.Actions actions, Editing editing) {
         var fields = Ui.form().key("form");
         var indices = new java.util.HashMap<String,Integer>();
         boolean multiple = form.fields().size() > 1;
@@ -32,29 +44,34 @@ final class MenuInputView {
             indices.put(field.key(), index);
             boolean labelled = presentation == Presentation.INLINE || multiple || !plain(field.label()).equals(plain(form.title()));
             Component label = labelled ? field.label() : Component.empty();
-            if (index != draft.viewed()) {
+            if (form.layout() == MenuInputForm.Layout.FIELD_DIRECTORY && index != draft.viewed()) {
                 fields.field(field.key(), label, Ui.column().key(field.key()).build());
                 continue;
             }
             String value = draft.value(field.key());
             var edit = Ui.textField(value).preview(field.preview()).placeholder(labels.empty()).key(field.key())
-                    .maxLines(field.multiline() ? 4 : 1).editing(index == draft.selected())
+                    .maxLines(field.multiline() ? 4 : 1).editing(index == editing.field())
                     .primary((_, _) -> select.accept(fieldIndex));
-            if (!value.isEmpty()) edit.actions(Ui.button(UiIcons.CROSS, labels.clear()).key("clear")
+            if (editing.blocked()) edit.disabled(labels.blocked());
+            if (index == editing.field() && editing.prompt() != null) edit.actions(Ui.button(UiIcons.CROSS,editing.cancelLabel())
+                    .key("cancel-field-input").primary((_,_) -> editing.cancel().run()).build());
+            else if (!editing.blocked() && !value.isEmpty()) edit.actions(Ui.button(UiIcons.CROSS, labels.clear()).key("clear")
                     .primary((_, _) -> clear.accept(fieldIndex)).build());
             fields.field(field.key(), label, edit.build());
         }
-        fields.viewedField(form.fields().get(draft.viewed()).key(), key -> browse.accept(indices.get(key)));
+        if (form.layout() == MenuInputForm.Layout.FIELD_DIRECTORY) fields.viewedField(form.fields().get(draft.viewed()).key(), key -> browse.accept(indices.get(key)));
         var tools = Ui.layout(UiLayouts.wrap(UiLength.ui(8), UiLength.ui(6))).key("tools");
         var submit = Ui.button(form.submit()).key("confirm").primary((_, _) -> confirm.run());
-        if (labels.problem() != null) submit.disabled(labels.problem());
+        if (labels.blocked() != null) submit.disabled(labels.blocked());
+        else if (editing.prompt() != null) submit.disabled(editing.prompt());
         if (actions == org.encinet.mik.shared.menu.MenuFormSession.Actions.SUBMIT_AND_CANCEL)
             tools.child(Ui.button(form.cancel()).key("cancel").primary((_, _) -> cancel.run()).build());
         tools.child(submit.build());
-        if (labels.problem() != null) {
+        Component feedbackText = labels.problem() != null ? labels.problem() : editing.prompt();
+        if (feedbackText != null) {
             var feedback = Ui.layout(UiLayouts.preferredWidth(UiLength.ui(160), UiLayouts.column(UiLength.ZERO)))
                     .key("feedback").sizing(UiSizing.atLeast(new UiSize(120, 0)))
-                    .child(UiKey.named("message"), Ui.text(labels.problem()).key("problem").textWidth(FloatingMenuTextWidth.CONTENT)
+                    .child(UiKey.named("message"), Ui.text(feedbackText).key(labels.problem() == null ? "input-hint" : "problem").textWidth(FloatingMenuTextWidth.CONTENT)
                             .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), new LinearSlot(0, LinearSlot.Alignment.START)).build();
             fields.feedback(feedback);
         }

@@ -52,8 +52,8 @@ final class MusicDeviceTable {
                     if (selectedMembers != null) identity.child(marker(row,selectedMembers,label,choose.apply(row.id())));
                     identity.child(name);
                     var card = Ui.column().gap(UiLength.ui(4)).child(identity.build());
-                    if (selectedMembers == null) card.child(text("kind",row.kind()));
-                    card.child(status(row, current, selectedMembers, label))
+                    var status = statusText(row,current,selectedMembers,label);
+                    card.child(text("status",selectedMembers == null ? row.kind().append(Component.text(" · ")).append(status) : status))
                             .child(Ui.text(row.location()).key("location").singleLine().tooltip(row.coordinates())
                                     .alignment(FloatingMenuDecoration.Alignment.LEFT).build());
                     if (selectedMembers == null) card.child(text("song",row.song()));
@@ -74,9 +74,11 @@ final class MusicDeviceTable {
         return node.key("target").singleLine().tooltip(metadata(row)).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
     }
     private static UiNode status(Row row, UUID current, Set<UUID> members, Function<String,Component> label) {
-        var status = members == null && row.id().equals(current)
+        return text("status",statusText(row,current,members,label));
+    }
+    private static Component statusText(Row row, UUID current, Set<UUID> members, Function<String,Component> label) {
+        return members == null && row.id().equals(current)
                 ? label.apply("current-device").append(Component.text(" · ")).append(row.status()) : row.status();
-        return text("status",status);
     }
     private static UiNode actions(Row row, UUID current, Function<String,Component> label,
                                   Function<UUID,FloatingMenuCommand> choose, Function<UUID,FloatingMenuCommand> manage) {

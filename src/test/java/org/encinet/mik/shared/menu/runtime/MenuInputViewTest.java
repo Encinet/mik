@@ -15,6 +15,15 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MenuInputViewTest {
+    @Test void ordinaryMultiFieldFormsDisplayFieldsTogetherAndDirectoryBrowsingIsExplicit() {
+        var form = MenuInputForm.builder(Component.text("Edit"))
+                .field(MenuInputForm.Field.text("name",Component.text("Name"),"One",64))
+                .field(MenuInputForm.Field.text("description",Component.text("Description"),"Two",64))
+                .cancel(Component.text("Cancel")).submit(Component.text("Save"),(_,_) -> {}).build();
+        var scene = scene(form,new MenuInputDraft(form),null);
+        assertEquals(2,elements(scene).values().stream().filter(node -> node.key().value().equals("preview")).count());
+        assertTrue(elements(scene).values().stream().noneMatch(node -> node.key().value().startsWith("select-field:")));
+    }
     @Test void emptyRichPreviewsDoNotMislabelNonemptySourceDraftsAsUnset() {
         for (String raw : new String[]{"", "<red>"}) {
             var form = form(Component.text("Edit"), MenuInputForm.Field.text("value", Component.text("Value"), raw, 64)
@@ -29,7 +38,7 @@ class MenuInputViewTest {
 
     @Test void hiddenFieldsDoNotRunTheirPreviewRendererAndBrowsingKeepsTheirStoredDrafts() {
         var rendered = new java.util.ArrayList<String>();
-        var builder = MenuInputForm.builder(Component.text("Edit"));
+        var builder = MenuInputForm.builder(Component.text("Edit")).layout(MenuInputForm.Layout.FIELD_DIRECTORY);
         for (String key : new String[]{"name","body","notes"}) builder.field(MenuInputForm.Field.text(key,Component.text(key),key,64)
                 .preview(raw -> { rendered.add(key); return Component.text(raw); }));
         var form = builder.cancel(Component.text("Cancel")).submit(Component.text("Save"),(_,_) -> fail("Only render")).build();
@@ -83,7 +92,9 @@ class MenuInputViewTest {
         assertTrue(elements(scene).values().stream().anyMatch(element->element.key().value().equals("clear")
                 && element.content() instanceof org.encinet.mik.shared.menu.ui.UiContent.Icon icon
                 && icon.value()==org.encinet.mik.shared.menu.ui.UiIcons.CROSS));
-        entry(scene,"clear").trigger(FloatingMenuInteraction.PRIMARY).execute(null,null,FloatingMenuInteraction.PRIMARY);
+        var clearName = elements(scene).entrySet().stream().filter(item -> item.getKey().contains("field:name:control/")
+                && item.getValue().key().value().equals("clear")).findFirst().orElseThrow();
+        scene.entries().get(clearName.getKey()).trigger(FloatingMenuInteraction.PRIMARY).execute(null,null,FloatingMenuInteraction.PRIMARY);
         assertEquals("",draft.value("name"));
         assertEquals("Keep me",draft.value("description"));
         assertFalse(draft.submitted());
@@ -196,6 +207,7 @@ class MenuInputViewTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             var builder = MenuInputForm.builder(Component.text(FluentTestSupport.text(bundle, Message.GOVERNANCE_MENU_PAUSE)))
+                    .layout(MenuInputForm.Layout.FIELD_DIRECTORY)
                     .cancel(Component.text(FluentTestSupport.text(bundle, Message.CANCEL)))
                     .submit(Component.text(FluentTestSupport.text(bundle, Message.GOVERNANCE_MENU_CONFIRM)), (_, _) -> { });
             var fields = new Message[] {Message.GOVERNANCE_MENU_PAUSE_DURATION, Message.GOVERNANCE_MENU_PAUSE_APPEAL,
@@ -219,7 +231,7 @@ class MenuInputViewTest {
     }
 
     private MenuInputForm form(Component title, MenuInputForm.Field... fields) {
-        var builder = MenuInputForm.builder(title).submit(Component.text("Apply"), (_, _) -> { })
+        var builder = MenuInputForm.builder(title).layout(MenuInputForm.Layout.FIELD_DIRECTORY).submit(Component.text("Apply"), (_, _) -> { })
                 .cancel(Component.text("Cancel"));
         for (var field : fields) builder.field(field);
         return builder.build();

@@ -75,13 +75,13 @@ public final class FloatingMenus {
         return service.scale(player);
     }
 
-    /** Opens a spatial form whose fields are edited in native dialogs. */
+    /** Opens an owned spatial form; each field explicitly chooses chat or native editing. */
     public static void input(Player player, MenuInputForm form) {
         if (service == null) throw new IllegalStateException("Floating menu service is not installed");
         service.input(player, form);
     }
 
-    /** Shares form drafts and native field editing while the host keeps its navigation and content visible. */
+    /** Shares form drafts and field editing while the host keeps its navigation and content visible. */
     public static MenuFormSession inlineInput(Player player, MenuInputForm form, Runnable changed, Runnable finished) {
         if (service == null) throw new IllegalStateException("Floating menu service is not installed");
         return service.inlineInput(player, form, changed, finished);

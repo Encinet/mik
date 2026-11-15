@@ -39,7 +39,14 @@ final class MenuPopoverPanel implements AutoCloseable {
 
     /** Deferred collections must validate attachment against the realized window before reading panel content. */
     MenuScene compose(MenuScene host, UiFrame frame) {
-        return compose(host, frame.elements().stream().anyMatch(element -> element.node().key().equals(source)));
+        return compose(host, frame, null);
+    }
+
+    MenuScene compose(MenuScene host, UiFrame frame, String scope) {
+        var composed = compose(host, frame.elements().stream().anyMatch(element -> element.node().key().equals(source)
+                && (scope == null || MenuWorkspaceSession.segment(element.path(), scope))));
+        return composed.popover() == null || scope == null || composed.popover().dismissed() != dismissed
+                ? composed : composed.toBuilder().popover(composed.popover().within(scope)).build();
     }
 
     private MenuScene compose(MenuScene host, boolean sourcePresent) {

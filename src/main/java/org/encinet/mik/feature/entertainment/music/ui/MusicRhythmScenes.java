@@ -29,7 +29,7 @@ final class MusicRhythmScenes {
         var choices = w.rooms.nearby(player);
         var owner = state.panel(); var position = state.sourcePosition;
         BooleanSupplier active = () -> w.active(player, state) && state.currentReading(owner, position);
-        var body = column("rhythm-picker").child(w.panelHeading(player, w.label(player, "rhythm")));
+        var body = column("rhythm-picker").child(w.panelHeading(player,state, w.label(player, "rhythm")));
         if (choices.isEmpty()) return body.child(info("empty", w.label(player, "no-rhythm-devices"))).build();
         var rows = new ArrayList<MusicRhythmComposition.DeviceRow>();
         for (var choice : choices) {
@@ -41,7 +41,7 @@ final class MusicRhythmScenes {
         return body.child(MusicRhythmComposition.directory(rows, key -> w.label(player, key), id -> (_, _) -> w.safe(player, () -> {
                     if (!active.getAsBoolean()) return;
                     w.rooms.open(player, id);
-                    w.panel(player, new Room(id));
+                    w.panel(player,state, new Room(id));
                 }), position, next -> {
                     if (active.getAsBoolean() && state.readPanel(owner, position, next)) w.redraw(player);
                 })).build();
@@ -52,7 +52,7 @@ final class MusicRhythmScenes {
         var position = state.sourcePosition;
         BooleanSupplier active = () -> w.active(player, state) && state.currentReading(panel, position);
         MusicRooms.View room = w.rooms.get(id);
-        if (room == null) return column("missing-room").child(w.panelHeading(player, w.label(player, "rhythm")))
+        if (room == null) return column("missing-room").child(w.panelHeading(player,state, w.label(player, "rhythm")))
                 .child(info("reason", w.problem(player, MusicProblem.Code.NOT_FOUND)))
                 .child(w.button(player, "back", () -> { if (active.getAsBoolean()) w.showRooms(player); })).build();
         var song = w.rooms.song(id);
@@ -73,7 +73,7 @@ final class MusicRhythmScenes {
         var roster = column("room-roster").child(MusicRhythmComposition.participants(players, key -> w.label(player, key), position, next -> {
             if (active.getAsBoolean() && state.readPanel(panel, position, next)) w.redraw(player);
         })).build();
-        var heading = w.panelHeading(player, w.raw(w.registry.name(player, id)));
+        var heading = w.panelHeading(player,state, w.raw(w.registry.name(player, id)));
         var me = room.member(player.getUniqueId());
         if (me == null) return MusicRhythmComposition.content(heading, summary, roster, null,
                 List.of(w.button(player, "join-room", () -> { if (active.getAsBoolean()) { w.rooms.open(player, id); w.redraw(player); } })));
@@ -83,7 +83,7 @@ final class MusicRhythmScenes {
         var actions = new ArrayList<UiElement>();
         if (controller) actions.addAll(controls(player,state,room,readiness,running,active));
         actions.add(w.button(player,"leave-room",() -> {
-            if (active.getAsBoolean()) { w.rooms.leave(player); w.panel(player,new NoPanel()); }
+            if (active.getAsBoolean()) { w.rooms.leave(player); w.panel(player,state,new NoPanel()); }
         }));
         if (controller) actions.add(w.button(player,"end-room",() -> { if (active.getAsBoolean()) w.confirm(player,UiKey.named("end-room"),new EndRoom(id)); }));
         return MusicRhythmComposition.content(heading,summary,roster,preparation,actions);

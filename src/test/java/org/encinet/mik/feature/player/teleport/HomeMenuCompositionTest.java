@@ -172,10 +172,10 @@ class HomeMenuCompositionTest {
                 (_,_) -> { order.add("apply"); applied.incrementAndGet(); });
         var scene = MenuScene.screen("confirm").content(content).build();
         var handle = (FloatingMenuHandle) java.lang.reflect.Proxy.newProxyInstance(FloatingMenuHandle.class.getClassLoader(),new Class<?>[]{FloatingMenuHandle.class},
-                (_,method,_) -> { assertEquals("closePopover",method.getName()); order.add("close"); return null; });
-        assertNull(entry(scene,"cancel"), "the popover header owns equivalent cancellation");
+                (_,method,_) -> { assertEquals("close",method.getName()); order.add("close"); return null; });
+        assertNull(entry(scene,"cancel"), "the window header owns cancellation");
         entry(scene,"confirm").triggers().get(FloatingMenuInteraction.PRIMARY).execute(null,handle,FloatingMenuInteraction.PRIMARY);
-        assertEquals(List.of("close","apply"),order,"the source may disappear during apply without navigating away from Home");
+        assertEquals(List.of("apply","close"),order,"only a successful operation closes its exact confirmation window");
     }
 
     @Test void theBrowserReservesOnlyItsContentWidthAndWindowPadding() throws Exception {

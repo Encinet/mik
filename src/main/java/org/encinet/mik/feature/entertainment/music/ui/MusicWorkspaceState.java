@@ -79,6 +79,7 @@ public final class MusicWorkspaceState {
         MemberOutput { Objects.requireNonNull(group); Objects.requireNonNull(member); Objects.requireNonNull(returnPosition); }
     }
     static final class GroupDraft {
+        final UUID task = UUID.randomUUID();
         final UUID group;
         final PendingPlay pending;
         final Set<UUID> members = new LinkedHashSet<>();
@@ -134,7 +135,9 @@ public final class MusicWorkspaceState {
     final Set<UUID> queueSelection = new HashSet<>();
     MusicMove queueMove;
     UUID queueFocus;
-    final Map<TaskKey, Task> tasks = new HashMap<>();
+    final Map<TaskKey, Task> tasks;
+    public MusicWorkspaceState() { this(new HashMap<>()); }
+    MusicWorkspaceState(Map<TaskKey, Task> tasks) { this.tasks = Objects.requireNonNull(tasks); }
     List<MusicTrack> results = List.of();
     long searchGeneration;
     int searchFailures;

@@ -55,6 +55,9 @@ final class MenuInputSessions {
         Ticket ticket = tickets.get(playerId);
         return ticket != null && ticket.active() && !ticket.chat();
     }
+    boolean active(UUID playerId) {
+        var ticket = tickets.get(playerId); return ticket != null && ticket.active();
+    }
 
     /** Called from chat threads; submissions and latest-value previews have bounded storage. */
     boolean offerText(UUID playerId, String raw) {

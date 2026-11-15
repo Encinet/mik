@@ -43,8 +43,7 @@ final class MusicPlayerPanels {
             var key = new TaskKey(Work.DEVICE, id);
             var parameter = grouped ? Parameter.GAIN : Parameter.VOLUME;
             var field = w.sound.control(player, id, parameter, UiKey.named("volume-value"), redraw,
-                    (_, handle) -> handle.openPopover(source, refresh -> w.sound.precise(player, id, parameter, refresh,
-                            current -> current.openPopover(source, update -> volume(player, state, id, source, update)))));
+                    (_, handle) -> w.sound.precise(player, id, parameter, handle));
             var body = column("volume").child(field).children(w.taskStatus(player, state, key));
             return scene("volume", w.label(player, grouped ? "group-volume" : "volume-control"), body.build());
         };
@@ -60,13 +59,13 @@ final class MusicPlayerPanels {
                             () -> w.transport.control(player, state, snapshot, MusicPlaybackController.Action.STOP)); }).build());
             body.child(Ui.button(w.label(player, "device-settings")).key("device-settings").primary((_, handle) -> {
                 handle.closePopover();
-                w.panel(player, new DevicePanel(snapshot.target(), DeviceSection.SETTINGS));
+                w.panel(player,state, new DevicePanel(snapshot.target(), DeviceSection.SETTINGS));
             }).build());
             return scene("more", w.label(player, "more"), body.build());
         };
     }
 
-    MenuPanel preciseSeek(Player player, MusicPlaybackSnapshot expected, MusicPlayerTimeline timeline, Runnable redraw) {
+    void preciseSeek(Player player, MusicPlaybackSnapshot expected, MusicPlayerTimeline timeline, FloatingMenuHandle owner) {
         var form = MenuInputForm.builder(w.label(player, "seek"))
                 .description(w.label(player, "seek-format"))
                 .field(MenuInputForm.Field.text("position", w.label(player, "seek"), MusicTime.format((long) timeline.position()), 20))
@@ -78,8 +77,8 @@ final class MusicPlayerPanels {
                         return null;
                     } catch (IllegalArgumentException | ArithmeticException invalid) { return w.problem(player, MusicProblem.Code.INVALID); }
                 }).cancel(w.label(player, "cancel")).submit(w.label(player, "apply"),
-                        (_, values) -> w.safe(player, () -> timeline.seek(expected, MusicTime.parse(values.text("position"))))).build();
-        return new MusicInputPanel(player, form, "position", MenuFormSession.Actions.SUBMIT, redraw, FloatingMenuHandle::closePopover);
+                        (_, values) -> timeline.seek(expected, MusicTime.parse(values.text("position")))).build();
+        MenuFormPanel.open(owner,UiKey.named("precise-seek"),player,form,"position",true);
     }
 
     private static MenuScene scene(String key, net.kyori.adventure.text.Component title, UiNode content) {

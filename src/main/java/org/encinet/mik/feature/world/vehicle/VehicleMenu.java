@@ -25,7 +25,7 @@ final class VehicleMenu {
         State anchor(int value) { return new State(session, page, target, value, actions); }
         State actions(int value) { return new State(session, page, target, anchor, value); }
     }
-    private record Pick(State state, long ready, long expires) { }
+    private record Pick(State state, MenuInputLease lease, long ready, long expires) { }
     @FunctionalInterface private interface PlayerAction { void run(Player player) throws IOException; }
     @FunctionalInterface private interface Operation { void run() throws IOException; }
     private final JavaPlugin plugin;
@@ -44,11 +44,11 @@ final class VehicleMenu {
     void open(Player player) {
         var state = new State(UUID.randomUUID(), Page.NEARBY, null, 0, 0);
         UUID mounted = module.mountedVehicle(player);
-        picks.remove(player.getUniqueId());
+        cancelPick(player.getUniqueId());
         screen.open(player, mounted == null ? state : state.route(Page.VEHICLE, mounted));
     }
     void selection(Player player) {
-        picks.remove(player.getUniqueId());
+        cancelPick(player.getUniqueId());
         screen.open(player, new State(UUID.randomUUID(), Page.SELECTION, null, 0, 0));
     }
     private void requireCurrent(Player player, State state) {
@@ -109,7 +109,8 @@ final class VehicleMenu {
                             selected.root() == null ? "—" : selected.root().toString().substring(0, 8), origin.getX(), origin.getY(), origin.getZ())).region("summary");
                     control(menu, player, state, "origin", label(player, "origin"), actor -> { module.setOrigin(actor); context.redraw(); });
                     control(menu, player, state, "group", label(player, "group"), actor -> {
-                        picks.put(actor.getUniqueId(), new Pick(state, tick + 6, tick + 600)); context.close();
+                        cancelPick(actor.getUniqueId());
+                        picks.put(actor.getUniqueId(), new Pick(state, context.suspend(), tick + 6, tick + 600));
                         actor.sendMessage(label(actor, "pick-hint"));
                     });
                     control(menu, player, state, "radius", label(player, "radius"), actor -> input(actor, state, label(actor, "radius"),
@@ -255,16 +256,38 @@ final class VehicleMenu {
         fields.forEach(builder::field); FloatingMenus.input(player, builder.build());
     }
     boolean place(Player player) {
-        var pick = picks.get(player.getUniqueId()); if (pick == null) return false;
+        var pick = picks.get(player.getUniqueId());
+        if (pick == null) return false;
+        if (!pick.lease().active()) { cancelPick(player.getUniqueId()); return false; }
         if (tick < pick.ready()) return true;
         picks.remove(player.getUniqueId());
-        if (player.isSneaking() || tick >= pick.expires()) { player.sendMessage(text(player, Message.VEHICLE_MODEL_PLACE_CANCELLED)); return true; }
-        run(player, pick.state(), () -> { module.selectLookGroup(player); screen.open(player, pick.state()); }); return true;
+        if (!pick.lease().complete()) return true;
+        if (player.isSneaking() || tick >= pick.expires()) {
+            player.sendMessage(text(player, Message.VEHICLE_MODEL_PLACE_CANCELLED));
+            return true;
+        }
+        run(player, pick.state(), () -> {
+            module.selectLookGroup(player);
+            screen.flow(player).ifPresent(FloatingMenuFlow::redraw);
+        });
+        return true;
     }
-    void tick() { tick++; picks.entrySet().removeIf(entry -> entry.getValue().expires() <= tick); }
-    void cancelPick(UUID player) { picks.remove(player); }
-    void forget(UUID player) { picks.remove(player); screen.forget(player); }
-    void close() { closed = true; picks.clear(); screen.forgetAll(); }
+    void tick() {
+        tick++;
+        for (var entry : List.copyOf(picks.entrySet())) {
+            if (entry.getValue().expires() <= tick || !entry.getValue().lease().active()) cancelPick(entry.getKey());
+        }
+    }
+    void cancelPick(UUID player) {
+        var pick = picks.remove(player);
+        if (pick != null) pick.lease().close();
+    }
+    void forget(UUID player) { cancelPick(player); screen.forget(player); }
+    void close() {
+        closed = true;
+        for (UUID player : List.copyOf(picks.keySet())) cancelPick(player);
+        screen.forgetAll();
+    }
     private void run(Player player, State state, Operation operation) {
         try { requireCurrent(player, state); operation.run(); }
         catch (IllegalArgumentException | IllegalStateException error) { player.sendMessage(language.text(player, Message.VEHICLE_ERROR, NamedTextColor.RED,

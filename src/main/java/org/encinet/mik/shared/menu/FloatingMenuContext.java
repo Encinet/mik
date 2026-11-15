@@ -33,6 +33,12 @@ public final class FloatingMenuContext<S> {
         return flow.openChild(definition);
     }
     public void openPopover(MenuPopover definition) { flow.openPopover(definition); }
+    public MenuWindowHandle<Void> openWindow(MenuWindowSpec spec,
+            java.util.function.Function<MenuWindowContext<Void>, MenuPanel> content) {
+        return flow.handle().openWindow(spec,content);
+    }
+    /** Temporarily yields world interaction while retaining this workspace and its content. */
+    public MenuInputLease suspend() { return flow.handle().suspend(); }
     public void close() { flow.close(); }
     public void back() { flow.back(); }
 

@@ -18,7 +18,7 @@ final class PlotNoticeForm {
                                 Function<Player, Component> access, BiConsumer<Player, String> saved) {
         return MenuInputForm.builder(text.apply(Message.PLOT_NOTICE_BOARD, new Object[0]).color(NamedTextColor.GOLD))
                 .field(MenuInputForm.Field.text("body", text.apply(Message.PLOT_NOTICE_INPUT,
-                        new Object[] {PlotNoticeText.MAX_LENGTH}), initial, PlotNoticeText.MAX_LENGTH).multiline(true))
+                        new Object[] {PlotNoticeText.MAX_LENGTH}), initial, PlotNoticeText.MAX_LENGTH).multiline(true).inputMethod(MenuInputForm.InputMethod.DIALOG))
                 .validate((player, values) -> {
                     Component denied = access.apply(player);
                     if (denied != null) return denied;

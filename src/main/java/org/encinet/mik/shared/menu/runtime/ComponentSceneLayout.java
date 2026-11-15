@@ -21,7 +21,7 @@ final class ComponentSceneLayout {
                   Map<String, FloatingMenuDecoration.RangePart> ranges,
                   Map<String, FloatingMenuDecoration.IconPart> icons,
                   List<MenuPaginationInput.Region> pagination,
-                  List<FloatingMenuAnchorResolver.Surface> surfaceBounds, UiFrame frame) { }
+                  List<FloatingMenuAnchorResolver.Surface> surfaceBounds, List<MenuWindowInput.Surface> panels, UiFrame frame) { }
 
     static Result measure(MenuScene scene, double typography, FloatingMenuFieldOfView fov, double scale) {
         return measure(scene, typography, fov, scale, UiPalette.DEFAULT);
@@ -114,7 +114,12 @@ final class ComponentSceneLayout {
         var ranges = ComponentRangeLayout.append(frame, projector, backgrounds, typography);
         var icons = ComponentIconLayout.append(frame, projector, backgrounds, typography);
         return new Result(Map.copyOf(poses), Map.copyOf(sizes), Map.copyOf(measurements), Map.copyOf(backgrounds), ranges, icons, List.copyOf(pagination),
-                surfaceBounds.stream().distinct().toList(), frame);
+                surfaceBounds.stream().distinct().toList(), frame.panels().stream()
+                        .filter(panel -> panel.size().width() > 0 && panel.size().height() > 0)
+                        .map(panel -> new MenuWindowInput.Surface(panel.path(),
+                                projector.project(panel.path(),panel.x(),panel.y(),panel.size()),
+                                new FloatingMenuSize(panel.size().width() * UiSceneContent.WORLD_PER_UI,
+                                        panel.size().height() * UiSceneContent.WORLD_PER_UI))).toList(), frame);
     }
 
     private static UiCompiler.ElementMeasurement measureElement(MenuScene scene, UiElement node,
