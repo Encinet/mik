@@ -115,10 +115,14 @@ public final class ChatMessageFormatter {
                     : PlayerNameRenderer.playerName(onlinePlayer);
             Component name = baseName.hoverEvent(HoverEvent.showText(details.apply(visiblePlayerName)));
             return nameTags.render(identityPlayer, name, new PlayerNameTag(
-                    sender.prefix(), sender.suffix(), TextColor.color(sender.usernameColor())));
+                    sender.prefix(), sender.suffix(), TextColor.color(sender.usernameColor()),
+                    sender.rainbowUsername()));
         }
-        return new PlayerIdentityComponent(Component.text(sender.displayName(), TextColor.color(sender.usernameColor()))
-                .hoverEvent(HoverEvent.showText(details.apply(null))));
+        Component displayName = PlayerNameRenderer.withUsernameStyle(
+                Component.text(sender.displayName()),
+                TextColor.color(sender.usernameColor()), sender.rainbowUsername());
+        return new PlayerIdentityComponent(
+                displayName.hoverEvent(HoverEvent.showText(details.apply(null))));
     }
 
     private Component externalSenderDetails(

@@ -8,7 +8,8 @@ enum NameTagField {
     String value(PlayerNameTag tag) { return this == PREFIX ? tag.prefix() : tag.suffix(); }
 
     PlayerNameTag replace(PlayerNameTag tag, String value) {
-        return this == PREFIX ? new PlayerNameTag(value, tag.suffix(), tag.usernameColor())
-                : new PlayerNameTag(tag.prefix(), value, tag.usernameColor());
+        return this == PREFIX
+                ? new PlayerNameTag(value, tag.suffix(), tag.usernameColor(), tag.rainbowUsername())
+                : new PlayerNameTag(tag.prefix(), value, tag.usernameColor(), tag.rainbowUsername());
     }
 }

@@ -146,8 +146,17 @@ public final class PlayerNameTagRenderer {
 
     private static PlayerNameTag snapshot(User user) {
         CachedMetaData metadata = user.getCachedData().getMetaData();
+        UsernameStyle usernameStyle = parseUsernameStyle(
+                metadata.getMetaValue("username-color"));
         return new PlayerNameTag(metadata.getPrefix(), metadata.getSuffix(),
-                parseUsernameColor(metadata.getMetaValue("username-color")));
+                usernameStyle.color(), usernameStyle.rainbow());
+    }
+
+    static UsernameStyle parseUsernameStyle(String value) {
+        if (value != null && "<rainbow>".equalsIgnoreCase(value.strip())) {
+            return new UsernameStyle(NamedTextColor.WHITE, true);
+        }
+        return new UsernameStyle(parseUsernameColor(value), false);
     }
 
     static TextColor parseUsernameColor(String value) {
@@ -176,7 +185,8 @@ public final class PlayerNameTagRenderer {
         Objects.requireNonNull(nameTag, "nameTag");
         return new PlayerIdentityComponent(Component.text()
                 .append(decoration(player, nameTag.prefix(), "prefix"))
-                .append(PlayerNameRenderer.withColor(baseName, nameTag.usernameColor()))
+                .append(PlayerNameRenderer.withUsernameStyle(
+                        baseName, nameTag.usernameColor(), nameTag.rainbowUsername()))
                 .append(decoration(player, nameTag.suffix(), "suffix"))
                 .build());
     }
@@ -217,5 +227,8 @@ public final class PlayerNameTagRenderer {
     }
 
     private record CachedNameTag(PlayerNameTag nameTag, Instant expiresAt) {
+    }
+
+    record UsernameStyle(TextColor color, boolean rainbow) {
     }
 }

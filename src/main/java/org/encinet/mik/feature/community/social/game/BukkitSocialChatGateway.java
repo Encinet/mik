@@ -55,7 +55,8 @@ public final class BukkitSocialChatGateway implements SocialChatGateway {
                     return new ChatSender(
                             binding.playerName(), Optional.of(binding.playerId()),
                             original.externalIdentity(), binding.playerName(),
-                            nameTag.prefix(), nameTag.suffix(), nameTag.usernameColor().value());
+                            nameTag.prefix(), nameTag.suffix(), nameTag.usernameColor().value(),
+                            nameTag.rainbowUsername());
                 }).orElse(original);
         org.encinet.mik.feature.community.chat.model.ChatReferences references =
                 enrichMentions(submission.references());

@@ -23,6 +23,7 @@ public final class GameChatIdentityResolver implements UnaryOperator<ChatSender>
     public ChatSender snapshot(UUID id, String name) {
         var tag = names.current(id);
         return new ChatSender(name, Optional.of(id), Optional.empty(),
-                name, tag.prefix(), tag.suffix(), tag.usernameColor().value());
+                name, tag.prefix(), tag.suffix(), tag.usernameColor().value(),
+                tag.rainbowUsername());
     }
 }

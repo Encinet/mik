@@ -81,6 +81,7 @@ class PlayerChatDeliveryTest {
                 f.usernameColor = "<yellow>";
                 ChatMessage message = f.message(origin, ChatConversation.minecraftPublic(), "hello");
                 assertEquals(NamedTextColor.YELLOW.value(), message.submission().sender().usernameColor());
+                assertFalse(message.submission().sender().rainbowUsername());
                 f.usernameColor = "<white>";
                 f.chat.messages().publish(ChatDelivery.managed(message, null, null));
                 Component rendered = f.consoleComponents.getLast();
@@ -89,6 +90,19 @@ class PlayerChatDeliveryTest {
             }
             assertEquals(NamedTextColor.WHITE.value(), f.message(new ChatOrigin.Minecraft(alice.getUniqueId()),
                     ChatConversation.minecraftPublic(), "member").submission().sender().usernameColor());
+        }
+    }
+
+    @Test void gameChatKeepsRainbowUsernameStyleInItsIdentitySnapshot() throws Exception {
+        try (Fixture f = new Fixture()) {
+            Player alice = f.game("Alice");
+            f.game("Bob");
+            f.usernameColor = "<rainbow>";
+
+            ChatMessage message = f.message(new ChatOrigin.Minecraft(alice.getUniqueId()),
+                    ChatConversation.minecraftPublic(), "hello");
+
+            assertTrue(message.submission().sender().rainbowUsername());
         }
     }
 

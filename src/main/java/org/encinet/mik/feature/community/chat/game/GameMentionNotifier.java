@@ -7,6 +7,7 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.encinet.mik.feature.community.chat.model.ChatSender;
+import org.encinet.mik.feature.player.profile.PlayerNameRenderer;
 import org.encinet.mik.feature.player.afk.AfkService;
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
 import org.encinet.mik.feature.community.chat.model.ChatEffect;
@@ -44,7 +45,9 @@ public final class GameMentionNotifier {
             return;
         }
         plugin.getServer().getScheduler().runTask(plugin, () -> {
-            Component display = Component.text(sender.displayName(), TextColor.color(sender.usernameColor()));
+            Component display = PlayerNameRenderer.withUsernameStyle(
+                    Component.text(sender.displayName()),
+                    TextColor.color(sender.usernameColor()), sender.rainbowUsername());
             for (Player player : recipients) {
                 if (sender.minecraftId().filter(player.getUniqueId()::equals).isPresent()) {
                     continue;

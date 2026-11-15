@@ -14,7 +14,8 @@ public record ChatSender(
         String minecraftName,
         String prefix,
         String suffix,
-        int usernameColor
+        int usernameColor,
+        boolean rainbowUsername
 ) {
     public ChatSender {
         displayName = requireLine(displayName, "displayName", 128);
@@ -36,6 +37,19 @@ public record ChatSender(
             throw new IllegalArgumentException(
                     "a Minecraft sender identity requires minecraftName");
         }
+    }
+
+    public ChatSender(
+            String displayName,
+            Optional<UUID> minecraftId,
+            Optional<ExternalIdentity> externalIdentity,
+            String minecraftName,
+            String prefix,
+            String suffix,
+            int usernameColor
+    ) {
+        this(displayName, minecraftId, externalIdentity,
+                minecraftName, prefix, suffix, usernameColor, false);
     }
 
     public static ChatSender minecraft(UUID playerId, String playerName) {
