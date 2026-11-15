@@ -183,12 +183,13 @@ public final class PlayerNameTagRenderer {
         Objects.requireNonNull(player, "player");
         Objects.requireNonNull(baseName, "baseName");
         Objects.requireNonNull(nameTag, "nameTag");
+        Component coloredName = PlayerNameRenderer.withUsernameStyle(
+                baseName, nameTag.usernameColor(), nameTag.rainbowUsername());
         return new PlayerIdentityComponent(Component.text()
                 .append(decoration(player, nameTag.prefix(), "prefix"))
-                .append(PlayerNameRenderer.withUsernameStyle(
-                        baseName, nameTag.usernameColor(), nameTag.rainbowUsername()))
+                .append(coloredName)
                 .append(decoration(player, nameTag.suffix(), "suffix"))
-                .build());
+                .build(), coloredName);
     }
 
     private Component decoration(OfflinePlayer player, String raw, String position) {
