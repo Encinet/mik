@@ -192,7 +192,7 @@ class VehicleWorldTest {
             final LivingEntity entity;
 
             TestLiving(BoundingBox bounds) {
-                entity = proxy(LivingEntity.class, (name, arguments) -> switch (name) {
+                entity = proxy(LivingEntity.class, (name, _) -> switch (name) {
                     case "getBoundingBox" -> bounds;
                     case "getUniqueId" -> id;
                     case "isValid" -> true;
