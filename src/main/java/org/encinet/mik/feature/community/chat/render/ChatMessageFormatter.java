@@ -35,6 +35,8 @@ import java.util.function.Function;
 
 public final class ChatMessageFormatter {
 
+    private static final int PRIVATE_IDENTITY_MAX_WIDTH = 240;
+
     private static final ZoneId CHAT_TIME_ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter CHAT_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss zzzz");
 
@@ -71,9 +73,12 @@ public final class ChatMessageFormatter {
                                 .orElse(Component.empty()));
         ChatChannel channel = submission.conversation().channel();
         Component marker = channelMarker(channel, viewer);
+        PlayerSource source = source(submission.origin(), viewer);
+        Component header = channel == ChatChannel.PRIVATE
+                ? privateIdentityBody(identity, source, playerIdentity(java.util.Objects.requireNonNull(target, "target"), viewer))
+                : identity.chat(source);
         return channelMessage(marker,
-                channelBody(channel, identity.chat(source(submission.origin(), viewer)),
-                        target == null ? null : playerIdentity(target, viewer)),
+                header,
                 standardSeparator(), body, submission.references().placeholders().isEmpty() ? submission.sourceText()
                         : message.content().localized(key -> localized(viewer, key)).plainText(),
                 localized(viewer, Message.CHAT_COPY_HOVER), repeatIdentifier);
@@ -150,9 +155,9 @@ public final class ChatMessageFormatter {
         return details.build();
     }
 
-    private Component playerIdentity(ChatSender sender, Audience viewer) {
+    private PlayerIdentityComponent playerIdentity(ChatSender sender, Audience viewer) {
         UUID playerId = sender.minecraftId().orElseThrow();
-        return senderIdentity(sender, name -> playerDetails(playerId, name, viewer)).component();
+        return senderIdentity(sender, name -> playerDetails(playerId, name, viewer));
     }
 
     private Component channelMarker(ChatChannel channel, Audience viewer) {
@@ -161,10 +166,6 @@ public final class ChatMessageFormatter {
             case STAFF -> TextBadge.prefix(localized(viewer, Message.CHAT_STAFF_LABEL), NamedTextColor.GOLD);
             case PRIVATE -> TextBadge.prefix(localized(viewer, Message.CHAT_PRIVATE_LABEL), NamedTextColor.LIGHT_PURPLE);
         };
-    }
-
-    static Component channelBody(ChatChannel channel, Component sender, Component target) {
-        return channel == ChatChannel.PRIVATE ? privateBody(sender, java.util.Objects.requireNonNull(target, "target")) : sender;
     }
 
     static Component channelMessage(
@@ -235,6 +236,18 @@ public final class ChatMessageFormatter {
                 .append(marker)
                 .append(body)
                 .build();
+    }
+
+    static Component privateIdentityBody(
+            PlayerIdentityComponent sender, PlayerSource source, PlayerIdentityComponent target
+    ) {
+        Component full = privateBody(sender.chat(source), target.component());
+        String visible = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer
+                .plainText().serialize(full);
+        if (org.encinet.mik.shared.menu.ui.UiFontMetrics.width(visible) <= PRIVATE_IDENTITY_MAX_WIDTH) {
+            return full;
+        }
+        return privateBody(new PlayerIdentityComponent(sender.undecorated()).chat(source), target.undecorated());
     }
 
     static Component privateBody(Component senderIdentity, Component target) {

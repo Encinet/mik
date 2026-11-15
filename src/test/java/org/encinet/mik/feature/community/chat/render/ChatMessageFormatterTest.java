@@ -17,6 +17,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ChatMessageFormatterTest {
 
     @Test
+    void privateHeaderDropsBothDecorationsOnlyAboveWidthLimit() {
+        Component name = Component.text("Alice", NamedTextColor.AQUA)
+                .clickEvent(ClickEvent.suggestCommand("/msg Alice "));
+        PlayerIdentityComponent target = new PlayerIdentityComponent(Component.text("[VIP] Bob"), Component.text("Bob"));
+        PlayerIdentityComponent shortSender = new PlayerIdentityComponent(Component.text("[VIP] Alice"), name);
+        assertEquals("[VIP] Alice -> [VIP] Bob", PlainTextComponentSerializer.plainText().serialize(
+                ChatMessageFormatter.privateIdentityBody(shortSender, PlayerSource.NONE, target)));
+        PlayerIdentityComponent longSender = new PlayerIdentityComponent(Component.text("W".repeat(30)).append(name), name);
+        Component compact = ChatMessageFormatter.privateIdentityBody(longSender, PlayerSource.NONE, target);
+        assertEquals("Alice -> Bob", PlainTextComponentSerializer.plainText().serialize(compact));
+        assertEquals(name.clickEvent(), findByText(compact, "Alice").clickEvent());
+
+        PlayerIdentityComponent boundary = new PlayerIdentityComponent(Component.text("W".repeat(35) + "k"), name);
+        PlayerIdentityComponent recipient = new PlayerIdentityComponent(Component.text("W"), Component.text("Bob"));
+        assertEquals("W".repeat(35) + "k -> W", PlainTextComponentSerializer.plainText().serialize(
+                ChatMessageFormatter.privateIdentityBody(boundary, PlayerSource.NONE, recipient)));
+        assertEquals("Alice -> Bob", PlainTextComponentSerializer.plainText().serialize(
+                ChatMessageFormatter.privateIdentityBody(new PlayerIdentityComponent(
+                        boundary.component().append(Component.text("!")), name), PlayerSource.NONE, recipient)));
+    }
+
+    @Test
     void channelMarkerPrecedesTheCompleteSenderIdentity() {
         Component privateBody = ChatMessageFormatter.privateBody(
                 new PlayerIdentityComponent(Component.text("[Member] A"))

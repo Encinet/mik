@@ -100,7 +100,7 @@ class PlayerChatDeliveryTest {
             f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Web(alice),
                     ChatConversation.minecraftPrivate(alice, bob.getUniqueId()), "private"), ChatSender.minecraft(bob.getUniqueId(), "Bob"), null));
             assertEquals(List.of("[Staff] [Web] [Member] Alice [Tag] » staff",
-                    "[MSG] [Web] [Member] Alice [Tag] -> [Member] Bob [Tag] » private"), f.received.get(bob.getUniqueId()));
+                    "[MSG] [Web] Alice -> Bob » private"), f.received.get(bob.getUniqueId()));
             assertTrue(f.console.isEmpty());
             assertTrue(f.social.isEmpty());
         }
@@ -129,7 +129,7 @@ class PlayerChatDeliveryTest {
                     "[Bedrock] [Member] Alice [Tag] » game",
                     "[Web] [Member] Alice [Tag] » web",
                     "[Staff] [Bedrock] [Member] Alice [Tag] » staff",
-                    "[MSG] [Bedrock] [Member] Alice [Tag] -> [Member] Bob [Tag] » private",
+                    "[MSG] [Bedrock] Alice -> Bob » private",
                     "[Web] [Member] Alice [Tag] » web only"), f.received.get(bob.getUniqueId()));
             assertFalse(f.geyserQueries.contains(bob.getUniqueId()), "A recipient's live device is not the message source");
         }
