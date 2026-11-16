@@ -9,9 +9,14 @@ import org.encinet.mik.shared.menu.ui.*;
 final class MenuWindowLayout implements UiLayout {
     private final List<UiSize> viewports;
     private final List<MenuWindowSpec.Position> positions;
+    private final boolean tray;
 
     MenuWindowLayout(List<UiSize> viewports, List<MenuWindowSpec.Position> positions) {
+        this(viewports,positions,false);
+    }
+    MenuWindowLayout(List<UiSize> viewports, List<MenuWindowSpec.Position> positions, boolean tray) {
         this.viewports = List.copyOf(viewports); this.positions = List.copyOf(positions);
+        this.tray = tray;
         if (viewports.size() != positions.size()) throw new IllegalArgumentException("Mismatched window policies");
     }
 
@@ -23,9 +28,12 @@ final class MenuWindowLayout implements UiLayout {
             var viewport = viewports.get(index);
             var size = children.measure(index, UiConstraints.bounded(Math.min(limits.maxWidth(), viewport.width()),
                     Math.min(limits.maxHeight(), viewport.height())));
-            sizes.add(size); width = Math.max(width, size.width()); height = Math.max(height, size.height());
+            sizes.add(size); width = Math.max(width, size.width());
+            // The tray does not consume a reading budget, but still needs a non-negative placement envelope.
+            height = Math.max(height, size.height());
         }
         var frame = limits.constrain(new UiSize(width, height));
+        double readingHeight = frame.height();
         var placed = new ArrayList<Position>();
         for (int index = 0; index < sizes.size(); index++) {
             var size = sizes.get(index);
@@ -34,7 +42,8 @@ final class MenuWindowLayout implements UiLayout {
                 case LEFT, BOTTOM_LEFT -> 0;
                 case RIGHT -> frame.width() - size.width();
             };
-            placed.add(new Position(x, positions.get(index) == MenuWindowSpec.Position.BOTTOM_LEFT ? frame.height() - size.height() : (frame.height() - size.height()) / 2));
+            if (tray && index == sizes.size()-1) placed.add(new Position((frame.width()-size.width())/2,frame.height()-size.height()));
+            else placed.add(new Position(x, positions.get(index) == MenuWindowSpec.Position.BOTTOM_LEFT ? readingHeight - size.height() : (readingHeight - size.height()) / 2));
         }
         return new Result(frame, placed).focusing(children.key(0));
     }

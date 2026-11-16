@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
+import org.encinet.mik.shared.menu.FloatingMenuPoint;
 import org.encinet.mik.shared.menu.FloatingMenuSize;
 import org.encinet.mik.shared.menu.ui.UiRotation;
 import org.encinet.mik.shared.menu.ui.UiVector3;
@@ -14,29 +15,38 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MenuWorldOverlayMaskTest {
-    @Test void billboardTextMaskFollowsTheCameraInsteadOfItsUnchangingSpawnYaw() {
-        var marker = label(new Location(WORLD,0,0,8)).billboard();
-        var text = assertInstanceOf(FloatingMenuDecoration.Text.class,marker.content());
-        var at = ((org.encinet.mik.shared.menu.FloatingMenuPlacement.World)marker.placement()).location();
-        var mask = new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1)));
-        assertTrue(mask.overlaps(MenuWorldOverlayMask.textSurface(at,180,0,text)));
-        for (float yaw : new float[]{0,90,180,270}) assertTrue(mask.overlapsText(at,yaw,30,text));
-    }
-
-    @Test void blockOutlinesYieldToMenuSurfacesAndReappearWhenTheMenuMovesAway() {
-        var cube = new FloatingMenuDecoration.BlockOutline(org.bukkit.Material.JUKEBOX,.998f,0x70D7FF);
-        var at = new Location(WORLD,0,0,8);
-        assertTrue(new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1))).overlapsOutline(at,cube));
-        assertFalse(new MenuWorldOverlayMask(EYE,List.of(panel(3,0,2,2,1))).overlapsOutline(at,cube));
-        assertFalse(new MenuWorldOverlayMask(EYE,List.of()).overlapsOutline(at,cube));
-    }
-
     private static final World WORLD = world();
     private static final Location EYE = new Location(WORLD,0,0,0);
 
-    @Test void worldLabelsKeepWallPenetrationWhileBothNearAndFarOverlaysYieldToTheInterface() {
-        var label = label(new Location(WORLD,0,0,8));
-        assertTrue(((FloatingMenuDecoration.Text)label.content()).seeThrough());
+    @Test void overlappingNamesHideAndReturnWhileOutlinesAndMenuTextStayVisible() {
+        var at = new Location(WORLD,0,0,8);
+        var label = label(at);
+        var outline = FloatingMenuDecoration.worldOutline("outline",at,org.bukkit.Material.JUKEBOX,.998f,0x70D7FF);
+        var local = FloatingMenuDecoration.text("local",FloatingMenuPoint.ORIGIN,Component.text("Menu text"));
+        var mask = new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1)));
+        assertTrue(mask.occludes(label,at,180,0));
+        assertTrue(mask.occludes(label,new Location(WORLD,0,0,1),180,0));
+        assertFalse(mask.occludes(outline,at,180,0));
+        assertFalse(mask.occludes(local,at,180,0));
+        assertFalse(new MenuWorldOverlayMask(EYE,List.of(panel(3,0,2,2,1))).occludes(label,at,180,0));
+        assertFalse(new MenuWorldOverlayMask(EYE,List.of()).occludes(label,at,180,0));
+    }
+
+    @Test void billboardNameOcclusionFollowsTheCameraInsteadOfItsSpawnYaw() {
+        var at = new Location(WORLD,0,0,8);
+        var marker = label(at).billboard();
+        var mask = new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1)));
+        for (float yaw : new float[]{0,90,180,270}) assertTrue(mask.occludes(marker,at,yaw,30));
+    }
+
+    @Test void nameOcclusionChecksThePaintedTextWhenItsAnchorIsOutsideTheMenu() {
+        var at = new Location(WORLD,1.4,-.1,2);
+        var mask = new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1)));
+        assertTrue(mask.test(at));
+        assertTrue(mask.occludes(label(at),at,180,0));
+    }
+
+    @Test void nearAndFarParticleEffectsYieldToTheInterface() {
         var mask = new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1)));
         assertFalse(mask.test(new Location(WORLD,0,0,8)));
         assertFalse(mask.test(new Location(WORLD,0,0,1)),"world objects closer than the panel must also leave its reading region clear");
@@ -50,14 +60,6 @@ class MenuWorldOverlayMaskTest {
         assertTrue(mask.test(new Location(WORLD,0,0,8)));
         assertFalse(mask.test(new Location(WORLD,4,0,8)));
         assertFalse(mask.test(new Location(WORLD,-4,0,8)));
-    }
-
-    @Test void theWholePaintedLabelIsCheckedWhenItsAnchorIsOutsideThePanel() {
-        Location at = new Location(WORLD,1.4,-.1,2);
-        var text = (FloatingMenuDecoration.Text)label(at).content();
-        var mask = new MenuWorldOverlayMask(EYE,List.of(panel(0,0,2,2,1)));
-        assertTrue(mask.test(at),"a center-only test misses the start of a long label");
-        assertTrue(mask.overlaps(MenuWorldOverlayMask.textSurface(at,180,0,text)));
     }
 
     @Test void particleQuadsKeepClearanceAtPanelEdges() {

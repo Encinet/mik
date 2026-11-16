@@ -124,11 +124,11 @@ public class MainMenuModule {
 
     private MenuScene.Builder buildMenu(Player player, UiNode left, UiNode right, Runnable redraw,
                                       int page, java.util.function.IntConsumer selectPage) {
-        MenuScene.Builder menu = MenuScene.screen("main")
+        MenuScene.Builder menu = MainMenuComposition.scene(left, right, page, selectPage)
+                .title(simpleLabel(player, Message.MAIN_MENU_TITLE)).withoutTitle()
                 .appearance(FloatingMenuAppearance.DEFAULT)
                 .stableAnchor()
-                .framing(FloatingMenuFraming.COMFORTABLE)
-                .content(MainMenuComposition.content(left, right, page, selectPage));
+                .framing(FloatingMenuFraming.COMFORTABLE);
         menu.information("heading",
                         Component.text(languageService.t(player, Message.MAIN_MENU_TITLE),
                                 NamedTextColor.LIGHT_PURPLE))
@@ -180,10 +180,7 @@ public class MainMenuModule {
                 .region("footer")
                 .keepAccessible()
                 .primary((p, _) -> settingsMenu.open(p));
-        menu.close(
-                        Component.text(languageService.t(player, Message.CLOSE), NamedTextColor.RED))
-                .region("footer")
-                .keepAccessible();
+        menu.close(simpleLabel(player, Message.CLOSE)).region("footer").keepAccessible();
         return menu;
     }
 

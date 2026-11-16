@@ -95,11 +95,11 @@ menu-search-limit = 示 { $arg0 } / { $arg1 }，請細其索。
 menu-search-loading = 檢索中…
 menu-search-retry = 重試
 menu-usage-display-mm = <aqua><bold>選單中</bold></aqua>
-menu-window-list = 諸窗
 menu-window-minimize = 收窗
 menu-window-restore = 復窗
 menu-window-blocked = 請先成或罷所阻之事。
-menu-window-position = 移窗
+menu-window-move = 移窗
+menu-window-move-hint = 左鍵定窗 · 右鍵取消
 menu-window-failed = 窗未能啟或更新。
 
 url-dialog-confirm = 啟之
@@ -1898,11 +1898,11 @@ music-space-label =
     { $arg0 ->
         [title] 音乐空间
         [devices] 播放设备
-        [all-devices] 諸樂器
-        [use-device] 用此器
-        [current-device] 現用之器
+        [all-devices] 全部
+        [use-device] 曲庫播於此
+        [current-device] 曲庫當前所播
         [manage-device] 理器
-        [back-devices] 返樂器目
+        [back-devices] 返回目錄
         [group-with-devices] 與他器合奏
         [pick-world-member] 於世中擇一器
         [group-world-pick-hint] 空手潛行右擊唱片機以入選；/music 可返。
@@ -1938,6 +1938,8 @@ music-space-label =
         [add-members] 添設備
         [create-play] 建組並奏
         [create-and-append] 建組並續添曲目
+        [device-playback] 播放
+        [device-target-help] 定曲庫後播之處；此窗仍控題示之機或同步組。
         [device-queue] 待奏
         [device-members] 成員
         [available] 可用
@@ -1979,6 +1981,8 @@ music-space-label =
         [no-playlists] 尚無曲單
         [fetching-playlist] 讀取曲單中…
         [artist] 歌者
+        [album] 專輯
+        [original-author] 原作者
         [duration] 曲長
         [track-type] 類型
         [type-online] 線上
@@ -2002,9 +2006,9 @@ music-space-label =
         [queue-current] 數位待播之當前曲
         [pause] 暂停
         [resume] 继续播放
-        [stop] 停止，保留播放列表
+        [stop] 停播
         [previous] 上一首／从头播放
-        [clear] 清空待播，当前播完停止
+        [clear] 清待播
         [seek] 移時
         [more] 其他
         [volume-control] 音量
@@ -2013,8 +2017,8 @@ music-space-label =
         [timeline-read-only] 此曲不可移時
         [seek-format] 輸 m:ss、h:mm:ss 或秒數
         [record] 錄以遠控
-        [forget] 移除我的设备记录
-        [alias] 个人设备别名
+        [forget] 取消記錄
+        [alias] 私名
         [sound] 声音设置
         [rhythm] 音遊房
         [room-players] 玩家
@@ -2036,7 +2040,7 @@ music-space-label =
         [sequential] 顺序播放
         [repeat-all] 列表循环
         [repeat-one] 单曲循环
-        [shuffle] 随机播放，轮内不重复
+        [shuffle] 隨機播放
         [import] 导入歌单
         [link] 曲單連結
         [partial-import] 仅获取部分歌曲，保存将只包含已获取部分
@@ -2117,7 +2121,7 @@ music-space-error =
         [CONFLICT] 内容已变化，请刷新并重新选择
         [LIMIT] 已达到音乐资源上限
         [INVALID] 请检查名称、所选对象或数值范围
-        [OFFLINE] 设备不可用，请到现场加载区块或弹出实体唱片
+        [OFFLINE] 唱機已除，或區塊未載
         [OVERLAP] 听闻范围重叠：请停止冲突设备、缩小范围或建立同步组
         [UNSUPPORTED] 此媒体不支持该操作
         [BUSY] 设备、请求或音游房间正在使用，请结束后重试

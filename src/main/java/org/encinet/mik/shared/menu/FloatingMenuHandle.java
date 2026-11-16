@@ -16,6 +16,14 @@ public interface FloatingMenuHandle {
 
     int depth();
 
+    default boolean focused() { return state() == FloatingMenuState.ACTIVE; }
+    default void activate() { restore(); }
+    default void minimize() { throw new UnsupportedOperationException("This host has no window controls"); }
+    default void restore() { throw new UnsupportedOperationException("This host has no window controls"); }
+    default void position(MenuWindowSpec.Position value) { throw new UnsupportedOperationException("This host has no window controls"); }
+    /** Click once to follow the view, then again to place the window. */
+    default void move() { throw new UnsupportedOperationException("This host has no window controls"); }
+
     /** Horizontal aim position, from left (0) to right (1), on the activated node. */
     default OptionalDouble horizontalFraction() {
         return OptionalDouble.empty();

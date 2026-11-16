@@ -1,10 +1,16 @@
 package org.encinet.mik.shell.menu;
 
 import org.encinet.mik.shared.menu.ui.*;
+import org.encinet.mik.shared.menu.MenuScene;
 
 /** The launcher owns its reading focus; both companion columns supply independent panels. */
 final class MainMenuComposition {
     private MainMenuComposition() { }
+
+    static MenuScene.Builder scene(UiNode left, UiNode right, int page, java.util.function.IntConsumer select) {
+        return MenuScene.screen("main")
+                .content(content(left,right,page,select));
+    }
 
     static UiNode content(UiNode left, UiNode right, int page, java.util.function.IntConsumer select) {
         var center = Ui.column().key("launcher-content").gap(UiLength.ui(12))

@@ -5,6 +5,11 @@ import static org.mockito.Mockito.*;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import org.bukkit.*;
 import org.bukkit.block.*;
@@ -34,7 +39,8 @@ class MusicGroupDiscPlaybackTest {
     final List<MusicDevice> members = new ArrayList<>();
     final List<Jukebox> boxes = new ArrayList<>();
     final Map<Block,MusicTrack> playing = new HashMap<>();
-    final MusicMainThread main = new MusicMainThread(Runnable::run);
+    final BlockingQueue<Runnable> mainJobs = new LinkedBlockingQueue<>();
+    final MusicMainThread main = new MusicMainThread(mainJobs::add);
     MusicStore store;
     MusicPlaybackController controller;
     JukeboxPlaybackService.CompletionListener completion;
@@ -66,6 +72,9 @@ class MusicGroupDiscPlaybackTest {
         when(backend.playRecordOutput(any(),any(),any(),any(),anyBoolean(),any())).thenAnswer(call -> {
             playing.put(call.<Jukebox>getArgument(1).getBlock(),call.getArgument(2)); return true;
         });
+        when(backend.playProgram(any(),any(),any(),any(),any())).thenAnswer(call -> {
+            playing.put(call.<Jukebox>getArgument(1).getBlock(),call.getArgument(2)); return true;
+        });
         when(backend.isPlaying(any())).thenAnswer(call -> playing.containsKey(call.getArgument(0)));
         when(backend.snapshot(any())).thenAnswer(call -> new JukeboxPlaybackSnapshot(
                 playing.containsKey(call.getArgument(0)) ? PlaybackStatus.PLAYING : PlaybackStatus.STOPPED,12000));
@@ -74,6 +83,7 @@ class MusicGroupDiscPlaybackTest {
         store.transact(editor -> {
             members.forEach(device -> editor.devices.put(device.id(),device));
             editor.groups.put(group,new MusicState.Group(group,"Room",members.stream().map(MusicDevice::id).toList(),Map.of(),100,0));
+            editor.tracks.put("queued",StoredTrack.of(track("queued")));
             editor.programs.put(group,PlaybackProgram.empty().submit(List.of(QueueEntry.create("queued",player.getUniqueId())),PlaybackProgram.Submission.INSERT));
             return null;
         }).join();
@@ -147,5 +157,62 @@ class MusicGroupDiscPlaybackTest {
         var next = controller.snapshot(group);
         assertEquals(track,next.track()); assertNotEquals(previous,next.generation());
         assertEquals(2,playing.size());
+    }
+
+    @Test void submittingANewSongReplacesThePhysicalRecordAcrossTheGroupWithoutEjectingItems() throws Exception {
+        insert(0,false);
+        var replacement = track("replacement");
+        finish(controller.submit(player,new MusicSubmission(player.getUniqueId(),group,List.of(replacement),PlaybackProgram.Submission.INSERT)));
+        assertEquals(replacement,controller.snapshot(group).track());
+        assertEquals(2,playing.size());
+        for (var box : boxes) verify(backend).playProgram(eq(player),eq(box),eq(replacement),any(),any());
+        verify(backend,never()).stopAndEject(any());
+    }
+
+    @Test void naturalProgressionReplacesThePreviousRecordInsteadOfRejectingOccupiedSlots() throws Exception {
+        var first = track("first"); var next = track("next");
+        store.transact(editor -> {
+            for (var song : List.of(first,next)) editor.tracks.put(song.id(),StoredTrack.of(song));
+            editor.programs.put(group,PlaybackProgram.empty().submit(List.of(QueueEntry.create(first.id(),player.getUniqueId()),
+                    QueueEntry.create(next.id(),player.getUniqueId())),PlaybackProgram.Submission.APPEND));
+            return null;
+        }).join();
+        for (var box : boxes) when(box.hasRecord()).thenReturn(true);
+        finish(controller.control(player,group,MusicPlaybackController.Action.RESUME));
+        completion.ended(boxes.getFirst().getLocation(),first,false);
+        runMain();
+        assertEquals(next,controller.snapshot(group).track());
+        for (var box : boxes) verify(backend).playProgram(isNull(),eq(box),eq(next),any(),any());
+        verify(backend,never()).stopAndEject(any());
+    }
+
+    @Test void aReloadedMemberWithAnOldRecordRejoinsTheDigitalProgram() throws Exception {
+        finish(controller.control(player,group,MusicPlaybackController.Action.RESUME));
+        controller.unavailable(boxes.get(1).getLocation(),false);
+        when(boxes.get(1).hasRecord()).thenReturn(true);
+        controller.loaded(boxes.get(1));
+        assertEquals(2,playing.size());
+        verify(backend,times(2)).playProgram(any(),eq(boxes.get(1)),any(),any(),any());
+    }
+
+    @Test void rejectedPlaybackAndRetryReportTheOutputFailureInsteadOfCallingTheDeviceOffline() throws Exception {
+        doReturn(false).when(backend).playProgram(any(),any(),any(),any(),any());
+        var result = controller.control(player,group,MusicPlaybackController.Action.RESUME);
+        var error = assertThrows(CompletionException.class,() -> finish(result));
+        assertEquals(MusicProblem.Code.UNAVAILABLE,MusicProblem.code(error));
+        assertEquals(MusicProblem.Code.UNAVAILABLE,assertThrows(MusicProblem.class,() -> controller.retryOutputs(player,group)).code());
+    }
+
+    private MusicTrack track(String id) {
+        return new MusicTrack(id,new TrackDetails(id,null,null,"ogg",AudioProperties.EMPTY),new TrackTarget.LocalFile(Path.of("/tmp/"+id+".ogg")));
+    }
+    private void finish(CompletableFuture<?> result) throws Exception {
+        while (!result.isDone()) runMain();
+        result.join();
+    }
+    private void runMain() throws Exception {
+        var work = mainJobs.poll(5,TimeUnit.SECONDS);
+        assertNotNull(work,"A music store completion must return to the main thread");
+        work.run();
     }
 }

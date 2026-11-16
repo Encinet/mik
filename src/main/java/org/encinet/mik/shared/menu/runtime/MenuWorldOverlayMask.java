@@ -11,7 +11,7 @@ import org.encinet.mik.shared.menu.ui.UiRotation;
 import org.encinet.mik.shared.menu.ui.UiTextMetrics;
 import org.encinet.mik.shared.menu.ui.UiVector3;
 
-/** Interface reading regions win over world overlays, independently of wall depth or panel opacity. */
+/** Interface reading regions hide world labels and particles while leaving block outlines visible. */
 final class MenuWorldOverlayMask implements Predicate<Location> {
     private static final double CLEARANCE = .01;
     private static final double PARTICLE_RADIUS = .12;
@@ -45,23 +45,19 @@ final class MenuWorldOverlayMask implements Predicate<Location> {
                 .anyMatch(region -> region.intersectionArea(projected.rect()) > 0)).orElse(false);
     }
 
-    boolean overlapsText(Location at, float yaw, float pitch, FloatingMenuDecoration.Text text) {
+    boolean occludes(FloatingMenuDecoration overlay, Location at, float yaw, float pitch) {
+        if (!overlay.worldAnchored() || !(overlay.content() instanceof FloatingMenuDecoration.Text text)) return false;
         return overlaps(textSurface(at,text.billboard() ? (float) rotation.angles().yaw() : yaw,
                 text.billboard() ? 0 : pitch,text));
     }
 
-    boolean overlapsOutline(Location at, FloatingMenuDecoration.BlockOutline outline) {
-        return overlaps(new MenuSurfaceAttachment.Surface(MenuSurfaceAttachment.point(at.toVector()),UiRotation.IDENTITY,
-                new FloatingMenuSize(outline.size(),outline.size()),1,outline.size()));
-    }
-
     /** TextDisplay is bottom anchored; its culling width/height are not the painted text bounds. */
     static MenuSurfaceAttachment.Surface textSurface(Location at, float yaw, float pitch, FloatingMenuDecoration.Text text) {
-        var extent = UiTextMetrics.measure(text.text(), Math.max(80,Math.round(text.displayWidth()*64)));
+        var extent = UiTextMetrics.measure(text.text(),Math.max(80,Math.round(text.displayWidth()*64)));
         double pixel = .025*text.scale();
         double width = (extent.widthPixels()+4)*pixel, height = (extent.lines()*10+4)*pixel;
         var center = at.toVector().add(FloatingMenuSurfaceGeometry.panelUp(yaw,pitch).multiply(height/2));
-        return new MenuSurfaceAttachment.Surface(MenuSurfaceAttachment.point(center), UiRotation.degrees(yaw,pitch,0),
+        return new MenuSurfaceAttachment.Surface(MenuSurfaceAttachment.point(center),UiRotation.degrees(yaw,pitch,0),
                 new FloatingMenuSize(width,height),1);
     }
 }

@@ -407,8 +407,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                             NamedTextColor.WHITE))
                     .region("status");
         }
-        menu.close(text(player, Message.CLOSE, NamedTextColor.RED))
-                .region("controls");
+        menu.close(text(player, Message.CLOSE, NamedTextColor.RED)).region("controls");
         return menu.build();
     }
 

@@ -8,6 +8,8 @@ public final class UiTheme {
     public static final UiLength CONTROL_MIN_HEIGHT = UiLength.ui(21);
     public static final UiStyle INPUT = UiStyle.CONTROL.withBackground(UiColor.themed(UiColorRole.INPUT));
     public static final UiStyle WINDOW = UiStyle.PANEL;
+    /** Stacked windows need a solid reading plane so underlying text cannot bleed through. */
+    public static final UiStyle FLOATING_WINDOW = WINDOW.withBackgroundAlpha(1);
     public static final UiStyle SIDEBAR = UiStyle.PANEL.withBackground(UiColor.themed(UiColorRole.SIDEBAR));
     public static final UiStyle TOOLBAR = UiStyle.PANEL.withBackground(UiColor.themed(UiColorRole.TOOLBAR))
             .withPadding(UiInsets.all(UiLength.ui(8)));

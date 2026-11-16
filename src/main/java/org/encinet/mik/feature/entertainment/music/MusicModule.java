@@ -95,7 +95,7 @@ public final class MusicModule {
         var limiter = new OnlineMusicRequestLimiter();
         recordSilencer = new VanillaRecordSilencer();
         var settings = new JukeboxSettingsStore();
-        playbackService = new JukeboxPlaybackService(plugin, voice, resolver, audioCache,
+        playbackService = new JukeboxPlaybackService(plugin, voice, resolver, discs, audioCache,
                 new JukeboxPlaybackNotifier(language, voice), recordSilencer, settings,
                 playbackHistory::recordPlayback, new LyricDisplayService(plugin, lyricsService), limiter);
         rhythmGameService = new RhythmGameService(plugin, playbackService, playbackService,

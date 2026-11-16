@@ -17,10 +17,12 @@ class MusicPlayerControlsTest {
     @Test void statusDescribesTheBackendWhileTheCentralIconDescribesTheNextAction() {
         var playing=MusicPlayerControls.sample(sample(PlaybackStatus.PLAYING,null,false),PlaybackProgram.empty(),false);
         assertEquals(MusicPlayerControls.Primary.PAUSE,playing.primary());
+        assertEquals(UiIcons.PAUSE,playing.primary().icon);
         assertEquals(UiIcons.ACTIVITY_BARS,playing.status());
         assertEquals("playing",playing.statusLabel());
         var paused=MusicPlayerControls.sample(sample(PlaybackStatus.PAUSED,null,false),PlaybackProgram.empty(),false);
         assertEquals(MusicPlayerControls.Primary.RESUME,paused.primary());
+        assertEquals(UiIcons.PLAY,paused.primary().icon);
         assertEquals(UiIcons.PAUSE,paused.status());
         assertEquals("paused",paused.statusLabel());
         assertTrue(paused.enabled());
@@ -34,6 +36,7 @@ class MusicPlayerControlsTest {
         var snapshot=sample(PlaybackStatus.LOADING,UUID.randomUUID(),false);
         var preparing=MusicPlayerControls.sample(snapshot,PlaybackProgram.empty(),false);
         assertEquals(MusicPlayerControls.Primary.CANCEL,preparing.primary());
+        assertEquals("cancel-loading",preparing.primary().label);
         assertEquals(UiIcons.CROSS,preparing.primary().icon);
         assertEquals(UiIcons.LOADING,preparing.status());
         assertTrue(preparing.enabled());

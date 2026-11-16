@@ -95,11 +95,11 @@ menu-search-limit = Affichage : { $arg0 } / { $arg1 }. Précisez la recherche.
 menu-search-loading = Recherche…
 menu-search-retry = Réessayer
 menu-usage-display-mm = <aqua><bold>Dans le menu</bold></aqua>
-menu-window-list = Fenêtres
 menu-window-minimize = Réduire la fenêtre
 menu-window-restore = Restaurer la fenêtre
 menu-window-blocked = Terminez ou annulez d’abord la tâche qui bloque cette fenêtre.
-menu-window-position = Changer la position de la fenêtre
+menu-window-move = Déplacer la fenêtre
+menu-window-move-hint = Clic gauche : fixer · Clic droit : annuler
 menu-window-failed = Impossible d’ouvrir ou de mettre à jour la fenêtre.
 
 url-dialog-confirm = Ouvrir
@@ -2171,11 +2171,11 @@ music-space-label =
     { $arg0 ->
         [title] Espace musical
         [devices] Appareils de lecture
-        [all-devices] Tous les appareils
-        [use-device] Utiliser cet appareil
-        [current-device] Appareil actuel
+        [all-devices] Tous
+        [use-device] Lire la bibliothèque ici
+        [current-device] Sortie de la bibliothèque
         [manage-device] Gérer
-        [back-devices] Retour aux appareils
+        [back-devices] Retour à la liste
         [group-with-devices] Grouper avec d’autres appareils
         [pick-world-member] Choisir un appareil dans le monde
         [group-world-pick-hint] Accroupissez-vous et faites un clic droit, main vide, sur un jukebox pour l’ajouter ; /music revient au menu.
@@ -2211,6 +2211,8 @@ music-space-label =
         [add-members] Ajouter des appareils
         [create-play] Créer et lire
         [create-and-append] Créer et ajouter les morceaux à la fin
+        [device-playback] Lecture
+        [device-target-help] Choisissez la sortie des prochaines lectures de la bibliothèque. Cette fenêtre contrôle toujours l’appareil ou le groupe de son titre.
         [device-queue] File
         [device-members] Membres
         [available] Disponible
@@ -2252,6 +2254,8 @@ music-space-label =
         [no-playlists] Aucune liste
         [fetching-playlist] Chargement de la liste…
         [artist] Artiste
+        [album] Album
+        [original-author] Auteur original
         [duration] Durée
         [track-type] Type
         [type-online] En ligne
@@ -2275,9 +2279,9 @@ music-space-label =
         [queue-current] Titre actuel de la file numérique
         [pause] Mettre en pause
         [resume] Reprendre
-        [stop] Arrêter et conserver la liste
+        [stop] Arrêter la lecture
         [previous] Morceau précédent / recommencer
-        [clear] Vider les morceaux en attente ; arrêter après le morceau actuel
+        [clear] Vider les titres à venir
         [seek] Position
         [more] Plus
         [volume-control] Volume
@@ -2286,8 +2290,8 @@ music-space-label =
         [timeline-read-only] Changement de position indisponible
         [seek-format] Saisir m:ss, h:mm:ss ou des secondes
         [record] Enregistrer pour le contrôle à distance
-        [forget] Oublier mes appareils
-        [alias] Alias personnel de l’appareil
+        [forget] Oublier cet appareil
+        [alias] Alias personnel
         [sound] Réglages du son
         [rhythm] Salons de rythme
         [room-players] Joueurs
@@ -2309,7 +2313,7 @@ music-space-label =
         [sequential] Dans l’ordre
         [repeat-all] Répéter la liste
         [repeat-one] Répéter le morceau
-        [shuffle] Aléatoire sans répétition
+        [shuffle] Lecture aléatoire
         [import] Importer une playlist
         [link] Lien de la playlist
         [partial-import] Une partie de la liste seulement a été récupérée. Enregistrez-la si vous souhaitez la conserver.
@@ -2390,7 +2394,7 @@ music-space-error =
         [CONFLICT] Le contenu a changé. Actualisez la vue et sélectionnez à nouveau.
         [LIMIT] La limite de ressources musicales est atteinte.
         [INVALID] Vérifiez le nom, la sélection ou la plage de valeurs.
-        [OFFLINE] Appareil indisponible : chargez son tronçon ou éjectez le disque physique.
+        [OFFLINE] Jukebox retiré ou tronçon non chargé
         [OVERLAP] Les zones d’écoute se chevauchent. Arrêtez un autre appareil, réduisez la portée ou créez un groupe synchronisé.
         [UNSUPPORTED] Ce média ne prend pas en charge cette action.
         [BUSY] L’appareil, la requête ou le salon de rythme est occupé. Réessayez après la fin de l’opération.

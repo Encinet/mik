@@ -44,7 +44,8 @@ class GovernanceWorkspaceScenesTest {
                 var state = new GovernanceWorkspaceState(); state.section(Section.MATTERS); state.filter(Filter.COMPLETED);
                 var scene = view(language,state,null,new AtomicReference<>()).render(null,failed);
                 var frame = SceneGeometryTestSupport.readableFrame(scene,font,new FloatingMenuFieldOfView(fov),scale);
-                assertDisjoint(frame); assertNotNull(element(frame,"status")); assertNotNull(element(frame,"refresh")); assertNotNull(element(frame,"close"));
+                assertDisjoint(frame); assertNotNull(element(frame,"status")); assertNotNull(element(frame,"refresh"));
+                assertNotNull(element(frame,"close"));
                 assertTrue(frame.readingRegion().path().endsWith("/status"));
             }
     }

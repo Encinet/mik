@@ -359,8 +359,7 @@ public final class PlotModule implements Listener {
                             }).build()));
         menu.navigation("help", Component.text(t(player, Message.PLOT_HELP), NamedTextColor.YELLOW))
                 .region("navigation").primary((viewer, _) -> openGuide(viewer));
-        menu.dismiss(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
-                .region("navigation").keepAccessible();
+        menu.dismiss(Component.text(t(player, Message.BACK), NamedTextColor.GREEN)).region("navigation").keepAccessible();
         return menu.build();
     }
 

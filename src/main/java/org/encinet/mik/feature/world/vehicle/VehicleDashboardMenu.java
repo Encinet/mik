@@ -30,6 +30,7 @@ final class VehicleDashboardMenu {
         boolean car = frame.kind() == VehicleDefinition.Kind.CAR;
         MenuScene.Builder menu = MenuScene.screen("vehicle-dashboard")
                 .anchorMode(page == Page.DRIVE ? FloatingMenuAnchorMode.INERTIAL_TOOLBAR : FloatingMenuAnchorMode.FOLLOW_PLAYER_POSITION)
+                .windowPolicy(org.encinet.mik.shared.menu.MenuWindowPolicy.TASK)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .framing(FloatingMenuFraming.COMFORTABLE)
                 .animation(new FloatingMenuAnimation(2, 2, 2, 0.12, 0.025, 0.025, 0, 0,

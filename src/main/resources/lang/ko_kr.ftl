@@ -95,11 +95,11 @@ menu-search-limit = { $arg0 } / { $arg1 } 표시 중. 검색 범위를 좁혀 �
 menu-search-loading = 검색 중…
 menu-search-retry = 다시 시도
 menu-usage-display-mm = <aqua><bold>메뉴 사용 중</bold></aqua>
-menu-window-list = 창 목록
 menu-window-minimize = 창 최소화
 menu-window-restore = 창 복원
 menu-window-blocked = 먼저 이 창을 막고 있는 작업을 완료하거나 취소하세요.
-menu-window-position = 창 위치 변경
+menu-window-move = 창 이동
+menu-window-move-hint = 좌클릭: 고정 · 우클릭: 취소
 menu-window-failed = 창을 열거나 갱신하지 못했습니다.
 
 url-dialog-confirm = 열기
@@ -1898,11 +1898,11 @@ music-space-label =
     { $arg0 ->
         [title] 음악 공간
         [devices] 재생 장치
-        [all-devices] 모든 기기
-        [use-device] 이 기기 사용
-        [current-device] 현재 기기
+        [all-devices] 전체
+        [use-device] 보관함을 여기서 재생
+        [current-device] 보관함 재생 대상
         [manage-device] 관리
-        [back-devices] 기기 목록으로
+        [back-devices] 목록으로
         [group-with-devices] 다른 기기와 그룹 만들기
         [pick-world-member] 월드에서 기기 선택
         [group-world-pick-hint] 빈손으로 웅크린 채 주크박스를 우클릭하면 추가됩니다. /music으로 메뉴에 돌아갑니다.
@@ -1938,6 +1938,8 @@ music-space-label =
         [add-members] 기기 추가
         [create-play] 만들고 재생
         [create-and-append] 만들고 곡을 대기열 끝에 추가
+        [device-playback] 재생
+        [device-target-help] 보관함의 다음 재생 위치를 선택합니다. 이 창은 항상 제목에 표시된 기기나 그룹을 제어합니다.
         [device-queue] 대기열
         [device-members] 구성원
         [available] 사용 가능
@@ -1979,6 +1981,8 @@ music-space-label =
         [no-playlists] 재생목록 없음
         [fetching-playlist] 재생목록 불러오는 중…
         [artist] 아티스트
+        [album] 앨범
+        [original-author] 원작자
         [duration] 재생 시간
         [track-type] 유형
         [type-online] 온라인
@@ -2002,9 +2006,9 @@ music-space-label =
         [queue-current] 디지털 대기열의 현재 곡
         [pause] 일시 정지
         [resume] 재개
-        [stop] 정지하고 재생 목록 유지
+        [stop] 재생 중지
         [previous] 이전 곡 / 처음부터 재생
-        [clear] 대기 곡을 지우고 현재 곡이 끝나면 정지
+        [clear] 재생 대기 비우기
         [seek] 재생 위치
         [more] 더 보기
         [volume-control] 음량
@@ -2013,8 +2017,8 @@ music-space-label =
         [timeline-read-only] 재생 위치를 변경할 수 없음
         [seek-format] m:ss, h:mm:ss 또는 초 단위로 입력
         [record] 원격 제어용으로 저장
-        [forget] 내 장치 등록 해제
-        [alias] 개인 장치 별칭
+        [forget] 등록 해제
+        [alias] 개인 별칭
         [sound] 소리 설정
         [rhythm] 리듬 게임 방
         [room-players] 플레이어
@@ -2036,7 +2040,7 @@ music-space-label =
         [sequential] 순서대로 재생
         [repeat-all] 목록 반복
         [repeat-one] 한 곡 반복
-        [shuffle] 중복 없이 무작위 재생
+        [shuffle] 무작위 재생
         [import] 재생목록 가져오기
         [link] 재생목록 링크
         [partial-import] 재생 목록의 일부만 가져왔습니다. 가져온 부분을 보관하려면 저장해 주세요.
@@ -2117,7 +2121,7 @@ music-space-error =
         [CONFLICT] 내용이 변경되었습니다. 새로 고침한 뒤 다시 선택해 주세요.
         [LIMIT] 음악 리소스 한도에 도달했습니다.
         [INVALID] 이름, 선택 항목 또는 숫자 범위를 확인해 주세요.
-        [OFFLINE] 장치를 사용할 수 없습니다. 해당 청크를 불러오거나 삽입된 음반을 꺼내 주세요.
+        [OFFLINE] 주크박스가 제거되었거나 청크가 불러와지지 않았습니다
         [OVERLAP] 소리가 들리는 범위가 겹칩니다. 다른 장치를 정지하거나, 범위를 줄이거나, 동기화 그룹을 만들어 주세요.
         [UNSUPPORTED] 이 미디어는 해당 작업을 지원하지 않습니다.
         [BUSY] 장치, 요청 또는 리듬 게임 방이 사용 중입니다. 작업이 끝난 뒤 다시 시도해 주세요.

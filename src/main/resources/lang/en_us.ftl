@@ -95,11 +95,11 @@ menu-search-limit = Showing { $arg0 } of { $arg1 }. Refine the search.
 menu-search-loading = Searching…
 menu-search-retry = Retry
 menu-usage-display-mm = <aqua><bold>In Menu</bold></aqua>
-menu-window-list = Windows
 menu-window-minimize = Minimize window
 menu-window-restore = Restore window
 menu-window-blocked = Finish or cancel the blocking task first.
-menu-window-position = Change window position
+menu-window-move = Move window
+menu-window-move-hint = Left-click: place · Right-click: cancel
 menu-window-failed = Could not open or update the window.
 
 url-dialog-confirm = Open
@@ -2162,11 +2162,11 @@ music-space-label =
     { $arg0 ->
         [title] Music space
         [devices] Playback devices
-        [all-devices] All devices
-        [use-device] Use this device
-        [current-device] Current device
+        [all-devices] All
+        [use-device] Play library here
+        [current-device] Library playback target
         [manage-device] Manage
-        [back-devices] Back to devices
+        [back-devices] Back to list
         [group-with-devices] Group with other devices
         [pick-world-member] Pick a device in the world
         [group-world-pick-hint] Sneak-right-click a jukebox with an empty hand to add it; /music returns to the menu.
@@ -2202,6 +2202,8 @@ music-space-label =
         [add-members] Add devices
         [create-play] Create and play
         [create-and-append] Create and append songs
+        [device-playback] Playback
+        [device-target-help] Choose where the library plays next. This window always controls the device or group named in its title.
         [device-queue] Queue
         [device-members] Members
         [available] Available
@@ -2243,6 +2245,8 @@ music-space-label =
         [no-playlists] No playlists
         [fetching-playlist] Loading playlist…
         [artist] Artist
+        [album] Album
+        [original-author] Original author
         [duration] Duration
         [track-type] Type
         [type-online] Online
@@ -2266,9 +2270,9 @@ music-space-label =
         [queue-current] Current digital queue track
         [pause] Pause
         [resume] Resume
-        [stop] Stop; keep playback list
+        [stop] Stop playback
         [previous] Previous song / restart
-        [clear] Clear pending; stop after current song
+        [clear] Clear upcoming
         [seek] Seek
         [more] More
         [volume-control] Volume
@@ -2277,8 +2281,8 @@ music-space-label =
         [timeline-read-only] Seeking unavailable
         [seek-format] Enter m:ss, h:mm:ss or seconds
         [record] Save for remote control
-        [forget] Forget my device records
-        [alias] Personal device alias
+        [forget] Forget device
+        [alias] Personal alias
         [sound] Sound settings
         [rhythm] Rhythm rooms
         [room-players] Players
@@ -2300,7 +2304,7 @@ music-space-label =
         [sequential] Sequential
         [repeat-all] Repeat List
         [repeat-one] Repeat song
-        [shuffle] Shuffle without repeats
+        [shuffle] Shuffle
         [import] Import playlist
         [link] Playlist link
         [partial-import] Only part of the playlist was fetched; save the fetched part explicitly
@@ -2381,7 +2385,7 @@ music-space-error =
         [CONFLICT] Content changed; refresh and select again
         [LIMIT] The music resource limit was reached
         [INVALID] Check the name, selection or numeric range
-        [OFFLINE] Device unavailable: load its chunk or eject its physical record
+        [OFFLINE] Jukebox removed or chunk not loaded
         [OVERLAP] Audible areas overlap: stop another device, reduce range or create a sync group
         [UNSUPPORTED] This media does not support that action
         [BUSY] Device, request or rhythm room is busy; retry after it finishes

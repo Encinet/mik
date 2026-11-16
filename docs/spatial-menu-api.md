@@ -407,6 +407,19 @@ URL 为客户端可访问的 HTTP(S) ASCII 地址，最长 8192 字节，不支�
 
 稳定 UUID 支持移动、旋转差量更新。URL、宽度或透明度变化会重建注解和纹理，避免逐帧缩放或淡入；单精度坐标在远离原点处可能与实体文字有偏差。每包最多 32,000 字节，发送失败保留待同步状态并重试。注解按所有者在移除、挂起、关闭、换世界、退出或停用时清理，不清空世界注解或写入存档。图片动作通过组合语义控件提供。
 
+## 详情页的信息层级
+
+详情先突出对象身份，再分组显示参数与操作。`UiTemplates.detail(overview, facts, primary, secondary, feedback)` 将概览和参数横向安排；较窄的可用区域按完整区块堆叠，长文本仍遵守各自的阅读宽度，不把标题挤成窄列。主操作和次操作使用独立区域，不与元数据混排。
+
+```java
+UiNode facts = UiTemplates.facts(List.of(
+        UiTemplates.fact(UiKey.named("duration"), durationLabel, durationValue),
+        UiTemplates.fact(UiKey.named("format"), formatLabel, formatValue)));
+UiNode details = UiTemplates.detail(identity, facts, playback, libraryActions, feedback);
+```
+
+概览直接显示标题、署名等身份内容；`facts` 优先使用双列，空间不足时整组换行；`fact` 将标签和值分开排版。颜色与字号继承现有主题和玩家偏好。歌曲详情和歌单设置复用这些组件。
+
 ## 实时范围与进度
 
 `UiRange.live(min, max, supplier)` 或 `fixed(min, max, value)` 声明有限且递增的边界；当前值钳制在范围内。`step` 为滚轮正步长，`format` 返回数值与单位，`withLabels()` 在轨道两侧显示当前值与上限。中间值须能放入按端点格式预留的宽度。
@@ -449,13 +462,13 @@ details.sharedElement(object, UiKey.named("heading"));
 
 导航从上一页面已发布的姿态衔接当前目标，快速返回重新取当前姿态；旧页面的动作、输入与实体不转交。一次最多配对八个主页面的文字、物品或方块控件；节点有歧义、类型不兼容、来源未发布、处于加载／减弱动态或路径不安全时使用普通页面更新。图标、范围控件、图片与浮层内容使用普通过渡。空间检查和资源归属见[菜单架构](spatial-menu-design.md#命中包络与共享元素)。
 
-## 世界标记与界面遮挡
+## 世界标记
 
-`worldTextDecoration` 的 `seeThrough` 保留世界穿墙行为，但与菜单、Popover 或 Tooltip 投影重叠时整条隐藏，移开后恢复。透明面板也保留阅读区域。
+`worldTextDecoration` 的 `seeThrough` 控制世界穿墙行为。世界文字按实际绘制范围与菜单、独立窗口、Popover 及 Tooltip 做投影遮挡，重叠时隐藏文字与底色，移开后恢复；客户端朝向的文字使用当前观看方向。方块描边持续显示，不参与此遮挡判断。
 
 通过 `scene.decoration(FloatingMenuDecoration.worldText(...).billboard())` 让世界名牌由客户端绕竖轴朝向视角，免去服务端定期更新朝向。普通菜单文字仍保持所在面板的朝向。
 
-`FloatingMenuDecoration.worldOutline(id, center, material, size, rgb)` 在指定世界中心放置客户端专用的发光方块副本。标记已有方块时，使用相同材质和略小于 1 的尺寸，将副本藏在原方块内部，只显示可穿墙的轮廓。描边与菜单共享资源预算、遮挡规则和清理生命周期，不创建服务器世界实体。
+`FloatingMenuDecoration.worldOutline(id, center, material, size, rgb)` 在指定世界中心放置客户端专用的发光方块副本。标记已有方块时，使用相同材质和略小于 1 的尺寸，将副本藏在原方块内部，只显示可穿墙的轮廓。描边与菜单共享资源预算和清理生命周期，不创建服务器世界实体。
 
 粒子每次更新可重新取得 `FloatingMenus.worldOverlayVisibility(player)`，用其 `Predicate<Location>` 过滤被界面遮盖的位置。快照不查方块，已发送粒子由原版生命周期消退。
 
@@ -466,6 +479,8 @@ details.sharedElement(object, UiKey.named("heading"));
 `openRoot` 建立新根，`open` 进入子页，`present` 在同 `screenId` 更新或返回已有层级；`handle.back()` 返回，`close()` 关闭。输入回调中的更新消费本次剩余数据包，后台刷新不阻断新的输入。
 
 ### 独立窗口
+
+根场景保留自己声明的面板、导航和关闭入口，共享层只补充紧凑管理按钮；不附加外层底板或通用标题栏，可见根页面也不占托盘卡片。身份、输入归属和移动变换绑定逻辑空间组，不要求页面提供某块背景平面。显式 `openWindow` 的独立内容使用统一标题工具条与不透明底板。窗口名称由 `MenuScene.title()` 显式提供；根场景 `withoutTitle()` 隐藏页面标题并保留名称元数据，正文小标题不参与窗口命名。
 
 ```java
 MenuWindowHandle<Void> object = handle.openWindow(
@@ -480,7 +495,7 @@ object.activate();
 object.minimize();
 object.restore();
 object.position(MenuWindowSpec.Position.LEFT);
-object.expanded(true);
+object.move(); // 开始随视角移动；再次调用固定，右击取消
 object.close(); // 请求关闭这个实例及其后代
 ```
 
@@ -488,7 +503,7 @@ object.close(); // 请求关闭这个实例及其后代
 
 `MenuWindowContext.handle()` 在工厂调用前已经确定；`redraw()` 只重绘这个仍有效的实例。窗口节点、输入与来源路径按实例隔离。`current()` 捕获局部页面；`openChild` 在该窗口内导航，`back` 返回局部页面或关闭窗口。业务异步任务另外核对对象版本与请求代次。
 
-窗口使用 `UiNode` 内容，场景的刷新、生命周期及局部快捷动作保留。原始装饰、装饰帧观察、环绕视图须使用根场景；主题、移动、观看基准及场景动画由根工作区决定。各窗口独立视口，共用空间预检及实体预算。运行时保留最多 8 个实例，同时绘制最多 3 个完整阅读面；其余工具从窗口列表恢复。
+窗口使用 `UiNode` 内容，场景的刷新、生命周期及局部快捷动作保留。原始装饰、装饰帧观察、环绕视图须使用根场景；主题、移动、观看基准及场景动画由根工作区决定。各窗口独立视口，共用空间预检及实体预算。运行时保留最多 8 个实例，同时绘制最多 3 个完整阅读面；其余工具从下方托盘恢复。根窗口与子窗口共用 `MenuWindowPolicy`，例如 `scene.windowPolicy(MenuWindowPolicy.TASK)` 或 `spec.policy(MenuWindowPolicy.STANDARD.movable(false))`。根句柄也支持 `minimize/restore/move`。根页面保留自己的返回、关闭；独立窗口正文不重复宿主工具条。
 
 `handle.suspend()`／`context.suspend()` 暂时隐藏并让出世界操作，返回绑定原实例及页面的 `MenuInputLease`。选取结束调用 `complete()`，取消或失败调用 `close()`；已失效租约不能恢复被替换的工作区。业务负责自己的超时和选取校验。
 

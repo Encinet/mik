@@ -21,7 +21,7 @@ final class ComponentSceneLayout {
                   Map<String, FloatingMenuDecoration.RangePart> ranges,
                   Map<String, FloatingMenuDecoration.IconPart> icons,
                   List<MenuPaginationInput.Region> pagination,
-                  List<FloatingMenuAnchorResolver.Surface> surfaceBounds, List<MenuWindowInput.Surface> panels, UiFrame frame) { }
+                  List<FloatingMenuAnchorResolver.Surface> surfaceBounds, List<MenuWindowInput.Surface> panels, UiFrame frame, MenuScene definition) { }
 
     static Result measure(MenuScene scene, double typography, FloatingMenuFieldOfView fov, double scale) {
         return measure(scene, typography, fov, scale, UiPalette.DEFAULT);
@@ -69,7 +69,32 @@ final class ComponentSceneLayout {
                     }
                 };
         UiFrame frame = UiCompiler.compile(scene.content(), constraints, measurer);
+        return project(scene,frame,typography,fov,scale,theme,Map.of());
+    }
+
+    /** Reuses a measured page when only a window's rigid transform changes. */
+    static Result project(MenuScene scene, UiFrame frame, double typography, FloatingMenuFieldOfView fov,
+                          double scale, UiThemeColors theme, Map<String,FloatingMenuNodeSizing.Measurement> previous) {
         var projector = new ComponentSceneProjector(scene, frame, fov, scale);
+        if (scene.decorationScope() != null) {
+            var scope = scene.decorationScope().value();
+            boolean rootScope = scene.content().key().value().equals(scope);
+            var owner = frame.groups().stream().filter(group -> MenuWorkspaceSession.segment(group.path(),scope)
+                            || group.path().equals("root") && rootScope).findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Missing decoration spatial group: " + scope));
+            var transform = projector.spatialTransform(owner.path());
+            var projected = scene.toBuilder().withoutDecorations().framingDecorations(scene.framingDecorations().toArray(String[]::new));
+            for (var decoration : scene.decorations().values()) {
+                if (decoration.worldAnchored()) { projected.decoration(decoration); continue; }
+                var local = (FloatingMenuPlacement.Local) decoration.placement();
+                var pose = local.pose();
+                var point = transform.apply(new UiVector3(pose.right(),pose.up(),pose.forward()));
+                projected.decoration(new FloatingMenuDecoration(decoration.id(),FloatingMenuPlacement.local(FloatingMenuPose.transformed(
+                        new FloatingMenuPoint(point.right(),point.up(),point.forward()),transform.rotation().compose(pose.rotation()),transform.scale()*pose.scale())),
+                        decoration.content(),decoration.motion(),decoration.transition()));
+            }
+            scene = projected.build();
+        }
         var pagination = new ArrayList<MenuPaginationInput.Region>();
         for (var page : frame.pagination()) if (page.size().width() > 0 && page.size().height() > 0) {
             pagination.add(new MenuPaginationInput.Region(page, projector.project(page.path(), page.x(), page.y(), page.size()),
@@ -91,7 +116,8 @@ final class ComponentSceneLayout {
             FloatingMenuPose local = projector.project(element.path(), element.x(), element.y(), element.size());
             poses.put(element.path(), local);
             sizes.put(element.path(), new FloatingMenuSize(element.size().width() * unit, element.size().height() * unit));
-            measurements.put(element.path(), element.node().content() instanceof UiContent.Range || element.node().content() instanceof UiContent.Icon
+            measurements.put(element.path(), previous.containsKey(element.path()) ? previous.get(element.path())
+                    : element.node().content() instanceof UiContent.Range || element.node().content() instanceof UiContent.Icon
                     ? new FloatingMenuNodeSizing.Measurement(ComponentRangeLayout.text(Component.empty()), sizes.get(element.path()))
                     : FloatingMenuNodeSizing.measure(
                     UiSceneContent.entry(element.path(), element.node()), typography * element.node().style().textScale(),
@@ -119,7 +145,7 @@ final class ComponentSceneLayout {
                         .map(panel -> new MenuWindowInput.Surface(panel.path(),
                                 projector.project(panel.path(),panel.x(),panel.y(),panel.size()),
                                 new FloatingMenuSize(panel.size().width() * UiSceneContent.WORLD_PER_UI,
-                                        panel.size().height() * UiSceneContent.WORLD_PER_UI))).toList(), frame);
+                                        panel.size().height() * UiSceneContent.WORLD_PER_UI))).toList(), frame, scene);
     }
 
     private static UiCompiler.ElementMeasurement measureElement(MenuScene scene, UiElement node,

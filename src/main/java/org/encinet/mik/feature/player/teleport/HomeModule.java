@@ -318,11 +318,8 @@ public final class HomeModule implements Listener {
                                 NamedTextColor.GOLD))
                 .region("global-actions")
                 .primary((p, handle) -> handle.openPopover(UiKey.item("help"),redraw -> homeHelpPanel(p,redraw)));
-        menu.dismiss(
-                        Component.text(languageService.t(player,
-                                        context.canGoBack() ? Message.BACK_TO_MAIN : Message.CLOSE),
-                                context.canGoBack() ? NamedTextColor.GREEN : NamedTextColor.RED))
-                .region("global-actions");
+        menu.dismiss(Component.text(languageService.t(player,context.canGoBack() ? Message.BACK_TO_MAIN : Message.CLOSE),
+                context.canGoBack() ? NamedTextColor.GREEN : NamedTextColor.RED)).region("global-actions");
         return menu.build();
     }
 

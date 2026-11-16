@@ -81,11 +81,12 @@ public final class MusicDeviceListener implements Listener {
             event.setCancelled(true);
             return;
         }
-        boolean managed = MusicDiscKeys.isCustomDisc(item) || devices.grouped(box) && item != null
+        boolean managed = MusicDiscKeys.isCustomDisc(item) || item != null
                 && item.hasData(io.papermc.paper.datacomponent.DataComponentTypes.JUKEBOX_PLAYABLE);
-        if (managed && !box.hasRecord()) {
+        if (managed) {
             event.setCancelled(true);
             silencer.suppress(box.getBlock());
+            ItemStack previous = box.getRecord();
             boolean accepted = false;
             try {
                 box.setRecord(item.asOne());
@@ -102,9 +103,9 @@ public final class MusicDeviceListener implements Listener {
                 workspace.error(player,error);
             } finally {
                 if (!accepted) {
-                    box.setRecord(new ItemStack(Material.AIR));
+                    box.setRecord(previous);
                     box.update(true, false);
-                    devices.recordRemoved(box);
+                    if (previous == null || previous.getType().isAir()) devices.recordRemoved(box);
                 }
                 silencer.release(box.getBlock());
             }
@@ -120,10 +121,6 @@ public final class MusicDeviceListener implements Listener {
             backend.stopAndEject(box.getBlock());
             return;
         }
-        // Vanilla owns its inventory transaction; suspend only when a playable item can be inserted.
-        if (!box.hasRecord() && item != null
-                && item.hasData(io.papermc.paper.datacomponent.DataComponentTypes.JUKEBOX_PLAYABLE))
-            devices.unavailable(box.getLocation(), false);
     }
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void broken(BlockBreakEvent e) {

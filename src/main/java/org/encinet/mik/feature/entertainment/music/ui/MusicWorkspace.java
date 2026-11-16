@@ -16,6 +16,7 @@ import org.encinet.mik.feature.entertainment.music.application.*;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscFactory;
 import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus;
 import org.encinet.mik.feature.entertainment.music.online.*;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
@@ -44,6 +45,7 @@ public final class MusicWorkspace implements AutoCloseable {
     private final Map<MusicWorkspaceState,TaskView> taskViews = new IdentityHashMap<>();
     private record WorldPick(MusicWorkspaceState state, GroupDraft draft, MenuInputLease lease) { }
     private final Map<UUID,WorldPick> worldPicks = new HashMap<>();
+    private final Map<UUID,UUID> deviceOpenings = new HashMap<>();
     private static final UiKey SEARCH_EDITOR = UiKey.named("music-search-field");
     private final Map<UUID, MenuQuerySession> searchInputs = new HashMap<>();
     final MusicLibraryScenes library = new MusicLibraryScenes(this);
@@ -72,12 +74,21 @@ public final class MusicWorkspace implements AutoCloseable {
 
     public void open(Player player) {
         if (closed) return;
+        deviceOpenings.remove(player.getUniqueId());
         var pick = worldPicks.remove(player.getUniqueId());
         if (pick != null) { pick.draft().pickingInWorld = false; pick.lease().close(); }
         var previous = flows.get(player.getUniqueId());
+        MusicWorkspaceState state = previous == null ? new MusicWorkspaceState() : previous.state();
+        if (queries.ready()) {
+            UUID nearby = nearbyTarget(player);
+            if (nearby != null) state.target(nearby);
+        }
         if (previous != null && (previous.handle().state() == FloatingMenuState.ACTIVE
                 || previous.handle().state() == FloatingMenuState.OPENING)) { previous.redraw(); return; }
-        MusicWorkspaceState state = previous == null ? new MusicWorkspaceState() : previous.state();
+        if (previous != null && previous.handle().state() == FloatingMenuState.SUSPENDED
+                && FloatingMenus.current(player).filter(handle -> handle.id().equals(previous.handle().id())).isPresent()) {
+            previous.handle().restore(); previous.redraw(); return;
+        }
         if (state.panel() instanceof GroupEditor editor) editor.draft().pickingInWorld = false;
         closeCompanion(player);
         closeSearch(player.getUniqueId());
@@ -85,12 +96,32 @@ public final class MusicWorkspace implements AutoCloseable {
         flows.put(player.getUniqueId(), FloatingMenuFlow.openRoot(player, state, context -> render(context.player(), context.state())));
     }
 
+    private UUID nearbyTarget(Player player) {
+        record Candidate(UUID target, boolean playing, double distance) { }
+        var candidates = new ArrayList<Candidate>();
+        var at = player.getLocation();
+        for (var target : registry.targets(player)) {
+            double distance = target.members().stream().filter(device -> registry.inListeningRange(player,device) && registry.online(device))
+                    .mapToDouble(device -> at.distanceSquared(registry.location(device).add(.5,.5,.5))).min().orElse(Double.POSITIVE_INFINITY);
+            if (!Double.isFinite(distance) || !registry.mayControl(player,target.id())) continue;
+            try {
+                var snapshot = devices.snapshot(target.id());
+                candidates.add(new Candidate(target.id(),snapshot.status() == PlaybackStatus.PLAYING,distance));
+            } catch (MusicProblem unavailable) { /* Ignore obsolete playback targets while opening the library. */ }
+        }
+        return candidates.stream().min(Comparator.comparing((Candidate candidate) -> !candidate.playing())
+                .thenComparingDouble(Candidate::distance).thenComparing(Candidate::target)).map(Candidate::target).orElse(null);
+    }
+
     public void at(Player player, Jukebox box) {
+        UUID opening = UUID.randomUUID();
+        deviceOpenings.put(player.getUniqueId(),opening);
         var pick = worldPicks.get(player.getUniqueId());
         var selection = pick == null ? null : pick.draft();
         registry.discover(box).whenComplete((device, error) -> main(() -> {
-            if (!player.isOnline()) return;
+            if (!player.isOnline() || !opening.equals(deviceOpenings.get(player.getUniqueId()))) return;
             if (error != null) {
+                deviceOpenings.remove(player.getUniqueId(),opening);
                 if (pick != null && worldPicks.remove(player.getUniqueId(),pick)) {
                     selection.pickingInWorld = false;
                     pick.lease().close();
@@ -100,6 +131,7 @@ public final class MusicWorkspace implements AutoCloseable {
             if (selection != null) {
                 if (!pick.lease().active() || !owns(player,pick.state()) || !(pick.state().panel() instanceof GroupEditor editor)
                         || editor.draft() != selection || !selection.pickingInWorld) return;
+                deviceOpenings.remove(player.getUniqueId(),opening);
                 worldPicks.remove(player.getUniqueId(),pick); pick.lease().complete();
                 selection.pickingInWorld = false;
                 safe(player,() -> {
@@ -122,17 +154,27 @@ public final class MusicWorkspace implements AutoCloseable {
                 });
                 return;
             }
-            UUID target = device.group() == null ? device.id() : device.group();
-            Runnable show = () -> {
-                if (!player.isOnline()) return;
-                open(player);
-                showDevices(player,new DevicePanel(target,DeviceSection.QUEUE));
-            };
-            if (registry.bound(player.getUniqueId(),target) || !registry.mayBind(player,target)) show.run();
-            else registry.bind(player,target,"").whenComplete((_,failed) -> main(() -> {
-                if (failed != null) error(player,failed);
-                else show.run();
-            }));
+            safe(player, () -> {
+                var current = registry.target(device.id()).members().getFirst();
+                UUID target = current.group() == null ? current.id() : current.group();
+                Runnable show = () -> safe(player, () -> {
+                    if (!player.isOnline() || !opening.equals(deviceOpenings.get(player.getUniqueId()))) return;
+                    // Membership may change while discovery or the personal record is being saved.
+                    var latest = registry.target(device.id()).members().getFirst();
+                    UUID selected = latest.group() == null ? latest.id() : latest.group();
+                    registry.playbackTarget(selected);
+                    open(player);
+                    selectTarget(player,selected);
+                    showDevices(player,new DevicePanel(selected,DeviceSection.PLAYBACK));
+                    redraw(player);
+                });
+                if (registry.bound(player.getUniqueId(),target) || !registry.mayBind(player,target)) show.run();
+                else registry.bind(player,target,"").whenComplete((_,failed) -> main(() -> {
+                    if (!opening.equals(deviceOpenings.get(player.getUniqueId()))) return;
+                    if (failed != null) { deviceOpenings.remove(player.getUniqueId(),opening); error(player,failed); }
+                    else show.run();
+                }));
+            });
         }));
     }
 
@@ -154,6 +196,7 @@ public final class MusicWorkspace implements AutoCloseable {
         player.sendActionBar(label(player,"group-world-pick-hint"));
     }
     void selectTarget(Player player, UUID id) {
+        deviceOpenings.remove(player.getUniqueId());
         var state = state(player);
         state.target(id);
     }
@@ -204,8 +247,9 @@ public final class MusicWorkspace implements AutoCloseable {
     static Ui.LinearBuilder column(String key) { return Ui.column().key(key).gap(UiLength.ui(8)); }
     static Ui.ContainerBuilder tools(String key) { return Ui.layout(UiLayouts.wrap(UiLength.ui(6), UiLength.ui(6))).key(key); }
     UiNode panelHeading(Player player, MusicWorkspaceState state, Component title, UiNode... actions) {
-        return MusicWorkspaceComposition.panelHeading(title, Ui.button(UiIcons.CROSS,label(player,"close-panel"))
-                .key("close-panel").primary((_,_) -> panel(player,state,new NoPanel())).build(), actions);
+        UiNode close = taskViews.containsKey(state) ? null : Ui.button(UiIcons.CROSS,label(player,"close-panel"))
+                .key("close-panel").primary((_,_) -> panel(player,state,new NoPanel())).build();
+        return MusicWorkspaceComposition.panelHeading(title, close, actions);
     }
 
     MenuScene render(Player player, MusicWorkspaceState state) {
@@ -231,14 +275,14 @@ public final class MusicWorkspace implements AutoCloseable {
             }
         }
         if (auxiliary != null) auxiliary = MusicWorkspaceComposition.task(state.panelScope, auxiliary);
-        UiNode windowTools = tools("window-tools")
-                .child(Ui.button(UiIcons.CROSS, label(player, "close")).key("close").primary((_, handle) -> handle.close()).build()).build();
+        UiNode actions = tools("workspace-actions")
+                .child(Ui.button(UiIcons.CROSS,label(player,"close")).key("close").primary((_,handle) -> handle.close()).build()).build();
         locator.decorate(player,state,builder);
         UiNode content = MusicWorkspaceComposition.content(state.focusedTask() ? null : library.navigation(player, state), browser, auxiliary,
-                queries.ready() ? this.transport.content(player, state) : info("waiting", label(player, "unavailable")), windowTools);
+                queries.ready() ? this.transport.content(player, state) : info("waiting", label(player, "unavailable")), actions);
         if (auxiliary != null && !state.focusedTask()) {
             content = Ui.alternative(content,MusicWorkspaceComposition.content(null,browser,auxiliary,
-                    this.transport.compact(player,state),windowTools));
+                    this.transport.compact(player,state),actions));
         }
         if (searchInputs.containsKey(player.getUniqueId())) {
             boolean[] visible = {false};
@@ -336,7 +380,8 @@ public final class MusicWorkspace implements AutoCloseable {
                     try { body = auxiliary(player,local); }
                     catch (MusicProblem unavailable) { body = info("unavailable",problem(player,unavailable.code())); }
                     body = MusicWorkspaceComposition.task(local.panelScope,body);
-                    if (local.panel() instanceof DevicePanel) body = UiTemplates.sheet(body,transport.content(player,local));
+                    if (local.panel() instanceof DevicePanel device && device.section() != DeviceSection.PLAYBACK)
+                        body = UiTemplates.sheet(body,transport.compact(player,local));
                     return MenuScene.screen("music-task",local.panel() instanceof DevicePanel device ? targetSummary(player,device.target()) : label(player,"title"))
                             .viewport(MusicWorkspaceComposition.VIEWPORT).content(body)
                             .refreshWhenChanged(20,viewer -> revision(viewer,local),(viewer,_) -> redraw(viewer)).build();
@@ -544,6 +589,13 @@ public final class MusicWorkspace implements AutoCloseable {
     void submit(Player player, List<MusicTrack> tracks, PlaybackProgram.Submission placement) {
         if (tracks.isEmpty()) return;
         var state = state(player);
+        if (state.target() != null) {
+            try { registry.playbackTarget(state.target()); }
+            catch (MusicProblem obsolete) {
+                if (obsolete.code() != MusicProblem.Code.NOT_FOUND && obsolete.code() != MusicProblem.Code.CONFLICT) throw obsolete;
+                state.target(null);
+            }
+        }
         if (state.target() == null) { panel(player, new Outputs(new PendingPlay(tracks, placement))); return; }
         submit(player, new MusicSubmission(player.getUniqueId(), state.target(), tracks, placement));
     }
@@ -666,6 +718,7 @@ public final class MusicWorkspace implements AutoCloseable {
         browsePlaylist(player, id, list.author().equals(player.getUniqueId()) ? Source.OWNED : Source.PUBLIC);
     }
     public void quit(UUID player) {
+        deviceOpenings.remove(player);
         var pick = worldPicks.remove(player); if (pick != null) pick.lease().close();
         this.transport.release(player);
         closeSearch(player);
@@ -681,6 +734,7 @@ public final class MusicWorkspace implements AutoCloseable {
     }
     @Override public void close() {
         closed = true;
+        deviceOpenings.clear();
         sound.close();
         transport.close();
         List.copyOf(searchInputs.keySet()).forEach(this::closeSearch);

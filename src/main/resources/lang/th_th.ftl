@@ -95,11 +95,11 @@ menu-search-limit = แสดง { $arg0 } / { $arg1 } โปรดระบุ�
 menu-search-loading = กำลังค้นหา…
 menu-search-retry = ลองอีกครั้ง
 menu-usage-display-mm = <aqua><bold>กำลังใช้เมนู</bold></aqua>
-menu-window-list = รายการหน้าต่าง
 menu-window-minimize = ย่อหน้าต่าง
 menu-window-restore = คืนค่าหน้าต่าง
 menu-window-blocked = ทำงานที่ขวางหน้าต่างนี้ให้เสร็จหรือยกเลิกก่อน
-menu-window-position = เปลี่ยนตำแหน่งหน้าต่าง
+menu-window-move = ย้ายหน้าต่าง
+menu-window-move-hint = คลิกซ้ายเพื่อวาง · คลิกขวาเพื่อยกเลิก
 menu-window-failed = ไม่สามารถเปิดหรืออัปเดตหน้าต่างได้
 
 url-dialog-confirm = เปิด
@@ -1898,11 +1898,11 @@ music-space-label =
     { $arg0 ->
         [title] พื้นที่ดนตรี
         [devices] อุปกรณ์เล่นเพลง
-        [all-devices] อุปกรณ์ทั้งหมด
-        [use-device] ใช้อุปกรณ์นี้
-        [current-device] อุปกรณ์ปัจจุบัน
+        [all-devices] ทั้งหมด
+        [use-device] เล่นคลังเพลงที่นี่
+        [current-device] เป้าหมายการเล่นคลังเพลง
         [manage-device] จัดการ
-        [back-devices] กลับไปยังอุปกรณ์
+        [back-devices] กลับไปรายการ
         [group-with-devices] รวมกลุ่มกับอุปกรณ์อื่น
         [pick-world-member] เลือกอุปกรณ์ในโลก
         [group-world-pick-hint] ย่อแล้วคลิกขวาที่ตู้เพลงด้วยมือเปล่าเพื่อเพิ่ม ใช้ /music เพื่อกลับไปยังเมนู
@@ -1938,6 +1938,8 @@ music-space-label =
         [add-members] เพิ่มอุปกรณ์
         [create-play] สร้างและเล่น
         [create-and-append] สร้างและเพิ่มเพลงท้ายคิว
+        [device-playback] การเล่น
+        [device-target-help] เลือกตำแหน่งที่จะเล่นเพลงจากคลังครั้งถัดไป หน้าต่างนี้ควบคุมอุปกรณ์หรือกลุ่มที่ระบุในชื่อเสมอ
         [device-queue] คิว
         [device-members] สมาชิก
         [available] พร้อมใช้งาน
@@ -1979,6 +1981,8 @@ music-space-label =
         [no-playlists] ไม่มีเพลย์ลิสต์
         [fetching-playlist] กำลังโหลดเพลย์ลิสต์…
         [artist] ศิลปิน
+        [album] อัลบั้ม
+        [original-author] ผู้แต่งต้นฉบับ
         [duration] ระยะเวลา
         [track-type] ประเภท
         [type-online] ออนไลน์
@@ -2002,9 +2006,9 @@ music-space-label =
         [queue-current] เพลงปัจจุบันในคิวดิจิทัล
         [pause] หยุดชั่วคราว
         [resume] เล่นต่อ
-        [stop] หยุดและเก็บรายการเล่นไว้
+        [stop] หยุดเล่น
         [previous] เพลงก่อนหน้า / เริ่มใหม่
-        [clear] ล้างเพลงที่รอและหยุดหลังเพลงปัจจุบัน
+        [clear] ล้างเพลงที่รอเล่น
         [seek] ตำแหน่ง
         [more] เพิ่มเติม
         [volume-control] ระดับเสียง
@@ -2013,8 +2017,8 @@ music-space-label =
         [timeline-read-only] ไม่สามารถเปลี่ยนตำแหน่งได้
         [seek-format] ป้อน m:ss, h:mm:ss หรือวินาที
         [record] บันทึกเพื่อควบคุมระยะไกล
-        [forget] ลบอุปกรณ์ที่ฉันบันทึก
-        [alias] ชื่ออุปกรณ์ส่วนตัว
+        [forget] ยกเลิกการบันทึกอุปกรณ์
+        [alias] ชื่อส่วนตัว
         [sound] ตั้งค่าเสียง
         [rhythm] ห้องเกมจังหวะ
         [room-players] ผู้เล่น
@@ -2036,7 +2040,7 @@ music-space-label =
         [sequential] เล่นตามลำดับ
         [repeat-all] วนรายการ
         [repeat-one] เล่นเพลงซ้ำ
-        [shuffle] สุ่มแบบไม่ซ้ำ
+        [shuffle] เล่นแบบสุ่ม
         [import] นำเข้าเพลย์ลิสต์
         [link] ลิงก์เพลย์ลิสต์
         [partial-import] ดึงเพลย์ลิสต์มาได้เพียงบางส่วน หากต้องการเก็บส่วนที่ดึงมาได้ให้กดบันทึก
@@ -2117,7 +2121,7 @@ music-space-error =
         [CONFLICT] เนื้อหาเปลี่ยนแล้ว โปรดรีเฟรชและเลือกอีกครั้ง
         [LIMIT] ใช้ทรัพยากรเพลงถึงขีดจำกัดแล้ว
         [INVALID] ตรวจสอบชื่อ รายการที่เลือก หรือช่วงตัวเลข
-        [OFFLINE] อุปกรณ์ไม่พร้อมใช้งาน ให้โหลดชังก์ของอุปกรณ์หรือนำแผ่นเสียงที่ใส่อยู่ออก
+        [OFFLINE] ตู้เพลงถูกนำออกหรือชังก์ยังไม่โหลด
         [OVERLAP] พื้นที่ได้ยินเสียงทับซ้อนกัน ให้หยุดอุปกรณ์อื่น ลดระยะเสียง หรือสร้างกลุ่มซิงค์
         [UNSUPPORTED] สื่อนี้ไม่รองรับการทำงานนี้
         [BUSY] อุปกรณ์ คำขอ หรือห้องเกมจังหวะกำลังใช้งานอยู่ โปรดลองใหม่หลังการทำงานเสร็จสิ้น

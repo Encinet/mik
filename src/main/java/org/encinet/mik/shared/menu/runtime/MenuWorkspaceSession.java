@@ -13,7 +13,7 @@ final class MenuWorkspaceSession implements AutoCloseable {
     static final int MAX_READING_WINDOWS = 3;
     static final UiKey MAIN = UiKey.named("menu-main");
     record Labels(Component back, Component close, Component minimize, Component restore,
-                  Component expand, Component collapse, Component windows, Component blocked, Component position) { }
+                  Component blocked, Component move) { }
     interface Host {
         void requireThread(String operation);
         void execute(Runnable action);
@@ -29,6 +29,7 @@ final class MenuWorkspaceSession implements AutoCloseable {
         void popover(UUID owner, UiKey source, Function<Runnable, MenuPanel> content);
         void popover(UUID owner, MenuPopover content);
         boolean closePopover(UUID owner, MenuPopover expected);
+        default void move(UUID owner) { }
     }
     private record Page(UUID id, MenuPanel content, MenuScene override, MenuScene suspended) {
         Page(MenuPanel content) { this(UUID.randomUUID(), content, null, null); }
@@ -48,8 +49,8 @@ final class MenuWorkspaceSession implements AutoCloseable {
         MenuWindowResult<?> outcome;
         MenuScene scene;
         boolean minimized;
-        boolean expanded;
         boolean closed;
+        UiTransform transform = UiTransform.IDENTITY;
         Object refreshRevision;
         Window(UUID owner, UUID ownerPage, MenuWindowSpec spec, Class<?> type, Consumer<MenuWindowResult<?>> result) {
             this.owner = owner; this.ownerPage = ownerPage; this.spec = spec; this.resultType = type;
@@ -67,7 +68,13 @@ final class MenuWorkspaceSession implements AutoCloseable {
     private String rootScreen;
     private boolean closed;
     private boolean composing;
-    private boolean listOpen;
+    private int trayPage;
+    private MenuScene rootScene;
+    private boolean rootMinimized;
+    private UUID minimizedFocus;
+    private UUID moving;
+    private MenuWindowSpec.Position rootPosition = MenuWindowSpec.Position.CENTER;
+    private UiTransform rootTransform = UiTransform.IDENTITY;
     private int suspendCount;
     private ClosePlan closing;
     private Set<UUID> presented = Set.of();
@@ -77,6 +84,24 @@ final class MenuWorkspaceSession implements AutoCloseable {
     UUID focused() { return focus; }
     boolean paused() { return suspendCount > 0; }
     boolean empty() { return windows.isEmpty(); }
+    boolean minimized() { return rootMinimized; }
+    MenuWindowPolicy policy(UUID id) {
+        if (!root.equals(id)) return window(id).spec.policy();
+        return rootScene == null ? MenuWindowPolicy.STANDARD : rootScene.windowPolicy();
+    }
+    boolean movable(UUID id) { return !rootMinimized && contains(id) && allowed(id) && !hidden(id) && policy(id).movable(); }
+    UUID page(UUID id) { return contains(id) ? pageId(id) : null; }
+    UiTransform transform(UUID id) { return root.equals(id) ? rootTransform : window(id).transform; }
+    boolean hasMovedWindows() { return !rootTransform.equals(UiTransform.IDENTITY)
+            || windows.values().stream().anyMatch(value -> !value.transform.equals(UiTransform.IDENTITY)); }
+    void transform(UUID id, UiTransform value, boolean publish) {
+        if (!contains(id)) return;
+        if (root.equals(id)) rootTransform = Objects.requireNonNull(value); else window(id).transform = Objects.requireNonNull(value);
+        if (publish) changed();
+    }
+    void move(UUID id) { if (movable(id)) host.move(id); }
+    void moving(UUID id) { moving(id,true); }
+    void moving(UUID id, boolean publish) { moving = id; if (publish) changed(); }
     boolean contains(UUID id) { return !closed && (root.equals(id) || windows.containsKey(id)); }
     private UUID pageId(UUID id) { return root.equals(id) ? rootPage : window(id).page().id(); }
     private Window window(UUID id) {
@@ -103,6 +128,7 @@ final class MenuWorkspaceSession implements AutoCloseable {
         return true;
     }
     private boolean hidden(UUID id) {
+        if (rootMinimized && !root.equals(id)) return true;
         for (UUID cursor = id; !cursor.equals(root);) {
             var value = windows.get(cursor);
             if (value == null || value.minimized) return true;
@@ -114,6 +140,7 @@ final class MenuWorkspaceSession implements AutoCloseable {
 
     private Set<UUID> readingWindows() {
         var result = new LinkedHashSet<UUID>(); result.add(root);
+        if (rootMinimized) return Set.copyOf(result);
         if (!focus.equals(root) && windows.containsKey(focus)) {
             result.add(focus);
             var owner = window(focus).owner;
@@ -135,6 +162,10 @@ final class MenuWorkspaceSession implements AutoCloseable {
                                 Function<MenuWindowContext<T>, MenuPanel> create, Consumer<MenuWindowResult<T>> result) {
         host.requireThread("openWindow");
         if (closed || !contains(owner)) throw new IllegalStateException("Cannot open a window from a closed owner");
+        if (rootMinimized || hidden(owner)) {
+            if (closing != null && owner.equals(closing.waitingFor)) restore(owner);
+            else throw new IllegalStateException("Restore the owner before opening another window");
+        }
         Objects.requireNonNull(spec); Objects.requireNonNull(type); Objects.requireNonNull(create); Objects.requireNonNull(result);
         for (var existing : windows.values()) if (existing.owner.equals(owner) && existing.spec.key().equals(spec.key())) {
             if (!existing.resultType.equals(type)) throw new IllegalArgumentException("Window key has a different result type");
@@ -173,6 +204,7 @@ final class MenuWorkspaceSession implements AutoCloseable {
     void activate(UUID id) {
         host.requireThread("activateWindow");
         if (!contains(id)) return;
+        if (rootMinimized) { restore(id); return; }
         if (!root.equals(id)) {
             for (UUID cursor = id; !cursor.equals(root); cursor = window(cursor).owner) window(cursor).minimized = false;
         }
@@ -197,7 +229,10 @@ final class MenuWorkspaceSession implements AutoCloseable {
     }
     FloatingMenuHandle handle(UUID id) { return root.equals(id) ? host.root() : window(id).handle; }
     MenuScene scene(UUID id) { return root.equals(id) ? null : window(id).scene; }
-    String sourceScope(UUID id) { return root.equals(id) ? MAIN.value() : window(id).scope().value(); }
+    String sourceScope(UUID id) {
+        if (!root.equals(id)) return window(id).scope().value();
+        return MAIN.value();
+    }
 
     MenuInputLease suspend(UUID id) {
         host.requireThread("suspendWindow");
@@ -224,6 +259,8 @@ final class MenuWorkspaceSession implements AutoCloseable {
         if (closed) return authored;
         composing = true;
         try {
+            rootScene = authored;
+            if (!policy(root).minimizable()) rootMinimized = false;
             if (!Objects.equals(rootScreen, authored.screenId())) {
                 if (rootScreen != null) expirePage(root, rootPage);
                 rootScreen = authored.screenId(); rootPage = UUID.randomUUID();
@@ -235,66 +272,84 @@ final class MenuWorkspaceSession implements AutoCloseable {
             var reading = readingWindows();
             var viewports = new ArrayList<UiSize>();
             var positions = new ArrayList<MenuWindowSpec.Position>();
-            nodes.add(Ui.column().key(MAIN).child(authored.content()).build());
-            viewports.add(authored.viewport()); positions.add(MenuWindowSpec.Position.CENTER);
+            var viewport = authored.viewport();
+            if (rootMinimized) {
+                presented = Set.of(root);
+                return authored.toBuilder().withoutTitle().withoutDecorations().decorationScope(null).popover(null)
+                        .content(Ui.group(tray(labels,Set.of())).key(MAIN).transform(UiTransform.IDENTITY.translated(0,-64,0)).build()).build();
+            }
+            // Ownership and movement operate on a logical group, never on an enclosing visual plane.
+            UiNode rootContent = MenuWindowPresentation.workspace(authored.titleVisible() ? authored.title() : Component.empty(),authored.content(),tools(root,labels));
+            nodes.add(Ui.group(rootContent).key(MAIN).transform(rootTransform).build());
+            viewports.add(viewport); positions.add(rootPosition);
             int layer = 1;
             for (UUID id : List.copyOf(order)) {
                 var value = windows.get(id);
                 if (value == null || hidden(id) || !reading.contains(id)) continue;
                 value.scene = validate(value.page().scene());
-                UiNode tools = tools(value, labels);
-                UiNode header = UiTemplates.titleBar(Ui.button(value.scene.title()).key("title")
-                        .selected(focus.equals(id)).primary((_,_) -> activate(id)).build(), tools);
-                UiNode body = Ui.layout(UiLayouts.headerBody(UiLength.ui(8))).key("window-body")
-                        .child(UiKey.named("header"), header)
-                        .child(UiKey.named("body"), Ui.column().key("page-" + value.page().id()).child(value.scene.content()).build()).build();
-                nodes.add(Ui.group(Ui.surface(body).key("surface").style(UiTheme.WINDOW)
-                                .facing(UiSurfaceFacing.FORWARD).build()).key(value.scope())
-                        .transform(UiTransform.IDENTITY.translated(0, 0, 32 * layer++)).build());
-                viewports.add(value.expanded ? authored.viewport() : value.scene.viewport());
+                nodes.add(Ui.group(MenuWindowPresentation.floating(value.scene.title(),
+                                Ui.column().key("page-"+value.page().id()).child(value.scene.content()).build(),tools(id,labels),
+                                focus.equals(id),() -> activate(id)))
+                        .key(value.scope()).transform(value.transform.translated(0,0,32 * layer++)).build());
+                viewports.add(value.scene.viewport());
                 positions.add(value.position);
             }
-            if (!windows.isEmpty() && allowed(root)) {
-                var list = Ui.column().key("window-list").gap(UiLength.ui(4));
-                for (var value : windows.values()) {
-                    var button = Ui.button(value.scene == null ? labels.restore() : value.scene.title()).key("restore-" + value.id)
-                            .selected(focus.equals(value.id)).primary((_, _) -> activate(value.id));
-                    if (!activatable(value.id) && !hidden(value.id)) button.disabled(labels.blocked());
-                    list.child(button.build());
-                }
-                var bar = Ui.row().key("windows-bar").child(Ui.button(UiIcons.COPY, labels.windows())
-                        .key("list").selected(listOpen).primary((_, _) -> { listOpen = !listOpen; changed(); }).build());
-                if (listOpen) bar.child(list.build());
-                nodes.add(Ui.group(Ui.surface(bar.build()).key("list-surface").style(UiTheme.TOOLBAR).build())
-                        .key("window-switcher").transform(UiTransform.IDENTITY.translated(0,0,32 * layer)).build());
+            boolean showTray = !windows.isEmpty();
+            if (showTray) {
+                nodes.add(Ui.group(tray(labels,reading))
+                        .key("window-switcher").transform(UiTransform.IDENTITY.translated(0,-160,32 * layer)).build());
                 viewports.add(authored.viewport()); positions.add(MenuWindowSpec.Position.BOTTOM_LEFT);
             }
-            var stack = Ui.layout(new MenuWindowLayout(viewports, positions)).key("menu-workspace");
+            var stack = Ui.layout(new MenuWindowLayout(viewports, positions,showTray)).key("menu-workspace");
             nodes.forEach(stack::child);
             presented = reading;
-            return authored.toBuilder().content(stack.build()).build();
+            return authored.toBuilder().withoutTitle().decorationScope(MAIN).viewport(viewport).content(stack.build()).build();
         } finally { composing = false; }
     }
 
-    private UiNode tools(Window value, Labels labels) {
-        var tools = Ui.row().key("window-tools").gap(UiLength.ui(4));
-        if (value.pages.size() > 1) tools.child(Ui.button(UiIcons.CHEVRON_LEFT, labels.back()).key("back")
-                .primary((_, _) -> back(value.id)).build());
-        if (value.spec.minimizable()) {
+    /** Stable cards retain instance identity; the tray never renders miniature interactive content. */
+    private UiNode tray(Labels labels, Set<UUID> reading) {
+        var cards = new ArrayList<UiNode>();
+        if (rootMinimized) cards.add(card(root,rootScene.title(),true,reading,labels));
+        if (!rootMinimized) for (var value : windows.values()) cards.add(card(value.id,value.scene == null ? Component.empty() : value.scene.title(),hidden(value.id),reading,labels));
+        var strip = Ui.pagedFlow(1).key("window-tray").gaps(UiLength.ui(6),UiLength.ui(6))
+                .items(cards).page(trayPage,page -> { trayPage = page; changed(); }).build();
+        return Ui.surface(strip).key("tray-surface").style(UiTheme.FLOATING_WINDOW).build();
+    }
+
+    private UiNode card(UUID id, Component title, boolean minimized, Set<UUID> reading, Labels labels) {
+        var activate = Ui.button(title.equals(Component.empty()) ? labels.restore() : title)
+                .key("restore-"+id).textWidth(100).maxLines(1).selected(!rootMinimized && focus.equals(id))
+                .primary((_,_) -> restore(id));
+        if (minimized || !reading.contains(id)) activate.tooltip(labels.restore());
+        if (!activatable(id)) activate.disabled(labels.blocked());
+        var card = Ui.row().key("card-"+id).gap(UiLength.ui(4)).child(activate.build());
+        if (minimized) card.child(Ui.button(UiIcons.CROSS,labels.close()).key("close-"+id)
+                .primary((_,_) -> requestClose(id,FloatingMenuCloseReason.USER)).build());
+        return card.build();
+    }
+
+    private UiNode tools(UUID id, Labels labels) {
+        var value = windows.get(id);
+        var policy = policy(id);
+        var tools = Ui.layout(UiLayouts.wrap(UiLength.ui(4),UiLength.ui(4))).key("window-tools");
+        if (value != null && value.pages.size() > 1)
+            tools.child(Ui.button(UiIcons.CHEVRON_LEFT,labels.back()).key("back").primary((_,_) -> back(id)).build());
+        if (policy.minimizable()) {
             var minimize = Ui.button(UiIcons.REMOVE, labels.minimize()).key("minimize")
-                    .primary((_, _) -> minimize(value.id));
-            if (!canMinimize(value)) minimize.disabled(labels.blocked());
+                    .primary((_, _) -> minimize(id));
+            if (!canMinimize(id)) minimize.disabled(labels.blocked());
             tools.child(minimize.build());
         }
-        tools.child(Ui.button(UiIcons.MORE,labels.position()).key("position").primary((_,_) -> {
-            value.position = MenuWindowSpec.Position.values()[(value.position.ordinal() + 1) % MenuWindowSpec.Position.values().length]; changed();
-        }).build());
-        tools.child(Ui.button(UiIcons.BOX, value.expanded ? labels.collapse() : labels.expand()).key("expand")
-                .primary((_, _) -> { value.expanded = !value.expanded; changed(); }).build());
-        var extra = value.page().content().headerActions();
+        if (policy.movable()) {
+            tools.child(Ui.button(UiIcons.MOVE,labels.move()).key("move").selected(id.equals(moving)).primary((_,_) -> move(id)).build());
+        }
+        var extra = value == null ? null : value.page().content().headerActions();
         if (extra != null) tools.child(extra);
-        return tools.child(Ui.button(UiIcons.CROSS, labels.close()).key("close")
-                .primary((_, _) -> requestClose(value.id, FloatingMenuCloseReason.USER)).build()).build();
+        // The workspace retains feature-owned navigation and dismissal; detached windows own their chrome.
+        if (value != null) tools.child(Ui.button(UiIcons.CROSS, labels.close()).key("close")
+                .primary((_, _) -> requestClose(id, FloatingMenuCloseReason.USER)).build());
+        return tools.build();
     }
 
     void tick(org.bukkit.entity.Player player, long tick) {
@@ -311,16 +366,41 @@ final class MenuWorkspaceSession implements AutoCloseable {
         }
     }
 
-    private void minimize(UUID id) {
+    void minimize(UUID id) {
+        if (!contains(id) || !allowed(id) || !canMinimize(id)) return;
+        if (root.equals(id)) {
+            if (rootMinimized) return;
+            minimizedFocus = focus; rootMinimized = true; focus = root;
+            host.focusChanged(); changed();
+            host.lifecycle(rootScene,host.root(),FloatingMenuState.ACTIVE,FloatingMenuState.SUSPENDED,null);
+            return;
+        }
         var value = window(id);
-        if (!canMinimize(value)) return;
         value.minimized = true;
         if (descendant(focus, id)) { focus = value.owner; restoreFocus(); host.focusChanged(); }
         changed();
     }
-    private boolean canMinimize(Window value) {
-        return value.spec.minimizable() && windows.values().stream().noneMatch(child -> descendant(child.id, value.id)
+    private boolean canMinimize(UUID id) {
+        return policy(id).minimizable() && windows.values().stream().noneMatch(child -> descendant(child.id, id)
                 && child.spec.modality() != MenuWindowSpec.Modality.NONE);
+    }
+    void restore(UUID id) {
+        if (!contains(id)) return;
+        boolean wasMinimized = rootMinimized;
+        rootMinimized = false;
+        activate(wasMinimized && root.equals(id) && minimizedFocus != null && contains(minimizedFocus) ? minimizedFocus : id);
+        changed();
+        if (wasMinimized) {
+            host.lifecycle(rootScene,host.root(),FloatingMenuState.SUSPENDED,FloatingMenuState.OPENING,null);
+            host.lifecycle(rootScene,host.root(),FloatingMenuState.OPENING,FloatingMenuState.ACTIVE,null);
+        }
+    }
+    void position(UUID id, MenuWindowSpec.Position value) {
+        if (!movable(id)) return;
+        Objects.requireNonNull(value);
+        if (root.equals(id)) { rootPosition = value; rootTransform = UiTransform.IDENTITY; }
+        else { window(id).position = value; window(id).transform = UiTransform.IDENTITY; }
+        changed();
     }
     private void restoreFocus() {
         if (allowed(focus) && !hidden(focus)) return;
@@ -400,16 +480,11 @@ final class MenuWorkspaceSession implements AutoCloseable {
             if (closing != this || !contains(target)) return;
             for (UUID id : List.copyOf(order).reversed()) {
                 if (!descendant(id, target) || approved.contains(id)) continue;
-                var value = windows.get(id); waitingFor = id;
-                var decision = new MenuCloseRequest() {
-                    private boolean resolved;
-                    public FloatingMenuCloseReason reason() { return reason; }
-                    public boolean active() { return !resolved && closing == ClosePlan.this && contains(id); }
-                    public void approve() { host.execute(() -> { if (!active()) return; resolved = true; approved.add(id); waitingFor = null; next(); }); }
-                    public void cancel() { host.execute(() -> { if (!active()) return; resolved = true; ClosePlan.this.cancel(); }); }
-                };
-                try { value.spec.closeRequested().accept(decision); }
-                catch (RuntimeException error) { closing = null; host.failure(error); }
+                review(id,windows.get(id).spec.policy().closeRequested());
+                return;
+            }
+            if (target.equals(root) && !approved.contains(root)) {
+                review(root,policy(root).closeRequested());
                 return;
             }
             closing = null;
@@ -418,6 +493,18 @@ final class MenuWorkspaceSession implements AutoCloseable {
                 finally { host.rootClosed(reason); }
             }
             else forceClose(target, reason);
+        }
+        private void review(UUID id, Consumer<MenuCloseRequest> handler) {
+            waitingFor = id;
+            var decision = new MenuCloseRequest() {
+                    private boolean resolved;
+                    public FloatingMenuCloseReason reason() { return reason; }
+                    public boolean active() { return !resolved && closing == ClosePlan.this && contains(id); }
+                    public void approve() { host.execute(() -> { if (!active()) return; resolved = true; approved.add(id); waitingFor = null; next(); }); }
+                    public void cancel() { host.execute(() -> { if (!active()) return; resolved = true; ClosePlan.this.cancel(); }); }
+            };
+            try { handler.accept(decision); }
+            catch (RuntimeException error) { closing = null; host.failure(error); }
         }
     }
     private void forceClose(UUID id, FloatingMenuCloseReason reason) {
@@ -522,9 +609,9 @@ final class MenuWorkspaceSession implements AutoCloseable {
         @Override public boolean focused() { return live() && focus.equals(value.id); }
         @Override public void activate() { host.execute(() -> { if (live()) MenuWorkspaceSession.this.activate(value.id); }); }
         @Override public void minimize() { host.execute(() -> { if (live()) MenuWorkspaceSession.this.minimize(value.id); }); }
-        @Override public void restore() { activate(); }
-        @Override public void expanded(boolean expanded) { host.execute(() -> { if (live()) { value.expanded = expanded; changed(); } }); }
-        @Override public void position(MenuWindowSpec.Position position) { host.execute(() -> { if (live()) { value.position = Objects.requireNonNull(position); changed(); } }); }
+        @Override public void restore() { host.execute(() -> { if (live()) MenuWorkspaceSession.this.restore(value.id); }); }
+        @Override public void position(MenuWindowSpec.Position position) { host.execute(() -> { if (live()) MenuWorkspaceSession.this.position(value.id,position); }); }
+        @Override public void move() { host.execute(() -> { if (live()) MenuWorkspaceSession.this.move(value.id); }); }
         @Override public void complete(T result) { host.execute(() -> { if (live()) { value.outcome = MenuWindowResult.completed(type.cast(result)); requestClose(value.id, FloatingMenuCloseReason.USER); } }); }
         @Override public BooleanSupplier current() { UUID page = live() ? value.page().id() : null; return () -> live() && value.page().id().equals(page); }
     }

@@ -130,9 +130,7 @@ final class MusicDeviceScenes {
                     if (current != null) song = w.raw(current.details().title());
                 } catch (MusicProblem unavailable) { restriction = unavailable.code(); }
             }
-            var kind = w.label(player,group ? "sync-group" : "single-device").append(w.raw(" · "))
-                    .append(w.label(player,w.registry.bound(player.getUniqueId(),target.id()) ? "recorded-device" : "nearby-device"));
-            rows.add(new MusicDeviceTable.Row(target.id(), w.raw(name(player, target.id())), kind,
+            rows.add(new MusicDeviceTable.Row(target.id(), w.raw(name(player, target.id())),
                     restriction == null ? status : w.problem(player, restriction), song,
                     restriction != null ? w.problem(player, restriction) : null,
                     w.locator.position(player,target.id()),w.locator.coordinates(player,target.id()),w.locator.color(target.id())));
@@ -146,7 +144,7 @@ final class MusicDeviceScenes {
                 page,next -> { if (!management || state.deviceFilter == filter) { changePage.accept(next); redraw.run(); } },
                 management ? id -> (_,_) -> w.safe(player,() -> {
                     if (w.active(player,state) && state.page == WorkspacePage.DEVICES && state.panel() instanceof NoPanel && state.deviceFilter == filter)
-                        w.panel(player,state,new DevicePanel(id,DeviceSection.SETTINGS));
+                        w.panel(player,state,new DevicePanel(id,DeviceSection.PLAYBACK));
                 }) : null));
         return UiTemplates.reading(body.build(),UiKey.named(rows.isEmpty() ? "empty-devices" : "device-list"),UiLength.ui(8));
     }
@@ -155,53 +153,55 @@ final class MusicDeviceScenes {
         UUID id = target.id();
         var group = w.registry.snapshot().groups().get(target.id());
         var actions = new ArrayList<UiNode>();
-        actions.add(w.button(player,"back-devices",() -> w.panel(player,state,new NoPanel())));
         var use = Ui.button(w.label(player,id.equals(w.state(player).target()) ? "current-device" : "use-device")).key("use-device")
-                .selected(id.equals(w.state(player).target())).primary((_,_) -> w.safe(player,() -> {
+                .tooltip(w.label(player,"device-target-help")).selected(id.equals(w.state(player).target())).primary((_,_) -> w.safe(player,() -> {
                     if (w.active(player,state) && state.panel() == panel) { w.selectTarget(player,id); w.redraw(player); }
                 }));
         var failure = w.registry.controlFailure(player,id);
         if (failure != null) use.disabled(w.problem(player,failure));
-        actions.add(use.build());
+        if (panel.section() == DeviceSection.PLAYBACK) actions.add(use.build());
         if (group == null) {
             var combine = Ui.button(w.label(player,"group-with-devices")).key("group-with-devices").primary((_,_) -> w.safe(player,() -> {
                 if (w.active(player,state) && state.panel() == panel) groups.create(player,state,null,id);
             }));
             if (failure != null) combine.disabled(w.problem(player,failure));
-            actions.add(combine.build());
+            if (panel.section() == DeviceSection.SETTINGS) actions.add(combine.build());
         } else if (group.members().size() < MAX_MEMBERS) {
             var add = Ui.button(w.label(player,"add-members")).key("add-members").primary((_,_) -> w.safe(player,() -> {
                 if (w.active(player,state) && state.panel() == panel) w.panel(player,state,new GroupEditor(new GroupDraft(id,null)));
             }));
             if (failure != null) add.disabled(w.problem(player,failure));
-            actions.add(add.build());
+            if (panel.section() == DeviceSection.MEMBERS) actions.add(add.build());
         }
-        if (!w.registry.bound(player.getUniqueId(), id) && w.registry.mayBind(player, id)) {
+        if (panel.section() == DeviceSection.SETTINGS && !w.registry.bound(player.getUniqueId(), id) && w.registry.mayBind(player, id)) {
             var record = Ui.button(w.label(player, "record")).key("record")
                     .primary((_, _) -> w.safe(player, () -> w.run(player, key(id), () -> w.registry.bind(player, id, ""), _ -> {})));
             if (state.busy(key(id))) record.disabled(w.label(player, "saving"));
             actions.add(record.build());
         }
-        var body = Ui.layout(UiLayouts.contentColumn(UiKey.named("device-section"),UiLength.ui(8))).key("device-inspector").child(w.panelHeading(player,state, w.targetSummary(player, id), actions.toArray(UiNode[]::new)));
-        body.child(w.deviceLocation(player,id));
-        body.child(info("device-status", failure == null ? w.label(player,"available") : w.problem(player,failure)));
-        if (group != null) body.child(info("group-control-help",w.label(player,"group-control-help")));
+        var body = Ui.layout(UiLayouts.contentColumn(UiKey.named("device-section"),UiLength.ui(10))).key("device-inspector");
+        if (failure != null) body.child(info("device-status",w.problem(player,failure)));
+        if (panel.section() == DeviceSection.SETTINGS) body.child(w.deviceLocation(player,id));
+        if (group != null && panel.section() == DeviceSection.MEMBERS) body.child(info("group-control-help",w.label(player,"group-control-help")));
         var tabs = tools("device-tabs");
         for (var section : DeviceSection.values()) {
             if (section == DeviceSection.MEMBERS && group == null) continue;
             tabs.child(w.choice(player, "section:" + section, w.label(player, "device-" + section.name().toLowerCase(Locale.ROOT)),
                     panel.section() == section, () -> w.panel(player,state, new DevicePanel(panel.target(), section))));
         }
-        body.child(tabs.build());
+        var navigation = tabs.build();
+        body.child(navigation);
+        if (!actions.isEmpty()) body.child(tools("device-management").children(actions).build());
         var section = switch (panel.section()) {
+            case PLAYBACK -> w.transport.content(player,state);
             case QUEUE -> queue.content(player, state, panel.target());
             case MEMBERS -> group == null ? info("no-group", w.label(player, "single-device")) : groups.members(player, state, group);
             case SETTINGS -> settings(player, state, target);
         };
         var full = body.child(UiKey.named("device-section"),section).children(w.taskStatus(player,state,key(id))).build();
         var items = new ArrayList<UiChild>();
-        items.add(UiChild.of(tools("device-management").children(actions).build()));
-        for (var child : full.children().subList(1,full.children().size())) {
+        for (var child : full.children()) {
+            if (child.node() == navigation) continue;
             if (child.scope().equals(UiKey.named("device-section")) && panel.section() == DeviceSection.SETTINGS)
                 items.addAll(((UiContainer) section).children());
             else items.add(child);
@@ -212,7 +212,7 @@ final class MusicDeviceScenes {
                 w.redraw(player);
             }
         };
-        var compact = new UiPagedList(full.key(),w.panelHeading(player,state,w.targetSummary(player,id)),items,UiLength.ui(8),state.panelPage,
+        var compact = new UiPagedList(full.key(),navigation,items,UiLength.ui(8),state.panelPage,
                 page -> UiTemplates.pager(page,select),select,full.style(),full.sizing());
         return Ui.alternative(full,compact);
     }

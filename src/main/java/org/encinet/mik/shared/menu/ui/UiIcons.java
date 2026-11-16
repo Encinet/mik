@@ -16,6 +16,8 @@ public final class UiIcons {
     public static final UiIcon CHEVRON_DOWN = path(5,9,12,16,19,9);
     public static final UiIcon ADD = UiIcon.of(line(12,4,12,20), line(4,12,20,12));
     public static final UiIcon REMOVE = UiIcon.of(line(4,12,20,12));
+    public static final UiIcon MOVE = combine(UiIcon.of(line(3,12,21,12),line(12,3,12,21)),
+            path(6,9,3,12,6,15),path(18,9,21,12,18,15),path(9,6,12,3,15,6),path(9,18,12,21,15,18));
     public static final UiIcon CHECK = path(4,12,9,17,20,6);
     public static final UiIcon COPY = combine(path(9,3,20,3,20,14), path(4,8,15,8,15,21,4,21,4,8));
     public static final UiIcon EXTERNAL_LINK = combine(path(10,5,5,5,5,20,19,20,19,14), path(11,13,21,3), path(14,3,21,3,21,10));

@@ -28,10 +28,232 @@ import org.encinet.mik.shared.menu.runtime.MenuWorkspaceTestSupport;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
 import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 
 /** Actual feature panels run inside the shared ownership and composition runtime. */
 class MusicDeviceWorkflowTest {
+    @Test void managedLibraryKeepsItsNativePanelsTransportAndSingleCloseAction() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.workspace.open(h.player);
+            var original = SceneGeometryTestSupport.measure(h.surfaces.rootScene(),1);
+            var frame = SceneGeometryTestSupport.measure(h.surfaces.composed(),1);
+            assertEquals(original.panels().size(),frame.panels().size());
+            assertEquals(original.surfaces().size(),frame.surfaces().size());
+            assertEquals(1,frame.elements().stream().filter(node -> node.node().key().value().equals("close")).count());
+            assertNotNull(element(frame,"move")); assertNotNull(element(frame,"player-primary"));
+            assertEquals(original.elements().stream().filter(node -> node.node().key().value().equals("title")).count(),
+                    frame.elements().stream().filter(node -> node.node().key().value().equals("title")).count());
+            assertTrue(frame.elements().stream().noneMatch(node -> node.node().key().value().equals("workspace-title")));
+            assertTrue(h.surfaces.windows().isEmpty());
+        }
+    }
+
+    @ParameterizedTest @EnumSource(PlaybackStatus.class)
+    void openingTheLibrarySelectsTheNearestPlayingDeviceBeforeIdleDevices(PlaybackStatus status) throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            when(h.playback.snapshot(h.second)).thenReturn(new MusicPlaybackSnapshot(h.second,null,null,null,status,0,0,false,null));
+            h.workspace.open(h.player);
+            UUID selected = status == PlaybackStatus.PLAYING ? h.second : h.first;
+            assertEquals(selected,h.state().target());
+            assertTrue(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                    .serialize(h.entry("player-target").label()).contains(h.device(selected).name()));
+            assertNotNull(h.entry("player-primary"));
+            assertTrue(h.surfaces.windows().isEmpty());
+        }
+    }
+    @Test void openingTheLibraryChoosesTheClosestPlayingOutputAndResolvesItsGroup() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            UUID group = UUID.randomUUID();
+            h.data.devices.put(h.first,h.device(h.first).grouped(group));
+            h.data.groups.put(group,new MusicState.Group(group,"Room",List.of(h.first),Map.of(),100,0));
+            when(h.registry.targets(h.player)).thenReturn(List.of(new DeviceTarget(h.second,"Garden",List.of(h.device(h.second))),
+                    new DeviceTarget(group,"Room",List.of(h.device(h.first)))));
+            for (UUID id : List.of(group,h.second))
+                when(h.playback.snapshot(id)).thenReturn(new MusicPlaybackSnapshot(id,null,null,null,PlaybackStatus.PLAYING,0,0,false,null));
+            h.workspace.open(h.player);
+            assertEquals(group,h.state().target());
+            assertNotNull(h.entry("player-primary"));
+        }
+    }
+    @Test void automaticSelectionIgnoresInaudibleOfflineAndForbiddenDevicesAndRetainsAnExplicitRemoteTarget() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.state().target(h.second);
+            h.data.devices.put(h.first,h.device(h.first).settings("Muted",0,64));
+            when(h.registry.online(h.device(h.second))).thenReturn(false);
+            h.workspace.open(h.player);
+            assertEquals(h.second,h.state().target());
+            h.data.devices.put(h.first,h.device(h.first).settings("Nearby",100,64));
+            when(h.registry.mayControl(h.player,h.first)).thenReturn(false);
+            h.workspace.open(h.player);
+            assertEquals(h.second,h.state().target());
+            var world = h.player.getWorld();
+            when(h.player.getLocation()).thenReturn(new Location(world,300,64,0));
+            when(h.registry.online(any())).thenReturn(true);
+            when(h.registry.mayControl(eq(h.player),any())).thenReturn(true);
+            h.workspace.open(h.player);
+            assertEquals(h.second,h.state().target());
+        }
+    }
+    @Test void refreshingDoesNotReplaceThePlayersExplicitChoiceWithANearbyDevice() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.workspace.open(h.player);
+            assertEquals(h.first,h.state().target());
+            h.workspace.selectTarget(h.player,h.second);
+            h.workspace.redraw(h.player);
+            h.surfaces.refresh();
+            assertEquals(h.second,h.state().target());
+        }
+    }
+    @ParameterizedTest @EnumSource(value=DeviceSection.class,names={"PLAYBACK","QUEUE","SETTINGS"})
+    void deviceControlsUseOnlyTheSharedWindowCloseButton(DeviceSection section) throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.open(); h.state().target(h.first);
+            h.workspace.panel(h.player,new DevicePanel(h.second,section));
+            var window = h.surfaces.current();
+            var scene = h.surfaces.composed();
+            var frame = SceneGeometryTestSupport.measure(scene,1);
+            var controls = frame.elements().stream().filter(item -> item.path().contains("window-"+window.id())).toList();
+            assertTrue(controls.stream().noneMatch(item -> item.node().key().value().equals("close-panel")));
+            var close = controls.stream().filter(item -> item.node().key().value().equals("close")).toList();
+            assertEquals(1,close.size());
+            scene.measured(frame).entries().get(close.getFirst().path()).trigger(FloatingMenuInteraction.PRIMARY)
+                    .execute(h.player,window,FloatingMenuInteraction.PRIMARY);
+            assertEquals(FloatingMenuState.CLOSED,window.state());
+            assertEquals(h.handle.id(),h.surfaces.current().id());
+            assertEquals(h.first,h.state().target());
+        }
+    }
+
+    @Test void devicePlaybackHasOneClearPurposeAndNeverControlsTheOtherLibraryTarget() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.open(); h.state().target(h.first);
+            var snapshot = new MusicPlaybackSnapshot(h.second,null,UUID.randomUUID(),null,PlaybackStatus.PLAYING,0,0,false,null);
+            when(h.playback.snapshot(h.second)).thenReturn(snapshot);
+            when(h.playback.control(eq(h.player),eq(h.second),any())).thenReturn(CompletableFuture.completedFuture(null));
+            h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.PLAYBACK));
+            var frame = h.frame();
+            for (String key : List.of("player-primary","player-previous","player-next","use-device","section:PLAYBACK","section:QUEUE","section:SETTINGS"))
+                assertNotNull(element(frame,key));
+            assertEquals(UiIcons.PAUSE,assertInstanceOf(UiContent.Icon.class,element(frame,"player-primary").node().content()).value());
+            for (String key : List.of("device-location","device-name","eject","forget","group-with-devices","player-queue"))
+                assertTrue(frame.elements().stream().noneMatch(node -> node.node().key().value().equals(key)),key);
+            h.click("player-primary");
+            verify(h.playback).control(h.player,h.second,MusicPlaybackController.Action.PAUSE);
+            assertEquals(h.first,h.state().target());
+            h.click("section:SETTINGS");
+            assertNotNull(h.entry("eject"));
+            assertTrue(h.frame().elements().stream().noneMatch(node -> node.node().key().value().equals("player-primary")));
+            h.click("device-playback");
+            assertNotNull(h.entry("player-primary"));
+        }
+    }
+
+    @Test void worldInteractionReplacesAnObsoleteLibraryTargetBeforeSubmittingSongs() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.state().target(h.first);
+            doThrow(new MusicProblem(MusicProblem.Code.NOT_FOUND)).when(h.registry).playbackTarget(h.first);
+            var box = mock(Jukebox.class);
+            when(h.registry.discover(box)).thenReturn(CompletableFuture.completedFuture(h.device(h.second)));
+            when(h.registry.bound(h.player.getUniqueId(),h.second)).thenReturn(true);
+            h.workspace.at(h.player,box);
+            assertEquals(h.second,h.state().target());
+            h.surfaces.refresh();
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("mark:"+h.second));
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("outline:"+h.second));
+            h.closeCurrent();
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("mark:"+h.second));
+            var songs = List.of(MusicWorkspaceStateTest.track("song:first"));
+            h.workspace.submit(h.player,songs,PlaybackProgram.Submission.INSERT);
+            var request = org.mockito.ArgumentCaptor.forClass(MusicSubmission.class);
+            verify(h.playback).submit(eq(h.player),request.capture());
+            assertEquals(h.second,request.getValue().target());
+            assertEquals(songs,request.getValue().tracks());
+        }
+    }
+
+    @ParameterizedTest @EnumSource(value=MusicProblem.Code.class,names={"NOT_FOUND","CONFLICT"})
+    void anObsoleteLibraryTargetKeepsTheSongsUntilAnotherDeviceIsChosen(MusicProblem.Code failure) throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.state().target(h.first);
+            doThrow(new MusicProblem(failure)).when(h.registry).playbackTarget(h.first);
+            var songs = List.of(MusicWorkspaceStateTest.track("song:first"),MusicWorkspaceStateTest.track("song:second"));
+            h.workspace.submit(h.player,songs,PlaybackProgram.Submission.INSERT);
+            assertNull(h.state().target());
+            assertNotNull(h.entry("pending"));
+            verify(h.playback,never()).submit(any(),any());
+            h.click(h.row(h.second,"target"));
+            var request = org.mockito.ArgumentCaptor.forClass(MusicSubmission.class);
+            verify(h.playback).submit(eq(h.player),request.capture());
+            assertEquals(h.second,request.getValue().target());
+            assertEquals(songs,request.getValue().tracks());
+            assertEquals(PlaybackProgram.Submission.INSERT,request.getValue().placement());
+        }
+    }
+
+    @ParameterizedTest @ValueSource(booleans={false,true})
+    void worldInteractionUsesMembershipAtOpeningRatherThanTheEarlierDiscoveryResult(boolean grouped) throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            UUID group = UUID.randomUUID();
+            var before = grouped ? h.device(h.second) : h.device(h.second).grouped(group);
+            if (grouped) {
+                h.data.devices.put(h.second,h.device(h.second).grouped(group));
+                h.data.groups.put(group,new MusicState.Group(group,"Room",List.of(h.second),Map.of(),100,0));
+            }
+            var box = mock(Jukebox.class);
+            when(h.registry.discover(box)).thenReturn(CompletableFuture.completedFuture(before));
+            when(h.registry.bound(eq(h.player.getUniqueId()),any())).thenReturn(true);
+            h.workspace.at(h.player,box);
+            assertEquals(grouped ? group : h.second,h.state().target());
+            assertNotNull(h.entry("use-device"));
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("mark:"+h.second));
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("outline:"+h.second));
+        }
+    }
+
+    @Test void deviceNamesRemainDeclaredRegardlessOfWhichWindowIsFocused() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            var box = mock(Jukebox.class);
+            when(h.registry.discover(box)).thenReturn(CompletableFuture.completedFuture(h.device(h.first)));
+            when(h.registry.bound(h.player.getUniqueId(),h.first)).thenReturn(true);
+            h.workspace.at(h.player,box);
+            var onsite = (MenuWindowHandle<?>) h.surfaces.current();
+            h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.SETTINGS));
+            h.workspace.redraw(h.player);
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("mark:"+h.first));
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("mark:"+h.second));
+            onsite.activate();
+            h.workspace.redraw(h.player);
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("mark:"+h.first));
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("mark:"+h.second));
+            assertTrue(h.surfaces.rootScene().decorations().containsKey("outline:"+h.first));
+        }
+    }
+
+    @ParameterizedTest @ValueSource(booleans={false,true})
+    void aLatePersonalRecordCannotReplaceANewerExplicitDeviceChoice(boolean worldInteraction) throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            var firstBox = mock(Jukebox.class);
+            when(h.registry.discover(firstBox)).thenReturn(CompletableFuture.completedFuture(h.device(h.first)));
+            when(h.registry.mayBind(h.player,h.first)).thenReturn(true);
+            var recording = new CompletableFuture<Void>();
+            when(h.registry.bind(h.player,h.first,"")).thenReturn(recording);
+            h.workspace.at(h.player,firstBox);
+            if (worldInteraction) {
+                var secondBox = mock(Jukebox.class);
+                when(h.registry.discover(secondBox)).thenReturn(CompletableFuture.completedFuture(h.device(h.second)));
+                when(h.registry.bound(h.player.getUniqueId(),h.second)).thenReturn(true);
+                h.workspace.at(h.player,secondBox);
+            } else h.workspace.selectTarget(h.player,h.second);
+            var current = h.surfaces.current().id();
+            recording.complete(null);
+            assertEquals(h.second,h.state().target());
+            assertEquals(current,h.surfaces.current().id());
+        }
+    }
+
     @Test void independentDeviceWindowsKeepTheirTargetsAndTheRootCollection() throws Exception {
         try (var h = new Harness(Language.DEFAULT)) {
             h.open(); h.state().target(h.first); h.state().browser.query("kept");
@@ -83,7 +305,7 @@ class MusicDeviceWorkflowTest {
 
     @Test void worldSelectionResumesTheSameEditorInsteadOfReopeningTheWorkspace() throws Exception {
         try (var h = new Harness(Language.DEFAULT)) {
-            h.open(); h.rootClick("create-group");
+            h.open(); h.state().target(h.first); h.rootClick("create-group");
             var editor = h.surfaces.current(); var root = h.handle.id();
             h.click("pick-world-member"); assertTrue(h.surfaces.paused());
             var box = mock(Jukebox.class);
@@ -91,6 +313,7 @@ class MusicDeviceWorkflowTest {
             h.workspace.at(h.player,box);
             assertFalse(h.surfaces.paused()); assertEquals(root,h.handle.id());
             assertEquals(editor.id(),h.surfaces.current().id());
+            assertEquals(h.first,h.state().target());
             var selected = h.row(h.second,"select");
             assertTrue(h.scene().measured(h.frame()).entries().get(selected.path()).selected());
         }
@@ -171,6 +394,43 @@ class MusicDeviceWorkflowTest {
         }
     }
 
+    @Test void reopeningTheMinimizedMusicWorkspaceRestoresItsExistingDeviceWindows() throws Exception {
+        try (var h = new Harness(Language.DEFAULT)) {
+            h.open(); h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.SETTINGS));
+            var device = h.surfaces.current(); var root = h.surfaces.root();
+            root.minimize(); assertEquals(FloatingMenuState.SUSPENDED,root.state());
+            h.workspace.open(h.player);
+            assertEquals(root.id(),h.surfaces.root().id()); assertEquals(device.id(),h.surfaces.current().id());
+            assertNotNull(h.entry("eject"));
+        }
+    }
+
+    @Test void songDetailsUseAnOverviewAndSideBySideFactsWithoutLosingActionsAtReadingExtremes() throws Exception {
+        for (var language : Language.values()) try (var h = new Harness(language)) {
+            h.state().target(h.second);
+            h.workspace.browse(h.player,Collection.of(Source.CATALOG));
+            var track = MusicWorkspaceStateTest.track("song:first");
+            h.rootClick(MusicTrackTable.detailSource(track).value());
+            for (double font : new double[]{.7,1.8}) for (int width : new int[]{360,1200}) {
+                var scene = h.scene().toBuilder().viewport(new UiSize(width,2048)).build();
+                var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.measure(scene,font),language+" / "+font+" / "+width);
+                assertDisjoint(frame);
+                for (String key : List.of("song","insert","append","save-details","make-disc","output")) assertNotNull(element(frame,key));
+                assertTrue(frame.elements().stream().noneMatch(node -> node.node().content() instanceof UiContent.Icon),
+                        "The detail view uses content and spacing without decorative icons");
+                assertFullTextAvailable(h.workspace.raw(track.details().title()),element(frame,"song"));
+                assertTrue(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                        .serialize(element(frame,"output").node().content().label()).contains(h.device(h.second).name()));
+                var duration = frame.elements().stream().filter(node -> node.path().contains("/duration/") && node.node().key().value().equals("value")).findFirst().orElseThrow();
+                var format = frame.elements().stream().filter(node -> node.path().contains("/type/") && node.node().key().value().equals("value")).findFirst().orElseThrow();
+                assertEquals(duration.y(),format.y(),1e-6,"Short technical facts share a row");
+                assertTrue(duration.x() < format.x());
+                if (width == 1200) assertTrue(element(frame,"song").x() < duration.x(),"A wide detail view uses an identity column and a metadata column");
+                if (width == 360 && font == 1.8) assertTrue(duration.y() > element(frame,"song").y(),"Narrow views stack complete sections");
+            }
+        }
+    }
+
     @Test void largeTextAndEveryLanguageRetainDeviceControlsInAnIndependentViewport() throws Exception {
         for (var locale : Language.values()) try (var h = new Harness(locale)) {
             h.open(); h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.SETTINGS));
@@ -184,6 +444,8 @@ class MusicDeviceWorkflowTest {
                         h.surfaces.refresh();
                         var combined = assertDoesNotThrow(() -> SceneGeometryTestSupport.readableFrame(h.surfaces.composed(),font,
                                 new FloatingMenuFieldOfView(angle),1),locale+" combined font="+font+" fov="+angle);
+                        assertTrue(combined.elements().stream().noneMatch(node -> node.path().contains(scope)
+                                && node.node().key().value().equals("close-panel")));
                         if (combined.elements().stream().anyMatch(node -> node.path().contains(scope) && node.node().key().value().equals("eject"))) {
                             found = true; break;
                         }
@@ -258,19 +520,28 @@ class MusicDeviceWorkflowTest {
                         id.equals(first) ? "Living room 客厅" : "Garden 花园",100,64,null,0));
                 when(registry.snapshot()).thenAnswer(_ -> data.snapshot());
                 when(registry.targets(player)).thenAnswer(_ -> data.devices.values().stream().map(device -> new DeviceTarget(device.id(),device.name(),List.of(device))).toList());
-                when(registry.target(any())).thenAnswer(call -> { var device = device(call.getArgument(0)); return new DeviceTarget(device.id(),device.name(),List.of(device)); });
+                when(registry.target(any())).thenAnswer(call -> {
+                    UUID id = call.getArgument(0);
+                    var group = data.groups.get(id);
+                    if (group != null) return new DeviceTarget(id,group.name(),group.members().stream().map(data.devices::get).toList());
+                    var device = data.devices.get(id);
+                    if (device == null) throw new MusicProblem(MusicProblem.Code.NOT_FOUND);
+                    return new DeviceTarget(device.id(),device.name(),List.of(device));
+                });
                 when(registry.playbackTarget(any())).thenAnswer(call -> registry.target(call.getArgument(0)));
-                when(registry.name(eq(player),any())).thenAnswer(call -> device(call.getArgument(1)).name());
+                when(registry.name(eq(player),any())).thenAnswer(call -> registry.target(call.getArgument(1)).name());
                 when(registry.alias(eq(player),any())).thenAnswer(call -> call.<MusicDevice>getArgument(1).name());
                 when(registry.online(any())).thenReturn(true);
                 when(registry.mayControl(eq(player),any())).thenReturn(true);
                 when(registry.mayLocate(eq(player),any())).thenReturn(true);
                 when(registry.location(any())).thenAnswer(call -> { var device = call.<MusicDevice>getArgument(0); return new Location(world,device.x(),device.y(),device.z()); });
+                when(registry.inListeningRange(eq(player),any())).thenCallRealMethod();
                 when(registry.bind(eq(player),any(),eq(""))).thenReturn(CompletableFuture.completedFuture(null));
                 when(groups.create(eq(player),anySet(),any(),anyString())).thenReturn(new CompletableFuture<>());
                 var queries = mock(MusicQueries.class);
                 when(queries.snapshot(any())).thenAnswer(_ -> data.snapshot());
                 when(playback.program(any())).thenReturn(PlaybackProgram.empty());
+                when(playback.submit(eq(player),any())).thenReturn(CompletableFuture.completedFuture(null));
                 when(playback.snapshot(any())).thenAnswer(call -> new MusicPlaybackSnapshot(call.getArgument(0),null,null,null,PlaybackStatus.STOPPED,0,0,false,null));
                 var bundle = FluentTestSupport.bundle(locale);
                 var language = mock(LanguageService.class,call -> {

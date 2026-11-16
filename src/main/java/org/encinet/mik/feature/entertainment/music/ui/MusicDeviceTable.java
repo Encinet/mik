@@ -11,7 +11,7 @@ import org.encinet.mik.shared.menu.ui.*;
 
 /** The same compact device directory in the workspace and the target picker. */
 final class MusicDeviceTable {
-    record Row(UUID id, Component name, Component kind, Component status, Component song, Component restriction,
+    record Row(UUID id, Component name, Component status, Component song, Component restriction,
                Component location, Component coordinates, int color) { }
     private MusicDeviceTable() { }
 
@@ -32,11 +32,10 @@ final class MusicDeviceTable {
         table.column(new UiTable.Column<>(UiKey.named("name"), heading(label.apply("name")),
                         UiTrack.content(UiLength.ZERO, UiLength.ui(240)), row -> {
                     var identity = Ui.column().key("device").gap(UiLength.ui(4)).child(identity(row,current,selectedMembers,choose,manage));
-                    if (selectedMembers == null) identity.child(text("kind",row.kind()),LinearSlot.stretch());
                     return identity.build();
                 }))
                 .column(new UiTable.Column<>(UiKey.named("status"), heading(label.apply("device-status")),
-                        UiTrack.content(UiLength.ZERO, UiLength.ui(180)), row -> status(row, current, selectedMembers, label)))
+                        UiTrack.content(UiLength.ZERO, UiLength.ui(180)), row -> text("status",row.status())))
                 .column(new UiTable.Column<>(UiKey.named("location"), heading(label.apply("device-location")),
                         UiTrack.intrinsic(), row -> Ui.text(row.location()).key("location").noWrap()
                         .tooltip(row.coordinates()).alignment(FloatingMenuDecoration.Alignment.LEFT).build()));
@@ -52,8 +51,7 @@ final class MusicDeviceTable {
                     if (selectedMembers != null) identity.child(marker(row,selectedMembers,label,choose.apply(row.id())));
                     identity.child(name);
                     var card = Ui.column().gap(UiLength.ui(4)).child(identity.build());
-                    var status = statusText(row,current,selectedMembers,label);
-                    card.child(text("status",selectedMembers == null ? row.kind().append(Component.text(" · ")).append(status) : status))
+                    card.child(text("status",row.status()))
                             .child(Ui.text(row.location()).key("location").singleLine().tooltip(row.coordinates())
                                     .alignment(FloatingMenuDecoration.Alignment.LEFT).build());
                     if (selectedMembers == null) card.child(text("song",row.song()));
@@ -73,13 +71,6 @@ final class MusicDeviceTable {
         var node = manage == null ? button(row, name, selected, members != null, choose.apply(row.id())) : Ui.text(name);
         return node.key("target").singleLine().tooltip(metadata(row)).alignment(FloatingMenuDecoration.Alignment.LEFT).build();
     }
-    private static UiNode status(Row row, UUID current, Set<UUID> members, Function<String,Component> label) {
-        return text("status",statusText(row,current,members,label));
-    }
-    private static Component statusText(Row row, UUID current, Set<UUID> members, Function<String,Component> label) {
-        return members == null && row.id().equals(current)
-                ? label.apply("current-device").append(Component.text(" · ")).append(row.status()) : row.status();
-    }
     private static UiNode actions(Row row, UUID current, Function<String,Component> label,
                                   Function<UUID,FloatingMenuCommand> choose, Function<UUID,FloatingMenuCommand> manage) {
         return MusicWorkspace.tools("device-actions")
@@ -95,7 +86,7 @@ final class MusicDeviceTable {
         return marker.build();
     }
     private static Component metadata(Row row) {
-        return row.name().append(Component.newline()).append(row.kind()).append(Component.newline()).append(row.status())
+        return row.name().append(Component.newline()).append(row.status())
                 .append(Component.newline()).append(row.location()).append(Component.newline()).append(row.coordinates()).append(Component.newline()).append(row.song());
     }
     private static Ui.ElementBuilder button(Row row, Component text, boolean selected, boolean membership, FloatingMenuCommand action) {

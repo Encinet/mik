@@ -71,7 +71,7 @@ public final class MusicWorkspaceState {
     sealed interface Panel permits NoPanel, Outputs, DevicePanel, MemberOutput, GroupEditor, Import, RoomPicker, Room { }
     record NoPanel() implements Panel { }
     record Outputs(PendingPlay pending) implements Panel { }
-    enum DeviceSection { QUEUE, MEMBERS, SETTINGS }
+    enum DeviceSection { PLAYBACK, QUEUE, SETTINGS, MEMBERS }
     record DevicePanel(UUID target, DeviceSection section) implements Panel {
         DevicePanel { Objects.requireNonNull(target); Objects.requireNonNull(section); }
     }

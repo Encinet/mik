@@ -22,8 +22,12 @@ final class MenuPresentation {
     private Reference reference;
     private FloatingMenuWorldSpace placementSpace;
     private long worldEpoch;
+    private boolean freeWindowPlacement;
+    private FloatingMenuAnchorResolver.ReadingFrame placedReading;
+    void freeWindowPlacement(boolean value) { freeWindowPlacement = value; if (!value) placedReading = null; }
+    void retainWindowPlacement(FloatingMenuAnchorResolver.Anchor anchor, Location eye) { placedReading = anchor.relativeTo(eye); }
 
-    void reset() { reference = null; discardPlacementSpace(); }
+    void reset() { reference = null; placedReading = null; discardPlacementSpace(); }
     long worldEpoch() { return worldEpoch; }
     void discardPlacementSpace() { placementSpace = null; }
 
@@ -52,6 +56,12 @@ final class MenuPresentation {
     }
 
     record Frame(SceneGeometry geometry, Optional<FloatingMenuAnchorResolver.Anchor> anchor) { }
+
+    Frame projected(Player viewer, Location eye, Vector forward, SceneGeometry geometry, double typography,
+                    double scale, FloatingMenuFieldOfView fov) {
+        try { return new Frame(geometry,Optional.of(resolve(viewer,eye,forward,geometry.definition(),geometry,typography,scale,fov))); }
+        catch (MenuSpaceUnavailableException unavailable) { return new Frame(geometry,Optional.empty()); }
+    }
 
     /** Measure the parent, resolve its real reading frame, then measure the companion without a constraint cycle. */
     Frame prepare(Player viewer, Location eye, Vector forward, MenuScene scene, double typography,
@@ -124,7 +134,8 @@ final class MenuPresentation {
                         reading.verticalOffset(), reading.yawOffsetDegrees());
             reference = new Reference(reading, scene.spatialFrame(), scene.anchorMode(), interfaceScale, typography, fieldOfView);
         }
-        var reading = scene.spatialFrame() == FloatingMenuSpatialFrame.IN_FRONT
+        var reading = freeWindowPlacement && placedReading != null ? placedReading
+                : scene.spatialFrame() == FloatingMenuSpatialFrame.IN_FRONT && !freeWindowPlacement
                 ? reference.reading().fittedTo(geometry.bounds(), fieldOfView.readingFraming()) : reference.reading();
         return FloatingMenuAnchorResolver.fit(eye, reading.at(eye, forward), geometry.bounds(), space);
     }

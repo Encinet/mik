@@ -810,6 +810,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
+                .windowPolicy(org.encinet.mik.shared.menu.MenuWindowPolicy.TASK)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .content(UiTemplates.canvas(new UiSize(300, 180), Map.of(
                         "exit", new UiLayout.Position(254, 48.5))))
@@ -1114,6 +1115,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
+                .windowPolicy(org.encinet.mik.shared.menu.MenuWindowPolicy.TASK)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .content(UiTemplates.canvas(new UiSize(300, 180), Map.of(
                         "exit", new UiLayout.Position(254, 48.5))))

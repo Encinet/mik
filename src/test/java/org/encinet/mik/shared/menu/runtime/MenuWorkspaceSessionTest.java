@@ -11,7 +11,7 @@ import static org.mockito.Mockito.*;
 
 class MenuWorkspaceSessionTest {
     private static final Component TEXT = Component.text("Window");
-    private static final MenuWorkspaceSession.Labels LABELS = new MenuWorkspaceSession.Labels(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT);
+    private static final MenuWorkspaceSession.Labels LABELS = new MenuWorkspaceSession.Labels(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT);
     private static MenuScene scene(String name) {
         return MenuScene.screen(name,Component.text(name)).content(Ui.button(TEXT).key("shared-field")
                 .primary((_,_) -> {}).build()).build();
@@ -66,6 +66,38 @@ class MenuWorkspaceSessionTest {
         assertEquals(FloatingMenuState.ACTIVE,b.state());
     }
 
+    @Test void workspaceManagementRetainsAuthoredPlanesWithoutAnEnclosingSurfaceOrInferredTitle() {
+        var host = new Host();
+        host.rootScene = MenuScene.screen("launcher",Component.text("Main menu")).withoutTitle()
+                .content(UiTemplates.horizontalPanels(UiLength.ui(12),
+                        UiTemplates.sidebar("announcements",Ui.heading(Component.text("Recent announcements")).key("notice-heading").build()),
+                        UiTemplates.window("launcher",Ui.button(Component.text("Close")).key("native-close")
+                                .primary((_,handle) -> handle.close()).build()))).build();
+        host.changed();
+        assertEquals(MenuWorkspaceSession.MAIN.value(),host.workspace.sourceScope(host.root));
+        assertTrue(host.workspace.movable(host.root));
+        assertEquals(2,host.frame.frame().surfaces().size(),"Management must not add an enclosing plane");
+        assertEquals(1,host.frame.frame().elements().stream().filter(node -> node.node().key().value().equals("notice-heading")).count());
+        assertFalse(host.frame.frame().elements().stream().anyMatch(node -> node.node().key().value().equals("title")),
+                "The body heading and window-list label must never become a workspace title bar");
+        assertTrue(host.frame.frame().elements().stream().anyMatch(node -> node.node().key().value().equals("move")));
+        assertFalse(host.frame.frame().elements().stream().anyMatch(node -> node.node().key().value().equals("close")),
+                "Workspace dismissal stays in its authored controls");
+        var tool = host.tool("editor");
+        assertEquals(4,host.frame.frame().surfaces().size(),"Only the companion and its tray add planes");
+        assertFalse(host.frame.frame().elements().stream().anyMatch(node -> node.node().key().value().equals("restore-"+host.root)),
+                "The visible workspace needs no tray card");
+        tool.minimize(); assertEquals(FloatingMenuState.SUSPENDED,tool.state());
+        assertTrue(host.frame.frame().elements().stream().anyMatch(node -> node.node().key().value().equals("restore-"+tool.id())));
+        tool.restore(); assertTrue(tool.focused());
+        tool.close();
+        assertEquals(2,host.frame.frame().surfaces().size());
+        var pose = UiTransform.IDENTITY.translated(40,20,0).rotated(20,-10,0);
+        host.workspace.transform(host.root,pose,true);
+        assertEquals(pose,host.workspace.transform(host.root));
+        assertEquals(2,host.frame.frame().surfaces().size(),"Moving a workspace must not manufacture a plane");
+    }
+
     @Test void repeatedOpenActivatesSameInstanceWithoutReconstructingDrafts() {
         var host = new Host(); var constructed = new AtomicInteger();
         var spec = MenuWindowSpec.tool(UiKey.named("object"));
@@ -87,7 +119,7 @@ class MenuWorkspaceSessionTest {
 
     @Test void independentMeasurementRetainsRootNodeSizeAndNamespacesIdenticalFieldKeys() {
         var host = new Host();
-        var original = host.frame.frame().elements().getFirst().size();
+        var original = host.frame.frame().elements().stream().filter(node -> node.node().key().value().equals("shared-field")).findFirst().orElseThrow().size();
         var a = host.tool("a"); var b = host.tool("b");
         var fields = host.frame.frame().elements().stream().filter(node -> node.node().key().value().equals("shared-field")).toList();
         assertEquals(3,fields.size());
@@ -95,6 +127,31 @@ class MenuWorkspaceSessionTest {
         assertEquals(original,fields.stream().filter(node -> host.workspace.ownerOf(node.path()).equals(host.root)).findFirst().orElseThrow().size());
         var depths = fields.stream().map(node -> host.frame.poses().get(node.path()).forward()).sorted().toList();
         assertTrue(depths.get(0) < depths.get(1)); assertTrue(depths.get(1) < depths.get(2));
+    }
+
+    @Test void independentWindowsUseOpaqueBackplatesInEveryTheme() {
+        var host = new Host();
+        host.rootScene = MenuScene.screen("library").content(UiTemplates.window("library",Ui.text(TEXT).build())).build();
+        var tool = host.tool("device");
+        tool.openWindow(MenuWindowSpec.task(UiKey.named("edit")),_ -> () -> scene("edit"));
+        var themes = new ArrayList<UiThemeColors>(List.of(UiPalette.values()));
+        themes.add(UiCustomTheme.copyOf(UiPalette.WARM).withColor(UiColorRole.WINDOW,0x123456,.12));
+        for (var theme : themes) {
+            var geometry = SceneGeometry.measure(host.workspace.compose(host.rootScene,LABELS),1,FloatingMenuFieldOfView.DEFAULT,1,theme);
+            var backplates = geometry.frame().surfaces().stream()
+                    .filter(surface -> !host.workspace.ownerOf(surface.path()).equals(host.root)).toList();
+            assertEquals(2,backplates.size());
+            for (var surface : backplates) {
+                assertEquals(255,surface.style().backgroundArgb(theme) >>> 24);
+                assertEquals(theme.rgb(UiColorRole.WINDOW),surface.style().backgroundArgb(theme) & 0xffffff);
+            }
+            assertTrue(geometry.generatedDecorations().values().stream().map(FloatingMenuDecoration::content)
+                    .filter(FloatingMenuDecoration.Surface.class::isInstance).map(FloatingMenuDecoration.Surface.class::cast)
+                    .anyMatch(surface -> surface.background() == (0xff000000 | theme.rgb(UiColorRole.WINDOW))));
+            var root = geometry.frame().surfaces().stream().filter(surface -> host.workspace.ownerOf(surface.path()).equals(host.root))
+                    .findFirst().orElseThrow();
+            assertEquals(theme.argb(UiColorRole.WINDOW),root.style().backgroundArgb(theme));
+        }
     }
 
     @Test void closePlanWaitsForAllDecisionsAndCancellationKeepsOwnedWindows() {
@@ -146,6 +203,70 @@ class MenuWorkspaceSessionTest {
         child.close(); tool.minimize(); assertEquals(FloatingMenuState.SUSPENDED,tool.state());
         assertFalse(host.frame.frame().elements().stream().anyMatch(node -> host.workspace.ownerOf(node.path()).equals(tool.id())));
         tool.restore(); assertEquals(FloatingMenuState.ACTIVE,tool.state()); assertTrue(tool.focused());
+    }
+
+    @Test void rootMinimizationPreservesPagesTransformsAndDraftInstancesUntilTrayRestore() {
+        var host = new Host(); var constructed = new AtomicInteger(); var disposed = new AtomicInteger();
+        var tool = host.workspace.open(host.root,MenuWindowSpec.tool(UiKey.named("draft")),Void.class,_ -> {
+            constructed.incrementAndGet();
+            return new MenuPanel() { public MenuScene render() { return scene("draft"); } public void close() { disposed.incrementAndGet(); } };
+        },_ -> {});
+        tool.openChild(scene("second-page"));
+        var token = tool.current();
+        var pose = UiTransform.IDENTITY.translated(80,15,0).rotated(25,-10,0);
+        host.workspace.transform(tool.id(),pose,true);
+        host.workspace.minimize(host.root);
+        assertTrue(host.workspace.minimized()); assertEquals(FloatingMenuState.SUSPENDED,tool.state());
+        assertEquals(0,disposed.get()); assertTrue(token.getAsBoolean());
+        assertFalse(host.frame.frame().elements().stream().anyMatch(node -> node.node().key().value().equals("shared-field")));
+        var restore = host.frame.frame().elements().stream().filter(node -> node.node().key().value().equals("restore-"+host.root)).findFirst().orElseThrow();
+        assertTrue(host.frame.poses().get(restore.path()).up() < 0,"Minimized cards stay below the central reading direction");
+        restore.node().input().actions().get(FloatingMenuInteraction.PRIMARY).execute(null,host.rootHandle,FloatingMenuInteraction.PRIMARY);
+        assertFalse(host.workspace.minimized()); assertTrue(tool.focused());
+        assertEquals(1,tool.depth()); assertEquals(pose,host.workspace.transform(tool.id()));
+        assertEquals(1,constructed.get()); assertEquals(0,disposed.get());
+    }
+
+    @Test void trayCardsUseTheirTitlesWithoutReadOnlyPictograms() {
+        var host = new Host(); var tool = host.tool("tool");
+        assertTrue(host.frame.frame().elements().stream().noneMatch(node -> node.node().key().value().equals("expand")),
+                "Root and child windows expose no expansion control");
+        var active = host.frame.frame().elements().stream().filter(node -> node.path().contains("/window-switcher/")).toList();
+        assertEquals(1,active.size());
+        assertTrue(active.stream().allMatch(node -> node.node().content() instanceof UiContent.Text));
+        assertTrue(active.stream().allMatch(node -> node.node().input().tooltip().isEmpty()));
+        assertTrue(active.stream().filter(node -> node.node().key().value().equals("restore-"+tool.id()))
+                .findFirst().orElseThrow().node().input().selected());
+        tool.minimize();
+        var minimized = host.frame.frame().elements().stream().filter(node -> node.path().contains("/card-"+tool.id()+"/")).toList();
+        assertEquals(2,minimized.size(),"A minimized card keeps its restore title and close action");
+        assertTrue(minimized.stream().allMatch(node -> node.node().input().interactive()));
+        assertTrue(minimized.stream().anyMatch(node -> node.node().key().value().equals("restore-"+tool.id())));
+        assertTrue(minimized.stream().anyMatch(node -> node.node().key().value().equals("close-"+tool.id())));
+    }
+
+    @Test void rootAndToolPoliciesGuardBothChromeAndProgrammaticOperations() {
+        var host = new Host();
+        host.rootScene = scene("root").toBuilder().windowPolicy(MenuWindowPolicy.FIXED).build(); host.changed();
+        host.workspace.minimize(host.root); host.workspace.move(host.root);
+        assertFalse(host.workspace.minimized()); assertFalse(host.workspace.movable(host.root));
+        for (String key : List.of("minimize","move","expand")) assertFalse(host.frame.frame().elements().stream()
+                .anyMatch(node -> node.node().key().value().equals(key)));
+        assertFalse(host.frame.frame().elements().stream().anyMatch(node -> node.node().key().value().equals("close")));
+        var tool = host.workspace.open(host.root,MenuWindowSpec.tool(UiKey.named("fixed")).policy(MenuWindowPolicy.FIXED),Void.class,_ -> () -> scene("fixed"),_ -> {});
+        tool.minimize(); tool.move();
+        assertEquals(FloatingMenuState.ACTIVE,tool.state()); assertFalse(host.workspace.movable(tool.id()));
+        assertThrows(IllegalArgumentException.class,() -> MenuWindowSpec.task(UiKey.named("invalid")).policy(MenuWindowPolicy.STANDARD));
+    }
+
+    @Test void modalDescendantsPreventRootMinimizationAndRootCloseCanBeCancelled() {
+        var host = new Host(); var tool = host.tool("tool");
+        var task = tool.openWindow(MenuWindowSpec.task(UiKey.named("confirmation")),_ -> () -> scene("confirm"));
+        host.workspace.minimize(host.root); assertFalse(host.workspace.minimized()); assertTrue(task.focused());
+        task.close();
+        host.rootScene = scene("root").toBuilder().windowPolicy(MenuWindowPolicy.STANDARD.onCloseRequested(MenuCloseRequest::cancel)).build(); host.changed();
+        host.workspace.requestClose(host.root,FloatingMenuCloseReason.USER);
+        assertFalse(host.rootClosed); assertEquals(FloatingMenuState.ACTIVE,tool.state());
     }
 
     @Test void suspensionResumesOnlyTheOriginalScopeAndNoLateLeaseReopensAClosedWorkspace() {
@@ -241,8 +362,6 @@ class MenuWorkspaceSessionTest {
         var task = parent.openWindow(MenuWindowSpec.task(UiKey.named("task")).modality(MenuWindowSpec.Modality.NONE),_ -> () -> scene("task"));
         host.tool("other"); host.tool("latest");
         assertFalse(host.frame.frame().elements().stream().anyMatch(node -> host.workspace.ownerOf(node.path()).equals(task.id())));
-        var openList = host.frame.frame().elements().stream().filter(node -> node.node().key().value().equals("list")).findFirst().orElseThrow();
-        openList.node().input().actions().get(FloatingMenuInteraction.PRIMARY).execute(null,host.rootHandle,FloatingMenuInteraction.PRIMARY);
         var activate = host.frame.frame().elements().stream().filter(node -> node.node().key().value().equals("restore-" + task.id())).findFirst().orElseThrow();
         activate.node().input().actions().get(FloatingMenuInteraction.PRIMARY).execute(null,host.rootHandle,FloatingMenuInteraction.PRIMARY);
         assertTrue(task.focused());

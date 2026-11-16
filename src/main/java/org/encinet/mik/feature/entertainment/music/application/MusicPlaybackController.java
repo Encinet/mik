@@ -462,7 +462,8 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
     public boolean playInsertedDisc(Player player, Jukebox box, PlaybackOrigin origin) {
         var device = device(box);
         if (device == null || device.group() == null) {
-            unavailable(box.getLocation(),false);
+            if (device == null) backend.stop(box.getBlock());
+            else suspendOutput(device);
             return backend.playInsertedDisc(player,box,origin);
         }
         var target = registry.playbackTarget(device.group());
@@ -496,10 +497,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         }
         for (var member : target.members()) {
             if (member.id().equals(record.recordSource)) continue;
-            var box = registry.block(member);
-            if (box != null && !member.id().equals(record.recordSource)
-                    && settings.readExperienceMode(box) != JukeboxExperienceMode.RHYTHM && box.hasRecord())
-                backend.stopAndEject(box.getBlock());
             startRecordOutput(player,target,record,member,PlaybackOrigin.AUTOMATIC);
         }
         updateAudience();
@@ -538,7 +535,10 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         var device = device(box);
         var record = device == null || device.group() == null ? null : running.get(device.group());
         if (record != null && device.id().equals(record.recordSource)) stop(registry.target(device.group()));
-        else if (record == null) backend.stop(box.getBlock());
+        else if (record == null || record.recordTrack == null) {
+            if (device == null) backend.stop(box.getBlock());
+            else suspendOutput(device);
+        }
     }
     public CompletableFuture<Void> sound(Player player, UUID id, Integer volume, Integer range) {
         DeviceTarget t = registry.target(id);
@@ -613,7 +613,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         Running r = new Running();
         running.put(t.id(), r);
         for (MusicDevice device : t.members()) startOutput(actor, t, r, device, automatic);
-        if (r.outputs.isEmpty()) throw new MusicProblem(MusicProblem.Code.OFFLINE);
+        requireOutput(t, r);
     }
     private void requireCapacity(DeviceTarget t) {
         if (!running.containsKey(t.id())
@@ -625,7 +625,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
     }
     private void startOutput(Player actor, DeviceTarget target, Running running, MusicDevice device, boolean automatic) {
         var box = registry.block(device);
-        if (box == null || (automatic && box.hasRecord())) {
+        if (box == null) {
             running.failed.put(device.id(), MusicProblem.Code.OFFLINE);
             return;
         }
@@ -638,7 +638,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         if (stored == null) throw new MusicProblem(MusicProblem.Code.NOT_FOUND);
         try {
             applySound(device);
-            if (!automatic && box.hasRecord()) backend.stopAndEject(box.getBlock());
             running.outputs.add(device.id());
             boolean started = backend.playProgram(automatic ? null : actor, box, stored.track(), running.generation,
                     () -> onMain(() -> recordStarted(target, running, current)));
@@ -670,7 +669,14 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         if (!missing.isEmpty()) active.preparation = UUID.randomUUID();
         for (var device : missing)
             startOutput(player, target, active, device, false);
-        if (active.outputs.isEmpty()) throw new MusicProblem(MusicProblem.Code.OFFLINE);
+        requireOutput(target, active);
+    }
+    private static void requireOutput(DeviceTarget target, Running active) {
+        if (!active.outputs.isEmpty()) return;
+        var reason = target.members().stream().map(device -> active.failed.get(device.id()))
+                .filter(Objects::nonNull).filter(code -> code != MusicProblem.Code.OFFLINE)
+                .findFirst().orElse(MusicProblem.Code.OFFLINE);
+        throw new MusicProblem(reason);
     }
     public Map<UUID, MusicProblem.Code> outputFailures(UUID id) {
         var active = running.get(id);
@@ -883,7 +889,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             } else startRecordOutput(null,registry.target(d.group()),r,d,PlaybackOrigin.AUTOMATIC);
             return;
         }
-        if (box.hasRecord()) return;
         MusicTrack track = current(d.group());
         if (r != null && track != null && !r.outputs.contains(d.id()))
             startOutput(null, registry.target(d.group()), r, d, true);

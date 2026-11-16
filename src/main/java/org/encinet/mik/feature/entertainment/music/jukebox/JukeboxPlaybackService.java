@@ -13,10 +13,12 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscResolver;
+import org.encinet.mik.feature.entertainment.music.disc.MusicDiscFactory;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscKeys;
 import org.encinet.mik.feature.entertainment.music.lyrics.LyricDisplayService;
 import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
@@ -36,6 +38,7 @@ public class JukeboxPlaybackService
         implements JukeboxPlaybackStatus, RhythmPlaybackGateway, RhythmPlaybackIsolation, AutoCloseable {
     private final JavaPlugin plugin;
     private final MusicDiscResolver discResolver;
+    private final MusicDiscFactory discFactory;
     private final JukeboxSettingsStore settingsStore;
     private final JukeboxPlaybackNotifier notifier;
     private final VanillaRecordSilencer recordSilencer;
@@ -84,19 +87,19 @@ public class JukeboxPlaybackService
     }
     public boolean playProgram(
             Player player, Jukebox jukebox, MusicTrack track, UUID clock, Runnable started) {
-        return playManaged(player,jukebox,track,clock,true,PlaybackOrigin.AUTOMATIC,started);
+        return playManaged(player,jukebox,track,clock,true,discFactory.createPersistentDisc(track),PlaybackOrigin.AUTOMATIC,started);
     }
     /** The source keeps its one real disc; other outputs share its clock with empty slots. */
     public boolean playRecordOutput(Player player, Jukebox jukebox, MusicTrack track, UUID clock,
                                     boolean source, PlaybackOrigin origin) {
-        return playManaged(player,jukebox,track,clock,!source,origin,() -> {});
+        return playManaged(player,jukebox,track,clock,!source,null,origin,() -> {});
     }
     private boolean playManaged(Player player, Jukebox jukebox, MusicTrack track, UUID clock,
-                                boolean replaceRecord, PlaybackOrigin origin, Runnable started) {
+                                boolean replaceRecord, ItemStack replacement, PlaybackOrigin origin, Runnable started) {
         JukeboxKey key = JukeboxKey.of(jukebox.getLocation());
         managedGroups.put(key, programClocks.computeIfAbsent(clock, _ -> new JukeboxPlaybackGroup()));
         try {
-            return startTrack(player, jukebox, track, replaceRecord, origin, started);
+            return startTrack(player, jukebox, track, replaceRecord, replacement, origin, started);
         } finally {
             managedGroups.remove(key);
             programClocks.values().removeIf(
@@ -105,12 +108,13 @@ public class JukeboxPlaybackService
     }
 
     public JukeboxPlaybackService(JavaPlugin plugin, PlasmoVoiceServer voiceServer,
-            MusicDiscResolver discResolver, OnlineAudioCache audioCache, JukeboxPlaybackNotifier notifier,
+            MusicDiscResolver discResolver, MusicDiscFactory discFactory, OnlineAudioCache audioCache, JukeboxPlaybackNotifier notifier,
             VanillaRecordSilencer recordSilencer, JukeboxSettingsStore settingsStore,
             Consumer<MusicTrack> playbackRecorder, LyricDisplayService lyricDisplay,
             OnlineMusicRequestLimiter requestLimiter) {
         this.plugin = plugin;
         this.discResolver = discResolver;
+        this.discFactory = java.util.Objects.requireNonNull(discFactory, "discFactory");
         this.notifier = notifier;
         this.recordSilencer = recordSilencer;
         this.settingsStore = java.util.Objects.requireNonNull(settingsStore, "settingsStore");
@@ -129,7 +133,7 @@ public class JukeboxPlaybackService
         enabled.set(true);
     }
 
-    /** Starts only the new signed physical record format. */
+    /** Starts an inserted vanilla or signed custom record. */
     public boolean playInsertedDisc(Player player, Jukebox jukebox) {
         return playInsertedDisc(player, jukebox, PlaybackOrigin.PLAYER);
     }
@@ -140,10 +144,10 @@ public class JukeboxPlaybackService
                 notifier.unavailableDisc(player);
             return false;
         }
-        return startTrack(player, jukebox, music, false, origin, () -> {});
+        return startTrack(player, jukebox, music, false, null, origin, () -> {});
     }
 
-    private boolean startTrack(Player player, Jukebox jukebox, MusicTrack music, boolean replaceRecord,
+    private boolean startTrack(Player player, Jukebox jukebox, MusicTrack music, boolean replaceRecord, ItemStack replacement,
             PlaybackOrigin origin, Runnable onStarted) {
         java.util.Objects.requireNonNull(origin, "origin");
         if (!enabled.get())
@@ -179,8 +183,9 @@ public class JukeboxPlaybackService
                                                      : coordination.playbackGroup(),
                 origin, onStarted);
         playback.digital = replaceRecord;
+        playback.emptySlot = replaceRecord && replacement == null;
         playbacks.put(key, playback);
-        prepareJukebox(jukebox, replaceRecord);
+        prepareJukebox(jukebox, replaceRecord, replacement);
 
         if (playback.experienceMode == JukeboxExperienceMode.MUSIC) {
             recordSilencer.playbackStarted(location);
@@ -189,11 +194,13 @@ public class JukeboxPlaybackService
         return !playback.failed.get();
     }
 
-    /** Explicit digital playback replaces the physical record before its backend validates the slot. */
-    static void prepareJukebox(Jukebox jukebox, boolean replaceRecord) {
+    /** Replace a program's item in place; synchronized physical-record followers keep empty slots. */
+    static void prepareJukebox(Jukebox jukebox, boolean replaceRecord, ItemStack replacement) {
         jukebox.stopPlaying();
-        if (replaceRecord)
-            jukebox.setRecord(null);
+        if (replaceRecord) {
+            jukebox.setRecord(replacement);
+            if (replacement != null) jukebox.stopPlaying();
+        }
         jukebox.update(true, false);
     }
 
@@ -693,7 +700,7 @@ public class JukeboxPlaybackService
     }
 
     private boolean hasPlaybackDisc(Jukebox jukebox, Playback playback) {
-        return playback.digital ? !jukebox.hasRecord() : matchesRecord(jukebox,playback.music.id());
+        return playback.emptySlot ? !jukebox.hasRecord() : matchesRecord(jukebox,playback.music.id());
     }
 
     private boolean matchesRecord(Jukebox jukebox, String track) {
@@ -738,6 +745,7 @@ public class JukeboxPlaybackService
     /** A selected jukebox track, retained while rhythm players wait between backend runs. */
     private static final class Playback {
         private boolean digital;
+        private boolean emptySlot;
         private final JukeboxKey key;
         private final Location location;
         private final MusicTrack music;

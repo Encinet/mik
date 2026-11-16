@@ -1,5 +1,6 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.UiSceneContent;
 import org.encinet.mik.shared.menu.MenuInputForm;
 import org.encinet.mik.shared.menu.FloatingMenuAction;
 import org.encinet.mik.shared.menu.FloatingMenuAnchorMode;
@@ -87,6 +88,7 @@ import org.encinet.mik.shared.util.ShutdownSequence;
 import org.encinet.mik.shared.menu.ui.UiRotation;
 import org.encinet.mik.shared.menu.ui.UiVector3;
 import org.encinet.mik.shared.menu.ui.UiKey;
+import org.encinet.mik.shared.menu.ui.UiTransform;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -227,9 +229,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     private MenuWorkspaceSession.Labels windowLabels(Player player) {
         return new MenuWorkspaceSession.Labels(languageService.text(player, Message.BACK, NamedTextColor.WHITE), languageService.text(player, Message.CLOSE, NamedTextColor.WHITE),
                 languageService.text(player, Message.MENU_WINDOW_MINIMIZE, NamedTextColor.WHITE), languageService.text(player, Message.MENU_WINDOW_RESTORE, NamedTextColor.WHITE),
-                languageService.text(player, Message.MENU_EXPAND, NamedTextColor.WHITE), languageService.text(player, Message.MENU_COLLAPSE, NamedTextColor.WHITE),
-                languageService.text(player, Message.MENU_WINDOW_LIST, NamedTextColor.WHITE),
-                languageService.text(player, Message.MENU_WINDOW_BLOCKED, NamedTextColor.WHITE), languageService.text(player, Message.MENU_WINDOW_POSITION, NamedTextColor.WHITE));
+                languageService.text(player, Message.MENU_WINDOW_BLOCKED, NamedTextColor.WHITE),
+                languageService.text(player, Message.MENU_WINDOW_MOVE, NamedTextColor.WHITE));
     }
 
     private MenuWorkspaceSession createWorkspace(Session session) {
@@ -276,6 +277,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 plugin.getLogger().log(java.util.logging.Level.WARNING, "Window close decision failed", error);
             }
             public MenuInputLease suspend(UUID owner) { return session.workspace.suspend(owner); }
+            public void move(UUID owner) {
+                Player viewer = Bukkit.getPlayer(session.playerId);
+                if (viewer != null) beginWindowMove(session,viewer,owner);
+            }
             public void popover(UUID owner, UiKey source, Function<Runnable, MenuPanel> content) {
                 Player viewer = Bukkit.getPlayer(session.playerId);
                 if (viewer != null) new Handle(session.id,session.playerId).openManagedPopover(source, content,
@@ -481,6 +486,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 && definition.screenId() != null
                 && definition.screenId().equals(current.definition.screenId())) {
             update(current, player, definition);
+            if (active(current) && current.workspace != null && current.workspace.minimized()) current.workspace.restore(current.id);
             return new Handle(current.id, current.playerId);
         }
         if (current != null && current.state != FloatingMenuState.CLOSING
@@ -525,13 +531,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         return new MenuWorldOverlayMask(player.getEyeLocation(),surfaces);
     }
 
-    private static void maskWorldOverlay(Decoration decoration, Location at, float yaw, float pitch, MenuWorldOverlayMask mask) {
-        boolean covered = mask != null && decoration.definition.worldAnchored()
-                && switch (decoration.definition.content()) {
-                    case FloatingMenuDecoration.Text text -> mask.overlapsText(at,yaw,pitch,text);
-                    case FloatingMenuDecoration.BlockOutline outline -> mask.overlapsOutline(at,outline);
-                    default -> false;
-                };
+    private static void maskWorldText(Decoration decoration, Location at, float yaw, float pitch, MenuWorldOverlayMask mask) {
+        boolean covered = mask != null && mask.occludes(decoration.definition,at,yaw,pitch);
         if (covered != decoration.interfaceOccluded) {
             decoration.interfaceOccluded = covered;
             decoration.metadata.invalidate();
@@ -870,6 +871,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             if (!active(session) || session.hostPaused) return;
         }
         session.totalTicks++;
+        if (session.windowMove != null) sampleWindowMove(session,player);
         String pressedId = session.pressFeedback.elementId();
         if (session.pressFeedback.advance(session.totalTicks)) {
             session.releasePress(pressedId);
@@ -891,7 +893,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                     session.closeReason == null ? FloatingMenuCloseReason.USER : session.closeReason);
             return;
         }
-        if (session.workspace != null && !inputBlocked(player)) session.workspace.tick(player, session.totalTicks);
+        if (session.workspace != null && session.windowMove == null && !inputBlocked(player)) session.workspace.tick(player, session.totalTicks);
         refreshLiveDefinitions(session, player);
         if (!active(session)) return;
         synchronizeViewpoint(session, player);
@@ -928,7 +930,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private void updateTooltip(Session session, Player player, String sourceKey, boolean immediate) {
-        if (session.state != FloatingMenuState.ACTIVE || inputBlocked(player)) {
+        if (session.state != FloatingMenuState.ACTIVE || session.windowMove != null || inputBlocked(player)) {
             tooltips.clear(session.playerId);
             return;
         }
@@ -962,7 +964,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private void refreshLiveDefinitions(Session session, Player player) {
-        if (inputBlocked(player)) return;
+        if (inputBlocked(player) || session.windowMove != null || session.workspace != null && session.workspace.minimized()) return;
         for (Frame frame : List.copyOf(session.ancestors)) {
             if (!refreshDue(session.totalTicks, frame.definition.refresh())) continue;
             refreshFrameDefinition(session, frame, player);
@@ -1022,6 +1024,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         Session session = lookup(target.playerId,target.sessionId);
         Player player = Bukkit.getPlayer(target.playerId);
         if (session == null || player == null || session.obstructed() || session.state != FloatingMenuState.ACTIVE) return;
+        if (session.windowMove != null) {
+            if (!interaction.scroll()) moveClick(session,player,interaction == FloatingMenuInteraction.PRIMARY);
+            return;
+        }
         if (inputBlocked(player) || !session.inputGate.permits() || inputOwner(player) != session) return;
         if (session.layoutSnapshot.popover() != null) {
             var activation = session.popoverInput().activation(target.elementId,
@@ -1163,6 +1169,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private boolean routePointerClick(Player player, boolean primary) {
+        if (routeWindowMove(player,primary)) return true;
         Session session = inputOwner(player);
         if (session == null || session.obstructed() || session.state != FloatingMenuState.ACTIVE || inputBlocked(player)) return false;
         if (tooltips.consumeClick(player, primary)) { session.inputGate.consume(); return true; }
@@ -1192,6 +1199,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             if (protectsWorldBehindMenu(event.getPlayer())) event.setCancelled(true);
             return;
         }
+        if (routeWindowMove(event.getPlayer(),event.getAction().isLeftClick())) {
+            event.setCancelled(true);
+            return;
+        }
         // DENY can come from region protection. Still shield the backing block, but never invoke an action.
         if (event.getClickedBlock() != null && event.useInteractedBlock() == org.bukkit.event.Event.Result.DENY
                 || event.useItemInHand() == org.bukkit.event.Event.Result.DENY) {
@@ -1204,11 +1215,19 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPopoverEntityClick(PlayerInteractEntityEvent event) {
+        if (event.getHand() == EquipmentSlot.HAND && routeWindowMove(event.getPlayer(),false)) {
+            event.setCancelled(true);
+            return;
+        }
         if (!event.isCancelled() && event.getHand() == EquipmentSlot.HAND && routePointerClick(event.getPlayer(), false)) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPopoverEntityAttack(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player player && routeWindowMove(player,true)) {
+            event.setCancelled(true);
+            return;
+        }
         if (!event.isCancelled() && event.getDamager() instanceof Player player && routePointerClick(player, true)) event.setCancelled(true);
     }
 
@@ -1216,6 +1235,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     public void onUseUnknownEntity(PlayerUseUnknownEntityEvent event) {
         if (!event.isAttack() && event.getHand() != EquipmentSlot.HAND) return;
         Player player = event.getPlayer();
+        if (routeWindowMove(player,event.isAttack())) return;
         Session session = inputOwner(player);
         if (session == null || session.obstructed() || session.state != FloatingMenuState.ACTIVE || inputBlocked(player)
                 || !session.inputGate.permits()) return;
@@ -1238,6 +1258,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         UUID playerId = event.getPlayer().getUniqueId();
         if (!scrollCaptures.contains(playerId)) return;
         Session session = inputOwner(event.getPlayer());
+        if (session != null && session.windowMove != null) { event.setCancelled(true); return; }
         int clockwise = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
         if (clockwise != 1 && clockwise != 8) return;
         FloatingMenuInteraction interaction = clockwise == 1
@@ -1466,8 +1487,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         virtualEntities.spawn(player, decoration.entityId, decoration.uuid, kind,
                 spawnAt, spawnYaw, spawnPitch);
         decoration.visualRotation = decoration.definition.worldAnchored() ? UiRotation.IDENTITY : session.orientation.compose(decoration.renderedPose.rotation());
-        if (decoration.definition.worldAnchored())
-            maskWorldOverlay(decoration,spawnAt,spawnYaw,spawnPitch,worldOverlayMask(session,player));
+        if (decoration.definition.worldAnchored() && content instanceof FloatingMenuDecoration.Text)
+            maskWorldText(decoration,spawnAt,spawnYaw,spawnPitch,worldOverlayMask(session,player));
         updateDecoration(session, player, decoration);
     }
 
@@ -1511,7 +1532,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         (float) (volume.depth() * coordinateScale), context.rotation());
                 case FloatingMenuDecoration.BlockOutline outline -> virtualEntities.volume(player,decoration.entityId,
                         outline.material().createBlockData(),outline.size(),outline.size(),outline.size(),context.rotation(),
-                        decoration.interfaceOccluded ? null : outline.color());
+                        outline.color());
             }
         });
     }
@@ -1636,11 +1657,106 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         session.prepareLayout();
     }
 
+    private record WindowMove(UUID owner, UUID page, String path, SceneGeometry base,
+                              UiTransform original, UiVector3 layer, MenuWindowDrag drag) { }
+
+    private static UiTransform viewFrame(Player player) {
+        var eye = player.getEyeLocation();
+        return new UiTransform(MenuSurfaceAttachment.point(eye.toVector()),UiRotation.degrees(eye.getYaw()+180,-eye.getPitch(),0),1);
+    }
+
+    private static UiTransform workspaceFrame(Session session) {
+        return new UiTransform(MenuSurfaceAttachment.point(session.origin.toVector()),session.orientation,1);
+    }
+
+    private void beginWindowMove(Session session, Player player, UUID owner) {
+        if (session.windowMove != null) {
+            boolean same = session.windowMove.owner().equals(owner);
+            endWindowMove(session,player,false,true);
+            if (same) return;
+        }
+        if (session.mount != null || session.workspace == null || !session.workspace.movable(owner)) return;
+        if (session.definition.popover() != null) dismissPopover(session,player);
+        if (!active(session) || !session.workspace.movable(owner)) return;
+        inputs.invalidate(session.playerId);
+        tooltips.clear(session.playerId);
+        session.workspace.activate(owner);
+        session.workspace.moving(owner);
+        String scope = session.workspace.sourceScope(owner);
+        var group = session.layoutSnapshot.frame().groups().stream()
+                .filter(value -> MenuWorkspaceSession.segment(value.path(),scope))
+                .min(java.util.Comparator.comparingInt(value -> value.path().length())).orElse(null);
+        if (group == null) { session.workspace.moving(null); return; }
+        // Capture the logical group's frame. Movement must also work for content with no visual plane,
+        // and must not adopt the orientation of an arbitrary folded child panel.
+        var projection = new ComponentSceneProjector(session.definition,session.layoutSnapshot.frame(),
+                session.preferences.fieldOfView(),session.preferences.layout().factor());
+        var pose = projection.project(group.path(),group.x(),group.y(),group.size());
+        var surface = session.worldSurface(new FloatingMenuAnchorResolver.Surface(pose,
+                new FloatingMenuSize(group.size().width()*UiSceneContent.WORLD_PER_UI,
+                        group.size().height()*UiSceneContent.WORLD_PER_UI)));
+        var original = session.workspace.transform(owner);
+        session.presentation.retainWindowPlacement(new FloatingMenuAnchorResolver.Anchor(session.origin,session.forward,session.right,
+                session.spatialScale,session.anchorDistance,0),session.anchorView);
+        session.windowMove = new WindowMove(owner,session.workspace.page(owner),group.path(),session.layoutSnapshot,original,
+                group.transform().translation().subtract(original.translation()),
+                new MenuWindowDrag(viewFrame(player),new UiTransform(surface.center(),surface.rotation(),1),
+                        workspaceFrame(session),session.spatialScale,group.transform()));
+        session.inputGate.consume();
+        player.sendActionBar(languageService.text(player,Message.MENU_WINDOW_MOVE_HINT,NamedTextColor.WHITE));
+    }
+
+    private void sampleWindowMove(Session session, Player player) {
+        var move = session.windowMove;
+        if (move == null) return;
+        if (!session.workspace.movable(move.owner()) || !move.page().equals(session.workspace.page(move.owner()))
+                || inputBlocked(player)) {
+            endWindowMove(session,player,true,true); return;
+        }
+        var transform = move.drag().sample(viewFrame(player),workspaceFrame(session),session.spatialScale);
+        session.workspace.transform(move.owner(),new UiTransform(transform.translation().subtract(move.layer()),transform.rotation(),transform.scale()),false);
+        var selected = preferences(player);
+        if (!selected.equals(session.preferences)) {
+            endWindowMove(session,player,false,false);
+            update(session,player,session.authored);
+            return;
+        }
+        var geometry = move.base().reposition(MenuWindowDrag.frame(move.base().frame(),move.path(),transform),
+                selected.typographyFactor(),selected.fieldOfView(),selected.layout().factor(),selected.theme());
+        update(session,player,session.authored,session.mount,geometry);
+    }
+
+    private void endWindowMove(Session session, Player player, boolean cancel, boolean publish) {
+        var move = session.windowMove;
+        if (move == null) return;
+        session.windowMove = null;
+        if (cancel) session.workspace.transform(move.owner(),move.original(),false);
+        session.workspace.moving(null,publish);
+        session.inputGate.consume();
+    }
+
+    private boolean moveClick(Session session, Player player, boolean primary) {
+        if (!session.inputGate.permits()) return true;
+        if (primary) sampleWindowMove(session,player);
+        endWindowMove(session,player,!primary,true);
+        return true;
+    }
+
+    private boolean routeWindowMove(Player player, boolean primary) {
+        var session = sessions.get(player.getUniqueId());
+        return session != null && session.windowMove != null && moveClick(session,player,primary);
+    }
+
     private void update(Session session, Player player, MenuScene requested) {
         update(session,player,requested,session.mount);
     }
 
     private void update(Session session, Player player, MenuScene requested, MenuWorldPanels.Mount mounted) {
+        update(session,player,requested,mounted,null);
+    }
+
+    private void update(Session session, Player player, MenuScene requested, MenuWorldPanels.Mount mounted, SceneGeometry projected) {
+        if (projected == null && session.windowMove != null) endWindowMove(session,player,false,false);
         if (requested == session.definition) requested = session.authored;
         MenuScene authored = requested;
         if (authored.popover() != null && session.popoverPanel == null) session.popoverOwner = session.id;
@@ -1648,7 +1764,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             disposePopoverPanel(session); session.popoverOwner = null;
             authored = authored.toBuilder().popover(null).build();
         }
-        if (session.workspace != null) {
+        if (session.workspace != null && projected == null) {
             requested = session.workspace.compose(authored, windowLabels(player));
             if (requested.popover() != null && session.popoverPanel == null)
                 requested = requested.toBuilder().popover(requested.popover().within(session.workspace.sourceScope(session.id))).build();
@@ -1659,7 +1775,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 ? MenuAnchorView.capture(player, requested) : null;
         Location readingEye = nextView == null ? session.anchorView.clone().add(0,
                 requested.viewpoint().eyeHeight(player) - session.anchorEyeHeight, 0) : nextView.readingEye();
-        var prepared = mounted != null ? MenuWorldPresentation.prepare(session.presentation,mounted.surface(),requested,
+        if (session.workspace != null) session.presentation.freeWindowPlacement(session.workspace.hasMovedWindows());
+        var prepared = projected != null ? session.presentation.projected(player,readingEye,session.requestedForward,projected,
+                selected.typographyFactor(),selected.layout().factor(),selected.fieldOfView())
+                : mounted != null ? MenuWorldPresentation.prepare(session.presentation,mounted.surface(),requested,
                 selected.typographyFactor(),selected.theme(),worldPanels.availableEntities(session)) : session.presentation.prepare(player, readingEye,
                 nextView == null ? session.requestedForward : nextView.forward(), requested,
                 selected.typographyFactor(), selected.layout().factor(), selected.fieldOfView(), selected.theme(),
@@ -1917,9 +2036,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         renderPopoverCatcher(session, player);
         String animatedIcon = MenuIconRenderer.animationOwner(session.layoutSnapshot.icons());
         Map<UUID, AxiomImage> imageFrame = new HashMap<>();
-        MenuWorldOverlayMask worldOverlays = session.decorations.stream().anyMatch(decoration -> decoration.definition.worldAnchored()
-                && (decoration.definition.content() instanceof FloatingMenuDecoration.Text
-                || decoration.definition.content() instanceof FloatingMenuDecoration.BlockOutline)) ? worldOverlayMask(session,player) : null;
+        MenuWorldOverlayMask worldLabels = session.decorations.stream().anyMatch(decoration -> decoration.definition.worldAnchored()
+                && decoration.definition.content() instanceof FloatingMenuDecoration.Text) ? worldOverlayMask(session,player) : null;
         for (Decoration decoration : session.decorations) {
             if (decoration.definition.placement() instanceof FloatingMenuPlacement.Local) {
                 FloatingMenuPose projected = decorationPose(decoration.definition, session.layoutSnapshot,
@@ -2039,7 +2157,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         (float) angles.roll()).multiply(anchorDown));
             }
             if (!decoration.definition.worldAnchored()) { yaw = 0; pitch = 0; }
-            maskWorldOverlay(decoration,at,yaw,pitch,worldOverlays);
+            maskWorldText(decoration,at,yaw,pitch,worldLabels);
             boolean metadataChanged = decoration.metadata.needsUpdate(decorationContext(session, decoration));
             if (metadataChanged) updateDecoration(session, player, decoration);
             boolean moved = decoration.shouldTeleport(at, yaw, pitch);
@@ -2196,7 +2314,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private String pickOwnedTarget(Session session, Player player) {
-        if (session.obstructed() || inputBlocked(player) || tooltips.occludes(player)) return null;
+        if (session.obstructed() || session.windowMove != null || inputBlocked(player) || tooltips.occludes(player)) return null;
         Location eye = player.getEyeLocation();
         String picked = null;
         double nearest = Double.POSITIVE_INFINITY;
@@ -2287,6 +2405,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             shutdown.attempt("menu tooltip",() -> tooltips.clear(session.playerId));
         }
         disposePopoverPanel(session);
+        session.windowMove = null;
         if (session.workspace != null) shutdown.attempt("workspace windows", session.workspace::close);
         if (session.mount == null || session.pointedId != null) session.inputGate.consume();
         session.clearPressFeedback();
@@ -2619,7 +2738,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         public FloatingMenuState state() {
             requirePrimaryThread("state");
             Session session = handleSession(playerId,id);
-            if (session != null && session.id.equals(id)) return session.hostPaused || session.workspace != null && session.workspace.paused() ? FloatingMenuState.SUSPENDED : session.state;
+            if (session != null && session.id.equals(id)) return (session.state == FloatingMenuState.ACTIVE || session.state == FloatingMenuState.OPENING)
+                    && (session.hostPaused || session.workspace != null && (session.workspace.paused() || session.workspace.minimized()))
+                    ? FloatingMenuState.SUSPENDED : session.state;
             if (session != null && session.ancestor(id) != null) return FloatingMenuState.SUSPENDED;
             return FloatingMenuState.CLOSED;
         }
@@ -2635,6 +2756,22 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             }
             return -1;
         }
+
+        private void windowControl(java.util.function.Consumer<MenuWorkspaceSession> action) {
+            if (!Bukkit.isPrimaryThread()) { execute(() -> windowControl(action)); return; }
+            Session session = handleSession(playerId,id);
+            if (session != null && session.id.equals(id) && session.workspace != null && session.mount == null)
+                action.accept(session.workspace);
+        }
+        @Override public boolean focused() {
+            Session session = handleSession(playerId,id);
+            return session != null && session.id.equals(id) && session.workspace != null && !session.workspace.minimized() && session.workspace.focused().equals(id);
+        }
+        @Override public void activate() { windowControl(workspace -> workspace.restore(id)); }
+        @Override public void minimize() { windowControl(workspace -> workspace.minimize(id)); }
+        @Override public void restore() { windowControl(workspace -> workspace.restore(id)); }
+        @Override public void position(MenuWindowSpec.Position value) { windowControl(workspace -> workspace.position(id,value)); }
+        @Override public void move() { windowControl(workspace -> workspace.move(id)); }
 
         @Override
         public void refresh() {
@@ -3044,6 +3181,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         private MenuScene definition;
         private MenuScene authored;
         private MenuWorkspaceSession workspace;
+        private WindowMove windowMove;
         private UUID popoverOwner;
         private Object refreshRevision;
         private SceneGeometry layoutSnapshot;
@@ -3323,12 +3461,12 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         }
 
         private boolean directLayout(Button button) {
-            return mount != null || preferences.reducedMotion() || !button.sharedTransition && (definition.spatialFrame() == FloatingMenuSpatialFrame.FRONT_ARC
+            return windowMove != null || mount != null || preferences.reducedMotion() || !button.sharedTransition && (definition.spatialFrame() == FloatingMenuSpatialFrame.FRONT_ARC
                     || layoutSnapshot.transformedContents().contains(button.id));
         }
 
         private boolean directLayout(Decoration decoration) {
-            return mount != null || MenuPopover.owns(decoration.definition.id()) || preferences.reducedMotion() || definition.spatialFrame().viewerCentered()
+            return windowMove != null || mount != null || MenuPopover.owns(decoration.definition.id()) || preferences.reducedMotion() || definition.spatialFrame().viewerCentered()
                     || decoration.definition.transition() == FloatingMenuDecoration.Transition.TRACKING;
         }
 

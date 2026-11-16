@@ -75,6 +75,8 @@ final class ComponentSceneProjector {
         } catch (IllegalArgumentException error) { throw invalid(path, error); }
     }
 
+    UiTransform spatialTransform(String path) { return ancestor(transforms,path,UiTransform.IDENTITY); }
+
     private UiTransform groupTransform(Plane plane, UiFrame.Group group) {
         UiVector3 pivot = plane.point(group.x() + group.size().width() * group.pivot().xFraction(),
                 group.y() + group.size().height() * group.pivot().yFraction(), group.pivot().depth());

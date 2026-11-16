@@ -95,11 +95,11 @@ menu-search-limit = Mostrando { $arg0 } de { $arg1 }. Concreta la búsqueda.
 menu-search-loading = Buscando…
 menu-search-retry = Reintentar
 menu-usage-display-mm = <aqua><bold>En el menú</bold></aqua>
-menu-window-list = Ventanas
 menu-window-minimize = Minimizar ventana
 menu-window-restore = Restaurar ventana
 menu-window-blocked = Completa o cancela primero la tarea que bloquea esta ventana.
-menu-window-position = Cambiar posición de la ventana
+menu-window-move = Mover ventana
+menu-window-move-hint = Clic izquierdo: fijar · Clic derecho: cancelar
 menu-window-failed = No se pudo abrir o actualizar la ventana.
 
 url-dialog-confirm = Abrir
@@ -2156,11 +2156,11 @@ music-space-label =
     { $arg0 ->
         [title] Espacio musical
         [devices] Dispositivos
-        [all-devices] Todos los dispositivos
-        [use-device] Usar este dispositivo
-        [current-device] Dispositivo actual
+        [all-devices] Todos
+        [use-device] Reproducir biblioteca aquí
+        [current-device] Destino de la biblioteca
         [manage-device] Administrar
-        [back-devices] Volver a dispositivos
+        [back-devices] Volver a la lista
         [group-with-devices] Agrupar con otros dispositivos
         [pick-world-member] Elegir un dispositivo en el mundo
         [group-world-pick-hint] Haz clic derecho en un tocadiscos mientras te agachas con la mano vacía para añadirlo; /music vuelve al menú.
@@ -2196,6 +2196,8 @@ music-space-label =
         [add-members] Añadir dispositivos
         [create-play] Crear y reproducir
         [create-and-append] Crear y añadir canciones al final
+        [device-playback] Reproducción
+        [device-target-help] Elige dónde se reproducirá la biblioteca. Esta ventana sigue controlando el dispositivo o grupo de su título.
         [device-queue] Cola
         [device-members] Miembros
         [available] Disponible
@@ -2237,6 +2239,8 @@ music-space-label =
         [no-playlists] No hay listas
         [fetching-playlist] Cargando lista…
         [artist] Artista
+        [album] Álbum
+        [original-author] Autor original
         [duration] Duración
         [track-type] Tipo
         [type-online] En línea
@@ -2260,9 +2264,9 @@ music-space-label =
         [queue-current] Canción actual de la cola digital
         [pause] Pausar
         [resume] Reanudar
-        [stop] Detener y conservar la lista
+        [stop] Detener reproducción
         [previous] Canción anterior / reiniciar
-        [clear] Vaciar pendientes; detener tras la canción actual
+        [clear] Vaciar pendientes
         [seek] Posición
         [more] Más
         [volume-control] Volumen
@@ -2271,8 +2275,8 @@ music-space-label =
         [timeline-read-only] No se puede cambiar la posición
         [seek-format] Introduce m:ss, h:mm:ss o segundos
         [record] Guardar para control remoto
-        [forget] Eliminar mis dispositivos guardados
-        [alias] Alias personal del dispositivo
+        [forget] Olvidar dispositivo
+        [alias] Alias personal
         [sound] Ajustes de sonido
         [rhythm] Salas de ritmo
         [room-players] Jugadores
@@ -2294,7 +2298,7 @@ music-space-label =
         [sequential] En orden
         [repeat-all] Repetir lista
         [repeat-one] Repetir canción
-        [shuffle] Aleatorio sin repeticiones
+        [shuffle] Reproducción aleatoria
         [import] Importar lista
         [link] Enlace de la lista
         [partial-import] Solo se ha obtenido parte de la lista. Guarda esa parte si quieres conservarla.
@@ -2375,7 +2379,7 @@ music-space-error =
         [CONFLICT] El contenido ha cambiado. Actualiza la vista y vuelve a seleccionar.
         [LIMIT] Se ha alcanzado el límite de recursos de música.
         [INVALID] Comprueba el nombre, la selección o el intervalo numérico.
-        [OFFLINE] Dispositivo no disponible: carga su chunk o expulsa el disco físico.
+        [OFFLINE] Tocadiscos retirado o chunk sin cargar
         [OVERLAP] Las zonas de audición se solapan. Detén otro dispositivo, reduce el alcance o crea un grupo sincronizado.
         [UNSUPPORTED] Este medio no admite esa acción.
         [BUSY] El dispositivo, la solicitud o la sala de ritmo están ocupados. Inténtalo de nuevo cuando termine la operación.

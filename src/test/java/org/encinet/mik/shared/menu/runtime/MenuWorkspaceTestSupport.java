@@ -9,7 +9,7 @@ import org.encinet.mik.shared.menu.ui.UiKey;
 /** Feature tests use the real ownership and composition runtime without allocating network entities. */
 public final class MenuWorkspaceTestSupport implements AutoCloseable {
     private static final Component LABEL = Component.text("Window");
-    private static final MenuWorkspaceSession.Labels LABELS = new MenuWorkspaceSession.Labels(LABEL,LABEL,LABEL,LABEL,LABEL,LABEL,LABEL,LABEL,LABEL);
+    private static final MenuWorkspaceSession.Labels LABELS = new MenuWorkspaceSession.Labels(LABEL,LABEL,LABEL,LABEL,LABEL,LABEL);
     private final UUID id = UUID.randomUUID();
     private final UUID player;
     private final Root root = new Root();
@@ -66,7 +66,13 @@ public final class MenuWorkspaceTestSupport implements AutoCloseable {
     private final class Root implements FloatingMenuHandle {
         public UUID id() { return id; }
         public UUID playerId() { return player; }
-        public FloatingMenuState state() { return closed ? FloatingMenuState.CLOSED : manager.paused() ? FloatingMenuState.SUSPENDED : FloatingMenuState.ACTIVE; }
+        public FloatingMenuState state() { return closed ? FloatingMenuState.CLOSED : manager.paused() || manager.minimized() ? FloatingMenuState.SUSPENDED : FloatingMenuState.ACTIVE; }
+        public boolean focused() { return !closed && !manager.minimized() && manager.focused().equals(id); }
+        public void activate() { manager.restore(id); }
+        public void minimize() { manager.minimize(id); }
+        public void restore() { manager.restore(id); }
+        public void position(MenuWindowSpec.Position value) { manager.position(id,value); }
+        public void move() { manager.move(id); }
         public int depth() { return 0; }
         public void refresh() { MenuWorkspaceTestSupport.this.refresh(); }
         public void reanchor() { }

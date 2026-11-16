@@ -8,12 +8,29 @@ import org.encinet.mik.feature.community.communication.AnnouncementCatalog.Annou
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
+import org.encinet.mik.shared.menu.runtime.MenuWorkspaceTestSupport;
 import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
 import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AnnouncementMenuTest {
+    @Test void managedReaderRetainsItsNativePlanesAndDismissalWithoutAnOuterWindow() throws Exception {
+        var board = new AnnouncementBoard(AnnouncementBrowserStateTest.notices());
+        var state = new AtomicReference<>(AnnouncementBrowserState.INITIAL);
+        var scene = menu(board,state,Language.ZH_CN,1,true,() -> {});
+        var authored = SceneGeometryTestSupport.measure(scene,1);
+        try (var workspace = new MenuWorkspaceTestSupport(java.util.UUID.randomUUID(),scene)) {
+            var frame = SceneGeometryTestSupport.measure(workspace.composed(),1);
+            assertEquals(authored.panels().size(),frame.panels().size());
+            assertEquals(authored.surfaces().size(),frame.surfaces().size());
+            assertEquals(1,frame.elements().stream().filter(node -> node.node().key().value().equals("dismiss")).count());
+            assertNotNull(element(frame,"move"));
+            assertTrue(frame.elements().stream().noneMatch(node -> node.node().key().value().equals("title")));
+            assertNotNull(element(frame,"body")); assertNotNull(element(frame,"notice:"+board.entry(0).id()));
+        }
+    }
+
     @Test void directoryActionsAndReadingActionsUseTheirOwnScopeAndRememberTheSourceBookmark() throws Exception {
         var board = new AnnouncementBoard(AnnouncementBrowserStateTest.notices());
         var state = new AtomicReference<>(AnnouncementBrowserState.INITIAL);
@@ -117,6 +134,7 @@ class AnnouncementMenuTest {
             assertDisjoint(lastFrame);
             SceneGeometryTestSupport.assertVisualContentsFit(last, scale.factor());
             assertEquals(firstFrame.readingRegion().size(), lastFrame.readingRegion().size(), language + " @ " + scale);
+            assertNotNull(element(firstFrame,"dismiss"));
             for (String id : List.of("body", "previous", "next", "latest", "reload", "dismiss")) {
                 assertEquals(element(firstFrame, id).x(), element(lastFrame, id).x(), 1e-6, language + " horizontal " + id);
                 assertEquals(element(firstFrame, id).y(), element(lastFrame, id).y(), 1e-6, language + " vertical " + id);

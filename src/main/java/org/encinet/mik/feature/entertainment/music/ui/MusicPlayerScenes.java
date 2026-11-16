@@ -59,6 +59,10 @@ final class MusicPlayerScenes implements AutoCloseable {
     }
 
     UiNode compact(Player player, MusicWorkspaceState state) {
+        if (state.panel() instanceof DevicePanel) {
+            return Ui.button(w.label(player,"device-playback")).key("device-playback")
+                    .primary((_,_) -> w.panel(player,state,new DevicePanel(state.target(),DeviceSection.PLAYBACK))).build();
+        }
         return MusicPlayerComposition.context(targetControl(player,state),null);
     }
 
@@ -88,7 +92,8 @@ final class MusicPlayerScenes implements AutoCloseable {
             var mode = Ui.button(w.label(player, mode(program.mode()))).key(modeKey).summaryLines(1).textWidth(120)
                     .primary((_, handle) -> handle.openPopover(modeKey, _ -> panels.modes(player, state, id)));
             if (!editable) mode.disabled(reason);
-            var context = MusicPlayerComposition.context(target, snapshot.entry() == null && snapshot.generation() != null ? null : mode.build());
+            var context = state.panel() instanceof DevicePanel ? mode.build()
+                    : MusicPlayerComposition.context(target, snapshot.entry() == null && snapshot.generation() != null ? null : mode.build());
 
             UiNode previous = playbackKey(player, state, snapshot, "previous", UiIcons.PREVIOUS, MusicPlaybackController.Action.PREVIOUS,
                     editable && controls.previous(), reason);
@@ -140,7 +145,8 @@ final class MusicPlayerScenes implements AutoCloseable {
                             ? new NoPanel() : new DevicePanel(id, DeviceSection.QUEUE))).build();
             var more = Ui.button(UiIcons.MORE, w.label(player, "more")).key(moreKey)
                     .primary((_, handle) -> handle.openPopover(moreKey, _ -> panels.more(player, state, snapshot))).build();
-            var actions = MusicPlayerComposition.actions(volume.build(), queue, more);
+            UiNode actions = state.panel() instanceof DevicePanel ? volume.build()
+                    : MusicPlayerComposition.actions(volume.build(), queue, more);
 
             var feedback = column("player-feedback");
             if (!online) feedback.child(info("offline", w.label(player, "offline")));

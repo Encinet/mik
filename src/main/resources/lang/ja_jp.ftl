@@ -95,11 +95,11 @@ menu-search-limit = { $arg0 } / { $arg1 } を表示。検索条件を絞り込�
 menu-search-loading = 検索中…
 menu-search-retry = 再試行
 menu-usage-display-mm = <aqua><bold>メニュー操作中</bold></aqua>
-menu-window-list = ウィンドウ一覧
 menu-window-minimize = ウィンドウを最小化
 menu-window-restore = ウィンドウを復元
 menu-window-blocked = 先に操作中のタスクを完了またはキャンセルしてください。
-menu-window-position = ウィンドウの位置を変更
+menu-window-move = ウィンドウを移動
+menu-window-move-hint = 左クリックで固定・右クリックで取消
 menu-window-failed = ウィンドウを開くか更新できませんでした。
 
 url-dialog-confirm = 開く
@@ -1898,11 +1898,11 @@ music-space-label =
     { $arg0 ->
         [title] 音楽空間
         [devices] 再生デバイス
-        [all-devices] すべてのデバイス
-        [use-device] このデバイスを使う
-        [current-device] 現在のデバイス
+        [all-devices] すべて
+        [use-device] ライブラリをここで再生
+        [current-device] ライブラリの再生先
         [manage-device] 管理
-        [back-devices] デバイス一覧へ
+        [back-devices] 一覧に戻る
         [group-with-devices] 他のデバイスとグループ化
         [pick-world-member] ワールドで1台選ぶ
         [group-world-pick-hint] 空の手でスニークしながらジュークボックスを右クリックして追加。/music でメニューに戻れます。
@@ -1938,6 +1938,8 @@ music-space-label =
         [add-members] デバイスを追加
         [create-play] 作成して再生
         [create-and-append] 作成して曲を末尾に追加
+        [device-playback] 再生
+        [device-target-help] 今後のライブラリ再生先を選びます。このウィンドウは常にタイトルの機器またはグループを操作します。
         [device-queue] キュー
         [device-members] メンバー
         [available] 利用可能
@@ -1979,6 +1981,8 @@ music-space-label =
         [no-playlists] プレイリストがありません
         [fetching-playlist] プレイリストを読み込み中…
         [artist] アーティスト
+        [album] アルバム
+        [original-author] 原作者
         [duration] 再生時間
         [track-type] 種類
         [type-online] オンライン
@@ -2002,9 +2006,9 @@ music-space-label =
         [queue-current] デジタルキューの現在の曲
         [pause] 一時停止
         [resume] 再開
-        [stop] 停止して再生リストを保持
+        [stop] 再生停止
         [previous] 前の曲 / 最初から再生
-        [clear] 再生待ちを消去し、現在の曲の後に停止
+        [clear] 再生待ちをクリア
         [seek] 再生位置
         [more] その他
         [volume-control] 音量
@@ -2013,8 +2017,8 @@ music-space-label =
         [timeline-read-only] 再生位置を変更できません
         [seek-format] m:ss、h:mm:ss または秒数を入力
         [record] 遠隔操作用に登録
-        [forget] 自分の登録を解除
-        [alias] 自分用のデバイス名
+        [forget] 登録解除
+        [alias] 個人用の別名
         [sound] サウンド設定
         [rhythm] 音楽ゲームルーム
         [room-players] プレイヤー
@@ -2036,7 +2040,7 @@ music-space-label =
         [sequential] 順番に再生
         [repeat-all] リストをリピート
         [repeat-one] 1曲リピート
-        [shuffle] 重複なしのシャッフル
+        [shuffle] シャッフル再生
         [import] プレイリストをインポート
         [link] プレイリストのリンク
         [partial-import] プレイリストの一部のみ取得できました。取得済みの部分を残すには保存してください。
@@ -2117,7 +2121,7 @@ music-space-error =
         [CONFLICT] 内容が変更されました。更新して選び直してください。
         [LIMIT] 音楽リソースの上限に達しました。
         [INVALID] 名前、選択内容、数値の範囲を確認してください。
-        [OFFLINE] デバイスを利用できません。チャンクを読み込むか、挿入したレコードを取り出してください。
+        [OFFLINE] ジュークボックス撤去済み、またはチャンク未読込
         [OVERLAP] 音が聞こえる範囲が重なっています。別のデバイスを停止するか、範囲を狭めるか、同期グループを作成してください。
         [UNSUPPORTED] このメディアはこの操作に対応していません。
         [BUSY] デバイス、リクエスト、または音楽ゲームルームが使用中です。処理の完了後に再試行してください。

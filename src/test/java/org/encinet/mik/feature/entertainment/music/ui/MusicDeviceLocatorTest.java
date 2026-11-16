@@ -98,6 +98,24 @@ class MusicDeviceLocatorTest {
         }
     }
 
+    @Test void standaloneAndGroupedDevicesBothDeclareNamesAndOutlinesForRuntimeOcclusion() {
+        var h = new Harness();
+        var onsite = h.add(1,64,0); var nearby = h.add(3,64,0);
+        h.state.target(nearby.id());
+        var builder = MenuScene.screen("onsite");
+        h.locator.decorate(h.player,h.state,builder);
+        var decorations = builder.build().decorations();
+        assertTrue(decorations.containsKey("mark:"+onsite.id()));
+        assertTrue(decorations.containsKey("outline:"+onsite.id()));
+        assertTrue(decorations.containsKey("mark:"+nearby.id()));
+        assertTrue(decorations.containsKey("outline:"+nearby.id()));
+        UUID group = UUID.randomUUID();
+        h.data.devices.put(onsite.id(),onsite.grouped(group));
+        var grouped = MenuScene.screen("grouped");
+        h.locator.decorate(h.player,h.state,grouped);
+        assertTrue(grouped.build().decorations().containsKey("mark:"+onsite.id()));
+    }
+
     @Test void rangeUsesTheBlockCenterAndRefreshesAcrossItsBoundaryWithoutCheckingDistantBlocks() {
         var h = new Harness();
         var edge = h.add(64,64,0);

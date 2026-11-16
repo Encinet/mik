@@ -216,14 +216,26 @@ final class MusicLibraryScenes {
         // A detail window holds the clicked song even if playback advances underneath it.
         return () -> {
             var owned = window.current();
-            var body = column("track").child(info("song", w.raw(track.details().title())).withSummaryLines(3));
-            body.child(info("artist", w.raw(track.details().artist() == null ? "—" : track.details().artist())));
-            body.child(info("duration", w.label(player,"duration").append(w.raw(" · " + (track.details().audio().duration() == null
-                    ? "—" : MusicTime.format(track.details().audio().duration().toMillis()))))));
-            body.child(info("type", w.label(player,"track-type").append(w.raw(" · " + track.details().format().toUpperCase(Locale.ROOT)))));
-            body.child(info("output", w.targetSummary(player, state.target())).withSummaryLines(1));
-            var actions = tools("track-actions").child(MusicPlaybackActions.buttons(List.of(track), key -> w.label(player,key),
-                    (songs,placement) -> { if (owned.getAsBoolean()) w.safe(player,() -> w.submit(player,songs,placement)); }));
+            var identity = column("track-identity").child(Ui.heading(w.raw(track.details().title())).key("song")
+                    .style(UiTheme.TITLE).summaryLines(3).textWidth(220)
+                    .alignment(FloatingMenuDecoration.Alignment.LEFT).build(),LinearSlot.fit(LinearSlot.Alignment.START));
+            if (track.details().artist() != null) identity.child(Ui.text(w.raw(track.details().artist())).key("artist")
+                    .summaryLines(2).textWidth(220).alignment(FloatingMenuDecoration.Alignment.LEFT).build(),LinearSlot.fit(LinearSlot.Alignment.START));
+            var facts = new ArrayList<UiNode>();
+            facts.add(UiTemplates.fact(UiKey.named("duration"),w.label(player,"duration"),w.raw(track.details().audio().duration() == null
+                    ? "—" : MusicTime.format(track.details().audio().duration().toMillis()))));
+            facts.add(UiTemplates.fact(UiKey.named("type"),w.label(player,"track-type"),w.raw(track.details().format().toUpperCase(Locale.ROOT))));
+            if (track.details().album() != null) facts.add(UiTemplates.fact(UiKey.named("album"),w.label(player,"album"),w.raw(track.details().album())));
+            if (track.details().originalAuthor() != null && !track.details().originalAuthor().equals(track.details().artist()))
+                facts.add(UiTemplates.fact(UiKey.named("original-author"),w.label(player,"original-author"),w.raw(track.details().originalAuthor())));
+            var playback = MusicPlaybackActions.buttons(List.of(track), key -> w.label(player,key),
+                    (songs,placement) -> { if (owned.getAsBoolean()) w.safe(player,() -> w.submit(player,songs,placement)); });
+            Component output = state.target() == null ? w.label(player,"choose-targets")
+                    : w.language.text(player,Message.MUSIC_SPACE_PLAYBACK_TARGET,NamedTextColor.WHITE,w.outputs.name(player,state.target()));
+            var outputControl = Ui.button(output).key("output").summaryLines(1).textWidth(180)
+                    .primary((_,handle) -> { if (owned.getAsBoolean()) handle.openPopover(UiKey.named("output"),redraw -> w.outputs.picker(player,state,redraw)); }).build();
+            var primary = UiTemplates.actionRow(outputControl,playback);
+            var actions = tools("track-actions");
             actions.child(Ui.button(w.label(player,"add-playlist")).key("save-details")
                     .primary((_,_) -> { if (owned.getAsBoolean()) window.openWindow(MenuWindowSpec.task(UiKey.named("save-destination")), context -> w.playlistPicker.panel(player,state,List.of(track),context.handle())); }).build());
             actions.child(w.button(player, "make-disc", () -> {
@@ -246,8 +258,9 @@ final class MusicLibraryScenes {
                             w.rooms.open(player,device.id()); w.rooms.select(player,device.id(),track); w.panel(player,state,new Room(device.id()));
                         })));
             }
-            return MenuScene.screen("music-track",w.label(player,"track-details")).content(body.child(actions.build())
-                    .children(w.taskStatus(player,state,new TaskKey(Work.LIBRARY,player.getUniqueId()))).build()).build();
+            var feedback = column("track-feedback").children(w.taskStatus(player,state,new TaskKey(Work.LIBRARY,player.getUniqueId()))).build();
+            return MenuScene.screen("music-track",w.label(player,"track-details")).content(UiTemplates.detail(
+                    identity.build(),UiTemplates.facts(facts),primary,actions.build(),feedback)).build();
         };
     }
     private UiNode playbackActions(Player player, List<MusicTrack> tracks) {
@@ -296,9 +309,12 @@ final class MusicLibraryScenes {
                         .content(info("unavailable",w.problem(player,unavailable.code()))).build();
             }
             boolean editable = list.author().equals(player.getUniqueId());
-            var body = column("playlist-settings").child(info("name",w.raw(list.name())).withSummaryLines(2));
-            if (!list.description().isBlank()) body.child(info("description",w.raw(list.description())).withSummaryLines(3));
-            body.child(info("visibility",w.label(player,list.published() ? "public" : "private")));
+            var identity = column("playlist-identity").child(Ui.heading(w.raw(list.name())).key("name").style(UiTheme.TITLE)
+                    .summaryLines(2).textWidth(220).alignment(FloatingMenuDecoration.Alignment.LEFT).build(),LinearSlot.fit(LinearSlot.Alignment.START));
+            if (!list.description().isBlank()) identity.child(Ui.text(w.raw(list.description())).key("description")
+                    .summaryLines(3).textWidth(220).alignment(FloatingMenuDecoration.Alignment.LEFT).build(),LinearSlot.fit(LinearSlot.Alignment.START));
+            var facts = UiTemplates.facts(List.of(UiTemplates.fact(UiKey.named("visibility"),w.label(player,"visibility"),
+                    w.label(player,list.published() ? "public" : "private"))));
             var actions = tools("playlist-actions");
             var key = new TaskKey(Work.LIBRARY,id);
             if (editable) {
@@ -348,7 +364,7 @@ final class MusicLibraryScenes {
                         .clickEvent(ClickEvent.copyToClipboard("/music playlist " + id)));
             }));
             return MenuScene.screen("music-playlist-settings",w.label(player,"playlist-settings"))
-                    .content(body.child(actions.build()).children(w.taskStatus(player,state,key)).build()).build();
+                    .content(UiTemplates.detail(identity.build(),facts,null,actions.build(),column("playlist-feedback").children(w.taskStatus(player,state,key)).build())).build();
         };
     }
 }

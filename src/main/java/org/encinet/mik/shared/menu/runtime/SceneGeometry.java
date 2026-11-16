@@ -25,7 +25,8 @@ record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, FloatingMe
                      Map<String, FloatingMenuDecoration.IconPart> icons,
                      List<MenuPaginationInput.Region> pagination,
                      Map<String, UiStyle> styles, Set<String> panelContents, Set<String> transformedContents,
-                     FloatingMenuAnchorResolver.SceneBounds bounds, List<MenuWindowInput.Surface> panels, UiFrame frame, MenuScene definition, MenuPopoverGeometry popover) {
+                     FloatingMenuAnchorResolver.SceneBounds bounds, List<MenuWindowInput.Surface> panels, UiFrame frame, MenuScene definition, MenuPopoverGeometry popover,
+                     MenuScene source) {
     static SceneGeometry measure(MenuScene definition, double typography, FloatingMenuFieldOfView fov, double scale) {
         return measure(definition, typography, fov, scale, UiPalette.DEFAULT);
     }
@@ -51,7 +52,8 @@ record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, FloatingMe
                                      double scale, UiThemeColors theme, MenuTextMeasurementCache measurements,
                                      org.encinet.mik.shared.menu.ui.UiSize viewport) {
         ComponentSceneLayout.Result result = ComponentSceneLayout.measure(definition, typography, fov, scale, theme, measurements, viewport);
-        definition = definition.measured(result.frame());
+        var source = definition;
+        definition = result.definition().measured(result.frame());
         Map<String, UiStyle> styles = new HashMap<>();
         Map<String, Component> labels = new HashMap<>();
         Set<String> panelContents = new HashSet<>();
@@ -70,13 +72,24 @@ record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, FloatingMe
         requireEntityBudget(definition,styles,result.generatedDecorations().size());
         var bounds = FloatingMenuAnchorResolver.measure(definition, result.poses(), result.sizes(), typography, fov, scale, result.surfaceBounds());
         var base = new SceneGeometry(result.poses(), result.sizes(), Map.copyOf(labels), result.measurements(), result.generatedDecorations(), result.ranges(), result.icons(), result.pagination(),
-                Map.copyOf(styles), Set.copyOf(panelContents), Set.copyOf(transformedContents), bounds, result.panels(), result.frame(), definition, null);
+                Map.copyOf(styles), Set.copyOf(panelContents), Set.copyOf(transformedContents), bounds, result.panels(), result.frame(), definition, null,source);
         return base;
     }
 
     SceneGeometry withPopover(MenuScene requested, double typography, FloatingMenuFieldOfView fov, double scale,
                               UiThemeColors theme, MenuReadingParameters reading) {
         return withPopover(requested, typography, fov, scale, theme, reading, null);
+    }
+
+    /** Moving a retained window changes projection, never pagination or text measurement. */
+    SceneGeometry reposition(UiFrame movedFrame, double typography, FloatingMenuFieldOfView fov,
+                             double scale, UiThemeColors theme) {
+        if (popover != null) throw new IllegalStateException("Dismiss attached content before moving a window");
+        var result = ComponentSceneLayout.project(source,movedFrame,typography,fov,scale,theme,measurements);
+        var moved = result.definition().measured(movedFrame);
+        var bounds = FloatingMenuAnchorResolver.measure(moved,result.poses(),result.sizes(),typography,fov,scale,result.surfaceBounds());
+        return new SceneGeometry(result.poses(),result.sizes(),labels,result.measurements(),result.generatedDecorations(),result.ranges(),result.icons(),
+                result.pagination(),styles,panelContents,transformedContents,bounds,result.panels(),movedFrame,moved,null,source);
     }
 
     SceneGeometry withPopover(MenuScene requested, double typography, FloatingMenuFieldOfView fov, double scale,
@@ -95,11 +108,11 @@ record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, FloatingMe
             generated.put(scoped, new FloatingMenuDecoration(scoped, decoration.placement(), decoration.content(), decoration.motion(),
                     FloatingMenuDecoration.Transition.TRACKING));
         });
-        var realized = requested.measured(base.frame(), layer.frame());
+        var realized = base.definition().toBuilder().popover(requested.popover()).build().measured(base.frame(), layer.frame());
         requireEntityBudget(realized,allStyles,generated.size());
         return new SceneGeometry(merge(base.poses(), layer.poses()), merge(base.sizes(), layer.sizes()), merge(base.labels(), layer.labels()),
                 merge(base.measurements(), layer.measurements()), Map.copyOf(generated), merge(base.ranges(), layer.ranges()), merge(base.icons(), layer.icons()), base.pagination(), allStyles, Set.copyOf(allPanelContents),
-                Set.copyOf(allTransformed), base.bounds(), base.panels(), base.frame(), realized, companion);
+                Set.copyOf(allTransformed), base.bounds(), base.panels(), base.frame(), realized, companion,source);
     }
 
     private static <T> Map<String, T> merge(Map<String, T> base, Map<String, T> layer) {

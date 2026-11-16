@@ -109,11 +109,11 @@ menu-search-limit = Показано { $arg0 } з { $arg1 }. Уточніть п
 menu-search-loading = Пошук…
 menu-search-retry = Спробувати знову
 menu-usage-display-mm = <aqua><bold>У меню</bold></aqua>
-menu-window-list = Вікна
 menu-window-minimize = Згорнути вікно
 menu-window-restore = Відновити вікно
 menu-window-blocked = Спочатку завершіть або скасуйте завдання, що блокує це вікно.
-menu-window-position = Змінити положення вікна
+menu-window-move = Перемістити вікно
+menu-window-move-hint = ЛКМ — закріпити · ПКМ — скасувати
 menu-window-failed = Не вдалося відкрити або оновити вікно.
 
 url-dialog-confirm = Відкрити
@@ -2190,11 +2190,11 @@ music-space-label =
     { $arg0 ->
         [title] Музичний простір
         [devices] Пристрої
-        [all-devices] Усі пристрої
-        [use-device] Використати пристрій
-        [current-device] Поточний пристрій
+        [all-devices] Усі
+        [use-device] Грати бібліотеку тут
+        [current-device] Пристрій бібліотеки
         [manage-device] Керування
-        [back-devices] До списку пристроїв
+        [back-devices] До списку
         [group-with-devices] Об’єднати з іншими пристроями
         [pick-world-member] Вибрати пристрій у світі
         [group-world-pick-hint] Крадучись, натисніть ПКМ на програвачі порожньою рукою, щоб додати його; /music поверне меню.
@@ -2230,6 +2230,8 @@ music-space-label =
         [add-members] Додати пристрої
         [create-play] Створити й відтворити
         [create-and-append] Створити й додати пісні в кінець
+        [device-playback] Відтворення
+        [device-target-help] Виберіть, де відтворювати бібліотеку далі. Це вікно завжди керує пристроєм або групою із заголовка.
         [device-queue] Черга
         [device-members] Учасники
         [available] Доступно
@@ -2271,6 +2273,8 @@ music-space-label =
         [no-playlists] Немає списків відтворення
         [fetching-playlist] Завантаження списку відтворення…
         [artist] Виконавець
+        [album] Альбом
+        [original-author] Автор оригіналу
         [duration] Тривалість
         [track-type] Тип
         [type-online] Онлайн
@@ -2294,9 +2298,9 @@ music-space-label =
         [queue-current] Поточна пісня цифрової черги
         [pause] Призупинити
         [resume] Продовжити
-        [stop] Зупинити та зберегти список відтворення
+        [stop] Зупинити відтворення
         [previous] Попередня пісня / спочатку
-        [clear] Очистити чергу; зупинити після поточної пісні
+        [clear] Очистити наступні
         [seek] Позиція
         [more] Ще
         [volume-control] Гучність
@@ -2305,8 +2309,8 @@ music-space-label =
         [timeline-read-only] Перемотування недоступне
         [seek-format] Введіть m:ss, h:mm:ss або секунди
         [record] Зберегти для віддаленого керування
-        [forget] Видалити мої збережені пристрої
-        [alias] Особиста назва пристрою
+        [forget] Забути пристрій
+        [alias] Особиста назва
         [sound] Налаштування звуку
         [rhythm] Ритм-кімнати
         [room-players] Гравці
@@ -2328,7 +2332,7 @@ music-space-label =
         [sequential] За порядком
         [repeat-all] Повтор списку
         [repeat-one] Повторювати пісню
-        [shuffle] У випадковому порядку без повторів
+        [shuffle] Випадковий порядок
         [import] Імпортувати плейліст
         [link] Посилання на плейліст
         [partial-import] Завантажено лише частину плейлиста. Збережіть її, якщо хочете залишити.
@@ -2409,7 +2413,7 @@ music-space-error =
         [CONFLICT] Вміст змінився. Оновіть екран і виберіть знову.
         [LIMIT] Досягнуто ліміту музичних ресурсів.
         [INVALID] Перевірте ім’я, вибір або допустимий діапазон чисел.
-        [OFFLINE] Пристрій недоступний: завантажте його чанк або вийміть вставлену платівку.
+        [OFFLINE] Програвач видалено або чанк не завантажено
         [OVERLAP] Зони чутності перетинаються. Зупиніть інший пристрій, зменште радіус або створіть групу синхронізації.
         [UNSUPPORTED] Цей медіаресурс не підтримує такої дії.
         [BUSY] Пристрій, запит або ритм-кімната зайняті. Повторіть спробу після завершення операції.

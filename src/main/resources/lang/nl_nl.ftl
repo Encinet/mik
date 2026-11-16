@@ -95,11 +95,11 @@ menu-search-limit = Getoond: { $arg0 } / { $arg1 }. Verfijn de zoekopdracht.
 menu-search-loading = Zoeken…
 menu-search-retry = Opnieuw proberen
 menu-usage-display-mm = <aqua><bold>In menu</bold></aqua>
-menu-window-list = Vensters
 menu-window-minimize = Venster minimaliseren
 menu-window-restore = Venster herstellen
 menu-window-blocked = Voltooi of annuleer eerst de taak die dit venster blokkeert.
-menu-window-position = Vensterpositie wijzigen
+menu-window-move = Venster verplaatsen
+menu-window-move-hint = Linksklik: plaatsen · Rechtsklik: annuleren
 menu-window-failed = Het venster kon niet worden geopend of bijgewerkt.
 
 url-dialog-confirm = Openen
@@ -2144,11 +2144,11 @@ music-space-label =
     { $arg0 ->
         [title] Muziekruimte
         [devices] Afspeelapparaten
-        [all-devices] Alle apparaten
-        [use-device] Dit apparaat gebruiken
-        [current-device] Huidig apparaat
+        [all-devices] Alle
+        [use-device] Bibliotheek hier afspelen
+        [current-device] Afspeeldoel van bibliotheek
         [manage-device] Beheren
-        [back-devices] Terug naar apparaten
+        [back-devices] Terug naar lijst
         [group-with-devices] Met andere apparaten groeperen
         [pick-world-member] Een apparaat in de wereld kiezen
         [group-world-pick-hint] Klik met lege hand sluipend met rechts op een jukebox om deze toe te voegen; /music opent het menu weer.
@@ -2184,6 +2184,8 @@ music-space-label =
         [add-members] Apparaten toevoegen
         [create-play] Maken en afspelen
         [create-and-append] Maken en nummers achteraan toevoegen
+        [device-playback] Afspelen
+        [device-target-help] Kies waar de bibliotheek hierna afspeelt. Dit venster blijft het apparaat of de groep in de titel bedienen.
         [device-queue] Wachtrij
         [device-members] Leden
         [available] Beschikbaar
@@ -2225,6 +2227,8 @@ music-space-label =
         [no-playlists] Geen afspeellijsten
         [fetching-playlist] Afspeellijst laden…
         [artist] Artiest
+        [album] Album
+        [original-author] Oorspronkelijke auteur
         [duration] Duur
         [track-type] Type
         [type-online] Online
@@ -2248,9 +2252,9 @@ music-space-label =
         [queue-current] Huidig nummer in de digitale wachtrij
         [pause] Pauzeren
         [resume] Hervatten
-        [stop] Stoppen en afspeellijst bewaren
+        [stop] Afspelen stoppen
         [previous] Vorig nummer / opnieuw beginnen
-        [clear] Wachtrij wissen; stoppen na huidig nummer
+        [clear] Wachtrij wissen
         [seek] Positie
         [more] Meer
         [volume-control] Volume
@@ -2259,8 +2263,8 @@ music-space-label =
         [timeline-read-only] Positie wijzigen niet beschikbaar
         [seek-format] Voer m:ss, h:mm:ss of seconden in
         [record] Opslaan voor bediening op afstand
-        [forget] Mijn opgeslagen apparaten vergeten
-        [alias] Persoonlijke apparaatnaam
+        [forget] Apparaat vergeten
+        [alias] Persoonlijke alias
         [sound] Geluidsinstellingen
         [rhythm] Ritmekamers
         [room-players] Spelers
@@ -2282,7 +2286,7 @@ music-space-label =
         [sequential] Op volgorde
         [repeat-all] Lijst herhalen
         [repeat-one] Nummer herhalen
-        [shuffle] Willekeurig zonder herhalingen
+        [shuffle] Willekeurig afspelen
         [import] Afspeellijst importeren
         [link] Afspeellijstlink
         [partial-import] Slechts een deel van de afspeellijst is opgehaald. Sla dat deel op als je het wilt bewaren.
@@ -2363,7 +2367,7 @@ music-space-error =
         [CONFLICT] De inhoud is gewijzigd. Vernieuw de weergave en selecteer opnieuw.
         [LIMIT] De limiet voor muziekbronnen is bereikt.
         [INVALID] Controleer de naam, selectie of het getalbereik.
-        [OFFLINE] Apparaat niet beschikbaar: laad de chunk of werp de geplaatste plaat uit.
+        [OFFLINE] Jukebox verwijderd of chunk niet geladen
         [OVERLAP] Hoorbare gebieden overlappen. Stop een ander apparaat, verklein het bereik of maak een synchronisatiegroep.
         [UNSUPPORTED] Dit medium ondersteunt die actie niet.
         [BUSY] Het apparaat, het verzoek of de ritmekamer is bezet. Probeer het opnieuw zodra de taak is voltooid.

@@ -105,11 +105,11 @@ menu-search-limit = Angezeigt: { $arg0 } / { $arg1 }. Grenze die Suche ein.
 menu-search-loading = Suche läuft…
 menu-search-retry = Erneut versuchen
 menu-usage-display-mm = <aqua><bold>Im Menü</bold></aqua>
-menu-window-list = Fenster
 menu-window-minimize = Fenster minimieren
 menu-window-restore = Fenster wiederherstellen
 menu-window-blocked = Zuerst die blockierende Aufgabe abschließen oder abbrechen.
-menu-window-position = Fensterposition ändern
+menu-window-move = Fenster verschieben
+menu-window-move-hint = Linksklick: platzieren · Rechtsklick: abbrechen
 menu-window-failed = Fenster konnte nicht geöffnet oder aktualisiert werden.
 
 url-dialog-confirm = Öffnen
@@ -2145,11 +2145,11 @@ music-space-label =
     { $arg0 ->
         [title] Musikraum
         [devices] Wiedergabegeräte
-        [all-devices] Alle Geräte
-        [use-device] Dieses Gerät verwenden
-        [current-device] Aktuelles Gerät
+        [all-devices] Alle
+        [use-device] Bibliothek hier abspielen
+        [current-device] Wiedergabeziel der Bibliothek
         [manage-device] Verwalten
-        [back-devices] Zur Geräteliste
+        [back-devices] Zur Liste
         [group-with-devices] Mit anderen Geräten gruppieren
         [pick-world-member] Gerät in der Welt auswählen
         [group-world-pick-hint] Mit leerer Hand schleichend auf einen Plattenautomaten rechtsklicken, um ihn auszuwählen; /music führt zurück.
@@ -2185,6 +2185,8 @@ music-space-label =
         [add-members] Geräte hinzufügen
         [create-play] Erstellen und abspielen
         [create-and-append] Erstellen und Titel anhängen
+        [device-playback] Wiedergabe
+        [device-target-help] Wähle das Ziel für die nächste Bibliothekswiedergabe. Dieses Fenster steuert weiterhin das Gerät oder die Gruppe im Titel.
         [device-queue] Warteschlange
         [device-members] Mitglieder
         [available] Verfügbar
@@ -2226,6 +2228,8 @@ music-space-label =
         [no-playlists] Keine Wiedergabelisten
         [fetching-playlist] Wiedergabeliste wird geladen…
         [artist] Interpret
+        [album] Album
+        [original-author] Originalautor
         [duration] Dauer
         [track-type] Typ
         [type-online] Online
@@ -2249,9 +2253,9 @@ music-space-label =
         [queue-current] Aktueller Titel der digitalen Warteschlange
         [pause] Pausieren
         [resume] Fortsetzen
-        [stop] Stoppen und Wiedergabeliste behalten
+        [stop] Wiedergabe stoppen
         [previous] Vorheriger Titel / neu starten
-        [clear] Warteschlange leeren; nach aktuellem Titel stoppen
+        [clear] Anstehende Titel leeren
         [seek] Position
         [more] Mehr
         [volume-control] Lautstärke
@@ -2260,8 +2264,8 @@ music-space-label =
         [timeline-read-only] Positionswechsel nicht verfügbar
         [seek-format] m:ss, h:mm:ss oder Sekunden eingeben
         [record] Für Fernsteuerung speichern
-        [forget] Meine Gerätemerkung entfernen
-        [alias] Persönlicher Gerätename
+        [forget] Gerät vergessen
+        [alias] Persönlicher Alias
         [sound] Toneinstellungen
         [rhythm] Rhythmusräume
         [room-players] Spieler
@@ -2283,7 +2287,7 @@ music-space-label =
         [sequential] Der Reihe nach
         [repeat-all] Wiedergabeliste wiederholen
         [repeat-one] Aktuellen Titel wiederholen
-        [shuffle] Zufällig ohne Wiederholungen
+        [shuffle] Zufallswiedergabe
         [import] Playlist importieren
         [link] Playlist-Link
         [partial-import] Die Wiedergabeliste wurde nur teilweise geladen. Speichere den geladenen Teil bei Bedarf ausdrücklich.
@@ -2364,7 +2368,7 @@ music-space-error =
         [CONFLICT] Der Inhalt wurde geändert. Aktualisiere die Ansicht und wähle erneut.
         [LIMIT] Das Ressourcenlimit für Musik wurde erreicht.
         [INVALID] Prüfe den Namen, die Auswahl oder den Zahlenbereich.
-        [OFFLINE] Gerät nicht verfügbar: Lade den Chunk oder wirf die eingelegte Schallplatte aus.
+        [OFFLINE] Plattenspieler entfernt oder Chunk nicht geladen
         [OVERLAP] Hörbereiche überschneiden sich. Stoppe ein anderes Gerät, verringere die Reichweite oder erstelle eine Synchronisationsgruppe.
         [UNSUPPORTED] Dieses Medium unterstützt diese Aktion nicht.
         [BUSY] Gerät, Anfrage oder Rhythmusraum ist beschäftigt. Versuche es nach Abschluss erneut.
