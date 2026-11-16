@@ -273,7 +273,7 @@ public final class OnlineAudioCache implements AutoCloseable {
             if (existing != null) {
                 return CompletableFuture.completedFuture(existing.access());
             }
-            created = track(new DownloadOperation());
+            created = track(new DownloadOperation(warningLogger));
             expectedGeneration = generation.get();
             inFlight.put(entryKey, created);
         }
@@ -704,6 +704,7 @@ public final class OnlineAudioCache implements AutoCloseable {
             }
             Files.createDirectories(cacheDirectory);
             part = Files.createTempFile(cacheDirectory, entryKey + "-", PART_SUFFIX);
+            owner.setPartFile(part);
             HttpRequest request = HttpRequest.newBuilder(uri)
                     .timeout(downloadTimeout)
                     .header("Accept", "audio/*, application/octet-stream;q=0.9, */*;q=0.1")
@@ -791,11 +792,7 @@ public final class OnlineAudioCache implements AutoCloseable {
                 downloadPermits.release();
             }
             if (part != null) {
-                try {
-                    Files.deleteIfExists(part);
-                } catch (IOException ignored) {
-                    // A failed temporary-file cleanup is retried on the next startup.
-                }
+                owner.deletePartFile(part);
             }
         }
     }
@@ -1581,6 +1578,7 @@ public final class OnlineAudioCache implements AutoCloseable {
         private final CompletableFuture<StreamingState> streaming = new CompletableFuture<>();
         private final CompletableFuture<Void> terminated = new CompletableFuture<>();
         private final AtomicBoolean cancelled = new AtomicBoolean();
+        private final AtomicReference<Path> partFile = new AtomicReference<>();
         private final AtomicReference<CompletableFuture<?>> upstream = new AtomicReference<>();
         private final AtomicReference<Future<?>> worker = new AtomicReference<>();
         private final AtomicReference<CompletableFuture<?>> httpRequest = new AtomicReference<>();
@@ -1588,6 +1586,11 @@ public final class OnlineAudioCache implements AutoCloseable {
         private final AtomicReference<StreamingState> streamingState = new AtomicReference<>();
         private final AtomicBoolean streamingRequested = new AtomicBoolean();
         private final AtomicBoolean streamingBytesAvailable = new AtomicBoolean();
+        private final Consumer<String> warningLogger;
+
+        private DownloadOperation(Consumer<String> warningLogger) {
+            this.warningLogger = warningLogger;
+        }
 
         private DownloadAccess access() {
             return new DownloadAccess(result, streaming, this::requestStreaming);
@@ -1672,10 +1675,35 @@ public final class OnlineAudioCache implements AutoCloseable {
             setCancellable(httpRequest, future);
         }
 
+        private void setPartFile(Path value) {
+            partFile.set(value);
+            if (cancelled.get()) {
+                deletePartFile(value);
+            }
+        }
+
+        private void deletePartFile(Path value) {
+            try {
+                Files.deleteIfExists(value);
+                partFile.compareAndSet(value, null);
+            } catch (IOException exception) {
+                warningLogger.accept("Failed to remove incomplete music cache file "
+                        + value + ": " + exception.getMessage());
+            }
+        }
+
+        private void deletePartFile() {
+            Path value = partFile.get();
+            if (value != null) {
+                deletePartFile(value);
+            }
+        }
+
         private void setSubscriber(LimitedFileSubscriber value) {
             subscriber.set(value);
             if (cancelled.get() && subscriber.compareAndSet(value, null)) {
                 value.abort(new IOException("Music download was cancelled"));
+                deletePartFile();
             }
         }
 
@@ -1725,6 +1753,7 @@ public final class OnlineAudioCache implements AutoCloseable {
             if (activeSubscriber != null) {
                 activeSubscriber.abort(cancellation);
             }
+            deletePartFile();
             cancel(worker.getAndSet(null));
         }
 

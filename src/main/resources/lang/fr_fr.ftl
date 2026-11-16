@@ -2523,3 +2523,45 @@ plot-destination-title-unchanged = Aucune modification à enregistrer.
 plot-destination-title-apply = Appliquer au brouillon
 plot-destination-error-title = Le titre doit tenir sur une ligne : 32 caractères visibles et 512 caractères de source MiniMessage au maximum.
 plot-destination-error-subtitle = Le sous-titre doit tenir sur une ligne : 64 caractères visibles et 512 caractères de source MiniMessage au maximum.
+prison-action-bar = Temps restant : { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Cette commande est indisponible pendant votre incarcération.
+prison-command-description = Ouvrir le menu de gestion des prisons
+prison-menu-error = Échec de l’opération de prison : { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Créer une prison
+        [prisons] Gérer les prisons
+        [jail] Incarcérer un joueur
+        [release] Libérer un détenu
+        [spawn] Définir le point d’apparition de secours
+        [exit] Définir le lieu de libération
+        [corner1] Définir le coin 1 de la zone
+        [corner2] Définir le coin 2 de la zone
+        [add-cell] Ajouter une cellule ici
+        [remove-cell] Supprimer une cellule
+        [delete] Supprimer la prison
+        [inmates] Détenus actuels
+        *[other] Prison
+    }
+prison-menu-no-prisons = Aucune prison disponible. Créez-en une d’abord.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Nom de la prison
+        [cell] Nom de la cellule
+        [player] Nom du joueur
+        [duration] Durée (ex. : 2d12h ou permanente)
+        *[other] Saisir une valeur
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Prison { $arg1 } créée.
+        [saved] Emplacement enregistré.
+        [cell-added] Cellule ajoutée.
+        [cell-removed] Cellule supprimée.
+        [deleted] Prison { $arg1 } supprimée.
+        [jailed] { $arg1 } incarcéré.
+        [released] { $arg1 } libéré.
+        *[other] Terminé.
+    }
+prison-menu-title = Gestion des prisons
+prison-move-blocked = Vous devez rester dans la zone de prison assignée.

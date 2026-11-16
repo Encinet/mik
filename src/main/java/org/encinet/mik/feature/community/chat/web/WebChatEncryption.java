@@ -22,10 +22,17 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 
 /** HPKE contexts and the persistent signing identity. Private keys never enter the wire contract. */
@@ -46,14 +53,29 @@ final class WebChatEncryption {
         if (!Files.exists(path)) {
             WebChatEncryption generated = generate();
             byte[] encoded = PrivateKeyInfoFactory.createPrivateKeyInfo(generated.identity).getEncoded();
-            try (var file = Files.newByteChannel(path, Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
-                    PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))) {
-                ByteBuffer bytes = ByteBuffer.wrap(encoded);
-                while (bytes.hasRemaining()) file.write(bytes);
-            } finally { Arrays.fill(encoded, (byte) 0); }
-            return generated;
+            boolean created = false;
+            try {
+                try (var file = Files.newByteChannel(path,
+                        Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE))) {
+                    created = true;
+                    restrict(path);
+                    ByteBuffer bytes = ByteBuffer.wrap(encoded);
+                    while (bytes.hasRemaining()) file.write(bytes);
+                }
+                return generated;
+            } catch (java.nio.file.FileAlreadyExistsException raced) {
+                // Another initializer created the identity first; load that persistent key below.
+            } catch (IOException failure) {
+                if (created) {
+                    try { Files.deleteIfExists(path); }
+                    catch (IOException cleanup) { failure.addSuppressed(cleanup); }
+                }
+                throw failure;
+            } finally {
+                Arrays.fill(encoded, (byte) 0);
+            }
         }
-        Files.setPosixFilePermissions(path, PosixFilePermissions.fromString("rw-------"));
+        restrict(path);
         byte[] encoded;
         try (var input = Files.newInputStream(path)) { encoded = input.readNBytes(1025); }
         try {
@@ -66,6 +88,19 @@ final class WebChatEncryption {
         } catch (RuntimeException invalid) {
             throw new IOException("Could not load web chat signing key", invalid);
         } finally { Arrays.fill(encoded, (byte) 0); }
+    }
+
+    private static void restrict(Path path) throws IOException {
+        PosixFileAttributeView posix = Files.getFileAttributeView(path, PosixFileAttributeView.class);
+        if (posix != null) {
+            posix.setPermissions(PosixFilePermissions.fromString("rw-------"));
+            return;
+        }
+        AclFileAttributeView acl = Files.getFileAttributeView(path, AclFileAttributeView.class);
+        if (acl == null) throw new IOException("File system cannot restrict the web chat signing key");
+        AclEntry owner = AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(Files.getOwner(path))
+                .setPermissions(EnumSet.allOf(AclEntryPermission.class)).build();
+        acl.setAcl(List.of(owner));
     }
 
     String publicKey() {

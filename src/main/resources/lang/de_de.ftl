@@ -2493,3 +2493,45 @@ plot-destination-title-unchanged = Keine ungespeicherten Änderungen.
 plot-destination-title-apply = Auf Entwurf anwenden
 plot-destination-error-title = Der Titel muss einzeilig sein: höchstens 32 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
 plot-destination-error-subtitle = Der Untertitel muss einzeilig sein: höchstens 64 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
+prison-action-bar = Restzeit: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Während der Haft kannst du diesen Befehl nicht verwenden.
+prison-command-description = Gefängnisverwaltung öffnen
+prison-menu-error = Gefängnisaktion fehlgeschlagen: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Gefängnis erstellen
+        [prisons] Gefängnisse verwalten
+        [jail] Spieler inhaftieren
+        [release] Gefangenen freilassen
+        [spawn] Ersatz-Spawn setzen
+        [exit] Entlassungsort setzen
+        [corner1] Bereichsecke 1 setzen
+        [corner2] Bereichsecke 2 setzen
+        [add-cell] Zelle hier hinzufügen
+        [remove-cell] Zelle entfernen
+        [delete] Gefängnis löschen
+        [inmates] Aktuelle Gefangene
+        *[other] Gefängnis
+    }
+prison-menu-no-prisons = Keine Gefängnisse verfügbar. Erstelle zuerst eines.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Gefängnisname
+        [cell] Zellenname
+        [player] Spielername
+        [duration] Haftdauer (z. B. 2d12h, dauerhaft)
+        *[other] Wert eingeben
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Gefängnis { $arg1 } erstellt.
+        [saved] Standort gespeichert.
+        [cell-added] Zelle hinzugefügt.
+        [cell-removed] Zelle entfernt.
+        [deleted] Gefängnis { $arg1 } gelöscht.
+        [jailed] { $arg1 } inhaftiert.
+        [released] { $arg1 } freigelassen.
+        *[other] Erledigt.
+    }
+prison-menu-title = Gefängnisverwaltung
+prison-move-blocked = Du musst in deinem zugewiesenen Gefängnisbereich bleiben.

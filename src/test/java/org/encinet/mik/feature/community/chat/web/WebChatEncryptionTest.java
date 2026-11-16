@@ -15,7 +15,10 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -27,7 +30,18 @@ class WebChatEncryptionTest {
         Path path = directory.resolve("web-chat.key");
         var first = WebChatEncryption.load(path);
         assertEquals(first.publicKey(), WebChatEncryption.load(path).publicKey());
-        assertEquals(PosixFilePermissions.fromString("rw-------"), Files.getPosixFilePermissions(path));
+        var posix = Files.getFileAttributeView(path, PosixFileAttributeView.class);
+        if (posix != null) {
+            assertEquals(PosixFilePermissions.fromString("rw-------"), posix.readAttributes().permissions());
+        } else {
+            var acl = Files.getFileAttributeView(path, AclFileAttributeView.class);
+            assertNotNull(acl, "The file system must expose a private-key permission mechanism");
+            var owner = Files.getOwner(path);
+            List<?> entries = acl.getAcl();
+            assertFalse(entries.isEmpty());
+            assertTrue(acl.getAcl().stream().allMatch(entry -> entry.principal().equals(owner)),
+                    "Only the file owner may access the signing key");
+        }
         Files.writeString(path, "invalid");
         assertThrows(java.io.IOException.class, () -> WebChatEncryption.load(path));
         assertEquals("invalid", Files.readString(path), "A broken identity must not silently rotate the trusted key");

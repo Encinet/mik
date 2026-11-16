@@ -18,17 +18,27 @@ abstract class JavaWarningArguments implements CommandLineArgumentProvider {
     abstract ConfigurableFileCollection getSources()
     @InputFile @PathSensitive(PathSensitivity.RELATIVE)
     abstract RegularFileProperty getPreferences()
+    @Input abstract Property<Boolean> getUseArgumentFile()
+    @Internal abstract RegularFileProperty getArgumentFile()
     @Internal abstract RegularFileProperty getReport()
     @Input abstract Property<Integer> getJavaVersion()
 
-    @Override Iterable<String> asArguments() {
+    List<String> compilerArguments() {
         return ["-${javaVersion.get()}", '-encoding', 'UTF-8', '-proc:none', '-d', 'none',
                 '-properties', preferences.get().asFile.absolutePath,
                 '-failOnWarning', '-maxProblems', '10000',
                 '-classpath', compileClasspath.asPath, '-log', report.get().asFile.absolutePath] +
                 sources.files.sort { it.path }.collect { it.absolutePath }
     }
+
+    @Override Iterable<String> asArguments() {
+        return useArgumentFile.get()
+                ? ["@${argumentFile.get().asFile.absolutePath.replace('\\', '/')}"]
+                : compilerArguments()
+    }
 }
+
+def windowsHost = providers.systemProperty('os.name').get().toLowerCase(Locale.ROOT).contains('windows')
 
 def checks = sourceSets.collect { sources ->
     tasks.register("check${sources.name.capitalize()}JavaWarnings", JavaExec) {
@@ -48,11 +58,28 @@ def checks = sourceSets.collect { sources ->
         arguments.sources.from(sources.allJava)
         arguments.preferences.set(layout.projectDirectory.file('.settings/org.eclipse.jdt.core.prefs'))
         arguments.javaVersion.set(java.toolchain.languageVersion.map { it.asInt() })
+        arguments.useArgumentFile.set(windowsHost)
+        arguments.argumentFile.set(layout.buildDirectory.file("tmp/java-warnings/${sources.name}.args"))
         arguments.report.set(layout.buildDirectory.file("reports/java-warnings/${sources.name}.xml"))
         argumentProviders.add(arguments)
+        if (windowsHost) outputs.file(arguments.argumentFile)
         outputs.file(arguments.report)
+        def argumentFile = arguments.argumentFile
         def report = arguments.report
-        doFirst { report.get().asFile.parentFile.mkdirs() }
+        doFirst {
+            report.get().asFile.parentFile.mkdirs()
+            if (windowsHost) {
+                def file = argumentFile.get().asFile
+                file.parentFile.mkdirs()
+                def quotedArguments = arguments.compilerArguments().collect { argument ->
+                    def normalized = argument.replace('\\', '/')
+                    if (normalized.contains('"') || normalized.contains('\r') || normalized.contains('\n'))
+                        throw new GradleException('ECJ argument files cannot represent quotes or line breaks in paths.')
+                    normalized.contains(' ') || normalized.contains('\t') ? "\"${normalized}\"" : normalized
+                }
+                file.setText(quotedArguments.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+            }
+        }
     }
 }
 

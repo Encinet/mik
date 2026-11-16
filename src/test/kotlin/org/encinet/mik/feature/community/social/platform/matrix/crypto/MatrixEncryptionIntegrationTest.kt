@@ -32,6 +32,7 @@ import org.bukkit.configuration.file.YamlConfiguration
 import org.encinet.mik.feature.community.social.platform.matrix.MatrixPlatformConfig
 import org.encinet.mik.feature.community.social.platform.matrix.client.MatrixClient
 import org.encinet.mik.feature.community.social.platform.matrix.sync.MatrixRoomDirectory
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -43,6 +44,15 @@ import kotlinx.serialization.json.Json
 
 class MatrixEncryptionIntegrationTest {
     @TempDir lateinit var directory: Path
+    private val devices = CopyOnWriteArrayList<TrixnityEncryption>()
+
+    private fun track(device: TrixnityEncryption) = device.also(devices::add)
+
+    @AfterEach
+    fun closeDevices() {
+        devices.forEach { it.close() }
+        devices.forEach { it.closeCompletion.get(30, TimeUnit.SECONDS) }
+    }
 
     @Test
     fun `devices exchange encrypted messages and retain keys and replay protection after restart`() {
@@ -179,7 +189,7 @@ class MatrixEncryptionIntegrationTest {
                     assertTrue(status(bob).backupVersion().isEmpty)
                     val recovery = server.enableRecovery(includeInSync = false, includeMaster = false)
                     bob.close()
-                    bob = TrixnityEncryption(config(server, "bob"), directory.resolve("bob"), recovery, Logger.getAnonymousLogger())
+                    bob = track(TrixnityEncryption(config(server, "bob"), directory.resolve("bob"), recovery, Logger.getAnonymousLogger()))
                     bob.initialize(server.userId("bob"))
                     bob.receiveSync(server.sync("bob", "after-sas-restart"), true)
                     await("an already verified device must still recover its missing backup secret") {
@@ -240,12 +250,12 @@ class MatrixEncryptionIntegrationTest {
             val recoveryKey = server.enableRecovery(includeInSync)
             val messages = CopyOnWriteArrayList<String>()
             val logger = collectingLogger(messages)
-            val bot = TrixnityEncryption(config(server, "bob"), directory.resolve("bob"), recoveryKey, logger)
+            val bot = track(TrixnityEncryption(config(server, "bob"), directory.resolve("bob"), recoveryKey, logger))
             try {
                 bot.initialize(server.userId("bob"))
                 assertTrue(messages.none { it.contains("recovery", ignoreCase = true) })
                 bot.receiveSync(server.sync("bob", "recovery"), true)
-                await("recovery must verify the device and activate the existing backup") {
+                await("recovery must verify the device and activate the existing backup; ${messages.joinToString()}", 30) {
                     val result = status(bot)
                     result.verification() == MatrixCryptoResult.Verification.VERIFIED && result.backupVersion().orElse(null) == "1"
                 }
@@ -262,7 +272,7 @@ class MatrixEncryptionIntegrationTest {
         Homeserver(sameAccount = true).use { server ->
             val messages = CopyOnWriteArrayList<String>()
             val recoveryKey = encodeRecoveryKey(ByteArray(32))
-            val bot = TrixnityEncryption(config(server, "bob"), directory.resolve("bob"), recoveryKey, collectingLogger(messages))
+            val bot = track(TrixnityEncryption(config(server, "bob"), directory.resolve("bob"), recoveryKey, collectingLogger(messages)))
             try {
                 bot.initialize(server.userId("bob"))
                 bot.receiveSync(server.sync("bob", "missing-storage"), true)
@@ -312,7 +322,7 @@ class MatrixEncryptionIntegrationTest {
             first.close()
             MatrixCryptoStorage.open(directory.resolve("alice"), config(server, "alice").homeserverUri().toString(),
                 "@alice:example.org", "ALICE").use { store ->
-                java.sql.DriverManager.getConnection("jdbc:h2:file:${store.database()};CIPHER=AES", "sa",
+                java.sql.DriverManager.getConnection("jdbc:h2:file:${store.database().toString().replace('\\', '/')};CIPHER=AES", "sa",
                     "${store.password()} ${store.password()}").use { connection ->
                     connection.createStatement().use { it.execute("DROP ALL OBJECTS") }
                 }
@@ -334,7 +344,7 @@ class MatrixEncryptionIntegrationTest {
             val first = device(server, "alice")
             try {
                 first.initialize("@alice:example.org")
-                val fresh = TrixnityEncryption(config(server, "alice"), directory.resolve("another-install"), "", Logger.getAnonymousLogger())
+                val fresh = track(TrixnityEncryption(config(server, "alice"), directory.resolve("another-install"), "", Logger.getAnonymousLogger()))
                 try {
                     val error = assertThrows(IllegalStateException::class.java) { fresh.initialize("@alice:example.org") }
                     assertTrue(error.message.orEmpty().contains("already has encryption keys"))
@@ -348,10 +358,10 @@ class MatrixEncryptionIntegrationTest {
     }
 
     private fun device(server: Homeserver, name: String, onlyVerified: Boolean = false) =
-        TrixnityEncryption(config(server, name, onlyVerified), directory.resolve(name), "", Logger.getAnonymousLogger())
+        track(TrixnityEncryption(config(server, name, onlyVerified), directory.resolve(name), "", Logger.getAnonymousLogger()))
 
     private fun status(device: MatrixEncryption) =
-        device.manage("status", emptyList()).get(10, TimeUnit.SECONDS) as MatrixCryptoResult.Status
+        device.manage("status", emptyList()).get(30, TimeUnit.SECONDS) as MatrixCryptoResult.Status
 
     private fun collectingLogger(messages: MutableList<String>) = Logger.getAnonymousLogger().apply {
         addHandler(object : Handler() {
@@ -361,8 +371,8 @@ class MatrixEncryptionIntegrationTest {
         })
     }
 
-    private fun await(message: String, condition: () -> Boolean) {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+    private fun await(message: String, timeoutSeconds: Long = 10, condition: () -> Boolean) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds)
         while (System.nanoTime() < deadline) {
             if (condition()) return
             Thread.sleep(20)

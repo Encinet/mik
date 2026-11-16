@@ -48,7 +48,8 @@ class ProjectArchitectureTest {
         for (Path source : sources()) {
             var declaration = PACKAGE.matcher(Files.readString(source));
             assertTrue(declaration.find(), () -> "Missing package: " + source);
-            String relative = MAIN.relativize(source.getParent()).toString().replace('/', '.');
+            String relative = MAIN.relativize(source.getParent()).toString()
+                    .replace('\\', '/').replace('/', '.');
             assertEquals("org.encinet.mik" + (relative.isEmpty() ? "" : "." + relative),
                     declaration.group(1), source.toString());
         }
