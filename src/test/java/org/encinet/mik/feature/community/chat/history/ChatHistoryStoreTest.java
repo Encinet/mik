@@ -2,6 +2,7 @@ package org.encinet.mik.feature.community.chat.history;
 
 import org.encinet.mik.feature.community.chat.model.ChatAudience;
 import org.encinet.mik.feature.community.chat.model.ChatChannel;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,7 +13,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -26,10 +29,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ChatHistoryStoreTest {
     @TempDir Path temp;
+    private final List<ChatHistoryStore> stores = new ArrayList<>();
     private static final UUID ALICE = UUID.randomUUID(), BOB = UUID.randomUUID(), OTHER = UUID.randomUUID();
 
+    private ChatHistoryStore store(Path path) { return track(new ChatHistoryStore(path)); }
+    private ChatHistoryStore store(Path path, Clock clock) { return track(new ChatHistoryStore(path, clock)); }
+    private ChatHistoryStore track(ChatHistoryStore store) { stores.add(store); return store; }
+
+    @AfterEach void closeStores() throws Exception {
+        for (ChatHistoryStore store : stores) store.close();
+        for (ChatHistoryStore store : stores) store.stopped().get(5, TimeUnit.SECONDS);
+    }
+
     @Test void compressionScopesFollowChannelsPrivateParticipantsAndRestrictedRows() throws Exception {
-        try (var store = new ChatHistoryStore(temp.resolve("scopes.db"))) {
+        try (var store = store(temp.resolve("scopes.db"))) {
             for (String id : java.util.List.of("public-1", "public-2"))
                 store.append(entry(id, ChatChannel.PUBLIC, Set.of(), Optional.empty())).join();
             for (String id : java.util.List.of("restricted-1", "restricted-2"))
@@ -52,7 +65,7 @@ class ChatHistoryStoreTest {
         Thread caller = Thread.currentThread();
         var preparedBy = new AtomicReference<Thread>();
         var projectedBy = new AtomicReference<Thread>();
-        try (var store = new ChatHistoryStore(temp.resolve("worker.db"))) {
+        try (var store = store(temp.resolve("worker.db"))) {
             var write = store.append(() -> {
                 preparedBy.set(Thread.currentThread());
                 return entry("background", ChatChannel.PUBLIC, Set.of(), Optional.empty());
@@ -81,7 +94,7 @@ class ChatHistoryStoreTest {
         var entered = new CountDownLatch(1);
         var release = new CountDownLatch(1);
         var rejectedRan = new AtomicBoolean();
-        var store = new ChatHistoryStore(temp.resolve("bounded.db"));
+        var store = store(temp.resolve("bounded.db"));
         try {
             store.append(() -> {
                 entered.countDown();
@@ -116,13 +129,13 @@ class ChatHistoryStoreTest {
 
     @Test void persistsAcrossReopeningDeduplicatesAndDrainsBeforeClosing() throws Exception {
         Path path = temp.resolve("history.db");
-        var first = new ChatHistoryStore(path);
+        var first = store(path);
         first.append(entry("once", ChatChannel.PUBLIC, Set.of(), Optional.empty()));
         first.append(entry("once", ChatChannel.PUBLIC, Set.of(), Optional.empty()));
         first.close();
         first.stopped().get(5, TimeUnit.SECONDS);
         assertTrue(first.append(entry("late", ChatChannel.PUBLIC, Set.of(), Optional.empty())).isCompletedExceptionally());
-        try (var reopened = new ChatHistoryStore(path)) {
+        try (var reopened = store(path)) {
             var page = reopened.read(query(ALICE, false, ChatChannel.PUBLIC, null, Long.MAX_VALUE)).get(5, TimeUnit.SECONDS);
             assertEquals(1, page.rows().size());
             assertEquals("once", page.rows().getFirst().payload());
@@ -130,7 +143,7 @@ class ChatHistoryStoreTest {
     }
 
     @Test void paginatesEqualTimestampMessagesWithoutGapsWhileNewMessagesArrive() throws Exception {
-        try (var store = new ChatHistoryStore(temp.resolve("history.db"), new MutableClock())) {
+        try (var store = store(temp.resolve("history.db"), new MutableClock())) {
             for (int i = 0; i < ChatHistoryStore.PAGE_SIZE + 21; i++) store.append(entry("message-" + i, ChatChannel.PUBLIC, Set.of(), Optional.empty())).join();
             long before = Long.MAX_VALUE;
             Set<String> found = new HashSet<>();
@@ -150,7 +163,7 @@ class ChatHistoryStoreTest {
     }
 
     @Test void enforcesPrivateMembershipPeerSelectionStaffAndAdditionalVisibilityInSql() throws Exception {
-        try (var store = new ChatHistoryStore(temp.resolve("history.db"))) {
+        try (var store = store(temp.resolve("history.db"))) {
             store.append(entry("ab", ChatChannel.PRIVATE, Set.of(ALICE, BOB), Optional.empty())).join();
             store.append(entry("bo", ChatChannel.PRIVATE, Set.of(BOB, OTHER), Optional.empty())).join();
             store.append(entry("staff", ChatChannel.STAFF, Set.of(), Optional.empty())).join();
@@ -169,7 +182,7 @@ class ChatHistoryStoreTest {
     @Test void expiresAtSevenDaysAndCascadesVisibilityRows() throws Exception {
         MutableClock clock = new MutableClock();
         Path path = temp.resolve("history.db");
-        var store = new ChatHistoryStore(path, clock);
+        var store = store(path, clock);
         store.append(entry("old", ChatChannel.PUBLIC, Set.of(), Optional.of(Set.of(ALICE)))).join();
         assertEquals(clock.now + Duration.ofDays(7).toMillis(), store.read(
                 query(ALICE, false, ChatChannel.PUBLIC, null, Long.MAX_VALUE)).join().rows().getFirst().expiresAt());
@@ -186,7 +199,7 @@ class ChatHistoryStoreTest {
     }
 
     @Test void pageByteBudgetStillAdvancesAndReturnsEveryLargeMessage() {
-        try (var store = new ChatHistoryStore(temp.resolve("history.db"))) {
+        try (var store = store(temp.resolve("history.db"))) {
             String payload = "字".repeat(25_000);
             for (int i = 0; i < 3; i++) store.append(new ChatHistoryStore.Entry("large-" + i,
                     new ChatAudience(ChatChannel.PUBLIC, Set.of()), Optional.empty(), payload)).join();
@@ -203,7 +216,7 @@ class ChatHistoryStoreTest {
         Path path = temp.resolve("sync.db");
         String identity;
         long checkpoint;
-        var store = new ChatHistoryStore(path);
+        var store = store(path);
         for (int i = 0; i < ChatHistoryStore.PAGE_SIZE + 21; i++) store.append(entry("initial-" + i, ChatChannel.PUBLIC, Set.of(), Optional.empty())).join();
         var first = store.read(query(ALICE, false, ChatChannel.PUBLIC, null, Long.MAX_VALUE)).join();
         identity = first.databaseId(); checkpoint = first.head();
@@ -213,7 +226,7 @@ class ChatHistoryStoreTest {
         var delta = store.read(new ChatHistoryStore.Query(ALICE, false, ChatChannel.PUBLIC, null, Long.MAX_VALUE, checkpoint)).join();
         assertEquals(Set.of("during-backfill"), delta.rows().stream().map(ChatHistoryStore.Row::payload).collect(java.util.stream.Collectors.toSet()));
         store.close(); store.stopped().get(5, TimeUnit.SECONDS);
-        try (var reopened = new ChatHistoryStore(path)) {
+        try (var reopened = store(path)) {
             assertEquals(identity, reopened.read(query(ALICE, false, ChatChannel.PUBLIC, null, Long.MAX_VALUE)).join().databaseId());
         }
     }

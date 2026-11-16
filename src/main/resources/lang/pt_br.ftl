@@ -2520,3 +2520,45 @@ plot-destination-title-unchanged = Nenhuma alteração pendente.
 plot-destination-title-apply = Aplicar ao rascunho
 plot-destination-error-title = O título deve ter uma linha, até 32 caracteres visíveis e 512 caracteres de código MiniMessage.
 plot-destination-error-subtitle = O subtítulo deve ter uma linha, até 64 caracteres visíveis e 512 caracteres de código MiniMessage.
+prison-action-bar = Tempo restante: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Você não pode usar esse comando enquanto estiver preso.
+prison-command-description = Abrir o menu de administração da prisão
+prison-menu-error = Falha na operação da prisão: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Criar prisão
+        [prisons] Gerenciar prisões
+        [jail] Prender jogador
+        [release] Libertar preso
+        [spawn] Definir surgimento alternativo
+        [exit] Definir local de soltura
+        [corner1] Definir canto 1 da região
+        [corner2] Definir canto 2 da região
+        [add-cell] Adicionar cela aqui
+        [remove-cell] Remover cela
+        [delete] Excluir prisão
+        [inmates] Presos atuais
+        *[other] Prisão
+    }
+prison-menu-no-prisons = Nenhuma prisão disponível. Crie uma primeiro.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Nome da prisão
+        [cell] Nome da cela
+        [player] Nome do jogador
+        [duration] Duração da pena (ex.: 2d12h ou permanente)
+        *[other] Digite um valor
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Prisão { $arg1 } criada.
+        [saved] Localização salva.
+        [cell-added] Cela adicionada.
+        [cell-removed] Cela removida.
+        [deleted] Prisão { $arg1 } excluída.
+        [jailed] { $arg1 } foi preso.
+        [released] { $arg1 } foi libertado.
+        *[other] Concluído.
+    }
+prison-menu-title = Administração da prisão
+prison-move-blocked = Você deve permanecer na área de prisão atribuída.

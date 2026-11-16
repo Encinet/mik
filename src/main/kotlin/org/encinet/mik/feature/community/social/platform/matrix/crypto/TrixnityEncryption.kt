@@ -75,6 +75,7 @@ class TrixnityEncryption(
     private val logger: Logger,
 ) : MatrixEncryption {
     private val closed = AtomicBoolean()
+    internal val closeCompletion = CompletableFuture<Void>()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val syncState = MutableStateFlow(SyncState.STOPPED)
     private val engine = Java.create()
@@ -126,8 +127,9 @@ class TrixnityEncryption(
                         "Matrix encryption database is missing; restore it or use a fresh bot device token"
                     }
                 }
+                val databasePath = store.database().toString().replace('\\', '/')
                 val database = R2dbcDatabase.connect(
-                    url = "r2dbc:h2:file:///${store.database()};CIPHER=AES;DB_CLOSE_ON_EXIT=FALSE",
+                    url = "r2dbc:h2:file:///$databasePath;CIPHER=AES;DB_CLOSE_ON_EXIT=FALSE",
                     user = "sa", password = "${store.password()} ${store.password()}",
                 )
                 val sdk = SdkClient.create(
@@ -314,14 +316,24 @@ class TrixnityEncryption(
         scope.cancel()
         engine.close()
         Thread.ofVirtual().name("mik-matrix-crypto-close").start {
-            runBlocking {
-                try {
+            var failure: Throwable? = null
+            try {
+                runBlocking {
                     scope.coroutineContext.job.join()
                     client?.closeSuspending()
-                } finally {
-                    storage?.close()
                 }
+            } catch (closeFailure: Throwable) {
+                failure = closeFailure
             }
+            try { storage?.close() }
+            catch (storageFailure: Throwable) {
+                if (failure == null) failure = storageFailure else failure.addSuppressed(storageFailure)
+            }
+            failure?.let {
+                closeCompletion.completeExceptionally(it)
+                throw it
+            }
+            closeCompletion.complete(null)
         }
     }
 }

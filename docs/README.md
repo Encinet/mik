@@ -5,6 +5,7 @@
 ## 服务器
 
 - [管理员监控](server-monitor.md)：加权公平轮换旁观、自动跟随与隐身统计豁免。
+- [监狱管理](server-prison.md)：菜单配置监狱与牢房、关押和释放、封禁准入及区域保护。
 - [世界安全保护](server-safety.md)：液体冲刷与倒桶、岩浆引燃、爆炸和危险实体生成保护。
 - [正版认证容灾](authentication-fallback.md)：官方认证故障时保留正版 UUID，按最近认证的 IP 与有效期回退。
 - [网络出口与自适应视距](network-egress.md)：AFK 优先、剩余压力反馈、高速跑图区块预算与飞行限速。

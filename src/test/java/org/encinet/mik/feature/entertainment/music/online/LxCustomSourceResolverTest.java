@@ -167,6 +167,7 @@ class LxCustomSourceResolverTest {
                         target(), Set.of(first.providerId()))
                 .get(5, TimeUnit.SECONDS);
         resolver.candidateFailed(target(), first, new java.io.IOException("CDN unavailable"));
+        assertTrue(resolver.statuses().get(1).available(), resolver.statuses().toString());
         LxTrackResolver.Resolution fallback = resolver.resolveCandidate(target(), Set.of())
                 .get(5, TimeUnit.SECONDS);
 

@@ -2243,3 +2243,45 @@ plot-destination-title-unchanged = 저장하지 않은 변경 사항이 없습�
 plot-destination-title-apply = 초안에 적용
 plot-destination-error-title = 제목은 한 줄이어야 하며 표시 문자 32자, MiniMessage 원문 512자까지 가능합니다.
 plot-destination-error-subtitle = 부제목은 한 줄이어야 하며 표시 문자 64자, MiniMessage 원문 512자까지 가능합니다.
+prison-action-bar = 남은 시간: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = 수감 중에는 이 명령을 사용할 수 없습니다.
+prison-command-description = 감옥 관리 메뉴 열기
+prison-menu-error = 감옥 작업 실패: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] 감옥 만들기
+        [prisons] 감옥 관리
+        [jail] 플레이어 수감
+        [release] 수감자 석방
+        [spawn] 대체 스폰 지점 설정
+        [exit] 석방 위치 설정
+        [corner1] 구역 모서리 1 설정
+        [corner2] 구역 모서리 2 설정
+        [add-cell] 감방 추가
+        [remove-cell] 감방 제거
+        [delete] 감옥 삭제
+        [inmates] 현재 수감자
+        *[other] 감옥
+    }
+prison-menu-no-prisons = 이용 가능한 감옥이 없습니다. 먼저 만드세요.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] 감옥 이름
+        [cell] 감방 이름
+        [player] 플레이어 이름
+        [duration] 형기 (예: 2d12h, 영구)
+        *[other] 입력하세요
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] 감옥 { $arg1 }을 만들었습니다.
+        [saved] 위치를 저장했습니다.
+        [cell-added] 감방을 추가했습니다.
+        [cell-removed] 감방을 제거했습니다.
+        [deleted] 감옥 { $arg1 }을 삭제했습니다.
+        [jailed] 수감 처리: { $arg1 }
+        [released] 석방 처리: { $arg1 }
+        *[other] 완료했습니다.
+    }
+prison-menu-title = 감옥 관리
+prison-move-blocked = 배정된 감옥 구역 안에 머물러야 합니다.

@@ -16,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BanAdmissionCheckerTest {
@@ -58,6 +59,16 @@ class BanAdmissionCheckerTest {
         assertEquals(BanAdmissionChecker.MatchType.ADDRESS_LINK, result.matchType());
         assertEquals(linked, result.record());
         assertEquals(NOW.minus(Duration.ofDays(365)), addresses.cutoffs.getFirst());
+    }
+
+    @Test
+    void prisonAdmissionOnlyAppliesToThePlayersOwnBan() {
+        BanRecord record = ban(JOINING_PLAYER, "JoiningPlayer", null);
+        var direct = new BanAdmissionChecker.AdmissionBan(record, BanAdmissionChecker.MatchType.DIRECT);
+        var linked = new BanAdmissionChecker.AdmissionBan(record, BanAdmissionChecker.MatchType.ADDRESS_LINK);
+
+        assertTrue(BanLoginListener.shouldAdmitJailedPlayer(direct, JOINING_PLAYER, JOINING_PLAYER::equals));
+        assertFalse(BanLoginListener.shouldAdmitJailedPlayer(linked, JOINING_PLAYER, JOINING_PLAYER::equals));
     }
 
     @Test

@@ -122,7 +122,10 @@ class MusicWorkspaceStateTest {
         assertFalse(state.browser.page(queried,2)); assertEquals(0,state.browser.page);
     }
 
-    static MusicTrack track(String id) { return new MusicTrack(id, new TrackDetails(id, null, null, "mp3", AudioProperties.EMPTY), new TrackTarget.LocalFile(Path.of("/tmp/" + id))); }
+    static MusicTrack track(String id) {
+        return new MusicTrack(id, new TrackDetails(id, null, null, "mp3", AudioProperties.EMPTY),
+                new TrackTarget.LocalFile(Path.of("music-test", id.replace(':', '-') + ".mp3")));
+    }
 
     @Test void roomDiscoveryReturnsToTheLibraryWithoutChangingPlaybackOrTheSavedBrowser() {
         var state = new MusicWorkspaceState();

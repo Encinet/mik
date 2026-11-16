@@ -2,6 +2,7 @@ package org.encinet.mik.feature.community.chat.history;
 
 import org.encinet.mik.feature.community.chat.model.ChatAudience;
 import org.encinet.mik.feature.community.chat.model.ChatChannel;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -9,7 +10,9 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -21,7 +24,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ChatHistorySecurityTest {
     @TempDir Path temp;
+    private final List<ChatHistoryStore> stores = new ArrayList<>();
     private final UUID alice = UUID.randomUUID(), bob = UUID.randomUUID(), other = UUID.randomUUID();
+
+    private ChatHistoryStore store(Path path) { return track(new ChatHistoryStore(path)); }
+    private ChatHistoryStore store(Path path, Clock clock) { return track(new ChatHistoryStore(path, clock)); }
+    private ChatHistoryStore track(ChatHistoryStore store) { stores.add(store); return store; }
+
+    @AfterEach void closeStores() throws Exception {
+        for (ChatHistoryStore store : stores) store.close();
+        for (ChatHistoryStore store : stores) store.stopped().get(5, TimeUnit.SECONDS);
+    }
+
     private ChatHistoryStore.Entry entry(String id, ChatChannel channel) {
         return new ChatHistoryStore.Entry(id, new ChatAudience(channel, channel == ChatChannel.PRIVATE ? Set.of(alice, bob) : Set.of()), Optional.empty(), id);
     }
@@ -39,7 +53,7 @@ class ChatHistorySecurityTest {
         Path path = temp.resolve("history.db");
         String checkpoint;
         {
-          var store = new ChatHistoryStore(path);
+          var store = store(path);
           try {
             store.append(entry("public", ChatChannel.PUBLIC)).get(5, TimeUnit.SECONDS);
             store.append(entry("private", ChatChannel.PRIVATE)).get(5, TimeUnit.SECONDS);
@@ -57,16 +71,16 @@ class ChatHistorySecurityTest {
             assertTrue(sync(store, query(alice, ChatChannel.PUBLIC, tampered, null, Set.of())).reset());
           } finally { store.close(); store.stopped().get(5, TimeUnit.SECONDS); }
         }
-        try (var reopened = new ChatHistoryStore(path)) {
+        try (var reopened = store(path)) {
             assertFalse(sync(reopened, query(alice, ChatChannel.PUBLIC, checkpoint, null, Set.of())).reset());
         }
-        try (var replacement = new ChatHistoryStore(temp.resolve("replacement.db"))) {
+        try (var replacement = store(temp.resolve("replacement.db"))) {
             assertTrue(sync(replacement, query(alice, ChatChannel.PUBLIC, checkpoint, null, Set.of())).reset());
         }
     }
 
     @Test void continuationsFreezeTheOriginalHeadAndCatchUpWithTheCompletedCheckpoint() throws Exception {
-        try (var store = new ChatHistoryStore(temp.resolve("pages.db"))) {
+        try (var store = store(temp.resolve("pages.db"))) {
             for (int i = 0; i < 270; i++) store.append(entry("old-" + i, ChatChannel.PUBLIC)).get(5, TimeUnit.SECONDS);
             Result first = sync(store, query(alice, ChatChannel.PUBLIC, null, null, Set.of()));
             assertNotNull(first.next());
@@ -83,13 +97,13 @@ class ChatHistorySecurityTest {
         var request = new ChatHistoryStore.Request(alice, "request", "fingerprint");
         String firstOrder;
         {
-          var store = new ChatHistoryStore(path, Clock.fixed(Instant.ofEpochMilli(2000), ZoneOffset.UTC));
+          var store = store(path, Clock.fixed(Instant.ofEpochMilli(2000), ZoneOffset.UTC));
           try {
             var first = store.append(() -> entry("first", ChatChannel.PUBLIC), request).get(5, TimeUnit.SECONDS);
             assertTrue(first.inserted()); firstOrder = first.order(); assertEquals(7, UUID.fromString(firstOrder).version());
           } finally { store.close(); store.stopped().get(5, TimeUnit.SECONDS); }
         }
-        try (var store = new ChatHistoryStore(path, Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC))) {
+        try (var store = store(path, Clock.fixed(Instant.ofEpochMilli(1000), ZoneOffset.UTC))) {
             var retry = store.append(() -> entry("different-generated-id", ChatChannel.PUBLIC), request).get(5, TimeUnit.SECONDS);
             assertFalse(retry.inserted()); assertEquals("first", retry.id()); assertEquals(firstOrder, retry.order());
             var second = store.append(entry("second", ChatChannel.PUBLIC)).get(5, TimeUnit.SECONDS);
@@ -104,7 +118,7 @@ class ChatHistorySecurityTest {
     @Test void stalledReadersCannotBlockDurableWritesAndCloseDrainsEveryAcceptedTask() throws Exception {
         var release = new CountDownLatch(1);
         var entered = new CountDownLatch(2);
-        var store = new ChatHistoryStore(temp.resolve("lanes.db"));
+        var store = store(temp.resolve("lanes.db"));
         var query = new ChatHistoryStore.Query(alice, false, ChatChannel.PUBLIC, null, Long.MAX_VALUE);
         java.util.function.Function<ChatHistoryStore.Page, Integer> slow = page -> {
             entered.countDown();
@@ -121,7 +135,7 @@ class ChatHistorySecurityTest {
         first.get(5, TimeUnit.SECONDS); second.get(5, TimeUnit.SECONDS); store.stopped().get(5, TimeUnit.SECONDS);
         assertTrue(store.read(query).isCompletedExceptionally());
         for (int i = 0; i < 20; i++) {
-            var closing = new ChatHistoryStore(temp.resolve("close-" + i + ".db"));
+            var closing = store(temp.resolve("close-" + i + ".db"));
             closing.maintain().get(5, TimeUnit.SECONDS);
             CompletableFuture.runAsync(closing::close).get(2, TimeUnit.SECONDS);
             closing.close(); closing.stopped().get(2, TimeUnit.SECONDS);

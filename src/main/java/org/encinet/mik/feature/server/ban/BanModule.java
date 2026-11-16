@@ -12,6 +12,8 @@ import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.io.File;
 import java.time.ZoneId;
+import java.util.UUID;
+import java.util.function.Predicate;
 
 public final class BanModule {
 
@@ -74,6 +76,10 @@ public final class BanModule {
 
     public BanManager manager() {
         return banService;
+    }
+
+    public void jailedLoginAdmission(Predicate<UUID> admission) {
+        loginListener.jailedLoginAdmission(admission);
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {

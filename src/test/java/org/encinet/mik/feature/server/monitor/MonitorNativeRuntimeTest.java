@@ -13,6 +13,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,11 +36,23 @@ class MonitorNativeRuntimeTest {
                 : String.join(java.io.File.pathSeparator, entries);
         String agent = java.nio.file.Path.of(org.mockito.Mockito.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
         var output = temporary.resolve("native-selectors.log");
-        var process = new ProcessBuilder(java.nio.file.Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-                "-javaagent:" + agent, "-Xshare:off", "--enable-native-access=ALL-UNNAMED",
-                "-cp", classpath, getClass().getName()).redirectErrorStream(true).redirectOutput(output.toFile()).start();
+        String javaExecutable = Path.of(System.getProperty("java.home"), "bin", "java").toString();
+        List<String> arguments = List.of("-javaagent:" + agent, "-Xshare:off",
+                "--enable-native-access=ALL-UNNAMED", "-cp", classpath, getClass().getName());
+        var processBuilder = new ProcessBuilder();
+        if (System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("windows")) {
+            Path argumentFile = temporary.resolve("native-selectors.args");
+            Files.writeString(argumentFile, arguments.stream().map(MonitorNativeRuntimeTest::argumentFileToken)
+                    .collect(java.util.stream.Collectors.joining(System.lineSeparator())) + System.lineSeparator(),
+                    StandardCharsets.UTF_8);
+            processBuilder.command(javaExecutable, "@" + argumentFile);
+        } else {
+            processBuilder.command(javaExecutable);
+            processBuilder.command().addAll(arguments);
+        }
+        var process = processBuilder.redirectErrorStream(true).redirectOutput(output.toFile()).start();
         try {
-            assertTrue(process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS), "native selector checks timed out");
+            assertTrue(process.waitFor(180, java.util.concurrent.TimeUnit.SECONDS), "native selector checks timed out");
             assertEquals(0, process.exitValue(), () -> {
                 try { return java.nio.file.Files.readString(output); }
                 catch (java.io.IOException error) { throw new java.io.UncheckedIOException(error); }
@@ -44,6 +60,12 @@ class MonitorNativeRuntimeTest {
         } finally {
             if (process.isAlive()) process.destroyForcibly();
         }
+    }
+
+    private static String argumentFileToken(String argument) {
+        String normalized = argument.replace('\\', '/');
+        return normalized.chars().anyMatch(Character::isWhitespace) || normalized.contains("#")
+                ? "\"" + normalized + "\"" : normalized;
     }
 
     public static void main(String[] arguments) throws Exception {

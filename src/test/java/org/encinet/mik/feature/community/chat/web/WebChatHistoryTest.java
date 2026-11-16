@@ -4,9 +4,11 @@ import org.encinet.mik.feature.community.chat.history.ChatHistoryStore;
 import org.encinet.mik.feature.community.chat.model.*;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.FluentTestSupport;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +19,15 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WebChatHistoryTest {
+    private final List<ChatHistoryStore> stores = new ArrayList<>();
+
+    private ChatHistoryStore track(ChatHistoryStore store) { stores.add(store); return store; }
+
+    @AfterEach void closeStores() throws Exception {
+        for (ChatHistoryStore store : stores) store.close();
+        for (ChatHistoryStore store : stores) store.stopped().get(5, java.util.concurrent.TimeUnit.SECONDS);
+    }
+
     @Test void aHistoryResponseGroupsEqualScopesAndSeparatesRestrictedMessagesAndMetadata() throws Exception {
         UUID viewer = UUID.randomUUID();
         var rows = new java.util.ArrayList<ChatHistoryStore.Row>();
@@ -74,7 +85,7 @@ class WebChatHistoryTest {
         ChatContent content = new ChatContent(nodes);
         var languages = FluentTestSupport.languages();
         java.util.function.Function<org.encinet.mik.shared.i18n.Message, String> text = key -> languages.t(Language.TH_TH, key);
-        try (var store = new ChatHistoryStore(temp.resolve("localized.db"))) {
+        try (var store = track(new ChatHistoryStore(temp.resolve("localized.db")))) {
             for (int i = 1; i <= 40; i++) {
                 var message = ChatServerMessage.publicMessage(new ChatServerMessage.RichText(content), null, true);
                 store.append(WebChatHistory.server(message, Optional.empty())).join();

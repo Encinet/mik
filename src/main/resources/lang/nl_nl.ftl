@@ -2508,3 +2508,45 @@ plot-destination-title-unchanged = Geen niet-opgeslagen wijzigingen.
 plot-destination-title-apply = Op concept toepassen
 plot-destination-error-title = De titel moet één regel zijn: maximaal 32 zichtbare tekens en 512 tekens MiniMessage-brontekst.
 plot-destination-error-subtitle = De ondertitel moet één regel zijn: maximaal 64 zichtbare tekens en 512 tekens MiniMessage-brontekst.
+prison-action-bar = Resterende tijd: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Je kunt dit commando niet gebruiken zolang je vastzit.
+prison-command-description = Open het gevangenisbeheer
+prison-menu-error = Gevangenisactie mislukt: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Gevangenis maken
+        [prisons] Gevangenissen beheren
+        [jail] Speler opsluiten
+        [release] Gevangene vrijlaten
+        [spawn] Terugvalspawn instellen
+        [exit] Vrijlatingslocatie instellen
+        [corner1] Gebiedshoek 1 instellen
+        [corner2] Gebiedshoek 2 instellen
+        [add-cell] Hier een cel toevoegen
+        [remove-cell] Cel verwijderen
+        [delete] Gevangenis verwijderen
+        [inmates] Huidige gevangenen
+        *[other] Gevangenis
+    }
+prison-menu-no-prisons = Geen gevangenissen beschikbaar. Maak er eerst een.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Gevangenisnaam
+        [cell] Celnaam
+        [player] Spelersnaam
+        [duration] Strafduur (bijv. 2d12h, permanent)
+        *[other] Voer een waarde in
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Gevangenis { $arg1 } gemaakt.
+        [saved] Locatie opgeslagen.
+        [cell-added] Cel toegevoegd.
+        [cell-removed] Cel verwijderd.
+        [deleted] Gevangenis { $arg1 } verwijderd.
+        [jailed] { $arg1 } opgesloten.
+        [released] { $arg1 } vrijgelaten.
+        *[other] Klaar.
+    }
+prison-menu-title = Gevangenisbeheer
+prison-move-blocked = Je moet binnen het toegewezen gevangenisgebied blijven.

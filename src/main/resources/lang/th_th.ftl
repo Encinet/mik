@@ -2243,3 +2243,45 @@ plot-destination-title-unchanged = ไม่มีการเปลี่ยน
 plot-destination-title-apply = ใช้กับฉบับร่าง
 plot-destination-error-title = หัวข้อต้องมีบรรทัดเดียว ข้อความที่แสดงไม่เกิน 32 อักขระ และต้นฉบับ MiniMessage ไม่เกิน 512 อักขระ
 plot-destination-error-subtitle = หัวข้อรองต้องมีบรรทัดเดียว ข้อความที่แสดงไม่เกิน 64 อักขระ และต้นฉบับ MiniMessage ไม่เกิน 512 อักขระ
+prison-action-bar = เหลือเวลา: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = ใช้คำสั่งนี้ไม่ได้ระหว่างถูกคุมขัง
+prison-command-description = เปิดเมนูจัดการเรือนจำ
+prison-menu-error = ดำเนินการเรือนจำไม่สำเร็จ: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] สร้างเรือนจำ
+        [prisons] จัดการเรือนจำ
+        [jail] คุมขังผู้เล่น
+        [release] ปล่อยนักโทษ
+        [spawn] ตั้งจุดเกิดสำรอง
+        [exit] ตั้งจุดปล่อยตัว
+        [corner1] ตั้งมุมพื้นที่ 1
+        [corner2] ตั้งมุมพื้นที่ 2
+        [add-cell] เพิ่มห้องขังที่นี่
+        [remove-cell] ลบห้องขัง
+        [delete] ลบเรือนจำ
+        [inmates] นักโทษปัจจุบัน
+        *[other] เรือนจำ
+    }
+prison-menu-no-prisons = ไม่มีเรือนจำ กรุณาสร้างก่อน
+prison-menu-prompt =
+    { $arg0 ->
+        [name] ชื่อเรือนจำ
+        [cell] ชื่อห้องขัง
+        [player] ชื่อผู้เล่น
+        [duration] ระยะเวลา (เช่น 2d12h หรือถาวร)
+        *[other] กรุณาป้อนค่า
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] สร้างเรือนจำ { $arg1 } แล้ว
+        [saved] บันทึกตำแหน่งแล้ว
+        [cell-added] เพิ่มห้องขังแล้ว
+        [cell-removed] ลบห้องขังแล้ว
+        [deleted] ลบเรือนจำ { $arg1 } แล้ว
+        [jailed] คุมขัง { $arg1 } แล้ว
+        [released] ปล่อย { $arg1 } แล้ว
+        *[other] เสร็จแล้ว
+    }
+prison-menu-title = จัดการเรือนจำ
+prison-move-blocked = คุณต้องอยู่ภายในพื้นที่เรือนจำที่กำหนด

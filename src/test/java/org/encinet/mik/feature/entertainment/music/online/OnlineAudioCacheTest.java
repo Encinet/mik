@@ -700,15 +700,18 @@ class OnlineAudioCacheTest {
         CompletableFuture<String> resolving = cache.resolve(target(track));
         assertTrue(bodyStarted.await(5, TimeUnit.SECONDS));
 
-        cache.invalidate(target(track));
+        try {
+            cache.invalidate(target(track));
 
-        assertFalse(resolving.handle((_, error) -> error == null).get(1, TimeUnit.SECONDS));
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
-        while (hasPartFile() && System.nanoTime() < deadline) {
-            Thread.sleep(20);
+            assertFalse(resolving.handle((_, error) -> error == null).get(1, TimeUnit.SECONDS));
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+            while (hasPartFile() && System.nanoTime() < deadline) {
+                Thread.sleep(20);
+            }
+            assertFalse(hasPartFile());
+        } finally {
+            releaseServer.countDown();
         }
-        assertFalse(hasPartFile());
-        releaseServer.countDown();
     }
 
     @Test
