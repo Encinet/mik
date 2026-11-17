@@ -7,6 +7,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.Waterlogged;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
@@ -16,16 +17,28 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 
 final class VehicleWorld implements VehiclePhysics.Environment {
     private record BlockPosition(int coordinateX, int coordinateY, int coordinateZ) { }
+    private record Obstacle(VehicleCollision.Box box, LivingEntity entity) { }
     private final World world;
-    private final Map<BlockPosition, List<VehicleCollision.Box>> blocks = new HashMap<>();
+    private final Map<BlockPosition, List<Obstacle>> blocks = new HashMap<>();
     private final List<VehicleCollision.Box> otherVehicles;
+    private final Predicate<LivingEntity> collidableEntity;
+    private final BiConsumer<LivingEntity, Double> entityImpact;
 
     VehicleWorld(World world, List<VehicleCollision.Box> otherVehicles) {
+        this(world, otherVehicles, _ -> true, (_, _) -> { });
+    }
+
+    VehicleWorld(World world, List<VehicleCollision.Box> otherVehicles,
+                 Predicate<LivingEntity> collidableEntity, BiConsumer<LivingEntity, Double> entityImpact) {
         this.world = world;
         this.otherVehicles = otherVehicles;
+        this.collidableEntity = collidableEntity;
+        this.entityImpact = entityImpact;
     }
 
     @Override public double groundDistance(VehicleVector point, double maximum) {
@@ -61,10 +74,11 @@ final class VehicleWorld implements VehiclePhysics.Environment {
     }
 
     boolean clear(VehicleBody body) {
+        List<LivingEntity> entities = livingEntities(body, VehicleVector.ZERO);
         for (VehicleDefinition.Collider collider : body.definition.colliders()) {
             VehicleCollision.Box box = VehicleCollision.Box.body(collider, body.origin(), body.orientation);
-            for (VehicleCollision.Box obstacle : obstacles(box, VehicleVector.ZERO)) {
-                VehicleCollision.Hit hit = VehicleCollision.sweep(box, VehicleVector.ZERO, obstacle);
+            for (Obstacle obstacle : obstacles(box, VehicleVector.ZERO, entities)) {
+                VehicleCollision.Hit hit = VehicleCollision.sweep(box, VehicleVector.ZERO, obstacle.box());
                 if (hit != null && hit.penetration() > 0.02) return false;
             }
         }
@@ -73,10 +87,12 @@ final class VehicleWorld implements VehiclePhysics.Environment {
 
     void move(VehicleBody body, VehiclePhysics.Motion motion) {
         VehicleVector remaining = motion.displacement();
+        List<LivingEntity> entities = livingEntities(body, remaining);
         Quaterniond oldOrientation = new Quaterniond(body.orientation);
         body.orientation.set(motion.orientation());
         for (int iteration = 0; iteration < 4; iteration++) {
             VehicleCollision.Hit first = null;
+            LivingEntity firstEntity = null;
             for (VehicleDefinition.Collider collider : body.definition.colliders()) {
                 VehicleCollision.Box box = VehicleCollision.Box.body(collider, body.origin(), body.orientation);
                 VehicleCollision.Box old = VehicleCollision.Box.body(collider,
@@ -84,12 +100,15 @@ final class VehicleWorld implements VehiclePhysics.Environment {
                 VehicleVector minimum = minimum(box.center().subtract(box.extent()), old.center().subtract(old.extent()));
                 VehicleVector maximum = maximum(box.center().add(box.extent()), old.center().add(old.extent()));
                 VehicleCollision.Box broad = VehicleCollision.Box.axisAligned(minimum, maximum);
-                for (VehicleCollision.Box obstacle : obstacles(broad, remaining)) {
-                    VehicleCollision.Hit hit = VehicleCollision.sweep(box, remaining, obstacle);
-                    VehicleCollision.Hit oldHit = VehicleCollision.sweep(old, remaining, obstacle);
+                for (Obstacle obstacle : obstacles(broad, remaining, entities)) {
+                    VehicleCollision.Hit hit = VehicleCollision.sweep(box, remaining, obstacle.box());
+                    VehicleCollision.Hit oldHit = VehicleCollision.sweep(old, remaining, obstacle.box());
                     if (oldHit != null && (hit == null || oldHit.fraction() < hit.fraction())) hit = oldHit;
                     if (hit != null && (first == null || hit.fraction() < first.fraction()
-                            || hit.fraction() == first.fraction() && hit.penetration() > first.penetration())) first = hit;
+                            || hit.fraction() == first.fraction() && hit.penetration() > first.penetration())) {
+                        first = hit;
+                        firstEntity = obstacle.entity();
+                    }
                 }
             }
             if (first == null) { body.position = body.position.add(remaining); return; }
@@ -99,6 +118,7 @@ final class VehicleWorld implements VehiclePhysics.Environment {
             double impact = body.velocity.dot(first.normal());
             if (impact < 0) {
                 body.health = Math.max(0, body.health - Math.max(0, -impact - 4) * 0.7);
+                if (firstEntity != null) entityImpact.accept(firstEntity, -impact);
                 body.velocity = body.velocity.subtract(first.normal().multiply(impact));
             }
             if (first.normal().coordinateY() > 0.5) body.grounded = true;
@@ -114,7 +134,28 @@ final class VehicleWorld implements VehiclePhysics.Environment {
         body.velocity = VehicleVector.ZERO;
     }
 
-    private List<VehicleCollision.Box> obstacles(VehicleCollision.Box box, VehicleVector travel) {
+    private List<LivingEntity> livingEntities(VehicleBody body, VehicleVector travel) {
+        VehicleVector start = body.origin();
+        VehicleVector end = start.add(travel);
+        double radius = body.definition.centerOfMass().length();
+        for (VehicleDefinition.Collider collider : body.definition.colliders())
+            radius = Math.max(radius, body.definition.centerOfMass().length()
+                    + collider.center().length() + collider.halfSize().length());
+        BoundingBox query = new BoundingBox(
+                Math.min(start.coordinateX(), end.coordinateX()) - radius - 1,
+                Math.min(start.coordinateY(), end.coordinateY()) - radius - 1,
+                Math.min(start.coordinateZ(), end.coordinateZ()) - radius - 1,
+                Math.max(start.coordinateX(), end.coordinateX()) + radius + 1,
+                Math.max(start.coordinateY(), end.coordinateY()) + radius + 1,
+                Math.max(start.coordinateZ(), end.coordinateZ()) + radius + 1);
+        return world.getNearbyEntities(query).stream()
+                .filter(LivingEntity.class::isInstance)
+                .map(LivingEntity.class::cast)
+                .filter(entity -> entity.isValid() && !entity.isDead() && collidableEntity.test(entity))
+                .toList();
+    }
+
+    private List<Obstacle> obstacles(VehicleCollision.Box box, VehicleVector travel, List<LivingEntity> entities) {
         VehicleVector extent = box.extent().add(new VehicleVector(0.1, 0.1, 0.1));
         VehicleVector start = box.center().subtract(extent);
         VehicleVector end = box.center().add(extent);
@@ -126,7 +167,7 @@ final class VehicleWorld implements VehiclePhysics.Environment {
         int maximumZ = (int) Math.floor(end.coordinateZ() + Math.max(0, travel.coordinateZ()));
         long volume = (long) (maximumX - minimumX + 1) * (maximumY - minimumY + 1) * (maximumZ - minimumZ + 1);
         if (volume > 32768) throw new IllegalStateException("Vehicle collision query exceeds budget");
-        List<VehicleCollision.Box> result = new ArrayList<>();
+        List<Obstacle> result = new ArrayList<>();
         for (VehicleCollision.Box other : otherVehicles) {
             VehicleVector otherExtent = other.extent();
             VehicleVector center = other.center();
@@ -136,7 +177,17 @@ final class VehicleWorld implements VehiclePhysics.Environment {
                     || center.coordinateY() - otherExtent.coordinateY() > maximumY + 1.0
                     || center.coordinateZ() + otherExtent.coordinateZ() < minimumZ
                     || center.coordinateZ() - otherExtent.coordinateZ() > maximumZ + 1.0) continue;
-            result.add(other);
+            result.add(new Obstacle(other, null));
+        }
+        for (LivingEntity living : entities) {
+            if (!living.isValid() || living.isDead()) continue;
+            BoundingBox bounds = living.getBoundingBox();
+            if (bounds.getMaxX() < minimumX || bounds.getMinX() > maximumX + 1.0
+                    || bounds.getMaxY() < minimumY || bounds.getMinY() > maximumY + 1.0
+                    || bounds.getMaxZ() < minimumZ || bounds.getMinZ() > maximumZ + 1.0) continue;
+            result.add(new Obstacle(VehicleCollision.Box.axisAligned(
+                    new VehicleVector(bounds.getMinX(), bounds.getMinY(), bounds.getMinZ()),
+                    new VehicleVector(bounds.getMaxX(), bounds.getMaxY(), bounds.getMaxZ())), living));
         }
         double halfBorder = world.getWorldBorder().getSize() / 2;
         Location borderCenter = world.getWorldBorder().getCenter();
@@ -147,12 +198,13 @@ final class VehicleWorld implements VehiclePhysics.Environment {
                         && blockZ >= borderCenter.getZ() - halfBorder && blockZ + 1 <= borderCenter.getZ() + halfBorder;
                 for (int blockY = minimumY; blockY <= maximumY; blockY++) {
                     if (!accessible || blockY < world.getMinHeight() || blockY >= world.getMaxHeight()) {
-                        result.add(VehicleCollision.Box.axisAligned(new VehicleVector(blockX, blockY, blockZ),
-                                new VehicleVector(blockX + 1, blockY + 1, blockZ + 1)));
+                        result.add(new Obstacle(VehicleCollision.Box.axisAligned(new VehicleVector(blockX, blockY, blockZ),
+                                new VehicleVector(blockX + 1, blockY + 1, blockZ + 1)), null));
                     } else {
                         BlockPosition position = new BlockPosition(blockX, blockY, blockZ);
                         result.addAll(blocks.computeIfAbsent(position, key -> world.getBlockAt(key.coordinateX(), key.coordinateY(), key.coordinateZ())
-                                .getCollisionShape().getBoundingBoxes().stream().map(bounds -> blockBox(bounds, key)).toList()));
+                                .getCollisionShape().getBoundingBoxes().stream()
+                                .map(bounds -> new Obstacle(blockBox(bounds, key), null)).toList()));
                     }
                 }
             }
