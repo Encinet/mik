@@ -1,0 +1,65 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+import "mik/assistant_document.proto";
+import "mik/assistant_tool.proto";
+
+message AssistantCommand {
+  reserved 3 to 11;
+  reserved "poll", "release", "clear", "cancel", "poll_turn", "delivered";
+  string player_uuid = 1;
+  // Paper generates a UUID per ask, scoped to the authenticated instance and player.
+  string turn_id = 12;
+  oneof operation {
+    AssistantAsk ask = 2;
+    // Cancel or discard the turn, even if the initial ask has not arrived yet.
+    AssistantSignal cancel_turn = 13;
+    AssistantSignal poll_result = 14;
+    // Confirm that Paper sent the reply to the player. This is safe to retry.
+    AssistantSignal confirm_delivery = 15;
+  }
+}
+
+message AssistantAsk {
+  reserved 3 to 5;
+  reserved "turn_id", "presentation";
+  string prompt = 1;
+  string locale = 2;
+  // Confirm a previous reply already shown in this scope before starting the ask.
+  // An unknown or expired previous turn does not prevent a new ask.
+  optional string previous_displayed_turn = 6;
+  repeated AssistantToolDefinition game_tools = 7;
+}
+
+message AssistantSignal {}
+
+message AssistantResult {
+  reserved 1 to 11, 13, 14;
+  reserved "state", "ticket", "answer", "prompt_limit", "phase", "sources", "actions",
+      "highlights", "suggested_questions", "progress", "status", "prompt_max_chars";
+  oneof outcome {
+    AssistantReply reply = 12;
+    AssistantSignal accepted = 15;
+    AssistantSignal pending = 16;
+    AssistantSignal cancelled = 17;
+    AssistantSignal delivery_confirmed = 18;
+    AssistantFailure failure = 19;
+  }
+}
+
+message AssistantFailure {
+  enum Reason {
+    REASON_UNSPECIFIED = 0;
+    BUSY = 1;
+    DISABLED = 2;
+    SERVICE_UNAVAILABLE = 3;
+    INVALID_REQUEST = 4;
+    TURN_UNAVAILABLE = 5;
+    GENERATION_FAILED = 6;
+  }
+  oneof cause {
+    Reason reason = 1;
+    uint32 max_prompt_code_points = 2;
+  }
+}

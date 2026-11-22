@@ -1,44 +1,36 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
-import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
-import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
 
 import java.io.EOFException;
+import java.io.InterruptedIOException;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Allows one fresh download after an online decoder reaches a broken remote stream. */
+/** Allows one retry before output when a decoder reports a truncated representation. */
 final class CorruptAudioRecovery {
-    private final AtomicBoolean retryUsed = new AtomicBoolean();
+    private boolean retryUsed;
 
-    boolean shouldRetry(MusicTrack music, Throwable error) {
-        return isRecoverable(music, error)
-                && retryUsed.compareAndSet(false, true);
-    }
-
-    static boolean isRecoverable(MusicTrack music, Throwable error) {
-        return music != null
-                && music.target() instanceof TrackTarget.Lx
-                && (containsUnexpectedEof(error)
-                || OnlineAudioCache.isRecoverableRemoteFailure(error));
+    boolean takeRetry(boolean versionFixed, boolean preparedFrame) {
+        if (versionFixed || preparedFrame || retryUsed) return false;
+        retryUsed = true;
+        return true;
     }
 
     static boolean containsUnexpectedEof(Throwable error) {
         Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         Throwable current = error;
+        boolean eof = false;
         while (current != null && seen.add(current)) {
-            if (current instanceof EOFException) {
-                return true;
-            }
+            if (current instanceof MusicMedia.ReadException || current instanceof InterruptedIOException) return false;
+            eof |= current instanceof EOFException;
             current = current.getCause();
         }
-        return false;
+        return eof;
     }
 
-    /** Chooses the closest safe playback position for a freshly resolved copy of the track. */
+    /** Chooses the closest safe playback position within a seekable representation. */
     static long resumePositionMillis(long previousPositionMillis, boolean seekable,
                                      long durationMillis) {
         if (!seekable) {

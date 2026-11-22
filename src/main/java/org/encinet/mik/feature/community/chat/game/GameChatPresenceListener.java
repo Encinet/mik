@@ -9,31 +9,24 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
-import org.encinet.mik.feature.community.chat.bridge.ServerChatPublisher;
-import org.encinet.mik.feature.community.chat.model.ChatServerMessage;
-
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.BiPredicate;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 /** Converts actual game connection events into server output, without diffing visible rosters. */
 public final class GameChatPresenceListener implements Listener {
     private final Plugin plugin;
-    private final ServerChatPublisher publisher;
+    private final BiConsumer<Player, Boolean> publishPresence;
     private final Predicate<Player> participates;
-    private final BiPredicate<UUID, Player> visible;
     private final Set<UUID> participants = new HashSet<>();
 
-    /** A null visibility viewer asks whether an offline account may see the subject. */
-    public GameChatPresenceListener(Plugin plugin, ServerChatPublisher publisher,
-                                    Predicate<Player> participates, BiPredicate<UUID, Player> visible) {
+    public GameChatPresenceListener(Plugin plugin, BiConsumer<Player, Boolean> publishPresence,
+                                    Predicate<Player> participates) {
         this.plugin = plugin;
-        this.publisher = publisher;
+        this.publishPresence = publishPresence;
         this.participates = participates;
-        this.visible = visible;
     }
 
     public void enable() {
@@ -49,20 +42,12 @@ public final class GameChatPresenceListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
-        if (participates.test(player) && participants.add(player.getUniqueId())) publish(player, true);
+        if (participates.test(player) && participants.add(player.getUniqueId())) publishPresence.accept(player, true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
-        if (participants.remove(player.getUniqueId())) publish(player, false);
-    }
-
-    private void publish(Player player, boolean joined) {
-        var subject = new ChatServerMessage.Subject(player.getUniqueId(), player.getName());
-        var body = new ChatServerMessage.Translation(joined ? ChatServerMessage.Template.GAME_JOINED
-                : ChatServerMessage.Template.GAME_LEFT, Map.of("name", subject.name()));
-        publisher.publish(ChatServerMessage.publicMessage(body, subject, false),
-                new ServerChatPublisher.Visibility(viewer -> visible.test(viewer, player), visible.test(null, player)));
+        if (participants.remove(player.getUniqueId())) publishPresence.accept(player, false);
     }
 }

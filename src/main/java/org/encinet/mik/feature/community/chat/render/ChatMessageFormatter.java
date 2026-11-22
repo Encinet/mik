@@ -79,7 +79,7 @@ public final class ChatMessageFormatter {
                 : identity.chat(source);
         return channelMessage(marker,
                 header,
-                standardSeparator(), body, submission.references().placeholders().isEmpty() ? submission.sourceText()
+                standardSeparator(), body, submission.origin() instanceof ChatOrigin.Minecraft ? submission.sourceText()
                         : message.content().localized(key -> localized(viewer, key)).plainText(),
                 localized(viewer, Message.CHAT_COPY_HOVER), repeatIdentifier);
     }
@@ -99,7 +99,6 @@ public final class ChatMessageFormatter {
                 Player subject = onlinePlayers.apply(game.playerId());
                 yield subject == null ? PlayerSource.NONE : sources.game(subject, viewer);
             }
-            case ChatOrigin.Plugin _ -> PlayerSource.NONE;
         };
     }
 

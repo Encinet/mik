@@ -11,7 +11,6 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChatModelTest {
 
@@ -20,11 +19,11 @@ class ChatModelTest {
         UUID playerId = UUID.randomUUID();
         for (ChatOrigin.Player origin : List.of(new ChatOrigin.Minecraft(playerId), new ChatOrigin.Web(playerId))) {
             ChatSubmission accepted = new ChatSubmission(ChatMessageId.random(), origin, ChatSender.minecraft(playerId, "Alice"),
-                    ChatConversation.minecraftPublic(), "hello", ChatReferences.empty(), Instant.EPOCH, ChatProcessingContext.external());
+                    ChatConversation.minecraftPublic(), "hello", Instant.EPOCH, ChatProcessingContext.external());
             assertEquals(playerId, accepted.sender().minecraftId().orElseThrow());
             assertThrows(IllegalArgumentException.class, () -> new ChatSubmission(ChatMessageId.random(), origin,
                     ChatSender.minecraft(UUID.randomUUID(), "Alice"), ChatConversation.minecraftPublic(), "hello",
-                    ChatReferences.empty(), Instant.EPOCH, ChatProcessingContext.external()));
+                    Instant.EPOCH, ChatProcessingContext.external()));
         }
     }
 
@@ -44,15 +43,10 @@ class ChatModelTest {
     }
 
     @Test
-    void longContentPreviewsStayBoundedWithoutSplittingUnicode() {
+    void semanticContentEnforcesItsLengthLimit() {
         String complete = "x".repeat(16_000);
-        assertEquals(complete, ChatContent.plainPreview(complete).plainText());
+        assertEquals(complete, ChatContent.plain(complete).plainText());
         assertThrows(IllegalArgumentException.class, () -> ChatContent.plain(complete + "x"));
-        assertEquals("x".repeat(15_999) + "…", ChatContent.plainPreview(complete + "x").plainText());
-
-        String unicode = "x".repeat(15_998) + "😀" + "more";
-        assertEquals("x".repeat(15_998) + "…", ChatContent.plainPreview(unicode).plainText());
-        assertEquals("Title     Body", ChatContent.plainPreview("Title\u0001\t\u007F\u0085\nBody").plainText());
     }
 
     @Test
@@ -107,30 +101,29 @@ class ChatModelTest {
     }
 
     @Test
-    void submissionRetainsRawFactsAndOriginTrace() {
+    void submissionRetainsRawFactsAndNativeConversation() {
         UUID playerId = UUID.randomUUID();
         ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.external("matrix", "room", "$event"),
-                new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "!room:example.org", "$event"),
+                new ChatMessageId("routed-message"),
+                new ChatOrigin.Social("Matrix", 0x55FFFF),
                 new ChatSender("Steve", Optional.of(playerId), Optional.empty(),
                         "Steve", "[VIP] ", "", 0xFFFFFF),
                 ChatConversation.minecraftPublic(),
-                "hello", ChatReferences.empty(), Instant.EPOCH,
+                "hello", Instant.EPOCH,
                 ChatProcessingContext.external());
 
         assertEquals("hello", submission.sourceText());
-        assertTrue(submission.origin().visitedPlatforms().contains("matrix"));
+        assertEquals("Matrix", ((ChatOrigin.Social) submission.origin()).platformName());
         assertEquals(playerId, submission.sender().minecraftId().orElseThrow());
     }
 
     @Test
-    void transportLineBreaksBecomeSafeSingleLineText() {
+    void localInputAndDisplayedNodesNormalizeLineBreaks() {
+        UUID sender = UUID.randomUUID();
         ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "!room:example.org", "$event"),
-                new ChatSender("Alice", Optional.empty(), Optional.empty(),
-                        "", "", "", 0xFFFFFF),
+                ChatMessageId.random(), new ChatOrigin.Minecraft(sender), ChatSender.minecraft(sender, "Alice"),
                 ChatConversation.minecraftPublic(),
-                "hello\nworld", ChatReferences.empty(), Instant.EPOCH,
+                "hello\nworld", Instant.EPOCH,
                 ChatProcessingContext.external());
 
         assertEquals("hello world", submission.sourceText());

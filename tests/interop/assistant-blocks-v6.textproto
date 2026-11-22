@@ -1,0 +1,44 @@
+request_id: 7
+session_id: "fixture-session"
+response {
+  code: OK
+  assistant {
+    reply {
+      blocks { heading { level: 2 body { parts { spans { text: "Nearby buildings" } } } } }
+      blocks {
+        list {
+          first_number: 3
+          children {
+            blocks { paragraph {
+              parts { spans { text: "The " } spans { text: "Glasshouse" styles: BOLD styles: ITALIC } url: "https://mcmik.top/buildings/0123456789abcdef0123456789abcdef" }
+              parts { spans { text: " · 28 blocks away · " } }
+              parts { spans { text: "Visitor guide" styles: ITALIC } url: "https://mcmik.top/en/wiki?section=visitor-guide" }
+            } }
+            blocks { list { children {
+              checked: false
+              blocks { paragraph {
+                parts { spans { text: "Where is the entrance?" } ask_label {} }
+                parts { spans { text: " · " } spans { text: "/plot" styles: CODE } }
+              } }
+            } } }
+          }
+        }
+      }
+      blocks {
+        table {
+          columns: LEFT
+          columns: RIGHT
+          header {
+            cells { parts { spans { text: "Material" } } }
+            cells { parts { spans { text: "Count" } } }
+          }
+          rows {
+            cells { parts { spans { text: "Glass" styles: STRIKETHROUGH } } }
+            cells { parts { spans { text: "4" } } }
+          }
+        }
+      }
+      blocks { code { text: "echo first\necho second" language: "sh" } }
+    }
+  }
+}

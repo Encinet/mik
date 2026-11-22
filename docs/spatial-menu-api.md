@@ -507,7 +507,7 @@ object.close(); // 请求关闭这个实例及其后代
 
 `handle.suspend()`／`context.suspend()` 暂时隐藏并让出世界操作，返回绑定原实例及页面的 `MenuInputLease`。选取结束调用 `complete()`，取消或失败调用 `close()`；已失效租约不能恢复被替换的工作区。业务负责自己的超时和选取校验。
 
-完整约定见[窗口管理](spatial-menu-windows.md)。
+完整约定见[窗口管理](spatial-menu-design.md#窗口管理)。
 
 ### 保留父页面的详情浮层
 

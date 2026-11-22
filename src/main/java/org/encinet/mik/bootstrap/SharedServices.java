@@ -4,6 +4,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.integration.axiom.AxiomGizmoService;
 import org.encinet.mik.integration.axiom.AxiomImageService;
 import org.encinet.mik.integration.geyser.GeyserService;
+import org.encinet.mik.integration.mikd.MikdModule;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.menu.FloatingMenus;
 import org.encinet.mik.shared.menu.runtime.FloatingMenuService;
@@ -13,11 +14,15 @@ record SharedServices(
         AxiomGizmoService axiom,
         AxiomImageService axiomImages,
         GeyserService geyser,
+        MikdModule mikd,
         LanguageService language,
         FloatingMenuService menus) {
 
     static SharedServices enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle) {
+        MikdModule mikd = new MikdModule(plugin);
+        lifecycle.startManaged("mikd", mikd::enable, mikd::disable);
+
         AxiomGizmoService axiomGizmoService = new AxiomGizmoService(plugin);
         lifecycle.startManaged("axiom", axiomGizmoService::enable, axiomGizmoService::disable);
 
@@ -41,6 +46,6 @@ record SharedServices(
             shutdown.finish("floating menu wiring");
         });
 
-        return new SharedServices(axiomGizmoService, axiomImageService, geyserService, languageService, floatingMenuService);
+        return new SharedServices(axiomGizmoService, axiomImageService, geyserService, mikd, languageService, floatingMenuService);
     }
 }

@@ -1,5 +1,7 @@
 # 建筑地图
 
+MIK 定期同步公开建筑目录。[游戏助手](ai.md#游戏工具)可按需查找与你同一世界的公开建筑，不需要安装地图插件。
+
 安装可选插件 **Pl3xMap** 后，MIK 自动在对应世界发布「建筑收录 · Buildings」图层。图层默认显示，可在 Pl3xMap 的图层面板隐藏。独立地图 `https://map.mcmik.top` 与网站内嵌地图读取同一份原生图层；Cloudflare Tunnel 不需要增加接口或改写页面。
 
 ## 数据与展示
@@ -9,6 +11,12 @@
 - 标记位于建筑的 **X / Z** 坐标，固定屏幕大小。信息卡包含封面、中英文名称、建造者、作品类型、原作者（有记录时）和完整坐标。
 - 信息卡只提供一个「查看建筑」入口，打开 `https://mcmik.top/buildings/{id}`，由网站根据已有语言设置或浏览器语言跳转到对应详情页；使用新标签页，避免网站地图 iframe 中嵌套整个网站。
 - `coordinates.world` 必须与 Pl3xMap 世界名完全一致。未渲染或未知世界不会被错误投射到主世界；该世界后来可用时会自动补上标记。
+
+## 在游戏中查找建筑
+
+用 `/ai` 问「我在这个世界附近有哪些公开建筑？」助手从同一份已校验目录查询同世界的匹配总数，并按三维直线距离从近到远翻页。可用中英文名称片段，或作品类型「原创」`original`、「衍生」`derivative`、「复刻」`replica` 过滤。分页按查询时的位置计算；移动或切换世界后顺序可能改变。结果若附有官方详情入口，可点击查看作品；目录不提供通行判定、路线或传送。
+
+只有最近一次线上刷新成功且快照仍有效时，助手才返回建筑条目和坐标。若仅加载了磁盘缓存、线上刷新失败或距上次成功同步已满六分钟，助手会把目录视为暂不可用；这与确认当前世界没有匹配项不同。Pl3xMap 可以继续显示最近一次校验通过的地图快照。
 
 ## 样式与交互
 
@@ -28,12 +36,12 @@ Pl3xMap 重载清空注册表后会自动重新注册图标与图层。MIK 关�
 
 ## 构建与安装
 
-当前编译目标为 Pl3xMap `26.3-557` 的公开 API，与项目的 Paper 26.3 / Java 25 目标一致。Pl3xMap 是可选依赖，不安装时不会启动同步任务；API 不可用时只停用此集成并记录日志。
+当前编译目标为 Pl3xMap `26.3-557` 的公开 API，与项目的 Paper 26.3 / Java 25 目标一致。Pl3xMap 是可选依赖；未安装或地图 API 不可用时，公开目录仍继续同步，只是不发布地图图层。
 
-重新构建并部署 `build/libs/mik-1.0.jar`，确认同服 Pl3xMap 已启用。日志应出现 `Pl3xMap building catalog layer enabled` 与 `Building map catalog synchronized`。首次同步完成后，刷新地图，在图层面板中查看「建筑收录 · Buildings」。
+重新构建并部署 `build/libs/mik-1.0.jar`。需要地图图层时，确认同服 Pl3xMap 已启用。启用图层时日志会出现 `Pl3xMap building catalog layer enabled`；目录变化或从同步故障恢复时会出现 `Building map catalog synchronized`。首次同步完成后，刷新地图，在图层面板中查看「建筑收录 · Buildings」。
 
-部署后的联调应检查：兴趣点与建筑坐标吻合、双语详情可打开、网站内嵌地图同样可见，以及新增、移动、撤下建筑后五分钟内更新。源码构建与本地验证不能替代这些生产服务器检查。
+部署后的联调应检查：兴趣点与建筑坐标吻合、双语详情可打开、网站内嵌地图同样可见，以及新增、移动、撤下建筑后，图层在下一次成功同步后更新。源码构建与本地验证不能替代这些生产服务器检查。
 
 ## 代码归属
 
-功能全部位于 `feature/world/buildings/`：`BuildingCatalog` 校验与投影公开数据，`BuildingCatalogSource` 托管 HTTP 与磁盘缓存，`BuildingMapPopup` 生成安全的信息卡，`BuildingMapStyle` 统一样式与标记尺寸，`BuildingMapPublisher` 封装 Pl3xMap API，`BuildingMapModule` 管理可选启用和任务生命周期。`bootstrap/WorldFeatures` 只负责装配。
+功能全部位于 `feature/world/buildings/`：`BuildingCatalog` 校验与投影公开数据，`BuildingCatalogSource` 托管 HTTP 与磁盘缓存，`BuildingMapPopup` 生成安全的信息卡，`BuildingMapStyle` 统一样式与标记尺寸，`BuildingMapPublisher` 封装 Pl3xMap API，`BuildingCatalogSnapshot` 为游戏查询提供按世界分组的有效目录，`BuildingMapModule` 管理同步和可选图层发布的生命周期。`bootstrap/WorldFeatures` 只负责装配。

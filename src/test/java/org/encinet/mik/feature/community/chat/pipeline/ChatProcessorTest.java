@@ -1,5 +1,8 @@
 package org.encinet.mik.feature.community.chat.pipeline;
 
+import org.encinet.mik.feature.community.chat.input.AuthorizedChatMarkup;
+import org.encinet.mik.feature.community.chat.input.AdventureComponentImporter;
+
 import org.encinet.mik.feature.community.chat.mention.PlayerMentionIndex.Target;
 import org.encinet.mik.feature.community.chat.mention.PlayerMentions;
 import org.encinet.mik.feature.community.chat.model.ChatCapability;
@@ -10,12 +13,9 @@ import org.encinet.mik.feature.community.chat.model.ChatMessageId;
 import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatOrigin;
 import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
-import org.encinet.mik.feature.community.chat.model.ChatReferences;
 import org.encinet.mik.feature.community.chat.model.ChatSender;
 import org.encinet.mik.feature.community.chat.model.ChatSubmission;
 import org.encinet.mik.feature.community.chat.model.ChatConversation;
-import org.encinet.mik.feature.community.identity.ExternalIdentity;
-import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChatProcessorTest {
-    private final ChatProcessor processor = new ChatProcessor();
+    private final ChatProcessor processor = new ChatProcessor(new AuthorizedChatMarkup()::parse);
 
     @Test
     void unchangedContentRetainsEmailAndMentionSemantics() {
@@ -67,33 +67,7 @@ class ChatProcessorTest {
                 PlayerMentions.of(List.of(new Target(bob, "Bob"))), Optional.empty(), Map.of());
         return processor.process(new ChatSubmission(ChatMessageId.random(), new ChatOrigin.Minecraft(sender),
                 ChatSender.minecraft(sender, "Alice"), ChatConversation.minecraftPublic(), source,
-                ChatReferences.empty(), Instant.now(), context));
-    }
-
-    @Test
-    void siteModifiersWinOverGenericUrls() {
-        ChatContent mojira = processor.process(
-                "https://bugs.mojang.com/browse/MC-4", external());
-        ChatContent wiki = processor.process(
-                "https://zh.minecraft.wiki/w/钻石", external());
-        ChatContent github = processor.process(
-                "github.com/encinet/mik", external());
-        ChatContent pages = processor.process(
-                "encinet.github.io/mik", external());
-        ChatContent gist = processor.process(
-                "gist.github.com/encinet/0123456789abcdef", external());
-        ChatContent bilibili = processor.process(
-                "https://m.bilibili.com/video/BV1GJ411x7h7?share_source=copy",
-                external());
-
-        assertEquals("[Mojira: MC-4]", mojira.plainText());
-        assertEquals("[Minecraft Wiki: 钻石]", wiki.plainText());
-        assertEquals("[GitHub: encinet/mik]", github.plainText());
-        assertEquals("[GitHub Pages: encinet/mik]", pages.plainText());
-        assertEquals("[GitHub Gist: encinet/01234567]", gist.plainText());
-        assertEquals("[Bilibili: BV1GJ411x7h7]", bilibili.plainText());
-        assertEquals("https://github.com/encinet/mik",
-                ((ChatNode.Link) github.nodes().getFirst()).target().toString());
+                Instant.now(), context));
     }
 
     @Test
@@ -120,7 +94,7 @@ class ChatProcessorTest {
                 ChatMessageId.random(), new ChatOrigin.Minecraft(sender),
                 ChatSender.minecraft(sender, "Steve"),
                 ChatConversation.minecraftPublic(), source,
-                ChatReferences.empty(), Instant.EPOCH, context);
+                Instant.EPOCH, context);
 
         ChatMessage message = processor.process(submission);
 
@@ -214,7 +188,7 @@ class ChatProcessorTest {
         UUID sender = UUID.randomUUID();
         ChatSubmission submission = new ChatSubmission(ChatMessageId.random(), new ChatOrigin.Minecraft(sender),
                 ChatSender.minecraft(sender, "Steve"), ChatConversation.minecraftPublic(),
-                source, ChatReferences.empty(), Instant.EPOCH, context);
+                source, Instant.EPOCH, context);
 
         ChatMessage message = processor.process(submission);
 
@@ -256,40 +230,6 @@ class ChatProcessorTest {
     }
 
     @Test
-    void authenticatedSocialMentionRangesBecomeBoundOrExternalNodes() {
-        UUID playerId = UUID.randomUUID();
-        ExternalIdentity bound = new ExternalIdentity(new ExternalIdentityKey(
-                "matrix", "example.org", "", "@alice:example.org"),
-                "Alice Social");
-        ExternalIdentity unbound = new ExternalIdentity(new ExternalIdentityKey(
-                "matrix", "example.org", "", "@ghost:example.org"),
-                "Ghost");
-        ChatReferences references = new ChatReferences(Optional.empty(),
-                Optional.empty(), List.of(
-                new ChatReferences.Mention(3, 9, bound,
-                        Optional.of(new ChatReferences.MinecraftTarget(
-                                playerId, "Alice"))),
-                new ChatReferences.Mention(14, 20, unbound)));
-        ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.external("matrix", "room", "$mention"),
-                new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "!room:example.org", "$mention"),
-                new ChatSender("Sender", Optional.empty(), Optional.empty(),
-                        "", "", "", 0xFFFFFF),
-                ChatConversation.minecraftPublic(),
-                "hi @Alice and @Ghost", references, Instant.EPOCH, external());
-
-        ChatMessage message = processor.process(submission);
-
-        assertEquals("hi @Alice Social(Alice) and @Ghost",
-                message.content().plainText());
-        assertEquals(Set.of(playerId), assertInstanceOf(
-                ChatEffect.Mentions.class,
-                message.effects().iterator().next()).playerIds());
-        assertEquals(1, message.content().nodes().stream()
-                .filter(ChatNode.ExternalMention.class::isInstance).count());
-    }
-
-    @Test
     void safeMiniMessageFormattingBecomesSemanticStyles() {
         ChatProcessingContext context = new ChatProcessingContext(
                 Set.of(ChatCapability.MINI_MESSAGE), PlayerMentions.empty(),
@@ -312,7 +252,7 @@ class ChatProcessorTest {
                 ChatMessageId.random(), new ChatOrigin.Minecraft(sender),
                 ChatSender.minecraft(sender, "Steve"),
                 ChatConversation.minecraftPublic(),
-                "看看 https://example.com/path", ChatReferences.empty(),
+                "看看 https://example.com/path",
                 Instant.EPOCH, external());
 
         ChatMessage message = processor.process(submission);
@@ -324,7 +264,7 @@ class ChatProcessorTest {
     }
 
     @Test
-    void sharedPipelinePrefersEmailAndMatrixSemanticsOverGenericParsing() {
+    void serverQualifiedHandlesRemainTextForSharedParsingAndNeverMentionPlayers() {
         ChatProcessingContext context = new ChatProcessingContext(
                 Set.of(ChatCapability.URL, ChatCapability.PLAYER_MENTION),
                 PlayerMentions.of(List.of(new Target(
@@ -333,19 +273,10 @@ class ChatProcessorTest {
                 "admin@example.org @alice:example.org matrix:u/bob:example.org",
                 context);
 
-        assertEquals("[Email: admin@example.org] "
-                        + "[Matrix: @alice:example.org] "
-                        + "[Matrix: @bob:example.org]",
-                content.plainText());
-        assertEquals(List.of(
-                        "mailto:admin@example.org",
-                        "https://matrix.to/#/%40alice%3Aexample.org",
-                        "https://matrix.to/#/%40bob%3Aexample.org"),
-                content.nodes().stream()
-                        .filter(ChatNode.Link.class::isInstance)
-                        .map(ChatNode.Link.class::cast)
-                        .map(link -> link.target().toString())
-                        .toList());
+        assertEquals("[Email: admin@example.org] @alice:example.org matrix:u/bob:example.org", content.plainText());
+        assertEquals(2, content.nodes().size());
+        assertInstanceOf(ChatNode.Link.class, content.nodes().getFirst());
+        assertInstanceOf(ChatNode.Text.class, content.nodes().getLast());
     }
 
     private ChatProcessingContext external() {

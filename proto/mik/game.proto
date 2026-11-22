@@ -1,0 +1,109 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+import "mik/access.proto";
+import "mik/assistant_tool.proto";
+import "mik/chat.proto";
+import "mik/chat_message.proto";
+
+message PaperStateUpdate {
+  uint64 version = 1;
+  GameStatusView server = 2;
+  // Omitted rosters retain the last value accepted on this connection.
+  GameRoster public_roster = 3;
+  ChatGameRoster chat_roster = 4;
+  uint64 known_web_revision = 5;
+}
+
+message PaperStateAccepted {
+  uint64 version = 1;
+  ChatWebRoster web_roster = 2;
+}
+
+message GameRoster { repeated PlayerSnapshot players = 1; }
+
+// Public, bounded game facts. Never a grant of permission or a login credential.
+message PlayerSnapshot {
+  reserved 3;
+  reserved "locale";
+  string player_id = 1;
+  string name = 2;
+  string joined_at = 4;
+  bool afk = 5;
+}
+
+message GameQueryExchange { GameQueryReply reply = 1; }
+message GameQueryWork { GameQueryJob job = 1; }
+
+message GameQueryJob {
+  reserved 7;
+  reserved "assistant_game";
+  string id = 1;
+  uint32 remaining_ms = 2;
+  oneof operation {
+    GameQueryEmpty bans = 3;
+    string resolve_player = 4;
+    AccountQuery account = 5;
+    GameProfileQuery game_profile = 6;
+    AssistantToolCall assistant_tool = 8;
+  }
+}
+
+message GameQueryReply {
+  reserved 7;
+  reserved "assistant_game";
+  string id = 1;
+  oneof result {
+    GameBans bans = 3;
+    ChatPlayer player = 4;
+    AccountPolicy account = 5;
+    GameProfileView game_profile = 6;
+    GameQueryEmpty not_found = 8;
+    GameQueryEmpty failed = 9;
+    AssistantToolResult assistant_tool = 10;
+  }
+}
+
+message GameQueryEmpty {}
+message GameBans { repeated GameBan bans = 1; }
+message GameBan {
+  string name = 1;
+  string uuid = 2;
+  string reason = 3;
+  string banned_by = 4;
+  string banned_at = 5;
+  optional string expires_at = 6;
+}
+
+message GameProfileQuery {
+  string viewer_uuid = 1;
+  oneof target {
+    string player_uuid = 2;
+    string player_name = 3;
+  }
+  bool community_authorized = 4;
+}
+
+message GameProfileView {
+  enum Presence {
+    OFFLINE = 0;
+    ONLINE = 1;
+    AFK = 2;
+  }
+  ChatPlayer player = 1;
+  Presence presence = 2;
+  int64 play_seconds = 3;
+  string first_joined = 4;
+  string last_seen = 5;
+  bool forbidden = 6;
+  string skin_texture_url = 7;
+}
+
+message GameStatusView {
+  string version = 1;
+  uint32 max_players = 2;
+  double tps = 3;
+  double mspt = 4;
+  int64 uptime_seconds = 5;
+}

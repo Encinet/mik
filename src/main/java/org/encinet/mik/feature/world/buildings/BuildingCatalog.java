@@ -17,8 +17,17 @@ import java.util.regex.Pattern;
 
 /** The public catalog projected onto the data needed by the map. */
 record BuildingCatalog(List<Entry> entries) {
+    static final int MAX_ENTRIES = 10_000;
     private static final Gson JSON = new GsonBuilder().setStrictness(Strictness.STRICT).create();
     private static final Pattern ID = Pattern.compile("[0-9a-fA-F]{32}");
+
+    static boolean isId(String value) {
+        return ID.matcher(value).matches();
+    }
+
+    static String publicUrl(String id) {
+        return "https://mcmik.top/buildings/" + id;
+    }
 
     BuildingCatalog {
         entries = List.copyOf(entries);
@@ -26,7 +35,7 @@ record BuildingCatalog(List<Entry> entries) {
 
     static BuildingCatalog parse(String json) {
         JsonElement root = JSON.fromJson(json, JsonElement.class);
-        if (root == null || !root.isJsonArray() || root.getAsJsonArray().size() > 10_000) {
+        if (root == null || !root.isJsonArray() || root.getAsJsonArray().size() > MAX_ENTRIES) {
             throw new IllegalArgumentException("Expected a complete building catalog array");
         }
         Set<String> ids = new HashSet<>();
@@ -34,7 +43,7 @@ record BuildingCatalog(List<Entry> entries) {
         for (JsonElement element : root.getAsJsonArray()) {
             JsonObject item = element.getAsJsonObject();
             String id = text(item, "id", 32).toLowerCase(Locale.ROOT);
-            if (!ID.matcher(id).matches() || !ids.add(id)) {
+            if (!isId(id) || !ids.add(id)) {
                 throw new IllegalArgumentException("Invalid or duplicate building ID");
             }
             JsonObject name = item.getAsJsonObject("name");

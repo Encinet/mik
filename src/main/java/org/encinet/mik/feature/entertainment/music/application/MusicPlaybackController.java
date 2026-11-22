@@ -22,17 +22,18 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscResolver;
 import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackOrigin;
-import org.encinet.mik.feature.entertainment.music.jukebox.DeviceTarget;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxExperienceMode;
+import org.encinet.mik.feature.entertainment.music.device.DeviceTarget;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxExperienceMode;
 import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackSnapshot;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSettingsStore;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSoundSettings;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSoundSettings;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus;
+import org.encinet.mik.feature.entertainment.music.lyrics.Lyrics;
+import org.encinet.mik.feature.entertainment.music.lyrics.LyricsService;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackIntents;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.playback.QueueEntry;
@@ -46,14 +47,13 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
     public enum Action { PAUSE, RESUME, STOP, NEXT, PREVIOUS, CLEAR }
     private static final class Running {
         final UUID generation = UUID.randomUUID();
+        final JukeboxPlaybackService.ProgramPlayback playback = new JukeboxPlaybackService.ProgramPlayback();
         UUID preparation = UUID.randomUUID();
         final Set<UUID> outputs = new HashSet<>();
         final Map<UUID, MusicProblem.Code> failed = new HashMap<>();
         boolean recorded;
-        boolean paused;
         MusicTrack recordTrack;
         UUID recordSource;
-        int recordGain;
     }
     private final JavaPlugin plugin;
     private final MusicStore store;
@@ -68,7 +68,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
     private final Set<UUID> busy = new HashSet<>();
     private final Map<UUID, Deque<QueueUndo>> undo = new HashMap<>();
     private record QueueUndo(UUID target, long at, PlaybackProgram before, PlaybackProgram after) {}
-    private volatile Map<Location, Set<UUID>> audience = Map.of();
     private volatile Map<Location, Set<UUID>> roomListeners = Map.of();
     private volatile Set<UUID> isolated = Set.of();
     private BukkitTask audienceTask;
@@ -107,10 +106,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             Set<UUID> room = roomListeners.get(location);
             if (room != null)
                 return room.contains(player);
-            if (isolated.contains(player))
-                return false;
-            Set<UUID> listeners = audience.get(location);
-            return listeners == null || listeners.contains(player);
+            return !isolated.contains(player);
         });
     }
     public void roomAudience(Map<Location, Set<UUID>> listeners) {
@@ -132,14 +128,11 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             if (source != null) backend.stop(source.getBlock());
             return;
         }
-        if (r != null) {
-            r.outputs.remove(d.id());
-            if (r.outputs.isEmpty())
-                running.remove(id);
-        }
+        boolean detached = r != null && r.outputs.remove(d.id());
         Jukebox b = registry.block(d);
         if (b != null)
             backend.stop(b.getBlock());
+        if (detached) saveDetached(id, r);
     }
     public void enable() {
         audienceTask = Bukkit.getScheduler().runTaskTimer(plugin, this::updateAudience, 1, 5);
@@ -152,20 +145,21 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         return status(registry.playbackTarget(id), store.snapshot());
     }
     private JukeboxPlaybackSnapshot status(DeviceTarget t, MusicState state) {
-        JukeboxPlaybackSnapshot active = null;
+        var run = running.get(t.id());
+        if (run != null) {
+            var sample = run.playback.snapshot();
+            if (sample != null) return sample;
+        }
         for (MusicDevice d : t.members()) {
             Jukebox b = registry.block(d);
             if (b != null && backend.isPlaying(b.getBlock())) {
-                var sample = backend.snapshot(b.getBlock());
-                if (sample.status() == PlaybackStatus.PLAYING) return sample;
-                if (active == null || sample.status() == PlaybackStatus.PAUSED) active = sample;
+                return backend.snapshot(b.getBlock());
             }
         }
-        if (active != null) return active;
         MusicState.Checkpoint saved = state.checkpoints().get(t.id());
         QueueEntry current = state.programs().getOrDefault(t.id(), PlaybackProgram.empty()).current();
         return saved != null && current != null && saved.entry().equals(current.id())
-                ? new JukeboxPlaybackSnapshot(PlaybackStatus.PAUSED, saved.position())
+                ? new JukeboxPlaybackSnapshot(PlaybackStatus.RESUMABLE, saved.position())
                 : new JukeboxPlaybackSnapshot(PlaybackStatus.STOPPED, 0);
     }
     public MusicTrack current(UUID id) {
@@ -178,7 +172,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
     private JukeboxPlaybackService.PhysicalPlayback physical(DeviceTarget target) {
         var active = running.get(target.id());
         if (active != null && active.recordTrack != null)
-            return new JukeboxPlaybackService.PhysicalPlayback(active.generation,active.recordTrack);
+            return new JukeboxPlaybackService.PhysicalPlayback(active.generation, active.recordTrack, active.playback.mediaVersion());
         for (MusicDevice d : target.members()) {
             Jukebox box = registry.block(d);
             if (box != null) {
@@ -203,14 +197,36 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         var active = running.get(id);
         var track = physical == null ? queuedTrack(id, state) : physical.track();
         UUID generation = physical != null ? physical.id() : active == null ? null : active.generation;
-        boolean seekable = generation != null && track != null && (physical != null || entry != null && entry.trackId().equals(track.id()))
-                && (status.status() == PlaybackStatus.PLAYING || status.status() == PlaybackStatus.PAUSED)
-                && target.members().stream().map(registry::block).filter(Objects::nonNull).anyMatch(box -> backend.seekable(box.getBlock()));
+        if (status.seekable() && (generation == null || track == null
+                || physical == null && (entry == null || !entry.trackId().equals(track.id())))) {
+            status = new JukeboxPlaybackSnapshot(status.status(), status.positionMillis(), status.durationMillis(), false);
+        }
         return new MusicPlaybackSnapshot(id, entry == null ? null : entry.id(), generation,
-                track, status.status(), status.positionMillis(), System.nanoTime(), seekable,
+                track, status, System.nanoTime(),
                 status.status() != PlaybackStatus.LOADING || busy.contains(id) ? null
-                        : physical != null ? physical.id() : active == null ? null : active.preparation);
+                        : physical != null ? physical.id() : active == null ? null : active.preparation,
+                physical != null ? physical.mediaVersion() : active == null ? null : active.playback.mediaVersion());
     }
+
+    public LyricsService.Playback lyrics(Player player, MusicPlaybackSnapshot expected) {
+        try {
+            if (!expected.sameMedia(snapshot(expected.target()))) return null;
+            var target = registry.playbackTarget(expected.target());
+            boolean mayControl = registry.mayControl(player, expected.target());
+            for (var device : target.members()) {
+                var box = registry.block(device);
+                if (box == null) continue;
+                var document = backend.lyrics(box.getBlock(), player.getUniqueId(), mayControl);
+                if (document != null && expected.mediaVersion().equals(document.mediaVersion())) return document;
+            }
+        } catch (MusicProblem removed) {
+            // A retained window can outlive the selected device, group or listening permissions.
+        }
+        return null;
+    }
+
+    public Lyrics.Role auxiliaryCaptions(Player player) { return backend.auxiliaryCaptions(player.getUniqueId()); }
+    public void auxiliaryCaptions(Player player, Lyrics.Role role) { backend.auxiliaryCaptions(player.getUniqueId(), role); }
 
     /** Cancels media preparation after its queue commit, never an in-flight durable edit or later run. */
     public boolean cancelPreparation(Player player, MusicPlaybackSnapshot expected) {
@@ -257,7 +273,10 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
                     boolean applied = false;
                     for (MusicDevice d : t.members()) {
                         Jukebox box = registry.block(d);
-                        if (box != null) applied |= backend.setPaused(box.getBlock(), physical.track().id(), pause);
+                        if (box != null && backend.setPaused(box.getBlock(), physical.id(), pause)) {
+                            applied = true;
+                            break;
+                        }
                     }
                     if (!applied && status(id).status() != (pause ? PlaybackStatus.PAUSED : PlaybackStatus.PLAYING))
                         throw new MusicProblem(MusicProblem.Code.UNSUPPORTED);
@@ -280,18 +299,12 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             }
             if (!pause && r.outputs.isEmpty()) {
                 retryOutputs(player, id);
+                r.playback.setPaused(false);
                 return CompletableFuture.completedFuture(null);
             }
             if (!pause) checkOverlap(t, null);
-            boolean applied = false;
-            for (MusicDevice d : t.members()) {
-                Jukebox b = registry.block(d);
-                MusicTrack track = current(id);
-                if (b != null && track != null) applied |= backend.setPaused(b.getBlock(), track.id(), pause);
-            }
-            if (!applied && status(id).status() != (pause ? PlaybackStatus.PAUSED : PlaybackStatus.PLAYING))
+            if (!r.playback.setPaused(pause) && status(id).status() != (pause ? PlaybackStatus.PAUSED : PlaybackStatus.PLAYING))
                 throw new MusicProblem(MusicProblem.Code.UNSUPPORTED);
-            r.paused = pause;
             return CompletableFuture.completedFuture(null);
         }
         if (action == Action.STOP) {
@@ -300,7 +313,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             if (current == null) return CompletableFuture.completedFuture(null);
             return store.transact(editor -> {
                 if (Objects.equals(editor.programs.getOrDefault(id, PlaybackProgram.empty()).current(), current))
-                    editor.checkpoints.put(id, new MusicState.Checkpoint(current.id(), 0, true, System.currentTimeMillis()));
+                    editor.checkpoints.put(id, new MusicState.Checkpoint(current.id(), 0, true, System.currentTimeMillis(), null));
                 return null;
             });
         }
@@ -422,16 +435,12 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         if (!expected.seekable() || !expected.samePlayback(current)) throw new MusicProblem(MusicProblem.Code.CONFLICT);
         if (millis < 0 || !current.seekable() || current.durationMillis() <= 0)
             return false;
-        MusicTrack track = current.track();
+        long position = Math.min(millis, current.durationMillis() - 1);
+        Running active = running.get(id);
+        if (active != null) return active.playback.seek(position);
         for (MusicDevice d : t.members()) {
             Jukebox b = registry.block(d);
-            if (b != null && backend.seekable(b.getBlock())) {
-                if (current.entry() == null && (running.get(id) == null || running.get(id).recordTrack == null)) {
-                    var physical = backend.physicalPlayback(b.getBlock());
-                    if (physical == null || !physical.id().equals(current.generation())) continue;
-                }
-                return backend.seek(b.getBlock(), track.id(), Math.min(millis, current.durationMillis() - 1));
-            }
+            if (b != null && backend.seek(b.getBlock(), current.generation(), position)) return true;
         }
         return false;
     }
@@ -488,7 +497,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
     }
     private void restartRecord(Player player, DeviceTarget target, Running record, PlaybackOrigin origin) {
         stop(target);
-        record.recordGain = store.snapshot().groups().get(target.id()).gain();
         running.put(target.id(),record);
         var source = target.members().stream().filter(member -> member.id().equals(record.recordSource)).findFirst().orElseThrow();
         startRecordOutput(player,target,record,source,origin);
@@ -502,10 +510,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         updateAudience();
         if (record.outputs.isEmpty()) running.remove(target.id(),record);
     }
-    private void restartNativeRecord(Player player, DeviceTarget target, Running active) {
-        var record = new Running(); record.recordTrack = active.recordTrack; record.recordSource = active.recordSource;
-        restartRecord(player,target,record,PlaybackOrigin.AUTOMATIC);
-    }
     private void startRecordOutput(Player player, DeviceTarget target, Running record, MusicDevice member, PlaybackOrigin origin) {
         var box = registry.block(member);
         if (box == null) { record.failed.put(member.id(),MusicProblem.Code.OFFLINE); return; }
@@ -515,7 +519,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         try {
             applySound(member);
             record.outputs.add(member.id());
-            if (backend.playRecordOutput(player,box,record.recordTrack,record.generation,member.id().equals(record.recordSource),origin))
+            if (backend.playRecordOutput(player,box,record.recordTrack,record.playback,member.id().equals(record.recordSource),origin))
                 record.failed.remove(member.id());
             else { record.outputs.remove(member.id()); record.failed.put(member.id(),MusicProblem.Code.UNAVAILABLE); }
         } catch (Exception failed) {
@@ -558,10 +562,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
                 () -> {
                     registry.authorize(player, registry.target(id));
                     for (MusicDevice d : proposed.values()) applySound(d);
-                    UUID target = t.members().getFirst().group() == null ? id : t.members().getFirst().group();
-                    var record = running.get(target);
-                    if (record != null && record.recordTrack != null && record.recordTrack.target() instanceof TrackTarget.NativeRecord)
-                        restartNativeRecord(player,registry.target(target),record);
                 });
     }
 
@@ -578,7 +578,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         for (MusicDevice first : proposed.members())
             for (UUID active : running.keySet()) {
                 if (active.equals(proposed.id()) || active.equals(first.group())
-                        || running.get(active).paused)
+                        || running.get(active).playback.paused())
                     continue;
                 for (MusicDevice other : registry.target(active).members()) {
                     MusicDevice a = replacement == null ? first : replacement.get(first.id());
@@ -611,6 +611,11 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         requireCapacity(t);
         stopOutput(t);
         Running r = new Running();
+        var checkpoint = store.snapshot().checkpoints().get(t.id());
+        var entry = program(t.id()).current();
+        if (entry != null && checkpoint != null && checkpoint.entry().equals(entry.id())) {
+            r.playback.restore(checkpoint.mediaVersion(), checkpoint.position());
+        }
         running.put(t.id(), r);
         for (MusicDevice device : t.members()) startOutput(actor, t, r, device, automatic);
         requireOutput(t, r);
@@ -639,7 +644,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         try {
             applySound(device);
             running.outputs.add(device.id());
-            boolean started = backend.playProgram(automatic ? null : actor, box, stored.track(), running.generation,
+            boolean started = backend.playProgram(automatic ? null : actor, box, stored.track(), running.playback,
                     () -> onMain(() -> recordStarted(target, running, current)));
             if (started) running.failed.remove(device.id());
             else {
@@ -658,18 +663,46 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         if (busy.contains(id)) throw new MusicProblem(MusicProblem.Code.BUSY);
         var active = running.get(id);
         if (active == null) { start(player, target, false); return; }
+        if (versionGone(active)) throw new MusicProblem(MusicProblem.Code.VERSION_GONE);
         checkOverlap(target, null);
         var missing = target.members().stream().filter(device -> !active.outputs.contains(device.id())).toList();
         if (active.recordTrack != null) {
-            if (!missing.isEmpty() && active.recordTrack.target() instanceof TrackTarget.NativeRecord) {
-                restartNativeRecord(player,target,active);
-            } else for (var device : missing) startRecordOutput(player,target,active,device,PlaybackOrigin.AUTOMATIC);
+            for (var device : missing) startRecordOutput(player,target,active,device,PlaybackOrigin.AUTOMATIC);
             return;
         }
         if (!missing.isEmpty()) active.preparation = UUID.randomUUID();
         for (var device : missing)
             startOutput(player, target, active, device, false);
         requireOutput(target, active);
+    }
+
+    private static boolean versionGone(Running run) {
+        return run != null && run.recordTrack == null && run.outputs.isEmpty()
+                && run.failed.containsValue(MusicProblem.Code.VERSION_GONE);
+    }
+
+    public boolean needsRestart(UUID id) { return versionGone(running.get(id)); }
+
+    /** Explicitly discard position and the old version, without removing or duplicating the queue entry. */
+    public CompletableFuture<Void> restartCurrent(Player player, MusicPlaybackSnapshot expected) {
+        UUID id = expected.target();
+        registry.authorize(player, registry.playbackTarget(id));
+        if (busy.contains(id)) throw new MusicProblem(MusicProblem.Code.BUSY);
+        if (expected.entry() == null || !needsRestart(id) || !expected.samePlayback(snapshot(id)))
+            throw new MusicProblem(MusicProblem.Code.CONFLICT);
+        busy.add(id);
+        long intent = intents.begin(id);
+        return main(store.<Void>transact(editor -> {
+            var current = editor.programs.getOrDefault(id, PlaybackProgram.empty()).current();
+            if (current == null || !current.id().equals(expected.entry())) throw new MusicProblem(MusicProblem.Code.CONFLICT);
+            editor.checkpoints.remove(id);
+            return null;
+        }), () -> {
+            if (!intents.current(id, intent) || !needsRestart(id)) throw new MusicProblem(MusicProblem.Code.CONFLICT);
+            var target = registry.playbackTarget(id);
+            registry.authorize(player, target);
+            start(player, target, false);
+        }).whenComplete((_, _) -> onMain(() -> busy.remove(id)));
     }
     private static void requireOutput(DeviceTarget target, Running active) {
         if (!active.outputs.isEmpty()) return;
@@ -690,33 +723,26 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         if (record != null && record.recordTrack != null) {
             var saved = store.snapshot().checkpoints().get(id);
             return saved != null && saved.entry().equals(current.id()) ? saved
-                    : new MusicState.Checkpoint(current.id(),0,true,System.currentTimeMillis());
+                    : new MusicState.Checkpoint(current.id(),0,true,System.currentTimeMillis(),null);
         }
         for (var device : registry.playbackTarget(id).members()) {
             var box = registry.block(device);
             if (box != null && backend.physicalPlayback(box.getBlock()) != null) {
                 var saved = store.snapshot().checkpoints().get(id);
                 return saved != null && saved.entry().equals(current.id()) ? saved
-                        : new MusicState.Checkpoint(current.id(), 0, true, System.currentTimeMillis());
+                        : new MusicState.Checkpoint(current.id(), 0, true, System.currentTimeMillis(), null);
             }
         }
-        var position = status(id);
-        return new MusicState.Checkpoint(current.id(), position.positionMillis(), true, System.currentTimeMillis());
+        var active = running.get(id);
+        if (active != null) return capture(active, current, true);
+        var saved = store.snapshot().checkpoints().get(id);
+        return saved != null && saved.entry().equals(current.id()) ? saved
+                : new MusicState.Checkpoint(current.id(), 0, true, System.currentTimeMillis(), null);
     }
     private void recordStarted(DeviceTarget t, Running r, QueueEntry entry) {
         if (running.get(t.id()) != r || r.recorded)
             return;
         r.recorded = true;
-        MusicState.Checkpoint saved = store.snapshot().checkpoints().get(t.id());
-        if (saved != null && saved.entry().equals(entry.id()) && saved.position() > 0) {
-            for (MusicDevice d : t.members()) {
-                Jukebox b = registry.block(d);
-                if (b != null && backend.seekable(b.getBlock())) {
-                    backend.seek(b.getBlock(), entry.trackId(), saved.position());
-                    break;
-                }
-            }
-        }
         if (entry.actor() == null)
             return;
         UUID recent = UUID.randomUUID();
@@ -737,7 +763,8 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             return null;
         });
     }
-    private void ended(Location location, MusicTrack track, boolean failed) {
+    private void ended(Location location, MusicTrack track, Throwable failure) {
+        boolean failed = failure != null;
         MusicDevice device = store.snapshot()
                                      .devices()
                                      .values()
@@ -755,7 +782,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         if (r != null && r.recordTrack != null) {
             if (!r.recordTrack.id().equals(track.id()) || !r.outputs.remove(device.id())) return;
             if (!failed || device.id().equals(r.recordSource)) stop(registry.target(id));
-            else r.failed.put(device.id(),MusicProblem.Code.UNAVAILABLE);
+            else r.failed.put(device.id(), MusicProblem.code(failure));
             return;
         }
         if (!Objects.equals(program(id).current() == null
@@ -768,7 +795,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         if (r == null || !r.outputs.remove(device.id()))
             return;
         if (failed) {
-            r.failed.put(device.id(), MusicProblem.Code.UNAVAILABLE);
+            r.failed.put(device.id(), MusicProblem.code(failure));
             return;
         }
         DeviceTarget t = registry.target(id);
@@ -813,10 +840,11 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
                     stop(registry.target(id)); r = null;
                 }
                 if (r != null) {
-                    r.outputs.remove(d.id());
-                    r.failed.put(d.id(), MusicProblem.Code.OFFLINE);
+                    if (r.outputs.remove(d.id()) || !r.failed.containsKey(d.id()))
+                        r.failed.put(d.id(), MusicProblem.Code.OFFLINE);
                 }
                 backend.stop(l.getBlock());
+                if (r != null && !destroyed) saveDetached(id, r);
                 if (destroyed)
                     store.transact(e -> {
                         e.devices.remove(d.id());
@@ -854,10 +882,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
     @Override
     public void settingsChanged(MusicDevice device) {
         applySound(device);
-        var active = device.group() == null ? null : running.get(device.group());
-        if (active != null && active.recordTrack != null && active.recordTrack.target() instanceof TrackTarget.NativeRecord
-                && active.recordGain != store.snapshot().groups().get(device.group()).gain())
-            restartNativeRecord(null,registry.target(device.group()),active);
     }
     @Override
     public void joined(MusicDevice device) {
@@ -880,33 +904,46 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
         } catch (IllegalArgumentException invalid) {
             return;
         }
-        if (d == null || d.group() == null || settings.readExperienceMode(box) == JukeboxExperienceMode.RHYTHM)
+        if (d == null || !box.getLocation().equals(registry.location(d))
+                || settings.readExperienceMode(box) == JukeboxExperienceMode.RHYTHM)
             return;
-        Running r = running.get(d.group());
+        UUID id = d.group() == null ? d.id() : d.group();
+        Running r = running.get(id);
         if (r != null && r.recordTrack != null && !r.outputs.contains(d.id())) {
-            if (r.recordTrack.target() instanceof TrackTarget.NativeRecord) {
-                restartNativeRecord(null,registry.target(d.group()),r);
-            } else startRecordOutput(null,registry.target(d.group()),r,d,PlaybackOrigin.AUTOMATIC);
+            startRecordOutput(null,registry.target(id),r,d,PlaybackOrigin.AUTOMATIC);
             return;
         }
-        MusicTrack track = current(d.group());
-        if (r != null && track != null && !r.outputs.contains(d.id()))
-            startOutput(null, registry.target(d.group()), r, d, true);
+        MusicTrack track = current(id);
+        if (r != null && track != null && !versionGone(r) && !r.outputs.contains(d.id()))
+            startOutput(null, registry.target(id), r, d, true);
     }
+
+    private static MusicState.Checkpoint capture(Running run, QueueEntry entry, boolean paused) {
+        return new MusicState.Checkpoint(entry.id(), run.playback.recoveryPosition(), paused,
+                System.currentTimeMillis(), run.playback.mediaVersion());
+    }
+
+    private void saveDetached(UUID id, Running run) {
+        if (!run.outputs.isEmpty() || run.recordTrack != null || run.playback.mediaVersion() == null || busy.contains(id)) return;
+        var current = program(id).current();
+        if (current != null) saveCheckpoints(Map.of(id, capture(run, current, run.playback.paused())));
+    }
+
     private void checkpoint() {
         if (!store.ready())
             return;
         Map<UUID, MusicState.Checkpoint> captured = new HashMap<>();
         for (var active : running.entrySet()) {
-            if (active.getValue().recordTrack != null) continue;
+            if (active.getValue().recordTrack != null || busy.contains(active.getKey())) continue;
             QueueEntry current = program(active.getKey()).current();
             if (current == null)
                 continue;
-            JukeboxPlaybackSnapshot status = status(active.getKey());
-            captured.put(active.getKey(),
-                    new MusicState.Checkpoint(current.id(), status.positionMillis(), active.getValue().paused,
-                            System.currentTimeMillis()));
+            captured.put(active.getKey(), capture(active.getValue(), current, active.getValue().playback.paused()));
         }
+        saveCheckpoints(captured);
+    }
+
+    private void saveCheckpoints(Map<UUID, MusicState.Checkpoint> captured) {
         if (!captured.isEmpty())
             store.transact(e -> {
                      captured.forEach((id, value) -> {
@@ -925,36 +962,7 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             checkpointTicks = 0;
             checkpoint();
         }
-        Map<Location, Set<UUID>> next = new HashMap<>();
-        for (var entry : running.entrySet()) {
-            DeviceTarget target;
-            try {
-                target = registry.target(entry.getKey());
-            } catch (MusicProblem missing) {
-                continue;
-            }
-            if (target.members().size() < 2)
-                continue;
-            List<MusicDevice> outputs =
-                    target.members().stream().filter(d -> entry.getValue().outputs.contains(d.id())).toList();
-            outputs.forEach(d -> next.put(registry.location(d), new HashSet<>()));
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                MusicDevice nearest =
-                        outputs.stream()
-                                .filter(d -> d.world().equals(p.getWorld().getUID()) && d.volume() > 0)
-                                .filter(d
-                                        -> p.getLocation().distanceSquared(registry.location(d))
-                                                <= d.range() * (double) d.range())
-                                .min(Comparator.comparingDouble(
-                                        d -> p.getLocation().distanceSquared(registry.location(d))))
-                                .orElse(null);
-                if (nearest != null)
-                    next.get(registry.location(nearest)).add(p.getUniqueId());
-            }
-        }
-        Map<Location, Set<UUID>> frozen = new HashMap<>();
-        next.forEach((key, value) -> frozen.put(key, Set.copyOf(value)));
-        audience = Map.copyOf(frozen);
+        backend.refreshOutputAudience();
     }
     private void onMain(Runnable action) {
         if (closed)
@@ -979,7 +987,6 @@ public final class MusicPlaybackController implements MusicGroupService.Outputs,
             } catch (MusicProblem ignored) {
             }
         }
-        audience = Map.of();
         intents.clear();
     }
 }

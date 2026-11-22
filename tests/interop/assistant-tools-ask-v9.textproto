@@ -1,0 +1,18 @@
+request_id: 12
+session_id: "fixture-session"
+request {
+  timeout_ms: 250
+  assistant {
+    player_uuid: "00000000-0000-4000-8000-000000000001"
+    turn_id: "00000000-0000-4000-8000-000000000002"
+    ask {
+      prompt: "Is it snowing?"
+      locale: "en-US"
+      game_tools {
+        name: "game_read_weather"
+        description: "Read the requester's weather"
+        input_schema_json: "{\"type\":\"object\",\"properties\":{\"units\":{\"type\":\"string\"}}}"
+      }
+    }
+  }
+}

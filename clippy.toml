@@ -1,0 +1,4 @@
+# Let failed fixture setup and behavioral assertions stop the test at the failure site.
+allow-expect-in-tests = true
+allow-panic-in-tests = true
+allow-unwrap-in-tests = true

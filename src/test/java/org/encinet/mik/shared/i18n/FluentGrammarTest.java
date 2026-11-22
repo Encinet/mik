@@ -7,6 +7,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import net.quickwrite.fluent4j.container.ArgumentListBuilder;
 import net.quickwrite.fluent4j.container.FluentBundle;
+import net.quickwrite.fluent4j.impl.container.FluentResolverScope;
 import net.quickwrite.fluent4j.result.StringResultFactory;
 import org.junit.jupiter.api.Test;
 
@@ -160,21 +161,36 @@ class FluentGrammarTest {
         Component player = Component.text("Literal_Name21", NamedTextColor.YELLOW);
         Component reason = Component.text("{ $not_a_variable } <red>", NamedTextColor.WHITE);
         for (Language language : Language.values()) {
+            var bundle = bundle(language);
             for (Message message : new Message[]{Message.SELF_KICK_WITH_REASON,
                     Message.SELF_KICK_WITHOUT_REASON}) {
+                boolean hasReason = message == Message.SELF_KICK_WITH_REASON;
                 for (String person : new String[]{"second", "third"}) {
                     var arguments = FluentArguments.rich(new TextArg[]{TextArg.of("person", person)},
                             RichArg.component("player", player),
                             RichArg.component("reason", reason));
-                    String resolved = bundle(language).resolveMessage(message.key(), arguments.arguments(),
+                    String resolved = bundle.resolveMessage(message.key(), arguments.arguments(),
                             StringResultFactory.construct()).orElseThrow().toString();
                     String plain = PlainTextComponentSerializer.plainText().serialize(
                             arguments.render(resolved, NamedTextColor.GRAY));
                     assertEquals(person.equals("third"), plain.contains("Literal_Name21"),
                             language.id() + " " + person + " " + message);
-                    assertEquals(message == Message.SELF_KICK_WITH_REASON,
+                    assertEquals(hasReason,
                             plain.contains("{ $not_a_variable } <red>"),
                             "user text is inserted literally, without Fluent or MiniMessage evaluation");
+                    if (person.equals("third")) {
+                        var variants = bundle.getMessage(message.key()).orElseThrow().getAttributes();
+                        assertTrue(variants.length > 0, language.id() + " has no random variants for " + message);
+                        for (var variant : variants) {
+                            var result = StringResultFactory.construct();
+                            variant.resolve(new FluentResolverScope(bundle, arguments.arguments(), result), result);
+                            String rendered = PlainTextComponentSerializer.plainText().serialize(
+                                    arguments.render(result.toString(), NamedTextColor.GRAY));
+                            assertTrue(rendered.contains("Literal_Name21"), language.id() + " " + message);
+                            assertEquals(hasReason, rendered.contains("{ $not_a_variable } <red>"),
+                                    language.id() + " " + message);
+                        }
+                    }
                 }
             }
         }
@@ -194,10 +210,6 @@ class FluentGrammarTest {
                 .contains("1 bloc modifié"));
         assertTrue(text(Language.FR_FR, Message.ASYNC_REGEN_COMPLETED, 2, "1 s")
                 .contains("2 blocs modifiés"));
-        assertTrue(text(Language.FR_FR, Message.MUSIC_PARTIAL_RESULTS, 1)
-                .contains("1 requête a échoué"));
-        assertTrue(text(Language.FR_FR, Message.MUSIC_PARTIAL_RESULTS, 2)
-                .contains("2 requêtes ont échoué"));
     }
 
     @Test

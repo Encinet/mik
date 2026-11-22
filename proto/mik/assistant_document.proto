@@ -1,0 +1,104 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+
+// Ordered player-visible content, independent of turn and transport state.
+message AssistantReply {
+  reserved 1 to 6;
+  reserved "kind", "answer", "sources", "actions", "highlights", "suggested_questions";
+  repeated AssistantBlock blocks = 7;
+}
+
+message AssistantBlock {
+  reserved 1, 2, 4, 6, 11;
+  reserved "text", "quote", "reference", "quotation", "literal";
+  oneof content {
+    AssistantList list = 3;
+    AssistantInline paragraph = 5;
+    AssistantHeading heading = 8;
+    AssistantBlocks block_quote = 9;
+    AssistantDivider divider = 12;
+    AssistantCodeBlock code = 13;
+    AssistantTable table = 14;
+  }
+}
+
+message AssistantBlocks {
+  repeated AssistantBlock blocks = 1;
+}
+
+message AssistantHeading {
+  uint32 level = 1;
+  AssistantInline body = 2;
+}
+
+message AssistantDivider {}
+
+message AssistantCodeBlock {
+  string text = 1;
+  string language = 2;
+}
+
+message AssistantTable {
+  enum Alignment {
+    ALIGNMENT_UNSPECIFIED = 0;
+    LEFT = 1;
+    CENTER = 2;
+    RIGHT = 3;
+  }
+  repeated Alignment columns = 1;
+  AssistantRow header = 2;
+  repeated AssistantRow rows = 3;
+}
+
+message AssistantRow {
+  repeated AssistantInline cells = 1;
+}
+
+message AssistantInline {
+  repeated AssistantPart parts = 1;
+}
+
+message AssistantPart {
+  reserved 1 to 4, 8;
+  reserved "text", "reference", "body", "follow_up";
+  repeated AssistantSpan spans = 5;
+  oneof target {
+    // A public HTTPS destination validated from evidence in this turn.
+    string url = 6;
+    // Submit the visible label as a new prompt; this has no separate payload.
+    AssistantAskLabel ask_label = 7;
+  }
+  // Optional hover of a default vanilla item, independent of text style or click target.
+  string item_id = 9;
+}
+
+message AssistantAskLabel {}
+
+message AssistantSpan {
+  reserved 2 to 4;
+  reserved "bold", "italic", "literal";
+  enum Style {
+    STYLE_UNSPECIFIED = 0;
+    BOLD = 1;
+    ITALIC = 2;
+    STRIKETHROUGH = 3;
+    CODE = 4;
+  }
+  string text = 1;
+  // Decorations in nesting order, outermost first. Newlines are explicit breaks.
+  repeated Style styles = 5;
+}
+
+message AssistantList {
+  reserved 1 to 3, 5;
+  reserved "entries", "ordered", "items", "elements";
+  optional uint32 first_number = 4;
+  repeated AssistantListItem children = 6;
+}
+
+message AssistantListItem {
+  repeated AssistantBlock blocks = 1;
+  optional bool checked = 2;
+}

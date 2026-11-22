@@ -1,0 +1,93 @@
+chat-content-audio = [오디오]
+chat-content-card = [카드]
+chat-content-contact = [연락처]
+chat-content-emote = [동작]
+chat-content-face = [이모지]
+chat-content-file = [파일]
+chat-content-history = [대화 기록]
+chat-content-image = [이미지]
+chat-content-location = [위치]
+chat-content-message = [메시지]
+chat-content-multiple = [여러 메시지]
+chat-content-music = [음악]
+chat-content-notice = [알림]
+chat-content-reply = [인용 메시지]
+chat-content-sticker = [스티커]
+chat-content-video = [동영상]
+
+social-binding-already-linked = 이미 { $arg0 } 계정과 연결되어 있어요. { $arg1 } 명령어로 프로필을 확인하세요.
+social-binding-confirmation-expired = 확인이 만료되었거나 연결된 계정이 변경되었습니다. 새 연결 해제 확인을 요청하세요:
+social-binding-code-invalid = 유효하지 않거나 만료된 코드예요. 다시 접속하거나 게임 안에서 { $arg0 } 명령어로 새 코드를 받으세요.
+social-binding-external-in-use = 이 식별 정보는 이미 다른 Minecraft 플레이어와 연결되어 있습니다.
+social-binding-help = Minecraft 서버에 접속한 뒤 로그인 화면의 연결 명령어 전체를 여기에 보내세요. 이미 게임 안에 있다면 { $arg0 } 명령어로 받을 수 있어요.
+social-binding-link-completed = 계정 연결을 마쳤어요. 다시 접속하면 로그인을 계속할 수 있어요.
+social-binding-membership-required = 이 플랫폼의 연동된 커뮤니티에 가입한 후 계정 연결을 다시 시도하세요
+social-binding-membership-unavailable = 현재 커뮤니티 가입 여부를 확인할 수 없습니다. 나중에 다시 시도하거나 서버 관리자에게 문의하세요
+social-binding-not-bound = 아직 게임 계정을 연결하지 않았어요.
+social-binding-platform-mismatch = 이 인증 코드는 다른 플랫폼용으로 발급되었습니다.
+social-binding-player-scope-in-use = 이 Minecraft 플레이어는 같은 플랫폼 계정 범위에 다른 신원이 이미 연결되어 있습니다.
+social-binding-rate-limited = 실패 횟수가 너무 많습니다. 약 { $arg0 }분 후 다시 시도하세요.
+social-binding-unavailable = 현재 식별 정보 연결을 사용할 수 없습니다.
+social-binding-unlink-completed = 계정 연결을 해제했어요. 다른 유효한 커뮤니티 연결이 없으면 다시 연결한 뒤 입장하세요.
+social-binding-unlink-prompt = 이 플랫폼 계정과 { $arg0 } 연결을 해제해요. 다른 유효한 커뮤니티 연결이 없으면 서버에 들어갈 수 없으며, 접속 중이라면 연결이 끊겨요. 확인하려면 다음을 보내세요:
+social-command-usage = 이 명령어에는 인수가 필요 없어요. 다음을 보내세요:
+social-duration-days = { $arg0 }일 { $arg1 }시간 { $arg2 }분
+social-duration-hours = { $arg0 }시간 { $arg1 }분
+social-duration-minutes = { $arg0 }분
+social-help-command-description = 이 명령어 목록 보기
+social-link-command-description = 게임 내 코드로 Minecraft 계정 연결
+social-link-command-parameters = <인증코드>
+social-online-command-description = 온라인 플레이어 보기
+social-profile-afk = 온라인 · AFK
+social-profile-command-description = 내 프로필 보기; 정식 멤버는 이름, 멘션 또는 답장으로 다른 플레이어 조회 가능
+social-profile-command-parameters = [플레이어명]
+social-profile-first-joined-label = 첫 접속
+social-profile-last-seen-label = 마지막 접속
+social-profile-member-required = 연결된 정식 멤버, 모더레이터 또는 관리 책임자만 다른 플레이어의 프로필을 볼 수 있습니다.
+social-profile-offline = 오프라인
+social-profile-online = 온라인 · 활동 중
+social-profile-play-time-label = 플레이 시간
+social-profile-player-label = 플레이어
+social-profile-player-not-found = 해당 Minecraft 플레이어를 찾을 수 없습니다.
+social-profile-presence-label = 상태
+social-profile-target-ambiguous = 플레이어 이름, 한 명 멘션 또는 한 명에게 답장 중 하나만 지정하세요.
+social-profile-target-unbound = 멘션하거나 답장한 사용자는 Minecraft와 연결되어 있지 않습니다.
+social-profile-uuid-label = UUID
+social-query-no-players = 현재 온라인 플레이어가 없습니다.
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (자리 비움)
+   *[active] { $arg0 }
+    }
+social-query-population = 온라인 { $arg0 }/{ $arg1 } · 활동 중 { $arg2 } · 자리 비움 { $arg3 }
+social-query-online-summary = 현재 { $arg0 }명이 접속 중이에요.{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }그중 { $arg1 }명은 자리 비움 상태예요.
+    }
+social-query-players-label = 플레이어
+social-query-unknown = 알 수 없는 명령어입니다. { $arg0 } 보내 사용 가능한 명령어를 확인하세요.
+social-query-uptime-label = 가동 시간
+social-query-version-label = 버전
+social-reply-unavailable = 지금은 결과를 표시할 수 없어요. 계정 변경은 프로필 명령어로 확인한 뒤 다시 요청하세요.
+social-status-command-description = 플레이어, TPS, MSPT, 가동 시간 보기
+social-title-command-help = 명령어 도움말
+social-title-player-profile = 플레이어 프로필
+social-title-server-status = 서버 상태
+social-unlink-command-description = 확인 후 현재 계정 연결 해제
+social-unlink-command-parameters = [{ social-unlink-confirmation } <확인코드>]
+social-unlink-confirmation = 확인
+ai-busy = AI 요청이 많습니다. 잠시 후 다시 시도하세요
+ai-disabled = AI 도우미가 비활성화되었거나 설정되지 않았습니다
+ai-question-button-unavailable = 이 질문 버튼은 더 이상 사용할 수 없습니다.
+ai-request-failed = AI 요청에 실패했습니다. 나중에 다시 시도하세요
+ai-social-command-description = 공용 AI 도우미에게 질문하기
+ai-social-command-parameters = <질문>
+ai-social-question-required = AI 명령어 뒤에 질문을 입력하세요
+ai-suggested-questions = 추천 질문
+
+social-aliases-online = 온라인 플레이어
+social-aliases-status = 상태
+social-aliases-profile = 프로필
+social-aliases-help = 도움말
+social-aliases-bind = 연결
+social-aliases-unbind = 연결해제
+social-aliases-ai = ai질문

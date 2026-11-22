@@ -10,7 +10,12 @@ public final class MentionBoundaries {
     }
 
     public static boolean isEnd(String text, int offset) {
-        return offset == text.length() || !isWordCharacter(text.codePointAt(offset));
+        if (offset == text.length()) return true;
+        if (text.charAt(offset) == ':' && offset + 1 < text.length()) {
+            char next = text.charAt(offset + 1);
+            if (next == '[' || next <= 0x7F && Character.isLetterOrDigit(next)) return false;
+        }
+        return !isWordCharacter(text.codePointAt(offset));
     }
 
     private static boolean isWordCharacter(int codePoint) {

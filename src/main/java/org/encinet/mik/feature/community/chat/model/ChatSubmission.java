@@ -3,14 +3,13 @@ package org.encinet.mik.feature.community.chat.model;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Immutable raw input with an authenticated source identity and server-selected capabilities. */
+/** Message provenance and the raw input used for immediate game chat. */
 public record ChatSubmission(
         ChatMessageId id,
         ChatOrigin origin,
         ChatSender sender,
         ChatConversation conversation,
         String sourceText,
-        ChatReferences references,
         Instant receivedAt,
         ChatProcessingContext processingContext
 ) {
@@ -24,9 +23,8 @@ public record ChatSubmission(
             throw new IllegalArgumentException("player origin and sender identity must match");
         }
         conversation = Objects.requireNonNull(conversation, "conversation");
-        sourceText = normalize(sourceText);
-        references = Objects.requireNonNullElseGet(references, ChatReferences::empty);
-        ChatPlaceholder.validate(references.placeholders(), sourceText.length());
+        sourceText = origin instanceof ChatOrigin.Minecraft
+                ? normalize(sourceText) : Objects.requireNonNull(sourceText, "sourceText");
         receivedAt = Objects.requireNonNullElseGet(receivedAt, Instant::now);
         processingContext = Objects.requireNonNullElseGet(
                 processingContext, ChatProcessingContext::external);

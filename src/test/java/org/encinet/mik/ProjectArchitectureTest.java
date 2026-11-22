@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProjectArchitectureTest {
     private static final Path MAIN = Path.of("src/main/java/org/encinet/mik");
+    private static final Path TEST = Path.of("src/test/java/org/encinet/mik");
     private static final String PREFIX = "org.encinet.mik.";
     private static final Pattern PACKAGE = Pattern.compile("(?m)^package ([\\w.]+);");
     private static final Pattern IMPORT = Pattern.compile("(?m)^import (?:static )?([\\w.*]+);");
@@ -30,12 +31,12 @@ class ProjectArchitectureTest {
         assertEquals(Set.of("player", "community", "world", "entertainment", "server"),
                 directories(MAIN.resolve("feature")));
         assertEquals(Set.of("i18n", "menu", "role", "util"), directories(MAIN.resolve("shared")));
-        assertEquals(Set.of("api", "menu", "skript"), directories(MAIN.resolve("shell")));
+        assertEquals(Set.of("menu", "mikd", "skript"), directories(MAIN.resolve("shell")));
         try (var paths = Files.list(MAIN)) {
             assertEquals(Set.of("Mik.java", "MikLoader.java"), paths.filter(Files::isRegularFile)
                     .map(path -> path.getFileName().toString()).collect(Collectors.toSet()));
         }
-        for (Path source : sources()) {
+        for (Path source : sources(MAIN)) {
             Path relative = MAIN.relativize(source);
             if (relative.startsWith("feature") && !source.getFileName().toString().equals("package-info.java")) {
                 assertTrue(relative.getNameCount() >= 4, source + " needs a domain and a feature owner");
@@ -45,18 +46,20 @@ class ProjectArchitectureTest {
 
     @Test
     void javaPackagesMatchTheirPhysicalDirectories() throws IOException {
-        for (Path source : sources()) {
-            var declaration = PACKAGE.matcher(Files.readString(source));
-            assertTrue(declaration.find(), () -> "Missing package: " + source);
-            String relative = MAIN.relativize(source.getParent()).toString().replace('/', '.');
-            assertEquals("org.encinet.mik" + (relative.isEmpty() ? "" : "." + relative),
-                    declaration.group(1), source.toString());
+        for (Path root : List.of(MAIN, TEST)) {
+            for (Path source : sources(root)) {
+                var declaration = PACKAGE.matcher(Files.readString(source));
+                assertTrue(declaration.find(), () -> "Missing package: " + source);
+                String relative = root.relativize(source.getParent()).toString().replace('/', '.');
+                assertEquals("org.encinet.mik" + (relative.isEmpty() ? "" : "." + relative),
+                        declaration.group(1), source.toString());
+            }
         }
     }
 
     @Test
     void lowerLayersNeverImportTheCompositionRootOrEntryPoints() throws IOException {
-        for (Path source : sources()) {
+        for (Path source : sources(MAIN)) {
             Path relative = MAIN.relativize(source);
             String layer = relative.getName(0).toString();
             if (layer.equals("bootstrap") || relative.getNameCount() == 1) continue;
@@ -87,7 +90,7 @@ class ProjectArchitectureTest {
     @Test
     void featuresUseCapabilitiesAndTheirDependenciesStayAcyclic() throws IOException {
         Map<String, Set<String>> dependencies = new HashMap<>();
-        for (Path source : sources()) {
+        for (Path source : sources(MAIN)) {
             var declaration = PACKAGE.matcher(Files.readString(source));
             assertTrue(declaration.find());
             String owner = capability(declaration.group(1));
@@ -128,8 +131,8 @@ class ProjectArchitectureTest {
         return IMPORT.matcher(Files.readString(source)).results().map(match -> match.group(1)).toList();
     }
 
-    private static List<Path> sources() throws IOException {
-        try (var paths = Files.walk(MAIN)) {
+    private static List<Path> sources(Path root) throws IOException {
+        try (var paths = Files.walk(root)) {
             return paths.filter(path -> path.toString().endsWith(".java")).sorted().toList();
         }
     }

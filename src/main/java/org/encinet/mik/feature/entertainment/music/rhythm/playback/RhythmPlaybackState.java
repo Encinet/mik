@@ -4,5 +4,6 @@ package org.encinet.mik.feature.entertainment.music.rhythm.playback;
 public enum RhythmPlaybackState {
     LOADING,
     PLAYING,
+    BUFFERING,
     STOPPED
 }

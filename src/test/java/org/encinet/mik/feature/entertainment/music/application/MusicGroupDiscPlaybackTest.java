@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.application;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 import java.nio.file.Path;
@@ -19,9 +20,18 @@ import org.bukkit.persistence.*;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.entertainment.music.catalog.*;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscResolver;
-import org.encinet.mik.feature.entertainment.music.jukebox.*;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
+import org.encinet.mik.feature.entertainment.music.device.DeviceTarget;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxExperienceMode;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackService;
+import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackSnapshot;
+import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackOrigin;
+import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus;
 import org.encinet.mik.feature.entertainment.music.playback.*;
 import org.encinet.mik.feature.entertainment.music.storage.*;
+import org.encinet.mik.protocol.music.MusicFailure;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -83,8 +93,8 @@ class MusicGroupDiscPlaybackTest {
         store.transact(editor -> {
             members.forEach(device -> editor.devices.put(device.id(),device));
             editor.groups.put(group,new MusicState.Group(group,"Room",members.stream().map(MusicDevice::id).toList(),Map.of(),100,0));
-            editor.tracks.put("queued",StoredTrack.of(track("queued")));
-            editor.programs.put(group,PlaybackProgram.empty().submit(List.of(QueueEntry.create("queued",player.getUniqueId())),PlaybackProgram.Submission.INSERT));
+            editor.tracks.put(MusicTestTracks.id("queued"),StoredTrack.of(track("queued")));
+            editor.programs.put(group,PlaybackProgram.empty().submit(List.of(QueueEntry.create(MusicTestTracks.id("queued"),player.getUniqueId())),PlaybackProgram.Submission.INSERT));
             return null;
         }).join();
         controller = new MusicPlaybackController(plugin,store,backend,settings,registry,main,discs);
@@ -93,9 +103,9 @@ class MusicGroupDiscPlaybackTest {
         try { controller.close(); main.close(); store.close(); } finally { bukkit.close(); }
     }
     MusicTrack insert(int source, boolean vanilla) {
-        var track = new MusicTrack(vanilla ? "record:minecraft:cat" : "custom",
-                new TrackDetails("Song",null,null,"record",new AudioProperties(null,null,Duration.ofMinutes(3))),
-                vanilla ? new TrackTarget.NativeRecord("minecraft:music_disc.cat") : new TrackTarget.LocalFile(Path.of("/tmp/song.ogg")));
+        var track = new MusicTrack(vanilla ? "record:minecraft:cat" : MusicTestTracks.id("song"),
+                new TrackDetails("Song",null,null, Duration.ofMinutes(3)),
+                vanilla ? new TrackTarget.NativeRecord("minecraft:music_disc.cat") : MusicTestTracks.target("song"));
         var item = mock(ItemStack.class);
         when(boxes.get(source).getRecord()).thenReturn(item); when(boxes.get(source).hasRecord()).thenReturn(true);
         when(discs.resolve(item)).thenReturn(track);
@@ -106,13 +116,13 @@ class MusicGroupDiscPlaybackTest {
     void eitherMemberStartsTheWholeGroupWithOnePhysicalSourceAndLeavesTheQueueIntact(boolean vanilla) {
         var before = controller.program(group);
         var track = insert(1,vanilla);
-        var clock = org.mockito.ArgumentCaptor.forClass(UUID.class);
+        var clock = org.mockito.ArgumentCaptor.forClass(JukeboxPlaybackService.ProgramPlayback.class);
         verify(backend).playRecordOutput(eq(player),eq(boxes.get(1)),eq(track),clock.capture(),eq(true),eq(PlaybackOrigin.PLAYER));
         verify(backend).playRecordOutput(eq(player),eq(boxes.get(0)),eq(track),eq(clock.getValue()),eq(false),eq(PlaybackOrigin.AUTOMATIC));
         var snapshot = controller.snapshot(group);
         assertEquals(track,snapshot.track()); assertNull(snapshot.entry()); assertNotNull(snapshot.generation());
         assertEquals(before,controller.program(group));
-        completion.ended(boxes.get(0).getLocation(),track,false);
+        completion.ended(boxes.get(0).getLocation(),track,null);
         assertTrue(playing.isEmpty()); assertEquals(before,controller.program(group));
     }
     @Test void takingTheDiscOutThroughAnEmptyMemberStopsEveryOutput() {
@@ -125,7 +135,7 @@ class MusicGroupDiscPlaybackTest {
     }
     @Test void stoppingAPhysicalRecordPreservesThePreviousDigitalCheckpoint() {
         var current = controller.program(group).current();
-        var saved = new MusicState.Checkpoint(current.id(),40000,true,1);
+        var saved = new MusicState.Checkpoint(current.id(),40000,true,1,"12345678901234567890123456789012");
         store.transact(editor -> { editor.checkpoints.put(group,saved); return null; }).join();
         insert(0,true);
         controller.control(player,group,MusicPlaybackController.Action.STOP).join();
@@ -150,13 +160,13 @@ class MusicGroupDiscPlaybackTest {
         controller.loaded(boxes.get(1));
         assertTrue(playing.isEmpty());
     }
-    @Test void aReloadedVanillaMemberRestartsTheGroupTogetherInsteadOfJoiningAtTheWrongPosition() {
+    @Test void reloadingAVanillaMemberDoesNotRestartTheHealthyOutput() {
         var track = insert(0,true); var previous = controller.snapshot(group).generation();
         controller.unavailable(boxes.get(1).getLocation(),false);
         controller.loaded(boxes.get(1));
         var next = controller.snapshot(group);
-        assertEquals(track,next.track()); assertNotEquals(previous,next.generation());
-        assertEquals(2,playing.size());
+        assertEquals(track,next.track()); assertEquals(previous,next.generation());
+        verify(backend).playRecordOutput(any(),eq(boxes.getFirst()),any(),any(),anyBoolean(),any());
     }
 
     @Test void submittingANewSongReplacesThePhysicalRecordAcrossTheGroupWithoutEjectingItems() throws Exception {
@@ -179,7 +189,7 @@ class MusicGroupDiscPlaybackTest {
         }).join();
         for (var box : boxes) when(box.hasRecord()).thenReturn(true);
         finish(controller.control(player,group,MusicPlaybackController.Action.RESUME));
-        completion.ended(boxes.getFirst().getLocation(),first,false);
+        completion.ended(boxes.getFirst().getLocation(),first,null);
         runMain();
         assertEquals(next,controller.snapshot(group).track());
         for (var box : boxes) verify(backend).playProgram(isNull(),eq(box),eq(next),any(),any());
@@ -203,8 +213,37 @@ class MusicGroupDiscPlaybackTest {
         assertEquals(MusicProblem.Code.UNAVAILABLE,assertThrows(MusicProblem.class,() -> controller.retryOutputs(player,group)).code());
     }
 
+    @Test void versionLossNeverRetriesCurrentUntilTheSameQueueEntryIsExplicitlyRestarted() throws Exception {
+        var entry = controller.program(group).current();
+        String pinned = "b".repeat(32);
+        store.transact(editor -> {
+            editor.checkpoints.put(group, new MusicState.Checkpoint(entry.id(), 40_000L, true, 1L, pinned));
+            return null;
+        }).join();
+        finish(controller.control(player, group, MusicPlaybackController.Action.RESUME));
+        var gone = new MusicMedia.ReadException(MusicFailure.Code.VERSION_GONE);
+        for (var box : boxes) completion.ended(box.getLocation(), track("queued"), gone);
+        var expected = controller.snapshot(group);
+        assertEquals(pinned, expected.mediaVersion());
+        assertEquals(40_000L, expected.positionMillis());
+        assertTrue(controller.needsRestart(group));
+        assertEquals(MusicProblem.Code.VERSION_GONE,
+                assertThrows(MusicProblem.class, () -> controller.retryOutputs(player, group)).code());
+        verify(backend, times(2)).playProgram(any(), any(), any(), any(), any());
+
+        finish(controller.restartCurrent(player, expected));
+        assertEquals(entry, controller.program(group).current());
+        assertFalse(store.snapshot().checkpoints().containsKey(group));
+        var playback = org.mockito.ArgumentCaptor.forClass(JukeboxPlaybackService.ProgramPlayback.class);
+        verify(backend, times(4)).playProgram(any(), any(), any(), playback.capture(), any());
+        assertNull(playback.getValue().mediaVersion());
+        assertEquals(0L, playback.getValue().recoveryPosition());
+        assertFalse(controller.needsRestart(group));
+        assertNotEquals(expected.generation(), controller.snapshot(group).generation());
+    }
+
     private MusicTrack track(String id) {
-        return new MusicTrack(id,new TrackDetails(id,null,null,"ogg",AudioProperties.EMPTY),new TrackTarget.LocalFile(Path.of("/tmp/"+id+".ogg")));
+        return MusicTestTracks.managed(id, new TrackDetails(id,null,null, null));
     }
     private void finish(CompletableFuture<?> result) throws Exception {
         while (!result.isDone()) runMain();

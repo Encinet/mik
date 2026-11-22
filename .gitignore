@@ -104,6 +104,8 @@ $RECYCLE.BIN/
 *.lnk
 
 .gradle
+.kotlin/
+__pycache__/
 build/
 
 # Ignore Gradle GUI config
@@ -113,6 +115,9 @@ gradle-app.setting
 .gradletasknamecache
 
 **/build/
+
+# Rust artifacts; Cargo.lock is tracked for reproducible service releases.
+/target/
 
 # Common working directory
 run/

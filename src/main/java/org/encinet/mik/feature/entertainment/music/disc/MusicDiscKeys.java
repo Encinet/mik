@@ -7,9 +7,10 @@ import org.bukkit.persistence.PersistentDataType;
 
 public final class MusicDiscKeys {
 
-    public static final NamespacedKey TRACK = new NamespacedKey("mik", "music_v2_track");
-    public static final NamespacedKey TRACK_DATA = new NamespacedKey("mik", "music_v2_data");
-    public static final NamespacedKey TRACK_SIGNATURE = new NamespacedKey("mik", "music_v2_signature");
+    public static final NamespacedKey TRACK = new NamespacedKey("mik", "music_v3_track");
+    public static final NamespacedKey TRACK_SIGNATURE = new NamespacedKey("mik", "music_v3_signature");
+
+    static String signedIdentity(String id) { return "mik-disc:3:" + id; }
 
     private MusicDiscKeys() {
     }
@@ -28,15 +29,6 @@ public final class MusicDiscKeys {
 
     public static boolean isCustomDisc(ItemStack item) {
         return trackId(item) != null;
-    }
-
-    public static String trackData(ItemStack item) {
-        if (item == null || item.getType().isAir()) {
-            return null;
-        }
-        ItemMeta meta = item.getItemMeta();
-        return meta == null ? null : meta.getPersistentDataContainer()
-                .get(TRACK_DATA, PersistentDataType.STRING);
     }
 
     public static String trackSignature(ItemStack item) {

@@ -231,6 +231,26 @@ final class IronElevatorController {
         // The accepted input and an in-flight shared catalog outlive a geometry refresh.
     }
 
+    ElevatorStatus status(Player player) {
+        Location feet = player.getLocation();
+        Block standing = IronElevatorTravelGroup.platformAt(player, feet);
+        if (standing == null) return new ElevatorStatus(false, null, null);
+        UUID id = player.getUniqueId();
+        Visit visit = visits.get(id);
+        if (closed || !canUse(player) || executing.contains(id) || visit == null || visit.navigation.trip() != null
+                || !fresh(visit.geometry) || !visit.geometry.contains(standing) || !samePosition(visit.feet, feet)) {
+            return new ElevatorStatus(true, null, null);
+        }
+        Query query = visit.navigation.query;
+        if (query == null || query.targetY != null || visit.navigation.refresh
+                || visit.sample == null || query.group != visit.sample.group()) {
+            return new ElevatorStatus(true, null, null);
+        }
+        return new ElevatorStatus(true,
+                query.routes.confirmed(1) ? query.routes.up() != null : null,
+                query.routes.confirmed(-1) ? query.routes.down() != null : null);
+    }
+
     void observe(Player player, Location feet, boolean refresh) {
         if (closed) return;
         UUID id = player.getUniqueId();
@@ -272,6 +292,7 @@ final class IronElevatorController {
                     } catch (RuntimeException error) {
                         visit.navigation.work = null;
                         visit.navigation.action = Idle.INSTANCE;
+                        visit.navigation.query = null;
                         visit.navigation.availability = null;
                         presentation.clear(player);
                         throw error;

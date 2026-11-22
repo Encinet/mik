@@ -1,7 +1,12 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSoundSettings;
+
 /** One backend-owned playback attempt. All lifecycle methods are idempotent. */
 interface PlaybackSession {
+    enum OutputKind { UNRESOLVED, NATIVE_RECORD, NOTE_EVENTS, ENCODED_AUDIO }
+    default OutputKind outputKind() { return OutputKind.NATIVE_RECORD; }
+
 
     /** Loads and analyzes the track without advancing its playback clock. */
     void prepare();
@@ -9,19 +14,13 @@ interface PlaybackSession {
     /** Starts playback once preparation is complete, or queues that request. */
     void start();
 
-    PlaybackStatus status();
+    JukeboxPlaybackSnapshot snapshot();
 
-    long positionMillis();
+    default String mediaVersion() { return null; }
 
-    default boolean canSeek() {
-        return false;
-    }
+    default PlaybackStatus status() { return snapshot().status(); }
 
-    default void seekTo(long positionMillis) {
-    }
-
-    default void setPaused(boolean paused) {
-    }
+    default long positionMillis() { return snapshot().positionMillis(); }
 
     default void updateSettings(JukeboxSoundSettings settings) {
     }

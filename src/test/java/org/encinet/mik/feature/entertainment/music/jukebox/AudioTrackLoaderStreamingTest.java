@@ -1,176 +1,67 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
-import com.sun.net.httpserver.HttpServer;
-import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
-import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
-import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
-import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCacheTestSupport;
-import org.junit.jupiter.api.AfterEach;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
+import org.encinet.mik.protocol.music.MusicMediaDescriptor;
+import org.encinet.mik.protocol.music.MusicRepresentation;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.net.InetSocketAddress;
-import java.nio.file.Path;
-import java.time.Duration;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
+import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.mock;
 
 class AudioTrackLoaderStreamingTest {
 
-    @TempDir
-    Path directory;
-
-    private HttpServer server;
-    private OnlineAudioCache cache;
-    private AudioTrackLoader loader;
-
-    @AfterEach
-    void close() {
-        if (loader != null) {
-            loader.close();
-        }
-        if (cache != null) {
-            cache.close();
-        }
-        if (server != null) {
-            server.stop(0);
-        }
-    }
-
     @Test
-    void loadsOnlineTrackBeforeTheHttpResponseFinishes() throws Exception {
-        byte[] wav = wav(4096);
-        int initialBytes = 1024;
-        CountDownLatch initialChunkSent = new CountDownLatch(1);
-        CountDownLatch releaseRemainingAudio = new CountDownLatch(1);
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/stream.wav", exchange -> {
-            exchange.getResponseHeaders().set("Content-Type", "audio/wav");
-            exchange.sendResponseHeaders(200, wav.length);
-            exchange.getResponseBody().write(wav, 0, initialBytes);
-            exchange.getResponseBody().flush();
-            initialChunkSent.countDown();
-            try {
-                releaseRemainingAudio.await(5, TimeUnit.SECONDS);
-                exchange.getResponseBody().write(wav, initialBytes,
-                        wav.length - initialBytes);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-            } finally {
-                exchange.close();
+    void probesAudioThroughTheOpenedMediaLease() throws Exception {
+        var track = MusicTestTracks.managed("streaming", new TrackDetails("Streaming", "Test", null, null));
+        var resolver = new PlaybackResourceResolver(mock(MusicMedia.class));
+        try (var loader = new AudioTrackLoader(resolver);
+             var resource = resolver.register(wavLease(OfflineRhythmAnalyzerTest.wav(16_000)));
+             var loaded = loader.load(track, resource).get(5, TimeUnit.SECONDS)) {
+            assertEquals(1_000L, loaded.track().getDuration());
+        }
+    }
+
+    static MusicMedia.MediaLease wavLease(byte[] bytes) {
+        return lease(bytes, "audio/wav", "test-wav");
+    }
+
+    static MusicMedia.MediaLease lease(byte[] bytes, String type, String version) {
+        return lease(bytes, version, MusicMediaDescriptor.newBuilder().setRepresentationVersion(1)
+                .setRepresentation(MusicRepresentation.ENCODED_AUDIO).setContentType(type)
+                .setByteLength(bytes.length).setSeekable(true).build());
+    }
+
+    static MusicMedia.MediaLease lease(byte[] bytes, String version, MusicMediaDescriptor descriptor) {
+        return new MusicMedia.MediaLease() {
+            @Override public String mediaVersion() { return version; }
+            @Override public MusicMediaDescriptor descriptor() { return descriptor; }
+            @Override public void close() { }
+
+            @Override
+            public MusicMedia.Reader openReader() {
+                return new MusicMedia.Reader() {
+                    private final ByteBuffer buffer = ByteBuffer.wrap(bytes);
+
+                    @Override public int read() { return buffer.hasRemaining() ? Byte.toUnsignedInt(buffer.get()) : -1; }
+                    @Override public long position() { return buffer.position(); }
+                    @Override public void seek(long position) { buffer.position((int) Math.min(position, bytes.length)); }
+                    @Override public int available() { return buffer.remaining(); }
+                    @Override public void close() { }
+
+                    @Override
+                    public int read(byte[] destination, int offset, int length) {
+                        int count = Math.min(length, buffer.remaining());
+                        if (count == 0) return length == 0 ? 0 : -1;
+                        buffer.get(destination, offset, count);
+                        return count;
+                    }
+                };
             }
-        });
-        server.start();
-        String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stream.wav";
-        cache = OnlineAudioCacheTestSupport.create(directory,
-                _ -> CompletableFuture.completedFuture(url));
-        loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
-        MusicTrack track = onlineTrack();
-
-        CompletableFuture<AudioTrackLoader.LoadedAudio> loading = loader.load(track);
-        assertTrue(initialChunkSent.await(5, TimeUnit.SECONDS));
-        try (AudioTrackLoader.LoadedAudio _ = loading.get(2, TimeUnit.SECONDS)) {
-            assertFalse(cache.isCached((TrackTarget.Lx) track.target()));
-        } finally {
-            releaseRemainingAudio.countDown();
-        }
-
-        assertTrue(cache.resolve((TrackTarget.Lx) track.target())
-                .thenApply(Path::of).thenApply(java.nio.file.Files::isRegularFile)
-                .get(5, TimeUnit.SECONDS));
-    }
-
-    @Test
-    void completeLoadWaitsForTheEntireOnlineResponse() throws Exception {
-        byte[] wav = wav(4096);
-        int initialBytes = 1024;
-        CountDownLatch initialChunkSent = new CountDownLatch(1);
-        CountDownLatch releaseRemainingAudio = new CountDownLatch(1);
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        server.createContext("/stream.wav", exchange -> {
-            exchange.getResponseHeaders().set("Content-Type", "audio/wav");
-            exchange.sendResponseHeaders(200, wav.length);
-            exchange.getResponseBody().write(wav, 0, initialBytes);
-            exchange.getResponseBody().flush();
-            initialChunkSent.countDown();
-            try {
-                releaseRemainingAudio.await(5, TimeUnit.SECONDS);
-                exchange.getResponseBody().write(wav, initialBytes,
-                        wav.length - initialBytes);
-            } catch (InterruptedException exception) {
-                Thread.currentThread().interrupt();
-            } finally {
-                exchange.close();
-            }
-        });
-        server.start();
-        String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/stream.wav";
-        cache = OnlineAudioCacheTestSupport.create(directory,
-                _ -> CompletableFuture.completedFuture(url));
-        loader = new AudioTrackLoader(new PlaybackResourceResolver(cache));
-        MusicTrack track = onlineTrack();
-
-        CompletableFuture<AudioTrackLoader.LoadedAudio> loading = loader.loadComplete(track);
-        assertTrue(initialChunkSent.await(5, TimeUnit.SECONDS));
-        try {
-            assertFalse(loading.isDone());
-            assertFalse(cache.isCached((TrackTarget.Lx) track.target()));
-        } finally {
-            releaseRemainingAudio.countDown();
-        }
-
-        try (AudioTrackLoader.LoadedAudio _ = loading.get(5, TimeUnit.SECONDS)) {
-            assertTrue(cache.isCached((TrackTarget.Lx) track.target()));
-        }
-    }
-
-    private static MusicTrack onlineTrack() {
-        TrackTarget.Lx target = new TrackTarget.Lx("kw", "streaming-test",
-                List.of("320k"),
-                "{\"id\":\"streaming-test\",\"source\":\"kw\","
-                        + "\"meta\":{\"songId\":\"streaming-test\"}}");
-        return new MusicTrack("lx:kw:streaming-test",
-                new TrackDetails("Streaming", "Test", null, "WAV",
-                        new AudioProperties(null, null, Duration.ofSeconds(1))), target);
-    }
-
-    private static byte[] wav(int pcmBytes) throws Exception {
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream(44 + pcmBytes);
-        try (DataOutputStream output = new DataOutputStream(bytes)) {
-            output.writeBytes("RIFF");
-            writeLittleEndianInt(output, 36 + pcmBytes);
-            output.writeBytes("WAVE");
-            output.writeBytes("fmt ");
-            writeLittleEndianInt(output, 16);
-            writeLittleEndianShort(output, 1);
-            writeLittleEndianShort(output, 1);
-            writeLittleEndianInt(output, 8000);
-            writeLittleEndianInt(output, 16000);
-            writeLittleEndianShort(output, 2);
-            writeLittleEndianShort(output, 16);
-            output.writeBytes("data");
-            writeLittleEndianInt(output, pcmBytes);
-            output.write(new byte[pcmBytes]);
-        }
-        return bytes.toByteArray();
-    }
-
-    private static void writeLittleEndianInt(DataOutputStream output, int value)
-            throws Exception {
-        output.writeInt(Integer.reverseBytes(value));
-    }
-
-    private static void writeLittleEndianShort(DataOutputStream output, int value)
-            throws Exception {
-        output.writeShort(Short.reverseBytes((short) value));
+        };
     }
 }

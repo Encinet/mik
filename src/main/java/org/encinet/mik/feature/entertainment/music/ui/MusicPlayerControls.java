@@ -18,8 +18,8 @@ record MusicPlayerControls(Primary primary, boolean enabled, boolean previous, b
     static MusicPlayerControls sample(MusicPlaybackSnapshot snapshot, PlaybackProgram program, boolean busy) {
         boolean pending = !program.base().isEmpty() || !program.priority().isEmpty();
         var primary = switch (snapshot.status()) {
-            case PLAYING -> snapshot.track() != null && snapshot.track().target() instanceof TrackTarget.NativeRecord ? Primary.STOP : Primary.PAUSE;
-            case PAUSED -> Primary.RESUME;
+            case PLAYING, BUFFERING -> snapshot.track() != null && snapshot.track().target() instanceof TrackTarget.NativeRecord ? Primary.STOP : Primary.PAUSE;
+            case PAUSED, RESUMABLE -> Primary.RESUME;
             case LOADING -> Primary.CANCEL;
             case STOPPED, FINISHED -> Primary.PLAY;
         };
@@ -32,10 +32,15 @@ record MusicPlayerControls(Primary primary, boolean enabled, boolean previous, b
         UiIcon status = switch (snapshot.status()) {
             case PLAYING -> UiIcons.ACTIVITY_BARS;
             case PAUSED -> UiIcons.PAUSE;
-            case LOADING -> UiIcons.LOADING;
-            case STOPPED, FINISHED -> UiIcons.STOP;
+            case LOADING, BUFFERING -> UiIcons.LOADING;
+            case STOPPED, FINISHED, RESUMABLE -> UiIcons.STOP;
+        };
+        String label = switch (snapshot.status()) {
+            case BUFFERING -> "loading";
+            case RESUMABLE -> "stopped";
+            default -> snapshot.status().name().toLowerCase(java.util.Locale.ROOT);
         };
         return new MusicPlayerControls(primary, enabled, !busy && snapshot.entry() != null, !busy && pending,
-                status, snapshot.status().name().toLowerCase(java.util.Locale.ROOT));
+                status, label);
     }
 }

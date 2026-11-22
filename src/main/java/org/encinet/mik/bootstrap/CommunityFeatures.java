@@ -1,23 +1,23 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.feature.community.ai.AiModule;
 import org.encinet.mik.feature.community.chat.ChatModule;
-import org.encinet.mik.feature.community.chat.web.WebChatModule;
+import org.encinet.mik.feature.community.chat.game.PaperChatBridge;
 import org.encinet.mik.feature.player.profile.TabListModule;
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
 import org.encinet.mik.feature.community.chat.game.GameMentionNotifier;
 import org.encinet.mik.feature.community.chat.game.GameChatPresenceListener;
+import org.encinet.mik.feature.community.communication.Announcement;
 import org.encinet.mik.feature.community.communication.AnnouncementModule;
+import org.encinet.mik.feature.community.communication.AnnouncementSnapshot;
 import org.encinet.mik.feature.community.governance.GovernanceModule;
 import org.encinet.mik.feature.community.identity.IdentityBindingModule;
-import org.encinet.mik.feature.community.social.SocialModule;
-import org.encinet.mik.feature.community.social.game.BukkitSocialChatGateway;
+import org.encinet.mik.feature.server.access.IdentityAccess;
+import org.encinet.mik.protocol.GovernanceCredential;
 
 record CommunityFeatures(
         ChatModule chat,
-        WebChatModule webChat,
-        SocialModule social,
+        PaperChatBridge paperChat,
         GovernanceModule governance,
         AnnouncementModule announcements) {
 
@@ -29,69 +29,67 @@ record CommunityFeatures(
         var playerNameTags = players.nameTags();
         var banModule = server.bans();
 
-        AiModule aiModule = new AiModule(plugin, languageService);
-        lifecycle.startManaged("ai", aiModule::enable, aiModule::disable);
-        aiModule.registerCommands(plugin.getLifecycleManager());
-
         ChatSettingsStore chatSettingsStore = new ChatSettingsStore(plugin);
         lifecycle.startManaged("chat-settings", chatSettingsStore::enable, chatSettingsStore::disable);
 
         GameMentionNotifier mentionNotifier = new GameMentionNotifier(plugin, afkModule, languageService, chatSettingsStore);
 
-        IdentityBindingModule identityBindingModule = new IdentityBindingModule(plugin, languageService);
-        lifecycle.startManaged("identity-binding", identityBindingModule::enable, identityBindingModule::disable);
-        identityBindingModule.registerCommands(plugin.getLifecycleManager());
-
-        BukkitSocialChatGateway socialChatGateway =
-                new BukkitSocialChatGateway(
-                        plugin, identityBindingModule.manager(), playerNameTags);
-        SocialModule socialModule = new SocialModule(
-                plugin, identityBindingModule.manager(), languageService, afkModule,
-                socialChatGateway, aiModule);
+        IdentityBindingModule identity = new IdentityBindingModule(plugin, languageService, shared.mikd().requests(),
+                players.security()::authentication);
+        identity.registerCommands();
+        IdentityAccess identityAccess = new IdentityAccess(plugin, languageService, shared.mikd().requests(),
+                players.security()::configurationAuthenticated, server.maintenance()::admissionRefusal,
+                identity::challenge, IdentityBindingModule::platformName);
+        lifecycle.startManaged("identity-access", identityAccess::enable, identityAccess::close);
 
         ChatModule chatModule = new ChatModule(
                 plugin, mentionNotifier, languageService, chatSettingsStore, playerNameTags, players.sources(),
-                socialModule.chatPublisher(), identityBindingModule.manager(),
                 lifecycle.own("chat-tips", players.guidance().scope()), shared.menus()::consumeChatInput);
-        socialChatGateway.bind(chatModule.messages());
 
-        WebChatModule webChat = new WebChatModule(plugin, languageService,
-                players.security()::authentication, players.security()::webAccountPolicy,
-                id -> playerNameTags.resolve(id, id.toString()),
+        var requests = shared.mikd().requests();
+        AnnouncementModule announcementModule = new AnnouncementModule(plugin, languageService,
+                () -> requests.fetchAnnouncements().thenApply(snapshot -> new AnnouncementSnapshot(
+                        snapshot.getStale() ? AnnouncementSnapshot.State.STALE : AnnouncementSnapshot.State.READY,
+                        snapshot.getEntriesList().stream()
+                                .map(entry -> new Announcement(entry.getTimestamp(), entry.getContent())).toList())));
+        lifecycle.startManaged("announcement", announcementModule::enable, announcementModule::disable);
+        announcementModule.registerCommands(plugin.getLifecycleManager());
+
+        PaperChatBridge paperChat = new PaperChatBridge(plugin, languageService, shared.mikd().requests(),
+                player -> players.security().authentication(player).getAsBoolean(),
                 (id, name) -> banModule.manager().active(id, name).isEmpty(), peers -> players.tabList().webPlayers(peers.stream().map(peer ->
-                        new TabListModule.WebPlayer(peer.playerUuid(), peer.name(), peer.webConnections())).toList()),
-                chatModule.messages()::process, chatModule.messages()::publish, chatModule.ledger());
-        players.tabList().webVisibility(webChat::canSee);
-        lifecycle.startManaged("chat", () -> chatModule.enable(webChat, webChat, webChat), chatModule::disable);
+                        new TabListModule.WebPlayer(java.util.UUID.fromString(peer.getPlayer().getId()), peer.getPlayer().getName(), peer.getConnections())).toList()),
+                chatModule.game()::deliverRouted);
+        shared.mikd().configureChatState(paperChat::observe, paperChat::receiveWebRoster);
+        players.tabList().webVisibility(paperChat::canSee);
+        lifecycle.startManaged("chat", () -> chatModule.enable(paperChat, paperChat, players.security()::authentication),
+                chatModule::disable);
         chatModule.registerCommands(plugin.getLifecycleManager());
-        lifecycle.startManaged("web-chat", webChat::enable, webChat::disable);
-        GameChatPresenceListener gameChatPresence = new GameChatPresenceListener(plugin, webChat, player -> {
-            var peer = webChat.peer(player.getUniqueId(), player.getUniqueId());
+        lifecycle.startManaged("paper-chat-bridge", paperChat::start, paperChat::close);
+        GameChatPresenceListener gameChatPresence = new GameChatPresenceListener(plugin, paperChat::publishPresence, player -> {
+            var peer = paperChat.peer(player.getUniqueId(), player.getUniqueId());
             return peer != null && peer.game();
-        }, webChat::canSee);
+        });
         lifecycle.startManaged("chat-game-presence", gameChatPresence::enable, gameChatPresence::disable);
         var permissions = org.bukkit.Bukkit.getServicesManager().load(net.luckperms.api.LuckPerms.class);
         if (permissions != null) {
             var subscription = permissions.getEventBus().subscribe(plugin,
                     net.luckperms.api.event.user.UserDataRecalculateEvent.class,
-                    event -> webChat.invalidatePolicy(event.getUser().getUniqueId()));
+                    event -> paperChat.invalidate(event.getUser().getUniqueId()));
             lifecycle.own("web-chat-permissions", subscription::close);
         }
 
-        lifecycle.startManaged("social", socialModule::enable, socialModule::disable);
-        socialModule.registerCommands(plugin.getLifecycleManager());
-
         GovernanceModule governanceModule = new GovernanceModule(
-                plugin, languageService, afkModule, banModule.manager(), players.security());
+                plugin, languageService, afkModule, banModule.manager(), players.security(),
+                player -> players.security().authentication(player).getAsBoolean(), id -> {
+                    var fact = players.security().credentialFact(id);
+                    return GovernanceCredential.newBuilder().setRevision(fact.revision())
+                            .setChangedMs(fact.revision()).setPresent(fact.present()).build();
+                }, shared.mikd().requests());
         lifecycle.startManaged("governance", governanceModule::enable, governanceModule::disable);
         governanceModule.registerCommands(plugin.getLifecycleManager());
-        players.security().retention(governanceModule::requiresPassword);
+        players.security().governance(governanceModule::requiresPassword, governanceModule, governanceModule::canResetPassword);
 
-        AnnouncementModule announcementModule = new AnnouncementModule(
-                plugin, languageService, webChat, socialModule.announcementPublisher());
-        lifecycle.startManaged("announcement", announcementModule::enable, announcementModule::disable);
-        announcementModule.registerCommands(plugin.getLifecycleManager());
-
-        return new CommunityFeatures(chatModule, webChat, socialModule, governanceModule, announcementModule);
+        return new CommunityFeatures(chatModule, paperChat, governanceModule, announcementModule);
     }
 }

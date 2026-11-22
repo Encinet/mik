@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
 
@@ -32,7 +32,13 @@ public record MusicState(Map<String, StoredTrack> tracks, Map<UUID, Playlist> pl
     public static String key(UUID player, Object subject) {
         return player + ":" + subject;
     }
-    public record Checkpoint(UUID entry, long position, boolean paused, long savedAt) {}
+    public record Checkpoint(UUID entry, long position, boolean paused, long savedAt, String mediaVersion) {
+        public Checkpoint {
+            Objects.requireNonNull(entry);
+            if (position < 0 || (mediaVersion != null && !mediaVersion.matches("[0-9a-f]{32}"))
+                    || (position > 0 && mediaVersion == null)) throw new IllegalArgumentException("Unpinned music checkpoint");
+        }
+    }
     public record Binding(UUID player, UUID target, String alias) {
         public Binding { Objects.requireNonNull(player); Objects.requireNonNull(target); Objects.requireNonNull(alias); }
     }
@@ -40,8 +46,8 @@ public record MusicState(Map<String, StoredTrack> tracks, Map<UUID, Playlist> pl
         public Favorite { Objects.requireNonNull(player); Objects.requireNonNull(playlist); }
     }
     public record Recent(UUID id, UUID player, String track, UUID target, long at) {}
-    public record ImportReceipt(UUID id, UUID player, String source, String reference, UUID playlist,
-            int loaded, int total, long at) {}
+    public record ImportReceipt(UUID id, UUID player, UUID playlist,
+            int loaded, boolean partial, long at) {}
     public record Recovery(PlaybackProgram program, Checkpoint checkpoint) {
         public Recovery { Objects.requireNonNull(program); }
     }

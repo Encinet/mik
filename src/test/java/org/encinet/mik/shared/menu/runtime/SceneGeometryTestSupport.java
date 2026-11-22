@@ -1,5 +1,18 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.input.MenuPaginationInput;
+import org.encinet.mik.shared.menu.runtime.layout.ComponentSceneLayout;
+import org.encinet.mik.shared.menu.runtime.layout.ComponentSceneProjector;
+import org.encinet.mik.shared.menu.runtime.layout.FloatingMenuNodeGeometry;
+import org.encinet.mik.shared.menu.runtime.layout.FloatingMenuNodeSizing;
+import org.encinet.mik.shared.menu.runtime.layout.MenuEntityBudget;
+import org.encinet.mik.shared.menu.runtime.layout.MenuLayoutState;
+import org.encinet.mik.shared.menu.runtime.layout.MenuReadingParameters;
+import org.encinet.mik.shared.menu.runtime.layout.MenuViewportLayout;
+import org.encinet.mik.shared.menu.runtime.layout.SceneGeometry;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuAnchorResolver;
+import org.encinet.mik.shared.menu.runtime.window.MenuWorldPresentation;
+
 import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.FloatingMenuFieldOfView;
 import org.encinet.mik.shared.menu.ui.UiFrame;
@@ -54,7 +67,7 @@ public final class SceneGeometryTestSupport {
     }
 
     /** Fixed geometry fixtures exercise projection before a host assigns its primary reading budget. */
-    static SceneGeometry naturalGeometry(MenuScene scene, double typography, FloatingMenuFieldOfView fov, double scale) {
+    public static SceneGeometry naturalGeometry(MenuScene scene, double typography, FloatingMenuFieldOfView fov, double scale) {
         var base = SceneGeometry.measureBase(scene, typography, fov, scale, UiPalette.DEFAULT, null, scene.viewport());
         return base.withPopover(scene, typography, fov, scale, UiPalette.DEFAULT,
                 MenuReadingParameters.estimated(base.bounds(), fov, scale));
@@ -81,12 +94,12 @@ public final class SceneGeometryTestSupport {
     }
 
     /** Check the actual eye-relative footprint, including panel depth and an off-center anchor. */
-    static void assertReadingCone(SceneGeometry geometry, FloatingMenuAnchorResolver.Anchor anchor,
+    public static void assertReadingCone(SceneGeometry geometry, FloatingMenuAnchorResolver.Anchor anchor,
                                   org.bukkit.Location eye, FloatingMenuFieldOfView fov, String detail) {
         assertReadingCone(geometry.bounds(), anchor, eye, fov, detail);
     }
 
-    static void assertReadingCone(FloatingMenuAnchorResolver.SceneBounds bounds, FloatingMenuAnchorResolver.Anchor anchor,
+    public static void assertReadingCone(FloatingMenuAnchorResolver.SceneBounds bounds, FloatingMenuAnchorResolver.Anchor anchor,
                                   org.bukkit.Location eye, FloatingMenuFieldOfView fov, String detail) {
         double verticalOffset = anchor.origin().getY() - eye.getY();
         for (var point : bounds.probes()) {

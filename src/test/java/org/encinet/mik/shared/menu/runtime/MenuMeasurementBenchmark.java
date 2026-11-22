@@ -1,5 +1,7 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.layout.ComponentSceneLayout;
+
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.runtime.layout.MenuTextMeasurementCache;

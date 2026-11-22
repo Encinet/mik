@@ -10,7 +10,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.encinet.mik.feature.entertainment.music.application.*;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.*;

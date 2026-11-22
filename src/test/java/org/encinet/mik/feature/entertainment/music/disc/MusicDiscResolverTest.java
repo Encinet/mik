@@ -1,93 +1,40 @@
 package org.encinet.mik.feature.entertainment.music.disc;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
-import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.*;
 
 class MusicDiscResolverTest {
-
     private static final MusicDiscSigner SIGNER = new MusicDiscSigner(new byte[32]);
+    private static final String ID = MusicTestTracks.id("disc");
+    private static final String SIGNATURE = SIGNER.sign(MusicDiscKeys.signedIdentity(ID));
 
     @Test
-    void returnsCatalogTrackWhenTheDiscHasNoValidSnapshot() {
-        MusicTrack catalogTrack = localTrack("local:song");
-        MusicDiscResolver resolver = new MusicDiscResolver(
-                Map.of(catalogTrack.id(), catalogTrack)::get, SIGNER);
-
-        MusicTrack resolved = resolver.resolve(catalogTrack.id(), "not-json", "invalid");
-
-        assertSame(catalogTrack, resolved);
-    }
-
-    @Test
-    void onlineDiscSnapshotOverridesAConflictingCatalogTarget() {
-        MusicTrack catalogTrack = onlineTrack("lx:kw:7");
-        MusicTrack discTrack = new MusicTrack(catalogTrack.id(),
-                new TrackDetails("Search result", null, null, "LX/KW", AudioProperties.EMPTY),
-                new TrackTarget.Lx("kw", "7", List.of("320k"),
-                        "{\"name\":\"Search result\",\"source\":\"kw\",\"songmid\":\"7\"}",
-                        "search-provider.js"));
-        MusicDiscResolver resolver = new MusicDiscResolver(
-                Map.of(catalogTrack.id(), catalogTrack)::get, SIGNER);
-
-        String snapshot = MusicDiscSnapshot.serialize(discTrack);
-
-        MusicTrack resolved = resolver.resolve(
-                discTrack.id(), snapshot, SIGNER.sign(snapshot));
-
-        assertEquals("search-provider.js",
-                ((TrackTarget.Lx) resolved.target()).providerId());
+    void signedIdentitySurvivesMetadataChanges() {
+        var original = MusicTestTracks.managed("disc", new TrackDetails("Old title", null, null, null));
+        var renamed = new MusicTrack(ID, new TrackDetails("New title", "Artist", null, null), original.target());
+        assertSame(original, new MusicDiscResolver(Map.of(ID, original)::get, SIGNER).resolve(ID, SIGNATURE));
+        assertSame(renamed, new MusicDiscResolver(Map.of(ID, renamed)::get, SIGNER).resolve(ID, SIGNATURE));
     }
 
     @Test
-    void restoresOnlineTrackSnapshotWithoutGlobalRegistration() {
-        MusicTrack onlineTrack = onlineTrack("lx:kw:7");
-        MusicDiscResolver resolver = new MusicDiscResolver(
-                _ -> null, SIGNER);
-
-        String snapshot = MusicDiscSnapshot.serialize(onlineTrack);
-
-        MusicTrack resolved = resolver.resolve(
-                onlineTrack.id(), snapshot, SIGNER.sign(snapshot));
-
-        assertEquals(onlineTrack.id(), resolved.id());
+    void signedIdentityDoesNotRequireAPaperCatalogRow() {
+        var resolver = new MusicDiscResolver(_ -> null, SIGNER);
+        assertEquals(MusicTrack.reference(MusicTestTracks.target("disc")), resolver.resolve(ID, SIGNATURE));
     }
 
     @Test
-    void rejectsMissingOrMismatchedDiscData() {
-        MusicTrack onlineTrack = onlineTrack("lx:kw:7");
-        MusicDiscResolver resolver = new MusicDiscResolver(
-                _ -> null, SIGNER);
-
-        String snapshot = MusicDiscSnapshot.serialize(onlineTrack);
-
-        assertNull(resolver.resolve(null, snapshot, SIGNER.sign(snapshot)));
-        assertNull(resolver.resolve("lx:kw:other", snapshot, SIGNER.sign(snapshot)));
-        assertNull(resolver.resolve(onlineTrack.id(), "not-json", "invalid"));
-        assertNull(resolver.resolve(onlineTrack.id(), snapshot, null));
-        assertNull(resolver.resolve(onlineTrack.id(), snapshot + " ", SIGNER.sign(snapshot)));
-    }
-
-    private static MusicTrack localTrack(String id) {
-        return new MusicTrack(id,
-                new TrackDetails("Local", null, null, "MP3", AudioProperties.EMPTY),
-                new TrackTarget.LocalFile(Path.of("song.mp3")));
-    }
-
-    private static MusicTrack onlineTrack(String id) {
-        return new MusicTrack(id,
-                new TrackDetails("Online", null, null, "LX/KW", AudioProperties.EMPTY),
-                new TrackTarget.Lx("kw", "7", List.of("320k"),
-                        "{\"name\":\"Online\",\"source\":\"kw\",\"songmid\":\"7\"}"));
+    void rejectsMismatchedIdsOldSignaturesAndNoncanonicalIds() {
+        var resolver = new MusicDiscResolver(_ -> null, SIGNER);
+        assertNull(resolver.resolve(null, SIGNATURE));
+        assertNull(resolver.resolve(MusicTestTracks.id("other"), SIGNATURE));
+        assertNull(resolver.resolve(ID, null));
+        assertNull(resolver.resolve(ID, SIGNER.sign("{\"id\":\"" + ID + "\"}")));
+        assertNull(resolver.resolve("lx:wy:123", SIGNER.sign(MusicDiscKeys.signedIdentity("lx:wy:123"))));
     }
 }

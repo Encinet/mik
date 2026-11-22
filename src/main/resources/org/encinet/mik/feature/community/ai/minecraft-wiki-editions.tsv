@@ -1,0 +1,18 @@
+# The editions linked from https://minecraft.wiki/, verified by each edition's MediaWiki siteinfo.
+# code<TAB>canonical-host<TAB>article-prefix<TAB>api-path<TAB>aliases<TAB>language-label
+# aliases: comma-separated host:/article-prefix/ pairs, or - for none. Aliases are input-only.
+de	de.minecraft.wiki	/w/	/api.php	de.minecraft.wiki:/wiki/	Deutsch
+en	minecraft.wiki	/w/	/api.php	minecraft.wiki:/wiki/,en.minecraft.wiki:/w/,en.minecraft.wiki:/wiki/,www.minecraft.wiki:/w/,www.minecraft.wiki:/wiki/	English
+es	es.minecraft.wiki	/w/	/api.php	es.minecraft.wiki:/wiki/	español
+fr	fr.minecraft.wiki	/w/	/api.php	fr.minecraft.wiki:/wiki/	français
+he	he.minecraft.wiki	/w/	/api.php	he.minecraft.wiki:/wiki/	עברית
+it	it.minecraft.wiki	/w/	/api.php	it.minecraft.wiki:/wiki/	italiano
+ja	ja.minecraft.wiki	/w/	/api.php	ja.minecraft.wiki:/wiki/	日本語
+ko	ko.minecraft.wiki	/w/	/api.php	ko.minecraft.wiki:/wiki/	한국어
+lzh	lzh.minecraft.wiki	/w/	/api.php	lzh.minecraft.wiki:/wiki/	文言
+nl	nl.minecraft.wiki	/w/	/api.php	nl.minecraft.wiki:/wiki/	Nederlands
+pt	pt.minecraft.wiki	/w/	/api.php	pt.minecraft.wiki:/wiki/	português
+ru	ru.minecraft.wiki	/w/	/api.php	ru.minecraft.wiki:/wiki/	русский
+th	th.minecraft.wiki	/w/	/api.php	th.minecraft.wiki:/wiki/	ไทย
+uk	uk.minecraft.wiki	/w/	/api.php	uk.minecraft.wiki:/wiki/	українська
+zh	zh.minecraft.wiki	/w/	/api.php	zh.minecraft.wiki:/wiki/	中文

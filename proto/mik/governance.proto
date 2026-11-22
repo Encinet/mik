@@ -1,0 +1,283 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+import "mik/chat_message.proto";
+
+message GovernanceActivityInterval {
+  int64 start_ms = 1;
+  int64 end_ms = 2;
+}
+
+message GovernanceObservation {
+  ChatPlayer player = 1;
+  optional int64 login_ms = 2;
+  repeated GovernanceActivityInterval activity = 3;
+  GovernanceCredential credential = 4;
+  int64 observed_ms = 6;
+}
+
+message GovernanceBan {
+  string subject = 1;
+  optional int64 expires_ms = 2;
+}
+
+message GovernanceBanSnapshot {
+  int64 observed_ms = 1;
+  repeated GovernanceBan bans = 2;
+}
+
+message GovernanceObservations {
+  repeated GovernanceObservation players = 1;
+  GovernanceBanSnapshot ban_snapshot = 2;
+}
+
+message GovernanceCredential {
+  uint64 revision = 1;
+  bool present = 2;
+  int64 changed_ms = 3;
+}
+
+message GovernancePasswordRemoval {
+  string player_id = 1;
+  string removal_id = 2;
+  GovernanceCredential credential = 3;
+}
+
+message GovernanceQuery {
+  enum View {
+    VIEW_UNSPECIFIED = 0;
+    PROFILE = 1;
+    ROSTER = 2;
+    MATTERS = 3;
+    VOTE = 4;
+    HISTORY = 5;
+    reserved 6;
+    reserved "DELIVERIES";
+    FIND_PLAYERS = 7;
+    GRANT_TARGETS = 8; // Current unconfirmed targets for player_id; read after loading the LuckPerms user.
+  }
+  View view = 1;
+  string viewer_id = 2;
+  string player_id = 3;
+  int64 item_id = 4;
+  uint32 offset = 5;
+  uint32 limit = 6;
+  string player_search = 7;
+  bool local_operator = 8;
+}
+
+enum GovernanceBallot {
+  GOVERNANCE_BALLOT_UNSPECIFIED = 0;
+  YES = 1;
+  NO = 2;
+  ABSTAIN = 3;
+}
+
+message GovernanceActionRequest {
+  enum Action {
+    ACTION_UNSPECIFIED = 0;
+    APPLY = 1;
+    WITHDRAW = 2;
+    VOTE = 3;
+    SPONSOR = 4;
+    RESIGN = 5;
+    PAUSE_PROMOTION = 6;
+    RESUME_PROMOTION = 7;
+    REGISTER_MAINTAINER = 8;
+    RETIRE_MAINTAINER = 9;
+  }
+  Action action = 1;
+  string actor_id = 2;
+  string player_id = 3;
+  bool local_operator = 4;
+  int64 item_id = 5;
+  GovernanceBallot ballot = 6;
+  int64 pause_until_ms = 7;
+  string reason = 8;
+  string appeal = 9;
+  GovernanceCredential credential = 10;
+  string player_name = 11;
+}
+
+message GovernanceDeliveryPoll {
+  // Active or just-failed players are omitted from new work, but their revocations are still returned.
+  repeated string deferred_players = 1;
+}
+
+message GovernanceDeliveryReceipt {
+  repeated int64 grants = 1;
+  repeated int64 announcements = 2;
+}
+
+message GovernanceCommand {
+  oneof operation {
+    GovernanceObservations observe = 1;
+    GovernanceQuery query = 2;
+    GovernanceActionRequest act = 3;
+    GovernanceDeliveryReceipt confirm = 4;
+    GovernancePasswordRemoval reserve_password_removal = 5;
+    GovernancePasswordRemoval finalize_password_removal = 6;
+    GovernanceDeliveryPoll poll_deliveries = 7;
+  }
+}
+
+message GovernancePromotionPause {
+  int64 id = 1;
+  int64 created_ms = 2;
+  int64 ends_ms = 3;
+  string actor = 4;
+  string reason = 5;
+  string appeal = 6;
+}
+
+message GovernanceProfile {
+  ChatPlayer player = 1;
+  optional int64 first_login_ms = 2;
+  optional int64 last_login_ms = 3;
+  optional int64 member_since_ms = 4;
+  int64 lifetime_seconds = 5;
+  uint32 lifetime_days = 6;
+  int64 recent_seconds = 7;
+  uint32 active_days = 8;
+  uint32 recent_days = 9;
+  int64 required_recent_seconds = 10;
+  optional bool banned = 11;
+  bool active_member = 12;
+  bool promotion_eligible = 13;
+  GovernancePromotionPause pause = 14;
+  bool has_password = 15;
+  bool moderator = 16;
+  bool maintainer = 17;
+  bool governance_authorized = 18;
+  reserved 19;
+  reserved "promotion_days";
+  bool login_age_met = 20;
+  bool member_age_met = 21;
+  bool requires_password = 22;
+  bool appointment_pending = 23;
+  bool recent_playtime_met = 24;
+  bool active_days_met = 25;
+  bool recent_days_met = 26;
+  bool promotion_playtime_met = 27;
+  bool promotion_days_met = 28;
+}
+
+message GovernanceStaffEntry {
+  ChatPlayer player = 1;
+  reserved 2;
+  reserved "tenure_id";
+  optional int64 started_ms = 3;
+  string responsibility = 4;
+  bool maintainer = 5;
+  bool grant_pending = 6;
+}
+
+message GovernanceVoteView {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    OPEN = 1;
+    PASSED = 2;
+    FAILED = 3;
+    TERMINATED = 4;
+  }
+  enum Failure {
+    FAILURE_NONE = 0;
+    QUORUM = 1;
+    MINIMUM_YES = 2;
+    TWO_THIRDS_NON_ABSTAINING = 3;
+    MAJORITY_OF_ALL_BALLOTS = 4;
+  }
+  enum Termination {
+    TERMINATION_NONE = 0;
+    CANDIDATE_WITHDREW = 1;
+    CANDIDATE_INELIGIBLE = 2;
+    MODERATOR_RESIGNED = 3;
+    MODERATOR_AUTO_REMOVED = 4;
+  }
+  int64 id = 1;
+  ChatPlayer subject = 2;
+  optional int64 tenure_id = 3;
+  int64 opens_ms = 4;
+  int64 closes_ms = 5;
+  Status status = 6;
+  uint32 eligible_voters = 7;
+  uint32 quorum = 8;
+  uint32 participating = 9;
+  uint32 yes = 10;
+  uint32 no = 11;
+  uint32 abstain = 12;
+  optional int64 finalized_ms = 13;
+  Failure failure = 14;
+  Termination termination = 15;
+  bool eligible_to_vote = 16;
+  GovernanceBallot own_ballot = 17;
+  bool grant_pending = 18;
+}
+
+message GovernancePetitionView {
+  int64 id = 1;
+  ChatPlayer subject = 2;
+  reserved 3;
+  reserved "tenure_id";
+  int64 created_ms = 4;
+  int64 expires_ms = 5;
+  uint32 sponsors_required = 6;
+  uint32 sponsor_count = 7;
+  optional int64 vote_id = 8;
+  bool own_sponsorship = 9;
+  bool newly_sponsored = 10;
+}
+
+message GovernanceGameGrant {
+  enum Permission {
+    PERMISSION_UNSPECIFIED = 0;
+    MEMBER = 1;
+    MODERATOR = 2;
+  }
+  int64 id = 1; // Persisted generation for this player and permission.
+  string player_id = 2;
+  Permission permission = 3;
+  bool enabled = 4;
+}
+
+message GovernanceResult {
+  enum Outcome {
+    DONE = 0;
+    UNKNOWN_PLAYER = 1;
+    PASSWORD_REQUIRED = 2;
+    PASSWORD_REMOVAL_PENDING = 3;
+    PASSWORD_PROTECTED = 4;
+    CREDENTIAL_STALE = 5;
+    VOTERS_TOO_FEW = 6;
+    VOTE_ALREADY_OPEN = 7;
+    VOTE_COOLDOWN = 8;
+    VOTE_UNKNOWN = 9;
+    VOTE_CLOSED = 10;
+    NOT_VOTER = 11;
+    CANDIDATE_INELIGIBLE = 12;
+    REMOVAL_TARGET_NOT_MODERATOR = 13;
+    REMOVAL_SELF = 14;
+    REMOVAL_PETITION_CLOSED = 15;
+    REMOVAL_SPONSOR_INELIGIBLE = 16;
+    REMOVAL_SPONSORS_TOO_FEW = 17;
+    REMOVAL_VOTE_OPEN = 18;
+    NOMINATION_NOT_OPEN = 19;
+    PAUSE_END_INVALID = 20;
+    PAUSE_ALREADY_ACTIVE = 21;
+    PAUSE_ALREADY_MEMBER = 22;
+    NOT_AUTHORIZED = 23;
+  }
+  Outcome outcome = 1;
+  GovernanceProfile profile = 2;
+  repeated GovernanceStaffEntry staff = 3;
+  repeated GovernanceVoteView votes = 4;
+  repeated GovernancePetitionView petitions = 5;
+  // Poll/target lookup: pending work. Confirmation: current targets of superseded generations.
+  repeated GovernanceGameGrant grants = 6;
+  GovernancePromotionPause pause = 7;
+  reserved 8;
+  reserved "has_more";
+  uint32 total = 9;
+  repeated ChatPlayer players = 10;
+}

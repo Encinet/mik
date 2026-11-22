@@ -10,7 +10,7 @@ public final class AnnouncementPreviewTestSupport {
 
     public static UiNode content(Language language, String body) throws Exception {
         var bundle = FluentTestSupport.bundle(language);
-        return AnnouncementPreview.content(new AnnouncementCatalog.Announcement(1, body),
+        return AnnouncementPreview.content(new Announcement(1, body),
                 Component.text(FluentTestSupport.text(bundle, Message.ANNOUNCEMENT_LATEST)),
                 Component.text(FluentTestSupport.text(bundle, Message.ANNOUNCEMENT_VIEW_ALL)), (_, _) -> {});
     }

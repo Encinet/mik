@@ -1,27 +1,19 @@
 package org.encinet.mik.feature.community.chat.pipeline;
 
+import org.encinet.mik.feature.community.chat.input.AuthorizedChatMarkup;
+
 import org.encinet.mik.feature.community.chat.mention.PlayerMentionIndex.Target;
 import org.encinet.mik.feature.community.chat.mention.PlayerMentions;
 import org.encinet.mik.feature.community.chat.model.ChatCapability;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
-import org.encinet.mik.feature.community.chat.model.ChatConversation;
-import org.encinet.mik.feature.community.chat.model.ChatMessage;
-import org.encinet.mik.feature.community.chat.model.ChatMessageId;
 import org.encinet.mik.feature.community.chat.model.ChatNode;
-import org.encinet.mik.feature.community.chat.model.ChatOrigin;
 import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
-import org.encinet.mik.feature.community.chat.model.ChatReferences;
-import org.encinet.mik.feature.community.chat.model.ChatSender;
-import org.encinet.mik.feature.community.chat.model.ChatSubmission;
 import org.encinet.mik.feature.community.chat.modifier.ChatModifier;
 import org.encinet.mik.feature.community.chat.modifier.ChatReplacement;
 import org.encinet.mik.feature.community.chat.modifier.PlayerMentionModifier;
 import org.encinet.mik.feature.community.chat.modifier.UrlModifier;
-import org.encinet.mik.feature.community.identity.ExternalIdentity;
-import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +31,7 @@ class ChatProcessorSearchTest {
             Optional.empty(), Map.of());
     private final CountingModifier mentions = new CountingModifier(new PlayerMentionModifier());
     private final ChatProcessor processor = new ChatProcessor(
-            List.of(mentions, new UrlModifier()), new AdventureComponentImporter());
+            List.of(mentions, new UrlModifier()), new AuthorizedChatMarkup()::parse);
 
     @Test
     void exhaustedMentionSearchIsReusedAcrossLinks() {
@@ -74,27 +66,6 @@ class ChatProcessorSearchTest {
                 .filter(ChatNode.PlayerMention.class::isInstance).count());
         assertEquals(aliceId, assertInstanceOf(
                 ChatNode.PlayerMention.class, content.nodes().getLast()).playerId());
-        assertEquals(2, mentions.searches);
-    }
-
-    @Test
-    void trustedMentionOverridesCachedPlayerMatchWithoutHidingLaterMentions() {
-        ExternalIdentity ghost = new ExternalIdentity(new ExternalIdentityKey(
-                "matrix", "example.org", "", "@ghost:example.org"), "Ghost");
-        ChatReferences references = new ChatReferences(Optional.empty(), Optional.empty(),
-                List.of(new ChatReferences.Mention(0, 6, ghost)));
-        UUID senderId = UUID.randomUUID();
-        ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.random(), new ChatOrigin.Minecraft(senderId),
-                ChatSender.minecraft(senderId, "Steve"), ChatConversation.minecraftPublic(),
-                "@Alice @ Alice", references, Instant.EPOCH, context);
-
-        ChatMessage message = processor.process(submission);
-
-        assertEquals("@Ghost @Alice", message.content().plainText());
-        assertInstanceOf(ChatNode.ExternalMention.class, message.content().nodes().getFirst());
-        assertEquals(aliceId, assertInstanceOf(ChatNode.PlayerMention.class,
-                message.content().nodes().getLast()).playerId());
         assertEquals(2, mentions.searches);
     }
 

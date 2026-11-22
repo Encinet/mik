@@ -46,6 +46,7 @@ interface-fov-invalid = 30～110の整数を入力してください。
 interface-fov-title = 視野（FOV）
 interface-reduced-motion = 動きを減らす
 interface-reduced-motion-hint = メニューの移動と揺れを減らします。
+interface-reset-done = メニューの大きさ、文字サイズ、テーマを初期設定に戻しました。メニューの視野は { $arg0 }° です。/menu で開き直してください。
 interface-scale-adjust-hint = 割合の項目に合わせてスクロールすると調整できます。
 interface-scale-layout-title = メニューサイズ
 interface-scale-menu-title = メニューと文字
@@ -177,7 +178,6 @@ password-already-set = パスワードは設定済みです。変更には /pass
 password-busy = 試行回数が多すぎます。しばらくしてから再試行してください。
 password-change = パスワードを変更
 password-change-done = パスワードを変更しました。
-password-checking = アカウント保護を確認中…
 password-command-description = アカウントのパスワード保護を管理
 password-confirm = 新しいパスワードの確認
 password-conflict = アカウントのセキュリティ状態が変更されました。操作をやり直してください。
@@ -204,7 +204,6 @@ password-reset = パスワードをリセット
 password-reset-console = { $arg0 } のパスワードをリセットしました：{ $arg1 }。本人確認後、信頼できる経路で渡してください。
 password-reset-done = { $arg0 } のパスワードをリセットしました。今すぐコピーし、本人確認後に渡してください。再表示はできません。
 password-reset-question = { $arg0 } のパスワードをリセットしますか？古いパスワードは無効になり、接続は切断されます。自分のパスワードで確認してください。
-password-retry = 再試行
 password-rules = { $arg0 }～{ $arg1 } 文字で入力してください。プレイヤー名や一般的なパスワードは使用できません。
 password-set = パスワードを設定
 password-set-done = パスワードを設定しました。
@@ -518,6 +517,10 @@ chat-private-self = 自分とはプライベートチャットを開始できま
 chat-private-target-not-found = オンラインのプレイヤーが見つかりません: { $arg0 }
 chat-private-target-offline = 相手はオフラインです。接続を待つか別のチャンネルを選んでください
 chat-private-tip-channel-mm = <aqua><u><click:suggest_command:'/msg '>/msg プレイヤー</click></u></aqua> で個人チャットに切り替え、<yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> で公開チャットに戻れます。
+chat-private-web-pending = ウェブ宛ての個別メッセージ：確認待ち
+chat-private-web-not-submitted = { $arg0 } への個別メッセージは共有チャットに保存されませんでした。
+chat-private-web-saved = { $arg0 } への個別メッセージは共有チャットの履歴に保存されました。
+chat-private-web-unconfirmed = { $arg0 } への個別メッセージが保存されたか確認できません。再送する前にご確認ください。
 chat-public-command-description = パブリックチャットに切り替え
 chat-public-enter = パブリックチャットに切り替えました
 chat-reply-command-description = 直前のプライベートチャット相手に返信
@@ -525,8 +528,6 @@ chat-settings-menu-title = チャット設定
 chat-social-account-label = プラットフォームアカウント
 chat-social-bound-player-label = 連携プレイヤー
 chat-social-name-label = ソーシャル名
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = Minecraftプレイヤーと未連携
 chat-staff-command-description = スタッフチャットに切り替え
 chat-staff-label = スタッフ
@@ -541,26 +542,15 @@ staffchat-enter = スタッフチャットに参加しました
 
 ## Community · Announcements
 
-announcement-count = 公告 { $arg0 } 件
 announcement-empty = お知らせはありません
-announcement-first-page = 最新のお知らせです
-announcement-last-page = 最も古いお知らせです
 announcement-latest = 最新の公告
-announcement-list-newer = 新しい一覧
-announcement-list-older = 古い一覧
-announcement-more-count = ほか { $arg0 } 件は未表示
-announcement-new-count = 新着 { $arg0 } 件
 announcement-newer = 新しいお知らせ
 announcement-next-page = 次のページ
 announcement-older = 以前のお知らせ
 announcement-page = { $arg0 } / { $arg1 } ページ
 announcement-previous-page = 前のページ
-announcement-reload = お知らせを再読み込み
-announcement-reload-command-description = お知らせファイルを再読み込み
-announcement-reload-failed = お知らせを再読み込みできませんでした。以前のお知らせは保持されています
-announcement-reloaded = お知らせを再読み込みしました
-announcement-unread-count = 未読 { $arg0 } 件
-announcement-updated = お知らせを更新しました
+announcement-stale = 取得済みの更新履歴
+announcement-unavailable = 更新履歴は一時的に利用できません。
 announcement-view-all = すべてのお知らせを見る
 announcement-view-command-description = サーバーのお知らせを見る
 
@@ -580,15 +570,9 @@ identity-admin-help = /bindadmin lookup <プレイヤーまたはUUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = このプレイヤーの連携は見つかりませんでした。
 identity-admin-lookup-title = { $arg0 } の連携：
-identity-binding-community = コミュニティ #{ $arg0 }
 identity-binding-info = 連携日：{ $arg0 }
     連携 ID：{ $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = 選択した連携は存在しないか、あなたのものではありません。
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 選択した { $arg0 } の連携を解除しました。
 identity-binding-unnamed = ニックネーム未設定
 identity-bindings-empty = 外部プラットフォームのアカウントは連携されていません。
@@ -610,184 +594,31 @@ identity-notify-linked = { $arg0 } のアカウントを連携しました。/bi
 identity-notify-unlinked = { $arg0 } の ID 連携を解除しました。
 identity-platform-none = なし
 identity-platforms = 対応プラットフォーム：{ $arg0 }
-identity-storage-error = ID 連携データベースの処理に失敗しました。管理者に連絡してください。
 identity-unavailable = ID 連携は現在利用できません。管理者に連絡してください。
 identity-unlink-action = [連携解除]
 identity-unlink-hint = 選択したこの連携だけを解除します。
 identity-unsupported-platform = 未対応のプラットフォーム：{ $arg0 }
-social-admin-conversations-empty = { $arg0 } で確認された会話はありません。
-social-admin-conversations-title = { $arg0 } で確認された会話：
-social-admin-help = /social platforms · /social status [プラットフォーム] · /social reload [プラットフォーム] · /social conversations <プラットフォーム>
-social-admin-metrics = 受信 { $arg0 }／再試行 { $arg1 } · 送信 { $arg2 }／バックプレッシャー { $arg3 } · 失敗 { $arg4 }
-social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
-social-admin-reloaded = ソーシャルプラットフォーム { $arg0 } を再読み込みしました。
-social-admin-reloaded-all = すべてのソーシャルプラットフォームを再読み込みしました。
-social-admin-status = { $arg0 } · { $arg1 } · 世代 { $arg2 } · 会話 { $arg3 }
-social-admin-title = ソーシャルプラットフォーム
-social-admin-unknown = 不明なソーシャルプラットフォーム：{ $arg0 }
-social-binding-already-linked = すでに { $arg0 } と連携しています。{ $arg1 } でプロフィールを確認できます。
-social-binding-confirmation-expired = 確認の有効期限が切れたか、連携アカウントが変更されました。もう一度解除を要求してください：
-social-binding-code-invalid = このコードは無効か期限切れです。再接続するか、ゲーム内で { $arg0 } を実行して新しいコードを取得してください。
-social-binding-external-in-use = この識別情報はすでに別の Minecraft プレイヤーと連携されています。
-social-binding-help = Minecraft サーバーに接続し、ログイン画面の連携コマンドをそのままここに送ってください。すでにゲーム内にいる場合は { $arg0 } で取得できます。
-social-binding-identity-missing = このメッセージには信頼できるメンバー識別情報がないため、連携できません。
-social-binding-link-completed = アカウントを連携しました。再接続するとログインを続けられます。
-social-binding-linked = ゲームアカウント { $arg0 } と連携しました。再接続するとログインを続けられます。
-social-binding-membership-required = このプラットフォームの連携コミュニティに参加してから、もう一度連携してください
-social-binding-membership-unavailable = コミュニティへの参加状況を確認できません。しばらくしてから再試行するか、サーバー管理者に連絡してください
-social-binding-not-bound = まだゲームアカウントと連携していません。
-social-binding-platform-mismatch = この確認コードは別のプラットフォーム用です。
-social-binding-player-scope-in-use = この Minecraft プレイヤーには、同じプラットフォームアカウントのスコープで別の ID が連携されています。
-social-binding-rate-limited = 失敗回数が多すぎます。約 { $arg0 } 分後に再試行してください。
-social-binding-unavailable = 現在、識別情報の連携を利用できません。
-social-binding-unlink-completed = 連携を解除しました。他に有効なコミュニティ連携がない場合、参加前に再度連携してください。
-social-binding-unlink-prompt = このプラットフォームのアカウントと { $arg0 } の連携を解除します。他に有効なコミュニティ連携がない場合、サーバーに参加できなくなり、接続中の場合は切断されます。確認するには次を送ってください：
-social-binding-unlinked = Minecraft プレイヤー { $arg0 } との連携を解除しました。
-social-command-description = ソーシャルプラットフォームアダプターを管理します
-social-command-invalid-arguments = 引数が正しくありません。次の形式で送信してください：
-social-command-usage = このコマンドに引数は不要です。次を送ってください：
-social-crypto-command-description = Matrix 暗号化デバイスの検証を管理
-social-crypto-comparison-not-ready = SAS の比較はまだ準備できていません。
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = デバイスの検証に失敗しました。サーバーログを確認してください。
-social-crypto-no-active = 進行中のデバイス検証はありません。
-social-crypto-not-accepting = 現在の検証は承認待ちではありません。
-social-crypto-not-running = Matrix は起動していません。
-social-crypto-requested = 検証を要求しました：{ $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] 初期化中
-    [verified] 検証済み
-    [unverified] 未検証
-    [no_cross_signing] クロス署名無効
-    [requested] 要求済み
-    [ready] 準備完了
-    [started] 開始済み
-    [comparison] 比較待ち
-    [waiting] 完了待ち
-    [done] 完了
-    [cancelled] キャンセル済み
-   *[unknown] 不明
-    [valid] 有効な鍵
-    [cross_signed] クロス署名済み
-    [not_cross_signed] クロス署名なし
-    [blocked] ブロック済み
-    [invalid] 無効な鍵
-    }
-social-crypto-status = 検証：{ $arg0 }
-    鍵バックアップのバージョン：{ $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = 現在の検証トランザクションの完全な ID を指定してください。
-social-crypto-unavailable = 利用不可
-social-crypto-updated = 検証を更新しました。matrixcrypto status で確認してください。
-social-crypto-usage = matrixcrypto status [ユーザーID デバイスID]
-    matrixcrypto verify <ユーザーID> <デバイスID>
-    matrixcrypto accept|confirm|cancel <トランザクションID>
-social-duration-days = { $arg0 } 日 { $arg1 } 時間 { $arg2 } 分
-social-duration-hours = { $arg0 } 時間 { $arg1 } 分
-social-duration-minutes = { $arg0 } 分
-social-help-command-description = このコマンド一覧を表示
-social-link-command-description = ゲーム内コードで Minecraft アカウントを連携
-social-link-command-parameters = <認証コード>
-social-online-command-description = オンラインプレイヤーを表示
-social-profile-afk = オンライン · AFK
-social-profile-avatar-alt = Minecraft の顔
-social-profile-command-description = 自分を表示；正式メンバーは名前、メンション、返信で他のプレイヤーを検索可能
-social-profile-command-parameters = [プレイヤー名]
-social-profile-first-joined-label = 初参加
-social-profile-language-label = 言語
-social-profile-last-seen-label = 最終オンライン
-social-profile-member-required = 連携済みの正式メンバー、モデレーター、保守担当者だけが他のプレイヤーを検索できます。
-social-profile-offline = オフライン
-social-profile-online = オンライン · アクティブ
-social-profile-play-time-label = プレイ時間
 social-profile-player-label = プレイヤー
-social-profile-player-not-found = その Minecraft プレイヤーは見つかりませんでした。
-social-profile-presence-label = 状態
-social-profile-target-ambiguous = プレイヤー名、1人へのメンション、または1人への返信のいずれか1つを指定してください。
-social-profile-target-unbound = メンションまたは返信先のユーザーは Minecraft と連携されていません。
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = 現在オンラインのプレイヤーはいません。
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (離席中)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = 現在 { $arg0 } 人がオンラインです。{ $arg1 ->
-    [0] { "" }
-   *[other] うち { $arg1 } 人が離席中です。
-    }
-social-query-players-label = プレイヤー
-social-query-population = オンライン { $arg0 }/{ $arg1 } · アクティブ { $arg2 } · 離席中 { $arg3 }
-social-query-unknown = 不明なコマンドです。使用可能なコマンドは { $arg0 } で確認できます。
-social-query-uptime-label = 稼働時間
-social-query-version-label = バージョン
-social-reply-hidden = メッセージは内容の審査に通りませんでした。理由: { $arg0 }
-social-reply-review-failed = 内容の審査に失敗しました：{ $arg0 }。しばらくしてから再試行してください。
-social-reply-unavailable = 現在、結果を表示できません。アカウントの変更はプロフィールコマンドで確認してから再実行してください。
-social-state-disabled = 無効
-social-state-failed = 失敗
-social-state-ready = 準備完了
-social-state-starting = 起動中
-social-state-stopped = 停止
-social-status-command-description = プレイヤー数、TPS、MSPT、稼働時間を表示
-social-title-command-help = コマンドヘルプ
-social-title-content-hidden = 内容を非表示
 social-title-player-profile = プレイヤープロフィール
-social-title-server-status = サーバー状態
-social-unlink-command-description = 確認後にこの連携を解除
-social-unlink-command-parameters = [{ social-unlink-confirmation } <確認コード>]
-social-unlink-confirmation = 確認
 
 ## Community · AI and knowledge
 
+ai-answer = AI の回答
 ai-busy = AI のリクエストが混み合っています。しばらくしてから再試行してください
-ai-cleared = AI の会話履歴を消去しました
+ai-cancelled = AI への質問を取り消しました。会話履歴は消去していません。
 ai-command-description = ゲーム内 AI アシスタントに質問する
 ai-disabled = AI アシスタントは無効か、設定されていません
-ai-knowledge-curation-failed = ナレッジの整理に失敗しました：{ $arg0 }
-ai-knowledge-curation-finished = 整理完了：適用 { $arg0 } · スキップ { $arg1 } · 失敗 { $arg2 } · 隔離 { $arg3 } · 処理 { $arg4 }
-ai-knowledge-curation-started = ナレッジの整理を開始しました。
-ai-knowledge-disabled = ナレッジ機能は無効です。
-ai-knowledge-index-dirty = インデックスの整合が必要です。同期完了まで個人メモリーの検索を停止します。
-ai-knowledge-last-failure = 前回の失敗：{ $arg0 }
-ai-knowledge-last-sync = 最終同期：{ $arg0 }
-ai-knowledge-learning-disabled = ナレッジの学習は無効です。
-ai-knowledge-operation-failed = ナレッジの操作に失敗しました：{ $arg0 }
-ai-knowledge-operation-started = ナレッジの操作を開始しました。
-ai-knowledge-protected = 文書{ $arg0 }を保護しました。
-ai-knowledge-rollback = 文書{ $arg0 }をリビジョン{ $arg1 }として復元しました。
-ai-knowledge-status = ナレッジ：{ $arg0 }件の公開文書 / { $arg1 }個のテキスト断片 · { $arg2 }件の個人文書 / { $arg3 }個のテキスト断片
-ai-knowledge-sync-failed = ナレッジの同期に失敗しました：{ $arg0 }
-ai-knowledge-sync-started = ナレッジの同期を開始しました。
-ai-knowledge-synchronized = { ai-knowledge-status } · 同期が完了しました。
-ai-knowledge-unprotected = 文書{ $arg0 }の保護を解除しました。
-ai-learning-failure = 学習エラー：{ $arg0 }
-ai-learning-status = 学習：候補 { $arg0 } · 抽出中 { $arg1 } · 待機 { $arg2 } · 抽出破棄 { $arg3 } · 候補破棄 { $arg4 } · 隔離 { $arg5 }
-ai-memory-empty = { $arg0 }の個人メモリーはありません。
-ai-memory-list = { $arg0 }の個人メモリー：{ $arg1 }
-ai-memory-not-found = 個人メモリー{ $arg0 }が見つかりません。
-ai-memory-removed = { $arg1 }の{ $arg0 }件の個人メモリーを完全に削除しました。
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = キャッシュにないプレイヤー：{ $arg0 }
+ai-nothing-to-cancel = 処理中の質問はありません。
 ai-prompt-too-long = 質問が長すぎます（最大 { $arg0 } 文字）
-ai-reload-failed = AI 設定を再読み込みできませんでした: { $arg0 }
-ai-reloaded = AI 設定を再読み込みしました（{ $arg0 }）
 ai-request-failed = AI リクエストに失敗しました。後でもう一度お試しください
-ai-social-command-description = 共通 AI アシスタントに質問する
-ai-social-command-parameters = <質問>
-ai-social-question-required = AI コマンドの後に質問を入力してください
-ai-status-disabled = AI は無効です
-ai-status-enabled = AI 有効 · プロバイダー { $arg0 } · モデル { $arg1 } · ツール { $arg2 }
-ai-status-none = なし
-ai-thinking = 考えています…
-ai-usage = 使用法: /ai <質問> · /ai clear · /ai status
-ai-worker-status = AIタスク：実行中 { $arg0 } · 待機中 { $arg1 } · 破棄 { $arg2 }
+ai-request-in-progress = 先ほどの AI リクエストはまだ処理中です。
+ai-usage = AI アシスタントのコマンド：
+    /ai <質問> — 質問する・追加で質問する
+    /ai cancel — 処理中の質問を取り消す
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>おめでとうございます！</bold> <gold>メンバー</gold>に昇格しました。schematicの簡易プリントなど、より多くのコマンドや機能を利用できるようになりました。</green>
 governance-active-days-30 = 過去30日で有効な参加日が2日以上（現在 { $arg0 } 日）
 governance-active-days-60 = 過去60日で有効な参加日が6日以上（現在 { $arg0 } 日）
 governance-active-header = ─── 活動中のメンバー資格 ───
@@ -822,7 +653,6 @@ governance-activity-status = { $arg0 ->
     [closed] 終了
     *[view] 閲覧のみ
     }
-governance-already-moderator = すでに管理者です。
 governance-application-status = { $arg0 ->
     [open] 任命投票が進行中です
     [pending] 承認済み・任命待ち
@@ -830,18 +660,12 @@ governance-application-status = { $arg0 ->
    *[ready] 申請できます
     }
 governance-ballot-recorded = 匿名投票を「{ $arg0 }」として記録しました。締切前なら変更できます。
-governance-ban-details = 提案者 { $arg0 } · 期間 { $arg1 } · 理由：{ $arg2 }
-governance-ban-suffix = · 期間 { $arg0 } · 理由：{ $arg1 }
 governance-choice-abstain = 棄権
 governance-choice-no = 反対
 governance-choice-yes = 賛成
 governance-command-description = 運営の資格と投票を確認
 governance-custodian-no-nomination = 保守担当者は管理者の任免に参加しません。
-governance-custodian-no-resign = 保守担当者には管理者の辞任手続きは適用されません。
 governance-days = { $arg0 }日
-governance-error-ban-already-active = このプレイヤーには有効なBANがあります。
-governance-error-ban-proposer-ineligible = BAN投票を提案できるのは活動中のメンバーだけです。
-governance-error-ban-self = 自分へのBAN投票は提案できません。
 governance-error-candidate-ineligible = 管理者候補は活動中のメンバーである必要があります。
 governance-error-nomination-not-open = 進行中の管理者立候補はありません。
 governance-error-not-voter = 今回の確定済み有権者名簿に入っていません。
@@ -850,7 +674,6 @@ governance-error-pause-already-member = このプレイヤーはすでにメン�
 governance-error-pause-end-invalid = 昇格停止の終了時刻は現在より後にしてください。
 governance-error-player-unknown = このプレイヤーの運営記録はまだありません。
 governance-error-removal-petition-closed = この請願は終了したか、新しい申請に置き換わりました。
-governance-error-removal-requires-petition = 解任投票には必要人数の賛同が必要です。
 governance-error-removal-self = 自分の解任には賛同できません。
 governance-error-removal-sponsor-ineligible = 解任に賛同できるのは活動中のメンバーだけです。
 governance-error-removal-sponsors-too-few = 対象者以外に活動中のメンバーが2人以上必要です。
@@ -860,7 +683,6 @@ governance-error-termination-reason-invalid = この終了理由は投票の種�
 governance-error-vote-already-open = このプレイヤーには同種の進行中の投票があります。
 governance-error-vote-closed = 投票は締め切られたか終了しました。
 governance-error-vote-cooldown = 定足数不足による不成立から3日間の再試行期間が終わっていません。
-governance-error-vote-subject-unknown = 対象者の運営記録はまだありません。
 governance-error-vote-termination-closed = 締切後のため投票を取り消せません。
 governance-error-vote-unknown = 投票が見つかりません。
 governance-error-voters-too-few = 投票開始には活動中のメンバーが2人以上必要です。
@@ -870,15 +692,12 @@ governance-failure-none = 理由の記録なし
 governance-failure-quorum = 定足数に達しなかった
 governance-failure-two-thirds = 賛成票が棄権を除く票の3分の2に届かなかった
 governance-history-header = ─── 最近の投票結果 ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 }時間
-governance-inactive-removal = { $arg0 } は180日間ログインしなかったため、管理者から自動的に退任しました。
 governance-invalid-choice = yes、no、abstain から選んでください。
 governance-invalid-duration = 期間が無効です。30m、12h、3d のように入力してください。
 governance-kind-appointment = 任命
-governance-kind-ban = BAN
 governance-kind-removal = 解任
-governance-legacy-ban-kick = 以前の運営投票が可決されました。{ $arg0 } のBANです。理由：{ $arg1 }
 governance-menu-already-sponsored = 署名済み
 governance-menu-application = 申請状況
 governance-menu-completed = 終了済み
@@ -927,7 +746,6 @@ governance-no-active-pause = 有効な昇格停止がない
 governance-nomination-withdrawn = 立候補を取り下げました。投票終了の結果は自動で告知されます。
 governance-none = なし
 governance-not-member = メンバーではありません
-governance-not-moderator = 現在、管理者ではありません。
 governance-operation-error = 運営操作に失敗しました。もう一度お試しください。
 governance-own-choice-closed = あなたの選択：{ $arg0 }
 governance-own-choice-open = あなたの選択：{ $arg0 }。締切前なら変更できます。
@@ -955,9 +773,8 @@ governance-promotion-account-age = 初参加から3日以上
 governance-promotion-header = ─── 昇格条件 ───
 governance-promotion-play-days = 有効プレイ日が2日以上（現在 { $arg0 } 日）
 governance-promotion-playtime = 有効プレイ時間8時間以上（現在 { $arg0 }）
-governance-resign-failed = 辞任に失敗しました。保守担当者に連絡してください。
 governance-resigned = { $arg0 } が管理者を辞任しました。
-governance-result-announcement = 投票 #{ $arg0 } { $arg1 }（{ $arg2 }）：{ $arg3 }{ $arg4 }
+governance-result-announcement = 投票 #{ $arg0 } { $arg1 }（{ $arg2 }）：{ $arg3 }
 governance-result-failed = 不成立（{ $arg0 }）
 governance-result-open = 進行中
 governance-result-passed = 可決
@@ -965,7 +782,6 @@ governance-result-tally = { $arg0 } · 有権者 { $arg1 }、参加 { $arg2 }、
 governance-result-terminated = 終了（{ $arg0 }）
 governance-resume-notice = 昇格停止が解除されました。理由：{ $arg0 }
 governance-resume-reason-required = 解除理由を入力してください。
-governance-role-lookup-error = 管理者資格を確認できません。保守担当者に連絡してください。
 governance-seconds = { $arg0 }秒
 governance-storage-error = 運営データの操作に失敗しました。保守担当者に連絡してください。
 governance-termination-inactive = 長期不在により管理者が退任
@@ -1182,14 +998,30 @@ plot-subplot-created = 子区画 { $arg0 } を作成 · { $arg1 } ブロック²
 plot-title = 土地
 plot-transferred = 区画「{ $arg0 }」を { $arg1 } に移転しました。
 vehicle-command-description = 表示エンティティの車両を運転・管理
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] mik.vehicle.use 権限が必要です。
+        [ALREADY_RIDING] 今の座席から降りてください。
+        [TOO_FAR] 乗り物の32ブロック以内に近づいてください。
+        [DRIVER_OCCUPIED] 運転席は使用中です。
+        [NO_PASSENGER_SEAT] このモデルに同乗席はありません。
+        [PASSENGER_FULL] 同乗席は満席です。
+        [STOP_ENGINE] 停車してエンジンを止めてください。
+        [FUEL_FULL] 燃料は満タンです。
+        [HEALTH_FULL] 修理の必要はありません。
+        [NEED_FUEL] メインハンドに石炭か木炭を持ってください。
+        [NEED_IRON] メインハンドに鉄インゴットを持ってください。
+        [EMPTY_VEHICLE] 停車し、全員降りてください。
+       *[UNAVAILABLE] この乗り物は利用できません。
+    }
+vehicle-menu-distance = { $arg0 } m
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] 乗り物の操作
-        [driving] 運転と乗車
+        [vehicle] 乗り物の概要
         [maintenance] 整備とアクセス
         [public-status] 公開アクセス
         [private-status] 非公開アクセス
-        [home] 乗り物ワークスペース
+        [home] 乗り物
         [nearby] 近くの乗り物
         [fleet] 利用可能な乗り物
         [selection] モデルの選択範囲
@@ -1199,22 +1031,15 @@ vehicle-menu-label =
         [displays] 近くの表示を探す
         [clear] 選択と原点を解除
         [capture] 選択からモデルを作成
-        [toggle-selection] 選択を切り替え
         [public] 公開にする
         [private] 非公開にする
         [reload] ファイルから再読込
         [leave] 降りる
-        [passenger] 助手席・客席
-        [fuel] 給油 · 石炭か木炭を持つ
-        [repair] 修理 · 鉄インゴットを持つ
-        [access] アクセス
+        [passenger] 同乗する
+        [fuel] 給油する
+        [repair] 修理する
         [remove] 乗り物を削除
-        [hud] 運転 HUD を表示
         [hide-preview] 3D プレビューを隠す
-        [service-hint] 近くで停車してエンジンを切り、必要な材料を持ってください。
-        [nearby-hint] 32 ブロック以内に近づき、今の座席から降りてください。
-        [use-required] mik.vehicle.use 権限が必要です。
-        [remove-hint] 停車して全員降りてください。
         [reload-hint] 全車両を停車・停止し、全員降りてください。下書きは保持されます。変更されたモデルは開き直してください。
         [pick-hint] 表示を狙って右クリックでグループ選択。スニーク右クリックで取消、30 秒で終了。
         [spawn-hint] ワールド座標。初期値は前方 4 ブロック。生成時の水平視線方向を向きます。
@@ -1222,16 +1047,42 @@ vehicle-menu-label =
         [zoom-out] 縮小
         [frame] 目の前に再配置
         [offset] 相対移動
+        [drive] 運転席に座る
+        [driver-seat] 運転席に着席中
+        [passenger-seat] 同乗中
+        [current] 乗車中の乗り物
+        [boarded] 運転席に座りました。/vehicle から運転パネルを開くと、計器と操作方法を確認できます。
+        [display] ディスプレイエンティティ
+        [select-display] 選択に追加
+        [deselect-display] 選択から外す
+        [aim-group] 狙った表示のグループを選択
+        [empty-nearby] 32ブロック以内に利用できる乗り物はありません。
+        [empty-fleet] 利用できる乗り物はありません。
+        [empty-selection] 先にディスプレイを1つ以上選択してください。
+        [controls] 操作方法
+        [show-hud] 運転HUDを表示
+        [hide-hud] 運転HUDを非表示
+        [remove-confirm] この乗り物だけを撤去し、モデルは残します。
+        [resume] 下書きの編集を再開
+        [draft-open] 現在の下書きを保存して編集を終了するか、破棄してください。
+        [model-id-format] 小文字の英字か数字で始め、小文字・数字・アンダースコア・ハイフンを48文字以内で入力してください。
+        [model-exists] このモデルIDは使用済みです。
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 }：W/S・A/Dで操作、ホイールで変速またはスロットル調整、持ち手交換でモード変更、スニークで降車。/vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] 前進キーで加速、後退キーでブレーキ、左右移動キーで操舵、ジャンプキーで手ブレーキ。手動モードではホイールで変速し、持ち替えキーで変速モードを切り替えます。
+        [BOAT] 前後移動キーまたはホイールで推進力を調整し、左右移動キーで操舵します。持ち替えキーで安定補助を切り替えます。
+       *[PLANE] 前後移動キーで機首の上下、左右移動キーで旋回と傾き、ホイールで推力を調整します。地上ではジャンプキーでブレーキ、持ち替えキーで安定補助を切り替えます。
+    }
+    メニューを閉じるとホイールと持ち替えのショートカットが使えます。スニークキーで降ります。
 vehicle-dash-assisted = 安定化アシスト
 vehicle-dash-automatic = オートマチック
 vehicle-dash-contact = 地面 / 水面の支持：{ $arg0 }
-vehicle-dash-details = 詳細
+vehicle-dash-details = 走行データ
 vehicle-dash-down = シフトダウン −
-vehicle-dash-drive = 運転
+vehicle-dash-drive = 運転パネル
 vehicle-dash-energy = 消費 { $arg0 } 単位/分 · 推定航続時間 { $arg1 } 分 / 距離 { $arg2 } km
 vehicle-dash-engine-start = エンジン始動
 vehicle-dash-engine-stop = エンジン停止
@@ -1247,10 +1098,18 @@ vehicle-dash-mode-switch = { $arg0 }に切り替える
 vehicle-dash-position = 原点 { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = パネルを中央に戻す
 vehicle-dash-rpm = 回転数 { $arg0 } / { $arg1 }
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] 駐車
+        [R] 後退
+        [N] ニュートラル
+       *[D] 走行
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } s
 vehicle-dash-speed = 速度 { $arg0 } km/h · 上限 { $arg1 }
 vehicle-dash-throttle-down = スロットル −5%
 vehicle-dash-throttle-up = スロットル +5%
+vehicle-dash-thrust = 推進力 { $arg0 }%
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = アシストなし
 vehicle-dash-unavailable = 運転操作を利用できません。運転席から開き直してください。
@@ -1419,7 +1278,7 @@ vehicle-model-discarded = 下書きを破棄しました
 vehicle-model-draft = 未保存の下書き
 vehicle-model-driver = 運転席
 vehicle-model-driver-here = 足元に運転席を追加
-vehicle-model-edit = 下書きを編集 / 再開
+vehicle-model-edit = モデルを編集
 vehicle-model-overview = 下書きの概要
 vehicle-model-panel = 編集パネルに戻る
 vehicle-model-editor-help = { $arg0 ->
@@ -1454,7 +1313,7 @@ vehicle-model-here = 現在の足元の位置を使う
 vehicle-model-history-empty = この方向の編集履歴はありません。
 vehicle-model-import = メインハンドのAxiom表示グループを読み込む
 vehicle-model-item = アイテム
-vehicle-model-library = 保存済みモデル · 下書きは保存するまでメモリー内のみ
+vehicle-model-library = モデルを選び、乗り物を生成するか設計を編集します。
 vehicle-model-look = 照準で配置（メニューを閉じ、右クリックで確定）
 vehicle-model-look-missing = 面が見つかりません。32ブロック以内のワールドのブロックか、自分のプレビューの部品を見てください。
 vehicle-model-manual = ローカル座標を入力
@@ -1491,7 +1350,7 @@ vehicle-model-snap-on = グリッド吸着：オン
 vehicle-model-step = 調整幅を切り替える
 vehicle-model-supports = 接地支持点
 vehicle-model-text = テキスト
-vehicle-model-title = 車両モデル管理
+vehicle-model-title = モデル一覧
 vehicle-model-tools = プレビューとツール
 vehicle-model-transform-step = 調整幅を変更
 vehicle-model-undo = 取り消し
@@ -1582,20 +1441,14 @@ spawn-world-missing = スポーンのワールドを利用できません
 music-album = アルバム: { $arg0 }
 music-artist = アーティスト: { $arg0 }
 music-command-description = ジュークボックス用のローカル、オンライン、NBS音楽
-music-disc-left = 左クリック: レコードを入手
-music-disc-right = 右クリック: 最寄りのジュークボックスで再生
-music-duration = 再生時間: { $arg0 }
-music-format = 形式: { $arg0 }
 music-jukebox-audible-field-conflict = はっきり聞こえる範囲が重なる別のジュークボックスで異なる曲が再生されています
 music-jukebox-tp-hover = クリックしてジュークボックスへテレポート
 music-jukebox-unavailable = ジュークボックスが撤去されたか、そのチャンクを利用できません
 music-now-playing-rich = 再生中: { $music }（ジュークボックス: { $location }）
-music-online-rate-limited = 音楽のリクエストが多すぎます。{ $arg0 }秒後に再試行してください。
+music-request-rate-limited = 音楽のリクエストが多すぎます。{ $arg0 }秒後に再試行してください。
 music-original-author = 原作者: { $arg0 }
 music-plasmo-voice-unavailable = 曲は再生されましたが、Plasmo Voice がインストール、接続、または有効化されていないため聴くことができません
 music-playback-failed = 「{ $arg0 }」を再生できませんでした。音源または音楽ファイルを確認して、もう一度お試しください。
-music-reload-failed = 音楽の再読み込みに失敗しました: { $arg0 }
-music-reload-started = 音楽ファイルとカスタム音源を再読み込みしています...
 music-rhythm-animation-offset = アニメーションのずれ { $arg0 } ms
 music-rhythm-calibration-accumulating = 安定したタイミングを確認中…そのまま続けてください
 music-rhythm-calibration-adapting = リズムに合わせています…そのまま続けてください
@@ -1610,7 +1463,6 @@ music-rhythm-calibration-plasmo-ready = Minecraft Note Block テスト完了。�
 music-rhythm-calibration-pointer-instruction = ノートがヒットラインを通過したら左または右クリック
 music-rhythm-calibration-realigning = 音声が中断しました。実演を再生し、完了済みの測定は保持します
 music-rhythm-calibration-required = リズムゲームを開始する前に完全な遅延テストを完了してください
-music-rhythm-calibration-reset-done = 遅延キャリブレーションをリセットしました
 music-rhythm-calibration-result-hold = テストが完了しました。結果を確認してください。まもなく自動で戻ります。
 music-rhythm-calibration-stage-minecraft = Minecraftの音符ブロック
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1646,8 +1498,6 @@ music-rhythm-score = スコア: { $arg0 }
 music-rhythm-spatial-no-room = 空間エイムに必要な空きがありません。より開けた場所へ移動してください。
 music-rhythm-spatial-slider-hint = 動く星を追い各チェックポイントでクリック · 長押し不要
 music-rhythm-start = ゲームを開始
-music-sample-rate = サンプルレート: { $arg0 }
-music-size = サイズ: { $arg0 }
 music-unavailable-disc = 利用できないレコード
 
 ## Entertainment · Anniversary
@@ -1889,8 +1739,10 @@ web-account-title = ウェブアカウントとパスキー
 web-account-confirm = 確認する
 weblogin-question = 今回のウェブ本人確認を承認しますか？mcmik.top で自分が開始した操作だけを承認してください。他人のためにコードを入力しないでください。
 weblogin-command-description = Mik のウェブ本人確認コードを承認
-weblogin-confirmed = ウェブ本人確認が完了しました。ブラウザーに戻って続けてください。
-weblogin-invalid-code = 無効なウェブ本人確認コードです
+weblogin-confirmed = ゲーム内で確認しました。ブラウザーに戻って続行してください。
+weblogin-rejected = ウェブログインの確認が拒否されました。ブラウザーでコードを確認してから再試行してください。
+weblogin-unavailable = 現在ウェブログインを確認できません。少し待ってから再試行してください。
+weblogin-unconfirmed = ウェブログインの確認結果が届きませんでした。再試行する前にブラウザーをご確認ください。
 
 
 # Music workspace
@@ -1984,8 +1836,25 @@ music-space-label =
         [album] アルバム
         [original-author] 原作者
         [duration] 再生時間
-        [track-type] 種類
-        [type-online] オンライン
+        [availability] 利用状況
+        [track-ready] 再生可能
+        [track-needs-preparation] 準備が必要
+        [track-unknown] 未確認
+        [track-unavailable] 利用不可
+        [partial-results] 一部の結果を読み込めませんでした。
+        [restart-current] 現在のバージョンを最初から再生
+        [lyrics] 歌詞
+        [lyrics-pending] 歌詞を検索中…
+        [lyrics-empty] このバージョンに歌詞はありません
+        [lyrics-unavailable] 歌詞を一時的に取得できません
+        [lyrics-ended] 再生が終了したか、アクセスできなくなりました。
+        [lyrics-original] 原文
+        [lyrics-translation] 翻訳
+        [lyrics-pronunciation] 読み方
+        [lyrics-plain] テキストのみ
+        [lyrics-timed] 時間同期あり
+        [lyrics-captions] 補助字幕
+        [lyrics-original-only] 原文のみ
         [undo] { vehicle-model-undo }
         [remove] 選択した項目を削除
         [clear-recents] 自分の再生履歴を消去
@@ -2103,8 +1972,6 @@ music-space-label =
         [already-added] 追加済み
         [current-track] 現在の曲
         [shuffle-candidates] シャッフル候補
-        [import-by-id] IDでインポート
-        [playlist-id] プレイリストID
        *[unknown] 音楽空間
     }
 
@@ -2115,6 +1982,7 @@ music-space-clear-recents-confirmation = 再生履歴をすべて消去します
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] 音楽機能を利用できません。後でもう一度開いてください。
+        [VERSION_GONE] 元のメディアは利用できません。現在のバージョンを最初から再生できます。
         [INTERNAL] 音楽機能で内部エラーが発生しました。管理者にサーバーログの確認を依頼してください
         [NOT_FOUND] 選択した項目は存在しません。
         [FORBIDDEN] 操作または編集の権限が必要です。
@@ -2151,7 +2019,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = 音楽デバイスの操作
 
-music-partial-results = 一部の結果を表示します。{ $arg0 }件の音源リクエストに失敗しました
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

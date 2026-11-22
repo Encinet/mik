@@ -276,14 +276,6 @@ public final class UiTemplates {
     public static UiNode horizontalPanels(UiLength spacing, UiNode... panels) {
         return Ui.row().gap(spacing).children(List.of(panels)).build();
     }
-    public static UiNode topAlignedPanels(UiLength spacing, UiNode... panels) {
-        var row = Ui.row().gap(spacing);
-        for (UiNode panel : panels) row.child(panel, new LinearSlot(0, LinearSlot.Alignment.START));
-        return row.build();
-    }
-    public static UiNode verticalPanels(UiLength spacing, UiNode... panels) {
-        return Ui.column().gap(spacing).children(List.of(panels)).build();
-    }
     public static UiNode panoramicPanels(String centerPanel, UiLength spacing, UiNode... panels) {
         if (java.util.Arrays.stream(panels).noneMatch(panel -> panel.key().value().equals(centerPanel)))
             throw new IllegalArgumentException("Missing central panel: " + centerPanel);

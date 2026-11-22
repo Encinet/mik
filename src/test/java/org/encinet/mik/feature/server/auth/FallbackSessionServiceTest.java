@@ -1,21 +1,33 @@
 package org.encinet.mik.feature.server.auth;
 
+import com.destroystokyo.paper.profile.PaperServicesDiscoveryService;
 import com.mojang.authlib.exceptions.AuthenticationUnavailableException;
 import com.mojang.authlib.minecraft.SessionService;
 import com.mojang.authlib.services.ProfileResult;
+import com.mojang.authlib.services.response.discovery.Discovery;
+import com.mojang.authlib.services.response.discovery.DiscoveryResponse;
+import com.mojang.authlib.services.response.discovery.Endpoint;
+import com.mojang.authlib.services.response.discovery.Endpoints;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.lang.reflect.Proxy;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.encinet.mik.feature.server.auth.AuthenticationTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,7 +47,62 @@ class FallbackSessionServiceTest {
     }
 
     private FallbackSessionService service(AuthenticationFallbackStore store, boolean checkAddress) {
-        return new FallbackSessionService(upstream.proxy(), store, checkAddress, errors::add, fallbacks::add);
+        var delegate = upstream.proxy();
+        return new FallbackSessionService(delegate, delegate::hasJoinedServer, store, checkAddress, errors::add, fallbacks::add);
+    }
+
+    @Test
+    void realVerificationRateLimitsUseTheMatchingCacheButDenialsNeverDo() throws Exception {
+        var reply = new AtomicReference<>(new VerificationReply(200, """
+                {"id":"%s","properties":[{"name":"textures","value":"skin","signature":"signature"}],
+                 "profileActions":[{"updateType":"USING_BANNED_SKIN"}]}
+                """.formatted(alice.profile().id().toString().replace("-", ""))));
+        var query = new AtomicReference<String>();
+        var requests = new AtomicInteger();
+        var http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        http.createContext("/verify", exchange -> {
+            try (exchange) {
+                query.set(exchange.getRequestURI().getRawQuery());
+                requests.incrementAndGet();
+                var next = reply.get();
+                byte[] bytes = next.body().getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type",
+                        next.body().startsWith("{") ? "application/json" : "text/plain");
+                exchange.sendResponseHeaders(next.status(), bytes.length == 0 ? -1 : bytes.length);
+                if (bytes.length != 0) exchange.getResponseBody().write(bytes);
+            }
+        });
+        http.start();
+        try (var cache = open()) {
+            var discovery = discoveryAt("http://127.0.0.1:" + http.getAddress().getPort() + "/verify");
+            var delegate = discovery.createMinecraftSessionService();
+            var verifier = new OfficialSessionVerifier(PaperAuthenticationHook.sessionDiscovery(delegate));
+            try (var service = new FallbackSessionService(delegate, verifier, cache, true, errors::add, fallbacks::add)) {
+                assertEquals(alice, service.hasJoinedServer("Alice", "verified-digest", ADDRESS));
+                assertEquals(Set.of("username=Alice", "serverId=verified-digest", "ip=192.0.2.10"),
+                        Set.of(query.get().split("&")));
+
+                reply.set(new VerificationReply(429, "Too Many Requests"));
+                assertEquals(alice, service.hasJoinedServer("Alice", "limited-digest", ADDRESS));
+                assertEquals(2, requests.get()); // No retry or second request to distinguish a denial.
+                assertThrows(AuthenticationUnavailableException.class,
+                        () -> service.hasJoinedServer("Alice", "limited-other-address", OTHER_ADDRESS));
+
+                reply.set(new VerificationReply(503, ""));
+                assertEquals(alice, service.hasJoinedServer("Alice", "outage", ADDRESS));
+
+                for (var rejected : List.of(new VerificationReply(204, ""), new VerificationReply(401, ""),
+                        new VerificationReply(403, "not authorized"), new VerificationReply(200, "{broken"),
+                        new VerificationReply(429, "{\"error\":\"multiplayer.access.banned\"}"))) {
+                    reply.set(rejected);
+                    assertNull(service.hasJoinedServer("Alice", "rejected", ADDRESS), "HTTP " + rejected.status());
+                }
+                assertEquals(List.of(alice.profile().id(), alice.profile().id()), fallbacks);
+                assertTrue(errors.isEmpty());
+            }
+        } finally {
+            http.stop(0);
+        }
     }
 
     @Test
@@ -169,6 +236,16 @@ class FallbackSessionServiceTest {
         }
     }
 
+    private static PaperServicesDiscoveryService discoveryAt(String verifyUrl) {
+        var empty = Endpoints.empty();
+        var session = new Endpoints(Map.of("verify", new Endpoint(verifyUrl)));
+        var discovery = new Discovery("minecraft", empty, session, empty, empty, empty);
+        return new PaperServicesDiscoveryService(Proxy.NO_PROXY, false,
+                () -> new DiscoveryResponse("test", "minecraft", discovery));
+    }
+
+    private record VerificationReply(int status, String body) {}
+
     private static final class Upstream {
         ProfileResult result;
         Exception failure;
@@ -178,7 +255,7 @@ class FallbackSessionServiceTest {
         CountDownLatch resume;
 
         SessionService proxy() {
-            return (SessionService) Proxy.newProxyInstance(SessionService.class.getClassLoader(), new Class<?>[]{SessionService.class},
+            return (SessionService) java.lang.reflect.Proxy.newProxyInstance(SessionService.class.getClassLoader(), new Class<?>[]{SessionService.class},
                     (_, method, args) -> {
                         if (!method.getName().equals("hasJoinedServer")) throw new AssertionError(method);
                         digest = (String) args[1];

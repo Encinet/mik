@@ -5,6 +5,9 @@ loader: org.encinet.mik.MikLoader
 api-version: '26.3'
 authors: [ Noctiro, Aeolic ]
 permissions:
+  mik.ai.use:
+    default: true
+    description: Use the in-game AI assistant
   mik.riding.use:
     default: true
     description: Mount and steer mobs by sneaking and right-clicking

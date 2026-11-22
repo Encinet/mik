@@ -1,0 +1,198 @@
+syntax = "proto3";
+package mik.music.v2;
+option java_package = "org.encinet.mik.protocol.music";
+option java_multiple_files = true;
+
+// Only on the music socket, after the MIKM/version/profile preface.
+message MusicRequest {
+  oneof operation {
+    MusicCatalogQuery list = 1;
+    MusicTrackQuery tracks = 2;
+    MusicCollectionQuery collection = 3;
+    MusicOpenMedia open_media = 4;
+    MusicReadMedia read_media = 5;
+    MusicDecodeFailure decode_failed = 6;
+    LyricsCommand lyrics = 7;
+  }
+}
+message MusicReply {
+  oneof result {
+    MusicFailure failure = 1;
+    MusicCatalogPage list = 2;
+    MusicTracks tracks = 3;
+    MusicCollectionPage collection = 4;
+    MusicMediaOpened media_opened = 5;
+    MusicReadReady read_ready = 6;
+    MusicReadEnd read_end = 7;
+    bool done = 8;
+    LyricsResult lyrics = 9;
+  }
+}
+
+message MusicTrackData {
+  enum State { STATE_UNSPECIFIED = 0; ACTIVE = 1; RETIRED = 2; UNKNOWN = 3; }
+  enum Availability { AVAILABILITY_UNSPECIFIED = 0; READY = 1; NEEDS_PREPARATION = 2; UNAVAILABLE = 3; }
+  string track_id = 1;
+  State state = 2;
+  Availability availability = 3;
+  string title = 4;
+  string artist = 5;
+  string album = 6;
+  optional uint64 duration_ms = 7;
+  optional string original_author = 8;
+}
+message MusicCatalogQuery {
+  enum Scope { ALL = 0; READY = 1; }
+  string query = 1;
+  Scope scope = 2;
+  bytes cursor = 3;
+}
+message MusicCatalogPage {
+  repeated MusicTrackData tracks = 1;
+  bytes next_cursor = 2;
+  bool partial = 3;
+}
+message MusicTrackQuery { repeated string track_ids = 1; }
+message MusicTracks { repeated MusicTrackData tracks = 1; }
+message MusicCollectionQuery { string reference = 1; bytes cursor = 2; }
+message MusicCollectionPage {
+  string title = 1;
+  MusicCatalogPage page = 2;
+}
+
+// Media offsets are byte offsets. Duration and lyrics use media time, not byte offsets.
+message MusicOpenMedia {
+  enum Readiness { READINESS_UNSPECIFIED = 0; READABLE = 1; COMPLETE = 2; }
+  string track_id = 1;
+  Readiness readiness = 2;
+  oneof constraint {
+    string exact_version = 3;
+    string avoid_version = 4;
+  }
+}
+enum MusicRepresentation {
+  MUSIC_REPRESENTATION_UNSPECIFIED = 0;
+  ENCODED_AUDIO = 1;
+  NOTE_EVENTS = 2;
+}
+message MusicMediaDescriptor {
+  MusicRepresentation representation = 1;
+  uint32 representation_version = 2;
+  optional string content_type = 3;
+  optional uint64 byte_length = 4;
+  optional uint64 duration_ms = 5;
+  bool seekable = 6;
+}
+message MusicMediaOpened {
+  bytes lease_id = 1;
+  string media_version = 2;
+  MusicMediaDescriptor descriptor = 3;
+}
+message MusicReadMedia {
+  bytes lease_id = 1;
+  uint64 read_seq = 2;
+  uint64 byte_offset = 3;
+}
+message MusicReadReady {}
+message MusicMediaEof {}
+message MusicReadEnd {
+  oneof outcome {
+    MusicMediaEof eof = 1;
+    MusicFailure failure = 2;
+  }
+}
+message MusicDecodeFailure { string track_id = 1; string media_version = 2; }
+message MusicFailure {
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    INVALID_REQUEST = 1;
+    NOT_FOUND = 2;
+    BUSY = 3;
+    TRANSFER_FAILED = 4;
+    MEDIA_IO = 5;
+    SUPERSEDED = 6;
+    UNAVAILABLE = 7;
+    RETIRED = 8;
+    VERSION_GONE = 9;
+    UNSUPPORTED_MEDIA = 10;
+    CURSOR_EXPIRED = 11;
+    DEADLINE_EXCEEDED = 12;
+  }
+  Code code = 1;
+}
+
+// The entire bounded, immutable NOTE_EVENTS v1 representation. Bytes are leased
+// and chunked as media, never sent as a control frame. Event order is stable.
+message NoteScore {
+  uint64 duration_us = 1;
+  optional NoteLoop loop = 2;
+  repeated NoteEvent events = 3;
+}
+message NoteLoop {
+  uint64 start_us = 1;
+  optional uint32 repeats = 2; // absent is unbounded; interval ends at duration_us
+}
+message NoteEvent {
+  uint64 time_us = 1;
+  oneof action {
+    NoteSound sound = 2;
+    NoteStop stop = 3;
+  }
+}
+message NoteSound {
+  uint32 voice = 1;
+  string tone = 2;
+  sint32 pitch_cents = 3;
+  uint32 gain = 4; // 0..10000
+  sint32 pan = 5; // -100..100
+}
+message NoteStop {
+  // Inclusive voice range; absent range means all voices.
+  optional uint32 first_voice = 1;
+  optional uint32 last_voice = 2;
+}
+
+message LyricsLookup { string media_version = 1; }
+message LyricsRead { bytes ticket = 1; uint32 track_key = 2; uint32 offset = 3; }
+message LyricsRelease { bytes ticket = 1; }
+message LyricsCommand {
+  oneof operation {
+    LyricsLookup lookup = 1;
+    LyricsRead read = 2;
+    LyricsRelease release = 3;
+  }
+}
+message LyricsTrack {
+  enum Role { ROLE_UNSPECIFIED = 0; ORIGINAL = 1; TRANSLATION = 2; PRONUNCIATION = 3; }
+  uint32 track_key = 1;
+  Role role = 2;
+  optional string language_tag = 3;
+  bool timed = 4;
+}
+message LyricsDocument {
+  string media_version = 1;
+  string revision = 2;
+  optional uint32 default_original_track = 3;
+  repeated LyricsTrack tracks = 4;
+}
+message LyricsCue {
+  uint64 start_ms = 1;
+  optional uint64 end_ms = 2;
+  string text = 3;
+}
+message LyricsPage {
+  uint32 track_key = 1;
+  uint32 offset = 2;
+  optional uint32 next_offset = 3;
+  repeated LyricsCue cues = 4;
+  repeated string lines = 5;
+}
+message LyricsResult {
+  enum State { STATE_UNSPECIFIED = 0; PENDING = 1; READY = 2; EMPTY = 3; RELEASED = 4; }
+  State state = 1;
+  bytes ticket = 2;
+  oneof content {
+    LyricsDocument document = 3;
+    LyricsPage page = 4;
+  }
+}

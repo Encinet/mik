@@ -1,0 +1,11 @@
+# Install as /etc/mikd/ai.yml to enable the assistant.
+provider:
+  endpoint: https://model.example.org/v1/chat/completions
+  model: your-model
+  request-options:
+    reasoning_effort: low
+
+web-search:
+  enabled: false
+
+# Set MIKD_MODEL_API_KEY in secrets.env if required by the provider.

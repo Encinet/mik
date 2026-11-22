@@ -14,6 +14,7 @@ import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,6 +22,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,11 +30,12 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.LongSupplier;
 
 public class FlightModule implements Listener, FlightSpeedControl {
 
@@ -40,12 +43,18 @@ public class FlightModule implements Listener, FlightSpeedControl {
 
     private final JavaPlugin plugin;
     private final LanguageService languageService;
+    private final LongSupplier clock;
     private final Set<UUID> grantedFlight = new HashSet<>();
     private final Map<UUID, LimitedSpeed> limitedSpeeds = new HashMap<>();
 
     public FlightModule(JavaPlugin plugin, LanguageService languageService) {
+        this(plugin, languageService, System::nanoTime);
+    }
+
+    FlightModule(JavaPlugin plugin, LanguageService languageService, LongSupplier clock) {
         this.plugin = plugin;
         this.languageService = languageService;
+        this.clock = clock;
     }
 
     public void enable() {
@@ -102,6 +111,34 @@ public class FlightModule implements Listener, FlightSpeedControl {
         releaseExplorationSpeed(event.getPlayer());
         if (grantedFlight.remove(event.getPlayer().getUniqueId())) {
             removeGrantedFlight(event.getPlayer());
+        }
+    }
+
+    // Check before space traversal can turn a movement into a teleport. PlayerTeleportEvent
+    // has a separate handler list and does not reach this listener.
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        LimitedSpeed limit = limitedSpeeds.get(player.getUniqueId());
+        if (limit == null || !event.hasExplicitlyChangedPosition()
+                || !player.isFlying() || player.isGliding() || player.isInsideVehicle()) {
+            return;
+        }
+
+        float current = player.getFlySpeed();
+        if (current != limit.applied()) {
+            limit = applyLimitedSpeed(player, limit, current, limit.ceiling());
+        }
+
+        // Use the previous event position, not the player's position just before this packet:
+        // Paper coalesces small displacements before firing PlayerMoveEvent.
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        double horizontal = Math.hypot(to.getX() - from.getX(), to.getZ() - from.getZ());
+        double vertical = Math.abs(to.getY() - from.getY());
+        if (!limit.movement().tryMove(horizontal, vertical, clock.getAsLong())) {
+            // Paper rolls back without firing a teleport event (which would release the ceiling).
+            event.setCancelled(true);
         }
     }
 
@@ -243,13 +280,9 @@ public class FlightModule implements Listener, FlightSpeedControl {
             throw new IllegalArgumentException("Invalid exploration flight speed");
         }
         LimitedSpeed previous = limitedSpeeds.get(player.getUniqueId());
-        float requested = previous != null && player.getFlySpeed() == previous.applied()
-                ? previous.requested() : player.getFlySpeed();
-        LimitedSpeed next = limitedSpeed(requested, maximumSpeed);
-        limitedSpeeds.put(player.getUniqueId(), next);
-        if (player.getFlySpeed() != next.applied()) {
-            player.setFlySpeed(next.applied());
-        }
+        float current = player.getFlySpeed();
+        float requested = previous != null && current == previous.applied() ? previous.requested() : current;
+        LimitedSpeed next = applyLimitedSpeed(player, previous, requested, maximumSpeed);
         if (previous == null && next.applied() != requested) {
             sendSpeedLimit(player);
         }
@@ -268,14 +301,23 @@ public class FlightModule implements Listener, FlightSpeedControl {
         if (previous == null) {
             player.setFlySpeed(requested);
         } else {
-            LimitedSpeed next = limitedSpeed(requested, previous.ceiling());
-            limitedSpeeds.put(player.getUniqueId(), next);
-            player.setFlySpeed(next.applied());
+            applyLimitedSpeed(player, previous, requested, previous.ceiling());
         }
     }
 
-    private static LimitedSpeed limitedSpeed(float requested, float ceiling) {
-        return new LimitedSpeed(requested, Math.copySign(Math.min(Math.abs(requested), ceiling), requested), ceiling);
+    private LimitedSpeed applyLimitedSpeed(Player player, LimitedSpeed previous, float requested, float ceiling) {
+        float applied = Math.copySign(Math.min(Math.abs(requested), ceiling), requested);
+        FlightMovementBudget movement;
+        if (previous == null) {
+            movement = new FlightMovementBudget(applied, clock.getAsLong());
+        } else {
+            movement = previous.movement();
+            if (applied != previous.applied()) movement.setSpeed(applied, clock.getAsLong());
+        }
+        LimitedSpeed next = new LimitedSpeed(requested, applied, ceiling, movement);
+        limitedSpeeds.put(player.getUniqueId(), next);
+        if (player.getFlySpeed() != applied) player.setFlySpeed(applied);
+        return next;
     }
 
     private void sendSpeedLimit(Player player) {
@@ -286,7 +328,7 @@ public class FlightModule implements Listener, FlightSpeedControl {
         }
     }
 
-    private record LimitedSpeed(float requested, float applied, float ceiling) {
+    private record LimitedSpeed(float requested, float applied, float ceiling, FlightMovementBudget movement) {
     }
 
     private Player requirePlayer(CommandSourceStack source) {

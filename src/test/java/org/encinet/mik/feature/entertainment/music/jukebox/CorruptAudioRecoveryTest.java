@@ -1,15 +1,10 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
-import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
-import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.junit.jupiter.api.Test;
 
 import java.io.EOFException;
 import java.io.IOException;
-import java.nio.file.Path;
-import java.util.List;
+import java.io.InterruptedIOException;
 import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,30 +14,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CorruptAudioRecoveryTest {
 
     @Test
-    void retriesANestedUnexpectedEofForOnlineAudioOnlyOnce() {
-        CorruptAudioRecovery recovery = new CorruptAudioRecovery();
+    void distinguishesDecoderEofFromAnInterruptedRead() {
         Throwable error = new CompletionException(
                 new IllegalStateException("decoder failed", new EOFException("truncated")));
 
-        assertTrue(recovery.shouldRetry(onlineTrack(), error));
-        assertFalse(recovery.shouldRetry(onlineTrack(), error));
+        assertFalse(CorruptAudioRecovery.containsUnexpectedEof(new IOException("network unavailable")));
+        var interrupted = new InterruptedIOException("seek interrupted the read");
+        interrupted.initCause(new EOFException("socket closed"));
+        assertFalse(CorruptAudioRecovery.containsUnexpectedEof(interrupted));
+        assertTrue(CorruptAudioRecovery.containsUnexpectedEof(error));
     }
 
     @Test
-    void unrelatedFailureDoesNotConsumeTheSingleCorruptionRetry() {
-        CorruptAudioRecovery recovery = new CorruptAudioRecovery();
-
-        assertFalse(recovery.shouldRetry(onlineTrack(), new IOException("network unavailable")));
-        assertTrue(recovery.shouldRetry(onlineTrack(), new EOFException("truncated")));
-    }
-
-    @Test
-    void neverRetriesAUserManagedLocalFile() {
-        CorruptAudioRecovery recovery = new CorruptAudioRecovery();
-        MusicTrack local = new MusicTrack("local:test.mp3",
-                details(), new TrackTarget.LocalFile(Path.of("music/test.mp3")));
-
-        assertFalse(recovery.shouldRetry(local, new EOFException("truncated")));
+    void eachUnfixedIntentGetsOnlyOneRetryAndOnlyBeforeItsFirstPreparedFrame() {
+        assertFalse(new CorruptAudioRecovery().takeRetry(true, false));
+        assertFalse(new CorruptAudioRecovery().takeRetry(false, true));
+        var fresh = new CorruptAudioRecovery();
+        assertTrue(fresh.takeRetry(false, false));
+        assertFalse(fresh.takeRetry(false, false));
     }
 
     @Test
@@ -61,14 +50,4 @@ class CorruptAudioRecoveryTest {
                 CorruptAudioRecovery.resumePositionMillis(42_000L, false, 180_000L));
     }
 
-    private static MusicTrack onlineTrack() {
-        return new MusicTrack("lx:kw:test", details(),
-                new TrackTarget.Lx("kw", "test", List.of("320k"),
-                        "{\"id\":\"test\",\"source\":\"kw\","
-                                + "\"meta\":{\"songId\":\"test\"}}"));
-    }
-
-    private static TrackDetails details() {
-        return new TrackDetails("Test", "Artist", null, "MP3", AudioProperties.EMPTY);
-    }
 }

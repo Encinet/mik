@@ -36,6 +36,7 @@ final class VehicleEditorComposition {
         UiNode actions = new UiPagedPort(UiTemplates.actions("actions", 3).withSummaryLines(1), 1,
                 view.actionPage(), next -> read.accept(view.actions(next)))
                 .withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 200)));
+        if (route instanceof Model) actions = UiTemplates.contentActions("primary", 2, 1);
         var content = UiTemplates.menu(UiTemplates.information("draft").withSummaryLines(1),
                 UiTemplates.title("heading").withSummaryLines(1),
                 UiTemplates.information("help").withSummaryLines(3),
@@ -47,6 +48,9 @@ final class VehicleEditorComposition {
                 List.of("commit", "history", "navigation"), footer.textRole(), footer.itemSlot(), footer.summaryLines(), footer.itemTextWidth()));
         if (primary == Primary.ACTIONS) content = UiTemplates.menu(content, actions);
         else tools = UiTemplates.menu(actions, tools);
+        if (route instanceof Library) tools = UiTemplates.menu(UiTemplates.contentActions("primary", 3, 2),
+                UiTemplates.contentActions("secondary", 2, 1), tools);
+        if (route instanceof Model) tools = UiTemplates.menu(UiTemplates.contentActions("secondary", 2, 1), tools);
         UiKey focus = switch (primary) {
             case ITEMS -> items.key();
             case ACTIONS -> actions.key();

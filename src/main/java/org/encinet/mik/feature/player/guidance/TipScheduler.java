@@ -30,7 +30,7 @@ final class TipScheduler {
     private final Map<UUID, TipState> states = new HashMap<>();
     private final Set<UUID> dirty = new HashSet<>();
     private final Map<UUID, Map<String, Pending>> pending = new HashMap<>();
-    private final Map<String, Registration> registrations = new HashMap<>();
+    private final Map<String, Object> registrations = new HashMap<>();
     private final Map<String, Ambient> ambient = new LinkedHashMap<>();
     private final Map<UUID, AmbientWait> ambientWaits = new HashMap<>();
     private final Consumer<RuntimeException> errors;
@@ -48,32 +48,17 @@ final class TipScheduler {
         this.audience = Objects.requireNonNull(audience, "audience");
     }
 
-    void register(Object owner, Tip.Policy definition) {
-        register(owner, definition, null);
-    }
-
     void register(Object owner, Tip.Policy definition,
                   BiFunction<UUID, Language, Optional<TipContent>> ambientContent) {
-        if (registrations.putIfAbsent(definition.id(), new Registration(owner, definition)) != null) {
+        if (registrations.putIfAbsent(definition.id(), owner) != null) {
             throw new IllegalArgumentException("Tip id is already registered: " + definition.id());
-        }
-        if (!definition.remembersHistory()) {
-            states.forEach((player, state) -> {
-                if (state.discardHistory(definition.id())) dirty.add(player);
-            });
         }
         if (ambientContent != null) ambient.put(definition.id(), new Ambient(owner, definition, ambientContent));
     }
 
     void restore(UUID player, TipState.Snapshot snapshot) {
-        TipState state = new TipState(snapshot);
-        states.put(player, state);
+        states.put(player, new TipState(snapshot));
         dirty.remove(player);
-        registrations.values().forEach(registration -> {
-            if (!registration.definition.remembersHistory() && state.discardHistory(registration.definition.id())) {
-                dirty.add(player);
-            }
-        });
     }
 
     boolean loaded(UUID player) { return states.containsKey(player); }
@@ -255,7 +240,7 @@ final class TipScheduler {
     void close(Object owner) {
         pending.values().forEach(offers -> offers.values().removeIf(it -> it.owner == owner));
         pending.values().removeIf(Map::isEmpty);
-        registrations.values().removeIf(registered -> registered.owner == owner);
+        registrations.values().removeIf(registered -> registered == owner);
         ambient.values().removeIf(it -> it.owner == owner);
         if (ambient.isEmpty()) ambientWaits.clear();
     }
@@ -286,7 +271,6 @@ final class TipScheduler {
             .comparingInt((Pending it) -> it.definition.priority()).reversed().thenComparingLong(it -> it.sequence);
 
     record Delivery(Tip.Policy definition, String situationKey, Component message) {}
-    private record Registration(Object owner, Tip.Policy definition) {}
     private record Evaluated(Pending offer, Delivery delivery) {}
     private record Pending(Object owner, Tip.Policy definition, long readyAt, long expiresAt,
                            long sequence, boolean adaptive, Function<Language, Optional<TipContent>> content) {}

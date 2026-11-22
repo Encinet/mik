@@ -1,5 +1,7 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.window.MenuWorkspaceSession;
+
 import java.util.*;
 import java.util.function.*;
 import net.kyori.adventure.text.Component;

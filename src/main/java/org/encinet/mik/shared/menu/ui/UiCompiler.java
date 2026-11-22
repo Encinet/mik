@@ -49,7 +49,7 @@ public final class UiCompiler {
     private final String readingPath;
     private final Map<MeasureKey, Measured> cache = new HashMap<>();
     private record Page(FloatingMenuPage page, IntConsumer selectPage, Optional<UiReadingPosition> readingPosition,
-                        Optional<UiWindowedList.Observation> observation) {
+                        Optional<UiPageObservation> observation) {
         Page(FloatingMenuPage page, IntConsumer selectPage, Optional<UiReadingPosition> readingPosition) {
             this(page,selectPage,readingPosition,Optional.empty());
         }
@@ -375,6 +375,7 @@ public final class UiCompiler {
                 .gap(tracks.rowGap()).page(source.pageIndex(),source.selectPage())
                 .pager(page -> source.pager().build(page,source.selectPage()));
         source.anchorIndex().ifPresent(pages::containing);
+        source.observation().ifPresent(observation -> pages.observeWindow(observation.identity(), observation.visible()));
         var realized = UiTemplates.focus(Ui.layout(UiLayouts.headerBody(tracks.rowGap())).key(source.key()).style(table.style()).sizing(table.sizing())
                 .child(UiKey.named("header"),header,LinearSlot.stretch())
                 .child(UiKey.named("pages"),pages.build(),LinearSlot.stretch()).build(),UiKey.named("pages"));

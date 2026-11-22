@@ -177,6 +177,12 @@ final class PasswordLogin implements Listener, AutoCloseable {
         return !closed && session != null && session.player() == player && passwords.authenticated(session.authority());
     }
 
+    boolean configurationAuthenticated(UUID id, PlayerConfigurationConnection connection) {
+        Admission admission = admissions.get(id);
+        return !closed && admission != null && admission.connection == connection
+                && connection.isConnected() && passwords.authenticated(admission.authority);
+    }
+
     boolean verified(Player player) {
         return currentSession(player.getUniqueId(), player)
                 && (!PasswordPolicy.mandatory(PasswordRoles.role(player)) || passwords.hasPassword(player.getUniqueId()));
@@ -185,6 +191,11 @@ final class PasswordLogin implements Listener, AutoCloseable {
     PasswordService.Session authority(Player player) {
         Session session = sessions.get(player.getUniqueId());
         return session != null && session.player() == player && passwords.authenticated(session.authority()) ? session.authority() : null;
+    }
+
+    PasswordService.Session worldSession(UUID id) {
+        Session session = sessions.get(id);
+        return !closed && session != null ? session.authority() : null;
     }
 
     /** Logical revocation already happened in the credential transaction. This only cleans up obsolete connections. */

@@ -66,15 +66,6 @@ final class RhythmCalibrationStore {
                 result.pointerInputDeltaMillis());
     }
 
-    void clear(Player player) {
-        PersistentDataContainer data = player.getPersistentDataContainer();
-        data.remove(minecraftJudgementOffsetKey);
-        data.remove(minecraftAnimationOffsetKey);
-        data.remove(plasmoJudgementOffsetKey);
-        data.remove(plasmoAnimationOffsetKey);
-        data.remove(pointerInputDeltaKey);
-    }
-
     private static void saveProfile(PersistentDataContainer data,
                                     NamespacedKey judgementKey, NamespacedKey animationKey,
                                     RhythmLatencyProfile profile) {

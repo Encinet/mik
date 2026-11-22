@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,27 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SpaceConfigurationLoaderTest {
 
-    private static final List<String> EXAMPLES = List.of(
-            "examples/non-euclidean/infinite-stairwell.yml",
-            "examples/non-euclidean/endless-corridor.yml",
-            "examples/non-euclidean/impossible-corner.yml",
-            "examples/non-euclidean/looping-fall.yml");
-
     @Test
     void bundledConfigurationIsAlwaysLoadable() throws Exception {
         SpaceConfiguration configuration = parseResource("non-euclidean-spaces.yml");
 
         assertTrue(configuration.enabled());
         assertTrue(configuration.links().isEmpty());
-    }
-
-    @Test
-    void everyBundledImmersiveExampleIsLoadable() throws Exception {
-        for (String resource : EXAMPLES) {
-            SpaceConfiguration configuration = parseResource(resource);
-            assertTrue(configuration.enabled(), resource);
-            assertEquals(1, configuration.links().size(), resource);
-        }
     }
 
     @Test

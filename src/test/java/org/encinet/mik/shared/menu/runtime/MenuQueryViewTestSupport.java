@@ -1,5 +1,8 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.input.MenuInputSessions;
+import org.encinet.mik.shared.menu.runtime.input.MenuQueryEditor;
+
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.FloatingMenuInteraction;
 import org.encinet.mik.shared.menu.MenuScene;

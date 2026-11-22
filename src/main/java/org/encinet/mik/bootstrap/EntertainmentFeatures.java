@@ -3,6 +3,7 @@ package org.encinet.mik.bootstrap;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.entertainment.event.FifthAnniversaryEventModule;
 import org.encinet.mik.feature.entertainment.music.MusicModule;
+import org.encinet.mik.feature.entertainment.music.gateway.RemoteMusic;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
 final class EntertainmentFeatures {
@@ -19,7 +20,7 @@ final class EntertainmentFeatures {
         fifthAnniversaryEventModule.registerCommands(plugin.getLifecycleManager());
 
         MusicModule musicModule = new MusicModule(plugin, languageService, voiceServer,
-                afkModule, world.plots()::mayControlMusic);
+                afkModule, world.plots()::mayControlMusic, new RemoteMusic(shared.mikd()::openMusicChannel));
         lifecycle.startManaged("music", musicModule::enable, musicModule::disable);
         musicModule.registerCommands(plugin.getLifecycleManager());
     }

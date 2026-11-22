@@ -1,0 +1,87 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+import "mik/chat_message.proto";
+
+message IdentityPlayerCode {
+  ChatPlayer player = 1;
+  string platform = 2;
+}
+
+message IdentityList {
+  oneof player {
+    string player_id = 1;
+    string player_name = 3;
+  }
+  string after_binding_id = 2;
+}
+
+message IdentityUnlink {
+  string binding_id = 1;
+  oneof authority {
+    string owner_id = 2;
+    bool operator = 3;
+  }
+}
+
+message IdentityAcknowledgements { repeated string operation_ids = 1; }
+
+message IdentityCommand {
+  oneof operation {
+    ChatPlayer admit = 1;
+    IdentityPlayerCode issue = 2;
+    IdentityPlayerCode cancel = 3;
+    IdentityList list = 4;
+    IdentityUnlink unlink = 5;
+    bool poll = 6;
+    IdentityAcknowledgements acknowledge = 7;
+    bool platforms = 8;
+  }
+}
+
+message IdentityCode {
+  string platform = 1;
+  string code = 2;
+  int64 expires_at_ms = 3;
+  string command_prefix = 4;
+}
+
+message IdentityBindingView {
+  string binding_id = 1;
+  ChatPlayer player = 2;
+  ChatExternalIdentity external = 3;
+  int64 linked_at_ms = 4;
+}
+
+message IdentityChange {
+  enum Kind {
+    REFRESHED = 0;
+    LINKED = 1;
+    UNLINKED = 2;
+  }
+  string operation_id = 1;
+  string player_id = 2;
+  bool revoked = 3;
+  int64 sequence = 4;
+  Kind kind = 5;
+  string platform = 6;
+}
+
+message IdentityResult {
+  enum Outcome {
+    DONE = 0;
+    ADMITTED = 1;
+    CHALLENGE = 2;
+    MEMBERSHIP_UNAVAILABLE = 3;
+    NOT_FOUND = 4;
+    UNSUPPORTED_PLATFORM = 5;
+  }
+  Outcome outcome = 1;
+  repeated IdentityCode codes = 2;
+  repeated IdentityBindingView bindings = 3;
+  string next_binding_id = 4;
+  repeated IdentityChange changes = 5;
+  repeated string platforms = 6;
+  int64 admitted_through = 7;
+}

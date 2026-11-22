@@ -92,7 +92,6 @@ class PlotAccessPolicyTest {
         assertNull(PlotAccessPolicy.group("visitor"));
         assertFalse(PlotAccessPolicy.validAction("interact"));
         assertFalse(PlotAccessPolicy.validAction("entity"));
-        assertFalse(PlotAccessPolicy.hasOverrides(removed));
         assertFalse(root.allows("door", UUID.randomUUID(), true, false));
         assertFalse(root.allows("entity_interact", UUID.randomUUID(), false, false));
         assertFalse(root.allows("container", UUID.randomUUID(), false, false));

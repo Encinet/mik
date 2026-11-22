@@ -24,6 +24,7 @@ class PasswordEditTest {
         UUID id = UUID.randomUUID();
         try (var accounts = new PasswordService(directory.resolve("passwords.db"))) {
             accounts.open();
+            accounts.removalAuthority(new TestRemovalAuthority(true));
             var set = assertThrows(PasswordException.class, () -> accounts.set(id, "Alex", accounts.credential(id),
                     PASSWORD, PASSWORD, () -> role, null));
             assertEquals(Message.PASSWORD_REQUIRED_ROLE, PasswordFeedback.failure(set.code()));

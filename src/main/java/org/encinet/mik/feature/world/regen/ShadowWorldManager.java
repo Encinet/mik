@@ -17,7 +17,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -61,7 +60,7 @@ final class ShadowWorldManager {
                     + target.key().asString());
         }
 
-        Path folder = shadow.getWorldFolder().toPath().toAbsolutePath().normalize();
+        Path folder = shadow.getWorldPath().toAbsolutePath().normalize();
         try {
             validateShape(target, shadow);
             configure(shadow);
@@ -123,10 +122,9 @@ final class ShadowWorldManager {
         Path worldContainer = Bukkit.getWorldContainer().toPath().toAbsolutePath().normalize();
         String fileName = folder.getFileName() == null ? "" : folder.getFileName().toString();
         String expectedKeyPrefix = WORLD_KEY_PREFIX + sessionId + "_";
-        String legacyFolderPrefix = plugin.getName().toLowerCase(Locale.ROOT) + "_" + expectedKeyPrefix;
         if (!folder.startsWith(worldContainer)
                 || folder.equals(worldContainer)
-                || (!fileName.startsWith(expectedKeyPrefix) && !fileName.startsWith(legacyFolderPrefix))) {
+                || !fileName.startsWith(expectedKeyPrefix)) {
             plugin.getLogger().severe("Refusing to delete unrecognized regeneration world path: " + folder);
             return;
         }

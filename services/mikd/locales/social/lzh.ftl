@@ -1,0 +1,93 @@
+chat-content-audio = [聲]
+chat-content-card = [卡]
+chat-content-contact = [名刺]
+chat-content-emote = [動作]
+chat-content-face = [表情]
+chat-content-file = [檔]
+chat-content-history = [談錄]
+chat-content-image = [圖]
+chat-content-location = [所在]
+chat-content-message = [訊]
+chat-content-multiple = [諸訊]
+chat-content-music = [樂]
+chat-content-notice = [告]
+chat-content-reply = [引言]
+chat-content-sticker = [貼圖]
+chat-content-video = [影]
+
+social-binding-already-linked = 君已繫於 { $arg0 }，以 { $arg1 } 察其籍。
+social-binding-confirmation-expired = 所確認已逾期，或所繫帳號已易。請復發解繫之請：
+social-binding-code-invalid = 驗碼無效或逾期。請重連取新碼；身在服中者，可行 { $arg0 }。
+social-binding-external-in-use = 此臺身分已繫他 Minecraft 遊者。
+social-binding-help = 請先連 Minecraft 服，將登入所示之完整繫籍令發於此處。身在服中者，可行 { $arg0 } 取之。
+social-binding-link-completed = 繫籍已成，重連即可續登入。
+social-binding-membership-required = 請先入此平臺所接社群，再試繫定
+social-binding-membership-unavailable = 社群成員之籍暫不可驗，請稍後再試或洽服主
+social-binding-not-bound = 君尚未繫遊戲之籍。
+social-binding-platform-mismatch = 此驗碼乃為他臺所發。
+social-binding-player-scope-in-use = 此 Minecraft 玩家於同臺帳域已有他身。
+social-binding-rate-limited = 試驗碼過頻，請約 { $arg0 } 分後復試。
+social-binding-unavailable = 身分之繫暫不可用。
+social-binding-unlink-completed = 解繫已成。若無他項有效社群之繫，須再繫方可入服。
+social-binding-unlink-prompt = 將解此平臺帳號與 { $arg0 } 之繫。若無他項有效社群之繫，則不得入服；已在服者亦將移出。欲定之，請發：
+social-command-usage = 此令毋須參數，請逕發：
+social-duration-days = { $arg0 } 日 { $arg1 } 時 { $arg2 } 分
+social-duration-hours = { $arg0 } 時 { $arg1 } 分
+social-duration-minutes = { $arg0 } 分
+social-help-command-description = 覽此令表
+social-link-command-description = 以遊戲中驗碼繫 Minecraft 帳
+social-link-command-parameters = <驗碼>
+social-online-command-description = 覽在綫諸玩家
+social-profile-afk = 在綫 · 暫離
+social-profile-command-description = 覽己之錄；正員可以玩家名、提及或回覆詢他人
+social-profile-command-parameters = [玩家名]
+social-profile-first-joined-label = 初入
+social-profile-last-seen-label = 最近在綫
+social-profile-member-required = 惟已繫之正員或管理、維護者可詢他人之錄。
+social-profile-offline = 離綫
+social-profile-online = 在綫 · 活躍
+social-profile-play-time-label = 遊戲之時
+social-profile-player-label = 遊者
+social-profile-player-not-found = 未得此 Minecraft 玩家。
+social-profile-presence-label = 狀況
+social-profile-target-ambiguous = 惟可擇一：玩家名、提及一人、或覆一人。
+social-profile-target-unbound = 所提及或所覆之身份未繫 Minecraft 玩家。
+social-profile-uuid-label = UUID
+social-query-no-players = 今無遊者在綫。
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (暫離)
+   *[active] { $arg0 }
+    }
+social-query-population = 在綫 { $arg0 }/{ $arg1 } · 活躍 { $arg2 } · 暫離 { $arg3 }
+social-query-online-summary = 今有 { $arg0 } 人在綫。{ $arg1 ->
+    [0] { "" }
+   *[other] 其中 { $arg1 } 人掛機。
+    }
+social-query-players-label = 遊者
+social-query-unknown = 未識此令。請發 { $arg0 } 以觀諸令。
+social-query-uptime-label = 運行之時
+social-query-version-label = 版本
+social-reply-unavailable = 此番結果暫不可示。帳號之事可用察籍令核之，勿反覆提交。
+social-status-command-description = 覽玩家、TPS、MSPT 與運行之時
+social-title-command-help = 命令之助
+social-title-player-profile = 玩家之錄
+social-title-server-status = 伺服器狀
+social-unlink-command-description = 確認而後解此身份之繫
+social-unlink-command-parameters = [{ social-unlink-confirmation } <確認碼>]
+social-unlink-confirmation = 確認
+ai-busy = AI 事繁，請稍候再問
+ai-disabled = AI 助手未啟或未設
+ai-question-button-unavailable = 此問已不可點選。
+ai-request-failed = AI 求問不成，請稍候再試
+ai-social-command-description = 問共用之 AI 助手
+ai-social-command-parameters = <所問>
+ai-social-question-required = 請於 AI 令後書所問
+ai-suggested-questions = 可續問者
+
+social-aliases-online = 在綫
+social-aliases-status = 狀況
+social-aliases-profile = 吾
+social-aliases-help = 助
+social-aliases-bind = 繫
+social-aliases-unbind = 解繫
+social-aliases-ai = 問智

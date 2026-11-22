@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RhythmCalibrationStoreTest {
     @Test
-    void savesAndClearsTheCompletePlayerCalibration() {
+    void readsOnlyCompletePlayerCalibration() {
         Map<NamespacedKey, Integer> values = new HashMap<>();
         RhythmCalibrationStore store = new RhythmCalibrationStore(plugin());
         Player player = player(data(values));
@@ -33,9 +33,6 @@ class RhythmCalibrationStoreTest {
 
         values.keySet().removeIf(key -> key.getKey().equals("rhythm_plasmo_animation_ms"));
         assertTrue(store.read(player).isEmpty());
-
-        store.clear(player);
-        assertTrue(values.isEmpty());
     }
 
     private static Plugin plugin() {
@@ -63,10 +60,6 @@ class RhythmCalibrationStoreTest {
                         case "get" -> values.get(args[0]);
                         case "set" -> {
                             values.put((NamespacedKey) args[0], (Integer) args[2]);
-                            yield null;
-                        }
-                        case "remove" -> {
-                            values.remove(args[0]);
                             yield null;
                         }
                         default -> throw new UnsupportedOperationException(method.getName());

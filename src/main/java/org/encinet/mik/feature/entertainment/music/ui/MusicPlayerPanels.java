@@ -52,6 +52,13 @@ final class MusicPlayerPanels {
     MenuPanel more(Player player, MusicWorkspaceState state, MusicPlaybackSnapshot snapshot) {
         return () -> {
             var body = column("player-more");
+            var lyrics = w.devices.lyrics(player, snapshot);
+            if (lyrics != null) body.child(Ui.button(w.label(player, "lyrics")).key("lyrics").primary((_, handle) -> {
+                if (w.devices.lyrics(player, snapshot) != lyrics) return;
+                handle.closePopover();
+                handle.openWindow(MenuWindowSpec.task(UiKey.named("lyrics:" + snapshot.generation())),
+                        context -> new MusicLyricsPanel(w, player, snapshot, lyrics, context));
+            }).build());
             if (w.registry.mayControl(player, snapshot.target()) && snapshot.track() != null && snapshot.status() != org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus.STOPPED
                     && snapshot.status() != org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus.FINISHED)
                 body.child(Ui.button(w.label(player, "stop")).key("stop")

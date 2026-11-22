@@ -6,11 +6,14 @@ import net.luckperms.api.node.NodeType;
 import org.encinet.mik.shared.role.PlayerRole;
 import org.bukkit.entity.Player;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /** Off-thread LuckPerms lookup; protect staff groups even when their group marker is not inherited. */
 final class PasswordRoles {
+    private static final List<PlayerRole> GAME_ROLES = List.of(PlayerRole.values());
+    private static final List<PlayerRole> LOCAL_CUSTODIAN = List.of(PlayerRole.CUSTODIAN);
     private final LuckPerms luckPerms;
     private final java.util.function.Predicate<UUID> operator;
     PasswordRoles(LuckPerms luckPerms, java.util.function.Predicate<UUID> operator) {
@@ -40,6 +43,14 @@ final class PasswordRoles {
     }
 
     PlayerRole role(UUID id) {
+        return resolve(id, GAME_ROLES);
+    }
+
+    boolean isLocalCustodian(UUID id) {
+        return resolve(id, LOCAL_CUSTODIAN) == PlayerRole.CUSTODIAN;
+    }
+
+    private PlayerRole resolve(UUID id, List<PlayerRole> candidates) {
         if (operator.test(id)) return PlayerRole.CUSTODIAN;
         User user = luckPerms.getUserManager().getUser(id);
         if (user == null) {
@@ -49,7 +60,7 @@ final class PasswordRoles {
         var options = luckPerms.getContextManager().getStaticQueryOptions();
         var groups = user.getInheritedGroups(options);
         var permissions = user.getCachedData().getPermissionData(options);
-        for (PlayerRole role : PlayerRole.values()) {
+        for (PlayerRole role : candidates) {
             if (permissions.checkPermission(role.permission()).asBoolean()
                     || groups.stream().anyMatch(group -> group.getName().equalsIgnoreCase(role.id()))
                     || user.getNodes(NodeType.INHERITANCE).stream()

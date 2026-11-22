@@ -1,0 +1,23 @@
+# Install as /etc/mikd/social.yml with only the platform sections you configure.
+qq:
+  app_id: "replace-app-id"
+  command_prefix: "/"
+  groups:
+    "replace-group-openid":
+      inbound: {}
+      outbound: { prefix: "!qq ", strip: true }
+      commands: true
+      membership: true
+      locale: zh-CN
+matrix:
+  homeserver: https://matrix.example.org
+  user: "@bridge:example.org"
+  command_prefix: "!"
+  recipient_devices: cross_signed
+  rooms:
+    "!room:example.org":
+      inbound: {}
+      outbound: {}
+      commands: true
+      membership: true
+      locale: zh-CN

@@ -2,8 +2,6 @@ package org.encinet.mik.feature.entertainment.music.jukebox;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -11,56 +9,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JukeboxPlaybackGroupTest {
 
     @Test
-    void reportsWhenAPlaybackClockHasActuallyBeenEstablished() {
-        AtomicLong nanos = new AtomicLong(3_000_000_000L);
-        JukeboxPlaybackGroup group = new JukeboxPlaybackGroup(nanos::get);
+    void onlyTheLatestSeekAndPauseIntentAreVisible() {
+        var group = new JukeboxPlaybackGroup();
+        group.seekTo(4_000L);
+        group.seekTo(900L);
+        group.setPaused(true);
 
-        assertFalse(group.playbackHasStarted());
-        assertEquals(0L, group.synchronizedPositionMillis());
-        assertTrue(group.playbackHasStarted());
-    }
-
-    @Test
-    void followerCannotMoveTheLeaderClockAndTakesOverAfterLeaderLeaves() {
-        JukeboxPlaybackGroup group = new JukeboxPlaybackGroup();
-        JukeboxPlaybackGroup.Member leader = group.newMember();
-        JukeboxPlaybackGroup.Member follower = group.newMember();
-        leader.activate();
-        follower.activate();
-
-        leader.publishPositionMillis(1_000L);
-        follower.publishPositionMillis(1_800L);
-        assertEquals(1_000L, group.synchronizedPositionMillis());
-
-        leader.close();
-        follower.publishPositionMillis(1_100L);
-        assertTrue(follower.isLeader());
-        assertEquals(1_100L, group.synchronizedPositionMillis());
-    }
-
-    @Test
-    void firstReadyJukeboxClaimsEpochAndLaterJukeboxesJoinItsPosition() {
-        AtomicLong nanos = new AtomicLong(5_000_000_000L);
-        JukeboxPlaybackGroup group = new JukeboxPlaybackGroup(nanos::get);
-
-        assertEquals(0L, group.synchronizedPositionMillis());
-        nanos.addAndGet(1_250_000_000L);
-        assertEquals(1_250L, group.synchronizedPositionMillis());
-
-        group.publishPositionMillis(900L);
-        nanos.addAndGet(10_000_000_000L);
-        assertEquals(900L, group.synchronizedPositionMillis(),
-                "published backend progress must replace wall-clock extrapolation");
-    }
-
-    @Test
-    void backwardsClockMovementCannotProduceANegativePosition() {
-        AtomicLong nanos = new AtomicLong(5_000_000_000L);
-        JukeboxPlaybackGroup group = new JukeboxPlaybackGroup(nanos::get);
-
-        group.synchronizedPositionMillis();
-        nanos.set(4_000_000_000L);
-        assertEquals(0L, group.synchronizedPositionMillis());
+        assertEquals(new JukeboxPlaybackGroup.Seek(2L, 900L), group.currentSeek());
+        assertTrue(group.paused());
     }
 
     @Test
@@ -70,5 +26,23 @@ class JukeboxPlaybackGroupTest {
         assertTrue(group.claimStartedAnnouncement());
         assertFalse(group.claimStartedAnnouncement());
         assertFalse(group.claimStartedAnnouncement());
+    }
+
+    @Test
+    void lastOutputKeepsThePinnedVersionAndTheActualClockPositionWhileRejoining() {
+        var group = new JukeboxPlaybackGroup();
+        group.pinVersion("c".repeat(32));
+        group.seekTo(2_000L);
+        group.follow(() -> group.present(new JukeboxPlaybackSnapshot(PlaybackStatus.PLAYING, 8_000L, 12_000L, true)));
+        group.setPaused(true);
+        group.releaseClock();
+
+        assertEquals(PlaybackStatus.RESUMABLE, group.snapshot().status());
+        assertEquals(8_000L, group.recoveryPosition());
+        group.preparing();
+        assertEquals(PlaybackStatus.LOADING, group.snapshot().status());
+        assertEquals(8_000L, group.currentSeek().positionMillis());
+        assertEquals("c".repeat(32), group.resumeVersion());
+        assertTrue(group.paused());
     }
 }

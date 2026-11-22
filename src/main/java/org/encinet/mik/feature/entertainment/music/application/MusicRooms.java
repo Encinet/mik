@@ -14,11 +14,11 @@ import org.bukkit.Location;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxExperienceMode;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxExperienceMode;
 import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackService;
 import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxRhythmReadiness;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSettingsStore;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.rhythm.RhythmDifficulty;
 import org.encinet.mik.feature.entertainment.music.rhythm.RhythmGameMode;
 import org.encinet.mik.feature.entertainment.music.rhythm.RhythmGameService;
@@ -146,7 +146,7 @@ public final class MusicRooms implements AutoCloseable {
         backend.stop(box.getBlock());
         songs.put(device, track);
         room.changedTrack();
-        if (!backend.playProgram(null, box, track, UUID.randomUUID(), () -> {}))
+        if (!backend.playProgram(null, box, track, new JukeboxPlaybackService.ProgramPlayback(), () -> {}))
             throw new MusicProblem(MusicProblem.Code.UNAVAILABLE);
         backend.prepareRhythm(box.getBlock());
     }

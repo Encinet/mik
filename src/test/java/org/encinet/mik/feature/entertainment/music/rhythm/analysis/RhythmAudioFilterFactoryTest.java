@@ -26,7 +26,7 @@ class RhythmAudioFilterFactoryTest {
         RhythmTimeline timeline = new RhythmTimeline("factory");
         RecordingOutput output = new RecordingOutput();
 
-        List<AudioFilter> filters = new RhythmAudioFilterFactory(timeline).buildChain(
+        List<AudioFilter> filters = new RhythmAudioFilterFactory(timeline, WholeTrackRhythmExtractor::new).buildChain(
                 null, StandardAudioDataFormats.DISCORD_PCM_S16_LE, output);
         FloatPcmAudioFilter tap = (FloatPcmAudioFilter) filters.getFirst();
         tap.process(new float[][] {new float[960], new float[960]}, 0, 960);

@@ -1,12 +1,10 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.shared.menu.FloatingMenuCommand;
 import org.encinet.mik.shared.menu.FloatingMenuDecoration;
@@ -19,7 +17,8 @@ final class MusicTrackTable {
 
     static UiKey detailSource(MusicTrack track) { return UiKey.item("track-details:" + track.id()); }
 
-    private record Paging(int page, java.util.function.IntConsumer select, String anchor, UiPageControls controls) { }
+    private record Paging(int page, java.util.function.IntConsumer select, String anchor, UiPageControls controls,
+                          UiPageObservation observation) { }
 
     static Builder builder(List<MusicTrack> tracks, MusicTableSelection<MusicTrack> selection, Function<String,Component> label,
                            Function<MusicTrack,FloatingMenuCommand> inspect,
@@ -51,6 +50,7 @@ final class MusicTrackTable {
         private java.util.function.IntConsumer select = _ -> {};
         private String anchor;
         private UiPageControls controls = UiTemplates::pager;
+        private UiPageObservation observation;
 
         private Builder(List<MusicTrack> tracks, MusicTableSelection<MusicTrack> selection, Function<String,Component> label,
                         Function<MusicTrack,FloatingMenuCommand> inspect, BiConsumer<List<MusicTrack>,PlaybackProgram.Submission> submit,
@@ -63,7 +63,8 @@ final class MusicTrackTable {
         Builder page(int index, java.util.function.IntConsumer read) { page = index; select = java.util.Objects.requireNonNull(read); anchor = null; return this; }
         Builder containing(String track) { anchor = track; return this; }
         Builder pager(UiPageControls pager) { controls = java.util.Objects.requireNonNull(pager); return this; }
-        UiNode build() { return content(tracks,selection,label,inspect,submit,save,detailKeys,new Paging(page,select,anchor,controls)); }
+        Builder observing(UiPageObservation window) { observation = window; return this; }
+        UiNode build() { return content(tracks,selection,label,inspect,submit,save,detailKeys,new Paging(page,select,anchor,controls,observation)); }
     }
 
     private static UiNode content(List<MusicTrack> tracks, MusicTableSelection<MusicTrack> selection, Function<String, Component> label,
@@ -86,14 +87,10 @@ final class MusicTrackTable {
                 .column(new UiTable.Column<>(UiKey.named("artist"), heading(label.apply("artist")),
                         UiTrack.content(UiLength.ZERO, UiLength.ui(160)), track -> text("artist", track.details().artist())))
                 .column(new UiTable.Column<>(UiKey.named("duration"), heading(label.apply("duration")),
-                        UiTrack.content(UiLength.ZERO, UiLength.ui(100)), track -> text("duration", track.details().audio().duration() == null
-                                ? "—" : MusicTime.format(track.details().audio().duration().toMillis()))))
-                .column(new UiTable.Column<>(UiKey.named("type"), heading(label.apply("track-type")),
-                        UiTrack.content(UiLength.ZERO, UiLength.ui(100)), track -> {
-                    Component type = track.target() instanceof TrackTarget.Lx
-                            ? label.apply("type-online") : Component.text(track.details().format().toUpperCase(Locale.ROOT));
-                    return text("type", type);
-                }));
+                        UiTrack.content(UiLength.ZERO, UiLength.ui(100)), track -> text("duration", track.details().durationHint() == null
+                                ? "—" : MusicTime.format(track.details().durationHint().toMillis()))))
+                .column(new UiTable.Column<>(UiKey.named("availability"), heading(label.apply("availability")),
+                        UiTrack.content(UiLength.ZERO, UiLength.ui(100)), track -> text("availability", label.apply(availability(track)))));
         if (selection == null) for (var placement : PlaybackProgram.Submission.values()) {
             String key = MusicPlaybackActions.labelKey(placement);
             table.column(new UiTable.Column<>(UiKey.named(key), Ui.text(Component.empty()).build(),
@@ -159,6 +156,7 @@ final class MusicTrackTable {
         if (tracks.isEmpty()) return table.rows(List.of(),identity).paged(paging.page(),paging.select());
         var window = table.windowed(tracks.size(),tracks.getFirst(),tracks::get,identity).fitVisibleColumns()
                 .page(paging.page(),paging.select()).pager(paging.controls());
+        if (paging.observation() != null) window = window.observing(paging.observation());
         if (paging.anchor() != null) for (int index = 0; index < tracks.size(); index++)
             if (tracks.get(index).id().equals(paging.anchor())) return window.containing(index);
         return window;
@@ -175,15 +173,23 @@ final class MusicTrackTable {
         return new UiElement(control.key(),content,control.role(),input,control.style(),control.sizing(),control.textWidthPixels(),control.alignment(),control.keepAccessible());
     }
     private static Component metadata(MusicTrack track, Function<String,Component> label) {
-        var type = track.target() instanceof TrackTarget.Lx ? label.apply("type-online") : Component.text(track.details().format().toUpperCase(Locale.ROOT));
         return label.apply("duration").append(Component.text(": " + duration(track)))
-                .append(Component.newline()).append(label.apply("track-type")).append(Component.text(": ")).append(type)
+                .append(Component.newline()).append(label.apply("availability")).append(Component.text(": ")).append(label.apply(availability(track)))
                 .append(Component.newline()).append(label.apply("artist")).append(Component.text(": ")).append(artist(track));
+    }
+
+    static String availability(MusicTrack track) {
+        return switch (track.availability()) {
+            case READY -> "track-ready";
+            case NEEDS_PREPARATION -> "track-needs-preparation";
+            case UNKNOWN -> "track-unknown";
+            case UNAVAILABLE -> "track-unavailable";
+        };
     }
 
     private static Component artist(MusicTrack track) { return Component.text(track.details().artist() == null ? "—" : track.details().artist()); }
     private static String duration(MusicTrack track) {
-        return track.details().audio().duration() == null ? "—" : MusicTime.format(track.details().audio().duration().toMillis());
+        return track.details().durationHint() == null ? "—" : MusicTime.format(track.details().durationHint().toMillis());
     }
 
 }

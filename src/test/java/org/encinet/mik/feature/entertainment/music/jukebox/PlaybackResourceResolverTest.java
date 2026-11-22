@@ -1,95 +1,40 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
-import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
-import org.encinet.mik.feature.entertainment.music.online.LxSourceService;
-import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
-import org.junit.jupiter.api.AfterEach;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
+import org.encinet.mik.protocol.music.MusicMediaDescriptor;
+import org.encinet.mik.protocol.music.MusicRepresentation;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class PlaybackResourceResolverTest {
+    private final MusicMedia media = mock(MusicMedia.class);
+    private final PlaybackResourceResolver resolver = new PlaybackResourceResolver(media);
 
-    @TempDir
-    Path directory;
-
-    private OnlineAudioCache cache;
-    private LxSourceService sourceService;
-
-    @AfterEach
-    void close() {
-        if (cache != null) {
-            cache.close();
+    @Test void exactReopenIncludesBothTrackAndAnalyzedVersion() throws Exception {
+        var target = MusicTestTracks.target("song");
+        var track = MusicTrack.reference(target);
+        var audio = AudioTrackLoaderStreamingTest.lease(new byte[]{42}, "audio/wav", "old-version");
+        doReturn(CompletableFuture.completedFuture(audio)).when(media).openExact(target, "old-version", MusicMedia.Readiness.COMPLETE);
+        try (var playback = resolver.acquireExact(track, new MediaVersion("old-version")).join();
+             var input = resolver.sourceManager().open(playback.identifier())) {
+            assertEquals("old-version", playback.version().id());
+            assertEquals(42, input.read());
         }
-        if (sourceService != null) {
-            sourceService.close();
-        }
+        verify(media).openExact(target, "old-version", MusicMedia.Readiness.COMPLETE);
+        verifyNoMoreInteractions(media);
     }
 
-    @Test
-    void resolvesValidatedLocalPathWithoutUsingOnlineCache() throws Exception {
-        Path local = Files.writeString(directory.resolve("local.mp3"), "local");
-        cache = cache();
-        PlaybackResourceResolver resolver = new PlaybackResourceResolver(cache);
-
-        try (PlaybackResourceResolver.Resource resource = resolver.acquire(localTrack(local, null))
-                .get(5, TimeUnit.SECONDS)) {
-            assertEquals(local.toAbsolutePath().normalize().toString(), resource.identifier());
-        }
-        assertEquals(new OnlineAudioCache.CacheStats(0, 0),
-                cache.statsAsync().get(5, TimeUnit.SECONDS));
-    }
-
-    @Test
-    void rejectsLocalFileReplacedBySymbolicLinkAfterCataloging() throws Exception {
-        Path root = Files.createDirectories(directory.resolve("music"));
-        Path local = Files.writeString(root.resolve("song.mp3"), "audio");
-        MusicTrack track = localTrack(local, root);
-        Path outside = Files.writeString(directory.resolve("outside.mp3"), "outside");
-        Files.delete(local);
-        try {
-            Files.createSymbolicLink(local, outside);
-        } catch (UnsupportedOperationException | java.nio.file.FileSystemException exception) {
-            org.junit.jupiter.api.Assumptions.assumeTrue(false, "Symbolic links are unavailable");
-        }
-        cache = cache();
-        PlaybackResourceResolver resolver = new PlaybackResourceResolver(cache);
-
-        assertFalse(resolver.acquire(track).handle((_, error) -> error == null).join());
-    }
-
-    @Test
-    void rejectsNbsBecauseItUsesTheNoteBlockEngine() {
-        cache = cache();
-        PlaybackResourceResolver resolver = new PlaybackResourceResolver(cache);
-        MusicTrack nbs = new MusicTrack("song.nbs",
-                new TrackDetails("Song", null, null, "NBS", AudioProperties.EMPTY),
-                new TrackTarget.NbsFile(directory.resolve("song.nbs"), directory));
-
-        assertFalse(resolver.acquire(nbs).handle((_, error) -> error == null).join());
-    }
-
-    private OnlineAudioCache cache() {
-        sourceService = new LxSourceService(directory.resolve("music/sources"), _ -> {},
-                _ -> {});
-        var cache = new OnlineAudioCache(directory.resolve("music/cache/audio"), sourceService, _ -> {});
-        cache.initialize();
-        return cache;
-    }
-
-    private static MusicTrack localTrack(Path path, Path root) {
-        TrackTarget.LocalFile target = root == null
-                ? new TrackTarget.LocalFile(path) : new TrackTarget.LocalFile(path, root);
-        return new MusicTrack(path.getFileName().toString(),
-                new TrackDetails("Local", null, null, "MP3", AudioProperties.EMPTY), target);
+    @Test void rejectsAndClosesNonAudioLeasesBeforeTheDecoder() {
+        var lease = mock(MusicMedia.MediaLease.class);
+        when(lease.descriptor()).thenReturn(MusicMediaDescriptor.newBuilder()
+                .setRepresentation(MusicRepresentation.NOTE_EVENTS).setRepresentationVersion(1).build());
+        assertThrows(IllegalArgumentException.class, () -> resolver.register(lease));
+        verify(lease).close();
     }
 }

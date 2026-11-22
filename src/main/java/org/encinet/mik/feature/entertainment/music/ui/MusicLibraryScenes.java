@@ -61,6 +61,8 @@ final class MusicLibraryScenes {
         }
         Component title = playlist == null ? w.label(player, sourceKey(browser.collection.source())) : w.raw(playlist.name());
         var headingActions = tools("collection-actions");
+        if (browser.collection.source() == Source.CATALOG)
+            headingActions.child(w.button(player, "refresh", () -> w.search(player, browser.query)));
         if (browser.collection.source() == Source.OWNED) headingActions.child(playlistManagement(browser.collection.source(), key -> w.label(player, key),
                 (_, _) -> w.safe(player, () -> create(player, List.of())),
                 (_, _) -> w.safe(player, () -> w.panel(player,state, new Import(null, ImportPage.SOURCE)))));
@@ -78,7 +80,9 @@ final class MusicLibraryScenes {
                 w.label(player, lists(browser.collection.source()) ? "search-playlists" : "search-tracks")
                         .color(NamedTextColor.AQUA)));
         if (lists(browser.collection.source())) return playlists(player, state, body);
-        var tracks = tracks(player, state);
+        var savedTracks = tracks(player, state);
+        var tracks = browser.collection.source() == Source.CATALOG ? savedTracks
+                : savedTracks.stream().map(browser.saved::decorate).toList();
         var controls = tools("collection-actions");
         if (browser.move != null) controls.child(moves.controls(player, state, playlist));
         else if (browser.selecting) controls.child(selection(player,state,tracks,playlist));
@@ -113,23 +117,38 @@ final class MusicLibraryScenes {
                     track -> w.playlistPicker.button(player,state,List.of(track),UiKey.item("save-track:" + track.id())))
                     .detailKeys(MusicTrackTable::detailSource)
                     .page(browser.page,index -> { if (browser.page(revision,index)) w.redraw(player); }).containing(browser.trackFocus);
+            if (browser.collection.source() != Source.CATALOG) {
+                var view = new SavedView(revision, savedTracks.stream().map(MusicTrack::id).toList());
+                table.observing(new UiPageObservation(view, page -> w.refreshSaved(player, state, revision, page.slice(savedTracks))));
+            }
             if (browser.selecting && browser.move == null) table.pager(MusicTrackTable.selectionControls(tracks,selected,key -> w.label(player,key),visible -> {
                 if (browser.revision != revision || !browser.selecting || browser.move != null) return;
                 visible.forEach(track -> browser.selected.add(track.id())); w.redraw(player);
             }));
             body.child(table.build());
         }
+        if (browser.collection.source() == Source.CATALOG && browser.catalog != null) {
+            long revision = browser.revision;
+            var pages = tools("catalog-pages");
+            if (!browser.earlier.isEmpty()) pages.child(Ui.button(UiIcons.CHEVRON_LEFT, Component.translatable("spectatorMenu.previous_page"))
+                    .key("previous-catalog").primary((_, _) -> w.turnCatalog(player, revision, false)).build());
+            if (!browser.later.isEmpty() || !browser.catalog.nextCursor().isEmpty()) pages.child(Ui.button(UiIcons.CHEVRON_RIGHT, Component.translatable("spectatorMenu.next_page"))
+                    .key("next-catalog").primary((_, _) -> w.turnCatalog(player, revision, true)).build());
+            var controlsPage = pages.build();
+            if (!controlsPage.children().isEmpty()) body.child(controlsPage);
+        }
         if (browser.move != null) {
             var end = moves.end(player, state, playlist);
             if (end != null) body.child(end);
         }
         body.children(w.taskStatus(player, state, TaskKey.of(Work.SEARCH)));
-        if (browser.collection.source() == Source.CATALOG && state.searchFailures > 0)
-            body.child(info("partial-search", w.language.text(player, org.encinet.mik.shared.i18n.Message.MUSIC_PARTIAL_RESULTS,
-                    net.kyori.adventure.text.format.NamedTextColor.YELLOW, state.searchFailures)));
+        if (browser.collection.source() == Source.CATALOG && browser.catalog != null && browser.catalog.partial())
+            body.child(info("partial-search", w.label(player, "partial-results")));
         body.children(w.taskStatus(player, state, new TaskKey(Work.LIBRARY, playlist == null ? player.getUniqueId() : playlist.id())));
         return UiTemplates.reading(body.build(),UiKey.named(tracks.isEmpty() ? "empty" : "tracks"),UiLength.ui(8));
     }
+
+    private record SavedView(long revision, List<String> ids) { }
 
     static UiNode playlistManagement(Source source, Function<String, Component> label,
                                      FloatingMenuCommand create, FloatingMenuCommand importPlaylist) {
@@ -141,9 +160,10 @@ final class MusicLibraryScenes {
     }
 
     List<MusicTrack> tracks(Player player, MusicWorkspaceState state) {
+        if (state.browser.collection.source() == Source.CATALOG)
+            return state.browser.catalog == null ? List.of() : state.browser.catalog.tracks();
         var snapshot = w.queries.snapshot(player.getUniqueId());
         List<MusicTrack> result = switch (state.browser.collection.source()) {
-            case CATALOG -> state.browser.query.isBlank() ? w.catalog.get() : state.results;
             case RECENT -> snapshot.recents().values().stream().sorted(Comparator.comparingLong(MusicState.Recent::at).reversed())
                     .map(mark -> snapshot.tracks().get(mark.track())).filter(Objects::nonNull).map(StoredTrack::track).toList();
             case PLAYLIST -> w.playlists.visible(player.getUniqueId(), state.browser.collection.playlist()).entries().stream()
@@ -222,9 +242,9 @@ final class MusicLibraryScenes {
             if (track.details().artist() != null) identity.child(Ui.text(w.raw(track.details().artist())).key("artist")
                     .summaryLines(2).textWidth(220).alignment(FloatingMenuDecoration.Alignment.LEFT).build(),LinearSlot.fit(LinearSlot.Alignment.START));
             var facts = new ArrayList<UiNode>();
-            facts.add(UiTemplates.fact(UiKey.named("duration"),w.label(player,"duration"),w.raw(track.details().audio().duration() == null
-                    ? "—" : MusicTime.format(track.details().audio().duration().toMillis()))));
-            facts.add(UiTemplates.fact(UiKey.named("type"),w.label(player,"track-type"),w.raw(track.details().format().toUpperCase(Locale.ROOT))));
+            facts.add(UiTemplates.fact(UiKey.named("duration"),w.label(player,"duration"),w.raw(track.details().durationHint() == null
+                    ? "—" : MusicTime.format(track.details().durationHint().toMillis()))));
+            facts.add(UiTemplates.fact(UiKey.named("availability"),w.label(player,"availability"),w.label(player,MusicTrackTable.availability(track))));
             if (track.details().album() != null) facts.add(UiTemplates.fact(UiKey.named("album"),w.label(player,"album"),w.raw(track.details().album())));
             if (track.details().originalAuthor() != null && !track.details().originalAuthor().equals(track.details().artist()))
                 facts.add(UiTemplates.fact(UiKey.named("original-author"),w.label(player,"original-author"),w.raw(track.details().originalAuthor())));

@@ -12,7 +12,7 @@ public record UiFrame(UiSize size, List<Element> elements, List<Surface> surface
                       List<Pagination> pagination, Region readingRegion) {
     public UiFrame { elements = List.copyOf(elements); surfaces = List.copyOf(surfaces); panels = List.copyOf(panels); groups = List.copyOf(groups); pagination = List.copyOf(pagination); }
     public record Pagination(String path, double x, double y, UiSize size, FloatingMenuPage page, IntConsumer selectPage,
-                             java.util.Optional<UiReadingPosition> readingPosition, java.util.Optional<UiWindowedList.Observation> observation) {
+                             java.util.Optional<UiReadingPosition> readingPosition, java.util.Optional<UiPageObservation> observation) {
         public Pagination(String path, double x, double y, UiSize size, FloatingMenuPage page, IntConsumer selectPage) {
             this(path, x, y, size, page, selectPage, java.util.Optional.empty(),java.util.Optional.empty());
         }

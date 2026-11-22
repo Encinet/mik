@@ -9,10 +9,8 @@ class MusicDiscKeysTest {
     @Test
     void usesOnlyCurrentMikTrackKeys() {
         assertEquals("mik", MusicDiscKeys.TRACK.getNamespace());
-        assertEquals("music_v2_track", MusicDiscKeys.TRACK.getKey());
-        assertEquals("mik", MusicDiscKeys.TRACK_DATA.getNamespace());
-        assertEquals("music_v2_data", MusicDiscKeys.TRACK_DATA.getKey());
+        assertEquals("music_v3_track", MusicDiscKeys.TRACK.getKey());
         assertEquals("mik", MusicDiscKeys.TRACK_SIGNATURE.getNamespace());
-        assertEquals("music_v2_signature", MusicDiscKeys.TRACK_SIGNATURE.getKey());
+        assertEquals("music_v3_signature", MusicDiscKeys.TRACK_SIGNATURE.getKey());
     }
 }

@@ -2,17 +2,34 @@ package org.encinet.mik.feature.entertainment.music.catalog;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 
 public record MusicTrack(
         String id,
         TrackDetails details,
-        TrackTarget target
+        TrackTarget target,
+        Availability availability
 ) {
+
+    static final UUID NIL_ID = new UUID(0, 0);
+    public enum Availability { READY, NEEDS_PREPARATION, UNKNOWN, UNAVAILABLE }
+
+    public MusicTrack(String id, TrackDetails details, TrackTarget target) {
+        this(id, details, target, target instanceof TrackTarget.NativeRecord ? Availability.READY : Availability.UNKNOWN);
+    }
+
+    public static MusicTrack reference(TrackTarget.Managed target) {
+        return new MusicTrack(target.trackId(), new TrackDetails(target.trackId(), null, null, null), target);
+    }
 
     public MusicTrack {
         id = requireText(id, "id");
         details = Objects.requireNonNull(details, "details");
         target = Objects.requireNonNull(target, "target");
+        availability = Objects.requireNonNull(availability, "availability");
+        if (target instanceof TrackTarget.Managed managed && !id.equals(managed.trackId())) {
+            throw new IllegalArgumentException("Track identity mismatch");
+        }
     }
 
     public boolean matches(String keyword) {

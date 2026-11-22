@@ -81,9 +81,11 @@ class IronElevatorCatalogTest {
     }
 
     @Test
-    void includesBothFloorsOfATwoFloorElevator() {
+    void includesBothFloorsOfATwoFloorElevatorWithoutOverrides() {
         IronElevatorTestWorld world = floors(64, 80);
-        var result = IronElevatorTestSupport.floors(new IronElevatorCatalog(), world.block(0, 64, 0));
+        var catalog = new IronElevatorCatalog();
+        catalog.installRules(IronElevatorCatalog.readRules(temporary.resolve("iron-elevators.yml")));
+        var result = IronElevatorTestSupport.floors(catalog, world.block(0, 64, 0));
 
         assertEquals(List.of(64, 80), result.stream().map(floor -> floor.level().height()).toList());
         assertEquals(List.of(1, 2), result.stream().map(IronElevatorCatalog.Floor::number).toList());

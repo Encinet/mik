@@ -20,7 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
 
@@ -43,11 +43,9 @@ public final class MusicStore implements AutoCloseable {
                 Class.forName("org.sqlite.JDBC");
                 connection = DriverManager.getConnection("jdbc:sqlite:" + database);
                 try (Statement statement = connection.createStatement()) {
-                    statement.execute("PRAGMA journal_mode=WAL");
                     statement.execute("PRAGMA busy_timeout=5000");
-                    for (String table : TABLES)
-                        statement.execute("CREATE TABLE IF NOT EXISTS music_" + table
-                                + " (id TEXT PRIMARY KEY, payload TEXT NOT NULL)");
+                    ensureSchema(connection);
+                    statement.execute("PRAGMA journal_mode=WAL");
                 }
                 state = new MusicState(read("tracks", StoredTrack.class, Function.identity()),
                         read("playlists", Playlist.class, UUID::fromString), read("devices", MusicDevice.class, UUID::fromString),
@@ -65,6 +63,35 @@ public final class MusicStore implements AutoCloseable {
             }
         }, writer);
     }
+    private static void ensureSchema(Connection database) throws SQLException {
+        database.setAutoCommit(false);
+        try (var statement = database.createStatement()) {
+            boolean current;
+            try (var schema = statement.executeQuery("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='music_schema'")) {
+                current = schema.next();
+            }
+            if (current) {
+                try (var schema = statement.executeQuery("SELECT version FROM music_schema WHERE id=1")) {
+                    if (!schema.next() || schema.getInt(1) != 2) throw new SQLException("Unsupported music database schema");
+                }
+            } else {
+                try (var tables = statement.executeQuery("SELECT 1 FROM sqlite_schema WHERE type='table' AND name GLOB 'music_*'")) {
+                    if (tables.next()) throw new SQLException("Unsupported music database schema");
+                }
+                for (String table : TABLES) statement.execute("CREATE TABLE music_" + table
+                        + " (id TEXT PRIMARY KEY, payload TEXT NOT NULL)");
+                statement.execute("CREATE TABLE music_schema (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL)");
+                statement.execute("INSERT INTO music_schema (id, version) VALUES (1, 2)");
+            }
+            database.commit();
+        } catch (SQLException error) {
+            database.rollback();
+            throw error;
+        } finally {
+            database.setAutoCommit(true);
+        }
+    }
+
     private <K, V> Map<K, V> read(String table, Class<V> type, Function<String, K> keys) throws SQLException {
         Map<K, V> rows = new HashMap<>();
         try (Statement query = connection.createStatement();

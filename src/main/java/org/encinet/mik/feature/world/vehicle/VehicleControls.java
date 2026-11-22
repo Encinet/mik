@@ -52,8 +52,7 @@ final class VehicleControls {
             case StepGear step -> { requireCar(body); stepGear(body, step.direction()); yield gearResult(body); }
             case Throttle throttle -> {
                 if (body.definition.kind() == VehicleDefinition.Kind.CAR) throw new IllegalArgumentException("Use W/S for car pedals");
-                body.throttle = Math.clamp(body.throttle + Integer.signum(throttle.direction()) * 0.05,
-                        body.definition.kind() == VehicleDefinition.Kind.BOAT ? -0.5 : 0, 1);
+                adjustThrottle(body, throttle.direction());
                 yield String.format(Locale.ROOT, "%.0f%%", body.throttle * 100);
             }
         };
@@ -77,11 +76,20 @@ final class VehicleControls {
     }
 
     private static boolean blockedDirection(VehicleBody body, int gear) {
-        if ((gear == -1 || gear > 0 && body.transmission.selector == VehicleTransmission.Selector.R) && body.velocity.length() > 0.5) {
+        if (directionBlocked(body.transmission.selector, gear, body.velocity.length(), body.localVelocity().coordinateZ())) {
             body.transmission.warning = "STOP_FIRST";
             return true;
         }
         return false;
     }
 
+    static boolean directionBlocked(VehicleTransmission.Selector selector, int gear, double speed, double signedSpeed) {
+        return (gear == -1 || gear > 0 && selector == VehicleTransmission.Selector.R) && speed > 0.5
+                || gear < 0 && signedSpeed > 0.5 || gear > 0 && signedSpeed < -0.5;
+    }
+
+    static void adjustThrottle(VehicleBody body, int direction) {
+        body.throttle = Math.clamp(body.throttle + Integer.signum(direction) * 0.05,
+                body.definition.kind() == VehicleDefinition.Kind.BOAT ? -0.5 : 0, 1);
+    }
 }

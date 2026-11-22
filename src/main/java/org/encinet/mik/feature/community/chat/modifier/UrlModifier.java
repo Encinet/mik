@@ -52,9 +52,9 @@ public final class UrlModifier implements ChatModifier {
     private static final Pattern URL_PATTERN = Pattern.compile(
             "(?i)(?:https?://" + HOST + PORT + RESOURCE
                     // ASCII 裸域名允许紧邻中文文本，例如“查看google.com”。
-                    + "|(?<![a-z0-9_@.\\-])" + ASCII_DOMAIN + PORT + ASCII_HOST_END + RESOURCE
+                    + "|(?<![a-z0-9_@.:\\-])" + ASCII_DOMAIN + PORT + ASCII_HOST_END + RESOURCE
                     // 保留 www. 开头的 Unicode 裸域名支持，同时用边界排除邮箱。
-                    + "|(?<![a-z0-9_@.\\-])" + BARE_WWW_DOMAIN + PORT + ASCII_HOST_END + RESOURCE + ")",
+                    + "|(?<![a-z0-9_@.:\\-])" + BARE_WWW_DOMAIN + PORT + ASCII_HOST_END + RESOURCE + ")",
             Pattern.UNICODE_CHARACTER_CLASS  // 让 \p{L} 等正确匹配 Unicode，Java 8u20+ 默认也可，显式更安全
     );
 

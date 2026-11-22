@@ -2,7 +2,6 @@ package org.encinet.mik.feature.entertainment.music.jukebox;
 
 import org.encinet.mik.shared.util.ShutdownSequence;
 
-import java.time.Duration;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -18,27 +17,14 @@ final class PlaybackAttempt implements AutoCloseable {
     private volatile boolean closed;
     private boolean preparing;
     private boolean started;
-    private boolean recorded;
-    private final java.util.function.LongSupplier nanoClock;
-    private long listenedNanos, countingSince = -1;
-    synchronized void countingPaused(boolean paused) {
-        long now = nanoClock.getAsLong();
-        if (countingSince >= 0) listenedNanos += Math.max(0, now - countingSince);
-        countingSince = paused || !started || closed ? -1 : now;
-    }
-
     private Runnable stopLyrics;
 
     PlaybackAttempt() {
-        this(new JukeboxPlaybackGroup(), System::nanoTime);
+        this(new JukeboxPlaybackGroup());
     }
 
     PlaybackAttempt(JukeboxPlaybackGroup group) {
-        this(group, System::nanoTime);
-    }
-    PlaybackAttempt(JukeboxPlaybackGroup group, java.util.function.LongSupplier nanoClock) {
         this.group = Objects.requireNonNull(group, "group");
-        this.nanoClock = nanoClock;
     }
 
     UUID id() {
@@ -83,16 +69,7 @@ final class PlaybackAttempt implements AutoCloseable {
     synchronized boolean claimStarted() {
         if (closed || started) return false;
         started = true;
-        countingSince = group.paused() ? -1 : nanoClock.getAsLong();
         return true;
-    }
-
-    synchronized boolean claimPlaybackRecord(boolean finishedNaturally, Duration duration) {
-        if (!started || recorded) return false;
-        long position = (listenedNanos + (countingSince < 0 ? 0 : Math.max(0, nanoClock.getAsLong()-countingSince))) / 1_000_000L;
-        if (!PlaybackCountPolicy.qualifies(finishedNaturally, position, duration)) return false;
-        recorded = true;
-        return group.claimPlaybackStatistic();
     }
 
     /** Immediately releases a lyric display delivered after stop or a duplicate start callback. */
@@ -121,11 +98,6 @@ final class PlaybackAttempt implements AutoCloseable {
             }
 
             @Override
-            public void retrying() {
-                if (!closed) delegate.retrying();
-            }
-
-            @Override
             public void failed(Throwable error) {
                 if (!closed) delegate.failed(error);
             }
@@ -148,7 +120,6 @@ final class PlaybackAttempt implements AutoCloseable {
         Runnable lyrics;
         synchronized (this) {
             if (closed) return;
-            countingPaused(true);
             closed = true;
             current = session;
             lyrics = stopLyrics;

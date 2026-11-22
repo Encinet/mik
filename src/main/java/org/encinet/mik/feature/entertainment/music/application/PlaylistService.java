@@ -223,7 +223,7 @@ public final class PlaylistService {
         });
     }
     public CompletableFuture<Playlist> imported(UUID actor, UUID destination, String name,
-            List<MusicTrack> tracks, String source, String reference, int total, UUID request) {
+            List<MusicTrack> tracks, boolean partial, UUID request) {
         return store.transact(e -> {
             MusicState.ImportReceipt previous = e.imports.get(request);
             if (previous != null) {
@@ -252,8 +252,8 @@ public final class PlaylistService {
                 e.playlists.put(destination, result);
             }
             e.imports.put(request,
-                    new MusicState.ImportReceipt(request, actor, source, reference, result.id(),
-                            tracks.size(), total, System.currentTimeMillis()));
+                    new MusicState.ImportReceipt(request, actor, result.id(),
+                            tracks.size(), partial, System.currentTimeMillis()));
             return result;
         });
     }

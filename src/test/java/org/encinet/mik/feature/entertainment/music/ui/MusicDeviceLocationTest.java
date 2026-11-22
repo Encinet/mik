@@ -4,7 +4,7 @@ import java.lang.reflect.Proxy;
 import java.util.UUID;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -46,6 +46,7 @@ interface-fov-invalid = 30~110 사이의 정수를 입력하세요.
 interface-fov-title = 시야각 (FOV)
 interface-reduced-motion = 동작 줄이기
 interface-reduced-motion-hint = 메뉴의 이동과 흔들림을 줄입니다.
+interface-reset-done = 메뉴 크기, 글자 크기, 테마를 초기화했습니다. 메뉴 시야각: { $arg0 }°. /menu를 입력해 다시 여세요.
 interface-scale-adjust-hint = 비율 항목을 가리키고 휠로 조절하세요.
 interface-scale-layout-title = 메뉴 크기
 interface-scale-menu-title = 메뉴와 글자
@@ -177,7 +178,6 @@ password-already-set = 이미 비밀번호가 설정되어 있습니다. /passwo
 password-busy = 시도 횟수가 너무 많습니다. 잠시 후 다시 시도하세요.
 password-change = 비밀번호 변경
 password-change-done = 비밀번호를 변경했습니다.
-password-checking = 계정 보안 확인 중…
 password-command-description = 계정 비밀번호 보호 관리
 password-confirm = 새 비밀번호 확인
 password-conflict = 계정 보안 상태가 변경되었습니다. 작업을 다시 시도하세요.
@@ -204,7 +204,6 @@ password-reset = 비밀번호 초기화
 password-reset-console = { $arg0 } 계정의 비밀번호를 초기화했습니다: { $arg1 }. 본인 확인 후 신뢰할 수 있는 경로로 전달하세요.
 password-reset-done = { $arg0 } 계정의 비밀번호를 초기화했습니다. 지금 복사하고 본인 확인 후 전달하세요. 다시 볼 수 없습니다.
 password-reset-question = { $arg0 } 계정의 비밀번호를 초기화할까요? 이전 비밀번호는 무효가 되고 접속이 종료됩니다. 본인의 비밀번호로 확인하세요.
-password-retry = 다시 시도
 password-rules = { $arg0 }~{ $arg1 }자로 입력하세요. 플레이어 이름과 흔한 비밀번호는 사용할 수 없습니다.
 password-set = 비밀번호 설정
 password-set-done = 비밀번호를 설정했습니다.
@@ -518,6 +517,10 @@ chat-private-self = 자신과 개인 채팅을 시작할 수 없습니다
 chat-private-target-not-found = 접속 중인 플레이어를 찾을 수 없습니다: { $arg0 }
 chat-private-target-offline = 상대방이 오프라인입니다. 접속을 기다리거나 다른 채널을 선택하세요
 chat-private-tip-channel-mm = <aqua><u><click:suggest_command:'/msg '>/msg 플레이어</click></u></aqua>로 귓속말 채널에 들어가고, <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow>으로 공개 채팅으로 돌아오세요.
+chat-private-web-pending = 웹 귓속말 확인 대기 중
+chat-private-web-not-submitted = { $arg0 } 님에게 보낸 귓속말이 공유 채팅에 저장되지 않았습니다.
+chat-private-web-saved = { $arg0 } 님에게 보낸 귓속말이 공유 채팅 기록에 저장되었습니다.
+chat-private-web-unconfirmed = { $arg0 } 님에게 보낸 귓속말이 저장되었는지 확인할 수 없습니다. 다시 보내기 전에 확인해 주세요.
 chat-public-command-description = 공개 채팅 채널 전환
 chat-public-enter = 공개 채팅으로 전환했습니다
 chat-reply-command-description = 가장 최근 개인 채팅 상대에게 답장
@@ -525,8 +528,6 @@ chat-settings-menu-title = 채팅 설정
 chat-social-account-label = 플랫폼 계정
 chat-social-bound-player-label = 연결된 플레이어
 chat-social-name-label = 소셜 이름
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = Minecraft 플레이어와 연결되지 않음
 chat-staff-command-description = 스태프 채팅 채널 전환
 chat-staff-label = 스태프
@@ -541,26 +542,15 @@ staffchat-enter = 스태프 채팅에 들어갔습니다
 
 ## Community · Announcements
 
-announcement-count = 공지 { $arg0 }개
 announcement-empty = 공지 없음
-announcement-first-page = 가장 최근 공지입니다
-announcement-last-page = 가장 오래된 공지입니다
 announcement-latest = 최신 공지
-announcement-list-newer = 새 공지 목록
-announcement-list-older = 이전 공지 목록
-announcement-more-count = 표시되지 않은 공지 { $arg0 }개
-announcement-new-count = 새 공지 { $arg0 }개
 announcement-newer = 새로운 공지
 announcement-next-page = 다음 페이지
 announcement-older = 이전 공지
 announcement-page = { $arg0 } / { $arg1 }쪽
 announcement-previous-page = 이전 페이지
-announcement-reload = 공지 다시 불러오기
-announcement-reload-command-description = 공지 파일 다시 불러오기
-announcement-reload-failed = 공지를 다시 불러오지 못했습니다. 이전 공지는 유지됩니다
-announcement-reloaded = 공지를 다시 불러왔습니다
-announcement-unread-count = 읽지 않은 공지 { $arg0 }개
-announcement-updated = 공지사항이 업데이트되었습니다
+announcement-stale = 마지막으로 불러온 업데이트 기록
+announcement-unavailable = 업데이트 기록을 일시적으로 불러올 수 없습니다.
 announcement-view-all = 모든 공지 보기
 announcement-view-command-description = 서버 공지 보기
 
@@ -580,15 +570,9 @@ identity-admin-help = /bindadmin lookup <플레이어-또는-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 해당 플레이어의 연결을 찾지 못했습니다.
 identity-admin-lookup-title = { $arg0 }의 연결:
-identity-binding-community = 커뮤니티 #{ $arg0 }
 identity-binding-info = 연결 날짜: { $arg0 }
     연결 ID: { $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = 선택한 연결이 없거나 본인의 연결이 아닙니다.
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 선택한 { $arg0 } 연결을 해제했습니다.
 identity-binding-unnamed = 닉네임 없음
 identity-bindings-empty = 연결된 외부 플랫폼 계정이 없습니다.
@@ -610,184 +594,31 @@ identity-notify-linked = { $arg0 } 계정이 연결되었습니다. /bind list�
 identity-notify-unlinked = { $arg0 } 신원 연결을 해제했습니다.
 identity-platform-none = 없음
 identity-platforms = 지원 플랫폼: { $arg0 }
-identity-storage-error = 계정 연결 데이터베이스 작업에 실패했습니다. 관리자에게 문의하세요.
 identity-unavailable = 계정 연결 서비스를 현재 사용할 수 없습니다. 관리자에게 문의하세요.
 identity-unlink-action = [연결 해제]
 identity-unlink-hint = 선택한 이 연결만 해제합니다.
 identity-unsupported-platform = 지원하지 않는 플랫폼: { $arg0 }
-social-admin-conversations-empty = { $arg0 }에서 관찰된 대화가 없습니다.
-social-admin-conversations-title = { $arg0 }에서 관찰된 대화:
-social-admin-help = /social platforms · /social status [플랫폼] · /social reload [플랫폼] · /social conversations <플랫폼>
-social-admin-metrics = 수신 { $arg0 } / 재시도 { $arg1 } · 발신 { $arg2 } / 역압 { $arg3 } · 실패 { $arg4 }
-social-admin-platform = - { $arg0 }({ $arg1 }): { $arg2 }
-social-admin-reloaded = 소셜 플랫폼을 다시 불러왔습니다: { $arg0 }
-social-admin-reloaded-all = 모든 소셜 플랫폼을 다시 불러왔습니다.
-social-admin-status = { $arg0 } · { $arg1 } · 세대 { $arg2 } · 대화 { $arg3 }
-social-admin-title = 소셜 플랫폼
-social-admin-unknown = 알 수 없는 소셜 플랫폼: { $arg0 }
-social-binding-already-linked = 이미 { $arg0 } 계정과 연결되어 있어요. { $arg1 } 명령어로 프로필을 확인하세요.
-social-binding-confirmation-expired = 확인이 만료되었거나 연결된 계정이 변경되었습니다. 새 연결 해제 확인을 요청하세요:
-social-binding-code-invalid = 유효하지 않거나 만료된 코드예요. 다시 접속하거나 게임 안에서 { $arg0 } 명령어로 새 코드를 받으세요.
-social-binding-external-in-use = 이 식별 정보는 이미 다른 Minecraft 플레이어와 연결되어 있습니다.
-social-binding-help = Minecraft 서버에 접속한 뒤 로그인 화면의 연결 명령어 전체를 여기에 보내세요. 이미 게임 안에 있다면 { $arg0 } 명령어로 받을 수 있어요.
-social-binding-identity-missing = 이 메시지에는 신뢰할 수 있는 멤버 식별 정보가 없어 연결할 수 없습니다.
-social-binding-link-completed = 계정 연결을 마쳤어요. 다시 접속하면 로그인을 계속할 수 있어요.
-social-binding-linked = 게임 계정 { $arg0 } 연결을 마쳤어요. 다시 접속하면 로그인을 계속할 수 있어요.
-social-binding-membership-required = 이 플랫폼의 연동된 커뮤니티에 가입한 후 계정 연결을 다시 시도하세요
-social-binding-membership-unavailable = 현재 커뮤니티 가입 여부를 확인할 수 없습니다. 나중에 다시 시도하거나 서버 관리자에게 문의하세요
-social-binding-not-bound = 아직 게임 계정을 연결하지 않았어요.
-social-binding-platform-mismatch = 이 인증 코드는 다른 플랫폼용으로 발급되었습니다.
-social-binding-player-scope-in-use = 이 Minecraft 플레이어는 같은 플랫폼 계정 범위에 다른 신원이 이미 연결되어 있습니다.
-social-binding-rate-limited = 실패 횟수가 너무 많습니다. 약 { $arg0 }분 후 다시 시도하세요.
-social-binding-unavailable = 현재 식별 정보 연결을 사용할 수 없습니다.
-social-binding-unlink-completed = 계정 연결을 해제했어요. 다른 유효한 커뮤니티 연결이 없으면 다시 연결한 뒤 입장하세요.
-social-binding-unlink-prompt = 이 플랫폼 계정과 { $arg0 } 연결을 해제해요. 다른 유효한 커뮤니티 연결이 없으면 서버에 들어갈 수 없으며, 접속 중이라면 연결이 끊겨요. 확인하려면 다음을 보내세요:
-social-binding-unlinked = Minecraft 플레이어 연결을 해제했습니다: { $arg0 }
-social-command-description = 소셜 플랫폼 어댑터 관리
-social-command-invalid-arguments = 인수가 올바르지 않습니다. 다음 형식으로 보내세요:
-social-command-usage = 이 명령어에는 인수가 필요 없어요. 다음을 보내세요:
-social-crypto-command-description = Matrix 암호화 기기 인증 관리
-social-crypto-comparison-not-ready = SAS 비교가 아직 준비되지 않았습니다.
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = 기기 인증에 실패했습니다. 서버 로그를 확인하세요.
-social-crypto-no-active = 진행 중인 기기 인증이 없습니다.
-social-crypto-not-accepting = 현재 인증은 수락을 기다리는 상태가 아닙니다.
-social-crypto-not-running = Matrix가 실행 중이 아닙니다.
-social-crypto-requested = 인증 요청됨: { $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] 초기화 중
-    [verified] 인증됨
-    [unverified] 미인증
-    [no_cross_signing] 교차 서명 비활성화
-    [requested] 요청됨
-    [ready] 준비됨
-    [started] 시작됨
-    [comparison] 비교 대기 중
-    [waiting] 완료 대기 중
-    [done] 완료됨
-    [cancelled] 취소됨
-   *[unknown] 알 수 없음
-    [valid] 유효한 키
-    [cross_signed] 교차 서명됨
-    [not_cross_signed] 교차 서명되지 않음
-    [blocked] 차단됨
-    [invalid] 유효하지 않은 키
-    }
-social-crypto-status = 인증: { $arg0 }
-    키 백업 버전: { $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = 현재 인증 트랜잭션의 전체 ID를 지정하세요.
-social-crypto-unavailable = 사용 불가
-social-crypto-updated = 인증이 업데이트되었습니다. matrixcrypto status로 확인하세요.
-social-crypto-usage = matrixcrypto status [사용자ID 기기ID]
-    matrixcrypto verify <사용자ID> <기기ID>
-    matrixcrypto accept|confirm|cancel <트랜잭션ID>
-social-duration-days = { $arg0 }일 { $arg1 }시간 { $arg2 }분
-social-duration-hours = { $arg0 }시간 { $arg1 }분
-social-duration-minutes = { $arg0 }분
-social-help-command-description = 이 명령어 목록 보기
-social-link-command-description = 게임 내 코드로 Minecraft 계정 연결
-social-link-command-parameters = <인증코드>
-social-online-command-description = 온라인 플레이어 보기
-social-profile-afk = 온라인 · AFK
-social-profile-avatar-alt = Minecraft 얼굴
-social-profile-command-description = 내 프로필 보기; 정식 멤버는 이름, 멘션 또는 답장으로 다른 플레이어 조회 가능
-social-profile-command-parameters = [플레이어명]
-social-profile-first-joined-label = 첫 접속
-social-profile-language-label = 언어
-social-profile-last-seen-label = 마지막 접속
-social-profile-member-required = 연결된 정식 멤버, 모더레이터 또는 관리 책임자만 다른 플레이어의 프로필을 볼 수 있습니다.
-social-profile-offline = 오프라인
-social-profile-online = 온라인 · 활동 중
-social-profile-play-time-label = 플레이 시간
 social-profile-player-label = 플레이어
-social-profile-player-not-found = 해당 Minecraft 플레이어를 찾을 수 없습니다.
-social-profile-presence-label = 상태
-social-profile-target-ambiguous = 플레이어 이름, 한 명 멘션 또는 한 명에게 답장 중 하나만 지정하세요.
-social-profile-target-unbound = 멘션하거나 답장한 사용자는 Minecraft와 연결되어 있지 않습니다.
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = 현재 온라인 플레이어가 없습니다.
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (자리 비움)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = 현재 { $arg0 }명이 접속 중이에요.{ $arg1 ->
-    [0] { "" }
-   *[other] { " " }그중 { $arg1 }명은 자리 비움 상태예요.
-    }
-social-query-players-label = 플레이어
-social-query-population = 온라인 { $arg0 }/{ $arg1 } · 활동 중 { $arg2 } · 자리 비움 { $arg3 }
-social-query-unknown = 알 수 없는 명령어입니다. { $arg0 } 보내 사용 가능한 명령어를 확인하세요.
-social-query-uptime-label = 가동 시간
-social-query-version-label = 버전
-social-reply-hidden = 메시지가 콘텐츠 심사를 통과하지 못했습니다. 사유: { $arg0 }
-social-reply-review-failed = 콘텐츠 심사 실패: { $arg0 }. 잠시 후 다시 시도해 주세요.
-social-reply-unavailable = 지금은 결과를 표시할 수 없어요. 계정 변경은 프로필 명령어로 확인한 뒤 다시 요청하세요.
-social-state-disabled = 비활성화됨
-social-state-failed = 실패
-social-state-ready = 준비됨
-social-state-starting = 시작 중
-social-state-stopped = 중지됨
-social-status-command-description = 플레이어, TPS, MSPT, 가동 시간 보기
-social-title-command-help = 명령어 도움말
-social-title-content-hidden = 콘텐츠 숨김
 social-title-player-profile = 플레이어 프로필
-social-title-server-status = 서버 상태
-social-unlink-command-description = 확인 후 현재 계정 연결 해제
-social-unlink-command-parameters = [{ social-unlink-confirmation } <확인코드>]
-social-unlink-confirmation = 확인
 
 ## Community · AI and knowledge
 
+ai-answer = AI 답변
 ai-busy = AI 요청이 많습니다. 잠시 후 다시 시도하세요
-ai-cleared = AI 대화 기록을 지웠습니다
+ai-cancelled = AI 요청을 취소했습니다. 대화 기록은 그대로 유지됩니다.
 ai-command-description = 게임 내 AI 도우미에게 질문하기
 ai-disabled = AI 도우미가 비활성화되었거나 설정되지 않았습니다
-ai-knowledge-curation-failed = 지식 정리 실패: { $arg0 }
-ai-knowledge-curation-finished = 정리 완료: 적용 { $arg0 } · 건너뜀 { $arg1 } · 실패 { $arg2 } · 격리 { $arg3 } · 처리 { $arg4 }
-ai-knowledge-curation-started = 지식 정리를 시작했습니다.
-ai-knowledge-disabled = 지식 기능이 비활성화되어 있습니다.
-ai-knowledge-index-dirty = 색인 정합성 확인이 필요합니다. 동기화 전까지 비공개 기억 검색이 차단됩니다.
-ai-knowledge-last-failure = 마지막 실패: { $arg0 }
-ai-knowledge-last-sync = 마지막 동기화: { $arg0 }
-ai-knowledge-learning-disabled = 지식 학습이 비활성화되어 있습니다.
-ai-knowledge-operation-failed = 지식 작업 실패: { $arg0 }
-ai-knowledge-operation-started = 지식 작업을 시작했습니다.
-ai-knowledge-protected = 지식 문서 { $arg0 } 보호 설정됨.
-ai-knowledge-rollback = 지식 문서 복구 완료: { $arg0 } · 수정본: { $arg1 }
-ai-knowledge-status = 지식: { $arg0 }개의 공개 문서 / { $arg1 }개 텍스트 조각 · { $arg2 }개의 비공개 문서 / { $arg3 }개 텍스트 조각
-ai-knowledge-sync-failed = 지식 동기화 실패: { $arg0 }
-ai-knowledge-sync-started = 지식 동기화를 시작했습니다.
-ai-knowledge-synchronized = { ai-knowledge-status } · 동기화가 완료되었습니다.
-ai-knowledge-unprotected = 지식 문서 { $arg0 } 보호 해제됨.
-ai-learning-failure = 학습 실패: { $arg0 }
-ai-learning-status = 학습: 후보 { $arg0 } · 추출 { $arg1 } · 대기 { $arg2 } · 추출 폐기 { $arg3 } · 후보 폐기 { $arg4 } · 격리 { $arg5 }
-ai-memory-empty = { $arg0 }의 비공개 기억이 없습니다.
-ai-memory-list = { $arg0 }의 비공개 기억: { $arg1 }
-ai-memory-not-found = 비공개 기억을 찾을 수 없습니다: { $arg0 }
-ai-memory-removed = { $arg1 }의 비공개 기억 { $arg0 }개를 영구 삭제했습니다.
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = 캐시에 없는 플레이어: { $arg0 }
+ai-nothing-to-cancel = 처리 중인 AI 질문이 없습니다.
 ai-prompt-too-long = 질문이 너무 깁니다(최대 { $arg0 }자)
-ai-reload-failed = AI 설정을 다시 불러오지 못했습니다: { $arg0 }
-ai-reloaded = AI 설정을 다시 불러왔습니다({ $arg0 })
 ai-request-failed = AI 요청에 실패했습니다. 나중에 다시 시도하세요
-ai-social-command-description = 공용 AI 도우미에게 질문하기
-ai-social-command-parameters = <질문>
-ai-social-question-required = AI 명령어 뒤에 질문을 입력하세요
-ai-status-disabled = AI가 비활성화되어 있습니다
-ai-status-enabled = AI 활성 · 제공자 { $arg0 } · 모델 { $arg1 } · 도구 { $arg2 }
-ai-status-none = 없음
-ai-thinking = 생각하는 중…
-ai-usage = 사용법: /ai <질문> · /ai clear · /ai status
-ai-worker-status = AI 작업: 실행 { $arg0 } · 대기 { $arg1 } · 폐기 { $arg2 }
+ai-request-in-progress = 이전 AI 요청을 아직 처리하고 있습니다.
+ai-usage = AI 도우미 명령어:
+    /ai <질문> — 질문하거나 이어서 질문하기
+    /ai cancel — 처리 중인 질문 취소하기
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>축하합니다!</bold> 이제 <gold>멤버</gold>입니다. 도식 간편 출력 등 더 많은 명령어와 기능을 사용할 수 있습니다.</green>
 governance-active-days-30 = 최근 30일 동안 유효 참여일 2일 이상 (현재 { $arg0 }일)
 governance-active-days-60 = 최근 60일 동안 유효 참여일 6일 이상 (현재 { $arg0 }일)
 governance-active-header = ─── 활동 회원 자격 ───
@@ -822,7 +653,6 @@ governance-activity-status = { $arg0 ->
     [closed] 종료
     *[view] 보기만 가능
     }
-governance-already-moderator = 이미 관리자입니다.
 governance-application-status = { $arg0 ->
     [open] 임명 투표 진행 중
     [pending] 승인됨 · 임명 대기 중
@@ -830,18 +660,12 @@ governance-application-status = { $arg0 ->
    *[ready] 관리자 신청 가능
     }
 governance-ballot-recorded = 익명 투표 기록 완료: { $arg0 }. 마감 전까지 변경할 수 있습니다.
-governance-ban-details = 제안자 { $arg0 } · 기간 { $arg1 } · 사유: { $arg2 }
-governance-ban-suffix = · 기간 { $arg0 } · 사유: { $arg1 }
 governance-choice-abstain = 기권
 governance-choice-no = 반대
 governance-choice-yes = 찬성
 governance-command-description = 운영 자격과 투표 보기
 governance-custodian-no-nomination = 유지관리자는 관리자 선임과 해임에 참여하지 않습니다.
-governance-custodian-no-resign = 유지관리자에게는 관리자 사임 절차가 적용되지 않습니다.
 governance-days = { $arg0 }일
-governance-error-ban-already-active = 이 플레이어에게 적용 중인 차단이 있습니다.
-governance-error-ban-proposer-ineligible = 활동 회원만 차단 투표를 제안할 수 있습니다.
-governance-error-ban-self = 자신에 대한 차단 투표를 제안할 수 없습니다.
 governance-error-candidate-ineligible = 관리자 후보는 활동 회원이어야 합니다.
 governance-error-nomination-not-open = 진행 중인 관리자 후보 등록이 없습니다.
 governance-error-not-voter = 이번 확정 유권자 명단에 없습니다.
@@ -850,7 +674,6 @@ governance-error-pause-already-member = 이 플레이어는 이미 회원이므�
 governance-error-pause-end-invalid = 승급 보류 종료 시각은 현재보다 늦어야 합니다.
 governance-error-player-unknown = 이 플레이어의 운영 기록이 아직 없습니다.
 governance-error-removal-petition-closed = 이 청원은 종료되었거나 새 청원으로 대체되었습니다.
-governance-error-removal-requires-petition = 해임 투표에는 충분한 공동 발의자가 필요합니다.
 governance-error-removal-self = 자신의 해임을 공동 발의할 수 없습니다.
 governance-error-removal-sponsor-ineligible = 활동 회원만 해임을 공동 발의할 수 있습니다.
 governance-error-removal-sponsors-too-few = 대상자 외 활동 회원이 두 명 이상 필요합니다.
@@ -860,7 +683,6 @@ governance-error-termination-reason-invalid = 이 종료 사유는 해당 투표
 governance-error-vote-already-open = 이 플레이어에 대한 같은 종류의 투표가 진행 중입니다.
 governance-error-vote-closed = 투표가 마감되었거나 종료되었습니다.
 governance-error-vote-cooldown = 정족수 미달 후 3일 재시도 기간이 끝나지 않았습니다.
-governance-error-vote-subject-unknown = 투표 대상자의 운영 기록이 아직 없습니다.
 governance-error-vote-termination-closed = 마감 후에는 투표를 철회할 수 없습니다.
 governance-error-vote-unknown = 투표를 찾을 수 없습니다.
 governance-error-voters-too-few = 투표를 시작하려면 활동 회원이 두 명 이상 필요합니다.
@@ -870,15 +692,12 @@ governance-failure-none = 기록된 사유 없음
 governance-failure-quorum = 정족수 미달
 governance-failure-two-thirds = 찬성표가 기권을 제외한 표의 3분의 2에 미달
 governance-history-header = ─── 최근 투표 결과 ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 }시간
-governance-inactive-removal = { $arg0 } 님이 180일 동안 로그인하지 않아 관리자에서 자동 해임되었습니다.
 governance-invalid-choice = yes, no 또는 abstain을 선택하세요.
 governance-invalid-duration = 기간이 올바르지 않습니다. 30m, 12h, 3d처럼 입력하세요.
 governance-kind-appointment = 선임
-governance-kind-ban = 차단
 governance-kind-removal = 해임
-governance-legacy-ban-kick = 이전 운영 투표가 통과되었습니다. { $arg0 } 동안 차단됩니다. 사유: { $arg1 }
 governance-menu-already-sponsored = 이미 서명함
 governance-menu-application = 신청 상태
 governance-menu-completed = 종료됨
@@ -927,7 +746,6 @@ governance-no-active-pause = 적용 중인 승급 보류 없음
 governance-nomination-withdrawn = 후보 등록을 철회했습니다. 종료 결과는 자동으로 공지됩니다.
 governance-none = 없음
 governance-not-member = 회원 아님
-governance-not-moderator = 현재 관리자가 아닙니다.
 governance-operation-error = 운영 작업에 실패했습니다. 다시 시도하세요.
 governance-own-choice-closed = 내 선택: { $arg0 }
 governance-own-choice-open = 내 선택: { $arg0 }. 마감 전에는 변경할 수 있습니다.
@@ -955,9 +773,8 @@ governance-promotion-account-age = 첫 접속 후 3일 이상
 governance-promotion-header = ─── 승급 조건 ───
 governance-promotion-play-days = 유효 플레이일 2일 이상 (현재 { $arg0 }일)
 governance-promotion-playtime = 유효 플레이 8시간 이상 (현재 { $arg0 })
-governance-resign-failed = 사임에 실패했습니다. 유지관리자에게 문의하세요.
 governance-resigned = { $arg0 } 님이 관리자에서 사임했습니다.
-governance-result-announcement = 투표 #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }{ $arg4 }
+governance-result-announcement = 투표 #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }
 governance-result-failed = 부결 ({ $arg0 })
 governance-result-open = 진행 중
 governance-result-passed = 통과
@@ -965,7 +782,6 @@ governance-result-tally = { $arg0 } · 유권자 { $arg1 }, 참여 { $arg2 }, �
 governance-result-terminated = 종료 ({ $arg0 })
 governance-resume-notice = 승급 보류가 해제되었습니다. 사유: { $arg0 }
 governance-resume-reason-required = 보류 해제 사유를 입력하세요.
-governance-role-lookup-error = 관리자 자격을 확인할 수 없습니다. 유지관리자에게 문의하세요.
 governance-seconds = { $arg0 }초
 governance-storage-error = 운영 데이터 작업에 실패했습니다. 유지관리자에게 문의하세요.
 governance-termination-inactive = 장기 미접속으로 관리자 자동 해임
@@ -1182,14 +998,30 @@ plot-subplot-created = 하위 구역 { $arg0 } 생성 · { $arg1 }블록²
 plot-title = 토지
 plot-transferred = { $arg0 } 구역을 { $arg1 } 님에게 이전했습니다.
 vehicle-command-description = 표시 엔티티 차량 운전 및 관리
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] mik.vehicle.use 권한이 필요합니다.
+        [ALREADY_RIDING] 먼저 현재 좌석에서 내리세요.
+        [TOO_FAR] 탈것에서 32블록 이내로 접근하세요.
+        [DRIVER_OCCUPIED] 운전석에 이미 사람이 있습니다.
+        [NO_PASSENGER_SEAT] 이 모델에는 동승석이 없습니다.
+        [PASSENGER_FULL] 모든 동승석이 찼습니다.
+        [STOP_ENGINE] 정차하고 엔진을 끄세요.
+        [FUEL_FULL] 연료가 가득 찼습니다.
+        [HEALTH_FULL] 수리할 필요가 없습니다.
+        [NEED_FUEL] 주 손에 석탄 또는 목탄을 드세요.
+        [NEED_IRON] 주 손에 철 주괴를 드세요.
+        [EMPTY_VEHICLE] 정차하고 탑승자를 모두 내리게 하세요.
+       *[UNAVAILABLE] 이 탈것은 현재 이용할 수 없습니다.
+    }
+vehicle-menu-distance = { $arg0 } m
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] 탈것 제어
-        [driving] 운전 및 탑승
+        [vehicle] 탈것 개요
         [maintenance] 정비 및 접근 권한
         [public-status] 공개 접근
         [private-status] 비공개 접근
-        [home] 차량 작업 공간
+        [home] 탈것
         [nearby] 근처 차량
         [fleet] 이용 가능한 모든 차량
         [selection] 모델 선택 영역
@@ -1199,22 +1031,15 @@ vehicle-menu-label =
         [displays] 근처 표시 탐색
         [clear] 선택 및 원점 초기화
         [capture] 선택으로 모델 생성
-        [toggle-selection] 선택 전환
         [public] 공개로 설정
         [private] 비공개로 설정
         [reload] 파일에서 모델 다시 읽기
         [leave] 하차
-        [passenger] 승객 좌석
-        [fuel] 주유 · 석탄/목탄 들기
-        [repair] 수리 · 철괴 들기
-        [access] 접근 권한
+        [passenger] 동승하기
+        [fuel] 연료 채우기
+        [repair] 수리하기
         [remove] 차량 삭제
-        [hud] 운전 HUD 표시
         [hide-preview] 3D 미리보기 숨기기
-        [service-hint] 가까이에서 정차하고 엔진을 끈 뒤 필요한 재료를 드세요.
-        [nearby-hint] 32블록 이내로 접근하고 현재 좌석에서 내리세요.
-        [use-required] mik.vehicle.use 권한이 필요합니다.
-        [remove-hint] 정차 후 모두 내리세요.
         [reload-hint] 모든 차량이 비어 있고 엔진이 꺼져 있어야 합니다. 초안은 유지되며 변경된 모델은 다시 여세요.
         [pick-hint] 표시를 겨냥한 뒤 우클릭으로 그룹 선택. 웅크리고 우클릭하면 취소되며 30초 후 만료됩니다.
         [spawn-hint] 월드 좌표이며 기본값은 앞쪽 4블록입니다. 생성 시 수평 시선 방향을 향합니다.
@@ -1222,16 +1047,42 @@ vehicle-menu-label =
         [zoom-out] 축소
         [frame] 눈앞에 다시 배치
         [offset] 상대 이동
+        [drive] 운전석에 타기
+        [driver-seat] 운전석 탑승 중
+        [passenger-seat] 동승 중
+        [current] 현재 탄 탈것
+        [boarded] 운전석에 탔습니다. /vehicle에서 운전 패널을 열어 계기판과 조작법을 확인하세요.
+        [display] 전시 엔티티
+        [select-display] 선택에 추가
+        [deselect-display] 선택에서 제거
+        [aim-group] 겨눈 전시 그룹 선택
+        [empty-nearby] 32블록 이내에 이용할 수 있는 탈것이 없습니다.
+        [empty-fleet] 이용할 수 있는 탈것이 없습니다.
+        [empty-selection] 먼저 전시 엔티티를 하나 이상 선택하세요.
+        [controls] 조작법
+        [show-hud] 운전 HUD 표시
+        [hide-hud] 운전 HUD 숨기기
+        [remove-confirm] 이 탈것만 제거하며 모델은 남겨 둡니다.
+        [resume] 초안 이어서 편집
+        [draft-open] 현재 초안을 저장하고 편집을 끝내거나 초안을 버리세요.
+        [model-id-format] 영문 소문자 또는 숫자로 시작하여 영문 소문자, 숫자, 밑줄, 하이픈을 최대 48자로 입력하세요.
+        [model-exists] 이미 사용 중인 모델 ID입니다.
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 }: W/S와 A/D로 조작, 휠로 변속 또는 가속 조절, 손 바꾸기로 모드 전환, 웅크리기로 하차합니다. /vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] 앞으로 이동 키로 가속하고, 뒤로 이동 키로 제동합니다. 좌우 이동 키로 조향하고 점프 키로 주차 브레이크를 작동합니다. 수동 모드에서는 휠로 변속하고 손 바꾸기 키로 모드를 전환합니다.
+        [BOAT] 앞뒤 이동 키나 휠로 추진력을 조절하고 좌우 이동 키로 조향합니다. 손 바꾸기 키로 안정 보조를 전환합니다.
+       *[PLANE] 앞뒤 이동 키로 기수를 올리거나 내리고, 좌우 이동 키로 선회와 기울기를 조절합니다. 휠로 추력을 조절하며 지상에서 점프 키로 제동, 손 바꾸기 키로 안정 보조를 전환합니다.
+    }
+    메뉴를 닫으면 휠과 손 바꾸기 단축 조작을 사용할 수 있습니다. 웅크리기 키로 내립니다.
 vehicle-dash-assisted = 안정성 보조
 vehicle-dash-automatic = 자동
 vehicle-dash-contact = 지면 / 수면 지지: { $arg0 }
-vehicle-dash-details = 상세 정보
+vehicle-dash-details = 운행 데이터
 vehicle-dash-down = 기어 내리기 −
-vehicle-dash-drive = 주행
+vehicle-dash-drive = 운전 패널
 vehicle-dash-energy = 소모 { $arg0 } 단위/분 · 예상 주행 { $arg1 }분 / { $arg2 } km
 vehicle-dash-engine-start = 시동 걸기
 vehicle-dash-engine-stop = 시동 끄기
@@ -1247,10 +1098,18 @@ vehicle-dash-mode-switch = 모드 전환: { $arg0 }
 vehicle-dash-position = 원점 { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = 패널 중앙 정렬
 vehicle-dash-rpm = 회전수 { $arg0 } / { $arg1 }
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] 주차
+        [R] 후진
+        [N] 중립
+       *[D] 전진
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } s
 vehicle-dash-speed = 속도 { $arg0 } km/h · 제한 { $arg1 }
 vehicle-dash-throttle-down = 가속 −5%
 vehicle-dash-throttle-up = 가속 +5%
+vehicle-dash-thrust = 추진력 { $arg0 }%
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = 보조 없음
 vehicle-dash-unavailable = 운전 제어를 사용할 수 없습니다. 운전석에서 다시 여세요.
@@ -1419,7 +1278,7 @@ vehicle-model-discarded = 초안을 버렸습니다
 vehicle-model-draft = 저장되지 않은 초안
 vehicle-model-driver = 운전석
 vehicle-model-driver-here = 발 위치에 운전석 추가
-vehicle-model-edit = 초안 편집 / 재개
+vehicle-model-edit = 모델 편집
 vehicle-model-overview = 초안 개요
 vehicle-model-panel = 편집 패널로 돌아가기
 vehicle-model-editor-help = { $arg0 ->
@@ -1454,7 +1313,7 @@ vehicle-model-here = 현재 발 위치 사용
 vehicle-model-history-empty = 해당 방향의 편집 기록이 없습니다.
 vehicle-model-import = 주 손의 Axiom 표시 그룹 가져오기
 vehicle-model-item = 아이템
-vehicle-model-library = 저장된 모델 · 초안은 저장 전까지 메모리에만 유지됩니다
+vehicle-model-library = 모델을 선택해 탈것을 생성하거나 설계를 편집합니다.
 vehicle-model-look = 겨냥해 배치 (메뉴 닫힘, 우클릭으로 확정)
 vehicle-model-look-missing = 표면을 찾지 못했습니다. 32블록 이내의 월드 블록이나 개인 미리보기 부품을 겨냥하세요.
 vehicle-model-manual = 로컬 좌표 입력
@@ -1491,7 +1350,7 @@ vehicle-model-snap-on = 격자 맞춤: 켜짐
 vehicle-model-step = 조정 간격 변경
 vehicle-model-supports = 지면 지지점
 vehicle-model-text = 텍스트
-vehicle-model-title = 차량 모델 관리
+vehicle-model-title = 모델 보관함
 vehicle-model-tools = 미리 보기 및 도구
 vehicle-model-transform-step = 조정 간격 변경
 vehicle-model-undo = 실행 취소
@@ -1582,20 +1441,14 @@ spawn-world-missing = 스폰 세계를 사용할 수 없습니다
 music-album = 앨범: { $arg0 }
 music-artist = 아티스트: { $arg0 }
 music-command-description = 주크박스용 로컬, 온라인 및 NBS 음악
-music-disc-left = 좌클릭: 음반 받기
-music-disc-right = 우클릭: 가장 가까운 주크박스에서 재생
-music-duration = 재생 시간: { $arg0 }
-music-format = 형식: { $arg0 }
 music-jukebox-audible-field-conflict = 다른 주크박스가 겹치는 명확한 청취 범위에서 다른 곡을 재생 중입니다
 music-jukebox-tp-hover = 클릭하여 주크박스로 순간이동
 music-jukebox-unavailable = 주크박스가 제거되었거나 해당 청크를 사용할 수 없습니다
 music-now-playing-rich = 재생 중: { $music } · 주크박스 { $location }
-music-online-rate-limited = 음악 요청이 너무 많습니다. { $arg0 }초 후 다시 시도하세요.
+music-request-rate-limited = 음악 요청이 너무 많습니다. { $arg0 }초 후 다시 시도하세요.
 music-original-author = 원작자: { $arg0 }
 music-plasmo-voice-unavailable = 곡은 재생되었지만 Plasmo Voice가 설치, 연결 또는 활성화되어 있지 않아 들을 수 없습니다
 music-playback-failed = 재생하지 못했습니다: 「{ $arg0 }」. 음원이나 음악 파일을 확인한 뒤 다시 시도하세요.
-music-reload-failed = 음악을 다시 불러오지 못했습니다: { $arg0 }
-music-reload-started = 음악 파일과 사용자 지정 음원을 다시 불러오는 중...
 music-rhythm-animation-offset = 애니메이션 오프셋 { $arg0 } ms
 music-rhythm-calibration-accumulating = 안정적인 타이밍 확인 중…계속 따라 치세요
 music-rhythm-calibration-adapting = 리듬에 맞추는 중…계속 따라 치세요
@@ -1610,7 +1463,6 @@ music-rhythm-calibration-plasmo-ready = Minecraft Note Block 테스트 완료. �
 music-rhythm-calibration-pointer-instruction = 노트가 히트 라인을 지날 때 왼쪽 또는 오른쪽 클릭하세요
 music-rhythm-calibration-realigning = 오디오가 중단되었습니다. 시범을 다시 재생하며 완료된 측정은 유지됩니다
 music-rhythm-calibration-required = 리듬 게임을 시작하기 전에 전체 지연 테스트를 완료하세요
-music-rhythm-calibration-reset-done = 지연 보정이 초기화되었습니다
 music-rhythm-calibration-result-hold = 테스트가 완료되었습니다. 결과를 확인해 주세요. 잠시 후 자동으로 돌아갑니다.
 music-rhythm-calibration-stage-minecraft = Minecraft 소리 블록
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1646,8 +1498,6 @@ music-rhythm-score = 점수: { $arg0 }
 music-rhythm-spatial-no-room = 공간 조준을 플레이할 공간이 부족합니다. 더 넓은 곳으로 이동하세요.
 music-rhythm-spatial-slider-hint = 움직이는 별을 따라 각 체크포인트를 클릭 · 길게 누르지 않음
 music-rhythm-start = 게임 시작
-music-sample-rate = 샘플 레이트: { $arg0 }
-music-size = 크기: { $arg0 }
 music-unavailable-disc = 사용할 수 없는 음반
 
 ## Entertainment · Anniversary
@@ -1889,8 +1739,10 @@ web-account-title = 웹 계정 및 패스키
 web-account-confirm = 확인
 weblogin-question = 이 웹 본인 확인을 승인할까요? mcmik.top에서 직접 시작한 작업만 승인하세요. 다른 사람을 위해 코드를 입력하지 마세요.
 weblogin-command-description = Mik 웹 본인 확인 코드 승인
-weblogin-confirmed = 웹 본인 확인이 완료되었습니다. 브라우저로 돌아가 계속하세요.
-weblogin-invalid-code = 유효하지 않은 웹 본인 확인 코드입니다
+weblogin-confirmed = 게임에서 확인했습니다. 브라우저로 돌아가 계속 진행해 주세요.
+weblogin-rejected = 웹 로그인 확인이 거부되었습니다. 브라우저에서 코드를 확인하고 다시 시도해 주세요.
+weblogin-unavailable = 지금은 웹 로그인을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.
+weblogin-unconfirmed = 웹 로그인 확인 결과를 받지 못했습니다. 다시 시도하기 전에 브라우저를 확인해 주세요.
 
 
 # Music workspace
@@ -1984,8 +1836,25 @@ music-space-label =
         [album] 앨범
         [original-author] 원작자
         [duration] 재생 시간
-        [track-type] 유형
-        [type-online] 온라인
+        [availability] 이용 상태
+        [track-ready] 준비 완료
+        [track-needs-preparation] 준비 필요
+        [track-unknown] 확인되지 않음
+        [track-unavailable] 이용 불가
+        [partial-results] 일부 결과를 불러오지 못했습니다.
+        [restart-current] 현재 버전을 처음부터 재생
+        [lyrics] 가사
+        [lyrics-pending] 가사 검색 중…
+        [lyrics-empty] 이 버전에는 가사가 없습니다
+        [lyrics-unavailable] 가사를 일시적으로 불러올 수 없습니다
+        [lyrics-ended] 재생이 끝났거나 접근할 수 없습니다.
+        [lyrics-original] 원문
+        [lyrics-translation] 번역
+        [lyrics-pronunciation] 발음
+        [lyrics-plain] 일반 텍스트
+        [lyrics-timed] 시간 동기화
+        [lyrics-captions] 보조 자막
+        [lyrics-original-only] 원문만
         [undo] { vehicle-model-undo }
         [remove] 선택한 항목 삭제
         [clear-recents] 내 재생 기록 지우기
@@ -2103,8 +1972,6 @@ music-space-label =
         [already-added] 이미 추가됨
         [current-track] 현재 곡
         [shuffle-candidates] 무작위 후보 곡
-        [import-by-id] ID로 가져오기
-        [playlist-id] 재생목록 ID
        *[unknown] 음악 공간
     }
 
@@ -2115,6 +1982,7 @@ music-space-clear-recents-confirmation = 재생 기록을 모두 삭제할까요
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] 음악 기능을 사용할 수 없습니다. 나중에 다시 열어 주세요.
+        [VERSION_GONE] 이 미디어 버전을 더 이상 사용할 수 없습니다. 현재 버전을 처음부터 재생하세요.
         [INTERNAL] 음악 기능에 내부 오류가 발생했습니다. 관리자에게 서버 로그 확인을 요청하세요
         [NOT_FOUND] 선택한 항목이 더 이상 존재하지 않습니다.
         [FORBIDDEN] 제어 또는 편집 권한이 필요합니다.
@@ -2151,7 +2019,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = 음악 장치 제어
 
-music-partial-results = 일부 결과만 표시합니다. 음원 요청 { $arg0 }개가 실패했습니다
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

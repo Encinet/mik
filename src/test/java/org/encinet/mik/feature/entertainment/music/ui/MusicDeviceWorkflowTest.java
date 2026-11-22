@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
+import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackSnapshot;
 import static org.encinet.mik.feature.entertainment.music.ui.MusicWorkspaceState.*;
 import org.encinet.mik.feature.entertainment.music.ui.MusicWorkspaceState.Collection;
 import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
@@ -17,13 +18,16 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.entertainment.music.application.*;
-import org.encinet.mik.feature.entertainment.music.jukebox.*;
+import org.encinet.mik.feature.entertainment.music.device.DeviceTarget;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus;
+import org.encinet.mik.feature.entertainment.music.gateway.RemoteMusic;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.runtime.FloatingMenuService;
-import org.encinet.mik.shared.menu.runtime.MenuInputViewTestSupport;
+import org.encinet.mik.shared.menu.runtime.input.MenuInputViewTestSupport;
 import org.encinet.mik.shared.menu.runtime.MenuWorkspaceTestSupport;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
 import org.encinet.mik.shared.menu.ui.*;
@@ -54,7 +58,7 @@ class MusicDeviceWorkflowTest {
     @ParameterizedTest @EnumSource(PlaybackStatus.class)
     void openingTheLibrarySelectsTheNearestPlayingDeviceBeforeIdleDevices(PlaybackStatus status) throws Exception {
         try (var h = new Harness(Language.DEFAULT)) {
-            when(h.playback.snapshot(h.second)).thenReturn(new MusicPlaybackSnapshot(h.second,null,null,null,status,0,0,false,null));
+            when(h.playback.snapshot(h.second)).thenReturn(new MusicPlaybackSnapshot(h.second,null,null,null,new JukeboxPlaybackSnapshot(status,0),0,null, null));
             h.workspace.open(h.player);
             UUID selected = status == PlaybackStatus.PLAYING ? h.second : h.first;
             assertEquals(selected,h.state().target());
@@ -72,7 +76,7 @@ class MusicDeviceWorkflowTest {
             when(h.registry.targets(h.player)).thenReturn(List.of(new DeviceTarget(h.second,"Garden",List.of(h.device(h.second))),
                     new DeviceTarget(group,"Room",List.of(h.device(h.first)))));
             for (UUID id : List.of(group,h.second))
-                when(h.playback.snapshot(id)).thenReturn(new MusicPlaybackSnapshot(id,null,null,null,PlaybackStatus.PLAYING,0,0,false,null));
+                when(h.playback.snapshot(id)).thenReturn(new MusicPlaybackSnapshot(id,null,null,null,new JukeboxPlaybackSnapshot(PlaybackStatus.PLAYING,0),0,null, null));
             h.workspace.open(h.player);
             assertEquals(group,h.state().target());
             assertNotNull(h.entry("player-primary"));
@@ -130,7 +134,7 @@ class MusicDeviceWorkflowTest {
     @Test void devicePlaybackHasOneClearPurposeAndNeverControlsTheOtherLibraryTarget() throws Exception {
         try (var h = new Harness(Language.DEFAULT)) {
             h.open(); h.state().target(h.first);
-            var snapshot = new MusicPlaybackSnapshot(h.second,null,UUID.randomUUID(),null,PlaybackStatus.PLAYING,0,0,false,null);
+            var snapshot = new MusicPlaybackSnapshot(h.second,null,UUID.randomUUID(),null,new JukeboxPlaybackSnapshot(PlaybackStatus.PLAYING,0),0,null, null);
             when(h.playback.snapshot(h.second)).thenReturn(snapshot);
             when(h.playback.control(eq(h.player),eq(h.second),any())).thenReturn(CompletableFuture.completedFuture(null));
             h.workspace.panel(h.player,new DevicePanel(h.second,DeviceSection.PLAYBACK));
@@ -422,9 +426,9 @@ class MusicDeviceWorkflowTest {
                 assertTrue(net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
                         .serialize(element(frame,"output").node().content().label()).contains(h.device(h.second).name()));
                 var duration = frame.elements().stream().filter(node -> node.path().contains("/duration/") && node.node().key().value().equals("value")).findFirst().orElseThrow();
-                var format = frame.elements().stream().filter(node -> node.path().contains("/type/") && node.node().key().value().equals("value")).findFirst().orElseThrow();
-                assertEquals(duration.y(),format.y(),1e-6,"Short technical facts share a row");
-                assertTrue(duration.x() < format.x());
+                var availability = frame.elements().stream().filter(node -> node.path().contains("/availability/") && node.node().key().value().equals("value")).findFirst().orElseThrow();
+                assertEquals(duration.y(),availability.y(),1e-6,"Short technical facts share a row");
+                assertTrue(duration.x() < availability.x());
                 if (width == 1200) assertTrue(element(frame,"song").x() < duration.x(),"A wide detail view uses an identity column and a metadata column");
                 if (width == 360 && font == 1.8) assertTrue(duration.y() > element(frame,"song").y(),"Narrow views stack complete sections");
             }
@@ -505,6 +509,7 @@ class MusicDeviceWorkflowTest {
         Harness(Language locale) throws Exception {
             try {
                 var plugin = mock(JavaPlugin.class);
+                when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getAnonymousLogger());
                 var scheduler = mock(BukkitScheduler.class);
                 bukkit.when(Bukkit::getScheduler).thenReturn(scheduler);
                 bukkit.when(Bukkit::isPrimaryThread).thenReturn(true);
@@ -542,7 +547,7 @@ class MusicDeviceWorkflowTest {
                 when(queries.snapshot(any())).thenAnswer(_ -> data.snapshot());
                 when(playback.program(any())).thenReturn(PlaybackProgram.empty());
                 when(playback.submit(eq(player),any())).thenReturn(CompletableFuture.completedFuture(null));
-                when(playback.snapshot(any())).thenAnswer(call -> new MusicPlaybackSnapshot(call.getArgument(0),null,null,null,PlaybackStatus.STOPPED,0,0,false,null));
+                when(playback.snapshot(any())).thenAnswer(call -> new MusicPlaybackSnapshot(call.getArgument(0),null,null,null,new JukeboxPlaybackSnapshot(PlaybackStatus.STOPPED,0),0,null, null));
                 var bundle = FluentTestSupport.bundle(locale);
                 var language = mock(LanguageService.class,call -> {
                     Object[] args = call.getRawArguments();
@@ -569,8 +574,11 @@ class MusicDeviceWorkflowTest {
                 }).when(menus).queryInput(eq(player),any(),anyInt(),any(),any());
                 doAnswer(call -> { call.getArgument(0,Runnable.class).run(); return null; }).when(menus).execute(any());
                 FloatingMenus.install(menus);
+                var gateway = mock(RemoteMusic.class);
+                when(gateway.catalog(anyString(), anyBoolean(), any())).thenReturn(CompletableFuture.completedFuture(
+                        new RemoteMusic.CatalogPage(List.of(MusicWorkspaceStateTest.track("song:first")), com.google.protobuf.ByteString.EMPTY, false)));
                 workspace = new MusicWorkspace(plugin,language,queries,playlists,playback,registry,mock(MusicDeviceTravel.class),
-                        groups,() -> List.of(MusicWorkspaceStateTest.track("song:first"),MusicWorkspaceStateTest.track("song:second")),null,null,null,mock(MusicRooms.class),null);
+                        groups,gateway,null,null,mock(MusicRooms.class),null);
                 workspace.open(player);
                 when(queries.ready()).thenReturn(true);
             } catch (Exception | Error failure) { FloatingMenus.uninstall(); bukkit.close(); throw failure; }

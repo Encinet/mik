@@ -17,9 +17,4 @@ public record ChatMessageId(String value) {
         return new ChatMessageId(UUID.randomUUID().toString());
     }
 
-    public static ChatMessageId external(String platformId, String conversationId, String eventId) {
-        String scope = Objects.requireNonNull(platformId) + '\0' + Objects.requireNonNull(conversationId)
-                + '\0' + Objects.requireNonNull(eventId);
-        return new ChatMessageId("external:" + UUID.nameUUIDFromBytes(scope.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-    }
 }

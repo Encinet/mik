@@ -30,6 +30,6 @@ java -cp /tmp/mik-geo-tools:src/main/resources GeoDatabaseVerifier \
   /tmp/user-country-ipv4-num.csv /tmp/user-country-ipv6.csv
 ```
 
-校验器同时输出查询耗时。通过后提交生成的 `src/main/resources/geo/user-country-v1.dat.gz`。
+校验器用插件实际使用的 `GeoUtil` 查询每个端点并报告校验数量。通过后提交生成的 `src/main/resources/geo/user-country-v1.dat.gz`。
 
 修改二进制布局时，同步更新[编译器](GeoDatabaseCompiler.java)与 [GeoUtil](../../src/main/java/org/encinet/mik/shared/util/GeoUtil.java) 的 `FORMAT_VERSION`，重新生成并校验资源。

@@ -1,212 +1,82 @@
 # AI 助手
 
-MIK 提供一套游戏内与社交平台共用的 AI 助手。AI 本身默认关闭，避免未配置密钥时意外发起外部请求；一旦启用，所有内置只读工具包默认开启，并由 `tool_search` 按问题逐步加载具体工具定义。
+在游戏里用 `/ai <问题>`，可以问入服后怎么开始、建造还缺多少材料、附近有哪些公开建筑，或者脚下的铁块电梯为什么不能用。助手可以直接回答，也可以按需查资料和当前游戏状态；缺少只有你知道的信息时会追问。
 
-## 启用与第三方提供商
+## 使用
 
-首次启动会生成 `plugins/mik/ai.yml`。提供商需要兼容非流式 `POST /chat/completions` 以及标准 function/tool calling。可以声明任意数量的命名提供商，再切换 `active-provider`：
+服务器须先[启用助手](#配置)。在 Paper，已通过入服验证且未被封禁的在线玩家默认拥有 `mik.ai.use` 权限；显式拒绝该权限后，任何身份都不能使用。回答只发给提问者。同一位玩家一次只能处理一个请求；可以等回答，也可以取消后重新提问。
 
-```yaml
-enabled: true
-active-provider: gateway
+| Paper 命令 | 用途 |
+| --- | --- |
+| `/ai` | 查看用法。 |
+| `/ai <问题>` | 提问或追问。助手按需查 Wiki、已启用的网页搜索或当前游戏状态。不用切换模式。 |
+| `/ai cancel` | 停止正在处理的提问，保留已有上下文。 |
 
-providers:
-  gateway:
-    endpoint: "https://ai-gateway.example.org/v1/chat/completions"
-    model: "your-model"
-    api-key: "${AI_GATEWAY_KEY}"
-    auth-header: "Authorization"
-    auth-prefix: "Bearer "
-    connect-timeout-seconds: 10
-    request-timeout-seconds: 60
-    max-response-bytes: 2097152
-    headers:
-      X-Tenant: "minecraft"
-    request-options:
-      temperature: 0.2
-      max_tokens: 1200
-```
+助手面向正常游玩、本服功能和使用排障，例如客户端连不上服务器、现成模组如何设置，或铁块电梯为什么没有反应。软件开发与测试、查看私有数据和绕过权限不在服务范围内。无论玩家怎样描述请求，游戏查询仍受当前回合和玩家权限约束。
 
-`endpoint`、`model`、密钥、认证字段、自定义 header 和 `request-options` 均属于提供商配置，因此 OpenAI、OpenRouter、DeepSeek、兼容网关以及 Ollama、vLLM、LM Studio 一类自托管服务不需要各写一个 Java adapter。环境变量支持 `${NAME}` 和 `${NAME:-fallback}`。`model`、`messages`、`tools`、`tool_choice` 与 `stream` 是协议保留字段，不能被 `request-options` 覆盖。HTTP 重定向不会携带认证信息继续跟随，响应体和等待时间都有上限，密钥不会写入日志。
+等待生成时聊天不显示阶段提示。游戏聊天用颜色和样式区分标题、重点、删除线与代码，表格逐行展示，清单用勾选标记。在 Java 客户端，链接和追问可原位点击；物品提示可悬停查看默认原版物品，不读取背包里的实际物品。
 
-内置提供商示例见 [ai.yml](../src/main/resources/ai.yml)。更换模型时，应同步调整该提供商支持的 `request-options`。
+模型直接写一份 Markdown 富文本作为正文，可以自由安排段落、标题、嵌套列表、清单、表格、引文、强调、代码和链接。一句话、一个引用、一张表或一个列表都可以独立回答，不要求包裹 JSON、固定标题或完成度评级。例如「玻璃馆 · 28 格 · 参观须知」中，建筑名和参观须知可以各自打开对应页面，链接内部也可混排普通和重点文字。
 
-修改后，管理员执行 `/ai reload`。`/ai status` 显示当前提供商、模型和启用的工具包。普通使用需要 `mik.ai.use`，管理员组也可直接使用：
+工具给出的本轮引用和已验证的 HTTPS 地址都能链接。未验证的链接保留可读标签，直接写出的未验证地址用「[…]」占位；`plots.md` 等字面文字仍保留。正文超出展示预算时保留可呈现的部分，以省略号标记截断。供应商过滤的内容和中间工具结果不会代替正文。
 
-```text
-/ai <问题>
-/ai clear
-/ai status
-/ai reload
-```
+助手可以在正文合适的位置给出追问，例如「怎样检查电梯上方的落点？」；不要求每次都给。游戏内，在 Java 客户端可以点击正文原处的追问，原提问者能在两分钟内从最新回复中选一次。主动开始新一轮后，旧选项失效。追问和手动提问使用相同权限。连接短暂中断时只恢复同一回合的查询或确认，不会再次启动模型或重复显示回复；离线或失去使用权限后不补发私有回复，旧会话的追问也不能继续点击。
 
-## 工具包
+资料和公开建筑详情都用本轮验证过的 HTTPS 链接，助手可自拟链接文字。`/plot`、`/music search 夜曲` 等命令只作为文字展示。在检测到的 Geyser 基岩客户端上，助手仍可查询同样的游戏状态；链接以文字展示，追问在原位置显示为可手动输入的 `/ai <问题>`，不依赖悬停或按钮。助手不会执行游戏命令、修改方块或传送。
 
-`tools.enabled-packs` 缺省时包含全部七个工具包：
+## Wiki 资料
 
-| 能力包 | 工具 | 数据来源 |
+- **本服玩法、规则和入服步骤：** 问 `/ai 铁块电梯怎么搭？` 或 `/ai 我该怎么绑定账号？`。助手按需搜索 [MIK 官方 Wiki](https://mcmik.top/wiki) 的公开中英文内容，不读取员工区。
+- **原版物品、配方和机制：** 问 `/ai 红石中继器怎么合成？按我背包里的材料能做几个？`。助手可以在同一回合查 [Minecraft Wiki](https://minecraft.wiki/) 的配方，再核对你在游戏里的背包。独立 Minecraft Wiki 首页列出的语言版均可检索，具体域名见[站点清单](../src/main/resources/org/encinet/mik/feature/community/ai/minecraft-wiki-editions.tsv)。
+
+无需查证的常见原版问题可以直接回答。需要查 Minecraft Wiki 时，助手优先使用符合界面语言的版本；没有匹配内容时可换用仍可用的资料。要指定来源，可问「用德语 Minecraft Wiki 查钻石的生成高度」，或附上该语言版的公开文章或章节链接。查找指定版本的工具不会换版。本服规则应以本轮读到的官方公开说明为准；实时权限、背包、附近建筑和电梯方向以当轮游戏查询为准。查询成功但没有匹配，与目录或权限状态暂不可用不同。工具会分别提供这些状态，助手可据此说明查到了什么、还有什么未核实。
+
+## 网页搜索
+
+管理员可[启用 Tavily](../deploy/mikd/README.md#ai-配置)，供 Paper、QQ 和 Matrix 查询 Wiki 无法回答的公开资料，例如现有客户端模组的发布说明或兼容版本。外部结果不用于判断本服规则和实时游戏状态。使用默认链接文字时，外部引用显示实际域名。
+
+每轮最多请求一次，使用基础搜索，最多取三条摘要。搜索超时、暂时限流或额度耗尽时不重试，仍可查 Wiki 并说明没有核实的部分。
+
+## 对话与玩家记忆
+
+用 `/ai <问题>` 继续同一话题，或直接提问开始新话题。助手保留最近两轮确认发出的问答，包括已展示链接的文字、地址和顺序，因此可以在纯列表之后接着问「第一个呢？」。再次给出可点击的引用或核对实时距离时，助手需要在新一轮重新查询。空闲约 30 分钟后过期，`mikd` 重启后不恢复。
+
+Paper 显示正文后异步确认投递，不拦住下一次提问。如果确认还未收到，下一次提问会一并确认仍在 `mikd` 保留的上一条回复；上一轮已丢失时仍可提问，只是不带那轮历史。确认失败只写后台日志，不给已显示的回复追加错误提示。
+
+Paper 助手会自动记住对以后有帮助的玩法信息，例如「正在建蒸汽朋克港口，打算保留自然海岸」；「这次试试橡木」只影响本轮。改建成现代港口时，助手可以更新原来的条目。阶段性计划有期限，稳定习惯可以长期保留；每名玩家在每个游戏实例最多有 8 条记忆，超过容量时淘汰最久未更新的条目。只有相关条目才会用于回答，读取不会延长保留期。玩家不需要设置或管理记忆。
+
+只有回复确认发出后，后台才从玩家当轮自述提炼长期记忆、独立复核并入库；记忆可在重启后继续使用。提问只读取已提交的内存快照，不等待后台队列或 SQLite。记忆分析让位给玩家请求，没有单独的玩家进度或提示。取消、过期或发送失败不会触发提炼；队列繁忙、复核未通过或数据库不可用不影响回复。原始对话、秘密、实时状态和权限不属于记忆，不从 Wiki 或旧回答学习。
+
+## 游戏工具
+
+只有在游戏内提问，助手才会获得 Paper 为当前玩家开放的游戏工具。提问时不给模型发送背包等游戏状态；只有选中工具时才读取，Paper 会重新检查当前连接、回合和权限。现有游戏查询不接受任意坐标，能核对服务器运行状态、可见在线玩家以及自己的状态、随身物品和当前世界，不读取其他玩家的位置、私人建筑或储物。
+
+| 想做什么 | 可以怎么问 | 工具能确认什么 |
 | --- | --- | --- |
-| `web` | `web_search`、`fetch_web_page` | SearXNG 搜索与受限网页抓取 |
-| `server` | `server_status`、`get_server_time` | 当前服务器快照 |
-| `player` | `list_online_players`、`get_player_info`、`get_my_inventory`、`get_player_statistics`、`get_nearby_entities` | 当前玩家快照 |
-| `world` | `get_world_info`、`get_world_game_rules` | 已加载世界快照 |
-| `minecraft` | `search_minecraft_registry` | 当前服务端版本的物品、方块和实体注册表 |
-| `utility` | `calculate` | 本地安全表达式解析器 |
-| `knowledge` | `search_knowledge`、`open_knowledge` | 本地公共 Markdown 知识库与 Lucene 索引 |
-
-模型最初只看到轻量的 `tool_search`。它用自然语言关键词或准确包 ID 激活一个或多个能力包，下一轮才看到这些包的完整 JSON Schema；无法匹配时会加载当前配置允许的全部包。模型在同一轮同时调用 `tool_search` 和具体工具时，运行时也会先完成能力激活，再并行执行具体工具。
-
-网页搜索默认指向本机 `http://127.0.0.1:8080/search`。SearXNG 必须在 `settings.yml` 中允许 JSON 格式。搜索标题和摘要会去除 HTML，只接受 HTTP(S) 结果 URL，并作为不可信工具数据交给模型；网页服务不可用时只令该次工具调用失败，不会影响游戏查询和本地计算。
-
-`fetch_web_page` 用于完整的“搜索 → 阅读 → 沿链接继续阅读”流程。模型先通过 `web_search` 找到候选结果；摘要不足时抓取结果 URL；若正文引用了必要的下一页，模型直接把内联绝对 URL 作为下一次 `fetch_web_page` 的 `url` 参数。HTML 会优先抽取 `main`、唯一文章或常见正文容器，移除脚本、导航、表单、隐藏元素等噪音，然后转换成类 Markdown。工具也能读取 JSON、XML、Markdown 与纯文本，并统一返回：
-
-```json
-{
-  "title": "Page title",
-  "content_markdown": "# Readable content\n\nSee [details](<https://example.org/details>)...",
-  "truncated": false
-}
-```
-
-正文链接使用 `[文字](<绝对 URL>)`。`tools.web-fetch` 限制超时、响应字节、正文字数、重定向与链接数量；每次请求及重定向验证公开 HTTP(S) 地址，拒绝用户信息 URL、本机与保留地址、HTTPS 降级和循环跳转。抓取器直连，只读取非压缩文本且不执行页面脚本；图片、PDF 等二进制内容返回工具错误。
-
-HTML 转换保留正文结构、表格、代码块和安全链接；相对链接转为绝对 URL，截断时保持 Unicode 与代码围栏完整。
-
-所有搜索摘要、网页正文和链接仍然是不可信数据。内置多语言 prompt 明确要求模型忽略页面内指令，只把内容当作资料，按需访问链接，并在最终回答中引用实际采用的 URL。
-
-游戏工具全部只读。Bukkit 数据在主线程一次性捕获成不可变快照，模型调用工具时不再跨线程读取 Bukkit 对象。其他玩家的背包永远不会暴露；`get_my_inventory` 只对当前游戏玩家，或已经绑定 Minecraft 身份的社交用户有效。精确玩家坐标和附近实体默认关闭，只有服主显式设置 `tools.game-data.include-player-locations: true` 才会进入快照。工具不会列出 IP、密钥、插件配置、封禁详情或其他管理数据。
-
-## 知识库与个人记忆
-
-知识正文以 Markdown 文件为准，Lucene 只保存可重建的检索索引，SQLite 只记录整理状态与不含正文的审计元数据。服务启动时会先扫描 Markdown 并重建索引；重建过程先完成一组新的公共/私有 index generation，再原子更新 `CURRENT`，失败时继续保留旧 generation。扫描或增量索引更新失败会在 `/ai knowledge status` 中标记为需要同步，此时个人记忆检索会停止，避免从旧索引返回已经删除的私有内容。
-
-```text
-plugins/mik/
-├── knowledge/
-│   ├── public/                         # 可由 search_knowledge 检索
-│   ├── users/<minecraft-uuid>/         # 只为该 UUID 自动召回
-│   ├── .inbox/                         # 回答后的待整理候选
-│   ├── .revisions/                     # 更新前快照
-│   └── .archive/                       # 可恢复归档与失败候选
-├── cache/ai-knowledge/
-│   ├── CURRENT                          # 原子切换的活动 generation
-│   └── generations/<id>/{public,private}/ # 可删除、可重建的 Lucene 索引
-└── ai-knowledge.db                     # 状态和元数据审计
-```
-
-普通 Markdown 可以直接放进 `knowledge/public`。需要稳定标识、过滤标签、来源、保护或有效期时，在文档前部加入 YAML frontmatter：
-
-```markdown
----
-id: building-rules
-title: 建筑规则
-language: zh_cn
-aliases: [建造规范, building rules]
-tags: [rules, building]
-kind: rule
-protected: true
-revision: 1
-created-at: 2026-08-24T00:00:00Z
-updated-at: 2026-08-24T00:00:00Z
-sources:
-  - title: 官方规则页
-    url: https://example.org/rules
----
-
-# 建筑规则
-
-正文可以继续使用标题、列表、表格、代码块和内联链接。
-```
-
-未写 frontmatter 时，文件相对路径会生成稳定 ID，第一个 Markdown 标题会成为标题。`scope` 和私有知识的 `owner` 由物理目录决定；frontmatter 若声明了冲突值，扫描会失败，模型不能通过正文或元数据把文档移到另一个用户。文件大小、ID、时间戳和 HTTP(S) 来源也会在读取时校验，知识目录中的符号链接不会被跟随。
-
-`search_knowledge` 支持最多四组多语言查询和标签过滤。标题、别名、章节、标签和正文使用 ICU 分词与 BM25 排序，多组查询通过 RRF 合并。结果返回 `[K1: 标题](knowledge://public/文档#chunk-N)` 形式的内联链接；模型把其中的完整 URI 直接传给 `open_knowledge`。最终回答缺少引用时，运行时追加本轮搜索实际返回的链接。
-
-个人记忆不会注册成模型可任意调用的工具。只有游戏玩家或已绑定 Minecraft 身份的社交用户带有可信 UUID；系统用该 UUID 查询独立的私有索引，并把有界结果作为不可信 `memory_recall` 工具输出加入当前请求。未绑定的社交身份、其他玩家 UUID 和公共知识工具都不能进入这个索引。管理员可检查和执行永久遗忘：
-
-```text
-/ai memory list <player>
-/ai memory show <player> <document-id>
-/ai memory forget <player> <document-id|all>
-```
-
-永久遗忘会先移除检索入口，再删除该玩家的正文、历史版本、归档和待处理候选。相关权限为 `mik.ai.memory.manage`，默认只授予 OP；`group.custodian` 同样可用。
-
-启用 `knowledge.learning` 后，每次回答完成会把当前问题、最终回答和有界工具证据放入内存任务队列，主回答不等待该过程。提取模型只能提交独立改写后的候选 Markdown；原始会话不会写入磁盘或 SQLite。来源 URL 必须实际出现在本轮工具证据中。使用过个人记忆或玩家私有数据工具的回合不能生成公共候选，未绑定身份的回合不能生成个人候选。持久候选数量与提取任务队列都有上限，过载时直接丢弃后台学习，不影响回答。
-
-定时整理器会检索相关现有文档，再选择跳过、新建或合并。更新使用预期 revision，受 `protected` 保护，并在写入前保存旧版本；模型只能更新检索到的相关 ID，也只能归档已经合并且未保护的相关文档。单条候选失败不会阻塞同批其他候选，连续失败三次后移到归档供管理员检查。管理入口为：
-
-```text
-/ai knowledge status
-/ai knowledge sync
-/ai knowledge reindex
-/ai knowledge curate
-/ai knowledge protect <document-id>
-/ai knowledge unprotect <document-id>
-/ai knowledge rollback <document-id> <revision>
-```
-
-`sync` 与 `reindex` 含义相同，都会从 Markdown 重建索引。知识管理权限为 `mik.ai.knowledge.manage`，默认只授予 OP；`group.custodian` 同样可用。默认配置允许为学习流程单独指定任一已配置提供商：
-
-```yaml
-knowledge:
-  enabled: true
-  index:
-    max-file-bytes: 2097152
-    max-chunk-characters: 1800
-    overlap-characters: 200
-    default-result-limit: 8
-  learning:
-    enabled: true
-    provider: active
-    max-concurrent-extractions: 1
-    candidate-queue-capacity: 256
-    max-candidates-per-turn: 3
-    curation-interval-minutes: 30
-    curation-batch-size: 32
-  memory:
-    enabled: true
-    max-results: 4
-    max-context-characters: 4000
-    max-documents-per-player: 128
-```
-
-## 多语言 prompt
-
-`system-prompts` 为每种界面语言提供独立 prompt，并必须保留 `default` 回退。内置配置覆盖简体中文、香港繁体、台湾繁体、文言、英语、德语、西班牙语、法语、意大利语、日语、韩语、荷兰语、巴西葡萄牙语、俄语、泰语和乌克兰语。
-
-请求会同时携带首选界面语言，但模型必须优先跟随用户最新问题实际使用的语言，因此同一段会话可以自然切换语言。所有内置 prompt 都声明工具输出不可信、网页搜索需要引用、工具只读、不得泄露凭据或隐藏 prompt。服主可以逐语言改写角色设定，不需要改代码。
+| 上手或准备建造 | 「我在这里能放置或破坏方块吗？能创建地段吗？」 | 查看当前位置的地段和自己的访问身份、创建地段所需的成员资格，以及普通放置和破坏的地段保护判定。不能判断其他插件、出生点保护、世界或游戏模式的限制，也未检查具体目标方块。可用 `/plot` 打开地段菜单。 |
+| 探索公开建筑 | 「离我最近的公开建筑有哪些？名字包含『桥』的呢？」 | [公开目录](building-map.md#在游戏中查找建筑)提供同世界匹配总数和按距离排列的结果，助手可按需继续查看。有匹配但本页为空不等于没有匹配。目录暂不可用时不返回缓存坐标；距离和坐标不代表可以传送或进入。 |
+| 排查铁块电梯 | 「我站在铁块上吗？现在能向上或向下吗？」 | 确认脚下铁块和已有的安全方向判断。尚未确认不等于没有安全楼层；助手不会加载区块或另行扫描井道。见[电梯操作与落点](iron-elevator.md#使用)。 |
 
 ## QQ 与 Matrix
 
-QQ 与 Matrix 共用 `SocialCommand` AI 命令：
+在允许命令且开启 `ai` 的群或房间用 `/ai <问题>`；平台的[命令前缀](chat.md#社交平台配置)为 `!` 时用 `!ai <问题>`。不带问题会提示补上问题。社交平台只查公开知识，没有游戏工具，也不保留长期记忆。短期对话按平台、账号、群或房间及发送者隔离；Matrix 主题串单独保留上下文，回复发回原主题串。
 
-```text
-QQ:     /ai 现在服务器有多少人？
-Matrix: !ai Who is online?
-```
+QQ 发送原生 Markdown，Matrix 发送格式化 HTML，分别保留标题、嵌套列表、清单、表格、多行引文、代码和行内样式。不能发送富文本时，纯文本按阅读顺序展示，仅在剩余空间内附上地址。短期历史只保留已发送版本中的链接。QQ 可用交互键盘呈现追问；键盘失效或明确被拒绝时仍可发送富文本。两端在有空间时附上可复制的追问命令，不为命令缩短正文。
 
-所有 16 种语言都有文本别名，稳定原生命令 ID 为 `ai.ask`。参数为 `clear`、`reset`、`清空` 等本地化清理词时会清除当前会话历史。
+公开回复和建议对群或房间成员可见；回复与按钮触发的提问不作为普通聊天转发。QQ 对待发内容、追问和链接目标执行[出站内容审查](chat.md#qq-内容审查)。
 
-社交对话按“平台 + 房间/群 + 已认证平台用户 + 具体绑定关系”隔离。同一绑定在同一房间可以连续追问，玩家改名和续验保留历史；解绑、重新绑定或更换游戏账号后使用独立历史。未绑定与暂时无法核验状态也分别隔离；没有可信平台身份的事件不会持久复用历史。已绑定用户会把 Minecraft UUID 传给只读游戏工具，未绑定用户仍可查询服务器、世界、版本、网页和计算数据。模型答案在创建 `SocialDocument` 时显式声明 `Moderation.REQUIRED`，按出站长度限制后的完整回复进入共享 [Qwen3Guard 内容安全检查](social-platforms.md#内容安全)，再由 QQ 或 Matrix renderer 转义和截断。
+## 隐私
 
-`AiRequest.interaction` 传递当前入口名称、已绑定／未绑定／暂时无法核验状态，以及当前语言和平台前缀下的可用命令。Social 从实际注册的命令生成这些说明，游戏请求使用 Minecraft 入口。会话运行时将其作为结构化上下文传入模型，供回答说明操作入口；身份变更由用户执行对应指令。固定绑定指令不进入 AI 历史。携带已绑定或未绑定个人状态的回合不能生成公共知识候选；已绑定玩家仍可生成其本人的私有候选。
+`mikd` 在后台同步本服 Wiki 摘录和 Minecraft Wiki 的公开标题目录，关键词在本地检索。Minecraft Wiki 可以看到服务器读取了哪个公开文章或章节，但不会收到玩家提问、身份、历史对话或游戏状态。
 
-清空历史同时禁止当前未完成回合重新写入历史；迟到的答案仍可交付，但不会成为下一轮的上下文。
+启用网页搜索时，Tavily 收到从本轮问题提取的短公开关键词；请求不附带玩家身份、历史对话、记忆或实时游戏状态。`mikd` 不打开搜索结果页，也不访问玩家贴出的任意网页地址。
 
-## Worker 与线程边界
+提问、近期对话、Paper 玩家记忆以及本轮读取的工具结果会发送给配置的模型供应商。不要提交密码、绑定码或不应交给供应商的数据；本地过期不会删除供应商侧的数据。对话不会自动写入公开知识库。
 
-文件、Lucene、SQLite 和后台学习中的阻塞等待由 `AiWorkerPool` 承载。每个任务使用一个 Java 25 虚拟线程，同时分别限制运行数和等待数；达到 admission 上限后立即拒绝后台任务或让管理命令返回失败，不会建立无界队列。通用管理/召回任务与知识提取、知识整理使用不同 worker，提取积压不会占用管理员重建索引的执行位，也不会阻塞定时整理。
+## 故障排查
 
-```yaml
-limits:
-  max-concurrent-requests: 4
-  max-blocking-workers: 8
-  max-worker-queue: 128
-```
+游戏里的「请求失败」不区分上游故障、空回复或回合丢失。用 `journalctl -u mikd.service --since "5 minutes ago" --no-pager` 查 `mikd AI turn=`，并按同一 `turn=` 对照 Paper 的 `logs/latest.log`。后台记录生成、回复投影、网页关键词检查和后台记忆处理的失败，能取得状态码时记录上游 HTTP 状态；Paper 记录 IPC 操作和失败原因，例如 `TURN_UNAVAILABLE` 表示轮询找不到回合。日志不含玩家身份、提问、回答、模型原始响应或密钥。
 
-虚拟线程用于可能阻塞的任务，不替代并发限制。OpenAI-compatible 和网页 HTTP 请求继续使用 `HttpClient.sendAsync`；知识整理的单个定时 daemon 平台线程只触发任务，实际工作转交虚拟线程。Bukkit 世界、玩家和实体读取仍只在服务器主线程生成不可变快照，worker 不直接访问 Bukkit 对象；异步结果发送也会调度回主线程。reload 或 disable 会先停止接收任务、取消等待任务，再关闭知识存储。`/ai status` 对管理员显示 worker 的 running、queued 和 dropped 计数。
+## 配置
 
-## 扩展工具
-
-实现 `AiTool` 并归入 `AiToolPack`，在 `AiModule` 注册。公共 `api` 保持独立于 Bukkit、社交平台和内部实现；游戏工具读取主线程生成的快照。
+保存 `/etc/mikd/ai.yml` 即启用助手，缺少该文件时关闭。助手自动同步本服公开 Wiki 和 Minecraft Wiki 的公开标题目录。模板、公开资料目录和记忆库位置见 [mikd 的 AI 配置](../deploy/mikd/README.md#ai-配置)。

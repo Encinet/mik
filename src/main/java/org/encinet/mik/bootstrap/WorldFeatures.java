@@ -13,7 +13,9 @@ import org.encinet.mik.feature.world.vehicle.VehicleModule;
 record WorldFeatures(
         PlotModule plots,
         NonEuclideanSpaceModule spaces,
-        java.util.function.Consumer<org.bukkit.entity.Player> vehicles) {
+        java.util.function.Consumer<org.bukkit.entity.Player> vehicles,
+        BuildingMapModule buildings,
+        IronElevatorModule elevators) {
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -54,6 +56,7 @@ record WorldFeatures(
         BuildingMapModule buildingMapModule = new BuildingMapModule(plugin, languageService);
         lifecycle.startManaged("building-map", buildingMapModule::enable, buildingMapModule::disable);
 
-        return new WorldFeatures(plotModule, nonEuclideanSpaceModule, vehicleModule::openMenu);
+        return new WorldFeatures(plotModule, nonEuclideanSpaceModule, vehicleModule::openMenu,
+                buildingMapModule, ironElevatorModule);
     }
 }

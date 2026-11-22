@@ -1,7 +1,7 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
 import java.util.*;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.feature.entertainment.music.application.MusicDeviceRegistry;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;

@@ -1,8 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
 import org.bukkit.entity.Player;
-import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 import su.plo.voice.api.server.player.VoiceServerPlayer;
 
@@ -17,20 +15,20 @@ final class JukeboxPlaybackAudience {
         this.voiceServer = Objects.requireNonNull(voiceServer, "voiceServer");
     }
 
-    boolean canHearBackend(Player player, MusicTrack track) {
+    boolean canHearBackend(Player player, PlaybackSession.OutputKind kind) {
         Objects.requireNonNull(player, "player");
-        Objects.requireNonNull(track, "track");
-        if (track.target() instanceof TrackTarget.NbsFile || track.target() instanceof TrackTarget.NativeRecord) {
+        Objects.requireNonNull(kind, "kind");
+        if (kind != PlaybackSession.OutputKind.ENCODED_AUDIO) {
             return true;
         }
         VoiceServerPlayer voicePlayer = voiceServer.getPlayerManager()
                 .getPlayerByInstance(player);
-        return canHearBackend(track.target(), voicePlayer != null
+        return canHearBackend(kind, voicePlayer != null
                 && voicePlayer.hasVoiceChat() && !voicePlayer.isVoiceDisabled());
     }
 
-    static boolean canHearBackend(TrackTarget target, boolean plasmoVoiceAvailable) {
-        Objects.requireNonNull(target, "target");
-        return target instanceof TrackTarget.NbsFile || target instanceof TrackTarget.NativeRecord || plasmoVoiceAvailable;
+    static boolean canHearBackend(PlaybackSession.OutputKind kind, boolean plasmoVoiceAvailable) {
+        Objects.requireNonNull(kind, "kind");
+        return kind != PlaybackSession.OutputKind.ENCODED_AUDIO || plasmoVoiceAvailable;
     }
 }

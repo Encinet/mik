@@ -1,5 +1,16 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.input.MenuInputGate;
+import org.encinet.mik.shared.menu.runtime.layout.SceneGeometry;
+import org.encinet.mik.shared.menu.runtime.render.MenuSoundFeedback;
+import org.encinet.mik.shared.menu.runtime.render.MenuUsageDisplayController;
+import org.encinet.mik.shared.menu.runtime.render.VirtualMenuEntityRenderer;
+import org.encinet.mik.shared.menu.runtime.settings.FloatingMenuSettingsStore;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuWorldInteractionGuard;
+import org.encinet.mik.shared.menu.runtime.space.MenuSurfaceAttachment;
+import org.encinet.mik.shared.menu.runtime.window.MenuPopoverAttachment;
+import org.encinet.mik.shared.menu.runtime.window.MenuWorkspaceSession;
+
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -7,11 +18,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.BoundingBox;
 import org.encinet.mik.integration.axiom.AxiomGizmoService;
 import org.encinet.mik.integration.axiom.AxiomImageService;
 import org.encinet.mik.shared.i18n.LanguageService;
+import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
@@ -20,8 +34,11 @@ import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
 import java.io.File;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -42,7 +59,7 @@ class WorldMenuScopeTest {
                             UiTemplates.sidebar("directory",Ui.text(Component.text("Directory")).build()),
                             UiTemplates.window("reader",Ui.button(Component.text("Go")).key("go")
                                     .primary((_,_) -> clicks.incrementAndGet()).build()))).build();
-            f.service.openRoot(f.player,scene); f.tick();
+            f.awaitActive(f.service.openRoot(f.player,scene));
             var before = (SceneGeometry)f.foreground("layoutSnapshot");
             assertEquals(2,before.frame().panels().size());
             var title = before.frame().elements().stream().filter(node -> node.node().key().value().equals("workspace-title"))
@@ -52,15 +69,16 @@ class WorldMenuScopeTest {
             f.tick(); now.addAndGet(100_000_000);
             f.service.onWorldClick(f.click(Action.LEFT_CLICK_AIR,EquipmentSlot.HAND));
             assertNotNull(f.foreground("windowMove"));
-            f.eye.setYaw(f.eye.getYaw()+65); f.eye.setPitch(f.eye.getPitch()+20); f.tick();
+            f.eye.setYaw(f.eye.getYaw()+65); f.eye.setPitch(f.eye.getPitch()+20); f.awaitAim(null,"move");
             assertTrue(f.surface("move").intersect(f.eye,0).isPresent());
             var moved = (SceneGeometry)f.foreground("layoutSnapshot");
             assertEquals(2,moved.frame().panels().size());
             assertNotEquals(before.poses().get(title),moved.poses().get(title));
             assertFalse((boolean)f.foreground("titleSpawned"),"The title belongs to the same logical group");
             now.addAndGet(100_000_000);
-            f.service.onWorldClick(f.click(Action.LEFT_CLICK_AIR,EquipmentSlot.HAND)); f.tick();
+            f.service.onWorldClick(f.click(Action.LEFT_CLICK_AIR,EquipmentSlot.HAND)); f.awaitPlaced();
             assertNull(f.foreground("windowMove")); assertEquals(0,clicks.get());
+            f.awaitVisible();
             var go = f.surface("go");
             f.eye.setDirection(MenuSurfaceAttachment.vector(go.center()).subtract(f.eye.toVector()));
             f.tick(); now.addAndGet(100_000_000);
@@ -73,7 +91,7 @@ class WorldMenuScopeTest {
         try (var f = new Fixture()) {
             var now = new java.util.concurrent.atomic.AtomicLong(); f.clock(now::get);
             var clicks = new AtomicInteger();
-            f.service.openRoot(f.player,f.scene(clicks)); f.tick();
+            f.awaitActive(f.service.openRoot(f.player,f.scene(clicks)));
             var surface = f.surface("move");
             f.eye.setDirection(MenuSurfaceAttachment.vector(surface.center()).subtract(f.eye.toVector()));
             f.tick(); now.addAndGet(100_000_000);
@@ -81,7 +99,7 @@ class WorldMenuScopeTest {
             assertNotNull(f.foreground("windowMove"));
             float yaw = f.eye.getYaw(), pitch = f.eye.getPitch();
             for (var turn : new float[][]{{35,12},{-70,-20},{115,25},{0,0}}) {
-                f.eye.setYaw(yaw+turn[0]); f.eye.setPitch(pitch+turn[1]); f.tick();
+                f.eye.setYaw(yaw+turn[0]); f.eye.setPitch(pitch+turn[1]); f.awaitAim(null,"move");
                 assertTrue(f.surface("move").intersect(f.eye,0).isPresent(),
                         "The grabbed control keeps its eye-relative position at yaw="+turn[0]+", pitch="+turn[1]);
             }
@@ -91,9 +109,10 @@ class WorldMenuScopeTest {
             var place = f.blockClick(Action.LEFT_CLICK_BLOCK,EquipmentSlot.HAND);
             place.setUseInteractedBlock(Event.Result.DENY);
             place.setUseItemInHand(Event.Result.DENY);
-            f.service.onWorldClick(place); f.tick();
+            f.service.onWorldClick(place); f.awaitPlaced();
             assertNull(f.foreground("windowMove"));
             assertEquals(Event.Result.DENY,place.useInteractedBlock());
+            f.awaitAim(null,"move");
             assertTrue(f.surface("move").intersect(f.eye,0).isPresent());
             assertEquals(0,clicks.get());
         }
@@ -104,15 +123,15 @@ class WorldMenuScopeTest {
             var scene = MenuScene.screen("launcher")
                     .animation(FloatingMenuAnimation.DEFAULT.reduced())
                     .content(Ui.button(Component.text("Choose destination")).key("source").primary((_,_) -> {}).build()).build();
-            var root = f.service.openRoot(f.player,scene); f.tick();
+            var root = f.service.openRoot(f.player,scene); f.awaitActive(root);
             for (int pass = 0; pass < 2; pass++) {
                 root.openPopover(UiKey.named("source"),_ -> () -> MenuScene.screen("destinations",Component.text("Destinations"))
                         .content(Ui.text(Component.text("Available places")).build()).build());
-                f.tick();
+                f.awaitVisible();
                 assertNotNull(((SceneGeometry)f.foreground("layoutSnapshot")).popover());
                 root.closePopover();
                 var tool = root.openWindow(MenuWindowSpec.tool(UiKey.named("editor")),_ -> () -> f.scene(new AtomicInteger()));
-                f.tick();
+                f.awaitControl(tool.id(), "close");
                 var workspace = (MenuWorkspaceSession)f.foreground("workspace");
                 var frame = ((SceneGeometry)f.foreground("layoutSnapshot")).frame();
                 assertFalse(frame.panels().stream().anyMatch(surface -> MenuWorkspaceSession.segment(surface.path(),MenuWorkspaceSession.MAIN.value())),
@@ -121,25 +140,58 @@ class WorldMenuScopeTest {
                         && node.node().key().value().equals("move")));
                 assertTrue(frame.elements().stream().anyMatch(node -> workspace.ownerOf(node.path()).equals(tool.id())
                         && node.node().key().value().equals("close")));
-                tool.close(); f.tick();
+                tool.close(); f.awaitVisible();
             }
+        }
+    }
+
+    @Test void attachedPopoverStaysStillWhenTheSourceButtonAnimates() throws Exception {
+        try (var f = new Fixture()) {
+            var scene = MenuScene.screen("launcher").stableAnchor()
+                    .content(Ui.button(Component.text("Identity")).key("source")
+                            .primary((_, handle) -> handle.openPopover(UiKey.named("source"), _ -> () ->
+                                    MenuScene.screen("details", Component.text("Identity details"))
+                                            .content(Ui.text(Component.text("Membership information")).build()).build()))
+                            .build()).build();
+            f.awaitActive(f.service.openRoot(f.player, scene));
+            var source = f.surface("source");
+            var aim = MenuSurfaceAttachment.vector(source.center()).subtract(f.eye.toVector());
+            f.eye.setDirection(aim);
+            f.awaitAim(null, "source");
+            f.service.onWorldClick(f.click(Action.LEFT_CLICK_AIR, EquipmentSlot.HAND));
+            var attachment = (MenuPopoverAttachment) f.foreground("popoverAttachment");
+            f.await(() -> f.published() && attachment.placement() != null);
+            var placed = attachment.placement();
+
+            boolean sourceMoved = false;
+            for (int frame = 0; frame < 24; frame++) {
+                if (frame % 8 == 0) f.eye.setDirection(frame == 8 ? aim : aim.clone().rotateAroundY(1));
+                var before = f.surface("source").center();
+                f.tick();
+                assertTrue(f.published(), "Hover feedback must not withdraw the published frame");
+                assertEquals(placed, attachment.placement(), "Hover feedback must not move the attached popover");
+                sourceMoved |= !before.equals(f.surface("source").center());
+            }
+            assertTrue(sourceMoved, "The trigger must still play its own feedback animation");
         }
     }
 
     @Test void cancelledEntityInteractionsStillPlaceOrCancelAnActiveWindowMove() throws Exception {
         try (var f = new Fixture()) {
             var now = new java.util.concurrent.atomic.AtomicLong(); f.clock(now::get);
-            var root = f.service.openRoot(f.player,f.scene(new AtomicInteger())); f.tick();
+            var root = f.service.openRoot(f.player,f.scene(new AtomicInteger())); f.awaitActive(root);
             var workspace = (MenuWorkspaceSession)f.foreground("workspace");
             root.move(); f.eye.setYaw(130); f.tick(); now.addAndGet(100_000_000);
             var cancel = new org.bukkit.event.player.PlayerInteractEntityEvent(f.player,mock(org.bukkit.entity.Entity.class),EquipmentSlot.HAND);
             cancel.setCancelled(true);
             f.service.onPopoverEntityClick(cancel);
             assertNull(f.foreground("windowMove")); assertEquals(UiTransform.IDENTITY,workspace.transform(root.id()));
+            f.awaitVisible();
             root.move(); f.eye.setYaw(70); f.tick(); now.addAndGet(100_000_000);
             var place = mock(org.bukkit.event.entity.EntityDamageByEntityEvent.class);
             when(place.getDamager()).thenReturn(f.player); when(place.isCancelled()).thenReturn(true);
             f.service.onPopoverEntityAttack(place);
+            f.awaitPlaced();
             assertNull(f.foreground("windowMove")); assertNotEquals(UiTransform.IDENTITY,workspace.transform(root.id()));
             verify(place).setCancelled(true);
         }
@@ -150,18 +202,19 @@ class WorldMenuScopeTest {
             var now = new java.util.concurrent.atomic.AtomicLong(); f.clock(now::get);
             var root = f.service.openRoot(f.player,f.scene(new AtomicInteger()));
             var tool = root.openWindow(MenuWindowSpec.tool(UiKey.named("side")),_ -> () -> f.scene(new AtomicInteger()));
-            f.tick();
+            f.awaitActive(root);
             for (int pass = 0; pass < 3; pass++) {
                 var surface = f.surface(tool.id(),"move");
                 f.eye.setDirection(MenuSurfaceAttachment.vector(surface.center()).subtract(f.eye.toVector()));
                 f.tick(); now.addAndGet(100_000_000);
                 f.service.onWorldClick(f.click(Action.LEFT_CLICK_AIR,EquipmentSlot.HAND));
                 assertNotNull(f.foreground("windowMove"));
-                f.eye.setYaw(f.eye.getYaw()+45); f.eye.setPitch(f.eye.getPitch()+12); f.tick();
+                f.eye.setYaw(f.eye.getYaw()+45); f.eye.setPitch(f.eye.getPitch()+12); f.awaitAim(tool.id(),"move");
                 assertTrue(f.surface(tool.id(),"move").intersect(f.eye,0).isPresent());
                 now.addAndGet(100_000_000);
-                f.service.onWorldClick(f.click(Action.LEFT_CLICK_AIR,EquipmentSlot.HAND)); f.tick();
+                f.service.onWorldClick(f.click(Action.LEFT_CLICK_AIR,EquipmentSlot.HAND)); f.awaitPlaced();
                 assertNull(f.foreground("windowMove"));
+                f.awaitAim(tool.id(),"move");
                 assertTrue(f.surface(tool.id(),"move").intersect(f.eye,0).isPresent());
             }
         }
@@ -172,20 +225,20 @@ class WorldMenuScopeTest {
             var now = new java.util.concurrent.atomic.AtomicLong(); f.clock(now::get);
             var clicks = new AtomicInteger(); var refreshes = new AtomicInteger();
             var scene = f.scene(clicks).toBuilder().refreshEvery(1,(_,_) -> refreshes.incrementAndGet()).build();
-            var root = f.service.openRoot(f.player,scene); f.tick();
+            var root = f.service.openRoot(f.player,scene); f.awaitActive(root);
             var workspace = (MenuWorkspaceSession) f.foreground("workspace");
             refreshes.set(0);
             double originalScale = (double)f.foreground("spatialScale");
             root.move();
             f.tick();
             assertEquals(originalScale,(double)f.foreground("spatialScale"),1e-8,"Starting a move retains the actual fitted reading size");
-            f.eye.setYaw(140); f.eye.setPitch(15); f.tick();
+            f.eye.setYaw(140); f.eye.setPitch(15); f.awaitMoved(root.id(), UiTransform.IDENTITY);
             var placed = workspace.transform(root.id());
             assertNotEquals(UiTransform.IDENTITY,placed);
             assertEquals(0,refreshes.get(),"Moving retains the measured page instead of refreshing its business content");
             root.move();
             f.tick(); assertEquals(placed,workspace.transform(root.id()));
-            root.move(); f.eye.setYaw(100); f.eye.setPitch(-20); f.tick();
+            root.move(); f.awaitVisible(); f.eye.setYaw(100); f.eye.setPitch(-20); f.awaitMoved(root.id(), placed);
             assertNotEquals(placed,workspace.transform(root.id()));
             now.addAndGet(100_000_000);
             var cancel = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
@@ -256,14 +309,19 @@ class WorldMenuScopeTest {
                         new FloatingMenuDecoration.Surface(3,2,0xFF333333),FloatingMenuDecoration.Motion.NONE)).build());
         try (var f = new Fixture()) {
             for (var scene : scenes) {
-                var menu = f.service.openRoot(f.player,scene.toBuilder().animation(FloatingMenuAnimation.DEFAULT.reduced()).build());
-                f.tick();
+                var menu = f.service.openRoot(f.player,scene.toBuilder().windowPolicy(MenuWindowPolicy.FIXED)
+                        .animation(FloatingMenuAnimation.DEFAULT.reduced()).build());
+                f.awaitActive(menu);
                 assertEquals(FloatingMenuState.ACTIVE,menu.state());
+                assertTrue((boolean) f.foreground("visualsSpawned"),scene.screenId());
+                var center = (Location) f.foreground("origin");
+                assertTrue(FloatingMenuWorldInteractionGuard.UNIFIED.contains(f.eye, center, (FloatingMenuFraming) f.foreground("interactionFraming")),
+                        () -> scene.screenId() + " eye: " + f.eye + " center: " + center + " space: " + center.getWorld());
                 for (var action : java.util.List.of(Action.LEFT_CLICK_BLOCK,Action.RIGHT_CLICK_BLOCK)) {
                     for (var hand : java.util.List.of(EquipmentSlot.HAND,EquipmentSlot.OFF_HAND)) {
                         var click = f.blockClick(action,hand);
                         f.service.onWorldClick(click);
-                        assertEquals(Event.Result.DENY,click.useInteractedBlock(),scene.screenId());
+                        assertEquals(Event.Result.DENY,click.useInteractedBlock(),scene.screenId()+" "+action+" "+hand);
                         assertEquals(Event.Result.DENY,click.useItemInHand(),scene.screenId());
                     }
                 }
@@ -271,11 +329,245 @@ class WorldMenuScopeTest {
         }
     }
 
+    @Test void theSettingsPagePublishesItsControlsAtExtremeSizesFovsAndThemesInAConfinedRoom() throws Exception {
+        try (var f = new Fixture()) {
+            var now = new java.util.concurrent.atomic.AtomicLong(); f.clock(now::get);
+            var block = new BoundingBox(0, 0, 0, 1, 1, 1);
+            for (int x = -2; x <= 1; x++) for (int z = -2; z <= 3; z++) {
+                f.world.block(x, 62, z, block);
+                f.world.block(x, 65, z, block);
+                if (x == -2 || x == 1 || z == -2) f.world.block(x, 64, z, block);
+            }
+            var store = f.settings.constructed().getFirst();
+            var themes = List.<UiThemeColors>of(UiPalette.CHARCOAL, UiPalette.WARM, UiPalette.FOREST, UiCustomTheme.copyOf(UiPalette.WARM));
+            for (int index = 0; index < themes.size(); index++) {
+                var bundle = org.encinet.mik.shared.i18n.FluentTestSupport.bundle(index == 0 || index == 3
+                        ? org.encinet.mik.shared.i18n.Language.DE_DE : org.encinet.mik.shared.i18n.Language.EN_US);
+                when(f.language.t(eq(f.player), any(Message.class))).thenAnswer(call ->
+                        org.encinet.mik.shared.i18n.FluentTestSupport.text(bundle, call.getArgument(1)));
+                var selected = new FloatingMenuPreferences(index % 2 == 0 ? FloatingMenuScale.MAXIMUM : FloatingMenuScale.MINIMUM,
+                        index < 2 ? FloatingMenuTextScale.MAXIMUM : FloatingMenuTextScale.MINIMUM,
+                        new FloatingMenuFieldOfView(List.of(30, 110, 73, 31).get(index)), index % 2 == 0, themes.get(index));
+                when(store.preferences(f.player.getUniqueId())).thenReturn(selected);
+                f.eye.setYaw(180); f.eye.setPitch(0);
+                f.service.openSettings(f.player);
+                var menu = f.service.current(f.player).orElseThrow();
+                f.awaitActive(menu);
+                assertTrue((boolean) f.foreground("visualsSpawned"), selected::toString);
+                assertEquals(selected, f.foreground("preferences"));
+                for (var key : List.of("preview", "field-of-view", "reset-scale", "reduced-motion")) {
+                    var surface = f.surface(key);
+                    assertNotNull(surface, () -> selected + " / " + key);
+                    var toward = f.eye.clone().setDirection(MenuSurfaceAttachment.vector(surface.center()).subtract(f.eye.toVector()));
+                    assertTrue(surface.intersect(toward, 0).isPresent(), () -> selected + " / " + key);
+                }
+                f.press("field-of-view",now);
+                f.awaitControl(null, "fov-custom");
+                assertNotNull(f.surface("fov-custom"));
+                f.press("back",now);
+                f.awaitControl(null, "field-of-view");
+                assertNotNull(f.surface("field-of-view"));
+                if (selected.theme() instanceof UiCustomTheme) {
+                    f.press("edit-theme",now);
+                    f.awaitControl(null, "color:window");
+                    assertNotNull(f.surface("color:window"));
+                    f.press("back",now);
+                    f.awaitControl(null, "edit-theme");
+                    assertNotNull(f.surface("edit-theme"));
+                }
+                f.press("back",now);
+                f.await(() -> menu.state() == FloatingMenuState.CLOSED);
+            }
+        }
+    }
+
+    @Test void onlyTheLatestVerifiedLayoutCanReplaceTheVisibleFrameAndItsActions() throws Exception {
+        try (var fixture = new Fixture()) {
+            var now = new AtomicLong();
+            fixture.clock(now::get);
+            var previousClicks = new AtomicInteger();
+            var supersededClicks = new AtomicInteger();
+            var verifiedClicks = new AtomicInteger();
+            var root = fixture.service.openRoot(fixture.player, replacementPage("original", "Continue", previousClicks));
+            fixture.awaitActive(root);
+            var originalFrame = fixture.foreground("layoutSnapshot");
+            var originalSurface = fixture.surface("original");
+            fixture.eye.setDirection(MenuSurfaceAttachment.vector(originalSurface.center()).subtract(fixture.eye.toVector()));
+
+            root.update(replacementPage("superseded", "A substantially wider replacement control", supersededClicks));
+            assertNotNull(fixture.foreground("pendingLayout"));
+            assertSame(originalFrame, fixture.foreground("layoutSnapshot"));
+            assertTrue((boolean) fixture.foreground("visualsSpawned"));
+            assertEquals(originalSurface, fixture.surface("original"));
+            now.addAndGet(100_000_000);
+            fixture.service.onWorldClick(fixture.click(Action.LEFT_CLICK_AIR, EquipmentSlot.HAND));
+            assertEquals(0, previousClicks.get(), "A held-over frame may not authorize an old business action");
+
+            root.update(replacementPage("latest", "Latest verified replacement", verifiedClicks));
+            fixture.await(() -> {
+                assertFalse(fixture.hasControl(null, "superseded"), "The superseded layout must never be published");
+                return fixture.published() && fixture.hasControl(null, "latest");
+            });
+            assertFalse(fixture.hasControl(null, "original"));
+            fixture.press("latest", now);
+            assertEquals(0, supersededClicks.get());
+            assertEquals(1, verifiedClicks.get());
+        }
+    }
+
+    @Test void interfaceRecoveryDoesNotNeedAnOpenMenuAndKeepsReducedMotion() throws Exception {
+        try (var fixture = new Fixture()) {
+            var store = fixture.settings.constructed().getFirst();
+            var viewer = fixture.player.getUniqueId();
+            var saved = new AtomicReference<>(new FloatingMenuPreferences(FloatingMenuScale.MAXIMUM, FloatingMenuTextScale.MAXIMUM,
+                    new FloatingMenuFieldOfView(30), true, UiCustomTheme.copyOf(UiPalette.WARM)));
+            when(store.preferences(viewer)).thenAnswer(_ -> saved.get());
+            doAnswer(call -> { saved.set(call.getArgument(1)); return null; }).when(store).setPreferences(eq(viewer), any());
+            assertTrue(fixture.service.current(fixture.player).isEmpty());
+            var calibrated = new FloatingMenuFieldOfView(73);
+            fixture.service.resetInterface(fixture.player, calibrated);
+            assertEquals(FloatingMenuPreferences.DEFAULT.withFieldOfView(calibrated).withReducedMotion(true), saved.get());
+            fixture.awaitActive(fixture.service.openRoot(fixture.player, fixture.scene(new AtomicInteger())));
+            assertEquals(saved.get(), fixture.foreground("preferences"));
+        }
+    }
+
+    @Test void dismissingAPopoverBeforeItsParentPublishesKeepsTheNewParent() throws Exception {
+        try (var fixture = new Fixture()) {
+            var root = fixture.service.openRoot(fixture.player, replacementPage("source", "Short", new AtomicInteger()));
+            fixture.awaitActive(root);
+            var desired = replacementPage("source", "Replacement with a much wider source", new AtomicInteger());
+            root.update(desired);
+            assertNotNull(fixture.foreground("pendingLayout"));
+            var closed = new AtomicInteger();
+            root.openPopover(UiKey.named("source"), _ -> new MenuPanel() {
+                @Override public MenuScene render() { return fixture.scene(new AtomicInteger()); }
+                @Override public void close() { closed.incrementAndGet(); }
+            });
+            assertNotNull(fixture.foreground("pendingLayout"));
+            root.closePopover();
+            assertEquals(1, closed.get());
+            fixture.awaitVisible();
+            assertEquals(desired.content(), ((MenuScene) fixture.foreground("authored")).content());
+            assertNull(((SceneGeometry) fixture.foreground("layoutSnapshot")).popover());
+        }
+    }
+
+    private static MenuScene replacementPage(String key, String label, AtomicInteger clicks) {
+        return MenuScene.screen("replace-in-place").animation(FloatingMenuAnimation.DEFAULT.reduced())
+                .content(Ui.button(Component.text(label)).key(key).primary((_, _) -> clicks.incrementAndGet()).build()).build();
+    }
+
+    @Test void pendingGeometryCannotPublishAfterAReplacementOrClose() throws Exception {
+        try (var f = new Fixture()) {
+            var first = f.service.openRoot(f.player, f.scene(new AtomicInteger()));
+            f.tick();
+            var replacement = MenuScene.screen("updated").windowPolicy(MenuWindowPolicy.FIXED)
+                    .animation(FloatingMenuAnimation.DEFAULT.reduced())
+                    .content(Ui.text(Component.text("Current view")).key("current").build()).build();
+            first.update(replacement);
+            f.awaitActive(first);
+            assertNotNull(f.surface("current"));
+            assertEquals("updated", ((SceneGeometry) f.foreground("layoutSnapshot")).definition().screenId());
+            first.close();
+            f.await(() -> first.state() == FloatingMenuState.CLOSED);
+            var renderer = f.renderer.constructed().getFirst();
+            clearInvocations(renderer);
+            var pending = f.service.openRoot(f.player, replacement);
+            f.tick();
+            pending.close();
+            f.await(() -> pending.state() == FloatingMenuState.CLOSED);
+            for (int tick = 0; tick < 8; tick++) f.tick();
+            verify(renderer, never()).spawn(eq(f.player), anyInt(), any(UUID.class), any(), any(Location.class), anyInt());
+        }
+    }
+
+    @Test void sneakSwapAllowsFourMenuActionsWithoutReleasingSneak() throws Exception {
+        try (var f = new Fixture()) {
+            var clock = new AtomicLong();
+            f.clock(clock::get);
+            var opened = new AtomicReference<FloatingMenuHandle>();
+            var openings = new AtomicInteger();
+            var scene = f.scene(new AtomicInteger());
+            f.service.setMainMenuOpener(player -> {
+                openings.incrementAndGet();
+                opened.set(f.service.openRoot(player, scene));
+            });
+
+            f.sneak(true);
+            assertTrue(f.swapHands());
+            var first = opened.get();
+            f.awaitActive(first);
+            clock.set(100_000_000L);
+            assertTrue(f.swapHands());
+            f.await(() -> first.state() == FloatingMenuState.CLOSED);
+            clock.set(200_000_000L);
+            assertTrue(f.swapHands());
+            var second = opened.get();
+            f.awaitActive(second);
+            clock.set(300_000_000L);
+            assertTrue(f.swapHands());
+            f.await(() -> second.state() == FloatingMenuState.CLOSED);
+            clock.set(400_000_000L);
+            assertTrue(f.swapHands());
+            assertEquals(2, openings.get());
+
+            f.sneak(false);
+            assertFalse(f.swapHands());
+            f.sneak(true);
+            assertTrue(f.swapHands());
+            assertEquals(2, openings.get());
+
+            clock.set(1_000_000_000L);
+            assertTrue(f.swapHands());
+            assertEquals(3, openings.get());
+        }
+    }
+
+    @Test void sneakSwapSharesItsMenuBudgetWithControlHotkeysButOrdinarySwapDoesNot() throws Exception {
+        try (var f = new Fixture()) {
+            var clock = new AtomicLong();
+            f.clock(clock::get);
+            var actions = new AtomicInteger();
+            var scene = MenuScene.screen("with-hotkey").animation(FloatingMenuAnimation.DEFAULT.reduced())
+                    .content(Ui.button(Component.text("Action")).key("shortcut")
+                            .on(FloatingMenuInteraction.HOTKEY, (_, _, _) -> actions.incrementAndGet()).build()).build();
+            var opened = new AtomicReference<FloatingMenuHandle>();
+            f.service.setMainMenuOpener(player -> opened.set(f.service.openRoot(player, scene)));
+            f.sneak(true);
+            assertTrue(f.swapHands());
+            var first = opened.get();
+            f.awaitActive(first);
+            f.eye.setDirection(MenuSurfaceAttachment.vector(f.surface("shortcut").center()).subtract(f.eye.toVector()));
+            for (int i = 1; i <= 3; i++) {
+                f.awaitAim(null, "shortcut");
+                clock.set(i * 100_000_000L);
+                assertTrue(f.swapHands());
+                assertEquals(i, actions.get());
+            }
+
+            f.awaitAim(null, "shortcut");
+            clock.set(400_000_000L);
+            assertTrue(f.swapHands());
+            assertEquals(3, actions.get());
+
+            f.sneak(false);
+            assertTrue(f.swapHands());
+            assertEquals(4, actions.get());
+
+            f.awaitAim(null, "shortcut");
+            f.sneak(true);
+            clock.set(1_000_000_000L);
+            assertTrue(f.swapHands());
+            assertEquals(5, actions.get());
+            assertEquals(FloatingMenuState.ACTIVE, first.state());
+        }
+    }
+
     @Test void foregroundRenderingShieldsNearbyClicksAndReleasesOutsideItsRangeOrAfterClose() throws Exception {
         try (var f = new Fixture()) {
-            f.service.openRoot(f.player,MenuScene.screen("reading").animation(FloatingMenuAnimation.DEFAULT.reduced())
-                    .content(Ui.text(Component.text("Read only")).build()).build());
-            f.tick();
+            f.awaitActive(f.service.openRoot(f.player,MenuScene.screen("reading").animation(FloatingMenuAnimation.DEFAULT.reduced())
+                    .content(Ui.text(Component.text("Read only")).build()).build()));
             f.eye.setYaw(210);
             var nearby = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
             f.service.onWorldClick(nearby);
@@ -297,10 +589,15 @@ class WorldMenuScopeTest {
             var menu = f.service.openRoot(f.player,MenuScene.screen("reading")
                     .content(Ui.text(Component.text("Read only")).build()).build());
             assertEquals(FloatingMenuState.OPENING,menu.state());
+            assertEquals(0,f.world.blockReads(),"Opening must not synchronously sample the terrain");
+            var pending = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
+            f.service.onWorldClick(pending);
+            assertNotEquals(Event.Result.DENY,pending.useInteractedBlock(),"An unverified frame does not accept input");
+            f.awaitVisible();
             var opening = f.blockClick(Action.RIGHT_CLICK_BLOCK,EquipmentSlot.HAND);
             f.service.onWorldClick(opening);
             assertEquals(Event.Result.DENY,opening.useInteractedBlock());
-            for (int tick=0;tick<10;tick++) f.tick();
+            f.awaitActive(menu);
             assertEquals(FloatingMenuState.ACTIVE,menu.state());
             menu.close();
             assertEquals(FloatingMenuState.CLOSING,menu.state());
@@ -410,6 +707,7 @@ class WorldMenuScopeTest {
         final FloatingMenuTestWorld world = new FloatingMenuTestWorld();
         final Location eye = new Location(world.world(),0,64,2,180,0);
         final Player player = mock(Player.class);
+        final LanguageService language = mock(LanguageService.class);
         final AxiomGizmoService.Scope gizmoScope = mock(AxiomGizmoService.Scope.class);
         final AxiomImageService imageService = mock(AxiomImageService.class);
         final MockedStatic<Bukkit> bukkit = mockStatic(Bukkit.class);
@@ -432,7 +730,6 @@ class WorldMenuScopeTest {
                 var nextId = new AtomicInteger(100); entityIds.when(() -> VirtualMenuEntityRenderer.allocateId(player)).thenAnswer(_ -> nextId.incrementAndGet());
                 var plugin = mock(JavaPlugin.class); when(plugin.isEnabled()).thenReturn(true); when(plugin.getDataFolder()).thenReturn(directory); when(plugin.getLogger()).thenReturn(Logger.getAnonymousLogger());
                 var gizmos = mock(AxiomGizmoService.class); when(gizmos.scope(anyString())).thenReturn(gizmoScope);
-                var language = mock(LanguageService.class);
                 when(language.text(any(Player.class),any(org.encinet.mik.shared.i18n.Message.class),any(net.kyori.adventure.text.format.TextColor.class),any(Object[].class))).thenReturn(Component.text("Window"));
                 service = new FloatingMenuService(plugin,gizmos,imageService,language,_ -> false);
             } catch (RuntimeException | Error error) { closeMocks(); throw error; }
@@ -465,7 +762,55 @@ class WorldMenuScopeTest {
         PlayerInteractEvent blockClick(Action action,EquipmentSlot hand) {
             return new PlayerInteractEvent(player,action,null,FloatingMenuTestWorld.air(),org.bukkit.block.BlockFace.SOUTH,hand);
         }
+        void sneak(boolean sneaking) {
+            when(player.isSneaking()).thenReturn(sneaking);
+        }
+        boolean swapHands() {
+            var event = new PlayerSwapHandItemsEvent(player, null, null);
+            service.onSwapHandItems(event);
+            return event.isCancelled();
+        }
         void tick() throws Exception { var method = FloatingMenuService.class.getDeclaredMethod("tick"); method.setAccessible(true); method.invoke(service); }
+        boolean published() throws Exception { return foreground("pendingLayout") == null && (boolean) foreground("visualsSpawned"); }
+        boolean hasControl(UUID owner, String key) throws Exception {
+            var geometry = (SceneGeometry) foreground("layoutSnapshot");
+            var workspace = (MenuWorkspaceSession) foreground("workspace");
+            return geometry.frame().elements().stream().anyMatch(node -> node.node().key().value().equals(key)
+                    && (owner == null || workspace.ownerOf(node.path()).equals(owner)));
+        }
+        void awaitVisible() throws Exception { await(this::published); }
+        void awaitControl(UUID owner, String key) throws Exception {
+            await(() -> published() && hasControl(owner, key) && surface(owner, key) != null);
+        }
+        void awaitActive(FloatingMenuHandle menu) throws Exception { await(() -> menu.state() == FloatingMenuState.ACTIVE); }
+        void awaitPlaced() throws Exception { await(() -> foreground("windowMove") == null); }
+        void awaitMoved(UUID owner, UiTransform previous) throws Exception {
+            var workspace = (MenuWorkspaceSession) foreground("workspace");
+            await(() -> published() && !previous.equals(workspace.transform(owner)));
+        }
+        void awaitAim(UUID owner, String key) throws Exception {
+            await(() -> {
+                if (!published() || !hasControl(owner, key)) return false;
+                var surface = surface(owner,key);
+                return surface != null && surface.intersect(eye,0).isPresent();
+            });
+        }
+        void press(String key, java.util.concurrent.atomic.AtomicLong time) throws Exception {
+            var control = surface(key);
+            eye.setDirection(MenuSurfaceAttachment.vector(control.center()).subtract(eye.toVector()));
+            awaitAim(null,key);
+            time.addAndGet(100_000_000);
+            service.onWorldClick(click(Action.LEFT_CLICK_AIR,EquipmentSlot.HAND));
+        }
+        void await(java.util.concurrent.Callable<Boolean> ready) throws Exception {
+            long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+            while (System.nanoTime() - deadline < 0) {
+                tick();
+                if (ready.call()) return;
+                Thread.sleep(2);
+            }
+            fail("The menu did not publish the expected verified frame");
+        }
         @SuppressWarnings("unchecked")
         void clock(java.util.function.LongSupplier clock) throws Exception {
             var field = FloatingMenuService.class.getDeclaredField("inputGates"); field.setAccessible(true);
@@ -478,7 +823,7 @@ class WorldMenuScopeTest {
         }
         void closeMocks() { settings.close(); status.close(); sounds.close(); renderer.close(); entityIds.close(); bukkit.close(); }
         @Override public void close() {
-            try { service.closeAllImmediately(); }
+            try { service.disable(); }
             finally { closeMocks(); }
         }
     }

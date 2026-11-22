@@ -46,6 +46,7 @@ interface-fov-invalid = 请输入 30 至 110 的整数。
 interface-fov-title = 视野（FOV）
 interface-reduced-motion = 减弱动态效果
 interface-reduced-motion-hint = 减少菜单移动和晃动
+interface-reset-done = 已恢复菜单大小、字号和主题。菜单视野为 { $arg0 }°，用 /menu 重新打开。
 interface-scale-adjust-hint = 指向比例选项，用滚轮调节
 interface-scale-layout-title = 菜单大小
 interface-scale-menu-title = 界面与文字
@@ -177,7 +178,6 @@ password-already-set = 已设置密码，请用 /password change 修改。
 password-busy = 尝试过于频繁，请稍后重试。
 password-change = 修改密码
 password-change-done = 密码已修改。
-password-checking = 正在检查账号安全状态……
 password-command-description = 管理账号密码保护
 password-confirm = 确认新密码
 password-conflict = 账号安全状态已变更，请重新操作。
@@ -204,7 +204,6 @@ password-reset = 重置密码
 password-reset-console = 已重置 { $arg0 } 的密码：{ $arg1 }。请核实本人后通过可信渠道交付。
 password-reset-done = 已重置 { $arg0 } 的密码。请立即复制并核实本人后交付；关闭后无法再次查看。
 password-reset-question = 重置 { $arg0 } 的密码？旧密码将失效，目标连接将断开。请输入你自己的密码确认。
-password-retry = 重试
 password-rules = 密码须为 { $arg0 }～{ $arg1 } 个字符，不能使用玩家名或常见弱密码。
 password-set = 设置密码
 password-set-done = 密码已设置。
@@ -518,6 +517,10 @@ chat-private-self = 不能和自己开始私聊
 chat-private-target-not-found = 找不到在线玩家 { $arg0 }
 chat-private-target-offline = 私聊对象已离线，请等待对方上线或选择其他频道
 chat-private-tip-channel-mm = 用 <aqua><u><click:suggest_command:'/msg '>/msg 玩家</click></u></aqua> 进入私聊频道，用 <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> 返回公共频道
+chat-private-web-pending = 网页私聊待确认
+chat-private-web-not-submitted = 发给 { $arg0 } 的私信未保存到共享聊天。
+chat-private-web-saved = 发给 { $arg0 } 的私信已保存到共享聊天记录。
+chat-private-web-unconfirmed = 暂不能确认发给 { $arg0 } 的私信是否保存，请先核对再重发。
 chat-public-command-description = 切换公共聊天频道
 chat-public-enter = 已切换到公共聊天频道
 chat-reply-command-description = 回复最近的私聊对象
@@ -525,8 +528,6 @@ chat-settings-menu-title = 聊天设置
 chat-social-account-label = 平台账号
 chat-social-bound-player-label = 绑定玩家
 chat-social-name-label = 社交昵称
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = 未绑定 Minecraft 玩家
 chat-staff-command-description = 切换{ chat-staff-label }聊天频道
 chat-staff-label = 管理
@@ -541,26 +542,15 @@ staffchat-enter = 已进入{ chat-staff-label }聊天频道
 
 ## Community · Announcements
 
-announcement-count = { $arg0 } 条公告
 announcement-empty = 暂无公告
-announcement-first-page = 已到最新公告
-announcement-last-page = 已到最早公告
 announcement-latest = 最新公告
-announcement-list-newer = 较新一组
-announcement-list-older = 较早一组
-announcement-more-count = 还有 { $arg0 } 条未显示
-announcement-new-count = 新增 { $arg0 } 条
 announcement-newer = 较新公告
 announcement-next-page = 下一页
 announcement-older = 较早公告
 announcement-page = { $arg0 } / { $arg1 } 页
 announcement-previous-page = 上一页
-announcement-reload = 重新加载公告
-announcement-reload-command-description = 重新加载公告文件
-announcement-reload-failed = 公告加载失败，原有公告已保留
-announcement-reloaded = 公告已重新加载
-announcement-unread-count = { $arg0 } 条未读
-announcement-updated = 服务器公告已更新
+announcement-stale = 上次成功获取的更新日志
+announcement-unavailable = 暂时无法读取更新日志。
 announcement-view-all = 查看全部公告
 announcement-view-command-description = 查看服务器公告
 
@@ -580,15 +570,9 @@ identity-admin-help = /bindadmin lookup <玩家或UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 未找到该玩家的绑定记录。
 identity-admin-lookup-title = { $arg0 } 的绑定：
-identity-binding-community = 社区 #{ $arg0 }
 identity-binding-info = 绑定时间：{ $arg0 }
     绑定编号：{ $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = 所选绑定不存在或不属于你。
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 已解除所选的 { $arg0 } 绑定。
 identity-binding-unnamed = 未提供昵称
 identity-bindings-empty = 当前没有绑定任何外部平台账号。
@@ -610,184 +594,31 @@ identity-notify-linked = { $arg0 } 身份绑定成功。使用 /bind list 查看
 identity-notify-unlinked = 已解除你的 { $arg0 } 身份绑定。
 identity-platform-none = 无
 identity-platforms = 支持的平台：{ $arg0 }
-identity-storage-error = 身份绑定数据库操作失败，请联系管理员。
 identity-unavailable = 身份绑定服务当前不可用，请联系管理员。
 identity-unlink-action = [解绑]
 identity-unlink-hint = 只解除所选的这一条绑定。
 identity-unsupported-platform = 不支持的平台：{ $arg0 }
-social-admin-conversations-empty = 尚未观察到 { $arg0 } 的会话。
-social-admin-conversations-title = { $arg0 } 已观察到的会话：
-social-admin-help = /social platforms · /social status [平台] · /social reload [平台] · /social conversations <平台>
-social-admin-metrics = 入站 { $arg0 }／重试 { $arg1 } · 出站 { $arg2 }／背压 { $arg3 } · 失败 { $arg4 }
-social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
-social-admin-reloaded = 已重新加载社交平台 { $arg0 }。
-social-admin-reloaded-all = 已重新加载所有社交平台。
-social-admin-status = { $arg0 } · { $arg1 } · 代次 { $arg2 } · 会话 { $arg3 }
-social-admin-title = 社交平台
-social-admin-unknown = 未知社交平台：{ $arg0 }
-social-binding-already-linked = 你已经绑定了 { $arg0 }，发送 { $arg1 } 可以查看资料。
-social-binding-confirmation-expired = 确认已过期，或绑定账号已变化。请重新发起解绑确认：
-social-binding-code-invalid = 这个验证码无效或已过期。重新连接服务器获取新码；已经在游戏内时，可执行 { $arg0 }。
-social-binding-external-in-use = 当前平台身份已绑定其他 Minecraft 玩家。
-social-binding-help = 先连接 Minecraft 服务器，把登录提示里的完整绑定指令发到这里。已经在游戏内时，可执行 { $arg0 } 获取。
-social-binding-identity-missing = 当前消息没有可靠的平台成员标识，无法执行身份绑定。
-social-binding-link-completed = 账号绑定已完成。重新连接服务器即可继续登录。
-social-binding-linked = 绑定好了，你的游戏账号是 { $arg0 }。重新连接服务器即可继续登录。
-social-binding-membership-required = 请先加入此平台的接入社区，再重试绑定
-social-binding-membership-unavailable = 社区成员资格暂时无法核验，请稍后重试或联系服务器管理员
-social-binding-not-bound = 你还没有绑定游戏账号。
-social-binding-platform-mismatch = 该验证码是为其他平台生成的。
-social-binding-player-scope-in-use = 该 Minecraft 玩家已在相同的平台账号范围内绑定其他身份。
-social-binding-rate-limited = 验证码尝试次数过多，请约 { $arg0 } 分钟后重试。
-social-binding-unavailable = 身份绑定暂时不可用，请联系服务器管理员。
-social-binding-unlink-completed = 账号解绑已完成。若没有其他有效社区绑定，需要重新绑定才能入服。
-social-binding-unlink-prompt = 将解除这个平台账号与 { $arg0 } 的绑定。若没有其他有效社区绑定，你将失去入服资格，当前在线也会被移出。确定后发送：
-social-binding-unlinked = 已解除与 Minecraft 玩家 { $arg0 } 的绑定。
-social-command-description = 管理社交平台适配器
-social-command-invalid-arguments = 参数不正确，请按以下方式发送：
-social-command-usage = 这条指令不需要参数，直接发送：
-social-crypto-command-description = 管理 Matrix 加密设备验证
-social-crypto-comparison-not-ready = SAS 比对尚未就绪。
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = 设备验证失败，请查看服务器日志。
-social-crypto-no-active = 当前没有进行中的设备验证。
-social-crypto-not-accepting = 当前验证阶段无法接受请求。
-social-crypto-not-running = Matrix 尚未运行。
-social-crypto-requested = 已发起验证：{ $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] 正在初始化
-    [verified] 已验证
-    [unverified] 未验证
-    [no_cross_signing] 未启用交叉签名
-    [requested] 已请求
-    [ready] 就绪
-    [started] 已开始
-    [comparison] 等待比对
-    [waiting] 等待完成
-    [done] 已完成
-    [cancelled] 已取消
-   *[unknown] 未知
-    [valid] 密钥有效
-    [cross_signed] 已交叉签名
-    [not_cross_signed] 未交叉签名
-    [blocked] 已屏蔽
-    [invalid] 密钥无效
-    }
-social-crypto-status = 验证：{ $arg0 }
-    密钥备份版本：{ $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = 请指定当前验证事务的完整 ID。
-social-crypto-unavailable = 不可用
-social-crypto-updated = 验证已更新；使用 matrixcrypto status 查看状态。
-social-crypto-usage = matrixcrypto status [用户ID 设备ID]
-    matrixcrypto verify <用户ID> <设备ID>
-    matrixcrypto accept|confirm|cancel <事务ID>
-social-duration-days = { $arg0 } 天 { $arg1 } 小时 { $arg2 } 分钟
-social-duration-hours = { $arg0 } 小时 { $arg1 } 分钟
-social-duration-minutes = { $arg0 } 分钟
-social-help-command-description = 显示此命令列表
-social-link-command-description = 使用游戏内验证码绑定 Minecraft 账号
-social-link-command-parameters = <验证码>
-social-online-command-description = 查看在线玩家
-social-profile-afk = 在线 · AFK
-social-profile-avatar-alt = Minecraft 头像
-social-profile-command-description = 查看自己；正式成员可按玩家名、@提及或回复查询他人
-social-profile-command-parameters = [玩家名]
-social-profile-first-joined-label = 首次加入
-social-profile-language-label = 语言
-social-profile-last-seen-label = 最近在线
-social-profile-member-required = 只有已绑定的正式成员或管理、维护者可以查询其他玩家。
-social-profile-offline = 离线
-social-profile-online = 在线 · 活跃
-social-profile-play-time-label = 游玩时间
 social-profile-player-label = 玩家
-social-profile-player-not-found = 未找到该 Minecraft 玩家。
-social-profile-presence-label = 状态
-social-profile-target-ambiguous = 请只指定一个玩家名、@一名用户，或回复一名用户。
-social-profile-target-unbound = 被提及或回复的平台身份尚未绑定 Minecraft 玩家。
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = 当前没有玩家在线。
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (挂机)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = 现在有 { $arg0 } 人在线。{ $arg1 ->
-    [0] { "" }
-   *[other] 其中 { $arg1 } 人在挂机。
-    }
-social-query-players-label = 玩家
-social-query-population = 在线 { $arg0 }/{ $arg1 } · 活跃 { $arg2 } · 挂机 { $arg3 }
-social-query-unknown = 未知指令。发送 { $arg0 } 查看可用指令。
-social-query-uptime-label = 运行时间
-social-query-version-label = 版本
-social-reply-hidden = 消息未通过内容审查，原因: { $arg0 }
-social-reply-review-failed = 内容审查失败：{ $arg0 }。请稍后重试。
-social-reply-unavailable = 暂时无法展示这次操作的结果。账号操作可用资料指令核对，请勿反复提交。
-social-state-disabled = 已禁用
-social-state-failed = 失败
-social-state-ready = 就绪
-social-state-starting = 正在启动
-social-state-stopped = 已停止
-social-status-command-description = 查看玩家、TPS、MSPT 和运行时间
-social-title-command-help = 命令帮助
-social-title-content-hidden = 内容已隐藏
 social-title-player-profile = 玩家资料
-social-title-server-status = 服务器状态
-social-unlink-command-description = 确认后解除当前身份绑定
-social-unlink-command-parameters = [{ social-unlink-confirmation } <确认码>]
-social-unlink-confirmation = 确认
 
 ## Community · AI and knowledge
 
+ai-answer = AI 回复
 ai-busy = AI 当前请求较多，请稍后再试
-ai-cleared = 已清除 AI 对话记录
+ai-cancelled = 已取消 AI 请求，保留了对话记录。
 ai-command-description = 向游戏内 AI 助手提问
 ai-disabled = AI 助手尚未启用或配置
-ai-knowledge-curation-failed = 知识整理失败：{ $arg0 }
-ai-knowledge-curation-finished = 知识整理完成：应用 { $arg0 }、跳过 { $arg1 }、失败 { $arg2 }、隔离 { $arg3 }、处理 { $arg4 }。
-ai-knowledge-curation-started = 已开始整理知识候选。
-ai-knowledge-disabled = 知识库已停用。
-ai-knowledge-index-dirty = 索引需要修复；同步完成前已暂停私人记忆检索。
-ai-knowledge-last-failure = 上次失败：{ $arg0 }
-ai-knowledge-last-sync = 上次同步：{ $arg0 }
-ai-knowledge-learning-disabled = 知识学习已停用。
-ai-knowledge-operation-failed = 知识库操作失败：{ $arg0 }
-ai-knowledge-operation-started = 知识库操作已开始。
-ai-knowledge-protected = 知识文档 { $arg0 } 已设为受保护。
-ai-knowledge-rollback = 知识文档 { $arg0 } 已恢复为版本 { $arg1 }。
-ai-knowledge-status = 知识：{ $arg0 }份公开文档 / { $arg1 }个文本片段 · { $arg2 }份私有文档 / { $arg3 }个文本片段
-ai-knowledge-sync-failed = 知识库同步失败：{ $arg0 }
-ai-knowledge-sync-started = 已开始同步知识库。
-ai-knowledge-synchronized = { ai-knowledge-status } · 同步完成。
-ai-knowledge-unprotected = 知识文档 { $arg0 } 已取消保护。
-ai-learning-failure = 学习失败：{ $arg0 }
-ai-learning-status = 学习状态：候选 { $arg0 }、正在提取 { $arg1 }、排队 { $arg2 }、丢弃的提取任务 { $arg3 }、丢弃的候选 { $arg4 }、隔离 { $arg5 }
-ai-memory-empty = { $arg0 } 没有私人记忆。
-ai-memory-list = { $arg0 } 的私人记忆：{ $arg1 }
-ai-memory-not-found = 未找到私人记忆 { $arg0 }。
-ai-memory-removed = 已永久删除 { $arg1 } 的{ $arg0 }条私有记忆。
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = 未找到已缓存的玩家：{ $arg0 }
+ai-nothing-to-cancel = 当前没有正在处理的 AI 问题。
 ai-prompt-too-long = 问题过长（最多 { $arg0 } 个字符）
-ai-reload-failed = AI 配置重载失败：{ $arg0 }
-ai-reloaded = 已重载 AI 配置（{ $arg0 }）
 ai-request-failed = AI 请求失败，请稍后再试
-ai-social-command-description = 向共享 AI 助手提问
-ai-social-command-parameters = <问题>
-ai-social-question-required = 请在 AI 命令后输入问题
-ai-status-disabled = AI 当前已禁用
-ai-status-enabled = AI 已启用 · 提供商 { $arg0 } · 模型 { $arg1 } · 工具 { $arg2 }
-ai-status-none = 无
-ai-thinking = 正在思考…
-ai-usage = 用法：/ai <问题> · /ai clear · /ai status
-ai-worker-status = AI 工作线程：运行 { $arg0 }、排队 { $arg1 }、丢弃 { $arg2 }
+ai-request-in-progress = 上一个 AI 请求还在处理中。
+ai-usage = AI 助手命令：
+    /ai <问题> — 提问或追问
+    /ai cancel — 取消当前提问
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>恭喜！</bold> 你已成为 <gold>正式成员</gold>，现在你拥有更多的命令和功能访问权限，比如可以进行投影一键打印！</green>
 governance-active-days-30 = 近 30 天至少 2 个有效参与日（当前 { $arg0 }）
 governance-active-days-60 = 近 60 天至少 6 个有效参与日（当前 { $arg0 }）
 governance-active-header = ─── 活跃成员资格 ───
@@ -822,7 +653,6 @@ governance-activity-status = { $arg0 ->
     [closed] 已结束
     *[view] 仅查看
     }
-governance-already-moderator = 你已经是管理。
 governance-application-status = { $arg0 ->
     [open] 任命投票进行中
     [pending] 已通过，等待任命
@@ -830,18 +660,12 @@ governance-application-status = { $arg0 ->
    *[ready] 可以申请管理
     }
 governance-ballot-recorded = 匿名投票已记录为“{ $arg0 }”；截止前可修改选择。
-governance-ban-details = 发起人 { $arg0 } · 封禁期限 { $arg1 } · 理由：{ $arg2 }
-governance-ban-suffix = · 期限 { $arg0 } · 理由：{ $arg1 }
 governance-choice-abstain = 弃权
 governance-choice-no = 反对
 governance-choice-yes = 赞成
 governance-command-description = 查看治理资格与投票
 governance-custodian-no-nomination = 维护者不参加管理任免。
-governance-custodian-no-resign = 维护者不适用管理辞任流程。
 governance-days = { $arg0 }天
-governance-error-ban-already-active = 该玩家已有生效中的封禁。
-governance-error-ban-proposer-ineligible = 只有活跃成员可以发起封禁投票。
-governance-error-ban-self = 不能发起封禁自己的投票。
 governance-error-candidate-ineligible = 管理候选人必须是活跃成员
 governance-error-nomination-not-open = 你没有进行中的管理申请。
 governance-error-not-voter = 你不在本次冻结选民名单中。
@@ -850,7 +674,6 @@ governance-error-pause-already-member = 该玩家已是成员，无需暂停晋�
 governance-error-pause-end-invalid = 晋升暂停期限必须晚于当前时间。
 governance-error-player-unknown = 该玩家尚无治理记录。
 governance-error-removal-petition-closed = 这项联署已结束或已被新的申请替代。
-governance-error-removal-requires-petition = 罢免投票必须由达到人数的联署启动。
 governance-error-removal-self = 被罢免者不能联署自己的罢免。
 governance-error-removal-sponsor-ineligible = 只有活跃成员可以联署罢免
 governance-error-removal-sponsors-too-few = 除被罢免者外至少需要两名活跃成员。
@@ -860,7 +683,6 @@ governance-error-termination-reason-invalid = 终止原因不适用于该类投�
 governance-error-vote-already-open = 该玩家已有进行中的同类投票。
 governance-error-vote-closed = 投票已经截止或终止。
 governance-error-vote-cooldown = 未达到法定参与人数后的三天重试间隔尚未结束。
-governance-error-vote-subject-unknown = 投票对象尚无治理记录。
 governance-error-vote-termination-closed = 投票截止时间已过，不能再终止或撤回。
 governance-error-vote-unknown = 投票不存在。
 governance-error-voters-too-few = 至少需要两名活跃成员才能发起投票。
@@ -870,15 +692,12 @@ governance-failure-none = 无
 governance-failure-quorum = 未达到法定参与人数
 governance-failure-two-thirds = 赞成票未达到非弃权票的三分之二
 governance-history-header = ─── 最近投票结果 ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 }小时
-governance-inactive-removal = { $arg0 } 已因连续 180 天未登录自动卸任管理。
 governance-invalid-choice = 请选择 yes、no 或 abstain。
 governance-invalid-duration = 期限格式无效，请使用 30m、12h、3d 等格式。
 governance-kind-appointment = 任命
-governance-kind-ban = 封禁
 governance-kind-removal = 罢免
-governance-legacy-ban-kick = 此前的治理投票已通过，你被封禁 { $arg0 }。理由：{ $arg1 }
 governance-menu-already-sponsored = 已联署
 governance-menu-application = 申请状态
 governance-menu-completed = 已结束
@@ -927,7 +746,6 @@ governance-no-active-pause = 当前没有生效中的晋升暂停
 governance-nomination-withdrawn = 已撤回管理申请；投票终止结果将自动公告。
 governance-none = 暂无
 governance-not-member = 尚未成为成员
-governance-not-moderator = 你当前不是管理。
 governance-operation-error = 治理操作失败，请重试。
 governance-own-choice-closed = 你的选择：{ $arg0 }
 governance-own-choice-open = 你的选择：{ $arg0 }；截止前可修改。
@@ -955,9 +773,8 @@ governance-promotion-account-age = 首次加入已满 3 天
 governance-promotion-header = ─── 新人晋升条件 ───
 governance-promotion-play-days = 有效游玩跨至少 2 个自然日（当前 { $arg0 }）
 governance-promotion-playtime = 有效游玩满 8 小时（当前 { $arg0 }）
-governance-resign-failed = 辞任失败，请联系维护者。
 governance-resigned = { $arg0 } 已辞任管理。
-governance-result-announcement = 投票 #{ $arg0 } { $arg1 }（{ $arg2 }）：{ $arg3 }{ $arg4 }
+governance-result-announcement = 投票 #{ $arg0 } { $arg1 }（{ $arg2 }）：{ $arg3 }
 governance-result-failed = 未通过（{ $arg0 }）
 governance-result-open = 进行中
 governance-result-passed = 通过
@@ -965,7 +782,6 @@ governance-result-tally = { $arg0 } · 选民 { $arg1 }，参与 { $arg2 }，赞
 governance-result-terminated = 已终止（{ $arg0 }）
 governance-resume-notice = 你的晋升暂停已解除。理由：{ $arg0 }
 governance-resume-reason-required = 请填写解除暂停的理由。
-governance-role-lookup-error = 无法核对管理身份，请联系维护者。
 governance-seconds = { $arg0 }秒
 governance-storage-error = 治理数据操作失败，请联系维护者。
 governance-termination-inactive = 被罢免者因长期离线自动卸任
@@ -1182,14 +998,30 @@ plot-subplot-created = 已建立子地段「{ $arg0 }」· { $arg1 } 格²
 plot-title = 地段
 plot-transferred = 已将地段「{ $arg0 }」转让给 { $arg1 }。
 vehicle-command-description = 驾驶与管理展示实体载具
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] 需要 mik.vehicle.use 权限。
+        [ALREADY_RIDING] 请先离开当前座位。
+        [TOO_FAR] 请靠近到载具的 32 格内。
+        [DRIVER_OCCUPIED] 驾驶位已被占用。
+        [NO_PASSENGER_SEAT] 此模型没有乘客位。
+        [PASSENGER_FULL] 乘客位已坐满。
+        [STOP_ENGINE] 请停车并关闭发动机。
+        [FUEL_FULL] 燃料已满。
+        [HEALTH_FULL] 车况完好，无需维修。
+        [NEED_FUEL] 请在主手拿煤或木炭。
+        [NEED_IRON] 请在主手拿铁锭。
+        [EMPTY_VEHICLE] 请停车并让所有乘员下车。
+       *[UNAVAILABLE] 这台载具目前不可用。
+    }
+vehicle-menu-distance = { $arg0 } 米
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] 载具控制
-        [driving] 驾驶与乘坐
+        [vehicle] 载具概览
         [maintenance] 维护与权限
         [public-status] 当前公开
         [private-status] 当前私有
-        [home] 载具工作台
+        [home] 载具
         [nearby] 附近载具
         [fleet] 所有可访问载具
         [selection] 模型采集选区
@@ -1199,22 +1031,15 @@ vehicle-menu-label =
         [displays] 浏览附近展示实体
         [clear] 清空选区与原点
         [capture] 从选区创建模型
-        [toggle-selection] 切换选中状态
         [public] 设为公开
         [private] 设为私有
         [reload] 从文件重载模型
         [leave] 离开载具
-        [passenger] 乘客座位
-        [fuel] 加油 · 主手持煤或木炭
-        [repair] 维修 · 主手持铁锭
-        [access] 访问权限
+        [passenger] 坐上乘客位
+        [fuel] 加油
+        [repair] 维修
         [remove] 移除载具
-        [hud] 显示驾驶 HUD
         [hide-preview] 隐藏 3D 预览
-        [service-hint] 请靠近并停车熄火，主手持所需材料。
-        [nearby-hint] 请靠近至 32 格内，并先离开当前座位。
-        [use-required] 需要 mik.vehicle.use 权限。
-        [remove-hint] 请先停车并让所有乘员下车。
         [reload-hint] 所有载具须停车、熄火且无人乘坐。草稿保留；外部已更改的模型须重新打开。
         [pick-hint] 瞄准展示实体后右键选中整组；潜行右键取消，30 秒后过期。
         [spawn-hint] 世界坐标默认位于前方四格；载具朝向按生成时的水平视角。
@@ -1222,16 +1047,42 @@ vehicle-menu-label =
         [zoom-out] 缩小预览
         [frame] 在面前重新摆放
         [offset] 相对移动
+        [drive] 坐上驾驶位
+        [driver-seat] 你在驾驶位
+        [passenger-seat] 你在乘客位
+        [current] 当前载具
+        [boarded] 已坐上驾驶位。用 /vehicle 打开载具菜单，进入驾驶面板查看仪表和操作说明。
+        [display] 展示实体
+        [select-display] 加入选区
+        [deselect-display] 从选区移除
+        [aim-group] 瞄准并选取整组
+        [empty-nearby] 32 格内没有可使用的载具。
+        [empty-fleet] 没有可使用的载具。
+        [empty-selection] 请先选中至少一个展示实体。
+        [controls] 操作说明
+        [show-hud] 显示驾驶 HUD
+        [hide-hud] 隐藏驾驶 HUD
+        [remove-confirm] 只移除这台载具，不删除模型。
+        [resume] 继续编辑草稿
+        [draft-open] 请先保存并结束当前草稿，或放弃草稿。
+        [model-id-format] 用小写字母或数字开头，最多 48 个小写字母、数字、下划线或短横线。
+        [model-exists] 此模型 ID 已被使用。
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 }：W/S、A/D 驾驶；滚轮换档或调节油门；换手切换驾驶模式；潜行退出。/vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] 前进键给油，后退键制动，左右移动键转向；跳跃键拉手刹。手动挡可用滚轮升降挡，换手键切换自动挡和手动挡。
+        [BOAT] 前进、后退键或滚轮调节推进，左右移动键转向；换手键切换稳定辅助。
+       *[PLANE] 前进和后退键控制俯仰，左右移动键控制转向和侧倾，滚轮调节推力。跳跃键在地面制动，换手键切换稳定辅助。
+    }
+    关闭菜单后才能用滚轮和换手快捷键。按潜行键离开载具。
 vehicle-dash-assisted = 稳定辅助
 vehicle-dash-automatic = 自动挡
 vehicle-dash-contact = 接地 / 浮力支撑：{ $arg0 }
-vehicle-dash-details = 详情
+vehicle-dash-details = 运行数据
 vehicle-dash-down = 降挡 −
-vehicle-dash-drive = 驾驶
+vehicle-dash-drive = 驾驶面板
 vehicle-dash-energy = 消耗 { $arg0 } 单位/分钟 · 预计续航 { $arg1 } 分钟 / { $arg2 } km
 vehicle-dash-engine-start = 启动发动机
 vehicle-dash-engine-stop = 关闭发动机
@@ -1247,10 +1098,18 @@ vehicle-dash-mode-switch = 切换至{ $arg0 }
 vehicle-dash-position = 原点 { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = 面板归位
 vehicle-dash-rpm = 转速 { $arg0 } / { $arg1 } RPM
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] 驻车
+        [R] 倒车
+        [N] 空挡
+       *[D] 前进
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } 秒
 vehicle-dash-speed = 速度 { $arg0 } km/h · 上限 { $arg1 }
 vehicle-dash-throttle-down = 油门 −5%
 vehicle-dash-throttle-up = 油门 +5%
+vehicle-dash-thrust = 推进 { $arg0 }%
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = 手动操纵
 vehicle-dash-unavailable = 驾驶控制不可用，请进入驾驶位后重新打开。
@@ -1419,7 +1278,7 @@ vehicle-model-discarded = 草稿已放弃
 vehicle-model-draft = 未保存草稿
 vehicle-model-driver = 驾驶位
 vehicle-model-driver-here = 在脚下添加驾驶座位
-vehicle-model-edit = 编辑 / 继续草稿
+vehicle-model-edit = 编辑模型
 vehicle-model-overview = 草稿概览
 vehicle-model-panel = 返回编辑面板
 vehicle-model-editor-help = { $arg0 ->
@@ -1454,7 +1313,7 @@ vehicle-model-here = 使用我当前的脚下位置
 vehicle-model-history-empty = 当前没有可撤销或重做的编辑
 vehicle-model-import = 导入主手 Axiom 展示组
 vehicle-model-item = 物品
-vehicle-model-library = 已保存模型 · 草稿保存前仅在内存中
+vehicle-model-library = 选择模型可生成载具或编辑蓝图。
 vehicle-model-look = 视线放置（关闭菜单后右击确认）
 vehicle-model-look-missing = 请看向 32 格内的世界方块或个人预览组件；当前没有命中表面。
 vehicle-model-manual = 手动输入局部坐标
@@ -1491,7 +1350,7 @@ vehicle-model-snap-on = 网格吸附：开启
 vehicle-model-step = 切换微调步长
 vehicle-model-supports = 地面支撑点
 vehicle-model-text = 文本
-vehicle-model-title = 载具模型管理
+vehicle-model-title = 模型库
 vehicle-model-tools = 预览与工具
 vehicle-model-transform-step = 切换调整步长
 vehicle-model-undo = 撤销
@@ -1582,20 +1441,14 @@ spawn-world-missing = 主城世界不可用
 music-album = 专辑: { $arg0 }
 music-artist = 艺术家: { $arg0 }
 music-command-description = 本地、在线与 NBS 唱片机音乐
-music-disc-left = 左键: 拿取唱片
-music-disc-right = 右键: 在最近的唱片机播放
-music-duration = 时长: { $arg0 }
-music-format = 格式: { $arg0 }
 music-jukebox-audible-field-conflict = 另一台唱片机正在重叠的明显听闻范围内播放不同歌曲
 music-jukebox-tp-hover = 点击传送到唱片机
 music-jukebox-unavailable = 唱片机已被移除或所在区块不可用
 music-now-playing-rich = 正在播放: { $music } 于唱片机 { $location }
-music-online-rate-limited = 音乐请求过多，请在{ $arg0 }秒后重试。
+music-request-rate-limited = 音乐请求过多，请在{ $arg0 }秒后重试。
 music-original-author = 原作者: { $arg0 }
 music-plasmo-voice-unavailable = 歌曲已开始播放，但你未安装、连接或启用 Plasmo Voice，因此无法收听
 music-playback-failed = 无法播放“{ $arg0 }”，请检查音源或音乐文件后重试
-music-reload-failed = 音乐模块重新加载失败: { $arg0 }
-music-reload-started = 正在重新加载音乐文件和自定义音源...
 music-rhythm-animation-offset = 动画 { $arg0 } ms
 music-rhythm-calibration-accumulating = 采样已开始，请继续按当前阶段的操作方式稳定输入
 music-rhythm-calibration-adapting = 正在对齐节奏，继续保持稳定
@@ -1610,7 +1463,6 @@ music-rhythm-calibration-plasmo-ready = 音符盒阶段完成，接下来先通�
 music-rhythm-calibration-pointer-instruction = 方块过线时点击鼠标左键或右键
 music-rhythm-calibration-realigning = 声音断开，正在重新示范
 music-rhythm-calibration-required = 先完成延迟测试才能开始
-music-rhythm-calibration-reset-done = 延迟校准已重置
 music-rhythm-calibration-result-hold = 测试完成，请查看结果，稍后会自动返回
 music-rhythm-calibration-stage-minecraft = Minecraft音符盒
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1646,8 +1498,6 @@ music-rhythm-score = 得分: { $arg0 }
 music-rhythm-spatial-no-room = 周围空间不足以游玩星域点击，请前往更开阔的位置。
 music-rhythm-spatial-slider-hint = 跟随移动星体，逐个点击轨迹检查点 · 无需长按
 music-rhythm-start = 开始游戏
-music-sample-rate = 采样率: { $arg0 }
-music-size = 大小: { $arg0 }
 music-unavailable-disc = 不可用的唱片
 
 ## Entertainment · Anniversary
@@ -1889,8 +1739,10 @@ web-account-title = 网页账号与 Passkey
 web-account-confirm = 确认
 weblogin-question = 确认本次网页身份验证？请只确认你在 mcmik.top 上亲自发起的操作，不要替他人输入验证码。
 weblogin-command-description = 确认 Mik 网页身份验证码
-weblogin-confirmed = 已确认网页身份，请回到浏览器继续
-weblogin-invalid-code = 无效的网页身份验证码
+weblogin-confirmed = 已在游戏内确认，请回到浏览器继续。
+weblogin-rejected = 网页登录确认未通过，请在浏览器核对验证码后再试。
+weblogin-unavailable = 暂时无法确认网页登录，请稍后重试。
+weblogin-unconfirmed = 未收到网页登录确认结果，请先回浏览器查看，再决定是否重试。
 
 
 # Music workspace
@@ -1984,8 +1836,25 @@ music-space-label =
         [album] 专辑
         [original-author] 原作者
         [duration] 时长
-        [track-type] 类型
-        [type-online] 在线
+        [availability] 可用性
+        [track-ready] 就绪
+        [track-needs-preparation] 需准备
+        [track-unknown] 尚未确认
+        [track-unavailable] 不可用
+        [partial-results] 部分结果未能加载。
+        [restart-current] 从头播放当前版本
+        [lyrics] 歌词
+        [lyrics-pending] 正在查找歌词…
+        [lyrics-empty] 此版本没有歌词
+        [lyrics-unavailable] 歌词暂不可用
+        [lyrics-ended] 该次播放已结束或无法访问。
+        [lyrics-original] 原文
+        [lyrics-translation] 译文
+        [lyrics-pronunciation] 读音
+        [lyrics-plain] 纯文本
+        [lyrics-timed] 带时间轴
+        [lyrics-captions] 辅助字幕
+        [lyrics-original-only] 仅原文
         [undo] 撤销上次编辑
         [remove] 移除所选条目
         [clear-recents] 清空我的播放记录
@@ -2103,8 +1972,6 @@ music-space-label =
         [already-added] 已在歌单中
         [current-track] 当前歌曲
         [shuffle-candidates] 随机候选歌曲
-        [import-by-id] 通过 ID 导入
-        [playlist-id] 歌单 ID
        *[unknown] 音乐
     }
 
@@ -2115,6 +1982,7 @@ music-space-clear-recents-confirmation = 清空你的全部播放记录？清空
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] 音乐暂不可用，请稍后重新打开
+        [VERSION_GONE] 原媒体版本已不可用。可以从头播放当前版本。
         [INTERNAL] 音乐发生内部错误，请联系管理员查看服务器日志
         [NOT_FOUND] 所选对象已不存在
         [FORBIDDEN] 需要控制或编辑权限；请检查地段授权及设备记录
@@ -2151,7 +2019,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = 控制音乐设备
 
-music-partial-results = 部分结果可用，{ $arg0 } 个音源请求失败
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

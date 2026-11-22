@@ -46,6 +46,7 @@ interface-fov-invalid = ใส่จำนวนเต็มตั้งแต�
 interface-fov-title = มุมมอง (FOV)
 interface-reduced-motion = ลดการเคลื่อนไหว
 interface-reduced-motion-hint = ลดการเคลื่อนไหวและการแกว่งของเมนู
+interface-reset-done = คืนค่าขนาดเมนู ขนาดข้อความ และธีมแล้ว มุมมองของเมนู: { $arg0 }° ใช้ /menu เพื่อเปิดอีกครั้ง
 interface-scale-adjust-hint = ชี้ตัวเลือกเปอร์เซ็นต์แล้วเลื่อนล้อเพื่อปรับ
 interface-scale-layout-title = ขนาดเมนู
 interface-scale-menu-title = เมนูและข้อความ
@@ -177,7 +178,6 @@ password-already-set = ตั้งรหัสผ่านไว้แล้ว
 password-busy = พยายามบ่อยเกินไป โปรดรอสักครู่แล้วลองใหม่
 password-change = เปลี่ยนรหัสผ่าน
 password-change-done = เปลี่ยนรหัสผ่านแล้ว
-password-checking = กำลังตรวจสอบความปลอดภัยบัญชี…
 password-command-description = จัดการการป้องกันบัญชีด้วยรหัสผ่าน
 password-confirm = ยืนยันรหัสผ่านใหม่
 password-conflict = สถานะความปลอดภัยของบัญชีเปลี่ยนแล้ว โปรดทำรายการใหม่
@@ -204,7 +204,6 @@ password-reset = รีเซ็ตรหัสผ่าน
 password-reset-console = รีเซ็ตรหัสผ่านของ { $arg0 } แล้ว: { $arg1 } โปรดยืนยันตัวตนแล้วส่งผ่านช่องทางที่เชื่อถือได้
 password-reset-done = รีเซ็ตรหัสผ่านของ { $arg0 } แล้ว โปรดคัดลอกทันทีและส่งหลังยืนยันตัวตน จะดูอีกครั้งไม่ได้
 password-reset-question = รีเซ็ตรหัสผ่านของ { $arg0 } หรือไม่? รหัสเดิมจะใช้ไม่ได้และการเชื่อมต่อจะถูกปิด ป้อนรหัสผ่านของคุณเพื่อยืนยัน
-password-retry = ลองอีกครั้ง
 password-rules = ใช้ { $arg0 }–{ $arg1 } ตัวอักษร ห้ามใช้ชื่อผู้เล่นหรือรหัสผ่านที่พบบ่อย
 password-set = ตั้งรหัสผ่าน
 password-set-done = ตั้งรหัสผ่านแล้ว
@@ -518,6 +517,10 @@ chat-private-self = คุณไม่สามารถเริ่มแชท
 chat-private-target-not-found = ไม่พบผู้เล่นออนไลน์: { $arg0 }
 chat-private-target-offline = คู่สนทนาออฟไลน์อยู่ โปรดรอหรือเลือกช่องอื่น
 chat-private-tip-channel-mm = ใช้ <aqua><u><click:suggest_command:'/msg '>/msg ผู้เล่น</click></u></aqua> เพื่อเข้าสู่แชตส่วนตัว และ <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> เพื่อกลับสู่แชตสาธารณะ
+chat-private-web-pending = ข้อความส่วนตัวทางเว็บรอการยืนยัน
+chat-private-web-not-submitted = ข้อความส่วนตัวถึง { $arg0 } ไม่ได้บันทึกในแชตร่วม
+chat-private-web-saved = บันทึกข้อความส่วนตัวถึง { $arg0 } ไว้ในประวัติแชตร่วมแล้ว
+chat-private-web-unconfirmed = ยืนยันไม่ได้ว่าข้อความส่วนตัวถึง { $arg0 } ถูกบันทึกหรือไม่ โปรดตรวจสอบก่อนส่งซ้ำ
 chat-public-command-description = สลับช่องแชทสาธารณะ
 chat-public-enter = เปลี่ยนเป็นแชทสาธารณะแล้ว
 chat-reply-command-description = ตอบกลับคู่สนทนาส่วนตัวล่าสุด
@@ -525,8 +528,6 @@ chat-settings-menu-title = การตั้งค่าการแชท
 chat-social-account-label = บัญชีแพลตฟอร์ม
 chat-social-bound-player-label = ผู้เล่นที่เชื่อมโยง
 chat-social-name-label = ชื่อบนแพลตฟอร์ม
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = ยังไม่ได้เชื่อมโยงกับผู้เล่น Minecraft
 chat-staff-command-description = สลับช่องแชททีมงาน
 chat-staff-label = ทีมงาน
@@ -541,26 +542,15 @@ staffchat-enter = เข้าร่วมแชททีมงานแล้�
 
 ## Community · Announcements
 
-announcement-count = ประกาศ { $arg0 } รายการ
 announcement-empty = ไม่มีประกาศ
-announcement-first-page = ถึงประกาศล่าสุดแล้ว
-announcement-last-page = ถึงประกาศเก่าสุดแล้ว
 announcement-latest = ประกาศล่าสุด
-announcement-list-newer = กลุ่มใหม่กว่า
-announcement-list-older = กลุ่มเก่ากว่า
-announcement-more-count = ยังไม่แสดงอีก { $arg0 } รายการ
-announcement-new-count = ใหม่ { $arg0 } รายการ
 announcement-newer = ประกาศใหม่กว่า
 announcement-next-page = หน้าถัดไป
 announcement-older = ประกาศเก่ากว่า
 announcement-page = หน้า { $arg0 } / { $arg1 }
 announcement-previous-page = หน้าก่อนหน้า
-announcement-reload = โหลดประกาศใหม่
-announcement-reload-command-description = โหลดไฟล์ประกาศใหม่
-announcement-reload-failed = โหลดประกาศใหม่ไม่สำเร็จ ประกาศเดิมยังคงอยู่
-announcement-reloaded = โหลดประกาศใหม่แล้ว
-announcement-unread-count = ยังไม่อ่าน { $arg0 } รายการ
-announcement-updated = อัปเดตประกาศแล้ว
+announcement-stale = บันทึกการอัปเดตล่าสุดที่โหลดไว้
+announcement-unavailable = ไม่สามารถเปิดบันทึกการอัปเดตได้ชั่วคราว
 announcement-view-all = ดูประกาศทั้งหมด
 announcement-view-command-description = ดูประกาศของเซิร์ฟเวอร์
 
@@ -580,15 +570,9 @@ identity-admin-help = /bindadmin lookup <ผู้เล่น-หรือ-UUID
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = ไม่พบการเชื่อมของผู้เล่นนี้
 identity-admin-lookup-title = การเชื่อมของ { $arg0 }:
-identity-binding-community = ชุมชน #{ $arg0 }
 identity-binding-info = วันที่เชื่อมบัญชี: { $arg0 }
     รหัสการเชื่อมบัญชี: { $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = ไม่พบการเชื่อมที่เลือกหรือการเชื่อมนี้ไม่ใช่ของคุณ
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = ยกเลิกการเชื่อม { $arg0 } ที่เลือกแล้ว
 identity-binding-unnamed = บัญชีที่ไม่ได้ระบุชื่อ
 identity-bindings-empty = คุณยังไม่ได้เชื่อมบัญชีแพลตฟอร์มภายนอก
@@ -610,184 +594,31 @@ identity-notify-linked = เชื่อมบัญชี { $arg0 } แล้�
 identity-notify-unlinked = ยกเลิกการเชื่อมตัวตน { $arg0 } ของคุณแล้ว
 identity-platform-none = ไม่มี
 identity-platforms = แพลตฟอร์มที่รองรับ: { $arg0 }
-identity-storage-error = การทำงานกับฐานข้อมูลการเชื่อมล้มเหลว โปรดติดต่อผู้ดูแล
 identity-unavailable = ขณะนี้ใช้บริการเชื่อมตัวตนไม่ได้ โปรดติดต่อผู้ดูแล
 identity-unlink-action = [ยกเลิกการเชื่อม]
 identity-unlink-hint = ยกเลิกเฉพาะการเชื่อมที่เลือกนี้เท่านั้น
 identity-unsupported-platform = ไม่รองรับแพลตฟอร์ม: { $arg0 }
-social-admin-conversations-empty = ไม่พบการสนทนาสำหรับ { $arg0 }
-social-admin-conversations-title = การสนทนาที่พบสำหรับ { $arg0 }:
-social-admin-help = /social platforms · /social status [แพลตฟอร์ม] · /social reload [แพลตฟอร์ม] · /social conversations <แพลตฟอร์ม>
-social-admin-metrics = รับเข้า { $arg0 } / ลองใหม่ { $arg1 } · ส่งออก { $arg2 } / แรงดันย้อนกลับ { $arg3 } · ล้มเหลว { $arg4 }
-social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
-social-admin-reloaded = โหลดแพลตฟอร์มโซเชียล { $arg0 } ใหม่แล้ว
-social-admin-reloaded-all = โหลดแพลตฟอร์มโซเชียลทั้งหมดใหม่แล้ว
-social-admin-status = { $arg0 } · { $arg1 } · รุ่น { $arg2 } · การสนทนา { $arg3 }
-social-admin-title = แพลตฟอร์มโซเชียล
-social-admin-unknown = ไม่รู้จักแพลตฟอร์มโซเชียล: { $arg0 }
-social-binding-already-linked = บัญชีของคุณเชื่อมกับ { $arg0 } แล้ว ส่ง { $arg1 } เพื่อดูโปรไฟล์
-social-binding-confirmation-expired = การยืนยันหมดอายุหรือบัญชีที่ผูกไว้เปลี่ยนไปแล้ว โปรดขอยืนยันการยกเลิกผูกอีกครั้ง:
-social-binding-code-invalid = รหัสนี้ไม่ถูกต้องหรือหมดอายุแล้ว เชื่อมต่อใหม่หรือใช้ { $arg0 } ในเกมเพื่อรับรหัสใหม่
-social-binding-external-in-use = ตัวตนนี้ผูกกับผู้เล่น Minecraft คนอื่นอยู่แล้ว
-social-binding-help = เชื่อมต่อเซิร์ฟเวอร์ Minecraft แล้วส่งคำสั่งเชื่อมบัญชีฉบับเต็มจากหน้าล็อกอินมาที่นี่ หากอยู่ในเกมแล้ว ให้ใช้ { $arg0 } เพื่อรับคำสั่ง
-social-binding-identity-missing = ข้อความนี้ไม่มีข้อมูลสมาชิกที่เชื่อถือได้ จึงไม่สามารถผูกตัวตนได้
-social-binding-link-completed = เชื่อมบัญชีเรียบร้อยแล้ว เชื่อมต่อใหม่เพื่อเข้าสู่ระบบต่อ
-social-binding-linked = เชื่อมบัญชีเกม { $arg0 } แล้ว เชื่อมต่อใหม่เพื่อเข้าสู่ระบบต่อ
-social-binding-membership-required = เข้าร่วมชุมชนที่เชื่อมต่อบนแพลตฟอร์มนี้ก่อน แล้วลองผูกบัญชีอีกครั้ง
-social-binding-membership-unavailable = ขณะนี้ไม่สามารถตรวจสอบการเป็นสมาชิกชุมชนได้ โปรดลองอีกครั้งภายหลังหรือติดต่อผู้ดูแลเซิร์ฟเวอร์
-social-binding-not-bound = คุณยังไม่ได้เชื่อมบัญชีเกม
-social-binding-platform-mismatch = รหัสยืนยันนี้ออกให้สำหรับแพลตฟอร์มอื่น
-social-binding-player-scope-in-use = ผู้เล่น Minecraft นี้ผูกตัวตนอื่นไว้แล้วในขอบเขตบัญชีแพลตฟอร์มเดียวกัน
-social-binding-rate-limited = ลองไม่สำเร็จหลายครั้งเกินไป โปรดลองอีกครั้งในประมาณ { $arg0 } นาที
-social-binding-unavailable = ระบบผูกตัวตนไม่พร้อมใช้งานชั่วคราว
-social-binding-unlink-completed = ยกเลิกการเชื่อมบัญชีแล้ว หากไม่มีการเชื่อมชุมชนอื่นที่ใช้ได้ ต้องเชื่อมบัญชีอีกครั้งก่อนเข้าเซิร์ฟเวอร์
-social-binding-unlink-prompt = จะยกเลิกการเชื่อมบัญชีแพลตฟอร์มนี้กับ { $arg0 } หากไม่มีการเชื่อมชุมชนอื่นที่ใช้ได้ คุณจะเข้าเซิร์ฟเวอร์ไม่ได้และจะถูกตัดการเชื่อมต่อหากออนไลน์อยู่ หากยืนยัน ให้ส่ง:
-social-binding-unlinked = ยกเลิกการผูกกับผู้เล่น Minecraft { $arg0 } แล้ว
-social-command-description = จัดการอะแดปเตอร์แพลตฟอร์มโซเชียล
-social-command-invalid-arguments = อาร์กิวเมนต์ไม่ถูกต้อง โปรดส่งตามรูปแบบนี้:
-social-command-usage = คำสั่งนี้ไม่ต้องมีอาร์กิวเมนต์ ส่ง:
-social-crypto-command-description = จัดการการยืนยันอุปกรณ์เข้ารหัส Matrix
-social-crypto-comparison-not-ready = การเปรียบเทียบ SAS ยังไม่พร้อม
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = การยืนยันอุปกรณ์ล้มเหลว โปรดดูบันทึกเซิร์ฟเวอร์
-social-crypto-no-active = ไม่มีการยืนยันอุปกรณ์ที่กำลังดำเนินการ
-social-crypto-not-accepting = การยืนยันนี้ไม่ได้รอการยอมรับ
-social-crypto-not-running = Matrix ยังไม่ทำงาน
-social-crypto-requested = ส่งคำขอยืนยันแล้ว: { $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] กำลังเริ่มต้น
-    [verified] ยืนยันแล้ว
-    [unverified] ยังไม่ยืนยัน
-    [no_cross_signing] ปิดการลงนามไขว้
-    [requested] ร้องขอแล้ว
-    [ready] พร้อม
-    [started] เริ่มแล้ว
-    [comparison] รอการเปรียบเทียบ
-    [waiting] รอเสร็จสิ้น
-    [done] เสร็จแล้ว
-    [cancelled] ยกเลิกแล้ว
-   *[unknown] ไม่ทราบ
-    [valid] กุญแจใช้ได้
-    [cross_signed] ลงนามไขว้แล้ว
-    [not_cross_signed] ยังไม่ลงนามไขว้
-    [blocked] ถูกบล็อก
-    [invalid] กุญแจใช้ไม่ได้
-    }
-social-crypto-status = การยืนยัน: { $arg0 }
-    รุ่นข้อมูลสำรองกุญแจ: { $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = ระบุ ID แบบเต็มของธุรกรรมยืนยันปัจจุบัน
-social-crypto-unavailable = ไม่พร้อมใช้งาน
-social-crypto-updated = อัปเดตการยืนยันแล้ว ใช้ matrixcrypto status เพื่อตรวจสอบ
-social-crypto-usage = matrixcrypto status [IDผู้ใช้ IDอุปกรณ์]
-    matrixcrypto verify <IDผู้ใช้> <IDอุปกรณ์>
-    matrixcrypto accept|confirm|cancel <IDธุรกรรม>
-social-duration-days = { $arg0 } วัน { $arg1 } ชั่วโมง { $arg2 } นาที
-social-duration-hours = { $arg0 } ชั่วโมง { $arg1 } นาที
-social-duration-minutes = { $arg0 } นาที
-social-help-command-description = แสดงรายการคำสั่งนี้
-social-link-command-description = ผูกบัญชี Minecraft ด้วยรหัสจากในเกม
-social-link-command-parameters = <รหัส>
-social-online-command-description = แสดงผู้เล่นออนไลน์
-social-profile-afk = ออนไลน์ · AFK
-social-profile-avatar-alt = ใบหน้า Minecraft
-social-profile-command-description = แสดงโปรไฟล์ตนเอง; สมาชิกเต็มรูปแบบค้นหาด้วยชื่อ การกล่าวถึง หรือการตอบกลับได้
-social-profile-command-parameters = [ชื่อผู้เล่น]
-social-profile-first-joined-label = เข้าครั้งแรก
-social-profile-language-label = ภาษา
-social-profile-last-seen-label = พบล่าสุด
-social-profile-member-required = เฉพาะสมาชิก ผู้ดูแล หรือผู้ดูแลระบบที่ผูกบัญชีแล้วเท่านั้นที่ดูโปรไฟล์ผู้เล่นอื่นได้
-social-profile-offline = ออฟไลน์
-social-profile-online = ออนไลน์ · กำลังใช้งาน
-social-profile-play-time-label = เวลาเล่น
 social-profile-player-label = ผู้เล่น
-social-profile-player-not-found = ไม่พบผู้เล่น Minecraft คนนั้น
-social-profile-presence-label = สถานะ
-social-profile-target-ambiguous = เลือกเป้าหมายเพียงหนึ่งรายการ: ชื่อผู้เล่น การกล่าวถึงหนึ่งคน หรือผู้ใช้ที่ตอบกลับหนึ่งคน
-social-profile-target-unbound = ผู้ใช้ที่กล่าวถึงหรือตอบกลับยังไม่ได้ผูกกับ Minecraft
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = ขณะนี้ไม่มีผู้เล่นออนไลน์
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (ไม่อยู่)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = ขณะนี้มีผู้เล่นออนไลน์ { $arg0 } คน{ $arg1 ->
-    [0] { "" }
-   *[other] { " " }โดยมี { $arg1 } คนที่ไม่อยู่หน้าจอ
-    }
-social-query-players-label = ผู้เล่น
-social-query-population = ออนไลน์ { $arg0 }/{ $arg1 } · กำลังใช้งาน { $arg2 } · ไม่อยู่ { $arg3 }
-social-query-unknown = ไม่รู้จักคำสั่ง ส่ง { $arg0 } เพื่อดูคำสั่งที่ใช้ได้
-social-query-uptime-label = เวลาทำงาน
-social-query-version-label = รุ่น
-social-reply-hidden = ข้อความไม่ผ่านการตรวจสอบเนื้อหา เหตุผล: { $arg0 }
-social-reply-review-failed = การตรวจสอบเนื้อหาล้มเหลว: { $arg0 } โปรดลองอีกครั้งภายหลัง
-social-reply-unavailable = ขณะนี้แสดงผลลัพธ์ไม่ได้ โปรดใช้คำสั่งโปรไฟล์ตรวจสอบการเปลี่ยนแปลงบัญชีก่อนส่งคำขอซ้ำ
-social-state-disabled = ปิดใช้งาน
-social-state-failed = ล้มเหลว
-social-state-ready = พร้อม
-social-state-starting = กำลังเริ่ม
-social-state-stopped = หยุดแล้ว
-social-status-command-description = แสดงผู้เล่น TPS, MSPT และเวลาทำงาน
-social-title-command-help = วิธีใช้คำสั่ง
-social-title-content-hidden = ซ่อนเนื้อหาแล้ว
 social-title-player-profile = โปรไฟล์ผู้เล่น
-social-title-server-status = สถานะเซิร์ฟเวอร์
-social-unlink-command-description = ยกเลิกการผูกตัวตนนี้หลังยืนยัน
-social-unlink-command-parameters = [{ social-unlink-confirmation } <รหัสยืนยัน>]
-social-unlink-confirmation = ยืนยัน
 
 ## Community · AI and knowledge
 
+ai-answer = คำตอบจาก AI
 ai-busy = AI กำลังจัดการคำขอมากเกินไป โปรดลองอีกครั้งในอีกสักครู่
-ai-cleared = ล้างประวัติการสนทนา AI แล้ว
+ai-cancelled = ยกเลิกคำขอ AI แล้ว ประวัติการสนทนายังคงอยู่
 ai-command-description = ถามผู้ช่วย AI ภายในเกม
 ai-disabled = ผู้ช่วย AI ถูกปิดใช้งานหรือยังไม่ได้ตั้งค่า
-ai-knowledge-curation-failed = จัดระเบียบความรู้ไม่สำเร็จ: { $arg0 }
-ai-knowledge-curation-finished = จัดระเบียบเสร็จ: ใช้ { $arg0 } · ข้าม { $arg1 } · ล้มเหลว { $arg2 } · กักกัน { $arg3 } · ประมวลผล { $arg4 }
-ai-knowledge-curation-started = เริ่มจัดระเบียบความรู้แล้ว
-ai-knowledge-disabled = ปิดฐานความรู้แล้ว
-ai-knowledge-index-dirty = ต้องปรับดัชนีให้สอดคล้องกัน ระงับการค้นความจำส่วนตัวจนกว่าจะซิงค์
-ai-knowledge-last-failure = ข้อผิดพลาดล่าสุด: { $arg0 }
-ai-knowledge-last-sync = ซิงค์ล่าสุด: { $arg0 }
-ai-knowledge-learning-disabled = ปิดการเรียนรู้ความรู้แล้ว
-ai-knowledge-operation-failed = ดำเนินการกับความรู้ไม่สำเร็จ: { $arg0 }
-ai-knowledge-operation-started = เริ่มการทำงานกับความรู้แล้ว
-ai-knowledge-protected = ปกป้องเอกสาร { $arg0 } แล้ว
-ai-knowledge-rollback = คืนค่าเอกสาร { $arg0 } เป็นฉบับ { $arg1 } แล้ว
-ai-knowledge-status = ความรู้: เอกสารสาธารณะ { $arg0 } ฉบับ / ส่วนย่อยข้อความ { $arg1 } ส่วน · เอกสารส่วนตัว { $arg2 } ฉบับ / ส่วนย่อยข้อความ { $arg3 } ส่วน
-ai-knowledge-sync-failed = ซิงค์ความรู้ไม่สำเร็จ: { $arg0 }
-ai-knowledge-sync-started = เริ่มซิงค์ความรู้แล้ว
-ai-knowledge-synchronized = { ai-knowledge-status } · ซิงค์เสร็จแล้ว
-ai-knowledge-unprotected = ยกเลิกการปกป้องเอกสาร { $arg0 } แล้ว
-ai-learning-failure = การเรียนรู้ล้มเหลว: { $arg0 }
-ai-learning-status = เรียนรู้: ผู้สมัคร { $arg0 } · กำลังสกัด { $arg1 } · เข้าคิว { $arg2 } · งานสกัดที่ทิ้ง { $arg3 } · ผู้สมัครที่ทิ้ง { $arg4 } · กักกัน { $arg5 }
-ai-memory-empty = ไม่มีความจำส่วนตัวของ { $arg0 }
-ai-memory-list = ความจำส่วนตัวของ { $arg0 }: { $arg1 }
-ai-memory-not-found = ไม่พบความจำส่วนตัว { $arg0 }
-ai-memory-removed = ลบความจำส่วนตัวของ { $arg1 } อย่างถาวร { $arg0 } รายการแล้ว
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = ไม่รู้จักผู้เล่นในแคช: { $arg0 }
+ai-nothing-to-cancel = ไม่มีคำถามที่ AI กำลังดำเนินการ
 ai-prompt-too-long = คำถามยาวเกินไป (สูงสุด { $arg0 } อักขระ)
-ai-reload-failed = โหลดการตั้งค่า AI ใหม่ไม่สำเร็จ: { $arg0 }
-ai-reloaded = โหลดการตั้งค่า AI ใหม่แล้ว ({ $arg0 })
 ai-request-failed = คำขอ AI ล้มเหลว โปรดลองอีกครั้งภายหลัง
-ai-social-command-description = ถามผู้ช่วย AI ที่ใช้ร่วมกัน
-ai-social-command-parameters = <คำถาม>
-ai-social-question-required = โปรดใส่คำถามหลังคำสั่ง AI
-ai-status-disabled = AI ถูกปิดใช้งาน
-ai-status-enabled = AI เปิดใช้งาน · ผู้ให้บริการ { $arg0 } · โมเดล { $arg1 } · เครื่องมือ { $arg2 }
-ai-status-none = ไม่มี
-ai-thinking = กำลังคิด…
-ai-usage = วิธีใช้: /ai <คำถาม> · /ai clear · /ai status
-ai-worker-status = งาน AI: ทำงาน { $arg0 } · เข้าคิว { $arg1 } · ทิ้ง { $arg2 }
+ai-request-in-progress = คำขอ AI ก่อนหน้าของคุณยังไม่เสร็จ
+ai-usage = คำสั่งผู้ช่วย AI:
+    /ai <คำถาม> — ถามคำถามใหม่หรือถามต่อ
+    /ai cancel — ยกเลิกคำถามปัจจุบัน
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>ยินดีด้วย!</bold> คุณได้เป็น <gold>สมาชิก</gold> แล้ว และใช้คำสั่งกับฟีเจอร์เพิ่มเติมได้ รวมถึงการวางแบบแปลนอัตโนมัติ</green>
 governance-active-days-30 = มีวันที่เข้าร่วมอย่างมีผลอย่างน้อย 2 วันใน 30 วัน (ขณะนี้ { $arg0 })
 governance-active-days-60 = มีวันที่เข้าร่วมอย่างมีผลอย่างน้อย 6 วันใน 60 วัน (ขณะนี้ { $arg0 })
 governance-active-header = ─── คุณสมบัติสมาชิกที่ยังมีส่วนร่วม ───
@@ -822,7 +653,6 @@ governance-activity-status = { $arg0 ->
     [closed] สิ้นสุดแล้ว
     *[view] ดูได้อย่างเดียว
     }
-governance-already-moderator = คุณเป็นผู้ดูแลอยู่แล้ว
 governance-application-status = { $arg0 ->
     [open] กำลังโหวตแต่งตั้ง
     [pending] ผ่านแล้ว · รอแต่งตั้ง
@@ -830,18 +660,12 @@ governance-application-status = { $arg0 ->
    *[ready] สมัครเป็นผู้ดูแลได้
     }
 governance-ballot-recorded = บันทึกคะแนนลับของคุณเป็น { $arg0 } แล้ว เปลี่ยนได้ก่อนปิดรับคะแนน
-governance-ban-details = เสนอโดย { $arg0 } · ระยะเวลา { $arg1 } · เหตุผล: { $arg2 }
-governance-ban-suffix = · ระยะเวลา { $arg0 } · เหตุผล: { $arg1 }
 governance-choice-abstain = งดออกเสียง
 governance-choice-no = ไม่เห็นด้วย
 governance-choice-yes = เห็นด้วย
 governance-command-description = ดูสิทธิ์การบริหารและการลงคะแนน
 governance-custodian-no-nomination = ผู้ดูแลระบบไม่เข้าร่วมการเลือกผู้ดูแลชุมชน
-governance-custodian-no-resign = ขั้นตอนลาออกของผู้ดูแลชุมชนไม่ใช้กับผู้ดูแลระบบ
 governance-days = { $arg0 } วัน
-governance-error-ban-already-active = ผู้เล่นคนนี้ถูกแบนอยู่แล้ว
-governance-error-ban-proposer-ineligible = เฉพาะสมาชิกที่ยังมีส่วนร่วมเท่านั้นที่เสนอการลงคะแนนแบนได้
-governance-error-ban-self = คุณเสนอให้ลงคะแนนแบนตัวเองไม่ได้
 governance-error-candidate-ineligible = ผู้สมัครเป็นผู้ดูแลต้องเป็นสมาชิกที่ยังมีส่วนร่วม
 governance-error-nomination-not-open = คุณไม่มีการสมัครเป็นผู้ดูแลที่กำลังดำเนินอยู่
 governance-error-not-voter = คุณไม่อยู่ในรายชื่อผู้มีสิทธิ์ที่กำหนดไว้สำหรับการลงคะแนนนี้
@@ -850,7 +674,6 @@ governance-error-pause-already-member = ผู้เล่นคนนี้เ�
 governance-error-pause-end-invalid = การระงับการเลื่อนขั้นต้องสิ้นสุดในอนาคต
 governance-error-player-unknown = ยังไม่มีประวัติการบริหารของผู้เล่นคนนี้
 governance-error-removal-petition-closed = คำร้องนี้สิ้นสุดแล้วหรือถูกแทนที่ด้วยคำร้องใหม่
-governance-error-removal-requires-petition = การลงคะแนนถอดถอนต้องมีผู้ร่วมเสนอครบจำนวน
 governance-error-removal-self = คุณร่วมเสนอถอดถอนตัวเองไม่ได้
 governance-error-removal-sponsor-ineligible = เฉพาะสมาชิกที่ยังมีส่วนร่วมเท่านั้นที่ร่วมเสนอถอดถอนได้
 governance-error-removal-sponsors-too-few = ต้องมีสมาชิกที่ยังมีส่วนร่วมอื่นอย่างน้อยสองคน
@@ -860,7 +683,6 @@ governance-error-termination-reason-invalid = เหตุผลนี้ใช�
 governance-error-vote-already-open = มีการลงคะแนนประเภทเดียวกันของผู้เล่นคนนี้อยู่แล้ว
 governance-error-vote-closed = การลงคะแนนปิดหรือยุติแล้ว
 governance-error-vote-cooldown = ยังไม่ครบสามวันหลังจากจำนวนผู้ร่วมลงคะแนนไม่ถึงเกณฑ์
-governance-error-vote-subject-unknown = ยังไม่มีประวัติการบริหารของผู้ที่เกี่ยวข้อง
 governance-error-vote-termination-closed = พ้นกำหนดแล้ว จึงถอนการลงคะแนนไม่ได้
 governance-error-vote-unknown = ไม่พบการลงคะแนน
 governance-error-voters-too-few = ต้องมีสมาชิกที่ยังมีส่วนร่วมอย่างน้อยสองคนเพื่อเริ่มลงคะแนน
@@ -870,15 +692,12 @@ governance-failure-none = ไม่มีเหตุผลที่บันท
 governance-failure-quorum = ผู้ร่วมลงคะแนนไม่ถึงเกณฑ์
 governance-failure-two-thirds = คะแนนเห็นด้วยไม่ถึงสองในสามของคะแนนที่ไม่งดออกเสียง
 governance-history-header = ─── ผลการลงคะแนนล่าสุด ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 } ชั่วโมง
-governance-inactive-removal = { $arg0 } พ้นจากตำแหน่งผู้ดูแลโดยอัตโนมัติหลังไม่เข้าสู่ระบบ 180 วัน
 governance-invalid-choice = เลือก yes, no หรือ abstain
 governance-invalid-duration = ระยะเวลาไม่ถูกต้อง ใช้รูปแบบ เช่น 30m, 12h หรือ 3d
 governance-kind-appointment = แต่งตั้ง
-governance-kind-ban = แบน
 governance-kind-removal = ถอดถอน
-governance-legacy-ban-kick = การลงคะแนนครั้งก่อนผ่านแล้ว คุณถูกแบนเป็นเวลา { $arg0 } เหตุผล: { $arg1 }
 governance-menu-already-sponsored = ลงชื่อสนับสนุนแล้ว
 governance-menu-application = สถานะการสมัคร
 governance-menu-completed = สิ้นสุดแล้ว
@@ -927,7 +746,6 @@ governance-no-active-pause = ไม่มีการระงับการเ
 governance-nomination-withdrawn = ถอนการสมัครแล้ว ระบบจะประกาศผลการยุติโดยอัตโนมัติ
 governance-none = ไม่มี
 governance-not-member = ยังไม่เป็นสมาชิก
-governance-not-moderator = ขณะนี้คุณไม่ใช่ผู้ดูแล
 governance-operation-error = ดำเนินการด้านการบริหารไม่สำเร็จ โปรดลองอีกครั้ง
 governance-own-choice-closed = ตัวเลือกของคุณ: { $arg0 }
 governance-own-choice-open = ตัวเลือกของคุณ: { $arg0 } เปลี่ยนได้ก่อนปิดรับคะแนน
@@ -955,9 +773,8 @@ governance-promotion-account-age = เข้าร่วมครั้งแร
 governance-promotion-header = ─── เงื่อนไขการเลื่อนขั้น ───
 governance-promotion-play-days = เล่นอย่างมีผลอย่างน้อย 2 วัน (ขณะนี้ { $arg0 })
 governance-promotion-playtime = เล่นอย่างมีผลอย่างน้อย 8 ชั่วโมง (ขณะนี้ { $arg0 })
-governance-resign-failed = ลาออกไม่สำเร็จ โปรดติดต่อผู้ดูแลระบบ
 governance-resigned = { $arg0 } ลาออกจากตำแหน่งผู้ดูแลแล้ว
-governance-result-announcement = การลงคะแนน #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }{ $arg4 }
+governance-result-announcement = การลงคะแนน #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }
 governance-result-failed = ไม่ผ่าน ({ $arg0 })
 governance-result-open = กำลังดำเนินอยู่
 governance-result-passed = ผ่าน
@@ -965,7 +782,6 @@ governance-result-tally = { $arg0 } · ผู้มีสิทธิ์ { $arg1
 governance-result-terminated = ยุติแล้ว ({ $arg0 })
 governance-resume-notice = ยกเลิกการระงับการเลื่อนขั้นของคุณแล้ว เหตุผล: { $arg0 }
 governance-resume-reason-required = ระบุเหตุผลในการยกเลิกการระงับ
-governance-role-lookup-error = ตรวจสอบสถานะผู้ดูแลไม่ได้ โปรดติดต่อผู้ดูแลระบบ
 governance-seconds = { $arg0 } วินาที
 governance-storage-error = จัดการข้อมูลการบริหารไม่สำเร็จ โปรดติดต่อผู้ดูแลระบบ
 governance-termination-inactive = ผู้ดูแลพ้นตำแหน่งหลังไม่เข้าร่วมเป็นเวลานาน
@@ -1182,10 +998,26 @@ plot-subplot-created = สร้างพื้นที่ย่อย { $arg0 
 plot-title = ที่ดิน
 plot-transferred = โอนแปลง { $arg0 } ให้ { $arg1 } แล้ว
 vehicle-command-description = ขับและจัดการยานพาหนะจากเอนทิตีแสดงผล
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] ต้องมีสิทธิ์ mik.vehicle.use
+        [ALREADY_RIDING] ออกจากที่นั่งปัจจุบันก่อน
+        [TOO_FAR] เข้าใกล้ยานพาหนะให้เหลือไม่เกิน 32 บล็อก
+        [DRIVER_OCCUPIED] มีคนนั่งที่คนขับแล้ว
+        [NO_PASSENGER_SEAT] แบบจำลองนี้ไม่มีที่นั่งผู้โดยสาร
+        [PASSENGER_FULL] ที่นั่งผู้โดยสารเต็มแล้ว
+        [STOP_ENGINE] หยุดยานพาหนะและดับเครื่องก่อน
+        [FUEL_FULL] ถังเชื้อเพลิงเต็มแล้ว
+        [HEALTH_FULL] ไม่จำเป็นต้องซ่อม
+        [NEED_FUEL] ถือถ่านหินหรือถ่านไม้ในมือหลัก
+        [NEED_IRON] ถือแท่งเหล็กในมือหลัก
+        [EMPTY_VEHICLE] หยุดยานพาหนะแล้วให้ทุกคนลง
+       *[UNAVAILABLE] ยานพาหนะนี้ยังใช้ไม่ได้
+    }
+vehicle-menu-distance = { $arg0 } ม.
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] การควบคุมยานพาหนะ
-        [driving] ขับและโดยสาร
+        [vehicle] ภาพรวมยานพาหนะ
         [maintenance] บำรุงรักษาและสิทธิ์
         [public-status] เข้าถึงแบบสาธารณะ
         [private-status] เข้าถึงแบบส่วนตัว
@@ -1199,22 +1031,15 @@ vehicle-menu-label =
         [displays] ดูเอนทิตีแสดงผลใกล้เคียง
         [clear] ล้างการเลือกและจุดกำเนิด
         [capture] สร้างโมเดลจากส่วนที่เลือก
-        [toggle-selection] สลับการเลือก
         [public] เปิดเป็นสาธารณะ
         [private] ตั้งเป็นส่วนตัว
         [reload] โหลดโมเดลจากไฟล์ใหม่
         [leave] ลงจากยานพาหนะ
-        [passenger] ที่นั่งผู้โดยสาร
-        [fuel] เติมเชื้อเพลิง · ถือถ่านหิน
-        [repair] ซ่อม · ถือแท่งเหล็ก
-        [access] การเข้าถึง
+        [passenger] ขึ้นเป็นผู้โดยสาร
+        [fuel] เติมเชื้อเพลิง
+        [repair] ซ่อมแซม
         [remove] ลบยานพาหนะ
-        [hud] แสดง HUD การขับขี่
         [hide-preview] ซ่อนตัวอย่าง 3D
-        [service-hint] เข้าใกล้ จอดและดับเครื่อง แล้วถือวัสดุที่ต้องใช้
-        [nearby-hint] เข้าใกล้ในระยะ 32 บล็อกและออกจากที่นั่งปัจจุบัน
-        [use-required] ต้องมีสิทธิ์ mik.vehicle.use
-        [remove-hint] จอดและให้ผู้โดยสารลงทั้งหมดก่อน
         [reload-hint] ยานพาหนะทั้งหมดต้องว่างและดับเครื่อง ร่างยังคงอยู่ ให้เปิดโมเดลที่เปลี่ยนแล้วใหม่
         [pick-hint] เล็งเอนทิตีแล้วคลิกขวา ย่อและคลิกขวาเพื่อยกเลิก หมดเวลาใน 30 วินาที
         [spawn-hint] พิกัดโลก ค่าเริ่มต้นอยู่ด้านหน้า 4 บล็อก หันตามมุมมองแนวนอนขณะสร้าง
@@ -1222,16 +1047,42 @@ vehicle-menu-label =
         [zoom-out] ย่อ
         [frame] จัดวางด้านหน้าใหม่
         [offset] ย้ายแบบสัมพัทธ์
+        [drive] ขึ้นที่นั่งคนขับ
+        [driver-seat] คุณอยู่ที่นั่งคนขับ
+        [passenger-seat] คุณเป็นผู้โดยสาร
+        [current] ยานพาหนะปัจจุบัน
+        [boarded] คุณอยู่ที่นั่งคนขับแล้ว เปิดแผงควบคุมจาก /vehicle เพื่อดูมาตรวัดและวิธีควบคุม
+        [display] เอนทิตีแสดงผล
+        [select-display] เพิ่มลงในรายการที่เลือก
+        [deselect-display] นำออกจากรายการที่เลือก
+        [aim-group] เล็งเพื่อเลือกทั้งกลุ่ม
+        [empty-nearby] ไม่มียานพาหนะที่ใช้ได้ภายใน 32 บล็อก
+        [empty-fleet] ไม่มียานพาหนะที่ใช้ได้
+        [empty-selection] เลือกเอนทิตีแสดงผลอย่างน้อยหนึ่งตัวก่อน
+        [controls] วิธีควบคุม
+        [show-hud] แสดง HUD การขับ
+        [hide-hud] ซ่อน HUD การขับ
+        [remove-confirm] จะนำยานพาหนะคันนี้ออก แต่เก็บแบบจำลองไว้
+        [resume] แก้ไขฉบับร่างต่อ
+        [draft-open] บันทึกและปิดฉบับร่างปัจจุบันหรือทิ้งฉบับร่างก่อน
+        [model-id-format] ขึ้นต้นด้วยอักษรละตินตัวเล็กหรือตัวเลข ใช้ตัวเล็ก ตัวเลข ขีดล่างหรือขีดกลางได้ไม่เกิน 48 ตัว
+        [model-exists] มีการใช้ ID แบบจำลองนี้แล้ว
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 }: W/S และ A/D ควบคุม ล้อเมาส์เปลี่ยนเกียร์หรือคันเร่ง สลับมือเปลี่ยนโหมด ย่อเพื่อลง /vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] ปุ่มเดินหน้าเร่งความเร็ว ถอยหลังเบรก ซ้ายและขวาเลี้ยว และกระโดดใช้เบรกมือ ในโหมดเกียร์ธรรมดาใช้ล้อเมาส์เปลี่ยนเกียร์ และสลับมือเพื่อเปลี่ยนโหมด
+        [BOAT] เดินหน้าและถอยหลังหรือล้อเมาส์ปรับแรงขับ ซ้ายและขวาใช้เลี้ยว สลับมือเพื่อเปิดหรือปิดตัวช่วยทรงตัว
+       *[PLANE] เดินหน้าและถอยหลังควบคุมมุมก้มหรือเงย ซ้ายและขวาเลี้ยวและเอียง ล้อเมาส์ปรับแรงขับ กระโดดใช้เบรกเมื่ออยู่บนพื้น สลับมือเพื่อเปลี่ยนตัวช่วยทรงตัว
+    }
+    ปิดเมนูก่อนใช้ล้อเมาส์และปุ่มสลับมือ กดย่อเพื่อลงจากยานพาหนะ
 vehicle-dash-assisted = ระบบช่วยทรงตัว
 vehicle-dash-automatic = อัตโนมัติ
 vehicle-dash-contact = การรองรับบนพื้น / น้ำ: { $arg0 }
-vehicle-dash-details = รายละเอียด
+vehicle-dash-details = ข้อมูลการขับ
 vehicle-dash-down = ลดเกียร์ −
-vehicle-dash-drive = การขับขี่
+vehicle-dash-drive = แผงควบคุมการขับ
 vehicle-dash-energy = ใช้ { $arg0 } หน่วย/นาที · ประมาณ { $arg1 } นาที / { $arg2 } กม.
 vehicle-dash-engine-start = สตาร์ตเครื่องยนต์
 vehicle-dash-engine-stop = ดับเครื่องยนต์
@@ -1247,10 +1098,18 @@ vehicle-dash-mode-switch = เปลี่ยนเป็น { $arg0 }
 vehicle-dash-position = จุดกำเนิด { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = จัดแผงควบคุมให้อยู่กึ่งกลาง
 vehicle-dash-rpm = รอบเครื่อง { $arg0 } / { $arg1 }
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] จอด
+        [R] ถอยหลัง
+        [N] เกียร์ว่าง
+       *[D] เดินหน้า
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } s
 vehicle-dash-speed = ความเร็ว { $arg0 } กม./ชม. · จำกัด { $arg1 }
 vehicle-dash-throttle-down = คันเร่ง −5%
 vehicle-dash-throttle-up = คันเร่ง +5%
+vehicle-dash-thrust = แรงขับ { $arg0 }%
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = ไม่ใช้ระบบช่วย
 vehicle-dash-unavailable = ใช้การควบคุมไม่ได้ ให้เปิดใหม่จากที่นั่งคนขับ
@@ -1419,7 +1278,7 @@ vehicle-model-discarded = ทิ้งแบบร่างแล้ว
 vehicle-model-draft = แบบร่างที่ยังไม่บันทึก
 vehicle-model-driver = ที่นั่งคนขับ
 vehicle-model-driver-here = เพิ่มที่นั่งคนขับที่เท้าฉัน
-vehicle-model-edit = แก้ไข / ต่อแบบร่าง
+vehicle-model-edit = แก้ไขแบบจำลอง
 vehicle-model-overview = ภาพรวมฉบับร่าง
 vehicle-model-panel = กลับไปยังแผงแก้ไข
 vehicle-model-editor-help = { $arg0 ->
@@ -1454,7 +1313,7 @@ vehicle-model-here = ใช้ตำแหน่งเท้าปัจจุ�
 vehicle-model-history-empty = ไม่มีการแก้ไขในทิศทางประวัตินี้
 vehicle-model-import = นำเข้ากลุ่ม Axiom จากมือหลัก
 vehicle-model-item = ไอเทม
-vehicle-model-library = โมเดลที่บันทึกแล้ว · แบบร่างอยู่ในหน่วยความจำจนกว่าจะบันทึก
+vehicle-model-library = เลือกแบบจำลองเพื่อสร้างยานพาหนะหรือแก้ไขแบบร่าง
 vehicle-model-look = วางด้วยการเล็ง (เมนูจะปิด คลิกขวาเพื่อยืนยัน)
 vehicle-model-look-missing = ไม่พบพื้นผิว ให้เล็งบล็อกในโลกหรือชิ้นส่วนตัวอย่างส่วนตัวภายใน 32 บล็อก
 vehicle-model-manual = ป้อนพิกัดภายในโมเดล
@@ -1491,7 +1350,7 @@ vehicle-model-snap-on = สแนปกริด: เปิด
 vehicle-model-step = เปลี่ยนระยะปรับ
 vehicle-model-supports = จุดรองรับบนพื้น
 vehicle-model-text = ข้อความ
-vehicle-model-title = จัดการโมเดลยานพาหนะ
+vehicle-model-title = คลังแบบจำลอง
 vehicle-model-tools = ตัวอย่างและเครื่องมือ
 vehicle-model-transform-step = เปลี่ยนระยะปรับ
 vehicle-model-undo = เลิกทำ
@@ -1582,20 +1441,14 @@ spawn-world-missing = โลกของจุดเกิดไม่พร้�
 music-album = อัลบั้ม: { $arg0 }
 music-artist = ศิลปิน: { $arg0 }
 music-command-description = เพลงในเครื่อง ออนไลน์ และ NBS สำหรับตู้เพลง
-music-disc-left = คลิกซ้าย: หยิบแผ่นเสียง
-music-disc-right = คลิกขวา: เล่นบนตู้เพลงที่ใกล้ที่สุด
-music-duration = ความยาว: { $arg0 }
-music-format = รูปแบบ: { $arg0 }
 music-jukebox-audible-field-conflict = ตู้เพลงอื่นกำลังเล่นเพลงต่างกันในพื้นที่ที่ได้ยินชัดซึ่งทับซ้อนกัน
 music-jukebox-tp-hover = คลิกเพื่อเทเลพอร์ตไปยังตู้เพลง
 music-jukebox-unavailable = ตู้เพลงถูกนำออกหรือชังก์ของตู้เพลงไม่พร้อมใช้งาน
 music-now-playing-rich = กำลังเล่น: { $music } ที่ตู้เพลง { $location }
-music-online-rate-limited = คำขอเพลงมากเกินไป ลองใหม่ในอีก { $arg0 } วินาที
+music-request-rate-limited = คำขอเพลงมากเกินไป ลองใหม่ในอีก { $arg0 } วินาที
 music-original-author = ผู้ประพันธ์ต้นฉบับ: { $arg0 }
 music-plasmo-voice-unavailable = เพลงเริ่มเล่นแล้ว แต่คุณจะไม่ได้ยินเพราะยังไม่ได้ติดตั้ง เชื่อมต่อ หรือเปิดใช้ Plasmo Voice
 music-playback-failed = เล่น "{ $arg0 }" ไม่สำเร็จ โปรดตรวจสอบแหล่งเพลงหรือไฟล์เพลงแล้วลองอีกครั้ง
-music-reload-failed = โหลดเพลงใหม่ไม่สำเร็จ: { $arg0 }
-music-reload-started = กำลังโหลดไฟล์เพลงและแหล่งเพลงกำหนดเองใหม่...
 music-rhythm-animation-offset = การชดเชยภาพเคลื่อนไหว { $arg0 } มิลลิวินาที
 music-rhythm-calibration-accumulating = กำลังยืนยันจังหวะที่นิ่ง…เล่นตามต่อไป
 music-rhythm-calibration-adapting = กำลังปรับตามจังหวะ…เล่นตามต่อไป
@@ -1610,7 +1463,6 @@ music-rhythm-calibration-plasmo-ready = ทดสอบ Minecraft Note Block เ
 music-rhythm-calibration-pointer-instruction = คลิกซ้ายหรือขวาเมื่อโน้ตผ่านเส้น
 music-rhythm-calibration-realigning = เสียงขาดช่วง กำลังสาธิตใหม่และจะเก็บข้อมูลที่เสร็จแล้วไว้
 music-rhythm-calibration-required = ทำการทดสอบความหน่วงให้ครบก่อนเริ่มเกมจังหวะ
-music-rhythm-calibration-reset-done = รีเซ็ตการปรับเทียบความหน่วงแล้ว
 music-rhythm-calibration-result-hold = ทดสอบเสร็จแล้ว ตรวจสอบผลได้เลย ระบบจะพากลับโดยอัตโนมัติในอีกสักครู่
 music-rhythm-calibration-stage-minecraft = บล็อกตัวโน้ต Minecraft
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1646,8 +1498,6 @@ music-rhythm-score = คะแนน: { $arg0 }
 music-rhythm-spatial-no-room = พื้นที่ไม่เพียงพอสำหรับโหมดเล็งเป้าสามมิติ โปรดย้ายไปยังที่โล่งกว่า
 music-rhythm-spatial-slider-hint = ตามดาวที่เคลื่อนที่และคลิกทุกจุด · ไม่ต้องกดค้าง
 music-rhythm-start = เริ่มเกม
-music-sample-rate = อัตราการสุ่มตัวอย่าง: { $arg0 }
-music-size = ขนาด: { $arg0 }
 music-unavailable-disc = แผ่นเสียงไม่พร้อมใช้งาน
 
 ## Entertainment · Anniversary
@@ -1889,8 +1739,10 @@ web-account-title = บัญชีเว็บและพาสคีย์
 web-account-confirm = ยืนยัน
 weblogin-question = ยืนยันการตรวจสอบตัวตนบนเว็บครั้งนี้หรือไม่? ยืนยันเฉพาะการดำเนินการที่คุณเริ่มเองบน mcmik.top อย่าป้อนรหัสแทนผู้อื่น
 weblogin-command-description = ยืนยันรหัสตรวจสอบตัวตนบนเว็บของ Mik
-weblogin-confirmed = ยืนยันตัวตนบนเว็บแล้ว กลับไปที่เบราว์เซอร์เพื่อดำเนินการต่อ
-weblogin-invalid-code = รหัสตรวจสอบตัวตนบนเว็บไม่ถูกต้อง
+weblogin-confirmed = ยืนยันในเกมแล้ว กลับไปที่เบราว์เซอร์เพื่อดำเนินการต่อ
+weblogin-rejected = คำขอยืนยันการเข้าสู่ระบบเว็บถูกปฏิเสธ โปรดตรวจสอบรหัสในเบราว์เซอร์แล้วลองอีกครั้ง
+weblogin-unavailable = ไม่สามารถยืนยันการเข้าสู่ระบบเว็บได้ในขณะนี้ โปรดลองอีกครั้งในภายหลัง
+weblogin-unconfirmed = ยังไม่ทราบผลการยืนยันการเข้าสู่ระบบเว็บ โปรดตรวจสอบในเบราว์เซอร์ก่อนลองอีกครั้ง
 
 
 # Music workspace
@@ -1984,8 +1836,25 @@ music-space-label =
         [album] อัลบั้ม
         [original-author] ผู้แต่งต้นฉบับ
         [duration] ระยะเวลา
-        [track-type] ประเภท
-        [type-online] ออนไลน์
+        [availability] สถานะ
+        [track-ready] พร้อม
+        [track-needs-preparation] ต้องเตรียม
+        [track-unknown] ยังไม่ตรวจสอบ
+        [track-unavailable] ไม่พร้อมใช้งาน
+        [partial-results] โหลดผลลัพธ์บางส่วนไม่สำเร็จ
+        [restart-current] เล่นเวอร์ชันปัจจุบันตั้งแต่ต้น
+        [lyrics] เนื้อเพลง
+        [lyrics-pending] กำลังค้นหาเนื้อเพลง…
+        [lyrics-empty] ไม่มีเนื้อเพลงสำหรับเวอร์ชันนี้
+        [lyrics-unavailable] เนื้อเพลงไม่พร้อมใช้งานชั่วคราว
+        [lyrics-ended] การเล่นจบแล้วหรือไม่สามารถเข้าถึงได้
+        [lyrics-original] ต้นฉบับ
+        [lyrics-translation] คำแปล
+        [lyrics-pronunciation] คำอ่าน
+        [lyrics-plain] ข้อความอย่างเดียว
+        [lyrics-timed] มีเวลา
+        [lyrics-captions] คำบรรยายเพิ่มเติม
+        [lyrics-original-only] ต้นฉบับเท่านั้น
         [undo] { vehicle-model-undo }
         [remove] ลบรายการที่เลือก
         [clear-recents] ล้างประวัติการเล่นของฉัน
@@ -2103,8 +1972,6 @@ music-space-label =
         [already-added] เพิ่มแล้ว
         [current-track] เพลงปัจจุบัน
         [shuffle-candidates] เพลงที่อาจสุ่มได้
-        [import-by-id] นำเข้าด้วย ID
-        [playlist-id] ID เพลย์ลิสต์
        *[unknown] พื้นที่ดนตรี
     }
 
@@ -2115,6 +1982,7 @@ music-space-clear-recents-confirmation = ล้างประวัติกา
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] ไม่สามารถใช้ระบบเพลงได้ โปรดเปิดเมนูใหม่ภายหลัง
+        [VERSION_GONE] เวอร์ชันเดิมไม่พร้อมใช้งาน ให้เล่นเวอร์ชันปัจจุบันตั้งแต่ต้น
         [INTERNAL] เกิดข้อผิดพลาดภายในระบบเพลง โปรดให้ผู้ดูแลตรวจสอบบันทึกของเซิร์ฟเวอร์
         [NOT_FOUND] รายการที่เลือกไม่มีอยู่อีกต่อไป
         [FORBIDDEN] ต้องมีสิทธิ์ควบคุมหรือแก้ไข
@@ -2151,7 +2019,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = ควบคุมอุปกรณ์ดนตรี
 
-music-partial-results = แสดงผลลัพธ์บางส่วน คำขอแหล่งเพลงล้มเหลว { $arg0 } รายการ
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

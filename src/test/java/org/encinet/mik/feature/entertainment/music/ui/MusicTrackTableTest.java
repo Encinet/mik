@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import java.util.*;
 import java.time.Duration;
 import net.kyori.adventure.text.Component;
@@ -15,8 +16,7 @@ class MusicTrackTableTest {
     @Test void compactWindowsKeepAllDirectActionsAndTrackIdentityAfterReordering() {
         var tracks = java.util.stream.IntStream.range(0,60).mapToObj(index -> {
             var base = MusicWorkspaceStateTest.track("song:" + index);
-            return new MusicTrack(base.id(),new TrackDetails("较长名称 Long song " + index,"Composer",null,"mp3",
-                    new AudioProperties(null,null,Duration.ofSeconds(225))),base.target());
+            return new MusicTrack(base.id(),new TrackDetails("较长名称 Long song " + index,"Composer",null, Duration.ofSeconds(225)),base.target());
         }).toList();
         var reversed = new ArrayList<>(tracks); Collections.reverse(reversed);
         var target = tracks.get(43);
@@ -44,7 +44,7 @@ class MusicTrackTableTest {
                 if (previous != null) assertEquals(previous,paths); previous = paths;
                 if (font == 1.8 && fov == 110) {
                     String help = PlainTextComponentSerializer.plainText().serialize(rowElement(frame,target,"details").node().input().tooltip().orElseThrow().text());
-                    for (String value : List.of("3:45","MP3","Composer",target.details().title())) assertTrue(help.contains(value));
+                    for (String value : List.of("3:45","track-unknown","Composer",target.details().title())) assertTrue(help.contains(value));
                 }
             }
         }
@@ -122,7 +122,7 @@ class MusicTrackTableTest {
         assertEquals(Component.text("deselect"),checkbox.tooltip().text(),"an icon-only toggle describes the next action");
         name.trigger(FloatingMenuInteraction.PRIMARY).execute(null,null,FloatingMenuInteraction.PRIMARY);
         checkbox.trigger(FloatingMenuInteraction.PRIMARY).execute(null,null,FloatingMenuInteraction.PRIMARY);
-        assertEquals(List.of("select:a","select:a"),calls);
+        assertEquals(List.of("select:" + first.id(),"select:" + first.id()),calls);
         var frame = SceneGeometryTestSupport.measure(scene,1.8);
         UiSceneTestSupport.assertDisjoint(frame);
         var select = UiSceneTestSupport.element(frame,"select"); var title = UiSceneTestSupport.element(frame,"details");
@@ -190,18 +190,18 @@ class MusicTrackTableTest {
         assertEquals("Artist", value(scene, "artist"));
     }
 
-    @Test void metadataColumnsShowArtistTimeAndFormatAsReadOnlyValues() {
-        var scene = scene(List.of(described("Music", "Composer", "flac", Duration.ofSeconds(225))), null, new ArrayList<>());
+    @Test void metadataColumnsShowArtistTimeAndAvailabilityAsReadOnlyValues() {
+        var scene = scene(List.of(described("Music", "Composer", Duration.ofSeconds(225))), null, new ArrayList<>());
         assertEquals("Music", value(scene, "details"));
         assertEquals("Composer", value(scene, "artist"));
         assertEquals("3:45", value(scene, "duration"));
-        assertEquals("FLAC", value(scene, "type"));
-        for (String key : List.of("details","artist","duration","type")) assertNotNull(entry(scene,key).tooltip(),
+        assertEquals("track-unknown", value(scene, "availability"));
+        for (String key : List.of("details","artist","duration","availability")) assertNotNull(entry(scene,key).tooltip(),
                 "single-line metadata keeps its source in help: " + key);
-        for (String key : List.of("artist", "duration", "type")) assertFalse(entry(scene, key).interactive());
+        for (String key : List.of("artist", "duration", "availability")) assertFalse(entry(scene, key).interactive());
         var frame = SceneGeometryTestSupport.measure(scene, 1);
         var previous = UiSceneTestSupport.element(frame, "details");
-        for (String key : List.of("artist", "duration", "type", "insert", "append", "add")) {
+        for (String key : List.of("artist", "duration", "availability", "insert", "append", "add")) {
             var current = UiSceneTestSupport.element(frame, key);
             assertTrue(current.x() >= previous.x() + previous.size().width());
             previous = current;
@@ -210,20 +210,19 @@ class MusicTrackTableTest {
 
     @Test void durationsSupportSecondsMinutesHoursAndUnknownValues() {
         for (var expected : Map.of(1L, "0:01", 59L, "0:59", 60L, "1:00", 3599L, "59:59", 3600L, "1:00:00", 3661L, "1:01:01").entrySet()) {
-            var scene = scene(List.of(described("Music", null, "nbs", Duration.ofSeconds(expected.getKey()))), null, new ArrayList<>());
+            var scene = scene(List.of(described("Music", null, Duration.ofSeconds(expected.getKey()))), null, new ArrayList<>());
             assertEquals(expected.getValue(), value(scene, "duration"));
-            assertEquals("NBS", value(scene, "type"));
         }
         var missing = scene(List.of(titled("Music", null)), null, new ArrayList<>());
         assertEquals("—", value(missing, "artist"));
         assertEquals("—", value(missing, "duration"));
     }
 
-    @Test void onlineTracksShowTheirKindWithoutClaimingAnUndeterminedAudioFormat() {
-        var source = described("Online song", "Artist", "LX/WY", Duration.ofSeconds(60));
-        var online = new MusicTrack(source.id(), source.details(), new TrackTarget.Lx("wy", "1", List.of(), "{}"));
-        var scene = scene(List.of(online), null, new ArrayList<>());
-        assertEquals("type-online", value(scene, "type"));
+    @Test void tracksShowAvailabilityWithoutClaimingAnAudioFormat() {
+        var track = titled("Song", "Artist");
+        var ready = new MusicTrack(track.id(), track.details(), track.target(), MusicTrack.Availability.READY);
+        assertEquals(MusicTrackTable.availability(ready), value(scene(List.of(ready), null, new ArrayList<>()), "availability"));
+        assertNotEquals(MusicTrackTable.availability(track), MusicTrackTable.availability(ready));
     }
 
     @Test void narrowListsKeepEveryActionAndTheFullNameInHelp() {
@@ -237,7 +236,7 @@ class MusicTrackTableTest {
 
     @Test void aShortFirstSongDoesNotLimitLaterNamesOrChangePaginationAfterReordering() throws Exception {
         var shortSong = MusicWorkspaceStateTest.track("short");
-        var named = described("月光奏鸣曲与遥远星空中的一段旋律现场演奏珍藏版本","Composer","flac",Duration.ofSeconds(225));
+        var named = described("月光奏鸣曲与遥远星空中的一段旋律现场演奏珍藏版本","Composer",Duration.ofSeconds(225));
         var tracks = new ArrayList<MusicTrack>(); tracks.add(shortSong); tracks.add(named);
         for (int index = 2; index < 36; index++) tracks.add(MusicWorkspaceStateTest.track("song:" + index));
         for (var language : org.encinet.mik.shared.i18n.Language.values()) {
@@ -313,8 +312,8 @@ class MusicTrackTableTest {
 
     @Test void shortSongButtonsKeepTheirNaturalBoundsEvenBesideLongSongsInCompactAndWideLists() {
         var shortSong = titled("A",null);
-        var described = described("长".repeat(60),"Composer","flac",Duration.ofSeconds(225));
-        var longSong = new MusicTrack("long",described.details(),described.target());
+        var described = described("长".repeat(60),"Composer",Duration.ofSeconds(225));
+        var longSong = MusicTestTracks.managed("long",described.details());
         for (double font : new double[]{.7,1,1.8}) for (int width : new int[]{360,1280}) {
             for (var songs : List.of(List.of(shortSong),List.of(shortSong,longSong))) for (int mode = 0; mode < 3; mode++) {
                 MusicTableSelection<MusicTrack> selection = switch (mode) {
@@ -337,8 +336,8 @@ class MusicTrackTableTest {
 
     @Test void aLongerVisibleSongExpandsItsColumnAndTheTableBeyondTheOldWidthCap() {
         var shortSong = titled("A",null);
-        var described = described("长".repeat(60),"Composer","flac",Duration.ofSeconds(225));
-        var longSong = new MusicTrack("long",described.details(),described.target());
+        var described = described("长".repeat(60),"Composer",Duration.ofSeconds(225));
+        var longSong = MusicTestTracks.managed("long",described.details());
         for (double font : new double[]{.7,1}) {
             var shortScene = scene(List.of(shortSong),null,new ArrayList<>());
             var longScene = scene(List.of(shortSong,longSong),null,new ArrayList<>());
@@ -364,6 +363,7 @@ class MusicTrackTableTest {
 
     @Test void directPlaybackActionsFreezeTheOrderedSongsAndSubmitWithoutAnExtraPanel() {
         var songs = new ArrayList<>(List.of(MusicWorkspaceStateTest.track("b"), MusicWorkspaceStateTest.track("a")));
+        var expected = songs.stream().map(MusicTrack::id).toList();
         var calls = new ArrayList<String>();
         var scene = MenuScene.screen("actions").content(MusicPlaybackActions.buttons(songs, Component::text,
                 (tracks, placement) -> calls.add(placement + ":" + tracks.stream().map(MusicTrack::id).toList()))).build();
@@ -371,7 +371,7 @@ class MusicTrackTableTest {
         assertEquals(2, scene.entries().size());
         for (String action : List.of("insert", "append")) entry(scene,action)
                 .trigger(FloatingMenuInteraction.PRIMARY).execute(null, null, FloatingMenuInteraction.PRIMARY);
-        assertEquals(List.of("INSERT:[b, a]", "APPEND:[b, a]"), calls);
+        assertEquals(List.of("INSERT:" + expected, "APPEND:" + expected), calls);
     }
 
     private MenuScene scene(List<MusicTrack> tracks, Set<String> selected, List<String> calls) {
@@ -397,12 +397,12 @@ class MusicTrackTableTest {
     }
 
     private MusicTrack titled(String title, String artist) {
-        return described(title, artist, "mp3", null);
+        return described(title, artist, null);
     }
 
-    private MusicTrack described(String title, String artist, String format, Duration duration) {
+    private MusicTrack described(String title, String artist, Duration duration) {
         var track = MusicWorkspaceStateTest.track("titled");
-        return new MusicTrack(track.id(), new TrackDetails(title, artist, null, format, new AudioProperties(null, null, duration)), track.target());
+        return new MusicTrack(track.id(), new TrackDetails(title, artist, null, duration), track.target());
     }
 
     private String value(MenuScene scene, String key) {

@@ -12,7 +12,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 
 /** Player-requested visits; chunk work is asynchronous, identity and landing checks stay on the main thread. */
 public final class MusicDeviceTravel implements AutoCloseable {

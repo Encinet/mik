@@ -39,8 +39,10 @@ final class VehicleModelEditor {
     private record Corner(VehicleVector point, boolean look) { }
     private record Placement(VehicleEditorPlacement operation, VehicleEditorView returnTo) { }
     private record Aim(Location point, Display display) { }
+    private record Creation(Source source) { }
     @FunctionalInterface private interface Operation { void run() throws IOException; }
     @FunctionalInterface private interface PlayerAction { void run(Player player) throws IOException; }
+    @FunctionalInterface private interface ModelIdAction { void run(Player player, String id) throws IOException; }
     private final JavaPlugin plugin;
     private final LanguageService language;
     private final VehicleModule module;
@@ -57,6 +59,7 @@ final class VehicleModelEditor {
     private final Map<UUID, Placement> placements = new HashMap<>();
     private final Map<UUID, Long> placementClicks = new HashMap<>();
     private final FloatingMenuScreen<VehicleEditorView> screen;
+    private final FloatingMenuScreen<Creation> creationScreen;
     private boolean closed;
     private long generation;
     private long ticks;
@@ -67,6 +70,7 @@ final class VehicleModelEditor {
         this.module = module;
         previews = new VehicleEditorPreview(plugin, language, module::refreshGizmos);
         screen = new FloatingMenuScreen<>("vehicle-models", this::render);
+        creationScreen = new FloatingMenuScreen<>("vehicle-create", this::renderCreation);
     }
 
     enum Source { EMPTY, HAND, SELECTION }
@@ -75,10 +79,10 @@ final class VehicleModelEditor {
         requireAdmin(player);
         requireNewDraft(player);
         if (source == Source.EMPTY) begin(player, VehicleModelDraft.create(id, kind));
-        else if (source == Source.HAND) {
-            var imported = module.importGroup(player, id, kind, null);
+        else {
+            var imported = source == Source.HAND ? module.importGroup(player, id, kind, null) : module.captureDraft(player, id, kind);
             begin(player, VehicleModelDraft.imported(imported.definition()), imported.origin());
-        } else begin(player, VehicleModelDraft.imported(module.captureDraft(player, id, kind)));
+        }
         openPanel(player, Workspace.INSTANCE);
     }
 
@@ -178,7 +182,7 @@ final class VehicleModelEditor {
     }
 
     private void begin(Player player, VehicleModelDraft draft) {
-        begin(player, draft, module.editorOrigin(player));
+        begin(player, draft, player.getLocation());
     }
 
     private void begin(Player player, VehicleModelDraft draft, Location origin) {
@@ -197,9 +201,11 @@ final class VehicleModelEditor {
     }
 
     private void requireNewDraft(Player player) {
-        if (drafts.containsKey(player.getUniqueId())) throw new IllegalArgumentException("Save or cancel the current draft first");
+        if (hasDraft(player)) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MENU_LABEL, "draft-open"));
         if (drafts.size() >= 32) throw new IllegalArgumentException("At most 32 concurrent model editors");
     }
+
+    boolean hasDraft(Player player) { return drafts.containsKey(player.getUniqueId()); }
 
     private VehicleVector here(Player player) {
         return sampled(player, player.getLocation());
@@ -243,7 +249,7 @@ final class VehicleModelEditor {
         VehicleEditorRoute initial = drafts.containsKey(player.getUniqueId()) ? Workspace.INSTANCE : new Library(0);
         VehicleEditorView previous = screen.state(player).orElseGet(() -> VehicleEditorView.open(initial));
         screen.open(player, drafts.containsKey(player.getUniqueId()) && !(previous.route() instanceof Library || previous.route() instanceof Model)
-                ? previous : VehicleEditorView.open(initial));
+                ? new VehicleEditorView(previous.route(), previous.itemPage(), previous.actionPage()) : VehicleEditorView.open(initial));
     }
 
     private void openPanel(Player player, VehicleEditorRoute route) {
@@ -258,7 +264,7 @@ final class VehicleModelEditor {
         VehicleEditorView view = context.state();
         VehicleEditorRoute state = view.route();
         VehicleModelDraft draft = drafts.get(player.getUniqueId());
-        VehicleEditorRoute displayRoute = draft == null && !(state instanceof Model)
+        VehicleEditorRoute displayRoute = draft == null && !(state instanceof Library || state instanceof Model)
                 || !player.hasPermission("mik.vehicle.admin") || closed ? new Library(0) : state;
         MenuScene.Builder menu = createMenu(panelTitle(player, displayRoute), displayRoute);
         UiNode reading = null;
@@ -294,35 +300,47 @@ final class VehicleModelEditor {
             menu.information("denied", Component.text("mik.vehicle.admin", NamedTextColor.RED)).region("summary");
             primary = VehicleEditorComposition.Primary.SUMMARY;
         } else if (state instanceof Library || draft == null && !(state instanceof Model)) {
-            List<String> ids = module.models().keySet().stream().sorted().toList();
+            var definitions = module.models().values().stream().sorted(java.util.Comparator.comparing(VehicleDefinition::id)).toList();
             int anchor = state instanceof Library library ? library.anchor() : 0;
             menu.information("summary", text(player, Message.VEHICLE_MODEL_LIBRARY)).region("summary");
             var models = new ArrayList<VehicleEditorList.Item>();
-            for (int index = 0; index < ids.size(); index++) {
-                String id = ids.get(index);
+            for (int index = 0; index < definitions.size(); index++) {
+                var definition = definitions.get(index);
+                String id = definition.id();
                 int sourceIndex = index;
-                models.add(new VehicleEditorList.Item(UiKey.item("model:" + id), Component.text(id),
+                var title = Component.text(id + " · ").append(language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, definition.kind().name()));
+                models.add(new VehicleEditorList.Item(UiKey.item("model:" + id), title,
                         (_, _) -> navigate(context, view, new Model(id, sourceIndex))));
             }
             reading = VehicleEditorList.content(models, text(player, Message.MENU_SEARCH_EMPTY), anchor,
                     next -> navigate(context, view, new Library(next)));
-            action(menu, player, "create", Message.VEHICLE_MODEL_CREATE,
-                    actor -> newModel(actor, Source.EMPTY));
-            action(menu, player, "import", Message.VEHICLE_MODEL_IMPORT,
-                    actor -> newModel(actor, Source.HAND));
-            action(menu, player, "capture", Message.VEHICLE_MODEL_SELECTED, actor -> newModel(actor, Source.SELECTION));
-            action(menu, player, "selection", Message.VEHICLE_MODEL_GROUP, module::openSelection);
-            menu.navigation("vehicles", text(player, Message.VEHICLE_COMMAND_DESCRIPTION)).region("navigation").primary((actor, _) -> module.openMenu(actor));
-            if (draft != null) action(menu, player, "resume", Message.VEHICLE_MODEL_EDIT, actor -> openPanel(actor, Workspace.INSTANCE));
-        } else if (state instanceof Model) {
-            VehicleDefinition definition = module.models().get(((Model) state).id());
+            if (draft == null) {
+                action(menu, player, "create", Message.VEHICLE_MODEL_CREATE, "primary", actor -> newModel(actor, Source.EMPTY));
+                action(menu, player, "import", Message.VEHICLE_MODEL_IMPORT, "primary", actor -> newModel(actor, Source.HAND));
+            } else {
+                menu.information("saved-draft", Component.text(draft.id() + " · ").append(text(player,
+                        draft.dirty() ? Message.VEHICLE_MODEL_DRAFT : Message.VEHICLE_MODEL_SAVED))).region("draft");
+                action(menu, player, "resume", menuLabel(player, "resume"), "primary", this::open).keepAccessible();
+            }
+            action(menu, player, "selection", menuLabel(player, "selection"), "primary", module::openSelection);
+            action(menu, player, "reload", menuLabel(player, "reload"), "secondary", actor -> reloadModels(actor, view));
+        } else if (state instanceof Model model) {
+            VehicleDefinition definition = module.models().get(model.id());
             if (definition != null) {
                 menu.information("summary", Component.text(definition.id() + " · ")
                         .append(language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, definition.kind().name()))).region("summary");
-                action(menu, player, "edit", Message.VEHICLE_MODEL_EDIT, actor -> run(actor, () -> edit(actor, definition.id())));
-                action(menu, player, "spawn", Message.VEHICLE_MODEL_SPAWN, actor -> spawnForm(actor, definition));
-                action(menu, player, "clone", Message.VEHICLE_MODEL_CLONE, actor -> prompt(actor, Message.VEHICLE_MODEL_CLONE, "ID", "", value -> cloneModel(actor, definition.id(), value)));
-                action(menu, player, "delete", Message.VEHICLE_MODEL_DELETE, actor -> delete(actor, definition));
+                boolean sameDraft = draft != null && draft.id().equals(definition.id());
+                var edit = action(menu, player, "edit", sameDraft ? menuLabel(player, "resume") : text(player, Message.VEHICLE_MODEL_EDIT),
+                        "primary", actor -> edit(actor, definition.id())).keepAccessible();
+                action(menu, player, "spawn", Message.VEHICLE_MODEL_SPAWN, "primary", actor -> spawnForm(actor, view, definition)).keepAccessible();
+                var copy = action(menu, player, "clone", Message.VEHICLE_MODEL_CLONE, "secondary",
+                        actor -> promptId(actor, text(actor, Message.VEHICLE_MODEL_CLONE), responder -> requireModel(responder, view, definition),
+                                (responder, id) -> cloneModel(responder, definition.id(), id)));
+                action(menu, player, "delete", Message.VEHICLE_MODEL_DELETE, "secondary", actor -> delete(actor, view, definition));
+                if (draft != null) {
+                    if (!sameDraft) edit.disabled(menuLabel(player, "draft-open"));
+                    copy.disabled(menuLabel(player, "draft-open"));
+                }
             } else {
                 menu.information("missing", text(player, Message.VEHICLE_MODEL_SELECTION_UNAVAILABLE)).region("summary");
                 primary = VehicleEditorComposition.Primary.SUMMARY;
@@ -511,7 +529,7 @@ final class VehicleModelEditor {
                 .primary((_, _) -> navigate(context, view, displayRoute.back()));
         menu.content(VehicleEditorComposition.create(new VehicleEditorView(displayRoute, view.itemPage(), view.actionPage()),
                 reading, primary, next -> read(context, view, next)));
-        return finishMenu(menu, text(player, Message.CLOSE));
+        return finishMenu(menu, text(player, displayRoute instanceof Library ? Message.BACK : Message.CLOSE));
     }
 
     private Component sectionCount(Player player, VehicleModelDraft draft, Section section) {
@@ -665,8 +683,7 @@ final class VehicleModelEditor {
 
     private void read(FloatingMenuContext<VehicleEditorView> context, VehicleEditorView source, VehicleEditorView next) {
         if (!closed && context.player().hasPermission("mik.vehicle.admin")
-                && screen.flow(context.player()).filter(flow -> flow.state() == source
-                        && flow.handle().state() != FloatingMenuState.CLOSING && flow.handle().state() != FloatingMenuState.CLOSED).isPresent())
+                && screen.isCurrent(context.player(), source))
             context.setState(next);
     }
 
@@ -1009,8 +1026,10 @@ final class VehicleModelEditor {
         long revision = draft.revision();
         long expectedGeneration = generation;
         UUID session = sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
+        var view = screen.flow(player).map(flow -> flow.state()).orElse(null);
         VehicleEditorForms.open(player, language, draft, title, description, fields, edit, actor -> {
             requireAdmin(actor); requireCurrent(actor, draft, revision); requireSession(actor, session, expectedGeneration);
+            if (view != null) requireView(actor, view);
         }, (actor, action) -> run(actor, action::run), this::changed);
     }
 
@@ -1042,65 +1061,95 @@ final class VehicleModelEditor {
         return VehicleEditorComposition.axes(axes, axisReadings(player, position), view, read);
     }
 
-    private void prompt(Player player, Message title, String label, String initial, Consumer<String> action) {
-        VehicleModelDraft expected = drafts.get(player.getUniqueId());
-        long revision = expected == null ? -1 : expected.revision();
-        long expectedGeneration = generation;
-        UUID session = sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
-        FloatingMenus.input(player, MenuInputForm.builder(text(player, title))
-                .field(MenuInputForm.Field.text("value", Component.text(label), initial, 48))
+    private void promptId(Player player, Component title, Consumer<Player> source, ModelIdAction action) {
+        FloatingMenus.input(player, MenuInputForm.builder(title)
+                .field(MenuInputForm.Field.text("value", Component.text("ID"), "", 48))
                 .validate((actor, values) -> {
-                    try { requireAdmin(actor); requireCurrent(actor, expected, revision); requireSession(actor, session, expectedGeneration);
-                        if (!values.text("value").strip().matches("[a-z0-9][a-z0-9_-]{0,47}")) throw new IllegalArgumentException("ID: a-z, 0-9, _ and -, at most 48 characters");
+                    try {
+                        source.accept(actor);
+                        newModelId(actor, values);
                         return null;
-                    } catch (IllegalArgumentException | IllegalStateException error) { return Component.text(error.getMessage(), NamedTextColor.RED); }
+                    } catch (IllegalArgumentException | IllegalStateException error) { return problem(actor, error); }
                 })
-                .cancel(text(player, Message.CLOSE))
-                .submit(text(player, Message.VEHICLE_MODEL_APPLY), (actor, inputValues) -> {
-                    String value = inputValues.text("value").strip();
-                    run(actor, () -> {
-                    requireCurrent(actor, expected, revision);
-                    requireSession(actor, session, expectedGeneration);
-                    action.accept(value);
-                });
-                }).build());
+                .cancel(text(player, Message.CANCEL))
+                .submitAsync(text(player, Message.VEHICLE_MODEL_APPLY), (actor, values, completion) -> submit(actor, completion, () -> {
+                    source.accept(actor);
+                    action.run(actor, newModelId(actor, values));
+                })).build());
+    }
+
+    private String newModelId(Player player, MenuInputForm.Values values) {
+        requireAdmin(player);
+        requireNewDraft(player);
+        String id = values.text("value").strip();
+        if (!VehicleDefinition.validId(id)) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MENU_LABEL, "model-id-format"));
+        if (module.models().containsKey(id)) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MENU_LABEL, "model-exists"));
+        return id;
     }
 
     void newModel(Player player, Source source) {
         requireAdmin(player);
         requireNewDraft(player);
-        sessions.put(player.getUniqueId(), UUID.randomUUID());
-        var menu = MenuScene.screen("vehicle-create").stableAnchor().content(UiTemplates.sheet(
-                UiTemplates.window("main", UiTemplates.menu(UiTemplates.title("heading"), UiTemplates.actions("kinds", 1))),
-                UiTemplates.toolbar("footer", UiTemplates.navigation("navigation"))));
-        menu.information("heading", text(player, Message.VEHICLE_MODEL_CREATE)).region("heading");
-        for (var kind : VehicleDefinition.Kind.values()) menu.control(kind.name(), language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, kind.name()))
-                .region("kinds").primary((actor, _) -> prompt(actor, Message.VEHICLE_MODEL_CREATE, "ID", "", id -> run(actor, () -> create(actor, id, kind, source))));
-        menu.navigation("back", text(player, Message.BACK)).region("navigation").primary((actor, _) -> open(actor));
-        menu.dismiss(text(player, Message.CLOSE)).region("navigation");
-        FloatingMenus.open(player, menu.build());
+        creationScreen.open(player, new Creation(source));
     }
 
-    private void spawnForm(Player player, VehicleDefinition definition) {
+    private MenuScene renderCreation(FloatingMenuContext<Creation> context) {
+        var player = context.player();
+        var creation = context.state();
+        var source = creation.source();
+        Component title = switch (source) {
+            case EMPTY -> text(player, Message.VEHICLE_MODEL_CREATE);
+            case HAND -> text(player, Message.VEHICLE_MODEL_IMPORT);
+            case SELECTION -> menuLabel(player, "capture");
+        };
+        var menu = MenuScene.screen(creationScreen.id()).stableAnchor().content(UiTemplates.sheet(
+                UiTemplates.window("main", UiTemplates.menu(UiTemplates.title("heading"), UiTemplates.actions("kinds", 1))),
+                UiTemplates.toolbar("footer", UiTemplates.navigation("navigation"))));
+        menu.information("heading", title).region("heading");
+        Consumer<Player> guard = actor -> {
+            if (!creationScreen.isCurrent(actor, creation)) throw new IllegalArgumentException("Editor page changed; reopen it");
+        };
+        for (var kind : VehicleDefinition.Kind.values()) menu.control(kind.name(), language.text(player, Message.VEHICLE_MODEL_CHOICE, NamedTextColor.AQUA, kind.name()))
+                .region("kinds").primary((actor, _) -> run(actor, () -> {
+                    guard.accept(actor);
+                    requireNewDraft(actor);
+                    promptId(actor, title, guard, (responder, id) -> create(responder, id, kind, source));
+                }));
+        menu.dismiss(text(player, Message.BACK)).region("navigation");
+        return menu.build();
+    }
+
+    private void reloadModels(Player player, VehicleEditorView view) {
+        var title = menuLabel(player, "reload");
+        MenuDialogs.openConfirm(plugin, player, title, menuLabel(player, "reload-hint"), title, text(player, Message.CANCEL), actor -> run(actor, () -> {
+            requireView(actor, view);
+            module.reload(actor);
+            screen.redrawWhere(_ -> true);
+        }));
+    }
+
+    private void spawnForm(Player player, VehicleEditorView view, VehicleDefinition definition) {
         var origin = player.getLocation();
         var forward = new VehicleVector(0, 0, 4).rotate(VehicleModel.orientation(origin.getYaw()));
         var initial = new VehicleVector(origin.getX(), origin.getY() + 1, origin.getZ()).add(forward);
-        var expected = drafts.get(player.getUniqueId());
-        long revision = expected == null ? -1 : expected.revision();
-        UUID session = sessions.get(player.getUniqueId()); long expectedGeneration = generation;
         var builder = MenuInputForm.builder(text(player, Message.VEHICLE_MODEL_SPAWN))
                 .description(language.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "spawn-hint"))
                 .cancel(text(player, Message.CLOSE)).validate((actor, values) -> {
-                    try { requireAdmin(actor); requireCurrent(actor, expected, revision); requireSession(actor, session, expectedGeneration);
+                    try { requireAdmin(actor); requireModel(actor, view, definition);
                         VehicleEditorForms.vector(values, ""); return null; }
-                    catch (IllegalArgumentException exception) { return Component.text(exception.getMessage(), NamedTextColor.RED); }
-                }).submit(text(player, Message.VEHICLE_MODEL_APPLY), (actor, values) -> run(actor, () -> {
-                    requireCurrent(actor, expected, revision); requireSession(actor, session, expectedGeneration);
-                    if (module.models().get(definition.id()) != definition) throw new IllegalArgumentException("Model changed; reopen it");
-                    var point = VehicleEditorForms.vector(values, "");
-                    module.spawn(actor, definition.id(), new Location(origin.getWorld(), point.coordinateX(), point.coordinateY(), point.coordinateZ(), origin.getYaw(), 0));
-                    module.openMenu(actor);
-                }));
+                    catch (IllegalArgumentException exception) { return problem(actor, exception); }
+                }).submitAsync(text(player, Message.VEHICLE_MODEL_APPLY), (actor, values, completion) -> {
+                    UUID vehicle;
+                    try {
+                        requireAdmin(actor);
+                        requireModel(actor, view, definition);
+                        var point = VehicleEditorForms.vector(values, "");
+                        vehicle = module.spawn(actor, definition.id(), new Location(origin.getWorld(), point.coordinateX(), point.coordinateY(), point.coordinateZ()));
+                    } catch (IllegalArgumentException | IllegalStateException exception) { completion.failure(problem(actor, exception)); return; }
+                    catch (IOException exception) { completion.failure(storageProblem(actor, exception)); return; }
+                    completion.success();
+                    run(actor, () -> module.openCreatedVehicle(actor, vehicle));
+                });
         VehicleEditorForms.vector(language, player, initial, "").forEach(builder::field);
         FloatingMenus.input(player, builder.build());
     }
@@ -1128,7 +1177,9 @@ final class VehicleModelEditor {
         run(player, () -> {
             VehicleModelDraft expected = draft(player);
             long revision = expected.revision();
+            var view = screen.state(player).orElseThrow();
             Consumer<Player> remove = actor -> run(actor, () -> {
+                requireView(actor, view);
                 requireCurrent(actor, expected, revision);
                 drafts.remove(actor.getUniqueId());
                 draftOrigins.remove(actor.getUniqueId()); stages.remove(actor.getUniqueId());
@@ -1143,14 +1194,12 @@ final class VehicleModelEditor {
         });
     }
 
-    private void delete(Player player, VehicleDefinition expected) {
+    private void delete(Player player, VehicleEditorView view, VehicleDefinition expected) {
         run(player, () -> {
-            UUID session = sessions.computeIfAbsent(player.getUniqueId(), _ -> UUID.randomUUID());
-            long expectedGeneration = generation;
             MenuDialogs.openConfirm(plugin, player, text(player, Message.VEHICLE_MODEL_DELETE),
                     text(player, Message.VEHICLE_MODEL_DELETE_WARNING).append(Component.text(" · " + expected.id())),
                     text(player, Message.VEHICLE_MODEL_DELETE), text(player, Message.CLOSE), actor -> run(actor, () -> {
-                        requireSession(actor, session, expectedGeneration);
+                        requireModel(actor, view, expected);
                         module.deleteModel(expected);
                         screen.redrawWhere(_ -> true);
                         result(actor, expected.id() + " · " + language.t(actor, Message.VEHICLE_MODEL_DELETED));
@@ -1255,8 +1304,8 @@ final class VehicleModelEditor {
     java.util.Set<UUID> previewIds(UUID viewer) { return previews.ids(viewer); }
     void clearPreview(UUID id) { placements.remove(id); spatial.remove(id); previews.clear(id); }
     private void clearTools(UUID id) { corners.remove(id); steps.remove(id); transformSteps.remove(id); snapping.remove(id); placements.remove(id); placementClicks.remove(id); spatial.remove(id); }
-    void forget(Player player) { clearPreview(player.getUniqueId()); drafts.remove(player.getUniqueId()); draftOrigins.remove(player.getUniqueId()); stages.remove(player.getUniqueId()); clearTools(player.getUniqueId()); sessions.remove(player.getUniqueId()); screen.forget(player); }
-    void close() { closed = true; generation++; for (UUID id : List.copyOf(sessions.keySet())) screen.forget(id); previews.close(); drafts.clear(); draftOrigins.clear(); stages.clear(); sessions.clear(); corners.clear(); steps.clear(); transformSteps.clear(); snapping.clear(); placements.clear(); placementClicks.clear(); spatial.clear(); }
+    void forget(Player player) { clearPreview(player.getUniqueId()); drafts.remove(player.getUniqueId()); draftOrigins.remove(player.getUniqueId()); stages.remove(player.getUniqueId()); clearTools(player.getUniqueId()); sessions.remove(player.getUniqueId()); creationScreen.forget(player); screen.forget(player); }
+    void close() { closed = true; generation++; creationScreen.forgetAll(); screen.forgetAll(); previews.close(); drafts.clear(); draftOrigins.clear(); stages.clear(); sessions.clear(); corners.clear(); steps.clear(); transformSteps.clear(); snapping.clear(); placements.clear(); placementClicks.clear(); spatial.clear(); }
 
     private Location sourceOrigin(Player player) { return VehicleEditorGeometry.oriented(draftOrigins.get(player.getUniqueId()), draft(player).frameTurns()); }
 
@@ -1279,24 +1328,49 @@ final class VehicleModelEditor {
         if (expectedGeneration != generation || !session.equals(sessions.get(player.getUniqueId())))
             throw new IllegalArgumentException("Editor closed; reopen the form");
     }
+    private void requireView(Player player, VehicleEditorView view) {
+        if (!screen.isCurrent(player, view)) throw new IllegalArgumentException("Editor page changed; reopen it");
+    }
+    private void requireModel(Player player, VehicleEditorView view, VehicleDefinition expected) {
+        requireView(player, view);
+        if (module.models().get(expected.id()) != expected) throw new IllegalArgumentException("Model changed; reopen it");
+    }
+    private void submit(Player player, MenuInputForm.Completion completion, Operation operation) {
+        try { requireAdmin(player); operation.run(); }
+        catch (IllegalArgumentException | IllegalStateException exception) { completion.failure(problem(player, exception)); return; }
+        catch (IOException exception) { completion.failure(storageProblem(player, exception)); return; }
+        completion.success();
+    }
     private void run(Player player, Operation operation) {
         try { requireAdmin(player); operation.run(); }
-        catch (IllegalArgumentException | IllegalStateException exception) { player.sendMessage(language.text(player, Message.VEHICLE_ERROR, NamedTextColor.RED,
-                exception instanceof VehicleImportException imported ? imported.describe(language, player) : exception.getMessage())); }
-        catch (IOException exception) { plugin.getLogger().log(Level.SEVERE, "Vehicle model storage failed", exception); player.sendMessage(language.text(player, Message.VEHICLE_ERROR, NamedTextColor.RED, "Storage failed; draft retained: " + exception.getMessage())); }
+        catch (IllegalArgumentException | IllegalStateException exception) { player.sendMessage(problem(player, exception)); }
+        catch (IOException exception) { player.sendMessage(storageProblem(player, exception)); }
+    }
+    private Component storageProblem(Player player, IOException exception) {
+        plugin.getLogger().log(Level.SEVERE, "Vehicle model storage failed", exception);
+        return language.text(player, Message.VEHICLE_ERROR, NamedTextColor.RED, "Storage failed; changes not saved: " + exception.getMessage());
+    }
+    private Component problem(Player player, RuntimeException exception) {
+        return language.text(player, Message.VEHICLE_ERROR, NamedTextColor.RED,
+                exception instanceof VehicleImportException imported ? imported.describe(language, player) : exception.getMessage());
     }
     private Component text(Player player, Message message) { return language.text(player, message, NamedTextColor.AQUA); }
+    private Component menuLabel(Player player, String key) { return language.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, key); }
     private void result(Player player, String message) { player.sendMessage(language.text(player, Message.VEHICLE_RESULT, NamedTextColor.GREEN, message)); }
     private void action(MenuScene.Builder menu, Player player, String id, Message label, PlayerAction action) {
         action(menu, player, id, label, "actions", action);
     }
-    private void action(MenuScene.Builder menu, Player player, String id, Message label, String region, PlayerAction action) {
+    private MenuScene.NodeBuilder action(MenuScene.Builder menu, Player player, String id, Message label, String region, PlayerAction action) {
+        return action(menu, player, id, language.text(player, label,
+                region.equals("commit") && id.equals("apply") ? NamedTextColor.GREEN : NamedTextColor.AQUA), region, action);
+    }
+    private MenuScene.NodeBuilder action(MenuScene.Builder menu, Player player, String id, Component label, String region, PlayerAction action) {
         var source = drafts.get(player.getUniqueId());
         long revision = source == null ? -1 : source.revision();
         var view = screen.state(player).orElse(null);
-        menu.control(id, language.text(player, label, region.equals("commit") && id.equals("apply") ? NamedTextColor.GREEN : NamedTextColor.AQUA))
+        return menu.control(id, label)
                 .region(region).primary((actor, _) -> run(actor, () -> {
-            if (screen.state(actor).orElse(null) != view) throw new IllegalArgumentException("Editor page changed");
+            requireView(actor, view);
             requireCurrent(actor, source, revision);
             action.run(actor);
         }));

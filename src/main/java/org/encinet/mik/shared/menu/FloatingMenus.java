@@ -105,6 +105,11 @@ public final class FloatingMenus {
         return service.preferences(player);
     }
 
+    public static void resetInterface(Player player, FloatingMenuFieldOfView fov) {
+        if (service == null) throw new IllegalStateException("Floating menu service is not installed");
+        service.resetInterface(player, fov);
+    }
+
     public static void openSettings(Player player) {
         if (service == null) throw new IllegalStateException("Floating menu service is not installed");
         service.openSettings(player);

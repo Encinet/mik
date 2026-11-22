@@ -19,10 +19,6 @@ public final class RhythmAudioFilterFactory implements PcmFilterFactory {
     private final List<ManagedExtractor> extractors = new CopyOnWriteArrayList<>();
     private final AtomicBoolean finished = new AtomicBoolean();
 
-    public RhythmAudioFilterFactory(RhythmExtractionSink output) {
-        this(output, RhythmOnsetDetector::new);
-    }
-
     /** Allows another PCM rhythm algorithm to reuse the unchanged decoder filter chain. */
     public RhythmAudioFilterFactory(RhythmExtractionSink output,
                                     PcmRhythmExtractorFactory extractorFactory) {

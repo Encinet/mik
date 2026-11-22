@@ -1,0 +1,35 @@
+# Lowercase MediaWiki virtual namespace names and aliases (siteinfo IDs -2/-1).
+# Used to keep Media and Special pages out of article citations.
+media
+special
+medium
+spezial
+medio
+especial
+média
+spécial
+מדיה
+מיוחד
+speciale
+メディア
+特別
+미디어
+특수
+특
+특수기능
+媒體
+特殊
+媒体
+媒体文件
+媒体档案
+媒體文件
+媒體檔案
+speciaal
+медиа
+служебная
+mídia
+สื่อ
+พิเศษ
+медіа
+спеціальна
+спеціальні

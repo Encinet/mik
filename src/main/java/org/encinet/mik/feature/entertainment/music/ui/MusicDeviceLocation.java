@@ -1,7 +1,7 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
 import org.bukkit.Location;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 
 /** A rounded, viewer-relative reading hint. Computing it never accesses a block or loads a chunk. */
 record MusicDeviceLocation(String world, boolean sameWorld, Direction direction, int distance, int height) {

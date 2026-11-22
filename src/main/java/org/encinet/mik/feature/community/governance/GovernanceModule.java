@@ -1,207 +1,130 @@
 package org.encinet.mik.feature.community.governance;
 
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
-import org.encinet.mik.feature.player.security.PasswordAccess;
 import net.luckperms.api.LuckPerms;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
-import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
+import org.encinet.mik.feature.community.governance.gateway.GovernanceGateway;
+import org.encinet.mik.feature.community.governance.command.GovernanceCommandController;
+import org.encinet.mik.feature.community.governance.delivery.GovernanceDeliveryCoordinator;
+import org.encinet.mik.feature.community.governance.membership.EffectivePlaytimeTracker;
+import org.encinet.mik.feature.community.governance.delivery.LuckPermsGovernanceRoles;
 import org.encinet.mik.feature.player.afk.AfkService;
+import org.encinet.mik.feature.player.security.PasswordAccess;
 import org.encinet.mik.feature.server.ban.BanManager;
-import org.encinet.mik.feature.community.governance.delivery.DeliveryService;
-import org.encinet.mik.feature.community.governance.membership.MembershipService;
-import org.encinet.mik.feature.community.governance.persistence.sqlite.SqliteGovernanceRepository;
-import org.encinet.mik.feature.community.governance.platform.paper.GovernanceTaskExecutor;
-import org.encinet.mik.feature.community.governance.platform.paper.GovernanceText;
-import org.encinet.mik.feature.community.governance.platform.paper.command.GovernanceCommandController;
-import org.encinet.mik.feature.community.governance.platform.paper.delivery.GovernanceDeliveryCoordinator;
-import org.encinet.mik.feature.community.governance.platform.paper.membership.AutomaticPromotionCoordinator;
-import org.encinet.mik.feature.community.governance.platform.paper.membership.EffectivePlaytimeTracker;
-import org.encinet.mik.feature.community.governance.platform.paper.membership.ModeratorTenureCoordinator;
-import org.encinet.mik.feature.community.governance.platform.paper.membership.MembershipRoleSnapshot;
-import org.encinet.mik.feature.community.governance.platform.paper.role.LuckPermsGovernanceRoles;
-import org.encinet.mik.feature.community.governance.platform.paper.role.LuckPermsStaffDirectory;
-import org.encinet.mik.feature.community.governance.removal.RemovalService;
-import org.encinet.mik.feature.community.governance.voting.VotingService;
+import org.encinet.mik.integration.mikd.RequestPort;
+import org.encinet.mik.protocol.GovernanceCredential;
+import org.encinet.mik.protocol.GovernancePasswordRemoval;
+import org.encinet.mik.protocol.GovernanceResult;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.menu.MenuPanel;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
-import java.io.File;
+import java.time.Duration;
+import java.util.Objects;
+import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 
-/** Composition root for the governance capability slices and Paper adapters. */
-public final class GovernanceModule {
+public final class GovernanceModule implements org.encinet.mik.feature.player.security.PasswordService.RemovalAuthority {
     private final JavaPlugin plugin;
     private final LanguageService languages;
-    private final AfkService afkService;
-    private final BanManager banManager;
     private final PasswordAccess passwords;
-    private final SqliteGovernanceRepository database;
-    private final MembershipRoleSnapshot membershipRoles;
-    private final MembershipService membership;
-    private final VotingService voting;
-    private final RemovalService removal;
-    private final DeliveryService delivery;
-    private final ExecutorService storageExecutor;
-
+    private final Function<UUID, GovernanceCredential> credentials;
+    private final GovernanceGateway governance;
+    private final EffectivePlaytimeTracker facts;
+    private final ExecutorService workers = new ThreadPoolExecutor(1, 1, 0, TimeUnit.MILLISECONDS,
+            new ArrayBlockingQueue<>(128), Thread.ofPlatform().daemon().name("mik-governance-adapter").factory());
     private GovernanceCommandController commands;
-    private EffectivePlaytimeTracker playtime;
-    private ModeratorTenureCoordinator moderatorTenure;
-    private LuckPermsStaffDirectory staff;
+    private GovernanceDeliveryCoordinator delivery;
+    private BukkitTask polling;
+    private long lastError;
 
-    public GovernanceModule(
-            JavaPlugin plugin,
-            LanguageService languages,
-            AfkService afkService,
-            BanManager banManager, PasswordAccess passwords
-    ) {
+    public GovernanceModule(JavaPlugin plugin, LanguageService languages, AfkService afk, BanManager bans,
+                            PasswordAccess passwords, Predicate<Player> authenticated,
+                            Function<UUID, GovernanceCredential> credentials, RequestPort requests) {
         this.plugin = plugin;
         this.languages = languages;
-        this.afkService = afkService;
-        this.banManager = banManager;
         this.passwords = passwords;
-        this.database = new SqliteGovernanceRepository(
-                new File(plugin.getDataFolder(), "governance.db"));
-        this.membershipRoles = new MembershipRoleSnapshot(plugin);
-        this.membership = new MembershipService(
-                database,
-                (playerId, playerName) -> banManager.active(playerId, playerName).isPresent(),
-                membershipRoles);
-        this.voting = new VotingService(database, membership, passwords);
-        this.removal = new RemovalService(database, database, membership);
-        this.delivery = new DeliveryService(database);
-        this.storageExecutor = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "mik-governance-storage");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.credentials = credentials;
+        this.governance = new GovernanceGateway(requests);
+        this.facts = new EffectivePlaytimeTracker(plugin, afk, bans, authenticated, credentials, governance, this::submit);
     }
 
     public void enable() {
-        LuckPerms luckPerms = requireLuckPerms();
-        try {
-            database.open();
-        } catch (GovernanceRepositoryException error) {
-            throw new IllegalStateException("Governance database could not be opened", error);
+        var permissions = Objects.requireNonNull(Bukkit.getServicesManager().load(LuckPerms.class), "LuckPerms is required");
+        delivery = new GovernanceDeliveryCoordinator(plugin, governance,
+                new LuckPermsGovernanceRoles(permissions, passwords::roleChanged), new GovernanceText(languages));
+        commands = new GovernanceCommandController(plugin, languages, governance, this::submit, passwords, credentials);
+        facts.start();
+        polling = Bukkit.getScheduler().runTaskTimer(plugin, delivery::poll, 5, 20);
+    }
+
+    public void registerCommands(LifecycleEventManager<Plugin> manager) { commands.registerCommands(manager); }
+
+    public boolean requiresPassword(UUID id) throws GovernanceException {
+        var profile = governance.profile(id);
+        return profile != null && profile.getRequiresPassword();
+    }
+
+    public boolean canResetPassword(UUID id) throws GovernanceException {
+        var profile = governance.profile(id);
+        return profile != null && profile.getGovernanceAuthorized();
+    }
+
+    @Override public boolean reserve(UUID account, UUID operation, long revision) throws GovernanceException {
+        return governRemoval(account, operation, revision, true, false) == GovernanceResult.Outcome.DONE;
+    }
+
+    @Override public void finish(UUID account, UUID operation, long revision, boolean present) throws GovernanceException {
+        if (governRemoval(account, operation, revision, present, true) != GovernanceResult.Outcome.DONE) {
+            throw new GovernanceException("Password removal receipt rejected");
         }
-
-        membershipRoles.start(luckPerms);
-        LuckPermsStaffDirectory publicStaff = new LuckPermsStaffDirectory(luckPerms, plugin);
-        staff = publicStaff;
-        LuckPermsGovernanceRoles roleManager = new LuckPermsGovernanceRoles(luckPerms, id -> {
-            publicStaff.invalidate();
-            passwords.roleChanged(id);
-        });
-        GovernanceText text = new GovernanceText(languages);
-        GovernanceDeliveryCoordinator coordinator = new GovernanceDeliveryCoordinator(
-                plugin, membership, voting, delivery, roleManager, banManager,
-                this::submitStorage, text);
-        AutomaticPromotionCoordinator promotions = new AutomaticPromotionCoordinator(
-                plugin, languages, membership, membershipRoles,
-                roleManager, this::submitStorage);
-        playtime = new EffectivePlaytimeTracker(
-                plugin, afkService, membership, membershipRoles,
-                promotions, coordinator, this::submitStorage, text);
-        moderatorTenure = new ModeratorTenureCoordinator(
-                plugin, roleManager, voting, coordinator, this::submitStorage, text);
-        commands = new GovernanceCommandController(
-                plugin, languages, membership, voting, removal, roleManager,
-                coordinator, this::submitStorage, passwords, staff, delivery);
-
-        playtime.start();
-        moderatorTenure.start();
-        submitStorage(coordinator::reviewOpenVotes);
-        plugin.getLogger().info(
-                "GovernanceModule enabled (UTC+8 effective-play ledger active)");
     }
 
-    public void registerCommands(LifecycleEventManager<Plugin> manager) {
-        if (commands == null) {
-            throw new IllegalStateException("GovernanceModule must be enabled first");
-        }
-        commands.registerCommands(manager);
+    private GovernanceResult.Outcome governRemoval(UUID account, UUID operation, long revision, boolean present,
+                                                     boolean finalize) throws GovernanceException {
+        var credential = GovernanceCredential.newBuilder().setRevision(revision).setChangedMs(revision).setPresent(present);
+        return governance.passwordRemoval(GovernancePasswordRemoval.newBuilder().setPlayerId(account.toString())
+                .setRemovalId(operation.toString()).setCredential(credential).build(), finalize);
     }
 
-    public boolean requiresPassword(java.util.UUID id) throws GovernanceRepositoryException {
-        return database.requiresPassword(id);
-    }
+    public void credentialChanged(UUID id) { facts.credentialChanged(id); }
 
-    public void openMenu(Player player) {
-        if (commands == null) {
-            throw new IllegalStateException("GovernanceModule must be enabled first");
-        }
-        commands.openMenu(player);
-    }
+    public void openMenu(Player player) { commands.openMenu(player); }
 
-    public MenuPanel identityPanel(Player player, Runnable redraw) {
-        if (commands == null) {
-            throw new IllegalStateException("GovernanceModule must be enabled first");
-        }
-        return commands.identityPanel(player, redraw);
-    }
+    public MenuPanel identityPanel(Player player, Runnable redraw) { return commands.identityPanel(player, redraw); }
 
-    public MenuPanel activityPanel(Player player, Runnable redraw) {
-        if (commands == null) throw new IllegalStateException("GovernanceModule must be enabled first");
-        return commands.activityPanel(player, redraw);
-    }
+    public MenuPanel activityPanel(Player player, Runnable redraw) { return commands.activityPanel(player, redraw); }
 
     public void disable() {
-        ShutdownSequence shutdown = new ShutdownSequence();
-        ModeratorTenureCoordinator activeTenure = moderatorTenure;
-        moderatorTenure = null;
-        if (activeTenure != null) shutdown.attempt("moderator tenure", activeTenure::stop);
-        EffectivePlaytimeTracker activePlaytime = playtime;
-        playtime = null;
-        if (activePlaytime != null) shutdown.attempt("effective playtime", activePlaytime::stop);
-        shutdown.attempt("membership roles", membershipRoles::stop);
-        if (commands != null) shutdown.attempt("governance workspace", commands::close);
-        commands = null;
-
-        if (staff != null) shutdown.attempt("staff directory", staff::close);
-        staff = null;
-
-        shutdown.attempt("governance storage", () -> {
-            storageExecutor.shutdown();
-            try {
-                if (storageExecutor.awaitTermination(5, TimeUnit.SECONDS)) return;
-                storageExecutor.shutdownNow();
-                throw new IllegalStateException(
-                        "Governance storage did not drain within five seconds");
-            } catch (InterruptedException error) {
-                storageExecutor.shutdownNow();
-                Thread.currentThread().interrupt();
-                throw error;
-            }
-        });
-        shutdown.attempt("governance database", database::close);
+        var shutdown = new ShutdownSequence();
+        if (polling != null) polling.cancel();
+        shutdown.attempt("governance facts", facts::close);
+        if (delivery != null) shutdown.attempt("governance delivery", delivery::close);
+        if (commands != null) shutdown.attempt("governance menus", commands::close);
+        workers.shutdownNow();
         shutdown.finish("governance module");
     }
 
-    private LuckPerms requireLuckPerms() {
-        RegisteredServiceProvider<LuckPerms> provider =
-                Bukkit.getServicesManager().getRegistration(LuckPerms.class);
-        if (provider == null) {
-            throw new IllegalStateException("LuckPerms is required for governance roles");
-        }
-        return provider.getProvider();
-    }
-
-    private void submitStorage(GovernanceTaskExecutor.Task task) {
-        storageExecutor.execute(() -> {
+    private void submit(GovernanceTaskExecutor.Task task) {
+        workers.execute(() -> {
             try {
                 task.run();
-            } catch (GovernanceException error) {
-                plugin.getLogger().log(Level.SEVERE,
-                        "Governance storage operation failed", error);
-            } catch (RuntimeException error) {
-                plugin.getLogger().log(Level.SEVERE,
-                        "Unexpected governance operation failure", error);
+            } catch (GovernanceException | RuntimeException error) {
+                long now = System.nanoTime();
+                if (lastError == 0 || now - lastError >= Duration.ofMinutes(1).toNanos()) {
+                    lastError = now;
+                    plugin.getLogger().log(Level.WARNING, "Governance adapter operation failed", error);
+                }
             }
         });
     }

@@ -1,5 +1,9 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.layout.MenuReadingParameters;
+import org.encinet.mik.shared.menu.runtime.layout.SceneGeometry;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuAnchorResolver;
+
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.util.BoundingBox;

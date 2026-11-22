@@ -49,17 +49,6 @@ public final class GeoUtil {
         return encoded < 0 ? DEFAULT_LANGUAGE : LANGUAGE_CODES[encoded];
     }
 
-    /** Maps an ISO country/region code to a Minecraft locale without heuristic locale inference. */
-    public static String languageCodeForCountry(String countryCode) {
-        if (countryCode == null || countryCode.length() != 2
-                || countryCode.charAt(0) < 'A' || countryCode.charAt(0) > 'Z'
-                || countryCode.charAt(1) < 'A' || countryCode.charAt(1) > 'Z') {
-            return DEFAULT_LANGUAGE;
-        }
-        int encoded = (countryCode.charAt(0) - 'A') * 26 + countryCode.charAt(1) - 'A';
-        return LANGUAGE_CODES[encoded];
-    }
-
     private static String explicitLanguageCode(String countryCode) {
         return switch (countryCode.charAt(0)) {
             case 'A' -> switch (countryCode) {

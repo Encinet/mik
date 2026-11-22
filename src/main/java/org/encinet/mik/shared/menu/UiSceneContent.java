@@ -81,7 +81,7 @@ public final class UiSceneContent {
                 cells.set(index,new UiChild(cell.scope(),resolve(cell.node(),declarations,used),cell.linear(),cell.grid()));
             }
             var template = new UiContainer(source.key(),source.layout(),cells,source.style(),source.sizing());
-            return new UiWindowedTable(template,table.itemCount(),table.row(),table.pageIndex(),table.selectPage(),table.anchorIndex(),table.pager(),table.visibleColumns());
+            return new UiWindowedTable(template,table.itemCount(),table.row(),table.pageIndex(),table.selectPage(),table.anchorIndex(),table.pager(),table.visibleColumns(),table.observation());
         }
         if (node instanceof UiPagedList list) {
             return new UiPagedList(list.key(),resolve(list.header(),declarations,used),list.items().stream()

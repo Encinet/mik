@@ -1,0 +1,45 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+
+message AssistantToolDefinition {
+  string name = 1;
+  string description = 2;
+  string input_schema_json = 3;
+}
+
+message AssistantToolCall {
+  string player_uuid = 1;
+  string turn_id = 2;
+  string name = 3;
+  string arguments_json = 4;
+}
+
+message AssistantToolResult {
+  oneof outcome {
+    AssistantToolObservation observation = 1;
+    AssistantToolFailure failure = 2;
+  }
+}
+
+message AssistantToolObservation {
+  string data_json = 1;
+  repeated AssistantToolLink links = 2;
+}
+
+message AssistantToolLink {
+  string label = 1;
+  string url = 2;
+}
+
+message AssistantToolFailure {
+  enum Reason {
+    REASON_UNSPECIFIED = 0;
+    INVALID_ARGUMENTS = 1;
+    ACCESS_UNAVAILABLE = 2;
+    UNAVAILABLE = 3;
+  }
+  Reason reason = 1;
+  string detail = 2;
+}

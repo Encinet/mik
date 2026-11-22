@@ -2,6 +2,8 @@ package org.encinet.mik.feature.world.vehicle;
 
 import java.util.Map;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
+import org.bukkit.Location;
+import org.encinet.mik.shared.menu.FloatingMenus;
 import org.encinet.mik.shared.menu.MenuInputForm;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -80,9 +82,14 @@ class VehicleSpatialEditorTest {
     @Test void createWizardOpensTheEditorPanelAndPreviewToolsKeepTheDraft() throws Exception {
         try (var h = new VehicleEditorHarness()) {
             h.editor.newModel(h.player, VehicleModelEditor.Source.EMPTY); h.click("CAR");
+            var duplicate = new MenuInputForm.Values(Map.of("value", h.definition.id()));
+            assertNotNull(h.form.get().validation().apply(h.player, duplicate));
             var values = new MenuInputForm.Values(Map.of("value", "new_car"));
             assertNull(h.form.get().validation().apply(h.player, values));
-            h.form.get().onSubmit().accept(h.player, values);
+            var completion = mock(MenuInputForm.Completion.class);
+            h.form.get().asynchronousSubmit().submit(h.player, values, completion);
+            verify(completion).success();
+            verifyNoMoreInteractions(completion);
             assertTrue(org.encinet.mik.shared.menu.FloatingMenus.current(h.player).isPresent());
             double originalScale = h.editor.preview(h.player).scale();
             h.click("section:tools"); h.click("zoom-in");
@@ -90,6 +97,34 @@ class VehicleSpatialEditorTest {
             h.editor.mutate(h.player, draft -> draft.addParts(h.definition.parts()));
             h.editor.save(h.player, true);
             assertEquals("new_car", h.saved.get().id());
+        }
+    }
+
+    @Test void closingTheCreationWizardInvalidatesItsIdForm() throws Exception {
+        try (var h = new VehicleEditorHarness()) {
+            h.editor.newModel(h.player, VehicleModelEditor.Source.EMPTY);
+            h.click("CAR");
+            var form = h.form.get();
+            var values = new MenuInputForm.Values(Map.of("value", "new_car"));
+            assertNull(form.validation().apply(h.player, values));
+            FloatingMenus.current(h.player).orElseThrow().close();
+            assertNotNull(form.validation().apply(h.player, values));
+            var completion = mock(MenuInputForm.Completion.class);
+            form.asynchronousSubmit().submit(h.player, values, completion);
+            verify(completion).failure(any());
+            assertFalse(h.editor.hasDraft(h.player));
+        }
+    }
+
+    @Test void capturedModelsKeepTheOriginUsedToCaptureTheirParts() throws Exception {
+        try (var h = new VehicleEditorHarness()) {
+            var captured = VehicleModelDraft.copy(h.definition, "captured").validate();
+            var origin = new Location(h.world, -3, 64, -2);
+            when(h.module.captureDraft(h.player, captured.id(), captured.kind())).thenReturn(new VehicleModule.ModelImport(captured, origin));
+            h.editor.create(h.player, captured.id(), captured.kind(), VehicleModelEditor.Source.SELECTION);
+            h.click("section:SEATS"); h.click("component:0"); h.click("object-tool:position"); h.click("here");
+            h.editor.save(h.player, true);
+            assertEquals(new VehicleVector(3, 0, 2), h.saved.get().seats().getFirst().position());
         }
     }
 

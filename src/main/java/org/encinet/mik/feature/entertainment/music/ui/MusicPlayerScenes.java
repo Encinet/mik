@@ -86,6 +86,7 @@ final class MusicPlayerScenes implements AutoCloseable {
             boolean editable = online && restriction == null;
             var key = new TaskKey(Work.PLAYBACK, id);
             boolean busy = state.busy(key);
+            boolean versionGone = w.devices.needsRestart(id);
             var controls = MusicPlayerControls.sample(snapshot, program, busy);
             Component reason = !online ? w.label(player, "offline") : restriction != null ? w.problem(player, restriction)
                     : busy ? w.label(player, "saving") : null;
@@ -107,7 +108,8 @@ final class MusicPlayerScenes implements AutoCloseable {
                         } else control(player, state, snapshot, controls.primary() == MusicPlayerControls.Primary.STOP
                                 ? MusicPlaybackController.Action.STOP : controls.primary() == MusicPlayerControls.Primary.PAUSE
                                         ? MusicPlaybackController.Action.PAUSE : MusicPlaybackController.Action.RESUME);
-                    }), editable && controls.enabled() ? null : reason != null ? reason
+                    }), editable && controls.enabled() && !versionGone ? null : reason != null ? reason
+                            : versionGone ? w.problem(player, MusicProblem.Code.VERSION_GONE)
                             : snapshot.status() == PlaybackStatus.LOADING ? w.label(player, "saving")
                             : snapshot.track() == null ? w.label(player, "empty") : w.problem(player, MusicProblem.Code.UNSUPPORTED));
             UiNode next = playbackKey(player, state, snapshot, "next", UiIcons.NEXT, MusicPlaybackController.Action.NEXT,
@@ -152,7 +154,11 @@ final class MusicPlayerScenes implements AutoCloseable {
             if (!online) feedback.child(info("offline", w.label(player, "offline")));
             else if (restriction != null) feedback.child(info("restricted", w.problem(player, restriction)));
             else if (track != null && !snapshot.seekable()) feedback.child(info("read-only", w.label(player, "timeline-read-only")));
-            if (editable && state.lastSubmission != null && state.lastSubmission.target().equals(id) && state.lastSubmission.retryable())
+            if (versionGone) {
+                feedback.child(info("version-gone", w.problem(player, MusicProblem.Code.VERSION_GONE)));
+                if (editable) feedback.child(w.button(player, "restart-current", () -> w.run(player, key,
+                        () -> w.devices.restartCurrent(player, snapshot), _ -> {})));
+            } else if (editable && state.lastSubmission != null && state.lastSubmission.target().equals(id) && state.lastSubmission.retryable())
                 feedback.child(w.button(player, "retry-failed", () -> w.submit(player, state.lastSubmission)));
             else if (editable && !w.devices.outputFailures(id).isEmpty())
                 feedback.child(w.button(player, "retry-outputs", () -> { w.devices.retryOutputs(player, id); w.redraw(player); }));

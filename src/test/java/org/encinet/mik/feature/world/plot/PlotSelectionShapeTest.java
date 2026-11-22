@@ -56,7 +56,6 @@ class PlotSelectionShapeTest {
         assertFalse(merged.composite());
         assertEquals(3, merged.alignedCells().size());
         assertEquals(new PlotSelection.Bounds(-4, 64, 0, 7, 67, 3), merged.bounds());
-        assertEquals(12, PlotPreviewGeometry.selection(merged).size());
         assertEquals(merged, merged.apply(box(0, 0, 3, 3), PlotSelectionShape.Operation.ADD));
     }
 
@@ -85,7 +84,6 @@ class PlotSelectionShapeTest {
         assertFalse(merged.composite());
         assertEquals(cells, merged.alignedCells());
         assertEquals(new PlotSelection.Bounds(-4, 64, -8, 7, 75, 3), merged.bounds());
-        assertEquals(12, PlotPreviewGeometry.selection(merged).size());
     }
 
     @Test

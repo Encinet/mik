@@ -10,25 +10,25 @@ import org.junit.jupiter.api.Test;
 
 import java.net.Proxy;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PaperAuthenticationHookTest {
     @Test
-    void acceptsTheSessionServiceCreatedByPaper() {
+    void reusesTheDiscoveryFromTheSessionServiceCreatedByPaper() throws ReflectiveOperationException {
         var discovery = new PaperServicesDiscoveryService(Proxy.NO_PROXY, false, DiscoveryResponse::offline);
         var service = discovery.createMinecraftSessionService();
 
-        assertDoesNotThrow(() -> PaperAuthenticationHook.checkSessionService(service));
+        assertSame(discovery, PaperAuthenticationHook.sessionDiscovery(service));
     }
 
     @Test
-    void acceptsTheSessionServiceCreatedByMojang() {
+    void reusesTheDiscoveryFromTheSessionServiceCreatedByMojang() throws ReflectiveOperationException {
         var discovery = MinecraftServicesDiscoveryService.createOffline(Proxy.NO_PROXY);
         var service = discovery.createMinecraftSessionService();
 
-        assertDoesNotThrow(() -> PaperAuthenticationHook.checkSessionService(service));
+        assertSame(discovery, PaperAuthenticationHook.sessionDiscovery(service));
     }
 
     @Test
@@ -42,7 +42,7 @@ class PaperAuthenticationHookTest {
 
     private static void assertUnsupported(SessionService service) {
         var failure = assertThrows(IllegalStateException.class,
-                () -> PaperAuthenticationHook.checkSessionService(service));
+                () -> PaperAuthenticationHook.sessionDiscovery(service));
         assertTrue(failure.getMessage().contains(service.getClass().getName()));
     }
 }

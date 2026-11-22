@@ -46,6 +46,7 @@ interface-fov-invalid = Saisissez un nombre entier de 30 à 110.
 interface-fov-title = Champ de vision
 interface-reduced-motion = Réduire les mouvements
 interface-reduced-motion-hint = Réduit les déplacements et oscillations du menu.
+interface-reset-done = La taille du menu, la taille du texte et le thème ont été rétablis. Champ de vision du menu : { $arg0 }°. Utilise /menu pour le rouvrir.
 interface-scale-adjust-hint = Molette sur un pourcentage pour l’ajuster.
 interface-scale-layout-title = Taille du menu
 interface-scale-menu-title = Interface et texte
@@ -207,7 +208,6 @@ password-already-set = Un mot de passe est déjà défini. Utilisez /password ch
 password-busy = Trop de tentatives. Réessayez dans un moment.
 password-change = Modifier le mot de passe
 password-change-done = Mot de passe modifié.
-password-checking = Vérification de la sécurité du compte…
 password-command-description = Gérer la protection du compte par mot de passe
 password-confirm = Confirmer le nouveau mot de passe
 password-conflict = La sécurité du compte a changé. Recommencez l’opération.
@@ -237,7 +237,6 @@ password-reset = Réinitialiser le mot de passe
 password-reset-console = Mot de passe de { $arg0 } réinitialisé : { $arg1 }. Transmets-le par un canal fiable après vérification de l’identité.
 password-reset-done = Mot de passe de { $arg0 } réinitialisé. Copie-le maintenant et transmets-le après vérification de l’identité ; il ne sera plus consultable.
 password-reset-question = Réinitialiser le mot de passe de { $arg0 } ? L’ancien sera invalidé et ses connexions seront fermées. Confirmez avec votre propre mot de passe.
-password-retry = Réessayer
 password-rules = Utilisez de { $arg0 } à { $arg1 } caractères. Les noms de joueur et les mots de passe courants sont interdits.
 password-set = Définir le mot de passe
 password-set-done = Mot de passe défini.
@@ -584,6 +583,10 @@ chat-private-self = Vous ne pouvez pas démarrer une conversation privée avec v
 chat-private-target-not-found = Joueur en ligne introuvable : { $arg0 }
 chat-private-target-offline = Votre interlocuteur est hors ligne ; attendez ou choisissez un autre canal
 chat-private-tip-channel-mm = Utilisez <aqua><u><click:suggest_command:'/msg '>/msg joueur</click></u></aqua> pour passer en discussion privée et <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> pour revenir au canal public.
+chat-private-web-pending = Message privé web en attente
+chat-private-web-not-submitted = Votre message privé à { $arg0 } n’a pas été enregistré dans le chat partagé.
+chat-private-web-saved = Votre message privé à { $arg0 } a été enregistré dans l’historique du chat partagé.
+chat-private-web-unconfirmed = Impossible de confirmer si votre message privé à { $arg0 } a été enregistré. Vérifiez avant de le renvoyer.
 chat-public-command-description = Changer de canal de discussion public
 chat-public-enter = Passé au chat public
 chat-reply-command-description = Répondez à votre dernière cible de chat privé
@@ -591,8 +594,6 @@ chat-settings-menu-title = Paramètres de discussion
 chat-social-account-label = Compte de la plateforme
 chat-social-bound-player-label = Joueur lié
 chat-social-name-label = Nom social
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = Non lié à un joueur Minecraft
 chat-staff-command-description = Changer de canal de discussion du personnel
 chat-staff-label = Équipe
@@ -607,29 +608,15 @@ staffchat-enter = Discussion de l'équipe rejointe
 
 ## Community · Announcements
 
-announcement-count = { $arg0 ->
-        [one] { $arg0 } annonce
-       *[other] { $arg0 } annonces
-    }
 announcement-empty = Aucune annonce
-announcement-first-page = Annonces les plus récentes
-announcement-last-page = Annonces les plus anciennes
 announcement-latest = Dernière annonce
-announcement-list-newer = Groupe plus récent
-announcement-list-older = Groupe plus ancien
-announcement-more-count = { $arg0 } autres non affichées
-announcement-new-count = { $arg0 } nouvelles
 announcement-newer = Annonces plus récentes
 announcement-next-page = Page suivante
 announcement-older = Annonces plus anciennes
 announcement-page = Page { $arg0 } / { $arg1 }
 announcement-previous-page = Page précédente
-announcement-reload = Recharger les annonces
-announcement-reload-command-description = Recharger le fichier des annonces
-announcement-reload-failed = Impossible de recharger les annonces ; les précédentes restent disponibles
-announcement-reloaded = Annonces rechargées
-announcement-unread-count = { $arg0 } non lues
-announcement-updated = Annonces mises à jour
+announcement-stale = Dernier journal disponible
+announcement-unavailable = Le journal des mises à jour est temporairement indisponible.
 announcement-view-all = Voir toutes les annonces
 announcement-view-command-description = Voir les annonces du serveur
 
@@ -649,15 +636,9 @@ identity-admin-help = /bindadmin lookup <joueur-ou-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Aucune liaison trouvée pour ce joueur.
 identity-admin-lookup-title = Liaisons de { $arg0 } :
-identity-binding-community = Communauté n° { $arg0 }
 identity-binding-info = Date de liaison : { $arg0 }
     Identifiant de liaison : { $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = La liaison sélectionnée n’existe plus ou ne vous appartient pas.
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = La liaison { $arg0 } sélectionnée a été supprimée.
 identity-binding-unnamed = Compte sans nom
 identity-bindings-empty = Vous n'avez lié aucun compte de plateforme externe.
@@ -682,226 +663,34 @@ identity-notify-linked = Votre identité { $arg0 } est liée. Utilisez /bind lis
 identity-notify-unlinked = Votre liaison d'identité { $arg0 } a été supprimée.
 identity-platform-none = aucune
 identity-platforms = Plateformes prises en charge : { $arg0 }
-identity-storage-error = L'opération de base de données des liaisons a échoué. Contactez un administrateur.
 identity-unavailable = La liaison d'identité est actuellement indisponible. Contactez un administrateur.
 identity-unlink-action = [Dissocier]
 identity-unlink-hint = Supprimer uniquement cette liaison.
 identity-unsupported-platform = Plateforme non prise en charge : { $arg0 }
-social-admin-conversations-empty = Aucune conversation observée pour { $arg0 }.
-social-admin-conversations-title = Conversations observées pour { $arg0 } :
-social-admin-help = /social platforms · /social status [plateforme] · /social reload [plateforme] · /social conversations <plateforme>
-social-admin-metrics = Entrées { $arg0 } / nouvelles tentatives { $arg1 } · sorties { $arg2 } / contre-pression { $arg3 } · échecs { $arg4 }
-social-admin-platform = - { $arg0 } ({ $arg1 }) : { $arg2 }
-social-admin-reloaded = La plateforme sociale { $arg0 } a été rechargée.
-social-admin-reloaded-all = Toutes les plateformes sociales ont été rechargées.
-social-admin-status = { $arg0 } · { $arg1 } · génération { $arg2 } · conversations { $arg3 }
-social-admin-title = Plateformes sociales
-social-admin-unknown = Plateforme sociale inconnue : { $arg0 }
-social-binding-already-linked = Ton compte est déjà lié à { $arg0 }. Envoie { $arg1 } pour consulter ton profil.
-social-binding-confirmation-expired = Cette confirmation a expiré ou le compte associé a changé. Demandez une nouvelle confirmation :
-social-binding-code-invalid = Ce code est invalide ou expiré. Reconnecte-toi ou utilise { $arg0 } dans le jeu.
-social-binding-external-in-use = Cette identité est déjà liée à un autre joueur Minecraft.
-social-binding-help = Connecte-toi au serveur Minecraft et envoie ici la commande de liaison complète affichée à la connexion. Si tu es déjà en jeu, utilise { $arg0 } pour l’obtenir.
-social-binding-identity-missing = Ce message ne contient aucune identité de membre fiable ; la liaison est donc impossible.
-social-binding-link-completed = Ton compte a été lié. Reconnecte-toi pour poursuivre la connexion.
-social-binding-linked = Ton compte de jeu { $arg0 } est lié. Reconnecte-toi pour poursuivre la connexion.
-social-binding-membership-required = Rejoignez une communauté reliée sur cette plateforme, puis réessayez de lier votre compte.
-social-binding-membership-unavailable = L’appartenance à la communauté ne peut pas être vérifiée pour le moment. Réessayez plus tard ou contactez l’administration du serveur.
-social-binding-not-bound = Tu n’as pas encore lié de compte de jeu.
-social-binding-platform-mismatch = Ce code de vérification a été émis pour une autre plateforme.
-social-binding-player-scope-in-use = Ce joueur Minecraft possède déjà une autre identité liée dans le même périmètre de compte de la plateforme.
-social-binding-rate-limited = Trop de tentatives ont échoué. Réessayez dans environ { $arg0 ->
-        [one] { $arg0 } minute
-       *[other] { $arg0 } minutes
-    }.
-social-binding-unavailable = La liaison d’identité est temporairement indisponible.
-social-binding-unlink-completed = Ton compte a été dissocié. Sans autre liaison communautaire valide, lie à nouveau un compte avant de rejoindre le serveur.
-social-binding-unlink-prompt = Ce compte de plateforme sera dissocié de { $arg0 }. Sans autre liaison communautaire valide, tu perdras l’accès au serveur et ta connexion en cours sera fermée. Pour confirmer, envoie :
-social-binding-unlinked = Dissocié du joueur Minecraft { $arg0 }.
-social-command-description = Gérer les adaptateurs de plateformes sociales
-social-command-invalid-arguments = Les arguments sont incorrects. Utilisez :
-social-command-usage = Cette commande ne prend aucun argument. Envoie :
-social-crypto-command-description = Gérer la vérification des appareils chiffrés Matrix
-social-crypto-comparison-not-ready = La comparaison SAS n’est pas encore prête.
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = La vérification de l’appareil a échoué. Consultez le journal du serveur.
-social-crypto-no-active = Aucune vérification d’appareil n’est en cours.
-social-crypto-not-accepting = Cette vérification n’attend pas d’acceptation.
-social-crypto-not-running = Matrix n’est pas en cours d’exécution.
-social-crypto-requested = Vérification demandée : { $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] Initialisation
-    [verified] Vérifié
-    [unverified] Non vérifié
-    [no_cross_signing] Signature croisée désactivée
-    [requested] Demandé
-    [ready] Prêt
-    [started] Démarré
-    [comparison] Comparaison en attente
-    [waiting] Finalisation en attente
-    [done] Terminé
-    [cancelled] Annulé
-   *[unknown] Inconnu
-    [valid] Clé valide
-    [cross_signed] Signature croisée valide
-    [not_cross_signed] Sans signature croisée
-    [blocked] Bloqué
-    [invalid] Clé invalide
-    }
-social-crypto-status = Vérification : { $arg0 }
-    Version de la sauvegarde des clés : { $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = Indiquez l’ID complet de la transaction de vérification en cours.
-social-crypto-unavailable = Indisponible
-social-crypto-updated = Vérification mise à jour ; consultez matrixcrypto status.
-social-crypto-usage = matrixcrypto status [id-utilisateur id-appareil]
-    matrixcrypto verify <id-utilisateur> <id-appareil>
-    matrixcrypto accept|confirm|cancel <id-transaction>
-social-duration-days = { $arg0 ->
-        [one] { $arg0 } jour
-       *[other] { $arg0 } jours
-    } { $arg1 ->
-        [one] { $arg1 } heure
-       *[other] { $arg1 } heures
-    } { $arg2 ->
-        [one] { $arg2 } minute
-       *[other] { $arg2 } minutes
-    }
-social-duration-hours = { $arg0 ->
-        [one] { $arg0 } heure
-       *[other] { $arg0 } heures
-    } { $arg1 ->
-        [one] { $arg1 } minute
-       *[other] { $arg1 } minutes
-    }
-social-duration-minutes = { $arg0 ->
-        [one] { $arg0 } minute
-       *[other] { $arg0 } minutes
-    }
-social-help-command-description = Afficher cette liste de commandes
-social-link-command-description = Lier votre compte Minecraft avec un code du jeu
-social-link-command-parameters = <code>
-social-online-command-description = Afficher les joueurs en ligne
-social-profile-afk = En ligne · AFK
-social-profile-avatar-alt = Visage Minecraft
-social-profile-command-description = Afficher votre profil ; les membres confirmés peuvent chercher par nom, mention ou réponse
-social-profile-command-parameters = [joueur]
-social-profile-first-joined-label = Première connexion
-social-profile-language-label = Langue
-social-profile-last-seen-label = Dernière présence
-social-profile-member-required = Seuls les membres, modérateurs ou gardiens liés peuvent consulter le profil d’un autre joueur.
-social-profile-offline = Hors ligne
-social-profile-online = En ligne · actif
-social-profile-play-time-label = Temps de jeu
 social-profile-player-label = Joueur
-social-profile-player-not-found = Ce joueur Minecraft est introuvable.
-social-profile-presence-label = Présence
-social-profile-target-ambiguous = Choisissez une seule cible : un nom de joueur, une mention ou l’auteur du message répondu.
-social-profile-target-unbound = L’identité mentionnée ou destinataire de la réponse n’est pas liée à Minecraft.
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = Aucun joueur n’est actuellement en ligne.
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (Absent)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = { $arg0 ->
-    [one] Il y a actuellement { $arg0 } joueur en ligne.
-   *[other] Il y a actuellement { $arg0 } joueurs en ligne.
-    }{ $arg1 ->
-    [0] { "" }
-   *[other] { " " }En AFK : { $arg1 }.
-    }
-social-query-players-label = Joueurs
-social-query-population = En ligne { $arg0 }/{ $arg1 } · Actifs { $arg2 } · Absent { $arg3 }
-social-query-unknown = Commande inconnue. Envoyez { $arg0 } pour afficher les commandes disponibles.
-social-query-uptime-label = Durée de fonctionnement
-social-query-version-label = Version
-social-reply-hidden = Le message n’a pas passé la vérification du contenu. Motif : { $arg0 }
-social-reply-review-failed = Échec de la vérification du contenu : { $arg0 }. Réessayez plus tard.
-social-reply-unavailable = Le résultat ne peut pas être affiché pour le moment. Vérifie les changements de compte avec la commande de profil avant de les redemander.
-social-state-disabled = désactivée
-social-state-failed = échec
-social-state-ready = prête
-social-state-starting = démarrage
-social-state-stopped = arrêtée
-social-status-command-description = Afficher les joueurs, TPS, MSPT et la durée
-social-title-command-help = Aide des commandes
-social-title-content-hidden = Contenu masqué
 social-title-player-profile = Profil du joueur
-social-title-server-status = État du serveur
-social-unlink-command-description = Supprimer ce lien d’identité après confirmation
-social-unlink-command-parameters = [{ social-unlink-confirmation } <confirmation>]
-social-unlink-confirmation = confirmer
 
 ## Community · AI and knowledge
 
+ai-answer = Réponse de l’IA
 ai-busy = L’IA traite trop de demandes ; réessayez dans un instant
-ai-cleared = Historique de conversation IA effacé
+ai-cancelled = Demande à l’IA annulée. La conversation est conservée.
 ai-command-description = Interroger l’assistant IA en jeu
 ai-disabled = L’assistant IA est désactivé ou non configuré
-ai-knowledge-curation-failed = Échec de l’organisation des connaissances : { $arg0 }
-ai-knowledge-curation-finished = Organisation terminée : appliqués { $arg0 } · ignorés { $arg1 } · échecs { $arg2 } · quarantaine { $arg3 } · traités { $arg4 }
-ai-knowledge-curation-started = Organisation des connaissances démarrée.
-ai-knowledge-disabled = La base de connaissances est désactivée.
-ai-knowledge-index-dirty = Réconciliation de l’index nécessaire ; recherche privée bloquée jusqu’à la synchronisation.
-ai-knowledge-last-failure = Dernier échec : { $arg0 }
-ai-knowledge-last-sync = Dernière synchronisation : { $arg0 }
-ai-knowledge-learning-disabled = L’apprentissage des connaissances est désactivé.
-ai-knowledge-operation-failed = Échec de l’opération sur les connaissances : { $arg0 }
-ai-knowledge-operation-started = Opération sur les connaissances démarrée.
-ai-knowledge-protected = Le document { $arg0 } est désormais protégé.
-ai-knowledge-rollback = Document { $arg0 } restauré en révision { $arg1 }.
-ai-knowledge-status = Connaissances : { $arg0 ->
-        [one] { $arg0 } document public
-       *[other] { $arg0 } documents publics
-    } / { $arg1 ->
-        [one] { $arg1 } fragment de texte
-       *[other] { $arg1 } fragments de texte
-    } · { $arg2 ->
-        [one] { $arg2 } document privé
-       *[other] { $arg2 } documents privés
-    } / { $arg3 ->
-        [one] { $arg3 } fragment de texte
-       *[other] { $arg3 } fragments de texte
-    }
-ai-knowledge-sync-failed = Échec de la synchronisation des connaissances : { $arg0 }
-ai-knowledge-sync-started = Synchronisation des connaissances démarrée.
-ai-knowledge-synchronized = { ai-knowledge-status } · Synchronisation terminée.
-ai-knowledge-unprotected = Le document { $arg0 } n’est plus protégé.
-ai-learning-failure = Échec de l’apprentissage : { $arg0 }
-ai-learning-status = Apprentissage : candidats { $arg0 } · extraction { $arg1 } · en attente { $arg2 } · extractions abandonnées { $arg3 } · candidats abandonnés { $arg4 } · quarantaine { $arg5 }
-ai-memory-empty = Aucun souvenir privé pour { $arg0 }.
-ai-memory-list = Souvenirs privés pour { $arg0 } : { $arg1 }
-ai-memory-not-found = Souvenir privé { $arg0 } introuvable.
-ai-memory-removed = Suppression définitive pour { $arg1 } : { $arg0 ->
-        [one] { $arg0 } souvenir privé
-       *[other] { $arg0 } souvenirs privés
-    }.
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = Joueur inconnu dans le cache : { $arg0 }
+ai-nothing-to-cancel = Aucune demande à l’IA n’est en cours.
 ai-prompt-too-long = La question est trop longue ({ $arg0 ->
         [one] { $arg0 } caractère
        *[other] { $arg0 } caractères
     } maximum)
-ai-reload-failed = Échec du rechargement de la configuration IA : { $arg0 }
-ai-reloaded = Configuration IA rechargée ({ $arg0 })
 ai-request-failed = La requête IA a échoué ; réessayez plus tard
-ai-social-command-description = Interroger l’assistant IA partagé
-ai-social-command-parameters = <question>
-ai-social-question-required = Ajoutez une question après la commande IA
-ai-status-disabled = L’IA est désactivée
-ai-status-enabled = IA active · fournisseur { $arg0 } · modèle { $arg1 } · outils { $arg2 }
-ai-status-none = aucun
-ai-thinking = Réflexion…
-ai-usage = Utilisation : /ai <question> · /ai clear · /ai status
-ai-worker-status = Tâches IA : actives { $arg0 } · en attente { $arg1 } · abandonnées { $arg2 }
+ai-request-in-progress = Votre précédente demande à l’IA est toujours en cours.
+ai-usage = Commandes de l’assistant IA :
+    /ai <question> — Poser une question ou poursuivre la conversation
+    /ai cancel — Annuler la demande en cours
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>Félicitations !</bold> Vous êtes maintenant <gold>Membre</gold>. Vous avez accès à davantage de commandes et de fonctionnalités, dont l'impression facile de schémas.</green>
 governance-active-days-30 = Au moins 2 jours actifs sur 30 (actuellement { $arg0 })
 governance-active-days-60 = Au moins 6 jours actifs sur 60 (actuellement { $arg0 })
 governance-active-header = ─── Éligibilité de membre actif ───
@@ -939,7 +728,6 @@ governance-activity-status = { $arg0 ->
     [closed] Terminé
     *[view] Consultation seule
     }
-governance-already-moderator = Vous avez déjà le rôle de modération.
 governance-application-status = { $arg0 ->
     [open] Un vote de nomination est en cours
     [pending] Approuvée · nomination en attente
@@ -947,21 +735,15 @@ governance-application-status = { $arg0 ->
    *[ready] Vous pouvez postuler
     }
 governance-ballot-recorded = Votre vote anonyme est enregistré : { $arg0 }. Vous pouvez le modifier avant la clôture.
-governance-ban-details = Proposé par { $arg0 } · Durée { $arg1 } · Motif : { $arg2 }
-governance-ban-suffix = · Durée { $arg0 } · Motif : { $arg1 }
 governance-choice-abstain = Abstention
 governance-choice-no = Non
 governance-choice-yes = Oui
 governance-command-description = Voir les droits de gouvernance et les votes
 governance-custodian-no-nomination = Les responsables techniques ne participent pas aux élections des modérateurs.
-governance-custodian-no-resign = La procédure de démission des modérateurs ne concerne pas les responsables techniques.
 governance-days = { $arg0 ->
         [one] { $arg0 } jour
        *[other] { $arg0 } jours
     }
-governance-error-ban-already-active = Ce joueur fait déjà l'objet d'une exclusion active.
-governance-error-ban-proposer-ineligible = Seuls les membres actifs peuvent proposer un vote d'exclusion.
-governance-error-ban-self = Vous ne pouvez pas proposer votre propre exclusion.
 governance-error-candidate-ineligible = Un candidat à la modération doit être membre actif.
 governance-error-nomination-not-open = Vous n’avez aucune candidature en cours.
 governance-error-not-voter = Vous ne figurez pas sur la liste électorale figée pour ce vote.
@@ -970,7 +752,6 @@ governance-error-pause-already-member = Ce joueur est déjà membre ; sa promoti
 governance-error-pause-end-invalid = La suspension de promotion doit se terminer dans le futur.
 governance-error-player-unknown = Ce joueur n'a pas encore de dossier de gouvernance.
 governance-error-removal-petition-closed = Cette pétition est terminée ou a été remplacée.
-governance-error-removal-requires-petition = Un vote de révocation nécessite assez de soutiens.
 governance-error-removal-self = Vous ne pouvez pas soutenir votre propre révocation.
 governance-error-removal-sponsor-ineligible = Seuls les membres actifs peuvent soutenir une révocation.
 governance-error-removal-sponsors-too-few = Il faut au moins deux autres membres actifs.
@@ -980,7 +761,6 @@ governance-error-termination-reason-invalid = Ce motif de clôture ne s'applique
 governance-error-vote-already-open = Un vote de ce type est déjà en cours pour ce joueur.
 governance-error-vote-closed = Ce vote est clos ou terminé.
 governance-error-vote-cooldown = Le délai de trois jours après un quorum non atteint n'est pas écoulé.
-governance-error-vote-subject-unknown = La personne concernée n'a pas encore de dossier de gouvernance.
 governance-error-vote-termination-closed = Le délai de vote est passé ; il ne peut plus être retiré.
 governance-error-vote-unknown = Vote introuvable.
 governance-error-voters-too-few = Il faut au moins deux membres actifs pour ouvrir un vote.
@@ -990,18 +770,15 @@ governance-failure-none = Aucun motif enregistré
 governance-failure-quorum = Quorum non atteint
 governance-failure-two-thirds = Les oui n'atteignent pas deux tiers des suffrages hors abstention
 governance-history-header = ─── Résultats récents ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 ->
         [one] { $arg0 } heure
        *[other] { $arg0 } heures
     }
-governance-inactive-removal = { $arg0 } a quitté automatiquement la modération après 180 jours sans connexion.
 governance-invalid-choice = Choisissez yes, no ou abstain.
 governance-invalid-duration = Durée invalide. Utilisez par exemple 30m, 12h ou 3d.
 governance-kind-appointment = Nomination
-governance-kind-ban = Exclusion
 governance-kind-removal = Révocation
-governance-legacy-ban-kick = Une ancienne décision de gouvernance vous interdit l’accès. Durée : { $arg0 }. Motif : { $arg1 }
 governance-menu-already-sponsored = Déjà soutenue
 governance-menu-application = État de la candidature
 governance-menu-completed = Terminées
@@ -1053,7 +830,6 @@ governance-no-active-pause = Aucune suspension de promotion active
 governance-nomination-withdrawn = Votre candidature a été retirée. Le résultat sera annoncé automatiquement.
 governance-none = Aucun
 governance-not-member = Pas membre
-governance-not-moderator = Vous n’avez pas le rôle de modération actuellement.
 governance-operation-error = L’opération de gouvernance a échoué. Réessayez.
 governance-own-choice-closed = Votre choix : { $arg0 }
 governance-own-choice-open = Votre choix : { $arg0 } ; modifiable avant la clôture.
@@ -1081,9 +857,8 @@ governance-promotion-account-age = Première connexion il y a au moins 3 jours
 governance-promotion-header = ─── Conditions de promotion ───
 governance-promotion-play-days = Jeu effectif sur au moins 2 jours (actuellement { $arg0 })
 governance-promotion-playtime = Au moins 8 heures de jeu effectif (actuellement { $arg0 })
-governance-resign-failed = Démission impossible. Contacte un responsable technique.
 governance-resigned = { $arg0 } a démissionné de la modération.
-governance-result-announcement = Vote #{ $arg0 } { $arg1 } ({ $arg2 }) : { $arg3 }{ $arg4 }
+governance-result-announcement = Vote #{ $arg0 } { $arg1 } ({ $arg2 }) : { $arg3 }
 governance-result-failed = Rejeté ({ $arg0 })
 governance-result-open = En cours
 governance-result-passed = Adopté
@@ -1091,7 +866,6 @@ governance-result-tally = { $arg0 } · Électeurs { $arg1 }, participation { $ar
 governance-result-terminated = Terminé ({ $arg0 })
 governance-resume-notice = Votre suspension de promotion a été levée. Motif : { $arg0 }
 governance-resume-reason-required = Indique pourquoi la suspension est levée.
-governance-role-lookup-error = Statut de modérateur non vérifiable. Contacte un responsable technique.
 governance-seconds = { $arg0 ->
         [one] { $arg0 } seconde
        *[other] { $arg0 } secondes
@@ -1327,10 +1101,26 @@ plot-subplot-created = Sous-parcelle { $arg0 } créée · { $arg1 } bloc²
 plot-title = Parcelles
 plot-transferred = Parcelle { $arg0 } transférée à { $arg1 }.
 vehicle-command-description = Conduire et gérer des véhicules composés d’entités d’affichage
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] La permission mik.vehicle.use est requise.
+        [ALREADY_RIDING] Quittez d’abord votre siège actuel.
+        [TOO_FAR] Approchez-vous à 32 blocs ou moins du véhicule.
+        [DRIVER_OCCUPIED] Le siège conducteur est occupé.
+        [NO_PASSENGER_SEAT] Ce modèle n’a pas de siège passager.
+        [PASSENGER_FULL] Tous les sièges passagers sont occupés.
+        [STOP_ENGINE] Arrêtez le véhicule et coupez le moteur.
+        [FUEL_FULL] Le réservoir est plein.
+        [HEALTH_FULL] Aucune réparation nécessaire.
+        [NEED_FUEL] Tenez du charbon ou du charbon de bois dans la main principale.
+        [NEED_IRON] Tenez un lingot de fer dans la main principale.
+        [EMPTY_VEHICLE] Arrêtez le véhicule et faites descendre tous les occupants.
+       *[UNAVAILABLE] Ce véhicule est indisponible.
+    }
+vehicle-menu-distance = { $arg0 } m
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] Commandes du véhicule
-        [driving] Conduire et monter
+        [vehicle] Vue du véhicule
         [maintenance] Entretien et accès
         [public-status] Accès public
         [private-status] Accès privé
@@ -1344,22 +1134,15 @@ vehicle-menu-label =
         [displays] Parcourir les affichages proches
         [clear] Effacer sélection et origine
         [capture] Créer un modèle de la sélection
-        [toggle-selection] Basculer la sélection
         [public] Rendre public
         [private] Rendre privé
         [reload] Recharger les modèles des fichiers
         [leave] Descendre
-        [passenger] Siège passager
-        [fuel] Faire le plein · tenir du charbon
-        [repair] Réparer · tenir un lingot de fer
-        [access] Accès
+        [passenger] Monter en passager
+        [fuel] Faire le plein
+        [repair] Réparer
         [remove] Supprimer le véhicule
-        [hud] Afficher le HUD de conduite
         [hide-preview] Masquer l’aperçu 3D
-        [service-hint] Approchez, arrêtez le moteur et tenez le matériau requis.
-        [nearby-hint] Approchez à 32 blocs et quittez votre siège actuel.
-        [use-required] Permission mik.vehicle.use requise.
-        [remove-hint] Arrêtez le véhicule et faites descendre tout le monde.
         [reload-hint] Tous les véhicules doivent être vides et arrêtés. Les brouillons restent ; rouvrez les modèles modifiés.
         [pick-hint] Visez un affichage puis clic droit. Accroupi + clic droit annule ; expire après 30 secondes.
         [spawn-hint] Coordonnées du monde ; quatre blocs devant par défaut. Orientation selon votre regard horizontal à la création.
@@ -1367,16 +1150,42 @@ vehicle-menu-label =
         [zoom-out] Réduire
         [frame] Replacer devant moi
         [offset] Déplacer par décalage
+        [drive] Prendre le volant
+        [driver-seat] Vous êtes au volant
+        [passenger-seat] Vous êtes passager
+        [current] Véhicule actuel
+        [boarded] Vous êtes au volant. Ouvrez le tableau de bord depuis /vehicle pour voir les instruments et les commandes.
+        [display] Entité d’affichage
+        [select-display] Ajouter à la sélection
+        [deselect-display] Retirer de la sélection
+        [aim-group] Viser pour sélectionner un groupe
+        [empty-nearby] Aucun véhicule accessible à moins de 32 blocs.
+        [empty-fleet] Aucun véhicule accessible.
+        [empty-selection] Sélectionnez d’abord au moins une entité d’affichage.
+        [controls] Commandes
+        [show-hud] Afficher le HUD de conduite
+        [hide-hud] Masquer le HUD de conduite
+        [remove-confirm] Seul le véhicule est retiré, son modèle est conservé.
+        [resume] Reprendre le brouillon
+        [draft-open] Enregistrez et fermez le brouillon actuel ou abandonnez-le d’abord.
+        [model-id-format] Commencez par une minuscule ou un chiffre ; 48 minuscules, chiffres, tirets ou tirets bas au maximum.
+        [model-exists] Cet identifiant de modèle est déjà utilisé.
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 } : W/S et A/D pour conduire ; molette pour les rapports ou les gaz ; échange de main pour le mode ; accroupissement pour sortir. /vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] Avancer accélère, reculer freine, gauche/droite dirige et sauter serre le frein à main. En mode manuel, la molette passe les vitesses ; changer de main bascule le mode.
+        [BOAT] Avancer/reculer ou la molette règle la poussée. Gauche/droite dirige. Changer de main bascule l’assistance de stabilité.
+       *[PLANE] Avancer/reculer règle le tangage, gauche/droite le virage et l’inclinaison, et la molette la poussée. Sauter freine au sol. Changer de main bascule l’assistance.
+    }
+    Fermez le menu pour utiliser la molette et le changement de main. Accroupissez-vous pour sortir.
 vehicle-dash-assisted = Aide à la stabilité
 vehicle-dash-automatic = Automatique
 vehicle-dash-contact = Appui au sol / sur l’eau : { $arg0 }
-vehicle-dash-details = Détails
+vehicle-dash-details = Données de conduite
 vehicle-dash-down = Rapport inférieur −
-vehicle-dash-drive = Conduite
+vehicle-dash-drive = Tableau de bord
 vehicle-dash-energy = Consommation { $arg0 } U/min · autonomie estimée { $arg1 } min / { $arg2 } km
 vehicle-dash-engine-start = Démarrer le moteur
 vehicle-dash-engine-stop = Arrêter le moteur
@@ -1392,10 +1201,18 @@ vehicle-dash-mode-switch = Passer à { $arg0 }
 vehicle-dash-position = Origine { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = Recentrer le panneau
 vehicle-dash-rpm = Régime { $arg0 } / { $arg1 } tr/min
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] Stationnement
+        [R] Marche arrière
+        [N] Point mort
+       *[D] Marche avant
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } s
 vehicle-dash-speed = Vitesse { $arg0 } km/h · limite { $arg1 }
 vehicle-dash-throttle-down = Accélérateur −5 %
 vehicle-dash-throttle-up = Accélérateur +5 %
+vehicle-dash-thrust = Poussée { $arg0 } %
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = Sans assistance
 vehicle-dash-unavailable = Commandes indisponibles ; rouvrez le panneau depuis le siège conducteur.
@@ -1571,7 +1388,7 @@ vehicle-model-discarded = Brouillon abandonné
 vehicle-model-draft = Brouillon non enregistré
 vehicle-model-driver = Siège conducteur
 vehicle-model-driver-here = Ajouter le siège conducteur à mes pieds
-vehicle-model-edit = Modifier / reprendre le brouillon
+vehicle-model-edit = Modifier le modèle
 vehicle-model-overview = Aperçu du brouillon
 vehicle-model-panel = Revenir au panneau d’édition
 vehicle-model-editor-help = { $arg0 ->
@@ -1606,7 +1423,7 @@ vehicle-model-here = Utiliser la position de mes pieds
 vehicle-model-history-empty = Aucune modification disponible dans ce sens de l’historique.
 vehicle-model-import = Importer le groupe Axiom en main principale
 vehicle-model-item = Objet
-vehicle-model-library = Modèles enregistrés · brouillons conservés en mémoire jusqu’à l’enregistrement
+vehicle-model-library = Choisissez un modèle pour créer un véhicule ou modifier son plan.
 vehicle-model-look = Placer en visant (ferme le menu ; clic droit pour confirmer)
 vehicle-model-look-missing = Aucune surface visée. Regardez un bloc du monde ou une pièce de votre aperçu à 32 blocs maximum.
 vehicle-model-manual = Saisir les coordonnées locales
@@ -1647,7 +1464,7 @@ vehicle-model-snap-on = Alignement sur la grille : activé
 vehicle-model-step = Changer le pas de réglage
 vehicle-model-supports = Points d’appui au sol
 vehicle-model-text = Texte
-vehicle-model-title = Gestion des modèles de véhicules
+vehicle-model-title = Bibliothèque de modèles
 vehicle-model-tools = Aperçu et outils
 vehicle-model-transform-step = Modifier le pas de réglage
 vehicle-model-undo = Annuler
@@ -1837,23 +1654,17 @@ spawn-world-missing = Le monde du point d'apparition n'est pas disponible
 music-album = Album : { $arg0 }
 music-artist = Artiste : { $arg0 }
 music-command-description = Musique locale, en ligne et NBS pour jukebox
-music-disc-left = Clic gauche : prenez le disque
-music-disc-right = Clic droit : jouer sur le jukebox le plus proche
-music-duration = Durée : { $arg0 }
-music-format = Format : { $arg0 }
 music-jukebox-audible-field-conflict = Un autre jukebox joue un morceau différent dans une zone clairement audible qui se chevauche
 music-jukebox-tp-hover = Cliquez pour vous téléporter au jukebox
 music-jukebox-unavailable = Le jukebox a été retiré ou son chunk n'est pas disponible
 music-now-playing-rich = Lecture en cours : { $music } sur le jukebox { $location }
-music-online-rate-limited = Trop de requêtes musicales. Réessayez dans { $arg0 ->
+music-request-rate-limited = Trop de requêtes musicales. Réessayez dans { $arg0 ->
         [one] { $arg0 } seconde
        *[other] { $arg0 } secondes
     }.
 music-original-author = Auteur original : { $arg0 }
 music-plasmo-voice-unavailable = La chanson a démarré, mais vous ne pouvez pas l'entendre car Plasmo Voice n'est pas installé, connecté ou activé
 music-playback-failed = Impossible de lire "{ $arg0 }". Vérifiez la source ou le fichier musical et réessayez.
-music-reload-failed = Échec du rechargement de la musique : { $arg0 }
-music-reload-started = Rechargement des fichiers musicaux et des sources personnalisées...
 music-rhythm-animation-offset = Décalage d’animation { $arg0 } ms
 music-rhythm-calibration-accumulating = Confirmation du rythme stable… continuez à jouer
 music-rhythm-calibration-adapting = Synchronisation en cours… continuez à suivre le rythme
@@ -1868,7 +1679,6 @@ music-rhythm-calibration-plasmo-ready = Test Minecraft Note Block terminé ; éc
 music-rhythm-calibration-pointer-instruction = Faites un clic gauche ou droit quand la note franchit la ligne.
 music-rhythm-calibration-realigning = Le flux audio a été interrompu. La démonstration reprend et les mesures terminées sont conservées
 music-rhythm-calibration-required = Terminez le test complet de latence avant de lancer le jeu de rythme
-music-rhythm-calibration-reset-done = Le calibrage de latence a été réinitialisé
 music-rhythm-calibration-result-hold = Test terminé. Consultez les résultats ; le retour sera automatique dans un instant.
 music-rhythm-calibration-stage-minecraft = Bloc musical de Minecraft
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1904,8 +1714,6 @@ music-rhythm-score = Score : { $arg0 }
 music-rhythm-spatial-no-room = Il n’y a pas assez d’espace pour la visée spatiale. Allez dans une zone plus ouverte.
 music-rhythm-spatial-slider-hint = Suivez l’étoile mobile et cliquez sur chaque point ; inutile de maintenir le bouton enfoncé.
 music-rhythm-start = Lancer la partie
-music-sample-rate = Taux d'échantillonnage : { $arg0 }
-music-size = Taille : { $arg0 }
 music-unavailable-disc = Disque indisponible
 
 ## Entertainment · Anniversary
@@ -2162,8 +1970,10 @@ web-account-title = Compte web et clés d’accès
 web-account-confirm = Valider
 weblogin-question = Confirmer cette vérification d’identité web ? Confirmez uniquement une action que vous avez lancée sur mcmik.top. Ne saisissez jamais un code pour quelqu’un d’autre.
 weblogin-command-description = Confirmer un code de vérification d’identité web Mik
-weblogin-confirmed = Identité web vérifiée. Retournez dans votre navigateur pour continuer.
-weblogin-invalid-code = Code de vérification d’identité web invalide
+weblogin-confirmed = Vérification confirmée dans le jeu. Retournez dans votre navigateur pour continuer.
+weblogin-rejected = La confirmation web a été refusée. Vérifiez le code dans votre navigateur et réessayez.
+weblogin-unavailable = La confirmation web est indisponible. Réessayez dans un instant.
+weblogin-unconfirmed = Impossible de savoir si la confirmation web a abouti. Consultez votre navigateur avant de réessayer.
 
 
 # Music workspace
@@ -2257,8 +2067,25 @@ music-space-label =
         [album] Album
         [original-author] Auteur original
         [duration] Durée
-        [track-type] Type
-        [type-online] En ligne
+        [availability] Disponibilité
+        [track-ready] Prêt
+        [track-needs-preparation] Préparation nécessaire
+        [track-unknown] Non vérifié
+        [track-unavailable] Indisponible
+        [partial-results] Certains résultats n’ont pas pu être chargés.
+        [restart-current] Lire la version actuelle depuis le début
+        [lyrics] Paroles
+        [lyrics-pending] Recherche des paroles…
+        [lyrics-empty] Pas de paroles pour cette version
+        [lyrics-unavailable] Paroles temporairement indisponibles
+        [lyrics-ended] Cette lecture est terminée ou devenue inaccessible.
+        [lyrics-original] Original
+        [lyrics-translation] Traduction
+        [lyrics-pronunciation] Prononciation
+        [lyrics-plain] Texte seul
+        [lyrics-timed] Synchronisé
+        [lyrics-captions] Sous-titres supplémentaires
+        [lyrics-original-only] Original seul
         [undo] { vehicle-model-undo }
         [remove] Supprimer les entrées sélectionnées
         [clear-recents] Effacer mon historique d’écoute
@@ -2376,8 +2203,6 @@ music-space-label =
         [already-added] Déjà présent
         [current-track] Morceau actuel
         [shuffle-candidates] Candidats aléatoires
-        [import-by-id] Importer par ID
-        [playlist-id] ID de playlist
        *[unknown] Espace musical
     }
 
@@ -2388,6 +2213,7 @@ music-space-clear-recents-confirmation = Effacer tout votre historique de lectur
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] La musique est indisponible. Rouvrez le menu plus tard.
+        [VERSION_GONE] Cette version du média n’est plus disponible. Relancez la version actuelle depuis le début.
         [INTERNAL] Erreur interne de musique ; demande à un administrateur de consulter les journaux du serveur
         [NOT_FOUND] L’entrée sélectionnée n’existe plus.
         [FORBIDDEN] Une autorisation de contrôle ou de modification est nécessaire.
@@ -2437,10 +2263,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = Contrôler les appareils musicaux
 
-music-partial-results = { $arg0 ->
-        [one] { $arg0 } requête a échoué ; les résultats disponibles sont affichés
-       *[other] { $arg0 } requêtes ont échoué ; les résultats disponibles sont affichés
-    }
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

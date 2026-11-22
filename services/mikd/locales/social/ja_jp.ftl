@@ -1,0 +1,93 @@
+chat-content-audio = [音声]
+chat-content-card = [カード]
+chat-content-contact = [連絡先]
+chat-content-emote = [アクション]
+chat-content-face = [絵文字]
+chat-content-file = [ファイル]
+chat-content-history = [チャット履歴]
+chat-content-image = [画像]
+chat-content-location = [位置情報]
+chat-content-message = [メッセージ]
+chat-content-multiple = [複数のメッセージ]
+chat-content-music = [音楽]
+chat-content-notice = [通知]
+chat-content-reply = [引用メッセージ]
+chat-content-sticker = [ステッカー]
+chat-content-video = [動画]
+
+social-binding-already-linked = すでに { $arg0 } と連携しています。{ $arg1 } でプロフィールを確認できます。
+social-binding-confirmation-expired = 確認の有効期限が切れたか、連携アカウントが変更されました。もう一度解除を要求してください：
+social-binding-code-invalid = このコードは無効か期限切れです。再接続するか、ゲーム内で { $arg0 } を実行して新しいコードを取得してください。
+social-binding-external-in-use = この識別情報はすでに別の Minecraft プレイヤーと連携されています。
+social-binding-help = Minecraft サーバーに接続し、ログイン画面の連携コマンドをそのままここに送ってください。すでにゲーム内にいる場合は { $arg0 } で取得できます。
+social-binding-link-completed = アカウントを連携しました。再接続するとログインを続けられます。
+social-binding-membership-required = このプラットフォームの連携コミュニティに参加してから、もう一度連携してください
+social-binding-membership-unavailable = コミュニティへの参加状況を確認できません。しばらくしてから再試行するか、サーバー管理者に連絡してください
+social-binding-not-bound = まだゲームアカウントと連携していません。
+social-binding-platform-mismatch = この確認コードは別のプラットフォーム用です。
+social-binding-player-scope-in-use = この Minecraft プレイヤーには、同じプラットフォームアカウントのスコープで別の ID が連携されています。
+social-binding-rate-limited = 失敗回数が多すぎます。約 { $arg0 } 分後に再試行してください。
+social-binding-unavailable = 現在、識別情報の連携を利用できません。
+social-binding-unlink-completed = 連携を解除しました。他に有効なコミュニティ連携がない場合、参加前に再度連携してください。
+social-binding-unlink-prompt = このプラットフォームのアカウントと { $arg0 } の連携を解除します。他に有効なコミュニティ連携がない場合、サーバーに参加できなくなり、接続中の場合は切断されます。確認するには次を送ってください：
+social-command-usage = このコマンドに引数は不要です。次を送ってください：
+social-duration-days = { $arg0 } 日 { $arg1 } 時間 { $arg2 } 分
+social-duration-hours = { $arg0 } 時間 { $arg1 } 分
+social-duration-minutes = { $arg0 } 分
+social-help-command-description = このコマンド一覧を表示
+social-link-command-description = ゲーム内コードで Minecraft アカウントを連携
+social-link-command-parameters = <認証コード>
+social-online-command-description = オンラインプレイヤーを表示
+social-profile-afk = オンライン · AFK
+social-profile-command-description = 自分を表示；正式メンバーは名前、メンション、返信で他のプレイヤーを検索可能
+social-profile-command-parameters = [プレイヤー名]
+social-profile-first-joined-label = 初参加
+social-profile-last-seen-label = 最終オンライン
+social-profile-member-required = 連携済みの正式メンバー、モデレーター、保守担当者だけが他のプレイヤーを検索できます。
+social-profile-offline = オフライン
+social-profile-online = オンライン · アクティブ
+social-profile-play-time-label = プレイ時間
+social-profile-player-label = プレイヤー
+social-profile-player-not-found = その Minecraft プレイヤーは見つかりませんでした。
+social-profile-presence-label = 状態
+social-profile-target-ambiguous = プレイヤー名、1人へのメンション、または1人への返信のいずれか1つを指定してください。
+social-profile-target-unbound = メンションまたは返信先のユーザーは Minecraft と連携されていません。
+social-profile-uuid-label = UUID
+social-query-no-players = 現在オンラインのプレイヤーはいません。
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (離席中)
+   *[active] { $arg0 }
+    }
+social-query-population = オンライン { $arg0 }/{ $arg1 } · アクティブ { $arg2 } · 離席中 { $arg3 }
+social-query-online-summary = 現在 { $arg0 } 人がオンラインです。{ $arg1 ->
+    [0] { "" }
+   *[other] うち { $arg1 } 人が離席中です。
+    }
+social-query-players-label = プレイヤー
+social-query-unknown = 不明なコマンドです。使用可能なコマンドは { $arg0 } で確認できます。
+social-query-uptime-label = 稼働時間
+social-query-version-label = バージョン
+social-reply-unavailable = 現在、結果を表示できません。アカウントの変更はプロフィールコマンドで確認してから再実行してください。
+social-status-command-description = プレイヤー数、TPS、MSPT、稼働時間を表示
+social-title-command-help = コマンドヘルプ
+social-title-player-profile = プレイヤープロフィール
+social-title-server-status = サーバー状態
+social-unlink-command-description = 確認後にこの連携を解除
+social-unlink-command-parameters = [{ social-unlink-confirmation } <確認コード>]
+social-unlink-confirmation = 確認
+ai-busy = AI のリクエストが混み合っています。しばらくしてから再試行してください
+ai-disabled = AI アシスタントは無効か、設定されていません
+ai-question-button-unavailable = この質問ボタンはもう使えません。
+ai-request-failed = AI リクエストに失敗しました。後でもう一度お試しください
+ai-social-command-description = 共通 AI アシスタントに質問する
+ai-social-command-parameters = <質問>
+ai-social-question-required = AI コマンドの後に質問を入力してください
+ai-suggested-questions = 次の質問の候補
+
+social-aliases-online = オンライン プレイヤー
+social-aliases-status = 状態
+social-aliases-profile = プロフィール
+social-aliases-help = ヘルプ
+social-aliases-bind = バインド
+social-aliases-unbind = 解除
+social-aliases-ai = ai質問

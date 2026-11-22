@@ -8,6 +8,8 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -137,8 +139,11 @@ final class IronElevatorCatalog {
 
     static Map<Column,Integer> readRules(Path file) {
         YamlConfiguration config = new YamlConfiguration();
-        try { config.load(file.toFile()); }
-        catch (IOException | InvalidConfigurationException error) {
+        try (var reader = Files.newBufferedReader(file)) {
+            config.load(reader);
+        } catch (NoSuchFileException ignored) {
+            return Map.of();
+        } catch (IOException | InvalidConfigurationException error) {
             throw new IllegalStateException("Failed to load iron-elevators.yml", error);
         }
         Map<Column,Integer> rules = new HashMap<>();

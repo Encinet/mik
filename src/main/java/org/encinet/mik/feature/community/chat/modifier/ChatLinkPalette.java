@@ -2,14 +2,9 @@ package org.encinet.mik.feature.community.chat.modifier;
 
 import org.encinet.mik.feature.community.chat.model.ChatStyle;
 
-/** Brand-aware gradients for semantic chat links. */
+/** Gradients for links recognized by game input. */
 enum ChatLinkPalette {
     GENERIC(0x4EA5FF, 0x79C0FF),
-    GITHUB(0x58A6FF, 0xA371F7),
-    MINECRAFT_WIKI(0x55FF55, 0xFFAA00),
-    BILIBILI(0x00AEEC, 0xFB7299),
-    MOJIRA(0xFF5555, 0xFFAA00),
-    MATRIX(0xFFFFFF, 0xAAAAAA),
     EMAIL(0x55FFFF, 0x5555FF);
 
     private final ChatStyle style;

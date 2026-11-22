@@ -76,7 +76,7 @@ class MusicLibraryNavigationTest {
 
     @Test void creationOrImportOpensTheSavedSongsAndReturnsToMyPlaylists() {
         Playlist saved = new Playlist(UUID.randomUUID(), UUID.randomUUID(), "New playlist", "", "MUSIC_DISC_CAT", false, 0, List.of());
-        for (Panel task : List.of(new NoPanel(), new Import(null,ImportPage.PLATFORMS), new Import(null, ImportPage.SOURCE))) {
+        for (Panel task : List.of(new NoPanel(), new Import(null, ImportPage.SOURCE))) {
             var state = new MusicWorkspaceState();
             state.panel(task);
             var finished = MusicLibraryScenes.openSavedPlaylist(state, id -> state.browsePlaylist(id, Source.OWNED));

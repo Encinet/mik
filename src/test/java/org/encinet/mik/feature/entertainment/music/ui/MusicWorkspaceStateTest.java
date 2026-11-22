@@ -1,12 +1,12 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import static org.encinet.mik.feature.entertainment.music.ui.MusicWorkspaceState.*;
 import org.encinet.mik.feature.entertainment.music.ui.MusicWorkspaceState.Collection;
 import org.encinet.mik.feature.entertainment.music.catalog.*;
 import org.encinet.mik.feature.entertainment.music.application.MusicProblem;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.junit.jupiter.api.Test;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.function.Function;
 import org.encinet.mik.shared.menu.ui.UiKey;
@@ -37,9 +37,9 @@ class MusicWorkspaceStateTest {
         UUID second = state.panelScope;
         state.panel(new NoPanel()); assertNotEquals(second, state.panelScope);
         state.panel(new Room(room)); assertNotEquals(first, state.panelScope);
-        var request = new Imported("wy", "123", "Original", List.of(track("song")), 1, UUID.randomUUID());
+        var request = new Imported("fixture-reference", "Original", List.of(track("song")), false, UUID.randomUUID());
         state.panel(new Import(request, ImportPage.SOURCE)); UUID importing = state.panelScope;
-        state.panel(new Import(new Imported(request.source(), request.reference(), "Renamed", request.tracks(), request.total(), request.request()), ImportPage.SOURCE));
+        state.panel(new Import(new Imported(request.reference(), "Renamed", request.tracks(), request.partial(), request.request()), ImportPage.SOURCE));
         assertEquals(importing, state.panelScope, "Editing a draft must retain its field ownership");
     }
     @Test void sourceReadingBelongsToTheCurrentPaneAndOnlyTheLatestPageCanNavigate() {
@@ -122,7 +122,7 @@ class MusicWorkspaceStateTest {
         assertFalse(state.browser.page(queried,2)); assertEquals(0,state.browser.page);
     }
 
-    static MusicTrack track(String id) { return new MusicTrack(id, new TrackDetails(id, null, null, "mp3", AudioProperties.EMPTY), new TrackTarget.LocalFile(Path.of("/tmp/" + id))); }
+    static MusicTrack track(String id) { return MusicTestTracks.managed(id, new TrackDetails(id, null, null, null)); }
 
     @Test void roomDiscoveryReturnsToTheLibraryWithoutChangingPlaybackOrTheSavedBrowser() {
         var state = new MusicWorkspaceState();
@@ -152,7 +152,7 @@ class MusicWorkspaceStateTest {
         assertEquals(songs,state.browser.playbackTracks(songs));
         state.browser.selecting = true;
         assertTrue(state.browser.playbackTracks(songs).isEmpty());
-        state.browser.toggle("c"); state.browser.toggle("a");
+        state.browser.toggle(MusicTestTracks.id("c")); state.browser.toggle(MusicTestTracks.id("a"));
         assertEquals(List.of(songs.get(0),songs.get(2)),state.browser.playbackTracks(songs));
         assertEquals(List.of(songs.get(2),songs.get(0)),state.browser.playbackTracks(List.of(songs.get(2),songs.get(1),songs.get(0))));
         state.browser.query("missing");
@@ -218,11 +218,11 @@ class MusicWorkspaceStateTest {
         var state = new MusicWorkspaceState();
         var request = UUID.randomUUID();
         var tracks = List.of(track("a"));
-        state.panel(new Import(new Imported("wy", "123", "Original", tracks, 20, request), ImportPage.SOURCE));
+        state.panel(new Import(new Imported("fixture-reference", "Original", tracks, true, request), ImportPage.SOURCE));
         state.panelPage = 3;
         var bookmark = new MusicSourcePosition(UiKey.item("preview:12:a"), 12);
         assertTrue(state.readPanel(state.panel(), state.sourcePosition, bookmark));
-        state.panel(new Import(new Imported("wy", "123", "Renamed", tracks, 20, request), ImportPage.SOURCE));
+        state.panel(new Import(new Imported("fixture-reference", "Renamed", tracks, true, request), ImportPage.SOURCE));
         assertEquals(3, state.panelPage);
         assertSame(bookmark, state.sourcePosition);
         assertEquals("Renamed", ((Import) state.panel()).preview().name());
@@ -230,12 +230,12 @@ class MusicWorkspaceStateTest {
         assertSame(MusicSourcePosition.START, state.sourcePosition);
         assertEquals(0, state.panelPage, "changing to destination selection starts at its first page");
         state.panelPage = 2;
-        state.panel(new Import(new Imported("wy", "123", "Refetched", tracks, 20, UUID.randomUUID()), ImportPage.MERGE));
+        state.panel(new Import(new Imported("fixture-reference", "Refetched", tracks, true, UUID.randomUUID()), ImportPage.MERGE));
         assertEquals(0, state.panelPage, "a new import result must not inherit an unrelated page");
     }
     @Test void selectionFollowsDisplayOrderAcrossPagesAndClearsWhenCollectionChanges() {
         var browser = new Browser();
-        browser.selecting = true; browser.toggle("c"); browser.toggle("a"); browser.page = 2;
+        browser.selecting = true; browser.toggle(MusicTestTracks.id("c")); browser.toggle(MusicTestTracks.id("a")); browser.page = 2;
         assertEquals(List.of(track("a"), track("c")), browser.selected(List.of(track("a"), track("b"), track("c"))));
         assertEquals(List.of(track("c"), track("a")), browser.selected(List.of(track("c"), track("b"), track("a"))));
         browser.open(Collection.of(Source.RECENT));
@@ -255,12 +255,12 @@ class MusicWorkspaceStateTest {
     @Test void deviceWorkspacePreservesTheLibraryQueryPageAndSongSelection() {
         var state = new MusicWorkspaceState();
         state.browser.query("piano"); state.browser.page = 4;
-        state.browser.selecting = true; state.browser.toggle("a");
+        state.browser.selecting = true; state.browser.toggle(MusicTestTracks.id("a"));
         state.devices();
         assertEquals(WorkspacePage.DEVICES, state.page);
         assertEquals("piano", state.browser.query);
         assertEquals(4, state.browser.page);
-        assertEquals(Set.of("a"), state.browser.selected);
+        assertEquals(Set.of(MusicTestTracks.id("a")), state.browser.selected);
         state.browse(state.browser.collection);
         assertEquals(WorkspacePage.LIBRARY, state.page);
         assertEquals(4, state.browser.page);

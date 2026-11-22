@@ -5,7 +5,7 @@ import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
-import org.encinet.mik.shared.menu.runtime.MenuInputViewTestSupport;
+import org.encinet.mik.shared.menu.runtime.input.MenuInputViewTestSupport;
 import org.encinet.mik.shared.menu.runtime.MenuQueryViewTestSupport;
 import org.encinet.mik.shared.menu.ui.*;
 import java.util.*;
@@ -232,8 +232,7 @@ class MusicWorkspaceCompositionTest {
                         _ -> (_, _) -> { });
                 var first = MusicWorkspaceStateTest.track("first");
                 var songs = new ArrayList<>(List.of(new MusicTrack(first.id(),
-                        new TrackDetails("这是很长的歌曲名称 A very long song title", "很长的歌手名字 A long artist name", null, "FLAC",
-                                new AudioProperties(null, null, Duration.ofSeconds(3723))), first.target())));
+                        new TrackDetails("这是很长的歌曲名称 A very long song title", "很长的歌手名字 A long artist name", null, Duration.ofSeconds(3723)), first.target())));
                 for (int i = 1; i < (scale >= 1.3 ? 3 : 5); i++) songs.add(MusicWorkspaceStateTest.track("song-" + i));
                 var tracks = MusicTrackTable.builder(songs, MusicTableSelection.selecting(_ -> false, _ -> (_, _) -> {}), label,
                         _ -> (_, _) -> {}, (_, _) -> {}, _ -> Ui.button(label.apply("add-playlist")).key("add").build()).build();

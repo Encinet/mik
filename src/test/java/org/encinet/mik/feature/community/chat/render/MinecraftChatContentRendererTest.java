@@ -9,6 +9,11 @@ import org.encinet.mik.feature.community.chat.model.ChatContent;
 import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatStyle;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.encinet.mik.feature.community.chat.input.AdventureComponentImporter;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
 import java.net.URI;
 import java.util.HashSet;
@@ -74,7 +79,7 @@ class MinecraftChatContentRendererTest {
     }
 
     @Test
-    void delegatesLinkGradientsToMiniMessageWithoutUnderlining() {
+    void rendersLinkGradientsAsNativeComponentsWithoutUnderlining() {
         ChatContent content = new ChatContent(List.of(new ChatNode.Link(
                 "[Example: gradient]", URI.create("https://example.org"),
                 new ChatStyle(0x55D6FF, 0xC084FC,
@@ -92,6 +97,18 @@ class MinecraftChatContentRendererTest {
         assertTrue(colors.size() > 1);
         assertTrue(colors.contains(TextColor.color(0x55D6FF)));
         assertTrue(colors.contains(TextColor.color(0xC084FC)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x", "😀", "ab", "😀a界", "literal <red> & @Alice", "a b c d e f g h i j k l m n o p q r s t"})
+    void nativeGradientMatchesTheFrozenAuthorizedImportAtCodePointBoundaries(String text) {
+        ChatStyle style = new ChatStyle(0x55D6FF, 0xC084FC, false, false, false, false);
+        Component actual = new MinecraftChatContentRenderer().render(
+                new ChatContent(List.of(new ChatNode.Text(text, style))), MinecraftChatContentRenderer.Context.empty());
+        Component previous = MiniMessage.miniMessage().deserialize("<gradient:#55D6FF:#C084FC><value></gradient>",
+                Placeholder.unparsed("value", text));
+        var importer = new AdventureComponentImporter();
+        assertEquals(importer.importComponent(previous), importer.importComponent(actual));
     }
 
     private Component findOpenUrl(Component component) {

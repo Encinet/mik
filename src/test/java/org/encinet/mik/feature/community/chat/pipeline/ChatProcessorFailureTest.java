@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.chat.pipeline;
 
+import org.encinet.mik.feature.community.chat.input.AuthorizedChatMarkup;
+
 import org.encinet.mik.feature.community.chat.mention.PlayerMentions;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
 import org.encinet.mik.feature.community.chat.model.ChatNode;
@@ -114,6 +116,6 @@ class ChatProcessorFailureTest {
     }
 
     private ChatProcessor processor(ChatModifier modifier) {
-        return new ChatProcessor(List.of(modifier, new UrlModifier()), new AdventureComponentImporter());
+        return new ChatProcessor(List.of(modifier, new UrlModifier()), new AuthorizedChatMarkup()::parse);
     }
 }

@@ -15,8 +15,6 @@ import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
-import org.encinet.mik.feature.entertainment.music.catalog.AudioPropertiesFormatter;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
 
 import java.util.ArrayList;
@@ -46,24 +44,18 @@ public class MusicDiscFactory {
         this.signer = signer;
     }
 
-    /** Creates a lightweight GUI item. Online playback snapshots are intentionally omitted. */
-    public ItemStack createDisplayDisc(MusicTrack music, boolean detailed, Player player) {
-        return createMusicDisc(music, detailed, languageService.language(player), false);
-    }
-
-    /** Creates a player-owned disc that can restore an online track after a restart. */
+    /** Creates a player-owned disc that can restore its track after a restart. */
     public ItemStack createPersistentDisc(MusicTrack music, Player player) {
-        return createMusicDisc(music, false, languageService.language(player), true);
+        return createMusicDisc(music, languageService.language(player));
     }
 
     /** Creates a server-owned disc using the default language. */
     public ItemStack createPersistentDisc(MusicTrack music) {
-        return createMusicDisc(music, false, Language.DEFAULT, true);
+        return createMusicDisc(music, Language.DEFAULT);
     }
 
-    private ItemStack createMusicDisc(
-            MusicTrack music, boolean detailed, Language language, boolean persistent) {
-        if (persistent && music.target() instanceof org.encinet.mik.feature.entertainment.music.catalog.TrackTarget.NativeRecord) {
+    private ItemStack createMusicDisc(MusicTrack music, Language language) {
+        if (music.target() instanceof org.encinet.mik.feature.entertainment.music.catalog.TrackTarget.NativeRecord) {
             var key = org.bukkit.NamespacedKey.fromString(music.id().substring("record:".length()));
             var song = io.papermc.paper.registry.RegistryAccess.registryAccess()
                     .getRegistry(io.papermc.paper.registry.RegistryKey.JUKEBOX_SONG).getOrThrow(key);
@@ -75,7 +67,6 @@ public class MusicDiscFactory {
         }
         int hash = music.id().hashCode();
         TrackDetails details = music.details();
-        AudioProperties audio = details.audio();
         Material discType = DISC_TYPES[Math.floorMod(hash, DISC_TYPES.length)];
 
         ItemStack disc = new ItemStack(discType);
@@ -86,52 +77,20 @@ public class MusicDiscFactory {
                     .color(NamedTextColor.WHITE)
                     .decoration(TextDecoration.ITALIC, false));
             List<Component> lore = new ArrayList<>();
-            lore.add(lore(language, Message.MUSIC_FORMAT, details.format())
-                    .color(NamedTextColor.GRAY)
-                    .decoration(TextDecoration.ITALIC, false));
 
             if (details.artist() != null) {
                 lore.add(lore(language, Message.MUSIC_ARTIST, details.artist())
-                        .color(NamedTextColor.GRAY)
+                        .color(NamedTextColor.WHITE)
                         .decoration(TextDecoration.ITALIC, false));
             }
             if (details.originalAuthor() != null) {
                 lore.add(lore(language, Message.MUSIC_ORIGINAL_AUTHOR, details.originalAuthor())
-                        .color(NamedTextColor.GRAY)
+                        .color(NamedTextColor.WHITE)
                         .decoration(TextDecoration.ITALIC, false));
             }
             if (details.album() != null) {
                 lore.add(lore(language, Message.MUSIC_ALBUM, details.album())
-                        .color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-
-            String fileSize = AudioPropertiesFormatter.fileSize(audio.fileSizeBytes());
-            if (fileSize != null) {
-                lore.add(lore(language, Message.MUSIC_SIZE, fileSize)
-                        .color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-            String sampleRate = AudioPropertiesFormatter.sampleRate(audio.sampleRateHz());
-            if (sampleRate != null) {
-                lore.add(lore(language, Message.MUSIC_SAMPLE_RATE, sampleRate)
-                        .color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-            String duration = AudioPropertiesFormatter.duration(audio.duration());
-            if (duration != null) {
-                lore.add(lore(language, Message.MUSIC_DURATION, duration)
-                        .color(NamedTextColor.GRAY)
-                        .decoration(TextDecoration.ITALIC, false));
-            }
-
-            if (detailed) {
-                lore.add(Component.text(""));
-                lore.add(Component.text(languageService.t(language, Message.MUSIC_DISC_LEFT))
-                        .color(NamedTextColor.YELLOW)
-                        .decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text(languageService.t(language, Message.MUSIC_DISC_RIGHT))
-                        .color(NamedTextColor.AQUA)
+                        .color(NamedTextColor.WHITE)
                         .decoration(TextDecoration.ITALIC, false));
             }
 
@@ -142,18 +101,10 @@ public class MusicDiscFactory {
             customModelData.setFloats(List.of(modelValue));
             meta.setCustomModelDataComponent(customModelData);
 
-            meta.getPersistentDataContainer().set(
-                    MusicDiscKeys.TRACK, PersistentDataType.STRING, music.id());
-            if (persistent) {
-                String snapshot = MusicDiscSnapshot.serialize(music);
-                if (snapshot != null) {
-                    meta.getPersistentDataContainer().set(
-                            MusicDiscKeys.TRACK_DATA, PersistentDataType.STRING, snapshot);
-                    meta.getPersistentDataContainer().set(
-                            MusicDiscKeys.TRACK_SIGNATURE, PersistentDataType.STRING,
-                            signer.sign(snapshot));
-                }
-            }
+            var data = meta.getPersistentDataContainer();
+            data.set(MusicDiscKeys.TRACK, PersistentDataType.STRING, music.id());
+            data.set(MusicDiscKeys.TRACK_SIGNATURE, PersistentDataType.STRING,
+                    signer.sign(MusicDiscKeys.signedIdentity(music.id())));
 
             disc.setItemMeta(meta);
         }

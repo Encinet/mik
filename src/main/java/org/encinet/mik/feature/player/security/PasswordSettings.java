@@ -15,7 +15,7 @@ final class PasswordSettings {
     private PasswordSettings() { }
 
     static MenuScene scene(Language locale, LanguageService language, boolean present, PlayerRole role,
-                           boolean retained, FloatingMenuCommand edit, FloatingMenuCommand remove,
+                           FloatingMenuCommand edit, FloatingMenuCommand remove,
                            FloatingMenuCommand webAccount) {
         MenuScene.Builder menu = MenuScene.screen("account-security", text(locale, language, Message.PASSWORD_TITLE))
                 .withoutTitle().stableAnchor().content(UiTemplates.window("security", UiTemplates.focus(
@@ -25,7 +25,6 @@ final class PasswordSettings {
         menu.information("heading", text(locale, language, Message.PASSWORD_TITLE)).region("heading");
         menu.information("state", text(locale, language, present ? Message.PASSWORD_ENABLED : Message.PASSWORD_DISABLED)).region("status");
         Message restriction = (present ? PasswordEdit.REMOVE : PasswordEdit.SET).restriction(present, role);
-        if (present && restriction == null && retained) restriction = Message.PASSWORD_REQUIRED_APPLICATION;
         if (restriction != null) menu.information("required", text(locale, language, restriction)).region("status");
         var change = menu.control("set-or-change", text(locale, language, present ? Message.PASSWORD_CHANGE : Message.PASSWORD_SET))
                 .region("actions").primary(edit);

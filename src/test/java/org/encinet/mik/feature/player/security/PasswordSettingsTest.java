@@ -20,24 +20,21 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.entry;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordSettingsTest {
-    @Test void ordinaryAccountsCanSetOrRemoveWhileApplicationsAndStaffExplainDisabledRemoval() throws Exception {
+    @Test void ordinaryAccountsCanSetOrRemoveWhileStaffSeeLocalRestrictions() throws Exception {
         var bundle = FluentTestSupport.bundle(Language.ZH_CN);
         var language = new LanguageService(null) {
             @Override public String t(Language locale, Message key, Object... args) { return FluentTestSupport.text(bundle, key, args); }
         };
-        var fresh = scene(language, false, PlayerRole.MEMBER, false);
+        var fresh = scene(language, false, PlayerRole.MEMBER);
         assertTrue(entry(fresh, "set-or-change").enabled());
         assertNull(entry(fresh, "remove"));
-        assertTrue(entry(scene(language, true, PlayerRole.MEMBER, false), "remove").enabled());
-        var applicant = scene(language, true, PlayerRole.MEMBER, true);
-        assertFalse(entry(applicant, "remove").enabled());
-        assertNotNull(entry(applicant, "required"));
-        var staff = scene(language, true, PlayerRole.MODERATOR, false);
+        assertTrue(entry(scene(language, true, PlayerRole.MEMBER), "remove").enabled());
+        var staff = scene(language, true, PlayerRole.MODERATOR);
         assertFalse(entry(staff, "remove").enabled());
         assertEquals(FluentTestSupport.text(bundle, Message.PASSWORD_KEEP_ROLE),
                 PlainTextComponentSerializer.plainText().serialize(entry(staff, "remove").disabledReason()));
         assertTrue(entry(staff, "set-or-change").enabled());
-        assertFalse(entry(scene(language, false, PlayerRole.CUSTODIAN, false), "set-or-change").enabled());
+        assertFalse(entry(scene(language, false, PlayerRole.CUSTODIAN), "set-or-change").enabled());
     }
 
     @Test void webAccountActionWorksInStandaloneAndEmbeddedSecurityPages() throws Exception {
@@ -48,7 +45,7 @@ class PasswordSettingsTest {
             };
             for (boolean present : new boolean[] {false, true}) {
                 var opened = new AtomicInteger();
-                var panel = PasswordSettings.scene(locale, language, present, PlayerRole.MEMBER, present,
+                var panel = PasswordSettings.scene(locale, language, present, PlayerRole.MEMBER,
                         (_, _) -> { }, (_, _) -> { }, (_, _) -> opened.incrementAndGet());
                 var hosted = SettingsMenuTestSupport.frame(panel, message -> language.t(locale, message), "SECURITY");
                 for (var page : List.of(panel, hosted)) {
@@ -68,8 +65,8 @@ class PasswordSettingsTest {
         }
     }
 
-    private static MenuScene scene(LanguageService language, boolean present, PlayerRole role, boolean retained) {
-        return PasswordSettings.scene(Language.ZH_CN, language, present, role, retained,
+    private static MenuScene scene(LanguageService language, boolean present, PlayerRole role) {
+        return PasswordSettings.scene(Language.ZH_CN, language, present, role,
                 (_, _) -> { }, (_, _) -> { }, (_, _) -> { });
     }
 

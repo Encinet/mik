@@ -1,0 +1,88 @@
+[package]
+name = "mikd"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+mik-protocol = { path = "../../crates/mik-protocol" }
+linkify = "=0.11.0"
+# HPKE exposes P-256 through its NIST curve group.
+hpke = { version = "=0.15.1", default-features = false, features = ["aes", "alloc", "nistp"] }
+p256 = { version = "=0.14.0", default-features = false, features = ["alloc", "ecdsa", "pkcs8"] }
+subtle = "=2.6.1"
+tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
+futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
+prost.workspace = true
+tokio = { workspace = true, features = ["fs"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+# Match Matrix SDK 0.19's rusqlite 0.40 / libsqlite3-sys 0.38; it also enables bundled SQLite.
+tokio-rusqlite = "=0.8.0"
+matrix-sdk = { version = "=0.19.1", default-features = false, features = ["e2e-encryption", "bundled-sqlite"] }
+matrix-sdk-crypto = "=0.19.1"
+backon = { version = "=1.6.0", default-features = false, features = ["std", "tokio-sleep"] }
+ruma-html = "=0.10.0"
+htmlescape = "=0.3.1"
+qqbot-sdk-rs = "=0.3.2"
+lru = { version = "=0.19.0", default-features = false }
+regex = "=1.13.2"
+language-tags = "=0.3.2"
+fluent-bundle = "=0.16.0"
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
+totp-rs = { version = "=6.0.0", default-features = false, features = ["alloc", "zeroize"] }
+aes-gcm = { version = "=0.11.1", default-features = false, features = ["aes", "alloc", "zeroize"] }
+zeroize = "=1.9.2"
+base64 = { version = "=0.23.1", default-features = false, features = ["alloc"] }
+getrandom = "=0.4.3"
+rand = "=0.10.4"
+thiserror = "=2.0.21"
+tempfile.workspace = true
+tantivy = { version = "=0.27.0", default-features = false, features = ["lz4-compression", "mmap"] }
+rayon = "=1.12.0"
+icu_segmenter = "=2.4.0"
+icu_casemap = "=2.4.0"
+unicode-normalization = "=0.1.26"
+serde = { workspace = true, features = ["rc"] }
+serde_json.workspace = true
+serde_yaml_ng = "=0.10.0"
+text-splitter = { version = "=0.33.3", features = ["markdown"] }
+pulldown-cmark = { version = "=0.13.6", default-features = false }
+sha2 = { version = "=0.11.1", default-features = false }
+time = { version = "=0.3.55", features = ["formatting", "parsing"] }
+url = "=2.5.8"
+percent-encoding = { version = "=2.3.2", default-features = false, features = ["alloc"] }
+walkdir = "=2.5.0"
+rustix = { version = "=1.1.6", features = ["fs"] }
+
+rig-agent = { version = "=0.46.0", default-features = false }
+rig-core = { version = "=0.46.0", default-features = false }
+reqwest = { version = "=0.13.5", default-features = false, features = ["multipart", "rustls-no-provider"] }
+# The QQ SDK already uses Rustls with ring; use it for HTTP and Matrix too.
+rustls = { version = "=0.23.46", default-features = false, features = ["ring"] }
+rquickjs = { version = "=0.14.0", features = ["array-buffer", "futures", "parallel"] }
+md-5 = { version = "=0.11.0", default-features = false }
+flate2 = { version = "=1.1.11", default-features = false, features = ["rust_backend"] }
+hex = "=0.4.3"
+aes = "=0.9.4"
+cbc = { version = "=0.2.1", default-features = false, features = ["alloc", "block-padding"] }
+ctr = "=0.10.1"
+ecb = { version = "=0.2.1", default-features = false, features = ["alloc", "block-padding"] }
+rsa = { version = "=0.10.0", default-features = false, features = ["encoding", "hazmat"] }
+encoding_rs = "=0.8.44"
+htmd = { version = "=0.6.0", default-features = false, features = ["rcdom"] }
+html5ever = "=0.40.1"
+markup5ever_rcdom = "=0.40.1"
+tokio-util = { version = "=0.7.20", features = ["rt"] }
+axum = { workspace = true, features = ["json"] }
+hyper = { version = "=1.12.0", features = ["http1", "server"] }
+hyper-util = { version = "=0.1.21", features = ["tokio", "service"] }
+httpdate = "=1.0.3"
+
+[dev-dependencies]
+# Production serves the router through Hyper; only test fixtures use axum::serve.
+axum = { workspace = true, features = ["http1", "tokio"] }
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true

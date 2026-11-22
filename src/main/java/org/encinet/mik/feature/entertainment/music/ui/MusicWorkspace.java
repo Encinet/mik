@@ -15,9 +15,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.entertainment.music.application.*;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscFactory;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
 import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus;
-import org.encinet.mik.feature.entertainment.music.online.*;
+import org.encinet.mik.feature.entertainment.music.gateway.*;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
 import org.encinet.mik.shared.i18n.*;
@@ -34,9 +34,8 @@ public final class MusicWorkspace implements AutoCloseable {
     final MusicDeviceRegistry registry;
     final MusicDeviceTravel travel;
     final MusicGroupService groups;
-    final Supplier<List<MusicTrack>> catalog;
-    final LxSourceService sources;
-    final OnlineMusicRequestLimiter limiter;
+    final RemoteMusic gateway;
+    final MusicRequestLimiter limiter;
     final JukeboxSettingsStore settings;
     final MusicRooms rooms;
     final MusicDiscFactory discs;
@@ -60,13 +59,13 @@ public final class MusicWorkspace implements AutoCloseable {
 
     public MusicWorkspace(JavaPlugin plugin, LanguageService language, MusicQueries queries,
             PlaylistService playlists, MusicPlaybackController devices, MusicDeviceRegistry registry, MusicDeviceTravel travel,
-            MusicGroupService groups, Supplier<List<MusicTrack>> catalog, LxSourceService sources,
-            OnlineMusicRequestLimiter limiter, JukeboxSettingsStore settings,
+            MusicGroupService groups, RemoteMusic gateway,
+            MusicRequestLimiter limiter, JukeboxSettingsStore settings,
             MusicRooms rooms, MusicDiscFactory discs) {
         this.plugin = plugin; this.language = language; this.queries = queries; this.playlists = playlists;
-        this.devices = devices; this.registry = registry; this.groups = groups; this.catalog = catalog;
+        this.devices = devices; this.registry = registry; this.groups = groups;
         this.travel = travel;
-        this.sources = sources; this.limiter = limiter; this.settings = settings;
+        this.gateway = gateway; this.limiter = limiter; this.settings = settings;
         this.rooms = rooms; this.discs = discs;
         locator = new MusicDeviceLocator(registry,language);
         rooms.setReturnToRoom((player, id) -> { open(player); panel(player, new Room(id)); });
@@ -94,6 +93,8 @@ public final class MusicWorkspace implements AutoCloseable {
         closeSearch(player.getUniqueId());
         if (previous != null) previous.close();
         flows.put(player.getUniqueId(), FloatingMenuFlow.openRoot(player, state, context -> render(context.player(), context.state())));
+        if (state.page == WorkspacePage.LIBRARY && state.browser.collection.source() == Source.CATALOG && state.browser.catalog == null)
+            loadCatalog(player, state, com.google.protobuf.ByteString.EMPTY);
     }
 
     private UUID nearbyTarget(Player player) {
@@ -231,7 +232,9 @@ public final class MusicWorkspace implements AutoCloseable {
             else { if (!future.isCancelled()) error(player,failed); redraw(player); }
         }));
     }
-    String text(Player player, String key) { return language.t(player, Message.MUSIC_SPACE_LABEL, key); }
+    String text(Player player, String key) {
+        return language.t(player, Message.MUSIC_SPACE_LABEL, key);
+    }
     Component label(Player player, String key) { return raw(text(player, key)); }
     Component trackCount(Player player, int count) { return language.text(player, Message.MUSIC_SPACE_TRACK_COUNT, NamedTextColor.WHITE, count); }
     Component raw(String value) { return Component.text(value, NamedTextColor.WHITE); }
@@ -262,6 +265,9 @@ public final class MusicWorkspace implements AutoCloseable {
                         travel.cancel(viewer.getUniqueId());
                         closeSearch(viewer.getUniqueId());
                         this.transport.release(viewer.getUniqueId());
+                        state.browser.saved.invalidate();
+                        if (current != FloatingMenuState.SUSPENDED && state.browser.collection.source() == Source.CATALOG)
+                            state.clearCatalog();
                     } else if (current == FloatingMenuState.OPENING && previous == FloatingMenuState.SUSPENDED) redraw(viewer);
                 });
         UiNode browser = !queries.ready() ? info("unavailable", label(player, "unavailable"))
@@ -308,9 +314,9 @@ public final class MusicWorkspace implements AutoCloseable {
             }
             catch (MusicProblem ignored) { statuses.add(id); }
         }
-        var targets = registry.targets(player).stream().sorted(Comparator.comparing(org.encinet.mik.feature.entertainment.music.jukebox.DeviceTarget::name)
-                .thenComparing(org.encinet.mik.feature.entertainment.music.jukebox.DeviceTarget::id)).toList();
-        statuses.add(targets.stream().map(org.encinet.mik.feature.entertainment.music.jukebox.DeviceTarget::id).toList());
+        var targets = registry.targets(player).stream().sorted(Comparator.comparing(org.encinet.mik.feature.entertainment.music.device.DeviceTarget::name)
+                .thenComparing(org.encinet.mik.feature.entertainment.music.device.DeviceTarget::id)).toList();
+        statuses.add(targets.stream().map(org.encinet.mik.feature.entertainment.music.device.DeviceTarget::id).toList());
         for (var target : targets)
             statuses.add(List.of(target.id(), Optional.ofNullable(registry.controlFailure(player, target.id())),
                     target.members().stream().map(device -> List.of(device.id(), registry.online(device),
@@ -319,6 +325,12 @@ public final class MusicWorkspace implements AutoCloseable {
             statuses.add(List.of(rooms.get(room.device()).members(), rooms.readiness(room.device())));
         if (state.panel() instanceof RoomPicker) statuses.add(rooms.nearby(player));
         return statuses;
+    }
+
+    void refreshSaved(Player player, MusicWorkspaceState state, long revision, List<MusicTrack> page) {
+        java.util.function.BooleanSupplier current = () -> owns(player, state) && state.page == WorkspacePage.LIBRARY
+                && state.browser.revision == revision && flows.get(player.getUniqueId()).handle().state() == FloatingMenuState.ACTIVE;
+        if (current.getAsBoolean()) state.browser.saved.refresh(page, gateway::tracks, this::main, current, () -> redraw(player));
     }
 
     private UiNode auxiliary(Player player, MusicWorkspaceState state) {
@@ -430,17 +442,16 @@ public final class MusicWorkspace implements AutoCloseable {
         closeCompanion(player);
         closeSearch(player.getUniqueId());
         var state = state(player);
-        state.searchGeneration++;
-        state.tasks.remove(TaskKey.of(Work.SEARCH));
+        resetSearch(state, collection.source());
         state.browse(collection);
-        redraw(player);
+        if (collection.source() == Source.CATALOG && state.browser.catalog == null) loadCatalog(player, state, com.google.protobuf.ByteString.EMPTY);
+        else redraw(player);
     }
     void browsePlaylist(Player player, UUID id, Source source) {
         closeCompanion(player);
         closeSearch(player.getUniqueId());
         var state = state(player);
-        state.searchGeneration++;
-        state.tasks.remove(TaskKey.of(Work.SEARCH));
+        resetSearch(state, Source.PLAYLIST);
         state.browsePlaylist(id, source);
         redraw(player);
     }
@@ -488,7 +499,7 @@ public final class MusicWorkspace implements AutoCloseable {
                 .validate((viewer, values) -> {
                     String value = values.text("value").strip();
                     try {
-                        if (Set.of("name", "alias", "playlist-id").contains(key)) Playlist.text(value, maximum);
+                        if (Set.of("name", "alias").contains(key)) Playlist.text(value, maximum);
                         return null;
                     } catch (IllegalArgumentException invalid) { return problem(viewer, MusicProblem.Code.INVALID); }
                 })
@@ -666,6 +677,7 @@ public final class MusicWorkspace implements AutoCloseable {
         if (!clean.isBlank()) acquire(player);
         closeCompanion(player);
         closeSearch(player.getUniqueId());
+        resetSearch(state, Source.CATALOG);
         state.browse(Collection.of(Source.CATALOG));
         searchCatalog(player, state, clean);
     }
@@ -681,36 +693,81 @@ public final class MusicWorkspace implements AutoCloseable {
         } else state.browser.query(clean);
     }
 
+    private static void resetSearch(MusicWorkspaceState state, Source target) {
+        if (state.browser.collection.source() != target) state.clearCatalog();
+    }
+
+    void turnCatalog(Player player, long revision, boolean forward) {
+        var state = state(player);
+        var browser = state.browser;
+        if (browser.revision != revision || browser.catalog == null || state.busy(TaskKey.of(Work.SEARCH))) return;
+        if (!forward && !browser.earlier.isEmpty()) {
+            browser.later.addLast(browser.catalog);
+            browser.catalog(browser.earlier.removeLast());
+            redraw(player);
+        } else if (forward && !browser.later.isEmpty()) {
+            browser.earlier.addLast(browser.catalog);
+            browser.catalog(browser.later.removeLast());
+            redraw(player);
+        } else if (forward && !browser.catalog.nextCursor().isEmpty()) {
+            loadCatalog(player, state, browser.catalog.nextCursor());
+        }
+    }
+
     private static String cleanQuery(String query) {
         try { return query.isBlank() ? "" : Playlist.text(query, 128); }
         catch (IllegalArgumentException invalid) { throw new MusicProblem(MusicProblem.Code.INVALID); }
     }
 
     private void searchCatalog(Player player, MusicWorkspaceState state, String clean) {
+        state.clearCatalog();
         state.browser.query(clean);
+        loadCatalog(player, state, com.google.protobuf.ByteString.EMPTY);
+    }
+
+    private void loadCatalog(Player player, MusicWorkspaceState state, com.google.protobuf.ByteString cursor) {
+        var browser = state.browser;
+        String query = browser.query;
         long generation = ++state.searchGeneration;
-        state.searchFailures = 0;
-        state.results = catalog.get().stream().filter(track -> track.matches(clean)).toList();
-        var key = TaskKey.of(Work.SEARCH);
-        state.tasks.remove(key);
-        if (clean.isBlank()) { redraw(player); return; }
-        run(player, key, () -> sources.searchMusic(clean, 1, 200), result -> {
-            if (state.searchGeneration != generation || !state.browser.query.equals(clean)) return;
-            var merged = new LinkedHashMap<String, MusicTrack>();
-            state.results.forEach(track -> merged.put(track.id(), track));
-            result.items().forEach(track -> merged.putIfAbsent(track.id(), track));
-            state.results = MusicSearchRanker.rank(clean, List.copyOf(merged.values()));
-            state.searchFailures = result.failures().size();
+        run(player, TaskKey.of(Work.SEARCH), () -> {
+            var request = gateway.catalog(query, false, cursor);
+            browser.catalogRequest = request;
+            // A consumed/expired cursor starts a new traversal; never append an unrelated first page.
+            return request.handle((page, failed) -> {
+                if (!cursor.isEmpty() && failed != null && root(failed) instanceof MusicMedia.ReadException error
+                        && error.code() == org.encinet.mik.protocol.music.MusicFailure.Code.CURSOR_EXPIRED) {
+                    return gateway.catalog(query, false, com.google.protobuf.ByteString.EMPTY)
+                            .thenApply(first -> new CatalogLoad(first, true));
+                }
+                if (failed != null) return java.util.concurrent.CompletableFuture.<CatalogLoad>failedFuture(failed);
+                return java.util.concurrent.CompletableFuture.completedFuture(new CatalogLoad(page, cursor.isEmpty()));
+            }).thenCompose(java.util.function.Function.identity());
+        }, loaded -> {
+            if (state.searchGeneration != generation || browser.collection.source() != Source.CATALOG) return;
+            if (loaded.reset()) { browser.earlier.clear(); browser.later.clear(); }
+            else if (browser.catalog != null) {
+                if (browser.earlier.size() == 8) browser.earlier.removeFirst();
+                browser.earlier.addLast(browser.catalog);
+            }
+            browser.catalog(loaded.page());
         });
     }
+
+    private record CatalogLoad(RemoteMusic.CatalogPage page, boolean reset) { }
+
+    private static Throwable root(Throwable error) {
+        while (error instanceof java.util.concurrent.CompletionException && error.getCause() != null) error = error.getCause();
+        return error;
+    }
+
     void acquire(Player player) {
-        if (!limiter.tryAcquire(player.getUniqueId(), OnlineMusicRequestLimiter.Operation.SEARCH).allowed())
+        if (!limiter.tryAcquire(player.getUniqueId(), MusicRequestLimiter.Operation.SEARCH).allowed())
             throw new MusicProblem(MusicProblem.Code.BUSY);
     }
-    public void importPlaylist(Player player, String source, String reference) {
+    public void importPlaylist(Player player, String reference) {
         open(player);
         browse(player, Collection.of(Source.OWNED));
-        imports.load(player, source, reference);
+        imports.load(player, reference);
     }
     public void playlist(Player player, UUID id) {
         open(player);

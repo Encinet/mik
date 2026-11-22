@@ -17,15 +17,6 @@ final class PlotPreviewGeometry {
     private PlotPreviewGeometry() {
     }
 
-    static List<Edge> selection(PlotSelectionShape shape) {
-        return shape.composite() ? core(shape.cells()) : box(shape.alignedBounds());
-    }
-
-    static boolean sameBoundary(List<Edge> first, List<Edge> second) {
-        return first.equals(second) || first.size() == second.size()
-                && new HashSet<>(first).equals(new HashSet<>(second));
-    }
-
     static List<Edge> box(PlotSelection.Bounds bounds) {
         List<Edge> edges = new ArrayList<>(12);
         double[] horizontal = {bounds.minimumX(), (double) bounds.maximumX() + 1};

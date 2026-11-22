@@ -1411,30 +1411,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
         return restored;
     }
 
-    static int applyWinningPrizeToVirtualBag(
-            List<String> virtualBag,
-            String prizeId,
-            int[] stocks
-    ) {
-        if (!isWinningPrize(prizeId)) {
-            return 0;
-        }
-        if (!GIFT_PACK_ID.equals(prizeId)) {
-            if (!virtualBag.contains(GIFT_PACK_ID) && !virtualBag.contains(prizeId)) {
-                virtualBag.add(prizeId);
-            }
-            return 0;
-        }
-
-        List<String> replacedPrizeIds = virtualBag.stream()
-                .filter(existingPrizeId -> !GIFT_PACK_ID.equals(existingPrizeId))
-                .toList();
-        int restored = restoreWinningPrizeStocks(stocks, replacedPrizeIds);
-        virtualBag.clear();
-        virtualBag.add(GIFT_PACK_ID);
-        return restored;
-    }
-
     static boolean isPrizeTypeEligible(Set<String> virtualBag, String prizeId) {
         return isWinningPrize(prizeId)
                 && !virtualBag.contains(GIFT_PACK_ID)

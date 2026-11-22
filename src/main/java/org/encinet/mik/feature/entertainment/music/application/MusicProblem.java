@@ -7,6 +7,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
 
 /** Stable user-facing failure categories; translated by entry points. */
 public final class MusicProblem extends RuntimeException {
@@ -15,6 +16,7 @@ public final class MusicProblem extends RuntimeException {
 
     public enum Code {
         UNAVAILABLE,
+        VERSION_GONE,
         NOT_FOUND,
         FORBIDDEN,
         CONFLICT,
@@ -41,6 +43,15 @@ public final class MusicProblem extends RuntimeException {
     public static Code code(Throwable error) {
         Throwable cause = unwrap(error);
         if (cause instanceof MusicProblem problem) return problem.code();
+        if (cause instanceof MusicMedia.ReadException remote) return switch (remote.code()) {
+            case VERSION_GONE -> Code.VERSION_GONE;
+            case UNSUPPORTED_MEDIA -> Code.UNSUPPORTED;
+            case BUSY -> Code.BUSY;
+            case CURSOR_EXPIRED -> Code.CONFLICT;
+            case INVALID_REQUEST -> Code.INVALID;
+            case NOT_FOUND -> Code.NOT_FOUND;
+            default -> Code.UNAVAILABLE;
+        };
         if (cause instanceof IOException || cause instanceof TimeoutException || cause instanceof CancellationException)
             return Code.UNAVAILABLE;
         return Code.INTERNAL;

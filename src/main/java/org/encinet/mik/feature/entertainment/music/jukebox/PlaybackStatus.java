@@ -4,6 +4,12 @@ public enum PlaybackStatus {
     STOPPED,
     LOADING,
     PLAYING,
+    BUFFERING,
     PAUSED,
-    FINISHED
+    FINISHED,
+    RESUMABLE;
+
+    boolean hasLiveTransport() {
+        return this == PLAYING || this == BUFFERING || this == PAUSED;
+    }
 }

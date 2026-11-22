@@ -18,7 +18,6 @@ public final class AuthenticationFallbackModule {
     private final JavaPlugin plugin;
     private ExecutorService worker;
     private AuthenticationFallbackStore store;
-    private FallbackSessionService service;
     private PaperAuthenticationHook hook;
 
     public AuthenticationFallbackModule(JavaPlugin plugin) { this.plugin = plugin; }
@@ -35,11 +34,9 @@ public final class AuthenticationFallbackModule {
                     Clock.systemUTC(), MAX_AGE, MAX_PLAYERS);
             worker.submit(() -> { store.open(); return null; }).get();
             var server = MinecraftServer.getServer();
-            service = new FallbackSessionService(server.services().sessionService(), store,
-                    server.getPreventProxyConnections(), failure -> plugin.getLogger().log(Level.SEVERE,
+            hook = new PaperAuthenticationHook(server, store, failure -> plugin.getLogger().log(Level.SEVERE,
                     "Authentication cache failed; fallback disabled until restart. Upstream authentication remains active.", failure),
                     id -> plugin.getLogger().warning("Authentication unavailable; using cached identity for " + id));
-            hook = new PaperAuthenticationHook(server, service);
             hook.install();
             plugin.getLogger().info("Authentication fallback enabled; cached identities expire after " + MAX_AGE.toHours() + " hours.");
         } catch (Exception | LinkageError error) {
@@ -50,7 +47,6 @@ public final class AuthenticationFallbackModule {
     }
 
     public void disable() {
-        if (service != null) service.close();
         var shutdown = new ShutdownSequence();
         if (hook != null) shutdown.attempt("authentication hook", hook::close);
         if (worker != null) {
@@ -67,7 +63,6 @@ public final class AuthenticationFallbackModule {
         }
         shutdown.finish("authentication fallback");
         hook = null;
-        service = null;
         store = null;
         worker = null;
     }

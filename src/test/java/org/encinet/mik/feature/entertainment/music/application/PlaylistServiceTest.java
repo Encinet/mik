@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.application;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Path;
@@ -7,10 +8,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
-import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
 import org.encinet.mik.feature.entertainment.music.playlist.EntryEdits;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;
@@ -34,8 +33,7 @@ class PlaylistServiceTest {
         store.close();
     }
     private MusicTrack track(String id) {
-        return new MusicTrack(id, new TrackDetails(id, null, null, "mp3", AudioProperties.EMPTY),
-                new TrackTarget.LocalFile(directory.resolve(id + ".mp3"), directory));
+        return MusicTestTracks.managed(id, new TrackDetails(id, null, null, null));
     }
     private Playlist create() {
         return service.create(author, "My playlist", List.of(track("a"), track("b"), track("c"))).join();
@@ -66,7 +64,7 @@ class PlaylistServiceTest {
         var addError = assertThrows(CompletionException.class, () -> service.add(author, list.id(), list.version(), tracks).join());
         assertEquals(MusicProblem.Code.LIMIT, MusicProblem.code(addError));
         var importError = assertThrows(CompletionException.class, () -> service.imported(author, list.id(), "Import", tracks,
-                "wy", "test", tracks.size(), UUID.randomUUID()).join());
+                false, UUID.randomUUID()).join());
         assertEquals(MusicProblem.Code.LIMIT, MusicProblem.code(importError));
         assertEquals(list, service.visible(author, list.id()));
         assertEquals(3, store.snapshot().tracks().size());
@@ -134,7 +132,7 @@ class PlaylistServiceTest {
         var stale = assertThrows(CompletionException.class,
                 () -> service.move(author, p.id(), p.version(), Set.of(last), EntryEdits.before(p.entries().getFirst().id())).join());
         assertEquals(MusicProblem.Code.CONFLICT, MusicProblem.code(stale));
-        assertEquals(List.of("a", "b", "c", "new"), service.visible(author, p.id()).entries().stream().map(Playlist.Entry::trackId).toList());
+        assertEquals(List.of("a", "b", "c", "new").stream().map(MusicTestTracks::id).toList(), service.visible(author, p.id()).entries().stream().map(Playlist.Entry::trackId).toList());
     }
     @Test void undoTargetsTheDisplayedPlaylistRatherThanAnotherPlaylistsLatestEdit() {
         Playlist first = create();
@@ -161,19 +159,19 @@ class PlaylistServiceTest {
     @Test
     void duplicateImportRequestIsIdempotentAndMergePreservesOrder() {
         UUID request = UUID.randomUUID();
-        Playlist first = service.imported(author, null, "Imported", List.of(track("b"), track("a")), "wy",
-                                        "123", 4, request)
+        Playlist first = service.imported(author, null, "Imported", List.of(track("b"), track("a")), true, request)
                                  .join();
         Playlist repeated =
-                service.imported(author, null, "Ignored", List.of(track("c")), "wy", "123", 4, request)
+                service.imported(author, null, "Ignored", List.of(track("c")), true, request)
                         .join();
         assertEquals(first, repeated);
         Playlist merged = service.imported(author, first.id(), "Imported", List.of(track("a"), track("d")),
-                                         "wy", "123", 2, UUID.randomUUID())
+                                         false, UUID.randomUUID())
                                   .join();
-        assertEquals(List.of("b", "a", "d"), merged.entries().stream().map(Playlist.Entry::trackId).toList());
+        assertEquals(List.of("b", "a", "d").stream().map(MusicTestTracks::id).toList(), merged.entries().stream().map(Playlist.Entry::trackId).toList());
         assertEquals(2, store.snapshot().imports().size());
-        assertEquals(4, store.snapshot().imports().get(request).total());
+        assertEquals(2, store.snapshot().imports().get(request).loaded());
+        assertTrue(store.snapshot().imports().get(request).partial());
     }
     @Test
     void transactionExceptionPublishesNothingAndSurvivesReopen() {
@@ -191,19 +189,19 @@ class PlaylistServiceTest {
         store = new MusicStore();
         store.open(directory.resolve("music.sqlite")).join();
         assertEquals(p, store.snapshot().playlists().get(p.id()));
-        assertEquals(track("a"), store.snapshot().tracks().get("a").track());
+        assertEquals(track("a"), store.snapshot().tracks().get(MusicTestTracks.id("a")).track());
     }
     @Test
     void privateHistoryDeletionDoesNotAffectAnotherPlayer() {
         UUID a = UUID.randomUUID(), b = UUID.randomUUID(), repeat = UUID.randomUUID(), other = UUID.randomUUID();
         store.transact(e -> {
-                 e.recents.put(a, new MusicState.Recent(a, author, "a", UUID.randomUUID(), 1));
-                 e.recents.put(b, new MusicState.Recent(b, visitor, "a", UUID.randomUUID(), 2));
-                 e.recents.put(repeat, new MusicState.Recent(repeat, author, "a", UUID.randomUUID(), 3));
-                 e.recents.put(other, new MusicState.Recent(other, author, "b", UUID.randomUUID(), 4));
+                 e.recents.put(a, new MusicState.Recent(a, author, MusicTestTracks.id("a"), UUID.randomUUID(), 1));
+                 e.recents.put(b, new MusicState.Recent(b, visitor, MusicTestTracks.id("a"), UUID.randomUUID(), 2));
+                 e.recents.put(repeat, new MusicState.Recent(repeat, author, MusicTestTracks.id("a"), UUID.randomUUID(), 3));
+                 e.recents.put(other, new MusicState.Recent(other, author, MusicTestTracks.id("b"), UUID.randomUUID(), 4));
                  return null;
              }).join();
-        service.forgetRecent(author, "a").join();
+        service.forgetRecent(author, MusicTestTracks.id("a")).join();
         assertEquals(Set.of(b, other), store.snapshot().recents().keySet());
         service.clearRecents(author).join();
         assertEquals(Set.of(b), store.snapshot().recents().keySet());

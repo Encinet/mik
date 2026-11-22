@@ -8,8 +8,6 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import net.kyori.adventure.text.minimessage.MiniMessage;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.inventory.ItemStack;
 import org.encinet.mik.feature.player.profile.PlayerNameRenderer;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
@@ -19,7 +17,6 @@ import org.encinet.mik.feature.community.chat.model.ChatStyle;
 /** Renders semantic content into Minecraft Adventure interactions. */
 public final class MinecraftChatContentRenderer {
     private static final Key PLAYER_ENTITY_TYPE = Key.key("minecraft", "player");
-    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
 
     public Component render(ChatContent content, Context context) {
         TextComponent.Builder result = Component.text();
@@ -38,7 +35,7 @@ public final class MinecraftChatContentRenderer {
                     ? ClickEvent.copyToClipboard(
                     link.target().getRawSchemeSpecificPart())
                     : ClickEvent.openUrl(target);
-            rendered = styled(link.label(), link.style())
+            rendered = styled(link.label(), linkStyle(link))
                     .clickEvent(clickEvent)
                     .hoverEvent(HoverEvent.showText(Component.text(
                             target, NamedTextColor.GRAY)));
@@ -97,13 +94,33 @@ public final class MinecraftChatContentRenderer {
         return rendered;
     }
 
+    private static ChatStyle linkStyle(ChatNode.Link link) {
+        var style = link.style();
+        if (style.color() != null || link.resource() == ChatNode.Link.Resource.GENERIC) return style;
+        int color = switch (link.resource()) {
+            case BILIBILI -> 0x00AEEC;
+            case GITHUB -> 0x58A6FF;
+            case MINECRAFT_WIKI -> 0x55FF55;
+            case MOJIRA -> 0xFF5555;
+            case MATRIX -> 0xAAAAAA;
+            case GENERIC -> throw new AssertionError(link.resource());
+        };
+        return style.withColor(color);
+    }
+
     private Component styled(String text, ChatStyle style) {
         Component result;
         if (style.gradientEndColor() != null) {
-            String gradient = "<gradient:#%06X:#%06X><text></gradient>"
-                    .formatted(style.color(), style.gradientEndColor());
-            result = MINI_MESSAGE.deserialize(gradient,
-                    Placeholder.unparsed("text", text));
+            TextComponent.Builder gradient = Component.text();
+            int[] points = text.codePoints().toArray();
+            TextColor start = TextColor.color(style.color());
+            TextColor end = TextColor.color(style.gradientEndColor());
+            double step = points.length <= 1 ? 0 : 1.0 / (points.length - 1);
+            for (int index = 0; index < points.length; index++) {
+                gradient.append(Component.text(new String(points, index, 1),
+                        TextColor.lerp((float) (index * step), start, end)));
+            }
+            result = gradient.build();
         } else {
             result = Component.text(text);
         }
