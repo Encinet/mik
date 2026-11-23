@@ -45,6 +45,8 @@ public final class WallPanelPlacement {
     }
 
     private static final List<BlockFace> DIRECTIONS = List.of(BlockFace.NORTH, BlockFace.EAST, BlockFace.SOUTH, BlockFace.WEST);
+    /** Default reuse window for a measured mount; callers may override it per instance. */
+    public static final long DEFAULT_CACHE_NANOS = 2_000_000_000L;
     private static final int MAX_CACHED = 64;
     private static final double MARGIN = .12;
     private final LongSupplier clock;
@@ -71,8 +73,8 @@ public final class WallPanelPlacement {
         public Plan result() { return result; }
     }
 
-    public WallPanelPlacement() { this(System::nanoTime, 2_000_000_000L, MAX_CACHED); }
-    public WallPanelPlacement(LongSupplier clock) { this(clock, 2_000_000_000L, MAX_CACHED); }
+    public WallPanelPlacement() { this(System::nanoTime, DEFAULT_CACHE_NANOS, MAX_CACHED); }
+    public WallPanelPlacement(LongSupplier clock) { this(clock, DEFAULT_CACHE_NANOS, MAX_CACHED); }
     public WallPanelPlacement(LongSupplier clock, long cacheNanos, int maxCached) {
         this.clock = clock;
         this.cacheNanos = cacheNanos;

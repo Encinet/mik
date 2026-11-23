@@ -930,6 +930,7 @@ plot-error-permission-grant = No puedes conceder facultades de gestión que no t
 plot-error-permission-owner-scope = Solo el propietario, el propietario de la parcela superior o el personal pueden editar los permisos del propietario.
 plot-error-player-unknown = No se encontró a ese jugador. Comprueba el nombre o UUID.
 plot-error-prison-addon-inmates = Quedan presos en este terreno; no se puede desactivar la función de prisión.
+prison-error-plot-unavailable = La parcela de prisión no existe o su complemento está desactivado.
 plot-error-release-owner-only = desactivado · Eliminar parcela
 plot-error-selection = Marca dos esquinas con //pos1 y //pos2.
 plot-error-selection-changed = La selección ha cambiado. Confirma de nuevo.
@@ -2035,7 +2036,6 @@ music-space-label =
         [description] Descripción
         [make-private] Hacer privada
         [publish] Hacer pública
-        [delete] Eliminar lista
         [favorite] Añadir o quitar de favoritos
         [copy] Copiar lista
         [share] Compartir comando de la lista
@@ -2044,7 +2044,6 @@ music-space-label =
         [public] Pública
         [private] Privada
         [new-playlist] Crear lista
-        [name] Nombre
         [song-title] Canción
         [track-count] Pistas
         [visibility] Visibilidad
@@ -2352,36 +2351,29 @@ prison-command-description = Abrir el menú de gestión de prisiones
 prison-menu-error = Error en la operación de prisión: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] Crear prisión
         [prisons] Gestionar prisiones
         [jail] Encarcelar jugador
         [release] Liberar prisionero
-        [spawn] Fijar punto de aparición alternativo
         [exit] Fijar lugar de liberación
-        [corner1] Fijar esquina 1
-        [corner2] Fijar esquina 2
-        [add-cell] Añadir celda aquí
-        [remove-cell] Quitar celda
-        [delete] Eliminar prisión
         [inmates] Prisioneros actuales
         *[other] Prisión
+    }
+prison-menu-whole-plot = Parcela entera
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } celda
+       *[other] { $arg0 } celdas
     }
 prison-menu-no-prisons = No hay prisiones. Crea una primero.
 prison-menu-prompt =
     { $arg0 ->
-        [name] Nombre de la prisión
-        [cell] Nombre de la celda
         [player] Nombre del jugador
         [duration] Duración (p. ej., 2d12h o permanente)
         *[other] Introduce un valor
     }
 prison-menu-success =
     { $arg0 ->
-        [created] Prisión { $arg1 } creada.
         [saved] Ubicación guardada.
-        [cell-added] Celda añadida.
-        [cell-removed] Celda eliminada.
-        [deleted] Prisión { $arg1 } eliminada.
         [jailed] { $arg1 } encarcelado.
         [released] { $arg1 } liberado.
         *[other] Hecho.

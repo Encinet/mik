@@ -833,6 +833,7 @@ plot-error-permission-grant = 不能授予自己不具備的管理權限。
 plot-error-permission-owner-scope = 只有地段所有者、母地段所有者或伺服器管理者可以修改所有者組權限。
 plot-error-player-unknown = 找不到這名已加入伺服器的玩家；請核對名稱或 UUID。
 plot-error-prison-addon-inmates = 地段內仍有囚犯，無法關閉監獄功能。
+prison-error-plot-unavailable = 監獄地段不存在，或附加功能未開啟。
 plot-error-release-owner-only = 你沒有刪除地段的權限。
 plot-error-selection = 用 //pos1、//pos2 標記兩個角點
 plot-error-selection-changed = 選區已變更，請重新確認。
@@ -1819,7 +1820,6 @@ music-space-label =
         [description] 描述
         [make-private] 设为私有
         [publish] 设为公开
-        [delete] 删除歌单
         [favorite] 收藏或取消收藏
         [copy] 复制歌单
         [share] 分享歌单命令
@@ -1828,7 +1828,6 @@ music-space-label =
         [public] 公开
         [private] 私有
         [new-playlist] 新建歌单
-        [name] 名称
         [song-title] 歌曲名稱
         [track-count] 歌曲數
         [visibility] 可見性
@@ -2123,36 +2122,25 @@ prison-command-description = 開啟監獄管理選單
 prison-menu-error = 監獄操作失敗：{ $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] 建立監獄
         [prisons] 管理監獄
         [jail] 關押玩家
         [release] 釋放囚犯
-        [spawn] 設定備用出生點
         [exit] 設定釋放位置
-        [corner1] 設定區域角點一
-        [corner2] 設定區域角點二
-        [add-cell] 在此新增牢房
-        [remove-cell] 移除牢房
-        [delete] 刪除監獄
         [inmates] 目前囚犯
         *[other] 監獄
     }
+prison-menu-whole-plot = 整塊地段
+prison-menu-cell-count = { $arg0 } 間牢房
 prison-menu-no-prisons = 目前沒有可用的監獄，請先建立一個。
 prison-menu-prompt =
     { $arg0 ->
-        [name] 監獄名稱
-        [cell] 牢房名稱
         [player] 玩家名稱
         [duration] 刑期（例如 2d12h、永久）
         *[other] 請輸入內容
     }
 prison-menu-success =
     { $arg0 ->
-        [created] 已建立監獄 { $arg1 }。
         [saved] 位置已儲存。
-        [cell-added] 已新增牢房。
-        [cell-removed] 已移除牢房。
-        [deleted] 已刪除監獄 { $arg1 }。
         [jailed] 已關押 { $arg1 }。
         [released] 已釋放 { $arg1 }。
         *[other] 已完成。

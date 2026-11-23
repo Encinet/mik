@@ -833,6 +833,7 @@ plot-error-permission-grant = คุณมอบสิทธิ์จัดก�
 plot-error-permission-owner-scope = เฉพาะเจ้าของแปลง เจ้าของแปลงแม่ หรือเจ้าหน้าที่เซิร์ฟเวอร์เท่านั้นที่แก้สิทธิ์เจ้าของได้
 plot-error-player-unknown = ไม่พบผู้เล่นที่เคยเข้าเซิร์ฟเวอร์ ตรวจสอบชื่อหรือ UUID
 plot-error-prison-addon-inmates = ยังมีนักโทษอยู่ในแปลงนี้ จึงปิดฟีเจอร์เรือนจำไม่ได้
+prison-error-plot-unavailable = ไม่พบแปลงเรือนจำหรือปิดฟังก์ชันส่วนเสริมอยู่
 plot-error-release-owner-only = ปิด · ลบแปลง
 plot-error-selection = ระบุมุมสองจุดด้วย //pos1 และ //pos2
 plot-error-selection-changed = พื้นที่ที่เลือกเปลี่ยนไป โปรดยืนยันอีกครั้ง
@@ -1819,7 +1820,6 @@ music-space-label =
         [description] คำอธิบาย
         [make-private] ตั้งเป็นส่วนตัว
         [publish] ตั้งเป็นสาธารณะ
-        [delete] ลบเพลย์ลิสต์
         [favorite] เพิ่มหรือนำออกจากรายการโปรด
         [copy] คัดลอกเพลย์ลิสต์
         [share] แชร์คำสั่งของเพลย์ลิสต์
@@ -1828,7 +1828,6 @@ music-space-label =
         [public] สาธารณะ
         [private] ส่วนตัว
         [new-playlist] สร้างเพลย์ลิสต์
-        [name] ชื่อ
         [song-title] ชื่อเพลง
         [track-count] จำนวนเพลง
         [visibility] การมองเห็น
@@ -2123,36 +2122,25 @@ prison-command-description = เปิดเมนูจัดการเรื
 prison-menu-error = ดำเนินการเรือนจำไม่สำเร็จ: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] สร้างเรือนจำ
         [prisons] จัดการเรือนจำ
         [jail] คุมขังผู้เล่น
         [release] ปล่อยนักโทษ
-        [spawn] ตั้งจุดเกิดสำรอง
         [exit] ตั้งจุดปล่อยตัว
-        [corner1] ตั้งมุมพื้นที่ 1
-        [corner2] ตั้งมุมพื้นที่ 2
-        [add-cell] เพิ่มห้องขังที่นี่
-        [remove-cell] ลบห้องขัง
-        [delete] ลบเรือนจำ
         [inmates] นักโทษปัจจุบัน
         *[other] เรือนจำ
     }
+prison-menu-whole-plot = แปลงทั้งหมด
+prison-menu-cell-count = { $arg0 } ห้อง
 prison-menu-no-prisons = ไม่มีเรือนจำ กรุณาสร้างก่อน
 prison-menu-prompt =
     { $arg0 ->
-        [name] ชื่อเรือนจำ
-        [cell] ชื่อห้องขัง
         [player] ชื่อผู้เล่น
         [duration] ระยะเวลา (เช่น 2d12h หรือถาวร)
         *[other] กรุณาป้อนค่า
     }
 prison-menu-success =
     { $arg0 ->
-        [created] สร้างเรือนจำ { $arg1 } แล้ว
         [saved] บันทึกตำแหน่งแล้ว
-        [cell-added] เพิ่มห้องขังแล้ว
-        [cell-removed] ลบห้องขังแล้ว
-        [deleted] ลบเรือนจำ { $arg1 } แล้ว
         [jailed] คุมขัง { $arg1 } แล้ว
         [released] ปล่อย { $arg1 } แล้ว
         *[other] เสร็จแล้ว

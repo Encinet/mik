@@ -1001,6 +1001,7 @@ plot-error-permission-grant = Нельзя выдать полномочия у�
 plot-error-permission-owner-scope = Права владельца могут менять только владелец участка, владелец родительского участка или персонал сервера.
 plot-error-player-unknown = Игрок не найден. Проверьте имя или UUID.
 plot-error-prison-addon-inmates = В этом участке ещё содержатся заключённые; функция тюрьмы не может быть отключена.
+prison-error-plot-unavailable = Тюремной территории нет или дополнительный модуль отключён.
 plot-error-release-owner-only = выключено · Удалять участок
 plot-error-selection = Отметьте два угла командами //pos1 и //pos2.
 plot-error-selection-changed = Выделение изменилось. Подтвердите снова.
@@ -2080,7 +2081,6 @@ music-space-label =
         [description] Описание
         [make-private] Сделать личным
         [publish] Сделать общедоступным
-        [delete] Удалить плейлист
         [favorite] Добавить в избранное или убрать
         [copy] Копировать плейлист
         [share] Поделиться командой плейлиста
@@ -2089,7 +2089,6 @@ music-space-label =
         [public] Общий
         [private] Личный
         [new-playlist] Создать плейлист
-        [name] Название
         [song-title] Название
         [track-count] Треки
         [visibility] Видимость
@@ -2410,36 +2409,25 @@ prison-command-description = Открыть меню управления тюр
 prison-menu-error = Ошибка операции с тюрьмой: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] Создать тюрьму
         [prisons] Управление тюрьмами
         [jail] Заключить игрока
         [release] Освободить заключённого
-        [spawn] Задать запасную точку появления
         [exit] Задать место освобождения
-        [corner1] Задать угол области 1
-        [corner2] Задать угол области 2
-        [add-cell] Добавить камеру здесь
-        [remove-cell] Удалить камеру
-        [delete] Удалить тюрьму
         [inmates] Текущие заключённые
         *[other] Тюрьма
     }
+prison-menu-whole-plot = Вся территория
+prison-menu-cell-count = { $arg0 } мест
 prison-menu-no-prisons = Нет доступных тюрем. Сначала создайте одну.
 prison-menu-prompt =
     { $arg0 ->
-        [name] Название тюрьмы
-        [cell] Название камеры
         [player] Имя игрока
         [duration] Срок (например, 2d12h или навсегда)
         *[other] Введите значение
     }
 prison-menu-success =
     { $arg0 ->
-        [created] Тюрьма { $arg1 } создана.
         [saved] Место сохранено.
-        [cell-added] Камера добавлена.
-        [cell-removed] Камера удалена.
-        [deleted] Тюрьма { $arg1 } удалена.
         [jailed] { $arg1 } заключён.
         [released] { $arg1 } освобождён.
         *[other] Готово.

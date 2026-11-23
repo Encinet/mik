@@ -83,13 +83,15 @@ final class PrisonMenu {
     private void openPrison(Player player, UUID plotId) {
         if (!RolePermissions.isMember(player)) return;
         if (service.host() == null || !service.host().isEnabled(plotId)) {
-            player.sendMessage(error(player, "Prison plot does not exist or is not enabled."));
+            player.sendMessage(language.text(player, Message.PRISON_ERROR_PLOT_UNAVAILABLE, NamedTextColor.RED));
             return;
         }
         Plot plot = service.host().find(plotId);
         int cells = cellCount(plotId);
-        Component details = Component.text(plot.name() + "\nCells: " + (cells == 0 ? "whole plot" : Integer.toString(cells)),
-                NamedTextColor.WHITE);
+        Component details = Component.text(plot.name() + "\n", NamedTextColor.WHITE)
+                .append(cells == 0
+                        ? language.text(player, Message.PRISON_MENU_WHOLE_PLOT, NamedTextColor.WHITE)
+                        : language.text(player, Message.PRISON_MENU_CELL_COUNT, NamedTextColor.WHITE, cells));
         MenuScene.Builder menu = MenuScene.screen("prison-detail").content(UiTemplates.window("prison",
                 UiTemplates.menu(UiTemplates.title("title"), UiTemplates.information("details"),
                         UiTemplates.actions("actions", 2), UiTemplates.navigation("navigation"))));

@@ -926,6 +926,7 @@ plot-error-permission-grant = You cannot grant management abilities you do not h
 plot-error-permission-owner-scope = Only the plot owner, parent owner or server staff can edit owner permissions.
 plot-error-player-unknown = No known player found. Check the name or UUID.
 plot-error-prison-addon-inmates = Inmates remain in this plot; the prison add-on cannot be disabled.
+prison-error-plot-unavailable = The prison plot does not exist or its add-on is disabled.
 plot-error-release-owner-only = You lack permission to delete this plot.
 plot-error-selection = Mark two corners with //pos1 and //pos2.
 plot-error-selection-changed = Selection changed. Confirm again.
@@ -2041,7 +2042,6 @@ music-space-label =
         [description] Description
         [make-private] Make private
         [publish] Make public
-        [delete] Delete playlist
         [favorite] Toggle favorite
         [copy] Copy playlist
         [share] Share playlist command
@@ -2050,7 +2050,6 @@ music-space-label =
         [public] Public
         [private] Private
         [new-playlist] Create playlist
-        [name] Name
         [song-title] Song
         [track-count] Tracks
         [visibility] Visibility
@@ -2361,36 +2360,29 @@ prison-command-description = Open the prison administration menu
 prison-menu-error = Prison operation failed: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] Create prison
         [prisons] Manage prisons
         [jail] Imprison a player
         [release] Release a prisoner
-        [spawn] Set fallback spawn
         [exit] Set release location
-        [corner1] Set region corner 1
-        [corner2] Set region corner 2
-        [add-cell] Add cell here
-        [remove-cell] Remove a cell
-        [delete] Delete prison
         [inmates] Current prisoners
         *[other] Prison
+    }
+prison-menu-whole-plot = Whole plot
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } cell
+       *[other] { $arg0 } cells
     }
 prison-menu-no-prisons = No prisons are available. Create one first.
 prison-menu-prompt =
     { $arg0 ->
-        [name] Prison name
-        [cell] Cell name
         [player] Player name
         [duration] Sentence duration (2d12h, permanent)
         *[other] Enter a value
     }
 prison-menu-success =
     { $arg0 ->
-        [created] Prison { $arg1 } created.
         [saved] Location saved.
-        [cell-added] Cell added.
-        [cell-removed] Cell removed.
-        [deleted] Prison { $arg1 } deleted.
         [jailed] { $arg1 } imprisoned.
         [released] { $arg1 } released.
         *[other] Done.

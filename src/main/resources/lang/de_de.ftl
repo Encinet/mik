@@ -915,6 +915,7 @@ plot-error-permission-grant = Du kannst keine Verwaltungsrechte erteilen, die du
 plot-error-permission-owner-scope = Nur Grundstückseigentümer, übergeordnete Eigentümer oder Serverpersonal dürfen Eigentümerrechte ändern.
 plot-error-player-unknown = Spieler unbekannt. Prüfe Namen oder UUID.
 plot-error-prison-addon-inmates = Inhaftierte verbleiben in diesem Gelände; die Gefängnisfunktion kann nicht deaktiviert werden.
+prison-error-plot-unavailable = Das Gefängnisgrundstück existiert nicht oder das Zusatzmodul ist deaktiviert.
 plot-error-release-owner-only = deaktiviert · Grundstück löschen
 plot-error-selection = Markiere zwei Ecken mit //pos1 und //pos2.
 plot-error-selection-changed = Die Auswahl hat sich geändert. Bitte erneut bestätigen.
@@ -2024,7 +2025,6 @@ music-space-label =
         [description] Beschreibung
         [make-private] Privat machen
         [publish] Veröffentlichen
-        [delete] Wiedergabeliste löschen
         [favorite] Favoritenstatus umschalten
         [copy] Wiedergabeliste kopieren
         [share] Befehl zum Teilen der Wiedergabeliste
@@ -2033,7 +2033,6 @@ music-space-label =
         [public] Öffentlich
         [private] Privat
         [new-playlist] Wiedergabeliste erstellen
-        [name] Name
         [song-title] Titel
         [track-count] Titel
         [visibility] Sichtbarkeit
@@ -2337,36 +2336,29 @@ prison-command-description = Gefängnisverwaltung öffnen
 prison-menu-error = Gefängnisaktion fehlgeschlagen: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] Gefängnis erstellen
         [prisons] Gefängnisse verwalten
         [jail] Spieler inhaftieren
         [release] Gefangenen freilassen
-        [spawn] Ersatz-Spawn setzen
         [exit] Entlassungsort setzen
-        [corner1] Bereichsecke 1 setzen
-        [corner2] Bereichsecke 2 setzen
-        [add-cell] Zelle hier hinzufügen
-        [remove-cell] Zelle entfernen
-        [delete] Gefängnis löschen
         [inmates] Aktuelle Gefangene
         *[other] Gefängnis
+    }
+prison-menu-whole-plot = Ganzes Grundstück
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } Zelle
+       *[other] { $arg0 } Zellen
     }
 prison-menu-no-prisons = Keine Gefängnisse verfügbar. Erstelle zuerst eines.
 prison-menu-prompt =
     { $arg0 ->
-        [name] Gefängnisname
-        [cell] Zellenname
         [player] Spielername
         [duration] Haftdauer (z. B. 2d12h, dauerhaft)
         *[other] Wert eingeben
     }
 prison-menu-success =
     { $arg0 ->
-        [created] Gefängnis { $arg1 } erstellt.
         [saved] Standort gespeichert.
-        [cell-added] Zelle hinzugefügt.
-        [cell-removed] Zelle entfernt.
-        [deleted] Gefängnis { $arg1 } gelöscht.
         [jailed] { $arg1 } inhaftiert.
         [released] { $arg1 } freigelassen.
         *[other] Erledigt.

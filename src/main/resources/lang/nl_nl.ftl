@@ -923,6 +923,7 @@ plot-error-permission-grant = Je kunt geen beheermogelijkheden verlenen die je n
 plot-error-permission-owner-scope = Alleen de eigenaar, de eigenaar van het bovenliggende perceel of serverpersoneel mag eigenaarsrechten wijzigen.
 plot-error-player-unknown = Speler niet gevonden. Controleer de naam of UUID.
 plot-error-prison-addon-inmates = Er zitten nog gevangenen in dit perceel; de gevangenisfunctie kan niet worden uitgeschakeld.
+prison-error-plot-unavailable = Het gevangenisperceel bestaat niet of de module is uitgeschakeld.
 plot-error-release-owner-only = uitgeschakeld · Perceel verwijderen
 plot-error-selection = Markeer twee hoeken met //pos1 en //pos2.
 plot-error-selection-changed = De selectie is gewijzigd. Bevestig opnieuw.
@@ -2029,7 +2030,6 @@ music-space-label =
         [description] Beschrijving
         [make-private] Privé maken
         [publish] Openbaar maken
-        [delete] Afspeellijst verwijderen
         [favorite] Favoriet in- of uitschakelen
         [copy] Afspeellijst kopiëren
         [share] Opdracht voor afspeellijst delen
@@ -2038,7 +2038,6 @@ music-space-label =
         [public] Openbaar
         [private] Privé
         [new-playlist] Afspeellijst maken
-        [name] Naam
         [song-title] Nummer
         [track-count] Nummers
         [visibility] Zichtbaarheid
@@ -2349,36 +2348,29 @@ prison-command-description = Open het gevangenisbeheer
 prison-menu-error = Gevangenisactie mislukt: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] Gevangenis maken
         [prisons] Gevangenissen beheren
         [jail] Speler opsluiten
         [release] Gevangene vrijlaten
-        [spawn] Terugvalspawn instellen
         [exit] Vrijlatingslocatie instellen
-        [corner1] Gebiedshoek 1 instellen
-        [corner2] Gebiedshoek 2 instellen
-        [add-cell] Hier een cel toevoegen
-        [remove-cell] Cel verwijderen
-        [delete] Gevangenis verwijderen
         [inmates] Huidige gevangenen
         *[other] Gevangenis
+    }
+prison-menu-whole-plot = Heel perceel
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } cel
+       *[other] { $arg0 } cellen
     }
 prison-menu-no-prisons = Geen gevangenissen beschikbaar. Maak er eerst een.
 prison-menu-prompt =
     { $arg0 ->
-        [name] Gevangenisnaam
-        [cell] Celnaam
         [player] Spelersnaam
         [duration] Strafduur (bijv. 2d12h, permanent)
         *[other] Voer een waarde in
     }
 prison-menu-success =
     { $arg0 ->
-        [created] Gevangenis { $arg1 } gemaakt.
         [saved] Locatie opgeslagen.
-        [cell-added] Cel toegevoegd.
-        [cell-removed] Cel verwijderd.
-        [deleted] Gevangenis { $arg1 } verwijderd.
         [jailed] { $arg1 } opgesloten.
         [released] { $arg1 } vrijgelaten.
         *[other] Klaar.

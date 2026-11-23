@@ -921,6 +921,7 @@ plot-error-permission-grant = Non puoi concedere capacità gestionali che non po
 plot-error-permission-owner-scope = Solo il proprietario, il proprietario del terreno superiore o lo staff possono modificare i permessi del proprietario.
 plot-error-player-unknown = Giocatore sconosciuto. Controlla nome o UUID.
 plot-error-prison-addon-inmates = Ci sono ancora prigionieri in questo appezzamento; la funzione prigione non può essere disattivata.
+prison-error-plot-unavailable = Il lotto carcerario non esiste o il modulo è disattivato.
 plot-error-release-owner-only = disattivo · Elimina lotto
 plot-error-selection = Segna due angoli con //pos1 e //pos2.
 plot-error-selection-changed = La selezione è cambiata. Conferma di nuovo.
@@ -2017,7 +2018,6 @@ music-space-label =
         [description] Descrizione
         [make-private] Rendi privata
         [publish] Rendi pubblica
-        [delete] Elimina playlist
         [favorite] Aggiungi o rimuovi dai preferiti
         [copy] Copia playlist
         [share] Condividi comando della playlist
@@ -2026,7 +2026,6 @@ music-space-label =
         [public] Pubblica
         [private] Privata
         [new-playlist] Crea playlist
-        [name] Nome
         [song-title] Brano
         [track-count] Brani
         [visibility] Visibilità
@@ -2334,36 +2333,29 @@ prison-command-description = Apri il menu di gestione delle prigioni
 prison-menu-error = Operazione della prigione non riuscita: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] Crea prigione
         [prisons] Gestisci prigioni
         [jail] Imprigiona giocatore
         [release] Libera detenuto
-        [spawn] Imposta punto di comparsa alternativo
         [exit] Imposta luogo di rilascio
-        [corner1] Imposta angolo 1 dell’area
-        [corner2] Imposta angolo 2 dell’area
-        [add-cell] Aggiungi cella qui
-        [remove-cell] Rimuovi cella
-        [delete] Elimina prigione
         [inmates] Detenuti attuali
         *[other] Prigione
+    }
+prison-menu-whole-plot = Lotto intero
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } cella
+       *[other] { $arg0 } celle
     }
 prison-menu-no-prisons = Nessuna prigione disponibile. Creane prima una.
 prison-menu-prompt =
     { $arg0 ->
-        [name] Nome della prigione
-        [cell] Nome della cella
         [player] Nome del giocatore
         [duration] Durata (es. 2d12h o permanente)
         *[other] Inserisci un valore
     }
 prison-menu-success =
     { $arg0 ->
-        [created] Prigione { $arg1 } creata.
         [saved] Posizione salvata.
-        [cell-added] Cella aggiunta.
-        [cell-removed] Cella rimossa.
-        [deleted] Prigione { $arg1 } eliminata.
         [jailed] { $arg1 } imprigionato.
         [released] { $arg1 } liberato.
         *[other] Completato.

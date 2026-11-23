@@ -992,6 +992,7 @@ plot-error-permission-grant = Не можна надати повноважен�
 plot-error-permission-owner-scope = Права власника можуть змінювати лише власник ділянки, власник батьківської ділянки або персонал сервера.
 plot-error-player-unknown = Гравця не знайдено. Перевірте ім'я або UUID.
 plot-error-prison-addon-inmates = У цій ділянці ще тримаються в'язні; функцію в'язниці не можна вимкнути.
+prison-error-plot-unavailable = Вязничної ділянки немає або додатковий модуль вимкнено.
 plot-error-release-owner-only = вимкнено · Видаляти ділянку
 plot-error-selection = Позначте два кути командами //pos1 і //pos2.
 plot-error-selection-changed = Виділення змінилося. Підтвердьте знову.
@@ -2071,7 +2072,6 @@ music-space-label =
         [description] Опис
         [make-private] Зробити приватним
         [publish] Зробити загальнодоступним
-        [delete] Видалити плейлист
         [favorite] Додати до обраного або прибрати
         [copy] Копіювати плейлист
         [share] Поділитися командою плейлиста
@@ -2080,7 +2080,6 @@ music-space-label =
         [public] Публічний
         [private] Приватний
         [new-playlist] Створити список відтворення
-        [name] Назва
         [song-title] Назва
         [track-count] Треки
         [visibility] Видимість
@@ -2401,36 +2400,25 @@ prison-command-description = Відкрити меню керування в’�
 prison-menu-error = Помилка операції з в’язницею: { $arg0 }
 prison-menu-label =
     { $arg0 ->
-        [create] Створити в’язницю
         [prisons] Керувати в’язницями
         [jail] Ув’язнити гравця
         [release] Звільнити в’язня
-        [spawn] Задати запасну точку появи
         [exit] Задати місце звільнення
-        [corner1] Задати кут області 1
-        [corner2] Задати кут області 2
-        [add-cell] Додати камеру тут
-        [remove-cell] Видалити камеру
-        [delete] Видалити в’язницю
         [inmates] Поточні в’язні
         *[other] В’язниця
     }
+prison-menu-whole-plot = Уся ділянка
+prison-menu-cell-count = { $arg0 } місць
 prison-menu-no-prisons = Немає доступних в’язниць. Спочатку створіть одну.
 prison-menu-prompt =
     { $arg0 ->
-        [name] Назва в’язниці
-        [cell] Назва камери
         [player] Ім’я гравця
         [duration] Строк (наприклад, 2d12h або назавжди)
         *[other] Введіть значення
     }
 prison-menu-success =
     { $arg0 ->
-        [created] В’язницю { $arg1 } створено.
         [saved] Місце збережено.
-        [cell-added] Камеру додано.
-        [cell-removed] Камеру видалено.
-        [deleted] В’язницю { $arg1 } видалено.
         [jailed] { $arg1 } ув’язнено.
         [released] { $arg1 } звільнено.
         *[other] Готово.
