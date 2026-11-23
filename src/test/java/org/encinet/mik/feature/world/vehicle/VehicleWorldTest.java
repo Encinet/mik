@@ -93,13 +93,16 @@ class VehicleWorldTest {
         TestWorld.TestLiving target = test.living(new BoundingBox(0, 10, -0.5, 0.5, 11, 0.5));
         VehicleBody body = VehicleFixtures.body(VehicleDefinition.Kind.CAR, new VehicleVector(-3, 10, 0));
         body.velocity = new VehicleVector(20, 0, 0);
-        Map<UUID, Double> impacts = new HashMap<>();
+        Map<UUID, VehicleWorld.Impact> impacts = new HashMap<>();
         new VehicleWorld(test.world, List.of(), _ -> true,
-                (entity, speed) -> impacts.put(entity.getUniqueId(), speed)).move(body,
+                (entity, impact) -> impacts.put(entity.getUniqueId(), impact)).move(body,
                 new VehiclePhysics.Motion(new VehicleVector(5, 0, 0), new Quaterniond()));
         assertTrue(body.blocked);
         assertTrue(body.origin().coordinateX() < 0);
-        assertEquals(20, impacts.get(target.entity.getUniqueId()), 1.0E-9);
+        VehicleWorld.Impact impact = impacts.get(target.entity.getUniqueId());
+        assertEquals(20, impact.speed(), 1.0E-9);
+        assertEquals(1, impact.direction().coordinateX(), 1.0E-9, "Knockback follows the travel direction");
+        assertEquals(0, impact.direction().coordinateZ(), 1.0E-9);
     }
 
     @Test void excludedEntityDoesNotBlockOrReceiveAnImpact() {
@@ -118,6 +121,16 @@ class VehicleWorldTest {
         assertEquals(0, VehicleModule.impactDamage(4));
         assertEquals(0.7, VehicleModule.impactDamage(5), 1.0E-9);
         assertEquals(0, VehicleModule.impactDamage(Double.POSITIVE_INFINITY));
+    }
+
+    @Test void entityKnockbackScalesWithImpactSpeedAndOnlyAboveTheThreshold() {
+        assertEquals(0, VehicleModule.impactKnockback(4), "Hits at the threshold do not shove the target");
+        assertEquals(2, VehicleModule.impactKnockback(5), 1.0E-9);
+        assertEquals(3, VehicleModule.impactKnockback(9), 1.0E-9);
+        assertEquals(3, VehicleModule.impactKnockback(50), 1.0E-9, "Knockback is capped");
+        assertEquals(0, VehicleModule.impactKnockback(Double.POSITIVE_INFINITY));
+        assertEquals(0.25, VehicleModule.impactKnockbackLift(20), 1.0E-9);
+        assertEquals(0, VehicleModule.impactKnockbackLift(3), 1.0E-9, "Slow hits keep the target grounded");
     }
 
     @Test void waterColumnProducesDepthAndDryBlocksDoNot() {

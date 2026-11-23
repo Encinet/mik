@@ -21,20 +21,23 @@ import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
 final class VehicleWorld implements VehiclePhysics.Environment {
+    /** What a moving vehicle did to one struck entity: how hard it hit and which way the vehicle travelled. */
+    record Impact(LivingEntity entity, double speed, VehicleVector direction) { }
+
     private record BlockPosition(int coordinateX, int coordinateY, int coordinateZ) { }
     private record Obstacle(VehicleCollision.Box box, LivingEntity entity) { }
     private final World world;
     private final Map<BlockPosition, List<Obstacle>> blocks = new HashMap<>();
     private final List<VehicleCollision.Box> otherVehicles;
     private final Predicate<LivingEntity> collidableEntity;
-    private final BiConsumer<LivingEntity, Double> entityImpact;
+    private final BiConsumer<LivingEntity, Impact> entityImpact;
 
     VehicleWorld(World world, List<VehicleCollision.Box> otherVehicles) {
         this(world, otherVehicles, _ -> true, (_, _) -> { });
     }
 
     VehicleWorld(World world, List<VehicleCollision.Box> otherVehicles,
-                 Predicate<LivingEntity> collidableEntity, BiConsumer<LivingEntity, Double> entityImpact) {
+                 Predicate<LivingEntity> collidableEntity, BiConsumer<LivingEntity, Impact> entityImpact) {
         this.world = world;
         this.otherVehicles = otherVehicles;
         this.collidableEntity = collidableEntity;
@@ -87,6 +90,8 @@ final class VehicleWorld implements VehiclePhysics.Environment {
 
     void move(VehicleBody body, VehiclePhysics.Motion motion) {
         VehicleVector remaining = motion.displacement();
+        VehicleVector travel = motion.displacement();
+        VehicleVector heading = travel.length() > 1.0E-9 ? travel.multiply(1 / travel.length()) : VehicleVector.ZERO;
         List<LivingEntity> entities = livingEntities(body, remaining);
         Quaterniond oldOrientation = new Quaterniond(body.orientation);
         body.orientation.set(motion.orientation());
@@ -118,7 +123,7 @@ final class VehicleWorld implements VehiclePhysics.Environment {
             double impact = body.velocity.dot(first.normal());
             if (impact < 0) {
                 body.health = Math.max(0, body.health - Math.max(0, -impact - 4) * 0.7);
-                if (firstEntity != null) entityImpact.accept(firstEntity, -impact);
+                if (firstEntity != null) entityImpact.accept(firstEntity, new Impact(firstEntity, -impact, heading));
                 body.velocity = body.velocity.subtract(first.normal().multiply(impact));
             }
             if (first.normal().coordinateY() > 0.5) body.grounded = true;
