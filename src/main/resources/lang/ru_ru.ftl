@@ -1000,6 +1000,7 @@ plot-error-permission-changed = Права, участники или насле
 plot-error-permission-grant = Нельзя выдать полномочия управления, которых у вас нет.
 plot-error-permission-owner-scope = Права владельца могут менять только владелец участка, владелец родительского участка или персонал сервера.
 plot-error-player-unknown = Игрок не найден. Проверьте имя или UUID.
+plot-error-prison-addon-inmates = В этом участке ещё содержатся заключённые; функция тюрьмы не может быть отключена.
 plot-error-release-owner-only = выключено · Удалять участок
 plot-error-selection = Отметьте два угла командами //pos1 и //pos2.
 plot-error-selection-changed = Выделение изменилось. Подтвердите снова.
@@ -1056,6 +1057,7 @@ plot-menu-name = Название проекта
 plot-menu-owner = Владелец: { $arg0 }
 plot-menu-parent-supervisor = Владелец родительского участка: { $arg0 } · надзор
 plot-menu-player = Имя игрока или UUID
+plot-menu-prison-addon = Дополнительная функция: тюрьма
 plot-menu-rain = Осадки
 plot-menu-remove-member = Удалить участника
 plot-menu-rename = Переименовать проект
@@ -2401,3 +2403,50 @@ plot-destination-title-unchanged = Нет несохранённых измен�
 plot-destination-title-apply = Применить к черновику
 plot-destination-error-title = Заголовок должен быть однострочным: до 32 видимых символов и 512 символов исходного текста MiniMessage.
 plot-destination-error-subtitle = Подзаголовок должен быть однострочным: до 64 видимых символов и 512 символов исходного текста MiniMessage.
+
+prison-action-bar = Осталось: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Во время заключения эта команда недоступна.
+prison-command-description = Открыть меню управления тюрьмой
+prison-menu-error = Ошибка операции с тюрьмой: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Создать тюрьму
+        [prisons] Управление тюрьмами
+        [jail] Заключить игрока
+        [release] Освободить заключённого
+        [spawn] Задать запасную точку появления
+        [exit] Задать место освобождения
+        [corner1] Задать угол области 1
+        [corner2] Задать угол области 2
+        [add-cell] Добавить камеру здесь
+        [remove-cell] Удалить камеру
+        [delete] Удалить тюрьму
+        [inmates] Текущие заключённые
+        *[other] Тюрьма
+    }
+prison-menu-no-prisons = Нет доступных тюрем. Сначала создайте одну.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Название тюрьмы
+        [cell] Название камеры
+        [player] Имя игрока
+        [duration] Срок (например, 2d12h или навсегда)
+        *[other] Введите значение
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Тюрьма { $arg1 } создана.
+        [saved] Место сохранено.
+        [cell-added] Камера добавлена.
+        [cell-removed] Камера удалена.
+        [deleted] Тюрьма { $arg1 } удалена.
+        [jailed] { $arg1 } заключён.
+        [released] { $arg1 } освобождён.
+        *[other] Готово.
+    }
+prison-menu-title = Управление тюрьмой
+prison-move-blocked = Оставайтесь в назначенной зоне тюрьмы.
+prison-panel-ban-reason = Причина блокировки
+prison-panel-exit-location = Точка освобождения
+prison-panel-remaining = Оставшийся срок
+prison-panel-title = Информация о блокировке

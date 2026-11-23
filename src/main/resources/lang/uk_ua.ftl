@@ -991,6 +991,7 @@ plot-error-permission-changed = Права, учасники або успадк
 plot-error-permission-grant = Не можна надати повноваження керування, яких у вас немає.
 plot-error-permission-owner-scope = Права власника можуть змінювати лише власник ділянки, власник батьківської ділянки або персонал сервера.
 plot-error-player-unknown = Гравця не знайдено. Перевірте ім'я або UUID.
+plot-error-prison-addon-inmates = У цій ділянці ще тримаються в'язні; функцію в'язниці не можна вимкнути.
 plot-error-release-owner-only = вимкнено · Видаляти ділянку
 plot-error-selection = Позначте два кути командами //pos1 і //pos2.
 plot-error-selection-changed = Виділення змінилося. Підтвердьте знову.
@@ -1047,6 +1048,7 @@ plot-menu-name = Назва проєкту
 plot-menu-owner = Власник: { $arg0 }
 plot-menu-parent-supervisor = Власник батьківської ділянки: { $arg0 } · нагляд
 plot-menu-player = Ім’я гравця або UUID
+plot-menu-prison-addon = Додаткова функція: в'язниця
 plot-menu-rain = Опади
 plot-menu-remove-member = Видалити учасника
 plot-menu-rename = Перейменувати проєкт
@@ -2392,3 +2394,50 @@ plot-destination-title-unchanged = Немає незбережених змін.
 plot-destination-title-apply = Застосувати до чернетки
 plot-destination-error-title = Заголовок має бути однорядковим: до 32 видимих символів і 512 символів вихідного тексту MiniMessage.
 plot-destination-error-subtitle = Підзаголовок має бути однорядковим: до 64 видимих символів і 512 символів вихідного тексту MiniMessage.
+
+prison-action-bar = Залишилося: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Під час ув’язнення цю команду використовувати не можна.
+prison-command-description = Відкрити меню керування в’язницею
+prison-menu-error = Помилка операції з в’язницею: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Створити в’язницю
+        [prisons] Керувати в’язницями
+        [jail] Ув’язнити гравця
+        [release] Звільнити в’язня
+        [spawn] Задати запасну точку появи
+        [exit] Задати місце звільнення
+        [corner1] Задати кут області 1
+        [corner2] Задати кут області 2
+        [add-cell] Додати камеру тут
+        [remove-cell] Видалити камеру
+        [delete] Видалити в’язницю
+        [inmates] Поточні в’язні
+        *[other] В’язниця
+    }
+prison-menu-no-prisons = Немає доступних в’язниць. Спочатку створіть одну.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Назва в’язниці
+        [cell] Назва камери
+        [player] Ім’я гравця
+        [duration] Строк (наприклад, 2d12h або назавжди)
+        *[other] Введіть значення
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] В’язницю { $arg1 } створено.
+        [saved] Місце збережено.
+        [cell-added] Камеру додано.
+        [cell-removed] Камеру видалено.
+        [deleted] В’язницю { $arg1 } видалено.
+        [jailed] { $arg1 } ув’язнено.
+        [released] { $arg1 } звільнено.
+        *[other] Готово.
+    }
+prison-menu-title = Керування в’язницею
+prison-move-blocked = Залишайтеся в призначеній зоні в’язниці.
+prison-panel-ban-reason = Причина блокування
+prison-panel-exit-location = Точка звільнення
+prison-panel-remaining = Залишок строку
+prison-panel-title = Інформація про блокування

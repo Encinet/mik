@@ -914,6 +914,7 @@ plot-error-permission-changed = Rechte, Mitglieder oder Vererbung geändert. Än
 plot-error-permission-grant = Du kannst keine Verwaltungsrechte erteilen, die du nicht besitzt.
 plot-error-permission-owner-scope = Nur Grundstückseigentümer, übergeordnete Eigentümer oder Serverpersonal dürfen Eigentümerrechte ändern.
 plot-error-player-unknown = Spieler unbekannt. Prüfe Namen oder UUID.
+plot-error-prison-addon-inmates = Inhaftierte verbleiben in diesem Gelände; die Gefängnisfunktion kann nicht deaktiviert werden.
 plot-error-release-owner-only = deaktiviert · Grundstück löschen
 plot-error-selection = Markiere zwei Ecken mit //pos1 und //pos2.
 plot-error-selection-changed = Die Auswahl hat sich geändert. Bitte erneut bestätigen.
@@ -973,6 +974,7 @@ plot-menu-name = Projektname
 plot-menu-owner = Eigentümer: { $arg0 }
 plot-menu-parent-supervisor = Eigentümer des Hauptgrundstücks: { $arg0 } · Aufsicht
 plot-menu-player = Spielername oder UUID
+plot-menu-prison-addon = Zusatzfunktion: Gefängnis
 plot-menu-rain = Niederschlag
 plot-menu-remove-member = Mitglied entfernen
 plot-menu-rename = Projekt umbenennen
@@ -2328,3 +2330,50 @@ plot-destination-title-unchanged = Keine ungespeicherten Änderungen.
 plot-destination-title-apply = Auf Entwurf anwenden
 plot-destination-error-title = Der Titel muss einzeilig sein: höchstens 32 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
 plot-destination-error-subtitle = Der Untertitel muss einzeilig sein: höchstens 64 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
+
+prison-action-bar = Restzeit: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Während der Haft kannst du diesen Befehl nicht verwenden.
+prison-command-description = Gefängnisverwaltung öffnen
+prison-menu-error = Gefängnisaktion fehlgeschlagen: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Gefängnis erstellen
+        [prisons] Gefängnisse verwalten
+        [jail] Spieler inhaftieren
+        [release] Gefangenen freilassen
+        [spawn] Ersatz-Spawn setzen
+        [exit] Entlassungsort setzen
+        [corner1] Bereichsecke 1 setzen
+        [corner2] Bereichsecke 2 setzen
+        [add-cell] Zelle hier hinzufügen
+        [remove-cell] Zelle entfernen
+        [delete] Gefängnis löschen
+        [inmates] Aktuelle Gefangene
+        *[other] Gefängnis
+    }
+prison-menu-no-prisons = Keine Gefängnisse verfügbar. Erstelle zuerst eines.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Gefängnisname
+        [cell] Zellenname
+        [player] Spielername
+        [duration] Haftdauer (z. B. 2d12h, dauerhaft)
+        *[other] Wert eingeben
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Gefängnis { $arg1 } erstellt.
+        [saved] Standort gespeichert.
+        [cell-added] Zelle hinzugefügt.
+        [cell-removed] Zelle entfernt.
+        [deleted] Gefängnis { $arg1 } gelöscht.
+        [jailed] { $arg1 } inhaftiert.
+        [released] { $arg1 } freigelassen.
+        *[other] Erledigt.
+    }
+prison-menu-title = Gefängnisverwaltung
+prison-move-blocked = Du musst in deinem zugewiesenen Gefängnisbereich bleiben.
+prison-panel-ban-reason = Sperrgrund
+prison-panel-exit-location = Freilassungsort
+prison-panel-remaining = Verbleibende Haftzeit
+prison-panel-title = Informationen zur Sperrung

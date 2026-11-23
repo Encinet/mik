@@ -929,6 +929,7 @@ plot-error-permission-changed = Los permisos, miembros o reglas heredadas cambia
 plot-error-permission-grant = No puedes conceder facultades de gestión que no tienes.
 plot-error-permission-owner-scope = Solo el propietario, el propietario de la parcela superior o el personal pueden editar los permisos del propietario.
 plot-error-player-unknown = No se encontró a ese jugador. Comprueba el nombre o UUID.
+plot-error-prison-addon-inmates = Quedan presos en este terreno; no se puede desactivar la función de prisión.
 plot-error-release-owner-only = desactivado · Eliminar parcela
 plot-error-selection = Marca dos esquinas con //pos1 y //pos2.
 plot-error-selection-changed = La selección ha cambiado. Confirma de nuevo.
@@ -988,6 +989,7 @@ plot-menu-name = Nombre del proyecto
 plot-menu-owner = Propietario: { $arg0 }
 plot-menu-parent-supervisor = Dueño de la parcela principal: { $arg0 } · supervisión
 plot-menu-player = Nombre de jugador o UUID
+plot-menu-prison-addon = Función adicional: prisión
 plot-menu-rain = Precipitación
 plot-menu-remove-member = Eliminar miembro
 plot-menu-rename = Renombrar proyecto
@@ -2343,3 +2345,50 @@ plot-destination-title-unchanged = No hay cambios sin guardar.
 plot-destination-title-apply = Aplicar al borrador
 plot-destination-error-title = El título debe tener una línea, hasta 32 caracteres visibles y 512 caracteres de código MiniMessage.
 plot-destination-error-subtitle = El subtítulo debe tener una línea, hasta 64 caracteres visibles y 512 caracteres de código MiniMessage.
+
+prison-action-bar = Tiempo restante: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = No puedes usar ese comando mientras estás encarcelado.
+prison-command-description = Abrir el menú de gestión de prisiones
+prison-menu-error = Error en la operación de prisión: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Crear prisión
+        [prisons] Gestionar prisiones
+        [jail] Encarcelar jugador
+        [release] Liberar prisionero
+        [spawn] Fijar punto de aparición alternativo
+        [exit] Fijar lugar de liberación
+        [corner1] Fijar esquina 1
+        [corner2] Fijar esquina 2
+        [add-cell] Añadir celda aquí
+        [remove-cell] Quitar celda
+        [delete] Eliminar prisión
+        [inmates] Prisioneros actuales
+        *[other] Prisión
+    }
+prison-menu-no-prisons = No hay prisiones. Crea una primero.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Nombre de la prisión
+        [cell] Nombre de la celda
+        [player] Nombre del jugador
+        [duration] Duración (p. ej., 2d12h o permanente)
+        *[other] Introduce un valor
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Prisión { $arg1 } creada.
+        [saved] Ubicación guardada.
+        [cell-added] Celda añadida.
+        [cell-removed] Celda eliminada.
+        [deleted] Prisión { $arg1 } eliminada.
+        [jailed] { $arg1 } encarcelado.
+        [released] { $arg1 } liberado.
+        *[other] Hecho.
+    }
+prison-menu-title = Gestión de prisiones
+prison-move-blocked = Debes permanecer dentro de tu zona asignada.
+prison-panel-ban-reason = Motivo de la suspensión
+prison-panel-exit-location = Punto de liberación
+prison-panel-remaining = Pena restante
+prison-panel-title = Información de la suspensión

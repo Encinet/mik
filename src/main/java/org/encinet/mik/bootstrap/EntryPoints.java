@@ -34,8 +34,14 @@ final class EntryPoints {
         var governanceModule = community.governance();
         var announcementModule = community.announcements();
         var banModule = server.bans();
+        var prisonModule = server.prison();
         var plotModule = world.plots();
         var nonEuclideanSpaceModule = world.spaces();
+
+        // Prison starts as a server feature before the plot registry exists; wire the two together here.
+        plotModule.prisonHost().addToggleGuard(prisonModule.inmateFreeGuard());
+        prisonModule.bind(plotModule.prisonHost(),
+                lifecycle.own("prison-panels", shared.menus().worldPanels()));
 
         LanguageMenu languageMenu = new LanguageMenu(languageService);
         languageMenu.registerCommands(plugin.getLifecycleManager());
@@ -56,7 +62,7 @@ final class EntryPoints {
                 teleportPreferenceModule, pvpModule, players.customNameTags(), players.security());
         MainMenuModule mainMenuModule = new MainMenuModule(plugin, afkModule,
                 pvpModule, languageService, settingsMenu, clientVersions,
-                plotModule, governanceModule, announcementModule, world.vehicles());
+                plotModule, governanceModule, announcementModule, world.vehicles(), prisonModule::openMenu);
         lifecycle.startManaged("main-menu", mainMenuModule::enable, mainMenuModule::disable);
         mainMenuModule.registerCommands(plugin.getLifecycleManager());
 

@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.world.elevator;
 
+import org.encinet.mik.shared.menu.WallPanelPlacement;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.encinet.mik.shared.menu.*;
@@ -53,7 +54,7 @@ class IronElevatorViewTest {
                         "Elevator controls must render on the declared mounting plane");
             }
             assertEquals(reads,world.blockReads,"Rendering and repeated layout must not read the world");
-            assertEquals(surface,IronElevatorTestSupport.placement(new IronElevatorPanelPlacement(() -> 0),source).surface());
+            assertEquals(surface,IronElevatorTestSupport.placement(new WallPanelPlacement(() -> 0),source).surface());
         }
     }
 
@@ -114,7 +115,7 @@ class IronElevatorViewTest {
     }
 
     private static IronElevatorController.PanelSnapshot snapshot(IronElevatorPlatform source,List<IronElevatorCatalog.Floor> floors) {
-        var plan = IronElevatorTestSupport.placement(new IronElevatorPanelPlacement(),source);
+        var plan = IronElevatorTestSupport.placement(new WallPanelPlacement(),source);
         var shaft = new IronElevatorShaft(floors.stream().map(IronElevatorCatalog.Floor::level).toList(),java.util.Set.of(new IronElevatorPlatform.Column(0,0)));
         return new IronElevatorController.PanelSnapshot(new Object(),source,new IronElevatorCatalog.Result(shaft,floors,0),plan,java.util.Map.of(),
                 viewer -> source.contains(IronElevatorTravelGroup.platformAt(viewer,viewer.getLocation())) && plan.valid());

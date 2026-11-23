@@ -22,7 +22,7 @@
 ## 部署与运维
 
 - [mikd 部署](../deploy/mikd/README.md)：systemd、私有 Web API、Tunnel、后台数据初始化与[配置](../deploy/mikd/README.md#配置与数据)。
-- [网络出口与视距](network-egress.md)、[世界安全保护](server-safety.md)、[管理员监控](server-monitor.md)。
+- [网络出口与视距](network-egress.md)、[世界安全保护](server-safety.md)、[管理员监控](server-monitor.md)、[监狱管理](server-prison.md)。
 - [音乐文件与配置](music-architecture.md#文件与配置)、[地理数据库更新](../tools/geo/README.md)。
 
 ## 开发与扩展

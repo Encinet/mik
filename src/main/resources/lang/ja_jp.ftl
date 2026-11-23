@@ -832,6 +832,7 @@ plot-error-permission-changed = 権限、メンバーまたは継承規則が変
 plot-error-permission-grant = 自分が持っていない管理権限は付与できません。
 plot-error-permission-owner-scope = 所有者グループの権限は、土地所有者、親土地所有者またはサーバー管理者のみ変更できます。
 plot-error-player-unknown = サーバーに参加したことのあるプレイヤーが見つかりません。名前または UUID を確認してください。
+plot-error-prison-addon-inmates = この区画に収容者がいるため、刑務所機能を無効にできません。
 plot-error-release-owner-only = 無効 · 区画の削除
 plot-error-selection = //pos1 と //pos2 で2つの角を指定してください。
 plot-error-selection-changed = 選択範囲が変わりました。もう一度確認してください。
@@ -888,6 +889,7 @@ plot-menu-name = プロジェクト名
 plot-menu-owner = 所有者：{ $arg0 }
 plot-menu-parent-supervisor = 親区画の所有者: { $arg0 } · 監督権
 plot-menu-player = プレイヤー名またはUUID
+plot-menu-prison-addon = 追加機能・刑務所
 plot-menu-rain = 降水
 plot-menu-remove-member = メンバーを削除
 plot-menu-rename = プロジェクト名を変更
@@ -2114,3 +2116,50 @@ plot-destination-title-unchanged = 未保存の変更はありません。
 plot-destination-title-apply = 下書きに適用
 plot-destination-error-title = タイトルは1行で、表示文字数は32文字、MiniMessage 原文は512文字までです。
 plot-destination-error-subtitle = サブタイトルは1行で、表示文字数は64文字、MiniMessage 原文は512文字までです。
+
+prison-action-bar = 残り時間：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = 収監中はこのコマンドを使用できません。
+prison-command-description = 刑務所管理メニューを開く
+prison-menu-error = 刑務所の操作に失敗しました：{ $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] 刑務所を作成
+        [prisons] 刑務所を管理
+        [jail] プレイヤーを収監
+        [release] 囚人を釈放
+        [spawn] 予備スポーン地点
+        [exit] 釈放地点を設定
+        [corner1] 範囲の角1を設定
+        [corner2] 範囲の角2を設定
+        [add-cell] 独房を追加
+        [remove-cell] 独房を削除
+        [delete] 刑務所を削除
+        [inmates] 現在の囚人
+        *[other] 刑務所
+    }
+prison-menu-no-prisons = 刑務所がありません。先に作成してください。
+prison-menu-prompt =
+    { $arg0 ->
+        [name] 刑務所名
+        [cell] 独房名
+        [player] プレイヤー名
+        [duration] 刑期（例：2d12h、永久）
+        *[other] 入力してください
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] 刑務所「{ $arg1 }」を作成しました。
+        [saved] 位置を保存しました。
+        [cell-added] 独房を追加しました。
+        [cell-removed] 独房を削除しました。
+        [deleted] 刑務所「{ $arg1 }」を削除しました。
+        [jailed] { $arg1 } を収監しました。
+        [released] { $arg1 } を釈放しました。
+        *[other] 完了しました。
+    }
+prison-menu-title = 刑務所管理
+prison-move-blocked = 割り当てられた刑務所の範囲内に留まってください。
+prison-panel-ban-reason = BAN理由
+prison-panel-exit-location = 解放地点
+prison-panel-remaining = 残りの刑期
+prison-panel-title = BAN情報

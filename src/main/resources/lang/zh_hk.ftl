@@ -832,6 +832,7 @@ plot-error-permission-changed = 權限、成員或繼承規則已變更，請重
 plot-error-permission-grant = 不能授予自己不具備的管理權限。
 plot-error-permission-owner-scope = 只有地段擁有者、母地段擁有者或伺服器管理員可以修改擁有者組權限。
 plot-error-player-unknown = 找不到這位曾加入伺服器的玩家；請核對名稱或 UUID。
+plot-error-prison-addon-inmates = 地段內仍有囚犯，無法關閉監獄功能。
 plot-error-release-owner-only = 你沒有刪除地段的權限。
 plot-error-selection = 用 //pos1、//pos2 標記兩個角點
 plot-error-selection-changed = 選區已變更，請重新確認。
@@ -888,6 +889,7 @@ plot-menu-name = 項目名稱
 plot-menu-owner = 擁有人：{ $arg0 }
 plot-menu-parent-supervisor = 母項目持有人：{ $arg0 } · 可監管
 plot-menu-player = 玩家名稱或 UUID
+plot-menu-prison-addon = 附加功能·監獄
 plot-menu-rain = 降水
 plot-menu-remove-member = 移除成員
 plot-menu-rename = 重新命名項目
@@ -2114,3 +2116,50 @@ plot-destination-title-unchanged = 沒有未儲存的修改。
 plot-destination-title-apply = 套用至草稿
 plot-destination-error-title = 標題須為單行，顯示文字最多 32 個字元，MiniMessage 原文最多 512 個字元。
 plot-destination-error-subtitle = 副標題須為單行，顯示文字最多 64 個字元，MiniMessage 原文最多 512 個字元。
+
+prison-action-bar = 剩餘時間：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = 關押期間無法使用此指令。
+prison-command-description = 開啟監獄管理選單
+prison-menu-error = 監獄操作失敗：{ $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] 建立監獄
+        [prisons] 管理監獄
+        [jail] 關押玩家
+        [release] 釋放囚犯
+        [spawn] 設定備用出生點
+        [exit] 設定釋放位置
+        [corner1] 設定區域角點一
+        [corner2] 設定區域角點二
+        [add-cell] 在此新增牢房
+        [remove-cell] 移除牢房
+        [delete] 刪除監獄
+        [inmates] 目前囚犯
+        *[other] 監獄
+    }
+prison-menu-no-prisons = 目前沒有可用的監獄，請先建立一個。
+prison-menu-prompt =
+    { $arg0 ->
+        [name] 監獄名稱
+        [cell] 牢房名稱
+        [player] 玩家名稱
+        [duration] 刑期（例如 2d12h、永久）
+        *[other] 請輸入內容
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] 已建立監獄 { $arg1 }。
+        [saved] 位置已儲存。
+        [cell-added] 已新增牢房。
+        [cell-removed] 已移除牢房。
+        [deleted] 已刪除監獄 { $arg1 }。
+        [jailed] 已關押 { $arg1 }。
+        [released] 已釋放 { $arg1 }。
+        *[other] 已完成。
+    }
+prison-menu-title = 監獄管理
+prison-move-blocked = 你必須留在分配的監獄區域內。
+prison-panel-ban-reason = 封禁原因
+prison-panel-exit-location = 釋放點
+prison-panel-remaining = 剩餘刑期
+prison-panel-title = 封禁訊息

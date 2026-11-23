@@ -832,6 +832,7 @@ plot-error-permission-changed = 權限、成員或承襲之則已變，請重覽
 plot-error-permission-grant = 不得授己所無之司理權。
 plot-error-permission-owner-scope = 惟地主、母地主及伺服器司理得改地主組權。
 plot-error-player-unknown = 未得曾入服之玩家；請核姓名或 UUID。
+plot-error-prison-addon-inmates = 囚徒猶在所轄區畫，不能廢監獄之功能。
 plot-error-release-owner-only = 你沒有刪除地段的權限。
 plot-error-selection = 以 //pos1、//pos2 定兩隅
 plot-error-selection-changed = 所選已易，請復確認。
@@ -888,6 +889,7 @@ plot-menu-name = 工程名
 plot-menu-owner = 地主：{ $arg0 }
 plot-menu-parent-supervisor = 母段之主：{ $arg0 } · 可監
 plot-menu-player = 玩家名或 UUID
+plot-menu-prison-addon = 附屬功能·監獄
 plot-menu-rain = 雨雪
 plot-menu-remove-member = 移成員
 plot-menu-rename = 更工程名
@@ -2114,3 +2116,50 @@ plot-destination-title-unchanged = 尚無待存之改。
 plot-destination-title-apply = 施於草稿
 plot-destination-error-title = 正題限一行，所顯至多三十二字，MiniMessage 原文至多五百一十二字。
 plot-destination-error-subtitle = 副題限一行，所顯至多六十四字，MiniMessage 原文至多五百一十二字。
+
+prison-action-bar = 餘期：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = 囚禁期間不可用此命令。
+prison-command-description = 開監獄管理選單
+prison-menu-error = 監獄操作失敗：{ $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] 建監獄
+        [prisons] 管監獄
+        [jail] 囚玩家
+        [release] 釋囚
+        [spawn] 設備用出生點
+        [exit] 設釋放處
+        [corner1] 設區角一
+        [corner2] 設區角二
+        [add-cell] 此處添牢房
+        [remove-cell] 除牢房
+        [delete] 除監獄
+        [inmates] 在囚者
+        *[other] 監獄
+    }
+prison-menu-no-prisons = 暫無監獄，請先建立。
+prison-menu-prompt =
+    { $arg0 ->
+        [name] 監獄名
+        [cell] 牢房名
+        [player] 玩家名
+        [duration] 刑期（如二日十二時、永久）
+        *[other] 請輸入
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] 已建監獄 { $arg1 }。
+        [saved] 位置已存。
+        [cell-added] 已添牢房。
+        [cell-removed] 已除牢房。
+        [deleted] 已除監獄 { $arg1 }。
+        [jailed] 已囚 { $arg1 }。
+        [released] 已釋 { $arg1 }。
+        *[other] 已成。
+    }
+prison-menu-title = 監獄管理
+prison-move-blocked = 須留於所配監獄範圍內。
+prison-panel-ban-reason = 禁之故
+prison-panel-exit-location = 釋出之地
+prison-panel-remaining = 餘刑
+prison-panel-title = 禁錮訊息

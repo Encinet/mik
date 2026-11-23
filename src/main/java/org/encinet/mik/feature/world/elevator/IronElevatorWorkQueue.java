@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.world.elevator;
 
+import org.encinet.mik.shared.menu.WallPanelPlacement;
+
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -7,7 +9,7 @@ import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
 /** Cooperative primary-thread work with a global budget and bounded service for every priority. */
-final class IronElevatorWorkQueue {
+final class IronElevatorWorkQueue implements WallPanelPlacement.Scheduler {
     static final int INPUT = 0;
     static final int HINT = 1;
     static final int CATALOG = 2;
@@ -16,7 +18,7 @@ final class IronElevatorWorkQueue {
     private static final long TICK_BUDGET_NANOS = 1_000_000;
     private static final int[] SERVICE_ORDER = {INPUT, INPUT, INPUT, INPUT, HINT, HINT, CATALOG};
 
-    final class Task {
+    final class Task implements WallPanelPlacement.Scheduler.Task {
         private final BooleanSupplier work;
         private int priority;
         private boolean finished;
@@ -26,7 +28,7 @@ final class IronElevatorWorkQueue {
             this.work = work;
         }
 
-        void cancel() {
+        @Override public void cancel() {
             finished = true;
             if (tasks.get(priority).remove(this)) size--;
         }
@@ -65,6 +67,11 @@ final class IronElevatorWorkQueue {
     }
 
     boolean empty() { return size == 0; }
+
+    @Override
+    public Task submit(BooleanSupplier work) {
+        return submit(HINT, work);
+    }
 
     private Task take() {
         int priority = SERVICE_ORDER[service];

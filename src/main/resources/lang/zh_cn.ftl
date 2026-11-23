@@ -832,6 +832,7 @@ plot-error-permission-changed = 权限、成员或继承规则已变化，请重
 plot-error-permission-grant = 不能授予自己不具备的管理权限。
 plot-error-permission-owner-scope = 只有地段所有者、母地段所有者或服务器管理者可以修改所有者组权限。
 plot-error-player-unknown = 找不到这名已加入服务器的玩家；请核对名称或 UUID。
+plot-error-prison-addon-inmates = 地段内仍有囚犯，无法关闭监狱功能。
 plot-error-release-owner-only = 你没有删除地段的权限。
 plot-error-selection = 用 //pos1、//pos2 标记两个角点
 plot-error-selection-changed = 选区已变化，请重新确认。
@@ -888,6 +889,7 @@ plot-menu-name = 项目名称
 plot-menu-owner = 所有者：{ $arg0 }
 plot-menu-parent-supervisor = 母项目所有者：{ $arg0 } · 可监管
 plot-menu-player = 玩家名称或 UUID
+plot-menu-prison-addon = 附加功能·监狱
 plot-menu-rain = 降水
 plot-menu-remove-member = 移除成员
 plot-menu-rename = 重命名项目
@@ -2114,3 +2116,50 @@ plot-destination-title-unchanged = 没有未保存的修改。
 plot-destination-title-apply = 应用到草稿
 plot-destination-error-title = 标题须为单行，显示文字最多 32 个字符，MiniMessage 原文最多 512 个字符。
 plot-destination-error-subtitle = 副标题须为单行，显示文字最多 64 个字符，MiniMessage 原文最多 512 个字符。
+
+prison-action-bar = 剩余时间：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = 关押期间不能使用此指令。
+prison-command-description = 打开监狱管理菜单
+prison-menu-error = 监狱操作失败：{ $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] 创建监狱
+        [prisons] 管理监狱
+        [jail] 关押玩家
+        [release] 释放囚犯
+        [spawn] 设置备用出生点
+        [exit] 设置释放位置
+        [corner1] 设置区域角点一
+        [corner2] 设置区域角点二
+        [add-cell] 在此添加牢房
+        [remove-cell] 移除牢房
+        [delete] 删除监狱
+        [inmates] 当前囚犯
+        *[other] 监狱
+    }
+prison-menu-no-prisons = 暂无可用监狱，请先创建一个。
+prison-menu-prompt =
+    { $arg0 ->
+        [name] 监狱名称
+        [cell] 牢房名称
+        [player] 玩家名称
+        [duration] 刑期（如 2d12h、永久）
+        *[other] 请输入内容
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] 已创建监狱 { $arg1 }。
+        [saved] 位置已保存。
+        [cell-added] 已添加牢房。
+        [cell-removed] 已移除牢房。
+        [deleted] 已删除监狱 { $arg1 }。
+        [jailed] 已关押 { $arg1 }。
+        [released] 已释放 { $arg1 }。
+        *[other] 已完成。
+    }
+prison-menu-title = 监狱管理
+prison-move-blocked = 你必须留在分配的监狱区域内。
+prison-panel-ban-reason = 封禁原因
+prison-panel-exit-location = 释放点
+prison-panel-remaining = 剩余刑期
+prison-panel-title = 封禁信息

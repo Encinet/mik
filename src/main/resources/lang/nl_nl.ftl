@@ -922,6 +922,7 @@ plot-error-permission-changed = Rechten, leden of overerving gewijzigd. Bekijk d
 plot-error-permission-grant = Je kunt geen beheermogelijkheden verlenen die je niet hebt.
 plot-error-permission-owner-scope = Alleen de eigenaar, de eigenaar van het bovenliggende perceel of serverpersoneel mag eigenaarsrechten wijzigen.
 plot-error-player-unknown = Speler niet gevonden. Controleer de naam of UUID.
+plot-error-prison-addon-inmates = Er zitten nog gevangenen in dit perceel; de gevangenisfunctie kan niet worden uitgeschakeld.
 plot-error-release-owner-only = uitgeschakeld · Perceel verwijderen
 plot-error-selection = Markeer twee hoeken met //pos1 en //pos2.
 plot-error-selection-changed = De selectie is gewijzigd. Bevestig opnieuw.
@@ -981,6 +982,7 @@ plot-menu-name = Projectnaam
 plot-menu-owner = Eigenaar: { $arg0 }
 plot-menu-parent-supervisor = Eigenaar hoofdperceel: { $arg0 } · toezicht
 plot-menu-player = Spelersnaam of UUID
+plot-menu-prison-addon = Extra-functie: gevangenis
 plot-menu-rain = Neerslag
 plot-menu-remove-member = Lid verwijderen
 plot-menu-rename = Project hernoemen
@@ -2340,3 +2342,50 @@ plot-destination-title-unchanged = Geen niet-opgeslagen wijzigingen.
 plot-destination-title-apply = Op concept toepassen
 plot-destination-error-title = De titel moet één regel zijn: maximaal 32 zichtbare tekens en 512 tekens MiniMessage-brontekst.
 plot-destination-error-subtitle = De ondertitel moet één regel zijn: maximaal 64 zichtbare tekens en 512 tekens MiniMessage-brontekst.
+
+prison-action-bar = Resterende tijd: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Je kunt dit commando niet gebruiken zolang je vastzit.
+prison-command-description = Open het gevangenisbeheer
+prison-menu-error = Gevangenisactie mislukt: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Gevangenis maken
+        [prisons] Gevangenissen beheren
+        [jail] Speler opsluiten
+        [release] Gevangene vrijlaten
+        [spawn] Terugvalspawn instellen
+        [exit] Vrijlatingslocatie instellen
+        [corner1] Gebiedshoek 1 instellen
+        [corner2] Gebiedshoek 2 instellen
+        [add-cell] Hier een cel toevoegen
+        [remove-cell] Cel verwijderen
+        [delete] Gevangenis verwijderen
+        [inmates] Huidige gevangenen
+        *[other] Gevangenis
+    }
+prison-menu-no-prisons = Geen gevangenissen beschikbaar. Maak er eerst een.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Gevangenisnaam
+        [cell] Celnaam
+        [player] Spelersnaam
+        [duration] Strafduur (bijv. 2d12h, permanent)
+        *[other] Voer een waarde in
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Gevangenis { $arg1 } gemaakt.
+        [saved] Locatie opgeslagen.
+        [cell-added] Cel toegevoegd.
+        [cell-removed] Cel verwijderd.
+        [deleted] Gevangenis { $arg1 } verwijderd.
+        [jailed] { $arg1 } opgesloten.
+        [released] { $arg1 } vrijgelaten.
+        *[other] Klaar.
+    }
+prison-menu-title = Gevangenisbeheer
+prison-move-blocked = Je moet binnen het toegewezen gevangenisgebied blijven.
+prison-panel-ban-reason = Banningsreden
+prison-panel-exit-location = Vrijlatingspunt
+prison-panel-remaining = Resterende straf
+prison-panel-title = Banningsinformatie

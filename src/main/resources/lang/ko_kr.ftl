@@ -832,6 +832,7 @@ plot-error-permission-changed = 권한, 구성원 또는 상속 규칙이 변경
 plot-error-permission-grant = 자신에게 없는 관리 권한은 부여할 수 없습니다.
 plot-error-permission-owner-scope = 소유자 그룹 권한은 땅 소유자, 상위 땅 소유자 또는 서버 관리자만 변경할 수 있습니다.
 plot-error-player-unknown = 알려진 플레이어를 찾을 수 없습니다. 이름 또는 UUID를 확인하세요.
+plot-error-prison-addon-inmates = 이 구획에 수감자가 남아 있어 감옥 기능을 해제할 수 없습니다.
 plot-error-release-owner-only = 꺼짐 · 구역 삭제
 plot-error-selection = //pos1과 //pos2로 두 모서리를 지정하세요.
 plot-error-selection-changed = 선택 영역이 변경되었습니다. 다시 확인하세요.
@@ -888,6 +889,7 @@ plot-menu-name = 프로젝트 이름
 plot-menu-owner = 소유자: { $arg0 }
 plot-menu-parent-supervisor = 상위 구역 소유자: { $arg0 } · 감독 권한
 plot-menu-player = 플레이어 이름 또는 UUID
+plot-menu-prison-addon = 부가 기능: 감옥
 plot-menu-rain = 비/눈
 plot-menu-remove-member = 구성원 제거
 plot-menu-rename = 프로젝트 이름 변경
@@ -2114,3 +2116,50 @@ plot-destination-title-unchanged = 저장하지 않은 변경 사항이 없습�
 plot-destination-title-apply = 초안에 적용
 plot-destination-error-title = 제목은 한 줄이어야 하며 표시 문자 32자, MiniMessage 원문 512자까지 가능합니다.
 plot-destination-error-subtitle = 부제목은 한 줄이어야 하며 표시 문자 64자, MiniMessage 원문 512자까지 가능합니다.
+
+prison-action-bar = 남은 시간: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = 수감 중에는 이 명령을 사용할 수 없습니다.
+prison-command-description = 감옥 관리 메뉴 열기
+prison-menu-error = 감옥 작업 실패: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] 감옥 만들기
+        [prisons] 감옥 관리
+        [jail] 플레이어 수감
+        [release] 수감자 석방
+        [spawn] 대체 스폰 지점 설정
+        [exit] 석방 위치 설정
+        [corner1] 구역 모서리 1 설정
+        [corner2] 구역 모서리 2 설정
+        [add-cell] 감방 추가
+        [remove-cell] 감방 제거
+        [delete] 감옥 삭제
+        [inmates] 현재 수감자
+        *[other] 감옥
+    }
+prison-menu-no-prisons = 이용 가능한 감옥이 없습니다. 먼저 만드세요.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] 감옥 이름
+        [cell] 감방 이름
+        [player] 플레이어 이름
+        [duration] 형기 (예: 2d12h, 영구)
+        *[other] 입력하세요
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] 감옥 { $arg1 }을 만들었습니다.
+        [saved] 위치를 저장했습니다.
+        [cell-added] 감방을 추가했습니다.
+        [cell-removed] 감방을 제거했습니다.
+        [deleted] 감옥 { $arg1 }을 삭제했습니다.
+        [jailed] 수감 처리: { $arg1 }
+        [released] 석방 처리: { $arg1 }
+        *[other] 완료했습니다.
+    }
+prison-menu-title = 감옥 관리
+prison-move-blocked = 배정된 감옥 구역 안에 머물러야 합니다.
+prison-panel-ban-reason = 차단 사유
+prison-panel-exit-location = 출소 위치
+prison-panel-remaining = 남은 형기
+prison-panel-title = 차단 정보

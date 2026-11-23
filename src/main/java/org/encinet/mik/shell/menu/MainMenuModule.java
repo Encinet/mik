@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
 import org.encinet.mik.shared.util.ShutdownSequence;
+import org.encinet.mik.shared.role.RolePermissions;
 
 public class MainMenuModule {
 
@@ -57,13 +58,15 @@ public class MainMenuModule {
     private final GovernanceModule governanceModule;
     private final AnnouncementHighlights announcements;
     private final java.util.function.Consumer<Player> vehicles;
+    private final java.util.function.Consumer<Player> prison;
     private final Set<Session> sessions = new HashSet<>();
 
     public MainMenuModule(JavaPlugin plugin, AfkService afkService, PvpModule pvpModule,
                           LanguageService languageService, SettingsMenu settingsMenu,
                           ClientVersions clientVersions,
                           PlotModule plotModule, GovernanceModule governanceModule,
-                          AnnouncementHighlights announcements, java.util.function.Consumer<Player> vehicles) {
+                          AnnouncementHighlights announcements, java.util.function.Consumer<Player> vehicles,
+                          java.util.function.Consumer<Player> prison) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.pvpModule = pvpModule;
@@ -74,6 +77,7 @@ public class MainMenuModule {
         this.governanceModule = governanceModule;
         this.announcements = announcements;
         this.vehicles = vehicles;
+        this.prison = prison;
     }
 
     public void enable() {
@@ -172,6 +176,10 @@ public class MainMenuModule {
         if (player.hasPermission("mik.vehicle.use") || player.hasPermission("mik.vehicle.admin"))
             menu.item("vehicles", Material.MINECART, languageService.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "home"))
                     .region("destinations").keepAccessible().primary((actor, _) -> vehicles.accept(actor));
+        if (RolePermissions.isMember(player))
+            menu.item("prison", Material.IRON_BARS, languageService.text(player, Message.PRISON_MENU_LABEL,
+                            NamedTextColor.AQUA, "other"))
+                    .region("destinations").keepAccessible().primary((actor, _) -> prison.accept(actor));
         menu.item("announcements", Material.PAPER,
                         simpleLabel(player, Message.MAIN_ANNOUNCEMENTS))
                 .region("destinations")

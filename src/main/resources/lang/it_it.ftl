@@ -920,6 +920,7 @@ plot-error-permission-changed = Permessi, membri o regole ereditate cambiati. Co
 plot-error-permission-grant = Non puoi concedere capacità gestionali che non possiedi.
 plot-error-permission-owner-scope = Solo il proprietario, il proprietario del terreno superiore o lo staff possono modificare i permessi del proprietario.
 plot-error-player-unknown = Giocatore sconosciuto. Controlla nome o UUID.
+plot-error-prison-addon-inmates = Ci sono ancora prigionieri in questo appezzamento; la funzione prigione non può essere disattivata.
 plot-error-release-owner-only = disattivo · Elimina lotto
 plot-error-selection = Segna due angoli con //pos1 e //pos2.
 plot-error-selection-changed = La selezione è cambiata. Conferma di nuovo.
@@ -979,6 +980,7 @@ plot-menu-name = Nome del progetto
 plot-menu-owner = Proprietario: { $arg0 }
 plot-menu-parent-supervisor = Proprietario del lotto principale: { $arg0 } · supervisione
 plot-menu-player = Nome giocatore o UUID
+plot-menu-prison-addon = Funzione aggiunta: prigione
 plot-menu-rain = Precipitazioni
 plot-menu-remove-member = Rimuovi membro
 plot-menu-rename = Rinomina progetto
@@ -2325,3 +2327,50 @@ plot-destination-title-unchanged = Nessuna modifica da salvare.
 plot-destination-title-apply = Applica alla bozza
 plot-destination-error-title = Il titolo deve occupare una riga: massimo 32 caratteri visibili e 512 caratteri di sorgente MiniMessage.
 plot-destination-error-subtitle = Il sottotitolo deve occupare una riga: massimo 64 caratteri visibili e 512 caratteri di sorgente MiniMessage.
+
+prison-action-bar = Tempo rimanente: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = Non puoi usare questo comando mentre sei in prigione.
+prison-command-description = Apri il menu di gestione delle prigioni
+prison-menu-error = Operazione della prigione non riuscita: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Crea prigione
+        [prisons] Gestisci prigioni
+        [jail] Imprigiona giocatore
+        [release] Libera detenuto
+        [spawn] Imposta punto di comparsa alternativo
+        [exit] Imposta luogo di rilascio
+        [corner1] Imposta angolo 1 dell’area
+        [corner2] Imposta angolo 2 dell’area
+        [add-cell] Aggiungi cella qui
+        [remove-cell] Rimuovi cella
+        [delete] Elimina prigione
+        [inmates] Detenuti attuali
+        *[other] Prigione
+    }
+prison-menu-no-prisons = Nessuna prigione disponibile. Creane prima una.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Nome della prigione
+        [cell] Nome della cella
+        [player] Nome del giocatore
+        [duration] Durata (es. 2d12h o permanente)
+        *[other] Inserisci un valore
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Prigione { $arg1 } creata.
+        [saved] Posizione salvata.
+        [cell-added] Cella aggiunta.
+        [cell-removed] Cella rimossa.
+        [deleted] Prigione { $arg1 } eliminata.
+        [jailed] { $arg1 } imprigionato.
+        [released] { $arg1 } liberato.
+        *[other] Completato.
+    }
+prison-menu-title = Gestione prigioni
+prison-move-blocked = Devi restare nell’area della prigione assegnata.
+prison-panel-ban-reason = Motivo del divieto
+prison-panel-exit-location = Punto di rilascio
+prison-panel-remaining = Pena rimanente
+prison-panel-title = Informazioni sul divieto

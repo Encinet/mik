@@ -174,6 +174,7 @@ Paper 治理功能的 `command/` 管理命令和菜单，`membership/` 保管游
 | `auth/` | 正版认证容灾、已验证身份与来源地址缓存、Paper 认证服务接入与恢复；见[认证容灾](account-security.md#正版认证容灾) |
 | `ban/` | 封禁规则、记录、准入检查和 Paper 封禁同步 |
 | `monitor/` | 管理员加权公平轮换旁观、附近跟随、退出恢复与隐身通知排除能力；见[管理员监控](server-monitor.md) |
+| `prison/` | 监狱地段附加功能、牢房分配、刑期与封禁准入、牢房墙面面板；见[监狱管理](server-prison.md) |
 | `performance/` | 性能信息、网络反馈限流与跑图保护；见[网络出口](network-egress.md) |
 | `presentation/` | 服务器品牌、MOTD、服务器列表和链接 |
 | `safety/` | 物品与书页限值、实体大小、末影珍珠、踩踏、液体、爆炸、危险实体和异常保护；见[世界安全保护](server-safety.md) |
@@ -201,7 +202,7 @@ Paper 治理功能的 `command/` 管理命令和菜单，`membership/` 保管游
 1. `MikRuntime` 启用品牌监听并写入异常退出标记。
 2. `SharedServices` 创建 Axiom、Geyser、语言服务与菜单运行时。
 3. `PlayerFeatures` 首先启用账号密码准入，再创建玩家状态、地址、身份展示和个人功能；独立创建客户端检测能力，再启用场景提示服务并注入检测查询，为客户端、家园等场景托管提示作用域。
-4. `ServerFeatures` 接入正版认证容灾，创建封禁、监控、准入、安全、性能和服务器展示；将监控会话查询注入隐身通知，发现旧标记时恢复维护模式。
+4. `ServerFeatures` 接入正版认证容灾，创建封禁、监狱、监控、准入、安全、性能和服务器展示；将监控会话查询注入隐身通知，发现旧标记时恢复维护模式。
 5. `CommunityFeatures` 创建游戏端 AI 适配、绑定、聊天、治理与公告入口。
 6. `WorldFeatures` 创建世界功能，为铁块电梯注入固定面板和场景提示作用域。
 7. `EntertainmentFeatures` 创建活动和音乐，接入语音、AFK 与只读地段授权能力。

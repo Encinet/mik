@@ -76,6 +76,11 @@ public final class BanModule {
         return banService;
     }
 
+    /** Lets the prison feature admit directly banned players held in a resolvable cell. */
+    public void jailedLoginAdmission(java.util.function.Predicate<java.util.UUID> admission) {
+        loginListener.jailedLoginAdmission(admission);
+    }
+
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
         commandController.registerCommands(manager);
     }

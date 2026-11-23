@@ -11,6 +11,7 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
 import org.encinet.mik.shared.menu.FloatingMenuPage;
+import org.encinet.mik.shared.menu.WallPanelPlacement;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -40,7 +41,7 @@ final class IronElevatorController {
     private final ArrayDeque<Runnable> deferred = new ArrayDeque<>();
     private final Set<UUID> panelUpdates = new HashSet<>();
     private final Set<UUID> executing = new HashSet<>();
-    private final IronElevatorPanelPlacement placement;
+    private final WallPanelPlacement placement;
     private final Function<UUID, Player> players;
     private final Consumer<String> warning;
     private final LongSupplier clock;
@@ -60,7 +61,7 @@ final class IronElevatorController {
         int direction() { return target == Direction.DOWN ? -1 : 1; }
     }
     record PanelSnapshot(Object visit, IronElevatorPlatform source, IronElevatorCatalog.Result catalog,
-                         IronElevatorPanelPlacement.Plan placement, Map<Integer,Boolean> available,
+                         WallPanelPlacement.Plan placement, Map<Integer,Boolean> available,
                          Predicate<Player> valid) {
         PanelSnapshot { available = Map.copyOf(available); }
     }
@@ -135,7 +136,7 @@ final class IronElevatorController {
     private static final class PanelState {
         IronElevatorCatalog.Subscription subscription;
         IronElevatorCatalog.Result catalog;
-        IronElevatorPanelPlacement.Request mount;
+        WallPanelPlacement.Request mount;
         FloorChecks checks;
         void cancel() {
             if (subscription != null) subscription.cancel();
@@ -170,7 +171,7 @@ final class IronElevatorController {
         this.players = players;
         this.warning = warning;
         this.clock = clock;
-        this.placement = new IronElevatorPanelPlacement(clock);
+        this.placement = new WallPanelPlacement(clock);
         this.queue = queue;
     }
 
@@ -619,7 +620,7 @@ final class IronElevatorController {
     void invalidate(Block changed) {
         directory.invalidate(changed);
         placement.invalidate(changed);
-        invalidateVisits(changed.getWorld().getUID(), visit -> visit.geometry.platform != null && IronElevatorPanelPlacement.touches(visit.geometry.platform,changed)
+        invalidateVisits(changed.getWorld().getUID(), visit -> visit.geometry.platform != null && WallPanelPlacement.touches(visit.geometry.platform,changed)
                 || affected(visit, column -> Math.abs((long) column.blockX() - changed.getX()) <= 1
                         && Math.abs((long) column.blockZ() - changed.getZ()) <= 1));
     }
@@ -627,7 +628,7 @@ final class IronElevatorController {
     void invalidateChunk(UUID world, int x, int z) {
         directory.invalidateChunk(world, x, z);
         placement.invalidateChunk(world,x,z);
-        invalidateVisits(world, visit -> visit.geometry.platform != null && IronElevatorPanelPlacement.touchesChunk(visit.geometry.platform,world,x,z)
+        invalidateVisits(world, visit -> visit.geometry.platform != null && WallPanelPlacement.touchesChunk(visit.geometry.platform,world,x,z)
                 || affected(visit, column -> IronElevatorShaft.nearChunk(column, x, z)));
     }
 

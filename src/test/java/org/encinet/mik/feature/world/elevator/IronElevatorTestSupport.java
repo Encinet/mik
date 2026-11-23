@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.world.elevator;
 
+import org.encinet.mik.shared.menu.WallPanelPlacement;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.util.BoundingBox;
@@ -86,9 +87,9 @@ final class IronElevatorTestSupport {
         var measurement = new IronElevatorGround.Measurement(source,heights); finish(measurement::step); return measurement.result();
     }
     static int groundHeight(Block source, int fallback) { return ground(source,List.of(fallback)).height(); }
-    static IronElevatorPanelPlacement.Plan placement(IronElevatorPanelPlacement resolver, IronElevatorPlatform source) {
+    static WallPanelPlacement.Plan placement(WallPanelPlacement resolver, IronElevatorPlatform source) {
         var queue = new IronElevatorWorkQueue(() -> 0,error -> { throw error; });
-        var result = new ArrayList<IronElevatorPanelPlacement.Plan>();
+        var result = new ArrayList<WallPanelPlacement.Plan>();
         resolver.prepare(source,queue,result::add); finish(() -> { queue.tick(); return queue.empty(); });
         return result.isEmpty() ? null : result.getFirst();
     }

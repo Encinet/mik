@@ -925,6 +925,7 @@ plot-error-permission-changed = Permissions or members changed. Preview the chan
 plot-error-permission-grant = You cannot grant management abilities you do not hold.
 plot-error-permission-owner-scope = Only the plot owner, parent owner or server staff can edit owner permissions.
 plot-error-player-unknown = No known player found. Check the name or UUID.
+plot-error-prison-addon-inmates = Inmates remain in this plot; the prison add-on cannot be disabled.
 plot-error-release-owner-only = You lack permission to delete this plot.
 plot-error-selection = Mark two corners with //pos1 and //pos2.
 plot-error-selection-changed = Selection changed. Confirm again.
@@ -984,6 +985,7 @@ plot-menu-name = Project name
 plot-menu-owner = Owner: { $arg0 }
 plot-menu-parent-supervisor = Parent owner: { $arg0 } · oversight
 plot-menu-player = Player name or UUID
+plot-menu-prison-addon = Prison add-on
 plot-menu-rain = Precipitation
 plot-menu-remove-member = Remove member
 plot-menu-rename = Rename project
@@ -2352,3 +2354,50 @@ plot-destination-title-unchanged = No unsaved changes.
 plot-destination-title-apply = Apply to draft
 plot-destination-error-title = Title must be one line, with up to 32 visible characters and 512 MiniMessage source characters.
 plot-destination-error-subtitle = Subtitle must be one line, with up to 64 visible characters and 512 MiniMessage source characters.
+
+prison-action-bar = Remaining: { $arg0 } · { $arg1 } / { $arg2 }
+prison-command-blocked = You cannot use that command while imprisoned.
+prison-command-description = Open the prison administration menu
+prison-menu-error = Prison operation failed: { $arg0 }
+prison-menu-label =
+    { $arg0 ->
+        [create] Create prison
+        [prisons] Manage prisons
+        [jail] Imprison a player
+        [release] Release a prisoner
+        [spawn] Set fallback spawn
+        [exit] Set release location
+        [corner1] Set region corner 1
+        [corner2] Set region corner 2
+        [add-cell] Add cell here
+        [remove-cell] Remove a cell
+        [delete] Delete prison
+        [inmates] Current prisoners
+        *[other] Prison
+    }
+prison-menu-no-prisons = No prisons are available. Create one first.
+prison-menu-prompt =
+    { $arg0 ->
+        [name] Prison name
+        [cell] Cell name
+        [player] Player name
+        [duration] Sentence duration (2d12h, permanent)
+        *[other] Enter a value
+    }
+prison-menu-success =
+    { $arg0 ->
+        [created] Prison { $arg1 } created.
+        [saved] Location saved.
+        [cell-added] Cell added.
+        [cell-removed] Cell removed.
+        [deleted] Prison { $arg1 } deleted.
+        [jailed] { $arg1 } imprisoned.
+        [released] { $arg1 } released.
+        *[other] Done.
+    }
+prison-menu-title = Prison management
+prison-move-blocked = You must remain inside your assigned prison area.
+prison-panel-ban-reason = Ban reason
+prison-panel-exit-location = Release point
+prison-panel-remaining = Sentence remaining
+prison-panel-title = Ban information
