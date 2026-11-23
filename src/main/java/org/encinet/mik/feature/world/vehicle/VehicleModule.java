@@ -12,6 +12,8 @@ import org.bukkit.World;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.util.Vector;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -70,6 +72,8 @@ public final class VehicleModule implements Listener {
     }
 
     private record Mount(UUID vehicle, int seat) { }
+    private record ImpactKey(UUID vehicle, UUID entity) { }
+    private static final int IMPACT_COOLDOWN_TICKS = 10;
     record ModelImport(VehicleDefinition definition, Location origin) { }
     record Listing(VehicleInstance vehicle, double distanceSquared) { }
     record DisplayListing(UUID id, EntityType type, VehicleVector origin) { }
@@ -90,6 +94,7 @@ public final class VehicleModule implements Listener {
     private final Map<String, VehicleDefinition> definitions = new LinkedHashMap<>();
     private final Map<UUID, VehicleInstance> instances = new LinkedHashMap<>();
     private final Map<UUID, Mount> mounts = new HashMap<>();
+    private final Map<ImpactKey, Integer> impactDamageCooldowns = new HashMap<>();
     private final Map<UUID, VehicleSelection> selections = new HashMap<>();
     private final Map<UUID, Location> origins = new HashMap<>();
     private final Set<UUID> hudHidden = new LinkedHashSet<>();
@@ -564,6 +569,7 @@ public final class VehicleModule implements Listener {
 
     private void tick() {
         tick++;
+        if (tick % 20 == 0) impactDamageCooldowns.values().removeIf(last -> tick - last >= IMPACT_COOLDOWN_TICKS);
         modelEditor.tick();
         menu.tick();
         if (tick % 20 == 0) refreshGizmos();
@@ -597,7 +603,8 @@ public final class VehicleModule implements Listener {
                 VehicleVector before = body.position;
                 Quaterniond rotation = new Quaterniond(body.orientation);
                 Location from = location(instance);
-                VehicleWorld world = world(instance);
+                Map<UUID, VehicleWorld.Impact> impacts = new LinkedHashMap<>();
+                VehicleWorld world = movementWorld(instance, impacts);
                 boolean contact = false;
                 double radius = body.definition.colliders().stream().mapToDouble(collider ->
                         collider.center().subtract(body.definition.centerOfMass()).length() + collider.halfSize().length()).max().orElse(1);
@@ -615,10 +622,12 @@ public final class VehicleModule implements Listener {
                     body.blocked = true;
                 }
                 Location to = location(instance);
+                boolean cancelled = false;
                 if (from.distanceSquared(to) > 1.0E-8 || !rotation.equals(body.orientation)) {
                     VehicleMoveEvent event = new VehicleMoveEvent(instance.id, instance.owner, driver, from, to);
                     plugin.getServer().getPluginManager().callEvent(event);
                     if (event.isCancelled()) {
+                        cancelled = true;
                         body.position = before;
                         body.orientation.set(rotation);
                         body.velocity = VehicleVector.ZERO;
@@ -626,6 +635,8 @@ public final class VehicleModule implements Listener {
                         body.blocked = true;
                     }
                 }
+                if (!cancelled) for (VehicleWorld.Impact impact : impacts.values())
+                    damageFromImpact(instance, driver, impact);
                 instance.entities.synchronize();
                 if (driver != null && tick % 2 == 0 && !hudHidden.contains(driver.getUniqueId()))
                     hud.show(driver, VehicleHud.Frame.of(body), body.definition.engine().redlineRpm());
@@ -698,14 +709,77 @@ public final class VehicleModule implements Listener {
     }
 
     private VehicleWorld world(VehicleInstance instance, Iterable<VehicleInstance> vehicles) {
+        return new VehicleWorld(vehicleWorld(instance), vehicleObstacles(instance, vehicles),
+                this::collidableVehicleEntity, (_, _) -> { });
+    }
+
+    private VehicleWorld movementWorld(VehicleInstance instance, Map<UUID, VehicleWorld.Impact> impacts) {
+        return new VehicleWorld(vehicleWorld(instance), vehicleObstacles(instance, instances.values()),
+                this::collidableVehicleEntity, (entity, impact) -> impacts.merge(entity.getUniqueId(),
+                        impact, (first, next) -> first.speed() >= next.speed() ? first : next));
+    }
+
+    private World vehicleWorld(VehicleInstance instance) {
         World world = plugin.getServer().getWorld(instance.worldId);
         if (world == null) throw new IllegalArgumentException("World unavailable");
+        return world;
+    }
+
+    private List<VehicleCollision.Box> vehicleObstacles(VehicleInstance instance, Iterable<VehicleInstance> vehicles) {
         List<VehicleCollision.Box> obstacles = new ArrayList<>();
         for (VehicleInstance other : vehicles) if (!other.id.equals(instance.id) && other.worldId.equals(instance.worldId)
                 && other.body.origin().subtract(instance.body.origin()).length() < 72)
             for (VehicleDefinition.Collider collider : other.body.definition.colliders())
                 obstacles.add(VehicleCollision.Box.body(collider, other.body.origin(), other.body.orientation));
-        return new VehicleWorld(world, obstacles);
+        return obstacles;
+    }
+
+    private boolean collidableVehicleEntity(LivingEntity entity) {
+        if (vehicleId(entity) != null || mounts.containsKey(entity.getUniqueId())) return false;
+        for (Entity vehicle = entity.getVehicle(); vehicle != null; vehicle = vehicle.getVehicle())
+            if (vehicleId(vehicle) != null) return false;
+        return true;
+    }
+
+    /**
+     * Applies a struck entity's damage and knockback once per cooldown window.
+     * Creation-mode players take no damage but are still knocked back unless they fly.
+     */
+    private void damageFromImpact(VehicleInstance instance, Player driver, VehicleWorld.Impact impact) {
+        LivingEntity entity = impact.entity();
+        double damage = impactDamage(impact.speed());
+        if (damage <= 0 || !entity.isValid() || entity.isDead()) return;
+        ImpactKey key = new ImpactKey(instance.id, entity.getUniqueId());
+        Integer last = impactDamageCooldowns.get(key);
+        if (last != null && tick - last < IMPACT_COOLDOWN_TICKS) return;
+        impactDamageCooldowns.put(key, tick);
+        if (driver != null && driver.isOnline()) entity.damage(damage, driver);
+        else entity.damage(damage);
+        knockBack(entity, impact);
+    }
+
+    /** Pushes the struck entity along the vehicle's heading, with a small lift so it clears the ground. */
+    private static void knockBack(LivingEntity entity, VehicleWorld.Impact impact) {
+        if (entity.isDead() || !entity.isValid()) return;
+        if (entity instanceof Player player && player.isFlying()) return;
+        VehicleVector direction = impact.direction();
+        double horizontal = impactKnockback(impact.speed());
+        Vector velocity = new Vector(direction.coordinateX() * horizontal, impactKnockbackLift(impact.speed()),
+                direction.coordinateZ() * horizontal);
+        entity.setVelocity(velocity);
+        if (entity instanceof Player player) player.setFallDistance(0);
+    }
+
+    static double impactKnockback(double speed) {
+        return Double.isFinite(speed) && speed > 4 ? Math.min(3, speed * 0.4) : 0;
+    }
+
+    static double impactKnockbackLift(double speed) {
+        return Double.isFinite(speed) && speed > 4 ? 0.25 : 0;
+    }
+
+    static double impactDamage(double speed) {
+        return Double.isFinite(speed) && speed > 4 ? (speed - 4) * 0.7 : 0;
     }
 
     private VehicleInstance controlled(Player player) {

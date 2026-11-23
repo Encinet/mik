@@ -7,15 +7,18 @@ import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Levelled;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.VoxelShape;
 import org.joml.Quaterniond;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -85,6 +88,51 @@ class VehicleWorldTest {
         assertTrue(new VehicleWorld(test.world, List.of(farAway)).clear(overlapping));
     }
 
+    @Test void sweptEntityImpactIsReportedAndBlocksTheVehicle() {
+        TestWorld test = new TestWorld();
+        TestWorld.TestLiving target = test.living(new BoundingBox(0, 10, -0.5, 0.5, 11, 0.5));
+        VehicleBody body = VehicleFixtures.body(VehicleDefinition.Kind.CAR, new VehicleVector(-3, 10, 0));
+        body.velocity = new VehicleVector(20, 0, 0);
+        Map<UUID, VehicleWorld.Impact> impacts = new HashMap<>();
+        new VehicleWorld(test.world, List.of(), _ -> true,
+                (entity, impact) -> impacts.put(entity.getUniqueId(), impact)).move(body,
+                new VehiclePhysics.Motion(new VehicleVector(5, 0, 0), new Quaterniond()));
+        assertTrue(body.blocked);
+        assertTrue(body.origin().coordinateX() < 0);
+        VehicleWorld.Impact impact = impacts.get(target.entity.getUniqueId());
+        assertEquals(20, impact.speed(), 1.0E-9);
+        assertEquals(1, impact.direction().coordinateX(), 1.0E-9, "Knockback follows the travel direction");
+        assertEquals(0, impact.direction().coordinateZ(), 1.0E-9);
+    }
+
+    @Test void excludedEntityDoesNotBlockOrReceiveAnImpact() {
+        TestWorld test = new TestWorld();
+        TestWorld.TestLiving passenger = test.living(new BoundingBox(0, 10, -0.5, 0.5, 11, 0.5));
+        VehicleBody body = VehicleFixtures.body(VehicleDefinition.Kind.CAR, new VehicleVector(-3, 10, 0));
+        body.velocity = new VehicleVector(20, 0, 0);
+        new VehicleWorld(test.world, List.of(), entity -> entity != passenger.entity,
+                (_, _) -> fail("Excluded entity received an impact")).move(body,
+                new VehiclePhysics.Motion(new VehicleVector(5, 0, 0), new Quaterniond()));
+        assertFalse(body.blocked);
+        assertEquals(2, body.origin().coordinateX(), 1.0E-9);
+    }
+
+    @Test void entityImpactDamageUsesTheVehicleCollisionThreshold() {
+        assertEquals(0, VehicleModule.impactDamage(4));
+        assertEquals(0.7, VehicleModule.impactDamage(5), 1.0E-9);
+        assertEquals(0, VehicleModule.impactDamage(Double.POSITIVE_INFINITY));
+    }
+
+    @Test void entityKnockbackScalesWithImpactSpeedAndOnlyAboveTheThreshold() {
+        assertEquals(0, VehicleModule.impactKnockback(4), "Hits at the threshold do not shove the target");
+        assertEquals(2, VehicleModule.impactKnockback(5), 1.0E-9);
+        assertEquals(3, VehicleModule.impactKnockback(9), 1.0E-9);
+        assertEquals(3, VehicleModule.impactKnockback(50), 1.0E-9, "Knockback is capped");
+        assertEquals(0, VehicleModule.impactKnockback(Double.POSITIVE_INFINITY));
+        assertEquals(0.25, VehicleModule.impactKnockbackLift(20), 1.0E-9);
+        assertEquals(0, VehicleModule.impactKnockbackLift(3), 1.0E-9, "Slow hits keep the target grounded");
+    }
+
     @Test void waterColumnProducesDepthAndDryBlocksDoNot() {
         TestWorld test = new TestWorld();
         test.water(0, 10, 0);
@@ -98,6 +146,7 @@ class VehicleWorldTest {
         private record Position(int coordinateX, int coordinateY, int coordinateZ) { }
         private record Cell(Material material, BoundingBox shape) { }
         final Map<Position, Cell> cells = new HashMap<>();
+        final List<TestLiving> livingEntities = new ArrayList<>();
         final World world;
         int maximumChunkX = Integer.MAX_VALUE;
         int unloadedReads;
@@ -113,6 +162,7 @@ class VehicleWorldTest {
                 case "getMinHeight" -> -64;
                 case "getMaxHeight" -> 320;
                 case "getWorldBorder" -> border;
+                case "getNearbyEntities" -> livingEntities.stream().map(entity -> entity.entity).toList();
                 case "getBlockAt" -> {
                     int blockX = (int) arguments[0];
                     if ((blockX >> 4) > maximumChunkX) unloadedReads++;
@@ -126,6 +176,11 @@ class VehicleWorldTest {
         }
         void water(int blockX, int blockY, int blockZ) {
             cells.put(new Position(blockX, blockY, blockZ), new Cell(Material.WATER, null));
+        }
+        TestLiving living(BoundingBox bounds) {
+            TestLiving entity = new TestLiving(bounds);
+            livingEntities.add(entity);
+            return entity;
         }
         private Block block(Position position) {
             Cell cell = cells.getOrDefault(position, new Cell(Material.AIR, null));
@@ -144,6 +199,20 @@ class VehicleWorldTest {
         private static <Value> Value proxy(Class<Value> type, Method method) {
             return type.cast(Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[]{type},
                     (_, called, arguments) -> method.invoke(called.getName(), arguments)));
+        }
+        private final class TestLiving {
+            final UUID id = UUID.randomUUID();
+            final LivingEntity entity;
+
+            TestLiving(BoundingBox bounds) {
+                entity = proxy(LivingEntity.class, (name, _) -> switch (name) {
+                    case "getBoundingBox" -> bounds;
+                    case "getUniqueId" -> id;
+                    case "isValid" -> true;
+                    case "isDead" -> false;
+                    default -> null;
+                });
+            }
         }
     }
 }
